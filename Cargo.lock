@@ -1176,9 +1176,11 @@ dependencies = [
  "video-analysis-data",
  "video-analysis-detectors",
  "video-analysis-ffmpeg",
+ "video-analysis-gaussian-splatting",
  "video-analysis-ingest",
  "video-analysis-models",
  "video-analysis-output",
+ "video-analysis-radiance-fields",
  "video-analysis-split",
 ]
 
@@ -1231,6 +1233,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "video-analysis-gaussian-splatting"
+version = "0.1.0"
+dependencies = [
+ "video-analysis-core",
+ "video-analysis-radiance-fields",
+]
+
+[[package]]
 name = "video-analysis-ingest"
 version = "0.1.0"
 dependencies = [
@@ -1255,6 +1265,13 @@ name = "video-analysis-output"
 version = "0.1.0"
 dependencies = [
  "num-rational",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-radiance-fields"
+version = "0.1.0"
+dependencies = [
  "video-analysis-core",
 ]
 

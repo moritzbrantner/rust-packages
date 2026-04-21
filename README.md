@@ -14,6 +14,10 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
 - `video-analysis-ffmpeg`: FFmpeg-backed video and audio ingest implementations.
 - `video-analysis-models`: Hugging Face model downloads plus normalized model
   adapter contracts for object, scene, and text/semantic analyzers.
+- `video-analysis-radiance-fields`: camera, ray, grid, and volume rendering
+  contracts for radiance-field style scene representations.
+- `video-analysis-gaussian-splatting`: 3D Gaussian primitive validation,
+  projection, sorting, and CPU compositing helpers for Gaussian splatting.
 - `video-analysis-output`: scene/stats CSV and simple HTML output helpers.
 - `video-analysis-split`: ffmpeg CLI based scene splitting.
 - `video-analysis-cli`: `vanalyze` command-line tool.
@@ -79,9 +83,10 @@ plans.
 ## Dependency Graph
 
 `video-analysis-core` is the foundational crate for shared contracts and pipeline
-orchestration. Functional crates depend on `core`, but not on each other.
-Composition happens in `video-analysis-cli` and the root `video-analysis` facade
-crate.
+orchestration. Most functional crates depend on `core`, while
+`video-analysis-gaussian-splatting` also reuses the camera and geometry contracts
+from `video-analysis-radiance-fields`. Composition happens in
+`video-analysis-cli` and the root `video-analysis` facade crate.
 
 ```mermaid
 flowchart LR
@@ -94,6 +99,8 @@ flowchart LR
     output[video-analysis-output]
     split[video-analysis-split]
     models[video-analysis-models]
+    radiance[video-analysis-radiance-fields]
+    splatting[video-analysis-gaussian-splatting]
 
     root[video-analysis facade]
     cli[video-analysis-cli]
@@ -107,6 +114,9 @@ flowchart LR
     output --> core
     split --> core
     models --> core
+    radiance --> core
+    splatting --> core
+    splatting --> radiance
 
     root --> core
     root --> data
@@ -115,6 +125,8 @@ flowchart LR
     root --> ffmpeg
     root --> models
     root --> output
+    root --> radiance
+    root --> splatting
     root --> split
 
     cli --> core
