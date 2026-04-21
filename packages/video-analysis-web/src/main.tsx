@@ -1,6 +1,15 @@
 import React, { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  Background,
+  Controls,
+  MarkerType,
+  Position,
+  ReactFlow,
+  type Edge,
+  type Node,
+} from "@xyflow/react";
+import {
   AssetSummary,
   CapabilityPanel,
   CliRunPanel,
@@ -19,11 +28,12 @@ import {
 } from "@video-analysis/ui";
 
 import "./index.css";
+import "@xyflow/react/dist/style.css";
 import { sampleReport } from "./sampleReport";
 
 type UseCaseId = "youtube-video";
 type SourceMode = "url" | "file";
-type ViewMode = "overview" | "scenes" | "signals" | "data";
+type ViewMode = "overview" | "flow" | "scenes" | "signals" | "data";
 
 interface UseCaseForm {
   sourceMode: SourceMode;
@@ -39,6 +49,13 @@ interface UseCaseForm {
   objectCommand: string;
   ocrCommand: string;
   textCommand: string;
+}
+
+interface AnalysisApiResponse {
+  report?: YoutubeVideoReport;
+  run?: CliRun;
+  stdout?: string;
+  stderr?: string;
 }
 
 const useCases: Array<{
@@ -57,7 +74,7 @@ const useCases: Array<{
 
 const initialForm: UseCaseForm = {
   sourceMode: "url",
-  url: "https://www.youtube.com/watch?v=...",
+  url: "",
   input: "./video.mp4",
   output: "use-case-output/youtube-video/analysis.json",
   workDir: "use-case-output/youtube-video",
@@ -77,16 +94,102 @@ function App() {
   const [report, setReport] = useState<YoutubeVideoReport>(sampleReport);
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
   const [runStatus, setRunStatus] = useState<CliRun["status"]>("pending");
+  const [lastRun, setLastRun] = useState<CliRun | null>(null);
+  const [runOutput, setRunOutput] = useState<{ stdout?: string; stderr?: string }>({});
 
   const command = useMemo(() => buildCommand(form), [form]);
-  const cliRun: CliRun = {
-    command: "cargo",
-    args: command.slice(1),
-    status: runStatus,
-    exit_code: runStatus === "succeeded" ? 0 : null,
-    output_files: [form.output],
-    message: selectedUseCase === "youtube-video" ? "video-analysis-use-cases youtube-video" : null,
-  };
+  const validationMessage = getRunValidation(form);
+  const cliRun: CliRun =
+    lastRun ?? {
+      command: "cargo",
+      args: command.slice(1),
+      status: runStatus,
+      exit_code: runStatus === "succeeded" ? 0 : null,
+      output_files: [form.output],
+      message:
+        runStatus === "running"
+          ? "Running video-analysis-use-cases youtube-video"
+          : selectedUseCase === "youtube-video"
+            ? "video-analysis-use-cases youtube-video"
+            : null,
+    };
+
+  async function runAnalysis() {
+    const message = getRunValidation(form);
+    if (message) {
+      setRunStatus("failed");
+      setLastRun({
+        command: "cargo",
+        args: command.slice(1),
+        status: "failed",
+        exit_code: null,
+        output_files: [form.output],
+        message,
+      });
+      return;
+    }
+
+    setRunStatus("running");
+    setLastRun({
+      command: "cargo",
+      args: command.slice(1),
+      status: "running",
+      exit_code: null,
+      output_files: [form.output],
+      message: "Running local analysis",
+    });
+    setRunOutput({});
+
+    try {
+      const response = await fetch("/api/run-youtube-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const payload = (await response.json()) as AnalysisApiResponse;
+
+      setRunOutput({ stdout: payload.stdout, stderr: payload.stderr });
+      if (!response.ok || !payload.report) {
+        setRunStatus("failed");
+        setLastRun(
+          payload.run ?? {
+            command: "cargo",
+            args: command.slice(1),
+            status: "failed",
+            exit_code: null,
+            output_files: [form.output],
+            message: "analysis failed",
+          },
+        );
+        return;
+      }
+
+      setReport(payload.report);
+      setRunStatus("succeeded");
+      setLastRun(
+        payload.run ?? {
+          command: "cargo",
+          args: command.slice(1),
+          status: "succeeded",
+          exit_code: 0,
+          output_files: [form.output],
+          message: "analysis completed",
+        },
+      );
+      setViewMode("overview");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setRunStatus("failed");
+      setLastRun({
+        command: "cargo",
+        args: command.slice(1),
+        status: "failed",
+        exit_code: null,
+        output_files: [form.output],
+        message,
+      });
+    }
+  }
 
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-950">
@@ -148,6 +251,15 @@ function App() {
                     onClick={() => {
                       setReport(sampleReport);
                       setRunStatus("succeeded");
+                      setLastRun({
+                        command: "cargo",
+                        args: command.slice(1),
+                        status: "succeeded",
+                        exit_code: 0,
+                        output_files: [form.output],
+                        message: "sample report loaded",
+                      });
+                      setRunOutput({});
                     }}
                   />
                   <IconButton
@@ -161,6 +273,7 @@ function App() {
                 value={viewMode}
                 options={[
                   ["overview", "Overview"],
+                  ["flow", "Flow"],
                   ["scenes", "Scenes"],
                   ["signals", "Signals"],
                   ["data", "Data"],
@@ -177,24 +290,37 @@ function App() {
                 onChange={(next) => {
                   setForm(next);
                   setRunStatus("pending");
+                  setLastRun(null);
+                  setRunOutput({});
                 }}
-                onPreview={() => {
-                  setReport(projectReport(sampleReport, form));
-                  setRunStatus("succeeded");
-                }}
+                onRun={runAnalysis}
+                isRunning={runStatus === "running"}
+                runDisabled={runStatus === "running" || validationMessage !== null}
+                validationMessage={validationMessage}
               />
               <CliRunPanel run={cliRun} />
+              <RunOutputPanel stdout={runOutput.stdout} stderr={runOutput.stderr} />
               <JsonReportLoader<YoutubeVideoReport>
                 label="Load report JSON"
                 onLoad={(nextReport) => {
                   setReport(nextReport);
                   setRunStatus("succeeded");
+                  setLastRun({
+                    command: "cargo",
+                    args: command.slice(1),
+                    status: "succeeded",
+                    exit_code: 0,
+                    output_files: [form.output],
+                    message: "report JSON loaded",
+                  });
+                  setRunOutput({});
                 }}
               />
             </section>
 
             <section className="min-w-0 space-y-4">
               {viewMode === "overview" && <Overview report={report} />}
+              {viewMode === "flow" && <ComponentFlow />}
               {viewMode === "scenes" && <Scenes report={report} />}
               {viewMode === "signals" && <Signals report={report} />}
               {viewMode === "data" && <Data report={report} />}
@@ -247,14 +373,218 @@ function Data({ report }: { report: YoutubeVideoReport }) {
   return <DataBucketOverview buckets={report.data_buckets} />;
 }
 
+const workflowNodes: Node[] = [
+  {
+    id: "source",
+    type: "input",
+    position: { x: 0, y: 170 },
+    sourcePosition: Position.Right,
+    data: {
+      label: <FlowNodeLabel title="YouTube URL / MP4" detail="source selection" tone="sky" />,
+    },
+  },
+  {
+    id: "download",
+    position: { x: 250, y: 70 },
+    targetPosition: Position.Left,
+    sourcePosition: Position.Right,
+    data: {
+      label: <FlowNodeLabel title="yt-dlp" detail="download to work dir" tone="rose" />,
+    },
+  },
+  {
+    id: "ffmpeg",
+    position: { x: 250, y: 270 },
+    targetPosition: Position.Left,
+    sourcePosition: Position.Right,
+    data: {
+      label: <FlowNodeLabel title="FFmpeg Sources" detail="video and audio frames" tone="amber" />,
+    },
+  },
+  {
+    id: "video",
+    position: { x: 520, y: 95 },
+    targetPosition: Position.Left,
+    sourcePosition: Position.Right,
+    data: {
+      label: <FlowNodeLabel title="Realtime Video Pipeline" detail="content scenes + sampled analyzers" tone="emerald" />,
+    },
+  },
+  {
+    id: "models",
+    position: { x: 790, y: 0 },
+    targetPosition: Position.Left,
+    sourcePosition: Position.Bottom,
+    data: {
+      label: <FlowNodeLabel title="External Model Hooks" detail="object detection and OCR" tone="violet" />,
+    },
+  },
+  {
+    id: "audio",
+    position: { x: 520, y: 300 },
+    targetPosition: Position.Left,
+    sourcePosition: Position.Right,
+    data: {
+      label: <FlowNodeLabel title="Audio Pipeline" detail="activity events" tone="cyan" />,
+    },
+  },
+  {
+    id: "transcript",
+    position: { x: 790, y: 230 },
+    targetPosition: Position.Left,
+    sourcePosition: Position.Right,
+    data: {
+      label: <FlowNodeLabel title="Whisper Transcript" detail="segments and text" tone="indigo" />,
+    },
+  },
+  {
+    id: "text",
+    position: { x: 1060, y: 230 },
+    targetPosition: Position.Left,
+    sourcePosition: Position.Right,
+    data: {
+      label: <FlowNodeLabel title="Text Pipeline" detail="heuristics and text model" tone="fuchsia" />,
+    },
+  },
+  {
+    id: "buckets",
+    position: { x: 790, y: 430 },
+    targetPosition: Position.Left,
+    sourcePosition: Position.Right,
+    data: {
+      label: <FlowNodeLabel title="Data Buckets" detail="video, audio, text records" tone="slate" />,
+    },
+  },
+  {
+    id: "report",
+    type: "output",
+    position: { x: 1330, y: 245 },
+    targetPosition: Position.Left,
+    data: {
+      label: <FlowNodeLabel title="Analysis JSON" detail="dashboard report" tone="zinc" />,
+    },
+  },
+];
+
+const workflowEdges: Edge[] = [
+  edge("source", "download", "URL"),
+  edge("source", "ffmpeg", "file"),
+  edge("download", "ffmpeg", "local video"),
+  edge("ffmpeg", "video", "frames"),
+  edge("video", "models", "samples"),
+  edge("models", "video", "observations"),
+  edge("ffmpeg", "audio", "samples"),
+  edge("ffmpeg", "transcript", "audio wav"),
+  edge("transcript", "text", "segments"),
+  edge("video", "buckets", "frame records"),
+  edge("audio", "buckets", "audio records"),
+  edge("text", "buckets", "text records"),
+  edge("video", "report", "scenes"),
+  edge("audio", "report", "events"),
+  edge("text", "report", "events"),
+  edge("buckets", "report", "summaries"),
+];
+
+function ComponentFlow() {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-1 border-b border-zinc-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-sm font-semibold text-zinc-950">Component Flow</h2>
+        <span className="text-xs text-zinc-500">video-analysis-use-cases youtube-video</span>
+      </div>
+      <div className="h-[620px] min-h-[520px] w-full">
+        <ReactFlow
+          nodes={workflowNodes}
+          edges={workflowEdges}
+          fitView
+          minZoom={0.35}
+          maxZoom={1.5}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background color="#d4d4d8" gap={18} />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+      </div>
+    </section>
+  );
+}
+
+function FlowNodeLabel({
+  title,
+  detail,
+  tone,
+}: {
+  title: string;
+  detail: string;
+  tone: "sky" | "rose" | "amber" | "emerald" | "violet" | "cyan" | "indigo" | "fuchsia" | "slate" | "zinc";
+}) {
+  return (
+    <div className="min-w-40 text-left">
+      <div className="flex items-center gap-2">
+        <span className={classNames("h-2.5 w-2.5 rounded-full", flowToneClass(tone))} />
+        <span className="text-sm font-semibold text-zinc-950">{title}</span>
+      </div>
+      <div className="mt-1 text-xs text-zinc-500">{detail}</div>
+    </div>
+  );
+}
+
+function edge(source: string, target: string, label: string): Edge {
+  return {
+    id: `${source}-${target}-${label}`,
+    source,
+    target,
+    label,
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed },
+    style: { stroke: "#71717a", strokeWidth: 1.5 },
+    labelStyle: { fill: "#52525b", fontSize: 11, fontWeight: 500 },
+    labelBgStyle: { fill: "#ffffff", fillOpacity: 0.88 },
+  };
+}
+
+function flowToneClass(tone: Parameters<typeof FlowNodeLabel>[0]["tone"]): string {
+  switch (tone) {
+    case "sky":
+      return "bg-sky-500";
+    case "rose":
+      return "bg-rose-500";
+    case "amber":
+      return "bg-amber-500";
+    case "emerald":
+      return "bg-emerald-500";
+    case "violet":
+      return "bg-violet-500";
+    case "cyan":
+      return "bg-cyan-500";
+    case "indigo":
+      return "bg-indigo-500";
+    case "fuchsia":
+      return "bg-fuchsia-500";
+    case "slate":
+      return "bg-slate-500";
+    case "zinc":
+      return "bg-zinc-700";
+  }
+}
+
 function UseCaseControls({
   form,
   onChange,
-  onPreview,
+  onRun,
+  isRunning,
+  runDisabled,
+  validationMessage,
 }: {
   form: UseCaseForm;
   onChange: (form: UseCaseForm) => void;
-  onPreview: () => void;
+  onRun: () => void;
+  isRunning: boolean;
+  runDisabled: boolean;
+  validationMessage: string | null;
 }) {
   const set = <K extends keyof UseCaseForm>(key: K, value: UseCaseForm[K]) =>
     onChange({ ...form, [key]: value });
@@ -279,6 +609,7 @@ function UseCaseControls({
             <input
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
               value={form.url}
+              placeholder="https://www.youtube.com/watch?v=..."
               onChange={(event) => set("url", event.target.value)}
             />
           </Field>
@@ -364,14 +695,50 @@ function UseCaseControls({
         </div>
 
         <button
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2"
-          onClick={onPreview}
+          className={classNames(
+            "inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2",
+            runDisabled ? "cursor-not-allowed bg-zinc-400" : "bg-zinc-950 hover:bg-zinc-800",
+          )}
+          onClick={onRun}
+          disabled={runDisabled}
         >
-          <PlayIcon className="h-4 w-4" />
-          Preview run
+          {isRunning ? <SpinnerIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
+          {isRunning ? "Running analysis" : "Run analysis"}
         </button>
+        {validationMessage && <p className="text-sm text-amber-700">{validationMessage}</p>}
       </div>
     </section>
+  );
+}
+
+function RunOutputPanel({ stdout, stderr }: { stdout?: string; stderr?: string }) {
+  if (!stdout && !stderr) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white shadow-sm">
+      <div className="border-b border-zinc-200 px-4 py-3">
+        <h2 className="text-sm font-semibold text-zinc-950">Run Output</h2>
+      </div>
+      <div className="space-y-3 p-4">
+        {stderr && <OutputBlock label="stderr" value={stderr} tone="rose" />}
+        {stdout && <OutputBlock label="stdout" value={stdout} tone="zinc" />}
+      </div>
+    </section>
+  );
+}
+
+function OutputBlock({ label, value, tone }: { label: string; value: string; tone: "rose" | "zinc" }) {
+  return (
+    <div>
+      <div className={classNames("mb-2 text-xs font-medium uppercase", tone === "rose" ? "text-rose-600" : "text-zinc-500")}>
+        {label}
+      </div>
+      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-zinc-950 p-3 text-xs leading-5 text-zinc-100">
+        {value}
+      </pre>
+    </div>
   );
 }
 
@@ -486,28 +853,6 @@ function buildCommand(form: UseCaseForm): string[] {
   return command;
 }
 
-function projectReport(report: YoutubeVideoReport, form: UseCaseForm): YoutubeVideoReport {
-  return {
-    ...report,
-    source: {
-      ...report.source,
-      url: form.sourceMode === "url" ? form.url : null,
-      local_video: form.sourceMode === "file" ? form.input : report.source.local_video,
-    },
-    assets: {
-      ...report.assets,
-      work_dir: form.workDir,
-      report_path: form.output,
-    },
-    transcription: {
-      ...report.transcription,
-      status: form.skipTranscription ? "skipped" : report.transcription.status,
-      segments: form.skipTranscription ? [] : report.transcription.segments,
-      message: form.skipTranscription ? "Transcription skipped" : report.transcription.message,
-    },
-  };
-}
-
 function downloadReport(report: YoutubeVideoReport) {
   const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -516,6 +861,49 @@ function downloadReport(report: YoutubeVideoReport) {
   anchor.download = "video-analysis-report.json";
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function getRunValidation(form: UseCaseForm): string | null {
+  if (form.sourceMode === "url") {
+    const url = form.url.trim();
+    if (!url) {
+      return "Enter a YouTube URL.";
+    }
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+      if (!["youtube.com", "m.youtube.com", "youtu.be", "music.youtube.com"].includes(host)) {
+        return "Use a youtube.com or youtu.be URL.";
+      }
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        return "Use an http or https URL.";
+      }
+    } catch {
+      return "Enter a valid YouTube URL.";
+    }
+  }
+  if (form.sourceMode === "file" && !form.input.trim()) {
+    return "Enter a local video file path.";
+  }
+  if (!form.output.trim()) {
+    return "Enter an output JSON path.";
+  }
+  if (!form.workDir.trim()) {
+    return "Enter a work directory.";
+  }
+  if (!Number.isFinite(form.sceneThreshold) || form.sceneThreshold < 0) {
+    return "Scene threshold must be zero or greater.";
+  }
+  if (!Number.isFinite(form.minSceneLen) || form.minSceneLen < 1) {
+    return "Minimum scene frames must be at least 1.";
+  }
+  if (!Number.isFinite(form.visualSampleEvery) || form.visualSampleEvery < 1) {
+    return "Visual sample step must be at least 1.";
+  }
+  if (form.maxFrames.trim() && !/^[1-9]\d*$/.test(form.maxFrames.trim())) {
+    return "Max frames must be a positive integer.";
+  }
+  return null;
 }
 
 function currentUseCase(id: UseCaseId) {
@@ -561,6 +949,15 @@ function DownloadIcon({ className }: { className?: string }) {
       <path d="M10 3v9" strokeLinecap="round" />
       <path d="m6.5 8.5 3.5 3.5 3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M4 15.5h12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SpinnerIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className={classNames("animate-spin", className)}>
+      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+      <path d="M17 10a7 7 0 0 0-7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
