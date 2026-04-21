@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   addEdge,
@@ -37,10 +37,18 @@ import {
 import "./index.css";
 import "@xyflow/react/dist/style.css";
 import { sampleReport } from "./sampleReport";
+import {
+  ResultPageEditor,
+  addDashboardWidgetForDataKind,
+  dashboardDataKindsForWidgets,
+  defaultDashboardWidgets,
+  type DashboardWidget,
+} from "./ResultPageEditor";
+import { WorkflowExecutionEditor } from "./WorkflowExecutionEditor";
 
 type UseCaseId = "youtube-video";
 type SourceMode = "url" | "file";
-type ViewMode = "overview" | "flow" | "scenes" | "signals" | "data";
+type ViewMode = "overview" | "workflow" | "flow" | "result" | "scenes" | "signals" | "data";
 
 interface UseCaseForm {
   sourceMode: SourceMode;
@@ -103,8 +111,10 @@ function App() {
   const [runStatus, setRunStatus] = useState<CliRun["status"]>("pending");
   const [lastRun, setLastRun] = useState<CliRun | null>(null);
   const [runOutput, setRunOutput] = useState<{ stdout?: string; stderr?: string }>({});
+  const [dashboardWidgets, setDashboardWidgets] = useState<DashboardWidget[]>(defaultDashboardWidgets);
 
   const command = useMemo(() => buildCommand(form), [form]);
+  const dashboardDataKinds = useMemo(() => dashboardDataKindsForWidgets(dashboardWidgets), [dashboardWidgets]);
   const validationMessage = getRunValidation(form);
   const cliRun: CliRun =
     lastRun ?? {
@@ -280,7 +290,9 @@ function App() {
                 value={viewMode}
                 options={[
                   ["overview", "Overview"],
+                  ["workflow", "Workflow"],
                   ["flow", "Flow"],
+                  ["result", "Result"],
                   ["scenes", "Scenes"],
                   ["signals", "Signals"],
                   ["data", "Data"],
@@ -327,7 +339,20 @@ function App() {
 
             <section className="min-w-0 space-y-4">
               {viewMode === "overview" && <Overview report={report} />}
+              {viewMode === "workflow" && (
+                <WorkflowExecutionEditor
+                  form={form}
+                  report={report}
+                  visualizedDataKinds={dashboardDataKinds}
+                  onVisualizeDataKind={(dataKind) =>
+                    addDashboardWidgetForDataKind(dataKind, dashboardWidgets, setDashboardWidgets)
+                  }
+                />
+              )}
               {viewMode === "flow" && <ComponentFlow />}
+              {viewMode === "result" && (
+                <ResultPageEditor report={report} widgets={dashboardWidgets} onWidgetsChange={setDashboardWidgets} />
+              )}
               {viewMode === "scenes" && <Scenes report={report} />}
               {viewMode === "signals" && <Signals report={report} />}
               {viewMode === "data" && <Data report={report} />}
@@ -420,7 +445,30 @@ interface WorkflowNodeData extends Record<string, unknown> {
 
 type WorkflowNodeModel = Node<WorkflowNodeData, "workflow">;
 
+interface SavedWorkflowBlockNode {
+  id: string;
+  position: { x: number; y: number };
+  data: WorkflowNodeData;
+}
+
+interface SavedWorkflowBlockEdge {
+  source: string;
+  target: string;
+  sourceHandle: string | null | undefined;
+  targetHandle: string | null | undefined;
+}
+
+interface SavedWorkflowBlock {
+  id: string;
+  name: string;
+  createdAt: string;
+  nodes: SavedWorkflowBlockNode[];
+  edges: SavedWorkflowBlockEdge[];
+}
+
 const workflowNodeTypes = { workflow: WorkflowNode };
+const savedWorkflowBlocksStorageKey = "video-analysis.workflowBlocks.v1";
+const savedWorkflowBlocksJsonFormat = "video-analysis.workflowBlocks";
 
 const initialWorkflowNodes: WorkflowNodeModel[] = [
   workflowNode("react-page", 0, 180, {
@@ -656,6 +704,11 @@ const initialWorkflowEdges: Edge[] = [
 function ComponentFlow() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNodeModel>(initialWorkflowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialWorkflowEdges);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [savedBlocks, setSavedBlocks] = useState<SavedWorkflowBlock[]>(loadSavedWorkflowBlocks);
+  const [blockName, setBlockName] = useState("");
+  const [blockLibraryMessage, setBlockLibraryMessage] = useState<string | null>(null);
+  const blockFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isValidConnection = useCallback(
     (connection: Connection | Edge) => compatibleConnection(nodes, connection),
@@ -679,6 +732,80 @@ function ComponentFlow() {
     [nodes, setEdges],
   );
 
+  const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: WorkflowNodeModel[] }) => {
+    setSelectedNodeIds(selectedNodes.map((node) => node.id));
+  }, []);
+
+  const selectedNodes = useMemo(
+    () => nodes.filter((node) => selectedNodeIds.includes(node.id)),
+    [nodes, selectedNodeIds],
+  );
+
+  const selectedInternalEdgeCount = useMemo(() => {
+    const selectedIds = new Set(selectedNodeIds);
+    return edges.filter((edge) => selectedIds.has(edge.source) && selectedIds.has(edge.target)).length;
+  }, [edges, selectedNodeIds]);
+
+  const saveSelectedBlock = useCallback(() => {
+    const block = createSavedWorkflowBlock(selectedNodes, edges, blockName);
+    if (!block) {
+      return;
+    }
+    setSavedBlocks((currentBlocks) => {
+      const nextBlocks = [block, ...currentBlocks].slice(0, 24);
+      persistSavedWorkflowBlocks(nextBlocks);
+      return nextBlocks;
+    });
+    setBlockName("");
+    setBlockLibraryMessage("Saved block");
+  }, [blockName, edges, selectedNodes]);
+
+  const addSavedBlock = useCallback(
+    (block: SavedWorkflowBlock) => {
+      const instance = instantiateSavedWorkflowBlock(block, nextBlockAnchor(nodes));
+      setNodes((currentNodes) => currentNodes.concat(instance.nodes));
+      setEdges((currentEdges) => currentEdges.concat(instance.edges));
+    },
+    [nodes, setEdges, setNodes],
+  );
+
+  const deleteSavedBlock = useCallback((blockId: string) => {
+    setSavedBlocks((currentBlocks) => {
+      const nextBlocks = currentBlocks.filter((block) => block.id !== blockId);
+      persistSavedWorkflowBlocks(nextBlocks);
+      return nextBlocks;
+    });
+    setBlockLibraryMessage("Deleted block");
+  }, []);
+
+  const exportSavedBlocks = useCallback(() => {
+    if (savedBlocks.length === 0) {
+      return;
+    }
+    downloadSavedWorkflowBlocksJson(savedBlocks);
+    setBlockLibraryMessage(`Exported ${savedBlocks.length} block${savedBlocks.length === 1 ? "" : "s"}`);
+  }, [savedBlocks]);
+
+  const importSavedBlocks = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) {
+      return;
+    }
+
+    try {
+      const importedBlocks = parseSavedWorkflowBlocksJson(await file.text());
+      setSavedBlocks((currentBlocks) => {
+        const nextBlocks = mergeSavedWorkflowBlocks(importedBlocks, currentBlocks);
+        persistSavedWorkflowBlocks(nextBlocks);
+        return nextBlocks;
+      });
+      setBlockLibraryMessage(`Loaded ${importedBlocks.length} block${importedBlocks.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      setBlockLibraryMessage(error instanceof Error ? error.message : "Could not load building blocks");
+    }
+  }, []);
+
   return (
     <section className="rounded-lg border border-zinc-200 bg-white shadow-sm">
       <div className="flex flex-col gap-1 border-b border-zinc-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -694,18 +821,119 @@ function ComponentFlow() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           isValidConnection={isValidConnection}
+          onSelectionChange={onSelectionChange}
           fitView
           minZoom={0.18}
           maxZoom={1.35}
           nodesDraggable
           nodesConnectable
           elementsSelectable
+          selectionOnDrag
           edgesReconnectable
           deleteKeyCode={["Backspace", "Delete"]}
           proOptions={{ hideAttribution: true }}
         >
           <Background color="#d4d4d8" gap={18} />
           <Controls showInteractive={false} />
+          <FlowPanel position="top-left" className="w-[320px] rounded-lg border border-zinc-200 bg-white p-3 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs font-semibold uppercase text-zinc-500">Building Blocks</div>
+              <span className="shrink-0 rounded bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-600">
+                {selectedNodes.length} selected
+              </span>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <input
+                className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-xs outline-none focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+                value={blockName}
+                placeholder="Block name"
+                onChange={(event) => setBlockName(event.target.value)}
+              />
+              <button
+                className={classNames(
+                  "inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2",
+                  selectedNodes.length < 2 ? "cursor-not-allowed bg-zinc-400" : "bg-zinc-950 hover:bg-zinc-800",
+                )}
+                onClick={saveSelectedBlock}
+                disabled={selectedNodes.length < 2}
+                title="Save selected nodes"
+              >
+                <SaveIcon className="h-4 w-4" />
+                Save
+              </button>
+            </div>
+            <div className="mt-2 text-[11px] text-zinc-500">
+              {selectedNodes.length >= 2
+                ? `${selectedInternalEdgeCount} internal connection${selectedInternalEdgeCount === 1 ? "" : "s"}`
+                : "Select multiple nodes"}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                className={classNames(
+                  "inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 shadow-sm hover:bg-zinc-50",
+                  savedBlocks.length === 0 && "cursor-not-allowed opacity-50",
+                )}
+                onClick={exportSavedBlocks}
+                disabled={savedBlocks.length === 0}
+                title="Export blocks as JSON"
+              >
+                <DownloadIcon className="h-4 w-4" />
+                Export
+              </button>
+              <button
+                className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 shadow-sm hover:bg-zinc-50"
+                onClick={() => blockFileInputRef.current?.click()}
+                title="Load blocks from JSON"
+              >
+                <UploadIcon className="h-4 w-4" />
+                Load
+              </button>
+              <input
+                ref={blockFileInputRef}
+                className="hidden"
+                type="file"
+                accept="application/json,.json"
+                onChange={importSavedBlocks}
+              />
+            </div>
+            {blockLibraryMessage && <div className="mt-2 text-[11px] text-zinc-500">{blockLibraryMessage}</div>}
+            <div className="mt-3 max-h-64 space-y-2 overflow-auto pr-1">
+              {savedBlocks.length === 0 ? (
+                <div className="rounded-md border border-dashed border-zinc-200 px-3 py-2 text-xs text-zinc-400">
+                  No saved blocks
+                </div>
+              ) : (
+                savedBlocks.map((block) => (
+                  <div key={block.id} className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-semibold text-zinc-900">{block.name}</div>
+                        <div className="mt-1 text-[11px] text-zinc-500">
+                          {block.nodes.length} nodes, {block.edges.length} connections
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                          onClick={() => addSavedBlock(block)}
+                          title="Add block"
+                        >
+                          <PlusIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                          onClick={() => deleteSavedBlock(block.id)}
+                          title="Delete block"
+                        >
+                          <CloseIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </FlowPanel>
           <FlowPanel position="top-right" className="flex gap-2">
             <button
               className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 shadow-sm hover:bg-zinc-50"
@@ -731,6 +959,319 @@ function ComponentFlow() {
       </div>
     </section>
   );
+}
+
+function createSavedWorkflowBlock(
+  selectedNodes: WorkflowNodeModel[],
+  edges: Edge[],
+  requestedName: string,
+): SavedWorkflowBlock | null {
+  if (selectedNodes.length < 2) {
+    return null;
+  }
+
+  const selectedIds = new Set(selectedNodes.map((node) => node.id));
+  const minX = Math.min(...selectedNodes.map((node) => node.position.x));
+  const minY = Math.min(...selectedNodes.map((node) => node.position.y));
+  const name = requestedName.trim() || defaultWorkflowBlockName(selectedNodes);
+
+  return {
+    id: createWorkflowBlockId(),
+    name,
+    createdAt: new Date().toISOString(),
+    nodes: selectedNodes.map((node) => ({
+      id: node.id,
+      position: {
+        x: node.position.x - minX,
+        y: node.position.y - minY,
+      },
+      data: cloneWorkflowNodeData(node.data),
+    })),
+    edges: edges
+      .filter((edge) => selectedIds.has(edge.source) && selectedIds.has(edge.target))
+      .map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle,
+      })),
+  };
+}
+
+function instantiateSavedWorkflowBlock(
+  block: SavedWorkflowBlock,
+  anchor: { x: number; y: number },
+): { nodes: WorkflowNodeModel[]; edges: Edge[] } {
+  const instanceId = createWorkflowBlockId();
+  const idByOriginalId = new Map(block.nodes.map((node) => [node.id, `${instanceId}-${safeFlowId(node.id)}`]));
+  const nodes = block.nodes.map((node) => ({
+    id: idByOriginalId.get(node.id)!,
+    type: "workflow" as const,
+    position: {
+      x: anchor.x + node.position.x,
+      y: anchor.y + node.position.y,
+    },
+    data: cloneWorkflowNodeData(node.data),
+  }));
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const edges = block.edges.flatMap((edge) => {
+    const source = idByOriginalId.get(edge.source);
+    const target = idByOriginalId.get(edge.target);
+    if (!source || !target) {
+      return [];
+    }
+    const sourcePort = findPort(nodes, source, edge.sourceHandle, "out");
+    const targetPort = findPort(nodes, target, edge.targetHandle, "in");
+    const edgeType = sourcePort?.type ?? targetPort?.type ?? "run_config";
+    if (!nodeById.has(source) || !nodeById.has(target)) {
+      return [];
+    }
+    return [
+      workflowEdgeFromConnection(
+        {
+          source,
+          target,
+          sourceHandle: edge.sourceHandle ?? null,
+          targetHandle: edge.targetHandle ?? null,
+        },
+        edgeType,
+      ),
+    ];
+  });
+
+  return { nodes, edges };
+}
+
+function cloneWorkflowNodeData(data: WorkflowNodeData): WorkflowNodeData {
+  return {
+    title: data.title,
+    packageName: data.packageName,
+    description: data.description,
+    tone: data.tone,
+    inputs: data.inputs.map((input) => ({ ...input })),
+    outputs: data.outputs.map((output) => ({ ...output })),
+  };
+}
+
+function nextBlockAnchor(nodes: WorkflowNodeModel[]): { x: number; y: number } {
+  if (nodes.length === 0) {
+    return { x: 80, y: 80 };
+  }
+  const maxX = Math.max(...nodes.map((node) => node.position.x));
+  const minY = Math.min(...nodes.map((node) => node.position.y));
+  return { x: maxX + 420, y: Math.max(40, minY) };
+}
+
+function defaultWorkflowBlockName(nodes: WorkflowNodeModel[]): string {
+  const [firstNode, secondNode] = nodes;
+  if (!firstNode || !secondNode) {
+    return "Saved Block";
+  }
+  if (nodes.length === 2) {
+    return `${firstNode.data.title} + ${secondNode.data.title}`;
+  }
+  return `${firstNode.data.title} + ${nodes.length - 1} more`;
+}
+
+function loadSavedWorkflowBlocks(): SavedWorkflowBlock[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(savedWorkflowBlocksStorageKey);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter(isSavedWorkflowBlock);
+  } catch {
+    return [];
+  }
+}
+
+function persistSavedWorkflowBlocks(blocks: SavedWorkflowBlock[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(savedWorkflowBlocksStorageKey, JSON.stringify(blocks));
+}
+
+function downloadSavedWorkflowBlocksJson(blocks: SavedWorkflowBlock[]) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const exportedAt = new Date().toISOString();
+  const payload = {
+    format: savedWorkflowBlocksJsonFormat,
+    version: 1,
+    exportedAt,
+    blocks,
+  };
+  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `video-analysis-building-blocks-${fileDateStamp(exportedAt)}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function parseSavedWorkflowBlocksJson(text: string): SavedWorkflowBlock[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error("Invalid JSON file");
+  }
+
+  const candidates = savedWorkflowBlockJsonCandidates(parsed);
+  if (!candidates || candidates.length === 0) {
+    throw new Error("No building blocks found in JSON");
+  }
+  if (!candidates.every(isSavedWorkflowBlock)) {
+    throw new Error("JSON does not match the building block format");
+  }
+  return candidates.map(cloneImportedSavedWorkflowBlock);
+}
+
+function savedWorkflowBlockJsonCandidates(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (!isRecord(value)) {
+    return null;
+  }
+  if (Array.isArray(value.blocks)) {
+    return value.blocks;
+  }
+  if (isSavedWorkflowBlock(value)) {
+    return [value];
+  }
+  return null;
+}
+
+function cloneImportedSavedWorkflowBlock(block: SavedWorkflowBlock): SavedWorkflowBlock {
+  return {
+    id: createWorkflowBlockId(),
+    name: block.name,
+    createdAt: new Date().toISOString(),
+    nodes: block.nodes.map((node) => ({
+      id: node.id,
+      position: { ...node.position },
+      data: cloneWorkflowNodeData(node.data),
+    })),
+    edges: block.edges.map((edge) => ({ ...edge })),
+  };
+}
+
+function mergeSavedWorkflowBlocks(
+  importedBlocks: SavedWorkflowBlock[],
+  currentBlocks: SavedWorkflowBlock[],
+): SavedWorkflowBlock[] {
+  return importedBlocks.concat(currentBlocks).slice(0, 24);
+}
+
+function fileDateStamp(isoDate: string): string {
+  return isoDate.slice(0, 19).replace(/[:T]/g, "-");
+}
+
+function isSavedWorkflowBlock(value: unknown): value is SavedWorkflowBlock {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.createdAt === "string" &&
+    Array.isArray(value.nodes) &&
+    value.nodes.every(isSavedWorkflowBlockNode) &&
+    Array.isArray(value.edges) &&
+    value.edges.every(isSavedWorkflowBlockEdge)
+  );
+}
+
+function isSavedWorkflowBlockNode(value: unknown): value is SavedWorkflowBlockNode {
+  if (!isRecord(value) || typeof value.id !== "string" || !isRecord(value.position)) {
+    return false;
+  }
+  return (
+    typeof value.position.x === "number" &&
+    typeof value.position.y === "number" &&
+    isWorkflowNodeData(value.data)
+  );
+}
+
+function isSavedWorkflowBlockEdge(value: unknown): value is SavedWorkflowBlockEdge {
+  if (!isRecord(value) || typeof value.source !== "string" || typeof value.target !== "string") {
+    return false;
+  }
+  const sourceHandleValid =
+    value.sourceHandle === null || value.sourceHandle === undefined || typeof value.sourceHandle === "string";
+  const targetHandleValid =
+    value.targetHandle === null || value.targetHandle === undefined || typeof value.targetHandle === "string";
+  return sourceHandleValid && targetHandleValid;
+}
+
+function isWorkflowNodeData(value: unknown): value is WorkflowNodeData {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.title === "string" &&
+    typeof value.packageName === "string" &&
+    typeof value.description === "string" &&
+    isFlowTone(value.tone) &&
+    Array.isArray(value.inputs) &&
+    value.inputs.every(isFlowPort) &&
+    Array.isArray(value.outputs) &&
+    value.outputs.every(isFlowPort)
+  );
+}
+
+function isFlowPort(value: unknown): value is FlowPort {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.label === "string" &&
+    typeof value.type === "string" &&
+    isPortType(value.type)
+  );
+}
+
+function isFlowTone(value: unknown): value is FlowTone {
+  return (
+    value === "sky" ||
+    value === "rose" ||
+    value === "amber" ||
+    value === "emerald" ||
+    value === "violet" ||
+    value === "cyan" ||
+    value === "indigo" ||
+    value === "fuchsia" ||
+    value === "slate" ||
+    value === "zinc"
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function createWorkflowBlockId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `block-${crypto.randomUUID()}`;
+  }
+  return `block-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function safeFlowId(value: string): string {
+  return value.replace(/[^A-Za-z0-9_-]/g, "-");
 }
 
 function WorkflowNode({ id, data, selected, isConnectable }: NodeProps) {
@@ -1467,6 +2008,35 @@ function DownloadIcon({ className }: { className?: string }) {
       <path d="M10 3v9" strokeLinecap="round" />
       <path d="m6.5 8.5 3.5 3.5 3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M4 15.5h12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function UploadIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={className}>
+      <path d="M10 17V8" strokeLinecap="round" />
+      <path d="m6.5 11.5 3.5-3.5 3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 4.5h12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SaveIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={className}>
+      <path d="M5 3.5h8l2 2v11H5z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7.5 3.5v4h5v-4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7.5 13.5h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={className}>
+      <path d="M10 4.5v11" strokeLinecap="round" />
+      <path d="M4.5 10h11" strokeLinecap="round" />
     </svg>
   );
 }
