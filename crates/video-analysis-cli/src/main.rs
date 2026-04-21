@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
 use video_analysis_core::{Result, SceneDetector, ScenePipeline};
 use video_analysis_detectors::{
     AdaptiveDetector, ContentDetector, HashDetector, HistogramDetector, ThresholdDetector,
@@ -65,10 +65,15 @@ enum ModelsCommand {
 }
 
 #[derive(Debug, Parser)]
+#[command(group(
+    ArgGroup::new("model_source")
+        .args(["preset", "repo_id"])
+        .required(true)
+))]
 struct ModelDownloadArgs {
     #[arg(long, value_enum)]
     preset: Option<ModelPresetKind>,
-    #[arg(long)]
+    #[arg(long, requires = "files")]
     repo_id: Option<String>,
     #[arg(long, default_value = "main")]
     revision: String,
@@ -221,11 +226,6 @@ fn download_model(args: ModelDownloadArgs) -> Result<()> {
     let spec = match (args.preset, args.repo_id) {
         (Some(preset), None) => ModelPreset::from(preset).spec().revision(args.revision),
         (None, Some(repo_id)) => {
-            if args.files.is_empty() {
-                return Err(video_analysis_core::DetectError::InvalidArgument(
-                    "--file is required when --repo-id is used".to_string(),
-                ));
-            }
             let task = args
                 .task
                 .map(ModelTask::from)
@@ -236,16 +236,7 @@ fn download_model(args: ModelDownloadArgs) -> Result<()> {
             }
             spec
         }
-        (Some(_), Some(_)) => {
-            return Err(video_analysis_core::DetectError::InvalidArgument(
-                "use either --preset or --repo-id, not both".to_string(),
-            ));
-        }
-        (None, None) => {
-            return Err(video_analysis_core::DetectError::InvalidArgument(
-                "either --preset or --repo-id is required".to_string(),
-            ));
-        }
+        _ => unreachable!("clap validates model source arguments"),
     };
 
     let mut downloader = HuggingFaceDownloader::new().progress(!args.no_progress);
@@ -323,3 +314,69 @@ fn run_detection(
 
 #[allow(dead_code)]
 fn _assert_detector_trait<T: SceneDetector>() {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::error::ErrorKind;
+
+    #[test]
+    fn model_download_requires_a_model_source() {
+        let err = Cli::try_parse_from(["vanalyze", "models", "download"]).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+    }
+
+    #[test]
+    fn model_download_rejects_multiple_model_sources() {
+        let err = Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "download",
+            "--preset",
+            "detr-resnet-50",
+            "--repo-id",
+            "owner/model",
+            "--file",
+            "config.json",
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn model_download_requires_files_for_custom_repo() {
+        let err =
+            Cli::try_parse_from(["vanalyze", "models", "download", "--repo-id", "owner/model"])
+                .unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+    }
+
+    #[test]
+    fn model_download_accepts_preset_without_files() {
+        Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "download",
+            "--preset",
+            "detr-resnet-50",
+        ])
+        .unwrap();
+    }
+
+    #[test]
+    fn model_download_accepts_custom_repo_with_files() {
+        Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "download",
+            "--repo-id",
+            "owner/model",
+            "--file",
+            "config.json",
+        ])
+        .unwrap();
+    }
+}
