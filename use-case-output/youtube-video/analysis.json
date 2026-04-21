@@ -1,7 +1,7 @@
 {
   "use_case": "youtube_video_analysis",
   "source": {
-    "url": "https://www.youtube.com/watch?v=EWuiiplgadY",
+    "url": "https://www.youtube.com/watch?v=qT6kR2nHI8M",
     "local_video": "/home/moenarch/moritzbrantner/rust-packages/use-case-output/youtube-video/youtube-video.mp4"
   },
   "assets": {

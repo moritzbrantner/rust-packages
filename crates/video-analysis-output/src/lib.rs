@@ -35,7 +35,7 @@ pub fn write_stats_csv(mut writer: impl Write, metrics: &MetricsStore) -> io::Re
     for (frame_index, row) in metrics.rows() {
         write!(writer, "{},{}", frame_index + 1, frame_index)?;
         for key in &keys {
-            match row.get(key) {
+            match row.get(*key) {
                 Some(value) => write!(writer, ",{value}")?,
                 None => write!(writer, ",")?,
             }
@@ -103,10 +103,11 @@ mod tests {
         let mut metrics = MetricsStore::default();
         metrics.set_metric(0, "z", 1.0);
         metrics.set_metric(0, "a", 2.0);
+        metrics.set_metric(0, "combined.content.raw", 3.0);
         let mut out = Vec::new();
         write_stats_csv(&mut out, &metrics).unwrap();
         let text = String::from_utf8(out).unwrap();
-        assert!(text.starts_with("Frame Number,Timecode,a,z\n"));
+        assert!(text.starts_with("Frame Number,Timecode,a,combined.content.raw,z\n"));
     }
 
     #[test]

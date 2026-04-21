@@ -281,25 +281,25 @@ pub struct Cut {
 }
 
 pub trait MetricsSink {
-    fn set_metric(&mut self, frame_index: u64, key: &'static str, value: f64);
+    fn set_metric(&mut self, frame_index: u64, key: &str, value: f64);
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct MetricsStore {
-    rows: BTreeMap<u64, BTreeMap<&'static str, f64>>,
-    keys: BTreeSet<&'static str>,
+    rows: BTreeMap<u64, BTreeMap<String, f64>>,
+    keys: BTreeSet<String>,
 }
 
 impl MetricsStore {
-    pub fn rows(&self) -> &BTreeMap<u64, BTreeMap<&'static str, f64>> {
+    pub fn rows(&self) -> &BTreeMap<u64, BTreeMap<String, f64>> {
         &self.rows
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = &'static str> + '_ {
-        self.keys.iter().copied()
+    pub fn keys(&self) -> impl Iterator<Item = &str> + '_ {
+        self.keys.iter().map(String::as_str)
     }
 
-    pub fn get(&self, frame_index: u64, key: &'static str) -> Option<f64> {
+    pub fn get(&self, frame_index: u64, key: &str) -> Option<f64> {
         self.rows
             .get(&frame_index)
             .and_then(|row| row.get(key))
@@ -308,9 +308,12 @@ impl MetricsStore {
 }
 
 impl MetricsSink for MetricsStore {
-    fn set_metric(&mut self, frame_index: u64, key: &'static str, value: f64) {
-        self.keys.insert(key);
-        self.rows.entry(frame_index).or_default().insert(key, value);
+    fn set_metric(&mut self, frame_index: u64, key: &str, value: f64) {
+        self.keys.insert(key.to_string());
+        self.rows
+            .entry(frame_index)
+            .or_default()
+            .insert(key.to_string(), value);
     }
 }
 
@@ -1685,6 +1688,17 @@ mod tests {
         metrics.set_metric(7, "content_val", 12.5);
         assert_eq!(metrics.get(7, "content_val"), Some(12.5));
         assert_eq!(metrics.keys().collect::<Vec<_>>(), vec!["content_val"]);
+    }
+
+    #[test]
+    fn metrics_store_accepts_dynamic_keys() {
+        let mut metrics = MetricsStore::default();
+        metrics.set_metric(7, "combined.content.raw", 12.5);
+        assert_eq!(metrics.get(7, "combined.content.raw"), Some(12.5));
+        assert_eq!(
+            metrics.keys().collect::<Vec<_>>(),
+            vec!["combined.content.raw"]
+        );
     }
 
     #[test]

@@ -48,7 +48,7 @@ import { WorkflowExecutionEditor } from "./WorkflowExecutionEditor";
 
 type UseCaseId = "youtube-video";
 type SourceMode = "url" | "file";
-type ViewMode = "overview" | "workflow" | "flow" | "result" | "scenes" | "signals" | "data";
+type ViewMode = "overview" | "run" | "workflow" | "flow" | "result" | "scenes" | "signals" | "data";
 
 interface UseCaseForm {
   sourceMode: SourceMode;
@@ -290,6 +290,7 @@ function App() {
                 value={viewMode}
                 options={[
                   ["overview", "Overview"],
+                  ["run", "Run"],
                   ["workflow", "Workflow"],
                   ["flow", "Flow"],
                   ["result", "Result"],
@@ -302,11 +303,11 @@ function App() {
             </div>
           </header>
 
-          <div className="mx-auto grid max-w-7xl gap-4 px-4 py-5 sm:px-6 xl:grid-cols-[420px_1fr] xl:px-8">
-            <section className="space-y-4">
-              <UseCaseControls
+          <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 xl:px-8">
+            {viewMode === "run" ? (
+              <RunWorkspace
                 form={form}
-                onChange={(next) => {
+                onFormChange={(next) => {
                   setForm(next);
                   setRunStatus("pending");
                   setLastRun(null);
@@ -316,12 +317,9 @@ function App() {
                 isRunning={runStatus === "running"}
                 runDisabled={runStatus === "running" || validationMessage !== null}
                 validationMessage={validationMessage}
-              />
-              <CliRunPanel run={cliRun} />
-              <RunOutputPanel stdout={runOutput.stdout} stderr={runOutput.stderr} />
-              <JsonReportLoader<YoutubeVideoReport>
-                label="Load report JSON"
-                onLoad={(nextReport) => {
+                cliRun={cliRun}
+                runOutput={runOutput}
+                onLoadReport={(nextReport) => {
                   setReport(nextReport);
                   setRunStatus("succeeded");
                   setLastRun({
@@ -335,9 +333,8 @@ function App() {
                   setRunOutput({});
                 }}
               />
-            </section>
-
-            <section className="min-w-0 space-y-4">
+            ) : (
+              <section className="min-w-0 space-y-4">
               {viewMode === "overview" && <Overview report={report} />}
               {viewMode === "workflow" && (
                 <WorkflowExecutionEditor
@@ -356,7 +353,8 @@ function App() {
               {viewMode === "scenes" && <Scenes report={report} />}
               {viewMode === "signals" && <Signals report={report} />}
               {viewMode === "data" && <Data report={report} />}
-            </section>
+              </section>
+            )}
           </div>
         </div>
       </div>
@@ -405,6 +403,48 @@ function Data({ report }: { report: YoutubeVideoReport }) {
   return <DataBucketOverview buckets={report.data_buckets} />;
 }
 
+function RunWorkspace({
+  form,
+  onFormChange,
+  onRun,
+  isRunning,
+  runDisabled,
+  validationMessage,
+  cliRun,
+  runOutput,
+  onLoadReport,
+}: {
+  form: UseCaseForm;
+  onFormChange: (form: UseCaseForm) => void;
+  onRun: () => void;
+  isRunning: boolean;
+  runDisabled: boolean;
+  validationMessage: string | null;
+  cliRun: CliRun;
+  runOutput: { stdout?: string; stderr?: string };
+  onLoadReport: (report: YoutubeVideoReport) => void;
+}) {
+  return (
+    <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
+      <section className="space-y-4">
+        <UseCaseControls
+          form={form}
+          onChange={onFormChange}
+          onRun={onRun}
+          isRunning={isRunning}
+          runDisabled={runDisabled}
+          validationMessage={validationMessage}
+        />
+        <JsonReportLoader<YoutubeVideoReport> label="Load report JSON" onLoad={onLoadReport} />
+      </section>
+      <section className="min-w-0 space-y-4">
+        <CliRunPanel run={cliRun} />
+        <RunOutputPanel stdout={runOutput.stdout} stderr={runOutput.stderr} />
+      </section>
+    </div>
+  );
+}
+
 type PortDirection = "in" | "out";
 type FlowTone = "sky" | "rose" | "amber" | "emerald" | "violet" | "cyan" | "indigo" | "fuchsia" | "slate" | "zinc";
 type PortType =
@@ -441,6 +481,8 @@ interface WorkflowNodeData extends Record<string, unknown> {
   tone: FlowTone;
   inputs: FlowPort[];
   outputs: FlowPort[];
+  kind?: "step" | "group";
+  group?: WorkflowGroupMetadata;
 }
 
 type WorkflowNodeModel = Node<WorkflowNodeData, "workflow">;
@@ -464,6 +506,27 @@ interface SavedWorkflowBlock {
   createdAt: string;
   nodes: SavedWorkflowBlockNode[];
   edges: SavedWorkflowBlockEdge[];
+}
+
+interface WorkflowGroupBoundary {
+  wrapperPortId: string;
+  nodeId: string;
+  handle: string | null | undefined;
+  type: PortType;
+}
+
+interface WorkflowGroupMetadata {
+  memberCount: number;
+  nodes: SavedWorkflowBlockNode[];
+  edges: SavedWorkflowBlockEdge[];
+  inputBoundaries: WorkflowGroupBoundary[];
+  outputBoundaries: WorkflowGroupBoundary[];
+}
+
+interface WorkflowContextMenuState {
+  x: number;
+  y: number;
+  nodeIds: string[];
 }
 
 const workflowNodeTypes = { workflow: WorkflowNode };
@@ -708,6 +771,7 @@ function ComponentFlow() {
   const [savedBlocks, setSavedBlocks] = useState<SavedWorkflowBlock[]>(loadSavedWorkflowBlocks);
   const [blockName, setBlockName] = useState("");
   const [blockLibraryMessage, setBlockLibraryMessage] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<WorkflowContextMenuState | null>(null);
   const blockFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isValidConnection = useCallback(
@@ -746,8 +810,8 @@ function ComponentFlow() {
     return edges.filter((edge) => selectedIds.has(edge.source) && selectedIds.has(edge.target)).length;
   }, [edges, selectedNodeIds]);
 
-  const saveSelectedBlock = useCallback(() => {
-    const block = createSavedWorkflowBlock(selectedNodes, edges, blockName);
+  const saveNodesAsBlock = useCallback((nodesToSave: WorkflowNodeModel[]) => {
+    const block = createSavedWorkflowBlock(nodesToSave, edges, blockName);
     if (!block) {
       return;
     }
@@ -758,7 +822,61 @@ function ComponentFlow() {
     });
     setBlockName("");
     setBlockLibraryMessage("Saved block");
-  }, [blockName, edges, selectedNodes]);
+    setContextMenu(null);
+  }, [blockName, edges]);
+
+  const saveSelectedBlock = useCallback(() => {
+    saveNodesAsBlock(selectedNodes);
+  }, [saveNodesAsBlock, selectedNodes]);
+
+  const groupNodes = useCallback(
+    (nodeIds: string[]) => {
+      const grouped = createWorkflowGroup(nodes.filter((node) => nodeIds.includes(node.id)), edges, blockName);
+      if (!grouped) {
+        return;
+      }
+      const groupedIds = new Set(nodeIds);
+      setNodes((currentNodes) =>
+        currentNodes
+          .filter((node) => !groupedIds.has(node.id))
+          .map((node) => ({ ...node, selected: false }))
+          .concat({ ...grouped.node, selected: true }),
+      );
+      setEdges(grouped.edges);
+      setSelectedNodeIds([grouped.node.id]);
+      setBlockName("");
+      setBlockLibraryMessage(`Grouped ${grouped.groupedNodeCount} nodes`);
+      setContextMenu(null);
+    },
+    [blockName, edges, nodes, setEdges, setNodes],
+  );
+
+  const ungroupNode = useCallback(
+    (nodeId: string) => {
+      const groupNode = nodes.find((node) => node.id === nodeId);
+      if (!groupNode?.data.group) {
+        return;
+      }
+      const restored = restoreWorkflowGroup(groupNode, nodes, edges);
+      setNodes(restored.nodes);
+      setEdges(restored.edges);
+      setSelectedNodeIds(restored.restoredNodeIds);
+      setBlockLibraryMessage(`Ungrouped ${restored.restoredNodeIds.length} nodes`);
+      setContextMenu(null);
+    },
+    [edges, nodes, setEdges, setNodes],
+  );
+
+  const deleteWorkflowNodes = useCallback(
+    (nodeIds: string[]) => {
+      const ids = new Set(nodeIds);
+      setNodes((currentNodes) => currentNodes.filter((node) => !ids.has(node.id)));
+      setEdges((currentEdges) => currentEdges.filter((edge) => !ids.has(edge.source) && !ids.has(edge.target)));
+      setSelectedNodeIds([]);
+      setContextMenu(null);
+    },
+    [setEdges, setNodes],
+  );
 
   const addSavedBlock = useCallback(
     (block: SavedWorkflowBlock) => {
@@ -806,6 +924,12 @@ function ComponentFlow() {
     }
   }, []);
 
+  const contextNodes = useMemo(
+    () => (contextMenu ? nodes.filter((node) => contextMenu.nodeIds.includes(node.id)) : []),
+    [contextMenu, nodes],
+  );
+  const contextGroupNode = contextNodes.length === 1 && contextNodes[0].data.group ? contextNodes[0] : null;
+
   return (
     <section className="rounded-lg border border-zinc-200 bg-white shadow-sm">
       <div className="flex flex-col gap-1 border-b border-zinc-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -822,6 +946,12 @@ function ComponentFlow() {
           onConnect={onConnect}
           isValidConnection={isValidConnection}
           onSelectionChange={onSelectionChange}
+          onPaneClick={() => setContextMenu(null)}
+          onNodeContextMenu={(event, node) => {
+            event.preventDefault();
+            const nodeIds = selectedNodeIds.includes(node.id) ? selectedNodeIds : [node.id];
+            setContextMenu({ x: event.clientX, y: event.clientY, nodeIds });
+          }}
           fitView
           minZoom={0.18}
           maxZoom={1.35}
@@ -849,9 +979,11 @@ function ComponentFlow() {
                 placeholder="Block name"
                 onChange={(event) => setBlockName(event.target.value)}
               />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
               <button
                 className={classNames(
-                  "inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2",
+                  "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-xs font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2",
                   selectedNodes.length < 2 ? "cursor-not-allowed bg-zinc-400" : "bg-zinc-950 hover:bg-zinc-800",
                 )}
                 onClick={saveSelectedBlock}
@@ -860,6 +992,18 @@ function ComponentFlow() {
               >
                 <SaveIcon className="h-4 w-4" />
                 Save
+              </button>
+              <button
+                className={classNames(
+                  "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-xs font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2",
+                  selectedNodes.length < 2 ? "cursor-not-allowed bg-zinc-400" : "bg-zinc-950 hover:bg-zinc-800",
+                )}
+                onClick={() => groupNodes(selectedNodeIds)}
+                disabled={selectedNodes.length < 2}
+                title="Group selected nodes"
+              >
+                <GroupIcon className="h-4 w-4" />
+                Group
               </button>
             </div>
             <div className="mt-2 text-[11px] text-zinc-500">
@@ -955,6 +1099,25 @@ function ComponentFlow() {
               Clear Edges
             </button>
           </FlowPanel>
+          {contextMenu && (
+            <WorkflowContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              nodeCount={contextNodes.length}
+              canGroup={contextNodes.length >= 2}
+              canSave={contextNodes.length >= 2}
+              canUngroup={Boolean(contextGroupNode)}
+              onGroup={() => groupNodes(contextMenu.nodeIds)}
+              onSave={() => saveNodesAsBlock(contextNodes)}
+              onUngroup={() => {
+                if (contextGroupNode) {
+                  ungroupNode(contextGroupNode.id);
+                }
+              }}
+              onDelete={() => deleteWorkflowNodes(contextMenu.nodeIds)}
+              onClose={() => setContextMenu(null)}
+            />
+          )}
         </ReactFlow>
       </div>
     </section>
@@ -994,7 +1157,243 @@ function createSavedWorkflowBlock(
         target: edge.target,
         sourceHandle: edge.sourceHandle,
         targetHandle: edge.targetHandle,
-      })),
+    })),
+  };
+}
+
+function createWorkflowGroup(
+  selectedNodes: WorkflowNodeModel[],
+  edges: Edge[],
+  requestedName: string,
+): { node: WorkflowNodeModel; edges: Edge[]; groupedNodeCount: number } | null {
+  if (selectedNodes.length < 2) {
+    return null;
+  }
+
+  const selectedIds = new Set(selectedNodes.map((node) => node.id));
+  const minX = Math.min(...selectedNodes.map((node) => node.position.x));
+  const minY = Math.min(...selectedNodes.map((node) => node.position.y));
+  const name = requestedName.trim() || defaultWorkflowBlockName(selectedNodes);
+  const groupId = createWorkflowBlockId();
+  const internalEdges = edges.filter((edge) => selectedIds.has(edge.source) && selectedIds.has(edge.target));
+  const incomingEdges = edges.filter((edge) => !selectedIds.has(edge.source) && selectedIds.has(edge.target));
+  const outgoingEdges = edges.filter((edge) => selectedIds.has(edge.source) && !selectedIds.has(edge.target));
+  const inputPorts: FlowPort[] = [];
+  const outputPorts: FlowPort[] = [];
+  const inputBoundaries: WorkflowGroupBoundary[] = [];
+  const outputBoundaries: WorkflowGroupBoundary[] = [];
+
+  for (const node of selectedNodes) {
+    for (const input of node.data.inputs) {
+      const handle = handleId("in", input);
+      const hasInternalEdge = internalEdges.some((edge) => edge.target === node.id && edge.targetHandle === handle);
+      const hasIncomingEdge = incomingEdges.some((edge) => edge.target === node.id && edge.targetHandle === handle);
+      if (!hasInternalEdge || hasIncomingEdge) {
+        const wrapperPort = groupBoundaryPort("in", node, input);
+        inputPorts.push(wrapperPort);
+        inputBoundaries.push({ wrapperPortId: wrapperPort.id, nodeId: node.id, handle, type: input.type });
+      }
+    }
+
+    for (const output of node.data.outputs) {
+      const handle = handleId("out", output);
+      const hasInternalEdge = internalEdges.some((edge) => edge.source === node.id && edge.sourceHandle === handle);
+      const hasOutgoingEdge = outgoingEdges.some((edge) => edge.source === node.id && edge.sourceHandle === handle);
+      if (!hasInternalEdge || hasOutgoingEdge) {
+        const wrapperPort = groupBoundaryPort("out", node, output);
+        outputPorts.push(wrapperPort);
+        outputBoundaries.push({ wrapperPortId: wrapperPort.id, nodeId: node.id, handle, type: output.type });
+      }
+    }
+  }
+
+  const inputBoundaryByHandle = new Map(inputBoundaries.map((boundary) => [boundaryKey(boundary.nodeId, boundary.handle), boundary]));
+  const outputBoundaryByHandle = new Map(outputBoundaries.map((boundary) => [boundaryKey(boundary.nodeId, boundary.handle), boundary]));
+  const groupNode: WorkflowNodeModel = {
+    id: groupId,
+    type: "workflow",
+    position: { x: Math.max(0, minX), y: Math.max(0, minY) },
+    data: {
+      title: name,
+      packageName: "Grouped Block",
+      description: `${selectedNodes.length} nodes abstracted behind boundary ports.`,
+      tone: "zinc",
+      inputs: dedupePorts(inputPorts),
+      outputs: dedupePorts(outputPorts),
+      kind: "group",
+      group: {
+        memberCount: selectedNodes.length,
+        nodes: selectedNodes.map((node) => ({
+          id: node.id,
+          position: {
+            x: node.position.x - minX,
+            y: node.position.y - minY,
+          },
+          data: cloneWorkflowNodeData(node.data),
+        })),
+        edges: internalEdges.map((edge) => ({
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle,
+        })),
+        inputBoundaries,
+        outputBoundaries,
+      },
+    },
+  };
+
+  const visibleEdges = edges.filter((edge) => !selectedIds.has(edge.source) && !selectedIds.has(edge.target));
+  const reroutedIncomingEdges = incomingEdges.flatMap((edge) => {
+    const boundary = inputBoundaryByHandle.get(boundaryKey(edge.target, edge.targetHandle));
+    if (!boundary) {
+      return [];
+    }
+    const wrapperPort = groupNode.data.inputs.find((candidate) => candidate.id === boundary.wrapperPortId);
+    if (!wrapperPort) {
+      return [];
+    }
+    return [
+      workflowEdgeFromConnection(
+        {
+          source: edge.source,
+          sourceHandle: edge.sourceHandle ?? null,
+          target: groupId,
+          targetHandle: handleId("in", wrapperPort),
+        },
+        boundary.type,
+      ),
+    ];
+  });
+  const reroutedOutgoingEdges = outgoingEdges.flatMap((edge) => {
+    const boundary = outputBoundaryByHandle.get(boundaryKey(edge.source, edge.sourceHandle));
+    if (!boundary) {
+      return [];
+    }
+    const wrapperPort = groupNode.data.outputs.find((candidate) => candidate.id === boundary.wrapperPortId);
+    if (!wrapperPort) {
+      return [];
+    }
+    return [
+      workflowEdgeFromConnection(
+        {
+          source: groupId,
+          sourceHandle: handleId("out", wrapperPort),
+          target: edge.target,
+          targetHandle: edge.targetHandle ?? null,
+        },
+        boundary.type,
+      ),
+    ];
+  });
+
+  return {
+    node: groupNode,
+    edges: dedupeEdges(visibleEdges.concat(reroutedIncomingEdges, reroutedOutgoingEdges)),
+    groupedNodeCount: selectedNodes.length,
+  };
+}
+
+function restoreWorkflowGroup(
+  groupNode: WorkflowNodeModel,
+  currentNodes: WorkflowNodeModel[],
+  currentEdges: Edge[],
+): { nodes: WorkflowNodeModel[]; edges: Edge[]; restoredNodeIds: string[] } {
+  const group = groupNode.data.group;
+  if (!group) {
+    return { nodes: currentNodes, edges: currentEdges, restoredNodeIds: [] };
+  }
+
+  const occupiedIds = new Set(currentNodes.filter((node) => node.id !== groupNode.id).map((node) => node.id));
+  const idByOriginalId = new Map<string, string>();
+  for (const node of group.nodes) {
+    const restoredId = occupiedIds.has(node.id) ? `${groupNode.id}-${safeFlowId(node.id)}` : node.id;
+    occupiedIds.add(restoredId);
+    idByOriginalId.set(node.id, restoredId);
+  }
+
+  const restoredNodes: WorkflowNodeModel[] = group.nodes.map((node) => ({
+    id: idByOriginalId.get(node.id)!,
+    type: "workflow",
+    position: {
+      x: groupNode.position.x + node.position.x,
+      y: groupNode.position.y + node.position.y,
+    },
+    data: cloneWorkflowNodeData(node.data),
+    selected: true,
+  }));
+  const restoredNodeIds = restoredNodes.map((node) => node.id);
+  const inputBoundaryByPort = new Map(group.inputBoundaries.map((boundary) => [boundary.wrapperPortId, boundary]));
+  const outputBoundaryByPort = new Map(group.outputBoundaries.map((boundary) => [boundary.wrapperPortId, boundary]));
+  const edgesWithoutGroup = currentEdges.filter((edge) => edge.source !== groupNode.id && edge.target !== groupNode.id);
+  const restoredInternalEdges = group.edges.flatMap((edge) => {
+    const source = idByOriginalId.get(edge.source);
+    const target = idByOriginalId.get(edge.target);
+    if (!source || !target) {
+      return [];
+    }
+    return [
+      workflowEdgeFromConnection(
+        {
+          source,
+          sourceHandle: edge.sourceHandle ?? null,
+          target,
+          targetHandle: edge.targetHandle ?? null,
+        },
+        parseHandleId(edge.sourceHandle ?? "")?.type ?? parseHandleId(edge.targetHandle ?? "")?.type ?? "run_config",
+      ),
+    ];
+  });
+  const restoredExternalEdges = currentEdges.flatMap((edge) => {
+    if (edge.target === groupNode.id && edge.targetHandle) {
+      const parsed = parseHandleId(edge.targetHandle);
+      const boundary = parsed ? inputBoundaryByPort.get(parsed.portId) : null;
+      const target = boundary ? idByOriginalId.get(boundary.nodeId) : null;
+      if (!boundary || !target) {
+        return [];
+      }
+      return [
+        workflowEdgeFromConnection(
+          {
+            source: edge.source,
+            sourceHandle: edge.sourceHandle ?? null,
+            target,
+            targetHandle: boundary.handle ?? null,
+          },
+          boundary.type,
+        ),
+      ];
+    }
+    if (edge.source === groupNode.id && edge.sourceHandle) {
+      const parsed = parseHandleId(edge.sourceHandle);
+      const boundary = parsed ? outputBoundaryByPort.get(parsed.portId) : null;
+      const source = boundary ? idByOriginalId.get(boundary.nodeId) : null;
+      if (!boundary || !source) {
+        return [];
+      }
+      return [
+        workflowEdgeFromConnection(
+          {
+            source,
+            sourceHandle: boundary.handle ?? null,
+            target: edge.target,
+            targetHandle: edge.targetHandle ?? null,
+          },
+          boundary.type,
+        ),
+      ];
+    }
+    return [];
+  });
+
+  const remainingNodes: WorkflowNodeModel[] = currentNodes
+    .filter((node) => node.id !== groupNode.id)
+    .map((node) => ({ ...node, selected: false }));
+
+  return {
+    nodes: remainingNodes.concat(restoredNodes),
+    edges: dedupeEdges(edgesWithoutGroup.concat(restoredInternalEdges, restoredExternalEdges)),
+    restoredNodeIds,
   };
 }
 
@@ -1043,7 +1442,7 @@ function instantiateSavedWorkflowBlock(
 }
 
 function cloneWorkflowNodeData(data: WorkflowNodeData): WorkflowNodeData {
-  return {
+  const cloned: WorkflowNodeData = {
     title: data.title,
     packageName: data.packageName,
     description: data.description,
@@ -1051,6 +1450,62 @@ function cloneWorkflowNodeData(data: WorkflowNodeData): WorkflowNodeData {
     inputs: data.inputs.map((input) => ({ ...input })),
     outputs: data.outputs.map((output) => ({ ...output })),
   };
+  if (data.kind) {
+    cloned.kind = data.kind;
+  }
+  if (data.group) {
+    cloned.group = cloneWorkflowGroupMetadata(data.group);
+  }
+  return cloned;
+}
+
+function cloneWorkflowGroupMetadata(group: WorkflowGroupMetadata): WorkflowGroupMetadata {
+  return {
+    memberCount: group.memberCount,
+    nodes: group.nodes.map((node) => ({
+      id: node.id,
+      position: { ...node.position },
+      data: cloneWorkflowNodeData(node.data),
+    })),
+    edges: group.edges.map((edge) => ({ ...edge })),
+    inputBoundaries: group.inputBoundaries.map((boundary) => ({ ...boundary })),
+    outputBoundaries: group.outputBoundaries.map((boundary) => ({ ...boundary })),
+  };
+}
+
+function groupBoundaryPort(direction: PortDirection, node: WorkflowNodeModel, portValue: FlowPort): FlowPort {
+  return {
+    id: `${direction}-${safeFlowId(node.id)}-${safeFlowId(portValue.id)}`,
+    label: `${node.data.title}: ${portValue.label}`,
+    type: portValue.type,
+  };
+}
+
+function boundaryKey(nodeId: string, handle: string | null | undefined): string {
+  return `${nodeId}|${handle ?? ""}`;
+}
+
+function dedupePorts(ports: FlowPort[]): FlowPort[] {
+  const seen = new Set<string>();
+  return ports.filter((portValue) => {
+    const key = `${portValue.id}|${portValue.type}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function dedupeEdges(edges: Edge[]): Edge[] {
+  const seen = new Set<string>();
+  return edges.filter((edge) => {
+    if (seen.has(edge.id)) {
+      return false;
+    }
+    seen.add(edge.id);
+    return true;
+  });
 }
 
 function nextBlockAnchor(nodes: WorkflowNodeModel[]): { x: number; y: number } {
@@ -1222,6 +1677,8 @@ function isWorkflowNodeData(value: unknown): value is WorkflowNodeData {
   if (!isRecord(value)) {
     return false;
   }
+  const kindValid = value.kind === undefined || value.kind === "step" || value.kind === "group";
+  const groupValid = value.group === undefined || isWorkflowGroupMetadata(value.group);
   return (
     typeof value.title === "string" &&
     typeof value.packageName === "string" &&
@@ -1230,7 +1687,40 @@ function isWorkflowNodeData(value: unknown): value is WorkflowNodeData {
     Array.isArray(value.inputs) &&
     value.inputs.every(isFlowPort) &&
     Array.isArray(value.outputs) &&
-    value.outputs.every(isFlowPort)
+    value.outputs.every(isFlowPort) &&
+    kindValid &&
+    groupValid
+  );
+}
+
+function isWorkflowGroupMetadata(value: unknown): value is WorkflowGroupMetadata {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.memberCount === "number" &&
+    Array.isArray(value.nodes) &&
+    value.nodes.every(isSavedWorkflowBlockNode) &&
+    Array.isArray(value.edges) &&
+    value.edges.every(isSavedWorkflowBlockEdge) &&
+    Array.isArray(value.inputBoundaries) &&
+    value.inputBoundaries.every(isWorkflowGroupBoundary) &&
+    Array.isArray(value.outputBoundaries) &&
+    value.outputBoundaries.every(isWorkflowGroupBoundary)
+  );
+}
+
+function isWorkflowGroupBoundary(value: unknown): value is WorkflowGroupBoundary {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const handleValid = value.handle === null || value.handle === undefined || typeof value.handle === "string";
+  return (
+    typeof value.wrapperPortId === "string" &&
+    typeof value.nodeId === "string" &&
+    handleValid &&
+    typeof value.type === "string" &&
+    isPortType(value.type)
   );
 }
 
@@ -1280,6 +1770,7 @@ function WorkflowNode({ id, data, selected, isConnectable }: NodeProps) {
     <div
       className={classNames(
         "w-[310px] rounded-lg border bg-white text-left shadow-sm",
+        nodeData.kind === "group" && "border-dashed",
         selected ? "border-zinc-950 ring-2 ring-zinc-950/10" : "border-zinc-200",
       )}
     >
@@ -1289,7 +1780,14 @@ function WorkflowNode({ id, data, selected, isConnectable }: NodeProps) {
             <div className="text-sm font-semibold text-zinc-950">{nodeData.title}</div>
             <div className="mt-0.5 text-[11px] font-medium text-zinc-600">{nodeData.packageName}</div>
           </div>
-          <span className={classNames("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", flowToneClass(nodeData.tone))} />
+          <div className="mt-0.5 flex shrink-0 items-center gap-2">
+            {nodeData.group && (
+              <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-zinc-600">
+                {nodeData.group.memberCount}
+              </span>
+            )}
+            <span className={classNames("h-2.5 w-2.5 rounded-full", flowToneClass(nodeData.tone))} />
+          </div>
         </div>
         <p className="mt-2 text-xs leading-5 text-zinc-600">{nodeData.description}</p>
       </div>
@@ -1380,6 +1878,92 @@ function PortRow({
         </span>
       </div>
     </div>
+  );
+}
+
+function WorkflowContextMenu({
+  x,
+  y,
+  nodeCount,
+  canGroup,
+  canSave,
+  canUngroup,
+  onGroup,
+  onSave,
+  onUngroup,
+  onDelete,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  nodeCount: number;
+  canGroup: boolean;
+  canSave: boolean;
+  canUngroup: boolean;
+  onGroup: () => void;
+  onSave: () => void;
+  onUngroup: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed z-50 w-56 overflow-hidden rounded-lg border border-zinc-200 bg-white text-sm shadow-xl"
+      style={{ left: x, top: y }}
+      onClick={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <div className="border-b border-zinc-100 px-3 py-2 text-[11px] font-semibold uppercase text-zinc-500">
+        {nodeCount} selected
+      </div>
+      <ContextMenuButton icon={<GroupIcon className="h-4 w-4" />} disabled={!canGroup} onClick={onGroup}>
+        Group selected
+      </ContextMenuButton>
+      <ContextMenuButton icon={<SaveIcon className="h-4 w-4" />} disabled={!canSave} onClick={onSave}>
+        Save as block
+      </ContextMenuButton>
+      <ContextMenuButton icon={<UngroupIcon className="h-4 w-4" />} disabled={!canUngroup} onClick={onUngroup}>
+        Ungroup
+      </ContextMenuButton>
+      <div className="border-t border-zinc-100">
+        <ContextMenuButton icon={<CloseIcon className="h-4 w-4" />} onClick={onDelete} tone="danger">
+          Delete
+        </ContextMenuButton>
+        <ContextMenuButton onClick={onClose}>Close</ContextMenuButton>
+      </div>
+    </div>
+  );
+}
+
+function ContextMenuButton({
+  children,
+  icon,
+  disabled = false,
+  tone = "default",
+  onClick,
+}: {
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+  disabled?: boolean;
+  tone?: "default" | "danger";
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={classNames(
+        "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium",
+        disabled
+          ? "cursor-not-allowed text-zinc-300"
+          : tone === "danger"
+            ? "text-rose-700 hover:bg-rose-50"
+            : "text-zinc-800 hover:bg-zinc-50",
+      )}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {icon && <span className="shrink-0">{icon}</span>}
+      <span>{children}</span>
+    </button>
   );
 }
 
@@ -2037,6 +2621,30 @@ function PlusIcon({ className }: { className?: string }) {
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={className}>
       <path d="M10 4.5v11" strokeLinecap="round" />
       <path d="M4.5 10h11" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function GroupIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={className}>
+      <rect x="3.5" y="4.5" width="5" height="5" rx="1" />
+      <rect x="11.5" y="10.5" width="5" height="5" rx="1" />
+      <path d="M8.5 7h3" strokeLinecap="round" />
+      <path d="M8.5 12.5h3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function UngroupIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={className}>
+      <rect x="3.5" y="4.5" width="5" height="5" rx="1" />
+      <rect x="11.5" y="10.5" width="5" height="5" rx="1" />
+      <path d="M9.5 7h2" strokeLinecap="round" />
+      <path d="M8.5 12.5h2" strokeLinecap="round" />
+      <path d="M10.5 5.5 13 3" strokeLinecap="round" />
+      <path d="m10.5 14.5 2.5 2.5" strokeLinecap="round" />
     </svg>
   );
 }

@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::f32::consts::PI;
 
 use video_analysis_core::{
@@ -91,6 +91,348 @@ impl FlashFilter {
             self.merge_start = Some(frame_index);
         }
         Vec::new()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AlgorithmScore {
+    pub position: FramePosition,
+    pub raw: f32,
+    pub normalized: f32,
+}
+
+pub trait ScoreAlgorithm {
+    fn name(&self) -> &'static str;
+
+    fn latency(&self) -> usize {
+        0
+    }
+
+    fn process_frame(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        metrics: Option<&mut dyn MetricsSink>,
+    ) -> Result<Vec<AlgorithmScore>>;
+
+    fn finish(
+        &mut self,
+        _last_position: FramePosition,
+        _metrics: Option<&mut dyn MetricsSink>,
+    ) -> Result<Vec<AlgorithmScore>> {
+        Ok(Vec::new())
+    }
+}
+
+pub struct WeightedComponent {
+    algorithm: Box<dyn ScoreAlgorithm>,
+    weight: f32,
+}
+
+impl WeightedComponent {
+    pub fn new<A: ScoreAlgorithm + 'static>(algorithm: A, weight: f32) -> Result<Self> {
+        if !weight.is_finite() || weight <= 0.0 {
+            return Err(DetectError::InvalidArgument(
+                "component weight must be finite and greater than zero".to_string(),
+            ));
+        }
+        Ok(Self {
+            algorithm: Box::new(algorithm),
+            weight,
+        })
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.algorithm.name()
+    }
+
+    pub fn weight(&self) -> f32 {
+        self.weight
+    }
+}
+
+pub struct WeightedCompositeDetector {
+    components: Vec<WeightedComponent>,
+    threshold: f32,
+    flash_filter: FlashFilter,
+    max_latency: usize,
+    pending: BTreeMap<u64, PendingCompositeScore>,
+}
+
+#[derive(Debug, Clone)]
+struct PendingCompositeScore {
+    position: FramePosition,
+    scores: Vec<Option<AlgorithmScore>>,
+}
+
+impl PendingCompositeScore {
+    fn new(position: FramePosition, len: usize) -> Self {
+        Self {
+            position,
+            scores: vec![None; len],
+        }
+    }
+
+    fn is_complete(&self) -> bool {
+        self.scores.iter().all(Option::is_some)
+    }
+}
+
+#[derive(Default)]
+pub struct WeightedCompositeDetectorBuilder {
+    components: Vec<WeightedComponent>,
+    threshold: Option<f32>,
+    min_scene_len: Option<u64>,
+    filter_mode: Option<FlashFilterMode>,
+}
+
+impl WeightedCompositeDetector {
+    pub const METRIC_KEYS: &'static [&'static str] = &[
+        "combined_score",
+        "combined_cut",
+        "combined_weight_sum",
+        "combined_vote_count",
+    ];
+
+    pub fn builder() -> WeightedCompositeDetectorBuilder {
+        WeightedCompositeDetectorBuilder::default()
+    }
+
+    fn record_score(&mut self, index: usize, score: AlgorithmScore) {
+        let component_count = self.components.len();
+        self.pending
+            .entry(score.position.frame_index)
+            .or_insert_with(|| PendingCompositeScore::new(score.position, component_count))
+            .scores[index] = Some(score);
+    }
+
+    fn flush_ready(
+        &mut self,
+        max_frame_index: u64,
+        mut metrics: Option<&mut dyn MetricsSink>,
+    ) -> Vec<Cut> {
+        let ready: Vec<u64> = self
+            .pending
+            .iter()
+            .take_while(|(frame_index, _)| **frame_index <= max_frame_index)
+            .map(|(frame_index, _)| *frame_index)
+            .collect();
+        let mut cuts = Vec::new();
+        for frame_index in ready {
+            let Some(pending) = self.pending.remove(&frame_index) else {
+                continue;
+            };
+            if !pending.is_complete() {
+                continue;
+            }
+            let component_scores: Vec<AlgorithmScore> =
+                pending.scores.into_iter().flatten().collect();
+            let combined = self.combined_score(&component_scores);
+            let cut_frames = self
+                .flash_filter
+                .filter(pending.position.frame_index, combined >= self.threshold);
+            if let Some(metrics) = metrics.as_mut() {
+                record_combined_metrics(
+                    &mut **metrics,
+                    pending.position,
+                    &self.components,
+                    &component_scores,
+                    combined,
+                    &cut_frames,
+                );
+            }
+            cuts.extend(cut_frames.into_iter().map(|frame_index| Cut {
+                position: position_like(pending.position, frame_index),
+                detector: self.name(),
+                score: Some(combined),
+            }));
+        }
+        cuts
+    }
+
+    fn combined_score(&self, scores: &[AlgorithmScore]) -> f32 {
+        let mut weighted = 0.0;
+        let mut total_weight = 0.0;
+        for (component, score) in self.components.iter().zip(scores) {
+            weighted += score.normalized * component.weight;
+            total_weight += component.weight;
+        }
+        if total_weight == 0.0 {
+            0.0
+        } else {
+            weighted / total_weight
+        }
+    }
+}
+
+impl WeightedCompositeDetectorBuilder {
+    pub fn component<A: ScoreAlgorithm + 'static>(mut self, algorithm: A, weight: f32) -> Self {
+        self.components.push(WeightedComponent {
+            algorithm: Box::new(algorithm),
+            weight,
+        });
+        self
+    }
+
+    pub fn weighted_component(mut self, component: WeightedComponent) -> Self {
+        self.components.push(component);
+        self
+    }
+
+    pub fn threshold(mut self, value: f32) -> Self {
+        self.threshold = Some(value);
+        self
+    }
+
+    pub fn min_scene_len(mut self, value: u64) -> Self {
+        self.min_scene_len = Some(value);
+        self
+    }
+
+    pub fn filter_mode(mut self, value: FlashFilterMode) -> Self {
+        self.filter_mode = Some(value);
+        self
+    }
+
+    pub fn build(self) -> Result<WeightedCompositeDetector> {
+        if self.components.is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "at least one composite component is required".to_string(),
+            ));
+        }
+        for component in &self.components {
+            if !component.weight.is_finite() || component.weight <= 0.0 {
+                return Err(DetectError::InvalidArgument(format!(
+                    "component `{}` weight must be finite and greater than zero",
+                    component.name()
+                )));
+            }
+        }
+        let max_latency = self
+            .components
+            .iter()
+            .map(|component| component.algorithm.latency())
+            .max()
+            .unwrap_or(0);
+        Ok(WeightedCompositeDetector {
+            components: self.components,
+            threshold: self.threshold.unwrap_or(0.5),
+            flash_filter: FlashFilter::new(
+                self.filter_mode.unwrap_or(FlashFilterMode::Merge),
+                self.min_scene_len.unwrap_or(15),
+            ),
+            max_latency,
+            pending: BTreeMap::new(),
+        })
+    }
+}
+
+impl SceneDetector for WeightedCompositeDetector {
+    fn name(&self) -> &'static str {
+        "combined"
+    }
+
+    fn metric_keys(&self) -> &'static [&'static str] {
+        Self::METRIC_KEYS
+    }
+
+    fn event_buffer_len(&self) -> usize {
+        self.max_latency + self.flash_filter.max_behind()
+    }
+
+    fn process_frame(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        mut metrics: Option<&mut dyn MetricsSink>,
+    ) -> Result<Vec<Cut>> {
+        for index in 0..self.components.len() {
+            let scores = match metrics.as_mut() {
+                Some(metrics) => self.components[index]
+                    .algorithm
+                    .process_frame(frame, Some(&mut **metrics))?,
+                None => self.components[index]
+                    .algorithm
+                    .process_frame(frame, None)?,
+            };
+            for score in scores {
+                self.record_score(index, score);
+            }
+        }
+        if frame.position.frame_index < self.max_latency as u64 {
+            Ok(Vec::new())
+        } else {
+            let max_ready = frame.position.frame_index - self.max_latency as u64;
+            Ok(self.flush_ready(max_ready, metrics))
+        }
+    }
+
+    fn finish(
+        &mut self,
+        last_position: FramePosition,
+        mut metrics: Option<&mut dyn MetricsSink>,
+    ) -> Result<Vec<Cut>> {
+        for index in 0..self.components.len() {
+            let scores = match metrics.as_mut() {
+                Some(metrics) => self.components[index]
+                    .algorithm
+                    .finish(last_position, Some(&mut **metrics))?,
+                None => self.components[index]
+                    .algorithm
+                    .finish(last_position, None)?,
+            };
+            for score in scores {
+                self.record_score(index, score);
+            }
+        }
+        Ok(self.flush_ready(last_position.frame_index, metrics))
+    }
+}
+
+fn record_combined_metrics(
+    metrics: &mut dyn MetricsSink,
+    position: FramePosition,
+    components: &[WeightedComponent],
+    scores: &[AlgorithmScore],
+    combined: f32,
+    cut_frames: &[u64],
+) {
+    let frame_index = position.frame_index;
+    let weight_sum: f32 = components.iter().map(WeightedComponent::weight).sum();
+    let vote_count = scores
+        .iter()
+        .filter(|score| score.normalized >= 0.5)
+        .count();
+    metrics.set_metric(frame_index, "combined_score", combined as f64);
+    metrics.set_metric(frame_index, "combined_cut", 0.0);
+    metrics.set_metric(frame_index, "combined_weight_sum", weight_sum as f64);
+    metrics.set_metric(frame_index, "combined_vote_count", vote_count as f64);
+    for (component, score) in components.iter().zip(scores) {
+        let prefix = format!("combined.{}", component.name());
+        metrics.set_metric(frame_index, &format!("{prefix}.raw"), score.raw as f64);
+        metrics.set_metric(
+            frame_index,
+            &format!("{prefix}.normalized"),
+            score.normalized as f64,
+        );
+        metrics.set_metric(
+            frame_index,
+            &format!("{prefix}.weighted"),
+            (score.normalized * component.weight()) as f64,
+        );
+    }
+    for cut_frame in cut_frames {
+        metrics.set_metric(*cut_frame, "combined_cut", 1.0);
+    }
+}
+
+fn normalize_threshold(raw: f32, threshold: f32) -> f32 {
+    if threshold <= 0.0 {
+        if raw > 0.0 {
+            1.0
+        } else {
+            0.0
+        }
+    } else {
+        (raw / (2.0 * threshold)).clamp(0.0, 1.0)
     }
 }
 
@@ -292,6 +634,64 @@ fn set_content_metrics(
 }
 
 #[derive(Debug, Clone)]
+pub struct ContentScoreAlgorithm {
+    threshold: f32,
+    scorer: ContentScorer,
+}
+
+impl ContentScoreAlgorithm {
+    pub fn new(threshold: f32) -> Self {
+        Self {
+            threshold,
+            scorer: ContentScorer::new(ContentWeights::default(), None),
+        }
+    }
+
+    pub fn with_weights(mut self, weights: ContentWeights) -> Self {
+        self.scorer.weights = weights;
+        self
+    }
+
+    pub fn luma_only(mut self, value: bool) -> Self {
+        if value {
+            self.scorer.weights = ContentWeights::LUMA_ONLY;
+        }
+        self
+    }
+
+    pub fn kernel_size(mut self, value: Option<usize>) -> Result<Self> {
+        if let Some(size) = value {
+            if size < 3 || size % 2 == 0 {
+                return Err(DetectError::InvalidArgument(
+                    "kernel_size must be an odd integer >= 3".to_string(),
+                ));
+            }
+        }
+        self.scorer.kernel_size = value;
+        Ok(self)
+    }
+}
+
+impl ScoreAlgorithm for ContentScoreAlgorithm {
+    fn name(&self) -> &'static str {
+        "content"
+    }
+
+    fn process_frame(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        metrics: Option<&mut dyn MetricsSink>,
+    ) -> Result<Vec<AlgorithmScore>> {
+        let raw = self.scorer.score(frame, metrics)?;
+        Ok(vec![AlgorithmScore {
+            position: frame.position,
+            raw,
+            normalized: normalize_threshold(raw, self.threshold),
+        }])
+    }
+}
+
+#[derive(Debug, Clone)]
 struct FrameData {
     hue: Vec<u8>,
     sat: Vec<u8>,
@@ -453,6 +853,96 @@ impl SceneDetector for AdaptiveDetector {
         } else {
             Ok(Vec::new())
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AdaptiveScoreAlgorithm {
+    scorer: ContentScorer,
+    adaptive_threshold: f32,
+    window_width: usize,
+    min_content_val: f32,
+    buffer: VecDeque<(FramePosition, f32)>,
+}
+
+impl AdaptiveScoreAlgorithm {
+    pub fn new(adaptive_threshold: f32, window_width: usize, min_content_val: f32) -> Self {
+        assert!(window_width >= 1, "window_width must be at least 1");
+        Self {
+            scorer: ContentScorer::new(ContentWeights::default(), None),
+            adaptive_threshold,
+            window_width,
+            min_content_val,
+            buffer: VecDeque::new(),
+        }
+    }
+
+    pub fn luma_only(mut self, value: bool) -> Self {
+        if value {
+            self.scorer.weights = ContentWeights::LUMA_ONLY;
+        }
+        self
+    }
+}
+
+impl ScoreAlgorithm for AdaptiveScoreAlgorithm {
+    fn name(&self) -> &'static str {
+        "adaptive"
+    }
+
+    fn latency(&self) -> usize {
+        self.window_width
+    }
+
+    fn process_frame(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        mut metrics: Option<&mut dyn MetricsSink>,
+    ) -> Result<Vec<AlgorithmScore>> {
+        let content_score = match metrics.as_mut() {
+            Some(metrics) => self.scorer.score(frame, Some(&mut **metrics))?,
+            None => self.scorer.score(frame, None)?,
+        };
+        let required = 1 + self.window_width * 2;
+        self.buffer.push_back((frame.position, content_score));
+        if self.buffer.len() < required {
+            return Ok(Vec::new());
+        }
+        while self.buffer.len() > required {
+            self.buffer.pop_front();
+        }
+
+        let target = self.buffer[self.window_width];
+        let neighbor_sum: f32 = self
+            .buffer
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| *index != self.window_width)
+            .map(|(_, (_, score))| *score)
+            .sum();
+        let average = neighbor_sum / (2.0 * self.window_width as f32);
+        let ratio = if average.abs() < 0.00001 {
+            if target.1 >= self.min_content_val {
+                255.0
+            } else {
+                0.0
+            }
+        } else {
+            (target.1 / average).min(255.0)
+        };
+        if let Some(metrics) = metrics.as_mut() {
+            (**metrics).set_metric(target.0.frame_index, "adaptive_ratio", ratio as f64);
+        }
+        let normalized = if target.1 >= self.min_content_val {
+            normalize_threshold(ratio, self.adaptive_threshold)
+        } else {
+            0.0
+        };
+        Ok(vec![AlgorithmScore {
+            position: target.0,
+            raw: ratio,
+            normalized,
+        }])
     }
 }
 
@@ -685,6 +1175,55 @@ impl SceneDetector for HistogramDetector {
 }
 
 #[derive(Debug, Clone)]
+pub struct HistogramScoreAlgorithm {
+    threshold: f32,
+    bins: usize,
+    last_hist: Option<Vec<f32>>,
+}
+
+impl HistogramScoreAlgorithm {
+    pub fn new(threshold: f32, bins: usize) -> Self {
+        Self {
+            threshold,
+            bins,
+            last_hist: None,
+        }
+    }
+}
+
+impl ScoreAlgorithm for HistogramScoreAlgorithm {
+    fn name(&self) -> &'static str {
+        "histogram"
+    }
+
+    fn process_frame(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        metrics: Option<&mut dyn MetricsSink>,
+    ) -> Result<Vec<AlgorithmScore>> {
+        let hist = luma_histogram(frame, self.bins)?;
+        let raw = if let Some(last_hist) = &self.last_hist {
+            let correlation = histogram_correlation(last_hist, &hist);
+            if let Some(metrics) = metrics {
+                metrics.set_metric(frame.position.frame_index, "hist_diff", correlation as f64);
+            }
+            1.0 - correlation
+        } else {
+            if let Some(metrics) = metrics {
+                metrics.set_metric(frame.position.frame_index, "hist_diff", 1.0);
+            }
+            0.0
+        };
+        self.last_hist = Some(hist);
+        Ok(vec![AlgorithmScore {
+            position: frame.position,
+            raw,
+            normalized: normalize_threshold(raw, self.threshold),
+        }])
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct HashDetector {
     threshold: f32,
     size: usize,
@@ -761,6 +1300,62 @@ impl SceneDetector for HashDetector {
         }
         self.last_hash = Some(hash);
         Ok(cuts)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct HashScoreAlgorithm {
+    threshold: f32,
+    size: usize,
+    lowpass: usize,
+    last_hash: Option<Vec<bool>>,
+}
+
+impl HashScoreAlgorithm {
+    pub fn new(threshold: f32, size: usize, lowpass: usize) -> Self {
+        Self {
+            threshold,
+            size,
+            lowpass: lowpass.max(1),
+            last_hash: None,
+        }
+    }
+}
+
+impl ScoreAlgorithm for HashScoreAlgorithm {
+    fn name(&self) -> &'static str {
+        "hash"
+    }
+
+    fn process_frame(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        metrics: Option<&mut dyn MetricsSink>,
+    ) -> Result<Vec<AlgorithmScore>> {
+        let hash = phash(frame, self.size, self.lowpass)?;
+        let raw = if let Some(last_hash) = &self.last_hash {
+            let dist = hash
+                .iter()
+                .zip(last_hash.iter())
+                .filter(|(left, right)| left != right)
+                .count() as f32
+                / (self.size * self.size) as f32;
+            if let Some(metrics) = metrics {
+                metrics.set_metric(frame.position.frame_index, "hash_dist", dist as f64);
+            }
+            dist
+        } else {
+            if let Some(metrics) = metrics {
+                metrics.set_metric(frame.position.frame_index, "hash_dist", 0.0);
+            }
+            0.0
+        };
+        self.last_hash = Some(hash);
+        Ok(vec![AlgorithmScore {
+            position: frame.position,
+            raw,
+            normalized: normalize_threshold(raw, self.threshold),
+        }])
     }
 }
 
@@ -973,6 +1568,61 @@ mod tests {
         }
     }
 
+    struct FixedScoreAlgorithm {
+        name: &'static str,
+        normalized: f32,
+    }
+
+    impl ScoreAlgorithm for FixedScoreAlgorithm {
+        fn name(&self) -> &'static str {
+            self.name
+        }
+
+        fn process_frame(
+            &mut self,
+            frame: &VideoFrame<'_>,
+            _metrics: Option<&mut dyn MetricsSink>,
+        ) -> Result<Vec<AlgorithmScore>> {
+            Ok(vec![AlgorithmScore {
+                position: frame.position,
+                raw: self.normalized,
+                normalized: self.normalized,
+            }])
+        }
+    }
+
+    struct DelayedScoreAlgorithm {
+        name: &'static str,
+        latency: usize,
+        normalized: f32,
+    }
+
+    impl ScoreAlgorithm for DelayedScoreAlgorithm {
+        fn name(&self) -> &'static str {
+            self.name
+        }
+
+        fn latency(&self) -> usize {
+            self.latency
+        }
+
+        fn process_frame(
+            &mut self,
+            frame: &VideoFrame<'_>,
+            _metrics: Option<&mut dyn MetricsSink>,
+        ) -> Result<Vec<AlgorithmScore>> {
+            let latency = self.latency as u64;
+            if frame.position.frame_index < latency {
+                return Ok(Vec::new());
+            }
+            Ok(vec![AlgorithmScore {
+                position: position_like(frame.position, frame.position.frame_index - latency),
+                raw: self.normalized,
+                normalized: self.normalized,
+            }])
+        }
+    }
+
     #[test]
     fn flash_filter_suppresses_until_min_length() {
         let mut filter = FlashFilter::new(FlashFilterMode::Suppress, 3);
@@ -1046,5 +1696,168 @@ mod tests {
     fn frame_validation_rejects_short_buffer() {
         let pos = FramePosition::from_frame_index(0, Rational64::new(30, 1));
         assert!(VideoFrame::rgb24(pos, 4, 4, &[0; 4]).is_err());
+    }
+
+    #[test]
+    fn normalization_maps_threshold_to_half() {
+        assert_eq!(normalize_threshold(10.0, 10.0), 0.5);
+        assert_eq!(normalize_threshold(20.0, 10.0), 1.0);
+        assert_eq!(normalize_threshold(1.0, 0.0), 1.0);
+        assert_eq!(normalize_threshold(0.0, 0.0), 0.0);
+    }
+
+    #[test]
+    fn composite_detector_ignores_weak_combined_score() {
+        let mut detector = WeightedCompositeDetector::builder()
+            .weighted_component(
+                WeightedComponent::new(
+                    FixedScoreAlgorithm {
+                        name: "content",
+                        normalized: 0.4,
+                    },
+                    1.0,
+                )
+                .unwrap(),
+            )
+            .weighted_component(
+                WeightedComponent::new(
+                    FixedScoreAlgorithm {
+                        name: "hash",
+                        normalized: 0.4,
+                    },
+                    1.0,
+                )
+                .unwrap(),
+            )
+            .threshold(0.5)
+            .min_scene_len(0)
+            .build()
+            .unwrap();
+
+        let cuts = detector
+            .process_frame(&frame(0, [0, 0, 0]).as_frame(), None)
+            .unwrap();
+        assert!(cuts.is_empty());
+    }
+
+    #[test]
+    fn composite_detector_emits_cut_from_combined_score() {
+        let mut detector = WeightedCompositeDetector::builder()
+            .weighted_component(
+                WeightedComponent::new(
+                    FixedScoreAlgorithm {
+                        name: "content",
+                        normalized: 0.4,
+                    },
+                    1.0,
+                )
+                .unwrap(),
+            )
+            .weighted_component(
+                WeightedComponent::new(
+                    FixedScoreAlgorithm {
+                        name: "hash",
+                        normalized: 0.6,
+                    },
+                    1.0,
+                )
+                .unwrap(),
+            )
+            .threshold(0.5)
+            .min_scene_len(0)
+            .build()
+            .unwrap();
+
+        let cuts = detector
+            .process_frame(&frame(0, [0, 0, 0]).as_frame(), None)
+            .unwrap();
+        assert_eq!(cuts.len(), 1);
+        assert_eq!(cuts[0].detector, "combined");
+        assert_eq!(cuts[0].score, Some(0.5));
+    }
+
+    #[test]
+    fn composite_detector_records_provenance_metrics() {
+        let mut detector = WeightedCompositeDetector::builder()
+            .weighted_component(
+                WeightedComponent::new(
+                    FixedScoreAlgorithm {
+                        name: "content",
+                        normalized: 0.5,
+                    },
+                    2.0,
+                )
+                .unwrap(),
+            )
+            .weighted_component(
+                WeightedComponent::new(
+                    FixedScoreAlgorithm {
+                        name: "hash",
+                        normalized: 1.0,
+                    },
+                    1.0,
+                )
+                .unwrap(),
+            )
+            .threshold(0.5)
+            .min_scene_len(0)
+            .build()
+            .unwrap();
+        let mut metrics = MetricsStore::default();
+
+        detector
+            .process_frame(&frame(0, [0, 0, 0]).as_frame(), Some(&mut metrics))
+            .unwrap();
+
+        let combined = metrics.get(0, "combined_score").unwrap();
+        assert!((combined - (2.0 / 3.0)).abs() < 0.000001);
+        assert_eq!(metrics.get(0, "combined_vote_count"), Some(2.0));
+        assert_eq!(metrics.get(0, "combined.content.raw"), Some(0.5));
+        assert_eq!(metrics.get(0, "combined.content.weighted"), Some(1.0));
+        assert_eq!(metrics.get(0, "combined.hash.normalized"), Some(1.0));
+    }
+
+    #[test]
+    fn composite_detector_waits_for_latency_before_evaluating() {
+        let mut detector = WeightedCompositeDetector::builder()
+            .weighted_component(
+                WeightedComponent::new(
+                    FixedScoreAlgorithm {
+                        name: "fast",
+                        normalized: 1.0,
+                    },
+                    1.0,
+                )
+                .unwrap(),
+            )
+            .weighted_component(
+                WeightedComponent::new(
+                    DelayedScoreAlgorithm {
+                        name: "slow",
+                        latency: 2,
+                        normalized: 1.0,
+                    },
+                    1.0,
+                )
+                .unwrap(),
+            )
+            .threshold(0.5)
+            .min_scene_len(0)
+            .build()
+            .unwrap();
+
+        assert!(detector
+            .process_frame(&frame(0, [0, 0, 0]).as_frame(), None)
+            .unwrap()
+            .is_empty());
+        assert!(detector
+            .process_frame(&frame(1, [0, 0, 0]).as_frame(), None)
+            .unwrap()
+            .is_empty());
+        let cuts = detector
+            .process_frame(&frame(2, [0, 0, 0]).as_frame(), None)
+            .unwrap();
+        assert_eq!(cuts.len(), 1);
+        assert_eq!(cuts[0].position.frame_index, 0);
     }
 }

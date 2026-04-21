@@ -523,6 +523,7 @@ Forbidden internal dependencies:
 
 ```bash
 cargo run -p video-analysis-cli -- detect --input video.mp4 --detector content --output scenes.csv --stats stats.csv
+cargo run -p video-analysis-cli -- detect --input video.mp4 --detectors content,adaptive,histogram,hash --combined-threshold 0.5 --detector-weight histogram=0.75 --detector-weight hash=0.75 --output scenes.csv --stats stats.csv
 cargo run -p video-analysis-cli -- list --input video.mp4 --detector adaptive
 cargo run -p video-analysis-cli -- split --input video.mp4 --detector content --output-dir scenes
 ```
