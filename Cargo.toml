@@ -12,6 +12,7 @@ members = [
     "crates/video-analysis-detectors",
     "crates/video-analysis-ffmpeg",
     "crates/video-analysis-ingest",
+    "crates/video-analysis-models",
     "crates/video-analysis-output",
     "crates/video-analysis-split",
     "crates/video-analysis-cli",
@@ -19,16 +20,21 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+base64 = "0.22.1"
 clap = { version = "4.5.51", features = ["derive"] }
 ffmpeg-next = { version = "8.0.0", default-features = false }
+hf-hub = { version = "0.5.0", default-features = false, features = ["ureq"] }
 num-rational = "0.4.2"
 num-traits = "0.2.19"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 tempfile = "3.23.0"
 thiserror = "2.0.17"
 video-analysis-core = { path = "crates/video-analysis-core" }
 video-analysis-detectors = { path = "crates/video-analysis-detectors" }
 video-analysis-ffmpeg = { path = "crates/video-analysis-ffmpeg" }
 video-analysis-ingest = { path = "crates/video-analysis-ingest" }
+video-analysis-models = { path = "crates/video-analysis-models" }
 video-analysis-output = { path = "crates/video-analysis-output" }
 video-analysis-split = { path = "crates/video-analysis-split" }
 
@@ -42,5 +48,6 @@ video-analysis-core.workspace = true
 video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-ingest.workspace = true
+video-analysis-models.workspace = true
 video-analysis-output.workspace = true
 video-analysis-split.workspace = true

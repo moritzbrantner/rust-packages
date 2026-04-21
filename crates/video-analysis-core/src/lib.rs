@@ -729,9 +729,30 @@ pub struct RealtimeVideoAnalysisResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AnalysisEvent {
     pub timestamp: Option<Timestamp>,
-    pub analyzer: &'static str,
-    pub label: &'static str,
+    pub analyzer: String,
+    pub label: String,
     pub score: Option<f32>,
+}
+
+impl AnalysisEvent {
+    pub fn new(analyzer: impl Into<String>, label: impl Into<String>) -> Self {
+        Self {
+            timestamp: None,
+            analyzer: analyzer.into(),
+            label: label.into(),
+            score: None,
+        }
+    }
+
+    pub fn at_timestamp(mut self, timestamp: Timestamp) -> Self {
+        self.timestamp = Some(timestamp);
+        self
+    }
+
+    pub fn score(mut self, score: f32) -> Self {
+        self.score = Some(score);
+        self
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -969,7 +990,7 @@ impl ScenePipelineBuilder {
 }
 
 pub trait VideoAnalyzer {
-    fn name(&self) -> &'static str;
+    fn name(&self) -> &str;
 
     fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<Observation>>;
 
@@ -1352,7 +1373,7 @@ impl RealtimeVideoPipelineBuilder {
 }
 
 pub trait AudioAnalyzer {
-    fn name(&self) -> &'static str;
+    fn name(&self) -> &str;
 
     fn process_frame(&mut self, frame: &AudioFrame<'_>) -> Result<Vec<AnalysisEvent>>;
 
@@ -1457,7 +1478,7 @@ impl AudioPipelineBuilder {
 }
 
 pub trait TextAnalyzer {
-    fn name(&self) -> &'static str;
+    fn name(&self) -> &str;
 
     fn process_segment(&mut self, segment: &TextSegment<'_>) -> Result<Vec<AnalysisEvent>>;
 
@@ -1721,7 +1742,7 @@ mod tests {
         struct OcrAnalyzer;
 
         impl VideoAnalyzer for OcrAnalyzer {
-            fn name(&self) -> &'static str {
+            fn name(&self) -> &str {
                 "ocr"
             }
 
@@ -1780,7 +1801,7 @@ mod tests {
         struct ObjectAnalyzer;
 
         impl VideoAnalyzer for ObjectAnalyzer {
-            fn name(&self) -> &'static str {
+            fn name(&self) -> &str {
                 "objects"
             }
 
@@ -1823,7 +1844,7 @@ mod tests {
         struct LoudnessAnalyzer;
 
         impl AudioAnalyzer for LoudnessAnalyzer {
-            fn name(&self) -> &'static str {
+            fn name(&self) -> &str {
                 "loudness"
             }
 
@@ -1834,11 +1855,10 @@ mod tests {
                 let mean = samples.iter().map(|sample| sample.abs()).sum::<f32>()
                     / samples.len().max(1) as f32;
                 Ok((mean > 0.5)
-                    .then(|| AnalysisEvent {
-                        timestamp: Some(frame.timestamp),
-                        analyzer: self.name(),
-                        label: "loud",
-                        score: Some(mean),
+                    .then(|| {
+                        AnalysisEvent::new(self.name(), "loud")
+                            .at_timestamp(frame.timestamp)
+                            .score(mean)
                     })
                     .into_iter()
                     .collect())
@@ -1868,7 +1888,7 @@ mod tests {
         struct KeywordAnalyzer;
 
         impl TextAnalyzer for KeywordAnalyzer {
-            fn name(&self) -> &'static str {
+            fn name(&self) -> &str {
                 "keyword"
             }
 
@@ -1876,11 +1896,12 @@ mod tests {
                 Ok(segment
                     .text
                     .contains("cut")
-                    .then(|| AnalysisEvent {
-                        timestamp: segment.timestamp,
-                        analyzer: self.name(),
-                        label: "keyword",
-                        score: Some(1.0),
+                    .then(|| {
+                        let mut event = AnalysisEvent::new(self.name(), "keyword").score(1.0);
+                        if let Some(timestamp) = segment.timestamp {
+                            event = event.at_timestamp(timestamp);
+                        }
+                        event
                     })
                     .into_iter()
                     .collect())

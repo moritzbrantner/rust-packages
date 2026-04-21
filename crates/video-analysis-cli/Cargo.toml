@@ -17,6 +17,6 @@ clap.workspace = true
 video-analysis-core.workspace = true
 video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
+video-analysis-models.workspace = true
 video-analysis-output.workspace = true
 video-analysis-split.workspace = true
-

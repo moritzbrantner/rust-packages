@@ -7,6 +7,7 @@ use video_analysis_detectors::{
     AdaptiveDetector, ContentDetector, HashDetector, HistogramDetector, ThresholdDetector,
 };
 use video_analysis_ffmpeg::FfmpegVideoSource;
+use video_analysis_models::{HuggingFaceDownloader, HuggingFaceModelSpec, ModelPreset, ModelTask};
 use video_analysis_output::{write_scene_list_csv, write_stats_csv};
 use video_analysis_split::{split_video_ffmpeg, SplitOptions};
 
@@ -22,6 +23,7 @@ enum Command {
     Detect(AnalyzeArgs),
     List(AnalyzeArgs),
     Split(SplitArgs),
+    Models(ModelsArgs),
 }
 
 #[derive(Debug, Parser)]
@@ -50,6 +52,38 @@ struct SplitArgs {
     detector_options: DetectorOptions,
 }
 
+#[derive(Debug, Parser)]
+struct ModelsArgs {
+    #[command(subcommand)]
+    command: ModelsCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum ModelsCommand {
+    Presets,
+    Download(ModelDownloadArgs),
+}
+
+#[derive(Debug, Parser)]
+struct ModelDownloadArgs {
+    #[arg(long, value_enum)]
+    preset: Option<ModelPresetKind>,
+    #[arg(long)]
+    repo_id: Option<String>,
+    #[arg(long, default_value = "main")]
+    revision: String,
+    #[arg(long, value_enum)]
+    task: Option<ModelTaskKind>,
+    #[arg(long = "file")]
+    files: Vec<String>,
+    #[arg(long)]
+    cache_dir: Option<PathBuf>,
+    #[arg(long)]
+    token: Option<String>,
+    #[arg(long, default_value_t = false)]
+    no_progress: bool,
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum DetectorKind {
     Content,
@@ -57,6 +91,52 @@ enum DetectorKind {
     Threshold,
     Histogram,
     Hash,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum ModelPresetKind {
+    #[value(name = "detr-resnet-50")]
+    DetrResnet50,
+    YolosTiny,
+    DistilbertSst2,
+    BertBaseNer,
+    #[value(name = "minilm-l6-v2")]
+    MiniLmL6V2,
+}
+
+impl From<ModelPresetKind> for ModelPreset {
+    fn from(value: ModelPresetKind) -> Self {
+        match value {
+            ModelPresetKind::DetrResnet50 => Self::DetrResnet50,
+            ModelPresetKind::YolosTiny => Self::YolosTiny,
+            ModelPresetKind::DistilbertSst2 => Self::DistilbertSst2,
+            ModelPresetKind::BertBaseNer => Self::BertBaseNer,
+            ModelPresetKind::MiniLmL6V2 => Self::MiniLmL6V2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum ModelTaskKind {
+    ObjectDetection,
+    ImageClassification,
+    TextClassification,
+    TokenClassification,
+    ZeroShotClassification,
+    TextEmbedding,
+}
+
+impl From<ModelTaskKind> for ModelTask {
+    fn from(value: ModelTaskKind) -> Self {
+        match value {
+            ModelTaskKind::ObjectDetection => Self::ObjectDetection,
+            ModelTaskKind::ImageClassification => Self::ImageClassification,
+            ModelTaskKind::TextClassification => Self::TextClassification,
+            ModelTaskKind::TokenClassification => Self::TokenClassification,
+            ModelTaskKind::ZeroShotClassification => Self::ZeroShotClassification,
+            ModelTaskKind::TextEmbedding => Self::TextEmbedding,
+        }
+    }
 }
 
 #[derive(Debug, Parser, Clone)]
@@ -117,6 +197,72 @@ fn main() -> Result<()> {
                 println!("{}", output.display());
             }
         }
+        Command::Models(args) => match args.command {
+            ModelsCommand::Presets => list_model_presets(),
+            ModelsCommand::Download(args) => download_model(args)?,
+        },
+    }
+    Ok(())
+}
+
+fn list_model_presets() {
+    for preset in ModelPreset::ALL {
+        let spec = preset.spec();
+        println!(
+            "{:<18} {:<48} {:?}",
+            preset.as_str(),
+            spec.repo_id,
+            spec.task
+        );
+    }
+}
+
+fn download_model(args: ModelDownloadArgs) -> Result<()> {
+    let spec = match (args.preset, args.repo_id) {
+        (Some(preset), None) => ModelPreset::from(preset).spec().revision(args.revision),
+        (None, Some(repo_id)) => {
+            if args.files.is_empty() {
+                return Err(video_analysis_core::DetectError::InvalidArgument(
+                    "--file is required when --repo-id is used".to_string(),
+                ));
+            }
+            let task = args
+                .task
+                .map(ModelTask::from)
+                .unwrap_or_else(|| ModelTask::Custom("custom".to_string()));
+            let mut spec = HuggingFaceModelSpec::new(repo_id, task).revision(args.revision);
+            for file in args.files {
+                spec = spec.file(file);
+            }
+            spec
+        }
+        (Some(_), Some(_)) => {
+            return Err(video_analysis_core::DetectError::InvalidArgument(
+                "use either --preset or --repo-id, not both".to_string(),
+            ));
+        }
+        (None, None) => {
+            return Err(video_analysis_core::DetectError::InvalidArgument(
+                "either --preset or --repo-id is required".to_string(),
+            ));
+        }
+    };
+
+    let mut downloader = HuggingFaceDownloader::new().progress(!args.no_progress);
+    if let Some(cache_dir) = args.cache_dir {
+        downloader = downloader.cache_dir(cache_dir);
+    }
+    if let Some(token) = args.token {
+        downloader = downloader.token(token);
+    }
+
+    let downloaded = downloader.download(&spec)?;
+    println!(
+        "downloaded {} from {}",
+        downloaded.spec.name, downloaded.spec.repo_id
+    );
+    for (remote, local) in downloaded.files {
+        println!("{remote}\t{}", local.display());
     }
     Ok(())
 }

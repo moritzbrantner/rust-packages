@@ -10,6 +10,8 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
 - `video-analysis-detectors`: content, adaptive, threshold, histogram, and perceptual hash detectors.
 - `video-analysis-ingest`: media ingest traits plus live/file text sources.
 - `video-analysis-ffmpeg`: FFmpeg-backed video and audio ingest implementations.
+- `video-analysis-models`: Hugging Face model downloads plus normalized model
+  adapter contracts for object, scene, and text/semantic analyzers.
 - `video-analysis-output`: scene/stats CSV and simple HTML output helpers.
 - `video-analysis-split`: ffmpeg CLI based scene splitting.
 - `video-analysis-cli`: `vanalyze` command-line tool.
@@ -30,6 +32,7 @@ flowchart LR
     ffmpeg[video-analysis-ffmpeg]
     output[video-analysis-output]
     split[video-analysis-split]
+    models[video-analysis-models]
 
     root[video-analysis facade]
     cli[video-analysis-cli]
@@ -40,17 +43,20 @@ flowchart LR
     ffmpeg --> ingest
     output --> core
     split --> core
+    models --> core
 
     root --> core
     root --> detectors
     root --> ingest
     root --> ffmpeg
+    root --> models
     root --> output
     root --> split
 
     cli --> core
     cli --> detectors
     cli --> ffmpeg
+    cli --> models
     cli --> output
     cli --> split
 ```
@@ -124,7 +130,7 @@ use video_analysis_ingest::VideoFrameSource;
 struct OcrAnalyzer;
 
 impl VideoAnalyzer for OcrAnalyzer {
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "ocr"
     }
 
@@ -173,6 +179,60 @@ components can consume either frame events immediately or complete per-scene
 batches. OCR observations can also be converted to `OwnedTextSegment` with
 `Observation::to_text_segment(...)` when a text pipeline should process detected
 on-screen text.
+
+### Hugging Face Model Downloads and Normalization
+
+Common Hugging Face models can be downloaded into the local Hugging Face cache:
+
+```bash
+vanalyze models presets
+vanalyze models download --preset detr-resnet-50
+vanalyze models download --preset distilbert-sst2
+```
+
+Custom repositories are also supported when the files are known:
+
+```bash
+vanalyze models download \
+  --repo-id hf-internal-testing/tiny-random-distilbert \
+  --task text-classification \
+  --file config.json \
+  --file tokenizer.json
+```
+
+The `video-analysis-models` crate keeps model-specific inference behind small
+backend traits:
+
+```rust
+use video_analysis_core::{Result, VideoAnalysisPipeline};
+use video_analysis_models::{
+    HuggingFaceDownloader, HuggingFaceModelSpec, ModelPreset, ModelVideoAnalyzer,
+    VisionModelBackend,
+};
+
+# fn build_backend() -> impl VisionModelBackend { unimplemented!() }
+fn main() -> Result<()> {
+    let spec = HuggingFaceModelSpec::from_preset(ModelPreset::DetrResnet50);
+    let downloaded = HuggingFaceDownloader::new().download(&spec)?;
+
+    let backend = build_backend(); // ONNX, Candle, Python transformers, etc.
+    let analyzer = ModelVideoAnalyzer::new(downloaded.spec.name, backend);
+    let _pipeline = VideoAnalysisPipeline::builder().analyzer(analyzer).build()?;
+    Ok(())
+}
+```
+
+Backends return `RawPrediction` values and the models crate repairs and
+normalizes common API differences: `xywh` or `xyxy` boxes, normalized or pixel
+coordinates, missing labels, minimum score filtering, and same-label
+non-maximum suppression. `ModelVideoAnalyzer` emits core `Observation` values;
+`ModelTextAnalyzer` emits core `AnalysisEvent` values with dynamic semantic
+labels.
+
+For model APIs that do not have a native Rust runtime yet, `ExternalCommandModel`
+passes a JSON request to any executable over stdin and expects normalized JSON
+predictions on stdout. This makes Python `transformers`, ONNX Runtime helpers,
+or service-specific CLIs usable while keeping the package API stable.
 
 ### Audio Analysis
 
