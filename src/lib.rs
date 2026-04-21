@@ -7,4 +7,5 @@ pub use video_analysis_ingest as ingest;
 pub use video_analysis_models as models;
 pub use video_analysis_output as output;
 pub use video_analysis_radiance_fields as radiance_fields;
+pub use video_analysis_reconstruction as reconstruction;
 pub use video_analysis_split as split;

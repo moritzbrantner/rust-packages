@@ -17,6 +17,7 @@ members = [
     "crates/video-analysis-models",
     "crates/video-analysis-output",
     "crates/video-analysis-radiance-fields",
+    "crates/video-analysis-reconstruction",
     "crates/video-analysis-split",
     "crates/video-analysis-use-cases",
     "crates/video-analysis-cli",
@@ -43,6 +44,7 @@ video-analysis-ingest = { path = "crates/video-analysis-ingest" }
 video-analysis-models = { path = "crates/video-analysis-models" }
 video-analysis-output = { path = "crates/video-analysis-output" }
 video-analysis-radiance-fields = { path = "crates/video-analysis-radiance-fields" }
+video-analysis-reconstruction = { path = "crates/video-analysis-reconstruction" }
 video-analysis-split = { path = "crates/video-analysis-split" }
 video-analysis-use-cases = { path = "crates/video-analysis-use-cases" }
 
@@ -61,4 +63,5 @@ video-analysis-ingest.workspace = true
 video-analysis-models.workspace = true
 video-analysis-output.workspace = true
 video-analysis-radiance-fields.workspace = true
+video-analysis-reconstruction.workspace = true
 video-analysis-split.workspace = true

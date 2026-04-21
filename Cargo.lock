@@ -1181,6 +1181,7 @@ dependencies = [
  "video-analysis-models",
  "video-analysis-output",
  "video-analysis-radiance-fields",
+ "video-analysis-reconstruction",
  "video-analysis-split",
 ]
 
@@ -1273,6 +1274,14 @@ name = "video-analysis-radiance-fields"
 version = "0.1.0"
 dependencies = [
  "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-reconstruction"
+version = "0.1.0"
+dependencies = [
+ "video-analysis-core",
+ "video-analysis-radiance-fields",
 ]
 
 [[package]]

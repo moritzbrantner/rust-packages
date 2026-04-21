@@ -88,6 +88,9 @@ orchestration. Most functional crates depend on `core`, while
 from `video-analysis-radiance-fields`. Composition happens in
 `video-analysis-cli` and the root `video-analysis` facade crate.
 
+For the inter-package API contracts, serialized report shapes, package exports,
+and compatibility rules, see [API Contracts](docs/API_CONTRACTS.md).
+
 ```mermaid
 flowchart LR
     core[video-analysis-core]
