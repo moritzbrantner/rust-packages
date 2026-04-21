@@ -1,9 +1,6 @@
 [workspace]
 members = [
-    "crates/linguistics-core",
-    "crates/linguistics-phonetics",
-    "crates/linguistics-morphology",
-    "crates/linguistics-syntax",
+    "crates/*",
 ]
 resolver = "2"
 

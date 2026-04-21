@@ -1,0 +1,10 @@
+[package]
+name = "huggingface-model-tabular"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hugging Face model category metadata for Tabular."
+
+[lints]
+workspace = true

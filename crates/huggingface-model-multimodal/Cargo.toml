@@ -1,0 +1,10 @@
+[package]
+name = "huggingface-model-multimodal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hugging Face model category metadata for Multimodal."
+
+[lints]
+workspace = true

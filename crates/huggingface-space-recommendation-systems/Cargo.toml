@@ -1,0 +1,10 @@
+[package]
+name = "huggingface-space-recommendation-systems"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hugging Face Space category metadata for Recommendation Systems."
+
+[lints]
+workspace = true

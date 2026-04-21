@@ -1,0 +1,10 @@
+[package]
+name = "huggingface-space-model-benchmarking"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hugging Face Space category metadata for Model Benchmarking."
+
+[lints]
+workspace = true

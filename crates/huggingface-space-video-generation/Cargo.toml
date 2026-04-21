@@ -1,0 +1,10 @@
+[package]
+name = "huggingface-space-video-generation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hugging Face Space category metadata for Video Generation."
+
+[lints]
+workspace = true

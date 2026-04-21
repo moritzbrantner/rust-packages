@@ -1,0 +1,10 @@
+[package]
+name = "huggingface-space-fine-tuning-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hugging Face Space category metadata for Fine Tuning Tools."
+
+[lints]
+workspace = true

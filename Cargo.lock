@@ -3,6 +3,182 @@
 version = 4
 
 [[package]]
+name = "huggingface-model-audio"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-model-computer-vision"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-model-multimodal"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-model-natural-language-processing"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-model-reinforcement-learning"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-model-tabular"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-3d-modeling"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-agent-environment"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-anomaly-detection"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-background-removal"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-character-animation"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-chatbots"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-code-generation"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-data-visualization"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-dataset-creation"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-document-analysis"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-face-recognition"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-financial-analysis"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-fine-tuning-tools"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-game-ai"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-image"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-image-captioning"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-image-editing"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-image-generation"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-image-upscaling"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-language-translation"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-medical-imaging"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-model-benchmarking"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-music-generation"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-object-detection"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-ocr"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-pose-estimation"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-question-answering"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-reachy"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-recommendation-systems"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-sentiment-analysis"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-speech-synthesis"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-style-transfer"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-text-analysis"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-text-generation"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-text-summarization"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-video-generation"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-visual-qa"
+version = "0.1.0"
+
+[[package]]
+name = "huggingface-space-voice-cloning"
+version = "0.1.0"
+
+[[package]]
 name = "linguistics-core"
 version = "0.1.0"
 

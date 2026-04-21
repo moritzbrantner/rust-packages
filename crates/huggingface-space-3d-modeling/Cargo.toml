@@ -1,0 +1,10 @@
+[package]
+name = "huggingface-space-3d-modeling"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hugging Face Space category metadata for 3D Modeling."
+
+[lints]
+workspace = true

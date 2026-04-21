@@ -1,0 +1,10 @@
+[package]
+name = "huggingface-model-reinforcement-learning"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hugging Face model category metadata for Reinforcement Learning."
+
+[lints]
+workspace = true
