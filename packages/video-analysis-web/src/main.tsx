@@ -1,13 +1,20 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  addEdge,
   Background,
   Controls,
+  Handle,
   MarkerType,
+  Panel as FlowPanel,
   Position,
   ReactFlow,
+  useEdgesState,
+  useNodesState,
+  type Connection,
   type Edge,
   type Node,
+  type NodeProps,
 } from "@xyflow/react";
 import {
   AssetSummary,
@@ -373,180 +380,608 @@ function Data({ report }: { report: YoutubeVideoReport }) {
   return <DataBucketOverview buckets={report.data_buckets} />;
 }
 
-const workflowNodes: Node[] = [
-  {
-    id: "source",
-    type: "input",
-    position: { x: 0, y: 170 },
-    sourcePosition: Position.Right,
-    data: {
-      label: <FlowNodeLabel title="YouTube URL / MP4" detail="source selection" tone="sky" />,
-    },
-  },
-  {
-    id: "download",
-    position: { x: 250, y: 70 },
-    targetPosition: Position.Left,
-    sourcePosition: Position.Right,
-    data: {
-      label: <FlowNodeLabel title="yt-dlp" detail="download to work dir" tone="rose" />,
-    },
-  },
-  {
-    id: "ffmpeg",
-    position: { x: 250, y: 270 },
-    targetPosition: Position.Left,
-    sourcePosition: Position.Right,
-    data: {
-      label: <FlowNodeLabel title="FFmpeg Sources" detail="video and audio frames" tone="amber" />,
-    },
-  },
-  {
-    id: "video",
-    position: { x: 520, y: 95 },
-    targetPosition: Position.Left,
-    sourcePosition: Position.Right,
-    data: {
-      label: <FlowNodeLabel title="Realtime Video Pipeline" detail="content scenes + sampled analyzers" tone="emerald" />,
-    },
-  },
-  {
-    id: "models",
-    position: { x: 790, y: 0 },
-    targetPosition: Position.Left,
-    sourcePosition: Position.Bottom,
-    data: {
-      label: <FlowNodeLabel title="External Model Hooks" detail="object detection and OCR" tone="violet" />,
-    },
-  },
-  {
-    id: "audio",
-    position: { x: 520, y: 300 },
-    targetPosition: Position.Left,
-    sourcePosition: Position.Right,
-    data: {
-      label: <FlowNodeLabel title="Audio Pipeline" detail="activity events" tone="cyan" />,
-    },
-  },
-  {
-    id: "transcript",
-    position: { x: 790, y: 230 },
-    targetPosition: Position.Left,
-    sourcePosition: Position.Right,
-    data: {
-      label: <FlowNodeLabel title="Whisper Transcript" detail="segments and text" tone="indigo" />,
-    },
-  },
-  {
-    id: "text",
-    position: { x: 1060, y: 230 },
-    targetPosition: Position.Left,
-    sourcePosition: Position.Right,
-    data: {
-      label: <FlowNodeLabel title="Text Pipeline" detail="heuristics and text model" tone="fuchsia" />,
-    },
-  },
-  {
-    id: "buckets",
-    position: { x: 790, y: 430 },
-    targetPosition: Position.Left,
-    sourcePosition: Position.Right,
-    data: {
-      label: <FlowNodeLabel title="Data Buckets" detail="video, audio, text records" tone="slate" />,
-    },
-  },
-  {
-    id: "report",
-    type: "output",
-    position: { x: 1330, y: 245 },
-    targetPosition: Position.Left,
-    data: {
-      label: <FlowNodeLabel title="Analysis JSON" detail="dashboard report" tone="zinc" />,
-    },
-  },
+type PortDirection = "in" | "out";
+type FlowTone = "sky" | "rose" | "amber" | "emerald" | "violet" | "cyan" | "indigo" | "fuchsia" | "slate" | "zinc";
+type PortType =
+  | "run_request"
+  | "run_config"
+  | "youtube_url"
+  | "video_file"
+  | "video_metadata"
+  | "video_frame"
+  | "audio_frame"
+  | "audio_wav"
+  | "scene_result"
+  | "video_observation"
+  | "model_request"
+  | "model_prediction"
+  | "transcript_segment"
+  | "audio_event"
+  | "text_event"
+  | "data_record"
+  | "data_bucket"
+  | "json_report"
+  | "dashboard_view";
+
+interface FlowPort {
+  id: string;
+  label: string;
+  type: PortType;
+}
+
+interface WorkflowNodeData extends Record<string, unknown> {
+  title: string;
+  packageName: string;
+  description: string;
+  tone: FlowTone;
+  inputs: FlowPort[];
+  outputs: FlowPort[];
+}
+
+type WorkflowNodeModel = Node<WorkflowNodeData, "workflow">;
+
+const workflowNodeTypes = { workflow: WorkflowNode };
+
+const initialWorkflowNodes: WorkflowNodeModel[] = [
+  workflowNode("react-page", 0, 180, {
+    title: "User Story Page",
+    packageName: "@video-analysis/web",
+    description: "Form state, report state, and dashboard tabs.",
+    tone: "sky",
+    inputs: [port("report", "report", "json_report")],
+    outputs: [
+      port("run", "run", "run_request"),
+      port("config", "config", "run_config"),
+      port("dashboard", "dashboard", "dashboard_view"),
+    ],
+  }),
+  workflowNode("source", 0, 500, {
+    title: "Source Picker",
+    packageName: "Run Configuration",
+    description: "YouTube URL mode or local file mode.",
+    tone: "sky",
+    inputs: [],
+    outputs: [
+      port("url", "youtube url", "youtube_url"),
+      port("file", "local file", "video_file"),
+    ],
+  }),
+  workflowNode("vite-api", 360, 190, {
+    title: "Local Analysis API",
+    packageName: "vite middleware",
+    description: "Validates input and spawns the Rust use-case command.",
+    tone: "rose",
+    inputs: [
+      port("run", "run request", "run_request"),
+      port("config", "run config", "run_config"),
+    ],
+    outputs: [port("args", "cargo args", "run_config")],
+  }),
+  workflowNode("use-case", 720, 190, {
+    title: "YouTube Use Case",
+    packageName: "video-analysis-use-cases",
+    description: "Coordinates download, ingest, analysis, buckets, and report JSON.",
+    tone: "amber",
+    inputs: [
+      port("args", "cargo args", "run_config"),
+      port("url", "youtube url", "youtube_url"),
+      port("file", "local file", "video_file"),
+    ],
+    outputs: [
+      port("url", "youtube url", "youtube_url"),
+      port("file", "video file", "video_file"),
+      port("config", "pipeline config", "run_config"),
+    ],
+  }),
+  workflowNode("download", 1080, 30, {
+    title: "YouTube Downloader",
+    packageName: "yt-dlp",
+    description: "Downloads a single video and emits the local media path.",
+    tone: "rose",
+    inputs: [port("url", "url", "youtube_url")],
+    outputs: [port("file", "mp4/webm/mkv", "video_file")],
+  }),
+  workflowNode("ffmpeg", 1080, 360, {
+    title: "FFmpeg Ingest",
+    packageName: "video-analysis-ffmpeg",
+    description: "Probes metadata and decodes video and audio samples.",
+    tone: "amber",
+    inputs: [port("file", "video file", "video_file")],
+    outputs: [
+      port("metadata", "metadata", "video_metadata"),
+      port("frames", "video frames", "video_frame"),
+      port("audio", "audio frames", "audio_frame"),
+      port("wav", "audio wav", "audio_wav"),
+    ],
+  }),
+  workflowNode("video-pipeline", 1440, 170, {
+    title: "Realtime Video Pipeline",
+    packageName: "video-analysis-core",
+    description: "Feeds frames through scene detection and sampled visual analyzers.",
+    tone: "emerald",
+    inputs: [
+      port("frames", "frames", "video_frame"),
+      port("config", "config", "run_config"),
+    ],
+    outputs: [
+      port("scenes", "scenes", "scene_result"),
+      port("observations", "observations", "video_observation"),
+      port("records", "frame records", "data_record"),
+    ],
+  }),
+  workflowNode("content-detector", 1810, 40, {
+    title: "Content Detector",
+    packageName: "video-analysis-detectors",
+    description: "Detects scene changes from frame deltas.",
+    tone: "emerald",
+    inputs: [
+      port("frames", "frames", "video_frame"),
+      port("config", "thresholds", "run_config"),
+    ],
+    outputs: [port("scenes", "scene cuts", "scene_result")],
+  }),
+  workflowNode("model-sampler", 1810, 260, {
+    title: "Sampled Visual Models",
+    packageName: "video-analysis-models",
+    description: "Builds model requests for object detection and OCR commands.",
+    tone: "violet",
+    inputs: [
+      port("frames", "sampled frames", "video_frame"),
+      port("config", "model config", "run_config"),
+    ],
+    outputs: [port("requests", "model requests", "model_request")],
+  }),
+  workflowNode("external-models", 2180, 260, {
+    title: "External Commands",
+    packageName: "object / ocr / text command",
+    description: "Receives JSON requests on stdin and returns predictions.",
+    tone: "violet",
+    inputs: [port("requests", "requests", "model_request")],
+    outputs: [port("predictions", "predictions", "model_prediction")],
+  }),
+  workflowNode("observations", 2550, 260, {
+    title: "Observation Normalizer",
+    packageName: "video-analysis-core",
+    description: "Maps predictions into typed observations with frame and scene context.",
+    tone: "violet",
+    inputs: [
+      port("predictions", "predictions", "model_prediction"),
+      port("scenes", "scene context", "scene_result"),
+    ],
+    outputs: [port("observations", "observations", "video_observation")],
+  }),
+  workflowNode("audio-pipeline", 1440, 520, {
+    title: "Audio Pipeline",
+    packageName: "video-analysis-core",
+    description: "Classifies audio activity from decoded samples.",
+    tone: "cyan",
+    inputs: [port("audio", "audio frames", "audio_frame")],
+    outputs: [
+      port("events", "audio events", "audio_event"),
+      port("records", "audio records", "data_record"),
+    ],
+  }),
+  workflowNode("transcriber", 1440, 790, {
+    title: "Transcriber",
+    packageName: "whisper cli",
+    description: "Creates transcript segments when transcription is enabled.",
+    tone: "indigo",
+    inputs: [port("wav", "audio wav", "audio_wav")],
+    outputs: [port("segments", "segments", "transcript_segment")],
+  }),
+  workflowNode("text-pipeline", 1810, 790, {
+    title: "Text Pipeline",
+    packageName: "video-analysis-core",
+    description: "Runs transcript heuristics and optional text model analysis.",
+    tone: "fuchsia",
+    inputs: [
+      port("segments", "segments", "transcript_segment"),
+      port("config", "model config", "run_config"),
+    ],
+    outputs: [
+      port("events", "text events", "text_event"),
+      port("records", "text records", "data_record"),
+    ],
+  }),
+  workflowNode("buckets", 2180, 560, {
+    title: "Bucket Aggregator",
+    packageName: "video-analysis-data",
+    description: "Rolls frame, audio, and transcript records into bounded buckets.",
+    tone: "slate",
+    inputs: [port("records", "records", "data_record")],
+    outputs: [port("buckets", "buckets", "data_bucket")],
+  }),
+  workflowNode("report-writer", 2920, 420, {
+    title: "Report Writer",
+    packageName: "serde_json",
+    description: "Writes source, assets, capabilities, video, audio, text, and bucket reports.",
+    tone: "zinc",
+    inputs: [
+      port("metadata", "metadata", "video_metadata"),
+      port("scenes", "scenes", "scene_result"),
+      port("observations", "observations", "video_observation"),
+      port("audio", "audio events", "audio_event"),
+      port("text", "text events", "text_event"),
+      port("segments", "transcript", "transcript_segment"),
+      port("buckets", "buckets", "data_bucket"),
+    ],
+    outputs: [port("report", "analysis.json", "json_report")],
+  }),
+  workflowNode("dashboard", 3280, 420, {
+    title: "Report Dashboard",
+    packageName: "@video-analysis/ui",
+    description: "Renders summary, scenes, signals, data buckets, and split plans.",
+    tone: "sky",
+    inputs: [port("report", "report json", "json_report")],
+    outputs: [port("view", "visible panels", "dashboard_view")],
+  }),
 ];
 
-const workflowEdges: Edge[] = [
-  edge("source", "download", "URL"),
-  edge("source", "ffmpeg", "file"),
-  edge("download", "ffmpeg", "local video"),
-  edge("ffmpeg", "video", "frames"),
-  edge("video", "models", "samples"),
-  edge("models", "video", "observations"),
-  edge("ffmpeg", "audio", "samples"),
-  edge("ffmpeg", "transcript", "audio wav"),
-  edge("transcript", "text", "segments"),
-  edge("video", "buckets", "frame records"),
-  edge("audio", "buckets", "audio records"),
-  edge("text", "buckets", "text records"),
-  edge("video", "report", "scenes"),
-  edge("audio", "report", "events"),
-  edge("text", "report", "events"),
-  edge("buckets", "report", "summaries"),
+const initialWorkflowEdges: Edge[] = [
+  workflowEdge("react-page", "run", "vite-api", "run"),
+  workflowEdge("react-page", "config", "vite-api", "config"),
+  workflowEdge("source", "url", "use-case", "url"),
+  workflowEdge("source", "file", "use-case", "file"),
+  workflowEdge("vite-api", "args", "use-case", "args"),
+  workflowEdge("use-case", "url", "download", "url"),
+  workflowEdge("use-case", "file", "ffmpeg", "file"),
+  workflowEdge("download", "file", "ffmpeg", "file"),
+  workflowEdge("use-case", "config", "video-pipeline", "config"),
+  workflowEdge("use-case", "config", "content-detector", "config"),
+  workflowEdge("use-case", "config", "model-sampler", "config"),
+  workflowEdge("use-case", "config", "text-pipeline", "config"),
+  workflowEdge("ffmpeg", "metadata", "report-writer", "metadata"),
+  workflowEdge("ffmpeg", "frames", "video-pipeline", "frames"),
+  workflowEdge("ffmpeg", "frames", "content-detector", "frames"),
+  workflowEdge("ffmpeg", "frames", "model-sampler", "frames"),
+  workflowEdge("ffmpeg", "audio", "audio-pipeline", "audio"),
+  workflowEdge("ffmpeg", "wav", "transcriber", "wav"),
+  workflowEdge("video-pipeline", "scenes", "report-writer", "scenes"),
+  workflowEdge("content-detector", "scenes", "observations", "scenes"),
+  workflowEdge("model-sampler", "requests", "external-models", "requests"),
+  workflowEdge("external-models", "predictions", "observations", "predictions"),
+  workflowEdge("observations", "observations", "report-writer", "observations"),
+  workflowEdge("audio-pipeline", "events", "report-writer", "audio"),
+  workflowEdge("transcriber", "segments", "text-pipeline", "segments"),
+  workflowEdge("transcriber", "segments", "report-writer", "segments"),
+  workflowEdge("text-pipeline", "events", "report-writer", "text"),
+  workflowEdge("video-pipeline", "records", "buckets", "records"),
+  workflowEdge("audio-pipeline", "records", "buckets", "records"),
+  workflowEdge("text-pipeline", "records", "buckets", "records"),
+  workflowEdge("buckets", "buckets", "report-writer", "buckets"),
+  workflowEdge("report-writer", "report", "dashboard", "report"),
+  workflowEdge("report-writer", "report", "react-page", "report"),
 ];
 
 function ComponentFlow() {
+  const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNodeModel>(initialWorkflowNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialWorkflowEdges);
+
+  const isValidConnection = useCallback(
+    (connection: Connection | Edge) => compatibleConnection(nodes, connection),
+    [nodes],
+  );
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      const sourcePort = findPort(nodes, connection.source, connection.sourceHandle, "out");
+      const targetPort = findPort(nodes, connection.target, connection.targetHandle, "in");
+      if (!sourcePort || !targetPort || sourcePort.type !== targetPort.type) {
+        return;
+      }
+      setEdges((currentEdges) =>
+        addEdge(
+          workflowEdgeFromConnection(connection, sourcePort.type),
+          currentEdges,
+        ),
+      );
+    },
+    [nodes, setEdges],
+  );
+
   return (
     <section className="rounded-lg border border-zinc-200 bg-white shadow-sm">
       <div className="flex flex-col gap-1 border-b border-zinc-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-sm font-semibold text-zinc-950">Component Flow</h2>
         <span className="text-xs text-zinc-500">video-analysis-use-cases youtube-video</span>
       </div>
-      <div className="h-[620px] min-h-[520px] w-full">
-        <ReactFlow
-          nodes={workflowNodes}
-          edges={workflowEdges}
+      <div className="h-[720px] min-h-[560px] w-full">
+        <ReactFlow<WorkflowNodeModel, Edge>
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={workflowNodeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          isValidConnection={isValidConnection}
           fitView
-          minZoom={0.35}
-          maxZoom={1.5}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
+          minZoom={0.18}
+          maxZoom={1.35}
+          nodesDraggable
+          nodesConnectable
+          elementsSelectable
+          edgesReconnectable
+          deleteKeyCode={["Backspace", "Delete"]}
           proOptions={{ hideAttribution: true }}
         >
           <Background color="#d4d4d8" gap={18} />
           <Controls showInteractive={false} />
+          <FlowPanel position="top-right" className="flex gap-2">
+            <button
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 shadow-sm hover:bg-zinc-50"
+              onClick={() => {
+                setNodes(initialWorkflowNodes);
+                setEdges(initialWorkflowEdges);
+              }}
+              title="Reset flow"
+            >
+              <RefreshIcon className="h-4 w-4" />
+              Reset
+            </button>
+            <button
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 shadow-sm hover:bg-zinc-50"
+              onClick={() => setEdges([])}
+              title="Clear edges"
+            >
+              <CloseIcon className="h-4 w-4" />
+              Clear Edges
+            </button>
+          </FlowPanel>
         </ReactFlow>
       </div>
     </section>
   );
 }
 
-function FlowNodeLabel({
-  title,
-  detail,
-  tone,
-}: {
-  title: string;
-  detail: string;
-  tone: "sky" | "rose" | "amber" | "emerald" | "violet" | "cyan" | "indigo" | "fuchsia" | "slate" | "zinc";
-}) {
+function WorkflowNode({ id, data, selected, isConnectable }: NodeProps) {
+  const nodeData = data as unknown as WorkflowNodeData;
   return (
-    <div className="min-w-40 text-left">
-      <div className="flex items-center gap-2">
-        <span className={classNames("h-2.5 w-2.5 rounded-full", flowToneClass(tone))} />
-        <span className="text-sm font-semibold text-zinc-950">{title}</span>
+    <div
+      className={classNames(
+        "w-[310px] rounded-lg border bg-white text-left shadow-sm",
+        selected ? "border-zinc-950 ring-2 ring-zinc-950/10" : "border-zinc-200",
+      )}
+    >
+      <div className={classNames("border-b px-3 py-2", workflowHeaderClass(nodeData.tone))}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-zinc-950">{nodeData.title}</div>
+            <div className="mt-0.5 text-[11px] font-medium text-zinc-600">{nodeData.packageName}</div>
+          </div>
+          <span className={classNames("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", flowToneClass(nodeData.tone))} />
+        </div>
+        <p className="mt-2 text-xs leading-5 text-zinc-600">{nodeData.description}</p>
       </div>
-      <div className="mt-1 text-xs text-zinc-500">{detail}</div>
+      <div className="grid grid-cols-2 gap-3 p-3">
+        <PortColumn
+          nodeId={id}
+          title="Inputs"
+          direction="in"
+          ports={nodeData.inputs}
+          isConnectable={isConnectable}
+        />
+        <PortColumn
+          nodeId={id}
+          title="Outputs"
+          direction="out"
+          ports={nodeData.outputs}
+          isConnectable={isConnectable}
+        />
+      </div>
     </div>
   );
 }
 
-function edge(source: string, target: string, label: string): Edge {
+function PortColumn({
+  nodeId,
+  title,
+  direction,
+  ports,
+  isConnectable,
+}: {
+  nodeId: string;
+  title: string;
+  direction: PortDirection;
+  ports: FlowPort[];
+  isConnectable: boolean;
+}) {
+  return (
+    <div>
+      <div className="mb-2 text-[11px] font-semibold uppercase text-zinc-500">{title}</div>
+      {ports.length === 0 ? (
+        <div className="rounded-md border border-dashed border-zinc-200 px-2 py-1.5 text-xs text-zinc-400">none</div>
+      ) : (
+        <div className="space-y-2">
+          {ports.map((port) => (
+            <PortRow
+              key={`${nodeId}-${direction}-${port.id}`}
+              nodeId={nodeId}
+              direction={direction}
+              port={port}
+              isConnectable={isConnectable}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PortRow({
+  direction,
+  port,
+  isConnectable,
+}: {
+  nodeId: string;
+  direction: PortDirection;
+  port: FlowPort;
+  isConnectable: boolean;
+}) {
+  const isInput = direction === "in";
+  return (
+    <div className={classNames("relative rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5", isInput ? "pl-3" : "pr-3")}>
+      <Handle
+        type={isInput ? "target" : "source"}
+        position={isInput ? Position.Left : Position.Right}
+        id={handleId(direction, port)}
+        isConnectable={isConnectable}
+        className={classNames("!h-3 !w-3 !border-2 !border-white", flowToneClass(typeTone(port.type)))}
+        style={{
+          left: isInput ? -7 : undefined,
+          right: isInput ? undefined : -7,
+          top: "50%",
+        }}
+      />
+      <div className={classNames("flex flex-col gap-1", isInput ? "items-start" : "items-end text-right")}>
+        <span className="text-xs font-medium text-zinc-800">{port.label}</span>
+        <span className={classNames("rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase", typeBadgeClass(port.type))}>
+          {formatPortType(port.type)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function workflowNode(id: string, x: number, y: number, data: WorkflowNodeData): WorkflowNodeModel {
   return {
-    id: `${source}-${target}-${label}`,
-    source,
-    target,
-    label,
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: "#71717a", strokeWidth: 1.5 },
-    labelStyle: { fill: "#52525b", fontSize: 11, fontWeight: 500 },
-    labelBgStyle: { fill: "#ffffff", fillOpacity: 0.88 },
+    id,
+    type: "workflow",
+    position: { x, y },
+    data,
   };
 }
 
-function flowToneClass(tone: Parameters<typeof FlowNodeLabel>[0]["tone"]): string {
+function port(id: string, label: string, type: PortType): FlowPort {
+  return { id, label, type };
+}
+
+function workflowEdge(source: string, sourcePortId: string, target: string, targetPortId: string): Edge {
+  const sourceNode = initialWorkflowNodes.find((node) => node.id === source);
+  const targetNode = initialWorkflowNodes.find((node) => node.id === target);
+  const sourcePort = sourceNode?.data.outputs.find((candidate) => candidate.id === sourcePortId);
+  const targetPort = targetNode?.data.inputs.find((candidate) => candidate.id === targetPortId);
+  const type = sourcePort?.type ?? targetPort?.type ?? "run_config";
+
+  return workflowEdgeFromConnection(
+    {
+      source,
+      target,
+      sourceHandle: sourcePort ? handleId("out", sourcePort) : null,
+      targetHandle: targetPort ? handleId("in", targetPort) : null,
+    },
+    type,
+  );
+}
+
+function workflowEdgeFromConnection(connection: Connection | Edge, type: PortType): Edge {
+  return {
+    id: `${connection.source}-${connection.sourceHandle}-${connection.target}-${connection.targetHandle}`,
+    source: connection.source ?? "",
+    target: connection.target ?? "",
+    sourceHandle: connection.sourceHandle,
+    targetHandle: connection.targetHandle,
+    label: formatPortType(type),
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed },
+    style: { stroke: portTypeStroke(type), strokeWidth: 1.7 },
+    labelStyle: { fill: "#3f3f46", fontSize: 11, fontWeight: 600 },
+    labelBgStyle: { fill: "#ffffff", fillOpacity: 0.9 },
+  };
+}
+
+function compatibleConnection(nodes: WorkflowNodeModel[], connection: Connection | Edge): boolean {
+  if (!connection.source || !connection.target || connection.source === connection.target) {
+    return false;
+  }
+  const sourcePort = findPort(nodes, connection.source, connection.sourceHandle, "out");
+  const targetPort = findPort(nodes, connection.target, connection.targetHandle, "in");
+  return Boolean(sourcePort && targetPort && sourcePort.type === targetPort.type);
+}
+
+function findPort(
+  nodes: WorkflowNodeModel[],
+  nodeId: string | null,
+  handle: string | null | undefined,
+  direction: PortDirection,
+): FlowPort | null {
+  if (!nodeId || !handle) {
+    return null;
+  }
+  const parsed = parseHandleId(handle);
+  if (!parsed || parsed.direction !== direction) {
+    return null;
+  }
+  const node = nodes.find((candidate) => candidate.id === nodeId);
+  const ports = direction === "in" ? node?.data.inputs : node?.data.outputs;
+  return ports?.find((portCandidate) => portCandidate.id === parsed.portId && portCandidate.type === parsed.type) ?? null;
+}
+
+function handleId(direction: PortDirection, portValue: FlowPort): string {
+  return `${direction}|${portValue.id}|${portValue.type}`;
+}
+
+function parseHandleId(handle: string): { direction: PortDirection; portId: string; type: PortType } | null {
+  const [direction, portId, type] = handle.split("|");
+  if ((direction !== "in" && direction !== "out") || !portId || !isPortType(type)) {
+    return null;
+  }
+  return { direction, portId, type };
+}
+
+function isPortType(value: string | undefined): value is PortType {
+  return [
+    "run_request",
+    "run_config",
+    "youtube_url",
+    "video_file",
+    "video_metadata",
+    "video_frame",
+    "audio_frame",
+    "audio_wav",
+    "scene_result",
+    "video_observation",
+    "model_request",
+    "model_prediction",
+    "transcript_segment",
+    "audio_event",
+    "text_event",
+    "data_record",
+    "data_bucket",
+    "json_report",
+    "dashboard_view",
+  ].includes(value ?? "");
+}
+
+function formatPortType(type: PortType): string {
+  return type.replace(/_/g, " ");
+}
+
+function workflowHeaderClass(tone: FlowTone): string {
+  switch (tone) {
+    case "sky":
+      return "border-sky-100 bg-sky-50";
+    case "rose":
+      return "border-rose-100 bg-rose-50";
+    case "amber":
+      return "border-amber-100 bg-amber-50";
+    case "emerald":
+      return "border-emerald-100 bg-emerald-50";
+    case "violet":
+      return "border-violet-100 bg-violet-50";
+    case "cyan":
+      return "border-cyan-100 bg-cyan-50";
+    case "indigo":
+      return "border-indigo-100 bg-indigo-50";
+    case "fuchsia":
+      return "border-fuchsia-100 bg-fuchsia-50";
+    case "slate":
+      return "border-slate-100 bg-slate-50";
+    case "zinc":
+      return "border-zinc-100 bg-zinc-50";
+  }
+}
+
+function flowToneClass(tone: FlowTone): string {
   switch (tone) {
     case "sky":
       return "bg-sky-500";
@@ -568,6 +1003,89 @@ function flowToneClass(tone: Parameters<typeof FlowNodeLabel>[0]["tone"]): strin
       return "bg-slate-500";
     case "zinc":
       return "bg-zinc-700";
+  }
+}
+
+function typeTone(type: PortType): FlowTone {
+  switch (type) {
+    case "youtube_url":
+    case "json_report":
+    case "dashboard_view":
+      return "sky";
+    case "video_file":
+    case "video_metadata":
+      return "amber";
+    case "video_frame":
+    case "scene_result":
+      return "emerald";
+    case "model_request":
+    case "model_prediction":
+    case "video_observation":
+      return "violet";
+    case "audio_frame":
+    case "audio_event":
+    case "audio_wav":
+      return "cyan";
+    case "transcript_segment":
+      return "indigo";
+    case "text_event":
+      return "fuchsia";
+    case "data_record":
+    case "data_bucket":
+      return "slate";
+    case "run_request":
+    case "run_config":
+      return "zinc";
+  }
+}
+
+function typeBadgeClass(type: PortType): string {
+  switch (typeTone(type)) {
+    case "sky":
+      return "bg-sky-100 text-sky-800";
+    case "rose":
+      return "bg-rose-100 text-rose-800";
+    case "amber":
+      return "bg-amber-100 text-amber-800";
+    case "emerald":
+      return "bg-emerald-100 text-emerald-800";
+    case "violet":
+      return "bg-violet-100 text-violet-800";
+    case "cyan":
+      return "bg-cyan-100 text-cyan-800";
+    case "indigo":
+      return "bg-indigo-100 text-indigo-800";
+    case "fuchsia":
+      return "bg-fuchsia-100 text-fuchsia-800";
+    case "slate":
+      return "bg-slate-100 text-slate-800";
+    case "zinc":
+      return "bg-zinc-100 text-zinc-800";
+  }
+}
+
+function portTypeStroke(type: PortType): string {
+  switch (typeTone(type)) {
+    case "sky":
+      return "#0ea5e9";
+    case "rose":
+      return "#f43f5e";
+    case "amber":
+      return "#f59e0b";
+    case "emerald":
+      return "#10b981";
+    case "violet":
+      return "#8b5cf6";
+    case "cyan":
+      return "#06b6d4";
+    case "indigo":
+      return "#6366f1";
+    case "fuchsia":
+      return "#d946ef";
+    case "slate":
+      return "#64748b";
+    case "zinc":
+      return "#52525b";
   }
 }
 
@@ -949,6 +1467,15 @@ function DownloadIcon({ className }: { className?: string }) {
       <path d="M10 3v9" strokeLinecap="round" />
       <path d="m6.5 8.5 3.5 3.5 3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M4 15.5h12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={className}>
+      <path d="m5 5 10 10" strokeLinecap="round" />
+      <path d="m15 5-10 10" strokeLinecap="round" />
     </svg>
   );
 }
