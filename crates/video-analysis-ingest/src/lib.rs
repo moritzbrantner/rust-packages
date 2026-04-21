@@ -5,8 +5,10 @@ use std::path::Path;
 use num_rational::Rational64;
 use video_analysis_core::{
     AudioAnalysis, AudioAnalysisResult, AudioPipeline, AudioSampleFormat, DetectionResult,
-    FrameAnalysis, OwnedAudioFrame, OwnedTextSegment, OwnedVideoFrame, PixelFormat, Result,
-    ScenePipeline, TextAnalysis, TextAnalysisResult, TextPipeline,
+    FrameAnalysis, OwnedAudioFrame, OwnedTextSegment, OwnedVideoFrame, PixelFormat,
+    RealtimeVideoAnalysisResult, RealtimeVideoFrameAnalysis, RealtimeVideoPipeline, Result,
+    ScenePipeline, TextAnalysis, TextAnalysisResult, TextPipeline, VideoAnalysisPipeline,
+    VideoAnalysisResult, VideoFrameAnalysis,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -159,6 +161,40 @@ where
         on_frame(&analysis)?;
     }
     pipeline.finish_detection()
+}
+
+pub fn analyze_video_frames<S, F>(
+    source: &mut S,
+    pipeline: &mut VideoAnalysisPipeline,
+    mut on_frame: F,
+) -> Result<VideoAnalysisResult>
+where
+    S: VideoFrameSource,
+    F: FnMut(&VideoFrameAnalysis) -> Result<()>,
+{
+    pipeline.reset();
+    while let Some(frame) = source.next_video_frame()? {
+        let analysis = pipeline.process_frame(frame)?;
+        on_frame(&analysis)?;
+    }
+    pipeline.finish_analysis()
+}
+
+pub fn analyze_realtime_video_source<S, F>(
+    source: &mut S,
+    pipeline: &mut RealtimeVideoPipeline,
+    mut on_frame: F,
+) -> Result<RealtimeVideoAnalysisResult>
+where
+    S: VideoFrameSource,
+    F: FnMut(&RealtimeVideoFrameAnalysis) -> Result<()>,
+{
+    pipeline.reset();
+    while let Some(frame) = source.next_video_frame()? {
+        let analysis = pipeline.process_frame(frame)?;
+        on_frame(&analysis)?;
+    }
+    pipeline.finish_analysis()
 }
 
 pub fn analyze_audio_source<S, F>(

@@ -6,7 +6,7 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
 ## Crates
 
 - `video-analysis`: umbrella re-export crate.
-- `video-analysis-core`: timecodes, video/audio/text sample types, metrics, analyzer traits, and realtime pipelines.
+- `video-analysis-core`: timecodes, video/audio/text sample types, metrics, analyzer traits, observations, and realtime pipelines.
 - `video-analysis-detectors`: content, adaptive, threshold, histogram, and perceptual hash detectors.
 - `video-analysis-ingest`: media ingest traits plus live/file text sources.
 - `video-analysis-ffmpeg`: FFmpeg-backed video and audio ingest implementations.
@@ -72,7 +72,7 @@ video-analysis-ffmpeg
 - `video-analysis-ingest` defines file/live source traits for video, audio, and
   text.
 - `video-analysis-core` owns video/audio/text sample types, time, scene, result,
-  analyzer traits, and pipeline orchestration.
+  observation, analyzer trait, and pipeline orchestration contracts.
 - `video-analysis-detectors` implements scene detector algorithms.
 - `video-analysis-cli` wires the source, detector choice, and pipeline execution.
 
@@ -108,6 +108,71 @@ fn main() -> Result<()> {
 For recorded sources, `ScenePipeline::detect(&mut source)` remains available.
 For realtime sources, call `process_frame()` as frames arrive and only call
 `finish_detection()` when the stream ends or the application shuts down.
+
+### Realtime Video Enrichment
+
+Scene detection and frame-level enrichment can run in one pass over a live
+video stream. OCR, face recognition, object detection, and similar integrations
+implement `VideoAnalyzer` and emit structured `Observation` values.
+
+```rust
+use video_analysis_core::{Observation, ObservationKind, RealtimeVideoPipeline, Result, VideoAnalyzer, VideoFrame};
+use video_analysis_detectors::ContentDetector;
+use video_analysis_ffmpeg::FfmpegVideoSource;
+use video_analysis_ingest::VideoFrameSource;
+
+struct OcrAnalyzer;
+
+impl VideoAnalyzer for OcrAnalyzer {
+    fn name(&self) -> &'static str {
+        "ocr"
+    }
+
+    fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<Observation>> {
+        let _ = frame;
+        Ok(vec![Observation::new(self.name(), ObservationKind::Text)
+            .text("detected text")
+            .score(0.95)])
+    }
+}
+
+fn main() -> Result<()> {
+    let mut source = FfmpegVideoSource::open_live("rtsp://camera.example/stream")?;
+    let mut pipeline = RealtimeVideoPipeline::builder()
+        .scene_detector(ContentDetector::default())
+        .video_analyzer(OcrAnalyzer)
+        .start_in_scene(true)
+        .build()?;
+
+    while let Some(frame) = source.next_video_frame()? {
+        let analysis = pipeline.process_frame(frame)?;
+
+        for observation in analysis.observations {
+            println!("scene {:?}: {:?}", observation.scene_index, observation.kind);
+        }
+
+        for scene in analysis.completed_scenes {
+            println!(
+                "closed scene {} with {} observations",
+                scene.scene_index,
+                scene.observations.len()
+            );
+        }
+    }
+
+    let result = pipeline.finish_analysis()?;
+    println!("{} scenes, {} observations", result.scenes.len(), result.observations.len());
+    Ok(())
+}
+```
+
+`RealtimeVideoPipeline` decodes each frame once, feeds the borrowed frame to
+scene detectors and video analyzers, annotates observations with the active
+scene index, and emits a `SceneAnalysis` as soon as a scene closes. Downstream
+components can consume either frame events immediately or complete per-scene
+batches. OCR observations can also be converted to `OwnedTextSegment` with
+`Observation::to_text_segment(...)` when a text pipeline should process detected
+on-screen text.
 
 ### Audio Analysis
 

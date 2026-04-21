@@ -284,7 +284,7 @@ pub trait MetricsSink {
     fn set_metric(&mut self, frame_index: u64, key: &'static str, value: f64);
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct MetricsStore {
     rows: BTreeMap<u64, BTreeMap<&'static str, f64>>,
     keys: BTreeSet<&'static str>,
@@ -550,7 +550,7 @@ impl OwnedTextSegment {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct DetectionResult {
     pub scenes: Vec<Scene>,
     pub cuts: Vec<Cut>,
@@ -562,6 +562,167 @@ pub struct DetectionResult {
 pub struct FrameAnalysis {
     pub position: FramePosition,
     pub cuts: Vec<Cut>,
+    pub frames_processed: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BoundingBox {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl BoundingBox {
+    pub fn new(x: u32, y: u32, width: u32, height: u32) -> Result<Self> {
+        if width == 0 || height == 0 {
+            return Err(DetectError::InvalidArgument(
+                "bounding box must have non-zero width and height".to_string(),
+            ));
+        }
+        Ok(Self {
+            x,
+            y,
+            width,
+            height,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ObservationKind {
+    Text,
+    Face,
+    Object,
+    Scene,
+    Custom(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Observation {
+    pub timestamp: Option<Timestamp>,
+    pub frame: Option<FramePosition>,
+    pub scene_index: Option<u64>,
+    pub analyzer: String,
+    pub kind: ObservationKind,
+    pub label: Option<String>,
+    pub text: Option<String>,
+    pub score: Option<f32>,
+    pub region: Option<BoundingBox>,
+    pub track_id: Option<String>,
+    pub attributes: BTreeMap<String, String>,
+}
+
+impl Observation {
+    pub fn new(analyzer: impl Into<String>, kind: ObservationKind) -> Self {
+        Self {
+            timestamp: None,
+            frame: None,
+            scene_index: None,
+            analyzer: analyzer.into(),
+            kind,
+            label: None,
+            text: None,
+            score: None,
+            region: None,
+            track_id: None,
+            attributes: BTreeMap::new(),
+        }
+    }
+
+    pub fn at_frame(mut self, position: FramePosition) -> Self {
+        self.timestamp = Some(position.timestamp);
+        self.frame = Some(position);
+        self
+    }
+
+    pub fn at_timestamp(mut self, timestamp: Timestamp) -> Self {
+        self.timestamp = Some(timestamp);
+        self
+    }
+
+    pub fn in_scene(mut self, scene_index: u64) -> Self {
+        self.scene_index = Some(scene_index);
+        self
+    }
+
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    pub fn text(mut self, text: impl Into<String>) -> Self {
+        self.text = Some(text.into());
+        self
+    }
+
+    pub fn score(mut self, score: f32) -> Self {
+        self.score = Some(score);
+        self
+    }
+
+    pub fn region(mut self, region: BoundingBox) -> Self {
+        self.region = Some(region);
+        self
+    }
+
+    pub fn track_id(mut self, track_id: impl Into<String>) -> Self {
+        self.track_id = Some(track_id.into());
+        self
+    }
+
+    pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.attributes.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn to_text_segment(&self, segment_index: u64) -> Option<OwnedTextSegment> {
+        let text = self.text.as_ref()?;
+        let mut segment = OwnedTextSegment::new(segment_index, text.clone());
+        if let Some(timestamp) = self.timestamp {
+            segment = segment.timestamp(timestamp);
+        }
+        if let Some(language) = self.attributes.get("language") {
+            segment = segment.language(language.clone());
+        }
+        Some(segment)
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct VideoAnalysisResult {
+    pub observations: Vec<Observation>,
+    pub frames_processed: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VideoFrameAnalysis {
+    pub position: FramePosition,
+    pub observations: Vec<Observation>,
+    pub frames_processed: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneAnalysis {
+    pub scene_index: u64,
+    pub scene: Scene,
+    pub observations: Vec<Observation>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RealtimeVideoFrameAnalysis {
+    pub position: FramePosition,
+    pub scene: FrameAnalysis,
+    pub observations: Vec<Observation>,
+    pub completed_scenes: Vec<SceneAnalysis>,
+    pub frames_processed: u64,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct RealtimeVideoAnalysisResult {
+    pub detection: DetectionResult,
+    pub observations: Vec<Observation>,
+    pub scenes: Vec<SceneAnalysis>,
     pub frames_processed: u64,
 }
 
@@ -650,26 +811,30 @@ impl ScenePipeline {
     }
 
     pub fn process_frame(&mut self, frame: OwnedVideoFrame) -> Result<FrameAnalysis> {
+        let frame = self.prepare_frame(frame)?;
+        self.process_frame_ref(&frame.as_frame())
+    }
+
+    pub fn process_frame_ref(&mut self, frame: &VideoFrame<'_>) -> Result<FrameAnalysis> {
         if self.state.finished {
             return Err(DetectError::InvalidArgument(
                 "cannot process frames after finish_detection; call reset first".to_string(),
             ));
         }
-        let frame = self.prepare_frame(frame)?;
-        let frame_ref = frame.as_frame();
-        self.state.first_position.get_or_insert(frame_ref.position);
-        self.state.last_position = Some(frame_ref.position);
+        self.validate_frame_options(frame)?;
+        self.state.first_position.get_or_insert(frame.position);
+        self.state.last_position = Some(frame.position);
 
         let mut cuts = Vec::new();
         for detector in &mut self.detectors {
-            let mut new_cuts = detector.process_frame(&frame_ref, Some(&mut self.state.metrics))?;
+            let mut new_cuts = detector.process_frame(frame, Some(&mut self.state.metrics))?;
             cuts.append(&mut new_cuts);
         }
         let cuts = self.record_cuts(cuts);
         self.state.frames_processed += 1;
 
         Ok(FrameAnalysis {
-            position: frame_ref.position,
+            position: frame.position,
             cuts,
             frames_processed: self.state.frames_processed,
         })
@@ -741,6 +906,11 @@ impl ScenePipeline {
     }
 
     fn prepare_frame(&self, frame: OwnedVideoFrame) -> Result<OwnedVideoFrame> {
+        self.validate_frame_options(&frame.as_frame())?;
+        Ok(frame)
+    }
+
+    fn validate_frame_options(&self, frame: &VideoFrame<'_>) -> Result<()> {
         let _ = self.auto_downscale_min_width;
         if let Some(crop) = self.crop {
             if crop.x0 >= frame.width || crop.y0 >= frame.height {
@@ -749,7 +919,7 @@ impl ScenePipeline {
                 ));
             }
         }
-        Ok(frame)
+        Ok(())
     }
 }
 
@@ -795,6 +965,389 @@ impl ScenePipelineBuilder {
             auto_downscale_min_width: self.auto_downscale_min_width,
             state: ScenePipelineState::default(),
         })
+    }
+}
+
+pub trait VideoAnalyzer {
+    fn name(&self) -> &'static str;
+
+    fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<Observation>>;
+
+    fn finish(&mut self, _last_position: Option<FramePosition>) -> Result<Vec<Observation>> {
+        Ok(Vec::new())
+    }
+}
+
+pub struct VideoAnalysisPipeline {
+    analyzers: Vec<Box<dyn VideoAnalyzer>>,
+    state: VideoAnalysisPipelineState,
+}
+
+#[derive(Debug, Default, Clone)]
+struct VideoAnalysisPipelineState {
+    observations: Vec<Observation>,
+    last_position: Option<FramePosition>,
+    frames_processed: u64,
+    finished: bool,
+}
+
+impl VideoAnalysisPipeline {
+    pub fn builder() -> VideoAnalysisPipelineBuilder {
+        VideoAnalysisPipelineBuilder::default()
+    }
+
+    pub fn process_frame(&mut self, frame: OwnedVideoFrame) -> Result<VideoFrameAnalysis> {
+        self.process_frame_ref(&frame.as_frame())
+    }
+
+    pub fn process_frame_ref(&mut self, frame: &VideoFrame<'_>) -> Result<VideoFrameAnalysis> {
+        if self.state.finished {
+            return Err(DetectError::InvalidArgument(
+                "cannot process video frames after finish_analysis; call reset first".to_string(),
+            ));
+        }
+        self.state.last_position = Some(frame.position);
+
+        let mut observations = Vec::new();
+        for analyzer in &mut self.analyzers {
+            let mut new_observations = analyzer.process_frame(frame)?;
+            for observation in &mut new_observations {
+                if observation.timestamp.is_none() {
+                    observation.timestamp = Some(frame.position.timestamp);
+                }
+                if observation.frame.is_none() {
+                    observation.frame = Some(frame.position);
+                }
+            }
+            observations.append(&mut new_observations);
+        }
+        self.state.observations.extend(observations.iter().cloned());
+        self.state.frames_processed += 1;
+
+        Ok(VideoFrameAnalysis {
+            position: frame.position,
+            observations,
+            frames_processed: self.state.frames_processed,
+        })
+    }
+
+    pub fn finish_analysis(&mut self) -> Result<VideoAnalysisResult> {
+        if !self.state.finished {
+            let mut observations = Vec::new();
+            for analyzer in &mut self.analyzers {
+                let mut new_observations = analyzer.finish(self.state.last_position)?;
+                observations.append(&mut new_observations);
+            }
+            self.state.observations.extend(observations);
+            self.state.finished = true;
+        }
+        Ok(VideoAnalysisResult {
+            observations: self.state.observations.clone(),
+            frames_processed: self.state.frames_processed,
+        })
+    }
+
+    pub fn reset(&mut self) {
+        self.state = VideoAnalysisPipelineState::default();
+    }
+
+    pub fn observations(&self) -> &[Observation] {
+        &self.state.observations
+    }
+
+    pub fn frames_processed(&self) -> u64 {
+        self.state.frames_processed
+    }
+}
+
+#[derive(Default)]
+pub struct VideoAnalysisPipelineBuilder {
+    analyzers: Vec<Box<dyn VideoAnalyzer>>,
+}
+
+impl VideoAnalysisPipelineBuilder {
+    pub fn analyzer<A: VideoAnalyzer + 'static>(mut self, analyzer: A) -> Self {
+        self.analyzers.push(Box::new(analyzer));
+        self
+    }
+
+    pub fn build(self) -> Result<VideoAnalysisPipeline> {
+        if self.analyzers.is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "at least one video analyzer is required".to_string(),
+            ));
+        }
+        Ok(VideoAnalysisPipeline {
+            analyzers: self.analyzers,
+            state: VideoAnalysisPipelineState::default(),
+        })
+    }
+}
+
+pub struct RealtimeVideoPipeline {
+    scene_pipeline: ScenePipeline,
+    video_pipeline: Option<VideoAnalysisPipeline>,
+    state: RealtimeVideoPipelineState,
+}
+
+#[derive(Debug, Default, Clone)]
+struct RealtimeVideoPipelineState {
+    observations: Vec<Observation>,
+    completed_scenes: Vec<SceneAnalysis>,
+    open_scene_observations: Vec<Observation>,
+    active_scene_start: Option<FramePosition>,
+    active_scene_index: u64,
+    first_position: Option<FramePosition>,
+    last_position: Option<FramePosition>,
+    frames_processed: u64,
+    finished: bool,
+}
+
+impl RealtimeVideoPipeline {
+    pub fn builder() -> RealtimeVideoPipelineBuilder {
+        RealtimeVideoPipelineBuilder::default()
+    }
+
+    pub fn new(
+        scene_pipeline: ScenePipeline,
+        video_pipeline: Option<VideoAnalysisPipeline>,
+    ) -> Self {
+        Self {
+            scene_pipeline,
+            video_pipeline,
+            state: RealtimeVideoPipelineState::default(),
+        }
+    }
+
+    pub fn process_frame(&mut self, frame: OwnedVideoFrame) -> Result<RealtimeVideoFrameAnalysis> {
+        self.process_frame_ref(&frame.as_frame())
+    }
+
+    pub fn process_frame_ref(
+        &mut self,
+        frame: &VideoFrame<'_>,
+    ) -> Result<RealtimeVideoFrameAnalysis> {
+        if self.state.finished {
+            return Err(DetectError::InvalidArgument(
+                "cannot process video frames after finish_analysis; call reset first".to_string(),
+            ));
+        }
+
+        self.state.first_position.get_or_insert(frame.position);
+        self.state.last_position = Some(frame.position);
+        self.state.active_scene_start.get_or_insert(frame.position);
+
+        let scene = self.scene_pipeline.process_frame_ref(frame)?;
+        let completed_scenes = self.close_scenes(&scene.cuts);
+        let mut observations = if let Some(pipeline) = &mut self.video_pipeline {
+            pipeline.process_frame_ref(frame)?.observations
+        } else {
+            Vec::new()
+        };
+        self.annotate_observations(&mut observations, frame.position);
+        self.state
+            .open_scene_observations
+            .extend(observations.iter().cloned());
+        self.state.observations.extend(observations.iter().cloned());
+        self.state.frames_processed += 1;
+
+        Ok(RealtimeVideoFrameAnalysis {
+            position: frame.position,
+            scene,
+            observations,
+            completed_scenes,
+            frames_processed: self.state.frames_processed,
+        })
+    }
+
+    pub fn finish_analysis(&mut self) -> Result<RealtimeVideoAnalysisResult> {
+        let detection = self.scene_pipeline.finish_detection()?;
+        if !self.state.finished {
+            let pending_cuts = detection
+                .cuts
+                .iter()
+                .filter(|cut| {
+                    self.state
+                        .active_scene_start
+                        .map(|start| cut.position.frame_index > start.frame_index)
+                        .unwrap_or(false)
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            self.close_scenes(&pending_cuts);
+
+            if let Some(pipeline) = &mut self.video_pipeline {
+                let already_observed = self.state.observations.len();
+                let result = pipeline.finish_analysis()?;
+                let mut final_observations = result
+                    .observations
+                    .into_iter()
+                    .skip(already_observed)
+                    .collect::<Vec<_>>();
+                self.annotate_observations_without_frame(&mut final_observations);
+                self.state
+                    .open_scene_observations
+                    .extend(final_observations.iter().cloned());
+                self.state
+                    .observations
+                    .extend(final_observations.iter().cloned());
+            }
+            self.state.finished = true;
+        }
+
+        let scenes = self.scene_analyses_for(&detection.scenes);
+        Ok(RealtimeVideoAnalysisResult {
+            detection,
+            observations: self.state.observations.clone(),
+            scenes,
+            frames_processed: self.state.frames_processed,
+        })
+    }
+
+    pub fn reset(&mut self) {
+        self.scene_pipeline.reset();
+        if let Some(pipeline) = &mut self.video_pipeline {
+            pipeline.reset();
+        }
+        self.state = RealtimeVideoPipelineState::default();
+    }
+
+    pub fn observations(&self) -> &[Observation] {
+        &self.state.observations
+    }
+
+    pub fn completed_scenes(&self) -> &[SceneAnalysis] {
+        &self.state.completed_scenes
+    }
+
+    pub fn frames_processed(&self) -> u64 {
+        self.state.frames_processed
+    }
+
+    fn close_scenes(&mut self, cuts: &[Cut]) -> Vec<SceneAnalysis> {
+        let mut completed = Vec::new();
+        for cut in cuts {
+            let Some(start) = self.state.active_scene_start else {
+                continue;
+            };
+            if cut.position.frame_index <= start.frame_index {
+                continue;
+            }
+            let scene = Scene {
+                start,
+                end: cut.position,
+            };
+            let observations = std::mem::take(&mut self.state.open_scene_observations);
+            let analysis = SceneAnalysis {
+                scene_index: self.state.active_scene_index,
+                scene,
+                observations,
+            };
+            self.state.completed_scenes.push(analysis.clone());
+            completed.push(analysis);
+            self.state.active_scene_index += 1;
+            self.state.active_scene_start = Some(cut.position);
+        }
+        completed
+    }
+
+    fn annotate_observations(&self, observations: &mut [Observation], position: FramePosition) {
+        for observation in observations {
+            if observation.timestamp.is_none() {
+                observation.timestamp = Some(position.timestamp);
+            }
+            if observation.frame.is_none() {
+                observation.frame = Some(position);
+            }
+            if observation.scene_index.is_none() {
+                observation.scene_index = Some(self.state.active_scene_index);
+            }
+        }
+    }
+
+    fn annotate_observations_without_frame(&self, observations: &mut [Observation]) {
+        for observation in observations {
+            if observation.scene_index.is_none() {
+                observation.scene_index = Some(self.state.active_scene_index);
+            }
+        }
+    }
+
+    fn scene_analyses_for(&self, scenes: &[Scene]) -> Vec<SceneAnalysis> {
+        scenes
+            .iter()
+            .enumerate()
+            .map(|(index, scene)| {
+                let scene_index = index as u64;
+                let observations = self
+                    .state
+                    .observations
+                    .iter()
+                    .filter(|observation| observation.scene_index == Some(scene_index))
+                    .cloned()
+                    .collect();
+                SceneAnalysis {
+                    scene_index,
+                    scene: scene.clone(),
+                    observations,
+                }
+            })
+            .collect()
+    }
+}
+
+#[derive(Default)]
+pub struct RealtimeVideoPipelineBuilder {
+    scene_pipeline: Option<ScenePipeline>,
+    scene_builder: ScenePipelineBuilder,
+    video_analyzers: Vec<Box<dyn VideoAnalyzer>>,
+}
+
+impl RealtimeVideoPipelineBuilder {
+    pub fn scene_pipeline(mut self, pipeline: ScenePipeline) -> Self {
+        self.scene_pipeline = Some(pipeline);
+        self
+    }
+
+    pub fn scene_detector<D: SceneDetector + 'static>(mut self, detector: D) -> Self {
+        self.scene_builder = self.scene_builder.detector(detector);
+        self
+    }
+
+    pub fn video_analyzer<A: VideoAnalyzer + 'static>(mut self, analyzer: A) -> Self {
+        self.video_analyzers.push(Box::new(analyzer));
+        self
+    }
+
+    pub fn start_in_scene(mut self, value: bool) -> Self {
+        self.scene_builder = self.scene_builder.start_in_scene(value);
+        self
+    }
+
+    pub fn crop(mut self, value: Option<CropRegion>) -> Self {
+        self.scene_builder = self.scene_builder.crop(value);
+        self
+    }
+
+    pub fn auto_downscale_min_width(mut self, value: u32) -> Self {
+        self.scene_builder = self.scene_builder.auto_downscale_min_width(value);
+        self
+    }
+
+    pub fn build(self) -> Result<RealtimeVideoPipeline> {
+        let scene_pipeline = match self.scene_pipeline {
+            Some(pipeline) => pipeline,
+            None => self.scene_builder.build()?,
+        };
+        let video_pipeline = if self.video_analyzers.is_empty() {
+            None
+        } else {
+            Some(VideoAnalysisPipeline {
+                analyzers: self.video_analyzers,
+                state: VideoAnalysisPipelineState::default(),
+            })
+        };
+        Ok(RealtimeVideoPipeline::new(scene_pipeline, video_pipeline))
     }
 }
 
@@ -1051,6 +1604,17 @@ mod tests {
         FramePosition::from_frame_index(frame, fps())
     }
 
+    fn owned_frame(frame_index: u64) -> OwnedVideoFrame {
+        OwnedVideoFrame {
+            position: pos(frame_index),
+            width: 1,
+            height: 1,
+            pixel_format: PixelFormat::Rgb24,
+            data: vec![0, 0, 0],
+            stride: 3,
+        }
+    }
+
     #[test]
     fn timecode_formats_and_clamps_subtraction() {
         let tc = FrameTimecode::from_seconds(10.0, fps()).unwrap();
@@ -1136,17 +1700,13 @@ mod tests {
             .start_in_scene(true)
             .build()
             .unwrap();
-        let frame = |frame_index| OwnedVideoFrame {
-            position: pos(frame_index),
-            width: 1,
-            height: 1,
-            pixel_format: PixelFormat::Rgb24,
-            data: vec![0, 0, 0],
-            stride: 3,
-        };
 
-        assert!(pipeline.process_frame(frame(0)).unwrap().cuts.is_empty());
-        let analysis = pipeline.process_frame(frame(1)).unwrap();
+        assert!(pipeline
+            .process_frame(owned_frame(0))
+            .unwrap()
+            .cuts
+            .is_empty());
+        let analysis = pipeline.process_frame(owned_frame(1)).unwrap();
         assert_eq!(analysis.frames_processed, 2);
         assert_eq!(analysis.cuts[0].position.frame_index, 1);
 
@@ -1154,6 +1714,108 @@ mod tests {
         assert_eq!(result.frames_processed, 2);
         assert_eq!(result.cuts.len(), 1);
         assert_eq!(result.scenes.len(), 2);
+    }
+
+    #[test]
+    fn video_pipeline_emits_frame_observations() {
+        struct OcrAnalyzer;
+
+        impl VideoAnalyzer for OcrAnalyzer {
+            fn name(&self) -> &'static str {
+                "ocr"
+            }
+
+            fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<Observation>> {
+                Ok(vec![Observation::new(self.name(), ObservationKind::Text)
+                    .at_frame(frame.position)
+                    .text("EXIT")
+                    .score(0.9)])
+            }
+        }
+
+        let mut pipeline = VideoAnalysisPipeline::builder()
+            .analyzer(OcrAnalyzer)
+            .build()
+            .unwrap();
+
+        let analysis = pipeline.process_frame(owned_frame(3)).unwrap();
+        assert_eq!(analysis.frames_processed, 1);
+        assert_eq!(analysis.observations[0].text.as_deref(), Some("EXIT"));
+        assert_eq!(
+            analysis.observations[0].to_text_segment(0).unwrap().text,
+            "EXIT"
+        );
+        assert_eq!(pipeline.finish_analysis().unwrap().observations.len(), 1);
+    }
+
+    #[test]
+    fn realtime_video_pipeline_groups_observations_by_completed_scene() {
+        struct CutOnFrame(u64);
+
+        impl SceneDetector for CutOnFrame {
+            fn name(&self) -> &'static str {
+                "test"
+            }
+
+            fn metric_keys(&self) -> &'static [&'static str] {
+                &[]
+            }
+
+            fn process_frame(
+                &mut self,
+                frame: &VideoFrame<'_>,
+                _metrics: Option<&mut dyn MetricsSink>,
+            ) -> Result<Vec<Cut>> {
+                Ok((frame.position.frame_index == self.0)
+                    .then(|| Cut {
+                        position: frame.position,
+                        detector: self.name(),
+                        score: Some(1.0),
+                    })
+                    .into_iter()
+                    .collect())
+            }
+        }
+
+        struct ObjectAnalyzer;
+
+        impl VideoAnalyzer for ObjectAnalyzer {
+            fn name(&self) -> &'static str {
+                "objects"
+            }
+
+            fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<Observation>> {
+                Ok(vec![Observation::new(self.name(), ObservationKind::Object)
+                    .at_frame(frame.position)
+                    .label(format!("frame-{}", frame.position.frame_index))])
+            }
+        }
+
+        let mut pipeline = RealtimeVideoPipeline::builder()
+            .scene_detector(CutOnFrame(2))
+            .video_analyzer(ObjectAnalyzer)
+            .start_in_scene(true)
+            .build()
+            .unwrap();
+
+        assert!(pipeline
+            .process_frame(owned_frame(0))
+            .unwrap()
+            .completed_scenes
+            .is_empty());
+        pipeline.process_frame(owned_frame(1)).unwrap();
+        let analysis = pipeline.process_frame(owned_frame(2)).unwrap();
+
+        assert_eq!(analysis.completed_scenes.len(), 1);
+        assert_eq!(analysis.completed_scenes[0].scene.start.frame_index, 0);
+        assert_eq!(analysis.completed_scenes[0].scene.end.frame_index, 2);
+        assert_eq!(analysis.completed_scenes[0].observations.len(), 2);
+        assert_eq!(analysis.observations[0].scene_index, Some(1));
+
+        let result = pipeline.finish_analysis().unwrap();
+        assert_eq!(result.detection.scenes.len(), 2);
+        assert_eq!(result.scenes[0].observations.len(), 2);
+        assert_eq!(result.scenes[1].observations.len(), 1);
     }
 
     #[test]
