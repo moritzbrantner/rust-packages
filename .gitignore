@@ -1,2 +1,4 @@
 .cargo-target/
-
+node_modules/
+packages/*/node_modules/
+packages/video-analysis-web/dist/

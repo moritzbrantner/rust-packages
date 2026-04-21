@@ -1,0 +1,15 @@
+{
+  "name": "video-analysis-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.13",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "ui:build": "bun run --cwd packages/video-analysis-ui build",
+    "web:dev": "bun run --cwd packages/video-analysis-web dev",
+    "web:build": "bun run --cwd packages/video-analysis-web build",
+    "web:typecheck": "bun run --cwd packages/video-analysis-web typecheck"
+  }
+}

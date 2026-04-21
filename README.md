@@ -18,6 +18,63 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
 - `video-analysis-split`: ffmpeg CLI based scene splitting.
 - `video-analysis-cli`: `vanalyze` command-line tool.
 - `video-analysis-use-cases`: runnable end-to-end use-case pipelines.
+- `@video-analysis/ui`: React + TailwindCSS component packs for viewing
+  analysis results in an application UI.
+
+## Frontend Component Packs
+
+The `packages/video-analysis-ui` npm package mirrors the Rust package
+boundaries with subpath exports:
+
+- `@video-analysis/ui/core`: scene timelines, scene tables, observations,
+  audio/text events, and video summary cards.
+- `@video-analysis/ui/cli`: command status, arguments, and generated output
+  file summaries for `vanalyze` workflows.
+- `@video-analysis/ui/data`: bucket and stream summary views.
+- `@video-analysis/ui/detectors`: detection and cut summary views.
+- `@video-analysis/ui/ffmpeg`: media metadata panels.
+- `@video-analysis/ui/ingest`: source and asset summaries.
+- `@video-analysis/ui/models`: capability and scored model observation views.
+- `@video-analysis/ui/output`: report shell and JSON report loader.
+- `@video-analysis/ui/split`: scene split plan preview.
+- `@video-analysis/ui/use-cases`: composed dashboards, including
+  `YoutubeVideoReportView` for the YouTube video use-case JSON report.
+- `@video-analysis/ui`: the root facade that re-exports all frontend packs.
+
+```tsx
+import { YoutubeVideoReportView } from "@video-analysis/ui/use-cases";
+import type { YoutubeVideoReport } from "@video-analysis/ui";
+
+export function ReportPage({ report }: { report: YoutubeVideoReport }) {
+  return <YoutubeVideoReportView report={report} />;
+}
+```
+
+Add the package output to Tailwind's content list:
+
+```js
+import videoAnalysisContent from "@video-analysis/ui/tailwind-content";
+
+export default {
+  content: ["./src/**/*.{ts,tsx}", ...videoAnalysisContent],
+};
+```
+
+## Use-Case Website
+
+`packages/video-analysis-web` is a Vite React app for trying the available
+use-case workflows and viewing generated reports with the component packs.
+
+```bash
+bun install
+bun run ui:build
+bun run web:dev
+```
+
+The app includes the YouTube video use case, a command builder for
+`video-analysis-use-cases`, sample report data, JSON report loading, and
+dashboard views for scenes, observations, transcript, events, buckets, and split
+plans.
 
 ## Dependency Graph
 

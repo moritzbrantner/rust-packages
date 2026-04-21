@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../src/use-cases/index.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,UAAU,CAAC;AAUnD,wBAAgB,sBAAsB,CAAC,EAAE,MAAM,EAAE,EAAE;IAAE,MAAM,EAAE,kBAAkB,CAAA;CAAE,2CAuBhF;AAED,eAAO,MAAM,iBAAiB,+BAAyB,CAAC;AAExD,wBAAgB,eAAe,CAAC,EAC9B,aAAa,GACd,EAAE;IACD,aAAa,EAAE,kBAAkB,CAAC,eAAe,CAAC,CAAC;CACpD,2CAyBA"}
