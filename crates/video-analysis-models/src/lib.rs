@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::str::FromStr;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -799,22 +799,12 @@ impl ExternalCommandModel {
         &self.model
     }
 
+    pub fn persistent(self) -> PersistentExternalCommandModel {
+        PersistentExternalCommandModel::new(self.command, self.model).args(self.args)
+    }
+
     fn run(&mut self, input: ExternalModelInput<'_>) -> Result<Vec<RawPrediction>> {
-        let request = ExternalModelRequest {
-            task: self.model.spec.task.as_protocol_str(),
-            model: ExternalModelInfo {
-                name: &self.model.spec.name,
-                repo_id: &self.model.spec.repo_id,
-                revision: &self.model.spec.revision,
-                files: self
-                    .model
-                    .files
-                    .iter()
-                    .map(|(key, path)| (key.as_str(), path.to_string_lossy().into_owned()))
-                    .collect(),
-            },
-            input,
-        };
+        let request = external_model_request(&self.model, input);
         let payload = serde_json::to_vec(&request)
             .map_err(|err| DetectError::Source(format!("failed to encode model request: {err}")))?;
 
@@ -852,7 +842,136 @@ impl ExternalCommandModel {
     }
 }
 
+pub struct PersistentExternalCommandModel {
+    command: PathBuf,
+    args: Vec<String>,
+    model: DownloadedModel,
+    child: Option<PersistentCommandChild>,
+}
+
+struct PersistentCommandChild {
+    child: Child,
+    stdin: ChildStdin,
+    stdout: BufReader<ChildStdout>,
+}
+
+impl PersistentExternalCommandModel {
+    pub fn new(command: impl Into<PathBuf>, model: DownloadedModel) -> Self {
+        Self {
+            command: command.into(),
+            args: Vec::new(),
+            model,
+            child: None,
+        }
+    }
+
+    pub fn arg(mut self, value: impl Into<String>) -> Self {
+        self.args.push(value.into());
+        self
+    }
+
+    pub fn args(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.args.extend(values.into_iter().map(Into::into));
+        self
+    }
+
+    pub fn model(&self) -> &DownloadedModel {
+        &self.model
+    }
+
+    pub fn stop(&mut self) -> Result<()> {
+        if let Some(mut child) = self.child.take() {
+            drop(child.stdin);
+            let status = child.child.wait()?;
+            if !status.success() {
+                return Err(DetectError::Source(format!(
+                    "persistent model command `{}` exited with status {status}",
+                    self.command.display()
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn run(&mut self, input: ExternalModelInput<'_>) -> Result<Vec<RawPrediction>> {
+        let request = external_model_request(&self.model, input);
+        let payload = serde_json::to_vec(&request)
+            .map_err(|err| DetectError::Source(format!("failed to encode model request: {err}")))?;
+        let command = self.command.display().to_string();
+        let child = self.child()?;
+
+        child.stdin.write_all(&payload)?;
+        child.stdin.write_all(b"\n")?;
+        child.stdin.flush()?;
+
+        let mut line = String::new();
+        let bytes = child.stdout.read_line(&mut line)?;
+        if bytes == 0 {
+            return Err(DetectError::Source(format!(
+                "persistent model command `{command}` closed stdout"
+            )));
+        }
+        let response: ExternalModelResponse = serde_json::from_str(&line).map_err(|err| {
+            DetectError::Source(format!(
+                "persistent model command `{command}` returned invalid JSON: {err}"
+            ))
+        })?;
+        Ok(response.predictions)
+    }
+
+    fn child(&mut self) -> Result<&mut PersistentCommandChild> {
+        if self.child.is_none() {
+            let mut child = Command::new(&self.command)
+                .args(&self.args)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()?;
+            let stdin = child.stdin.take().ok_or_else(|| {
+                DetectError::Source("persistent model command stdin is unavailable".to_string())
+            })?;
+            let stdout = child.stdout.take().ok_or_else(|| {
+                DetectError::Source("persistent model command stdout is unavailable".to_string())
+            })?;
+            self.child = Some(PersistentCommandChild {
+                child,
+                stdin,
+                stdout: BufReader::new(stdout),
+            });
+        }
+        Ok(self.child.as_mut().expect("persistent model child exists"))
+    }
+}
+
+impl Drop for PersistentExternalCommandModel {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.child.kill();
+            let _ = child.child.wait();
+        }
+    }
+}
+
 impl VisionModelBackend for ExternalCommandModel {
+    fn task(&self) -> ModelTask {
+        self.model.spec.task.clone()
+    }
+
+    fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPrediction>> {
+        self.run(ExternalModelInput::VideoFrame {
+            width: frame.width,
+            height: frame.height,
+            pixel_format: match frame.pixel_format {
+                video_analysis_core::PixelFormat::Rgb24 => "rgb24",
+                video_analysis_core::PixelFormat::Bgr24 => "bgr24",
+            },
+            stride: frame.stride,
+            data_base64: BASE64.encode(frame.data),
+        })
+    }
+}
+
+impl VisionModelBackend for PersistentExternalCommandModel {
     fn task(&self) -> ModelTask {
         self.model.spec.task.clone()
     }
@@ -882,6 +1001,40 @@ impl TextModelBackend for ExternalCommandModel {
             language: segment.language,
             is_final: segment.is_final,
         })
+    }
+}
+
+impl TextModelBackend for PersistentExternalCommandModel {
+    fn task(&self) -> ModelTask {
+        self.model.spec.task.clone()
+    }
+
+    fn predict_text(&mut self, segment: &TextSegment<'_>) -> Result<Vec<RawPrediction>> {
+        self.run(ExternalModelInput::Text {
+            text: segment.text,
+            language: segment.language,
+            is_final: segment.is_final,
+        })
+    }
+}
+
+fn external_model_request<'a>(
+    model: &'a DownloadedModel,
+    input: ExternalModelInput<'a>,
+) -> ExternalModelRequest<'a> {
+    ExternalModelRequest {
+        task: model.spec.task.as_protocol_str(),
+        model: ExternalModelInfo {
+            name: &model.spec.name,
+            repo_id: &model.spec.repo_id,
+            revision: &model.spec.revision,
+            files: model
+                .files
+                .iter()
+                .map(|(key, path)| (key.as_str(), path.to_string_lossy().into_owned()))
+                .collect(),
+        },
+        input,
     }
 }
 
@@ -1063,5 +1216,32 @@ mod tests {
         assert_eq!(events[0].label, "POSITIVE");
         assert_eq!(events[0].score, Some(0.99));
         assert_eq!(events[0].timestamp, segment.timestamp);
+    }
+
+    #[test]
+    fn persistent_external_command_reuses_process_for_text_predictions() {
+        let model = DownloadedModel {
+            spec: HuggingFaceModelSpec::new("test-model", ModelTask::TextClassification),
+            files: BTreeMap::new(),
+        };
+        let script =
+            "while IFS= read -r line; do printf '%s\\n' '{\"predictions\":[{\"label\":\"ok\",\"score\":0.5}]}'; done";
+        let mut backend = PersistentExternalCommandModel::new("sh", model)
+            .arg("-c")
+            .arg(script);
+        let segment = TextSegment {
+            segment_index: 0,
+            timestamp: None,
+            text: "hello",
+            language: Some("en"),
+            is_final: true,
+        };
+
+        let first = backend.predict_text(&segment).unwrap();
+        let second = backend.predict_text(&segment).unwrap();
+        backend.stop().unwrap();
+
+        assert_eq!(first[0].label.as_deref(), Some("ok"));
+        assert_eq!(second[0].score, Some(0.5));
     }
 }

@@ -626,6 +626,7 @@ pub fn is_ffprobe_available() -> bool {
         .unwrap_or(false)
 }
 
+#[cfg(feature = "test-utils")]
 pub fn write_two_scene_test_video(path: impl AsRef<Path>) -> Result<()> {
     let path = path.as_ref();
     let status = Command::new("ffmpeg")
@@ -655,6 +656,7 @@ pub fn write_two_scene_test_video(path: impl AsRef<Path>) -> Result<()> {
     }
 }
 
+#[cfg(feature = "test-utils")]
 pub fn write_test_audio(path: impl AsRef<Path>) -> Result<()> {
     let path = path.as_ref();
     let status = Command::new("ffmpeg")
@@ -710,6 +712,19 @@ fn parse_rate(value: &str) -> std::result::Result<Rational64, FfmpegError> {
         ));
     }
     Ok(Rational64::new(num, den))
+}
+
+pub fn ensure_parent_dir(path: &Path) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    Ok(())
+}
+
+pub fn touch_text(path: &Path, text: &str) -> std::io::Result<()> {
+    ensure_parent_dir(path)?;
+    let mut file = std::fs::File::create(path)?;
+    file.write_all(text.as_bytes())
 }
 
 #[cfg(test)]
@@ -769,17 +784,4 @@ mod tests {
         }
         assert!(count > 0, "expected decoded audio frames");
     }
-}
-
-pub fn ensure_parent_dir(path: &Path) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    Ok(())
-}
-
-pub fn touch_text(path: &Path, text: &str) -> std::io::Result<()> {
-    ensure_parent_dir(path)?;
-    let mut file = std::fs::File::create(path)?;
-    file.write_all(text.as_bytes())
 }

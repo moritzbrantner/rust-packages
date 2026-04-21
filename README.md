@@ -80,6 +80,22 @@ The app includes the YouTube video use case, a command builder for
 dashboard views for scenes, observations, transcript, events, buckets, and split
 plans.
 
+## Workspace Checks
+
+Run the full local verification baseline before publishing changes:
+
+```bash
+scripts/check.sh
+```
+
+The script runs Rust tests, strict clippy, and the UI/web production builds.
+FFmpeg decode coverage is intentionally opt-in so the default suite stays
+hermetic:
+
+```bash
+cargo test -p video-analysis-ffmpeg --features ffmpeg-tests
+```
+
 ## Dependency Graph
 
 `video-analysis-core` is the foundational crate for shared contracts and pipeline

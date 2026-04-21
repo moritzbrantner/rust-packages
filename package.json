@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "check": "scripts/check.sh",
     "ui:build": "bun run --cwd packages/video-analysis-ui build",
     "web:dev": "bun run --cwd packages/video-analysis-web dev",
     "web:build": "bun run --cwd packages/video-analysis-web build",

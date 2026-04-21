@@ -146,7 +146,7 @@ export interface DataBucketReport {
 }
 
 export interface YoutubeVideoReport {
-  use_case: "youtube-video" | string;
+  use_case: "youtube-video";
   source: SourceReport;
   assets: AssetReport;
   capabilities: CapabilityReport;

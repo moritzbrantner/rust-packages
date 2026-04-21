@@ -143,11 +143,19 @@ It exposes:
   input args.
 - `FfmpegAudioSourceOptions`, including audio chunk size and extra input args.
 - `probe`, `probe_input`, `probe_audio`, and `probe_audio_input` helpers.
+- `is_ffmpeg_available` and `is_ffprobe_available` probes.
 
 FFmpeg is responsible for external process interaction, probing, decoding, and
 conversion. Downstream packages should consume only core and ingest contracts
 such as `OwnedVideoFrame`, `OwnedAudioFrame`, `VideoFrameSource`, and
 `AudioFrameSource`.
+
+Generated media fixture helpers are behind the `test-utils` feature. Opt-in
+decode coverage is available with:
+
+```bash
+cargo test -p video-analysis-ffmpeg --features ffmpeg-tests
+```
 
 ## Detector Contracts
 
@@ -228,6 +236,7 @@ Backend and analyzer contracts:
 - `ModelVideoAnalyzer`
 - `ModelTextAnalyzer`
 - `ExternalCommandModel`
+- `PersistentExternalCommandModel`
 
 Vision backends return raw predictions for a `VideoFrame<'_>`. Text backends
 return raw predictions for a `TextSegment<'_>`. The model crate normalizes those
@@ -238,6 +247,11 @@ values for text.
 
 `ExternalCommandModel` starts an executable, writes one JSON request to stdin,
 and expects one JSON response on stdout.
+
+`PersistentExternalCommandModel` uses the same request and response objects over
+newline-delimited JSON. The child process is started once, receives one compact
+JSON request per line on stdin, and must return one compact JSON response per
+line on stdout.
 
 The request contains:
 
@@ -278,6 +292,8 @@ contracts:
 - `write_scene_list_csv` writes scene rows from `&[Scene]`.
 - `write_stats_csv` writes metric rows from `&MetricsStore`.
 - `write_scene_list_html` writes a simple HTML scene table from `&[Scene]`.
+- `write_detection_result_json` writes a JSON detection snapshot from
+  `&DetectionResult`.
 - `write_detection_outputs` writes scenes and optional stats from
   `&DetectionResult`.
 
@@ -285,9 +301,17 @@ contracts:
 
 - `SplitOptions` controls output directory, filename template, optional video
   name, and FFmpeg args.
+- `SplitJob` describes one planned clip write.
+- `SplitPlan` contains all jobs for one input media file.
+- `build_split_plan` expands scene metadata into testable split jobs without
+  invoking FFmpeg.
 - `DEFAULT_TEMPLATE` is `$VIDEO_NAME-Scene-$SCENE_NUMBER.mp4`.
 - `split_video_ffmpeg` accepts the original media path, `&[Scene]`, and
   `SplitOptions`.
+
+Core scene frame indices are inclusive. Split jobs treat the scene end
+timestamp as the exclusive media trim endpoint, so FFmpeg `-t` receives
+`end_seconds - start_seconds`.
 
 Output and split packages do not own detection, source construction, detector
 selection, or CLI branching.
@@ -370,6 +394,16 @@ optional external transcriber, object, OCR, and text model commands. Its primary
 interoperability output is a JSON report consumed by applications and
 `@video-analysis/ui`.
 
+The reusable Rust API is exposed through
+`video_analysis_use_cases::youtube`:
+
+- `YOUTUBE_VIDEO_USE_CASE`, currently `"youtube-video"`.
+- `YoutubeVideoRequest`, the library request equivalent of the CLI flags.
+- `run_youtube_video`, which returns a `YoutubeVideoReport` without requiring
+  clap or writing files itself.
+- `write_youtube_video_report`, which writes the report JSON for CLI and
+  automation use.
+
 ## Rust-To-UI JSON Report Contracts
 
 The use-case JSON report is the main contract between Rust output and React
@@ -423,6 +457,7 @@ Data buckets:
 
 Compatibility notes:
 
+- `use_case` is canonically `"youtube-video"`.
 - Rust numeric fields such as `u64`, `u32`, `f32`, and `f64` become TypeScript
   `number`.
 - Rust `Option<T>` appears as optional and/or nullable UI fields where currently

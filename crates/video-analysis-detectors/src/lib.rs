@@ -1693,6 +1693,58 @@ mod tests {
     }
 
     #[test]
+    fn content_fixture_no_cut_for_low_motion() {
+        let mut detector = ContentDetector::new(20.0, 1);
+        let frames = [
+            frame(0, [20, 20, 20]),
+            frame(1, [24, 24, 24]),
+            frame(2, [28, 28, 28]),
+            frame(3, [32, 32, 32]),
+        ];
+        let mut cuts = Vec::new();
+        for frame in frames {
+            cuts.extend(detector.process_frame(&frame.as_frame(), None).unwrap());
+        }
+
+        assert!(cuts.is_empty());
+    }
+
+    #[test]
+    fn content_fixture_flash_is_suppressed() {
+        let mut detector = ContentDetector::new(10.0, 3).filter_mode(FlashFilterMode::Suppress, 3);
+        let frames = [
+            frame(0, [0, 0, 0]),
+            frame(1, [255, 255, 255]),
+            frame(2, [0, 0, 0]),
+        ];
+        let mut cuts = Vec::new();
+        for frame in frames {
+            cuts.extend(detector.process_frame(&frame.as_frame(), None).unwrap());
+        }
+
+        assert!(cuts.is_empty());
+    }
+
+    #[test]
+    fn content_fixture_dissolve_stays_below_hard_cut_threshold() {
+        let mut detector = ContentDetector::new(80.0, 1).luma_only(true);
+        let frames = [
+            frame(0, [0, 0, 0]),
+            frame(1, [32, 32, 32]),
+            frame(2, [64, 64, 64]),
+            frame(3, [96, 96, 96]),
+            frame(4, [128, 128, 128]),
+            frame(5, [160, 160, 160]),
+        ];
+        let mut cuts = Vec::new();
+        for frame in frames {
+            cuts.extend(detector.process_frame(&frame.as_frame(), None).unwrap());
+        }
+
+        assert!(cuts.is_empty());
+    }
+
+    #[test]
     fn frame_validation_rejects_short_buffer() {
         let pos = FramePosition::from_frame_index(0, Rational64::new(30, 1));
         assert!(VideoFrame::rgb24(pos, 4, 4, &[0; 4]).is_err());

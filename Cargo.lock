@@ -1266,6 +1266,8 @@ name = "video-analysis-output"
 version = "0.1.0"
 dependencies = [
  "num-rational",
+ "serde",
+ "serde_json",
  "video-analysis-core",
 ]
 
@@ -1288,6 +1290,7 @@ dependencies = [
 name = "video-analysis-split"
 version = "0.1.0"
 dependencies = [
+ "num-rational",
  "video-analysis-core",
 ]
 
@@ -1298,6 +1301,7 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
+ "tempfile",
  "video-analysis-core",
  "video-analysis-data",
  "video-analysis-detectors",

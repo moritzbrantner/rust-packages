@@ -7,3 +7,5 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 video-analysis-core.workspace = true
 
+[dev-dependencies]
+num-rational.workspace = true

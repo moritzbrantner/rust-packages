@@ -68,10 +68,10 @@ impl BucketConfig {
                     "bucket duration must be a finite positive value".to_string(),
                 ))
             }
-            BucketMode::RecordCount { records } if records == 0 => Err(
-                DetectError::InvalidArgument("bucket record count must be positive".to_string()),
-            ),
-            BucketMode::ByteSize { bytes } if bytes == 0 => Err(DetectError::InvalidArgument(
+            BucketMode::RecordCount { records: 0 } => Err(DetectError::InvalidArgument(
+                "bucket record count must be positive".to_string(),
+            )),
+            BucketMode::ByteSize { bytes: 0 } => Err(DetectError::InvalidArgument(
                 "bucket byte size must be positive".to_string(),
             )),
             _ => Ok(()),
