@@ -1,4 +1,5 @@
 pub use video_analysis_core::*;
+pub use video_analysis_data as data;
 pub use video_analysis_detectors::*;
 pub use video_analysis_ffmpeg as ffmpeg;
 pub use video_analysis_ingest as ingest;

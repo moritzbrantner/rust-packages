@@ -7,6 +7,8 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
 
 - `video-analysis`: umbrella re-export crate.
 - `video-analysis-core`: timecodes, video/audio/text sample types, metrics, analyzer traits, observations, and realtime pipelines.
+- `video-analysis-data`: stream record normalization plus online aggregation and
+  bucketing for video, audio, text, numeric, and vector data.
 - `video-analysis-detectors`: content, adaptive, threshold, histogram, and perceptual hash detectors.
 - `video-analysis-ingest`: media ingest traits plus live/file text sources.
 - `video-analysis-ffmpeg`: FFmpeg-backed video and audio ingest implementations.
@@ -15,6 +17,7 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
 - `video-analysis-output`: scene/stats CSV and simple HTML output helpers.
 - `video-analysis-split`: ffmpeg CLI based scene splitting.
 - `video-analysis-cli`: `vanalyze` command-line tool.
+- `video-analysis-use-cases`: runnable end-to-end use-case pipelines.
 
 ## Dependency Graph
 
@@ -27,6 +30,7 @@ crate.
 flowchart LR
     core[video-analysis-core]
 
+    data[video-analysis-data]
     detectors[video-analysis-detectors]
     ingest[video-analysis-ingest]
     ffmpeg[video-analysis-ffmpeg]
@@ -36,8 +40,10 @@ flowchart LR
 
     root[video-analysis facade]
     cli[video-analysis-cli]
+    usecases[video-analysis-use-cases]
 
     detectors --> core
+    data --> core
     ingest --> core
     ffmpeg --> core
     ffmpeg --> ingest
@@ -46,6 +52,7 @@ flowchart LR
     models --> core
 
     root --> core
+    root --> data
     root --> detectors
     root --> ingest
     root --> ffmpeg
@@ -59,9 +66,58 @@ flowchart LR
     cli --> models
     cli --> output
     cli --> split
+
+    usecases --> core
+    usecases --> data
+    usecases --> detectors
+    usecases --> ffmpeg
+    usecases --> ingest
+    usecases --> models
 ```
 
 ## Functional Pipelines
+
+### YouTube Video Use Case
+
+The `video-analysis-use-cases` crate contains runnable composition examples.
+The first pipeline downloads or accepts a YouTube video, detects scenes,
+extracts/segments transcript text, performs simple audio activity detection,
+aggregates video/audio/text records into data buckets, and can call external
+model commands for object/person detection, OCR, and transcript text analysis.
+
+```bash
+cargo run -p video-analysis-use-cases -- youtube-video \
+  --url "https://www.youtube.com/watch?v=..." \
+  --output use-case-output/youtube-video/analysis.json
+```
+
+Required local tools for the full URL workflow are `yt-dlp`, `ffmpeg`, and
+`ffprobe`. Transcription is skipped unless the OpenAI Whisper CLI is available
+as `whisper`, or a command is supplied explicitly:
+
+```bash
+cargo run -p video-analysis-use-cases -- youtube-video \
+  --url "https://www.youtube.com/watch?v=..." \
+  --transcriber-command whisper \
+  --transcriber-arg --model \
+  --transcriber-arg base
+```
+
+Vision and text model integrations use the `video-analysis-models`
+`ExternalCommandModel` JSON protocol. Each command receives one JSON request on
+stdin and returns `{"predictions":[...]}` on stdout.
+
+```bash
+cargo run -p video-analysis-use-cases -- youtube-video \
+  --input ./video.mp4 \
+  --object-command ./scripts/detect-objects \
+  --ocr-command ./scripts/ocr-frame \
+  --text-command ./scripts/analyze-transcript \
+  --visual-sample-every 30
+```
+
+The output report includes local asset paths, scenes, observations, transcript
+segments, audio events, text events, and data bucket summaries.
 
 ### Video Detection
 
@@ -296,6 +352,48 @@ fn main() -> Result<()> {
 Text analyzers implement `video_analysis_core::TextAnalyzer`. For live text,
 wrap any blocking `BufRead` with `TextLineSource::live(...)`.
 
+### Data Aggregation
+
+Large video, audio, text, numeric, and vector streams can be normalized into
+borrowed `DataRecord` values and summarized online without retaining the
+original payloads.
+
+```rust
+use video_analysis_core::{Result, Timestamp, Timebase};
+use video_analysis_data::{BucketAggregator, BucketConfig, DataRecord};
+
+fn main() -> Result<()> {
+    let config = BucketConfig::fixed_duration_seconds(5.0)?;
+    let mut buckets = BucketAggregator::new(config)?;
+
+    let timestamp = Timestamp::new(12, Timebase::new(1, 1));
+    for bucket in buckets.push(DataRecord::number(
+        "telemetry:score",
+        0,
+        Some(timestamp),
+        0.82,
+    ))? {
+        println!("closed bucket {} with {} records", bucket.bucket_index, bucket.records);
+    }
+
+    let embedding = [0.1, 0.2, 0.3];
+    buckets.push(DataRecord::vector(
+        "telemetry:embedding",
+        1,
+        Some(timestamp),
+        &embedding,
+    ))?;
+
+    let _tail = buckets.finish();
+    Ok(())
+}
+```
+
+Buckets can be fixed by duration, record count, or estimated byte size. Numeric
+streams keep online min/max/mean summaries. Vector streams keep norm summaries
+and bounded per-dimension means so embeddings can be handled without storing
+every vector.
+
 ### Output
 
 ```text
@@ -338,6 +436,7 @@ CLI args
 Allowed internal dependencies:
 
 - `video-analysis-core`: external utility crates only.
+- `video-analysis-data` -> `video-analysis-core`.
 - `video-analysis-detectors` -> `video-analysis-core`.
 - `video-analysis-ingest` -> `video-analysis-core`.
 - `video-analysis-ffmpeg` -> `video-analysis-core`, `video-analysis-ingest`.
@@ -351,6 +450,8 @@ Forbidden internal dependencies:
 - `video-analysis-core` must not depend on any workspace crate.
 - `video-analysis-detectors` must not depend on FFmpeg, output, split, CLI, or
   facade crates.
+- `video-analysis-data` must not depend on detectors, FFmpeg, output, split,
+  CLI, or facade crates.
 - `video-analysis-ingest` must not depend on detectors, FFmpeg, output, split,
   CLI, or facade crates.
 - `video-analysis-ffmpeg` must not depend on detectors, output, split, CLI, or

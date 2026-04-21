@@ -1173,6 +1173,7 @@ name = "video-analysis"
 version = "0.1.0"
 dependencies = [
  "video-analysis-core",
+ "video-analysis-data",
  "video-analysis-detectors",
  "video-analysis-ffmpeg",
  "video-analysis-ingest",
@@ -1201,6 +1202,13 @@ dependencies = [
  "num-rational",
  "num-traits",
  "thiserror",
+]
+
+[[package]]
+name = "video-analysis-data"
+version = "0.1.0"
+dependencies = [
+ "video-analysis-core",
 ]
 
 [[package]]
@@ -1255,6 +1263,21 @@ name = "video-analysis-split"
 version = "0.1.0"
 dependencies = [
  "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-use-cases"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+ "video-analysis-data",
+ "video-analysis-detectors",
+ "video-analysis-ffmpeg",
+ "video-analysis-ingest",
+ "video-analysis-models",
 ]
 
 [[package]]

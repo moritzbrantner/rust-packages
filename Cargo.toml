@@ -9,12 +9,14 @@ description = "Rust-first video scene analysis workspace inspired by PySceneDete
 members = [
     ".",
     "crates/video-analysis-core",
+    "crates/video-analysis-data",
     "crates/video-analysis-detectors",
     "crates/video-analysis-ffmpeg",
     "crates/video-analysis-ingest",
     "crates/video-analysis-models",
     "crates/video-analysis-output",
     "crates/video-analysis-split",
+    "crates/video-analysis-use-cases",
     "crates/video-analysis-cli",
 ]
 resolver = "2"
@@ -31,12 +33,14 @@ serde_json = "1.0.145"
 tempfile = "3.23.0"
 thiserror = "2.0.17"
 video-analysis-core = { path = "crates/video-analysis-core" }
+video-analysis-data = { path = "crates/video-analysis-data" }
 video-analysis-detectors = { path = "crates/video-analysis-detectors" }
 video-analysis-ffmpeg = { path = "crates/video-analysis-ffmpeg" }
 video-analysis-ingest = { path = "crates/video-analysis-ingest" }
 video-analysis-models = { path = "crates/video-analysis-models" }
 video-analysis-output = { path = "crates/video-analysis-output" }
 video-analysis-split = { path = "crates/video-analysis-split" }
+video-analysis-use-cases = { path = "crates/video-analysis-use-cases" }
 
 [features]
 default = []
@@ -45,6 +49,7 @@ ffmpeg-tests = ["ffmpeg-backend"]
 
 [dependencies]
 video-analysis-core.workspace = true
+video-analysis-data.workspace = true
 video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-ingest.workspace = true
