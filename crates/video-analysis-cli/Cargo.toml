@@ -1,0 +1,22 @@
+[package]
+name = "video-analysis-cli"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "vanalyze"
+path = "src/main.rs"
+
+[features]
+default = []
+ffmpeg-tests = []
+
+[dependencies]
+clap.workspace = true
+video-analysis-core.workspace = true
+video-analysis-detectors.workspace = true
+video-analysis-ffmpeg.workspace = true
+video-analysis-output.workspace = true
+video-analysis-split.workspace = true
+

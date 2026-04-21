@@ -1,0 +1,118 @@
+# Build signed releases for PySceneDetect Windows x64
+
+build: false
+
+# Branches applies to tags as well. We only build on tagged releases of the form vX.Y.Z-release
+branches:
+  only:
+    - main
+    - /releases\/.+/
+    - /v.+-release/
+
+skip_tags: false
+skip_non_tags: true
+
+environment:
+  matrix:
+    - PYTHON: "C:\\Python313-x64"
+  # Encrypted AdvancedInstaller License
+  ai_license_secret:
+    secure: of3o1pInqCJYwKLFsiadbsRYazCmCuZq7r2roaYvYXmBvm6e6JHsRU47waylTmhm
+  ai_license_salt:
+    secure: +NKWwlkEptlThgfeL35pLo7EsnkJc+4WODm8tTg1aO5fc0duQ4r100fHQYj6nzhyUdy3Dhs/mOLkxD8rNbBiEQ==
+  ffmpeg_version: "8.0"
+
+# SignPath Config for Code Signing
+deploy:
+- provider: Webhook
+  url: https://app.signpath.io/API/v1/f2efa44c-5b5c-45f2-b44f-8f9dde708313/Integrations/AppVeyor?ProjectSlug=PySceneDetect&SigningPolicySlug=release-signing
+  authorization:
+     secure: FBgWCaxCCKOqc2spYf5NGWSNUGLbT5WeuC5U0k4Of1Ids9n51YWxhGlMyzLbdNBFe64RUcOSzk/N3emlQzbsJg==
+  on:
+    APPVEYOR_REPO_TAG: true # keep casing this way for Linux builds where variables are case-sensitive
+
+install:
+  - echo * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+  - echo * *                      SETTING UP PYTHON ENVIRONMENT                      * *
+  - echo * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+  - 'SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%'
+  - python --version
+  - python -m pip install --upgrade pip build wheel virtualenv setuptools
+  - python -m pip install -r docs/requirements.txt
+  - python -m pip install --upgrade -r dist/requirements_windows.txt --no-binary imageio-ffmpeg
+  # Checkout build resources and third party software used for testing.
+  - git checkout refs/remotes/origin/resources -- dist/
+  - appveyor DownloadFile https://github.com/GyanD/codexffmpeg/releases/download/%ffmpeg_version%/ffmpeg-%ffmpeg_version%-full_build.7z
+  - 7z e ffmpeg-%ffmpeg_version%-full_build.7z -odist/ffmpeg ffmpeg.exe LICENSE -r
+  - 'SET IMAGEIO_FFMPEG_EXE=%APPVEYOR_BUILD_FOLDER%\\dist\\ffmpeg\\ffmpeg.exe'
+
+  - echo * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+  - echo * *                          BUILDING WINDOWS EXE                           * *
+  - echo * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+  # Build Windows .EXE and create portable .ZIP
+  - python dist/pre_release.py --release
+  - pyinstaller dist/scenedetect.spec
+  - sphinx-build -b singlehtml docs dist/scenedetect/docs
+  - mkdir dist\scenedetect\thirdparty
+  - move LICENSE dist\scenedetect\
+  - move dist\windows\README* dist\scenedetect\
+  - move dist\windows\LICENSE* dist\scenedetect\thirdparty\
+  - move scenedetect\_thirdparty\LICENSE* dist\scenedetect\thirdparty\
+  - copy dist\ffmpeg\ffmpeg.exe dist\scenedetect\
+  - move dist\ffmpeg\LICENSE dist\scenedetect\thirdparty\LICENSE-FFMPEG
+  - cd dist/scenedetect
+  - 7z a ../scenedetect-win64.zip *
+  - cd ../..
+
+  - echo * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+  - echo * *                         BUILDING MSI INSTALLER                          * *
+  - echo * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+  # Download, install, and register AdvancedInstaller
+  - cd dist/installer
+  - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
+  - appveyor-tools\secure-file -decrypt license65.dat.enc -secret %ai_license_secret% -salt %ai_license_salt%
+  - appveyor DownloadFile https://www.advancedinstaller.com/downloads/advinst.msi
+  - msiexec /i advinst.msi /qn
+  - 'SET PATH=%PATH%;C:\\Program Files (x86)\\Caphyon\\Advanced Installer 22.9.1\\bin\\x86'
+  # License path must be absolute
+  - AdvancedInstaller.com /RegisterOffline "%cd%\license65.dat"
+  # Create MSI installer
+  - AdvancedInstaller.com /build PySceneDetect.aip
+  - cd ../..
+
+  - echo * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+  - echo * *                        PACKAGING BUILD ARTIFACTS                        * *
+  - echo * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+  # Zip all resources together for code signing
+  - cd dist
+  - move installer\PySceneDetect-*.msi .
+  - cp scenedetect\scenedetect.exe .
+  - 7z a scenedetect-signed.zip scenedetect.exe PySceneDetect-*.msi
+  - cd ..
+
+test_script:
+  - echo * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+  - echo * *                              TESTING BUILD                              * *
+  - echo * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+  # Checkout required test resources
+  - git fetch --depth=1 https://github.com/Breakthrough/PySceneDetect.git refs/heads/resources:refs/remotes/origin/resources
+  - git checkout refs/remotes/origin/resources -- tests/resources/
+  - move dist\scenedetect\ffmpeg.exe ffmpeg.exe
+  # Run unit tests
+  # TODO: We are at the new build time limit for this plan apparently, 10 mins. Figure out a
+  # strategy to deal with that (see if we can use Github as a builder?).
+  # - pytest
+  # Test Windows build
+  - move ffmpeg.exe dist\scenedetect\ffmpeg.exe
+  - cd dist/scenedetect
+  - scenedetect.exe version
+  - scenedetect.exe -i ../../tests/resources/testvideo.mp4 -b opencv detect-content time -e 2s
+  - scenedetect.exe -i ../../tests/resources/testvideo.mp4 -b pyav detect-content time -e 2s
+
+artifacts:
+  # Portable ZIP
+  - path: dist/scenedetect-win64.zip
+    name: PySceneDetect-win64_portable
+  # MSI Installer + .EXE Bundle for Signing
+  - path: dist/scenedetect-signed.zip
+    name: PySceneDetect-win64_installer
