@@ -1,0 +1,13 @@
+[package]
+name = "linguistics-morphology"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Morpheme models and deterministic segmentation utilities."
+
+[dependencies]
+linguistics-core = { path = "../linguistics-core" }
+
+[lints]
+workspace = true

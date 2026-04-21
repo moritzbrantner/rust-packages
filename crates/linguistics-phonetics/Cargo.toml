@@ -1,0 +1,13 @@
+[package]
+name = "linguistics-phonetics"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "IPA-oriented phonetics and phonology helpers."
+
+[dependencies]
+linguistics-core = { path = "../linguistics-core" }
+
+[lints]
+workspace = true

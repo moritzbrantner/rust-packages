@@ -1,0 +1,13 @@
+[package]
+name = "linguistics-syntax"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Syntactic annotation and dependency tree helpers."
+
+[dependencies]
+linguistics-core = { path = "../linguistics-core" }
+
+[lints]
+workspace = true
