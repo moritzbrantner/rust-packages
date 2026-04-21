@@ -17,9 +17,13 @@ crates should compose around those contracts instead of defining parallel types.
 | `video-analysis-core` | Canonical shared contracts and pipelines | External utility crates only | Time/frame types, media samples, detection traits/results, analyzer traits/results, observations, metrics, pipeline builders | All functional Rust crates |
 | `video-analysis-data` | Online stream normalization and aggregation | `video-analysis-core` | `DataRecord`, `DataPayload`, bucket configuration, bucket summaries, stream summaries | Use cases, reporting, UI JSON generation |
 | `video-analysis-detectors` | Scene detector implementations | `video-analysis-core` | `SceneDetector` implementations, scoring algorithms, composite detector contracts | CLI, use cases, applications |
+| `video-analysis-editing` | Classic CPU media editing primitives | `video-analysis-core` | Frame crop, blur, grayscale, inversion, brightness/contrast, 3x3 filters, and `FrameEditor` chains | Applications, preprocessing workflows, future media export flows |
 | `video-analysis-ingest` | Source abstraction layer | `video-analysis-core` | Media/source metadata, source traits, source-to-pipeline adapter helpers, text line source | FFmpeg crate, use cases, applications |
 | `video-analysis-ffmpeg` | FFmpeg-backed media probing and decoding | `video-analysis-core`, `video-analysis-ingest` | FFmpeg video/audio sources, metadata, probe helpers, source options | CLI, use cases, applications |
 | `video-analysis-models` | Model download, backend, normalization, and external command contracts | `video-analysis-core` | Hugging Face specs/downloads, raw and normalized predictions, model analyzer adapters, external command protocol | CLI model commands, use cases, applications |
+| `video-analysis-tracking` | Object tracking over frame detections | `video-analysis-core` | `TrackedDetection`, `IouTracker`, tracking options, object-detection backend trait, analyzer adapter | Applications, use cases, model-backed detection pipelines |
+| `video-analysis-posture` | Pose and posture estimation contracts | `video-analysis-core` | Keypoints, skeletons, pose estimates, posture backend trait, analyzer adapter, joint angle helpers | Applications, use cases, model-backed posture workflows |
+| `video-analysis-recognition` | Reference-embedding identity matching | `video-analysis-core` | Reference libraries, normalized embeddings, recognition candidates/matches, temporal aggregation, video analyzer adapter | Applications, use cases, model-backed face/object recognition |
 | `video-analysis-output` | Detection output writers | `video-analysis-core` | Scene CSV, stats CSV, simple HTML, combined detection writers | CLI, applications |
 | `video-analysis-split` | Scene-based media splitting | `video-analysis-core` | Split options, template variables, FFmpeg split function | CLI, applications |
 | `video-analysis-radiance-fields` | Shared 3D geometry, camera, ray, and volume contracts | `video-analysis-core` | Vector/color/ray types, camera intrinsics/pose, radiance field trait, rendering/grid specs | Gaussian splatting, reconstruction, applications |
@@ -218,6 +222,33 @@ Model acquisition and identity:
 - `ModelTask`
 - `HuggingFaceModelSpec`
 - `ModelPreset`
+
+## Recognition Contracts
+
+`video-analysis-recognition` implements reference-based identity recognition for
+face, object, scene, or custom candidates.
+
+Key contracts:
+
+- `Embedding` stores finite, non-empty, L2-normalized vectors.
+- `ReferenceIdentity` groups one known identity label with one or more reference
+  embeddings and optional string attributes.
+- `ReferenceLibrary` stores identities with one shared embedding dimensionality
+  and performs exact cosine-similarity search.
+- `MatchOptions` configures score thresholds and result limits.
+- `RecognitionCandidate` carries the per-frame candidate embedding plus kind,
+  optional region, detector label, detector score, track id, and attributes.
+- `RecognitionBackend` is the adapter point for face/object detector plus
+  embedding model implementations.
+- `RecognitionVideoAnalyzer` implements core `VideoAnalyzer`, matches backend
+  candidates against the library, and emits core `Observation` records.
+- `TemporalRecognitionOptions` and `TemporalRecognitionAggregator` can require
+  repeated hits on a stable track before emitting an identity observation.
+
+Compatibility rule: recognition backends should do model-specific detection,
+alignment/cropping, tracking, and embedding extraction. The recognition package
+should own identity references, vector matching, thresholds, temporal evidence,
+and conversion into core observations.
 - `DownloadedModel`
 - `HuggingFaceDownloader`
 
@@ -283,6 +314,76 @@ The response shape is:
 
 Each prediction should match the `RawPrediction` contract. Missing prediction
 fields can be repaired where supported by `PredictionRepairOptions`.
+
+## Tracking Contracts
+
+`video-analysis-tracking` owns lightweight temporal association for object-like
+video detections. It does not run detectors itself; detector/model integrations
+feed it per-frame boxes through a backend trait.
+
+Key contracts:
+
+- `TrackedDetection` carries a candidate kind, bounding box, optional label,
+  score, track hint, and string attributes.
+- `TrackingOptions` configures IoU association, score filtering, and how long
+  stale tracks remain active.
+- `IouTracker` performs deterministic greedy association by track hint first,
+  then by best IoU among compatible labels and kinds.
+- `ObjectTrack` stores stable track id, current region, label, score, first and
+  last frame positions, age, missed-frame count, and attributes.
+- `ObjectDetectionBackend` adapts a detector or model into per-frame tracked
+  detections.
+- `ObjectTrackingAnalyzer` implements core `VideoAnalyzer` and emits object
+  `Observation` records with `track_id` set.
+
+Tracking should consume normalized detections from model or heuristic packages.
+It should not own image decoding, model execution, identity recognition, or
+media output.
+
+## Posture Contracts
+
+`video-analysis-posture` standardizes pose/keypoint data and analyzer output for
+posture-estimation backends.
+
+Key contracts:
+
+- `Keypoint` stores a named x/y coordinate plus optional score and visibility.
+- `KeypointSpace` identifies pixel-space or normalized coordinates.
+- `Skeleton` and `SkeletonEdge` describe expected topology, including a COCO-17
+  human skeleton preset.
+- `PoseEstimate` groups one pose id, label, score, optional region, keypoints,
+  and string attributes.
+- `PostureOptions` configures keypoint space, score filters, and inferred pose
+  regions.
+- `PostureBackend` adapts a pose-estimation model into `PoseEstimate` values.
+- `PostureAnalyzer` implements core `VideoAnalyzer` and emits custom
+  `posture` observations.
+- `joint_angle_degrees` computes simple three-keypoint joint angles for posture
+  feature extraction.
+
+Posture observations use core `Observation` fields for timestamp, frame, score,
+track id, and region. Keypoint payloads are carried in string attributes until a
+shared structured report format is introduced.
+
+## Media Editing Contracts
+
+`video-analysis-editing` provides deterministic CPU frame transforms over core
+`VideoFrame<'_>` inputs and `OwnedVideoFrame` outputs.
+
+Key contracts:
+
+- `FrameEdit` enumerates crop, box blur, grayscale, inversion,
+  brightness/contrast, and 3x3 convolution filters.
+- `FrameEditor` stores an ordered edit chain and applies it to one frame.
+- `crop_frame`, `box_blur_frame`, `grayscale_frame`, `invert_frame`,
+  `brightness_contrast_frame`, and `filter_3x3_frame` expose individual
+  operations.
+- `sharpen_frame` and `edge_detect_frame` are named 3x3 filter presets.
+
+Editing functions preserve frame position and pixel format. Outputs are compact
+packed RGB/BGR buffers, even when the source stride contains padding. Editing
+does not own timeline semantics, audio editing, FFmpeg command execution, or
+file writing.
 
 ## Output And Split Contracts
 

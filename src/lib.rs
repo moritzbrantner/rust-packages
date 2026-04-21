@@ -1,11 +1,15 @@
 pub use video_analysis_core::*;
 pub use video_analysis_data as data;
 pub use video_analysis_detectors::*;
+pub use video_analysis_editing as editing;
 pub use video_analysis_ffmpeg as ffmpeg;
 pub use video_analysis_gaussian_splatting as gaussian_splatting;
 pub use video_analysis_ingest as ingest;
 pub use video_analysis_models as models;
 pub use video_analysis_output as output;
+pub use video_analysis_posture as posture;
 pub use video_analysis_radiance_fields as radiance_fields;
+pub use video_analysis_recognition as recognition;
 pub use video_analysis_reconstruction as reconstruction;
 pub use video_analysis_split as split;
+pub use video_analysis_tracking as tracking;

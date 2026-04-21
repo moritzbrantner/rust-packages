@@ -1175,14 +1175,18 @@ dependencies = [
  "video-analysis-core",
  "video-analysis-data",
  "video-analysis-detectors",
+ "video-analysis-editing",
  "video-analysis-ffmpeg",
  "video-analysis-gaussian-splatting",
  "video-analysis-ingest",
  "video-analysis-models",
  "video-analysis-output",
+ "video-analysis-posture",
  "video-analysis-radiance-fields",
+ "video-analysis-recognition",
  "video-analysis-reconstruction",
  "video-analysis-split",
+ "video-analysis-tracking",
 ]
 
 [[package]]
@@ -1216,6 +1220,14 @@ dependencies = [
 
 [[package]]
 name = "video-analysis-detectors"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-editing"
 version = "0.1.0"
 dependencies = [
  "num-rational",
@@ -1272,9 +1284,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "video-analysis-posture"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "video-analysis-radiance-fields"
 version = "0.1.0"
 dependencies = [
+ "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-recognition"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
  "video-analysis-core",
 ]
 
@@ -1288,6 +1316,14 @@ dependencies = [
 
 [[package]]
 name = "video-analysis-split"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-tracking"
 version = "0.1.0"
 dependencies = [
  "num-rational",

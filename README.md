@@ -10,10 +10,18 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
 - `video-analysis-data`: stream record normalization plus online aggregation and
   bucketing for video, audio, text, numeric, and vector data.
 - `video-analysis-detectors`: content, adaptive, threshold, histogram, and perceptual hash detectors.
+- `video-analysis-editing`: CPU frame editing primitives for cropping,
+  blurring, grayscale, inversion, brightness/contrast, and 3x3 filters.
 - `video-analysis-ingest`: media ingest traits plus live/file text sources.
 - `video-analysis-ffmpeg`: FFmpeg-backed video and audio ingest implementations.
 - `video-analysis-models`: Hugging Face model downloads plus normalized model
   adapter contracts for object, scene, and text/semantic analyzers.
+- `video-analysis-tracking`: IoU-based object tracking contracts and a
+  `VideoAnalyzer` adapter that emits tracked object observations.
+- `video-analysis-posture`: pose/keypoint contracts, skeleton helpers, joint
+  angle calculation, and a posture analyzer adapter.
+- `video-analysis-recognition`: reference-embedding matching for face/object
+  recognition, including temporal track aggregation and analyzer adapters.
 - `video-analysis-radiance-fields`: camera, ray, grid, and volume rendering
   contracts for radiance-field style scene representations.
 - `video-analysis-gaussian-splatting`: 3D Gaussian primitive validation,
@@ -118,6 +126,10 @@ flowchart LR
     output[video-analysis-output]
     split[video-analysis-split]
     models[video-analysis-models]
+    tracking[video-analysis-tracking]
+    posture[video-analysis-posture]
+    editing[video-analysis-editing]
+    recognition[video-analysis-recognition]
     radiance[video-analysis-radiance-fields]
     splatting[video-analysis-gaussian-splatting]
 
@@ -133,6 +145,10 @@ flowchart LR
     output --> core
     split --> core
     models --> core
+    tracking --> core
+    posture --> core
+    editing --> core
+    recognition --> core
     radiance --> core
     splatting --> core
     splatting --> radiance
@@ -143,6 +159,10 @@ flowchart LR
     root --> ingest
     root --> ffmpeg
     root --> models
+    root --> tracking
+    root --> posture
+    root --> editing
+    root --> recognition
     root --> output
     root --> radiance
     root --> splatting
@@ -206,6 +226,36 @@ cargo run -p video-analysis-use-cases -- youtube-video \
 
 The output report includes local asset paths, scenes, observations, transcript
 segments, audio events, text events, and data bucket summaries.
+
+### Reference Recognition
+
+`video-analysis-recognition` adds identity matching for known faces or objects.
+It stores normalized reference embeddings, compares frame candidates with cosine
+similarity, and can require repeated hits on the same track before emitting an
+identity observation.
+
+```rust
+use video_analysis_core::ObservationKind;
+use video_analysis_recognition::{ReferenceLibrary, RecognitionVideoAnalyzer};
+
+let mut references = ReferenceLibrary::new();
+references.add_reference(
+    "einstein",
+    "Albert Einstein",
+    ObservationKind::Face,
+    face_embedding_from_reference_image,
+)?;
+
+let analyzer = RecognitionVideoAnalyzer::new(
+    "face-identity",
+    detect_track_and_embed_faces_backend,
+    references,
+);
+```
+
+The backend is responsible for detection/tracking/embedding. The recognition
+package owns the reference library, similarity search, thresholding, temporal
+aggregation, and conversion into core `Observation` records.
 
 ### Video Detection
 

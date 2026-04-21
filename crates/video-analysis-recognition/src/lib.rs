@@ -1,0 +1,848 @@
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+
+use video_analysis_core::{
+    BoundingBox, DetectError, FramePosition, Observation, ObservationKind, Result, VideoAnalyzer,
+    VideoFrame,
+};
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Embedding {
+    values: Vec<f32>,
+}
+
+impl Embedding {
+    pub fn new(values: impl Into<Vec<f32>>) -> Result<Self> {
+        let mut values = values.into();
+        normalize_values(&mut values)?;
+        Ok(Self { values })
+    }
+
+    pub fn values(&self) -> &[f32] {
+        &self.values
+    }
+
+    pub fn dimensions(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn cosine_similarity(&self, other: &Self) -> Result<f32> {
+        if self.dimensions() != other.dimensions() {
+            return Err(DetectError::InvalidArgument(format!(
+                "embedding dimensions differ: {} != {}",
+                self.dimensions(),
+                other.dimensions()
+            )));
+        }
+        Ok(self
+            .values
+            .iter()
+            .zip(other.values.iter())
+            .map(|(left, right)| left * right)
+            .sum())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReferenceIdentity {
+    id: String,
+    label: String,
+    kind: ObservationKind,
+    embeddings: Vec<Embedding>,
+    attributes: BTreeMap<String, String>,
+}
+
+impl ReferenceIdentity {
+    pub fn new(id: impl Into<String>, label: impl Into<String>, kind: ObservationKind) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            kind,
+            embeddings: Vec::new(),
+            attributes: BTreeMap::new(),
+        }
+    }
+
+    pub fn with_embedding(mut self, embedding: impl Into<Vec<f32>>) -> Result<Self> {
+        self.add_embedding(embedding)?;
+        Ok(self)
+    }
+
+    pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.attributes.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn add_embedding(&mut self, embedding: impl Into<Vec<f32>>) -> Result<()> {
+        let embedding = Embedding::new(embedding)?;
+        if let Some(dimensions) = self.dimensions() {
+            if dimensions != embedding.dimensions() {
+                return Err(DetectError::InvalidArgument(format!(
+                    "reference `{}` has mixed embedding dimensions: {} != {}",
+                    self.id,
+                    dimensions,
+                    embedding.dimensions()
+                )));
+            }
+        }
+        self.embeddings.push(embedding);
+        Ok(())
+    }
+
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
+    pub fn kind(&self) -> &ObservationKind {
+        &self.kind
+    }
+
+    pub fn embeddings(&self) -> &[Embedding] {
+        &self.embeddings
+    }
+
+    pub fn attributes(&self) -> &BTreeMap<String, String> {
+        &self.attributes
+    }
+
+    pub fn dimensions(&self) -> Option<usize> {
+        self.embeddings.first().map(Embedding::dimensions)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ReferenceLibrary {
+    identities: BTreeMap<String, ReferenceIdentity>,
+    dimensions: Option<usize>,
+}
+
+impl ReferenceLibrary {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add_identity(&mut self, identity: ReferenceIdentity) -> Result<()> {
+        if identity.id().is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "reference id must not be empty".to_string(),
+            ));
+        }
+        if identity.label().is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "reference label must not be empty".to_string(),
+            ));
+        }
+        let dimensions = identity.dimensions().ok_or_else(|| {
+            DetectError::InvalidArgument(format!(
+                "reference `{}` must contain at least one embedding",
+                identity.id()
+            ))
+        })?;
+        self.validate_dimensions(dimensions)?;
+        if self.identities.contains_key(identity.id()) {
+            return Err(DetectError::InvalidArgument(
+                "duplicate reference id".to_string(),
+            ));
+        }
+        self.identities.insert(identity.id().to_string(), identity);
+        self.dimensions = Some(dimensions);
+        Ok(())
+    }
+
+    pub fn add_reference(
+        &mut self,
+        id: impl Into<String>,
+        label: impl Into<String>,
+        kind: ObservationKind,
+        embedding: impl Into<Vec<f32>>,
+    ) -> Result<()> {
+        let identity = ReferenceIdentity::new(id, label, kind).with_embedding(embedding)?;
+        self.add_identity(identity)
+    }
+
+    pub fn add_sample(&mut self, id: &str, embedding: impl Into<Vec<f32>>) -> Result<()> {
+        let embedding = Embedding::new(embedding)?;
+        self.validate_dimensions(embedding.dimensions())?;
+        let identity = self
+            .identities
+            .get_mut(id)
+            .ok_or_else(|| DetectError::InvalidArgument(format!("unknown reference id `{id}`")))?;
+        identity.embeddings.push(embedding);
+        Ok(())
+    }
+
+    pub fn identity(&self, id: &str) -> Option<&ReferenceIdentity> {
+        self.identities.get(id)
+    }
+
+    pub fn identities(&self) -> impl Iterator<Item = &ReferenceIdentity> {
+        self.identities.values()
+    }
+
+    pub fn len(&self) -> usize {
+        self.identities.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.identities.is_empty()
+    }
+
+    pub fn dimensions(&self) -> Option<usize> {
+        self.dimensions
+    }
+
+    pub fn search(
+        &self,
+        embedding: &Embedding,
+        kind: Option<&ObservationKind>,
+        options: &MatchOptions,
+    ) -> Result<Vec<RecognitionMatch>> {
+        options.validate()?;
+        self.validate_dimensions(embedding.dimensions())?;
+
+        let mut matches = Vec::new();
+        for identity in self.identities.values() {
+            if kind
+                .map(|candidate_kind| identity.kind() != candidate_kind)
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            let Some(score) = best_identity_score(identity, embedding)? else {
+                continue;
+            };
+            if score < options.min_score {
+                continue;
+            }
+            matches.push(RecognitionMatch {
+                reference_id: identity.id().to_string(),
+                label: identity.label().to_string(),
+                kind: identity.kind().clone(),
+                score,
+                attributes: identity.attributes().clone(),
+            });
+        }
+
+        matches.sort_by(|left, right| {
+            right
+                .score
+                .total_cmp(&left.score)
+                .then_with(|| left.reference_id.cmp(&right.reference_id))
+        });
+        matches.truncate(options.max_results);
+        Ok(matches)
+    }
+
+    fn validate_dimensions(&self, dimensions: usize) -> Result<()> {
+        if let Some(expected) = self.dimensions {
+            if expected != dimensions {
+                return Err(DetectError::InvalidArgument(format!(
+                    "embedding dimensions differ from reference library: {dimensions} != {expected}"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MatchOptions {
+    pub min_score: f32,
+    pub max_results: usize,
+}
+
+impl MatchOptions {
+    pub fn new(min_score: f32) -> Result<Self> {
+        let options = Self {
+            min_score,
+            ..Self::default()
+        };
+        options.validate()?;
+        Ok(options)
+    }
+
+    pub fn max_results(mut self, value: usize) -> Self {
+        self.max_results = value;
+        self
+    }
+
+    fn validate(&self) -> Result<()> {
+        if !self.min_score.is_finite() || !(-1.0..=1.0).contains(&self.min_score) {
+            return Err(DetectError::InvalidArgument(
+                "minimum recognition score must be finite and between -1.0 and 1.0".to_string(),
+            ));
+        }
+        if self.max_results == 0 {
+            return Err(DetectError::InvalidArgument(
+                "max recognition results must be greater than zero".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Default for MatchOptions {
+    fn default() -> Self {
+        Self {
+            min_score: 0.75,
+            max_results: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecognitionMatch {
+    pub reference_id: String,
+    pub label: String,
+    pub kind: ObservationKind,
+    pub score: f32,
+    pub attributes: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecognitionCandidate {
+    pub kind: ObservationKind,
+    pub embedding: Embedding,
+    pub region: Option<BoundingBox>,
+    pub detector_label: Option<String>,
+    pub detection_score: Option<f32>,
+    pub track_id: Option<String>,
+    pub attributes: BTreeMap<String, String>,
+}
+
+impl RecognitionCandidate {
+    pub fn new(kind: ObservationKind, embedding: impl Into<Vec<f32>>) -> Result<Self> {
+        Ok(Self {
+            kind,
+            embedding: Embedding::new(embedding)?,
+            region: None,
+            detector_label: None,
+            detection_score: None,
+            track_id: None,
+            attributes: BTreeMap::new(),
+        })
+    }
+
+    pub fn region(mut self, region: BoundingBox) -> Self {
+        self.region = Some(region);
+        self
+    }
+
+    pub fn detector_label(mut self, label: impl Into<String>) -> Self {
+        self.detector_label = Some(label.into());
+        self
+    }
+
+    pub fn detection_score(mut self, score: f32) -> Self {
+        self.detection_score = Some(score);
+        self
+    }
+
+    pub fn track_id(mut self, track_id: impl Into<String>) -> Self {
+        self.track_id = Some(track_id.into());
+        self
+    }
+
+    pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.attributes.insert(key.into(), value.into());
+        self
+    }
+}
+
+pub trait RecognitionBackend {
+    fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RecognitionCandidate>>;
+}
+
+pub struct RecognitionVideoAnalyzer<B> {
+    name: String,
+    backend: B,
+    library: ReferenceLibrary,
+    match_options: MatchOptions,
+    temporal_options: TemporalRecognitionOptions,
+    aggregator: TemporalRecognitionAggregator,
+}
+
+impl<B> RecognitionVideoAnalyzer<B> {
+    pub fn new(name: impl Into<String>, backend: B, library: ReferenceLibrary) -> Self {
+        Self {
+            name: name.into(),
+            backend,
+            library,
+            match_options: MatchOptions::default(),
+            temporal_options: TemporalRecognitionOptions::immediate(),
+            aggregator: TemporalRecognitionAggregator::new(TemporalRecognitionOptions::immediate()),
+        }
+    }
+
+    pub fn match_options(mut self, value: MatchOptions) -> Self {
+        self.match_options = value;
+        self
+    }
+
+    pub fn temporal_options(mut self, value: TemporalRecognitionOptions) -> Self {
+        self.temporal_options = value;
+        self.aggregator = TemporalRecognitionAggregator::new(value);
+        self
+    }
+
+    pub fn backend(&self) -> &B {
+        &self.backend
+    }
+
+    pub fn backend_mut(&mut self) -> &mut B {
+        &mut self.backend
+    }
+
+    pub fn library(&self) -> &ReferenceLibrary {
+        &self.library
+    }
+}
+
+impl<B: RecognitionBackend> VideoAnalyzer for RecognitionVideoAnalyzer<B> {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<Observation>> {
+        let candidates = self.backend.process_frame(frame)?;
+        let mut observations = Vec::new();
+        let analyzer_name = self.name.clone();
+        self.aggregator.prune(frame.position);
+
+        for (candidate_index, candidate) in candidates.into_iter().enumerate() {
+            let matches = self.library.search(
+                &candidate.embedding,
+                Some(&candidate.kind),
+                &self.match_options,
+            )?;
+            if self.temporal_options.min_hits <= 1 {
+                observations.extend(matches.into_iter().map(|recognition_match| {
+                    observation_for_match(
+                        &analyzer_name,
+                        frame.position,
+                        &candidate,
+                        recognition_match,
+                    )
+                }));
+                continue;
+            }
+            for recognition_match in matches {
+                if let Some(observation) = self.aggregator.accept(
+                    &analyzer_name,
+                    frame.position,
+                    candidate_index,
+                    &candidate,
+                    recognition_match,
+                ) {
+                    observations.push(observation);
+                }
+            }
+        }
+
+        Ok(observations)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TemporalRecognitionOptions {
+    pub min_hits: usize,
+    pub max_gap_frames: u64,
+    pub min_average_score: f32,
+}
+
+impl TemporalRecognitionOptions {
+    pub fn immediate() -> Self {
+        Self {
+            min_hits: 1,
+            max_gap_frames: 0,
+            min_average_score: 0.0,
+        }
+    }
+
+    pub fn track_window(
+        min_hits: usize,
+        max_gap_frames: u64,
+        min_average_score: f32,
+    ) -> Result<Self> {
+        let options = Self {
+            min_hits,
+            max_gap_frames,
+            min_average_score,
+        };
+        options.validate()?;
+        Ok(options)
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.min_hits == 0 {
+            return Err(DetectError::InvalidArgument(
+                "temporal recognition min_hits must be greater than zero".to_string(),
+            ));
+        }
+        if !self.min_average_score.is_finite() || !(-1.0..=1.0).contains(&self.min_average_score) {
+            return Err(DetectError::InvalidArgument(
+                "temporal recognition minimum average score must be finite and between -1.0 and 1.0"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TemporalRecognitionAggregator {
+    options: TemporalRecognitionOptions,
+    tracks: BTreeMap<String, TrackState>,
+}
+
+impl TemporalRecognitionAggregator {
+    pub fn new(options: TemporalRecognitionOptions) -> Self {
+        Self {
+            options,
+            tracks: BTreeMap::new(),
+        }
+    }
+
+    pub fn accept(
+        &mut self,
+        analyzer: &str,
+        position: FramePosition,
+        candidate_index: usize,
+        candidate: &RecognitionCandidate,
+        recognition_match: RecognitionMatch,
+    ) -> Option<Observation> {
+        let key = track_key(position, candidate_index, candidate);
+        let state = self.tracks.entry(key).or_default();
+        state.last_frame = position.frame_index;
+        state.evidence.push_back(TrackEvidence {
+            position,
+            candidate: candidate.clone(),
+            recognition_match,
+        });
+
+        let latest = state.evidence.back()?;
+        let reference_id = latest.recognition_match.reference_id.clone();
+        if state.emitted_reference_ids.contains(&reference_id) {
+            return None;
+        }
+
+        let mut hits = 0usize;
+        let mut score_sum = 0.0f32;
+        let mut latest_matching = None;
+        for evidence in state.evidence.iter().rev() {
+            if evidence.recognition_match.reference_id == reference_id {
+                hits += 1;
+                score_sum += evidence.recognition_match.score;
+                latest_matching = Some(evidence);
+            }
+        }
+
+        if hits < self.options.min_hits {
+            return None;
+        }
+        let average = score_sum / hits as f32;
+        if average < self.options.min_average_score {
+            return None;
+        }
+
+        state.emitted_reference_ids.insert(reference_id);
+        latest_matching.map(|evidence| {
+            let mut observation = observation_for_match(
+                analyzer,
+                evidence.position,
+                &evidence.candidate,
+                evidence.recognition_match.clone(),
+            );
+            observation.score = Some(average);
+            observation = observation
+                .attribute("temporal_hits", hits.to_string())
+                .attribute("temporal_average_score", average.to_string());
+            observation
+        })
+    }
+
+    pub fn prune(&mut self, position: FramePosition) {
+        let max_gap = self.options.max_gap_frames;
+        self.tracks
+            .retain(|_, state| position.frame_index.saturating_sub(state.last_frame) <= max_gap);
+    }
+
+    pub fn reset(&mut self) {
+        self.tracks.clear();
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct TrackState {
+    last_frame: u64,
+    evidence: VecDeque<TrackEvidence>,
+    emitted_reference_ids: BTreeSet<String>,
+}
+
+#[derive(Debug, Clone)]
+struct TrackEvidence {
+    position: FramePosition,
+    candidate: RecognitionCandidate,
+    recognition_match: RecognitionMatch,
+}
+
+fn best_identity_score(identity: &ReferenceIdentity, embedding: &Embedding) -> Result<Option<f32>> {
+    let mut best = None;
+    for reference_embedding in identity.embeddings() {
+        let score = reference_embedding.cosine_similarity(embedding)?;
+        best = Some(best.map(|value: f32| value.max(score)).unwrap_or(score));
+    }
+    Ok(best)
+}
+
+fn normalize_values(values: &mut [f32]) -> Result<()> {
+    if values.is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "embedding must not be empty".to_string(),
+        ));
+    }
+    if values.iter().any(|value| !value.is_finite()) {
+        return Err(DetectError::InvalidArgument(
+            "embedding values must be finite".to_string(),
+        ));
+    }
+
+    let norm = values.iter().map(|value| value * value).sum::<f32>().sqrt();
+    if norm == 0.0 || !norm.is_finite() {
+        return Err(DetectError::InvalidArgument(
+            "embedding norm must be finite and non-zero".to_string(),
+        ));
+    }
+    for value in values {
+        *value /= norm;
+    }
+    Ok(())
+}
+
+fn observation_for_match(
+    analyzer: &str,
+    position: FramePosition,
+    candidate: &RecognitionCandidate,
+    recognition_match: RecognitionMatch,
+) -> Observation {
+    let mut observation = Observation::new(analyzer, recognition_match.kind)
+        .at_frame(position)
+        .label(recognition_match.label)
+        .score(recognition_match.score)
+        .attribute("reference_id", recognition_match.reference_id);
+    if let Some(region) = candidate.region {
+        observation = observation.region(region);
+    }
+    if let Some(track_id) = &candidate.track_id {
+        observation = observation.track_id(track_id.clone());
+    }
+    if let Some(label) = &candidate.detector_label {
+        observation = observation.attribute("detector_label", label.clone());
+    }
+    if let Some(score) = candidate.detection_score {
+        observation = observation.attribute("detection_score", score.to_string());
+    }
+    for (key, value) in &candidate.attributes {
+        observation = observation.attribute(key.clone(), value.clone());
+    }
+    for (key, value) in recognition_match.attributes {
+        observation = observation.attribute(format!("reference.{key}"), value);
+    }
+    observation
+}
+
+fn track_key(
+    position: FramePosition,
+    candidate_index: usize,
+    candidate: &RecognitionCandidate,
+) -> String {
+    if let Some(track_id) = &candidate.track_id {
+        return format!("track:{track_id}");
+    }
+    if let Some(region) = candidate.region {
+        return format!(
+            "region:{:?}:{}:{}:{}:{}",
+            candidate.kind,
+            region.x / 16,
+            region.y / 16,
+            region.width / 16,
+            region.height / 16
+        );
+    }
+    format!("frame:{}:{candidate_index}", position.frame_index)
+}
+
+#[cfg(test)]
+mod tests {
+    use num_rational::Rational64;
+    use video_analysis_core::{OwnedVideoFrame, PixelFormat};
+
+    use super::*;
+
+    fn position(frame_index: u64) -> FramePosition {
+        FramePosition::from_frame_index(frame_index, Rational64::new(30, 1))
+    }
+
+    fn frame(frame_index: u64) -> OwnedVideoFrame {
+        OwnedVideoFrame {
+            position: position(frame_index),
+            width: 64,
+            height: 64,
+            pixel_format: PixelFormat::Rgb24,
+            data: vec![0; 64 * 64 * 3],
+            stride: 64 * 3,
+        }
+    }
+
+    fn library() -> ReferenceLibrary {
+        let mut library = ReferenceLibrary::new();
+        library
+            .add_reference(
+                "einstein",
+                "Albert Einstein",
+                ObservationKind::Face,
+                [1.0, 0.0],
+            )
+            .unwrap();
+        library
+            .add_reference("curie", "Marie Curie", ObservationKind::Face, [0.0, 1.0])
+            .unwrap();
+        library
+    }
+
+    #[test]
+    fn search_returns_nearest_reference() {
+        let library = library();
+        let query = Embedding::new([0.9, 0.1]).unwrap();
+        let options = MatchOptions::new(0.7).unwrap();
+
+        let matches = library
+            .search(&query, Some(&ObservationKind::Face), &options)
+            .unwrap();
+
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].reference_id, "einstein");
+        assert!(matches[0].score > 0.99);
+    }
+
+    #[test]
+    fn search_filters_by_observation_kind() {
+        let library = library();
+        let query = Embedding::new([1.0, 0.0]).unwrap();
+
+        let matches = library
+            .search(
+                &query,
+                Some(&ObservationKind::Object),
+                &MatchOptions::default(),
+            )
+            .unwrap();
+
+        assert!(matches.is_empty());
+    }
+
+    #[test]
+    fn library_rejects_dimension_mismatches() {
+        let mut library = library();
+
+        let err = library
+            .add_reference("short", "Short", ObservationKind::Face, [1.0])
+            .unwrap_err();
+
+        assert!(err.to_string().contains("embedding dimensions differ"));
+    }
+
+    #[test]
+    fn extra_reference_samples_improve_best_score() {
+        let mut library = library();
+        library.add_sample("einstein", [0.7, 0.7]).unwrap();
+        let query = Embedding::new([0.7, 0.7]).unwrap();
+
+        let matches = library
+            .search(
+                &query,
+                Some(&ObservationKind::Face),
+                &MatchOptions::default(),
+            )
+            .unwrap();
+
+        assert_eq!(matches[0].reference_id, "einstein");
+        assert!(matches[0].score > 0.999);
+    }
+
+    #[test]
+    fn analyzer_emits_recognized_observation() {
+        struct StaticBackend;
+
+        impl RecognitionBackend for StaticBackend {
+            fn process_frame(
+                &mut self,
+                _frame: &VideoFrame<'_>,
+            ) -> Result<Vec<RecognitionCandidate>> {
+                Ok(vec![RecognitionCandidate::new(
+                    ObservationKind::Face,
+                    [1.0, 0.0],
+                )?
+                .region(BoundingBox::new(1, 2, 10, 12)?)
+                .track_id("face-1")
+                .detector_label("face")
+                .detection_score(0.9)])
+            }
+        }
+
+        let frame = frame(0);
+        let mut analyzer = RecognitionVideoAnalyzer::new("identity", StaticBackend, library());
+        let observations = analyzer.process_frame(&frame.as_frame()).unwrap();
+
+        assert_eq!(observations.len(), 1);
+        assert_eq!(observations[0].label.as_deref(), Some("Albert Einstein"));
+        assert_eq!(observations[0].kind, ObservationKind::Face);
+        assert_eq!(observations[0].track_id.as_deref(), Some("face-1"));
+        assert_eq!(
+            observations[0]
+                .attributes
+                .get("reference_id")
+                .map(String::as_str),
+            Some("einstein")
+        );
+    }
+
+    #[test]
+    fn temporal_analyzer_waits_for_minimum_hits() {
+        struct StaticBackend;
+
+        impl RecognitionBackend for StaticBackend {
+            fn process_frame(
+                &mut self,
+                _frame: &VideoFrame<'_>,
+            ) -> Result<Vec<RecognitionCandidate>> {
+                Ok(vec![RecognitionCandidate::new(
+                    ObservationKind::Face,
+                    [1.0, 0.0],
+                )?
+                .track_id("face-1")])
+            }
+        }
+
+        let mut analyzer = RecognitionVideoAnalyzer::new("identity", StaticBackend, library())
+            .temporal_options(TemporalRecognitionOptions::track_window(2, 5, 0.8).unwrap());
+
+        let first = analyzer.process_frame(&frame(0).as_frame()).unwrap();
+        let second = analyzer.process_frame(&frame(1).as_frame()).unwrap();
+        let third = analyzer.process_frame(&frame(2).as_frame()).unwrap();
+
+        assert!(first.is_empty());
+        assert_eq!(second.len(), 1);
+        assert!(third.is_empty());
+        assert_eq!(
+            second[0]
+                .attributes
+                .get("temporal_hits")
+                .map(String::as_str),
+            Some("2")
+        );
+    }
+}
