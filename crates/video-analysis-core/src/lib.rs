@@ -10,10 +10,14 @@ use thiserror::Error;
 pub enum DetectError {
     #[error("unsupported pixel format: {0:?}")]
     UnsupportedPixelFormat(PixelFormat),
+    #[error("unsupported audio sample format: {0:?}")]
+    UnsupportedAudioSampleFormat(AudioSampleFormat),
     #[error("invalid frame buffer: expected at least {expected} bytes, got {actual}")]
     InvalidFrameBuffer { expected: usize, actual: usize },
     #[error("invalid dimensions: {width}x{height}")]
     InvalidDimensions { width: u32, height: u32 },
+    #[error("invalid audio format: sample_rate={sample_rate}, channels={channels}")]
+    InvalidAudioFormat { sample_rate: u32, channels: u16 },
     #[error("video source error: {0}")]
     Source(String),
     #[error("invalid argument: {0}")]
@@ -335,7 +339,7 @@ pub trait VideoSource {
     fn frame_rate(&self) -> Rational64;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OwnedVideoFrame {
     pub position: FramePosition,
     pub width: u32,
@@ -358,6 +362,194 @@ impl OwnedVideoFrame {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AudioSampleFormat {
+    U8,
+    I16,
+    I32,
+    F32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AudioBuffer {
+    U8(Vec<u8>),
+    I16(Vec<i16>),
+    I32(Vec<i32>),
+    F32(Vec<f32>),
+}
+
+impl AudioBuffer {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::U8(values) => values.len(),
+            Self::I16(values) => values.len(),
+            Self::I32(values) => values.len(),
+            Self::F32(values) => values.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn sample_format(&self) -> AudioSampleFormat {
+        match self {
+            Self::U8(_) => AudioSampleFormat::U8,
+            Self::I16(_) => AudioSampleFormat::I16,
+            Self::I32(_) => AudioSampleFormat::I32,
+            Self::F32(_) => AudioSampleFormat::F32,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct AudioFrame<'a> {
+    pub timestamp: Timestamp,
+    pub sample_rate: u32,
+    pub channels: u16,
+    pub data: &'a AudioBuffer,
+}
+
+impl<'a> AudioFrame<'a> {
+    pub fn new(
+        timestamp: Timestamp,
+        sample_rate: u32,
+        channels: u16,
+        data: &'a AudioBuffer,
+    ) -> Result<Self> {
+        if sample_rate == 0 || channels == 0 {
+            return Err(DetectError::InvalidAudioFormat {
+                sample_rate,
+                channels,
+            });
+        }
+        Ok(Self {
+            timestamp,
+            sample_rate,
+            channels,
+            data,
+        })
+    }
+
+    pub fn sample_format(&self) -> AudioSampleFormat {
+        self.data.sample_format()
+    }
+
+    pub fn sample_count(&self) -> usize {
+        self.data.len()
+    }
+
+    pub fn samples_per_channel(&self) -> usize {
+        self.sample_count() / self.channels as usize
+    }
+
+    pub fn duration_seconds(&self) -> f64 {
+        self.samples_per_channel() as f64 / self.sample_rate as f64
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OwnedAudioFrame {
+    pub timestamp: Timestamp,
+    pub sample_rate: u32,
+    pub channels: u16,
+    pub data: AudioBuffer,
+}
+
+impl OwnedAudioFrame {
+    pub fn new(
+        timestamp: Timestamp,
+        sample_rate: u32,
+        channels: u16,
+        data: AudioBuffer,
+    ) -> Result<Self> {
+        AudioFrame::new(timestamp, sample_rate, channels, &data)?;
+        Ok(Self {
+            timestamp,
+            sample_rate,
+            channels,
+            data,
+        })
+    }
+
+    pub fn as_frame(&self) -> Result<AudioFrame<'_>> {
+        AudioFrame::new(self.timestamp, self.sample_rate, self.channels, &self.data)
+    }
+
+    pub fn sample_format(&self) -> AudioSampleFormat {
+        self.data.sample_format()
+    }
+
+    pub fn samples_per_channel(&self) -> usize {
+        if self.channels == 0 {
+            return 0;
+        }
+        self.data.len() / self.channels as usize
+    }
+
+    pub fn duration_seconds(&self) -> f64 {
+        if self.sample_rate == 0 {
+            return 0.0;
+        }
+        self.samples_per_channel() as f64 / self.sample_rate as f64
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TextSegment<'a> {
+    pub segment_index: u64,
+    pub timestamp: Option<Timestamp>,
+    pub text: &'a str,
+    pub language: Option<&'a str>,
+    pub is_final: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnedTextSegment {
+    pub segment_index: u64,
+    pub timestamp: Option<Timestamp>,
+    pub text: String,
+    pub language: Option<String>,
+    pub is_final: bool,
+}
+
+impl OwnedTextSegment {
+    pub fn new(segment_index: u64, text: impl Into<String>) -> Self {
+        Self {
+            segment_index,
+            timestamp: None,
+            text: text.into(),
+            language: None,
+            is_final: true,
+        }
+    }
+
+    pub fn timestamp(mut self, timestamp: Timestamp) -> Self {
+        self.timestamp = Some(timestamp);
+        self
+    }
+
+    pub fn language(mut self, language: impl Into<String>) -> Self {
+        self.language = Some(language.into());
+        self
+    }
+
+    pub fn finality(mut self, is_final: bool) -> Self {
+        self.is_final = is_final;
+        self
+    }
+
+    pub fn as_segment(&self) -> TextSegment<'_> {
+        TextSegment {
+            segment_index: self.segment_index,
+            timestamp: self.timestamp,
+            text: &self.text,
+            language: self.language.as_deref(),
+            is_final: self.is_final,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct DetectionResult {
     pub scenes: Vec<Scene>,
@@ -366,11 +558,63 @@ pub struct DetectionResult {
     pub frames_processed: u64,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct FrameAnalysis {
+    pub position: FramePosition,
+    pub cuts: Vec<Cut>,
+    pub frames_processed: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AnalysisEvent {
+    pub timestamp: Option<Timestamp>,
+    pub analyzer: &'static str,
+    pub label: &'static str,
+    pub score: Option<f32>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct AudioAnalysisResult {
+    pub events: Vec<AnalysisEvent>,
+    pub frames_processed: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioAnalysis {
+    pub timestamp: Timestamp,
+    pub events: Vec<AnalysisEvent>,
+    pub frames_processed: u64,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct TextAnalysisResult {
+    pub events: Vec<AnalysisEvent>,
+    pub segments_processed: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextAnalysis {
+    pub segment_index: u64,
+    pub events: Vec<AnalysisEvent>,
+    pub segments_processed: u64,
+}
+
 pub struct ScenePipeline {
     detectors: Vec<Box<dyn SceneDetector>>,
     start_in_scene: bool,
     crop: Option<CropRegion>,
     auto_downscale_min_width: Option<u32>,
+    state: ScenePipelineState,
+}
+
+#[derive(Debug, Default, Clone)]
+struct ScenePipelineState {
+    cuts: Vec<Cut>,
+    metrics: MetricsStore,
+    first_position: Option<FramePosition>,
+    last_position: Option<FramePosition>,
+    frames_processed: u64,
+    finished: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -398,45 +642,102 @@ impl ScenePipeline {
     }
 
     pub fn detect<S: VideoSource>(&mut self, source: &mut S) -> Result<DetectionResult> {
-        let mut cuts = Vec::new();
-        let mut metrics = MetricsStore::default();
-        let mut first_position = None;
-        let mut last_position = None;
-        let mut frames_processed = 0_u64;
-
+        self.reset();
         while let Some(frame) = source.next_frame()? {
-            let frame = self.prepare_frame(frame)?;
-            let frame_ref = frame.as_frame();
-            first_position.get_or_insert(frame_ref.position);
-            last_position = Some(frame_ref.position);
-            for detector in &mut self.detectors {
-                let mut new_cuts = detector.process_frame(&frame_ref, Some(&mut metrics))?;
-                cuts.append(&mut new_cuts);
+            self.process_frame(frame)?;
+        }
+        self.finish_detection()
+    }
+
+    pub fn process_frame(&mut self, frame: OwnedVideoFrame) -> Result<FrameAnalysis> {
+        if self.state.finished {
+            return Err(DetectError::InvalidArgument(
+                "cannot process frames after finish_detection; call reset first".to_string(),
+            ));
+        }
+        let frame = self.prepare_frame(frame)?;
+        let frame_ref = frame.as_frame();
+        self.state.first_position.get_or_insert(frame_ref.position);
+        self.state.last_position = Some(frame_ref.position);
+
+        let mut cuts = Vec::new();
+        for detector in &mut self.detectors {
+            let mut new_cuts = detector.process_frame(&frame_ref, Some(&mut self.state.metrics))?;
+            cuts.append(&mut new_cuts);
+        }
+        let cuts = self.record_cuts(cuts);
+        self.state.frames_processed += 1;
+
+        Ok(FrameAnalysis {
+            position: frame_ref.position,
+            cuts,
+            frames_processed: self.state.frames_processed,
+        })
+    }
+
+    pub fn finish_detection(&mut self) -> Result<DetectionResult> {
+        if !self.state.finished {
+            if let Some(last) = self.state.last_position {
+                let mut cuts = Vec::new();
+                for detector in &mut self.detectors {
+                    let mut new_cuts = detector.finish(last, Some(&mut self.state.metrics))?;
+                    cuts.append(&mut new_cuts);
+                }
+                self.record_cuts(cuts);
             }
-            frames_processed += 1;
+            self.state.finished = true;
         }
 
-        if let Some(last) = last_position {
-            for detector in &mut self.detectors {
-                let mut new_cuts = detector.finish(last, Some(&mut metrics))?;
-                cuts.append(&mut new_cuts);
-            }
-        }
-
-        cuts.sort_by_key(|cut| cut.position.frame_index);
-        cuts.dedup_by_key(|cut| cut.position.frame_index);
-        let scenes = if let (Some(start), Some(end)) = (first_position, last_position) {
-            scenes_from_cuts(&cuts, start, end, self.start_in_scene)
+        let scenes = if let (Some(start), Some(end)) =
+            (self.state.first_position, self.state.last_position)
+        {
+            scenes_from_cuts(&self.state.cuts, start, end, self.start_in_scene)
         } else {
             Vec::new()
         };
 
         Ok(DetectionResult {
             scenes,
-            cuts,
-            metrics,
-            frames_processed,
+            cuts: self.state.cuts.clone(),
+            metrics: self.state.metrics.clone(),
+            frames_processed: self.state.frames_processed,
         })
+    }
+
+    pub fn reset(&mut self) {
+        self.state = ScenePipelineState::default();
+    }
+
+    pub fn metrics(&self) -> &MetricsStore {
+        &self.state.metrics
+    }
+
+    pub fn cuts(&self) -> &[Cut] {
+        &self.state.cuts
+    }
+
+    pub fn frames_processed(&self) -> u64 {
+        self.state.frames_processed
+    }
+
+    fn record_cuts(&mut self, mut cuts: Vec<Cut>) -> Vec<Cut> {
+        cuts.sort_by_key(|cut| cut.position.frame_index);
+        cuts.dedup_by_key(|cut| cut.position.frame_index);
+        let mut accepted = Vec::new();
+        for cut in cuts {
+            if self
+                .state
+                .cuts
+                .iter()
+                .any(|existing| existing.position.frame_index == cut.position.frame_index)
+            {
+                continue;
+            }
+            self.state.cuts.push(cut.clone());
+            accepted.push(cut);
+        }
+        self.state.cuts.sort_by_key(|cut| cut.position.frame_index);
+        accepted
     }
 
     fn prepare_frame(&self, frame: OwnedVideoFrame) -> Result<OwnedVideoFrame> {
@@ -492,6 +793,217 @@ impl ScenePipelineBuilder {
             start_in_scene: self.start_in_scene,
             crop: self.crop,
             auto_downscale_min_width: self.auto_downscale_min_width,
+            state: ScenePipelineState::default(),
+        })
+    }
+}
+
+pub trait AudioAnalyzer {
+    fn name(&self) -> &'static str;
+
+    fn process_frame(&mut self, frame: &AudioFrame<'_>) -> Result<Vec<AnalysisEvent>>;
+
+    fn finish(&mut self, _last_timestamp: Option<Timestamp>) -> Result<Vec<AnalysisEvent>> {
+        Ok(Vec::new())
+    }
+}
+
+pub struct AudioPipeline {
+    analyzers: Vec<Box<dyn AudioAnalyzer>>,
+    state: AudioPipelineState,
+}
+
+#[derive(Debug, Default, Clone)]
+struct AudioPipelineState {
+    events: Vec<AnalysisEvent>,
+    last_timestamp: Option<Timestamp>,
+    frames_processed: u64,
+    finished: bool,
+}
+
+impl AudioPipeline {
+    pub fn builder() -> AudioPipelineBuilder {
+        AudioPipelineBuilder::default()
+    }
+
+    pub fn process_frame(&mut self, frame: OwnedAudioFrame) -> Result<AudioAnalysis> {
+        if self.state.finished {
+            return Err(DetectError::InvalidArgument(
+                "cannot process audio frames after finish_analysis; call reset first".to_string(),
+            ));
+        }
+        let frame_ref = frame.as_frame()?;
+        self.state.last_timestamp = Some(frame_ref.timestamp);
+
+        let mut events = Vec::new();
+        for analyzer in &mut self.analyzers {
+            let mut new_events = analyzer.process_frame(&frame_ref)?;
+            events.append(&mut new_events);
+        }
+        self.state.events.extend(events.iter().cloned());
+        self.state.frames_processed += 1;
+
+        Ok(AudioAnalysis {
+            timestamp: frame_ref.timestamp,
+            events,
+            frames_processed: self.state.frames_processed,
+        })
+    }
+
+    pub fn finish_analysis(&mut self) -> Result<AudioAnalysisResult> {
+        if !self.state.finished {
+            let mut events = Vec::new();
+            for analyzer in &mut self.analyzers {
+                let mut new_events = analyzer.finish(self.state.last_timestamp)?;
+                events.append(&mut new_events);
+            }
+            self.state.events.extend(events);
+            self.state.finished = true;
+        }
+        Ok(AudioAnalysisResult {
+            events: self.state.events.clone(),
+            frames_processed: self.state.frames_processed,
+        })
+    }
+
+    pub fn reset(&mut self) {
+        self.state = AudioPipelineState::default();
+    }
+
+    pub fn events(&self) -> &[AnalysisEvent] {
+        &self.state.events
+    }
+
+    pub fn frames_processed(&self) -> u64 {
+        self.state.frames_processed
+    }
+}
+
+#[derive(Default)]
+pub struct AudioPipelineBuilder {
+    analyzers: Vec<Box<dyn AudioAnalyzer>>,
+}
+
+impl AudioPipelineBuilder {
+    pub fn analyzer<A: AudioAnalyzer + 'static>(mut self, analyzer: A) -> Self {
+        self.analyzers.push(Box::new(analyzer));
+        self
+    }
+
+    pub fn build(self) -> Result<AudioPipeline> {
+        if self.analyzers.is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "at least one audio analyzer is required".to_string(),
+            ));
+        }
+        Ok(AudioPipeline {
+            analyzers: self.analyzers,
+            state: AudioPipelineState::default(),
+        })
+    }
+}
+
+pub trait TextAnalyzer {
+    fn name(&self) -> &'static str;
+
+    fn process_segment(&mut self, segment: &TextSegment<'_>) -> Result<Vec<AnalysisEvent>>;
+
+    fn finish(&mut self, _last_segment_index: Option<u64>) -> Result<Vec<AnalysisEvent>> {
+        Ok(Vec::new())
+    }
+}
+
+pub struct TextPipeline {
+    analyzers: Vec<Box<dyn TextAnalyzer>>,
+    state: TextPipelineState,
+}
+
+#[derive(Debug, Default, Clone)]
+struct TextPipelineState {
+    events: Vec<AnalysisEvent>,
+    last_segment_index: Option<u64>,
+    segments_processed: u64,
+    finished: bool,
+}
+
+impl TextPipeline {
+    pub fn builder() -> TextPipelineBuilder {
+        TextPipelineBuilder::default()
+    }
+
+    pub fn process_segment(&mut self, segment: OwnedTextSegment) -> Result<TextAnalysis> {
+        if self.state.finished {
+            return Err(DetectError::InvalidArgument(
+                "cannot process text segments after finish_analysis; call reset first".to_string(),
+            ));
+        }
+        let segment_ref = segment.as_segment();
+        self.state.last_segment_index = Some(segment_ref.segment_index);
+
+        let mut events = Vec::new();
+        for analyzer in &mut self.analyzers {
+            let mut new_events = analyzer.process_segment(&segment_ref)?;
+            events.append(&mut new_events);
+        }
+        self.state.events.extend(events.iter().cloned());
+        self.state.segments_processed += 1;
+
+        Ok(TextAnalysis {
+            segment_index: segment_ref.segment_index,
+            events,
+            segments_processed: self.state.segments_processed,
+        })
+    }
+
+    pub fn finish_analysis(&mut self) -> Result<TextAnalysisResult> {
+        if !self.state.finished {
+            let mut events = Vec::new();
+            for analyzer in &mut self.analyzers {
+                let mut new_events = analyzer.finish(self.state.last_segment_index)?;
+                events.append(&mut new_events);
+            }
+            self.state.events.extend(events);
+            self.state.finished = true;
+        }
+        Ok(TextAnalysisResult {
+            events: self.state.events.clone(),
+            segments_processed: self.state.segments_processed,
+        })
+    }
+
+    pub fn reset(&mut self) {
+        self.state = TextPipelineState::default();
+    }
+
+    pub fn events(&self) -> &[AnalysisEvent] {
+        &self.state.events
+    }
+
+    pub fn segments_processed(&self) -> u64 {
+        self.state.segments_processed
+    }
+}
+
+#[derive(Default)]
+pub struct TextPipelineBuilder {
+    analyzers: Vec<Box<dyn TextAnalyzer>>,
+}
+
+impl TextPipelineBuilder {
+    pub fn analyzer<A: TextAnalyzer + 'static>(mut self, analyzer: A) -> Self {
+        self.analyzers.push(Box::new(analyzer));
+        self
+    }
+
+    pub fn build(self) -> Result<TextPipeline> {
+        if self.analyzers.is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "at least one text analyzer is required".to_string(),
+            ));
+        }
+        Ok(TextPipeline {
+            analyzers: self.analyzers,
+            state: TextPipelineState::default(),
         })
     }
 }
@@ -588,6 +1100,141 @@ mod tests {
         metrics.set_metric(7, "content_val", 12.5);
         assert_eq!(metrics.get(7, "content_val"), Some(12.5));
         assert_eq!(metrics.keys().collect::<Vec<_>>(), vec!["content_val"]);
+    }
+
+    #[test]
+    fn pipeline_processes_frames_incrementally() {
+        struct CutOnFrame(u64);
+
+        impl SceneDetector for CutOnFrame {
+            fn name(&self) -> &'static str {
+                "test"
+            }
+
+            fn metric_keys(&self) -> &'static [&'static str] {
+                &[]
+            }
+
+            fn process_frame(
+                &mut self,
+                frame: &VideoFrame<'_>,
+                _metrics: Option<&mut dyn MetricsSink>,
+            ) -> Result<Vec<Cut>> {
+                Ok((frame.position.frame_index == self.0)
+                    .then(|| Cut {
+                        position: frame.position,
+                        detector: self.name(),
+                        score: Some(1.0),
+                    })
+                    .into_iter()
+                    .collect())
+            }
+        }
+
+        let mut pipeline = ScenePipeline::builder()
+            .detector(CutOnFrame(1))
+            .start_in_scene(true)
+            .build()
+            .unwrap();
+        let frame = |frame_index| OwnedVideoFrame {
+            position: pos(frame_index),
+            width: 1,
+            height: 1,
+            pixel_format: PixelFormat::Rgb24,
+            data: vec![0, 0, 0],
+            stride: 3,
+        };
+
+        assert!(pipeline.process_frame(frame(0)).unwrap().cuts.is_empty());
+        let analysis = pipeline.process_frame(frame(1)).unwrap();
+        assert_eq!(analysis.frames_processed, 2);
+        assert_eq!(analysis.cuts[0].position.frame_index, 1);
+
+        let result = pipeline.finish_detection().unwrap();
+        assert_eq!(result.frames_processed, 2);
+        assert_eq!(result.cuts.len(), 1);
+        assert_eq!(result.scenes.len(), 2);
+    }
+
+    #[test]
+    fn audio_pipeline_processes_frames_incrementally() {
+        struct LoudnessAnalyzer;
+
+        impl AudioAnalyzer for LoudnessAnalyzer {
+            fn name(&self) -> &'static str {
+                "loudness"
+            }
+
+            fn process_frame(&mut self, frame: &AudioFrame<'_>) -> Result<Vec<AnalysisEvent>> {
+                let AudioBuffer::F32(samples) = frame.data else {
+                    return Ok(Vec::new());
+                };
+                let mean = samples.iter().map(|sample| sample.abs()).sum::<f32>()
+                    / samples.len().max(1) as f32;
+                Ok((mean > 0.5)
+                    .then(|| AnalysisEvent {
+                        timestamp: Some(frame.timestamp),
+                        analyzer: self.name(),
+                        label: "loud",
+                        score: Some(mean),
+                    })
+                    .into_iter()
+                    .collect())
+            }
+        }
+
+        let mut pipeline = AudioPipeline::builder()
+            .analyzer(LoudnessAnalyzer)
+            .build()
+            .unwrap();
+        let frame = OwnedAudioFrame::new(
+            Timestamp::new(0, Timebase::new(1, 48_000)),
+            48_000,
+            1,
+            AudioBuffer::F32(vec![1.0, 0.5]),
+        )
+        .unwrap();
+
+        let analysis = pipeline.process_frame(frame).unwrap();
+        assert_eq!(analysis.frames_processed, 1);
+        assert_eq!(analysis.events[0].label, "loud");
+        assert_eq!(pipeline.finish_analysis().unwrap().events.len(), 1);
+    }
+
+    #[test]
+    fn text_pipeline_processes_segments_incrementally() {
+        struct KeywordAnalyzer;
+
+        impl TextAnalyzer for KeywordAnalyzer {
+            fn name(&self) -> &'static str {
+                "keyword"
+            }
+
+            fn process_segment(&mut self, segment: &TextSegment<'_>) -> Result<Vec<AnalysisEvent>> {
+                Ok(segment
+                    .text
+                    .contains("cut")
+                    .then(|| AnalysisEvent {
+                        timestamp: segment.timestamp,
+                        analyzer: self.name(),
+                        label: "keyword",
+                        score: Some(1.0),
+                    })
+                    .into_iter()
+                    .collect())
+            }
+        }
+
+        let mut pipeline = TextPipeline::builder()
+            .analyzer(KeywordAnalyzer)
+            .build()
+            .unwrap();
+        let segment = OwnedTextSegment::new(0, "find this cut point");
+
+        let analysis = pipeline.process_segment(segment).unwrap();
+        assert_eq!(analysis.segments_processed, 1);
+        assert_eq!(analysis.events[0].analyzer, "keyword");
+        assert_eq!(pipeline.finish_analysis().unwrap().segments_processed, 1);
     }
 
     #[test]

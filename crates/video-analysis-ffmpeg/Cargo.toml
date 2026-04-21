@@ -13,6 +13,7 @@ ffmpeg-tests = ["ffmpeg-backend"]
 num-rational.workspace = true
 thiserror.workspace = true
 video-analysis-core.workspace = true
+video-analysis-ingest.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

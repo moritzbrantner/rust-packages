@@ -11,6 +11,7 @@ members = [
     "crates/video-analysis-core",
     "crates/video-analysis-detectors",
     "crates/video-analysis-ffmpeg",
+    "crates/video-analysis-ingest",
     "crates/video-analysis-output",
     "crates/video-analysis-split",
     "crates/video-analysis-cli",
@@ -27,6 +28,7 @@ thiserror = "2.0.17"
 video-analysis-core = { path = "crates/video-analysis-core" }
 video-analysis-detectors = { path = "crates/video-analysis-detectors" }
 video-analysis-ffmpeg = { path = "crates/video-analysis-ffmpeg" }
+video-analysis-ingest = { path = "crates/video-analysis-ingest" }
 video-analysis-output = { path = "crates/video-analysis-output" }
 video-analysis-split = { path = "crates/video-analysis-split" }
 
@@ -39,6 +41,6 @@ ffmpeg-tests = ["ffmpeg-backend"]
 video-analysis-core.workspace = true
 video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
+video-analysis-ingest.workspace = true
 video-analysis-output.workspace = true
 video-analysis-split.workspace = true
-

@@ -465,6 +465,7 @@ dependencies = [
  "video-analysis-core",
  "video-analysis-detectors",
  "video-analysis-ffmpeg",
+ "video-analysis-ingest",
  "video-analysis-output",
  "video-analysis-split",
 ]
@@ -505,6 +506,15 @@ dependencies = [
  "num-rational",
  "tempfile",
  "thiserror",
+ "video-analysis-core",
+ "video-analysis-ingest",
+]
+
+[[package]]
+name = "video-analysis-ingest"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
  "video-analysis-core",
 ]
 
