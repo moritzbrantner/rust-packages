@@ -704,7 +704,7 @@ The reusable Rust API is exposed through
 
 The use-case JSON report is the main contract between Rust output and React
 components. The serialized Rust report structs in
-`crates/video-analysis-use-cases/src/main.rs` align with the TypeScript
+`crates/video/video-analysis-use-cases/src/main.rs` align with the TypeScript
 interfaces in `packages/video-analysis-ui/src/types.ts`.
 
 Top-level report:

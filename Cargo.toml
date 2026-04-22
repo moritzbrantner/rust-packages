@@ -8,42 +8,42 @@ description = "Rust-first multimodal analysis workspace for video, audio, images
 [workspace]
 members = [
     ".",
-    "crates/comfyui-data",
-    "crates/comfyui-models",
-    "crates/audio-analysis-core",
-    "crates/audio-analysis-fourier",
-    "crates/audio-analysis-pitch",
-    "crates/audio-analysis-rhythm",
-    "crates/audio-analysis-separation",
-    "crates/image-analysis-core",
-    "crates/image-analysis-processing",
-    "crates/text-analysis-core",
-    "crates/text-analysis-features",
-    "crates/vector-analysis-core",
-    "crates/vector-analysis-index",
-    "crates/three-d-processing-core",
-    "crates/three-d-processing-mesh",
-    "crates/video-analysis-core",
-    "crates/video-analysis-data",
-    "crates/video-analysis-dataset",
-    "crates/video-analysis-detectors",
-    "crates/video-analysis-editing",
-    "crates/video-analysis-features",
-    "crates/video-analysis-ffmpeg",
-    "crates/video-analysis-gaussian-splatting",
-    "crates/video-analysis-ingest",
-    "crates/video-analysis-models",
-    "crates/video-analysis-output",
-    "crates/video-analysis-posture",
-    "crates/video-analysis-radiance-fields",
-    "crates/video-analysis-recognition",
-    "crates/video-analysis-reconstruction",
-    "crates/video-analysis-split",
-    "crates/video-analysis-storage",
-    "crates/video-analysis-tracking",
-    "crates/video-analysis-transform",
-    "crates/video-analysis-use-cases",
-    "crates/video-analysis-cli",
+    "crates/audio/audio-analysis-core",
+    "crates/audio/audio-analysis-fourier",
+    "crates/audio/audio-analysis-pitch",
+    "crates/audio/audio-analysis-rhythm",
+    "crates/audio/audio-analysis-separation",
+    "crates/comfyui/comfyui-data",
+    "crates/comfyui/comfyui-models",
+    "crates/image/image-analysis-core",
+    "crates/image/image-analysis-processing",
+    "crates/text/text-analysis-core",
+    "crates/text/text-analysis-features",
+    "crates/three-d/three-d-processing-core",
+    "crates/three-d/three-d-processing-mesh",
+    "crates/vector/vector-analysis-core",
+    "crates/vector/vector-analysis-index",
+    "crates/video/video-analysis-core",
+    "crates/video/video-analysis-data",
+    "crates/video/video-analysis-dataset",
+    "crates/video/video-analysis-detectors",
+    "crates/video/video-analysis-editing",
+    "crates/video/video-analysis-features",
+    "crates/video/video-analysis-ffmpeg",
+    "crates/video/video-analysis-gaussian-splatting",
+    "crates/video/video-analysis-ingest",
+    "crates/video/video-analysis-models",
+    "crates/video/video-analysis-output",
+    "crates/video/video-analysis-posture",
+    "crates/video/video-analysis-radiance-fields",
+    "crates/video/video-analysis-recognition",
+    "crates/video/video-analysis-reconstruction",
+    "crates/video/video-analysis-split",
+    "crates/video/video-analysis-storage",
+    "crates/video/video-analysis-tracking",
+    "crates/video/video-analysis-transform",
+    "crates/video/video-analysis-use-cases",
+    "crates/video/video-analysis-cli",
 ]
 resolver = "2"
 
@@ -59,41 +59,41 @@ serde_json = "1.0.145"
 rustfft = "6.2.0"
 tempfile = "3.23.0"
 thiserror = "2.0.17"
-comfyui-data = { path = "crates/comfyui-data" }
-comfyui-models = { path = "crates/comfyui-models" }
-audio-analysis-core = { path = "crates/audio-analysis-core" }
-audio-analysis-fourier = { path = "crates/audio-analysis-fourier" }
-audio-analysis-pitch = { path = "crates/audio-analysis-pitch" }
-audio-analysis-rhythm = { path = "crates/audio-analysis-rhythm" }
-audio-analysis-separation = { path = "crates/audio-analysis-separation" }
-image-analysis-core = { path = "crates/image-analysis-core" }
-image-analysis-processing = { path = "crates/image-analysis-processing" }
-text-analysis-core = { path = "crates/text-analysis-core" }
-text-analysis-features = { path = "crates/text-analysis-features" }
-vector-analysis-core = { path = "crates/vector-analysis-core" }
-vector-analysis-index = { path = "crates/vector-analysis-index" }
-three-d-processing-core = { path = "crates/three-d-processing-core" }
-three-d-processing-mesh = { path = "crates/three-d-processing-mesh" }
-video-analysis-core = { path = "crates/video-analysis-core" }
-video-analysis-data = { path = "crates/video-analysis-data" }
-video-analysis-dataset = { path = "crates/video-analysis-dataset" }
-video-analysis-detectors = { path = "crates/video-analysis-detectors" }
-video-analysis-editing = { path = "crates/video-analysis-editing" }
-video-analysis-features = { path = "crates/video-analysis-features" }
-video-analysis-ffmpeg = { path = "crates/video-analysis-ffmpeg" }
-video-analysis-gaussian-splatting = { path = "crates/video-analysis-gaussian-splatting" }
-video-analysis-ingest = { path = "crates/video-analysis-ingest" }
-video-analysis-models = { path = "crates/video-analysis-models" }
-video-analysis-output = { path = "crates/video-analysis-output" }
-video-analysis-posture = { path = "crates/video-analysis-posture" }
-video-analysis-radiance-fields = { path = "crates/video-analysis-radiance-fields" }
-video-analysis-recognition = { path = "crates/video-analysis-recognition" }
-video-analysis-reconstruction = { path = "crates/video-analysis-reconstruction" }
-video-analysis-split = { path = "crates/video-analysis-split" }
-video-analysis-storage = { path = "crates/video-analysis-storage" }
-video-analysis-tracking = { path = "crates/video-analysis-tracking" }
-video-analysis-transform = { path = "crates/video-analysis-transform" }
-video-analysis-use-cases = { path = "crates/video-analysis-use-cases" }
+comfyui-data = { path = "crates/comfyui/comfyui-data" }
+comfyui-models = { path = "crates/comfyui/comfyui-models" }
+audio-analysis-core = { path = "crates/audio/audio-analysis-core" }
+audio-analysis-fourier = { path = "crates/audio/audio-analysis-fourier" }
+audio-analysis-pitch = { path = "crates/audio/audio-analysis-pitch" }
+audio-analysis-rhythm = { path = "crates/audio/audio-analysis-rhythm" }
+audio-analysis-separation = { path = "crates/audio/audio-analysis-separation" }
+image-analysis-core = { path = "crates/image/image-analysis-core" }
+image-analysis-processing = { path = "crates/image/image-analysis-processing" }
+text-analysis-core = { path = "crates/text/text-analysis-core" }
+text-analysis-features = { path = "crates/text/text-analysis-features" }
+vector-analysis-core = { path = "crates/vector/vector-analysis-core" }
+vector-analysis-index = { path = "crates/vector/vector-analysis-index" }
+three-d-processing-core = { path = "crates/three-d/three-d-processing-core" }
+three-d-processing-mesh = { path = "crates/three-d/three-d-processing-mesh" }
+video-analysis-core = { path = "crates/video/video-analysis-core" }
+video-analysis-data = { path = "crates/video/video-analysis-data" }
+video-analysis-dataset = { path = "crates/video/video-analysis-dataset" }
+video-analysis-detectors = { path = "crates/video/video-analysis-detectors" }
+video-analysis-editing = { path = "crates/video/video-analysis-editing" }
+video-analysis-features = { path = "crates/video/video-analysis-features" }
+video-analysis-ffmpeg = { path = "crates/video/video-analysis-ffmpeg" }
+video-analysis-gaussian-splatting = { path = "crates/video/video-analysis-gaussian-splatting" }
+video-analysis-ingest = { path = "crates/video/video-analysis-ingest" }
+video-analysis-models = { path = "crates/video/video-analysis-models" }
+video-analysis-output = { path = "crates/video/video-analysis-output" }
+video-analysis-posture = { path = "crates/video/video-analysis-posture" }
+video-analysis-radiance-fields = { path = "crates/video/video-analysis-radiance-fields" }
+video-analysis-recognition = { path = "crates/video/video-analysis-recognition" }
+video-analysis-reconstruction = { path = "crates/video/video-analysis-reconstruction" }
+video-analysis-split = { path = "crates/video/video-analysis-split" }
+video-analysis-storage = { path = "crates/video/video-analysis-storage" }
+video-analysis-tracking = { path = "crates/video/video-analysis-tracking" }
+video-analysis-transform = { path = "crates/video/video-analysis-transform" }
+video-analysis-use-cases = { path = "crates/video/video-analysis-use-cases" }
 
 [features]
 default = []

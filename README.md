@@ -8,6 +8,9 @@ reference.
 
 ## Crates
 
+Rust crates are grouped under `crates/` by input or integration domain:
+`audio/`, `video/`, `image/`, `text/`, `vector/`, `three-d/`, and `comfyui/`.
+
 - `video-analysis`: umbrella re-export crate.
 - `comfyui-data`: serde contracts and helpers for ComfyUI workflow JSON and
   API prompt graphs.
