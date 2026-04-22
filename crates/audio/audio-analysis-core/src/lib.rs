@@ -1,4 +1,4 @@
-use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result, Timestamp};
+use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result, Timebase, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChannelMix {
@@ -75,6 +75,174 @@ impl<'a> Iterator for AudioFrames<'a> {
         let offset = self.offset;
         self.offset += self.spec.hop_size;
         Some((offset, &self.samples[offset..end]))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StreamingFrameConfig {
+    pub frame_size: usize,
+    pub hop_size: usize,
+    pub channel_mix: ChannelMix,
+    pub max_buffered_samples: usize,
+}
+
+impl StreamingFrameConfig {
+    pub fn new(frame_size: usize, hop_size: usize) -> Result<Self> {
+        FrameSpec::new(frame_size, hop_size)?;
+        Ok(Self {
+            frame_size,
+            hop_size,
+            channel_mix: ChannelMix::Average,
+            max_buffered_samples: frame_size.saturating_add(hop_size).max(frame_size),
+        })
+    }
+
+    pub fn channel_mix(mut self, mix: ChannelMix) -> Self {
+        self.channel_mix = mix;
+        self
+    }
+
+    pub fn max_buffered_samples(mut self, samples: usize) -> Self {
+        self.max_buffered_samples = samples.max(self.frame_size);
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioWindow {
+    pub timestamp: Timestamp,
+    pub sample_rate: u32,
+    pub start_sample: u64,
+    pub samples: Vec<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StreamingFrameBuffer {
+    config: StreamingFrameConfig,
+    sample_rate: Option<u32>,
+    channels: Option<u16>,
+    buffer: Vec<f32>,
+    buffered_start_sample: u64,
+    next_window_start_sample: Option<u64>,
+}
+
+impl StreamingFrameBuffer {
+    pub fn new(config: StreamingFrameConfig) -> Result<Self> {
+        FrameSpec::new(config.frame_size, config.hop_size)?;
+        if config.max_buffered_samples < config.frame_size {
+            return Err(DetectError::InvalidArgument(
+                "max_buffered_samples must be at least frame_size".to_string(),
+            ));
+        }
+        Ok(Self {
+            config,
+            sample_rate: None,
+            channels: None,
+            buffer: Vec::new(),
+            buffered_start_sample: 0,
+            next_window_start_sample: None,
+        })
+    }
+
+    pub fn push_frame(&mut self, frame: &AudioFrame<'_>) -> Result<Vec<AudioWindow>> {
+        self.validate_stream_format(frame)?;
+        let frame_start_sample = timestamp_to_sample(frame.timestamp, frame.sample_rate)?;
+        if self.next_window_start_sample.is_none() {
+            self.buffered_start_sample = frame_start_sample;
+            self.next_window_start_sample = Some(frame_start_sample);
+        }
+
+        let buffered_end_sample = self.buffered_start_sample + self.buffer.len() as u64;
+        if frame_start_sample > buffered_end_sample {
+            self.buffer.clear();
+            self.buffered_start_sample = frame_start_sample;
+            self.next_window_start_sample = Some(frame_start_sample);
+        } else if frame_start_sample < buffered_end_sample {
+            return Err(DetectError::InvalidArgument(
+                "streaming audio frames must not overlap".to_string(),
+            ));
+        }
+
+        self.buffer.extend(interleaved_to_mono(
+            frame.data,
+            frame.channels,
+            self.config.channel_mix,
+        )?);
+
+        let mut windows = Vec::new();
+        let mut next_start = self
+            .next_window_start_sample
+            .expect("next window start is initialized above");
+        let buffered_end_sample = self.buffered_start_sample + self.buffer.len() as u64;
+        while next_start + self.config.frame_size as u64 <= buffered_end_sample {
+            let offset = (next_start - self.buffered_start_sample) as usize;
+            let end = offset + self.config.frame_size;
+            windows.push(AudioWindow {
+                timestamp: sample_to_timestamp(next_start, frame.sample_rate),
+                sample_rate: frame.sample_rate,
+                start_sample: next_start,
+                samples: self.buffer[offset..end].to_vec(),
+            });
+            next_start += self.config.hop_size as u64;
+        }
+        self.next_window_start_sample = Some(next_start);
+        self.trim_consumed();
+        self.enforce_buffer_bound()?;
+        Ok(windows)
+    }
+
+    pub fn reset(&mut self) {
+        self.sample_rate = None;
+        self.channels = None;
+        self.buffer.clear();
+        self.buffered_start_sample = 0;
+        self.next_window_start_sample = None;
+    }
+
+    pub fn buffered_samples(&self) -> usize {
+        self.buffer.len()
+    }
+
+    fn validate_stream_format(&mut self, frame: &AudioFrame<'_>) -> Result<()> {
+        match (self.sample_rate, self.channels) {
+            (None, None) => {
+                self.sample_rate = Some(frame.sample_rate);
+                self.channels = Some(frame.channels);
+                Ok(())
+            }
+            (Some(sample_rate), Some(channels))
+                if sample_rate == frame.sample_rate && channels == frame.channels =>
+            {
+                Ok(())
+            }
+            _ => Err(DetectError::InvalidArgument(
+                "streaming audio sample_rate and channels must remain stable".to_string(),
+            )),
+        }
+    }
+
+    fn trim_consumed(&mut self) {
+        let Some(next_start) = self.next_window_start_sample else {
+            return;
+        };
+        if next_start <= self.buffered_start_sample {
+            return;
+        }
+        let drop = (next_start - self.buffered_start_sample).min(self.buffer.len() as u64) as usize;
+        if drop > 0 {
+            self.buffer.drain(0..drop);
+            self.buffered_start_sample += drop as u64;
+        }
+    }
+
+    fn enforce_buffer_bound(&mut self) -> Result<()> {
+        if self.buffer.len() <= self.config.max_buffered_samples {
+            return Ok(());
+        }
+        Err(DetectError::InvalidArgument(format!(
+            "streaming audio buffer exceeded max_buffered_samples ({})",
+            self.config.max_buffered_samples
+        )))
     }
 }
 
@@ -201,6 +369,26 @@ pub fn zero_pad_to(mut samples: Vec<f32>, target_len: usize) -> Vec<f32> {
     samples
 }
 
+fn timestamp_to_sample(timestamp: Timestamp, sample_rate: u32) -> Result<u64> {
+    if sample_rate == 0 || timestamp.timebase.den == 0 {
+        return Err(DetectError::InvalidAudioFormat {
+            sample_rate,
+            channels: 1,
+        });
+    }
+    let samples = timestamp.seconds() * sample_rate as f64;
+    if !samples.is_finite() || samples < 0.0 {
+        return Err(DetectError::InvalidArgument(
+            "audio timestamp must resolve to a finite non-negative sample index".to_string(),
+        ));
+    }
+    Ok(samples.round() as u64)
+}
+
+fn sample_to_timestamp(sample: u64, sample_rate: u32) -> Timestamp {
+    Timestamp::new(sample as i64, Timebase::new(1, sample_rate as i32))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,5 +432,104 @@ mod tests {
         assert!(windowed[1] > 0.7);
         assert!(windowed[2] > 0.7);
         assert!(windowed[3].abs() < 0.000_001);
+    }
+
+    #[test]
+    fn streaming_buffer_emits_windows_inside_one_chunk() {
+        let config = StreamingFrameConfig::new(4, 2).unwrap();
+        let mut buffer = StreamingFrameBuffer::new(config).unwrap();
+        let samples = AudioBuffer::F32(vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0]);
+        let frame = AudioFrame::new(ts(), 48_000, 1, &samples).unwrap();
+
+        let windows = buffer.push_frame(&frame).unwrap();
+
+        assert_eq!(windows.len(), 2);
+        assert_eq!(windows[0].start_sample, 0);
+        assert_eq!(windows[0].samples, vec![0.0, 1.0, 2.0, 3.0]);
+        assert_eq!(windows[1].start_sample, 2);
+        assert_eq!(windows[1].samples, vec![2.0, 3.0, 4.0, 5.0]);
+    }
+
+    #[test]
+    fn streaming_buffer_emits_windows_across_chunks() {
+        let config = StreamingFrameConfig::new(4, 2).unwrap();
+        let mut buffer = StreamingFrameBuffer::new(config).unwrap();
+        let first = AudioBuffer::F32(vec![0.0, 1.0, 2.0]);
+        let second = AudioBuffer::F32(vec![3.0, 4.0, 5.0]);
+        let first_frame = AudioFrame::new(ts(), 48_000, 1, &first).unwrap();
+        let second_frame = AudioFrame::new(
+            Timestamp::new(3, Timebase::new(1, 48_000)),
+            48_000,
+            1,
+            &second,
+        )
+        .unwrap();
+
+        assert!(buffer.push_frame(&first_frame).unwrap().is_empty());
+        let windows = buffer.push_frame(&second_frame).unwrap();
+
+        assert_eq!(windows.len(), 2);
+        assert_eq!(windows[0].samples, vec![0.0, 1.0, 2.0, 3.0]);
+        assert_eq!(windows[1].samples, vec![2.0, 3.0, 4.0, 5.0]);
+    }
+
+    #[test]
+    fn streaming_buffer_preserves_window_timestamps() {
+        let config = StreamingFrameConfig::new(4, 2).unwrap();
+        let mut buffer = StreamingFrameBuffer::new(config).unwrap();
+        let samples = AudioBuffer::F32(vec![0.0; 6]);
+        let frame = AudioFrame::new(
+            Timestamp::new(10, Timebase::new(1, 48_000)),
+            48_000,
+            1,
+            &samples,
+        )
+        .unwrap();
+
+        let windows = buffer.push_frame(&frame).unwrap();
+
+        assert_eq!(
+            windows
+                .iter()
+                .map(|window| window.timestamp)
+                .collect::<Vec<_>>(),
+            vec![
+                Timestamp::new(10, Timebase::new(1, 48_000)),
+                Timestamp::new(12, Timebase::new(1, 48_000)),
+            ]
+        );
+    }
+
+    #[test]
+    fn streaming_buffer_requires_stable_format() {
+        let config = StreamingFrameConfig::new(4, 2).unwrap();
+        let mut buffer = StreamingFrameBuffer::new(config).unwrap();
+        let first = AudioBuffer::F32(vec![0.0; 4]);
+        let second = AudioBuffer::F32(vec![0.0; 4]);
+        let first_frame = AudioFrame::new(ts(), 48_000, 1, &first).unwrap();
+        let second_frame = AudioFrame::new(
+            Timestamp::new(4, Timebase::new(1, 44_100)),
+            44_100,
+            1,
+            &second,
+        )
+        .unwrap();
+
+        buffer.push_frame(&first_frame).unwrap();
+
+        assert!(buffer.push_frame(&second_frame).is_err());
+    }
+
+    #[test]
+    fn streaming_buffer_keeps_retained_samples_bounded() {
+        let config = StreamingFrameConfig::new(8, 8)
+            .unwrap()
+            .max_buffered_samples(8);
+        let mut buffer = StreamingFrameBuffer::new(config).unwrap();
+        let samples = AudioBuffer::F32(vec![0.0; 32]);
+        let frame = AudioFrame::new(ts(), 48_000, 1, &samples).unwrap();
+
+        assert!(buffer.push_frame(&frame).is_ok());
+        assert!(buffer.buffered_samples() <= 8);
     }
 }

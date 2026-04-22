@@ -17,11 +17,17 @@ Rust crates are grouped under `crates/` by input or integration domain:
 - `comfyui-models`: ComfyUI model folder keys, default paths, inventory
   scanning, and `extra_model_paths.yaml` generation helpers.
 - `audio-analysis-core`: normalized audio sample conversion, mono mixing,
-  windowing, frame iteration, and level helpers for audio analysis crates.
+  windowing, frame iteration, streaming frame windows, and level helpers for
+  audio analysis crates.
 - `audio-analysis-fourier`: FFT, STFT/spectrogram, spectral features, and a
   dominant-frequency audio analyzer.
+- `audio-analysis-io`: audio-named input conveniences over the FFmpeg-backed
+  audio source and shared ingest traits.
 - `audio-analysis-pitch`: autocorrelation pitch estimation and an audio
   analyzer that emits pitch events.
+- `audio-analysis-processing`: realtime-safe audio frame transforms, including
+  gain, clipping, mono conversion, DC blocking, biquad filters, noise gates, and
+  processed audio sources.
 - `audio-analysis-rhythm`: onset detection, tempo estimation, and a rhythm
   analyzer that emits onset and BPM events.
 - `audio-analysis-separation`: HTDemucs/Demucs command wrapper for instrument
@@ -172,7 +178,9 @@ flowchart LR
     core[video-analysis-core]
     audiocore[audio-analysis-core]
     fourier[audio-analysis-fourier]
+    audioio[audio-analysis-io]
     pitch[audio-analysis-pitch]
+    audioprocessing[audio-analysis-processing]
     rhythm[audio-analysis-rhythm]
     separation[audio-analysis-separation]
     imagecore[image-analysis-core]
@@ -205,8 +213,14 @@ flowchart LR
     audiocore --> core
     fourier --> audiocore
     fourier --> core
+    audioio --> core
+    audioio --> ingest
+    audioio --> ffmpeg
     pitch --> audiocore
     pitch --> core
+    audioprocessing --> audiocore
+    audioprocessing --> core
+    audioprocessing --> ingest
     rhythm --> audiocore
     rhythm --> core
     separation --> core
@@ -255,7 +269,9 @@ flowchart LR
     root --> split
     root --> audiocore
     root --> fourier
+    root --> audioio
     root --> pitch
+    root --> audioprocessing
     root --> rhythm
     root --> separation
     root --> imagecore

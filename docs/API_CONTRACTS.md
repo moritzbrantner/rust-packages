@@ -16,9 +16,11 @@ crates should compose around those contracts instead of defining parallel types.
 | `video-analysis` | Root facade crate | Library crates except CLI and use cases | Re-exports core items, detector items, and package modules | Applications that want one import surface |
 | `comfyui-data` | ComfyUI workflow and prompt graph data contracts | `serde`, `serde_json` | Workflow JSON nodes, links, groups, validation helpers, API prompt nodes and links | Applications importing, validating, or emitting ComfyUI graphs |
 | `comfyui-models` | ComfyUI model folder and inventory contracts | `serde`, `thiserror` | Core model folder keys, default relative paths, inventory scanning, extra model paths YAML generation | Applications managing shared ComfyUI model libraries |
-| `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core` | Normalized sample conversion, mono mixing, window functions, frame iteration, level helpers | Audio analysis crates and applications |
+| `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core` | Normalized sample conversion, mono mixing, window functions, frame iteration, streaming frame windows, level helpers | Audio analysis crates and applications |
 | `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
+| `audio-analysis-io` | Audio input convenience facade | `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports | Applications that want audio-specific input APIs |
 | `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
+| `audio-analysis-processing` | Realtime-safe audio processing | `audio-analysis-core`, `video-analysis-core`, `video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources | Applications, preprocessing workflows, audio pipelines |
 | `audio-analysis-rhythm` | Rhythm and tempo analysis | `audio-analysis-core`, `video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
 | `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core` | Borrowed/owned image views, pixel formats, compacting, mean color, luma histograms | Image processing crates, applications, video frame preprocessing |
@@ -126,13 +128,23 @@ The `audio-analysis-*` crates build on the canonical `AudioFrame`,
 
 - `audio-analysis-core` converts supported `AudioBuffer` formats into
   normalized `f32` samples, mixes interleaved channels to mono, applies common
-  windows, and iterates fixed-size analysis frames.
+  windows, iterates fixed-size analysis frames, and provides
+  `StreamingFrameBuffer` for overlap-preserving windows across incoming chunks.
 - `audio-analysis-fourier` provides FFT spectra, STFT spectrogram frames,
   spectral centroid/bandwidth/rolloff/flatness features, and an
   `AudioAnalyzer` that emits dominant-frequency events.
+- `audio-analysis-io` re-exports the shared audio ingest traits and FFmpeg
+  source types behind audio-named `AudioInput`, `AudioInputOptions`, and
+  `open_audio_input` conveniences. FFmpeg remains the only default decode
+  backend.
 - `audio-analysis-pitch` estimates fundamental frequency with normalized
   autocorrelation and emits pitch events when confidence crosses the configured
   threshold.
+- `audio-analysis-processing` owns frame-based audio transforms and source
+  adapters. Built-in transforms include gain, hard clipping, mono conversion,
+  DC blocking, biquad low/high/band/notch filters, and noise gates.
+  Transformed frames are emitted as `OwnedAudioFrame` values with
+  `AudioBuffer::F32` payloads in the first milestone.
 - `audio-analysis-rhythm` detects onset events from energy changes, estimates
   BPM from onset intervals, and can emit both onset and tempo events.
 - `audio-analysis-separation` wraps the external Demucs CLI with the `htdemucs`
@@ -141,6 +153,8 @@ The `audio-analysis-*` crates build on the canonical `AudioFrame`,
 
 Audio analysis crates should accept borrowed core audio frames or normalized
 sample slices and should emit `AnalysisEvent` values for pipeline integration.
+File writing and encoded audio sinks are deferred; the current processing
+surface returns processed frames for callers to analyze, stream, or encode later.
 
 ## Image Analysis Contracts
 
@@ -797,8 +811,12 @@ Allowed internal dependencies:
 - `audio-analysis-core` -> `video-analysis-core`.
 - `audio-analysis-fourier` -> `audio-analysis-core`,
   `video-analysis-core`.
+- `audio-analysis-io` -> `video-analysis-core`, `video-analysis-ingest`,
+  `video-analysis-ffmpeg`.
 - `audio-analysis-pitch` -> `audio-analysis-core`,
   `video-analysis-core`.
+- `audio-analysis-processing` -> `audio-analysis-core`,
+  `video-analysis-core`, `video-analysis-ingest`.
 - `audio-analysis-rhythm` -> `audio-analysis-core`,
   `video-analysis-core`.
 - `audio-analysis-separation` -> `video-analysis-core`.

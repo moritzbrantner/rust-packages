@@ -81,11 +81,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio-analysis-io"
+version = "0.1.0"
+dependencies = [
+ "video-analysis-core",
+ "video-analysis-ffmpeg",
+ "video-analysis-ingest",
+]
+
+[[package]]
 name = "audio-analysis-pitch"
 version = "0.1.0"
 dependencies = [
  "audio-analysis-core",
  "video-analysis-core",
+]
+
+[[package]]
+name = "audio-analysis-processing"
+version = "0.1.0"
+dependencies = [
+ "audio-analysis-core",
+ "video-analysis-core",
+ "video-analysis-ingest",
 ]
 
 [[package]]
@@ -1339,7 +1357,9 @@ version = "0.1.0"
 dependencies = [
  "audio-analysis-core",
  "audio-analysis-fourier",
+ "audio-analysis-io",
  "audio-analysis-pitch",
+ "audio-analysis-processing",
  "audio-analysis-rhythm",
  "audio-analysis-separation",
  "image-analysis-core",
