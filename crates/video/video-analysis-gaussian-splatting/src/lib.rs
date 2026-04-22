@@ -1,7 +1,9 @@
 use std::cmp::Ordering;
 
 use video_analysis_core::{DetectError, Result};
-use video_analysis_radiance_fields::{CameraIntrinsics, CameraPose, ColorRgb, Vec2, Vec3};
+use video_analysis_radiance_fields::{
+    AxisAlignedBounds, CameraIntrinsics, CameraPose, ColorRgb, Vec2, Vec3,
+};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
@@ -480,6 +482,257 @@ pub fn render_projected_splats(
     Ok(pixels)
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct SphericalHarmonicsRgb {
+    pub degree: u8,
+    pub coeffs: Vec<[f32; 3]>,
+}
+
+impl SphericalHarmonicsRgb {
+    pub fn dc(color: ColorRgb) -> Self {
+        Self {
+            degree: 0,
+            coeffs: vec![[color.r, color.g, color.b]],
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let expected = spherical_harmonic_coeff_count(self.degree);
+        if self.coeffs.len() != expected {
+            return Err(invalid_argument(format!(
+                "spherical harmonics degree {} requires {expected} coefficient(s)",
+                self.degree
+            )));
+        }
+        for coeff in &self.coeffs {
+            if coeff.iter().any(|value| !value.is_finite()) {
+                return Err(invalid_argument(
+                    "spherical harmonics coefficients must be finite",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn preview_color(&self) -> ColorRgb {
+        const SH_C0: f32 = 0.282_094_8;
+        self.coeffs
+            .first()
+            .map(|coeff| {
+                ColorRgb::new(
+                    coeff[0].mul_add(SH_C0, 0.5),
+                    coeff[1].mul_add(SH_C0, 0.5),
+                    coeff[2].mul_add(SH_C0, 0.5),
+                )
+                .clamp01()
+            })
+            .unwrap_or(ColorRgb::WHITE)
+    }
+}
+
+fn spherical_harmonic_coeff_count(degree: u8) -> usize {
+    let degree = usize::from(degree) + 1;
+    degree * degree
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SceneTransform3 {
+    pub translation: Vec3,
+    pub uniform_scale: f32,
+}
+
+impl SceneTransform3 {
+    pub const IDENTITY: Self = Self {
+        translation: Vec3::ZERO,
+        uniform_scale: 1.0,
+    };
+
+    pub fn validate(self) -> Result<()> {
+        if !self.translation.is_finite() {
+            return Err(invalid_argument(
+                "scene transform translation must be finite",
+            ));
+        }
+        validate_finite(self.uniform_scale, "uniform_scale")?;
+        if self.uniform_scale <= 0.0 {
+            return Err(invalid_argument("uniform_scale must be positive"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GaussianSplat3d {
+    pub mean: Vec3,
+    pub scale_log: Vec3,
+    pub rotation: Quaternion,
+    pub opacity_logit: f32,
+    pub sh: SphericalHarmonicsRgb,
+}
+
+impl GaussianSplat3d {
+    pub fn validate(&self) -> Result<()> {
+        if !self.mean.is_finite() {
+            return Err(invalid_argument("splat mean must be finite"));
+        }
+        if !self.scale_log.is_finite() {
+            return Err(invalid_argument("splat log scale must be finite"));
+        }
+        self.rotation.normalize()?;
+        validate_finite(self.opacity_logit, "opacity_logit")?;
+        self.sh.validate()?;
+        Ok(())
+    }
+
+    pub fn scale(&self) -> Vec3 {
+        Vec3::new(
+            self.scale_log.x.exp(),
+            self.scale_log.y.exp(),
+            self.scale_log.z.exp(),
+        )
+    }
+
+    pub fn opacity(&self) -> f32 {
+        1.0 / (1.0 + (-self.opacity_logit).exp())
+    }
+
+    pub fn preview_color(&self) -> ColorRgb {
+        self.sh.preview_color()
+    }
+
+    pub fn to_preview_gaussian(&self) -> Result<Gaussian3d> {
+        self.validate()?;
+        Gaussian3d::new(
+            self.mean,
+            self.scale(),
+            self.rotation,
+            self.preview_color(),
+            self.opacity(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GaussianSplatScene {
+    pub splats: Vec<GaussianSplat3d>,
+}
+
+impl GaussianSplatScene {
+    pub fn validate(&self) -> Result<()> {
+        for splat in &self.splats {
+            splat.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn stats(&self) -> Result<GaussianSceneStats> {
+        self.validate()?;
+        if self.splats.is_empty() {
+            return Ok(GaussianSceneStats {
+                count: 0,
+                bounds: None,
+                mean_opacity: 0.0,
+                min_scale: Vec3::ZERO,
+                max_scale: Vec3::ZERO,
+            });
+        }
+
+        let mut min = self.splats[0].mean;
+        let mut max = self.splats[0].mean;
+        let mut min_scale = self.splats[0].scale();
+        let mut max_scale = min_scale;
+        let mut opacity_sum = 0.0_f32;
+        for splat in &self.splats {
+            min = min.min(splat.mean);
+            max = max.max(splat.mean);
+            let scale = splat.scale();
+            min_scale = min_scale.min(scale);
+            max_scale = max_scale.max(scale);
+            opacity_sum += splat.opacity();
+        }
+        expand_degenerate_bounds(&mut min, &mut max);
+
+        Ok(GaussianSceneStats {
+            count: self.splats.len(),
+            bounds: Some(AxisAlignedBounds::new(min, max)?),
+            mean_opacity: opacity_sum / self.splats.len() as f32,
+            min_scale,
+            max_scale,
+        })
+    }
+
+    pub fn transformed(&self, transform: SceneTransform3) -> Result<Self> {
+        self.validate()?;
+        transform.validate()?;
+        let log_scale_delta = transform.uniform_scale.ln();
+        Ok(Self {
+            splats: self
+                .splats
+                .iter()
+                .map(|splat| GaussianSplat3d {
+                    mean: splat.mean * transform.uniform_scale + transform.translation,
+                    scale_log: splat.scale_log + Vec3::splat(log_scale_delta),
+                    rotation: splat.rotation,
+                    opacity_logit: splat.opacity_logit,
+                    sh: splat.sh.clone(),
+                })
+                .collect(),
+        })
+    }
+
+    pub fn retain_opacity_at_least(&mut self, min_opacity: f32) -> Result<()> {
+        validate_finite(min_opacity, "min_opacity")?;
+        if !(0.0..=1.0).contains(&min_opacity) {
+            return Err(invalid_argument("min_opacity must be in the range [0, 1]"));
+        }
+        self.validate()?;
+        self.splats.retain(|splat| splat.opacity() >= min_opacity);
+        Ok(())
+    }
+
+    pub fn retain_in_bounds(&mut self, bounds: AxisAlignedBounds) -> Result<()> {
+        bounds.validate()?;
+        self.validate()?;
+        self.splats.retain(|splat| bounds.contains(splat.mean));
+        Ok(())
+    }
+
+    pub fn downsample_stride(&self, stride: usize) -> Result<Self> {
+        self.validate()?;
+        if stride == 0 {
+            return Err(invalid_argument("downsample stride must be positive"));
+        }
+        Ok(Self {
+            splats: self.splats.iter().step_by(stride).cloned().collect(),
+        })
+    }
+}
+
+fn expand_degenerate_bounds(min: &mut Vec3, max: &mut Vec3) {
+    let epsilon = 1.0e-6;
+    if min.x == max.x {
+        min.x -= epsilon;
+        max.x += epsilon;
+    }
+    if min.y == max.y {
+        min.y -= epsilon;
+        max.y += epsilon;
+    }
+    if min.z == max.z {
+        min.z -= epsilon;
+        max.z += epsilon;
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GaussianSceneStats {
+    pub count: usize,
+    pub bounds: Option<AxisAlignedBounds>,
+    pub mean_opacity: f32,
+    pub min_scale: Vec3,
+    pub max_scale: Vec3,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -571,5 +824,39 @@ mod tests {
         assert!(pixel.color.r > 0.49);
         assert!(pixel.color.b > 0.49);
         approx_eq(pixel.alpha, 1.0);
+    }
+
+    #[test]
+    fn splat_scene_stats_transform_filter_and_downsample_are_deterministic() {
+        let splat = |x: f32, opacity_logit: f32| GaussianSplat3d {
+            mean: Vec3::new(x, 0.0, 1.0),
+            scale_log: Vec3::new(0.0, 1.0_f32.ln(), 2.0_f32.ln()),
+            rotation: Quaternion::IDENTITY,
+            opacity_logit,
+            sh: SphericalHarmonicsRgb::dc(ColorRgb::WHITE),
+        };
+        let scene = GaussianSplatScene {
+            splats: vec![splat(0.0, 0.0), splat(2.0, 4.0), splat(4.0, -4.0)],
+        };
+
+        let stats = scene.stats().unwrap();
+        assert_eq!(stats.count, 3);
+        approx_eq(stats.min_scale.x, 1.0);
+        approx_eq(stats.max_scale.z, 2.0);
+        assert!(stats.mean_opacity > 0.3);
+
+        let transformed = scene
+            .transformed(SceneTransform3 {
+                translation: Vec3::new(1.0, 0.0, 0.0),
+                uniform_scale: 2.0,
+            })
+            .unwrap();
+        approx_eq(transformed.splats[1].mean.x, 5.0);
+        approx_eq(transformed.splats[1].scale().z, 4.0);
+
+        let mut filtered = transformed.downsample_stride(2).unwrap();
+        assert_eq!(filtered.splats.len(), 2);
+        filtered.retain_opacity_at_least(0.5).unwrap();
+        assert_eq!(filtered.splats.len(), 1);
     }
 }

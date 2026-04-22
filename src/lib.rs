@@ -32,6 +32,8 @@ pub use video_analysis_models as models;
 pub use video_analysis_output as output;
 pub use video_analysis_posture as posture;
 pub use video_analysis_radiance_fields as radiance_fields;
+pub use video_analysis_radiance_io as radiance_io;
+pub use video_analysis_radiance_pipeline as radiance_pipeline;
 pub use video_analysis_recognition as recognition;
 pub use video_analysis_reconstruction as reconstruction;
 pub use video_analysis_split as split;

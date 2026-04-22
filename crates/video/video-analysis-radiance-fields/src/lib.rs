@@ -365,6 +365,37 @@ impl CameraIntrinsics {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CameraModel {
+    Pinhole,
+    SimplePinhole,
+    Radial,
+    SimpleRadial,
+    OpenCv,
+    Unsupported(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CameraDistortion {
+    pub model: CameraModel,
+    pub params: Vec<f32>,
+}
+
+impl CameraDistortion {
+    pub fn validate(&self) -> Result<()> {
+        if self.params.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument("camera distortion params must be finite"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoordinateSystem {
+    ColmapCamera,
+    WorkspaceCamera,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CameraPose {
     pub position: Vec3,
@@ -392,6 +423,64 @@ impl CameraPose {
             up: Vec3::Y,
             forward: Vec3::Z,
         }
+    }
+
+    pub fn from_colmap_world_to_camera(
+        qw: f32,
+        qx: f32,
+        qy: f32,
+        qz: f32,
+        tx: f32,
+        ty: f32,
+        tz: f32,
+    ) -> Result<Self> {
+        for (name, value) in [
+            ("qw", qw),
+            ("qx", qx),
+            ("qy", qy),
+            ("qz", qz),
+            ("tx", tx),
+            ("ty", ty),
+            ("tz", tz),
+        ] {
+            validate_finite(value, name)?;
+        }
+        let norm = qw
+            .mul_add(qw, qx.mul_add(qx, qy.mul_add(qy, qz * qz)))
+            .sqrt();
+        if norm <= f32::EPSILON {
+            return Err(invalid_argument(
+                "COLMAP camera quaternion length must be greater than zero",
+            ));
+        }
+        let qw = qw / norm;
+        let qx = qx / norm;
+        let qy = qy / norm;
+        let qz = qz / norm;
+
+        let r00 = 1.0 - 2.0 * (qy * qy + qz * qz);
+        let r01 = 2.0 * (qx * qy - qz * qw);
+        let r02 = 2.0 * (qx * qz + qy * qw);
+        let r10 = 2.0 * (qx * qy + qz * qw);
+        let r11 = 1.0 - 2.0 * (qx * qx + qz * qz);
+        let r12 = 2.0 * (qy * qz - qx * qw);
+        let r20 = 2.0 * (qx * qz - qy * qw);
+        let r21 = 2.0 * (qy * qz + qx * qw);
+        let r22 = 1.0 - 2.0 * (qx * qx + qy * qy);
+
+        let t = Vec3::new(tx, ty, tz);
+        let position = Vec3::new(
+            -(r00 * t.x + r10 * t.y + r20 * t.z),
+            -(r01 * t.x + r11 * t.y + r21 * t.z),
+            -(r02 * t.x + r12 * t.y + r22 * t.z),
+        );
+
+        Self::new(
+            position,
+            Vec3::new(r00, r01, r02),
+            Vec3::new(r10, r11, r12),
+            Vec3::new(r20, r21, r22),
+        )
     }
 
     pub fn look_at(position: Vec3, target: Vec3, up_hint: Vec3) -> Result<Self> {
@@ -464,6 +553,77 @@ impl CameraPose {
         .normalize()?;
         let world_direction = self.camera_to_world_direction(camera_direction);
         Ray::new(self.position, world_direction, near, far)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CameraView {
+    pub id: u32,
+    pub name: String,
+    pub intrinsics: CameraIntrinsics,
+    pub distortion: Option<CameraDistortion>,
+    pub pose: CameraPose,
+}
+
+impl CameraView {
+    pub fn validate(&self) -> Result<()> {
+        if self.name.trim().is_empty() {
+            return Err(invalid_argument("camera view name must not be empty"));
+        }
+        self.intrinsics.validate()?;
+        if let Some(distortion) = &self.distortion {
+            distortion.validate()?;
+        }
+        self.pose.validate()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CameraViewSet {
+    pub views: Vec<CameraView>,
+}
+
+impl CameraViewSet {
+    pub fn validate(&self) -> Result<()> {
+        for view in &self.views {
+            view.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn camera_center_bounds(&self) -> Result<Option<AxisAlignedBounds>> {
+        self.validate()?;
+        let Some(first) = self.views.first() else {
+            return Ok(None);
+        };
+        let mut min = first.pose.position;
+        let mut max = first.pose.position;
+        for view in self.views.iter().skip(1) {
+            min = min.min(view.pose.position);
+            max = max.max(view.pose.position);
+        }
+        expand_degenerate_bounds(&mut min, &mut max);
+        Ok(Some(AxisAlignedBounds::new(min, max)?))
+    }
+
+    pub fn view_count(&self) -> usize {
+        self.views.len()
+    }
+}
+
+fn expand_degenerate_bounds(min: &mut Vec3, max: &mut Vec3) {
+    let epsilon = 1.0e-6;
+    if min.x == max.x {
+        min.x -= epsilon;
+        max.x += epsilon;
+    }
+    if min.y == max.y {
+        min.y -= epsilon;
+        max.y += epsilon;
+    }
+    if min.z == max.z {
+        min.z -= epsilon;
+        max.z += epsilon;
     }
 }
 

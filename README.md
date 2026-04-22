@@ -93,6 +93,10 @@ Rust crates are grouped under `crates/` by input or integration domain:
   contracts for radiance-field style scene representations.
 - `video-analysis-gaussian-splatting`: 3D Gaussian primitive validation,
   projection, sorting, and CPU compositing helpers for Gaussian splatting.
+- `video-analysis-radiance-io`: COLMAP text, Nerfstudio transforms, and
+  GraphDeco/Nerfstudio Gaussian splat PLY import/export helpers.
+- `video-analysis-radiance-pipeline`: external-command orchestration for
+  video/image to COLMAP, Nerfstudio, and exported Gaussian splat workflows.
 - `video-analysis-output`: scene/stats CSV and simple HTML output helpers.
 - `video-analysis-split`: ffmpeg CLI based scene splitting.
 - `video-analysis-cli`: `vanalyze` command-line tool.
@@ -180,8 +184,11 @@ core packages: `audio-analysis-core`, `image-analysis-core`,
 Processing, feature, index, and generic dense-data crates build on those cores.
 Most functional video crates depend on `video-analysis-core`, while
 `video-analysis-gaussian-splatting` also reuses the camera and geometry
-contracts from `video-analysis-radiance-fields`. Composition happens in
-`video-analysis-cli` and the root `video-analysis` facade crate. The
+contracts from `video-analysis-radiance-fields`. `video-analysis-radiance-io`
+keeps COLMAP, Nerfstudio, and PLY parsing out of those core math crates, while
+`video-analysis-radiance-pipeline` wraps external reconstruction/training tools.
+Composition happens in `video-analysis-cli` and the root `video-analysis`
+facade crate. The
 `comfyui-*` crates are standalone ComfyUI interoperability packages for
 applications that need to inspect ComfyUI workflows, prompt graphs, model
 folders, and extra model path configuration.
@@ -227,6 +234,8 @@ flowchart LR
     recognition[video-analysis-recognition]
     radiance[video-analysis-radiance-fields]
     splatting[video-analysis-gaussian-splatting]
+    radianceio[video-analysis-radiance-io]
+    radiancepipeline[video-analysis-radiance-pipeline]
 
     root[video-analysis facade]
     cli[video-analysis-cli]
@@ -280,6 +289,14 @@ flowchart LR
     radiance --> core
     splatting --> core
     splatting --> radiance
+    radianceio --> core
+    radianceio --> radiance
+    radianceio --> splatting
+    radiancepipeline --> core
+    radiancepipeline --> ingest
+    radiancepipeline --> ffmpeg
+    radiancepipeline --> radiance
+    radiancepipeline --> radianceio
 
     root --> core
     root --> data
@@ -294,6 +311,8 @@ flowchart LR
     root --> output
     root --> radiance
     root --> splatting
+    root --> radianceio
+    root --> radiancepipeline
     root --> split
     root --> audiocore
     root --> fourier
@@ -326,6 +345,7 @@ flowchart LR
     usecases --> ffmpeg
     usecases --> ingest
     usecases --> models
+    usecases --> radiancepipeline
 ```
 
 ## Functional Pipelines
@@ -372,6 +392,27 @@ cargo run -p video-analysis-use-cases -- youtube-video \
 
 The output report includes local asset paths, scenes, observations, transcript
 segments, audio events, text events, and data bucket summaries.
+
+### Radiance Scene Use Case
+
+`video-analysis-use-cases` also includes a `radiance-scene` command for
+video-to-COLMAP/Nerfstudio/3DGS interop. The Rust layer extracts frames,
+orchestrates external tools, imports COLMAP text and exported splat PLY files,
+and summarizes the resulting camera/splat data.
+
+```bash
+cargo run -p video-analysis-use-cases -- radiance-scene \
+  --input input.mp4 \
+  --work-dir use-case-output/radiance-scene \
+  --method splatfacto \
+  --frame-sample-every 10 \
+  --run-training
+```
+
+This workspace does not implement native NeRF/3DGS training or a production GPU
+renderer. Distorted COLMAP camera models are parsed and retained by the IO
+crate, but direct ray/camera conversion is currently limited to undistorted
+`SIMPLE_PINHOLE` and `PINHOLE` cameras.
 
 ### Reference Recognition
 

@@ -45,6 +45,8 @@ members = [
     "crates/video/video-analysis-output",
     "crates/video/video-analysis-posture",
     "crates/video/video-analysis-radiance-fields",
+    "crates/video/video-analysis-radiance-io",
+    "crates/video/video-analysis-radiance-pipeline",
     "crates/video/video-analysis-recognition",
     "crates/video/video-analysis-reconstruction",
     "crates/video/video-analysis-split",
@@ -108,6 +110,8 @@ video-analysis-models = { path = "crates/video/video-analysis-models" }
 video-analysis-output = { path = "crates/video/video-analysis-output" }
 video-analysis-posture = { path = "crates/video/video-analysis-posture" }
 video-analysis-radiance-fields = { path = "crates/video/video-analysis-radiance-fields" }
+video-analysis-radiance-io = { path = "crates/video/video-analysis-radiance-io" }
+video-analysis-radiance-pipeline = { path = "crates/video/video-analysis-radiance-pipeline" }
 video-analysis-recognition = { path = "crates/video/video-analysis-recognition" }
 video-analysis-reconstruction = { path = "crates/video/video-analysis-reconstruction" }
 video-analysis-split = { path = "crates/video/video-analysis-split" }
@@ -135,6 +139,8 @@ video-analysis-models.workspace = true
 video-analysis-output.workspace = true
 video-analysis-posture.workspace = true
 video-analysis-radiance-fields.workspace = true
+video-analysis-radiance-io.workspace = true
+video-analysis-radiance-pipeline.workspace = true
 video-analysis-recognition.workspace = true
 video-analysis-reconstruction.workspace = true
 video-analysis-split.workspace = true

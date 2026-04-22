@@ -1,0 +1,17 @@
+[package]
+name = "video-analysis-radiance-io"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+video-analysis-core.workspace = true
+video-analysis-gaussian-splatting.workspace = true
+video-analysis-radiance-fields.workspace = true
+video-analysis-reconstruction.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -55,6 +55,8 @@ crates should compose around those contracts instead of defining parallel types.
 | `video-analysis-split` | Scene-based media splitting | `video-analysis-core` | Split options, template variables, FFmpeg split function | CLI, applications |
 | `video-analysis-radiance-fields` | Shared 3D geometry, camera, ray, and volume contracts | `video-analysis-core` | Vector/color/ray types, camera intrinsics/pose, radiance field trait, rendering/grid specs | Gaussian splatting, reconstruction, applications |
 | `video-analysis-gaussian-splatting` | 3D Gaussian primitive projection and CPU compositing | `video-analysis-core`, `video-analysis-radiance-fields` | Gaussian primitives, projection config/results, splat rendering helpers | Applications and future 3D workflows |
+| `video-analysis-radiance-io` | Radiance-field and 3DGS interchange formats | `video-analysis-core`, `video-analysis-radiance-fields`, `video-analysis-gaussian-splatting`, `video-analysis-reconstruction` | COLMAP text, Nerfstudio transforms, Gaussian splat PLY, preview PLY | Conversion tools and applications |
+| `video-analysis-radiance-pipeline` | Video/image to radiance-scene command orchestration | `video-analysis-core`, `video-analysis-ffmpeg`, `video-analysis-ingest`, `video-analysis-radiance-io` | Frame extraction args, COLMAP/Nerfstudio command builders, external pipeline runner | Use cases and applications |
 | `video-analysis-reconstruction` | Sparse reconstruction and triangulation contracts | `video-analysis-core`, `video-analysis-radiance-fields` | Camera/image/point IDs, features, matches, tracks, sparse reconstruction, triangulation/projection helpers | Applications and future 3D workflows |
 | `video-analysis-cli` | `vanalyze` command-line composition | Core, detectors, FFmpeg, models, output, split | CLI commands and file outputs | End users and automation |
 | `video-analysis-use-cases` | Runnable end-to-end workflows | Core, data, detectors, FFmpeg, ingest, models | `youtube-video` workflow and JSON report schema | End users, `@video-analysis/ui`, web app |
@@ -677,7 +679,12 @@ neural rendering and reconstruction crates continue to interoperate through
 - `ColorRgb`
 - `Ray`
 - `CameraIntrinsics`
+- `CameraModel`
+- `CameraDistortion`
 - `CameraPose`
+- `CameraView`
+- `CameraViewSet`
+- `CoordinateSystem`
 - `RadianceField`
 - `RadianceSample`
 - `VolumeRenderConfig`
@@ -693,9 +700,37 @@ neural rendering and reconstruction crates continue to interoperate through
 - `ProjectedGaussian`
 - `ProjectionConfig`
 - `SplatRenderConfig`
+- `SphericalHarmonicsRgb`
+- `GaussianSplat3d`
+- `GaussianSplatScene`
+- `GaussianSceneStats`
+- `SceneTransform3`
 - Projection helpers such as `project_gaussian` and `project_scene`.
 - Rendering helpers such as `gaussian_weight`, `composite_splats_at_pixel`,
   and `render_projected_splats`.
+- Splat-scene validation, stats, transforms, opacity/bounds filtering, preview
+  color conversion, and deterministic stride downsampling.
+
+`video-analysis-radiance-io` exposes:
+
+- `ColmapDataset`, `ColmapCamera`, `ColmapImage`, and `ColmapPoint3d`.
+- `read_colmap_text_dir` and `write_colmap_text_dir` for `cameras.txt`,
+  `images.txt`, and `points3D.txt`.
+- `colmap_to_view_set` and `colmap_to_sparse_reconstruction`.
+- `NerfstudioTransforms`, `NerfstudioFrame`,
+  `read_nerfstudio_transforms`, `write_nerfstudio_transforms`, and
+  `transforms_to_view_set`.
+- `read_gaussian_splat_ply`, `write_gaussian_splat_ply`, and
+  `write_preview_point_cloud_ply`.
+
+`video-analysis-radiance-pipeline` exposes:
+
+- `RadianceTrainingMethod`
+- `VideoToRadianceRequest`
+- `VideoToRadianceResult`
+- `VideoToRadiancePipeline`
+- Command builders for frame extraction, COLMAP, Nerfstudio data processing,
+  training, and Gaussian splat export.
 
 `video-analysis-reconstruction` exposes:
 
@@ -717,10 +752,16 @@ neural rendering and reconstruction crates continue to interoperate through
   `project_point`, `reprojection_error`, and `ray_angle`.
 
 Neural rendering and reconstruction crates should share `CameraIntrinsics`,
-`CameraPose`, `Vec2`, `Vec3`, `ColorRgb`, and `Ray` instead of introducing
-incompatible camera or geometry types. Generic 3D processing crates should use
-the `three-d-processing-*` contracts unless they explicitly need camera/ray
-semantics.
+`CameraPose`, `CameraViewSet`, `Vec2`, `Vec3`, `ColorRgb`, and `Ray` instead of
+introducing incompatible camera or geometry types. Generic 3D processing crates
+should use the `three-d-processing-*` contracts unless they explicitly need
+camera/ray semantics.
+
+The first radiance-field/3DGS layer is interop-oriented. It does not implement
+native NeRF/3DGS training and does not provide a production GPU renderer.
+Distorted COLMAP camera models are parsed and preserved as raw camera data, but
+direct conversion to `CameraIntrinsics` is limited to undistorted
+`SIMPLE_PINHOLE` and `PINHOLE` cameras.
 
 ## CLI And Use-Case Boundary Contracts
 
@@ -895,6 +936,12 @@ Allowed internal dependencies:
 - `video-analysis-radiance-fields` -> `video-analysis-core`.
 - `video-analysis-gaussian-splatting` -> `video-analysis-core`,
   `video-analysis-radiance-fields`.
+- `video-analysis-radiance-io` -> `video-analysis-core`,
+  `video-analysis-radiance-fields`, `video-analysis-gaussian-splatting`,
+  `video-analysis-reconstruction`, `serde`, `serde_json`, `thiserror`.
+- `video-analysis-radiance-pipeline` -> `video-analysis-core`,
+  `video-analysis-ffmpeg`, `video-analysis-ingest`,
+  `video-analysis-radiance-fields`, `video-analysis-radiance-io`.
 - `video-analysis-reconstruction` -> `video-analysis-core`,
   `video-analysis-radiance-fields`.
 - `video-analysis-cli` -> crates it composes for CLI workflows.

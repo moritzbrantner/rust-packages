@@ -1827,6 +1827,8 @@ dependencies = [
  "video-analysis-output",
  "video-analysis-posture",
  "video-analysis-radiance-fields",
+ "video-analysis-radiance-io",
+ "video-analysis-radiance-pipeline",
  "video-analysis-recognition",
  "video-analysis-reconstruction",
  "video-analysis-split",
@@ -1965,6 +1967,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "video-analysis-radiance-io"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "video-analysis-core",
+ "video-analysis-gaussian-splatting",
+ "video-analysis-radiance-fields",
+ "video-analysis-reconstruction",
+]
+
+[[package]]
+name = "video-analysis-radiance-pipeline"
+version = "0.1.0"
+dependencies = [
+ "video-analysis-core",
+ "video-analysis-ffmpeg",
+ "video-analysis-gaussian-splatting",
+ "video-analysis-ingest",
+ "video-analysis-radiance-fields",
+ "video-analysis-radiance-io",
+]
+
+[[package]]
 name = "video-analysis-recognition"
 version = "0.1.0"
 dependencies = [
@@ -2034,6 +2062,7 @@ dependencies = [
  "video-analysis-ffmpeg",
  "video-analysis-ingest",
  "video-analysis-models",
+ "video-analysis-radiance-pipeline",
 ]
 
 [[package]]
