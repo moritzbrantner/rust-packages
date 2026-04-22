@@ -23,6 +23,10 @@ crates should compose around those contracts instead of defining parallel types.
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
 | `video-analysis-core` | Canonical shared contracts and pipelines | External utility crates only | Time/frame types, media samples, detection traits/results, analyzer traits/results, observations, metrics, pipeline builders | All functional Rust crates |
 | `video-analysis-data` | Online stream normalization and aggregation | `video-analysis-core` | `DataRecord`, `DataPayload`, bucket configuration, bucket summaries, stream summaries | Use cases, reporting, UI JSON generation |
+| `video-analysis-dataset` | Retained analysis dataset records | `video-analysis-core`, `serde` | Serializable owned records for scenes, cuts, media metadata, observations, events, metrics, tracks, and features | Transform, feature, storage, analytics workflows |
+| `video-analysis-transform` | Deterministic dataset transformations | `video-analysis-dataset` | Filtering, time windows, scene grouping, time/frame joins, dedupe, merge, numeric feature resampling | Feature extraction and applications |
+| `video-analysis-features` | Reusable feature extraction over retained datasets | `video-analysis-core`, `video-analysis-dataset`, `video-analysis-transform` | Scene stats, label histograms, transcript stats, audio event stats, track summaries, vector means | Applications and downstream ML/analytics workflows |
+| `video-analysis-storage` | Retained dataset persistence | `video-analysis-dataset`, `serde`, `serde_json`, `thiserror` | JSON/JSONL writers and readers plus dataset manifests | Applications and automation |
 | `video-analysis-detectors` | Scene detector implementations | `video-analysis-core` | `SceneDetector` implementations, scoring algorithms, composite detector contracts | CLI, use cases, applications |
 | `video-analysis-editing` | Classic CPU media editing primitives | `video-analysis-core` | Frame crop, blur, grayscale, inversion, brightness/contrast, 3x3 filters, and `FrameEditor` chains | Applications, preprocessing workflows, future media export flows |
 | `video-analysis-ingest` | Source abstraction layer | `video-analysis-core` | Media/source metadata, source traits, source-to-pipeline adapter helpers, text line source | FFmpeg crate, use cases, applications |
@@ -242,6 +246,58 @@ Data records do not retain original video/audio/text/vector payloads. They carry
 only enough data to summarize stream shape, volume, and statistics. Fixed
 duration buckets require timestamp-ordered records. Bucket summaries are stable
 inputs for use-case reports and UI components.
+
+## Retained Dataset Processing Contracts
+
+`video-analysis-dataset` is the owned, serializable record layer for workflows
+that need to retain analysis outputs beyond online bucket summaries.
+
+Key contracts:
+
+- `AnalysisDataset` stores `DatasetMetadata` plus ordered `DatasetRecord`
+  values.
+- `DatasetRecord` can carry video frame metadata, audio frame metadata, text
+  segments, scenes, cuts, observations, audio/text events, detector metrics,
+  extracted features, and track summaries.
+- Serializable mirror types such as `TimestampRecord`, `FramePositionRecord`,
+  `BoundingBoxRecord`, `PixelFormatRecord`, `AudioSampleFormatRecord`, and
+  `ObservationKindRecord` preserve core runtime values without requiring core
+  types to implement serde.
+- `FeatureRecord` stores named values with optional timestamp, frame, scene,
+  track, scope, and string attributes.
+- `FeatureValue` supports numbers, integers, booleans, text, vectors, and string
+  histograms.
+
+Dataset records intentionally do not retain raw video or audio payload bytes.
+Frame and audio records store dimensions, timing, sample format, counts, and
+estimated byte size only.
+
+`video-analysis-transform` operates on retained dataset records:
+
+- `filter_records` and `filter_dataset` retain matching records.
+- `window_by_time` groups timestamped records into fixed-duration windows.
+- `group_by_scene` attaches records to scene intervals by explicit
+  `scene_index` first, then by frame index or timestamp bounds.
+- `join_by_time` and `join_by_frame` produce paired records within configured
+  tolerances.
+- `dedupe_records`, `dedupe_by`, and `merge_sorted_by_time` support basic
+  dataset cleanup and composition.
+- `resample_numeric_features` aggregates numeric feature records by fixed time
+  interval.
+
+`video-analysis-features` emits `FeatureRecord` values from retained datasets.
+Built-in extractors cover scene statistics, observation label histograms,
+transcript counts, audio event summaries, track summaries, and vector means.
+`FeaturePipeline` composes multiple extractors.
+
+`video-analysis-storage` persists retained datasets:
+
+- JSON dataset files store the full `AnalysisDataset`.
+- JSONL files store one serialized `DatasetRecord` per line.
+- Dataset directories contain `records.jsonl` plus `manifest.json`.
+- `DatasetManifest` records schema version, optional dataset name, total record
+  count, per-kind record counts, file entries, and attributes.
+- Empty JSONL lines are ignored. Malformed JSONL reports the failing line.
 
 ## Model Contracts
 
@@ -662,6 +718,11 @@ Allowed internal dependencies:
 - `comfyui-models`: `serde`, `thiserror`.
 - `video-analysis-core`: external utility crates only.
 - `video-analysis-data` -> `video-analysis-core`.
+- `video-analysis-dataset` -> `video-analysis-core`.
+- `video-analysis-transform` -> `video-analysis-dataset`.
+- `video-analysis-features` -> `video-analysis-core`,
+  `video-analysis-dataset`, `video-analysis-transform`.
+- `video-analysis-storage` -> `video-analysis-dataset`.
 - `video-analysis-detectors` -> `video-analysis-core`.
 - `video-analysis-ingest` -> `video-analysis-core`.
 - `video-analysis-ffmpeg` -> `video-analysis-core`,

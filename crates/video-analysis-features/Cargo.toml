@@ -1,0 +1,13 @@
+[package]
+name = "video-analysis-features"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+video-analysis-core.workspace = true
+video-analysis-dataset.workspace = true
+video-analysis-transform.workspace = true
+
+[dev-dependencies]
+num-rational.workspace = true

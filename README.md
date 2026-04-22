@@ -23,6 +23,15 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
 - `video-analysis-core`: timecodes, video/audio/text sample types, metrics, analyzer traits, observations, and realtime pipelines.
 - `video-analysis-data`: stream record normalization plus online aggregation and
   bucketing for video, audio, text, numeric, and vector data.
+- `video-analysis-dataset`: retained, serializable analysis records for scenes,
+  frames, observations, events, metrics, tracks, and features.
+- `video-analysis-transform`: deterministic filtering, windowing, scene
+  grouping, temporal/frame joins, dedupe, merge, and numeric resampling over
+  retained dataset records.
+- `video-analysis-features`: reusable feature extractors for scene stats, label
+  histograms, transcripts, audio events, tracks, and vector means.
+- `video-analysis-storage`: JSON, JSONL, and manifest persistence for retained
+  analysis datasets.
 - `video-analysis-detectors`: content, adaptive, threshold, histogram, and perceptual hash detectors.
 - `video-analysis-editing`: CPU frame editing primitives for cropping,
   blurring, grayscale, inversion, brightness/contrast, and 3x3 filters.
@@ -568,6 +577,23 @@ Buckets can be fixed by duration, record count, or estimated byte size. Numeric
 streams keep online min/max/mean summaries. Vector streams keep norm summaries
 and bounded per-dimension means so embeddings can be handled without storing
 every vector.
+
+### Retained Datasets, Transforms, and Features
+
+For workflows that need queryable or reusable analysis data rather than online
+bucket summaries, `video-analysis-dataset` stores owned dataset records for
+scenes, cuts, frame/audio/text metadata, observations, events, metrics, tracks,
+and extracted features. Raw media payload bytes are intentionally not retained.
+
+`video-analysis-transform` operates over those records with filtering, fixed
+time windows, scene grouping, time/frame joins, dedupe, sorted merge, and
+numeric feature resampling. `video-analysis-features` builds on the same record
+model to produce scene statistics, observation label histograms, transcript
+counts, audio event summaries, track summaries, and vector means.
+
+`video-analysis-storage` persists datasets as one JSONL `DatasetRecord` per
+line plus a `manifest.json` containing schema version, record counts, files,
+and dataset attributes.
 
 ### Output
 

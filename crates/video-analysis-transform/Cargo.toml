@@ -1,0 +1,12 @@
+[package]
+name = "video-analysis-transform"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+video-analysis-dataset.workspace = true
+
+[dev-dependencies]
+num-rational.workspace = true
+video-analysis-core.workspace = true

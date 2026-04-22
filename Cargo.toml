@@ -17,8 +17,10 @@ members = [
     "crates/audio-analysis-separation",
     "crates/video-analysis-core",
     "crates/video-analysis-data",
+    "crates/video-analysis-dataset",
     "crates/video-analysis-detectors",
     "crates/video-analysis-editing",
+    "crates/video-analysis-features",
     "crates/video-analysis-ffmpeg",
     "crates/video-analysis-gaussian-splatting",
     "crates/video-analysis-ingest",
@@ -29,7 +31,9 @@ members = [
     "crates/video-analysis-recognition",
     "crates/video-analysis-reconstruction",
     "crates/video-analysis-split",
+    "crates/video-analysis-storage",
     "crates/video-analysis-tracking",
+    "crates/video-analysis-transform",
     "crates/video-analysis-use-cases",
     "crates/video-analysis-cli",
 ]
@@ -56,8 +60,10 @@ audio-analysis-rhythm = { path = "crates/audio-analysis-rhythm" }
 audio-analysis-separation = { path = "crates/audio-analysis-separation" }
 video-analysis-core = { path = "crates/video-analysis-core" }
 video-analysis-data = { path = "crates/video-analysis-data" }
+video-analysis-dataset = { path = "crates/video-analysis-dataset" }
 video-analysis-detectors = { path = "crates/video-analysis-detectors" }
 video-analysis-editing = { path = "crates/video-analysis-editing" }
+video-analysis-features = { path = "crates/video-analysis-features" }
 video-analysis-ffmpeg = { path = "crates/video-analysis-ffmpeg" }
 video-analysis-gaussian-splatting = { path = "crates/video-analysis-gaussian-splatting" }
 video-analysis-ingest = { path = "crates/video-analysis-ingest" }
@@ -68,7 +74,9 @@ video-analysis-radiance-fields = { path = "crates/video-analysis-radiance-fields
 video-analysis-recognition = { path = "crates/video-analysis-recognition" }
 video-analysis-reconstruction = { path = "crates/video-analysis-reconstruction" }
 video-analysis-split = { path = "crates/video-analysis-split" }
+video-analysis-storage = { path = "crates/video-analysis-storage" }
 video-analysis-tracking = { path = "crates/video-analysis-tracking" }
+video-analysis-transform = { path = "crates/video-analysis-transform" }
 video-analysis-use-cases = { path = "crates/video-analysis-use-cases" }
 
 [features]
@@ -79,8 +87,10 @@ ffmpeg-tests = ["ffmpeg-backend"]
 [dependencies]
 video-analysis-core.workspace = true
 video-analysis-data.workspace = true
+video-analysis-dataset.workspace = true
 video-analysis-detectors.workspace = true
 video-analysis-editing.workspace = true
+video-analysis-features.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-gaussian-splatting.workspace = true
 video-analysis-ingest.workspace = true
@@ -91,7 +101,9 @@ video-analysis-radiance-fields.workspace = true
 video-analysis-recognition.workspace = true
 video-analysis-reconstruction.workspace = true
 video-analysis-split.workspace = true
+video-analysis-storage.workspace = true
 video-analysis-tracking.workspace = true
+video-analysis-transform.workspace = true
 audio-analysis-core.workspace = true
 audio-analysis-fourier.workspace = true
 audio-analysis-pitch.workspace = true

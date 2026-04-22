@@ -1,0 +1,16 @@
+[package]
+name = "video-analysis-storage"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+video-analysis-dataset.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+num-rational.workspace = true
+video-analysis-core.workspace = true

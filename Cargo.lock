@@ -1284,8 +1284,10 @@ dependencies = [
  "audio-analysis-separation",
  "video-analysis-core",
  "video-analysis-data",
+ "video-analysis-dataset",
  "video-analysis-detectors",
  "video-analysis-editing",
+ "video-analysis-features",
  "video-analysis-ffmpeg",
  "video-analysis-gaussian-splatting",
  "video-analysis-ingest",
@@ -1296,7 +1298,9 @@ dependencies = [
  "video-analysis-recognition",
  "video-analysis-reconstruction",
  "video-analysis-split",
+ "video-analysis-storage",
  "video-analysis-tracking",
+ "video-analysis-transform",
 ]
 
 [[package]]
@@ -1329,6 +1333,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "video-analysis-dataset"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "video-analysis-detectors"
 version = "0.1.0"
 dependencies = [
@@ -1342,6 +1356,16 @@ version = "0.1.0"
 dependencies = [
  "num-rational",
  "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-features"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
+ "video-analysis-core",
+ "video-analysis-dataset",
+ "video-analysis-transform",
 ]
 
 [[package]]
@@ -1433,11 +1457,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "video-analysis-storage"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "video-analysis-core",
+ "video-analysis-dataset",
+]
+
+[[package]]
 name = "video-analysis-tracking"
 version = "0.1.0"
 dependencies = [
  "num-rational",
  "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-transform"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
+ "video-analysis-core",
+ "video-analysis-dataset",
 ]
 
 [[package]]
