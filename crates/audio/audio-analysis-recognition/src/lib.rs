@@ -689,6 +689,7 @@ fn band_energies(spectrum: &Spectrum, bands: usize) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use audio_analysis_test_support::assert_approx_eq;
     use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase};
 
     fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
@@ -706,12 +707,41 @@ mod tests {
     }
 
     #[test]
+    fn embedding_validation_rejects_empty_non_finite_and_mismatched_dimensions() {
+        assert!(AudioEmbedding::new(Vec::<f32>::new()).is_err());
+        assert!(AudioEmbedding::new(vec![f32::NAN]).is_err());
+        assert!(AudioEmbedding::new(vec![0.0, 0.0]).is_err());
+        let left = AudioEmbedding::new(vec![1.0, 0.0]).unwrap();
+        let right = AudioEmbedding::new(vec![1.0, 0.0, 0.0]).unwrap();
+        assert!(left.cosine_similarity(&right).is_err());
+    }
+
+    #[test]
+    fn spectral_embedding_config_validates_dimensions() {
+        assert!(SpectralEmbeddingConfig::new(0, 256, 8).is_err());
+        assert!(SpectralEmbeddingConfig::new(500, 256, 8).is_err());
+        assert!(SpectralEmbeddingConfig::new(512, 0, 8).is_err());
+        assert!(SpectralEmbeddingConfig::new(512, 256, 0).is_err());
+    }
+
+    #[test]
     fn embeds_samples_with_stable_dimensions() {
         let embedding = embedder()
             .embed_samples(&sine(440.0, 8_000, 0.5), 8_000)
             .unwrap();
 
         assert_eq!(embedding.dimensions(), 16);
+        let norm = embedding
+            .values()
+            .iter()
+            .map(|value| value * value)
+            .sum::<f32>()
+            .sqrt();
+        assert_approx_eq(norm, 1.0, 1.0e-5);
+        assert!(embedding.values().iter().all(|value| value.is_finite()));
+        assert!(embedder().embed_samples(&[], 8_000).is_err());
+        assert!(embedder().embed_samples(&[f32::INFINITY], 8_000).is_err());
+        assert!(embedder().embed_samples(&[0.0; 512], 0).is_err());
     }
 
     #[test]
@@ -761,6 +791,74 @@ mod tests {
     }
 
     #[test]
+    fn reference_library_rejects_duplicate_and_mixed_dimensions() {
+        let mut library = AudioReferenceLibrary::new();
+        library
+            .add_reference_embedding("a", "A", AudioEmbedding::new(vec![1.0, 0.0]).unwrap())
+            .unwrap();
+        assert!(library
+            .add_reference_embedding(
+                "a",
+                "Duplicate",
+                AudioEmbedding::new(vec![1.0, 0.0]).unwrap()
+            )
+            .is_err());
+        assert!(library
+            .add_reference_embedding("b", "B", AudioEmbedding::new(vec![1.0, 0.0, 0.0]).unwrap())
+            .is_err());
+        let mut reference = AudioReference::new("mixed", "Mixed")
+            .with_embedding(AudioEmbedding::new(vec![1.0, 0.0]).unwrap())
+            .unwrap();
+        assert!(reference
+            .add_embedding(AudioEmbedding::new(vec![1.0, 0.0, 0.0]).unwrap())
+            .is_err());
+    }
+
+    #[test]
+    fn match_options_validate_score_range_and_result_count() {
+        assert!(AudioMatchOptions::new(-1.1).is_err());
+        assert!(AudioMatchOptions::new(1.1).is_err());
+        assert!(AudioMatchOptions::new(f32::NAN).is_err());
+
+        let mut library = AudioReferenceLibrary::new();
+        library
+            .add_reference_embedding("a", "A", AudioEmbedding::new(vec![1.0, 0.0]).unwrap())
+            .unwrap();
+        let query = AudioEmbedding::new(vec![1.0, 0.0]).unwrap();
+        assert!(library
+            .search(
+                &query,
+                &AudioMatchOptions {
+                    min_score: -1.0,
+                    max_results: 0,
+                },
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn search_order_is_deterministic_for_equal_scores() {
+        let mut library = AudioReferenceLibrary::new();
+        library
+            .add_reference_embedding("b", "B", AudioEmbedding::new(vec![1.0, 0.0]).unwrap())
+            .unwrap();
+        library
+            .add_reference_embedding("a", "A", AudioEmbedding::new(vec![1.0, 0.0]).unwrap())
+            .unwrap();
+        let matches = library
+            .search(
+                &AudioEmbedding::new(vec![1.0, 0.0]).unwrap(),
+                &AudioMatchOptions {
+                    min_score: -1.0,
+                    max_results: 2,
+                },
+            )
+            .unwrap();
+        assert_eq!(matches[0].reference_id, "a");
+        assert_eq!(matches[1].reference_id, "b");
+    }
+
+    #[test]
     fn adding_extra_sample_improves_match() {
         let extractor = embedder();
         let mut library = AudioReferenceLibrary::new();
@@ -802,9 +900,11 @@ mod tests {
     fn analyzer_emits_recognition_events_from_streaming_windows() {
         let extractor = embedder();
         let mut library = AudioReferenceLibrary::new();
-        library
-            .add_reference_samples("a4", "A4", &sine(440.0, 8_000, 0.5), 8_000, &extractor)
+        let reference = AudioReference::new("a4", "A4")
+            .attribute("source", "synthetic")
+            .with_samples(&sine(440.0, 8_000, 0.5), 8_000, &extractor)
             .unwrap();
+        library.add_reference(reference).unwrap();
         let config = StreamingFrameConfig::new(512, 512).unwrap();
         let mut analyzer =
             AudioRecognitionAnalyzer::new("audio_identity", extractor, library, config).unwrap();
@@ -820,6 +920,50 @@ mod tests {
         let events = analyzer.process_frame(&frame.as_frame().unwrap()).unwrap();
 
         assert!(!events.is_empty());
+        assert_eq!(events[0].analyzer, "audio_identity");
+        assert_eq!(
+            events[0].timestamp,
+            Some(Timestamp::new(0, Timebase::new(1, 8_000)))
+        );
+        assert!(events[0].score.unwrap() >= 0.85);
         assert!(events[0].label.starts_with("audio:recognized:a4:A4"));
+        assert_eq!(
+            analyzer
+                .library()
+                .reference("a4")
+                .unwrap()
+                .attributes()
+                .get("source"),
+            Some(&"synthetic".to_string())
+        );
+    }
+
+    #[test]
+    fn analyzer_reset_clears_streaming_window_state() {
+        let extractor = embedder();
+        let mut library = AudioReferenceLibrary::new();
+        library
+            .add_reference_samples("a4", "A4", &sine(440.0, 8_000, 0.5), 8_000, &extractor)
+            .unwrap();
+        let config = StreamingFrameConfig::new(512, 512).unwrap();
+        let mut analyzer =
+            AudioRecognitionAnalyzer::new("audio_identity", extractor, library, config).unwrap();
+        let frame = OwnedAudioFrame::new(
+            Timestamp::new(0, Timebase::new(1, 8_000)),
+            8_000,
+            1,
+            AudioBuffer::F32(sine(440.0, 8_000, 0.5)),
+        )
+        .unwrap();
+
+        assert!(!analyzer
+            .process_frame(&frame.as_frame().unwrap())
+            .unwrap()
+            .is_empty());
+        analyzer.reset();
+        assert!(!analyzer
+            .process_frame(&frame.as_frame().unwrap())
+            .unwrap()
+            .is_empty());
     }
 }

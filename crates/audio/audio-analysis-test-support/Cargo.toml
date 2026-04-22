@@ -1,12 +1,9 @@
 [package]
-name = "audio-analysis-separation"
+name = "audio-analysis-test-support"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+publish = false
 
 [dependencies]
 video-analysis-core.workspace = true
-
-[dev-dependencies]
-audio-analysis-test-support.workspace = true
-tempfile.workspace = true

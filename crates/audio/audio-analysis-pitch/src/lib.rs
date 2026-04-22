@@ -205,6 +205,7 @@ fn parabolic_lag(best_lag: usize, min_lag: usize, scores: &[f32]) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use audio_analysis_test_support::{assert_approx_eq, white_noise};
     use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
 
     fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
@@ -215,6 +216,45 @@ mod tests {
                 (2.0 * std::f32::consts::PI * freq_hz * t).sin()
             })
             .collect()
+    }
+
+    #[test]
+    fn config_validation_rejects_invalid_values() {
+        assert!(PitchDetectorConfig {
+            min_frequency_hz: 0.0,
+            max_frequency_hz: 2_000.0,
+            confidence_threshold: 0.6,
+        }
+        .validate()
+        .is_err());
+        assert!(PitchDetectorConfig {
+            min_frequency_hz: 200.0,
+            max_frequency_hz: 100.0,
+            confidence_threshold: 0.6,
+        }
+        .validate()
+        .is_err());
+        assert!(PitchDetectorConfig {
+            min_frequency_hz: 50.0,
+            max_frequency_hz: f32::INFINITY,
+            confidence_threshold: 0.6,
+        }
+        .validate()
+        .is_err());
+        assert!(PitchDetectorConfig {
+            min_frequency_hz: 50.0,
+            max_frequency_hz: 2_000.0,
+            confidence_threshold: f32::NAN,
+        }
+        .validate()
+        .is_err());
+        assert!(PitchDetectorConfig {
+            min_frequency_hz: 50.0,
+            max_frequency_hz: 2_000.0,
+            confidence_threshold: 1.1,
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
@@ -229,11 +269,52 @@ mod tests {
     }
 
     #[test]
+    fn estimates_pitch_across_reference_frequencies() {
+        let detector = AutocorrelationPitchDetector::default();
+        for frequency in [80.0, 220.0, 440.0, 1_000.0] {
+            let estimate = detector
+                .estimate_samples(&sine(frequency, 48_000, 0.12), 48_000)
+                .unwrap();
+            let actual = estimate.frequency_hz.unwrap();
+            assert!(
+                (actual - frequency).abs() <= frequency * 0.02,
+                "expected {frequency}, got {actual}"
+            );
+        }
+    }
+
+    #[test]
     fn returns_unpitched_for_silence() {
         let detector = AutocorrelationPitchDetector::default();
         let estimate = detector.estimate_samples(&vec![0.0; 2048], 48_000).unwrap();
         assert_eq!(estimate.frequency_hz, None);
         assert_eq!(estimate.confidence, 0.0);
+        assert_eq!(
+            detector
+                .estimate_samples(&[0.0, 1.0], 48_000)
+                .unwrap()
+                .frequency_hz,
+            None
+        );
+        assert!(detector.estimate_samples(&[0.0; 2048], 0).is_err());
+    }
+
+    #[test]
+    fn estimates_pitch_with_dc_offset_and_seeded_noise() {
+        let detector = AutocorrelationPitchDetector::default();
+        let with_dc = sine(220.0, 48_000, 0.12)
+            .into_iter()
+            .map(|sample| sample * 0.5 + 0.25)
+            .collect::<Vec<_>>();
+        let dc_estimate = detector.estimate_samples(&with_dc, 48_000).unwrap();
+        assert_approx_eq(dc_estimate.frequency_hz.unwrap(), 220.0, 220.0 * 0.02);
+
+        let mut noisy = sine(440.0, 48_000, 0.12);
+        for (sample, noise) in noisy.iter_mut().zip(white_noise(7, 48_000)) {
+            *sample = *sample * 0.85 + noise * 0.05;
+        }
+        let noisy_estimate = detector.estimate_samples(&noisy, 48_000).unwrap();
+        assert_approx_eq(noisy_estimate.frequency_hz.unwrap(), 440.0, 440.0 * 0.05);
     }
 
     #[test]
@@ -250,5 +331,7 @@ mod tests {
         let events = detector.process_frame(&frame).unwrap();
         assert_eq!(events.len(), 1);
         assert!(events[0].label.starts_with("audio:pitch:"));
+        assert_eq!(events[0].timestamp, Some(frame.timestamp));
+        assert!(events[0].score.unwrap() > 0.6);
     }
 }

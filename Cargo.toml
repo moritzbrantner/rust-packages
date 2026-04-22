@@ -16,6 +16,7 @@ members = [
     "crates/audio/audio-analysis-recognition",
     "crates/audio/audio-analysis-rhythm",
     "crates/audio/audio-analysis-separation",
+    "crates/audio/audio-analysis-test-support",
     "crates/comfyui/comfyui-data",
     "crates/comfyui/comfyui-models",
     "crates/image/image-analysis-core",
@@ -62,6 +63,8 @@ serde_json = "1.0.145"
 rustfft = "6.2.0"
 tempfile = "3.23.0"
 thiserror = "2.0.17"
+criterion = "0.5.1"
+proptest = "1.6.0"
 comfyui-data = { path = "crates/comfyui/comfyui-data" }
 comfyui-models = { path = "crates/comfyui/comfyui-models" }
 audio-analysis-core = { path = "crates/audio/audio-analysis-core" }
@@ -72,6 +75,7 @@ audio-analysis-processing = { path = "crates/audio/audio-analysis-processing" }
 audio-analysis-recognition = { path = "crates/audio/audio-analysis-recognition" }
 audio-analysis-rhythm = { path = "crates/audio/audio-analysis-rhythm" }
 audio-analysis-separation = { path = "crates/audio/audio-analysis-separation" }
+audio-analysis-test-support = { path = "crates/audio/audio-analysis-test-support" }
 image-analysis-core = { path = "crates/image/image-analysis-core" }
 image-analysis-processing = { path = "crates/image/image-analysis-processing" }
 text-analysis-core = { path = "crates/text/text-analysis-core" }
@@ -142,3 +146,6 @@ vector-analysis-core.workspace = true
 vector-analysis-index.workspace = true
 three-d-processing-core.workspace = true
 three-d-processing-mesh.workspace = true
+
+[dev-dependencies]
+audio-analysis-test-support.workspace = true

@@ -99,12 +99,13 @@ mod tests {
         let options = AudioInputOptions::recorded()
             .samples_per_chunk(4096)
             .extra_input_arg("-safe")
+            .extra_input_arg("0")
             .into_ffmpeg_options(SourceMode::Recorded);
 
         assert_eq!(options.mode, SourceMode::Recorded);
         assert!(!options.realtime);
         assert_eq!(options.samples_per_chunk, 4096);
-        assert_eq!(options.extra_input_args, vec!["-safe"]);
+        assert_eq!(options.extra_input_args, vec!["-safe", "0"]);
     }
 
     #[test]
@@ -130,5 +131,38 @@ mod tests {
 
         assert_eq!(options.mode, SourceMode::Live);
         assert!(options.realtime);
+    }
+
+    #[test]
+    fn samples_per_chunk_is_clamped_to_at_least_one() {
+        assert_eq!(
+            AudioInputOptions::recorded()
+                .samples_per_chunk(0)
+                .samples_per_chunk,
+            1
+        );
+    }
+
+    #[test]
+    fn input_variants_choose_recorded_or_live_modes() {
+        let cases = [
+            (AudioInput::File("audio.wav".into()), SourceMode::Recorded),
+            (
+                AudioInput::Input("pipe:0".to_string()),
+                SourceMode::Recorded,
+            ),
+            (
+                AudioInput::Live("rtsp://example.test/live".to_string()),
+                SourceMode::Live,
+            ),
+        ];
+        for (input, expected_mode) in cases {
+            let requested_mode = match input {
+                AudioInput::File(_) | AudioInput::Input(_) => SourceMode::Recorded,
+                AudioInput::Live(_) => SourceMode::Live,
+            };
+            let options = AudioInputOptions::default().into_ffmpeg_options(requested_mode);
+            assert_eq!(options.mode, expected_mode);
+        }
     }
 }

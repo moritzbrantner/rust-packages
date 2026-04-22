@@ -392,10 +392,17 @@ fn sample_to_timestamp(sample: u64, sample_rate: u32) -> Timestamp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use audio_analysis_test_support::{assert_approx_eq, assert_approx_slice};
+    use proptest::prelude::*;
     use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
 
     fn ts() -> Timestamp {
         Timestamp::new(0, Timebase::new(1, 48_000))
+    }
+
+    fn frame_at(sample: u64, samples: Vec<f32>) -> AudioBuffer {
+        let _ = sample;
+        AudioBuffer::F32(samples)
     }
 
     #[test]
@@ -403,6 +410,58 @@ mod tests {
         let buffer = AudioBuffer::F32(vec![1.0, -1.0, 0.5, 0.25]);
         let mono = interleaved_to_mono(&buffer, 2, ChannelMix::Average).unwrap();
         assert_eq!(mono, vec![0.0, 0.375]);
+    }
+
+    #[test]
+    fn normalizes_all_supported_sample_formats() {
+        assert_approx_slice(
+            &normalized_samples(&AudioBuffer::U8(vec![0, 128, 255])),
+            &[-1.0, 0.0, 127.0 / 128.0],
+            1.0e-6,
+        );
+        assert_approx_slice(
+            &normalized_samples(&AudioBuffer::I16(vec![i16::MIN, 0, i16::MAX])),
+            &[i16::MIN as f32 / i16::MAX as f32, 0.0, 1.0],
+            1.0e-6,
+        );
+        assert_approx_slice(
+            &normalized_samples(&AudioBuffer::I32(vec![i32::MIN, 0, i32::MAX])),
+            &[i32::MIN as f32 / i32::MAX as f32, 0.0, 1.0],
+            1.0e-6,
+        );
+        assert_eq!(
+            normalized_samples(&AudioBuffer::F32(vec![-0.25, 0.0, 0.5])),
+            vec![-0.25, 0.0, 0.5]
+        );
+    }
+
+    #[test]
+    fn first_channel_mix_uses_first_interleaved_sample() {
+        let buffer = AudioBuffer::F32(vec![1.0, -1.0, 0.5, 0.25]);
+        let mono = interleaved_to_mono(&buffer, 2, ChannelMix::First).unwrap();
+        assert_eq!(mono, vec![1.0, 0.5]);
+    }
+
+    #[test]
+    fn mono_mix_rejects_invalid_channel_layouts() {
+        assert!(interleaved_to_mono(&AudioBuffer::F32(vec![1.0]), 0, ChannelMix::Average).is_err());
+        assert!(interleaved_to_mono(
+            &AudioBuffer::F32(vec![1.0, 2.0, 3.0]),
+            2,
+            ChannelMix::Average
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn frame_spec_validates_sizes_and_counts_frames() {
+        assert!(FrameSpec::new(0, 1).is_err());
+        assert!(FrameSpec::new(4, 0).is_err());
+        let spec = FrameSpec::new(4, 2).unwrap();
+        assert_eq!(spec.frame_count(3), 0);
+        assert_eq!(spec.frame_count(4), 1);
+        assert_eq!(spec.frame_count(6), 2);
+        assert_eq!(spec.frame_count(7), 2);
     }
 
     #[test]
@@ -531,5 +590,84 @@ mod tests {
 
         assert!(buffer.push_frame(&frame).is_ok());
         assert!(buffer.buffered_samples() <= 8);
+    }
+
+    #[test]
+    fn streaming_buffer_reset_allows_new_format() {
+        let config = StreamingFrameConfig::new(4, 2).unwrap();
+        let mut buffer = StreamingFrameBuffer::new(config).unwrap();
+        let first = AudioBuffer::F32(vec![0.0; 4]);
+        let second = AudioBuffer::F32(vec![0.0; 4]);
+        buffer
+            .push_frame(&AudioFrame::new(ts(), 48_000, 1, &first).unwrap())
+            .unwrap();
+        buffer.reset();
+        assert!(buffer
+            .push_frame(
+                &AudioFrame::new(
+                    Timestamp::new(0, Timebase::new(1, 44_100)),
+                    44_100,
+                    1,
+                    &second
+                )
+                .unwrap()
+            )
+            .is_ok());
+    }
+
+    proptest! {
+        #[test]
+        fn generated_interleaved_mono_length_matches_samples_per_channel(
+            channels in 1_u16..=8,
+            frames in 0_usize..64,
+            samples in proptest::collection::vec(-1.0_f32..1.0, 0..512),
+        ) {
+            let channels = channels as usize;
+            let len = frames * channels;
+            let mut values = samples;
+            values.resize(len, 0.0);
+            let mono = interleaved_to_mono(&AudioBuffer::F32(values), channels as u16, ChannelMix::Average).unwrap();
+            prop_assert_eq!(mono.len(), frames);
+        }
+
+        #[test]
+        fn streaming_windows_do_not_depend_on_chunk_partition(
+            len in 16_usize..96,
+            chunk_size in 1_usize..24,
+        ) {
+            let samples = (0..len).map(|value| value as f32).collect::<Vec<_>>();
+            let config = StreamingFrameConfig::new(8, 4).unwrap();
+
+            let all_buffer = AudioBuffer::F32(samples.clone());
+            let all_frame = AudioFrame::new(ts(), 48_000, 1, &all_buffer).unwrap();
+            let mut all = StreamingFrameBuffer::new(config).unwrap();
+            let expected = all.push_frame(&all_frame).unwrap();
+
+            let mut chunked = StreamingFrameBuffer::new(config).unwrap();
+            let mut actual = Vec::new();
+            let mut start = 0;
+            while start < samples.len() {
+                let end = (start + chunk_size).min(samples.len());
+                let buffer = frame_at(start as u64, samples[start..end].to_vec());
+                let frame = AudioFrame::new(
+                    Timestamp::new(start as i64, Timebase::new(1, 48_000)),
+                    48_000,
+                    1,
+                    &buffer,
+                )
+                .unwrap();
+                actual.extend(chunked.push_frame(&frame).unwrap());
+                start = end;
+            }
+
+            prop_assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn scalar_level_helpers_are_empty_safe() {
+        assert_approx_eq(rms(&[1.0, -1.0]), 1.0, 1.0e-6);
+        assert_eq!(peak(&[]), 0.0);
+        assert_eq!(mean_absolute(&[]), 0.0);
     }
 }

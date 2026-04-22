@@ -1,4 +1,6 @@
 .cargo-target/
+.audio-tools/
+audio-tools/
 node_modules/
 packages/*/node_modules/
 packages/video-analysis-web/dist/

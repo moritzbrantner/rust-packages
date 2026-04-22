@@ -8,3 +8,11 @@ license = "MIT OR Apache-2.0"
 audio-analysis-core.workspace = true
 rustfft.workspace = true
 video-analysis-core.workspace = true
+
+[dev-dependencies]
+audio-analysis-test-support.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "fourier"
+harness = false

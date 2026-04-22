@@ -7,3 +7,11 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 audio-analysis-core.workspace = true
 video-analysis-core.workspace = true
+
+[dev-dependencies]
+audio-analysis-test-support.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "rhythm"
+harness = false

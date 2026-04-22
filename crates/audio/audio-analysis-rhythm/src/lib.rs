@@ -335,6 +335,8 @@ impl AudioAnalyzer for RhythmAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use audio_analysis_test_support::click_track as generated_click_track;
+    use video_analysis_core::{AudioBuffer, AudioFrame, Timebase};
 
     fn click_track(sample_rate: u32, bpm: f32, seconds: f32) -> Vec<f32> {
         let len = (sample_rate as f32 * seconds) as usize;
@@ -346,6 +348,61 @@ mod tests {
             }
         }
         samples
+    }
+
+    #[test]
+    fn configs_reject_invalid_values() {
+        assert!(OnsetDetectorConfig {
+            strength_threshold: f32::NAN,
+            min_interval_seconds: 0.1,
+        }
+        .validate()
+        .is_err());
+        assert!(OnsetDetectorConfig {
+            strength_threshold: -0.1,
+            min_interval_seconds: 0.1,
+        }
+        .validate()
+        .is_err());
+        assert!(OnsetDetectorConfig {
+            strength_threshold: 0.1,
+            min_interval_seconds: -0.1,
+        }
+        .validate()
+        .is_err());
+        assert!(TempoEstimatorConfig {
+            min_bpm: 0.0,
+            max_bpm: 240.0,
+        }
+        .validate()
+        .is_err());
+        assert!(TempoEstimatorConfig {
+            min_bpm: 120.0,
+            max_bpm: 60.0,
+        }
+        .validate()
+        .is_err());
+    }
+
+    #[test]
+    fn onset_detector_respects_min_interval() {
+        let mut detector = OnsetDetector::new(OnsetDetectorConfig {
+            strength_threshold: 0.1,
+            min_interval_seconds: 0.5,
+        })
+        .unwrap();
+        assert!(detector
+            .process_energy(Timestamp::new(0, Timebase::new(1, 1000)), 0.0)
+            .is_none());
+        assert!(detector
+            .process_energy(Timestamp::new(100, Timebase::new(1, 1000)), 1.0)
+            .is_some());
+        assert!(detector
+            .process_energy(Timestamp::new(200, Timebase::new(1, 1000)), 2.0)
+            .is_none());
+        assert!(detector
+            .process_energy(Timestamp::new(700, Timebase::new(1, 1000)), 3.0)
+            .is_some());
     }
 
     #[test]
@@ -375,5 +432,93 @@ mod tests {
         let tempo = estimate_tempo(&onsets, TempoEstimatorConfig::default()).unwrap();
         assert_eq!(tempo.bpm, Some(120.0));
         assert_eq!(tempo.confidence, 1.0);
+    }
+
+    #[test]
+    fn estimates_tempo_for_generated_click_tracks() {
+        for bpm in [60.0, 90.0, 120.0, 180.0] {
+            let samples = generated_click_track(2_000, bpm, 5.0);
+            let envelope =
+                onset_envelope(&samples, 2_000, FrameSpec::new(80, 20).unwrap()).unwrap();
+            let onsets = detect_onsets(
+                &envelope,
+                OnsetDetectorConfig {
+                    strength_threshold: 0.05,
+                    min_interval_seconds: 0.1,
+                },
+            )
+            .unwrap();
+            let tempo = estimate_tempo(&onsets, TempoEstimatorConfig::default()).unwrap();
+            let actual = tempo.bpm.unwrap();
+            assert!((actual - bpm).abs() <= 2.0, "expected {bpm}, got {actual}");
+        }
+    }
+
+    #[test]
+    fn silence_produces_no_onsets_or_tempo() {
+        let envelope =
+            onset_envelope(&vec![0.0; 2_000], 1_000, FrameSpec::new(100, 50).unwrap()).unwrap();
+        let onsets = detect_onsets(&envelope, OnsetDetectorConfig::default()).unwrap();
+        assert!(onsets.is_empty());
+        let tempo = estimate_tempo(&onsets, TempoEstimatorConfig::default()).unwrap();
+        assert_eq!(tempo.bpm, None);
+        assert_eq!(tempo.confidence, 0.0);
+    }
+
+    #[test]
+    fn irregular_onsets_have_lower_confidence() {
+        let regular = [0.0, 0.5, 1.0, 1.5, 2.0]
+            .into_iter()
+            .map(|timestamp_seconds| Onset {
+                timestamp_seconds,
+                strength: 1.0,
+            })
+            .collect::<Vec<_>>();
+        let irregular = [0.0, 0.5, 1.3, 1.9, 3.0]
+            .into_iter()
+            .map(|timestamp_seconds| Onset {
+                timestamp_seconds,
+                strength: 1.0,
+            })
+            .collect::<Vec<_>>();
+        let regular = estimate_tempo(&regular, TempoEstimatorConfig::default()).unwrap();
+        let irregular = estimate_tempo(&irregular, TempoEstimatorConfig::default()).unwrap();
+        assert!(irregular.confidence < regular.confidence);
+    }
+
+    #[test]
+    fn rhythm_analyzer_finish_emits_tempo_only_with_enough_onsets() {
+        let mut analyzer = RhythmAnalyzer::default();
+        assert!(analyzer.finish(None).unwrap().is_empty());
+
+        for sample in [0, 500, 1000] {
+            let samples = AudioBuffer::F32(vec![1.0; 128]);
+            let frame = AudioFrame::new(
+                Timestamp::new(sample, Timebase::new(1, 1000)),
+                1000,
+                1,
+                &samples,
+            )
+            .unwrap();
+            analyzer.process_frame(&frame).unwrap();
+            let silence = AudioBuffer::F32(vec![0.0; 128]);
+            let frame = AudioFrame::new(
+                Timestamp::new(sample + 250, Timebase::new(1, 1000)),
+                1000,
+                1,
+                &silence,
+            )
+            .unwrap();
+            analyzer.process_frame(&frame).unwrap();
+        }
+        let events = analyzer
+            .finish(Some(Timestamp::new(1500, Timebase::new(1, 1000))))
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(events[0].label.starts_with("audio:tempo:"));
+        assert_eq!(
+            events[0].timestamp,
+            Some(Timestamp::new(1500, Timebase::new(1, 1000)))
+        );
     }
 }

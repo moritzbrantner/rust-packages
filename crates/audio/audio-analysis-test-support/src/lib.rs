@@ -1,0 +1,130 @@
+use std::f32::consts::PI;
+use std::fs::File;
+use std::io::{self, Write};
+use std::path::Path;
+
+use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Result, Timestamp};
+
+pub fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
+    let samples = (sample_rate as f32 * seconds) as usize;
+    sine_len(freq_hz, sample_rate, samples)
+}
+
+pub fn sine_len(freq_hz: f32, sample_rate: u32, len: usize) -> Vec<f32> {
+    (0..len)
+        .map(|index| {
+            let t = index as f32 / sample_rate as f32;
+            (2.0 * PI * freq_hz * t).sin()
+        })
+        .collect()
+}
+
+pub fn impulse_train(sample_rate: u32, bpm: f32, seconds: f32) -> Vec<f32> {
+    let len = (sample_rate as f32 * seconds) as usize;
+    let interval = (sample_rate as f32 * 60.0 / bpm).max(1.0) as usize;
+    let mut samples = vec![0.0; len];
+    for index in (0..len).step_by(interval) {
+        samples[index] = 1.0;
+    }
+    samples
+}
+
+pub fn click_track(sample_rate: u32, bpm: f32, seconds: f32) -> Vec<f32> {
+    let len = (sample_rate as f32 * seconds) as usize;
+    let interval = (sample_rate as f32 * 60.0 / bpm).max(1.0) as usize;
+    let mut samples = vec![0.0; len];
+    for start in (0..len).step_by(interval) {
+        for sample in samples.iter_mut().skip(start).take(8) {
+            *sample = 1.0;
+        }
+    }
+    samples
+}
+
+pub fn white_noise(seed: u64, len: usize) -> Vec<f32> {
+    let mut state = seed;
+    (0..len)
+        .map(|_| {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let value = ((state >> 32) as u32) as f32 / u32::MAX as f32;
+            value * 2.0 - 1.0
+        })
+        .collect()
+}
+
+pub fn interleaved_stereo(left: &[f32], right: &[f32]) -> Vec<f32> {
+    assert_eq!(left.len(), right.len(), "stereo channels must match");
+    left.iter()
+        .zip(right)
+        .flat_map(|(left, right)| [*left, *right])
+        .collect()
+}
+
+pub fn owned_f32_frame(
+    timestamp: Timestamp,
+    sample_rate: u32,
+    channels: u16,
+    samples: Vec<f32>,
+) -> Result<OwnedAudioFrame> {
+    OwnedAudioFrame::new(timestamp, sample_rate, channels, AudioBuffer::F32(samples))
+}
+
+pub fn owned_i16_frame(
+    timestamp: Timestamp,
+    sample_rate: u32,
+    channels: u16,
+    samples: Vec<i16>,
+) -> Result<OwnedAudioFrame> {
+    OwnedAudioFrame::new(timestamp, sample_rate, channels, AudioBuffer::I16(samples))
+}
+
+pub fn write_pcm16_wav(
+    path: impl AsRef<Path>,
+    sample_rate: u32,
+    channels: u16,
+    samples: &[f32],
+) -> io::Result<()> {
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut file = File::create(path)?;
+    let data_len = samples.len() as u32 * 2;
+    let byte_rate = sample_rate * channels as u32 * 2;
+    let block_align = channels * 2;
+
+    file.write_all(b"RIFF")?;
+    file.write_all(&(36 + data_len).to_le_bytes())?;
+    file.write_all(b"WAVEfmt ")?;
+    file.write_all(&16_u32.to_le_bytes())?;
+    file.write_all(&1_u16.to_le_bytes())?;
+    file.write_all(&channels.to_le_bytes())?;
+    file.write_all(&sample_rate.to_le_bytes())?;
+    file.write_all(&byte_rate.to_le_bytes())?;
+    file.write_all(&block_align.to_le_bytes())?;
+    file.write_all(&16_u16.to_le_bytes())?;
+    file.write_all(b"data")?;
+    file.write_all(&data_len.to_le_bytes())?;
+    for sample in samples {
+        let value = (sample.clamp(-1.0, 1.0) * i16::MAX as f32).round() as i16;
+        file.write_all(&value.to_le_bytes())?;
+    }
+    Ok(())
+}
+
+pub fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {
+    assert!(
+        (actual - expected).abs() <= tolerance,
+        "expected {actual} to be within {tolerance} of {expected}"
+    );
+}
+
+pub fn assert_approx_slice(actual: &[f32], expected: &[f32], tolerance: f32) {
+    assert_eq!(actual.len(), expected.len(), "slice lengths differ");
+    for (index, (actual, expected)) in actual.iter().zip(expected).enumerate() {
+        assert!(
+            (*actual - *expected).abs() <= tolerance,
+            "index {index}: expected {actual} to be within {tolerance} of {expected}"
+        );
+    }
+}

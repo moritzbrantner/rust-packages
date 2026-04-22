@@ -248,7 +248,8 @@ impl HtdemucsSeparator {
 }
 
 pub fn is_demucs_available() -> bool {
-    Command::new("demucs")
+    let command = std::env::var_os("DEMUCS_COMMAND").unwrap_or_else(|| OsString::from("demucs"));
+    Command::new(command)
         .arg("--help")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -269,19 +270,62 @@ mod tests {
     }
 
     #[test]
+    fn stem_names_and_file_names_are_stable() {
+        let stems = [
+            (Stem::Vocals, "vocals", "vocals.wav"),
+            (Stem::Drums, "drums", "drums.wav"),
+            (Stem::Bass, "bass", "bass.wav"),
+            (Stem::Other, "other", "other.wav"),
+            (Stem::Guitar, "guitar", "guitar.wav"),
+            (Stem::Piano, "piano", "piano.wav"),
+            (Stem::NoVocals, "no_vocals", "no_vocals.wav"),
+            (
+                Stem::Custom("karaoke".to_string()),
+                "karaoke",
+                "karaoke.wav",
+            ),
+        ];
+        for (stem, name, file_name) in stems {
+            assert_eq!(stem.as_str(), name);
+            assert_eq!(stem.file_name(), file_name);
+        }
+    }
+
+    #[test]
+    fn options_validation_rejects_invalid_values() {
+        assert!(HtdemucsOptions::new("out").command("").validate().is_err());
+        assert!(HtdemucsOptions::new("out").model(" ").validate().is_err());
+        assert!(HtdemucsOptions::new("out")
+            .overlap(-0.1)
+            .validate()
+            .is_err());
+        assert!(HtdemucsOptions::new("out").overlap(1.0).validate().is_err());
+        assert!(HtdemucsOptions::new("out")
+            .overlap(f32::NAN)
+            .validate()
+            .is_err());
+    }
+
+    #[test]
     fn builds_htdemucs_command_arguments() {
         let separator = HtdemucsSeparator::new(
             HtdemucsOptions::new("out")
+                .command_arg("python")
+                .command_arg("-m")
                 .two_stems(Stem::Vocals)
                 .device("cpu")
                 .shifts(2)
-                .overlap(0.25),
+                .overlap(0.25)
+                .extra_arg("--jobs")
+                .extra_arg("1"),
         )
         .unwrap();
         let args = args_as_strings(separator.build_args("song.wav").unwrap());
         assert_eq!(
             args,
             vec![
+                "python",
+                "-m",
                 "-n",
                 "htdemucs",
                 "-o",
@@ -294,6 +338,8 @@ mod tests {
                 "2",
                 "--overlap",
                 "0.25",
+                "--jobs",
+                "1",
                 "song.wav"
             ]
         );
@@ -316,5 +362,51 @@ mod tests {
             result.stems[0].path,
             PathBuf::from("out/htdemucs/song/vocals.wav")
         );
+    }
+
+    #[test]
+    fn predicts_two_stem_outputs_for_non_vocal_stems() {
+        let separator =
+            HtdemucsSeparator::new(HtdemucsOptions::new("out").two_stems(Stem::Drums)).unwrap();
+        assert_eq!(
+            separator
+                .expected_stems()
+                .iter()
+                .map(Stem::as_str)
+                .collect::<Vec<_>>(),
+            vec!["drums", "no_drums"]
+        );
+    }
+
+    #[test]
+    #[ignore = "requires real Demucs installation and model availability"]
+    fn real_demucs_smoke_test_when_requested() {
+        if std::env::var("RUN_REAL_DEMUCS_TESTS").ok().as_deref() != Some("1") {
+            eprintln!("skipping real Demucs smoke test; set RUN_REAL_DEMUCS_TESTS=1");
+            return;
+        }
+        if !is_demucs_available() {
+            panic!("RUN_REAL_DEMUCS_TESTS=1 but demucs is unavailable");
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("tone.wav");
+        audio_analysis_test_support::write_pcm16_wav(
+            &input,
+            8_000,
+            1,
+            &audio_analysis_test_support::sine(440.0, 8_000, 0.1),
+        )
+        .unwrap();
+        let command = std::env::var_os("DEMUCS_COMMAND")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| "demucs".into());
+        let separator = HtdemucsSeparator::new(
+            HtdemucsOptions::new(dir.path().join("out"))
+                .command(command)
+                .device("cpu"),
+        )
+        .unwrap();
+        let result = separator.separate(&input).unwrap();
+        assert!(result.stems.iter().any(|stem| stem.path.exists()));
     }
 }

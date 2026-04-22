@@ -513,6 +513,8 @@ fn coefficients(spec: BiquadSpec, sample_rate: u32) -> Result<BiquadCoefficients
 #[cfg(test)]
 mod tests {
     use super::*;
+    use audio_analysis_test_support::assert_approx_eq;
+    use proptest::prelude::*;
     use video_analysis_core::{AnalysisEvent, AudioAnalyzer, AudioPipeline, Timebase, Timestamp};
     use video_analysis_ingest::{analyze_audio_source, AudioStreamInfo, SourceMode};
 
@@ -559,6 +561,15 @@ mod tests {
     }
 
     #[test]
+    fn gain_db_matches_linear_gain() {
+        let input = frame(vec![0.25, -0.5], 1);
+        let mut processor = AudioProcessor::new().gain_db(6.020_600_3);
+        let output = processor.process_frame(input).unwrap().unwrap();
+        assert_approx_eq(samples(&output)[0], 0.5, 1.0e-5);
+        assert_approx_eq(samples(&output)[1], -1.0, 1.0e-5);
+    }
+
+    #[test]
     fn clipping_clamps_samples() {
         let mut processor = AudioProcessor::new().hard_clip(-0.5, 0.5);
         let output = processor
@@ -570,14 +581,39 @@ mod tests {
     }
 
     #[test]
+    fn invalid_clip_and_noise_gate_configs_error() {
+        let mut clip = AudioProcessor::new().hard_clip(1.0, -1.0);
+        assert!(clip.process_frame(frame(vec![0.0], 1)).is_err());
+
+        let mut gate = AudioProcessor::new().noise_gate(NoiseGateSpec {
+            threshold: -0.1,
+            attenuation: 0.0,
+        });
+        assert!(gate.process_frame(frame(vec![0.0], 1)).is_err());
+
+        let mut gate = AudioProcessor::new().noise_gate(NoiseGateSpec {
+            threshold: 0.1,
+            attenuation: 1.1,
+        });
+        assert!(gate.process_frame(frame(vec![0.0], 1)).is_err());
+    }
+
+    #[test]
     fn mono_conversion_changes_channel_count() {
         let mut processor = AudioProcessor::new().mono(ChannelMix::Average);
-        let output = processor
-            .process_frame(frame(vec![1.0, -1.0, 0.5, 0.25], 2))
-            .unwrap()
-            .unwrap();
+        let timestamp = Timestamp::new(24, Timebase::new(1, 48_000));
+        let input = OwnedAudioFrame::new(
+            timestamp,
+            48_000,
+            2,
+            AudioBuffer::F32(vec![1.0, -1.0, 0.5, 0.25]),
+        )
+        .unwrap();
+        let output = processor.process_frame(input).unwrap().unwrap();
 
         assert_eq!(output.channels, 1);
+        assert_eq!(output.sample_rate, 48_000);
+        assert_eq!(output.timestamp, timestamp);
         assert_eq!(samples(&output), &[0.0, 0.375]);
     }
 
@@ -594,6 +630,36 @@ mod tests {
             .unwrap();
 
         assert!(mean_abs(samples(&second)) < mean_abs(samples(&first)));
+        processor.reset();
+        let reset = processor
+            .process_frame(frame(vec![1.0; 64], 1))
+            .unwrap()
+            .unwrap();
+        assert_approx_eq(samples(&reset)[0], samples(&first)[0], 1.0e-6);
+    }
+
+    #[test]
+    fn biquad_config_validation_rejects_invalid_values() {
+        for spec in [
+            BiquadSpec {
+                kind: BiquadKind::LowPass,
+                cutoff_hz: 0.0,
+                q: 0.707,
+            },
+            BiquadSpec {
+                kind: BiquadKind::LowPass,
+                cutoff_hz: 24_000.0,
+                q: 0.707,
+            },
+            BiquadSpec {
+                kind: BiquadKind::LowPass,
+                cutoff_hz: 1_000.0,
+                q: 0.0,
+            },
+        ] {
+            let mut processor = AudioProcessor::new().biquad(spec);
+            assert!(processor.process_frame(frame(vec![0.0; 16], 1)).is_err());
+        }
     }
 
     #[test]
@@ -636,6 +702,53 @@ mod tests {
             .unwrap();
 
         assert!(mean_abs(samples(&high)) > mean_abs(samples(&low)) * 4.0);
+    }
+
+    #[test]
+    fn band_pass_and_notch_filters_shape_center_frequency() {
+        let band_pass = BiquadSpec {
+            kind: BiquadKind::BandPass,
+            cutoff_hz: 1_000.0,
+            q: 2.0,
+        };
+        let mut centered_filter = AudioProcessor::new().biquad(band_pass);
+        let mut distant_filter = AudioProcessor::new().biquad(band_pass);
+        let centered = centered_filter
+            .process_frame(frame(sine(1_000.0, 48_000, 4096), 1))
+            .unwrap()
+            .unwrap();
+        let distant = distant_filter
+            .process_frame(frame(sine(8_000.0, 48_000, 4096), 1))
+            .unwrap()
+            .unwrap();
+        assert!(mean_abs(samples(&centered)) > mean_abs(samples(&distant)) * 2.0);
+
+        let notch = BiquadSpec {
+            kind: BiquadKind::Notch,
+            cutoff_hz: 1_000.0,
+            q: 4.0,
+        };
+        let mut notched_filter = AudioProcessor::new().biquad(notch);
+        let mut distant_filter = AudioProcessor::new().biquad(notch);
+        let notched = notched_filter
+            .process_frame(frame(sine(1_000.0, 48_000, 4096), 1))
+            .unwrap()
+            .unwrap();
+        let distant = distant_filter
+            .process_frame(frame(sine(8_000.0, 48_000, 4096), 1))
+            .unwrap()
+            .unwrap();
+        assert!(mean_abs(samples(&distant)) > mean_abs(samples(&notched)) * 2.0);
+    }
+
+    #[test]
+    fn processor_chain_order_is_deterministic() {
+        let mut processor = AudioProcessor::new().gain(2.0).hard_clip(-0.75, 0.75);
+        let output = processor
+            .process_frame(frame(vec![0.5, -0.5], 1))
+            .unwrap()
+            .unwrap();
+        assert_eq!(samples(&output), &[0.75, -0.75]);
     }
 
     #[derive(Default)]
@@ -696,6 +809,17 @@ mod tests {
         assert_eq!(result.frames_processed, 2);
         assert_eq!(result.events.len(), 2);
         assert_eq!(source.source_info().mode, SourceMode::Recorded);
+        assert_eq!(source.source_info().audio[0].channels, 1);
+    }
+
+    #[test]
+    fn process_audio_source_preserves_frame_count_and_data_shape() {
+        let mut source = VecAudioSource::new(vec![frame(vec![0.25], 1), frame(vec![0.5], 1)]);
+        let mut processor = AudioProcessor::new().gain(2.0);
+        let frames = process_audio_source(&mut source, &mut processor).unwrap();
+        assert_eq!(frames.len(), 2);
+        assert_eq!(samples(&frames[0]), &[0.5]);
+        assert_eq!(samples(&frames[1]), &[1.0]);
     }
 
     #[test]
@@ -711,5 +835,30 @@ mod tests {
             .unwrap();
 
         assert!(samples(&second)[0].abs() < samples(&first)[0].abs());
+    }
+
+    proptest! {
+        #[test]
+        fn gain_then_clip_stays_within_bounds(input_samples in proptest::collection::vec(-2.0_f32..2.0, 1..128)) {
+            let mut processor = AudioProcessor::new().gain(1.5).hard_clip(-0.75, 0.75);
+            let output = processor.process_frame(frame(input_samples, 1)).unwrap().unwrap();
+            prop_assert!(samples(&output).iter().all(|sample| (-0.75..=0.75).contains(sample)));
+        }
+
+        #[test]
+        fn processor_output_frame_shape_remains_valid(
+            channels in 1_u16..=4,
+            frames in 1_usize..32,
+            values in proptest::collection::vec(-1.0_f32..1.0, 1..256),
+        ) {
+            let len = frames * channels as usize;
+            let mut input = values;
+            input.resize(len, 0.0);
+            let mut processor = AudioProcessor::new().gain(0.5);
+            let output = processor.process_frame(frame(input, channels)).unwrap().unwrap();
+            prop_assert_eq!(output.channels, channels);
+            prop_assert_eq!(output.data.len() % channels as usize, 0);
+            prop_assert_eq!(output.sample_rate, 48_000);
+        }
     }
 }

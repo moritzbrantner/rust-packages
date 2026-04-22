@@ -1,0 +1,79 @@
+name: audio-ci
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+jobs:
+  audio-fast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: >
+          cargo clippy
+          -p audio-analysis-core
+          -p audio-analysis-fourier
+          -p audio-analysis-io
+          -p audio-analysis-pitch
+          -p audio-analysis-processing
+          -p audio-analysis-recognition
+          -p audio-analysis-rhythm
+          -p audio-analysis-separation
+          --all-targets -- -D warnings
+      - run: >
+          PROPTEST_CASES=128 cargo test
+          -p audio-analysis-core
+          -p audio-analysis-fourier
+          -p audio-analysis-io
+          -p audio-analysis-pitch
+          -p audio-analysis-processing
+          -p audio-analysis-recognition
+          -p audio-analysis-rhythm
+          -p audio-analysis-separation
+
+  audio-ffmpeg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: bash scripts/setup_audio_external_tools.sh ffmpeg
+      - run: FFMPEG_EXTERNAL_TESTS=1 cargo test -p audio-analysis-io --test ffmpeg_decode
+
+  audio-perf:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(join(github.event.pull_request.labels.*.name, ','), 'audio-perf')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: >
+          cargo bench
+          -p audio-analysis-core
+          -p audio-analysis-fourier
+          -p audio-analysis-pitch
+          -p audio-analysis-processing
+          -p audio-analysis-recognition
+          -p audio-analysis-rhythm
+      - run: python3 scripts/check_audio_bench.py
+
+  audio-demucs-smoke:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: bash scripts/setup_audio_external_tools.sh conda demucs
+        env:
+          AUDIO_DEMUCS_INSTALLER: auto
+      - run: >
+          RUN_REAL_DEMUCS_TESTS=1 cargo test -p audio-analysis-separation
+          real_demucs_smoke_test_when_requested -- --ignored --nocapture

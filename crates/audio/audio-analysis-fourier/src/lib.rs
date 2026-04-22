@@ -300,6 +300,8 @@ impl AudioAnalyzer for SpectralAnalyzer {
 mod tests {
     use super::*;
     use audio_analysis_core::WindowFunction;
+    use audio_analysis_test_support::{assert_approx_eq, sine_len, white_noise};
+    use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
 
     fn sine(freq_hz: f32, sample_rate: u32, samples: usize) -> Vec<f32> {
         (0..samples)
@@ -308,6 +310,20 @@ mod tests {
                 (2.0 * std::f32::consts::PI * freq_hz * t).sin()
             })
             .collect()
+    }
+
+    fn frame(samples: Vec<f32>, sample_rate: u32) -> AudioBuffer {
+        let _ = sample_rate;
+        AudioBuffer::F32(samples)
+    }
+
+    #[test]
+    fn rejects_invalid_fft_sizes_and_sample_rates() {
+        assert!(FourierTransform::new(0).is_err());
+        assert!(FourierTransform::new(1000).is_err());
+        let transform = FourierTransform::new(512).unwrap();
+        assert!(transform.analyze_samples(&[0.0; 512], 0).is_err());
+        assert!(StftConfig::new(512, 0).is_err());
     }
 
     #[test]
@@ -321,11 +337,36 @@ mod tests {
     }
 
     #[test]
+    fn fft_detects_multiple_reference_tones() {
+        let transform = FourierTransform::with_window(4096, WindowFunction::Rectangular).unwrap();
+        for frequency in [220.0, 440.0, 1_000.0, 1_010.0] {
+            let spectrum = transform
+                .analyze_samples(&sine_len(frequency, 48_000, 4096), 48_000)
+                .unwrap();
+            let dominant = spectrum.dominant_frequency_hz().unwrap();
+            assert!(
+                (dominant - frequency).abs() <= 48_000.0 / 4096.0,
+                "expected {frequency}, got {dominant}"
+            );
+        }
+    }
+
+    #[test]
+    fn zero_pads_short_input_to_fft_size() {
+        let transform = FourierTransform::with_window(512, WindowFunction::Rectangular).unwrap();
+        let spectrum = transform.analyze_samples(&[1.0], 48_000).unwrap();
+        assert_eq!(spectrum.fft_size, 512);
+        assert_eq!(spectrum.bins.len(), 257);
+        assert!(spectrum.bins.iter().all(|bin| bin.magnitude.is_finite()));
+    }
+
+    #[test]
     fn stft_returns_expected_frame_count() {
         let config = StftConfig::new(256, 128).unwrap();
         let frames = spectrogram(&vec![0.0; 1024], 48_000, &config).unwrap();
         assert_eq!(frames.len(), 7);
         assert_eq!(frames[1].start_sample, 128);
+        assert_approx_eq(frames[1].start_seconds as f32, 128.0 / 48_000.0, 1.0e-7);
     }
 
     #[test]
@@ -337,5 +378,39 @@ mod tests {
             .features();
         assert_eq!(features.dominant_frequency_hz, None);
         assert_eq!(features.centroid_hz, 0.0);
+        assert_eq!(features.bandwidth_hz, 0.0);
+        assert_eq!(features.rolloff_hz, 0.0);
+        assert_eq!(features.flatness, 0.0);
+    }
+
+    #[test]
+    fn spectral_features_characterize_tone_and_noise() {
+        let transform = FourierTransform::with_window(1024, WindowFunction::Rectangular).unwrap();
+        let tone = transform
+            .analyze_samples(&sine_len(1024.0, 8192, 1024), 8192)
+            .unwrap()
+            .features();
+        assert!((tone.centroid_hz - 1024.0).abs() <= 8.0);
+        let noise = transform
+            .analyze_samples(&white_noise(42, 1024), 8192)
+            .unwrap()
+            .features();
+        assert!(noise.flatness > tone.flatness);
+    }
+
+    #[test]
+    fn spectral_analyzer_respects_min_magnitude() {
+        let buffer = frame(sine_len(440.0, 8192, 1024), 8192);
+        let frame =
+            AudioFrame::new(Timestamp::new(10, Timebase::new(1, 8192)), 8192, 1, &buffer).unwrap();
+        let transform = FourierTransform::with_window(1024, WindowFunction::Rectangular).unwrap();
+        let mut quiet = SpectralAnalyzer::new(transform.clone()).min_magnitude(100.0);
+        assert!(quiet.process_frame(&frame).unwrap().is_empty());
+
+        let mut audible = SpectralAnalyzer::new(transform).min_magnitude(0.001);
+        let events = audible.process_frame(&frame).unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].timestamp, Some(frame.timestamp));
+        assert!(events[0].label.starts_with("audio:dominant_frequency:"));
     }
 }
