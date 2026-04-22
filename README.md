@@ -39,9 +39,13 @@ Rust crates are grouped under `crates/` by input or integration domain:
 - `image-analysis-processing`: deterministic CPU image crop, resize, grayscale,
   inversion, thresholding, and 3x3 convolution pipelines.
 - `text-analysis-core`: text document contracts, text segment bridging,
-  normalization, tokenization, sentence splitting, and word counts.
-- `text-analysis-features`: term frequencies, top terms, lexical diversity, and
-  character/token n-gram helpers.
+  normalization, Unicode-aware tokens with spans, sentence/paragraph splitting,
+  and text statistics.
+- `text-analysis-features`: stop words, keywords, readability, pattern events,
+  reusable text analyzers, term frequencies, and character/token n-grams.
+- `text-analysis-transcription`: transcript segment models, Whisper JSON,
+  SRT/WebVTT/plain text parsing, command transcribers, and text segment source
+  adapters.
 - `vector-analysis-core`: dense vector validation, normalization, metrics,
   distances, means, and per-dimension summary statistics.
 - `vector-analysis-index`: exact in-memory vector search and nearest-centroid
@@ -190,6 +194,7 @@ flowchart LR
     imageprocessing[image-analysis-processing]
     textcore[text-analysis-core]
     textfeatures[text-analysis-features]
+    texttranscription[text-analysis-transcription]
     vectorcore[vector-analysis-core]
     vectorindex[vector-analysis-index]
     threedcore[three-d-processing-core]
@@ -236,6 +241,8 @@ flowchart LR
     textcore --> core
     textfeatures --> textcore
     textfeatures --> core
+    texttranscription --> core
+    texttranscription --> ingest
     vectorcore --> core
     vectorindex --> vectorcore
     vectorindex --> core
@@ -322,8 +329,9 @@ cargo run -p video-analysis-use-cases -- youtube-video \
 ```
 
 Required local tools for the full URL workflow are `yt-dlp`, `ffmpeg`, and
-`ffprobe`. Transcription is skipped unless the OpenAI Whisper CLI is available
-as `whisper`, or a command is supplied explicitly:
+`ffprobe`. Transcription uses the reusable `text-analysis-transcription`
+Whisper CLI wrapper and is skipped unless the OpenAI Whisper CLI is available as
+`whisper`, or a command is supplied explicitly:
 
 ```bash
 cargo run -p video-analysis-use-cases -- youtube-video \
@@ -611,6 +619,10 @@ fn main() -> Result<()> {
 
 Text analyzers implement `video_analysis_core::TextAnalyzer`. For live text,
 wrap any blocking `BufRead` with `TextLineSource::live(...)`.
+`text-analysis-features` provides ready-made analyzers for stats, keywords,
+patterns, and transcript heuristics. `text-analysis-transcription` parses
+Whisper JSON, SRT, WebVTT, and plain line transcripts into reusable transcript
+segments or a `TextSegmentSource`.
 
 ### Data Aggregation
 

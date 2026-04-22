@@ -23,6 +23,7 @@ members = [
     "crates/image/image-analysis-processing",
     "crates/text/text-analysis-core",
     "crates/text/text-analysis-features",
+    "crates/text/text-analysis-transcription",
     "crates/three-d/three-d-processing-core",
     "crates/three-d/three-d-processing-mesh",
     "crates/vector/vector-analysis-core",
@@ -65,6 +66,7 @@ tempfile = "3.23.0"
 thiserror = "2.0.17"
 criterion = "0.5.1"
 proptest = "1.6.0"
+unicode-normalization = "0.1.24"
 comfyui-data = { path = "crates/comfyui/comfyui-data" }
 comfyui-models = { path = "crates/comfyui/comfyui-models" }
 audio-analysis-core = { path = "crates/audio/audio-analysis-core" }
@@ -80,6 +82,7 @@ image-analysis-core = { path = "crates/image/image-analysis-core" }
 image-analysis-processing = { path = "crates/image/image-analysis-processing" }
 text-analysis-core = { path = "crates/text/text-analysis-core" }
 text-analysis-features = { path = "crates/text/text-analysis-features" }
+text-analysis-transcription = { path = "crates/text/text-analysis-transcription" }
 vector-analysis-core = { path = "crates/vector/vector-analysis-core" }
 vector-analysis-index = { path = "crates/vector/vector-analysis-index" }
 three-d-processing-core = { path = "crates/three-d/three-d-processing-core" }
@@ -142,6 +145,7 @@ image-analysis-core.workspace = true
 image-analysis-processing.workspace = true
 text-analysis-core.workspace = true
 text-analysis-features.workspace = true
+text-analysis-transcription.workspace = true
 vector-analysis-core.workspace = true
 vector-analysis-index.workspace = true
 three-d-processing-core.workspace = true

@@ -2,13 +2,16 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 use serde::{Deserialize, Serialize};
+use text_analysis_features::TranscriptHeuristicAnalyzer;
+use text_analysis_transcription::{
+    segment_to_owned_text_segment, Transcriber, TranscriptSegment, WhisperCliTranscriber,
+};
 use video_analysis_core::{
     AnalysisEvent, AudioAnalyzer, AudioBuffer, AudioFrame, BoundingBox, DetectError, Observation,
-    ObservationKind, RealtimeVideoPipeline, Result, TextAnalyzer, TextSegment, Timestamp,
-    VideoAnalyzer, VideoFrame,
+    ObservationKind, RealtimeVideoPipeline, Result, VideoAnalyzer, VideoFrame,
 };
 use video_analysis_data::{
     BucketAggregator, BucketConfig, DataBucket, DataRecord, DataStreamKind, StreamSummary,
@@ -210,20 +213,6 @@ pub struct StreamBucketReport {
     pub video_frames: u64,
     pub audio_frames: u64,
     pub text_segments: u64,
-}
-
-#[derive(Debug, Deserialize)]
-struct WhisperOutput {
-    text: Option<String>,
-    #[serde(default)]
-    segments: Vec<WhisperSegment>,
-}
-
-#[derive(Debug, Deserialize)]
-struct WhisperSegment {
-    start: Option<f64>,
-    end: Option<f64>,
-    text: String,
 }
 
 pub fn run_youtube_video(args: YoutubeVideoRequest) -> Result<YoutubeVideoReport> {
@@ -597,36 +586,19 @@ fn run_whisper_command(
         .join("transcript");
     fs::create_dir_all(&output_dir)?;
 
-    let status = Command::new(command)
-        .arg(audio_path)
-        .args(extra_args)
-        .arg("--output_format")
-        .arg("json")
-        .arg("--output_dir")
-        .arg(&output_dir)
-        .stdin(Stdio::null())
-        .status()?;
-    if !status.success() {
-        return Err(DetectError::Source(format!(
-            "transcriber command `{}` failed",
-            command.display()
-        )));
-    }
-
-    let transcript_path = find_transcript_json(&output_dir).ok_or_else(|| {
-        DetectError::Source("transcriber completed but no JSON transcript was found".to_string())
-    })?;
-    let bytes = fs::read(&transcript_path)?;
-    let parsed: WhisperOutput = serde_json::from_slice(&bytes)
-        .map_err(|err| DetectError::Source(format!("invalid whisper JSON: {err}")))?;
+    let mut transcriber = WhisperCliTranscriber::new(command)
+        .args(extra_args.iter().cloned())
+        .output_dir(output_dir);
+    let parsed = transcriber
+        .transcribe(audio_path)
+        .map_err(|err| DetectError::Source(err.to_string()))?;
     let segments = parsed
         .segments
         .into_iter()
-        .enumerate()
-        .map(|(index, segment)| TranscriptSegmentReport {
-            index: index as u64,
-            start_seconds: segment.start,
-            end_seconds: segment.end,
+        .map(|segment| TranscriptSegmentReport {
+            index: segment.index,
+            start_seconds: segment.start_seconds,
+            end_seconds: segment.end_seconds,
             text: segment.text.trim().to_string(),
         })
         .collect::<Vec<_>>();
@@ -635,20 +607,10 @@ fn run_whisper_command(
             status: "completed".to_string(),
             text: parsed.text.map(|text| text.trim().to_string()),
             segments,
-            message: Some(display_path(&transcript_path)),
+            message: parsed.source,
         },
         audio_path.to_path_buf(),
     ))
-}
-
-fn find_transcript_json(output_dir: &Path) -> Option<PathBuf> {
-    let mut candidates = fs::read_dir(output_dir)
-        .ok()?
-        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
-        .collect::<Vec<_>>();
-    candidates.sort();
-    candidates.pop()
 }
 
 fn analyze_audio(
@@ -710,12 +672,16 @@ fn analyze_transcript_text(
     let mut pipeline = builder.build()?;
 
     for segment in &transcription.segments {
-        let mut owned = video_analysis_core::OwnedTextSegment::new(segment.index, &segment.text);
-        if let Some(seconds) = segment.start_seconds {
-            owned = owned.timestamp(Timestamp::new((seconds * 1_000.0).round() as i64, {
-                video_analysis_core::Timebase::new(1, 1_000)
-            }));
-        }
+        let owned = segment_to_owned_text_segment(&TranscriptSegment {
+            index: segment.index,
+            start_seconds: segment.start_seconds,
+            end_seconds: segment.end_seconds,
+            text: segment.text.clone(),
+            language: None,
+            speaker: None,
+            confidence: None,
+            is_final: true,
+        });
         let segment_ref = owned.as_segment();
         push_record(
             aggregator,
@@ -785,53 +751,6 @@ fn rms(buffer: &AudioBuffer) -> f32 {
         0.0
     } else {
         (sum / count as f32).sqrt()
-    }
-}
-
-#[derive(Default)]
-struct TranscriptHeuristicAnalyzer;
-
-impl TextAnalyzer for TranscriptHeuristicAnalyzer {
-    fn name(&self) -> &str {
-        "transcript_heuristics"
-    }
-
-    fn process_segment(&mut self, segment: &TextSegment<'_>) -> Result<Vec<AnalysisEvent>> {
-        let mut events = Vec::new();
-        let text = segment.text.trim();
-        if text.ends_with('?') {
-            events.push(text_event(
-                self.name(),
-                "speech:question",
-                segment.timestamp,
-            ));
-        }
-        if text.contains("http://") || text.contains("https://") || text.contains("www.") {
-            events.push(text_event(self.name(), "speech:url", segment.timestamp));
-        }
-        if text
-            .split_whitespace()
-            .any(|word| word.chars().any(|character| character.is_ascii_digit()))
-        {
-            events.push(text_event(self.name(), "speech:number", segment.timestamp));
-        }
-        if text.split_whitespace().count() >= 30 {
-            events.push(text_event(
-                self.name(),
-                "speech:long_segment",
-                segment.timestamp,
-            ));
-        }
-        Ok(events)
-    }
-}
-
-fn text_event(analyzer: &str, label: &str, timestamp: Option<Timestamp>) -> AnalysisEvent {
-    let event = AnalysisEvent::new(analyzer, label);
-    if let Some(timestamp) = timestamp {
-        event.at_timestamp(timestamp)
-    } else {
-        event
     }
 }
 
@@ -1010,17 +929,18 @@ fn display_path(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use video_analysis_core::TextAnalyzer;
 
     #[test]
-    fn parses_whisper_json_segments() {
-        let parsed: WhisperOutput = serde_json::from_str(
-            r#"{"text":"hello world","segments":[{"start":0.0,"end":1.5,"text":" hello"}]}"#,
+    fn parses_transcript_whisper_json_segments() {
+        let parsed = text_analysis_transcription::parse_whisper_json(
+            br#"{"text":"hello world","segments":[{"start":0.0,"end":1.5,"text":" hello"}]}"#,
         )
         .unwrap();
 
         assert_eq!(parsed.text.as_deref(), Some("hello world"));
         assert_eq!(parsed.segments.len(), 1);
-        assert_eq!(parsed.segments[0].start, Some(0.0));
+        assert_eq!(parsed.segments[0].start_seconds, Some(0.0));
     }
 
     #[test]

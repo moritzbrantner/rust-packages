@@ -26,8 +26,9 @@ crates should compose around those contracts instead of defining parallel types.
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
 | `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core` | Borrowed/owned image views, pixel formats, compacting, mean color, luma histograms | Image processing crates, applications, video frame preprocessing |
 | `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains | Applications, preprocessing workflows |
-| `text-analysis-core` | Shared text analysis utilities | `video-analysis-core` | Text document contracts, text segment bridging, whitespace normalization, tokens, sentences, counts | Text feature crates, text pipelines, applications |
-| `text-analysis-features` | Text feature extraction | `text-analysis-core`, `video-analysis-core` | Term frequencies, top terms, lexical diversity, character/token n-grams | Applications and downstream text analytics |
+| `text-analysis-core` | Shared text analysis utilities | `video-analysis-core`, `unicode-normalization` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
+| `text-analysis-features` | Text feature extraction | `text-analysis-core`, `video-analysis-core` | Stop words, keywords, readability, pattern detection, reusable text analyzers, term frequencies, character/token n-grams | Applications, text pipelines, downstream text analytics |
+| `text-analysis-transcription` | Reusable transcript parsing and ASR command wrappers | `video-analysis-core`, `video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, text segment source adapter | Use cases, applications, text pipelines |
 | `vector-analysis-core` | Dense vector contracts and metrics | `video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
 | `vector-analysis-index` | Exact vector search and assignment | `vector-analysis-core`, `video-analysis-core` | In-memory vector index, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
 | `three-d-processing-core` | Generic 3D processing primitives | `video-analysis-core` | 3D vectors, points, bounds, transforms, point clouds, centroids | Mesh processing, applications, future 3D workflows |
@@ -184,16 +185,26 @@ The `text-analysis-*` crates provide reusable text processing separate from
 video use cases and model adapters.
 
 - `text-analysis-core` owns `TextDocument<'_>`, `OwnedTextDocument`,
-  `TextStats`, whitespace normalization, word tokenization, sentence splitting,
-  and word counts.
+  `TextStats`, `TextSpan`, `Token`, `Sentence`, `Paragraph`,
+  `TextProcessingOptions`, whitespace normalization, word tokenization,
+  span-aware tokenization, sentence/paragraph splitting, and detailed stats.
 - `TextDocument::from_segment` and `OwnedTextDocument::from_segment` bridge core
   `TextSegment` and `OwnedTextSegment` values into text-only workflows.
-- `text-analysis-features` owns `TermFrequency`, `TextFeatureSummary`, top
-  terms, lexical diversity, and character/token n-grams.
+- `text-analysis-features` owns `TermFrequency`, `TextFeatureSummary`,
+  `StopWords`, `KeywordOptions`, `Keyword`, `NgramFrequency`,
+  `ReadabilitySummary`, top terms, keyword extraction, lexical diversity,
+  pattern detection, and character/token n-grams. It also provides
+  `TextStatsAnalyzer`, `KeywordAnalyzer`, `PatternAnalyzer`, and
+  `TranscriptHeuristicAnalyzer` for `TextPipeline`.
+- `text-analysis-transcription` owns `TranscriptFormat`, `TranscriptSegment`,
+  `TranscriptionResult`, `Transcriber`, `CommandTranscriber`,
+  `WhisperCliTranscriber`, and `TranscriptSegmentSource`. It parses Whisper
+  JSON, SRT, WebVTT, and plain line transcripts, and converts transcript
+  segments into `OwnedTextSegment` values.
 
-Text crates should emit plain deterministic features and leave model-specific
-classification, embedding, and pipeline event conversion to model or application
-crates.
+Text crates should emit deterministic features and label-based
+`AnalysisEvent` values. Model-specific classification and embedding remain in
+model or application crates.
 
 ## Vector Analysis Contracts
 
@@ -830,9 +841,12 @@ Allowed internal dependencies:
 - `image-analysis-core` -> `video-analysis-core`.
 - `image-analysis-processing` -> `image-analysis-core`,
   `video-analysis-core`.
-- `text-analysis-core` -> `video-analysis-core`.
+- `text-analysis-core` -> `video-analysis-core`,
+  `unicode-normalization`.
 - `text-analysis-features` -> `text-analysis-core`,
   `video-analysis-core`.
+- `text-analysis-transcription` -> `video-analysis-core`,
+  `video-analysis-ingest`, `serde`, `serde_json`, `thiserror`.
 - `vector-analysis-core` -> `video-analysis-core`.
 - `vector-analysis-index` -> `vector-analysis-core`,
   `video-analysis-core`.

@@ -10,6 +10,7 @@ pub use image_analysis_core as image_core;
 pub use image_analysis_processing as image_processing;
 pub use text_analysis_core as text_core;
 pub use text_analysis_features as text_features;
+pub use text_analysis_transcription as text_transcription;
 pub use three_d_processing_core as three_d_core;
 pub use three_d_processing_mesh as three_d_mesh;
 pub use vector_analysis_core as vector_core;
