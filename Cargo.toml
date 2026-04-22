@@ -8,6 +8,8 @@ description = "Rust-first video scene analysis workspace inspired by PySceneDete
 [workspace]
 members = [
     ".",
+    "crates/comfyui-data",
+    "crates/comfyui-models",
     "crates/audio-analysis-core",
     "crates/audio-analysis-fourier",
     "crates/audio-analysis-pitch",
@@ -45,6 +47,8 @@ serde_json = "1.0.145"
 rustfft = "6.2.0"
 tempfile = "3.23.0"
 thiserror = "2.0.17"
+comfyui-data = { path = "crates/comfyui-data" }
+comfyui-models = { path = "crates/comfyui-models" }
 audio-analysis-core = { path = "crates/audio-analysis-core" }
 audio-analysis-fourier = { path = "crates/audio-analysis-fourier" }
 audio-analysis-pitch = { path = "crates/audio-analysis-pitch" }

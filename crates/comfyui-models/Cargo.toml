@@ -1,0 +1,13 @@
+[package]
+name = "comfyui-models"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "ComfyUI model folder, inventory, and extra path contracts."
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -6,6 +6,10 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
 ## Crates
 
 - `video-analysis`: umbrella re-export crate.
+- `comfyui-data`: serde contracts and helpers for ComfyUI workflow JSON and
+  API prompt graphs.
+- `comfyui-models`: ComfyUI model folder keys, default paths, inventory
+  scanning, and `extra_model_paths.yaml` generation helpers.
 - `audio-analysis-core`: normalized audio sample conversion, mono mixing,
   windowing, frame iteration, and level helpers for audio analysis crates.
 - `audio-analysis-fourier`: FFT, STFT/spectrogram, spectral features, and a
@@ -122,7 +126,9 @@ share utility code through `audio-analysis-core`. Most functional video crates
 depend on `core`, while `video-analysis-gaussian-splatting` also reuses the
 camera and geometry contracts from `video-analysis-radiance-fields`.
 Composition happens in `video-analysis-cli` and the root `video-analysis` facade
-crate.
+crate. The `comfyui-*` crates are standalone ComfyUI interoperability packages
+for applications that need to inspect ComfyUI workflows, prompt graphs, model
+folders, and extra model path configuration.
 
 For the inter-package API contracts, serialized report shapes, package exports,
 and compatibility rules, see [API Contracts](docs/API_CONTRACTS.md).

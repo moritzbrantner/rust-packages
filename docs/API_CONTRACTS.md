@@ -14,6 +14,8 @@ crates should compose around those contracts instead of defining parallel types.
 | Package | Role | Depends on | Exposes | Consumed by |
 | --- | --- | --- | --- | --- |
 | `video-analysis` | Root facade crate | Library crates except CLI and use cases | Re-exports core items, detector items, and package modules | Applications that want one import surface |
+| `comfyui-data` | ComfyUI workflow and prompt graph data contracts | `serde`, `serde_json` | Workflow JSON nodes, links, groups, validation helpers, API prompt nodes and links | Applications importing, validating, or emitting ComfyUI graphs |
+| `comfyui-models` | ComfyUI model folder and inventory contracts | `serde`, `thiserror` | Core model folder keys, default relative paths, inventory scanning, extra model paths YAML generation | Applications managing shared ComfyUI model libraries |
 | `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core` | Normalized sample conversion, mono mixing, window functions, frame iteration, level helpers | Audio analysis crates and applications |
 | `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
 | `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
@@ -344,6 +346,37 @@ The response shape is:
 Each prediction should match the `RawPrediction` contract. Missing prediction
 fields can be repaired where supported by `PredictionRepairOptions`.
 
+## ComfyUI Contracts
+
+The `comfyui-data` and `comfyui-models` crates are standalone
+interoperability packages for ComfyUI data that applications may need to read or
+write.
+
+`comfyui-data` exposes:
+
+- `ComfyWorkflow`, `WorkflowNode`, `WorkflowInput`, `WorkflowOutput`,
+  `WorkflowLink`, and `WorkflowGroup` for workflow JSON files saved by ComfyUI.
+- `WorkflowNodeId`, which accepts numeric and string node ids.
+- `ComfyWorkflow::validate`, which checks duplicate node/link ids and missing
+  link references.
+- `PromptGraph`, `PromptNode`, `PromptLink`, `prompt_link`, and
+  `parse_prompt_link` for ComfyUI API prompt graphs.
+
+`comfyui-models` exposes:
+
+- `ComfyModelKind`, including ComfyUI folder keys such as `checkpoints`,
+  `loras`, `vae`, `text_encoders`, `diffusion_models`, `clip_vision`,
+  `controlnet`, `upscale_models`, `audio_encoders`, and legacy aliases such as
+  `clip` and `unet`.
+- `ComfyModelRoot` and `ComfyModelAsset` for scanning typed model folders.
+- `ExtraModelPathsConfig` and `ExtraModelPathSection` for generating
+  `extra_model_paths.yaml` style configuration.
+
+ComfyUI workflow files are JSON graph documents. ComfyUI model files usually
+live under typed folders below `ComfyUI/models/`, and extra search paths are
+configured with `extra_model_paths.yaml` for manual/portable installs or
+`extra_models_config.yaml` for ComfyUI Desktop.
+
 ## Tracking Contracts
 
 `video-analysis-tracking` owns lightweight temporal association for object-like
@@ -625,6 +658,8 @@ only the views they need.
 
 Allowed internal dependencies:
 
+- `comfyui-data`: `serde`, `serde_json`, `thiserror`.
+- `comfyui-models`: `serde`, `thiserror`.
 - `video-analysis-core`: external utility crates only.
 - `video-analysis-data` -> `video-analysis-core`.
 - `video-analysis-detectors` -> `video-analysis-core`.
@@ -662,6 +697,9 @@ For new packages:
 
 - Use core time, sample, result, detection, observation, and event types where
   possible.
+- Keep standalone integration packages, such as `comfyui-*`, free of
+  `video-analysis-*` dependencies unless they directly adapt core video/audio
+  contracts.
 - Add new media sources through `video-analysis-ingest` traits.
 - Add new scene detectors through `SceneDetector`.
 - Add video/audio/text enrichment through `VideoAnalyzer`, `AudioAnalyzer`, or
