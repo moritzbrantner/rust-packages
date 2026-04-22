@@ -14,6 +14,11 @@ crates should compose around those contracts instead of defining parallel types.
 | Package | Role | Depends on | Exposes | Consumed by |
 | --- | --- | --- | --- | --- |
 | `video-analysis` | Root facade crate | Library crates except CLI and use cases | Re-exports core items, detector items, and package modules | Applications that want one import surface |
+| `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core` | Normalized sample conversion, mono mixing, window functions, frame iteration, level helpers | Audio analysis crates and applications |
+| `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
+| `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
+| `audio-analysis-rhythm` | Rhythm and tempo analysis | `audio-analysis-core`, `video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
+| `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
 | `video-analysis-core` | Canonical shared contracts and pipelines | External utility crates only | Time/frame types, media samples, detection traits/results, analyzer traits/results, observations, metrics, pipeline builders | All functional Rust crates |
 | `video-analysis-data` | Online stream normalization and aggregation | `video-analysis-core` | `DataRecord`, `DataPayload`, bucket configuration, bucket summaries, stream summaries | Use cases, reporting, UI JSON generation |
 | `video-analysis-detectors` | Scene detector implementations | `video-analysis-core` | `SceneDetector` implementations, scoring algorithms, composite detector contracts | CLI, use cases, applications |
@@ -98,6 +103,30 @@ Pipeline state is single-run by default. After `finish_detection()` or
 
 Model analyzers, heuristic analyzers, OCR integrations, face/object detectors,
 and future enrichment packages should emit these core records.
+
+## Audio Analysis Contracts
+
+The `audio-analysis-*` crates build on the canonical `AudioFrame`,
+`AudioBuffer`, `AudioAnalyzer`, and `AnalysisEvent` contracts from
+`video-analysis-core`.
+
+- `audio-analysis-core` converts supported `AudioBuffer` formats into
+  normalized `f32` samples, mixes interleaved channels to mono, applies common
+  windows, and iterates fixed-size analysis frames.
+- `audio-analysis-fourier` provides FFT spectra, STFT spectrogram frames,
+  spectral centroid/bandwidth/rolloff/flatness features, and an
+  `AudioAnalyzer` that emits dominant-frequency events.
+- `audio-analysis-pitch` estimates fundamental frequency with normalized
+  autocorrelation and emits pitch events when confidence crosses the configured
+  threshold.
+- `audio-analysis-rhythm` detects onset events from energy changes, estimates
+  BPM from onset intervals, and can emit both onset and tempo events.
+- `audio-analysis-separation` wraps the external Demucs CLI with the `htdemucs`
+  model by default. It does not decode audio itself; it validates command
+  options, runs the process, and returns the expected separated stem paths.
+
+Audio analysis crates should accept borrowed core audio frames or normalized
+sample slices and should emit `AnalysisEvent` values for pipeline integration.
 
 ## Ingest Contracts
 

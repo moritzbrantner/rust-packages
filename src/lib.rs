@@ -1,3 +1,8 @@
+pub use audio_analysis_core as audio_core;
+pub use audio_analysis_fourier as audio_fourier;
+pub use audio_analysis_pitch as audio_pitch;
+pub use audio_analysis_rhythm as audio_rhythm;
+pub use audio_analysis_separation as audio_separation;
 pub use video_analysis_core::*;
 pub use video_analysis_data as data;
 pub use video_analysis_detectors::*;

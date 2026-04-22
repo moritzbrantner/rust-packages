@@ -1,0 +1,341 @@
+use audio_analysis_core::{mono_samples, zero_pad_to, FrameSpec, WindowFunction};
+use rustfft::num_complex::Complex;
+use rustfft::FftPlanner;
+use video_analysis_core::{AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result};
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpectrumBin {
+    pub index: usize,
+    pub frequency_hz: f32,
+    pub magnitude: f32,
+    pub power: f32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Spectrum {
+    pub sample_rate: u32,
+    pub fft_size: usize,
+    pub bins: Vec<SpectrumBin>,
+}
+
+impl Spectrum {
+    pub fn dominant_frequency_hz(&self) -> Option<f32> {
+        self.bins
+            .iter()
+            .skip(1)
+            .filter(|bin| bin.magnitude > f32::EPSILON)
+            .max_by(|a, b| a.magnitude.total_cmp(&b.magnitude))
+            .map(|bin| bin.frequency_hz)
+    }
+
+    pub fn features(&self) -> SpectralFeatures {
+        spectral_features(self)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SpectralFeatures {
+    pub centroid_hz: f32,
+    pub bandwidth_hz: f32,
+    pub rolloff_hz: f32,
+    pub flatness: f32,
+    pub dominant_frequency_hz: Option<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FourierTransform {
+    pub fft_size: usize,
+    pub window: WindowFunction,
+}
+
+impl FourierTransform {
+    pub fn new(fft_size: usize) -> Result<Self> {
+        Self::with_window(fft_size, WindowFunction::Hann)
+    }
+
+    pub fn with_window(fft_size: usize, window: WindowFunction) -> Result<Self> {
+        if fft_size == 0 || !fft_size.is_power_of_two() {
+            return Err(DetectError::InvalidArgument(
+                "fft_size must be a non-zero power of two".to_string(),
+            ));
+        }
+        Ok(Self { fft_size, window })
+    }
+
+    pub fn analyze_samples(&self, samples: &[f32], sample_rate: u32) -> Result<Spectrum> {
+        if sample_rate == 0 {
+            return Err(DetectError::InvalidAudioFormat {
+                sample_rate,
+                channels: 1,
+            });
+        }
+        let mut windowed = zero_pad_to(
+            samples.iter().copied().take(self.fft_size).collect(),
+            self.fft_size,
+        );
+        windowed = self.window.apply(&windowed);
+
+        let mut fft_buffer = windowed
+            .into_iter()
+            .map(|sample| Complex::new(sample, 0.0))
+            .collect::<Vec<_>>();
+        let mut planner = FftPlanner::<f32>::new();
+        let fft = planner.plan_fft_forward(self.fft_size);
+        fft.process(&mut fft_buffer);
+
+        let scale = 1.0 / self.fft_size as f32;
+        let bin_hz = sample_rate as f32 / self.fft_size as f32;
+        let bins = fft_buffer
+            .iter()
+            .take(self.fft_size / 2 + 1)
+            .enumerate()
+            .map(|(index, value)| {
+                let magnitude = value.norm() * scale;
+                SpectrumBin {
+                    index,
+                    frequency_hz: index as f32 * bin_hz,
+                    magnitude,
+                    power: magnitude * magnitude,
+                }
+            })
+            .collect();
+
+        Ok(Spectrum {
+            sample_rate,
+            fft_size: self.fft_size,
+            bins,
+        })
+    }
+
+    pub fn analyze_frame(&self, frame: &AudioFrame<'_>) -> Result<Spectrum> {
+        let mono = mono_samples(frame)?;
+        self.analyze_samples(&mono.samples, mono.sample_rate)
+    }
+}
+
+impl Default for FourierTransform {
+    fn default() -> Self {
+        Self {
+            fft_size: 2048,
+            window: WindowFunction::Hann,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StftConfig {
+    pub fft_size: usize,
+    pub hop_size: usize,
+    pub window: WindowFunction,
+}
+
+impl StftConfig {
+    pub fn new(fft_size: usize, hop_size: usize) -> Result<Self> {
+        FourierTransform::new(fft_size)?;
+        FrameSpec::new(fft_size, hop_size)?;
+        Ok(Self {
+            fft_size,
+            hop_size,
+            window: WindowFunction::Hann,
+        })
+    }
+
+    pub fn window(mut self, window: WindowFunction) -> Self {
+        self.window = window;
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpectrogramFrame {
+    pub start_sample: usize,
+    pub start_seconds: f64,
+    pub spectrum: Spectrum,
+}
+
+pub fn spectrogram(
+    samples: &[f32],
+    sample_rate: u32,
+    config: &StftConfig,
+) -> Result<Vec<SpectrogramFrame>> {
+    let transform = FourierTransform::with_window(config.fft_size, config.window)?;
+    let spec = FrameSpec::new(config.fft_size, config.hop_size)?;
+    spec.frames(samples)
+        .map(|(start_sample, frame)| {
+            Ok(SpectrogramFrame {
+                start_sample,
+                start_seconds: start_sample as f64 / sample_rate as f64,
+                spectrum: transform.analyze_samples(frame, sample_rate)?,
+            })
+        })
+        .collect()
+}
+
+pub fn spectral_features(spectrum: &Spectrum) -> SpectralFeatures {
+    let total_power = spectrum.bins.iter().map(|bin| bin.power).sum::<f32>();
+    if total_power <= f32::EPSILON {
+        return SpectralFeatures {
+            centroid_hz: 0.0,
+            bandwidth_hz: 0.0,
+            rolloff_hz: 0.0,
+            flatness: 0.0,
+            dominant_frequency_hz: None,
+        };
+    }
+
+    let centroid_hz = spectrum
+        .bins
+        .iter()
+        .map(|bin| bin.frequency_hz * bin.power)
+        .sum::<f32>()
+        / total_power;
+    let bandwidth_hz = (spectrum
+        .bins
+        .iter()
+        .map(|bin| (bin.frequency_hz - centroid_hz).powi(2) * bin.power)
+        .sum::<f32>()
+        / total_power)
+        .sqrt();
+    let rolloff_hz = rolloff_hz(spectrum, total_power, 0.85);
+    let flatness = spectral_flatness(spectrum);
+
+    SpectralFeatures {
+        centroid_hz,
+        bandwidth_hz,
+        rolloff_hz,
+        flatness,
+        dominant_frequency_hz: spectrum.dominant_frequency_hz(),
+    }
+}
+
+fn rolloff_hz(spectrum: &Spectrum, total_power: f32, threshold: f32) -> f32 {
+    let target = total_power * threshold;
+    let mut accumulated = 0.0;
+    for bin in &spectrum.bins {
+        accumulated += bin.power;
+        if accumulated >= target {
+            return bin.frequency_hz;
+        }
+    }
+    spectrum.bins.last().map_or(0.0, |bin| bin.frequency_hz)
+}
+
+fn spectral_flatness(spectrum: &Spectrum) -> f32 {
+    let powers = spectrum
+        .bins
+        .iter()
+        .skip(1)
+        .map(|bin| bin.power.max(1.0e-12))
+        .collect::<Vec<_>>();
+    if powers.is_empty() {
+        return 0.0;
+    }
+    let geometric =
+        (powers.iter().map(|power| power.ln()).sum::<f32>() / powers.len() as f32).exp();
+    let arithmetic = powers.iter().sum::<f32>() / powers.len() as f32;
+    if arithmetic <= f32::EPSILON {
+        0.0
+    } else {
+        geometric / arithmetic
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpectralAnalyzer {
+    name: String,
+    transform: FourierTransform,
+    min_magnitude: f32,
+}
+
+impl SpectralAnalyzer {
+    pub fn new(transform: FourierTransform) -> Self {
+        Self {
+            name: "audio_spectral".to_string(),
+            transform,
+            min_magnitude: 0.001,
+        }
+    }
+
+    pub fn min_magnitude(mut self, value: f32) -> Self {
+        self.min_magnitude = value.max(0.0);
+        self
+    }
+}
+
+impl Default for SpectralAnalyzer {
+    fn default() -> Self {
+        Self::new(FourierTransform::default())
+    }
+}
+
+impl AudioAnalyzer for SpectralAnalyzer {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn process_frame(&mut self, frame: &AudioFrame<'_>) -> Result<Vec<AnalysisEvent>> {
+        let spectrum = self.transform.analyze_frame(frame)?;
+        let Some((dominant, magnitude)) = spectrum
+            .bins
+            .iter()
+            .skip(1)
+            .map(|bin| (bin.frequency_hz, bin.magnitude))
+            .max_by(|a, b| a.1.total_cmp(&b.1))
+        else {
+            return Ok(Vec::new());
+        };
+        if magnitude < self.min_magnitude {
+            return Ok(Vec::new());
+        }
+        Ok(vec![AnalysisEvent::new(
+            self.name(),
+            format!("audio:dominant_frequency:{dominant:.2}hz"),
+        )
+        .at_timestamp(frame.timestamp)
+        .score(magnitude)])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use audio_analysis_core::WindowFunction;
+
+    fn sine(freq_hz: f32, sample_rate: u32, samples: usize) -> Vec<f32> {
+        (0..samples)
+            .map(|index| {
+                let t = index as f32 / sample_rate as f32;
+                (2.0 * std::f32::consts::PI * freq_hz * t).sin()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn fft_detects_dominant_sine_frequency() {
+        let transform = FourierTransform::with_window(1024, WindowFunction::Rectangular).unwrap();
+        let spectrum = transform
+            .analyze_samples(&sine(440.0, 8192, 1024), 8192)
+            .unwrap();
+        let dominant = spectrum.dominant_frequency_hz().unwrap();
+        assert!((dominant - 440.0).abs() <= 8.0);
+    }
+
+    #[test]
+    fn stft_returns_expected_frame_count() {
+        let config = StftConfig::new(256, 128).unwrap();
+        let frames = spectrogram(&vec![0.0; 1024], 48_000, &config).unwrap();
+        assert_eq!(frames.len(), 7);
+        assert_eq!(frames[1].start_sample, 128);
+    }
+
+    #[test]
+    fn silent_spectrum_has_empty_features() {
+        let transform = FourierTransform::with_window(512, WindowFunction::Rectangular).unwrap();
+        let features = transform
+            .analyze_samples(&vec![0.0; 512], 48_000)
+            .unwrap()
+            .features();
+        assert_eq!(features.dominant_frequency_hz, None);
+        assert_eq!(features.centroid_hz, 0.0);
+    }
+}

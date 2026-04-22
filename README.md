@@ -6,6 +6,16 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
 ## Crates
 
 - `video-analysis`: umbrella re-export crate.
+- `audio-analysis-core`: normalized audio sample conversion, mono mixing,
+  windowing, frame iteration, and level helpers for audio analysis crates.
+- `audio-analysis-fourier`: FFT, STFT/spectrogram, spectral features, and a
+  dominant-frequency audio analyzer.
+- `audio-analysis-pitch`: autocorrelation pitch estimation and an audio
+  analyzer that emits pitch events.
+- `audio-analysis-rhythm`: onset detection, tempo estimation, and a rhythm
+  analyzer that emits onset and BPM events.
+- `audio-analysis-separation`: HTDemucs/Demucs command wrapper for instrument
+  stem separation.
 - `video-analysis-core`: timecodes, video/audio/text sample types, metrics, analyzer traits, observations, and realtime pipelines.
 - `video-analysis-data`: stream record normalization plus online aggregation and
   bucketing for video, audio, text, numeric, and vector data.
@@ -107,10 +117,12 @@ cargo test -p video-analysis-ffmpeg --features ffmpeg-tests
 ## Dependency Graph
 
 `video-analysis-core` is the foundational crate for shared contracts and pipeline
-orchestration. Most functional crates depend on `core`, while
-`video-analysis-gaussian-splatting` also reuses the camera and geometry contracts
-from `video-analysis-radiance-fields`. Composition happens in
-`video-analysis-cli` and the root `video-analysis` facade crate.
+orchestration. The `audio-analysis-*` crates consume those audio contracts and
+share utility code through `audio-analysis-core`. Most functional video crates
+depend on `core`, while `video-analysis-gaussian-splatting` also reuses the
+camera and geometry contracts from `video-analysis-radiance-fields`.
+Composition happens in `video-analysis-cli` and the root `video-analysis` facade
+crate.
 
 For the inter-package API contracts, serialized report shapes, package exports,
 and compatibility rules, see [API Contracts](docs/API_CONTRACTS.md).
@@ -118,6 +130,11 @@ and compatibility rules, see [API Contracts](docs/API_CONTRACTS.md).
 ```mermaid
 flowchart LR
     core[video-analysis-core]
+    audiocore[audio-analysis-core]
+    fourier[audio-analysis-fourier]
+    pitch[audio-analysis-pitch]
+    rhythm[audio-analysis-rhythm]
+    separation[audio-analysis-separation]
 
     data[video-analysis-data]
     detectors[video-analysis-detectors]
@@ -136,6 +153,15 @@ flowchart LR
     root[video-analysis facade]
     cli[video-analysis-cli]
     usecases[video-analysis-use-cases]
+
+    audiocore --> core
+    fourier --> audiocore
+    fourier --> core
+    pitch --> audiocore
+    pitch --> core
+    rhythm --> audiocore
+    rhythm --> core
+    separation --> core
 
     detectors --> core
     data --> core
@@ -167,6 +193,11 @@ flowchart LR
     root --> radiance
     root --> splatting
     root --> split
+    root --> audiocore
+    root --> fourier
+    root --> pitch
+    root --> rhythm
+    root --> separation
 
     cli --> core
     cli --> detectors
