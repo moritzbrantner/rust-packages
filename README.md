@@ -386,6 +386,10 @@ Whisper CLI wrapper and is skipped unless the OpenAI Whisper CLI is available as
 `whisper`, or a command is supplied explicitly:
 
 ```bash
+bash scripts/setup_e2e_external_tools.sh ffmpeg yt-dlp whisper
+```
+
+```bash
 cargo run -p video-analysis-use-cases -- youtube-video \
   --url "https://www.youtube.com/watch?v=..." \
   --transcriber-command whisper \
@@ -423,6 +427,13 @@ cargo run -p video-analysis-use-cases -- radiance-scene \
   --method splatfacto \
   --frame-sample-every 10 \
   --run-training
+```
+
+Optional external radiance tools can be installed into the ignored local tool
+root before running integration tests or the use case:
+
+```bash
+bash scripts/setup_radiance_external_tools.sh
 ```
 
 This workspace does not implement native NeRF/3DGS training or a production GPU

@@ -1,4 +1,5 @@
 .cargo-target/
+.external-test-tools/
 .audio-tools/
 audio-tools/
 .test-corpora/

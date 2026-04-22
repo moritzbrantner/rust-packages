@@ -39,6 +39,9 @@ No generated media, model files, virtual environments, or downloaded tool
 artifacts are checked into git. Local external tools are installed under
 `.audio-tools/`, which is ignored by git.
 
+General e2e and radiance tools use the same installer helpers under
+`.external-test-tools/`; see `docs/EXTERNAL_TEST_TOOLS.md`.
+
 ## Integration Checks
 
 Root integration tests exercise the audio packages together:
@@ -70,8 +73,8 @@ RUN_REAL_DEMUCS_TESTS=1 cargo test -p audio-analysis-separation \
   real_demucs_smoke_test_when_requested -- --ignored --nocapture
 ```
 
-By default, the setup script tries a Python virtual environment in
-`.audio-tools/demucs-venv`. If that fails, it falls back to a Conda-compatible
+By default, the setup script tries the shared Python virtual environment in
+`.audio-tools/python-venv`. If that fails, it falls back to a Conda-compatible
 environment in `.audio-tools/demucs-conda`. Conda, Mamba, and Micromamba are
 supported; if none exists locally, the setup script can install Micromamba under
 `.audio-tools/`:
