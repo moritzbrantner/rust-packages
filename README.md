@@ -9,7 +9,8 @@ reference.
 ## Crates
 
 Rust crates are grouped under `crates/` by input or integration domain:
-`audio/`, `video/`, `image/`, `text/`, `vector/`, `three-d/`, and `comfyui/`.
+`audio/`, `video/`, `image/`, `text/`, `vector/`, `data/`, `three-d/`, and
+`comfyui/`.
 
 - `video-analysis`: umbrella re-export crate.
 - `comfyui-data`: serde contracts and helpers for ComfyUI workflow JSON and
@@ -38,11 +39,17 @@ Rust crates are grouped under `crates/` by input or integration domain:
   contracts, compacting, mean color, and luma histograms.
 - `image-analysis-processing`: deterministic CPU image crop, resize, grayscale,
   inversion, thresholding, and 3x3 convolution pipelines.
+- `text-analysis-corpus`: corpus-scale term indexing, corpus statistics,
+  TF-IDF scoring, and TF-IDF cosine search without retaining source text.
 - `text-analysis-core`: text document contracts, text segment bridging,
   normalization, Unicode-aware tokens with spans, sentence/paragraph splitting,
   and text statistics.
 - `text-analysis-features`: stop words, keywords, readability, pattern events,
   reusable text analyzers, term frequencies, and character/token n-grams.
+- `text-analysis-prediction`: deterministic token Markov chains for next-token
+  prediction, generation, and perplexity scoring.
+- `text-analysis-semantics`: lightweight hashed text embeddings, semantic text
+  search, text similarity, and co-occurrence/related-term analysis.
 - `text-analysis-transcription`: transcript segment models, Whisper JSON,
   SRT/WebVTT/plain text parsing, command transcribers, and text segment source
   adapters.
@@ -50,6 +57,9 @@ Rust crates are grouped under `crates/` by input or integration domain:
   distances, means, and per-dimension summary statistics.
 - `vector-analysis-index`: exact in-memory vector search and nearest-centroid
   assignment helpers.
+- `dense-data`: dense numeric point datasets with weighted averages,
+  fixed-grid buckets, bounds, and deterministic k-means clustering for tables,
+  graphs, charts, maps, and media-derived features.
 - `three-d-processing-core`: 3D points, vectors, bounds, transforms, point
   clouds, and centroid helpers.
 - `three-d-processing-mesh`: triangle mesh validation, bounds, normals, and
@@ -167,8 +177,8 @@ cargo test -p video-analysis-ffmpeg --features ffmpeg-tests
 orchestration. The domain-specific crate families are organized around small
 core packages: `audio-analysis-core`, `image-analysis-core`,
 `text-analysis-core`, `vector-analysis-core`, and `three-d-processing-core`.
-Processing, feature, and index crates build on those cores. Most functional
-video crates depend on `video-analysis-core`, while
+Processing, feature, index, and generic dense-data crates build on those cores.
+Most functional video crates depend on `video-analysis-core`, while
 `video-analysis-gaussian-splatting` also reuses the camera and geometry
 contracts from `video-analysis-radiance-fields`. Composition happens in
 `video-analysis-cli` and the root `video-analysis` facade crate. The
@@ -192,11 +202,15 @@ flowchart LR
     separation[audio-analysis-separation]
     imagecore[image-analysis-core]
     imageprocessing[image-analysis-processing]
+    textcorpus[text-analysis-corpus]
     textcore[text-analysis-core]
     textfeatures[text-analysis-features]
+    textprediction[text-analysis-prediction]
+    textsemantics[text-analysis-semantics]
     texttranscription[text-analysis-transcription]
     vectorcore[vector-analysis-core]
     vectorindex[vector-analysis-index]
+    densedata[dense-data]
     threedcore[three-d-processing-core]
     threedmesh[three-d-processing-mesh]
 
@@ -246,6 +260,7 @@ flowchart LR
     vectorcore --> core
     vectorindex --> vectorcore
     vectorindex --> core
+    densedata --> core
     threedcore --> core
     threedmesh --> threedcore
     threedmesh --> core
@@ -294,6 +309,7 @@ flowchart LR
     root --> textfeatures
     root --> vectorcore
     root --> vectorindex
+    root --> densedata
     root --> threedcore
     root --> threedmesh
 
@@ -622,7 +638,12 @@ wrap any blocking `BufRead` with `TextLineSource::live(...)`.
 `text-analysis-features` provides ready-made analyzers for stats, keywords,
 patterns, and transcript heuristics. `text-analysis-transcription` parses
 Whisper JSON, SRT, WebVTT, and plain line transcripts into reusable transcript
-segments or a `TextSegmentSource`.
+segments or a `TextSegmentSource`. For larger document collections,
+`text-analysis-corpus` provides corpus statistics, TF-IDF terms, and TF-IDF
+search; `text-analysis-semantics` adds hashed semantic embeddings,
+co-occurrence graphs, related terms, and semantic search; and
+`text-analysis-prediction` provides Markov next-token prediction and
+generation.
 
 ### Data Aggregation
 

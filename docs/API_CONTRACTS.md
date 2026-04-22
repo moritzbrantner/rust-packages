@@ -26,9 +26,13 @@ crates should compose around those contracts instead of defining parallel types.
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
 | `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core` | Borrowed/owned image views, pixel formats, compacting, mean color, luma histograms | Image processing crates, applications, video frame preprocessing |
 | `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains | Applications, preprocessing workflows |
+| `text-analysis-corpus` | Corpus-scale text statistics and TF-IDF | `text-analysis-core`, `video-analysis-core` | Corpus options, indexed document term counts, corpus term stats, TF-IDF scores, TF-IDF cosine search | Applications, text analytics, semantic indexing |
 | `text-analysis-core` | Shared text analysis utilities | `video-analysis-core`, `unicode-normalization` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
 | `text-analysis-features` | Text feature extraction | `text-analysis-core`, `video-analysis-core` | Stop words, keywords, readability, pattern detection, reusable text analyzers, term frequencies, character/token n-grams | Applications, text pipelines, downstream text analytics |
+| `text-analysis-prediction` | Text prediction models | `text-analysis-core`, `video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring | Applications, text pipelines, prototyping |
+| `text-analysis-semantics` | Lightweight semantic text analysis | `text-analysis-core`, `text-analysis-corpus`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core` | Hashed text embeddings, semantic search, text similarity, co-occurrence graphs, related-term scoring | Applications, search, semantic analysis prototypes |
 | `text-analysis-transcription` | Reusable transcript parsing and ASR command wrappers | `video-analysis-core`, `video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, text segment source adapter | Use cases, applications, text pipelines |
+| `dense-data` | Generic dense point aggregation and clustering | `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, bounds, fixed-grid buckets, deterministic k-means clusters | Tables, graphs, charts, maps, media features, and analytics workflows |
 | `vector-analysis-core` | Dense vector contracts and metrics | `video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
 | `vector-analysis-index` | Exact vector search and assignment | `vector-analysis-core`, `video-analysis-core` | In-memory vector index, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
 | `three-d-processing-core` | Generic 3D processing primitives | `video-analysis-core` | 3D vectors, points, bounds, transforms, point clouds, centroids | Mesh processing, applications, future 3D workflows |
@@ -221,6 +225,27 @@ recognition, search, and analytics workflows.
 Vector crates intentionally use exact CPU algorithms. Approximate nearest
 neighbor backends can be added later behind separate implementation crates
 without changing the core vector contracts.
+
+## Dense Data Contracts
+
+`dense-data` provides generic dense numeric point processing for UI and media
+workflows that need the same aggregation shape across tables, graphs, charts,
+maps, and feature-derived media timelines.
+
+- `DensePoint` stores finite coordinates, a positive weight, an optional scalar
+  value, and an optional id.
+- `DenseDataset` retains dimension-consistent points and exposes averages,
+  bounds, buckets, and k-means clustering.
+- `DenseAverages` reports weighted coordinate means and optional weighted value
+  means.
+- `BucketGrid`, `BucketKey`, and `DenseBucket` group points into deterministic
+  fixed-width coordinate buckets.
+- `KMeansConfig`, `DenseCluster`, and `ClusterResult` expose deterministic CPU
+  k-means clustering with stable point indices.
+
+Dense data points intentionally do not prescribe axis semantics. Callers should
+map table columns, graph/layout coordinates, longitude/latitude, embedding
+dimensions, or media time/features into coordinates at the boundary.
 
 ## Ingest Contracts
 

@@ -19,10 +19,14 @@ members = [
     "crates/audio/audio-analysis-test-support",
     "crates/comfyui/comfyui-data",
     "crates/comfyui/comfyui-models",
+    "crates/data/dense-data",
     "crates/image/image-analysis-core",
     "crates/image/image-analysis-processing",
+    "crates/text/text-analysis-corpus",
     "crates/text/text-analysis-core",
     "crates/text/text-analysis-features",
+    "crates/text/text-analysis-prediction",
+    "crates/text/text-analysis-semantics",
     "crates/text/text-analysis-transcription",
     "crates/three-d/three-d-processing-core",
     "crates/three-d/three-d-processing-mesh",
@@ -69,6 +73,7 @@ proptest = "1.6.0"
 unicode-normalization = "0.1.24"
 comfyui-data = { path = "crates/comfyui/comfyui-data" }
 comfyui-models = { path = "crates/comfyui/comfyui-models" }
+dense-data = { path = "crates/data/dense-data" }
 audio-analysis-core = { path = "crates/audio/audio-analysis-core" }
 audio-analysis-fourier = { path = "crates/audio/audio-analysis-fourier" }
 audio-analysis-io = { path = "crates/audio/audio-analysis-io" }
@@ -81,7 +86,10 @@ audio-analysis-test-support = { path = "crates/audio/audio-analysis-test-support
 image-analysis-core = { path = "crates/image/image-analysis-core" }
 image-analysis-processing = { path = "crates/image/image-analysis-processing" }
 text-analysis-core = { path = "crates/text/text-analysis-core" }
+text-analysis-corpus = { path = "crates/text/text-analysis-corpus" }
 text-analysis-features = { path = "crates/text/text-analysis-features" }
+text-analysis-prediction = { path = "crates/text/text-analysis-prediction" }
+text-analysis-semantics = { path = "crates/text/text-analysis-semantics" }
 text-analysis-transcription = { path = "crates/text/text-analysis-transcription" }
 vector-analysis-core = { path = "crates/vector/vector-analysis-core" }
 vector-analysis-index = { path = "crates/vector/vector-analysis-index" }
@@ -141,10 +149,14 @@ audio-analysis-processing.workspace = true
 audio-analysis-recognition.workspace = true
 audio-analysis-rhythm.workspace = true
 audio-analysis-separation.workspace = true
+dense-data.workspace = true
 image-analysis-core.workspace = true
 image-analysis-processing.workspace = true
 text-analysis-core.workspace = true
+text-analysis-corpus.workspace = true
 text-analysis-features.workspace = true
+text-analysis-prediction.workspace = true
+text-analysis-semantics.workspace = true
 text-analysis-transcription.workspace = true
 vector-analysis-core.workspace = true
 vector-analysis-index.workspace = true

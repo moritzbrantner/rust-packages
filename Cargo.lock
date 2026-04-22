@@ -452,6 +452,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 
 [[package]]
+name = "dense-data"
+version = "0.1.0"
+dependencies = [
+ "video-analysis-core",
+]
+
+[[package]]
 name = "deranged"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1496,10 +1503,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "text-analysis-corpus"
+version = "0.1.0"
+dependencies = [
+ "text-analysis-core",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "text-analysis-features"
 version = "0.1.0"
 dependencies = [
  "text-analysis-core",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "text-analysis-prediction"
+version = "0.1.0"
+dependencies = [
+ "text-analysis-core",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "text-analysis-semantics"
+version = "0.1.0"
+dependencies = [
+ "text-analysis-core",
+ "text-analysis-corpus",
+ "vector-analysis-core",
+ "vector-analysis-index",
  "video-analysis-core",
 ]
 
@@ -1767,10 +1801,14 @@ dependencies = [
  "audio-analysis-rhythm",
  "audio-analysis-separation",
  "audio-analysis-test-support",
+ "dense-data",
  "image-analysis-core",
  "image-analysis-processing",
  "text-analysis-core",
+ "text-analysis-corpus",
  "text-analysis-features",
+ "text-analysis-prediction",
+ "text-analysis-semantics",
  "text-analysis-transcription",
  "three-d-processing-core",
  "three-d-processing-mesh",

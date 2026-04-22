@@ -280,17 +280,9 @@ impl TextAnalyzer for TextStatsAnalyzer {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct KeywordAnalyzer {
     pub options: KeywordOptions,
-}
-
-impl Default for KeywordAnalyzer {
-    fn default() -> Self {
-        Self {
-            options: KeywordOptions::default(),
-        }
-    }
 }
 
 impl KeywordAnalyzer {
