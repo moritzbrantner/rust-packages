@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
+use std::fs;
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::str::FromStr;
 
@@ -63,7 +64,8 @@ impl ModelTask {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ModelFileRequest {
     Required(String),
     Optional(String),
@@ -84,7 +86,7 @@ impl ModelFileRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HuggingFaceModelSpec {
     pub name: String,
     pub repo_id: String,
@@ -370,6 +372,265 @@ impl HuggingFaceDownloader {
             spec: spec.clone(),
             files,
         })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ModelBundleStore {
+    root: PathBuf,
+    downloader: HuggingFaceDownloader,
+    overwrite: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelBundleManifest {
+    pub schema_version: u32,
+    pub name: String,
+    pub repo_id: String,
+    pub revision: String,
+    pub task: ModelTask,
+    pub files: BTreeMap<String, ModelBundleFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelBundleFile {
+    pub remote_path: String,
+    pub local_path: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModelBundle {
+    pub root: PathBuf,
+    pub manifest: ModelBundleManifest,
+}
+
+impl ModelBundleStore {
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self {
+            root: root.into(),
+            downloader: HuggingFaceDownloader::new(),
+            overwrite: false,
+        }
+    }
+
+    pub fn downloader(mut self, downloader: HuggingFaceDownloader) -> Self {
+        self.downloader = downloader;
+        self
+    }
+
+    pub fn overwrite(mut self, value: bool) -> Self {
+        self.overwrite = value;
+        self
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn bundle_dir(&self, spec: &HuggingFaceModelSpec) -> PathBuf {
+        self.root
+            .join(safe_bundle_segment(&spec.name))
+            .join(safe_bundle_segment(&spec.revision))
+    }
+
+    pub fn download(&self, spec: &HuggingFaceModelSpec) -> Result<ModelBundle> {
+        let downloaded = self.downloader.download(spec)?;
+        self.materialize(&downloaded)
+    }
+
+    pub fn materialize(&self, downloaded: &DownloadedModel) -> Result<ModelBundle> {
+        let bundle_root = self.bundle_dir(&downloaded.spec);
+        let manifest_path = bundle_root.join("manifest.json");
+        for remote_path in downloaded.files.keys() {
+            validate_remote_path(remote_path)?;
+        }
+        if manifest_path.exists() && !self.overwrite {
+            return ModelBundle::load(manifest_path);
+        }
+
+        let files_dir = bundle_root.join("files");
+        fs::create_dir_all(&files_dir)?;
+
+        let mut manifest_files = BTreeMap::new();
+        for (remote_path, source_path) in &downloaded.files {
+            let relative_file_path = Path::new("files").join(remote_path);
+            let destination_path = bundle_root.join(&relative_file_path);
+            if let Some(parent) = destination_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            if self.overwrite && destination_path.exists() {
+                fs::remove_file(&destination_path)?;
+            }
+            if !destination_path.exists() {
+                if fs::hard_link(source_path, &destination_path).is_err() {
+                    fs::copy(source_path, &destination_path)?;
+                }
+            }
+
+            let size_bytes = fs::metadata(&destination_path)?.len();
+            manifest_files.insert(
+                remote_path.clone(),
+                ModelBundleFile {
+                    remote_path: remote_path.clone(),
+                    local_path: path_to_manifest_string(&relative_file_path),
+                    size_bytes,
+                },
+            );
+        }
+
+        let manifest = ModelBundleManifest {
+            schema_version: 1,
+            name: downloaded.spec.name.clone(),
+            repo_id: downloaded.spec.repo_id.clone(),
+            revision: downloaded.spec.revision.clone(),
+            task: downloaded.spec.task.clone(),
+            files: manifest_files,
+        };
+        let encoded = serde_json::to_vec_pretty(&manifest).map_err(|err| {
+            DetectError::Source(format!("failed to encode model manifest: {err}"))
+        })?;
+        fs::write(&manifest_path, encoded)?;
+
+        Ok(ModelBundle {
+            root: bundle_root,
+            manifest,
+        })
+    }
+
+    pub fn load(&self, name: impl AsRef<str>, revision: impl AsRef<str>) -> Result<ModelBundle> {
+        ModelBundle::load(
+            self.root
+                .join(safe_bundle_segment(name.as_ref()))
+                .join(safe_bundle_segment(revision.as_ref()))
+                .join("manifest.json"),
+        )
+    }
+}
+
+impl ModelBundle {
+    pub fn manifest_path(&self) -> PathBuf {
+        self.root.join("manifest.json")
+    }
+
+    pub fn file_path(&self, remote_path: &str) -> Option<PathBuf> {
+        self.manifest
+            .files
+            .get(remote_path)
+            .map(|file| self.root.join(&file.local_path))
+    }
+
+    pub fn to_downloaded_model(&self) -> DownloadedModel {
+        let files = self
+            .manifest
+            .files
+            .iter()
+            .map(|(remote_path, file)| {
+                (
+                    remote_path.clone(),
+                    absolute_path(self.root.join(&file.local_path)),
+                )
+            })
+            .collect();
+        let spec = HuggingFaceModelSpec {
+            name: self.manifest.name.clone(),
+            repo_id: self.manifest.repo_id.clone(),
+            revision: self.manifest.revision.clone(),
+            task: self.manifest.task.clone(),
+            files: self
+                .manifest
+                .files
+                .keys()
+                .map(|remote_path| ModelFileRequest::required(remote_path.clone()))
+                .collect(),
+        };
+        DownloadedModel { spec, files }
+    }
+
+    pub fn load(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
+        let manifest_path = if path.is_dir() {
+            path.join("manifest.json")
+        } else {
+            path.to_path_buf()
+        };
+        let root = manifest_path.parent().ok_or_else(|| {
+            DetectError::InvalidArgument(format!(
+                "model bundle manifest `{}` has no parent directory",
+                manifest_path.display()
+            ))
+        })?;
+        let data = fs::read(&manifest_path)?;
+        let manifest = serde_json::from_slice(&data).map_err(|err| {
+            DetectError::Source(format!(
+                "failed to decode model bundle manifest `{}`: {err}",
+                manifest_path.display()
+            ))
+        })?;
+        Ok(Self {
+            root: root.to_path_buf(),
+            manifest,
+        })
+    }
+}
+
+fn safe_bundle_segment(value: &str) -> String {
+    let safe = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if safe.is_empty() {
+        "_".to_string()
+    } else {
+        safe
+    }
+}
+
+fn validate_remote_path(path: &str) -> Result<()> {
+    let remote_path = Path::new(path);
+    if path.is_empty() || remote_path.is_absolute() {
+        return Err(DetectError::InvalidArgument(format!(
+            "model file path `{path}` must be relative"
+        )));
+    }
+    for component in remote_path.components() {
+        match component {
+            Component::Normal(_) => {}
+            Component::ParentDir => {
+                return Err(DetectError::InvalidArgument(format!(
+                    "model file path `{path}` must not contain `..`"
+                )));
+            }
+            _ => {
+                return Err(DetectError::InvalidArgument(format!(
+                    "model file path `{path}` contains an invalid path component"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn path_to_manifest_string(path: &Path) -> String {
+    path.components()
+        .map(|component| component.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn absolute_path(path: PathBuf) -> PathBuf {
+    if path.is_absolute() {
+        path
+    } else if let Ok(current_dir) = std::env::current_dir() {
+        current_dir.join(path)
+    } else {
+        path
     }
 }
 
@@ -1079,6 +1340,7 @@ struct ExternalModelResponse {
 #[cfg(test)]
 mod tests {
     use num_rational::Rational64;
+    use std::fs;
     use video_analysis_core::{
         FramePosition, OwnedVideoFrame, PixelFormat, TextSegment, Timestamp,
     };
@@ -1096,6 +1358,24 @@ mod tests {
         }
     }
 
+    fn fake_downloaded_model(
+        cache_dir: &Path,
+        spec: HuggingFaceModelSpec,
+        files: &[(&str, &str)],
+    ) -> DownloadedModel {
+        fs::create_dir_all(cache_dir).unwrap();
+        let mut downloaded_files = BTreeMap::new();
+        for (index, (remote_path, contents)) in files.iter().enumerate() {
+            let local_path = cache_dir.join(format!("cache-file-{index}"));
+            fs::write(&local_path, contents).unwrap();
+            downloaded_files.insert((*remote_path).to_string(), local_path);
+        }
+        DownloadedModel {
+            spec,
+            files: downloaded_files,
+        }
+    }
+
     #[test]
     fn preset_specs_include_weight_fallbacks() {
         let spec = ModelPreset::DetrResnet50.spec();
@@ -1105,6 +1385,97 @@ mod tests {
             .files
             .iter()
             .any(|file| matches!(file, ModelFileRequest::FirstAvailable(_))));
+    }
+
+    #[test]
+    fn model_bundle_store_materializes_files_and_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let downloaded = fake_downloaded_model(
+            &dir.path().join("cache"),
+            HuggingFaceModelSpec::new("owner/model", ModelTask::TextClassification)
+                .name("test-model")
+                .file("config.json")
+                .file("model.safetensors"),
+            &[
+                ("config.json", "{\"model_type\":\"test\"}"),
+                ("model.safetensors", "weights"),
+            ],
+        );
+
+        let bundle = ModelBundleStore::new(dir.path().join("bundles"))
+            .materialize(&downloaded)
+            .unwrap();
+
+        assert!(bundle.manifest_path().exists());
+        for remote_path in ["config.json", "model.safetensors"] {
+            let local_path = bundle.file_path(remote_path).unwrap();
+            assert!(local_path.exists());
+            assert!(fs::metadata(&local_path).unwrap().len() > 0);
+        }
+
+        let bundle_download = bundle.to_downloaded_model();
+        assert_eq!(bundle_download.spec.name, "test-model");
+        for remote_path in ["config.json", "model.safetensors"] {
+            let local_path = &bundle_download.files[remote_path];
+            assert!(local_path.is_absolute());
+            assert!(local_path.starts_with(&bundle.root));
+        }
+    }
+
+    #[test]
+    fn model_bundle_rejects_unsafe_remote_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let downloaded = fake_downloaded_model(
+            &dir.path().join("cache"),
+            HuggingFaceModelSpec::new("owner/model", ModelTask::TextClassification),
+            &[("../config.json", "{}")],
+        );
+
+        let error = ModelBundleStore::new(dir.path().join("bundles"))
+            .materialize(&downloaded)
+            .unwrap_err();
+
+        assert!(matches!(error, DetectError::InvalidArgument(_)));
+    }
+
+    #[test]
+    fn model_bundle_load_round_trips_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let downloaded = fake_downloaded_model(
+            &dir.path().join("cache"),
+            HuggingFaceModelSpec::new("owner/model", ModelTask::TextClassification)
+                .name("round-trip")
+                .revision("test-revision")
+                .file("config.json"),
+            &[("config.json", "{}")],
+        );
+        let bundle = ModelBundleStore::new(dir.path().join("bundles"))
+            .materialize(&downloaded)
+            .unwrap();
+
+        let loaded = ModelBundle::load(bundle.manifest_path()).unwrap();
+
+        assert_eq!(loaded.manifest, bundle.manifest);
+        assert_eq!(
+            loaded.file_path("config.json"),
+            bundle.file_path("config.json")
+        );
+    }
+
+    #[test]
+    fn model_bundle_store_uses_stable_safe_paths() {
+        let spec =
+            HuggingFaceModelSpec::new("owner/weird model:name", ModelTask::Custom("x".into()))
+                .name("owner/weird model:name")
+                .revision("refs/pr/1@abc");
+        let dir = ModelBundleStore::new("bundles").bundle_dir(&spec);
+
+        assert_eq!(
+            dir,
+            PathBuf::from("bundles")
+                .join("owner_weird_model_name")
+                .join("refs_pr_1_abc")
+        );
     }
 
     #[test]

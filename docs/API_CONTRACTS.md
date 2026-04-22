@@ -456,6 +456,17 @@ Model acquisition and identity:
 - `ModelTask`
 - `HuggingFaceModelSpec`
 - `ModelPreset`
+- `DownloadedModel`
+- `HuggingFaceDownloader`
+- `ModelBundleStore`
+- `ModelBundle`
+- `ModelBundleManifest`
+- `ModelBundleFile`
+
+`HuggingFaceDownloader` remains the low-level cache downloader. `ModelBundleStore`
+materializes downloaded files into a stable bundle directory with a
+`manifest.json`; `ModelBundle` can convert that manifest back to `DownloadedModel`
+for compatibility with external model execution.
 
 ## Recognition Contracts
 
@@ -483,8 +494,6 @@ Compatibility rule: recognition backends should do model-specific detection,
 alignment/cropping, tracking, and embedding extraction. The recognition package
 should own identity references, vector matching, thresholds, temporal evidence,
 and conversion into core observations.
-- `DownloadedModel`
-- `HuggingFaceDownloader`
 
 Prediction contracts:
 
@@ -807,7 +816,9 @@ The command contracts are:
   directory.
 - `vanalyze models presets`: lists built-in model presets.
 - `vanalyze models download`: downloads a preset or explicit Hugging Face model
-  files.
+  files into a local bundle directory with a manifest.
+- `vanalyze models inspect`: loads a model bundle by manifest path or
+  name/revision and prints its identity plus materialized files.
 
 `video-analysis-use-cases` exposes runnable workflows. The current workflow is:
 

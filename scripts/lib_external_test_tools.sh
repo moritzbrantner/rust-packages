@@ -19,6 +19,7 @@ YTDLP_VENV="${YTDLP_VENV:-"$PYTHON_CLI_VENV"}"
 COLMAP_CONDA_PREFIX="${COLMAP_CONDA_PREFIX:-"$TOOLS_DIR/colmap-conda"}"
 NERFSTUDIO_CONDA_PREFIX="${NERFSTUDIO_CONDA_PREFIX:-"$TOOLS_DIR/nerfstudio-conda"}"
 NERFSTUDIO_VENV="${NERFSTUDIO_VENV:-"$PYTHON_CLI_VENV"}"
+MODEL_PYTHON_VENV="${MODEL_PYTHON_VENV:-"$TOOLS_DIR/model-python-venv"}"
 
 mkdir -p "$BIN_DIR"
 
@@ -448,4 +449,87 @@ install_nerfstudio() {
       fail "NERFSTUDIO_INSTALLER must be auto, conda, or venv"
       ;;
   esac
+}
+
+python_imports_work() {
+  local python="$1"
+  shift
+  "$python" - "$@" <<'PY' >/dev/null 2>&1
+import importlib
+import sys
+
+missing = []
+for name in sys.argv[1:]:
+    try:
+        importlib.import_module(name)
+    except Exception as error:
+        missing.append(f"{name}: {error}")
+
+if missing:
+    raise SystemExit("\n".join(missing))
+PY
+}
+
+verify_model_python_target() {
+  local target="$1"
+  local python="${2:-"$MODEL_PYTHON_VENV/bin/python"}"
+  [[ -x "$python" ]] || return 1
+  case "$target" in
+    python)
+      "$python" --version >/dev/null 2>&1
+      ;;
+    onnx)
+      python_imports_work "$python" numpy PIL onnxruntime
+      ;;
+    transformers)
+      python_imports_work "$python" numpy PIL torch transformers tokenizers safetensors huggingface_hub
+      ;;
+    all)
+      verify_model_python_target onnx "$python" &&
+        verify_model_python_target transformers "$python"
+      ;;
+    *)
+      fail "unknown model Python dependency target '$target'"
+      ;;
+  esac
+}
+
+install_model_python_target() {
+  local target="$1"
+  if verify_model_python_target "$target"; then
+    log "verified model $target Python dependencies in $MODEL_PYTHON_VENV"
+    return
+  fi
+
+  create_venv "$MODEL_PYTHON_VENV"
+  case "$target" in
+    python)
+      ;;
+    onnx)
+      "$MODEL_PYTHON_VENV/bin/python" -m pip install \
+        "${MODEL_NUMPY_PIP_PACKAGE:-numpy}" \
+        "${MODEL_PILLOW_PIP_PACKAGE:-pillow}" \
+        "${MODEL_ONNXRUNTIME_PIP_PACKAGE:-onnxruntime}"
+      ;;
+    transformers)
+      "$MODEL_PYTHON_VENV/bin/python" -m pip install \
+        "${MODEL_NUMPY_PIP_PACKAGE:-numpy}" \
+        "${MODEL_PILLOW_PIP_PACKAGE:-pillow}" \
+        "${MODEL_TORCH_PIP_PACKAGE:-torch}" \
+        "${MODEL_TRANSFORMERS_PIP_PACKAGE:-transformers}" \
+        "${MODEL_TOKENIZERS_PIP_PACKAGE:-tokenizers}" \
+        "${MODEL_SAFETENSORS_PIP_PACKAGE:-safetensors}" \
+        "${MODEL_HUGGINGFACE_HUB_PIP_PACKAGE:-huggingface_hub}"
+      ;;
+    all)
+      install_model_python_target onnx
+      install_model_python_target transformers
+      return
+      ;;
+    *)
+      fail "unknown model Python dependency target '$target'"
+      ;;
+  esac
+  verify_model_python_target "$target"
+  log "verified model $target Python dependencies in $MODEL_PYTHON_VENV"
 }

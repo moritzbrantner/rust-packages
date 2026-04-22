@@ -10,7 +10,10 @@ use video_analysis_detectors::{
     WeightedComponent, WeightedCompositeDetector,
 };
 use video_analysis_ffmpeg::FfmpegVideoSource;
-use video_analysis_models::{HuggingFaceDownloader, HuggingFaceModelSpec, ModelPreset, ModelTask};
+use video_analysis_models::{
+    HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelBundleStore, ModelPreset,
+    ModelTask,
+};
 use video_analysis_output::{write_scene_list_csv, write_stats_csv};
 use video_analysis_split::{split_video_ffmpeg, SplitOptions};
 
@@ -65,6 +68,7 @@ struct ModelsArgs {
 enum ModelsCommand {
     Presets,
     Download(ModelDownloadArgs),
+    Inspect(ModelInspectArgs),
 }
 
 #[derive(Debug, Parser)]
@@ -84,12 +88,33 @@ struct ModelDownloadArgs {
     task: Option<ModelTaskKind>,
     #[arg(long = "file")]
     files: Vec<String>,
+    #[arg(long, default_value = ".video-analysis-models")]
+    bundle_dir: PathBuf,
+    #[arg(long, default_value_t = false)]
+    overwrite: bool,
     #[arg(long)]
     cache_dir: Option<PathBuf>,
     #[arg(long)]
     token: Option<String>,
     #[arg(long, default_value_t = false)]
     no_progress: bool,
+}
+
+#[derive(Debug, Parser)]
+#[command(group(
+    ArgGroup::new("bundle_source")
+        .args(["manifest", "name"])
+        .required(true)
+))]
+struct ModelInspectArgs {
+    #[arg(long)]
+    manifest: Option<PathBuf>,
+    #[arg(long)]
+    name: Option<String>,
+    #[arg(long, default_value = "main", requires = "name")]
+    revision: String,
+    #[arg(long, default_value = ".video-analysis-models", requires = "name")]
+    bundle_dir: PathBuf,
 }
 
 #[derive(Debug, Clone, Parser)]
@@ -264,6 +289,7 @@ fn main() -> Result<()> {
         Command::Models(args) => match args.command {
             ModelsCommand::Presets => list_model_presets(),
             ModelsCommand::Download(args) => download_model(args)?,
+            ModelsCommand::Inspect(args) => inspect_model_bundle(args)?,
         },
     }
     Ok(())
@@ -306,15 +332,49 @@ fn download_model(args: ModelDownloadArgs) -> Result<()> {
         downloader = downloader.token(token);
     }
 
-    let downloaded = downloader.download(&spec)?;
+    let bundle = ModelBundleStore::new(args.bundle_dir)
+        .downloader(downloader)
+        .overwrite(args.overwrite)
+        .download(&spec)?;
     println!(
         "downloaded {} from {}",
-        downloaded.spec.name, downloaded.spec.repo_id
+        bundle.manifest.name, bundle.manifest.repo_id
     );
-    for (remote, local) in downloaded.files {
-        println!("{remote}\t{}", local.display());
+    println!("manifest\t{}", bundle.manifest_path().display());
+    for (remote, file) in &bundle.manifest.files {
+        println!("{remote}\t{}", bundle.root.join(&file.local_path).display());
     }
     Ok(())
+}
+
+fn inspect_model_bundle(args: ModelInspectArgs) -> Result<()> {
+    let bundle = if let Some(manifest) = args.manifest {
+        ModelBundle::load(manifest)?
+    } else {
+        let name = args
+            .name
+            .expect("clap validates model bundle source arguments");
+        ModelBundleStore::new(args.bundle_dir).load(name, args.revision)?
+    };
+    print!("{}", format_model_bundle(&bundle));
+    Ok(())
+}
+
+fn format_model_bundle(bundle: &ModelBundle) -> String {
+    let mut output = String::new();
+    output.push_str(&format!("name\t{}\n", bundle.manifest.name));
+    output.push_str(&format!("repo_id\t{}\n", bundle.manifest.repo_id));
+    output.push_str(&format!("revision\t{}\n", bundle.manifest.revision));
+    output.push_str(&format!("task\t{:?}\n", bundle.manifest.task));
+    output.push_str(&format!("manifest\t{}\n", bundle.manifest_path().display()));
+    for (remote, file) in &bundle.manifest.files {
+        output.push_str(&format!(
+            "{remote}\t{}\t{} bytes\n",
+            bundle.root.join(&file.local_path).display(),
+            file.size_bytes
+        ));
+    }
+    output
 }
 
 fn run_detection(
@@ -615,6 +675,131 @@ mod tests {
             "config.json",
         ])
         .unwrap();
+    }
+
+    #[test]
+    fn model_download_accepts_bundle_dir() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "download",
+            "--preset",
+            "yolos-tiny",
+            "--bundle-dir",
+            "models",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Models(ModelsArgs {
+                command: ModelsCommand::Download(args),
+            }) => assert_eq!(args.bundle_dir, PathBuf::from("models")),
+            _ => panic!("expected models download command"),
+        }
+    }
+
+    #[test]
+    fn model_download_accepts_overwrite() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "download",
+            "--preset",
+            "yolos-tiny",
+            "--overwrite",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Models(ModelsArgs {
+                command: ModelsCommand::Download(args),
+            }) => assert!(args.overwrite),
+            _ => panic!("expected models download command"),
+        }
+    }
+
+    #[test]
+    fn model_inspect_accepts_manifest() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "inspect",
+            "--manifest",
+            "models/yolos-tiny/main/manifest.json",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Models(ModelsArgs {
+                command: ModelsCommand::Inspect(args),
+            }) => assert_eq!(
+                args.manifest,
+                Some(PathBuf::from("models/yolos-tiny/main/manifest.json"))
+            ),
+            _ => panic!("expected models inspect command"),
+        }
+    }
+
+    #[test]
+    fn model_inspect_accepts_name_and_bundle_dir() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "inspect",
+            "--name",
+            "yolos-tiny",
+            "--bundle-dir",
+            "models",
+            "--revision",
+            "main",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Models(ModelsArgs {
+                command: ModelsCommand::Inspect(args),
+            }) => {
+                assert_eq!(args.name.as_deref(), Some("yolos-tiny"));
+                assert_eq!(args.bundle_dir, PathBuf::from("models"));
+                assert_eq!(args.revision, "main");
+            }
+            _ => panic!("expected models inspect command"),
+        }
+    }
+
+    #[test]
+    fn model_inspect_requires_bundle_source() {
+        let err = Cli::try_parse_from(["vanalyze", "models", "inspect"]).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+    }
+
+    #[test]
+    fn model_bundle_format_includes_manifest_and_files() {
+        let bundle = ModelBundle {
+            root: PathBuf::from("models/yolos-tiny/main"),
+            manifest: video_analysis_models::ModelBundleManifest {
+                schema_version: 1,
+                name: "yolos-tiny".to_string(),
+                repo_id: "hustvl/yolos-tiny".to_string(),
+                revision: "main".to_string(),
+                task: ModelTask::ObjectDetection,
+                files: BTreeMap::from([(
+                    "config.json".to_string(),
+                    video_analysis_models::ModelBundleFile {
+                        remote_path: "config.json".to_string(),
+                        local_path: "files/config.json".to_string(),
+                        size_bytes: 42,
+                    },
+                )]),
+            },
+        };
+
+        let output = format_model_bundle(&bundle);
+
+        assert!(output.contains("name\tyolos-tiny"));
+        assert!(output.contains("manifest\tmodels/yolos-tiny/main/manifest.json"));
+        assert!(output.contains("config.json\tmodels/yolos-tiny/main/files/config.json\t42 bytes"));
     }
 
     #[test]

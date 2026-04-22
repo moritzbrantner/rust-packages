@@ -590,12 +590,18 @@ on-screen text.
 
 ### Hugging Face Model Downloads and Normalization
 
-Common Hugging Face models can be downloaded into the local Hugging Face cache:
+Common Hugging Face models can be downloaded into stable local bundles:
 
 ```bash
-vanalyze models presets
-vanalyze models download --preset detr-resnet-50
-vanalyze models download --preset distilbert-sst2
+cargo run -p video-analysis-cli -- models presets
+
+cargo run -p video-analysis-cli -- models download \
+  --preset yolos-tiny \
+  --bundle-dir .video-analysis-models
+
+cargo run -p video-analysis-cli -- models inspect \
+  --name yolos-tiny \
+  --bundle-dir .video-analysis-models
 ```
 
 Custom repositories are also supported when the files are known:
@@ -604,8 +610,25 @@ Custom repositories are also supported when the files are known:
 vanalyze models download \
   --repo-id hf-internal-testing/tiny-random-distilbert \
   --task text-classification \
+  --bundle-dir .video-analysis-models \
   --file config.json \
   --file tokenizer.json
+```
+
+The bundle manifest records the model name, repo id, revision, task, and local
+file paths under the bundle directory. It can be converted back to
+`DownloadedModel` for compatibility with external model backends:
+
+```rust
+use video_analysis_models::{ModelBundleStore, ModelPreset};
+
+# fn main() -> video_analysis_core::Result<()> {
+let spec = ModelPreset::YolosTiny.spec();
+let bundle = ModelBundleStore::new(".video-analysis-models").download(&spec)?;
+let downloaded = bundle.to_downloaded_model();
+# let _ = downloaded;
+# Ok(())
+# }
 ```
 
 The `video-analysis-models` crate keeps model-specific inference behind small
@@ -614,14 +637,15 @@ backend traits:
 ```rust
 use video_analysis_core::{Result, VideoAnalysisPipeline};
 use video_analysis_models::{
-    HuggingFaceDownloader, HuggingFaceModelSpec, ModelPreset, ModelVideoAnalyzer,
-    VisionModelBackend,
+    HuggingFaceModelSpec, ModelBundleStore, ModelPreset, ModelVideoAnalyzer, VisionModelBackend,
 };
 
 # fn build_backend() -> impl VisionModelBackend { unimplemented!() }
 fn main() -> Result<()> {
     let spec = HuggingFaceModelSpec::from_preset(ModelPreset::DetrResnet50);
-    let downloaded = HuggingFaceDownloader::new().download(&spec)?;
+    let downloaded = ModelBundleStore::new(".video-analysis-models")
+        .download(&spec)?
+        .to_downloaded_model();
 
     let backend = build_backend(); // ONNX, Candle, Python transformers, etc.
     let analyzer = ModelVideoAnalyzer::new(downloaded.spec.name, backend);
@@ -641,6 +665,14 @@ For model APIs that do not have a native Rust runtime yet, `ExternalCommandModel
 passes a JSON request to any executable over stdin and expects normalized JSON
 predictions on stdout. This makes Python `transformers`, ONNX Runtime helpers,
 or service-specific CLIs usable while keeping the package API stable.
+
+Optional Python dependencies for model backend experiments are installed into an
+ignored local virtual environment:
+
+```bash
+bash scripts/setup_model_external_tools.sh onnx
+bash scripts/check_model_external_tools.sh onnx
+```
 
 ### Audio Analysis
 

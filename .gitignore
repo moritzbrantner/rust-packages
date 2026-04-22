@@ -4,6 +4,7 @@
 audio-tools/
 .test-corpora/
 test-corpora/
+.video-analysis-models/
 node_modules/
 packages/*/node_modules/
 packages/video-analysis-web/dist/

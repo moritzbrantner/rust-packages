@@ -35,6 +35,29 @@ The setup script publishes `.external-test-tools/bin` in GitHub Actions through
 `.external-test-tools/bin` and `.audio-tools/bin` to `PATH` if those directories
 exist.
 
+## Model Backend Python Dependencies
+
+Native or external model-backend experiments can use an isolated Python
+environment under `.external-test-tools/model-python-venv`:
+
+```bash
+bash scripts/setup_model_external_tools.sh onnx
+bash scripts/check_model_external_tools.sh onnx
+```
+
+Available targets:
+
+- `python`: create and verify the virtual environment only.
+- `onnx`: install and verify `numpy`, `pillow`, and `onnxruntime`.
+- `transformers`: install and verify `numpy`, `pillow`, `torch`,
+  `transformers`, `tokenizers`, `safetensors`, and `huggingface_hub`.
+- `all`: verify/install both package groups.
+
+The setup script is idempotent: it creates the virtual environment if missing,
+checks imports first, and installs only missing package groups. The check script
+does not install anything; it fails with the matching setup command if a target
+is unavailable.
+
 ## Radiance / Nerfstudio
 
 The radiance pipeline needs `ffmpeg`, `colmap`, and `ns-process-data` for the
@@ -75,6 +98,11 @@ The `training` target verifies `ns-train` and `ns-export` in addition to
 - `AUDIO_TOOLS_DIR`: override `.audio-tools/` for
   `setup_audio_external_tools.sh`.
 - `PYTHON_CLI_VENV`: override the shared Python virtual environment path.
+- `MODEL_TOOLS_DIR`: override `.external-test-tools/` for
+  `setup_model_external_tools.sh`.
+- `MODEL_PYTHON_VENV`: override the model-backend Python virtual environment.
+- `MODEL_ONNXRUNTIME_PIP_PACKAGE`, `MODEL_TORCH_PIP_PACKAGE`, and
+  `MODEL_TRANSFORMERS_PIP_PACKAGE`: override heavyweight model packages.
 - `AUDIO_DEMUCS_INSTALLER`: `auto`, `venv`, or `conda`.
 - `EXTERNAL_COLMAP_INSTALLER`: `auto`, `system`, or `conda`.
 - `NERFSTUDIO_INSTALLER`: `auto`, `conda`, or `venv`.
