@@ -107,6 +107,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio-analysis-recognition"
+version = "0.1.0"
+dependencies = [
+ "audio-analysis-core",
+ "audio-analysis-fourier",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "audio-analysis-rhythm"
 version = "0.1.0"
 dependencies = [
@@ -1360,6 +1369,7 @@ dependencies = [
  "audio-analysis-io",
  "audio-analysis-pitch",
  "audio-analysis-processing",
+ "audio-analysis-recognition",
  "audio-analysis-rhythm",
  "audio-analysis-separation",
  "image-analysis-core",

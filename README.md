@@ -28,6 +28,8 @@ Rust crates are grouped under `crates/` by input or integration domain:
 - `audio-analysis-processing`: realtime-safe audio frame transforms, including
   gain, clipping, mono conversion, DC blocking, biquad filters, noise gates, and
   processed audio sources.
+- `audio-analysis-recognition`: deterministic spectral audio embeddings,
+  sample-backed reference libraries, similarity search, and recognition events.
 - `audio-analysis-rhythm`: onset detection, tempo estimation, and a rhythm
   analyzer that emits onset and BPM events.
 - `audio-analysis-separation`: HTDemucs/Demucs command wrapper for instrument
@@ -181,6 +183,7 @@ flowchart LR
     audioio[audio-analysis-io]
     pitch[audio-analysis-pitch]
     audioprocessing[audio-analysis-processing]
+    audiorecognition[audio-analysis-recognition]
     rhythm[audio-analysis-rhythm]
     separation[audio-analysis-separation]
     imagecore[image-analysis-core]
@@ -221,6 +224,9 @@ flowchart LR
     audioprocessing --> audiocore
     audioprocessing --> core
     audioprocessing --> ingest
+    audiorecognition --> audiocore
+    audiorecognition --> fourier
+    audiorecognition --> core
     rhythm --> audiocore
     rhythm --> core
     separation --> core
@@ -272,6 +278,7 @@ flowchart LR
     root --> audioio
     root --> pitch
     root --> audioprocessing
+    root --> audiorecognition
     root --> rhythm
     root --> separation
     root --> imagecore

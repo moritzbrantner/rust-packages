@@ -21,6 +21,7 @@ crates should compose around those contracts instead of defining parallel types.
 | `audio-analysis-io` | Audio input convenience facade | `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports | Applications that want audio-specific input APIs |
 | `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
 | `audio-analysis-processing` | Realtime-safe audio processing | `audio-analysis-core`, `video-analysis-core`, `video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources | Applications, preprocessing workflows, audio pipelines |
+| `audio-analysis-recognition` | Audio similarity and recognition | `audio-analysis-core`, `audio-analysis-fourier`, `video-analysis-core` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events | Applications, audio pipelines, reference matching workflows |
 | `audio-analysis-rhythm` | Rhythm and tempo analysis | `audio-analysis-core`, `video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
 | `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core` | Borrowed/owned image views, pixel formats, compacting, mean color, luma histograms | Image processing crates, applications, video frame preprocessing |
@@ -145,6 +146,10 @@ The `audio-analysis-*` crates build on the canonical `AudioFrame`,
   DC blocking, biquad low/high/band/notch filters, and noise gates.
   Transformed frames are emitted as `OwnedAudioFrame` values with
   `AudioBuffer::F32` payloads in the first milestone.
+- `audio-analysis-recognition` turns audio samples or frames into normalized
+  spectral embeddings, stores multiple sample embeddings per reference, searches
+  references by cosine similarity, and provides an `AudioAnalyzer` that emits
+  `audio:recognized:<reference_id>:<label>` events over streaming windows.
 - `audio-analysis-rhythm` detects onset events from energy changes, estimates
   BPM from onset intervals, and can emit both onset and tempo events.
 - `audio-analysis-separation` wraps the external Demucs CLI with the `htdemucs`
@@ -817,6 +822,8 @@ Allowed internal dependencies:
   `video-analysis-core`.
 - `audio-analysis-processing` -> `audio-analysis-core`,
   `video-analysis-core`, `video-analysis-ingest`.
+- `audio-analysis-recognition` -> `audio-analysis-core`,
+  `audio-analysis-fourier`, `video-analysis-core`.
 - `audio-analysis-rhythm` -> `audio-analysis-core`,
   `video-analysis-core`.
 - `audio-analysis-separation` -> `video-analysis-core`.

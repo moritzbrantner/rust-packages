@@ -13,6 +13,7 @@ members = [
     "crates/audio/audio-analysis-io",
     "crates/audio/audio-analysis-pitch",
     "crates/audio/audio-analysis-processing",
+    "crates/audio/audio-analysis-recognition",
     "crates/audio/audio-analysis-rhythm",
     "crates/audio/audio-analysis-separation",
     "crates/comfyui/comfyui-data",
@@ -68,6 +69,7 @@ audio-analysis-fourier = { path = "crates/audio/audio-analysis-fourier" }
 audio-analysis-io = { path = "crates/audio/audio-analysis-io" }
 audio-analysis-pitch = { path = "crates/audio/audio-analysis-pitch" }
 audio-analysis-processing = { path = "crates/audio/audio-analysis-processing" }
+audio-analysis-recognition = { path = "crates/audio/audio-analysis-recognition" }
 audio-analysis-rhythm = { path = "crates/audio/audio-analysis-rhythm" }
 audio-analysis-separation = { path = "crates/audio/audio-analysis-separation" }
 image-analysis-core = { path = "crates/image/image-analysis-core" }
@@ -129,6 +131,7 @@ audio-analysis-fourier.workspace = true
 audio-analysis-io.workspace = true
 audio-analysis-pitch.workspace = true
 audio-analysis-processing.workspace = true
+audio-analysis-recognition.workspace = true
 audio-analysis-rhythm.workspace = true
 audio-analysis-separation.workspace = true
 image-analysis-core.workspace = true

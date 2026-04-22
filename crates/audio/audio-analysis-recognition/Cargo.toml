@@ -1,0 +1,10 @@
+[package]
+name = "audio-analysis-recognition"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+audio-analysis-core.workspace = true
+audio-analysis-fourier.workspace = true
+video-analysis-core.workspace = true
