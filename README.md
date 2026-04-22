@@ -1,7 +1,10 @@
-# Rust Video Analysis Packages
+# Rust Multimodal Analysis Packages
 
-This workspace contains a Rust-first reimplementation of PySceneDetect-style video scene analysis.
-The vendored `references/pyscenedetect` directory is used only as an upstream behavior reference.
+This workspace contains Rust-first crates for video, audio, image, text, vector,
+and 3D analysis/processing. The scene detection packages started as a
+PySceneDetect-style video analysis implementation; the vendored
+`references/pyscenedetect` directory is used only as an upstream behavior
+reference.
 
 ## Crates
 
@@ -20,6 +23,22 @@ The vendored `references/pyscenedetect` directory is used only as an upstream be
   analyzer that emits onset and BPM events.
 - `audio-analysis-separation`: HTDemucs/Demucs command wrapper for instrument
   stem separation.
+- `image-analysis-core`: borrowed/owned image views, RGB/BGR/gray pixel
+  contracts, compacting, mean color, and luma histograms.
+- `image-analysis-processing`: deterministic CPU image crop, resize, grayscale,
+  inversion, thresholding, and 3x3 convolution pipelines.
+- `text-analysis-core`: text document contracts, text segment bridging,
+  normalization, tokenization, sentence splitting, and word counts.
+- `text-analysis-features`: term frequencies, top terms, lexical diversity, and
+  character/token n-gram helpers.
+- `vector-analysis-core`: dense vector validation, normalization, metrics,
+  distances, means, and per-dimension summary statistics.
+- `vector-analysis-index`: exact in-memory vector search and nearest-centroid
+  assignment helpers.
+- `three-d-processing-core`: 3D points, vectors, bounds, transforms, point
+  clouds, and centroid helpers.
+- `three-d-processing-mesh`: triangle mesh validation, bounds, normals, and
+  surface-area helpers.
 - `video-analysis-core`: timecodes, video/audio/text sample types, metrics, analyzer traits, observations, and realtime pipelines.
 - `video-analysis-data`: stream record normalization plus online aggregation and
   bucketing for video, audio, text, numeric, and vector data.
@@ -130,13 +149,16 @@ cargo test -p video-analysis-ffmpeg --features ffmpeg-tests
 ## Dependency Graph
 
 `video-analysis-core` is the foundational crate for shared contracts and pipeline
-orchestration. The `audio-analysis-*` crates consume those audio contracts and
-share utility code through `audio-analysis-core`. Most functional video crates
-depend on `core`, while `video-analysis-gaussian-splatting` also reuses the
-camera and geometry contracts from `video-analysis-radiance-fields`.
-Composition happens in `video-analysis-cli` and the root `video-analysis` facade
-crate. The `comfyui-*` crates are standalone ComfyUI interoperability packages
-for applications that need to inspect ComfyUI workflows, prompt graphs, model
+orchestration. The domain-specific crate families are organized around small
+core packages: `audio-analysis-core`, `image-analysis-core`,
+`text-analysis-core`, `vector-analysis-core`, and `three-d-processing-core`.
+Processing, feature, and index crates build on those cores. Most functional
+video crates depend on `video-analysis-core`, while
+`video-analysis-gaussian-splatting` also reuses the camera and geometry
+contracts from `video-analysis-radiance-fields`. Composition happens in
+`video-analysis-cli` and the root `video-analysis` facade crate. The
+`comfyui-*` crates are standalone ComfyUI interoperability packages for
+applications that need to inspect ComfyUI workflows, prompt graphs, model
 folders, and extra model path configuration.
 
 For the inter-package API contracts, serialized report shapes, package exports,
@@ -150,6 +172,14 @@ flowchart LR
     pitch[audio-analysis-pitch]
     rhythm[audio-analysis-rhythm]
     separation[audio-analysis-separation]
+    imagecore[image-analysis-core]
+    imageprocessing[image-analysis-processing]
+    textcore[text-analysis-core]
+    textfeatures[text-analysis-features]
+    vectorcore[vector-analysis-core]
+    vectorindex[vector-analysis-index]
+    threedcore[three-d-processing-core]
+    threedmesh[three-d-processing-mesh]
 
     data[video-analysis-data]
     detectors[video-analysis-detectors]
@@ -177,6 +207,18 @@ flowchart LR
     rhythm --> audiocore
     rhythm --> core
     separation --> core
+    imagecore --> core
+    imageprocessing --> imagecore
+    imageprocessing --> core
+    textcore --> core
+    textfeatures --> textcore
+    textfeatures --> core
+    vectorcore --> core
+    vectorindex --> vectorcore
+    vectorindex --> core
+    threedcore --> core
+    threedmesh --> threedcore
+    threedmesh --> core
 
     detectors --> core
     data --> core
@@ -213,6 +255,14 @@ flowchart LR
     root --> pitch
     root --> rhythm
     root --> separation
+    root --> imagecore
+    root --> imageprocessing
+    root --> textcore
+    root --> textfeatures
+    root --> vectorcore
+    root --> vectorindex
+    root --> threedcore
+    root --> threedmesh
 
     cli --> core
     cli --> detectors

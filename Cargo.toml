@@ -3,7 +3,7 @@ name = "video-analysis"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-description = "Rust-first video scene analysis workspace inspired by PySceneDetect."
+description = "Rust-first multimodal analysis workspace for video, audio, images, text, vectors, and 3D processing."
 
 [workspace]
 members = [
@@ -15,6 +15,14 @@ members = [
     "crates/audio-analysis-pitch",
     "crates/audio-analysis-rhythm",
     "crates/audio-analysis-separation",
+    "crates/image-analysis-core",
+    "crates/image-analysis-processing",
+    "crates/text-analysis-core",
+    "crates/text-analysis-features",
+    "crates/vector-analysis-core",
+    "crates/vector-analysis-index",
+    "crates/three-d-processing-core",
+    "crates/three-d-processing-mesh",
     "crates/video-analysis-core",
     "crates/video-analysis-data",
     "crates/video-analysis-dataset",
@@ -58,6 +66,14 @@ audio-analysis-fourier = { path = "crates/audio-analysis-fourier" }
 audio-analysis-pitch = { path = "crates/audio-analysis-pitch" }
 audio-analysis-rhythm = { path = "crates/audio-analysis-rhythm" }
 audio-analysis-separation = { path = "crates/audio-analysis-separation" }
+image-analysis-core = { path = "crates/image-analysis-core" }
+image-analysis-processing = { path = "crates/image-analysis-processing" }
+text-analysis-core = { path = "crates/text-analysis-core" }
+text-analysis-features = { path = "crates/text-analysis-features" }
+vector-analysis-core = { path = "crates/vector-analysis-core" }
+vector-analysis-index = { path = "crates/vector-analysis-index" }
+three-d-processing-core = { path = "crates/three-d-processing-core" }
+three-d-processing-mesh = { path = "crates/three-d-processing-mesh" }
 video-analysis-core = { path = "crates/video-analysis-core" }
 video-analysis-data = { path = "crates/video-analysis-data" }
 video-analysis-dataset = { path = "crates/video-analysis-dataset" }
@@ -109,3 +125,11 @@ audio-analysis-fourier.workspace = true
 audio-analysis-pitch.workspace = true
 audio-analysis-rhythm.workspace = true
 audio-analysis-separation.workspace = true
+image-analysis-core.workspace = true
+image-analysis-processing.workspace = true
+text-analysis-core.workspace = true
+text-analysis-features.workspace = true
+vector-analysis-core.workspace = true
+vector-analysis-index.workspace = true
+three-d-processing-core.workspace = true
+three-d-processing-mesh.workspace = true

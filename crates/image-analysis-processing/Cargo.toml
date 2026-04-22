@@ -1,0 +1,9 @@
+[package]
+name = "image-analysis-processing"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+image-analysis-core.workspace = true
+video-analysis-core.workspace = true

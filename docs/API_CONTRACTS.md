@@ -21,6 +21,14 @@ crates should compose around those contracts instead of defining parallel types.
 | `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
 | `audio-analysis-rhythm` | Rhythm and tempo analysis | `audio-analysis-core`, `video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
+| `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core` | Borrowed/owned image views, pixel formats, compacting, mean color, luma histograms | Image processing crates, applications, video frame preprocessing |
+| `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains | Applications, preprocessing workflows |
+| `text-analysis-core` | Shared text analysis utilities | `video-analysis-core` | Text document contracts, text segment bridging, whitespace normalization, tokens, sentences, counts | Text feature crates, text pipelines, applications |
+| `text-analysis-features` | Text feature extraction | `text-analysis-core`, `video-analysis-core` | Term frequencies, top terms, lexical diversity, character/token n-grams | Applications and downstream text analytics |
+| `vector-analysis-core` | Dense vector contracts and metrics | `video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
+| `vector-analysis-index` | Exact vector search and assignment | `vector-analysis-core`, `video-analysis-core` | In-memory vector index, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
+| `three-d-processing-core` | Generic 3D processing primitives | `video-analysis-core` | 3D vectors, points, bounds, transforms, point clouds, centroids | Mesh processing, applications, future 3D workflows |
+| `three-d-processing-mesh` | Triangle mesh processing | `three-d-processing-core`, `video-analysis-core` | Mesh validation, triangle normals, vertex normals, bounds, surface area | Applications and future 3D workflows |
 | `video-analysis-core` | Canonical shared contracts and pipelines | External utility crates only | Time/frame types, media samples, detection traits/results, analyzer traits/results, observations, metrics, pipeline builders | All functional Rust crates |
 | `video-analysis-data` | Online stream normalization and aggregation | `video-analysis-core` | `DataRecord`, `DataPayload`, bucket configuration, bucket summaries, stream summaries | Use cases, reporting, UI JSON generation |
 | `video-analysis-dataset` | Retained analysis dataset records | `video-analysis-core`, `serde` | Serializable owned records for scenes, cuts, media metadata, observations, events, metrics, tracks, and features | Transform, feature, storage, analytics workflows |
@@ -133,6 +141,56 @@ The `audio-analysis-*` crates build on the canonical `AudioFrame`,
 
 Audio analysis crates should accept borrowed core audio frames or normalized
 sample slices and should emit `AnalysisEvent` values for pipeline integration.
+
+## Image Analysis Contracts
+
+The `image-analysis-*` crates provide still-image contracts and processing
+helpers without requiring video timeline semantics.
+
+- `image-analysis-core` owns `ImageView<'_>`, `OwnedImage`,
+  `ImagePixelFormat`, image compacting, mean RGB, and luma histograms.
+- `ImageView::from_video_frame` and `OwnedImage::from_video_frame` bridge core
+  `VideoFrame<'_>` values into still-image workflows.
+- `image-analysis-processing` owns `ImageOperation`, `ImageProcessor`,
+  `ImageRegion`, crop, nearest-neighbor resize, grayscale, invert, threshold,
+  convolution, and sharpen helpers.
+
+Image processing outputs are compact `OwnedImage` buffers. Image crates should
+not own media decoding, scene timing, model execution, CLI branching, or report
+serialization.
+
+## Text Analysis Contracts
+
+The `text-analysis-*` crates provide reusable text processing separate from
+video use cases and model adapters.
+
+- `text-analysis-core` owns `TextDocument<'_>`, `OwnedTextDocument`,
+  `TextStats`, whitespace normalization, word tokenization, sentence splitting,
+  and word counts.
+- `TextDocument::from_segment` and `OwnedTextDocument::from_segment` bridge core
+  `TextSegment` and `OwnedTextSegment` values into text-only workflows.
+- `text-analysis-features` owns `TermFrequency`, `TextFeatureSummary`, top
+  terms, lexical diversity, and character/token n-grams.
+
+Text crates should emit plain deterministic features and leave model-specific
+classification, embedding, and pipeline event conversion to model or application
+crates.
+
+## Vector Analysis Contracts
+
+The `vector-analysis-*` crates standardize dense vector handling for embedding,
+recognition, search, and analytics workflows.
+
+- `vector-analysis-core` owns `DenseVector`, `VectorMetric`, finite validation,
+  L2 normalization, dot product, cosine similarity, Euclidean distance,
+  Manhattan distance, mean vectors, and per-dimension stats.
+- `vector-analysis-index` owns `VectorRecord`, `VectorSearchIndex`,
+  `SearchConfig`, `SearchResult`, exact in-memory search, and nearest-centroid
+  assignment.
+
+Vector crates intentionally use exact CPU algorithms. Approximate nearest
+neighbor backends can be added later behind separate implementation crates
+without changing the core vector contracts.
 
 ## Ingest Contracts
 
@@ -537,8 +595,25 @@ selection, or CLI branching.
 
 ## 3D Scene Contracts
 
-The 3D packages interoperate through `video-analysis-radiance-fields` geometry,
-camera, ray, and color primitives.
+The workspace has two 3D layers. Generic processing crates use
+`three-d-processing-*` types for point clouds and triangle meshes. Video-driven
+neural rendering and reconstruction crates continue to interoperate through
+`video-analysis-radiance-fields` geometry, camera, ray, and color primitives.
+
+`three-d-processing-core` exposes:
+
+- `Vector3`
+- `Point3`
+- `Bounds3`
+- `Transform3`
+- `PointCloud`
+- Centroid and transform helpers.
+
+`three-d-processing-mesh` exposes:
+
+- `Triangle`
+- `Mesh`
+- Triangle normal, triangle area, surface area, and vertex normal helpers.
 
 `video-analysis-radiance-fields` exposes:
 
@@ -586,9 +661,11 @@ camera, ray, and color primitives.
 - Triangulation/projection helpers such as `triangulate_observation_pair`,
   `project_point`, `reprojection_error`, and `ray_angle`.
 
-These crates should share `CameraIntrinsics`, `CameraPose`, `Vec2`, `Vec3`,
-`ColorRgb`, and `Ray` instead of introducing incompatible camera or geometry
-types.
+Neural rendering and reconstruction crates should share `CameraIntrinsics`,
+`CameraPose`, `Vec2`, `Vec3`, `ColorRgb`, and `Ray` instead of introducing
+incompatible camera or geometry types. Generic 3D processing crates should use
+the `three-d-processing-*` contracts unless they explicitly need camera/ray
+semantics.
 
 ## CLI And Use-Case Boundary Contracts
 
@@ -687,9 +764,10 @@ Compatibility notes:
 ## Facade And Package Export Contracts
 
 The Rust root crate `video-analysis` is a convenience facade. It re-exports all
-core items, detector items, and package modules for data, FFmpeg, ingest,
-models, output, radiance fields, Gaussian splatting, reconstruction, and split.
-It does not expose CLI or use-case binaries as library modules.
+core items, detector items, and package modules for audio, image, text, vector,
+3D processing, data, FFmpeg, ingest, models, output, radiance fields, Gaussian
+splatting, reconstruction, and split. It does not expose CLI or use-case
+binaries as library modules.
 
 The UI package exposes these subpaths:
 
@@ -716,6 +794,26 @@ Allowed internal dependencies:
 
 - `comfyui-data`: `serde`, `serde_json`, `thiserror`.
 - `comfyui-models`: `serde`, `thiserror`.
+- `audio-analysis-core` -> `video-analysis-core`.
+- `audio-analysis-fourier` -> `audio-analysis-core`,
+  `video-analysis-core`.
+- `audio-analysis-pitch` -> `audio-analysis-core`,
+  `video-analysis-core`.
+- `audio-analysis-rhythm` -> `audio-analysis-core`,
+  `video-analysis-core`.
+- `audio-analysis-separation` -> `video-analysis-core`.
+- `image-analysis-core` -> `video-analysis-core`.
+- `image-analysis-processing` -> `image-analysis-core`,
+  `video-analysis-core`.
+- `text-analysis-core` -> `video-analysis-core`.
+- `text-analysis-features` -> `text-analysis-core`,
+  `video-analysis-core`.
+- `vector-analysis-core` -> `video-analysis-core`.
+- `vector-analysis-index` -> `vector-analysis-core`,
+  `video-analysis-core`.
+- `three-d-processing-core` -> `video-analysis-core`.
+- `three-d-processing-mesh` -> `three-d-processing-core`,
+  `video-analysis-core`.
 - `video-analysis-core`: external utility crates only.
 - `video-analysis-data` -> `video-analysis-core`.
 - `video-analysis-dataset` -> `video-analysis-core`.
