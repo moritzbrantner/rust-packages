@@ -128,3 +128,33 @@ pub fn assert_approx_slice(actual: &[f32], expected: &[f32], tolerance: f32) {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use video_analysis_core::Timebase;
+
+    use super::*;
+
+    #[test]
+    fn generated_audio_fixtures_have_expected_shape() {
+        let left = sine(440.0, 8_000, 0.01);
+        let right = white_noise(1, left.len());
+        let stereo = interleaved_stereo(&left, &right);
+
+        assert_eq!(left.len(), 80);
+        assert_eq!(stereo.len(), 160);
+        assert_eq!(click_track(1_000, 120.0, 1.0)[0], 1.0);
+        assert_eq!(impulse_train(1_000, 120.0, 1.0)[0], 1.0);
+    }
+
+    #[test]
+    fn owned_frame_helpers_preserve_metadata() {
+        let timestamp = Timestamp::new(2, Timebase::new(1, 8_000));
+        let frame = owned_f32_frame(timestamp, 8_000, 1, vec![0.0, 0.5]).unwrap();
+
+        assert_eq!(frame.timestamp, timestamp);
+        assert_eq!(frame.sample_rate, 8_000);
+        assert_eq!(frame.channels, 1);
+        assert_eq!(frame.data.len(), 2);
+    }
+}

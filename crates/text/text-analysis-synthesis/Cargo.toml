@@ -1,0 +1,10 @@
+[package]
+name = "text-analysis-synthesis"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+data-inversion-core.workspace = true
+text-analysis-core.workspace = true
+video-analysis-core.workspace = true

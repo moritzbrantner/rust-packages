@@ -1,0 +1,13 @@
+{
+  "text": "hello from rust testing",
+  "segments": [
+    {
+      "id": 0,
+      "start": 0.0,
+      "end": 1.5,
+      "text": " hello from rust testing",
+      "avg_logprob": -0.2,
+      "no_speech_prob": 0.01
+    }
+  ]
+}

@@ -14,3 +14,4 @@ video-analysis-dataset.workspace = true
 tempfile.workspace = true
 num-rational.workspace = true
 video-analysis-core.workspace = true
+video-analysis-test-support.workspace = true

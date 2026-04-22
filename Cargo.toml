@@ -16,17 +16,22 @@ members = [
     "crates/audio/audio-analysis-recognition",
     "crates/audio/audio-analysis-rhythm",
     "crates/audio/audio-analysis-separation",
+    "crates/audio/audio-analysis-synthesis",
     "crates/audio/audio-analysis-test-support",
+    "crates/test-support/video-analysis-test-support",
     "crates/comfyui/comfyui-data",
     "crates/comfyui/comfyui-models",
+    "crates/data/data-inversion-core",
     "crates/data/dense-data",
     "crates/image/image-analysis-core",
     "crates/image/image-analysis-processing",
+    "crates/image/image-analysis-synthesis",
     "crates/text/text-analysis-corpus",
     "crates/text/text-analysis-core",
     "crates/text/text-analysis-features",
     "crates/text/text-analysis-prediction",
     "crates/text/text-analysis-semantics",
+    "crates/text/text-analysis-synthesis",
     "crates/text/text-analysis-transcription",
     "crates/three-d/three-d-processing-core",
     "crates/three-d/three-d-processing-mesh",
@@ -51,6 +56,7 @@ members = [
     "crates/video/video-analysis-reconstruction",
     "crates/video/video-analysis-split",
     "crates/video/video-analysis-storage",
+    "crates/video/video-analysis-synthesis",
     "crates/video/video-analysis-tracking",
     "crates/video/video-analysis-transform",
     "crates/video/video-analysis-use-cases",
@@ -75,6 +81,7 @@ proptest = "1.6.0"
 unicode-normalization = "0.1.24"
 comfyui-data = { path = "crates/comfyui/comfyui-data" }
 comfyui-models = { path = "crates/comfyui/comfyui-models" }
+data-inversion-core = { path = "crates/data/data-inversion-core" }
 dense-data = { path = "crates/data/dense-data" }
 audio-analysis-core = { path = "crates/audio/audio-analysis-core" }
 audio-analysis-fourier = { path = "crates/audio/audio-analysis-fourier" }
@@ -84,14 +91,18 @@ audio-analysis-processing = { path = "crates/audio/audio-analysis-processing" }
 audio-analysis-recognition = { path = "crates/audio/audio-analysis-recognition" }
 audio-analysis-rhythm = { path = "crates/audio/audio-analysis-rhythm" }
 audio-analysis-separation = { path = "crates/audio/audio-analysis-separation" }
+audio-analysis-synthesis = { path = "crates/audio/audio-analysis-synthesis" }
 audio-analysis-test-support = { path = "crates/audio/audio-analysis-test-support" }
+video-analysis-test-support = { path = "crates/test-support/video-analysis-test-support" }
 image-analysis-core = { path = "crates/image/image-analysis-core" }
 image-analysis-processing = { path = "crates/image/image-analysis-processing" }
+image-analysis-synthesis = { path = "crates/image/image-analysis-synthesis" }
 text-analysis-core = { path = "crates/text/text-analysis-core" }
 text-analysis-corpus = { path = "crates/text/text-analysis-corpus" }
 text-analysis-features = { path = "crates/text/text-analysis-features" }
 text-analysis-prediction = { path = "crates/text/text-analysis-prediction" }
 text-analysis-semantics = { path = "crates/text/text-analysis-semantics" }
+text-analysis-synthesis = { path = "crates/text/text-analysis-synthesis" }
 text-analysis-transcription = { path = "crates/text/text-analysis-transcription" }
 vector-analysis-core = { path = "crates/vector/vector-analysis-core" }
 vector-analysis-index = { path = "crates/vector/vector-analysis-index" }
@@ -116,6 +127,7 @@ video-analysis-recognition = { path = "crates/video/video-analysis-recognition" 
 video-analysis-reconstruction = { path = "crates/video/video-analysis-reconstruction" }
 video-analysis-split = { path = "crates/video/video-analysis-split" }
 video-analysis-storage = { path = "crates/video/video-analysis-storage" }
+video-analysis-synthesis = { path = "crates/video/video-analysis-synthesis" }
 video-analysis-tracking = { path = "crates/video/video-analysis-tracking" }
 video-analysis-transform = { path = "crates/video/video-analysis-transform" }
 video-analysis-use-cases = { path = "crates/video/video-analysis-use-cases" }
@@ -145,6 +157,7 @@ video-analysis-recognition.workspace = true
 video-analysis-reconstruction.workspace = true
 video-analysis-split.workspace = true
 video-analysis-storage.workspace = true
+video-analysis-synthesis.workspace = true
 video-analysis-tracking.workspace = true
 video-analysis-transform.workspace = true
 audio-analysis-core.workspace = true
@@ -155,14 +168,18 @@ audio-analysis-processing.workspace = true
 audio-analysis-recognition.workspace = true
 audio-analysis-rhythm.workspace = true
 audio-analysis-separation.workspace = true
+audio-analysis-synthesis.workspace = true
+data-inversion-core.workspace = true
 dense-data.workspace = true
 image-analysis-core.workspace = true
 image-analysis-processing.workspace = true
+image-analysis-synthesis.workspace = true
 text-analysis-core.workspace = true
 text-analysis-corpus.workspace = true
 text-analysis-features.workspace = true
 text-analysis-prediction.workspace = true
 text-analysis-semantics.workspace = true
+text-analysis-synthesis.workspace = true
 text-analysis-transcription.workspace = true
 vector-analysis-core.workspace = true
 vector-analysis-index.workspace = true
@@ -171,3 +188,4 @@ three-d-processing-mesh.workspace = true
 
 [dev-dependencies]
 audio-analysis-test-support.workspace = true
+video-analysis-test-support.workspace = true

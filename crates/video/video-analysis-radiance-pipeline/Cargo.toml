@@ -11,3 +11,11 @@ video-analysis-gaussian-splatting.workspace = true
 video-analysis-ingest.workspace = true
 video-analysis-radiance-fields.workspace = true
 video-analysis-radiance-io.workspace = true
+
+[features]
+default = []
+external-tests = ["video-analysis-ffmpeg/test-utils"]
+
+[dev-dependencies]
+tempfile.workspace = true
+video-analysis-test-support.workspace = true

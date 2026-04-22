@@ -9,3 +9,6 @@ description = "Serde contracts for ComfyUI workflow and prompt data."
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+video-analysis-test-support.workspace = true

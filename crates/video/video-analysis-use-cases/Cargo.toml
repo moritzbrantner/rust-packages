@@ -25,3 +25,4 @@ video-analysis-radiance-pipeline.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 video-analysis-ffmpeg = { workspace = true, features = ["test-utils"] }
+video-analysis-test-support.workspace = true

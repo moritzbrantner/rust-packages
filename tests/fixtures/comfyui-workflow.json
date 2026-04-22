@@ -1,0 +1,18 @@
+{
+  "version": 0.4,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "outputs": [{ "name": "IMAGE", "type": "IMAGE", "links": [1] }]
+    },
+    {
+      "id": 2,
+      "type": "SaveImage",
+      "inputs": [{ "name": "images", "type": "IMAGE", "link": 1 }]
+    }
+  ],
+  "links": [[1, 1, 0, 2, 0, "IMAGE"]],
+  "last_node_id": 2,
+  "last_link_id": 1
+}

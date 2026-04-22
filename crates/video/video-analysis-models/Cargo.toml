@@ -11,5 +11,11 @@ serde.workspace = true
 serde_json.workspace = true
 video-analysis-core.workspace = true
 
+[features]
+default = []
+external-tests = []
+
 [dev-dependencies]
 num-rational.workspace = true
+tempfile.workspace = true
+video-analysis-test-support.workspace = true

@@ -15,3 +15,4 @@ video-analysis-reconstruction.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+video-analysis-test-support.workspace = true

@@ -164,6 +164,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio-analysis-synthesis"
+version = "0.1.0"
+dependencies = [
+ "data-inversion-core",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "audio-analysis-test-support"
 version = "0.1.0"
 dependencies = [
@@ -323,6 +331,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "video-analysis-test-support",
 ]
 
 [[package]]
@@ -450,6 +459,13 @@ name = "crunchy"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
+
+[[package]]
+name = "data-inversion-core"
+version = "0.1.0"
+dependencies = [
+ "video-analysis-core",
+]
 
 [[package]]
 name = "dense-data"
@@ -808,6 +824,15 @@ dependencies = [
 name = "image-analysis-processing"
 version = "0.1.0"
 dependencies = [
+ "image-analysis-core",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "image-analysis-synthesis"
+version = "0.1.0"
+dependencies = [
+ "data-inversion-core",
  "image-analysis-core",
  "video-analysis-core",
 ]
@@ -1538,14 +1563,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "text-analysis-synthesis"
+version = "0.1.0"
+dependencies = [
+ "data-inversion-core",
+ "text-analysis-core",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "text-analysis-transcription"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "video-analysis-core",
  "video-analysis-ingest",
+ "video-analysis-test-support",
 ]
 
 [[package]]
@@ -1800,15 +1836,19 @@ dependencies = [
  "audio-analysis-recognition",
  "audio-analysis-rhythm",
  "audio-analysis-separation",
+ "audio-analysis-synthesis",
  "audio-analysis-test-support",
+ "data-inversion-core",
  "dense-data",
  "image-analysis-core",
  "image-analysis-processing",
+ "image-analysis-synthesis",
  "text-analysis-core",
  "text-analysis-corpus",
  "text-analysis-features",
  "text-analysis-prediction",
  "text-analysis-semantics",
+ "text-analysis-synthesis",
  "text-analysis-transcription",
  "three-d-processing-core",
  "three-d-processing-mesh",
@@ -1833,6 +1873,8 @@ dependencies = [
  "video-analysis-reconstruction",
  "video-analysis-split",
  "video-analysis-storage",
+ "video-analysis-synthesis",
+ "video-analysis-test-support",
  "video-analysis-tracking",
  "video-analysis-transform",
 ]
@@ -1842,12 +1884,14 @@ name = "video-analysis-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "tempfile",
  "video-analysis-core",
  "video-analysis-detectors",
  "video-analysis-ffmpeg",
  "video-analysis-models",
  "video-analysis-output",
  "video-analysis-split",
+ "video-analysis-test-support",
 ]
 
 [[package]]
@@ -1938,7 +1982,9 @@ dependencies = [
  "num-rational",
  "serde",
  "serde_json",
+ "tempfile",
  "video-analysis-core",
+ "video-analysis-test-support",
 ]
 
 [[package]]
@@ -1978,18 +2024,21 @@ dependencies = [
  "video-analysis-gaussian-splatting",
  "video-analysis-radiance-fields",
  "video-analysis-reconstruction",
+ "video-analysis-test-support",
 ]
 
 [[package]]
 name = "video-analysis-radiance-pipeline"
 version = "0.1.0"
 dependencies = [
+ "tempfile",
  "video-analysis-core",
  "video-analysis-ffmpeg",
  "video-analysis-gaussian-splatting",
  "video-analysis-ingest",
  "video-analysis-radiance-fields",
  "video-analysis-radiance-io",
+ "video-analysis-test-support",
 ]
 
 [[package]]
@@ -2013,7 +2062,10 @@ name = "video-analysis-split"
 version = "0.1.0"
 dependencies = [
  "num-rational",
+ "tempfile",
  "video-analysis-core",
+ "video-analysis-ffmpeg",
+ "video-analysis-test-support",
 ]
 
 [[package]]
@@ -2027,6 +2079,27 @@ dependencies = [
  "thiserror",
  "video-analysis-core",
  "video-analysis-dataset",
+ "video-analysis-test-support",
+]
+
+[[package]]
+name = "video-analysis-synthesis"
+version = "0.1.0"
+dependencies = [
+ "data-inversion-core",
+ "num-rational",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-test-support"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
+ "video-analysis-core",
+ "video-analysis-dataset",
+ "video-analysis-radiance-fields",
+ "video-analysis-radiance-io",
 ]
 
 [[package]]
@@ -2063,6 +2136,7 @@ dependencies = [
  "video-analysis-ingest",
  "video-analysis-models",
  "video-analysis-radiance-pipeline",
+ "video-analysis-test-support",
 ]
 
 [[package]]

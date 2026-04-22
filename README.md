@@ -17,6 +17,8 @@ Rust crates are grouped under `crates/` by input or integration domain:
   API prompt graphs.
 - `comfyui-models`: ComfyUI model folder keys, default paths, inventory
   scanning, and `extra_model_paths.yaml` generation helpers.
+- `data-inversion-core`: shared trace metadata for lossy inverse conversions,
+  including fidelity, confidence, assumptions, and interpolation notes.
 - `audio-analysis-core`: normalized audio sample conversion, mono mixing,
   windowing, frame iteration, streaming frame windows, and level helpers for
   audio analysis crates.
@@ -35,10 +37,14 @@ Rust crates are grouped under `crates/` by input or integration domain:
   analyzer that emits onset and BPM events.
 - `audio-analysis-separation`: HTDemucs/Demucs command wrapper for instrument
   stem separation.
+- `audio-analysis-synthesis`: deterministic tone, onset, and pitch-event audio
+  synthesis into core audio frames with inversion trace metadata.
 - `image-analysis-core`: borrowed/owned image views, RGB/BGR/gray pixel
   contracts, compacting, mean color, and luma histograms.
 - `image-analysis-processing`: deterministic CPU image crop, resize, grayscale,
   inversion, thresholding, and 3x3 convolution pipelines.
+- `image-analysis-synthesis`: deterministic solid, gradient, histogram, and
+  region-based image synthesis into owned image buffers.
 - `text-analysis-corpus`: corpus-scale term indexing, corpus statistics,
   TF-IDF scoring, and TF-IDF cosine search without retaining source text.
 - `text-analysis-core`: text document contracts, text segment bridging,
@@ -50,6 +56,8 @@ Rust crates are grouped under `crates/` by input or integration domain:
   prediction, generation, and perplexity scoring.
 - `text-analysis-semantics`: lightweight hashed text embeddings, semantic text
   search, text similarity, and co-occurrence/related-term analysis.
+- `text-analysis-synthesis`: deterministic text generation from weighted terms
+  and analyzer events with explicit heuristic trace metadata.
 - `text-analysis-transcription`: transcript segment models, Whisper JSON,
   SRT/WebVTT/plain text parsing, command transcribers, and text segment source
   adapters.
@@ -76,6 +84,8 @@ Rust crates are grouped under `crates/` by input or integration domain:
   histograms, transcripts, audio events, tracks, and vector means.
 - `video-analysis-storage`: JSON, JSONL, and manifest persistence for retained
   analysis datasets.
+- `video-analysis-synthesis`: deterministic storyboard/video-frame synthesis
+  from frame specs and observations.
 - `video-analysis-detectors`: content, adaptive, threshold, histogram, and perceptual hash detectors.
 - `video-analysis-editing`: CPU frame editing primitives for cropping,
   blurring, grayscale, inversion, brightness/contrast, and 3x3 filters.
@@ -181,7 +191,8 @@ cargo test -p video-analysis-ffmpeg --features ffmpeg-tests
 orchestration. The domain-specific crate families are organized around small
 core packages: `audio-analysis-core`, `image-analysis-core`,
 `text-analysis-core`, `vector-analysis-core`, and `three-d-processing-core`.
-Processing, feature, index, and generic dense-data crates build on those cores.
+Processing, feature, index, synthesis, and generic dense-data crates build on
+those cores.
 Most functional video crates depend on `video-analysis-core`, while
 `video-analysis-gaussian-splatting` also reuses the camera and geometry
 contracts from `video-analysis-radiance-fields`. `video-analysis-radiance-io`
@@ -192,6 +203,11 @@ facade crate. The
 `comfyui-*` crates are standalone ComfyUI interoperability packages for
 applications that need to inspect ComfyUI workflows, prompt graphs, model
 folders, and extra model path configuration.
+
+Inverse-direction crates use `data-inversion-core` to make lossy generation
+explicit: generated text, audio, images, and video frames carry fidelity,
+confidence, assumptions, and notes for values that were preserved, inferred, or
+interpolated.
 
 For the inter-package API contracts, serialized report shapes, package exports,
 and compatibility rules, see [API Contracts](docs/API_CONTRACTS.md).

@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 default = []
 ffmpeg-backend = []
 ffmpeg-tests = ["ffmpeg-backend", "test-utils"]
+external-tests = ["ffmpeg-tests"]
 test-utils = []
 
 [dependencies]

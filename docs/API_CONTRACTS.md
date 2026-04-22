@@ -16,6 +16,7 @@ crates should compose around those contracts instead of defining parallel types.
 | `video-analysis` | Root facade crate | Library crates except CLI and use cases | Re-exports core items, detector items, and package modules | Applications that want one import surface |
 | `comfyui-data` | ComfyUI workflow and prompt graph data contracts | `serde`, `serde_json` | Workflow JSON nodes, links, groups, validation helpers, API prompt nodes and links | Applications importing, validating, or emitting ComfyUI graphs |
 | `comfyui-models` | ComfyUI model folder and inventory contracts | `serde`, `thiserror` | Core model folder keys, default relative paths, inventory scanning, extra model paths YAML generation | Applications managing shared ComfyUI model libraries |
+| `data-inversion-core` | Shared lossy inverse-conversion metadata | `video-analysis-core` | `InformationFidelity`, `InversionMethod`, `InversionTrace`, generated value wrappers | Synthesis crates and applications that need explicit interpolation/assumption metadata |
 | `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core` | Normalized sample conversion, mono mixing, window functions, frame iteration, streaming frame windows, level helpers | Audio analysis crates and applications |
 | `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
 | `audio-analysis-io` | Audio input convenience facade | `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports | Applications that want audio-specific input APIs |
@@ -24,13 +25,16 @@ crates should compose around those contracts instead of defining parallel types.
 | `audio-analysis-recognition` | Audio similarity and recognition | `audio-analysis-core`, `audio-analysis-fourier`, `video-analysis-core` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events | Applications, audio pipelines, reference matching workflows |
 | `audio-analysis-rhythm` | Rhythm and tempo analysis | `audio-analysis-core`, `video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
+| `audio-analysis-synthesis` | Deterministic inverse audio generation | `data-inversion-core`, `video-analysis-core` | Tone specs, tone timelines, pitch/onset event to tone conversion, synthesized `OwnedAudioFrame` values | Applications prototyping audio from symbolic or analyzed events |
 | `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core` | Borrowed/owned image views, pixel formats, compacting, mean color, luma histograms | Image processing crates, applications, video frame preprocessing |
 | `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains | Applications, preprocessing workflows |
+| `image-analysis-synthesis` | Deterministic inverse image generation | `data-inversion-core`, `image-analysis-core`, `video-analysis-core` | Solid images, gradients, luma-histogram expansion, region painting | Applications reconstructing approximate image buffers from summaries or regions |
 | `text-analysis-corpus` | Corpus-scale text statistics and TF-IDF | `text-analysis-core`, `video-analysis-core` | Corpus options, indexed document term counts, corpus term stats, TF-IDF scores, TF-IDF cosine search | Applications, text analytics, semantic indexing |
 | `text-analysis-core` | Shared text analysis utilities | `video-analysis-core`, `unicode-normalization` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
 | `text-analysis-features` | Text feature extraction | `text-analysis-core`, `video-analysis-core` | Stop words, keywords, readability, pattern detection, reusable text analyzers, term frequencies, character/token n-grams | Applications, text pipelines, downstream text analytics |
 | `text-analysis-prediction` | Text prediction models | `text-analysis-core`, `video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring | Applications, text pipelines, prototyping |
 | `text-analysis-semantics` | Lightweight semantic text analysis | `text-analysis-core`, `text-analysis-corpus`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core` | Hashed text embeddings, semantic search, text similarity, co-occurrence graphs, related-term scoring | Applications, search, semantic analysis prototypes |
+| `text-analysis-synthesis` | Deterministic inverse text generation | `data-inversion-core`, `text-analysis-core`, `video-analysis-core` | Weighted term prompts, term/event to document generation, generated text segments | Applications turning features/events back into approximate prose |
 | `text-analysis-transcription` | Reusable transcript parsing and ASR command wrappers | `video-analysis-core`, `video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, text segment source adapter | Use cases, applications, text pipelines |
 | `dense-data` | Generic dense point aggregation and clustering | `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, bounds, fixed-grid buckets, deterministic k-means clusters | Tables, graphs, charts, maps, media features, and analytics workflows |
 | `vector-analysis-core` | Dense vector contracts and metrics | `video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
@@ -43,6 +47,7 @@ crates should compose around those contracts instead of defining parallel types.
 | `video-analysis-transform` | Deterministic dataset transformations | `video-analysis-dataset` | Filtering, time windows, scene grouping, time/frame joins, dedupe, merge, numeric feature resampling | Feature extraction and applications |
 | `video-analysis-features` | Reusable feature extraction over retained datasets | `video-analysis-core`, `video-analysis-dataset`, `video-analysis-transform` | Scene stats, label histograms, transcript stats, audio event stats, track summaries, vector means | Applications and downstream ML/analytics workflows |
 | `video-analysis-storage` | Retained dataset persistence | `video-analysis-dataset`, `serde`, `serde_json`, `thiserror` | JSON/JSONL writers and readers plus dataset manifests | Applications and automation |
+| `video-analysis-synthesis` | Deterministic inverse video frame/storyboard generation | `data-inversion-core`, `num-rational`, `video-analysis-core` | Frame synthesis specs, region outlines, observation storyboards, generated `OwnedVideoFrame` values | Applications visualizing analyzed observations as approximate frames |
 | `video-analysis-detectors` | Scene detector implementations | `video-analysis-core` | `SceneDetector` implementations, scoring algorithms, composite detector contracts | CLI, use cases, applications |
 | `video-analysis-editing` | Classic CPU media editing primitives | `video-analysis-core` | Frame crop, blur, grayscale, inversion, brightness/contrast, 3x3 filters, and `FrameEditor` chains | Applications, preprocessing workflows, future media export flows |
 | `video-analysis-ingest` | Source abstraction layer | `video-analysis-core` | Media/source metadata, source traits, source-to-pipeline adapter helpers, text line source | FFmpeg crate, use cases, applications |
@@ -248,6 +253,33 @@ maps, and feature-derived media timelines.
 Dense data points intentionally do not prescribe axis semantics. Callers should
 map table columns, graph/layout coordinates, longitude/latitude, embedding
 dimensions, or media time/features into coordinates at the boundary.
+
+## Inversion And Synthesis Contracts
+
+The synthesis crates cover inverse directions where analysis has discarded
+detail. They should expose that loss explicitly instead of presenting generated
+data as recovered source material.
+
+- `data-inversion-core` owns `InformationFidelity`, `InversionMethod`,
+  `InversionTrace`, and `Generated<T>`. Synthesis crates should attach traces
+  that identify source and target types, confidence, assumptions, and fields
+  that were preserved, inferred, interpolated, templated, or defaulted.
+- `audio-analysis-synthesis` turns tone timelines and supported
+  `AnalysisEvent` labels such as pitch and onset events into `OwnedAudioFrame`
+  values. It uses deterministic analytic waveforms and records that samples are
+  interpolated from symbolic data.
+- `image-analysis-synthesis` turns colors, color stops, luma histograms, and
+  regions into `OwnedImage` buffers. Histogram and region layouts are
+  deterministic approximations because the original spatial detail is not
+  recoverable.
+- `text-analysis-synthesis` turns weighted terms or analyzer events into
+  `OwnedTextDocument` and `OwnedTextSegment` values using deterministic
+  templates. It preserves term prominence but treats syntax and term
+  relationships as inferred.
+- `video-analysis-synthesis` turns frame specs or observations into
+  `OwnedVideoFrame` storyboards. It preserves frame positions and regions when
+  available, while labels, missing regions, and pixels are heuristic visual
+  encodings.
 
 ## Ingest Contracts
 

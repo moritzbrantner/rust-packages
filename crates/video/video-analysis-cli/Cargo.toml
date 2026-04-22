@@ -20,3 +20,8 @@ video-analysis-ffmpeg.workspace = true
 video-analysis-models.workspace = true
 video-analysis-output.workspace = true
 video-analysis-split.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+video-analysis-ffmpeg = { workspace = true, features = ["test-utils"] }
+video-analysis-test-support.workspace = true

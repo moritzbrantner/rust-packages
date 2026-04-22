@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cargo test --workspace --all-targets
-cargo clippy --workspace --all-targets -- -D warnings
-bun run ui:build
-bun run web:build
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-cat <<'MSG'
-
-Optional FFmpeg integration coverage:
-  cargo test -p video-analysis-ffmpeg --features ffmpeg-tests
-MSG
+"$ROOT_DIR/scripts/check-fast.sh"
+cargo test -p video-analysis-ffmpeg --features ffmpeg-tests
+"$ROOT_DIR/scripts/check-e2e.sh"
