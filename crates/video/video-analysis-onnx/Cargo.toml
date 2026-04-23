@@ -1,0 +1,24 @@
+[package]
+name = "video-analysis-onnx"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "ONNX-backed video model inference adapters for video-analysis."
+
+[dependencies]
+image-analysis-core.workspace = true
+image-analysis-processing.workspace = true
+ort = { workspace = true, optional = true }
+serde_json.workspace = true
+video-analysis-core.workspace = true
+video-analysis-models.workspace = true
+
+[features]
+default = []
+onnxruntime = ["dep:ort"]
+external-tests = ["onnxruntime"]
+
+[dev-dependencies]
+num-rational.workspace = true
+tempfile.workspace = true
+video-analysis-test-support.workspace = true

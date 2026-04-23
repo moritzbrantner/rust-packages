@@ -11,9 +11,13 @@ Current state:
 - `video-analysis-use-cases` can already attach external object, OCR, and text
   model commands to the `youtube-video` workflow.
 - `video-analysis-cli` currently exposes scene detection/list/split plus model
-  preset/download/inspect commands. It does not run model inference.
-- The workspace has no ONNX Runtime, Candle, tokenizers, safetensors, ndarray,
-  or image preprocessing dependency yet.
+  preset/download/inspect commands. It also parses `models run` for raw
+  RGB/BGR frame inference, gated behind CLI ONNX features.
+- `text-analysis-models` now owns optional tokenizer, ONNX, and Candle-backed
+  text execution surfaces.
+- `video-analysis-onnx` now owns the first native vision backend surface:
+  object-detection bundle validation, image preprocessing, fake-runner decoding
+  tests, and optional `onnxruntime` execution for DETR/YOLOS-style outputs.
 - Optional Python dependencies for model-backend experiments can be installed
   idempotently with `scripts/setup_model_external_tools.sh`.
 
@@ -36,6 +40,8 @@ Rationale:
   target.
 
 ### Thread A: Backend Crate Skeleton
+
+Status: implemented as `video-analysis-onnx`.
 
 Add a new crate:
 
@@ -112,14 +118,15 @@ impl VisionModelBackend for OnnxModelBackend {
 
 Acceptance criteria:
 
-- Can load a bundle containing one `.onnx` file and `config.json`.
+- Can load a bundle containing one `.onnx` file and `config.json`. Done.
 - Validates there is exactly one supported ONNX model file, or returns
   `DetectError::InvalidArgument`.
 - Produces deterministic `RawPrediction` values from a fake/session test double
-  without network access.
-- Has one ignored external test that downloads/materializes a tiny ONNX-capable
-  model bundle and runs one inference on a synthetic frame.
+  without network access. Done.
+- Has one ignored external test placeholder for a tiny ONNX-capable model
+  bundle.
 - Does not make ONNX Runtime a required dependency for the whole workspace.
+  Done.
 
 Tests to add:
 
@@ -201,6 +208,10 @@ Tests:
 ### Thread D: Model Inference Command
 
 Add after a backend crate exists:
+
+Status: implemented for raw RGB/BGR frames and DETR/YOLOS-style ONNX outputs
+behind `video-analysis-cli --features onnxruntime`. The remaining CLI milestone
+is sampled video/report integration through `vanalyze analyze`.
 
 ```bash
 vanalyze models run \

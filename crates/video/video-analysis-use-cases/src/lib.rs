@@ -107,19 +107,14 @@ pub struct ExternalCommandConfig {
     pub args: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TranscriptionEngine {
+    #[default]
     Whisper,
     #[serde(alias = "fast_whisper")]
     FasterWhisper,
     WhisperX,
-}
-
-impl Default for TranscriptionEngine {
-    fn default() -> Self {
-        Self::Whisper
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -178,32 +173,22 @@ impl YoutubeRunRequest {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum MetadataDepth {
     Fast,
+    #[default]
     EnrichedWhenNeeded,
     Full,
 }
 
-impl Default for MetadataDepth {
-    fn default() -> Self {
-        Self::EnrichedWhenNeeded
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AlreadyDownloadedPolicy {
     Include,
     Skip,
+    #[default]
     Reuse,
-}
-
-impl Default for AlreadyDownloadedPolicy {
-    fn default() -> Self {
-        Self::Reuse
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -221,18 +206,13 @@ pub struct ManifestFilterSpec {
     pub already_downloaded: AlreadyDownloadedPolicy,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FailedProbeBehavior {
+    #[default]
     Failed,
     Include,
     Filtered,
-}
-
-impl Default for FailedProbeBehavior {
-    fn default() -> Self {
-        Self::Failed
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -781,11 +761,9 @@ pub fn discover_youtube_collection_manifest(
     if needs_enrichment {
         enrich_manifest_items(&mut manifest)?;
     }
-    manifest.items = manifest
+    manifest
         .items
-        .into_iter()
-        .filter(|item| metadata_filter_matches(item, &request.metadata_filter))
-        .collect();
+        .retain(|item| metadata_filter_matches(item, &request.metadata_filter));
     Ok(manifest)
 }
 
@@ -1279,11 +1257,12 @@ fn enrich_manifest_items(manifest: &mut YoutubeCollectionManifest) -> Result<()>
 }
 
 fn source_url_from_entry(entry: &YtDlpEntryJson) -> String {
-    for value in [&entry.webpage_url, &entry.original_url, &entry.url] {
-        if let Some(value) = value {
-            if value.starts_with("http://") || value.starts_with("https://") {
-                return value.clone();
-            }
+    for value in [&entry.webpage_url, &entry.original_url, &entry.url]
+        .into_iter()
+        .flatten()
+    {
+        if value.starts_with("http://") || value.starts_with("https://") {
+            return value.clone();
         }
     }
     if let Some(id) = entry.id.as_deref().or(entry.url.as_deref()) {

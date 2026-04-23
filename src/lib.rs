@@ -34,6 +34,8 @@ pub use video_analysis_ffmpeg as ffmpeg;
 pub use video_analysis_gaussian_splatting as gaussian_splatting;
 pub use video_analysis_ingest as ingest;
 pub use video_analysis_models as models;
+#[cfg(feature = "onnx-backend")]
+pub use video_analysis_onnx as onnx;
 pub use video_analysis_output as output;
 pub use video_analysis_posture as posture;
 pub use video_analysis_radiance_fields as radiance_fields;

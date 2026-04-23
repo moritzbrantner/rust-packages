@@ -699,16 +699,10 @@ pub fn softmax(logits: &[f32]) -> Vec<f32> {
 
 fn classifier_architecture_from_config(config: &Value) -> Result<CandleClassifierArchitecture> {
     let architectures = architectures_from_config(config);
-    if architectures
-        .iter()
-        .any(|architecture| *architecture == "DistilBertForSequenceClassification")
-    {
+    if architectures.contains(&"DistilBertForSequenceClassification") {
         return Ok(CandleClassifierArchitecture::DistilBert);
     }
-    if architectures
-        .iter()
-        .any(|architecture| *architecture == "BertForSequenceClassification")
-    {
+    if architectures.contains(&"BertForSequenceClassification") {
         return Ok(CandleClassifierArchitecture::Bert);
     }
     Err(invalid_argument(format!(
@@ -723,10 +717,7 @@ fn classifier_architecture_from_config(config: &Value) -> Result<CandleClassifie
 
 fn embedding_architecture_from_config(config: &Value) -> Result<CandleEmbeddingArchitecture> {
     let architectures = architectures_from_config(config);
-    if architectures
-        .iter()
-        .any(|architecture| *architecture == "DistilBertModel")
-    {
+    if architectures.contains(&"DistilBertModel") {
         return Ok(CandleEmbeddingArchitecture::DistilBert);
     }
     if architectures

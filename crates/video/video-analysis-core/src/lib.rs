@@ -1035,7 +1035,7 @@ impl<A: VideoAnalyzer> VideoAnalyzer for SampledVideoAnalyzer<A> {
     }
 
     fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<Observation>> {
-        if frame.position.frame_index % self.every == 0 {
+        if frame.position.frame_index.is_multiple_of(self.every) {
             self.inner.process_frame(frame)
         } else {
             Ok(Vec::new())

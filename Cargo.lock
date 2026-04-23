@@ -2733,6 +2733,7 @@ dependencies = [
  "video-analysis-gaussian-splatting",
  "video-analysis-ingest",
  "video-analysis-models",
+ "video-analysis-onnx",
  "video-analysis-output",
  "video-analysis-posture",
  "video-analysis-radiance-fields",
@@ -2753,11 +2754,13 @@ name = "video-analysis-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "serde_json",
  "tempfile",
  "video-analysis-core",
  "video-analysis-detectors",
  "video-analysis-ffmpeg",
  "video-analysis-models",
+ "video-analysis-onnx",
  "video-analysis-output",
  "video-analysis-split",
  "video-analysis-test-support",
@@ -2853,6 +2856,21 @@ dependencies = [
  "serde_json",
  "tempfile",
  "video-analysis-core",
+ "video-analysis-test-support",
+]
+
+[[package]]
+name = "video-analysis-onnx"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-core",
+ "image-analysis-processing",
+ "num-rational",
+ "ort",
+ "serde_json",
+ "tempfile",
+ "video-analysis-core",
+ "video-analysis-models",
  "video-analysis-test-support",
 ]
 

@@ -457,7 +457,7 @@ pub fn extractive_summary(
             .then_with(|| left.index.cmp(&right.index))
     });
     ranked.truncate(options.max_sentences);
-    ranked.sort_by(|left, right| left.index.cmp(&right.index));
+    ranked.sort_by_key(|sentence| sentence.index);
     Ok(ranked)
 }
 

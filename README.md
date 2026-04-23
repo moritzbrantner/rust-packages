@@ -99,6 +99,9 @@ Rust crates are grouped under `crates/` by input or integration domain:
 - `video-analysis-models`: Hugging Face model downloads plus normalized model
   adapter contracts for object, scene, and text/semantic analyzers, including
   ONNX-friendly Xenova text presets.
+- `video-analysis-onnx`: ONNX object-detection bundle validation,
+  preprocessing, fake-runner seams, and optional DETR/YOLOS-style runtime
+  execution.
 - `video-analysis-tracking`: IoU-based object tracking contracts and a
   `VideoAnalyzer` adapter that emits tracked object observations.
 - `video-analysis-posture`: pose/keypoint contracts, skeleton helpers, joint
@@ -261,6 +264,7 @@ flowchart LR
     output[video-analysis-output]
     split[video-analysis-split]
     models[video-analysis-models]
+    onnx[video-analysis-onnx]
     tracking[video-analysis-tracking]
     posture[video-analysis-posture]
     editing[video-analysis-editing]
@@ -315,6 +319,10 @@ flowchart LR
     output --> core
     split --> core
     models --> core
+    onnx --> core
+    onnx --> models
+    onnx --> imagecore
+    onnx --> imageprocessing
     tracking --> core
     posture --> core
     editing --> core
@@ -337,6 +345,7 @@ flowchart LR
     root --> ingest
     root --> ffmpeg
     root --> models
+    root -. onnx-backend .-> onnx
     root --> tracking
     root --> posture
     root --> editing
@@ -621,6 +630,19 @@ cargo run -p video-analysis-cli -- models inspect \
   --bundle-dir .video-analysis-models
 ```
 
+Raw RGB/BGR frame model inference is exposed behind the CLI `onnxruntime`
+feature:
+
+```bash
+cargo run -p video-analysis-cli --features onnxruntime -- models run \
+  --manifest .video-analysis-models/yolos-tiny/main/manifest.json \
+  --backend onnx \
+  --input frame.rgb \
+  --width 640 \
+  --height 480 \
+  --pixel-format rgb24
+```
+
 Custom repositories are also supported when the files are known:
 
 ```bash
@@ -686,6 +708,12 @@ coordinates, missing labels, minimum score filtering, and same-label
 non-maximum suppression. `ModelVideoAnalyzer` emits core `Observation` values;
 `ModelTextAnalyzer` emits core `AnalysisEvent` values with dynamic semantic
 labels.
+
+`video-analysis-onnx` provides the first native vision backend surface for
+object-detection bundles. Default builds keep runtime execution optional:
+deterministic tests use an injected runner, while `onnxruntime` gates native
+ONNX execution for models that return DETR/YOLOS-style logits plus
+center-format boxes.
 
 For model APIs that do not have a native Rust runtime yet, `ExternalCommandModel`
 passes a JSON request to any executable over stdin and expects normalized JSON

@@ -48,6 +48,7 @@ members = [
     "crates/video/video-analysis-gaussian-splatting",
     "crates/video/video-analysis-ingest",
     "crates/video/video-analysis-models",
+    "crates/video/video-analysis-onnx",
     "crates/video/video-analysis-output",
     "crates/video/video-analysis-posture",
     "crates/video/video-analysis-radiance-fields",
@@ -127,6 +128,7 @@ video-analysis-ffmpeg = { path = "crates/video/video-analysis-ffmpeg" }
 video-analysis-gaussian-splatting = { path = "crates/video/video-analysis-gaussian-splatting" }
 video-analysis-ingest = { path = "crates/video/video-analysis-ingest" }
 video-analysis-models = { path = "crates/video/video-analysis-models" }
+video-analysis-onnx = { path = "crates/video/video-analysis-onnx" }
 video-analysis-output = { path = "crates/video/video-analysis-output" }
 video-analysis-posture = { path = "crates/video/video-analysis-posture" }
 video-analysis-radiance-fields = { path = "crates/video/video-analysis-radiance-fields" }
@@ -145,6 +147,7 @@ video-analysis-use-cases = { path = "crates/video/video-analysis-use-cases" }
 default = []
 ffmpeg-backend = ["video-analysis-ffmpeg/ffmpeg-backend"]
 ffmpeg-tests = ["ffmpeg-backend"]
+onnx-backend = ["dep:video-analysis-onnx"]
 
 [dependencies]
 video-analysis-core.workspace = true
@@ -157,6 +160,7 @@ video-analysis-ffmpeg.workspace = true
 video-analysis-gaussian-splatting.workspace = true
 video-analysis-ingest.workspace = true
 video-analysis-models.workspace = true
+video-analysis-onnx = { workspace = true, optional = true }
 video-analysis-output.workspace = true
 video-analysis-posture.workspace = true
 video-analysis-radiance-fields.workspace = true

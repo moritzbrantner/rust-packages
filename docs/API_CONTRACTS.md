@@ -54,6 +54,7 @@ crates should compose around those contracts instead of defining parallel types.
 | `video-analysis-ingest` | Source abstraction layer | `video-analysis-core` | Media/source metadata, source traits, source-to-pipeline adapter helpers, text line source | FFmpeg crate, use cases, applications |
 | `video-analysis-ffmpeg` | FFmpeg-backed media probing and decoding | `video-analysis-core`, `video-analysis-ingest` | FFmpeg video/audio sources, metadata, probe helpers, source options | CLI, use cases, applications |
 | `video-analysis-models` | Model download, backend, normalization, and external command contracts | `video-analysis-core` | Hugging Face specs/downloads, raw and normalized predictions, model analyzer adapters, external command protocol | CLI model commands, use cases, applications |
+| `video-analysis-onnx` | Optional ONNX vision model backend adapters | `video-analysis-core`, `video-analysis-models`, image crates, optional `ort` | Object-detection bundle validation, image preprocessing, fake-runner seam, optional DETR/YOLOS-style ONNX runtime execution | Native vision inference experiments and CLI feature builds |
 | `video-analysis-tracking` | Object tracking over frame detections | `video-analysis-core` | `TrackedDetection`, `IouTracker`, tracking options, object-detection backend trait, analyzer adapter | Applications, use cases, model-backed detection pipelines |
 | `video-analysis-posture` | Pose and posture estimation contracts | `video-analysis-core` | Keypoints, skeletons, pose estimates, posture backend trait, analyzer adapter, joint angle helpers | Applications, use cases, model-backed posture workflows |
 | `video-analysis-recognition` | Reference-embedding identity matching | `video-analysis-core` | Reference libraries, normalized embeddings, recognition candidates/matches, temporal aggregation, video analyzer adapter | Applications, use cases, model-backed face/object recognition |
@@ -498,6 +499,15 @@ Text model presets include ONNX-friendly Hugging Face repos:
   `tokenizer_config.json`, and the first available ONNX file from
   `onnx/model.onnx` or `onnx/model_quantized.onnx`.
 
+`video-analysis-onnx` owns native vision-model bundle adaptation. Its default
+build validates object-detection bundles, reads `id2label`, parses
+preprocessor size/rescale/mean/std metadata, converts frames into NCHW tensors,
+and decodes runner outputs into `RawPrediction::object` values. The
+`onnxruntime` feature gates the optional `ort` dependency and executes
+DETR/YOLOS-style ONNX sessions that return logits plus center-format boxes.
+Deterministic tests inject a fake runner so normal workspace checks do not
+download or execute model artifacts.
+
 ## Recognition Contracts
 
 `video-analysis-recognition` implements reference-based identity recognition for
@@ -849,6 +859,10 @@ The command contracts are:
   files into a local bundle directory with a manifest.
 - `vanalyze models inspect`: loads a model bundle by manifest path or
   name/revision and prints its identity plus materialized files.
+- `vanalyze models run`: loads a raw RGB/BGR frame and emits JSON model
+  predictions. ONNX execution requires building the CLI with `onnxruntime`;
+  the lighter `onnx` feature only enables bundle validation and the command
+  surface.
 
 `video-analysis-use-cases` exposes runnable workflows. The current workflow is:
 

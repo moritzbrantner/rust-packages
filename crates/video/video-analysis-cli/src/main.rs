@@ -3,7 +3,7 @@ use std::fs::File;
 use std::path::PathBuf;
 
 use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
-use video_analysis_core::{Result, SceneDetector, ScenePipeline};
+use video_analysis_core::{DetectError, PixelFormat, Result, SceneDetector, ScenePipeline};
 use video_analysis_detectors::{
     AdaptiveDetector, AdaptiveScoreAlgorithm, ContentDetector, ContentScoreAlgorithm, HashDetector,
     HashScoreAlgorithm, HistogramDetector, HistogramScoreAlgorithm, ThresholdDetector,
@@ -69,6 +69,7 @@ enum ModelsCommand {
     Presets,
     Download(ModelDownloadArgs),
     Inspect(ModelInspectArgs),
+    Run(ModelRunArgs),
 }
 
 #[derive(Debug, Parser)]
@@ -115,6 +116,44 @@ struct ModelInspectArgs {
     revision: String,
     #[arg(long, default_value = ".video-analysis-models", requires = "name")]
     bundle_dir: PathBuf,
+}
+
+#[derive(Debug, Parser)]
+struct ModelRunArgs {
+    #[arg(long)]
+    manifest: PathBuf,
+    #[arg(long, value_enum)]
+    backend: ModelBackendKind,
+    #[arg(long)]
+    input: PathBuf,
+    #[arg(long)]
+    width: u32,
+    #[arg(long)]
+    height: u32,
+    #[arg(long, value_enum, default_value_t = RawPixelFormatKind::Rgb24)]
+    pixel_format: RawPixelFormatKind,
+    #[arg(long)]
+    output: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum ModelBackendKind {
+    Onnx,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum RawPixelFormatKind {
+    Rgb24,
+    Bgr24,
+}
+
+impl From<RawPixelFormatKind> for PixelFormat {
+    fn from(value: RawPixelFormatKind) -> Self {
+        match value {
+            RawPixelFormatKind::Rgb24 => Self::Rgb24,
+            RawPixelFormatKind::Bgr24 => Self::Bgr24,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Parser)]
@@ -296,6 +335,7 @@ fn main() -> Result<()> {
             ModelsCommand::Presets => list_model_presets(),
             ModelsCommand::Download(args) => download_model(args)?,
             ModelsCommand::Inspect(args) => inspect_model_bundle(args)?,
+            ModelsCommand::Run(args) => run_model(args)?,
         },
     }
     Ok(())
@@ -364,6 +404,56 @@ fn inspect_model_bundle(args: ModelInspectArgs) -> Result<()> {
     };
     print!("{}", format_model_bundle(&bundle));
     Ok(())
+}
+
+fn run_model(args: ModelRunArgs) -> Result<()> {
+    match args.backend {
+        ModelBackendKind::Onnx => run_onnx_model(args),
+    }
+}
+
+#[cfg(feature = "onnx")]
+fn run_onnx_model(args: ModelRunArgs) -> Result<()> {
+    let bundle = ModelBundle::load(args.manifest)?;
+    let data = std::fs::read(&args.input)?;
+    let frame = video_analysis_core::VideoFrame::packed(
+        video_analysis_core::FramePosition {
+            frame_index: 0,
+            timestamp: video_analysis_core::Timestamp::new(
+                0,
+                video_analysis_core::Timebase::new(1, 1),
+            ),
+        },
+        args.width,
+        args.height,
+        args.pixel_format.into(),
+        &data,
+        args.width as usize * 3,
+    )?;
+    let mut backend = video_analysis_onnx::OnnxObjectDetector::from_bundle(bundle)?;
+    let predictions =
+        video_analysis_models::VisionModelBackend::predict_frame(&mut backend, &frame)?;
+    if let Some(path) = args.output {
+        if let Some(parent) = path.parent().filter(|path| !path.as_os_str().is_empty()) {
+            std::fs::create_dir_all(parent)?;
+        }
+        serde_json::to_writer_pretty(File::create(path)?, &predictions).map_err(|err| {
+            DetectError::Source(format!("failed to write model predictions JSON: {err}"))
+        })?;
+    } else {
+        serde_json::to_writer_pretty(std::io::stdout(), &predictions).map_err(|err| {
+            DetectError::Source(format!("failed to write model predictions JSON: {err}"))
+        })?;
+        println!();
+    }
+    Ok(())
+}
+
+#[cfg(not(feature = "onnx"))]
+fn run_onnx_model(_args: ModelRunArgs) -> Result<()> {
+    Err(DetectError::InvalidArgument(
+        "`vanalyze models run --backend onnx` requires building video-analysis-cli with the `onnx` or `onnxruntime` feature".to_string(),
+    ))
 }
 
 fn format_model_bundle(bundle: &ModelBundle) -> String {
@@ -790,6 +880,43 @@ mod tests {
         let err = Cli::try_parse_from(["vanalyze", "models", "inspect"]).unwrap_err();
 
         assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+    }
+
+    #[test]
+    fn model_run_accepts_onnx_raw_frame_input() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "run",
+            "--manifest",
+            "models/yolos-tiny/main/manifest.json",
+            "--backend",
+            "onnx",
+            "--input",
+            "frame.rgb",
+            "--width",
+            "640",
+            "--height",
+            "480",
+            "--pixel-format",
+            "rgb24",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Models(ModelsArgs {
+                command: ModelsCommand::Run(args),
+            }) => {
+                assert_eq!(
+                    args.manifest,
+                    PathBuf::from("models/yolos-tiny/main/manifest.json")
+                );
+                assert_eq!(args.input, PathBuf::from("frame.rgb"));
+                assert_eq!(args.width, 640);
+                assert_eq!(args.height, 480);
+            }
+            _ => panic!("expected models run command"),
+        }
     }
 
     #[test]
