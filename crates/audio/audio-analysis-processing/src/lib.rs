@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 
 use audio_analysis_core::{interleaved_to_mono, normalized_samples, ChannelMix};
-use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, OwnedAudioFrame, Result};
+use video_analysis_core::{
+    AnalysisEvent, AudioAnalyzer, AudioBuffer, AudioFrame, DetectError, OwnedAudioFrame, Result,
+};
 use video_analysis_ingest::{AudioFrameSource, MediaSourceInfo};
 
 pub trait AudioTransform {
@@ -427,6 +429,95 @@ pub fn process_audio_source<S: AudioFrameSource>(
     Ok(frames)
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioEnergyAnalyzer {
+    silence_threshold: f32,
+    loud_threshold: f32,
+    current_label: Option<String>,
+}
+
+impl AudioEnergyAnalyzer {
+    pub fn new(silence_threshold: f32, loud_threshold: f32) -> Result<Self> {
+        if !silence_threshold.is_finite()
+            || !loud_threshold.is_finite()
+            || silence_threshold < 0.0
+            || loud_threshold <= silence_threshold
+        {
+            return Err(DetectError::InvalidArgument(
+                "audio energy thresholds must be finite and ordered".to_string(),
+            ));
+        }
+        Ok(Self {
+            silence_threshold,
+            loud_threshold,
+            current_label: None,
+        })
+    }
+
+    pub fn rms(buffer: &AudioBuffer) -> f32 {
+        audio_buffer_rms(buffer)
+    }
+}
+
+impl Default for AudioEnergyAnalyzer {
+    fn default() -> Self {
+        Self {
+            silence_threshold: 0.01,
+            loud_threshold: 0.2,
+            current_label: None,
+        }
+    }
+}
+
+impl AudioAnalyzer for AudioEnergyAnalyzer {
+    fn name(&self) -> &str {
+        "audio_energy"
+    }
+
+    fn process_frame(&mut self, frame: &AudioFrame<'_>) -> Result<Vec<AnalysisEvent>> {
+        let rms = audio_buffer_rms(frame.data);
+        let label = if rms < self.silence_threshold {
+            "audio:silence"
+        } else if rms > self.loud_threshold {
+            "audio:loud"
+        } else {
+            "audio:active"
+        };
+        if self.current_label.as_deref() == Some(label) {
+            return Ok(Vec::new());
+        }
+        self.current_label = Some(label.to_string());
+        Ok(vec![AnalysisEvent::new(self.name(), label)
+            .at_timestamp(frame.timestamp)
+            .score(rms)])
+    }
+}
+
+pub fn audio_buffer_rms(buffer: &AudioBuffer) -> f32 {
+    let (sum, count) = match buffer {
+        AudioBuffer::U8(values) => values.iter().fold((0.0, 0_usize), |(sum, count), value| {
+            let sample = (*value as f32 - 128.0) / 128.0;
+            (sum + sample * sample, count + 1)
+        }),
+        AudioBuffer::I16(values) => values.iter().fold((0.0, 0_usize), |(sum, count), value| {
+            let sample = *value as f32 / i16::MAX as f32;
+            (sum + sample * sample, count + 1)
+        }),
+        AudioBuffer::I32(values) => values.iter().fold((0.0, 0_usize), |(sum, count), value| {
+            let sample = *value as f32 / i32::MAX as f32;
+            (sum + sample * sample, count + 1)
+        }),
+        AudioBuffer::F32(values) => values.iter().fold((0.0, 0_usize), |(sum, count), value| {
+            (sum + value * value, count + 1)
+        }),
+    };
+    if count == 0 {
+        0.0
+    } else {
+        (sum / count as f32).sqrt()
+    }
+}
+
 fn map_samples(frame: &AudioFrame<'_>, mut map: impl FnMut(f32) -> f32) -> Result<OwnedAudioFrame> {
     let samples = normalized_interleaved(frame)?
         .into_iter()
@@ -515,7 +606,7 @@ mod tests {
     use super::*;
     use audio_analysis_test_support::assert_approx_eq;
     use proptest::prelude::*;
-    use video_analysis_core::{AnalysisEvent, AudioAnalyzer, AudioPipeline, Timebase, Timestamp};
+    use video_analysis_core::{AudioPipeline, Timebase, Timestamp};
     use video_analysis_ingest::{analyze_audio_source, AudioStreamInfo, SourceMode};
 
     fn frame(samples: Vec<f32>, channels: u16) -> OwnedAudioFrame {
@@ -820,6 +911,28 @@ mod tests {
         assert_eq!(frames.len(), 2);
         assert_eq!(samples(&frames[0]), &[0.5]);
         assert_eq!(samples(&frames[1]), &[1.0]);
+    }
+
+    #[test]
+    fn audio_energy_analyzer_emits_only_label_changes() {
+        let mut analyzer = AudioEnergyAnalyzer::default();
+        let silence = frame(vec![0.0; 16], 1);
+        let active = frame(vec![0.05; 16], 1);
+        let loud = frame(vec![0.5; 16], 1);
+
+        let first = analyzer
+            .process_frame(&silence.as_frame().unwrap())
+            .unwrap();
+        let repeated = analyzer
+            .process_frame(&silence.as_frame().unwrap())
+            .unwrap();
+        let active = analyzer.process_frame(&active.as_frame().unwrap()).unwrap();
+        let loud = analyzer.process_frame(&loud.as_frame().unwrap()).unwrap();
+
+        assert_eq!(first[0].label, "audio:silence");
+        assert!(repeated.is_empty());
+        assert_eq!(active[0].label, "audio:active");
+        assert_eq!(loud[0].label, "audio:loud");
     }
 
     #[test]

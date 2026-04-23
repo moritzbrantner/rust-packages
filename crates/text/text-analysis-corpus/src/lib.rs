@@ -69,12 +69,177 @@ pub struct DocumentSearchResult {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Bm25Options {
+    pub k1: f32,
+    pub b: f32,
+    pub min_term_len: usize,
+    pub stop_words: BTreeSet<String>,
+}
+
+impl Default for Bm25Options {
+    fn default() -> Self {
+        Self {
+            k1: 1.2,
+            b: 0.75,
+            min_term_len: 1,
+            stop_words: BTreeSet::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Bm25SearchResult {
+    pub id: String,
+    pub score: f32,
+    pub matched_terms: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TfIdfCorpus {
     options: CorpusOptions,
     documents: Vec<IndexedDocument>,
     document_frequency: BTreeMap<String, usize>,
     collection_counts: BTreeMap<String, usize>,
     total_terms: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Bm25Corpus {
+    options: Bm25Options,
+    documents: Vec<IndexedDocument>,
+    document_frequency: BTreeMap<String, usize>,
+    total_terms: usize,
+}
+
+impl Default for Bm25Corpus {
+    fn default() -> Self {
+        Self::new(Bm25Options::default())
+    }
+}
+
+impl Bm25Corpus {
+    pub fn new(options: Bm25Options) -> Self {
+        Self {
+            options,
+            documents: Vec::new(),
+            document_frequency: BTreeMap::new(),
+            total_terms: 0,
+        }
+    }
+
+    pub fn options(&self) -> &Bm25Options {
+        &self.options
+    }
+
+    pub fn len(&self) -> usize {
+        self.documents.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.documents.is_empty()
+    }
+
+    pub fn documents(&self) -> &[IndexedDocument] {
+        &self.documents
+    }
+
+    pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<usize> {
+        self.add_document(document.id, document.text)
+    }
+
+    pub fn add_document(&mut self, id: impl Into<String>, text: &str) -> Result<usize> {
+        let id = id.into();
+        if id.trim().is_empty() {
+            return Err(invalid_argument("document id must not be empty"));
+        }
+        if self.documents.iter().any(|document| document.id == id) {
+            return Err(invalid_argument(format!(
+                "document id `{id}` already exists"
+            )));
+        }
+        if self.options.k1 <= 0.0 || !self.options.k1.is_finite() {
+            return Err(invalid_argument(
+                "BM25 k1 must be finite and greater than zero",
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.options.b) || !self.options.b.is_finite() {
+            return Err(invalid_argument(
+                "BM25 b must be finite and between 0 and 1",
+            ));
+        }
+
+        let term_counts = bm25_term_counts(text, &self.options);
+        let indexed = IndexedDocument {
+            id,
+            total_terms: term_counts.values().sum(),
+            term_counts,
+        };
+        for term in indexed.term_counts.keys() {
+            *self.document_frequency.entry(term.clone()).or_insert(0) += 1;
+        }
+        self.total_terms += indexed.total_terms;
+        self.documents.push(indexed);
+        Ok(self.documents.len() - 1)
+    }
+
+    pub fn search(&self, query: &str, limit: usize) -> Result<Vec<Bm25SearchResult>> {
+        if limit == 0 {
+            return Err(invalid_argument("search limit must be greater than zero"));
+        }
+        if self.documents.is_empty() {
+            return Ok(Vec::new());
+        }
+        let query_counts = bm25_term_counts(query, &self.options);
+        if query_counts.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let average_document_len = self.total_terms as f32 / self.documents.len() as f32;
+        let mut results = Vec::new();
+        for document in &self.documents {
+            if document.total_terms == 0 {
+                continue;
+            }
+            let mut score = 0.0_f32;
+            let mut matched_terms = 0;
+            for (term, query_count) in &query_counts {
+                let Some(term_count) = document.term_counts.get(term).copied() else {
+                    continue;
+                };
+                matched_terms += 1;
+                let idf = self.inverse_document_frequency(term);
+                let tf = term_count as f32;
+                let length_factor = 1.0 - self.options.b
+                    + self.options.b * document.total_terms as f32
+                        / average_document_len.max(f32::EPSILON);
+                let numerator = tf * (self.options.k1 + 1.0);
+                let denominator = tf + self.options.k1 * length_factor;
+                score += *query_count as f32 * idf * numerator / denominator;
+            }
+            if matched_terms > 0 {
+                results.push(Bm25SearchResult {
+                    id: document.id.clone(),
+                    score,
+                    matched_terms,
+                });
+            }
+        }
+        results.sort_by(|left, right| {
+            right
+                .score
+                .total_cmp(&left.score)
+                .then_with(|| right.matched_terms.cmp(&left.matched_terms))
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        results.truncate(limit);
+        Ok(results)
+    }
+
+    pub fn inverse_document_frequency(&self, term: &str) -> f32 {
+        let documents = self.documents.len() as f32;
+        let document_count = self.document_frequency.get(term).copied().unwrap_or(0) as f32;
+        (1.0 + (documents - document_count + 0.5) / (document_count + 0.5)).ln()
+    }
 }
 
 impl Default for TfIdfCorpus {
@@ -336,6 +501,17 @@ pub fn term_counts(text: &str, options: &CorpusOptions) -> BTreeMap<String, usiz
     counts
 }
 
+fn bm25_term_counts(text: &str, options: &Bm25Options) -> BTreeMap<String, usize> {
+    term_counts(
+        text,
+        &CorpusOptions {
+            min_term_len: options.min_term_len,
+            stop_words: options.stop_words.clone(),
+            ..CorpusOptions::default()
+        },
+    )
+}
+
 fn retain_top_counts(counts: &BTreeMap<String, usize>, limit: usize) -> BTreeMap<String, usize> {
     let mut ranked = counts.iter().collect::<Vec<_>>();
     ranked.sort_by(|(left_term, left_count), (right_term, right_count)| {
@@ -451,5 +627,38 @@ mod tests {
         let results = corpus.search("cargo crate rust", 1).unwrap();
         assert_eq!(results[0].id, "rust");
         assert!(results[0].score > 0.0);
+    }
+
+    #[test]
+    fn bm25_ranks_documents_and_rejects_duplicates() {
+        let mut corpus = Bm25Corpus::default();
+        corpus
+            .add_document("rust", "rust cargo crates rust ownership")
+            .unwrap();
+        corpus
+            .add_document("video", "frames ffmpeg scene detection")
+            .unwrap();
+
+        assert!(corpus.add_document("rust", "duplicate").is_err());
+        let results = corpus.search("rust cargo", 2).unwrap();
+        assert_eq!(results[0].id, "rust");
+        assert!(results[0].score > 0.0);
+        assert!(corpus.search("!!!", 5).unwrap().is_empty());
+        assert!(corpus.search("rust", 0).is_err());
+    }
+
+    #[test]
+    fn bm25_honors_text_document_and_filters() {
+        let mut stop_words = BTreeSet::new();
+        stop_words.insert("the".to_string());
+        let mut corpus = Bm25Corpus::new(Bm25Options {
+            min_term_len: 4,
+            stop_words,
+            ..Bm25Options::default()
+        });
+        let document = TextDocument::new("doc", "the reliable reliable rust code");
+        corpus.add_text_document(&document).unwrap();
+        assert_eq!(corpus.documents()[0].term_counts.get("the"), None);
+        assert_eq!(corpus.search("reliable", 1).unwrap()[0].id, "doc");
     }
 }

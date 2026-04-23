@@ -191,6 +191,10 @@ enum ModelPresetKind {
     BertBaseNer,
     #[value(name = "minilm-l6-v2")]
     MiniLmL6V2,
+    #[value(name = "xenova-distilbert-sst2-onnx")]
+    XenovaDistilbertSst2Onnx,
+    #[value(name = "xenova-minilm-l6-v2-onnx")]
+    XenovaMiniLmL6V2Onnx,
 }
 
 impl From<ModelPresetKind> for ModelPreset {
@@ -201,6 +205,8 @@ impl From<ModelPresetKind> for ModelPreset {
             ModelPresetKind::DistilbertSst2 => Self::DistilbertSst2,
             ModelPresetKind::BertBaseNer => Self::BertBaseNer,
             ModelPresetKind::MiniLmL6V2 => Self::MiniLmL6V2,
+            ModelPresetKind::XenovaDistilbertSst2Onnx => Self::XenovaDistilbertSst2Onnx,
+            ModelPresetKind::XenovaMiniLmL6V2Onnx => Self::XenovaMiniLmL6V2Onnx,
         }
     }
 }
@@ -659,6 +665,18 @@ mod tests {
             "download",
             "--preset",
             "detr-resnet-50",
+        ])
+        .unwrap();
+    }
+
+    #[test]
+    fn model_download_accepts_onnx_preset_without_files() {
+        Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "download",
+            "--preset",
+            "xenova-distilbert-sst2-onnx",
         ])
         .unwrap();
     }

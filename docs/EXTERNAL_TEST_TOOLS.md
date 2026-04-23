@@ -7,6 +7,21 @@ ignored tool roots instead:
 - `.external-test-tools/` for general video/e2e/radiance tools.
 - `.audio-tools/` for the audio-specific compatibility script.
 
+## Repository Rule
+
+Any package that needs installable external runtime assets must provide
+idempotent scripts under `scripts/`. This includes Python environments, model
+bundles, native CLIs, and similar non-git dependencies.
+
+Required pattern:
+
+- A setup script that is safe to re-run, verifies current state first, and only
+  installs/repairs what is missing or invalid.
+- A check script that verifies availability/integrity but does not install.
+- A default local install root that is gitignored (for example
+  `.external-test-tools/`, `.audio-tools/`, `.video-analysis-models/`).
+- Usage documentation in `README.md` and/or this document.
+
 The setup scripts are idempotent: each tool is verified first, and existing
 working global or local commands are reused. Missing Python CLIs are installed
 into one shared Python virtual environment under the ignored tool root, then

@@ -9,7 +9,7 @@ source "$ROOT_DIR/scripts/lib_external_test_tools.sh"
 
 usage() {
   cat <<'USAGE'
-usage: bash scripts/setup_model_external_tools.sh [python|onnx|transformers|all]...
+usage: bash scripts/setup_model_external_tools.sh [python|onnx|transformers|bundles|all]...
 
 Installs optional model-backend Python dependencies into an ignored local venv.
 The script is idempotent: existing working imports are reused, and missing
@@ -20,6 +20,7 @@ Targets:
   onnx          install numpy, pillow, and onnxruntime
   transformers  install numpy, pillow, torch, transformers, tokenizers,
                 safetensors, and huggingface_hub
+  bundles       verify/download model bundles listed in scripts/model_bundles.lock.sh
   all           install onnx and transformers groups
 
 Environment overrides:
@@ -45,6 +46,9 @@ for target in "${targets[@]}"; do
   case "$target" in
     python|onnx|transformers|all)
       install_model_python_target "$target"
+      ;;
+    bundles)
+      bash "$ROOT_DIR/scripts/sync_model_bundles.sh"
       ;;
     *)
       usage >&2

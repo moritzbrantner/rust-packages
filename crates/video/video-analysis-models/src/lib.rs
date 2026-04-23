@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::str::FromStr;
@@ -147,6 +147,8 @@ pub enum ModelPreset {
     DistilbertSst2,
     BertBaseNer,
     MiniLmL6V2,
+    XenovaDistilbertSst2Onnx,
+    XenovaMiniLmL6V2Onnx,
 }
 
 impl ModelPreset {
@@ -156,6 +158,8 @@ impl ModelPreset {
         Self::DistilbertSst2,
         Self::BertBaseNer,
         Self::MiniLmL6V2,
+        Self::XenovaDistilbertSst2Onnx,
+        Self::XenovaMiniLmL6V2Onnx,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -165,6 +169,8 @@ impl ModelPreset {
             Self::DistilbertSst2 => "distilbert-sst2",
             Self::BertBaseNer => "bert-base-ner",
             Self::MiniLmL6V2 => "minilm-l6-v2",
+            Self::XenovaDistilbertSst2Onnx => "xenova-distilbert-sst2-onnx",
+            Self::XenovaMiniLmL6V2Onnx => "xenova-minilm-l6-v2-onnx",
         }
     }
 
@@ -215,6 +221,27 @@ impl ModelPreset {
             .file("modules.json")
             .optional_file("sentence_bert_config.json")
             .first_available_file(["model.safetensors", "pytorch_model.bin"]),
+            Self::XenovaDistilbertSst2Onnx => HuggingFaceModelSpec::new(
+                "Xenova/distilbert-base-uncased-finetuned-sst-2-english",
+                ModelTask::TextClassification,
+            )
+            .name(self.as_str())
+            .file("config.json")
+            .file("tokenizer.json")
+            .file("tokenizer_config.json")
+            .first_available_file([
+                "onnx/model.onnx",
+                "onnx/model_quantized.onnx",
+                "onnx/model_int8.onnx",
+            ]),
+            Self::XenovaMiniLmL6V2Onnx => {
+                HuggingFaceModelSpec::new("Xenova/all-MiniLM-L6-v2", ModelTask::TextEmbedding)
+                    .name(self.as_str())
+                    .file("config.json")
+                    .file("tokenizer.json")
+                    .file("tokenizer_config.json")
+                    .first_available_file(["onnx/model.onnx", "onnx/model_quantized.onnx"])
+            }
         }
     }
 }
@@ -459,12 +486,30 @@ impl ModelBundleStore {
             if let Some(parent) = destination_path.parent() {
                 fs::create_dir_all(parent)?;
             }
-            if self.overwrite && destination_path.exists() {
+            if self.overwrite && fs::symlink_metadata(&destination_path).is_ok() {
                 fs::remove_file(&destination_path)?;
             }
-            if !destination_path.exists() {
-                if fs::hard_link(source_path, &destination_path).is_err() {
-                    fs::copy(source_path, &destination_path)?;
+            let mut should_materialize = match fs::symlink_metadata(&destination_path) {
+                Ok(_) => false,
+                Err(err) if err.kind() == ErrorKind::NotFound => true,
+                Err(err) => return Err(err.into()),
+            };
+            if !should_materialize && fs::metadata(&destination_path).is_err() {
+                // A stale/dangling symlink should be replaced with fresh materialized bytes.
+                fs::remove_file(&destination_path)?;
+                should_materialize = true;
+            }
+            if should_materialize {
+                let source_metadata = fs::symlink_metadata(source_path)?;
+                let linked = !source_metadata.file_type().is_symlink()
+                    && fs::hard_link(source_path, &destination_path).is_ok();
+                if !linked {
+                    let source_for_copy = if source_metadata.file_type().is_symlink() {
+                        fs::canonicalize(source_path)?
+                    } else {
+                        source_path.clone()
+                    };
+                    fs::copy(source_for_copy, &destination_path)?;
                 }
             }
 
@@ -1388,6 +1433,36 @@ mod tests {
     }
 
     #[test]
+    fn onnx_text_presets_request_xenova_files() {
+        let classifier = ModelPreset::XenovaDistilbertSst2Onnx.spec();
+        assert_eq!(
+            classifier.repo_id,
+            "Xenova/distilbert-base-uncased-finetuned-sst-2-english"
+        );
+        assert_eq!(classifier.task, ModelTask::TextClassification);
+        assert!(classifier
+            .files
+            .contains(&ModelFileRequest::required("config.json")));
+        assert!(classifier
+            .files
+            .contains(&ModelFileRequest::required("tokenizer.json")));
+        assert!(classifier.files.iter().any(|file| matches!(
+            file,
+            ModelFileRequest::FirstAvailable(paths)
+                if paths.iter().any(|path| path == "onnx/model_quantized.onnx")
+        )));
+
+        let embedder = ModelPreset::XenovaMiniLmL6V2Onnx.spec();
+        assert_eq!(embedder.repo_id, "Xenova/all-MiniLM-L6-v2");
+        assert_eq!(embedder.task, ModelTask::TextEmbedding);
+        assert!(embedder.files.iter().any(|file| matches!(
+            file,
+            ModelFileRequest::FirstAvailable(paths)
+                if paths.iter().any(|path| path == "onnx/model.onnx")
+        )));
+    }
+
+    #[test]
     fn model_bundle_store_materializes_files_and_manifest() {
         let dir = tempfile::tempdir().unwrap();
         let downloaded = fake_downloaded_model(
@@ -1420,6 +1495,42 @@ mod tests {
             assert!(local_path.is_absolute());
             assert!(local_path.starts_with(&bundle.root));
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn model_bundle_store_materializes_symlinked_cache_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = dir.path().join("cache");
+        let blobs_dir = cache_dir.join("blobs");
+        let snapshots_dir = cache_dir.join("snapshots/main");
+        fs::create_dir_all(&blobs_dir).unwrap();
+        fs::create_dir_all(&snapshots_dir).unwrap();
+
+        let blob_path = blobs_dir.join("config-blob");
+        fs::write(&blob_path, "{\"id2label\":{\"0\":\"POSITIVE\"}}").unwrap();
+
+        let source_path = snapshots_dir.join("config.json");
+        std::os::unix::fs::symlink("../../blobs/config-blob", &source_path).unwrap();
+
+        let mut files = BTreeMap::new();
+        files.insert("config.json".to_string(), source_path);
+        let downloaded = DownloadedModel {
+            spec: HuggingFaceModelSpec::new("owner/model", ModelTask::TextClassification)
+                .name("symlink-model")
+                .file("config.json"),
+            files,
+        };
+
+        let bundle = ModelBundleStore::new(dir.path().join("bundles"))
+            .materialize(&downloaded)
+            .unwrap();
+        let local_path = bundle.file_path("config.json").unwrap();
+        assert_eq!(
+            fs::read_to_string(&local_path).unwrap(),
+            "{\"id2label\":{\"0\":\"POSITIVE\"}}"
+        );
+        assert!(fs::symlink_metadata(local_path).unwrap().file_type().is_file());
     }
 
     #[test]
@@ -1614,5 +1725,34 @@ mod tests {
 
         assert_eq!(first[0].label.as_deref(), Some("ok"));
         assert_eq!(second[0].score, Some(0.5));
+    }
+
+    #[test]
+    fn external_command_model_returns_video_predictions() {
+        let model = DownloadedModel {
+            spec: HuggingFaceModelSpec::new("test-model", ModelTask::ObjectDetection),
+            files: BTreeMap::new(),
+        };
+        let script = concat!(
+            "cat >/dev/null; printf '%s' ",
+            "'{\"predictions\":[{\"kind\":\"object\",\"label\":\"person\",\"score\":0.75,",
+            "\"region\":{\"x\":1,\"y\":2,\"width\":3,\"height\":4}}]}'"
+        );
+        let mut backend = ExternalCommandModel::new("sh", model)
+            .arg("-c")
+            .arg(script);
+        let frame = test_frame();
+
+        let predictions = backend.predict_frame(&frame.as_frame()).unwrap();
+
+        assert_eq!(predictions.len(), 1);
+        assert_eq!(predictions[0].kind.as_deref(), Some("object"));
+        assert_eq!(predictions[0].label.as_deref(), Some("person"));
+        assert_eq!(predictions[0].score, Some(0.75));
+        let region = predictions[0].region.unwrap();
+        assert_eq!(region.x, Some(1.0));
+        assert_eq!(region.y, Some(2.0));
+        assert_eq!(region.width, Some(3.0));
+        assert_eq!(region.height, Some(4.0));
     }
 }

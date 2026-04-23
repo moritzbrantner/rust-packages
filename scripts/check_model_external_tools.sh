@@ -9,7 +9,7 @@ source "$ROOT_DIR/scripts/lib_external_test_tools.sh"
 
 usage() {
   cat <<'USAGE'
-usage: bash scripts/check_model_external_tools.sh [python|onnx|transformers|all]...
+usage: bash scripts/check_model_external_tools.sh [python|onnx|transformers|bundles|all]...
 
 Verifies optional model-backend Python dependencies in the local model venv.
 This script does not install packages. Run setup_model_external_tools.sh first
@@ -35,6 +35,9 @@ for target in "${targets[@]}"; do
       else
         fail "missing model $target Python dependencies; run: bash scripts/setup_model_external_tools.sh $target"
       fi
+      ;;
+    bundles)
+      bash "$ROOT_DIR/scripts/sync_model_bundles.sh" --check
       ;;
     *)
       usage >&2

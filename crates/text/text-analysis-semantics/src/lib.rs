@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use text_analysis_core::{tokenize_words, TextDocument};
 use text_analysis_corpus::{term_counts, CorpusOptions, TfIdfCorpus};
-use vector_analysis_core::{cosine_similarity, DenseVector};
+use vector_analysis_core::cosine_similarity;
+pub use vector_analysis_core::DenseVector;
 use vector_analysis_index::{SearchConfig, VectorRecord, VectorSearchIndex};
 use video_analysis_core::{DetectError, Result};
 
@@ -25,6 +26,14 @@ impl Default for TextEmbeddingConfig {
 pub struct HashedTextEmbedder {
     pub config: TextEmbeddingConfig,
     pub corpus_options: CorpusOptions,
+}
+
+pub trait TextEmbeddingBackend {
+    fn embed_text(&self, text: &str) -> Result<DenseVector>;
+
+    fn embed_document(&self, document: &TextDocument<'_>) -> Result<DenseVector> {
+        self.embed_text(document.text)
+    }
 }
 
 impl HashedTextEmbedder {
@@ -83,11 +92,91 @@ impl HashedTextEmbedder {
     }
 }
 
+impl TextEmbeddingBackend for HashedTextEmbedder {
+    fn embed_text(&self, text: &str) -> Result<DenseVector> {
+        HashedTextEmbedder::embed_text(self, text)
+    }
+
+    fn embed_document(&self, document: &TextDocument<'_>) -> Result<DenseVector> {
+        HashedTextEmbedder::embed_document(self, document)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SemanticMatch {
     pub id: String,
     pub score: f32,
     pub distance: f32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EmbeddingSearchIndex<E> {
+    embedder: E,
+    vectors: VectorSearchIndex,
+}
+
+impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
+    pub fn new(embedder: E) -> Self {
+        Self {
+            embedder,
+            vectors: VectorSearchIndex::new(),
+        }
+    }
+
+    pub fn embedder(&self) -> &E {
+        &self.embedder
+    }
+
+    pub fn embedder_mut(&mut self) -> &mut E {
+        &mut self.embedder
+    }
+
+    pub fn add_document(&mut self, id: impl Into<String>, text: &str) -> Result<()> {
+        let id = id.into();
+        if id.trim().is_empty() {
+            return Err(invalid_argument("document id must not be empty"));
+        }
+        if self.vectors.records().iter().any(|record| record.id == id) {
+            return Err(invalid_argument(format!(
+                "document id `{id}` already exists"
+            )));
+        }
+        let vector = self.embedder.embed_text(text)?;
+        self.vectors.add(VectorRecord::new(id, vector))
+    }
+
+    pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<()> {
+        let id = document.id.to_string();
+        if id.trim().is_empty() {
+            return Err(invalid_argument("document id must not be empty"));
+        }
+        if self.vectors.records().iter().any(|record| record.id == id) {
+            return Err(invalid_argument(format!(
+                "document id `{id}` already exists"
+            )));
+        }
+        let vector = self.embedder.embed_document(document)?;
+        self.vectors.add(VectorRecord::new(id, vector))
+    }
+
+    pub fn search(&self, query: &str, limit: usize) -> Result<Vec<SemanticMatch>> {
+        let query = self.embedder.embed_text(query)?;
+        let results = self.vectors.search(
+            &query,
+            SearchConfig {
+                limit,
+                ..SearchConfig::default()
+            },
+        )?;
+        Ok(results
+            .into_iter()
+            .map(|result| SemanticMatch {
+                id: result.id,
+                score: result.score,
+                distance: result.distance,
+            })
+            .collect())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -425,5 +514,38 @@ mod tests {
                 .get(&("cargo".to_string(), "rust".to_string())),
             Some(&2)
         );
+    }
+
+    #[derive(Debug, Clone)]
+    struct TinyEmbedder;
+
+    impl TextEmbeddingBackend for TinyEmbedder {
+        fn embed_text(&self, text: &str) -> Result<DenseVector> {
+            let has_rust = text.contains("rust") || text.contains("cargo");
+            DenseVector::new(if has_rust { [1.0, 0.0] } else { [0.0, 1.0] })
+        }
+    }
+
+    #[test]
+    fn generic_embedding_index_supports_trait_backends() {
+        let mut index = EmbeddingSearchIndex::new(TinyEmbedder);
+        index.add_document("rust", "rust cargo").unwrap();
+        index.add_document("fruit", "orange banana").unwrap();
+        assert!(index.add_document("rust", "duplicate").is_err());
+
+        let results = index.search("cargo", 1).unwrap();
+        assert_eq!(results[0].id, "rust");
+    }
+
+    #[test]
+    fn hashed_embedder_implements_embedding_backend() {
+        fn embed_with_trait(backend: &dyn TextEmbeddingBackend, text: &str) -> Result<DenseVector> {
+            backend.embed_text(text)
+        }
+
+        let embedder = HashedTextEmbedder::default();
+        let direct = embedder.embed_text("rust cargo").unwrap();
+        let via_trait = embed_with_trait(&embedder, "rust cargo").unwrap();
+        assert_eq!(direct, via_trait);
     }
 }

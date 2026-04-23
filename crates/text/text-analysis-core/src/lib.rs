@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use unicode_normalization::UnicodeNormalization;
+use unicode_segmentation::UnicodeSegmentation;
 use video_analysis_core::{OwnedTextSegment, TextSegment, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -94,6 +95,52 @@ pub struct TextSpan {
     pub byte_end: usize,
     pub char_start: usize,
     pub char_end: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextBoundaryOptions {
+    pub lowercase: bool,
+    pub normalize_unicode: bool,
+    pub include_numbers: bool,
+    pub include_punctuation: bool,
+    pub min_chars: usize,
+}
+
+impl Default for TextBoundaryOptions {
+    fn default() -> Self {
+        Self {
+            lowercase: true,
+            normalize_unicode: true,
+            include_numbers: true,
+            include_punctuation: false,
+            min_chars: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WordSegment {
+    pub text: String,
+    pub normalized: String,
+    pub span: TextSpan,
+    pub kind: TokenKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GraphemeSpan {
+    pub text: String,
+    pub span: TextSpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScriptProfile {
+    pub scripts: BTreeMap<String, usize>,
+    pub digits: usize,
+    pub whitespace: usize,
+    pub punctuation: usize,
+    pub other: usize,
+    pub dominant_script: Option<String>,
+    pub is_mixed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -222,6 +269,106 @@ pub fn split_sentences(text: &str) -> Vec<String> {
         .collect()
 }
 
+pub fn segment_words(text: &str, options: &TextBoundaryOptions) -> Vec<WordSegment> {
+    let processing = TextProcessingOptions {
+        lowercase: options.lowercase,
+        normalize_unicode: options.normalize_unicode,
+        include_punctuation: options.include_punctuation,
+        ..TextProcessingOptions::default()
+    };
+    let mut segments = Vec::<WordSegment>::new();
+    for (byte_start, segment) in UnicodeSegmentation::split_word_bound_indices(text) {
+        if segment.chars().all(char::is_whitespace) {
+            continue;
+        }
+        let kind = classify_word_segment(segment);
+        let keep = match kind {
+            TokenKind::Word
+            | TokenKind::Url
+            | TokenKind::Email
+            | TokenKind::Mention
+            | TokenKind::Hashtag => true,
+            TokenKind::Number => options.include_numbers,
+            TokenKind::Punctuation => options.include_punctuation,
+            TokenKind::Other => segment.chars().any(char::is_alphanumeric),
+        };
+        if !keep || segment.chars().count() < options.min_chars {
+            continue;
+        }
+        let byte_end = byte_start + segment.len();
+        let current = WordSegment {
+            text: segment.to_string(),
+            normalized: normalize_text(segment, &processing),
+            span: span_for(text, byte_start, byte_end),
+            kind,
+        };
+        if let Some(previous) = segments.last_mut() {
+            if previous.kind == TokenKind::Word
+                && current.kind == TokenKind::Word
+                && previous.span.byte_end == current.span.byte_start
+            {
+                previous.text.push_str(&current.text);
+                previous.normalized = normalize_text(&previous.text, &processing);
+                previous.span.byte_end = current.span.byte_end;
+                previous.span.char_end = current.span.char_end;
+                continue;
+            }
+        }
+        segments.push(current);
+    }
+    segments
+}
+
+pub fn segment_graphemes(text: &str) -> Vec<GraphemeSpan> {
+    UnicodeSegmentation::grapheme_indices(text, true)
+        .map(|(byte_start, grapheme)| {
+            let byte_end = byte_start + grapheme.len();
+            GraphemeSpan {
+                text: grapheme.to_string(),
+                span: span_for(text, byte_start, byte_end),
+            }
+        })
+        .collect()
+}
+
+pub fn detect_script_profile(text: &str) -> ScriptProfile {
+    let mut scripts = BTreeMap::<String, usize>::new();
+    let mut digits = 0;
+    let mut whitespace = 0;
+    let mut punctuation = 0;
+    let mut other = 0;
+
+    for ch in text.chars() {
+        if ch.is_whitespace() {
+            whitespace += 1;
+        } else if ch.is_numeric() {
+            digits += 1;
+        } else if is_sentence_or_symbol_punctuation(ch) || ch.is_ascii_punctuation() {
+            punctuation += 1;
+        } else if let Some(script) = script_name(ch) {
+            *scripts.entry(script.to_string()).or_insert(0) += 1;
+        } else {
+            other += 1;
+        }
+    }
+
+    let dominant_script = scripts
+        .iter()
+        .max_by(|left, right| left.1.cmp(right.1).then_with(|| right.0.cmp(left.0)))
+        .map(|(script, _)| script.clone());
+    let is_mixed = scripts.len() > 1;
+
+    ScriptProfile {
+        scripts,
+        digits,
+        whitespace,
+        punctuation,
+        other,
+        dominant_script,
+        is_mixed,
+    }
+}
+
 pub fn tokenize(text: &str, options: &TextProcessingOptions) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut byte_index = 0;
@@ -297,6 +444,9 @@ pub fn split_sentence_spans(text: &str, options: &TextProcessingOptions) -> Vec<
 
     for (position, (byte_index, ch)) in chars.iter().copied().enumerate() {
         if !is_sentence_terminator(ch) {
+            continue;
+        }
+        if ch == '.' && is_abbreviation_boundary(text, byte_index) {
             continue;
         }
         if ch == '.'
@@ -399,6 +549,29 @@ fn span_for(text: &str, byte_start: usize, byte_end: usize) -> TextSpan {
 fn starts_url(text: &str, byte_index: usize) -> bool {
     let tail = &text[byte_index..];
     tail.starts_with("http://") || tail.starts_with("https://") || tail.starts_with("www.")
+}
+
+fn classify_word_segment(segment: &str) -> TokenKind {
+    if starts_url(segment, 0) {
+        TokenKind::Url
+    } else if is_email(segment) {
+        TokenKind::Email
+    } else if segment.starts_with('@') && segment[1..].chars().any(char::is_alphanumeric) {
+        TokenKind::Mention
+    } else if segment.starts_with('#') && segment[1..].chars().any(char::is_alphanumeric) {
+        TokenKind::Hashtag
+    } else if segment
+        .chars()
+        .all(|ch| ch.is_numeric() || matches!(ch, '.' | ',' | ':' | '/' | '-'))
+    {
+        TokenKind::Number
+    } else if segment.chars().all(is_sentence_or_symbol_punctuation) {
+        TokenKind::Punctuation
+    } else if segment.chars().any(char::is_alphanumeric) {
+        TokenKind::Word
+    } else {
+        TokenKind::Other
+    }
 }
 
 fn consume_until_whitespace(text: &str, byte_start: usize) -> usize {
@@ -510,6 +683,58 @@ fn is_sentence_terminator(ch: char) -> bool {
     matches!(ch, '.' | '?' | '!' | '…' | '。' | '！' | '？')
 }
 
+fn is_abbreviation_boundary(text: &str, period_byte_index: usize) -> bool {
+    let prefix = &text[..period_byte_index];
+    let word_start = prefix
+        .char_indices()
+        .rev()
+        .find_map(|(index, ch)| (!ch.is_alphabetic()).then_some(index + ch.len_utf8()))
+        .unwrap_or(0);
+    let word = &text[word_start..period_byte_index];
+    if word.is_empty() {
+        return false;
+    }
+    let normalized = word.to_ascii_lowercase();
+    matches!(
+        normalized.as_str(),
+        "mr" | "mrs"
+            | "ms"
+            | "dr"
+            | "prof"
+            | "sr"
+            | "jr"
+            | "st"
+            | "vs"
+            | "etc"
+            | "e.g"
+            | "i.e"
+            | "u.s"
+            | "u.k"
+    ) || (word.chars().count() == 1
+        && word
+            .chars()
+            .next()
+            .is_some_and(|ch| ch.is_ascii_uppercase()))
+}
+
+fn script_name(ch: char) -> Option<&'static str> {
+    let value = ch as u32;
+    match value {
+        0x0041..=0x007A | 0x00C0..=0x024F | 0x1E00..=0x1EFF => Some("Latin"),
+        0x0370..=0x03FF | 0x1F00..=0x1FFF => Some("Greek"),
+        0x0400..=0x052F | 0x2DE0..=0x2DFF | 0xA640..=0xA69F => Some("Cyrillic"),
+        0x0590..=0x05FF => Some("Hebrew"),
+        0x0600..=0x06FF | 0x0750..=0x077F | 0x08A0..=0x08FF => Some("Arabic"),
+        0x0900..=0x097F => Some("Devanagari"),
+        0x3040..=0x309F => Some("Hiragana"),
+        0x30A0..=0x30FF | 0x31F0..=0x31FF => Some("Katakana"),
+        0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF => Some("Han"),
+        0xAC00..=0xD7AF | 0x1100..=0x11FF | 0x3130..=0x318F => Some("Hangul"),
+        _ if ch.is_alphabetic() => Some("Other"),
+        _ => None,
+    }
+}
+
 fn previous_char(chars: &[(usize, char)], position: usize) -> Option<char> {
     position
         .checked_sub(1)
@@ -619,11 +844,45 @@ mod tests {
 
     #[test]
     fn splits_sentences_with_decimals_ellipses_and_multilingual_marks() {
-        let sentences = split_sentences("Pi is 3.14. Wait... Really？ Yes!");
+        let sentences = split_sentences("Dr. Smith wrote pi is 3.14. Wait... Really？ Yes!");
         assert_eq!(
             sentences,
-            vec!["Pi is 3.14.", "Wait...", "Really？", "Yes!"]
+            vec!["Dr. Smith wrote pi is 3.14.", "Wait...", "Really？", "Yes!"]
         );
+    }
+
+    #[test]
+    fn segments_graphemes_with_byte_and_char_spans() {
+        let graphemes = segment_graphemes("e\u{301}👍🏽a");
+        assert_eq!(graphemes.len(), 3);
+        assert_eq!(graphemes[0].text, "e\u{301}");
+        assert_eq!(graphemes[0].span.byte_start, 0);
+        assert_eq!(graphemes[0].span.byte_end, 3);
+        assert_eq!(graphemes[0].span.char_start, 0);
+        assert_eq!(graphemes[0].span.char_end, 2);
+        assert_eq!(graphemes[1].text, "👍🏽");
+        assert_eq!(graphemes[1].span.char_start, 2);
+        assert_eq!(graphemes[1].span.char_end, 4);
+    }
+
+    #[test]
+    fn segments_words_with_unicode_boundaries() {
+        let segments = segment_words("Café 東京 42!", &TextBoundaryOptions::default());
+        let texts = segments
+            .into_iter()
+            .map(|segment| segment.normalized)
+            .collect::<Vec<_>>();
+        assert_eq!(texts, vec!["café", "東京", "42"]);
+    }
+
+    #[test]
+    fn profiles_scripts() {
+        let profile = detect_script_profile("Hello 東京 123!");
+        assert_eq!(profile.scripts.get("Latin"), Some(&5));
+        assert_eq!(profile.scripts.get("Han"), Some(&2));
+        assert_eq!(profile.digits, 3);
+        assert_eq!(profile.dominant_script.as_deref(), Some("Latin"));
+        assert!(profile.is_mixed);
     }
 
     #[test]

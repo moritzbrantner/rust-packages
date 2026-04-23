@@ -1002,6 +1002,51 @@ pub trait VideoAnalyzer {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct SampledVideoAnalyzer<A> {
+    inner: A,
+    every: u64,
+}
+
+impl<A> SampledVideoAnalyzer<A> {
+    pub fn new(inner: A, every: u64) -> Self {
+        Self {
+            inner,
+            every: every.max(1),
+        }
+    }
+
+    pub fn inner(&self) -> &A {
+        &self.inner
+    }
+
+    pub fn inner_mut(&mut self) -> &mut A {
+        &mut self.inner
+    }
+
+    pub fn every(&self) -> u64 {
+        self.every
+    }
+}
+
+impl<A: VideoAnalyzer> VideoAnalyzer for SampledVideoAnalyzer<A> {
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<Observation>> {
+        if frame.position.frame_index % self.every == 0 {
+            self.inner.process_frame(frame)
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    fn finish(&mut self, last_position: Option<FramePosition>) -> Result<Vec<Observation>> {
+        self.inner.finish(last_position)
+    }
+}
+
 pub struct VideoAnalysisPipeline {
     analyzers: Vec<Box<dyn VideoAnalyzer>>,
     state: VideoAnalysisPipelineState,
@@ -1781,6 +1826,34 @@ mod tests {
             "EXIT"
         );
         assert_eq!(pipeline.finish_analysis().unwrap().observations.len(), 1);
+    }
+
+    #[test]
+    fn sampled_video_analyzer_skips_unsampled_frames() {
+        struct CountingVideoAnalyzer {
+            frames: Vec<u64>,
+        }
+
+        impl VideoAnalyzer for CountingVideoAnalyzer {
+            fn name(&self) -> &str {
+                "counting"
+            }
+
+            fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<Observation>> {
+                self.frames.push(frame.position.frame_index);
+                Ok(Vec::new())
+            }
+        }
+
+        let mut analyzer =
+            SampledVideoAnalyzer::new(CountingVideoAnalyzer { frames: Vec::new() }, 3);
+        for index in 0..7 {
+            analyzer
+                .process_frame(&owned_frame(index).as_frame())
+                .unwrap();
+        }
+
+        assert_eq!(analyzer.inner().frames, vec![0, 3, 6]);
     }
 
     #[test]

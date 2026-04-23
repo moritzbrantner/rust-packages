@@ -29,6 +29,7 @@ members = [
     "crates/text/text-analysis-corpus",
     "crates/text/text-analysis-core",
     "crates/text/text-analysis-features",
+    "crates/text/text-analysis-models",
     "crates/text/text-analysis-prediction",
     "crates/text/text-analysis-semantics",
     "crates/text/text-analysis-synthesis",
@@ -79,6 +80,13 @@ thiserror = "2.0.17"
 criterion = "0.5.1"
 proptest = "1.6.0"
 unicode-normalization = "0.1.24"
+unicode-segmentation = "1.12.0"
+tokenizers = "0.22.2"
+ort = { version = "2.0.0-rc.12", default-features = false, features = ["std", "ndarray", "load-dynamic", "api-24"] }
+ndarray = "0.17.2"
+candle-core = "0.10.2"
+candle-nn = "0.10.2"
+candle-transformers = "0.10.2"
 comfyui-data = { path = "crates/comfyui/comfyui-data" }
 comfyui-models = { path = "crates/comfyui/comfyui-models" }
 data-inversion-core = { path = "crates/data/data-inversion-core" }
@@ -100,6 +108,7 @@ image-analysis-synthesis = { path = "crates/image/image-analysis-synthesis" }
 text-analysis-core = { path = "crates/text/text-analysis-core" }
 text-analysis-corpus = { path = "crates/text/text-analysis-corpus" }
 text-analysis-features = { path = "crates/text/text-analysis-features" }
+text-analysis-models = { path = "crates/text/text-analysis-models" }
 text-analysis-prediction = { path = "crates/text/text-analysis-prediction" }
 text-analysis-semantics = { path = "crates/text/text-analysis-semantics" }
 text-analysis-synthesis = { path = "crates/text/text-analysis-synthesis" }
@@ -177,6 +186,7 @@ image-analysis-synthesis.workspace = true
 text-analysis-core.workspace = true
 text-analysis-corpus.workspace = true
 text-analysis-features.workspace = true
+text-analysis-models.workspace = true
 text-analysis-prediction.workspace = true
 text-analysis-semantics.workspace = true
 text-analysis-synthesis.workspace = true

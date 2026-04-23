@@ -626,6 +626,44 @@ pub fn is_ffprobe_available() -> bool {
         .unwrap_or(false)
 }
 
+pub fn extract_wav(
+    media_path: impl AsRef<Path>,
+    output_path: impl AsRef<Path>,
+    sample_rate: u32,
+) -> Result<PathBuf> {
+    if sample_rate == 0 {
+        return Err(DetectError::InvalidArgument(
+            "sample_rate must be positive".to_string(),
+        ));
+    }
+    let media_path = media_path.as_ref();
+    let output_path = output_path.as_ref();
+    if let Some(parent) = output_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let status = Command::new("ffmpeg")
+        .arg("-y")
+        .arg("-v")
+        .arg("error")
+        .arg("-i")
+        .arg(media_path)
+        .arg("-vn")
+        .arg("-ac")
+        .arg("1")
+        .arg("-ar")
+        .arg(sample_rate.to_string())
+        .arg("-f")
+        .arg("wav")
+        .arg(output_path)
+        .status()?;
+    if !status.success() {
+        return Err(DetectError::Source(format!(
+            "ffmpeg failed to extract {sample_rate} Hz WAV audio"
+        )));
+    }
+    Ok(output_path.to_path_buf())
+}
+
 #[cfg(feature = "test-utils")]
 pub fn write_two_scene_test_video(path: impl AsRef<Path>) -> Result<()> {
     let path = path.as_ref();

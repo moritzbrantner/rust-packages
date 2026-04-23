@@ -4,20 +4,23 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use audio_analysis_processing::AudioEnergyAnalyzer;
 use serde::{Deserialize, Serialize};
 use text_analysis_features::TranscriptHeuristicAnalyzer;
 use text_analysis_transcription::{
     segment_to_owned_text_segment, Transcriber, TranscriptSegment, WhisperCliTranscriber,
 };
 use video_analysis_core::{
-    AnalysisEvent, AudioAnalyzer, AudioBuffer, AudioFrame, BoundingBox, DetectError, Observation,
-    ObservationKind, RealtimeVideoPipeline, Result, VideoAnalyzer, VideoFrame,
+    AnalysisEvent, BoundingBox, DetectError, Observation, ObservationKind, RealtimeVideoPipeline,
+    Result, SampledVideoAnalyzer,
 };
 use video_analysis_data::{
     BucketAggregator, BucketConfig, DataBucket, DataRecord, DataStreamKind, StreamSummary,
 };
 use video_analysis_detectors::ContentDetector;
-use video_analysis_ffmpeg::{FfmpegAudioSource, FfmpegAudioSourceOptions, FfmpegVideoSource};
+use video_analysis_ffmpeg::{
+    extract_wav, FfmpegAudioSource, FfmpegAudioSourceOptions, FfmpegVideoSource,
+};
 use video_analysis_ingest::{AudioFrameSource, VideoFrameSource};
 use video_analysis_models::{
     DownloadedModel, ExternalCommandModel, HuggingFaceModelSpec, ModelTask, ModelTextAnalyzer,
@@ -26,12 +29,22 @@ use video_analysis_models::{
 
 pub const YOUTUBE_VIDEO_USE_CASE: &str = "youtube-video";
 
+pub mod workflow_catalog;
+
 pub mod youtube {
     pub use super::{
-        run_youtube_video, write_youtube_video_report, AssetReport, AudioReport, CapabilityReport,
-        DataBucketReport, EventReport, ObservationReport, RegionReport, SceneReport, SourceReport,
-        StreamBucketReport, TextReport, TranscriptSegmentReport, TranscriptionReport, VideoReport,
-        YoutubeVideoReport, YoutubeVideoRequest, YOUTUBE_VIDEO_USE_CASE,
+        discover_youtube_collection_manifest, run_youtube_collection_workflow, run_youtube_video,
+        run_youtube_video_workflow, write_youtube_video_report, AlreadyDownloadedPolicy,
+        AppliedCollectionFilters, AssetReport, AudioReport, CapabilityReport,
+        CollectionAssetReport, CollectionItemReport, CollectionItemStatus, CollectionSummary,
+        DataBucketReport, EventReport, ExternalCommandConfig, FailedProbeBehavior,
+        LocalFileFilterSpec, ManifestFilterSpec, MetadataDepth, ModelCommandConfig,
+        ObservationReport, RegionReport, SceneReport, SourceReport, SourceSpec, StreamBucketReport,
+        TextReport, TranscriptSegmentReport, TranscriptionConfig, TranscriptionEngine,
+        TranscriptionReport, VideoReport, YoutubeCollectionManifest, YoutubeCollectionManifestItem,
+        YoutubeCollectionManifestRequest, YoutubeCollectionReport, YoutubeCollectionRunRequest,
+        YoutubeCollectionSource, YoutubeCollectionSourceReport, YoutubeRunOptions,
+        YoutubeRunRequest, YoutubeVideoReport, YoutubeVideoRequest, YOUTUBE_VIDEO_USE_CASE,
     };
 }
 
@@ -80,7 +93,316 @@ impl Default for YoutubeVideoRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SourceSpec {
+    YoutubeUrl { url: String },
+    LocalFile { path: PathBuf },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ExternalCommandConfig {
+    pub command: PathBuf,
+    #[serde(default)]
+    pub args: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscriptionEngine {
+    Whisper,
+    #[serde(alias = "fast_whisper")]
+    FasterWhisper,
+    WhisperX,
+}
+
+impl Default for TranscriptionEngine {
+    fn default() -> Self {
+        Self::Whisper
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TranscriptionConfig {
+    pub enabled: bool,
+    #[serde(default)]
+    pub engine: TranscriptionEngine,
+    pub command: Option<ExternalCommandConfig>,
+}
+
+impl Default for TranscriptionConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            engine: TranscriptionEngine::default(),
+            command: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ModelCommandConfig {
+    pub object: Option<ExternalCommandConfig>,
+    pub ocr: Option<ExternalCommandConfig>,
+    pub text: Option<ExternalCommandConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct YoutubeRunRequest {
+    pub source: SourceSpec,
+    pub work_dir: Option<PathBuf>,
+    #[serde(default = "default_scene_threshold")]
+    pub scene_threshold: f32,
+    #[serde(default = "default_min_scene_len")]
+    pub min_scene_len: u64,
+    pub max_frames: Option<u64>,
+    #[serde(default = "default_visual_sample_every")]
+    pub visual_sample_every: u64,
+    #[serde(default)]
+    pub transcription: TranscriptionConfig,
+    #[serde(default)]
+    pub models: ModelCommandConfig,
+}
+
+impl YoutubeRunRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_analysis_options(
+            self.scene_threshold,
+            self.min_scene_len,
+            self.visual_sample_every,
+        )?;
+        match &self.source {
+            SourceSpec::YoutubeUrl { url } => validate_youtube_url(url),
+            SourceSpec::LocalFile { path } => validate_local_file(path),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataDepth {
+    Fast,
+    EnrichedWhenNeeded,
+    Full,
+}
+
+impl Default for MetadataDepth {
+    fn default() -> Self {
+        Self::EnrichedWhenNeeded
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AlreadyDownloadedPolicy {
+    Include,
+    Skip,
+    Reuse,
+}
+
+impl Default for AlreadyDownloadedPolicy {
+    fn default() -> Self {
+        Self::Reuse
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct ManifestFilterSpec {
+    pub title_contains: Option<String>,
+    #[serde(default)]
+    pub title_excludes: Vec<String>,
+    pub playlist_index_min: Option<u64>,
+    pub playlist_index_max: Option<u64>,
+    pub upload_date_from: Option<String>,
+    pub upload_date_to: Option<String>,
+    pub duration_seconds_min: Option<f64>,
+    pub duration_seconds_max: Option<f64>,
+    #[serde(default)]
+    pub already_downloaded: AlreadyDownloadedPolicy,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailedProbeBehavior {
+    Failed,
+    Include,
+    Filtered,
+}
+
+impl Default for FailedProbeBehavior {
+    fn default() -> Self {
+        Self::Failed
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct LocalFileFilterSpec {
+    pub duration_seconds_min: Option<f64>,
+    pub duration_seconds_max: Option<f64>,
+    pub file_size_bytes_min: Option<u64>,
+    pub file_size_bytes_max: Option<u64>,
+    #[serde(default)]
+    pub extension_allowlist: Vec<String>,
+    #[serde(default)]
+    pub failed_probe_behavior: FailedProbeBehavior,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct YoutubeRunOptions {
+    #[serde(default = "default_scene_threshold")]
+    pub scene_threshold: f32,
+    #[serde(default = "default_min_scene_len")]
+    pub min_scene_len: u64,
+    pub max_frames: Option<u64>,
+    #[serde(default = "default_visual_sample_every")]
+    pub visual_sample_every: u64,
+    #[serde(default)]
+    pub transcription: TranscriptionConfig,
+    #[serde(default)]
+    pub models: ModelCommandConfig,
+}
+
+impl Default for YoutubeRunOptions {
+    fn default() -> Self {
+        Self {
+            scene_threshold: default_scene_threshold(),
+            min_scene_len: default_min_scene_len(),
+            max_frames: None,
+            visual_sample_every: default_visual_sample_every(),
+            transcription: TranscriptionConfig::default(),
+            models: ModelCommandConfig::default(),
+        }
+    }
+}
+
+impl YoutubeRunOptions {
+    pub fn validate(&self) -> Result<()> {
+        validate_analysis_options(
+            self.scene_threshold,
+            self.min_scene_len,
+            self.visual_sample_every,
+        )
+    }
+
+    fn to_request(&self, source: SourceSpec, work_dir: PathBuf) -> YoutubeRunRequest {
+        YoutubeRunRequest {
+            source,
+            work_dir: Some(work_dir),
+            scene_threshold: self.scene_threshold,
+            min_scene_len: self.min_scene_len,
+            max_frames: self.max_frames,
+            visual_sample_every: self.visual_sample_every,
+            transcription: self.transcription.clone(),
+            models: self.models.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum YoutubeCollectionSource {
+    PlaylistUrl { url: String },
+    ChannelUrl { url: String },
+    YoutubeUrl { url: String },
+}
+
+impl YoutubeCollectionSource {
+    pub fn url(&self) -> &str {
+        match self {
+            Self::PlaylistUrl { url } | Self::ChannelUrl { url } | Self::YoutubeUrl { url } => url,
+        }
+    }
+
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            Self::PlaylistUrl { .. } => "playlist_url",
+            Self::ChannelUrl { .. } => "channel_url",
+            Self::YoutubeUrl { .. } => "youtube_url",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct YoutubeCollectionManifestRequest {
+    pub source: YoutubeCollectionSource,
+    #[serde(default)]
+    pub metadata_filter: ManifestFilterSpec,
+    #[serde(default)]
+    pub metadata_depth: MetadataDepth,
+    pub max_items: Option<u64>,
+}
+
+impl YoutubeCollectionManifestRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_youtube_url(self.source.url())?;
+        validate_manifest_filter(&self.metadata_filter)?;
+        if self.max_items == Some(0) {
+            return Err(DetectError::InvalidArgument(
+                "max_items must be positive when provided".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct YoutubeCollectionRunRequest {
+    pub source: Option<YoutubeCollectionSource>,
+    pub manifest: Option<YoutubeCollectionManifest>,
+    #[serde(default)]
+    pub metadata_filter: ManifestFilterSpec,
+    #[serde(default)]
+    pub local_file_filter: LocalFileFilterSpec,
+    #[serde(default)]
+    pub analysis: YoutubeRunOptions,
+    #[serde(default)]
+    pub delete_filtered_downloads: bool,
+    pub work_dir: Option<PathBuf>,
+    pub max_items: Option<u64>,
+}
+
+impl YoutubeCollectionRunRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.source.is_none() && self.manifest.is_none() {
+            return Err(DetectError::InvalidArgument(
+                "source or manifest is required".to_string(),
+            ));
+        }
+        if let Some(source) = &self.source {
+            validate_youtube_url(source.url())?;
+        }
+        validate_manifest_filter(&self.metadata_filter)?;
+        validate_local_file_filter(&self.local_file_filter)?;
+        self.analysis.validate()?;
+        if self.max_items == Some(0) {
+            return Err(DetectError::InvalidArgument(
+                "max_items must be positive when provided".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct YoutubeCollectionManifest {
+    pub collection_id: String,
+    pub source: YoutubeCollectionSource,
+    pub title: Option<String>,
+    pub items: Vec<YoutubeCollectionManifestItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct YoutubeCollectionManifestItem {
+    pub item_id: String,
+    pub youtube_id: Option<String>,
+    pub playlist_index: Option<u64>,
+    pub title: Option<String>,
+    pub source_url: String,
+    pub duration_seconds: Option<f64>,
+    pub upload_date: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct YoutubeVideoReport {
     pub use_case: String,
     pub source: SourceReport,
@@ -93,26 +415,26 @@ pub struct YoutubeVideoReport {
     pub data_buckets: Vec<DataBucketReport>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SourceReport {
     pub url: Option<String>,
     pub local_video: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AssetReport {
     pub work_dir: String,
     pub report_path: String,
     pub audio_wav: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CapabilityReport {
     pub completed: Vec<String>,
     pub skipped: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VideoReport {
     pub width: u32,
     pub height: u32,
@@ -123,7 +445,7 @@ pub struct VideoReport {
     pub observations: Vec<ObservationReport>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SceneReport {
     pub index: u64,
     pub start_frame: u64,
@@ -133,7 +455,7 @@ pub struct SceneReport {
     pub observations: Vec<ObservationReport>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ObservationReport {
     pub timestamp_seconds: Option<f64>,
     pub frame_index: Option<u64>,
@@ -148,7 +470,7 @@ pub struct ObservationReport {
     pub attributes: BTreeMap<String, String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RegionReport {
     pub x: u32,
     pub y: u32,
@@ -156,7 +478,7 @@ pub struct RegionReport {
     pub height: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TranscriptionReport {
     pub status: String,
     pub text: Option<String>,
@@ -164,7 +486,7 @@ pub struct TranscriptionReport {
     pub message: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TranscriptSegmentReport {
     pub index: u64,
     pub start_seconds: Option<f64>,
@@ -172,7 +494,7 @@ pub struct TranscriptSegmentReport {
     pub text: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AudioReport {
     pub status: String,
     pub frames_processed: u64,
@@ -180,7 +502,7 @@ pub struct AudioReport {
     pub message: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TextReport {
     pub status: String,
     pub segments_processed: u64,
@@ -188,7 +510,7 @@ pub struct TextReport {
     pub message: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EventReport {
     pub timestamp_seconds: Option<f64>,
     pub analyzer: String,
@@ -196,7 +518,7 @@ pub struct EventReport {
     pub score: Option<f32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DataBucketReport {
     pub bucket_index: u64,
     pub records: u64,
@@ -204,7 +526,7 @@ pub struct DataBucketReport {
     pub streams: Vec<StreamBucketReport>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StreamBucketReport {
     pub stream_id: String,
     pub records: u64,
@@ -213,6 +535,78 @@ pub struct StreamBucketReport {
     pub video_frames: u64,
     pub audio_frames: u64,
     pub text_segments: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct YoutubeCollectionReport {
+    #[serde(alias = "use_case")]
+    pub workflow: String,
+    pub collection: CollectionSummary,
+    pub source: YoutubeCollectionSourceReport,
+    pub filters: AppliedCollectionFilters,
+    pub items: Vec<CollectionItemReport>,
+    pub assets: CollectionAssetReport,
+    pub capabilities: CapabilityReport,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CollectionSummary {
+    pub collection_id: String,
+    pub title: Option<String>,
+    pub source_url: String,
+    pub discovered_items: u64,
+    pub selected_items: u64,
+    pub analyzed_items: u64,
+    pub failed_items: u64,
+    pub filtered_items: u64,
+    pub skipped_items: u64,
+    pub downloaded_items: u64,
+    pub total_duration_seconds: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct YoutubeCollectionSourceReport {
+    pub kind: String,
+    pub url: String,
+    pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AppliedCollectionFilters {
+    pub metadata: Vec<String>,
+    pub local_file: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CollectionAssetReport {
+    pub work_dir: String,
+    pub report_path: String,
+    pub manifest_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CollectionItemReport {
+    pub item_id: String,
+    pub youtube_id: Option<String>,
+    pub playlist_index: Option<u64>,
+    pub title: Option<String>,
+    pub source_url: String,
+    pub local_video: Option<String>,
+    pub status: CollectionItemStatus,
+    pub error: Option<String>,
+    pub report: Option<YoutubeVideoReport>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CollectionItemStatus {
+    Discovered,
+    MetadataFiltered,
+    Downloaded,
+    FileFiltered,
+    Analyzed,
+    Failed,
+    SkippedExisting,
 }
 
 pub fn run_youtube_video(args: YoutubeVideoRequest) -> Result<YoutubeVideoReport> {
@@ -330,8 +724,309 @@ pub fn run_youtube_video(args: YoutubeVideoRequest) -> Result<YoutubeVideoReport
     Ok(report)
 }
 
+pub fn run_youtube_video_workflow(
+    request: YoutubeRunRequest,
+    work_dir: PathBuf,
+    report_path: PathBuf,
+) -> Result<YoutubeVideoReport> {
+    request.validate()?;
+    let mut args = YoutubeVideoRequest {
+        work_dir: work_dir.clone(),
+        output: Some(report_path.clone()),
+        scene_threshold: request.scene_threshold,
+        min_scene_len: request.min_scene_len,
+        max_frames: request.max_frames,
+        visual_sample_every: request.visual_sample_every,
+        skip_transcription: !request.transcription.enabled,
+        ..YoutubeVideoRequest::default()
+    };
+    match request.source {
+        SourceSpec::YoutubeUrl { url } => args.url = Some(url),
+        SourceSpec::LocalFile { path } => args.input = Some(path),
+    }
+    if let Some(config) = request.transcription.command {
+        args.transcriber_command = Some(config.command);
+        args.transcriber_args = config.args;
+    }
+    if let Some(config) = request.models.object {
+        args.object_command = Some(config.command);
+        args.object_args = config.args;
+    }
+    if let Some(config) = request.models.ocr {
+        args.ocr_command = Some(config.command);
+        args.ocr_args = config.args;
+    }
+    if let Some(config) = request.models.text {
+        args.text_command = Some(config.command);
+        args.text_args = config.args;
+    }
+
+    let report = run_youtube_video(args)?;
+    write_youtube_video_report(&report_path, &report)?;
+    Ok(report)
+}
+
 pub fn write_youtube_video_report(path: &Path, report: &YoutubeVideoReport) -> Result<()> {
     write_json_report(path, report)
+}
+
+pub fn discover_youtube_collection_manifest(
+    request: YoutubeCollectionManifestRequest,
+) -> Result<YoutubeCollectionManifest> {
+    request.validate()?;
+    let mut manifest = discover_collection_manifest(&request.source, request.max_items)?;
+    let needs_enrichment = request.metadata_depth == MetadataDepth::Full
+        || (request.metadata_depth == MetadataDepth::EnrichedWhenNeeded
+            && manifest_filter_needs_enrichment(&request.metadata_filter));
+    if needs_enrichment {
+        enrich_manifest_items(&mut manifest)?;
+    }
+    manifest.items = manifest
+        .items
+        .into_iter()
+        .filter(|item| metadata_filter_matches(item, &request.metadata_filter))
+        .collect();
+    Ok(manifest)
+}
+
+pub fn run_youtube_collection_workflow(
+    request: YoutubeCollectionRunRequest,
+    work_dir: PathBuf,
+    report_path: PathBuf,
+) -> Result<YoutubeCollectionReport> {
+    request.validate()?;
+    fs::create_dir_all(&work_dir)?;
+
+    let mut manifest = match request.manifest.clone() {
+        Some(manifest) => manifest,
+        None => {
+            let source = request.source.clone().ok_or_else(|| {
+                DetectError::InvalidArgument("source or manifest is required".to_string())
+            })?;
+            discover_collection_manifest(&source, request.max_items)?
+        }
+    };
+    if manifest_filter_needs_enrichment(&request.metadata_filter) {
+        enrich_manifest_items(&mut manifest)?;
+    }
+
+    let manifest_path = work_dir.join("manifest.json");
+    write_json_report(&manifest_path, &manifest)?;
+
+    let mut completed = vec!["collection_discovery".to_string()];
+    let mut skipped = Vec::new();
+    let mut item_reports = Vec::new();
+    let mut selected_items = 0_u64;
+    let mut downloaded_items = 0_u64;
+
+    for item in &manifest.items {
+        if !metadata_filter_matches(item, &request.metadata_filter) {
+            item_reports.push(collection_item_report(
+                item,
+                None,
+                CollectionItemStatus::MetadataFiltered,
+                Some("filtered by metadata".to_string()),
+                None,
+            ));
+            continue;
+        }
+
+        let item_dir = work_dir.join("items").join(&item.item_id);
+        let media_dir = item_dir.join("media");
+        let existing = find_existing_item_video(&media_dir);
+        if existing.is_some()
+            && request.metadata_filter.already_downloaded == AlreadyDownloadedPolicy::Skip
+        {
+            item_reports.push(collection_item_report(
+                item,
+                existing.as_ref(),
+                CollectionItemStatus::SkippedExisting,
+                Some("already downloaded".to_string()),
+                None,
+            ));
+            continue;
+        }
+
+        selected_items += 1;
+        let mut local_video = existing;
+        if local_video.is_none() {
+            match download_youtube_video_to_dir(&item.source_url, &media_dir, &item.item_id) {
+                Ok(path) => {
+                    downloaded_items += 1;
+                    local_video = Some(path);
+                }
+                Err(error) => {
+                    item_reports.push(collection_item_report(
+                        item,
+                        None,
+                        CollectionItemStatus::Failed,
+                        Some(error.to_string()),
+                        None,
+                    ));
+                    continue;
+                }
+            }
+        }
+
+        let Some(local_video_path) = local_video.clone() else {
+            item_reports.push(collection_item_report(
+                item,
+                None,
+                CollectionItemStatus::Failed,
+                Some("download did not produce a local video".to_string()),
+                None,
+            ));
+            continue;
+        };
+
+        match local_file_filter_matches(&local_video_path, &request.local_file_filter) {
+            Ok(true) => {}
+            Ok(false) => {
+                if request.delete_filtered_downloads {
+                    let _ = fs::remove_file(&local_video_path);
+                }
+                item_reports.push(collection_item_report(
+                    item,
+                    Some(&local_video_path),
+                    CollectionItemStatus::FileFiltered,
+                    Some("filtered by local file metadata".to_string()),
+                    None,
+                ));
+                continue;
+            }
+            Err(error) => match request.local_file_filter.failed_probe_behavior {
+                FailedProbeBehavior::Include => {}
+                FailedProbeBehavior::Filtered => {
+                    item_reports.push(collection_item_report(
+                        item,
+                        Some(&local_video_path),
+                        CollectionItemStatus::FileFiltered,
+                        Some(error.to_string()),
+                        None,
+                    ));
+                    continue;
+                }
+                FailedProbeBehavior::Failed => {
+                    item_reports.push(collection_item_report(
+                        item,
+                        Some(&local_video_path),
+                        CollectionItemStatus::Failed,
+                        Some(error.to_string()),
+                        None,
+                    ));
+                    continue;
+                }
+            },
+        }
+
+        let analysis_work_dir = item_dir.join("analysis-work");
+        let item_report_path = item_dir.join("analysis.json");
+        let item_request = request.analysis.to_request(
+            SourceSpec::LocalFile {
+                path: local_video_path.clone(),
+            },
+            analysis_work_dir.clone(),
+        );
+        match run_youtube_video_workflow(item_request, analysis_work_dir, item_report_path) {
+            Ok(report) => item_reports.push(collection_item_report(
+                item,
+                Some(&local_video_path),
+                CollectionItemStatus::Analyzed,
+                None,
+                Some(report),
+            )),
+            Err(error) => item_reports.push(collection_item_report(
+                item,
+                Some(&local_video_path),
+                CollectionItemStatus::Failed,
+                Some(error.to_string()),
+                None,
+            )),
+        }
+    }
+
+    let analyzed_items = item_reports
+        .iter()
+        .filter(|item| item.status == CollectionItemStatus::Analyzed)
+        .count() as u64;
+    let failed_items = item_reports
+        .iter()
+        .filter(|item| item.status == CollectionItemStatus::Failed)
+        .count() as u64;
+    let filtered_items = item_reports
+        .iter()
+        .filter(|item| {
+            matches!(
+                item.status,
+                CollectionItemStatus::MetadataFiltered | CollectionItemStatus::FileFiltered
+            )
+        })
+        .count() as u64;
+    let skipped_items = item_reports
+        .iter()
+        .filter(|item| item.status == CollectionItemStatus::SkippedExisting)
+        .count() as u64;
+
+    if analyzed_items > 0 {
+        completed.push("collection_analysis".to_string());
+    }
+    if failed_items > 0 {
+        skipped.push(format!("{failed_items} collection items failed"));
+    }
+    if filtered_items > 0 {
+        skipped.push(format!("{filtered_items} collection items filtered"));
+    }
+    if skipped_items > 0 {
+        skipped.push(format!("{skipped_items} existing collection items skipped"));
+    }
+
+    let total_duration_seconds = item_reports
+        .iter()
+        .filter_map(|item| item.report.as_ref()?.video.duration_seconds)
+        .reduce(|left, right| left + right);
+
+    let report = YoutubeCollectionReport {
+        workflow: "youtube_collection_analysis".to_string(),
+        collection: CollectionSummary {
+            collection_id: manifest.collection_id.clone(),
+            title: manifest.title.clone(),
+            source_url: manifest.source.url().to_string(),
+            discovered_items: manifest.items.len() as u64,
+            selected_items,
+            analyzed_items,
+            failed_items,
+            filtered_items,
+            skipped_items,
+            downloaded_items,
+            total_duration_seconds,
+        },
+        source: YoutubeCollectionSourceReport {
+            kind: manifest.source.kind_name().to_string(),
+            url: manifest.source.url().to_string(),
+            title: manifest.title.clone(),
+        },
+        filters: AppliedCollectionFilters {
+            metadata: describe_manifest_filter(&request.metadata_filter),
+            local_file: describe_local_file_filter(&request.local_file_filter),
+        },
+        items: item_reports,
+        assets: CollectionAssetReport {
+            work_dir: display_path(&work_dir),
+            report_path: display_path(&report_path),
+            manifest_path: display_path(&manifest_path),
+        },
+        capabilities: CapabilityReport { completed, skipped },
+    };
+
+    write_json_report(&report_path, &report)?;
+
+    if analyzed_items == 0 && failed_items > 0 {
+        return Err(DetectError::Source(
+            "collection analysis failed for every selected item".to_string(),
+        ));
+    }
+
+    Ok(report)
 }
 
 fn download_youtube_video(url: &str, work_dir: &Path) -> Result<PathBuf> {
@@ -392,6 +1087,605 @@ fn find_downloaded_video(work_dir: &Path) -> Option<PathBuf> {
         .collect::<Vec<_>>();
     candidates.sort();
     candidates.pop()
+}
+
+fn validate_youtube_url(url: &str) -> Result<()> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "YouTube URL is required".to_string(),
+        ));
+    }
+    let Some(rest) = trimmed
+        .strip_prefix("https://")
+        .or_else(|| trimmed.strip_prefix("http://"))
+    else {
+        return Err(DetectError::InvalidArgument(
+            "YouTube URL must use http or https".to_string(),
+        ));
+    };
+    let host = rest
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or_default()
+        .split('@')
+        .next_back()
+        .unwrap_or_default()
+        .split(':')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let allowed = host == "youtu.be"
+        || host == "youtube.com"
+        || host == "www.youtube.com"
+        || host == "m.youtube.com"
+        || host.ends_with(".youtube.com");
+    if !allowed {
+        return Err(DetectError::InvalidArgument(format!(
+            "unsupported YouTube URL host: {host}"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_local_file(path: &Path) -> Result<()> {
+    if path.as_os_str().is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "local file path is required".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct YtDlpCollectionJson {
+    id: Option<String>,
+    title: Option<String>,
+    webpage_url: Option<String>,
+    entries: Option<Vec<Option<YtDlpEntryJson>>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct YtDlpEntryJson {
+    id: Option<String>,
+    title: Option<String>,
+    url: Option<String>,
+    webpage_url: Option<String>,
+    original_url: Option<String>,
+    playlist_index: Option<u64>,
+    duration: Option<f64>,
+    upload_date: Option<String>,
+}
+
+fn discover_collection_manifest(
+    source: &YoutubeCollectionSource,
+    max_items: Option<u64>,
+) -> Result<YoutubeCollectionManifest> {
+    let command = PathBuf::from("yt-dlp");
+    if resolve_command(&command).is_none() {
+        return Err(DetectError::Source(
+            "yt-dlp is required for YouTube collection discovery".to_string(),
+        ));
+    }
+
+    let output = Command::new("yt-dlp")
+        .arg("--flat-playlist")
+        .arg("-J")
+        .arg(source.url())
+        .output()?;
+    if !output.status.success() {
+        return Err(DetectError::Source(format!(
+            "yt-dlp collection discovery failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+
+    let parsed: YtDlpCollectionJson = serde_json::from_slice(&output.stdout)
+        .map_err(|err| DetectError::Source(err.to_string()))?;
+    collection_manifest_from_yt_dlp(source.clone(), parsed, max_items)
+}
+
+fn collection_manifest_from_yt_dlp(
+    source: YoutubeCollectionSource,
+    parsed: YtDlpCollectionJson,
+    max_items: Option<u64>,
+) -> Result<YoutubeCollectionManifest> {
+    let collection_id = sanitize_item_id(
+        parsed
+            .id
+            .as_deref()
+            .or(parsed.webpage_url.as_deref())
+            .unwrap_or_else(|| source.url()),
+    );
+    let mut seen = BTreeMap::<String, u64>::new();
+    let limit = max_items.unwrap_or(u64::MAX) as usize;
+    let items = parsed
+        .entries
+        .unwrap_or_default()
+        .into_iter()
+        .flatten()
+        .take(limit)
+        .enumerate()
+        .map(|(index, entry)| {
+            let mut item_id = entry
+                .id
+                .as_deref()
+                .map(sanitize_item_id)
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| format!("item-{}", index + 1));
+            let count = seen.entry(item_id.clone()).or_insert(0);
+            if *count > 0 {
+                item_id = format!("{item_id}-{}", *count + 1);
+            }
+            *count += 1;
+            YoutubeCollectionManifestItem {
+                item_id,
+                youtube_id: entry.id.clone(),
+                playlist_index: entry.playlist_index.or(Some((index + 1) as u64)),
+                title: entry.title.clone(),
+                source_url: source_url_from_entry(&entry),
+                duration_seconds: entry.duration,
+                upload_date: entry.upload_date.clone(),
+            }
+        })
+        .collect();
+
+    Ok(YoutubeCollectionManifest {
+        collection_id,
+        source,
+        title: parsed.title,
+        items,
+    })
+}
+
+fn enrich_manifest_items(manifest: &mut YoutubeCollectionManifest) -> Result<()> {
+    let command = PathBuf::from("yt-dlp");
+    if resolve_command(&command).is_none() {
+        return Err(DetectError::Source(
+            "yt-dlp is required for YouTube collection metadata enrichment".to_string(),
+        ));
+    }
+
+    for item in &mut manifest.items {
+        if item.duration_seconds.is_some() && item.upload_date.is_some() && item.title.is_some() {
+            continue;
+        }
+        let output = Command::new("yt-dlp")
+            .arg("--skip-download")
+            .arg("--no-playlist")
+            .arg("-J")
+            .arg(&item.source_url)
+            .output()?;
+        if !output.status.success() {
+            continue;
+        }
+        let Ok(entry) = serde_json::from_slice::<YtDlpEntryJson>(&output.stdout) else {
+            continue;
+        };
+        if item.youtube_id.is_none() {
+            item.youtube_id = entry.id;
+        }
+        if item.title.is_none() {
+            item.title = entry.title;
+        }
+        if item.duration_seconds.is_none() {
+            item.duration_seconds = entry.duration;
+        }
+        if item.upload_date.is_none() {
+            item.upload_date = entry.upload_date;
+        }
+    }
+    Ok(())
+}
+
+fn source_url_from_entry(entry: &YtDlpEntryJson) -> String {
+    for value in [&entry.webpage_url, &entry.original_url, &entry.url] {
+        if let Some(value) = value {
+            if value.starts_with("http://") || value.starts_with("https://") {
+                return value.clone();
+            }
+        }
+    }
+    if let Some(id) = entry.id.as_deref().or(entry.url.as_deref()) {
+        return format!("https://www.youtube.com/watch?v={id}");
+    }
+    "https://www.youtube.com/".to_string()
+}
+
+fn download_youtube_video_to_dir(url: &str, media_dir: &Path, item_id: &str) -> Result<PathBuf> {
+    let command = PathBuf::from("yt-dlp");
+    if resolve_command(&command).is_none() {
+        return Err(DetectError::Source(
+            "yt-dlp is required for YouTube downloads".to_string(),
+        ));
+    }
+    fs::create_dir_all(media_dir)?;
+    let output_template = media_dir.join(format!("{}-%(id)s.%(ext)s", sanitize_item_id(item_id)));
+    let output = Command::new("yt-dlp")
+        .arg("--no-playlist")
+        .arg("--merge-output-format")
+        .arg("mp4")
+        .arg("--print")
+        .arg("after_move:filepath")
+        .arg("-o")
+        .arg(&output_template)
+        .arg(url)
+        .output()?;
+
+    if !output.status.success() {
+        return Err(DetectError::Source(format!(
+            "yt-dlp failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+
+    for line in String::from_utf8_lossy(&output.stdout).lines().rev() {
+        let path = PathBuf::from(line.trim());
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+
+    find_existing_item_video(media_dir).ok_or_else(|| {
+        DetectError::Source("yt-dlp completed but no downloaded video was found".to_string())
+    })
+}
+
+fn find_existing_item_video(media_dir: &Path) -> Option<PathBuf> {
+    let mut candidates = fs::read_dir(media_dir)
+        .ok()?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| is_video_file(path))
+        .collect::<Vec<_>>();
+    candidates.sort();
+    candidates.pop()
+}
+
+fn is_video_file(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|value| value.to_str())
+            .map(|value| value.to_ascii_lowercase()),
+        Some(value) if matches!(value.as_str(), "mp4" | "mkv" | "webm" | "mov")
+    )
+}
+
+fn metadata_filter_matches(
+    item: &YoutubeCollectionManifestItem,
+    filter: &ManifestFilterSpec,
+) -> bool {
+    if let Some(needle) = filter.title_contains.as_deref().map(normalize_text_filter) {
+        let title = item
+            .title
+            .as_deref()
+            .map(normalize_text_filter)
+            .unwrap_or_default();
+        if !title.contains(&needle) {
+            return false;
+        }
+    }
+    let title = item
+        .title
+        .as_deref()
+        .map(normalize_text_filter)
+        .unwrap_or_default();
+    for excluded in &filter.title_excludes {
+        if !excluded.trim().is_empty() && title.contains(&normalize_text_filter(excluded)) {
+            return false;
+        }
+    }
+    if let Some(min) = filter.playlist_index_min {
+        if item.playlist_index.unwrap_or(0) < min {
+            return false;
+        }
+    }
+    if let Some(max) = filter.playlist_index_max {
+        if item.playlist_index.unwrap_or(u64::MAX) > max {
+            return false;
+        }
+    }
+    if let Some(min) = filter.duration_seconds_min {
+        if item
+            .duration_seconds
+            .map(|duration| duration < min)
+            .unwrap_or(true)
+        {
+            return false;
+        }
+    }
+    if let Some(max) = filter.duration_seconds_max {
+        if item
+            .duration_seconds
+            .map(|duration| duration > max)
+            .unwrap_or(true)
+        {
+            return false;
+        }
+    }
+    if let Some(from) = normalize_upload_date_filter(filter.upload_date_from.as_deref()) {
+        if item
+            .upload_date
+            .as_deref()
+            .and_then(|value| normalize_upload_date_filter(Some(value)))
+            .map(|value| value < from)
+            .unwrap_or(true)
+        {
+            return false;
+        }
+    }
+    if let Some(to) = normalize_upload_date_filter(filter.upload_date_to.as_deref()) {
+        if item
+            .upload_date
+            .as_deref()
+            .and_then(|value| normalize_upload_date_filter(Some(value)))
+            .map(|value| value > to)
+            .unwrap_or(true)
+        {
+            return false;
+        }
+    }
+    true
+}
+
+fn local_file_filter_matches(path: &Path, filter: &LocalFileFilterSpec) -> Result<bool> {
+    let metadata = fs::metadata(path)?;
+    if let Some(min) = filter.file_size_bytes_min {
+        if metadata.len() < min {
+            return Ok(false);
+        }
+    }
+    if let Some(max) = filter.file_size_bytes_max {
+        if metadata.len() > max {
+            return Ok(false);
+        }
+    }
+    if !filter.extension_allowlist.is_empty() {
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .map(|value| value.trim_start_matches('.').to_ascii_lowercase())
+            .unwrap_or_default();
+        let allowed = filter.extension_allowlist.iter().any(|allowed| {
+            allowed
+                .trim()
+                .trim_start_matches('.')
+                .eq_ignore_ascii_case(&extension)
+        });
+        if !allowed {
+            return Ok(false);
+        }
+    }
+
+    if filter.duration_seconds_min.is_some() || filter.duration_seconds_max.is_some() {
+        let duration = probe_local_video_duration(path)?.ok_or_else(|| {
+            DetectError::Source(format!(
+                "could not read local video duration: {}",
+                display_path(path)
+            ))
+        })?;
+        if let Some(min) = filter.duration_seconds_min {
+            if duration < min {
+                return Ok(false);
+            }
+        }
+        if let Some(max) = filter.duration_seconds_max {
+            if duration > max {
+                return Ok(false);
+            }
+        }
+    }
+
+    Ok(true)
+}
+
+fn probe_local_video_duration(path: &Path) -> Result<Option<f64>> {
+    let source = FfmpegVideoSource::open(path)?;
+    Ok(source.metadata().duration_seconds)
+}
+
+fn collection_item_report(
+    item: &YoutubeCollectionManifestItem,
+    local_video: Option<&PathBuf>,
+    status: CollectionItemStatus,
+    error: Option<String>,
+    report: Option<YoutubeVideoReport>,
+) -> CollectionItemReport {
+    CollectionItemReport {
+        item_id: item.item_id.clone(),
+        youtube_id: item.youtube_id.clone(),
+        playlist_index: item.playlist_index,
+        title: item.title.clone(),
+        source_url: item.source_url.clone(),
+        local_video: local_video.map(|path| display_path(path)),
+        status,
+        error,
+        report,
+    }
+}
+
+fn validate_manifest_filter(filter: &ManifestFilterSpec) -> Result<()> {
+    validate_optional_nonnegative_f64(filter.duration_seconds_min, "duration_seconds_min")?;
+    validate_optional_nonnegative_f64(filter.duration_seconds_max, "duration_seconds_max")?;
+    if let (Some(min), Some(max)) = (filter.duration_seconds_min, filter.duration_seconds_max) {
+        if min > max {
+            return Err(DetectError::InvalidArgument(
+                "duration_seconds_min must be less than or equal to duration_seconds_max"
+                    .to_string(),
+            ));
+        }
+    }
+    if let (Some(min), Some(max)) = (filter.playlist_index_min, filter.playlist_index_max) {
+        if min > max {
+            return Err(DetectError::InvalidArgument(
+                "playlist_index_min must be less than or equal to playlist_index_max".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_local_file_filter(filter: &LocalFileFilterSpec) -> Result<()> {
+    validate_optional_nonnegative_f64(filter.duration_seconds_min, "duration_seconds_min")?;
+    validate_optional_nonnegative_f64(filter.duration_seconds_max, "duration_seconds_max")?;
+    if let (Some(min), Some(max)) = (filter.duration_seconds_min, filter.duration_seconds_max) {
+        if min > max {
+            return Err(DetectError::InvalidArgument(
+                "local duration_seconds_min must be less than or equal to local duration_seconds_max"
+                    .to_string(),
+            ));
+        }
+    }
+    if let (Some(min), Some(max)) = (filter.file_size_bytes_min, filter.file_size_bytes_max) {
+        if min > max {
+            return Err(DetectError::InvalidArgument(
+                "file_size_bytes_min must be less than or equal to file_size_bytes_max".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_optional_nonnegative_f64(value: Option<f64>, name: &str) -> Result<()> {
+    if let Some(value) = value {
+        if !value.is_finite() || value < 0.0 {
+            return Err(DetectError::InvalidArgument(format!(
+                "{name} must be finite and non-negative"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_analysis_options(
+    scene_threshold: f32,
+    min_scene_len: u64,
+    visual_sample_every: u64,
+) -> Result<()> {
+    if !scene_threshold.is_finite() || scene_threshold <= 0.0 {
+        return Err(DetectError::InvalidArgument(
+            "scene_threshold must be finite and positive".to_string(),
+        ));
+    }
+    if min_scene_len == 0 {
+        return Err(DetectError::InvalidArgument(
+            "min_scene_len must be positive".to_string(),
+        ));
+    }
+    if visual_sample_every == 0 {
+        return Err(DetectError::InvalidArgument(
+            "visual_sample_every must be positive".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn manifest_filter_needs_enrichment(filter: &ManifestFilterSpec) -> bool {
+    filter.duration_seconds_min.is_some()
+        || filter.duration_seconds_max.is_some()
+        || filter.upload_date_from.is_some()
+        || filter.upload_date_to.is_some()
+}
+
+fn describe_manifest_filter(filter: &ManifestFilterSpec) -> Vec<String> {
+    let mut descriptions = Vec::new();
+    if let Some(value) = filter
+        .title_contains
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        descriptions.push(format!("title contains '{value}'"));
+    }
+    for value in &filter.title_excludes {
+        if !value.trim().is_empty() {
+            descriptions.push(format!("title excludes '{value}'"));
+        }
+    }
+    if let Some(value) = filter.playlist_index_min {
+        descriptions.push(format!("playlist index >= {value}"));
+    }
+    if let Some(value) = filter.playlist_index_max {
+        descriptions.push(format!("playlist index <= {value}"));
+    }
+    if let Some(value) = filter.upload_date_from.as_deref() {
+        descriptions.push(format!("upload date >= {value}"));
+    }
+    if let Some(value) = filter.upload_date_to.as_deref() {
+        descriptions.push(format!("upload date <= {value}"));
+    }
+    if let Some(value) = filter.duration_seconds_min {
+        descriptions.push(format!("duration >= {value}s"));
+    }
+    if let Some(value) = filter.duration_seconds_max {
+        descriptions.push(format!("duration <= {value}s"));
+    }
+    descriptions.push(format!(
+        "already downloaded: {:?}",
+        filter.already_downloaded
+    ));
+    descriptions
+}
+
+fn describe_local_file_filter(filter: &LocalFileFilterSpec) -> Vec<String> {
+    let mut descriptions = Vec::new();
+    if let Some(value) = filter.duration_seconds_min {
+        descriptions.push(format!("local duration >= {value}s"));
+    }
+    if let Some(value) = filter.duration_seconds_max {
+        descriptions.push(format!("local duration <= {value}s"));
+    }
+    if let Some(value) = filter.file_size_bytes_min {
+        descriptions.push(format!("file size >= {value} bytes"));
+    }
+    if let Some(value) = filter.file_size_bytes_max {
+        descriptions.push(format!("file size <= {value} bytes"));
+    }
+    if !filter.extension_allowlist.is_empty() {
+        descriptions.push(format!(
+            "extensions: {}",
+            filter.extension_allowlist.join(", ")
+        ));
+    }
+    descriptions.push(format!("failed probe: {:?}", filter.failed_probe_behavior));
+    descriptions
+}
+
+fn normalize_text_filter(value: &str) -> String {
+    value.trim().to_ascii_lowercase()
+}
+
+fn normalize_upload_date_filter(value: Option<&str>) -> Option<String> {
+    let normalized = value?
+        .chars()
+        .filter(|ch| ch.is_ascii_digit())
+        .collect::<String>();
+    if normalized.len() == 8 {
+        Some(normalized)
+    } else {
+        None
+    }
+}
+
+fn sanitize_item_id(value: &str) -> String {
+    let mut sanitized = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+    while sanitized.contains("--") {
+        sanitized = sanitized.replace("--", "-");
+    }
+    if sanitized.is_empty() {
+        "collection".to_string()
+    } else {
+        sanitized
+    }
 }
 
 fn analyze_video(
@@ -551,28 +1845,7 @@ fn transcribe_video(
 }
 
 fn extract_audio_wav(video_path: &Path, work_dir: &Path) -> Result<PathBuf> {
-    let path = work_dir.join("audio.wav");
-    let status = Command::new("ffmpeg")
-        .arg("-y")
-        .arg("-v")
-        .arg("error")
-        .arg("-i")
-        .arg(video_path)
-        .arg("-vn")
-        .arg("-ac")
-        .arg("1")
-        .arg("-ar")
-        .arg("16000")
-        .arg("-f")
-        .arg("wav")
-        .arg(&path)
-        .status()?;
-    if !status.success() {
-        return Err(DetectError::Source(
-            "ffmpeg failed to extract transcription audio".to_string(),
-        ));
-    }
-    Ok(path)
+    extract_wav(video_path, work_dir.join("audio.wav"), 16_000)
 }
 
 fn run_whisper_command(
@@ -700,95 +1973,6 @@ fn analyze_transcript_text(
     })
 }
 
-#[derive(Default)]
-struct AudioEnergyAnalyzer {
-    current_label: Option<String>,
-}
-
-impl AudioAnalyzer for AudioEnergyAnalyzer {
-    fn name(&self) -> &str {
-        "audio_energy"
-    }
-
-    fn process_frame(&mut self, frame: &AudioFrame<'_>) -> Result<Vec<AnalysisEvent>> {
-        let rms = rms(frame.data);
-        let label = if rms < 0.01 {
-            "audio:silence"
-        } else if rms > 0.2 {
-            "audio:loud"
-        } else {
-            "audio:active"
-        };
-        if self.current_label.as_deref() == Some(label) {
-            return Ok(Vec::new());
-        }
-        self.current_label = Some(label.to_string());
-        Ok(vec![AnalysisEvent::new(self.name(), label)
-            .at_timestamp(frame.timestamp)
-            .score(rms)])
-    }
-}
-
-fn rms(buffer: &AudioBuffer) -> f32 {
-    let (sum, count) = match buffer {
-        AudioBuffer::U8(values) => values.iter().fold((0.0, 0_usize), |(sum, count), value| {
-            let sample = (*value as f32 - 128.0) / 128.0;
-            (sum + sample * sample, count + 1)
-        }),
-        AudioBuffer::I16(values) => values.iter().fold((0.0, 0_usize), |(sum, count), value| {
-            let sample = *value as f32 / i16::MAX as f32;
-            (sum + sample * sample, count + 1)
-        }),
-        AudioBuffer::I32(values) => values.iter().fold((0.0, 0_usize), |(sum, count), value| {
-            let sample = *value as f32 / i32::MAX as f32;
-            (sum + sample * sample, count + 1)
-        }),
-        AudioBuffer::F32(values) => values.iter().fold((0.0, 0_usize), |(sum, count), value| {
-            (sum + value * value, count + 1)
-        }),
-    };
-    if count == 0 {
-        0.0
-    } else {
-        (sum / count as f32).sqrt()
-    }
-}
-
-struct SampledVideoAnalyzer<A> {
-    inner: A,
-    every: u64,
-}
-
-impl<A> SampledVideoAnalyzer<A> {
-    fn new(inner: A, every: u64) -> Self {
-        Self {
-            inner,
-            every: every.max(1),
-        }
-    }
-}
-
-impl<A: VideoAnalyzer> VideoAnalyzer for SampledVideoAnalyzer<A> {
-    fn name(&self) -> &str {
-        self.inner.name()
-    }
-
-    fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<Observation>> {
-        if frame.position.frame_index.is_multiple_of(self.every) {
-            self.inner.process_frame(frame)
-        } else {
-            Ok(Vec::new())
-        }
-    }
-
-    fn finish(
-        &mut self,
-        last_position: Option<video_analysis_core::FramePosition>,
-    ) -> Result<Vec<Observation>> {
-        self.inner.finish(last_position)
-    }
-}
-
 fn downloaded_external_model(name: &str, task: ModelTask) -> DownloadedModel {
     DownloadedModel {
         spec: HuggingFaceModelSpec::new(name, task).name(name),
@@ -897,6 +2081,18 @@ fn video_report_with_observations(
 ) -> VideoReport {
     video_report.observations = observations;
     video_report
+}
+
+fn default_scene_threshold() -> f32 {
+    27.0
+}
+
+fn default_min_scene_len() -> u64 {
+    15
+}
+
+fn default_visual_sample_every() -> u64 {
+    30
 }
 
 fn write_json_report<T: Serialize>(path: &Path, value: &T) -> Result<()> {

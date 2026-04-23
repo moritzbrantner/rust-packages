@@ -292,6 +292,45 @@ pub fn parse_plain_lines(text: &str) -> TranscriptionResult {
     }
 }
 
+pub fn format_srt(segments: &[TranscriptSegment]) -> String {
+    let mut output = String::new();
+    for (index, segment) in segments.iter().enumerate() {
+        let start = segment.start_seconds.unwrap_or(0.0);
+        let end = segment
+            .end_seconds
+            .unwrap_or_else(|| (start + 2.0).max(start));
+        output.push_str(&(index + 1).to_string());
+        output.push('\n');
+        output.push_str(&format_srt_timestamp(start));
+        output.push_str(" --> ");
+        output.push_str(&format_srt_timestamp(end.max(start)));
+        output.push('\n');
+        output.push_str(segment.text.trim());
+        output.push_str("\n\n");
+    }
+    output
+}
+
+pub fn write_srt(path: impl AsRef<Path>, segments: &[TranscriptSegment]) -> Result<()> {
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, format_srt(segments))?;
+    Ok(())
+}
+
+pub fn format_srt_timestamp(seconds: f64) -> String {
+    let total_millis = (seconds.max(0.0) * 1_000.0).round() as u64;
+    let millis = total_millis % 1_000;
+    let total_seconds = total_millis / 1_000;
+    let secs = total_seconds % 60;
+    let total_minutes = total_seconds / 60;
+    let minutes = total_minutes % 60;
+    let hours = total_minutes / 60;
+    format!("{hours:02}:{minutes:02}:{secs:02},{millis:03}")
+}
+
 pub fn segment_to_owned_text_segment(segment: &TranscriptSegment) -> OwnedTextSegment {
     let mut owned =
         OwnedTextSegment::new(segment.index, segment.text.clone()).finality(segment.is_final);
@@ -465,6 +504,37 @@ mod tests {
         assert_eq!(parsed.segments.len(), 1);
         assert_eq!(parsed.segments[0].start_seconds, Some(1.0));
         assert_eq!(parsed.segments[0].end_seconds, Some(2.5));
+    }
+
+    #[test]
+    fn formats_srt() {
+        let text = format_srt(&[
+            TranscriptSegment {
+                index: 0,
+                start_seconds: Some(1.25),
+                end_seconds: Some(3.5),
+                text: "Hello".to_string(),
+                language: None,
+                speaker: None,
+                confidence: None,
+                is_final: true,
+            },
+            TranscriptSegment {
+                index: 1,
+                start_seconds: Some(63.0),
+                end_seconds: Some(65.125),
+                text: "World".to_string(),
+                language: None,
+                speaker: None,
+                confidence: None,
+                is_final: true,
+            },
+        ]);
+
+        assert_eq!(
+            text,
+            "1\n00:00:01,250 --> 00:00:03,500\nHello\n\n2\n00:01:03,000 --> 00:01:05,125\nWorld\n\n"
+        );
     }
 
     #[test]

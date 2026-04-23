@@ -46,16 +46,21 @@ Rust crates are grouped under `crates/` by input or integration domain:
 - `image-analysis-synthesis`: deterministic solid, gradient, histogram, and
   region-based image synthesis into owned image buffers.
 - `text-analysis-corpus`: corpus-scale term indexing, corpus statistics,
-  TF-IDF scoring, and TF-IDF cosine search without retaining source text.
+  TF-IDF scoring, BM25 ranking, and corpus search without retaining source text.
 - `text-analysis-core`: text document contracts, text segment bridging,
-  normalization, Unicode-aware tokens with spans, sentence/paragraph splitting,
-  and text statistics.
-- `text-analysis-features`: stop words, keywords, readability, pattern events,
+  normalization, Unicode-safe tokens/graphemes/word segments with spans,
+  sentence/paragraph splitting, script profiling, and text statistics.
+- `text-analysis-features`: stop words, keywords, stemming, extractive
+  summaries, lexicon sentiment, rule entities, readability, pattern events,
   reusable text analyzers, term frequencies, and character/token n-grams.
+- `text-analysis-models`: optional tokenizer, ONNX, and Candle adapters for
+  model-backed text classification and embeddings. Default builds stay light;
+  `onnx`, `candle`, and `external-tests` are opt-in features.
 - `text-analysis-prediction`: deterministic token Markov chains for next-token
   prediction, generation, and perplexity scoring.
-- `text-analysis-semantics`: lightweight hashed text embeddings, semantic text
-  search, text similarity, and co-occurrence/related-term analysis.
+- `text-analysis-semantics`: lightweight hashed text embeddings, a
+  `TextEmbeddingBackend` trait, generic embedding search, text similarity, and
+  co-occurrence/related-term analysis.
 - `text-analysis-synthesis`: deterministic text generation from weighted terms
   and analyzer events with explicit heuristic trace metadata.
 - `text-analysis-transcription`: transcript segment models, Whisper JSON,
@@ -92,7 +97,8 @@ Rust crates are grouped under `crates/` by input or integration domain:
 - `video-analysis-ingest`: media ingest traits plus live/file text sources.
 - `video-analysis-ffmpeg`: FFmpeg-backed video and audio ingest implementations.
 - `video-analysis-models`: Hugging Face model downloads plus normalized model
-  adapter contracts for object, scene, and text/semantic analyzers.
+  adapter contracts for object, scene, and text/semantic analyzers, including
+  ONNX-friendly Xenova text presets.
 - `video-analysis-tracking`: IoU-based object tracking contracts and a
   `VideoAnalyzer` adapter that emits tracked object observations.
 - `video-analysis-posture`: pose/keypoint contracts, skeleton helpers, joint
@@ -184,6 +190,17 @@ hermetic:
 ```bash
 cargo test -p video-analysis-ffmpeg --features ffmpeg-tests
 ```
+
+## External Install Rule
+
+If a package needs installable external runtime dependencies (for example Python
+environments, model bundles, or native toolchains), it must provide idempotent
+scripts in `scripts/`:
+
+- A setup script that verifies first and only installs/repairs missing or
+  invalid state.
+- A check script that verifies but does not install.
+- Default installation paths under gitignored local directories.
 
 ## Dependency Graph
 
@@ -635,24 +652,33 @@ The `video-analysis-models` crate keeps model-specific inference behind small
 backend traits:
 
 ```rust
+use std::env;
+
 use video_analysis_core::{Result, VideoAnalysisPipeline};
 use video_analysis_models::{
-    HuggingFaceModelSpec, ModelBundleStore, ModelPreset, ModelVideoAnalyzer, VisionModelBackend,
+    ExternalCommandModel, HuggingFaceModelSpec, ModelBundleStore, ModelPreset, ModelVideoAnalyzer,
 };
 
-# fn build_backend() -> impl VisionModelBackend { unimplemented!() }
 fn main() -> Result<()> {
     let spec = HuggingFaceModelSpec::from_preset(ModelPreset::DetrResnet50);
     let downloaded = ModelBundleStore::new(".video-analysis-models")
         .download(&spec)?
         .to_downloaded_model();
 
-    let backend = build_backend(); // ONNX, Candle, Python transformers, etc.
-    let analyzer = ModelVideoAnalyzer::new(downloaded.spec.name, backend);
+    let model_name = downloaded.spec.name.clone();
+    let command =
+        env::var("VISION_MODEL_COMMAND").unwrap_or_else(|_| "scripts/detect-objects".to_string());
+    let backend = ExternalCommandModel::new(command, downloaded).persistent();
+
+    let analyzer = ModelVideoAnalyzer::new(model_name, backend);
     let _pipeline = VideoAnalysisPipeline::builder().analyzer(analyzer).build()?;
     Ok(())
 }
 ```
+
+Running this example requires `VISION_MODEL_COMMAND` or `scripts/detect-objects`
+to point at an executable implementing the
+[`ExternalCommandModel` JSON protocol](docs/API_CONTRACTS.md#external-command-json-protocol).
 
 Backends return `RawPrediction` values and the models crate repairs and
 normalizes common API differences: `xywh` or `xyxy` boxes, normalized or pixel
@@ -672,6 +698,28 @@ ignored local virtual environment:
 ```bash
 bash scripts/setup_model_external_tools.sh onnx
 bash scripts/check_model_external_tools.sh onnx
+```
+
+Model artifacts are intentionally kept out of git under `.video-analysis-models`.
+Use the lock-driven idempotent sync script to verify checksums and re-download
+missing/corrupted files when needed:
+
+```bash
+# verify + auto-repair
+bash scripts/sync_model_bundles.sh
+
+# verify only (CI)
+bash scripts/sync_model_bundles.sh --check
+
+# after changing model specs in scripts/model_bundles.lock.sh
+bash scripts/sync_model_bundles.sh --write-lock
+```
+
+The same flow is available through the existing model tool wrappers:
+
+```bash
+bash scripts/setup_model_external_tools.sh bundles
+bash scripts/check_model_external_tools.sh bundles
 ```
 
 ### Audio Analysis

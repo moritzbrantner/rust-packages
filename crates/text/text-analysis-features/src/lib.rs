@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use text_analysis_core::{
-    detailed_text_stats, text_stats, tokenize, tokenize_words, word_counts, TextProcessingOptions,
-    TextStats, TokenKind,
+    detailed_text_stats, split_sentence_spans, text_stats, tokenize, tokenize_words, word_counts,
+    TextProcessingOptions, TextSpan, TextStats, TokenKind,
 };
 use video_analysis_core::{
     AnalysisEvent, DetectError, Result, TextAnalyzer, TextSegment, Timestamp,
@@ -66,6 +66,133 @@ pub struct ReadabilitySummary {
     pub word_count: usize,
     pub average_sentence_words: f32,
     pub average_word_chars: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StemOptions {
+    pub min_term_len: usize,
+    pub stop_words: StopWords,
+}
+
+impl Default for StemOptions {
+    fn default() -> Self {
+        Self {
+            min_term_len: 1,
+            stop_words: StopWords {
+                language: Some("en".to_string()),
+                terms: BTreeSet::new(),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtractiveSummaryOptions {
+    pub max_sentences: usize,
+    pub min_sentence_words: usize,
+    pub stop_words: StopWords,
+}
+
+impl Default for ExtractiveSummaryOptions {
+    fn default() -> Self {
+        Self {
+            max_sentences: 3,
+            min_sentence_words: 3,
+            stop_words: english_stop_words(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SummarySentence {
+    pub index: usize,
+    pub text: String,
+    pub span: TextSpan,
+    pub score: f32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SentimentLexicon {
+    pub terms: BTreeMap<String, f32>,
+    pub neutral_threshold: f32,
+}
+
+impl Default for SentimentLexicon {
+    fn default() -> Self {
+        let terms = [
+            ("amazing", 2.0),
+            ("bad", -1.5),
+            ("boring", -1.0),
+            ("broken", -1.5),
+            ("delight", 1.5),
+            ("excellent", 2.0),
+            ("fail", -1.5),
+            ("failure", -1.5),
+            ("fast", 0.8),
+            ("good", 1.2),
+            ("great", 1.7),
+            ("happy", 1.4),
+            ("hate", -2.0),
+            ("love", 2.0),
+            ("negative", -1.0),
+            ("poor", -1.5),
+            ("positive", 1.0),
+            ("reliable", 1.0),
+            ("sad", -1.2),
+            ("slow", -0.8),
+            ("terrible", -2.0),
+            ("useful", 1.0),
+            ("worst", -2.0),
+        ]
+        .into_iter()
+        .map(|(term, score)| (term.to_string(), score))
+        .collect();
+        Self {
+            terms,
+            neutral_threshold: 0.05,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SentimentSummary {
+    pub positive_score: f32,
+    pub negative_score: f32,
+    pub compound: f32,
+    pub token_count: usize,
+    pub matched_terms: usize,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntityRuleSet {
+    pub emails: bool,
+    pub urls: bool,
+    pub mentions: bool,
+    pub hashtags: bool,
+    pub numbers: bool,
+    pub capitalized_phrases: bool,
+}
+
+impl Default for EntityRuleSet {
+    fn default() -> Self {
+        Self {
+            emails: true,
+            urls: true,
+            mentions: true,
+            hashtags: true,
+            numbers: true,
+            capitalized_phrases: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntityMention {
+    pub kind: String,
+    pub text: String,
+    pub normalized: String,
+    pub span: TextSpan,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -264,6 +391,151 @@ pub fn readability_summary(text: &str, options: &TextProcessingOptions) -> Reada
     }
 }
 
+pub fn stem_terms(text: &str, options: &StemOptions) -> Vec<String> {
+    tokenize_words(text)
+        .into_iter()
+        .filter(|term| term.chars().count() >= options.min_term_len)
+        .filter(|term| !options.stop_words.terms.contains(term))
+        .map(|term| stem_english(&term))
+        .filter(|term| !term.is_empty())
+        .collect()
+}
+
+pub fn extractive_summary(
+    text: &str,
+    options: &ExtractiveSummaryOptions,
+) -> Result<Vec<SummarySentence>> {
+    if options.max_sentences == 0 {
+        return Err(invalid_argument(
+            "summary max_sentences must be greater than zero",
+        ));
+    }
+    let sentences = split_sentence_spans(text, &TextProcessingOptions::default());
+    if sentences.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut document_counts = BTreeMap::<String, usize>::new();
+    let mut sentence_terms = Vec::with_capacity(sentences.len());
+    for sentence in &sentences {
+        let terms = tokenize_words(&sentence.text)
+            .into_iter()
+            .filter(|term| term.chars().count() >= 3)
+            .filter(|term| !options.stop_words.terms.contains(term))
+            .collect::<Vec<_>>();
+        for term in &terms {
+            *document_counts.entry(term.clone()).or_insert(0) += 1;
+        }
+        sentence_terms.push(terms);
+    }
+
+    let mut ranked = sentences
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, sentence)| {
+            let terms = &sentence_terms[index];
+            if sentence.token_count < options.min_sentence_words || terms.is_empty() {
+                return None;
+            }
+            let raw_score = terms
+                .iter()
+                .map(|term| document_counts.get(term).copied().unwrap_or(0) as f32)
+                .sum::<f32>();
+            Some(SummarySentence {
+                index,
+                text: sentence.text,
+                span: sentence.span,
+                score: raw_score / terms.len() as f32,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    ranked.sort_by(|left, right| {
+        right
+            .score
+            .total_cmp(&left.score)
+            .then_with(|| left.index.cmp(&right.index))
+    });
+    ranked.truncate(options.max_sentences);
+    ranked.sort_by(|left, right| left.index.cmp(&right.index));
+    Ok(ranked)
+}
+
+pub fn sentiment(text: &str, lexicon: &SentimentLexicon) -> SentimentSummary {
+    let mut positive_score = 0.0_f32;
+    let mut negative_score = 0.0_f32;
+    let mut matched_terms = 0;
+    let tokens = tokenize_words(text);
+    for token in &tokens {
+        if let Some(score) = lexicon.terms.get(token) {
+            matched_terms += 1;
+            if *score >= 0.0 {
+                positive_score += *score;
+            } else {
+                negative_score += score.abs();
+            }
+        }
+    }
+    let total = positive_score + negative_score;
+    let compound = if total <= f32::EPSILON {
+        0.0
+    } else {
+        (positive_score - negative_score) / total
+    };
+    let label = if compound > lexicon.neutral_threshold {
+        "positive"
+    } else if compound < -lexicon.neutral_threshold {
+        "negative"
+    } else {
+        "neutral"
+    }
+    .to_string();
+
+    SentimentSummary {
+        positive_score,
+        negative_score,
+        compound,
+        token_count: tokens.len(),
+        matched_terms,
+        label,
+    }
+}
+
+pub fn rule_entities(text: &str, rules: &EntityRuleSet) -> Vec<EntityMention> {
+    let tokens = tokenize(text, &TextProcessingOptions::default());
+    let mut mentions = Vec::new();
+    for token in &tokens {
+        let kind = match token.kind {
+            TokenKind::Email if rules.emails => Some("email"),
+            TokenKind::Url if rules.urls => Some("url"),
+            TokenKind::Mention if rules.mentions => Some("mention"),
+            TokenKind::Hashtag if rules.hashtags => Some("hashtag"),
+            TokenKind::Number if rules.numbers => Some("number"),
+            _ => None,
+        };
+        if let Some(kind) = kind {
+            mentions.push(EntityMention {
+                kind: kind.to_string(),
+                text: token.text.clone(),
+                normalized: token.normalized.clone(),
+                span: token.span,
+            });
+        }
+    }
+
+    if rules.capitalized_phrases {
+        mentions.extend(capitalized_phrase_mentions(text, &tokens));
+    }
+    mentions.sort_by(|left, right| {
+        left.span
+            .byte_start
+            .cmp(&right.span.byte_start)
+            .then_with(|| left.span.byte_end.cmp(&right.span.byte_end))
+            .then_with(|| left.kind.cmp(&right.kind))
+    });
+    mentions
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct TextStatsAnalyzer;
 
@@ -363,6 +635,94 @@ impl TextAnalyzer for TranscriptHeuristicAnalyzer {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct ExtractiveSummaryAnalyzer {
+    pub options: ExtractiveSummaryOptions,
+}
+
+impl ExtractiveSummaryAnalyzer {
+    pub fn new(options: ExtractiveSummaryOptions) -> Self {
+        Self { options }
+    }
+}
+
+impl TextAnalyzer for ExtractiveSummaryAnalyzer {
+    fn name(&self) -> &str {
+        "extractive_summary"
+    }
+
+    fn process_segment(&mut self, segment: &TextSegment<'_>) -> Result<Vec<AnalysisEvent>> {
+        Ok(extractive_summary(segment.text, &self.options)?
+            .into_iter()
+            .map(|sentence| {
+                event_at(
+                    self.name(),
+                    &format!("text:summary:{}", sentence.index),
+                    segment.timestamp,
+                )
+                .score(sentence.score)
+            })
+            .collect())
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SentimentAnalyzer {
+    pub lexicon: SentimentLexicon,
+}
+
+impl SentimentAnalyzer {
+    pub fn new(lexicon: SentimentLexicon) -> Self {
+        Self { lexicon }
+    }
+}
+
+impl TextAnalyzer for SentimentAnalyzer {
+    fn name(&self) -> &str {
+        "sentiment"
+    }
+
+    fn process_segment(&mut self, segment: &TextSegment<'_>) -> Result<Vec<AnalysisEvent>> {
+        let summary = sentiment(segment.text, &self.lexicon);
+        Ok(vec![event_at(
+            self.name(),
+            &format!("text:sentiment:{}", summary.label),
+            segment.timestamp,
+        )
+        .score(summary.compound)])
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct EntityRuleAnalyzer {
+    pub rules: EntityRuleSet,
+}
+
+impl EntityRuleAnalyzer {
+    pub fn new(rules: EntityRuleSet) -> Self {
+        Self { rules }
+    }
+}
+
+impl TextAnalyzer for EntityRuleAnalyzer {
+    fn name(&self) -> &str {
+        "rule_entities"
+    }
+
+    fn process_segment(&mut self, segment: &TextSegment<'_>) -> Result<Vec<AnalysisEvent>> {
+        Ok(rule_entities(segment.text, &self.rules)
+            .into_iter()
+            .map(|mention| {
+                event_at(
+                    self.name(),
+                    &format!("text:entity:{}:{}", mention.kind, mention.normalized),
+                    segment.timestamp,
+                )
+            })
+            .collect())
+    }
+}
+
 fn ngram_frequencies(ngrams: Vec<Vec<String>>) -> Vec<NgramFrequency> {
     let total = ngrams.len().max(1) as f32;
     let mut counts = BTreeMap::<Vec<String>, usize>::new();
@@ -413,6 +773,92 @@ fn has_token_kind(text: &str, kind: TokenKind) -> bool {
         .any(|token| token.kind == kind)
 }
 
+fn stem_english(term: &str) -> String {
+    let mut stem = term.to_lowercase();
+    if stem.len() <= 3 {
+        return stem;
+    }
+    for (suffix, replacement) in [
+        ("ization", "ize"),
+        ("ational", "ate"),
+        ("fulness", "ful"),
+        ("ousness", "ous"),
+        ("iveness", "ive"),
+        ("tional", "tion"),
+        ("biliti", "ble"),
+        ("ing", ""),
+        ("edly", ""),
+        ("edly", ""),
+        ("ed", ""),
+        ("ies", "y"),
+        ("sses", "ss"),
+        ("s", ""),
+    ] {
+        if stem.ends_with(suffix) && stem.len() > suffix.len() + 2 {
+            stem.truncate(stem.len() - suffix.len());
+            stem.push_str(replacement);
+            break;
+        }
+    }
+    if stem.ends_with("nn") || stem.ends_with("tt") || stem.ends_with("pp") {
+        stem.pop();
+    }
+    stem
+}
+
+fn capitalized_phrase_mentions(
+    text: &str,
+    tokens: &[text_analysis_core::Token],
+) -> Vec<EntityMention> {
+    let mut mentions = Vec::new();
+    let mut start = None::<usize>;
+    let mut end = None::<usize>;
+    for (index, token) in tokens.iter().enumerate() {
+        let is_capitalized = token.kind == TokenKind::Word
+            && token
+                .text
+                .chars()
+                .next()
+                .is_some_and(|ch| ch.is_uppercase())
+            && token.text.chars().any(|ch| ch.is_lowercase());
+        if is_capitalized {
+            start.get_or_insert(index);
+            end = Some(index);
+        } else if let (Some(start_index), Some(end_index)) = (start.take(), end.take()) {
+            push_capitalized_phrase(text, tokens, start_index, end_index, &mut mentions);
+        }
+    }
+    if let (Some(start_index), Some(end_index)) = (start, end) {
+        push_capitalized_phrase(text, tokens, start_index, end_index, &mut mentions);
+    }
+    mentions
+}
+
+fn push_capitalized_phrase(
+    text: &str,
+    tokens: &[text_analysis_core::Token],
+    start_index: usize,
+    end_index: usize,
+    mentions: &mut Vec<EntityMention>,
+) {
+    if end_index < start_index {
+        return;
+    }
+    let span = TextSpan {
+        byte_start: tokens[start_index].span.byte_start,
+        byte_end: tokens[end_index].span.byte_end,
+        char_start: tokens[start_index].span.char_start,
+        char_end: tokens[end_index].span.char_end,
+    };
+    let raw = text[span.byte_start..span.byte_end].to_string();
+    mentions.push(EntityMention {
+        kind: "capitalized_phrase".to_string(),
+        normalized: raw.to_lowercase(),
+        text: raw,
+        span,
+    });
+}
+
 fn event_at(analyzer: &str, label: &str, timestamp: Option<Timestamp>) -> AnalysisEvent {
     let event = AnalysisEvent::new(analyzer, label);
     if let Some(timestamp) = timestamp {
@@ -420,6 +866,10 @@ fn event_at(analyzer: &str, label: &str, timestamp: Option<Timestamp>) -> Analys
     } else {
         event
     }
+}
+
+fn invalid_argument(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(message.into())
 }
 
 #[cfg(test)]
@@ -476,6 +926,72 @@ mod tests {
         let summary = readability_summary("One sentence. Two words here.", &Default::default());
         assert_eq!(summary.sentence_count, 2);
         assert_eq!(summary.word_count, 5);
+    }
+
+    #[test]
+    fn stems_terms_after_stop_word_filtering() {
+        let mut options = StemOptions {
+            min_term_len: 3,
+            ..StemOptions::default()
+        };
+        options.stop_words.terms.insert("running".to_string());
+        let stems = stem_terms("running tested tests cities", &options);
+        assert_eq!(stems, vec!["test", "test", "city"]);
+    }
+
+    #[test]
+    fn ranks_extractive_summary_sentences() {
+        let summary = extractive_summary(
+            "Rust builds reliable tools. Bananas are yellow. Rust tools ship reliable crates.",
+            &ExtractiveSummaryOptions {
+                max_sentences: 1,
+                min_sentence_words: 3,
+                ..ExtractiveSummaryOptions::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(summary.len(), 1);
+        assert!(summary[0].text.contains("Rust"));
+        assert!(summary[0].score > 1.0);
+    }
+
+    #[test]
+    fn scores_sentiment_polarity_and_neutral_text() {
+        let lexicon = SentimentLexicon::default();
+        assert_eq!(
+            sentiment("excellent reliable work", &lexicon).label,
+            "positive"
+        );
+        assert_eq!(
+            sentiment("terrible broken failure", &lexicon).label,
+            "negative"
+        );
+        assert_eq!(sentiment("table chair window", &lexicon).label, "neutral");
+    }
+
+    #[test]
+    fn extracts_rule_entity_spans() {
+        let text =
+            "Contact Jane Doe at jane@example.com, visit https://example.com @team #Rust 42.";
+        let entities = rule_entities(text, &EntityRuleSet::default());
+        let kinds = entities
+            .iter()
+            .map(|entity| entity.kind.as_str())
+            .collect::<Vec<_>>();
+        assert!(kinds.contains(&"capitalized_phrase"));
+        assert!(kinds.contains(&"email"));
+        assert!(kinds.contains(&"url"));
+        assert!(kinds.contains(&"mention"));
+        assert!(kinds.contains(&"hashtag"));
+        assert!(kinds.contains(&"number"));
+        let email = entities
+            .iter()
+            .find(|entity| entity.kind == "email")
+            .unwrap();
+        assert_eq!(
+            &text[email.span.byte_start..email.span.byte_end],
+            "jane@example.com"
+        );
     }
 
     #[test]

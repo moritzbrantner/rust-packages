@@ -1,0 +1,28 @@
+[package]
+name = "text-analysis-models"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+ndarray = { workspace = true, optional = true }
+ort = { workspace = true, optional = true }
+serde_json.workspace = true
+text-analysis-semantics.workspace = true
+tokenizers = { workspace = true, optional = true }
+vector-analysis-core.workspace = true
+video-analysis-core.workspace = true
+video-analysis-models.workspace = true
+candle-core = { workspace = true, optional = true }
+candle-nn = { workspace = true, optional = true }
+candle-transformers = { workspace = true, optional = true }
+
+[features]
+default = []
+tokenizers = ["dep:tokenizers"]
+onnx = ["tokenizers", "dep:ort", "dep:ndarray"]
+candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers"]
+external-tests = ["onnx", "candle"]
+
+[dev-dependencies]
+tempfile.workspace = true

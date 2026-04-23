@@ -6,4 +6,5 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 unicode-normalization.workspace = true
+unicode-segmentation.workspace = true
 video-analysis-core.workspace = true

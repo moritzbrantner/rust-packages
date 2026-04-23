@@ -1,10 +1,13 @@
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 use audio_analysis_core::{
     interleaved_to_mono, peak, rms, zero_pad_to, ChannelMix, FrameSpec, StreamingFrameBuffer,
     StreamingFrameConfig, WindowFunction,
 };
 use audio_analysis_fourier::{FourierTransform, Spectrum};
+use serde::Deserialize;
 use video_analysis_core::{
     AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result, Timestamp,
 };
@@ -529,6 +532,209 @@ pub fn compare_audio_samples<E: AudioEmbeddingExtractor>(
     })
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct FingerprintRecord {
+    pub timestamp: Option<f64>,
+    pub duration: f64,
+    pub compressed: Option<String>,
+    pub raw: Vec<i64>,
+    pub raw_json: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FingerprintMatchedSegment {
+    pub query_start_seconds: Option<f64>,
+    pub catalog_start_seconds: Option<f64>,
+    pub duration_seconds: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FingerprintCandidate<T> {
+    pub item: T,
+    pub score: f32,
+    pub matched_segment: Option<FingerprintMatchedSegment>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FpcalcOutput {
+    timestamp: Option<f64>,
+    duration: f64,
+    fingerprint: serde_json::Value,
+}
+
+pub fn run_fpcalc(
+    command: impl AsRef<Path>,
+    media_path: impl AsRef<Path>,
+    chunk_seconds: Option<u64>,
+) -> Result<Vec<FingerprintRecord>> {
+    let mut process = Command::new(command.as_ref());
+    process.arg("-json").arg("-raw");
+    if let Some(chunk_seconds) = chunk_seconds {
+        process
+            .arg("-chunk")
+            .arg(chunk_seconds.to_string())
+            .arg("-overlap");
+    }
+    let output = process
+        .arg(media_path.as_ref())
+        .stdin(Stdio::null())
+        .output()?;
+    if !output.status.success() {
+        return Err(DetectError::Source(format!(
+            "fpcalc failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    parse_fpcalc_json(&String::from_utf8_lossy(&output.stdout))
+}
+
+pub fn run_default_fpcalc(
+    media_path: impl AsRef<Path>,
+    chunk_seconds: Option<u64>,
+) -> Result<Vec<FingerprintRecord>> {
+    run_fpcalc(PathBuf::from("fpcalc"), media_path, chunk_seconds)
+}
+
+pub fn parse_fpcalc_json(output: &str) -> Result<Vec<FingerprintRecord>> {
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+    if let Ok(parsed) = parse_fpcalc_record(trimmed) {
+        return Ok(vec![parsed]);
+    }
+    trimmed
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(parse_fpcalc_record)
+        .collect()
+}
+
+pub fn parse_fpcalc_record(line: &str) -> Result<FingerprintRecord> {
+    let parsed: FpcalcOutput = serde_json::from_str(line)
+        .map_err(|err| DetectError::InvalidArgument(format!("invalid fpcalc JSON: {err}")))?;
+    let raw = match &parsed.fingerprint {
+        serde_json::Value::Array(values) => values
+            .iter()
+            .map(|value| {
+                value.as_i64().ok_or_else(|| {
+                    DetectError::InvalidArgument(
+                        "fpcalc raw fingerprint contains a non-integer".to_string(),
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>>>()?,
+        serde_json::Value::String(_) => Vec::new(),
+        _ => {
+            return Err(DetectError::InvalidArgument(
+                "fpcalc fingerprint has an unsupported shape".to_string(),
+            ))
+        }
+    };
+    let compressed = parsed.fingerprint.as_str().map(|value| value.to_string());
+    Ok(FingerprintRecord {
+        timestamp: parsed.timestamp,
+        duration: parsed.duration,
+        compressed,
+        raw,
+        raw_json: line.trim().to_string(),
+    })
+}
+
+pub fn duration_prefilter(query_duration: f64, catalog_duration: f64) -> bool {
+    let tolerance = query_duration.max(catalog_duration) * 0.10;
+    (query_duration - catalog_duration).abs() <= tolerance.max(10.0)
+}
+
+pub fn shifted_similarity(left: &[i64], right: &[i64]) -> f32 {
+    (-12..=12)
+        .map(|offset| fingerprint_similarity_with_offset(left, right, offset))
+        .fold(0.0, f32::max)
+}
+
+pub fn fingerprint_similarity_with_offset(left: &[i64], right: &[i64], offset: isize) -> f32 {
+    if left.is_empty() || right.is_empty() {
+        return 0.0;
+    }
+    let (left_start, right_start) = if offset >= 0 {
+        (offset as usize, 0_usize)
+    } else {
+        (0_usize, (-offset) as usize)
+    };
+    if left_start >= left.len() || right_start >= right.len() {
+        return 0.0;
+    }
+    let len = (left.len() - left_start).min(right.len() - right_start);
+    if len == 0 {
+        return 0.0;
+    }
+    let mut distance = 0_u32;
+    for index in 0..len {
+        distance += (left[left_start + index] ^ right[right_start + index]).count_ones();
+    }
+    let max_distance = len as u32 * 64;
+    1.0 - (distance as f32 / max_distance as f32)
+}
+
+pub fn rank_fingerprint_candidates<T, I>(
+    query_full: &FingerprintRecord,
+    query_chunks: &[FingerprintRecord],
+    candidates: I,
+    max_candidates: usize,
+) -> Vec<FingerprintCandidate<T>>
+where
+    I: IntoIterator<Item = (T, FingerprintRecord, Vec<FingerprintRecord>)>,
+{
+    let mut ranked = Vec::new();
+    for (item, catalog_full, catalog_chunks) in candidates {
+        let mut score = 0.0_f32;
+        let mut matched_segment = None;
+        if duration_prefilter(query_full.duration, catalog_full.duration) {
+            let fingerprint_score = shifted_similarity(&query_full.raw, &catalog_full.raw);
+            let duration_factor = (1.0
+                - ((query_full.duration - catalog_full.duration).abs()
+                    / query_full.duration.max(catalog_full.duration)) as f32)
+                .clamp(0.0, 1.0);
+            score = fingerprint_score * duration_factor;
+            matched_segment = Some(FingerprintMatchedSegment {
+                query_start_seconds: Some(0.0),
+                catalog_start_seconds: catalog_full.timestamp.or(Some(0.0)),
+                duration_seconds: query_full.duration.min(catalog_full.duration),
+            });
+        }
+
+        for catalog_chunk in &catalog_chunks {
+            let queries: Box<dyn Iterator<Item = &FingerprintRecord>> = if query_chunks.is_empty() {
+                Box::new(std::iter::once(query_full))
+            } else {
+                Box::new(query_chunks.iter())
+            };
+            for query_chunk in queries {
+                let chunk_score = shifted_similarity(&query_chunk.raw, &catalog_chunk.raw);
+                if chunk_score > score {
+                    score = chunk_score;
+                    matched_segment = Some(FingerprintMatchedSegment {
+                        query_start_seconds: query_chunk.timestamp,
+                        catalog_start_seconds: catalog_chunk.timestamp,
+                        duration_seconds: query_chunk.duration.min(catalog_chunk.duration),
+                    });
+                }
+            }
+        }
+
+        if score > 0.0 {
+            ranked.push(FingerprintCandidate {
+                item,
+                score,
+                matched_segment,
+            });
+        }
+    }
+    ranked.sort_by(|left, right| right.score.total_cmp(&left.score));
+    ranked.truncate(max_candidates);
+    ranked
+}
+
 pub struct AudioRecognitionAnalyzer<E> {
     name: String,
     extractor: E,
@@ -755,6 +961,33 @@ mod tests {
         let different = compare_audio_samples(&a, &c, 8_000, &extractor).unwrap();
 
         assert!(similar.score > different.score);
+    }
+
+    #[test]
+    fn parses_fpcalc_json_records() {
+        let parsed = parse_fpcalc_json(
+            r#"{"timestamp": 0.0, "duration": 10.0, "fingerprint": [1]}
+{"timestamp": 10.0, "duration": 10.0, "fingerprint": [2]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[1].timestamp, Some(10.0));
+        assert_eq!(parsed[1].raw, vec![2]);
+    }
+
+    #[test]
+    fn shifted_similarity_orders_identical_shifted_and_unrelated() {
+        let left = vec![1_i64, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+        let mut shifted = vec![0_i64, 0];
+        shifted.extend(left.iter());
+        let unrelated = vec![i64::MAX; left.len()];
+
+        assert_eq!(shifted_similarity(&left, &left), 1.0);
+        assert!(shifted_similarity(&left, &shifted) > 0.95);
+        assert!(shifted_similarity(&left, &unrelated) < 0.5);
+        assert!(duration_prefilter(100.0, 108.0));
+        assert!(!duration_prefilter(100.0, 140.0));
     }
 
     #[test]
