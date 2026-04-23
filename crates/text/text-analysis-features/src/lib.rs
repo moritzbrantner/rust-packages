@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use text_analysis_core::{

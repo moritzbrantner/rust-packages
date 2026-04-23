@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]

@@ -8,21 +8,7 @@ for local_bin in "$ROOT_DIR/.external-test-tools/bin" "$ROOT_DIR/.audio-tools/bi
   fi
 done
 
-need() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "error: required external test command '$1' is unavailable" >&2
-    echo "run scripts/setup_e2e_external_tools.sh or put '$1' on PATH before running scripts/check-e2e.sh" >&2
-    exit 1
-  fi
-}
-
-need ffmpeg
-need ffprobe
-need demucs
-need whisper
-need yt-dlp
-need colmap
-need ns-process-data
+"$ROOT_DIR/scripts/check_e2e_external_tools.sh"
 
 FFMPEG_EXTERNAL_TESTS=1 cargo test -p audio-analysis-io --test ffmpeg_decode
 cargo test -p video-analysis-ffmpeg --features ffmpeg-tests

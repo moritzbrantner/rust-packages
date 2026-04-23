@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Rust-first multimodal analysis workspace for video, audio, images, text, vectors, and 3D processing."
+readme = "README.md"
+rust-version = "1.95"
 
 [workspace]
 members = [
@@ -68,6 +70,12 @@ members = [
     "crates/video/video-analysis-cli",
 ]
 resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95"
 
 [workspace.dependencies]
 base64 = "0.22.1"

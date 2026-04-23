@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
 use video_analysis_core::{DetectError, Result};
 

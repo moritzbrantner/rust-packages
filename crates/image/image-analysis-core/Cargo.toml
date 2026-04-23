@@ -1,8 +1,11 @@
 [package]
 name = "image-analysis-core"
-version = "0.1.0"
-edition = "2021"
-license = "MIT OR Apache-2.0"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Shared image views, pixel formats, and image statistics for video-analysis."
+readme = "README.md"
 
 [dependencies]
 video-analysis-core.workspace = true

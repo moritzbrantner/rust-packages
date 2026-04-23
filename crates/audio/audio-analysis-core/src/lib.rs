@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result, Timebase, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

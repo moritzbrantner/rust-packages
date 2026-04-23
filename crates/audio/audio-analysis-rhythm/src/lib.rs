@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use audio_analysis_core::{mono_samples, rms, FrameSpec};
 use video_analysis_core::{
     AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result, Timestamp,

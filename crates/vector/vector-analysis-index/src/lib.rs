@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use vector_analysis_core::{metric_distance, DenseVector, VectorMetric};
 use video_analysis_core::{DetectError, Result};
 

@@ -1,9 +1,12 @@
+#![doc = include_str!("../README.md")]
+
 use image_analysis_segmentation::{ImageSegment, ImageSegmentationPrompt};
 use video_analysis_core::{FramePosition, Result, VideoFrame};
 use video_analysis_models::{HuggingFaceModelSpec, ModelTask};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SamVideoPreset {
+    #[default]
     Sam2_1HieraLarge,
 }
 
@@ -34,12 +37,6 @@ impl SamVideoPreset {
         .file("video_preprocessor_config.json")
         .file("sam2.1_hiera_l.yaml")
         .first_available_file(["model.safetensors", "sam2.1_hiera_large.pt"])
-    }
-}
-
-impl Default for SamVideoPreset {
-    fn default() -> Self {
-        Self::Sam2_1HieraLarge
     }
 }
 

@@ -1,11 +1,14 @@
+#![doc = include_str!("../README.md")]
+
 use std::collections::BTreeMap;
 
 use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
 use video_analysis_core::{BoundingBox, DetectError, Result};
 use video_analysis_models::{HuggingFaceModelSpec, ModelTask};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SamImagePreset {
+    #[default]
     VitBase,
     VitLarge,
     VitHuge,
@@ -39,12 +42,6 @@ impl SamImagePreset {
         .file("config.json")
         .file("preprocessor_config.json")
         .first_available_file(["model.safetensors", "pytorch_model.bin"])
-    }
-}
-
-impl Default for SamImagePreset {
-    fn default() -> Self {
-        Self::VitBase
     }
 }
 

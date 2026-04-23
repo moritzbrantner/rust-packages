@@ -1,0 +1,20 @@
+name: external-ci
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "45 4 * * 1"
+
+jobs:
+  e2e-external:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bash scripts/setup_e2e_external_tools.sh fast
+      - run: bash scripts/check_e2e_external_tools.sh
+      - run: bash scripts/check-e2e.sh

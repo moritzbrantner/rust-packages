@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 #[cfg(feature = "onnxruntime")]

@@ -34,11 +34,95 @@ pub enum PortKind {
     HttpResponse,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkflowSemanticKind {
+    RunRequest,
+    RunConfig,
+    TemplateString,
+    YoutubeUrl,
+    YoutubeCollectionUrl,
+    VideoFile,
+    AudioFile,
+    AudioWav,
+    MediaFile,
+    Transcript,
+    SubtitleFile,
+    VideoMetadata,
+    SceneResult,
+    VideoObservation,
+    ModelRequest,
+    ModelPrediction,
+    TranscriptSegment,
+    AudioEvent,
+    TextEvent,
+    CollectionManifest,
+    CollectionItem,
+    CollectionReport,
+    CollectionTable,
+    SongFingerprint,
+    SongCatalog,
+    SongMatch,
+    MusicFeature,
+    HttpRequest,
+    HttpResponse,
+    JsonReport,
+    DashboardView,
+    DataRecord,
+    DataBucket,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorkflowObjectProperty {
+    pub name: String,
+    pub value: WorkflowTypeSpec,
+    #[serde(default)]
+    pub required: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum WorkflowTypeSpec {
+    Any,
+    Null,
+    Boolean,
+    Number,
+    String {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        semantic: Option<WorkflowSemanticKind>,
+    },
+    Binary {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        media_type: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        semantic: Option<WorkflowSemanticKind>,
+    },
+    Array {
+        items: Box<WorkflowTypeSpec>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min_items: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_items: Option<u32>,
+    },
+    Object {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        properties: Vec<WorkflowObjectProperty>,
+        #[serde(default)]
+        additional_properties: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        semantic: Option<WorkflowSemanticKind>,
+    },
+    Union {
+        variants: Vec<WorkflowTypeSpec>,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PortSpec {
     pub id: String,
     pub label: String,
     pub kind: PortKind,
+    pub value_type: WorkflowTypeSpec,
     #[serde(default)]
     pub optional: bool,
     #[serde(default)]
@@ -50,6 +134,7 @@ impl PortSpec {
         Self {
             id: id.into(),
             label: label.into(),
+            value_type: workflow_type_for_port_kind(kind),
             kind,
             optional: false,
             stream: false,
@@ -63,6 +148,11 @@ impl PortSpec {
 
     pub fn stream(mut self) -> Self {
         self.stream = true;
+        self
+    }
+
+    pub fn value_type(mut self, value_type: WorkflowTypeSpec) -> Self {
+        self.value_type = value_type;
         self
     }
 }
@@ -422,18 +512,104 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
     ];
 
     WorkflowCatalog {
-        version: 1,
+        version: 2,
         port_kinds: all_port_kinds(),
-        nodes,
         compatibility: compatibility_pairs(),
+        nodes,
     }
 }
 
 pub fn ports_compatible(source: PortKind, target: PortKind) -> bool {
-    source == target
-        || compatibility_pairs()
-            .into_iter()
-            .any(|pair| pair.source == source && pair.target == target)
+    workflow_types_assignable(
+        &workflow_type_for_port_kind(source),
+        &workflow_type_for_port_kind(target),
+    )
+}
+
+pub fn workflow_types_assignable(source: &WorkflowTypeSpec, target: &WorkflowTypeSpec) -> bool {
+    match target {
+        WorkflowTypeSpec::Any => return true,
+        WorkflowTypeSpec::Union { variants } => {
+            return variants
+                .iter()
+                .any(|variant| workflow_types_assignable(source, variant));
+        }
+        _ => {}
+    }
+
+    match source {
+        WorkflowTypeSpec::Union { variants } => {
+            return variants
+                .iter()
+                .all(|variant| workflow_types_assignable(variant, target));
+        }
+        WorkflowTypeSpec::Any => return false,
+        _ => {}
+    }
+
+    match (source, target) {
+        (WorkflowTypeSpec::Null, WorkflowTypeSpec::Null)
+        | (WorkflowTypeSpec::Boolean, WorkflowTypeSpec::Boolean)
+        | (WorkflowTypeSpec::Number, WorkflowTypeSpec::Number) => true,
+        (
+            WorkflowTypeSpec::String {
+                semantic: source_semantic,
+            },
+            WorkflowTypeSpec::String {
+                semantic: target_semantic,
+            },
+        ) => semantic_assignable(source_semantic, target_semantic),
+        (
+            WorkflowTypeSpec::Binary {
+                media_type: source_media_type,
+                semantic: source_semantic,
+            },
+            WorkflowTypeSpec::Binary {
+                media_type: target_media_type,
+                semantic: target_semantic,
+            },
+        ) => {
+            media_type_assignable(source_media_type, target_media_type)
+                && semantic_assignable(source_semantic, target_semantic)
+        }
+        (
+            WorkflowTypeSpec::Array {
+                items: source_items,
+                min_items: source_min_items,
+                max_items: source_max_items,
+            },
+            WorkflowTypeSpec::Array {
+                items: target_items,
+                min_items: target_min_items,
+                max_items: target_max_items,
+            },
+        ) => {
+            workflow_types_assignable(source_items, target_items)
+                && source_min_items.unwrap_or(0) >= target_min_items.unwrap_or(0)
+                && max_items_assignable(*source_max_items, *target_max_items)
+        }
+        (
+            WorkflowTypeSpec::Object {
+                properties: source_properties,
+                additional_properties: source_additional_properties,
+                semantic: source_semantic,
+            },
+            WorkflowTypeSpec::Object {
+                properties: target_properties,
+                additional_properties: target_additional_properties,
+                semantic: target_semantic,
+            },
+        ) => {
+            semantic_assignable(source_semantic, target_semantic)
+                && object_properties_assignable(
+                    source_properties,
+                    *source_additional_properties,
+                    target_properties,
+                    *target_additional_properties,
+                )
+        }
+        _ => false,
+    }
 }
 
 fn node(
@@ -508,18 +684,261 @@ fn all_port_kinds() -> Vec<PortKind> {
 }
 
 fn compatibility_pairs() -> Vec<PortCompatibility> {
+    let kinds = all_port_kinds();
+    kinds
+        .iter()
+        .flat_map(|source| {
+            kinds.iter().filter_map(move |target| {
+                if source != target && ports_compatible(*source, *target) {
+                    Some(PortCompatibility {
+                        source: *source,
+                        target: *target,
+                    })
+                } else {
+                    None
+                }
+            })
+        })
+        .collect()
+}
+
+fn workflow_type_for_port_kind(kind: PortKind) -> WorkflowTypeSpec {
     use PortKind::*;
-    [
-        (VideoFile, MediaFile),
-        (AudioFile, MediaFile),
-        (String, TemplateString),
-        (TemplateString, String),
-        (Object, JsonReport),
-        (JsonReport, Object),
-        (YoutubeUrl, String),
-        (YoutubeCollectionUrl, String),
-    ]
-    .into_iter()
-    .map(|(source, target)| PortCompatibility { source, target })
-    .collect()
+    match kind {
+        RunTrigger => open_object(Some(WorkflowSemanticKind::RunRequest)),
+        RunConfig => open_object(Some(WorkflowSemanticKind::RunConfig)),
+        YoutubeUrl => string_type(Some(WorkflowSemanticKind::YoutubeUrl)),
+        YoutubeCollectionUrl => string_type(Some(WorkflowSemanticKind::YoutubeCollectionUrl)),
+        VideoFile => binary_type(Some("video/*"), Some(WorkflowSemanticKind::VideoFile)),
+        AudioFile => binary_type(Some("audio/*"), Some(WorkflowSemanticKind::AudioFile)),
+        MediaFile => binary_type(None, Some(WorkflowSemanticKind::MediaFile)),
+        Transcript => open_object(Some(WorkflowSemanticKind::Transcript)),
+        SubtitleFile => string_type(Some(WorkflowSemanticKind::SubtitleFile)),
+        SceneList => open_object(Some(WorkflowSemanticKind::SceneResult)),
+        ObservationList => open_object(Some(WorkflowSemanticKind::VideoObservation)),
+        AudioEvents => open_object(Some(WorkflowSemanticKind::AudioEvent)),
+        TextEvents => open_object(Some(WorkflowSemanticKind::TextEvent)),
+        DataBuckets => open_object(Some(WorkflowSemanticKind::DataBucket)),
+        JsonReport => open_object(Some(WorkflowSemanticKind::JsonReport)),
+        CollectionManifest => open_object(Some(WorkflowSemanticKind::CollectionManifest)),
+        CollectionItems => open_object(Some(WorkflowSemanticKind::CollectionItem)),
+        SongFingerprint => open_object(Some(WorkflowSemanticKind::SongFingerprint)),
+        SongCatalog => open_object(Some(WorkflowSemanticKind::SongCatalog)),
+        SongMatches => open_object(Some(WorkflowSemanticKind::SongMatch)),
+        MusicFeatures => open_object(Some(WorkflowSemanticKind::MusicFeature)),
+        TemplateString => string_type(Some(WorkflowSemanticKind::TemplateString)),
+        String => string_type(None),
+        Number => WorkflowTypeSpec::Number,
+        Boolean => WorkflowTypeSpec::Boolean,
+        Array => WorkflowTypeSpec::Array {
+            items: Box::new(WorkflowTypeSpec::Any),
+            min_items: None,
+            max_items: None,
+        },
+        Object => open_object(None),
+        HttpRequest => open_object(Some(WorkflowSemanticKind::HttpRequest)),
+        HttpResponse => open_object(Some(WorkflowSemanticKind::HttpResponse)),
+    }
+}
+
+fn string_type(semantic: Option<WorkflowSemanticKind>) -> WorkflowTypeSpec {
+    WorkflowTypeSpec::String { semantic }
+}
+
+fn binary_type(
+    media_type: Option<&str>,
+    semantic: Option<WorkflowSemanticKind>,
+) -> WorkflowTypeSpec {
+    WorkflowTypeSpec::Binary {
+        media_type: media_type.map(str::to_string),
+        semantic,
+    }
+}
+
+fn open_object(semantic: Option<WorkflowSemanticKind>) -> WorkflowTypeSpec {
+    WorkflowTypeSpec::Object {
+        properties: Vec::new(),
+        additional_properties: true,
+        semantic,
+    }
+}
+
+fn semantic_assignable(
+    source: &Option<WorkflowSemanticKind>,
+    target: &Option<WorkflowSemanticKind>,
+) -> bool {
+    match target {
+        None => true,
+        Some(target_semantic) => source == &Some(*target_semantic),
+    }
+}
+
+fn media_type_assignable(source: &Option<String>, target: &Option<String>) -> bool {
+    match target {
+        None => true,
+        Some(target_media_type) => source.as_ref() == Some(target_media_type),
+    }
+}
+
+fn max_items_assignable(source: Option<u32>, target: Option<u32>) -> bool {
+    match target {
+        None => true,
+        Some(target_max_items) => {
+            source.is_some_and(|source_max_items| source_max_items <= target_max_items)
+        }
+    }
+}
+
+fn object_properties_assignable(
+    source_properties: &[WorkflowObjectProperty],
+    source_additional_properties: bool,
+    target_properties: &[WorkflowObjectProperty],
+    target_additional_properties: bool,
+) -> bool {
+    for target_property in target_properties {
+        match source_properties
+            .iter()
+            .find(|source_property| source_property.name == target_property.name)
+        {
+            Some(source_property) => {
+                if !workflow_types_assignable(&source_property.value, &target_property.value) {
+                    return false;
+                }
+            }
+            None if target_property.required => return false,
+            None => {}
+        }
+    }
+
+    if !target_additional_properties {
+        if source_additional_properties {
+            return false;
+        }
+        for source_property in source_properties {
+            if !target_properties
+                .iter()
+                .any(|target_property| target_property.name == source_property.name)
+            {
+                return false;
+            }
+        }
+    }
+
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exact_scalar_compatibility_is_shape_based() {
+        assert!(workflow_types_assignable(
+            &WorkflowTypeSpec::Number,
+            &WorkflowTypeSpec::Number
+        ));
+        assert!(!workflow_types_assignable(
+            &WorkflowTypeSpec::Number,
+            &WorkflowTypeSpec::String { semantic: None }
+        ));
+    }
+
+    #[test]
+    fn semantic_assignability_is_directional() {
+        let plain = WorkflowTypeSpec::String { semantic: None };
+        let youtube = WorkflowTypeSpec::String {
+            semantic: Some(WorkflowSemanticKind::YoutubeUrl),
+        };
+
+        assert!(workflow_types_assignable(&youtube, &plain));
+        assert!(!workflow_types_assignable(&plain, &youtube));
+    }
+
+    #[test]
+    fn array_assignability_checks_items_and_bounds() {
+        let source = WorkflowTypeSpec::Array {
+            items: Box::new(WorkflowTypeSpec::String { semantic: None }),
+            min_items: Some(2),
+            max_items: Some(4),
+        };
+        let target = WorkflowTypeSpec::Array {
+            items: Box::new(WorkflowTypeSpec::String { semantic: None }),
+            min_items: Some(1),
+            max_items: Some(5),
+        };
+        let too_wide = WorkflowTypeSpec::Array {
+            items: Box::new(WorkflowTypeSpec::String { semantic: None }),
+            min_items: Some(1),
+            max_items: Some(3),
+        };
+
+        assert!(workflow_types_assignable(&source, &target));
+        assert!(!workflow_types_assignable(&source, &too_wide));
+    }
+
+    #[test]
+    fn object_assignability_supports_width_subtyping() {
+        let source = WorkflowTypeSpec::Object {
+            properties: vec![
+                WorkflowObjectProperty {
+                    name: "id".to_string(),
+                    value: WorkflowTypeSpec::String { semantic: None },
+                    required: true,
+                },
+                WorkflowObjectProperty {
+                    name: "title".to_string(),
+                    value: WorkflowTypeSpec::String { semantic: None },
+                    required: true,
+                },
+            ],
+            additional_properties: false,
+            semantic: None,
+        };
+        let target = WorkflowTypeSpec::Object {
+            properties: vec![WorkflowObjectProperty {
+                name: "id".to_string(),
+                value: WorkflowTypeSpec::String { semantic: None },
+                required: true,
+            }],
+            additional_properties: true,
+            semantic: None,
+        };
+        let closed_target = WorkflowTypeSpec::Object {
+            properties: vec![WorkflowObjectProperty {
+                name: "id".to_string(),
+                value: WorkflowTypeSpec::String { semantic: None },
+                required: true,
+            }],
+            additional_properties: false,
+            semantic: None,
+        };
+
+        assert!(workflow_types_assignable(&source, &target));
+        assert!(!workflow_types_assignable(&source, &closed_target));
+    }
+
+    #[test]
+    fn union_targets_accept_compatible_sources() {
+        let source = WorkflowTypeSpec::String {
+            semantic: Some(WorkflowSemanticKind::TemplateString),
+        };
+        let target = WorkflowTypeSpec::Union {
+            variants: vec![
+                WorkflowTypeSpec::Number,
+                WorkflowTypeSpec::String { semantic: None },
+            ],
+        };
+
+        assert!(workflow_types_assignable(&source, &target));
+    }
+
+    #[test]
+    fn catalog_serialization_includes_value_type() {
+        let catalog = default_workflow_catalog();
+        let json = serde_json::to_value(catalog).expect("catalog serializes");
+        let first_port = &json["nodes"][0]["outputs"][0];
+
+        assert!(first_port.get("value_type").is_some());
+        assert_eq!(json["version"], 2);
+    }
 }

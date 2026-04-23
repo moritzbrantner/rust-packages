@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};
 use image_analysis_core::{ImagePixelFormat, OwnedImage};
 use video_analysis_core::{BoundingBox, DetectError, Result};

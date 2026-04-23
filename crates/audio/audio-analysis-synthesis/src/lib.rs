@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};
 use video_analysis_core::{
     AnalysisEvent, AudioBuffer, DetectError, OwnedAudioFrame, Result, Timebase, Timestamp,

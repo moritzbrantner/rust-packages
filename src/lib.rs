@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub use audio_analysis_core as audio_core;
 pub use audio_analysis_fourier as audio_fourier;
 pub use audio_analysis_io as audio_io;

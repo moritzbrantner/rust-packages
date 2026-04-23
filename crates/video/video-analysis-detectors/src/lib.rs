@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use std::collections::{BTreeMap, VecDeque};
 use std::f32::consts::PI;
 

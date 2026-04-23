@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use three_d_processing_core::{Bounds3, Point3, Vector3};
 use video_analysis_core::{DetectError, Result};
 

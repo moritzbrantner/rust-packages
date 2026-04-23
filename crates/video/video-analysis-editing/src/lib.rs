@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use video_analysis_core::{
     BoundingBox, DetectError, OwnedVideoFrame, PixelFormat, Result, VideoFrame,
 };

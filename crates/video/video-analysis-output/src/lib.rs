@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use std::io::{self, Write};
 
 use serde::Serialize;
