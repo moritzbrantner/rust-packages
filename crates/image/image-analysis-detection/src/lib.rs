@@ -1,0 +1,223 @@
+use std::collections::BTreeMap;
+
+use image_analysis_core::ImageView;
+use image_analysis_segmentation::{
+    default_sam_model_spec, ImageSegment, ImageSegmentationBackend, ImageSegmentationRequest,
+};
+use video_analysis_core::{BoundingBox, FramePosition, Result, VideoFrame};
+use video_analysis_models::HuggingFaceModelSpec;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImageDetection {
+    pub label: String,
+    pub score: Option<f32>,
+    pub region: BoundingBox,
+    pub attributes: BTreeMap<String, String>,
+}
+
+impl ImageDetection {
+    pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.attributes.insert(key.into(), value.into());
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImageDetectionRequest {
+    pub segmentation: ImageSegmentationRequest,
+    pub min_mask_pixels: usize,
+    pub default_label: String,
+}
+
+impl ImageDetectionRequest {
+    pub fn min_mask_pixels(mut self, value: usize) -> Self {
+        self.min_mask_pixels = value.max(1);
+        self
+    }
+
+    pub fn default_label(mut self, value: impl Into<String>) -> Self {
+        self.default_label = value.into();
+        self
+    }
+}
+
+impl Default for ImageDetectionRequest {
+    fn default() -> Self {
+        Self {
+            segmentation: ImageSegmentationRequest::default(),
+            min_mask_pixels: 1,
+            default_label: "object".to_string(),
+        }
+    }
+}
+
+pub fn default_detection_model_spec() -> HuggingFaceModelSpec {
+    default_sam_model_spec()
+}
+
+pub fn segment_to_detection(segment: &ImageSegment, default_label: &str) -> ImageDetection {
+    ImageDetection {
+        label: segment
+            .label
+            .clone()
+            .unwrap_or_else(|| default_label.to_string()),
+        score: segment.score,
+        region: segment.region,
+        attributes: segment.attributes.clone(),
+    }
+}
+
+pub fn segments_to_detections(
+    segments: &[ImageSegment],
+    min_mask_pixels: usize,
+    default_label: &str,
+) -> Vec<ImageDetection> {
+    segments
+        .iter()
+        .filter(|segment| segment.mask.active_pixels() >= min_mask_pixels.max(1))
+        .map(|segment| segment_to_detection(segment, default_label))
+        .collect()
+}
+
+pub struct MaskProposalDetector<B> {
+    backend: B,
+    request: ImageDetectionRequest,
+}
+
+impl<B> MaskProposalDetector<B> {
+    pub fn new(backend: B) -> Self {
+        Self {
+            backend,
+            request: ImageDetectionRequest::default(),
+        }
+    }
+
+    pub fn request(mut self, value: ImageDetectionRequest) -> Self {
+        self.request = value;
+        self
+    }
+
+    pub fn backend(&self) -> &B {
+        &self.backend
+    }
+
+    pub fn backend_mut(&mut self) -> &mut B {
+        &mut self.backend
+    }
+}
+
+impl<B: ImageSegmentationBackend> MaskProposalDetector<B> {
+    pub fn model_spec(&self) -> HuggingFaceModelSpec {
+        self.backend.model_spec()
+    }
+
+    pub fn detect_image(&mut self, image: &ImageView<'_>) -> Result<Vec<ImageDetection>> {
+        let segments = self
+            .backend
+            .segment_image(image, &self.request.segmentation)?;
+        Ok(segments_to_detections(
+            &segments,
+            self.request.min_mask_pixels,
+            &self.request.default_label,
+        ))
+    }
+
+    pub fn detect_frame(&mut self, frame: &VideoFrame<'_>) -> Result<FrameDetections> {
+        let image = ImageView::from_video_frame(frame)?;
+        let detections = self.detect_image(&image)?;
+        Ok(FrameDetections {
+            position: frame.position,
+            detections,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FrameDetections {
+    pub position: FramePosition,
+    pub detections: Vec<ImageDetection>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image_analysis_core::{ImagePixelFormat, OwnedImage};
+    use image_analysis_segmentation::{BinaryMask, ImageSegment};
+    use video_analysis_core::{PixelFormat, Timebase, Timestamp};
+
+    struct StubSegmentationBackend {
+        segments: Vec<ImageSegment>,
+    }
+
+    impl ImageSegmentationBackend for StubSegmentationBackend {
+        fn model_spec(&self) -> HuggingFaceModelSpec {
+            default_sam_model_spec()
+        }
+
+        fn segment_image(
+            &mut self,
+            _image: &ImageView<'_>,
+            _request: &ImageSegmentationRequest,
+        ) -> Result<Vec<ImageSegment>> {
+            Ok(self.segments.clone())
+        }
+    }
+
+    fn image() -> OwnedImage {
+        OwnedImage::new(8, 8, ImagePixelFormat::Rgb24, vec![32; 8 * 8 * 3], 8 * 3).unwrap()
+    }
+
+    fn frame<'a>(bytes: &'a [u8]) -> VideoFrame<'a> {
+        VideoFrame::packed(
+            FramePosition {
+                frame_index: 3,
+                timestamp: Timestamp::new(3, Timebase::new(1, 1)),
+            },
+            8,
+            8,
+            PixelFormat::Rgb24,
+            bytes,
+            8 * 3,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn default_detection_model_spec_uses_sam() {
+        assert_eq!(
+            default_detection_model_spec().repo_id,
+            "facebook/sam-vit-base"
+        );
+    }
+
+    #[test]
+    fn detector_converts_segments_into_boxes() {
+        let segment = ImageSegment::new(
+            BinaryMask::filled_rect(8, 8, BoundingBox::new(1, 2, 3, 2).unwrap()).unwrap(),
+        )
+        .unwrap()
+        .label("person")
+        .score(0.9);
+        let mut detector = MaskProposalDetector::new(StubSegmentationBackend {
+            segments: vec![segment],
+        });
+        let detections = detector.detect_image(&image().as_view()).unwrap();
+        assert_eq!(detections[0].label, "person");
+        assert_eq!(detections[0].region, BoundingBox::new(1, 2, 3, 2).unwrap());
+    }
+
+    #[test]
+    fn detector_supports_video_frames() {
+        let segment = ImageSegment::new(
+            BinaryMask::filled_rect(8, 8, BoundingBox::new(2, 1, 2, 3).unwrap()).unwrap(),
+        )
+        .unwrap();
+        let owned = image();
+        let mut detector = MaskProposalDetector::new(StubSegmentationBackend {
+            segments: vec![segment],
+        });
+        let detections = detector.detect_frame(&frame(&owned.data)).unwrap();
+        assert_eq!(detections.position.frame_index, 3);
+        assert_eq!(detections.detections.len(), 1);
+    }
+}

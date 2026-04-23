@@ -1530,7 +1530,10 @@ mod tests {
             fs::read_to_string(&local_path).unwrap(),
             "{\"id2label\":{\"0\":\"POSITIVE\"}}"
         );
-        assert!(fs::symlink_metadata(local_path).unwrap().file_type().is_file());
+        assert!(fs::symlink_metadata(local_path)
+            .unwrap()
+            .file_type()
+            .is_file());
     }
 
     #[test]
@@ -1738,9 +1741,7 @@ mod tests {
             "'{\"predictions\":[{\"kind\":\"object\",\"label\":\"person\",\"score\":0.75,",
             "\"region\":{\"x\":1,\"y\":2,\"width\":3,\"height\":4}}]}'"
         );
-        let mut backend = ExternalCommandModel::new("sh", model)
-            .arg("-c")
-            .arg(script);
+        let mut backend = ExternalCommandModel::new("sh", model).arg("-c").arg(script);
         let frame = test_frame();
 
         let predictions = backend.predict_frame(&frame.as_frame()).unwrap();

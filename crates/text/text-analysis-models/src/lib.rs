@@ -480,12 +480,8 @@ impl CandleTextClassifier {
     pub fn classify_tokenized(&self, tokens: &TokenizedText) -> Result<Vec<RawPrediction>> {
         #[cfg(feature = "candle")]
         {
-            let logits = run_candle_classifier(
-                &self.config,
-                &self.model_paths,
-                self.architecture,
-                tokens,
-            )?;
+            let logits =
+                run_candle_classifier(&self.config, &self.model_paths, self.architecture, tokens)?;
             let probabilities = softmax(&logits);
             Ok(probabilities
                 .into_iter()
@@ -575,12 +571,8 @@ impl CandleTextEmbedder {
     pub fn embed_tokenized(&self, tokens: &TokenizedText) -> Result<DenseVector> {
         #[cfg(feature = "candle")]
         {
-            let (values, shape) = run_candle_embedder(
-                &self.config,
-                &self.model_paths,
-                self.architecture,
-                tokens,
-            )?;
+            let (values, shape) =
+                run_candle_embedder(&self.config, &self.model_paths, self.architecture, tokens)?;
             pool_embedding_output(
                 &values,
                 &shape,
@@ -722,9 +714,7 @@ fn embedding_architecture_from_config(config: &Value) -> Result<CandleEmbeddingA
     }
     if architectures
         .iter()
-        .any(|architecture| {
-            matches!(*architecture, "BertModel" | "SentenceTransformer")
-        })
+        .any(|architecture| matches!(*architecture, "BertModel" | "SentenceTransformer"))
     {
         return Ok(CandleEmbeddingArchitecture::Bert);
     }
@@ -793,9 +783,10 @@ fn run_candle_classifier(
 
     match architecture {
         CandleClassifierArchitecture::Bert => {
-            let config: candle_bert::Config = serde_json::from_value(config.clone()).map_err(
-                |err| invalid_argument(format!("failed to parse BERT config for Candle: {err}")),
-            )?;
+            let config: candle_bert::Config =
+                serde_json::from_value(config.clone()).map_err(|err| {
+                    invalid_argument(format!("failed to parse BERT config for Candle: {err}"))
+                })?;
             let (model, used_prefix) = load_candle_bert_model(&vb, &config, &prefixes)?;
             let input_ids = candle_input_ids(tokens, &device)?;
             let token_type_ids = candle_token_type_ids(tokens, &device)?;
@@ -823,9 +814,11 @@ fn run_candle_classifier(
             candle_logits_from_tensor(logits)
         }
         CandleClassifierArchitecture::DistilBert => {
-            let config: candle_distilbert::Config =
-                serde_json::from_value(config.clone()).map_err(|err| {
-                    invalid_argument(format!("failed to parse DistilBERT config for Candle: {err}"))
+            let config: candle_distilbert::Config = serde_json::from_value(config.clone())
+                .map_err(|err| {
+                    invalid_argument(format!(
+                        "failed to parse DistilBERT config for Candle: {err}"
+                    ))
                 })?;
             let (model, used_prefix) = load_candle_distilbert_model(&vb, &config, &prefixes)?;
             let input_ids = candle_input_ids(tokens, &device)?;
@@ -870,9 +863,10 @@ fn run_candle_embedder(
 
     let sequence_output = match architecture {
         CandleEmbeddingArchitecture::Bert => {
-            let config: candle_bert::Config = serde_json::from_value(config.clone()).map_err(
-                |err| invalid_argument(format!("failed to parse BERT config for Candle: {err}")),
-            )?;
+            let config: candle_bert::Config =
+                serde_json::from_value(config.clone()).map_err(|err| {
+                    invalid_argument(format!("failed to parse BERT config for Candle: {err}"))
+                })?;
             let (model, _) = load_candle_bert_model(&vb, &config, &prefixes)?;
             let input_ids = candle_input_ids(tokens, &device)?;
             let token_type_ids = candle_token_type_ids(tokens, &device)?;
@@ -882,9 +876,11 @@ fn run_candle_embedder(
                 .map_err(candle_error)?
         }
         CandleEmbeddingArchitecture::DistilBert => {
-            let config: candle_distilbert::Config =
-                serde_json::from_value(config.clone()).map_err(|err| {
-                    invalid_argument(format!("failed to parse DistilBERT config for Candle: {err}"))
+            let config: candle_distilbert::Config = serde_json::from_value(config.clone())
+                .map_err(|err| {
+                    invalid_argument(format!(
+                        "failed to parse DistilBERT config for Candle: {err}"
+                    ))
                 })?;
             let (model, _) = load_candle_distilbert_model(&vb, &config, &prefixes)?;
             let input_ids = candle_input_ids(tokens, &device)?;
@@ -909,7 +905,10 @@ fn candle_var_builder<'a>(
     model_paths: &'a [PathBuf],
     device: &CandleDevice,
 ) -> Result<CandleVarBuilder<'a>> {
-    let paths = model_paths.iter().map(|path| path.as_path()).collect::<Vec<_>>();
+    let paths = model_paths
+        .iter()
+        .map(|path| path.as_path())
+        .collect::<Vec<_>>();
     unsafe { CandleVarBuilder::from_mmaped_safetensors(&paths, CandleDType::F32, device) }
         .map_err(candle_error)
 }
@@ -935,9 +934,7 @@ fn load_candle_bert_model(
     Err(DetectError::Source(format!(
         "failed to load Candle BERT model for prefixes [{}]{}",
         prefixes.join(", "),
-        last_error
-            .map(|err| format!(": {err}"))
-            .unwrap_or_default()
+        last_error.map(|err| format!(": {err}")).unwrap_or_default()
     )))
 }
 
@@ -962,9 +959,7 @@ fn load_candle_distilbert_model(
     Err(DetectError::Source(format!(
         "failed to load Candle DistilBERT model for prefixes [{}]{}",
         prefixes.join(", "),
-        last_error
-            .map(|err| format!(": {err}"))
-            .unwrap_or_default()
+        last_error.map(|err| format!(": {err}")).unwrap_or_default()
     )))
 }
 
@@ -1077,7 +1072,10 @@ fn candle_token_type_ids(tokens: &TokenizedText, device: &CandleDevice) -> Resul
 }
 
 #[cfg(feature = "candle")]
-fn candle_attention_mask_keep(tokens: &TokenizedText, device: &CandleDevice) -> Result<CandleTensor> {
+fn candle_attention_mask_keep(
+    tokens: &TokenizedText,
+    device: &CandleDevice,
+) -> Result<CandleTensor> {
     let values = tokens
         .attention_mask
         .iter()

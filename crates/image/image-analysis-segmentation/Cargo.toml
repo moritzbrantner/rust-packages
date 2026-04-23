@@ -1,0 +1,11 @@
+[package]
+name = "image-analysis-segmentation"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Image segmentation primitives and SAM model defaults for video-analysis."
+
+[dependencies]
+image-analysis-core.workspace = true
+video-analysis-core.workspace = true
+video-analysis-models.workspace = true

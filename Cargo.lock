@@ -1235,11 +1235,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "image-analysis-detection"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-core",
+ "image-analysis-segmentation",
+ "video-analysis-core",
+ "video-analysis-models",
+]
+
+[[package]]
 name = "image-analysis-processing"
 version = "0.1.0"
 dependencies = [
  "image-analysis-core",
  "video-analysis-core",
+]
+
+[[package]]
+name = "image-analysis-segmentation"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-core",
+ "video-analysis-core",
+ "video-analysis-models",
 ]
 
 [[package]]
@@ -2709,7 +2728,9 @@ dependencies = [
  "data-inversion-core",
  "dense-data",
  "image-analysis-core",
+ "image-analysis-detection",
  "image-analysis-processing",
+ "image-analysis-segmentation",
  "image-analysis-synthesis",
  "text-analysis-core",
  "text-analysis-corpus",
@@ -2741,6 +2762,7 @@ dependencies = [
  "video-analysis-radiance-pipeline",
  "video-analysis-recognition",
  "video-analysis-reconstruction",
+ "video-analysis-segmentation",
  "video-analysis-split",
  "video-analysis-storage",
  "video-analysis-synthesis",
@@ -2942,6 +2964,15 @@ version = "0.1.0"
 dependencies = [
  "video-analysis-core",
  "video-analysis-radiance-fields",
+]
+
+[[package]]
+name = "video-analysis-segmentation"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-segmentation",
+ "video-analysis-core",
+ "video-analysis-models",
 ]
 
 [[package]]

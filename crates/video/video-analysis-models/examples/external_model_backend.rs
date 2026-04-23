@@ -17,6 +17,8 @@ fn main() -> Result<()> {
     let backend = ExternalCommandModel::new(command, downloaded).persistent();
 
     let analyzer = ModelVideoAnalyzer::new(model_name, backend);
-    let _pipeline = VideoAnalysisPipeline::builder().analyzer(analyzer).build()?;
+    let _pipeline = VideoAnalysisPipeline::builder()
+        .analyzer(analyzer)
+        .build()?;
     Ok(())
 }
