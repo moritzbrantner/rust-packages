@@ -6,6 +6,11 @@ license.workspace = true
 rust-version.workspace = true
 description = "ONNX-backed video model inference adapters for video-analysis."
 readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 image-analysis-core.workspace = true
@@ -14,6 +19,7 @@ ort = { workspace = true, optional = true }
 serde_json.workspace = true
 video-analysis-core.workspace = true
 video-analysis-models.workspace = true
+video-analysis-posture.workspace = true
 
 [features]
 default = []
@@ -23,4 +29,3 @@ external-tests = ["onnxruntime"]
 [dev-dependencies]
 num-rational.workspace = true
 tempfile.workspace = true
-video-analysis-test-support.workspace = true

@@ -16,6 +16,9 @@ use video_analysis_radiance_io::{
     NerfstudioFrame, NerfstudioTransforms,
 };
 
+pub const ME_AT_THE_ZOO_WIKIMEDIA_URL: &str =
+    "https://upload.wikimedia.org/wikipedia/commons/e/e0/Me_at_the_zoo.webm";
+
 pub fn timestamp(seconds: i64) -> Timestamp {
     Timestamp::new(seconds, Timebase::new(1, 1))
 }
@@ -226,6 +229,48 @@ pub fn command_succeeds(command: &str, args: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
+pub fn find_python_with_modules(modules: &[&str]) -> Option<PathBuf> {
+    let import = format!("import {}", modules.join(", "));
+    [
+        PathBuf::from("python3"),
+        PathBuf::from("python"),
+        PathBuf::from(".external-test-tools/model-python-venv/bin/python"),
+    ]
+    .into_iter()
+    .find(|candidate| {
+        Command::new(candidate)
+            .args(["-c", &import])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    })
+}
+
+pub fn ensure_me_at_the_zoo_fixture() -> PathBuf {
+    if let Some(path) = std::env::var_os("ME_AT_THE_ZOO_VIDEO_PATH") {
+        let path = PathBuf::from(path);
+        assert_nonempty_file(&path);
+        return path;
+    }
+
+    let url = std::env::var("ME_AT_THE_ZOO_VIDEO_URL")
+        .unwrap_or_else(|_| ME_AT_THE_ZOO_WIKIMEDIA_URL.to_string());
+    let cache_dir = std::env::temp_dir().join("video-analysis-fixtures");
+    fs::create_dir_all(&cache_dir).expect("expected fixture cache directory to be writable");
+    let path = cache_dir.join("me-at-the-zoo.webm");
+    if path.exists() {
+        assert_nonempty_file(&path);
+        return path;
+    }
+
+    download_to_path(&url, &path);
+    assert_nonempty_file(&path);
+    path
+}
+
 pub fn assert_nonempty_file(path: impl AsRef<Path>) {
     let path = path.as_ref();
     let metadata = fs::metadata(path)
@@ -239,6 +284,54 @@ pub fn assert_nonempty_file(path: impl AsRef<Path>) {
 
 fn is_executable_command(path: &Path) -> bool {
     path.is_file()
+}
+
+fn download_to_path(url: &str, path: &Path) {
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("expected system time after unix epoch")
+        .as_nanos();
+    let tmp = path.with_extension(format!("part-{unique}-{}", std::process::id()));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .unwrap_or_else(|err| panic!("expected `{}` directory: {err}", parent.display()));
+    }
+
+    if path.exists() {
+        assert_nonempty_file(path);
+        return;
+    }
+
+    let curl = find_command("curl");
+    let wget = find_command("wget");
+    let status = if let Some(curl) = curl {
+        Command::new(curl)
+            .args(["-L", "--fail", "--silent", "--show-error", "-o"])
+            .arg(&tmp)
+            .arg(url)
+            .status()
+    } else if let Some(wget) = wget {
+        Command::new(wget).args(["-O"]).arg(&tmp).arg(url).status()
+    } else {
+        panic!("required command `curl` or `wget` is unavailable");
+    }
+    .unwrap_or_else(|err| panic!("expected fixture download command to start: {err}"));
+
+    assert!(
+        status.success(),
+        "expected fixture download from `{url}` to succeed"
+    );
+    if path.exists() {
+        let _ = fs::remove_file(&tmp);
+        assert_nonempty_file(path);
+        return;
+    }
+    fs::rename(&tmp, path).unwrap_or_else(|err| {
+        panic!(
+            "expected downloaded fixture `{}` to move into place: {err}",
+            path.display()
+        )
+    });
 }
 
 #[cfg(test)]

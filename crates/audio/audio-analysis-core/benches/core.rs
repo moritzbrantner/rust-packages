@@ -1,9 +1,26 @@
 use audio_analysis_core::{
     interleaved_to_mono, normalized_samples, ChannelMix, StreamingFrameBuffer, StreamingFrameConfig,
 };
-use audio_analysis_test_support::{interleaved_stereo, sine};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
+
+fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
+    let samples = (sample_rate as f32 * seconds) as usize;
+    (0..samples)
+        .map(|index| {
+            let t = index as f32 / sample_rate as f32;
+            (2.0 * std::f32::consts::PI * freq_hz * t).sin()
+        })
+        .collect()
+}
+
+fn interleaved_stereo(left: &[f32], right: &[f32]) -> Vec<f32> {
+    assert_eq!(left.len(), right.len(), "stereo channels must match");
+    left.iter()
+        .zip(right)
+        .flat_map(|(left, right)| [*left, *right])
+        .collect()
+}
 
 fn bench_core(c: &mut Criterion) {
     let f32_samples = sine(440.0, 48_000, 10.0);

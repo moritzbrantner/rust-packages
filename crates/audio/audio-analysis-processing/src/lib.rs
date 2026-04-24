@@ -606,10 +606,16 @@ fn coefficients(spec: BiquadSpec, sample_rate: u32) -> Result<BiquadCoefficients
 #[cfg(test)]
 mod tests {
     use super::*;
-    use audio_analysis_test_support::assert_approx_eq;
     use proptest::prelude::*;
     use video_analysis_core::{AudioPipeline, Timebase, Timestamp};
     use video_analysis_ingest::{analyze_audio_source, AudioStreamInfo, SourceMode};
+
+    fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "expected {actual} to be within {tolerance} of {expected}"
+        );
+    }
 
     fn frame(samples: Vec<f32>, channels: u16) -> OwnedAudioFrame {
         OwnedAudioFrame::new(

@@ -6,6 +6,12 @@ license.workspace = true
 rust-version.workspace = true
 description = "Runnable end-to-end workflows built from the video-analysis crates."
 readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+publish = false
 
 [[bin]]
 name = "video-analysis-use-cases"
@@ -16,6 +22,7 @@ audio-analysis-processing.workspace = true
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+shlex.workspace = true
 text-analysis-features.workspace = true
 text-analysis-transcription.workspace = true
 video-analysis-core.workspace = true

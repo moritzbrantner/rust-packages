@@ -6,6 +6,11 @@ license.workspace = true
 rust-version.workspace = true
 description = "Demucs-based audio stem separation command wrapper for video-analysis."
 readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 video-analysis-core.workspace = true
@@ -15,5 +20,4 @@ default = []
 external-tests = []
 
 [dev-dependencies]
-audio-analysis-test-support.workspace = true
 tempfile.workspace = true

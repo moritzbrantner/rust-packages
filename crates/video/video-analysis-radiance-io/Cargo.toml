@@ -6,6 +6,11 @@ license.workspace = true
 rust-version.workspace = true
 description = "COLMAP, Nerfstudio, and PLY I/O for video-analysis radiance workflows."
 readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 serde.workspace = true
@@ -18,4 +23,3 @@ video-analysis-reconstruction.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-video-analysis-test-support.workspace = true

@@ -103,7 +103,6 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "audio-analysis-core"
 version = "0.1.0"
 dependencies = [
- "audio-analysis-test-support",
  "criterion",
  "proptest",
  "video-analysis-core",
@@ -114,7 +113,6 @@ name = "audio-analysis-fourier"
 version = "0.1.0"
 dependencies = [
  "audio-analysis-core",
- "audio-analysis-test-support",
  "criterion",
  "rustfft",
  "video-analysis-core",
@@ -124,7 +122,6 @@ dependencies = [
 name = "audio-analysis-io"
 version = "0.1.0"
 dependencies = [
- "audio-analysis-test-support",
  "tempfile",
  "video-analysis-core",
  "video-analysis-ffmpeg",
@@ -136,7 +133,6 @@ name = "audio-analysis-pitch"
 version = "0.1.0"
 dependencies = [
  "audio-analysis-core",
- "audio-analysis-test-support",
  "criterion",
  "video-analysis-core",
 ]
@@ -146,7 +142,6 @@ name = "audio-analysis-processing"
 version = "0.1.0"
 dependencies = [
  "audio-analysis-core",
- "audio-analysis-test-support",
  "criterion",
  "proptest",
  "video-analysis-core",
@@ -159,7 +154,6 @@ version = "0.1.0"
 dependencies = [
  "audio-analysis-core",
  "audio-analysis-fourier",
- "audio-analysis-test-support",
  "criterion",
  "serde",
  "serde_json",
@@ -171,7 +165,6 @@ name = "audio-analysis-rhythm"
 version = "0.1.0"
 dependencies = [
  "audio-analysis-core",
- "audio-analysis-test-support",
  "criterion",
  "video-analysis-core",
 ]
@@ -180,7 +173,6 @@ dependencies = [
 name = "audio-analysis-separation"
 version = "0.1.0"
 dependencies = [
- "audio-analysis-test-support",
  "tempfile",
  "video-analysis-core",
 ]
@@ -447,7 +439,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
- "video-analysis-test-support",
 ]
 
 [[package]]
@@ -2114,6 +2105,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-wasm-bindgen"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8302e169f0eddcc139c70f139d19d6467353af16f9fce27e8c30158036a1e16b"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "serde_core"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2356,7 +2358,16 @@ dependencies = [
  "thiserror 2.0.18",
  "video-analysis-core",
  "video-analysis-ingest",
- "video-analysis-test-support",
+]
+
+[[package]]
+name = "text-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde-wasm-bindgen",
+ "text-analysis-core",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2403,6 +2414,20 @@ dependencies = [
 name = "three-d-processing-core"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "three-d-processing-io"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "three-d-processing-core",
+ "three-d-processing-mesh",
  "video-analysis-core",
 ]
 
@@ -2410,6 +2435,7 @@ dependencies = [
 name = "three-d-processing-mesh"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "three-d-processing-core",
  "video-analysis-core",
 ]
@@ -2724,7 +2750,7 @@ dependencies = [
  "audio-analysis-rhythm",
  "audio-analysis-separation",
  "audio-analysis-synthesis",
- "audio-analysis-test-support",
+ "comfyui-models",
  "data-inversion-core",
  "dense-data",
  "image-analysis-core",
@@ -2732,6 +2758,8 @@ dependencies = [
  "image-analysis-processing",
  "image-analysis-segmentation",
  "image-analysis-synthesis",
+ "num-rational",
+ "tempfile",
  "text-analysis-core",
  "text-analysis-corpus",
  "text-analysis-features",
@@ -2741,6 +2769,7 @@ dependencies = [
  "text-analysis-synthesis",
  "text-analysis-transcription",
  "three-d-processing-core",
+ "three-d-processing-io",
  "three-d-processing-mesh",
  "vector-analysis-core",
  "vector-analysis-index",
@@ -2757,6 +2786,7 @@ dependencies = [
  "video-analysis-onnx",
  "video-analysis-output",
  "video-analysis-posture",
+ "video-analysis-posture-io",
  "video-analysis-radiance-fields",
  "video-analysis-radiance-io",
  "video-analysis-radiance-pipeline",
@@ -2766,7 +2796,6 @@ dependencies = [
  "video-analysis-split",
  "video-analysis-storage",
  "video-analysis-synthesis",
- "video-analysis-test-support",
  "video-analysis-tracking",
  "video-analysis-transform",
 ]
@@ -2777,15 +2806,19 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "serde_json",
+ "shlex",
  "tempfile",
+ "three-d-processing-core",
+ "three-d-processing-io",
  "video-analysis-core",
  "video-analysis-detectors",
  "video-analysis-ffmpeg",
  "video-analysis-models",
  "video-analysis-onnx",
  "video-analysis-output",
+ "video-analysis-posture",
+ "video-analysis-posture-io",
  "video-analysis-split",
- "video-analysis-test-support",
 ]
 
 [[package]]
@@ -2811,7 +2844,9 @@ dependencies = [
  "num-rational",
  "serde",
  "serde_json",
+ "three-d-processing-core",
  "video-analysis-core",
+ "video-analysis-posture",
 ]
 
 [[package]]
@@ -2820,6 +2855,8 @@ version = "0.1.0"
 dependencies = [
  "num-rational",
  "video-analysis-core",
+ "video-analysis-ffmpeg",
+ "video-analysis-ingest",
 ]
 
 [[package]]
@@ -2877,8 +2914,9 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "three-d-processing-core",
  "video-analysis-core",
- "video-analysis-test-support",
+ "video-analysis-posture",
 ]
 
 [[package]]
@@ -2893,7 +2931,7 @@ dependencies = [
  "tempfile",
  "video-analysis-core",
  "video-analysis-models",
- "video-analysis-test-support",
+ "video-analysis-posture",
 ]
 
 [[package]]
@@ -2911,7 +2949,22 @@ name = "video-analysis-posture"
 version = "0.1.0"
 dependencies = [
  "num-rational",
+ "serde",
+ "three-d-processing-core",
  "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-posture-io"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "three-d-processing-core",
+ "video-analysis-core",
+ "video-analysis-posture",
 ]
 
 [[package]]
@@ -2933,7 +2986,6 @@ dependencies = [
  "video-analysis-gaussian-splatting",
  "video-analysis-radiance-fields",
  "video-analysis-reconstruction",
- "video-analysis-test-support",
 ]
 
 [[package]]
@@ -2947,7 +2999,6 @@ dependencies = [
  "video-analysis-ingest",
  "video-analysis-radiance-fields",
  "video-analysis-radiance-io",
- "video-analysis-test-support",
 ]
 
 [[package]]
@@ -2972,6 +3023,8 @@ version = "0.1.0"
 dependencies = [
  "image-analysis-segmentation",
  "video-analysis-core",
+ "video-analysis-ffmpeg",
+ "video-analysis-ingest",
  "video-analysis-models",
 ]
 
@@ -2983,7 +3036,6 @@ dependencies = [
  "tempfile",
  "video-analysis-core",
  "video-analysis-ffmpeg",
- "video-analysis-test-support",
 ]
 
 [[package]]
@@ -2997,7 +3049,6 @@ dependencies = [
  "thiserror 2.0.18",
  "video-analysis-core",
  "video-analysis-dataset",
- "video-analysis-test-support",
 ]
 
 [[package]]
@@ -3045,6 +3096,7 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
+ "shlex",
  "tempfile",
  "text-analysis-features",
  "text-analysis-transcription",

@@ -9,8 +9,9 @@ use video_analysis_core::{
     FramePosition, MetricsStore, Observation, ObservationKind, PixelFormat, Scene, TextSegment,
     Timestamp, VideoFrame,
 };
+use video_analysis_posture::{Keypoint, Keypoint3d, Pose3dEstimate, PoseEstimate};
 
-pub const DATASET_SCHEMA_VERSION: u32 = 1;
+pub const DATASET_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DatasetMetadata {
@@ -89,6 +90,38 @@ impl AnalysisDataset {
         );
     }
 
+    pub fn extend_pose_estimates(
+        &mut self,
+        analyzer: impl Into<String>,
+        frame: Option<FramePosition>,
+        poses: impl IntoIterator<Item = PoseEstimate>,
+    ) {
+        let analyzer = analyzer.into();
+        self.records.extend(poses.into_iter().map(|pose| {
+            DatasetRecord::Pose2d(Pose2dRecord::from_pose_estimate(
+                analyzer.clone(),
+                frame,
+                pose,
+            ))
+        }));
+    }
+
+    pub fn extend_pose_3d_estimates(
+        &mut self,
+        analyzer: impl Into<String>,
+        frame: Option<FramePosition>,
+        poses: impl IntoIterator<Item = Pose3dEstimate>,
+    ) {
+        let analyzer = analyzer.into();
+        self.records.extend(poses.into_iter().map(|pose| {
+            DatasetRecord::Pose3d(Pose3dRecord::from_pose_3d_estimate(
+                analyzer.clone(),
+                frame,
+                pose,
+            ))
+        }));
+    }
+
     pub fn records(&self) -> impl Iterator<Item = &DatasetRecord> {
         self.records.iter()
     }
@@ -127,6 +160,20 @@ impl AnalysisDataset {
             _ => None,
         })
     }
+
+    pub fn poses_2d(&self) -> impl Iterator<Item = &Pose2dRecord> {
+        self.records.iter().filter_map(|record| match record {
+            DatasetRecord::Pose2d(pose) => Some(pose),
+            _ => None,
+        })
+    }
+
+    pub fn poses_3d(&self) -> impl Iterator<Item = &Pose3dRecord> {
+        self.records.iter().filter_map(|record| match record {
+            DatasetRecord::Pose3d(pose) => Some(pose),
+            _ => None,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -142,6 +189,8 @@ pub enum DatasetRecord {
     Metric(MetricRecord),
     Feature(FeatureRecord),
     Track(TrackRecord),
+    Pose2d(Pose2dRecord),
+    Pose3d(Pose3dRecord),
 }
 
 impl DatasetRecord {
@@ -157,6 +206,8 @@ impl DatasetRecord {
             Self::Metric(_) => "metric",
             Self::Feature(_) => "feature",
             Self::Track(_) => "track",
+            Self::Pose2d(_) => "pose_2d",
+            Self::Pose3d(_) => "pose_3d",
         }
     }
 }
@@ -412,6 +463,122 @@ pub struct ObservationRecord {
     pub attributes: BTreeMap<String, String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeypointRecord2d {
+    pub name: String,
+    pub x: f32,
+    pub y: f32,
+    pub score: Option<f32>,
+    pub visible: Option<bool>,
+}
+
+impl From<Keypoint> for KeypointRecord2d {
+    fn from(keypoint: Keypoint) -> Self {
+        Self {
+            name: keypoint.name,
+            x: keypoint.x,
+            y: keypoint.y,
+            score: keypoint.score,
+            visible: keypoint.visible,
+        }
+    }
+}
+
+impl From<&Keypoint> for KeypointRecord2d {
+    fn from(keypoint: &Keypoint) -> Self {
+        keypoint.clone().into()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeypointRecord3d {
+    pub name: String,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub score: Option<f32>,
+    pub visible: Option<bool>,
+}
+
+impl From<Keypoint3d> for KeypointRecord3d {
+    fn from(keypoint: Keypoint3d) -> Self {
+        Self {
+            name: keypoint.name,
+            x: keypoint.position.x,
+            y: keypoint.position.y,
+            z: keypoint.position.z,
+            score: keypoint.score,
+            visible: keypoint.visible,
+        }
+    }
+}
+
+impl From<&Keypoint3d> for KeypointRecord3d {
+    fn from(keypoint: &Keypoint3d) -> Self {
+        keypoint.clone().into()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Pose2dRecord {
+    pub frame: Option<FramePositionRecord>,
+    pub analyzer: String,
+    pub id: Option<String>,
+    pub label: Option<String>,
+    pub score: Option<f32>,
+    pub region: Option<BoundingBoxRecord>,
+    pub keypoints: Vec<KeypointRecord2d>,
+    pub attributes: BTreeMap<String, String>,
+}
+
+impl Pose2dRecord {
+    pub fn from_pose_estimate(
+        analyzer: impl Into<String>,
+        frame: Option<FramePosition>,
+        pose: PoseEstimate,
+    ) -> Self {
+        Self {
+            frame: frame.map(Into::into),
+            analyzer: analyzer.into(),
+            id: pose.id,
+            label: pose.label,
+            score: pose.score,
+            region: pose.region.map(Into::into),
+            keypoints: pose.keypoints.into_iter().map(Into::into).collect(),
+            attributes: pose.attributes,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Pose3dRecord {
+    pub frame: Option<FramePositionRecord>,
+    pub analyzer: String,
+    pub id: Option<String>,
+    pub label: Option<String>,
+    pub score: Option<f32>,
+    pub keypoints: Vec<KeypointRecord3d>,
+    pub attributes: BTreeMap<String, String>,
+}
+
+impl Pose3dRecord {
+    pub fn from_pose_3d_estimate(
+        analyzer: impl Into<String>,
+        frame: Option<FramePosition>,
+        pose: Pose3dEstimate,
+    ) -> Self {
+        Self {
+            frame: frame.map(Into::into),
+            analyzer: analyzer.into(),
+            id: pose.id,
+            label: pose.label,
+            score: pose.score,
+            keypoints: pose.keypoints.into_iter().map(Into::into).collect(),
+            attributes: pose.attributes,
+        }
+    }
+}
+
 impl ObservationRecord {
     pub fn from_observation(observation: Observation) -> Self {
         Self {
@@ -624,6 +791,7 @@ mod tests {
         MetricsStore, Observation, ObservationKind, PixelFormat, Scene, Timebase, Timestamp,
         VideoFrame,
     };
+    use video_analysis_posture::{Keypoint, Keypoint3d, Pose3dEstimate, PoseEstimate};
 
     use super::*;
 
@@ -757,5 +925,28 @@ mod tests {
         let json = serde_json::to_string(&record).unwrap();
         let round_trip: DatasetRecord = serde_json::from_str(&json).unwrap();
         assert_eq!(round_trip, record);
+    }
+
+    #[test]
+    fn retains_structured_pose_records() {
+        let mut dataset = AnalysisDataset::empty();
+        dataset.extend_pose_estimates(
+            "pose2d",
+            Some(position(1)),
+            [PoseEstimate::new([Keypoint::new("nose", 1.0, 2.0).unwrap()]).unwrap()],
+        );
+        dataset.extend_pose_3d_estimates(
+            "pose3d",
+            Some(position(2)),
+            [Pose3dEstimate::new([Keypoint3d::new(
+                "nose",
+                three_d_processing_core::Point3::new(1.0, 2.0, 3.0),
+            )
+            .unwrap()])
+            .unwrap()],
+        );
+
+        assert_eq!(dataset.poses_2d().count(), 1);
+        assert_eq!(dataset.poses_3d().count(), 1);
     }
 }

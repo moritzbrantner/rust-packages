@@ -1,8 +1,26 @@
 use audio_analysis_core::ChannelMix;
 use audio_analysis_processing::{AudioProcessor, BiquadKind, BiquadSpec, NoiseGateSpec};
-use audio_analysis_test_support::{owned_f32_frame, sine};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use video_analysis_core::{Timebase, Timestamp};
+use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
+
+fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
+    let samples = (sample_rate as f32 * seconds) as usize;
+    (0..samples)
+        .map(|index| {
+            let t = index as f32 / sample_rate as f32;
+            (2.0 * std::f32::consts::PI * freq_hz * t).sin()
+        })
+        .collect()
+}
+
+fn owned_f32_frame(
+    timestamp: Timestamp,
+    sample_rate: u32,
+    channels: u16,
+    samples: Vec<f32>,
+) -> video_analysis_core::Result<OwnedAudioFrame> {
+    OwnedAudioFrame::new(timestamp, sample_rate, channels, AudioBuffer::F32(samples))
+}
 
 fn bench_processing(c: &mut Criterion) {
     let frame = owned_f32_frame(

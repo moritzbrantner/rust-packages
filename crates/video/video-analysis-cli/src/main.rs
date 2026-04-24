@@ -1,10 +1,13 @@
 #![doc = include_str!("../README.md")]
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::ffi::OsString;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
+use clap::{ArgGroup, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
+use three_d_processing_core::Point3;
+use three_d_processing_io::{read_mesh, write_mesh};
 use video_analysis_core::{DetectError, PixelFormat, Result, SceneDetector, ScenePipeline};
 use video_analysis_detectors::{
     AdaptiveDetector, AdaptiveScoreAlgorithm, ContentDetector, ContentScoreAlgorithm, HashDetector,
@@ -14,9 +17,14 @@ use video_analysis_detectors::{
 use video_analysis_ffmpeg::FfmpegVideoSource;
 use video_analysis_models::{
     HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelBundleStore, ModelPreset,
-    ModelTask,
+    ModelTask, RawPose2dPrediction,
 };
 use video_analysis_output::{write_scene_list_csv, write_stats_csv};
+use video_analysis_posture::{Keypoint3d, Pose3dEstimate, Skeleton};
+use video_analysis_posture_io::{
+    read_coco_keypoints_json, write_coco_keypoints_json, write_stick_figure_gltf,
+    write_stick_figure_ply,
+};
 use video_analysis_split::{split_video_ffmpeg, SplitOptions};
 
 #[derive(Debug, Parser)]
@@ -32,6 +40,8 @@ enum Command {
     List(AnalyzeArgs),
     Split(SplitArgs),
     Models(ModelsArgs),
+    Mesh(MeshArgs),
+    Posture(PostureArgs),
 }
 
 #[derive(Debug, Parser)]
@@ -72,6 +82,77 @@ enum ModelsCommand {
     Download(ModelDownloadArgs),
     Inspect(ModelInspectArgs),
     Run(ModelRunArgs),
+}
+
+#[derive(Debug, Parser)]
+struct MeshArgs {
+    #[command(subcommand)]
+    command: MeshCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum MeshCommand {
+    Inspect(MeshInspectArgs),
+    Convert(MeshConvertArgs),
+}
+
+#[derive(Debug, Parser)]
+struct MeshInspectArgs {
+    #[arg(long)]
+    input: PathBuf,
+}
+
+#[derive(Debug, Parser)]
+struct MeshConvertArgs {
+    #[arg(long)]
+    input: PathBuf,
+    #[arg(long)]
+    output: PathBuf,
+}
+
+#[derive(Debug, Parser)]
+struct PostureArgs {
+    #[command(subcommand)]
+    command: PostureCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum PostureCommand {
+    Estimate(PostureEstimateArgs),
+    Export(PostureExportArgs),
+}
+
+#[derive(Debug, Parser)]
+#[command(group(
+    ArgGroup::new("posture_source")
+        .args(["manifest", "predictions_json"])
+        .required(true)
+))]
+struct PostureEstimateArgs {
+    #[arg(long)]
+    manifest: Option<PathBuf>,
+    #[arg(long)]
+    predictions_json: Option<PathBuf>,
+    #[arg(long, requires = "manifest", default_value_t = ModelBackendKind::Onnx)]
+    backend: ModelBackendKind,
+    #[arg(long, requires = "manifest")]
+    input: Option<PathBuf>,
+    #[arg(long, requires = "manifest")]
+    width: Option<u32>,
+    #[arg(long, requires = "manifest")]
+    height: Option<u32>,
+    #[arg(long, default_value_t = RawPixelFormatKind::Rgb24, requires = "manifest")]
+    pixel_format: RawPixelFormatKind,
+    #[arg(long)]
+    output: PathBuf,
+}
+
+#[derive(Debug, Parser)]
+struct PostureExportArgs {
+    #[arg(long)]
+    input: PathBuf,
+    #[arg(long)]
+    output: PathBuf,
 }
 
 #[derive(Debug, Parser)]
@@ -154,6 +235,23 @@ impl From<RawPixelFormatKind> for PixelFormat {
         match value {
             RawPixelFormatKind::Rgb24 => Self::Rgb24,
             RawPixelFormatKind::Bgr24 => Self::Bgr24,
+        }
+    }
+}
+
+impl std::fmt::Display for ModelBackendKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Onnx => f.write_str("onnx"),
+        }
+    }
+}
+
+impl std::fmt::Display for RawPixelFormatKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Rgb24 => f.write_str("rgb24"),
+            Self::Bgr24 => f.write_str("bgr24"),
         }
     }
 }
@@ -255,6 +353,8 @@ impl From<ModelPresetKind> for ModelPreset {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum ModelTaskKind {
     ObjectDetection,
+    PoseEstimation2d,
+    PoseLifting3d,
     ImageClassification,
     TextClassification,
     TokenClassification,
@@ -266,6 +366,8 @@ impl From<ModelTaskKind> for ModelTask {
     fn from(value: ModelTaskKind) -> Self {
         match value {
             ModelTaskKind::ObjectDetection => Self::ObjectDetection,
+            ModelTaskKind::PoseEstimation2d => Self::PoseEstimation2d,
+            ModelTaskKind::PoseLifting3d => Self::PoseLifting3d,
             ModelTaskKind::ImageClassification => Self::ImageClassification,
             ModelTaskKind::TextClassification => Self::TextClassification,
             ModelTaskKind::TokenClassification => Self::TokenClassification,
@@ -296,7 +398,7 @@ struct DetectorOptions {
 }
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let cli = parse_cli()?;
     match cli.command {
         Command::Detect(args) => {
             let result = run_detection(&args.input, &args.detection, &args.detector_options)?;
@@ -339,8 +441,67 @@ fn main() -> Result<()> {
             ModelsCommand::Inspect(args) => inspect_model_bundle(args)?,
             ModelsCommand::Run(args) => run_model(args)?,
         },
+        Command::Mesh(args) => match args.command {
+            MeshCommand::Inspect(args) => inspect_mesh(args)?,
+            MeshCommand::Convert(args) => convert_mesh(args)?,
+        },
+        Command::Posture(args) => match args.command {
+            PostureCommand::Estimate(args) => estimate_posture(args)?,
+            PostureCommand::Export(args) => export_posture(args)?,
+        },
     }
     Ok(())
+}
+
+fn parse_cli() -> Result<Cli> {
+    parse_cli_from(std::env::current_dir()?, std::env::args_os())
+}
+
+fn parse_cli_from<I, T>(current_dir: PathBuf, raw_args: I) -> Result<Cli>
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString>,
+{
+    let args = args_with_optional_conf(env!("CARGO_PKG_NAME"), &current_dir, raw_args)?;
+    let matches = Cli::command()
+        .args_override_self(true)
+        .try_get_matches_from(args)
+        .unwrap_or_else(|err| err.exit());
+    Cli::from_arg_matches(&matches)
+        .map_err(|err| DetectError::Source(format!("failed to parse CLI arguments: {err}")))
+}
+
+fn args_with_optional_conf<I, T>(
+    package_name: &str,
+    current_dir: &Path,
+    raw_args: I,
+) -> Result<Vec<OsString>>
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString>,
+{
+    let mut raw_args = raw_args.into_iter().map(Into::into);
+    let program = raw_args
+        .next()
+        .unwrap_or_else(|| OsString::from(package_name));
+    let mut args = vec![program];
+    let conf_path = current_dir.join(format!("{package_name}.conf"));
+    if conf_path.is_file() {
+        args.extend(read_conf_args(&conf_path)?);
+    }
+    args.extend(raw_args);
+    Ok(args)
+}
+
+fn read_conf_args(path: &Path) -> Result<Vec<OsString>> {
+    let contents = std::fs::read_to_string(path)?;
+    let Some(args) = shlex::split(&contents) else {
+        return Err(DetectError::InvalidArgument(format!(
+            "failed to parse config file `{}` as shell-style CLI arguments",
+            path.display()
+        )));
+    };
+    Ok(args.into_iter().map(OsString::from).collect())
 }
 
 fn list_model_presets() {
@@ -414,6 +575,101 @@ fn run_model(args: ModelRunArgs) -> Result<()> {
     }
 }
 
+fn inspect_mesh(args: MeshInspectArgs) -> Result<()> {
+    let mesh = read_mesh(&args.input)?;
+    let bounds = mesh.bounds()?;
+    println!("vertices\t{}", mesh.vertices.len());
+    println!("triangles\t{}", mesh.triangles.len());
+    println!("surface_area\t{}", mesh.surface_area()?);
+    println!("manifold\t{}", mesh.is_manifold()?);
+    println!("watertight\t{}", mesh.is_watertight()?);
+    println!("components\t{}", mesh.connected_components()?.len());
+    if let Some(bounds) = bounds {
+        println!(
+            "bounds\tmin=({}, {}, {}) max=({}, {}, {})",
+            bounds.min.x, bounds.min.y, bounds.min.z, bounds.max.x, bounds.max.y, bounds.max.z
+        );
+    }
+    Ok(())
+}
+
+fn convert_mesh(args: MeshConvertArgs) -> Result<()> {
+    let mesh = read_mesh(&args.input)?;
+    if let Some(parent) = args
+        .output
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+    write_mesh(&args.output, &mesh)
+}
+
+fn estimate_posture(args: PostureEstimateArgs) -> Result<()> {
+    let poses = if let Some(path) = args.predictions_json {
+        let data = std::fs::read(path)?;
+        let predictions: Vec<RawPose2dPrediction> =
+            serde_json::from_slice(&data).map_err(|err| {
+                DetectError::Source(format!("failed to parse raw pose predictions JSON: {err}"))
+            })?;
+        predictions
+            .iter()
+            .map(|prediction| prediction.to_pose_estimate(None))
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        match args.backend {
+            ModelBackendKind::Onnx => run_onnx_posture_estimate(&args)?,
+        }
+    };
+    if let Some(parent) = args
+        .output
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+    write_coco_keypoints_json(args.output, &poses)
+}
+
+fn export_posture(args: PostureExportArgs) -> Result<()> {
+    let poses = read_coco_keypoints_json(&args.input)?;
+    let pose = poses.first().ok_or_else(|| {
+        DetectError::InvalidArgument("posture export input contained no poses".to_string())
+    })?;
+    let keypoints = pose
+        .keypoints
+        .iter()
+        .map(|keypoint| {
+            let mut point = Keypoint3d::new(
+                keypoint.name.clone(),
+                Point3::new(keypoint.x, keypoint.y, 0.0),
+            )?;
+            if let Some(score) = keypoint.score {
+                point = point.score(score)?;
+            }
+            if let Some(visible) = keypoint.visible {
+                point = point.visible(visible);
+            }
+            Ok(point)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let figure = Pose3dEstimate::new(keypoints)?.to_stick_figure(Skeleton::coco_17())?;
+    if let Some(parent) = args
+        .output
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+    match args.output.extension().and_then(|value| value.to_str()) {
+        Some("ply") => write_stick_figure_ply(args.output, &figure),
+        Some("gltf") => write_stick_figure_gltf(args.output, &figure),
+        _ => Err(DetectError::InvalidArgument(
+            "posture export output must end in `.ply` or `.gltf`".to_string(),
+        )),
+    }
+}
+
 #[cfg(feature = "onnx")]
 fn run_onnx_model(args: ModelRunArgs) -> Result<()> {
     let bundle = ModelBundle::load(args.manifest)?;
@@ -449,6 +705,57 @@ fn run_onnx_model(args: ModelRunArgs) -> Result<()> {
         println!();
     }
     Ok(())
+}
+
+#[cfg(feature = "onnx")]
+fn run_onnx_posture_estimate(
+    args: &PostureEstimateArgs,
+) -> Result<Vec<video_analysis_posture::PoseEstimate>> {
+    let manifest = args
+        .manifest
+        .as_ref()
+        .expect("clap validates posture estimate sources");
+    let input = args
+        .input
+        .as_ref()
+        .expect("clap validates posture estimate manifest arguments");
+    let width = args
+        .width
+        .expect("clap validates posture estimate manifest arguments");
+    let height = args
+        .height
+        .expect("clap validates posture estimate manifest arguments");
+    let bundle = ModelBundle::load(manifest)?;
+    let data = std::fs::read(input)?;
+    let frame = video_analysis_core::VideoFrame::packed(
+        video_analysis_core::FramePosition {
+            frame_index: 0,
+            timestamp: video_analysis_core::Timestamp::new(
+                0,
+                video_analysis_core::Timebase::new(1, 1),
+            ),
+        },
+        width,
+        height,
+        args.pixel_format.into(),
+        &data,
+        width as usize * 3,
+    )?;
+    let mut backend = video_analysis_onnx::OnnxPose2dEstimator::from_bundle(bundle)?;
+    let predictions = backend.predict_frame(&frame)?;
+    predictions
+        .iter()
+        .map(|prediction| prediction.to_pose_estimate(Some((width, height))))
+        .collect()
+}
+
+#[cfg(not(feature = "onnx"))]
+fn run_onnx_posture_estimate(
+    _args: &PostureEstimateArgs,
+) -> Result<Vec<video_analysis_posture::PoseEstimate>> {
+    Err(DetectError::InvalidArgument(
+        "`vanalyze posture estimate --backend onnx` requires building video-analysis-cli with the `onnx` or `onnxruntime` feature".to_string(),
+    ))
 }
 
 #[cfg(not(feature = "onnx"))]
@@ -701,6 +1008,7 @@ fn _assert_detector_trait<T: SceneDetector>() {}
 mod tests {
     use super::*;
     use clap::error::ErrorKind;
+    use tempfile::tempdir;
 
     fn detector_options() -> DetectorOptions {
         DetectorOptions {
@@ -1052,5 +1360,146 @@ mod tests {
         };
 
         assert!(err.to_string().contains("duplicate weight"));
+    }
+
+    #[test]
+    fn mesh_commands_accept_and_convert_files() {
+        let cli = Cli::try_parse_from([
+            "vanalyze", "mesh", "convert", "--input", "mesh.obj", "--output", "mesh.ply",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Mesh(MeshArgs {
+                command: MeshCommand::Convert(args),
+            }) => {
+                assert_eq!(args.input, PathBuf::from("mesh.obj"));
+                assert_eq!(args.output, PathBuf::from("mesh.ply"));
+            }
+            _ => panic!("expected mesh convert command"),
+        }
+
+        let dir = tempdir().unwrap();
+        let input = dir.path().join("mesh.obj");
+        std::fs::write(&input, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n").unwrap();
+        let output = dir.path().join("mesh.ply");
+        convert_mesh(MeshConvertArgs {
+            input: input.clone(),
+            output: output.clone(),
+        })
+        .unwrap();
+        assert!(output.exists());
+        inspect_mesh(MeshInspectArgs { input }).unwrap();
+    }
+
+    #[test]
+    fn posture_commands_estimate_and_export() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "posture",
+            "estimate",
+            "--predictions-json",
+            "poses.json",
+            "--output",
+            "poses_out.json",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Posture(PostureArgs {
+                command: PostureCommand::Estimate(args),
+            }) => {
+                assert_eq!(args.predictions_json, Some(PathBuf::from("poses.json")));
+                assert_eq!(args.output, PathBuf::from("poses_out.json"));
+            }
+            _ => panic!("expected posture estimate command"),
+        }
+
+        let dir = tempdir().unwrap();
+        let predictions = dir.path().join("predictions.json");
+        std::fs::write(
+            &predictions,
+            serde_json::to_vec_pretty(&vec![RawPose2dPrediction {
+                keypoints: Skeleton::coco_17()
+                    .keypoints
+                    .iter()
+                    .enumerate()
+                    .map(|(index, name)| video_analysis_models::RawKeypoint2d {
+                        name: name.clone(),
+                        x: index as f32,
+                        y: index as f32,
+                        score: Some(1.0),
+                        visible: Some(true),
+                    })
+                    .collect(),
+                ..RawPose2dPrediction::default()
+            }])
+            .unwrap(),
+        )
+        .unwrap();
+        let coco = dir.path().join("poses.json");
+        estimate_posture(PostureEstimateArgs {
+            manifest: None,
+            predictions_json: Some(predictions),
+            backend: ModelBackendKind::Onnx,
+            input: None,
+            width: None,
+            height: None,
+            pixel_format: RawPixelFormatKind::Rgb24,
+            output: coco.clone(),
+        })
+        .unwrap();
+        assert!(coco.exists());
+
+        let gltf = dir.path().join("pose.gltf");
+        export_posture(PostureExportArgs {
+            input: coco,
+            output: gltf.clone(),
+        })
+        .unwrap();
+        assert!(gltf.exists());
+    }
+
+    #[test]
+    fn package_conf_arguments_are_loaded() {
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join("video-analysis-cli.conf"), "models presets").unwrap();
+
+        let cli = parse_cli_from(dir.path().to_path_buf(), [OsString::from("vanalyze")]).unwrap();
+
+        match cli.command {
+            Command::Models(ModelsArgs {
+                command: ModelsCommand::Presets,
+            }) => {}
+            other => panic!("unexpected command from package conf: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn explicit_cli_arguments_override_package_conf_arguments() {
+        let dir = tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("video-analysis-cli.conf"),
+            "detect --input config.mp4 --min-scene-len 3",
+        )
+        .unwrap();
+
+        let cli = parse_cli_from(
+            dir.path().to_path_buf(),
+            [
+                OsString::from("vanalyze"),
+                OsString::from("--input"),
+                OsString::from("cli.mp4"),
+                OsString::from("--min-scene-len"),
+                OsString::from("7"),
+            ],
+        )
+        .unwrap();
+
+        match cli.command {
+            Command::Detect(args) => {
+                assert_eq!(args.input, PathBuf::from("cli.mp4"));
+                assert_eq!(args.detector_options.min_scene_len, 7);
+            }
+            other => panic!("unexpected command from merged CLI args: {other:?}"),
+        }
     }
 }

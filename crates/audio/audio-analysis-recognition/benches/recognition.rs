@@ -2,8 +2,17 @@ use audio_analysis_recognition::{
     AudioEmbeddingExtractor, AudioMatchOptions, AudioReferenceLibrary, SpectralAudioEmbedder,
     SpectralEmbeddingConfig,
 };
-use audio_analysis_test_support::sine;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+
+fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
+    let samples = (sample_rate as f32 * seconds) as usize;
+    (0..samples)
+        .map(|index| {
+            let t = index as f32 / sample_rate as f32;
+            (2.0 * std::f32::consts::PI * freq_hz * t).sin()
+        })
+        .collect()
+}
 
 fn bench_recognition(c: &mut Criterion) {
     let extractor =

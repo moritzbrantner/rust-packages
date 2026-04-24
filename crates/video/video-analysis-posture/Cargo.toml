@@ -6,8 +6,15 @@ license.workspace = true
 rust-version.workspace = true
 description = "Pose and skeleton helpers for video-analysis."
 readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
+serde.workspace = true
+three-d-processing-core.workspace = true
 video-analysis-core.workspace = true
 
 [dev-dependencies]

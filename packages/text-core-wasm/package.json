@@ -1,0 +1,27 @@
+{
+  "name": "@mb-rust/text-core-wasm",
+  "version": "0.1.0",
+  "description": "WASM bindings for text-analysis-core.",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "private": false,
+  "files": [
+    "index.d.ts",
+    "index.js",
+    "pkg",
+    "README.md"
+  ],
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "scripts": {
+    "build": "wasm-pack build ../../crates/bindings/text-core-wasm --target web --release --out-dir ../../../packages/text-core-wasm/pkg --out-name index",
+    "prepare": "bun run build"
+  }
+}

@@ -9,6 +9,18 @@ formats, file formats, package exports, and dependency boundaries.
 samples, scene detection, metrics, observations, analyzers, and pipelines. Other
 crates should compose around those contracts instead of defining parallel types.
 
+## Feature Flag Policy
+
+Runtime and external integration crates use a shared feature policy:
+
+- `default = []` unless a crate is pure-Rust and intentionally unconditional.
+- Runtime-enabling flags stay explicit, for example `onnx`, `onnxruntime`,
+  `candle`, and `ffmpeg-tests`.
+- `external-tests` always means real tools, real models, or real network
+  access and is not part of the default contributor gate.
+- Additive aliases are allowed for compatibility, but docs should prefer the
+  canonical explicit feature name.
+
 ## Workspace Contract Map
 
 | Package | Role | Depends on | Exposes | Consumed by |
@@ -40,11 +52,12 @@ crates should compose around those contracts instead of defining parallel types.
 | `dense-data` | Generic dense point aggregation and clustering | `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, bounds, fixed-grid buckets, deterministic k-means clusters | Tables, graphs, charts, maps, media features, and analytics workflows |
 | `vector-analysis-core` | Dense vector contracts and metrics | `video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
 | `vector-analysis-index` | Exact vector search and assignment | `vector-analysis-core`, `video-analysis-core` | In-memory vector index, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
-| `three-d-processing-core` | Generic 3D processing primitives | `video-analysis-core` | 3D vectors, points, bounds, transforms, point clouds, centroids | Mesh processing, applications, future 3D workflows |
-| `three-d-processing-mesh` | Triangle mesh processing | `three-d-processing-core`, `video-analysis-core` | Mesh validation, triangle normals, vertex normals, bounds, surface area | Applications and future 3D workflows |
+| `three-d-processing-core` | Generic 3D processing primitives | `video-analysis-core` | 3D vectors, points, bounds, transforms, quaternions, rigid transforms, line segments, point clouds, centroids, voxel downsampling | Mesh processing, applications, future 3D workflows |
+| `three-d-processing-io` | 3D interchange formats | `three-d-processing-core`, `three-d-processing-mesh`, `video-analysis-core`, `serde_json`, `base64` | `OBJ`, `PLY`, and minimal embedded `.gltf` mesh/point-cloud I/O | Applications, CLI workflows, posture export |
+| `three-d-processing-mesh` | Triangle mesh processing | `three-d-processing-core`, `video-analysis-core` | Mesh validation, topology, triangle normals, vertex normals, bounds, surface area, volume, transforms, smoothing, deterministic sampling | Applications and future 3D workflows |
 | `video-analysis-core` | Canonical shared contracts and pipelines | External utility crates only | Time/frame types, media samples, detection traits/results, analyzer traits/results, observations, metrics, pipeline builders | All functional Rust crates |
 | `video-analysis-data` | Online stream normalization and aggregation | `video-analysis-core` | `DataRecord`, `DataPayload`, bucket configuration, bucket summaries, stream summaries | Use cases, reporting, UI JSON generation |
-| `video-analysis-dataset` | Retained analysis dataset records | `video-analysis-core`, `serde` | Serializable owned records for scenes, cuts, media metadata, observations, events, metrics, tracks, and features | Transform, feature, storage, analytics workflows |
+| `video-analysis-dataset` | Retained analysis dataset records | `video-analysis-core`, `video-analysis-posture`, `serde` | Serializable owned records for scenes, cuts, media metadata, observations, events, metrics, tracks, features, and structured 2D/3D pose records | Transform, feature, storage, analytics workflows |
 | `video-analysis-transform` | Deterministic dataset transformations | `video-analysis-dataset` | Filtering, time windows, scene grouping, time/frame joins, dedupe, merge, numeric feature resampling | Feature extraction and applications |
 | `video-analysis-features` | Reusable feature extraction over retained datasets | `video-analysis-core`, `video-analysis-dataset`, `video-analysis-transform` | Scene stats, label histograms, transcript stats, audio event stats, track summaries, vector means | Applications and downstream ML/analytics workflows |
 | `video-analysis-storage` | Retained dataset persistence | `video-analysis-dataset`, `serde`, `serde_json`, `thiserror` | JSON/JSONL writers and readers plus dataset manifests | Applications and automation |
@@ -54,9 +67,10 @@ crates should compose around those contracts instead of defining parallel types.
 | `video-analysis-ingest` | Source abstraction layer | `video-analysis-core` | Media/source metadata, source traits, source-to-pipeline adapter helpers, text line source | FFmpeg crate, use cases, applications |
 | `video-analysis-ffmpeg` | FFmpeg-backed media probing and decoding | `video-analysis-core`, `video-analysis-ingest` | FFmpeg video/audio sources, metadata, probe helpers, source options | CLI, use cases, applications |
 | `video-analysis-models` | Model download, backend, normalization, and external command contracts | `video-analysis-core` | Hugging Face specs/downloads, raw and normalized predictions, model analyzer adapters, external command protocol | CLI model commands, use cases, applications |
-| `video-analysis-onnx` | Optional ONNX vision model backend adapters | `video-analysis-core`, `video-analysis-models`, image crates, optional `ort` | Object-detection bundle validation, image preprocessing, fake-runner seam, optional DETR/YOLOS-style ONNX runtime execution | Native vision inference experiments and CLI feature builds |
+| `video-analysis-onnx` | Optional ONNX vision model backend adapters | `video-analysis-core`, `video-analysis-models`, `video-analysis-posture`, image crates, optional `ort` | Object-detection plus posture bundle validation, image preprocessing, fake-runner seams, optional runtime execution | Native vision inference experiments and CLI feature builds |
 | `video-analysis-tracking` | Object tracking over frame detections | `video-analysis-core` | `TrackedDetection`, `IouTracker`, tracking options, object-detection backend trait, analyzer adapter | Applications, use cases, model-backed detection pipelines |
-| `video-analysis-posture` | Pose and posture estimation contracts | `video-analysis-core` | Keypoints, skeletons, pose estimates, posture backend trait, analyzer adapter, joint angle helpers | Applications, use cases, model-backed posture workflows |
+| `video-analysis-posture` | Pose and posture estimation contracts | `video-analysis-core`, `three-d-processing-core` | 2D/3D keypoints, skeletons, pose estimates, stick figures, posture backend traits, analyzer adapter, joint angle helpers, smoothing/interpolation | Applications, use cases, model-backed posture workflows |
+| `video-analysis-posture-io` | Posture interchange and preview export | `video-analysis-core`, `video-analysis-posture`, `three-d-processing-core`, `serde_json`, `base64` | COCO-style keypoint JSON, 3D stick-figure `.ply`, 3D stick-figure `.gltf` | CLI workflows, applications, dataset export |
 | `video-analysis-recognition` | Reference-embedding identity matching | `video-analysis-core` | Reference libraries, normalized embeddings, recognition candidates/matches, temporal aggregation, video analyzer adapter | Applications, use cases, model-backed face/object recognition |
 | `video-analysis-output` | Detection output writers | `video-analysis-core` | Scene CSV, stats CSV, simple HTML, combined detection writers | CLI, applications |
 | `video-analysis-split` | Scene-based media splitting | `video-analysis-core` | Split options, template variables, FFmpeg split function | CLI, applications |
@@ -662,22 +676,33 @@ posture-estimation backends.
 Key contracts:
 
 - `Keypoint` stores a named x/y coordinate plus optional score and visibility.
+- `Keypoint3d` stores a named 3D point plus optional score and visibility.
 - `KeypointSpace` identifies pixel-space or normalized coordinates.
 - `Skeleton` and `SkeletonEdge` describe expected topology, including a COCO-17
   human skeleton preset.
 - `PoseEstimate` groups one pose id, label, score, optional region, keypoints,
   and string attributes.
+- `Pose3dEstimate` groups one 3D pose id, label, score, keypoints, and string
+  attributes.
+- `StickFigure3d` binds a skeleton to 3D joints and produces line segments for
+  preview/export.
+- `PoseSequence<T>` stores deterministic pose windows for lifting and
+  smoothing.
 - `PostureOptions` configures keypoint space, score filters, and inferred pose
   regions.
 - `PostureBackend` adapts a pose-estimation model into `PoseEstimate` values.
+- `PostureLiftBackend` adapts 2D pose windows into `Pose3dEstimate` values.
 - `PostureAnalyzer` implements core `VideoAnalyzer` and emits custom
   `posture` observations.
-- `joint_angle_degrees` computes simple three-keypoint joint angles for posture
-  feature extraction.
+- `joint_angle_degrees` and `joint_angle_3d_degrees` compute simple
+  three-keypoint joint angles for posture feature extraction.
+- `bone_lengths`, `normalize_pose3d`, `interpolate_missing_joints`, and
+  `smooth_pose_sequence` provide classic CPU posture processing helpers.
 
 Posture observations use core `Observation` fields for timestamp, frame, score,
 track id, and region. Keypoint payloads are carried in string attributes until a
-shared structured report format is introduced.
+shared structured report format is introduced. `video-analysis-dataset` now
+also stores owned 2D and 3D pose records for retained workflows.
 
 ## Media Editing Contracts
 
@@ -744,14 +769,29 @@ neural rendering and reconstruction crates continue to interoperate through
 - `Point3`
 - `Bounds3`
 - `Transform3`
+- `Quaternion`
+- `RigidTransform3`
+- `LineSegment3`
 - `PointCloud`
-- Centroid and transform helpers.
+- Point distance, rigid-transform, voxel-downsampling, and center/scale helpers.
+
+`three-d-processing-io` exposes:
+
+- `read_mesh` / `write_mesh`
+- `read_obj_mesh` / `write_obj_mesh`
+- `read_ply_mesh` / `write_ply_mesh`
+- `read_ply_point_cloud` / `write_ply_point_cloud`
+- `read_gltf_mesh` / `write_gltf_mesh`
 
 `three-d-processing-mesh` exposes:
 
+- `Edge`
 - `Triangle`
 - `Mesh`
-- Triangle normal, triangle area, surface area, and vertex normal helpers.
+- `MeshTopology`
+- Triangle normal, triangle area, surface area, face/vertex normal helpers.
+- Connected-component, manifold/watertight, volume, transform, merge,
+  deterministic surface sampling, and Laplacian smoothing helpers.
 
 `video-analysis-radiance-fields` exposes:
 

@@ -4,9 +4,12 @@
 
 - Fast baseline: `scripts/check-fast.sh`
 - Full release baseline: `scripts/check.sh`
+- Release-readiness doc pass: `cargo doc --workspace --no-deps`
 - Frontend-only checks: `bun run ui:build`, `bun run ui:test`, `bun run web:typecheck`, `bun run web:build`, `bun run web:test`
 
 Use the fast baseline for normal code changes. Use the full baseline before release-oriented changes or when you touch external-tool integrations.
+Before tagging or publishing crates, also require `cargo doc --workspace --no-deps`
+and the package dry-run checklist in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
 
 ## Local Setup
 
@@ -26,6 +29,12 @@ Run the full baseline after external tools are installed:
 
 ```bash
 scripts/check.sh
+```
+
+Run the release-readiness documentation pass before publishing:
+
+```bash
+cargo doc --workspace --no-deps
 ```
 
 ## External Tools

@@ -6,6 +6,11 @@ license.workspace = true
 rust-version.workspace = true
 description = "Command-line entry point for video-analysis workflows."
 readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [[bin]]
 name = "vanalyze"
@@ -20,15 +25,19 @@ onnxruntime = ["onnx", "video-analysis-onnx/onnxruntime"]
 [dependencies]
 clap.workspace = true
 serde_json.workspace = true
+shlex.workspace = true
+three-d-processing-core.workspace = true
+three-d-processing-io.workspace = true
 video-analysis-core.workspace = true
 video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-models.workspace = true
 video-analysis-onnx = { workspace = true, optional = true }
 video-analysis-output.workspace = true
+video-analysis-posture.workspace = true
+video-analysis-posture-io.workspace = true
 video-analysis-split.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
 video-analysis-ffmpeg = { workspace = true, features = ["test-utils"] }
-video-analysis-test-support.workspace = true

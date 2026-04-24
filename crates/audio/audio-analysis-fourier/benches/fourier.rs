@@ -1,7 +1,15 @@
 use audio_analysis_core::WindowFunction;
 use audio_analysis_fourier::{spectrogram, FourierTransform, StftConfig};
-use audio_analysis_test_support::sine_len;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+
+fn sine_len(freq_hz: f32, sample_rate: u32, len: usize) -> Vec<f32> {
+    (0..len)
+        .map(|index| {
+            let t = index as f32 / sample_rate as f32;
+            (2.0 * std::f32::consts::PI * freq_hz * t).sin()
+        })
+        .collect()
+}
 
 fn bench_fourier(c: &mut Criterion) {
     for fft_size in [1024, 2048, 4096] {

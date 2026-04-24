@@ -1,8 +1,21 @@
 #[cfg(feature = "external-tests")]
 mod external {
+    use std::path::Path;
+
     use video_analysis_models::{
         HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundleStore, ModelTask,
     };
+
+    fn assert_nonempty_file(path: impl AsRef<Path>) {
+        let path = path.as_ref();
+        let metadata = std::fs::metadata(path)
+            .unwrap_or_else(|err| panic!("expected `{}` metadata: {err}", path.display()));
+        assert!(
+            metadata.is_file() && metadata.len() > 0,
+            "expected `{}` to be a non-empty file",
+            path.display()
+        );
+    }
 
     #[test]
     #[ignore = "requires network access to Hugging Face"]
@@ -25,10 +38,8 @@ mod external {
             .download(&spec)
             .unwrap();
 
-        video_analysis_test_support::assert_nonempty_file(bundle.manifest_path());
-        video_analysis_test_support::assert_nonempty_file(bundle.file_path("config.json").unwrap());
-        video_analysis_test_support::assert_nonempty_file(
-            bundle.file_path("model.safetensors").unwrap(),
-        );
+        assert_nonempty_file(bundle.manifest_path());
+        assert_nonempty_file(bundle.file_path("config.json").unwrap());
+        assert_nonempty_file(bundle.file_path("model.safetensors").unwrap());
     }
 }

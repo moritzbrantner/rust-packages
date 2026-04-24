@@ -800,11 +800,12 @@ fn object_properties_assignable(
             .iter()
             .find(|source_property| source_property.name == target_property.name)
         {
-            Some(source_property) => {
-                if !workflow_types_assignable(&source_property.value, &target_property.value) {
-                    return false;
-                }
+            Some(source_property)
+                if !workflow_types_assignable(&source_property.value, &target_property.value) =>
+            {
+                return false;
             }
+            Some(_) => {}
             None if target_property.required => return false,
             None => {}
         }

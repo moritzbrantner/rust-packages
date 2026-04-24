@@ -337,7 +337,6 @@ impl AudioAnalyzer for RhythmAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use audio_analysis_test_support::click_track as generated_click_track;
     use video_analysis_core::{AudioBuffer, AudioFrame, Timebase};
 
     fn click_track(sample_rate: u32, bpm: f32, seconds: f32) -> Vec<f32> {
@@ -439,7 +438,7 @@ mod tests {
     #[test]
     fn estimates_tempo_for_generated_click_tracks() {
         for bpm in [60.0, 90.0, 120.0, 180.0] {
-            let samples = generated_click_track(2_000, bpm, 5.0);
+            let samples = click_track(2_000, bpm, 5.0);
             let envelope =
                 onset_envelope(&samples, 2_000, FrameSpec::new(80, 20).unwrap()).unwrap();
             let onsets = detect_onsets(

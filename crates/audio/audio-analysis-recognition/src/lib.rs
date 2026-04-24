@@ -897,8 +897,14 @@ fn band_energies(spectrum: &Spectrum, bands: usize) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use audio_analysis_test_support::assert_approx_eq;
     use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase};
+
+    fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "expected {actual} to be within {tolerance} of {expected}"
+        );
+    }
 
     fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
         let samples = (sample_rate as f32 * seconds) as usize;

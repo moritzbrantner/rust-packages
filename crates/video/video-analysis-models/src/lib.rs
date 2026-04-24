@@ -15,11 +15,14 @@ use video_analysis_core::{
     AnalysisEvent, BoundingBox, DetectError, Observation, ObservationKind, Result, TextAnalyzer,
     TextSegment, VideoAnalyzer, VideoFrame,
 };
+use video_analysis_posture::{Keypoint, Keypoint3d, Pose3dEstimate, PoseEstimate};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelTask {
     ObjectDetection,
+    PoseEstimation2d,
+    PoseLifting3d,
     ImageClassification,
     TextClassification,
     TokenClassification,
@@ -32,6 +35,9 @@ impl ModelTask {
     pub fn default_kind(&self) -> ObservationKind {
         match self {
             Self::ObjectDetection => ObservationKind::Object,
+            Self::PoseEstimation2d | Self::PoseLifting3d => {
+                ObservationKind::Custom("posture".to_string())
+            }
             Self::ImageClassification => ObservationKind::Scene,
             Self::TextClassification | Self::TokenClassification | Self::ZeroShotClassification => {
                 ObservationKind::Text
@@ -44,6 +50,8 @@ impl ModelTask {
     pub fn default_label(&self) -> &'static str {
         match self {
             Self::ObjectDetection => "object",
+            Self::PoseEstimation2d => "pose_2d",
+            Self::PoseLifting3d => "pose_3d",
             Self::ImageClassification => "scene",
             Self::TextClassification => "semantic",
             Self::TokenClassification => "token",
@@ -56,6 +64,8 @@ impl ModelTask {
     fn as_protocol_str(&self) -> &str {
         match self {
             Self::ObjectDetection => "object_detection",
+            Self::PoseEstimation2d => "pose_estimation_2d",
+            Self::PoseLifting3d => "pose_lifting_3d",
             Self::ImageClassification => "image_classification",
             Self::TextClassification => "text_classification",
             Self::TokenClassification => "token_classification",
@@ -692,6 +702,135 @@ pub struct RawPrediction {
     pub attributes: BTreeMap<String, String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RawKeypoint2d {
+    pub name: String,
+    pub x: f32,
+    pub y: f32,
+    pub score: Option<f32>,
+    pub visible: Option<bool>,
+}
+
+impl RawKeypoint2d {
+    pub fn new(name: impl Into<String>, x: f32, y: f32) -> Self {
+        Self {
+            name: name.into(),
+            x,
+            y,
+            score: None,
+            visible: None,
+        }
+    }
+
+    pub fn to_keypoint(&self) -> Result<Keypoint> {
+        let mut keypoint = Keypoint::new(self.name.clone(), self.x, self.y)?;
+        if let Some(score) = self.score {
+            keypoint = keypoint.score(score)?;
+        }
+        if let Some(visible) = self.visible {
+            keypoint = keypoint.visible(visible);
+        }
+        Ok(keypoint)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RawKeypoint3d {
+    pub name: String,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub score: Option<f32>,
+    pub visible: Option<bool>,
+}
+
+impl RawKeypoint3d {
+    pub fn new(name: impl Into<String>, x: f32, y: f32, z: f32) -> Self {
+        Self {
+            name: name.into(),
+            x,
+            y,
+            z,
+            score: None,
+            visible: None,
+        }
+    }
+
+    pub fn to_keypoint(&self) -> Result<Keypoint3d> {
+        let mut keypoint = Keypoint3d::new(
+            self.name.clone(),
+            three_d_processing_core::Point3::new(self.x, self.y, self.z),
+        )?;
+        if let Some(score) = self.score {
+            keypoint = keypoint.score(score)?;
+        }
+        if let Some(visible) = self.visible {
+            keypoint = keypoint.visible(visible);
+        }
+        Ok(keypoint)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct RawPose2dPrediction {
+    pub id: Option<String>,
+    pub label: Option<String>,
+    pub score: Option<f32>,
+    pub region: Option<RawBoundingBox>,
+    #[serde(default)]
+    pub keypoints: Vec<RawKeypoint2d>,
+    #[serde(default)]
+    pub attributes: BTreeMap<String, String>,
+}
+
+impl RawPose2dPrediction {
+    pub fn to_pose_estimate(&self, frame_size: Option<(u32, u32)>) -> Result<PoseEstimate> {
+        let keypoints = self
+            .keypoints
+            .iter()
+            .map(RawKeypoint2d::to_keypoint)
+            .collect::<Result<Vec<_>>>()?;
+        let mut pose = PoseEstimate::new(keypoints)?;
+        pose.id = self.id.clone();
+        pose.label = self.label.clone();
+        pose.score = self.score;
+        pose.region = self
+            .region
+            .and_then(|region| region.to_bounding_box(frame_size, true));
+        pose.attributes = self.attributes.clone();
+        pose.validate()?;
+        Ok(pose)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct RawPose3dPrediction {
+    pub id: Option<String>,
+    pub label: Option<String>,
+    pub score: Option<f32>,
+    #[serde(default)]
+    pub keypoints: Vec<RawKeypoint3d>,
+    #[serde(default)]
+    pub attributes: BTreeMap<String, String>,
+}
+
+impl RawPose3dPrediction {
+    pub fn to_pose_3d_estimate(&self) -> Result<Pose3dEstimate> {
+        let keypoints = self
+            .keypoints
+            .iter()
+            .map(RawKeypoint3d::to_keypoint)
+            .collect::<Result<Vec<_>>>()?;
+        let mut pose = Pose3dEstimate::new(keypoints)?;
+        pose.id = self.id.clone();
+        pose.label = self.label.clone();
+        pose.score = self.score;
+        pose.attributes = self.attributes.clone();
+        pose.validate()?;
+        Ok(pose)
+    }
+}
+
 impl RawPrediction {
     pub fn object(label: impl Into<String>, score: f32, region: RawBoundingBox) -> Self {
         Self {
@@ -974,6 +1113,22 @@ fn bbox_iou(left: BoundingBox, right: BoundingBox) -> f32 {
 pub trait VisionModelBackend {
     fn task(&self) -> ModelTask;
     fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPrediction>>;
+}
+
+pub trait PoseModelBackend {
+    fn task(&self) -> ModelTask {
+        ModelTask::PoseEstimation2d
+    }
+
+    fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPose2dPrediction>>;
+}
+
+pub trait PoseLiftModelBackend {
+    fn task(&self) -> ModelTask {
+        ModelTask::PoseLifting3d
+    }
+
+    fn lift_poses(&mut self, sequence: &[RawPose2dPrediction]) -> Result<Vec<RawPose3dPrediction>>;
 }
 
 pub trait TextModelBackend {

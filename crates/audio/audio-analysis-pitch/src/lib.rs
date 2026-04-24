@@ -207,8 +207,25 @@ fn parabolic_lag(best_lag: usize, min_lag: usize, scores: &[f32]) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use audio_analysis_test_support::{assert_approx_eq, white_noise};
     use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
+
+    fn white_noise(seed: u64, len: usize) -> Vec<f32> {
+        let mut state = seed;
+        (0..len)
+            .map(|_| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                let value = ((state >> 32) as u32) as f32 / u32::MAX as f32;
+                value * 2.0 - 1.0
+            })
+            .collect()
+    }
+
+    fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "expected {actual} to be within {tolerance} of {expected}"
+        );
+    }
 
     fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
         let samples = (sample_rate as f32 * seconds) as usize;

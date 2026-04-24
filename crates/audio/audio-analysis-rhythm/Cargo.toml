@@ -6,13 +6,17 @@ license.workspace = true
 rust-version.workspace = true
 description = "Onset and tempo analysis for video-analysis audio pipelines."
 readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 audio-analysis-core.workspace = true
 video-analysis-core.workspace = true
 
 [dev-dependencies]
-audio-analysis-test-support.workspace = true
 criterion.workspace = true
 
 [[bench]]

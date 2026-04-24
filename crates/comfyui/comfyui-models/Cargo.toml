@@ -6,6 +6,11 @@ license.workspace = true
 rust-version.workspace = true
 description = "ComfyUI model folder, inventory, and extra path contracts."
 readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 serde.workspace = true

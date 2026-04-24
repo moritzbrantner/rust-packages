@@ -6,11 +6,18 @@ license.workspace = true
 rust-version.workspace = true
 description = "Serializable retained analysis records for video-analysis."
 readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 serde.workspace = true
 video-analysis-core.workspace = true
+video-analysis-posture.workspace = true
 
 [dev-dependencies]
 num-rational.workspace = true
 serde_json.workspace = true
+three-d-processing-core.workspace = true

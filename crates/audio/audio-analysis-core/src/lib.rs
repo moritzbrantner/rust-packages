@@ -394,9 +394,25 @@ fn sample_to_timestamp(sample: u64, sample_rate: u32) -> Timestamp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use audio_analysis_test_support::{assert_approx_eq, assert_approx_slice};
     use proptest::prelude::*;
     use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
+
+    fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "expected {actual} to be within {tolerance} of {expected}"
+        );
+    }
+
+    fn assert_approx_slice(actual: &[f32], expected: &[f32], tolerance: f32) {
+        assert_eq!(actual.len(), expected.len(), "slice lengths differ");
+        for (index, (actual, expected)) in actual.iter().zip(expected).enumerate() {
+            assert!(
+                (*actual - *expected).abs() <= tolerance,
+                "index {index}: expected {actual} to be within {tolerance} of {expected}"
+            );
+        }
+    }
 
     fn ts() -> Timestamp {
         Timestamp::new(0, Timebase::new(1, 48_000))

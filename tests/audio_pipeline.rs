@@ -1,3 +1,5 @@
+mod support;
+
 use audio_analysis_core::{interleaved_to_mono, ChannelMix, FrameSpec, WindowFunction};
 use audio_analysis_fourier::{spectrogram, FourierTransform, SpectralAnalyzer, StftConfig};
 use audio_analysis_pitch::AutocorrelationPitchDetector;
@@ -8,9 +10,7 @@ use audio_analysis_recognition::{
 use audio_analysis_rhythm::{
     detect_onsets, estimate_tempo, onset_envelope, OnsetDetectorConfig, TempoEstimatorConfig,
 };
-use audio_analysis_test_support::{
-    assert_approx_eq, click_track, interleaved_stereo, owned_f32_frame, sine,
-};
+use support::{assert_approx_eq, click_track, interleaved_stereo, owned_f32_frame, sine};
 use video_analysis_core::{AudioAnalyzer, AudioBuffer, AudioPipeline, Timebase, Timestamp};
 
 #[test]

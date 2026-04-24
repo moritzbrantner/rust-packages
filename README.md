@@ -25,8 +25,8 @@ Package README index:
 - Data: [`data-inversion-core`](crates/data/data-inversion-core/README.md), [`dense-data`](crates/data/dense-data/README.md)
 - Image: [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
 - Text: [`text-analysis-core`](crates/text/text-analysis-core/README.md), [`text-analysis-corpus`](crates/text/text-analysis-corpus/README.md), [`text-analysis-features`](crates/text/text-analysis-features/README.md), [`text-analysis-models`](crates/text/text-analysis-models/README.md), [`text-analysis-prediction`](crates/text/text-analysis-prediction/README.md), [`text-analysis-semantics`](crates/text/text-analysis-semantics/README.md), [`text-analysis-synthesis`](crates/text/text-analysis-synthesis/README.md), [`text-analysis-transcription`](crates/text/text-analysis-transcription/README.md)
-- Vector and 3D: [`vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md)
-- Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-use-cases`](crates/video/video-analysis-use-cases/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
+- Vector and 3D: [`vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md)
+- Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-use-cases`](crates/video/video-analysis-use-cases/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
 
 - `video-analysis`: umbrella re-export crate.
 - `comfyui-data`: serde contracts and helpers for ComfyUI workflow JSON and
@@ -89,15 +89,18 @@ Package README index:
 - `dense-data`: dense numeric point datasets with weighted averages,
   fixed-grid buckets, bounds, and deterministic k-means clustering for tables,
   graphs, charts, maps, and media-derived features.
-- `three-d-processing-core`: 3D points, vectors, bounds, transforms, point
-  clouds, and centroid helpers.
-- `three-d-processing-mesh`: triangle mesh validation, bounds, normals, and
-  surface-area helpers.
+- `three-d-processing-core`: 3D points, vectors, quaternions, rigid transforms,
+  line segments, point clouds, voxel downsampling, and normalization helpers.
+- `three-d-processing-io`: `OBJ`, `PLY`, and minimal embedded `.gltf`
+  round-tripping for triangle meshes and point clouds.
+- `three-d-processing-mesh`: triangle mesh validation, topology, normals,
+  surface area, volume, deterministic sampling, transforms, and smoothing.
 - `video-analysis-core`: timecodes, video/audio/text sample types, metrics, analyzer traits, observations, and realtime pipelines.
 - `video-analysis-data`: stream record normalization plus online aggregation and
   bucketing for video, audio, text, numeric, and vector data.
 - `video-analysis-dataset`: retained, serializable analysis records for scenes,
-  frames, observations, events, metrics, tracks, and features.
+  frames, observations, events, metrics, tracks, features, and structured 2D
+  and 3D posture records.
 - `video-analysis-transform`: deterministic filtering, windowing, scene
   grouping, temporal/frame joins, dedupe, merge, and numeric resampling over
   retained dataset records.
@@ -115,13 +118,15 @@ Package README index:
 - `video-analysis-models`: Hugging Face model downloads plus normalized model
   adapter contracts for object, scene, and text/semantic analyzers, including
   ONNX-friendly Xenova text presets.
-- `video-analysis-onnx`: ONNX object-detection bundle validation,
-  preprocessing, fake-runner seams, and optional DETR/YOLOS-style runtime
-  execution.
+- `video-analysis-onnx`: ONNX object-detection and posture bundle validation,
+  preprocessing, fake-runner seams, and optional native runtime adapters.
 - `video-analysis-tracking`: IoU-based object tracking contracts and a
   `VideoAnalyzer` adapter that emits tracked object observations.
-- `video-analysis-posture`: pose/keypoint contracts, skeleton helpers, joint
-  angle calculation, and a posture analyzer adapter.
+- `video-analysis-posture`: 2D/3D pose contracts, COCO-17 skeleton helpers,
+  joint-angle and bone-length math, stick figures, posture lifting contracts,
+  and a posture analyzer adapter.
+- `video-analysis-posture-io`: COCO-style posture JSON plus `.ply` and `.gltf`
+  export for 3D stick figures.
 - `video-analysis-recognition`: reference-embedding matching for face/object
   recognition, including temporal track aggregation and analyzer adapters.
 - `video-analysis-radiance-fields`: camera, ray, grid, and volume rendering
@@ -221,6 +226,33 @@ Validate external-tool prerequisites before the full baseline:
 ```bash
 scripts/check_e2e_external_tools.sh
 ```
+
+Release-oriented changes should also pass the documentation build:
+
+```bash
+cargo doc --workspace --no-deps
+```
+
+For crate packaging and publish-order checks, use
+[docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+
+## Feature Flag Conventions
+
+External-runtime crates keep `default = []` and expose explicit opt-in features.
+`external-tests` always means real tools, real models, or real network access
+and stays outside the default contributor gate.
+
+- `video-analysis`: `onnx` for the optional ONNX facade re-export, with
+  `onnx-backend` kept as a compatibility alias.
+- `video-analysis-cli`: `onnx` enables the ONNX crate dependency and
+  `onnxruntime` enables native runtime execution.
+- `text-analysis-models`: `onnx`, `candle`, and `external-tests`.
+- `video-analysis-onnx`: `onnxruntime` and `external-tests`.
+- `video-analysis-ffmpeg`: `ffmpeg-backend`, `ffmpeg-tests`, and
+  `external-tests`.
+- `audio-analysis-separation`, `text-analysis-transcription`,
+  `video-analysis-split`, and `video-analysis-radiance-pipeline` keep
+  `external-tests` for real integration coverage only.
 
 ## External Install Rule
 
@@ -502,7 +534,7 @@ It stores normalized reference embeddings, compares frame candidates with cosine
 similarity, and can require repeated hits on the same track before emitting an
 identity observation.
 
-```rust
+```rust,ignore
 use video_analysis_core::ObservationKind;
 use video_analysis_recognition::{ReferenceLibrary, RecognitionVideoAnalyzer};
 
@@ -548,7 +580,7 @@ video-analysis-ffmpeg
 
 `ScenePipeline` supports both batch and incremental processing:
 
-```rust
+```rust,ignore
 use video_analysis_core::{Result, ScenePipeline};
 use video_analysis_detectors::ContentDetector;
 use video_analysis_ffmpeg::FfmpegVideoSource;
@@ -583,7 +615,7 @@ Scene detection and frame-level enrichment can run in one pass over a live
 video stream. OCR, face recognition, object detection, and similar integrations
 implement `VideoAnalyzer` and emit structured `Observation` values.
 
-```rust
+```rust,ignore
 use video_analysis_core::{Observation, ObservationKind, RealtimeVideoPipeline, Result, VideoAnalyzer, VideoFrame};
 use video_analysis_detectors::ContentDetector;
 use video_analysis_ffmpeg::FfmpegVideoSource;
@@ -686,6 +718,13 @@ The bundle manifest records the model name, repo id, revision, task, and local
 file paths under the bundle directory. It can be converted back to
 `DownloadedModel` for compatibility with external model backends:
 
+```bash
+cargo run -p video-analysis-cli -- mesh inspect --input mesh.obj
+cargo run -p video-analysis-cli -- mesh convert --input mesh.obj --output mesh.gltf
+cargo run -p video-analysis-cli -- posture estimate --predictions-json poses.raw.json --output poses.coco.json
+cargo run -p video-analysis-cli -- posture export --input poses.coco.json --output pose.gltf
+```
+
 ```rust
 use video_analysis_models::{ModelBundleStore, ModelPreset};
 
@@ -783,7 +822,7 @@ bash scripts/check_model_external_tools.sh bundles
 Audio follows the same shape: the FFmpeg crate decodes, the ingest trait yields
 chunks, and `AudioPipeline` analyzes each chunk as it arrives.
 
-```rust
+```rust,ignore
 use video_analysis_core::{AudioPipeline, Result};
 use video_analysis_ffmpeg::FfmpegAudioSource;
 use video_analysis_ingest::AudioFrameSource;
@@ -815,7 +854,7 @@ default, with configurable samples per chunk.
 Text ingest is line/segment oriented so transcripts, subtitles, logs, or live
 ASR output can be analyzed incrementally.
 
-```rust
+```rust,ignore
 use video_analysis_core::{Result, TextPipeline};
 use video_analysis_ingest::{TextLineSource, TextSegmentSource};
 

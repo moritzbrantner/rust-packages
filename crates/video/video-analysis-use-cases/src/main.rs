@@ -1,6 +1,7 @@
-use std::path::PathBuf;
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
 
-use clap::{ArgGroup, Parser, Subcommand};
+use clap::{ArgGroup, CommandFactory, FromArgMatches, Parser, Subcommand};
 use video_analysis_core::Result;
 use video_analysis_radiance_pipeline::{
     RadianceTrainingMethod, VideoToRadiancePipeline, VideoToRadianceRequest,
@@ -157,7 +158,7 @@ impl TryFrom<RadianceSceneArgs> for VideoToRadianceRequest {
 }
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let cli = parse_cli()?;
     match cli.command {
         CommandKind::YoutubeVideo(args) => {
             let request = YoutubeVideoRequest::from(args);
@@ -210,4 +211,114 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn parse_cli() -> Result<Cli> {
+    parse_cli_from(std::env::current_dir()?, std::env::args_os())
+}
+
+fn parse_cli_from<I, T>(current_dir: PathBuf, raw_args: I) -> Result<Cli>
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString>,
+{
+    let args = args_with_optional_conf(env!("CARGO_PKG_NAME"), &current_dir, raw_args)?;
+    let matches = Cli::command()
+        .args_override_self(true)
+        .try_get_matches_from(args)
+        .unwrap_or_else(|err| err.exit());
+    Cli::from_arg_matches(&matches).map_err(|err| {
+        video_analysis_core::DetectError::Source(format!("failed to parse CLI arguments: {err}"))
+    })
+}
+
+fn args_with_optional_conf<I, T>(
+    package_name: &str,
+    current_dir: &Path,
+    raw_args: I,
+) -> Result<Vec<OsString>>
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString>,
+{
+    let mut raw_args = raw_args.into_iter().map(Into::into);
+    let program = raw_args
+        .next()
+        .unwrap_or_else(|| OsString::from(package_name));
+    let mut args = vec![program];
+    let conf_path = current_dir.join(format!("{package_name}.conf"));
+    if conf_path.is_file() {
+        args.extend(read_conf_args(&conf_path)?);
+    }
+    args.extend(raw_args);
+    Ok(args)
+}
+
+fn read_conf_args(path: &Path) -> Result<Vec<OsString>> {
+    let contents = std::fs::read_to_string(path)?;
+    let Some(args) = shlex::split(&contents) else {
+        return Err(video_analysis_core::DetectError::InvalidArgument(format!(
+            "failed to parse config file `{}` as shell-style CLI arguments",
+            path.display()
+        )));
+    };
+    Ok(args.into_iter().map(OsString::from).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn package_conf_arguments_are_loaded() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("video-analysis-use-cases.conf"),
+            "youtube-video --input input.mp4",
+        )
+        .unwrap();
+
+        let cli = parse_cli_from(
+            dir.path().to_path_buf(),
+            [OsString::from("video-analysis-use-cases")],
+        )
+        .unwrap();
+
+        match cli.command {
+            CommandKind::YoutubeVideo(args) => {
+                assert_eq!(args.input, Some(PathBuf::from("input.mp4")));
+            }
+            other => panic!("unexpected command from package conf: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn explicit_cli_arguments_override_package_conf_arguments() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("video-analysis-use-cases.conf"),
+            "youtube-video --input config.mp4 --work-dir from-conf",
+        )
+        .unwrap();
+
+        let cli = parse_cli_from(
+            dir.path().to_path_buf(),
+            [
+                OsString::from("video-analysis-use-cases"),
+                OsString::from("--input"),
+                OsString::from("cli.mp4"),
+                OsString::from("--work-dir"),
+                OsString::from("from-cli"),
+            ],
+        )
+        .unwrap();
+
+        match cli.command {
+            CommandKind::YoutubeVideo(args) => {
+                assert_eq!(args.input, Some(PathBuf::from("cli.mp4")));
+                assert_eq!(args.work_dir, PathBuf::from("from-cli"));
+            }
+            other => panic!("unexpected command from merged CLI args: {other:?}"),
+        }
+    }
 }

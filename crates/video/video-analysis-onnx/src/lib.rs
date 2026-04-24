@@ -10,8 +10,10 @@ use image_analysis_processing::resize_nearest;
 use serde_json::Value;
 use video_analysis_core::{DetectError, Result, VideoFrame};
 use video_analysis_models::{
-    ModelBundle, ModelTask, RawBoundingBox, RawPrediction, VisionModelBackend,
+    ModelBundle, ModelTask, PoseLiftModelBackend, PoseModelBackend, RawBoundingBox,
+    RawPose2dPrediction, RawPose3dPrediction, RawPrediction, VisionModelBackend,
 };
+use video_analysis_posture::{KeypointSpace, Skeleton};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OnnxVisionBundleInfo {
@@ -283,6 +285,277 @@ impl<R: OnnxObjectDetectionRunner> VisionModelBackend for OnnxObjectDetector<R> 
     fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPrediction>> {
         self.predict_frame_with_original_size(frame)
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OnnxPose2dOptions {
+    pub preprocessing: OnnxImagePreprocessing,
+    pub skeleton: Skeleton,
+    pub output_space: KeypointSpace,
+    pub min_pose_score: f32,
+    pub min_keypoint_score: f32,
+}
+
+impl Default for OnnxPose2dOptions {
+    fn default() -> Self {
+        Self {
+            preprocessing: OnnxImagePreprocessing::default(),
+            skeleton: Skeleton::coco_17(),
+            output_space: KeypointSpace::Normalized,
+            min_pose_score: 0.0,
+            min_keypoint_score: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UnavailablePose2dRunner;
+
+pub trait OnnxPose2dRunner {
+    fn run_pose_2d(&mut self, input: &OnnxImageTensor) -> Result<Vec<RawPose2dPrediction>>;
+}
+
+impl OnnxPose2dRunner for UnavailablePose2dRunner {
+    fn run_pose_2d(&mut self, _input: &OnnxImageTensor) -> Result<Vec<RawPose2dPrediction>> {
+        Err(DetectError::Source(
+            "native ONNX 2D pose execution is unavailable; construct with a runner or enable an executor"
+                .to_string(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct OnnxPose2dEstimator<R = UnavailablePose2dRunner> {
+    options: OnnxPose2dOptions,
+    runner: R,
+}
+
+impl OnnxPose2dEstimator<UnavailablePose2dRunner> {
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        Ok(Self {
+            options: pose_2d_options_from_bundle(&bundle)?,
+            runner: UnavailablePose2dRunner,
+        })
+    }
+}
+
+impl<R: OnnxPose2dRunner> OnnxPose2dEstimator<R> {
+    pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
+        Ok(Self {
+            options: pose_2d_options_from_bundle(&bundle)?,
+            runner,
+        })
+    }
+
+    pub fn with_options(options: OnnxPose2dOptions, runner: R) -> Result<Self> {
+        validate_preprocessing(&options.preprocessing)?;
+        validate_threshold(options.min_pose_score)?;
+        validate_threshold(options.min_keypoint_score)?;
+        Ok(Self { options, runner })
+    }
+
+    pub fn options(&self) -> &OnnxPose2dOptions {
+        &self.options
+    }
+}
+
+impl<R: OnnxPose2dRunner> PoseModelBackend for OnnxPose2dEstimator<R> {
+    fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPose2dPrediction>> {
+        let input = preprocess_frame(frame, &self.options.preprocessing)?;
+        let predictions = self.runner.run_pose_2d(&input)?;
+        predictions
+            .into_iter()
+            .filter(|prediction| prediction.score.unwrap_or(1.0) >= self.options.min_pose_score)
+            .map(|prediction| {
+                convert_pose_2d_output(
+                    prediction,
+                    (frame.width, frame.height),
+                    self.options.output_space,
+                    self.options.min_keypoint_score,
+                )
+            })
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OnnxPoseLifterOptions {
+    pub min_pose_score: f32,
+}
+
+impl Default for OnnxPoseLifterOptions {
+    fn default() -> Self {
+        Self {
+            min_pose_score: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UnavailablePoseLiftRunner;
+
+pub trait OnnxPoseLiftRunner {
+    fn run_pose_lift(
+        &mut self,
+        sequence: &[RawPose2dPrediction],
+    ) -> Result<Vec<RawPose3dPrediction>>;
+}
+
+impl OnnxPoseLiftRunner for UnavailablePoseLiftRunner {
+    fn run_pose_lift(
+        &mut self,
+        _sequence: &[RawPose2dPrediction],
+    ) -> Result<Vec<RawPose3dPrediction>> {
+        Err(DetectError::Source(
+            "native ONNX pose lifting execution is unavailable; construct with a runner or enable an executor"
+                .to_string(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct OnnxPoseLifter<R = UnavailablePoseLiftRunner> {
+    options: OnnxPoseLifterOptions,
+    runner: R,
+}
+
+impl OnnxPoseLifter<UnavailablePoseLiftRunner> {
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        validate_onnx_pose_bundle(&bundle, ModelTask::PoseLifting3d)?;
+        Ok(Self {
+            options: OnnxPoseLifterOptions::default(),
+            runner: UnavailablePoseLiftRunner,
+        })
+    }
+}
+
+impl<R: OnnxPoseLiftRunner> OnnxPoseLifter<R> {
+    pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
+        validate_onnx_pose_bundle(&bundle, ModelTask::PoseLifting3d)?;
+        Ok(Self {
+            options: OnnxPoseLifterOptions::default(),
+            runner,
+        })
+    }
+
+    pub fn with_options(options: OnnxPoseLifterOptions, runner: R) -> Result<Self> {
+        validate_threshold(options.min_pose_score)?;
+        Ok(Self { options, runner })
+    }
+}
+
+impl<R: OnnxPoseLiftRunner> PoseLiftModelBackend for OnnxPoseLifter<R> {
+    fn lift_poses(&mut self, sequence: &[RawPose2dPrediction]) -> Result<Vec<RawPose3dPrediction>> {
+        let poses = self.runner.run_pose_lift(sequence)?;
+        Ok(poses
+            .into_iter()
+            .filter(|pose| pose.score.unwrap_or(1.0) >= self.options.min_pose_score)
+            .collect())
+    }
+}
+
+pub fn validate_onnx_pose_bundle(
+    bundle: &ModelBundle,
+    task: ModelTask,
+) -> Result<OnnxVisionBundleInfo> {
+    if bundle.manifest.task != task {
+        return Err(DetectError::InvalidArgument(format!(
+            "ONNX pose bundle task must be {:?}, got {:?}",
+            task, bundle.manifest.task
+        )));
+    }
+    let config_path = required_bundle_file(bundle, "config.json")?;
+    let preprocessor_config_path = bundle.file_path("preprocessor_config.json");
+    let onnx_files = bundle_files_with_extension(bundle, "onnx");
+    let model_path = match onnx_files.as_slice() {
+        [path] => path.clone(),
+        [] => {
+            return Err(DetectError::InvalidArgument(
+                "ONNX pose bundle must contain exactly one `.onnx` model file".to_string(),
+            ))
+        }
+        files => {
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX pose bundle must contain exactly one `.onnx` model file, found {}",
+                files.len()
+            )))
+        }
+    };
+    let config = read_json(&config_path)?;
+    Ok(OnnxVisionBundleInfo {
+        config_path,
+        preprocessor_config_path,
+        model_path,
+        labels: label_map_from_config(&config)?,
+    })
+}
+
+pub fn pose_2d_options_from_bundle(bundle: &ModelBundle) -> Result<OnnxPose2dOptions> {
+    let info = validate_onnx_pose_bundle(bundle, ModelTask::PoseEstimation2d)?;
+    let config = read_json(&info.config_path)?;
+    let preprocessing = if let Some(path) = &info.preprocessor_config_path {
+        preprocessing_from_config(&read_json(path)?)?
+    } else {
+        OnnxImagePreprocessing::default()
+    };
+    validate_preprocessing(&preprocessing)?;
+    Ok(OnnxPose2dOptions {
+        preprocessing,
+        skeleton: skeleton_from_config(&config),
+        output_space: KeypointSpace::Normalized,
+        min_pose_score: 0.0,
+        min_keypoint_score: 0.0,
+    })
+}
+
+fn skeleton_from_config(config: &Value) -> Skeleton {
+    if let Some(names) = config
+        .get("video_analysis")
+        .and_then(|value| value.get("keypoint_names"))
+        .or_else(|| config.get("keypoint_names"))
+        .and_then(Value::as_array)
+    {
+        let keypoints = names
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if !keypoints.is_empty() {
+            return Skeleton::new(keypoints);
+        }
+    }
+    Skeleton::coco_17()
+}
+
+fn convert_pose_2d_output(
+    mut prediction: RawPose2dPrediction,
+    dimensions: (u32, u32),
+    output_space: KeypointSpace,
+    min_keypoint_score: f32,
+) -> Result<RawPose2dPrediction> {
+    prediction
+        .keypoints
+        .retain(|keypoint| keypoint.score.unwrap_or(1.0) >= min_keypoint_score);
+    if output_space == KeypointSpace::Pixel {
+        for keypoint in &mut prediction.keypoints {
+            keypoint.x *= dimensions.0 as f32;
+            keypoint.y *= dimensions.1 as f32;
+        }
+        if let Some(region) = prediction.region.as_mut() {
+            if region.normalized {
+                if let (Some(xmin), Some(ymin), Some(xmax), Some(ymax)) =
+                    (region.xmin, region.ymin, region.xmax, region.ymax)
+                {
+                    region.xmin = Some(xmin * dimensions.0 as f32);
+                    region.ymin = Some(ymin * dimensions.1 as f32);
+                    region.xmax = Some(xmax * dimensions.0 as f32);
+                    region.ymax = Some(ymax * dimensions.1 as f32);
+                    region.normalized = false;
+                }
+            }
+        }
+    }
+    Ok(prediction)
 }
 
 pub fn validate_onnx_vision_bundle(bundle: &ModelBundle) -> Result<OnnxVisionBundleInfo> {
@@ -774,6 +1047,33 @@ mod tests {
         seen_input: Option<OnnxImageTensor>,
     }
 
+    #[derive(Debug, Clone)]
+    struct FakePose2dRunner {
+        output: Vec<RawPose2dPrediction>,
+        seen_input: Option<OnnxImageTensor>,
+    }
+
+    impl OnnxPose2dRunner for FakePose2dRunner {
+        fn run_pose_2d(&mut self, input: &OnnxImageTensor) -> Result<Vec<RawPose2dPrediction>> {
+            self.seen_input = Some(input.clone());
+            Ok(self.output.clone())
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct FakePoseLiftRunner {
+        output: Vec<RawPose3dPrediction>,
+    }
+
+    impl OnnxPoseLiftRunner for FakePoseLiftRunner {
+        fn run_pose_lift(
+            &mut self,
+            _sequence: &[RawPose2dPrediction],
+        ) -> Result<Vec<RawPose3dPrediction>> {
+            Ok(self.output.clone())
+        }
+    }
+
     impl OnnxObjectDetectionRunner for FakeRunner {
         fn run_object_detection(
             &mut self,
@@ -784,7 +1084,7 @@ mod tests {
         }
     }
 
-    fn fake_bundle(root: &Path, files: &[(&str, &str)]) -> ModelBundle {
+    fn fake_bundle_with_task(root: &Path, task: ModelTask, files: &[(&str, &str)]) -> ModelBundle {
         let files_root = root.join("files");
         std::fs::create_dir_all(&files_root).unwrap();
         let mut manifest_files = BTreeMap::new();
@@ -811,10 +1111,14 @@ mod tests {
                 name: "fake-vision".to_string(),
                 repo_id: "fake/vision".to_string(),
                 revision: "main".to_string(),
-                task: ModelTask::ObjectDetection,
+                task,
                 files: manifest_files,
             },
         }
+    }
+
+    fn fake_bundle(root: &Path, files: &[(&str, &str)]) -> ModelBundle {
+        fake_bundle_with_task(root, ModelTask::ObjectDetection, files)
     }
 
     fn frame() -> VideoFrame<'static> {
@@ -955,6 +1259,99 @@ mod tests {
         assert_eq!(predictions.len(), 1);
         assert_eq!(predictions[0].label.as_deref(), Some("cat"));
         assert_eq!(backend.runner.seen_input.as_ref().unwrap().width, 2);
+    }
+
+    #[test]
+    fn pose_2d_estimator_filters_scores_and_maps_to_pixels() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = fake_bundle_with_task(
+            dir.path(),
+            ModelTask::PoseEstimation2d,
+            &[
+                (
+                    "config.json",
+                    r#"{"video_analysis":{"keypoint_names":["nose","left_eye"]}}"#,
+                ),
+                (
+                    "preprocessor_config.json",
+                    r#"{"size":{"width":2,"height":2}}"#,
+                ),
+                ("onnx/model.onnx", "fake"),
+            ],
+        );
+        let runner = FakePose2dRunner {
+            output: vec![RawPose2dPrediction {
+                score: Some(0.9),
+                keypoints: vec![
+                    video_analysis_models::RawKeypoint2d {
+                        name: "nose".to_string(),
+                        x: 0.5,
+                        y: 0.25,
+                        score: Some(0.9),
+                        visible: Some(true),
+                    },
+                    video_analysis_models::RawKeypoint2d {
+                        name: "left_eye".to_string(),
+                        x: 0.1,
+                        y: 0.2,
+                        score: Some(0.1),
+                        visible: Some(true),
+                    },
+                ],
+                ..RawPose2dPrediction::default()
+            }],
+            seen_input: None,
+        };
+        let mut backend = OnnxPose2dEstimator::with_options(
+            OnnxPose2dOptions {
+                preprocessing: OnnxImagePreprocessing {
+                    input_width: 2,
+                    input_height: 2,
+                    ..OnnxImagePreprocessing::default()
+                },
+                output_space: KeypointSpace::Pixel,
+                min_pose_score: 0.5,
+                min_keypoint_score: 0.5,
+                ..pose_2d_options_from_bundle(&bundle).unwrap()
+            },
+            runner,
+        )
+        .unwrap();
+        let predictions = backend.predict_frame(&frame()).unwrap();
+        assert_eq!(predictions.len(), 1);
+        assert_eq!(predictions[0].keypoints.len(), 1);
+        assert!((predictions[0].keypoints[0].x - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn pose_lifter_passes_through_fake_runner() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = fake_bundle_with_task(
+            dir.path(),
+            ModelTask::PoseLifting3d,
+            &[("config.json", "{}"), ("onnx/model.onnx", "fake")],
+        );
+        let mut lifter = OnnxPoseLifter::from_runner(
+            bundle,
+            FakePoseLiftRunner {
+                output: vec![RawPose3dPrediction {
+                    score: Some(0.8),
+                    keypoints: vec![video_analysis_models::RawKeypoint3d::new(
+                        "nose", 0.0, 1.0, 2.0,
+                    )],
+                    ..RawPose3dPrediction::default()
+                }],
+            },
+        )
+        .unwrap();
+        let lifted = lifter
+            .lift_poses(&[RawPose2dPrediction {
+                keypoints: vec![video_analysis_models::RawKeypoint2d::new("nose", 0.0, 0.0)],
+                ..RawPose2dPrediction::default()
+            }])
+            .unwrap();
+        assert_eq!(lifted.len(), 1);
+        assert_eq!(lifted[0].keypoints.len(), 1);
     }
 
     #[cfg(feature = "onnxruntime")]
