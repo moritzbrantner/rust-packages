@@ -74,19 +74,23 @@ fn transcript_to_features_dataset_pipeline_keeps_packages_compatible() {
         .iter()
         .any(|event| event.label == "text:keyword:rust"));
 
-    let mut corpus = va::text_corpus::TfIdfCorpus::default();
-    for document in &documents {
-        corpus.add_text_document(&document.as_document()).unwrap();
-    }
+    let corpus = va::text_corpus::TfIdfCorpus::from_texts(
+        documents.iter().map(|document| document.text.as_str()),
+        va::text_corpus::CorpusOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(corpus.documents()[0].id, "doc-0");
+    assert_eq!(corpus.documents()[1].id, "doc-1");
+    assert_eq!(corpus.documents()[2].id, "doc-2");
     assert_eq!(corpus.stats().documents, documents.len());
     assert!(corpus
-        .document_tfidf("segment:0", 5)
+        .document_tfidf("doc-0", 5)
         .unwrap()
         .iter()
         .any(|term| term.term == "rust"));
     assert_eq!(
         corpus.search("video scene reports", 1).unwrap()[0].id,
-        "segment:2"
+        "doc-2"
     );
 
     let embedder = va::text_semantics::HashedTextEmbedder::new(

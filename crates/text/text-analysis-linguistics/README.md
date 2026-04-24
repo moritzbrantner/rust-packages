@@ -29,4 +29,5 @@ assert!(!analysis.entities.is_empty());
 
 - `text-analysis-core`
 - `text-analysis-models`
+- `text-analysis-corpus` for TF-IDF and BM25 corpus indexing from text inputs
 - `video-analysis-core`

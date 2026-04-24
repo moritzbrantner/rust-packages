@@ -129,6 +129,29 @@ impl Bm25Corpus {
         }
     }
 
+    pub fn from_texts<I, S>(texts: I, options: Bm25Options) -> Result<Self>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut corpus = Self::new(options);
+        for (index, text) in texts.into_iter().enumerate() {
+            corpus.add_document(format!("doc-{index}"), text.as_ref())?;
+        }
+        Ok(corpus)
+    }
+
+    pub fn from_documents<'a, I>(documents: I, options: Bm25Options) -> Result<Self>
+    where
+        I: IntoIterator<Item = TextDocument<'a>>,
+    {
+        let mut corpus = Self::new(options);
+        for document in documents {
+            corpus.add_text_document(&document)?;
+        }
+        Ok(corpus)
+    }
+
     pub fn options(&self) -> &Bm25Options {
         &self.options
     }
@@ -259,6 +282,29 @@ impl TfIdfCorpus {
             collection_counts: BTreeMap::new(),
             total_terms: 0,
         }
+    }
+
+    pub fn from_texts<I, S>(texts: I, options: CorpusOptions) -> Result<Self>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut corpus = Self::new(options);
+        for (index, text) in texts.into_iter().enumerate() {
+            corpus.add_document(format!("doc-{index}"), text.as_ref())?;
+        }
+        Ok(corpus)
+    }
+
+    pub fn from_documents<'a, I>(documents: I, options: CorpusOptions) -> Result<Self>
+    where
+        I: IntoIterator<Item = TextDocument<'a>>,
+    {
+        let mut corpus = Self::new(options);
+        for document in documents {
+            corpus.add_text_document(&document)?;
+        }
+        Ok(corpus)
     }
 
     pub fn options(&self) -> &CorpusOptions {
@@ -662,5 +708,161 @@ mod tests {
         corpus.add_text_document(&document).unwrap();
         assert_eq!(corpus.documents()[0].term_counts.get("the"), None);
         assert_eq!(corpus.search("reliable", 1).unwrap()[0].id, "doc");
+    }
+
+    #[test]
+    fn tfidf_from_texts_matches_incremental_indexing_and_assigns_ids() {
+        let texts = [
+            "rust text text",
+            "video text",
+            "audio scene transcript",
+        ];
+
+        let from_texts = TfIdfCorpus::from_texts(texts, CorpusOptions::default()).unwrap();
+
+        let mut incremental = TfIdfCorpus::default();
+        incremental.add_document("doc-0", "rust text text").unwrap();
+        incremental.add_document("doc-1", "video text").unwrap();
+        incremental
+            .add_document("doc-2", "audio scene transcript")
+            .unwrap();
+
+        assert_eq!(from_texts.stats(), incremental.stats());
+        assert_eq!(from_texts.documents(), incremental.documents());
+        assert_eq!(from_texts.documents()[0].id, "doc-0");
+        assert_eq!(from_texts.documents()[1].id, "doc-1");
+        assert_eq!(from_texts.documents()[2].id, "doc-2");
+    }
+
+    #[test]
+    fn tfidf_from_documents_preserves_ids_and_supports_search() {
+        let documents = vec![
+            TextDocument::new("rust", "rust cargo crates ownership"),
+            TextDocument::new("video", "video scenes reports frames"),
+        ];
+
+        let corpus = TfIdfCorpus::from_documents(documents, CorpusOptions::default()).unwrap();
+
+        assert_eq!(corpus.document("rust").unwrap().id, "rust");
+        assert_eq!(corpus.document("video").unwrap().unique_terms(), 4);
+        assert_eq!(corpus.search("cargo rust", 1).unwrap()[0].id, "rust");
+        assert!(!corpus.document_tfidf("video", 3).unwrap().is_empty());
+    }
+
+    #[test]
+    fn tfidf_batch_construction_honors_options() {
+        let mut stop_words = BTreeSet::new();
+        stop_words.insert("skip".to_string());
+        let corpus = TfIdfCorpus::from_texts(
+            ["skip alpha beta beta gamma gamma gamma"],
+            CorpusOptions {
+                min_term_len: 5,
+                stop_words,
+                max_terms_per_document: Some(2),
+                ..CorpusOptions::default()
+            },
+        )
+        .unwrap();
+
+        let document = &corpus.documents()[0];
+        assert_eq!(document.id, "doc-0");
+        assert_eq!(document.total_terms, 4);
+        assert_eq!(document.term_counts.get("gamma"), Some(&3));
+        assert_eq!(document.term_counts.get("alpha"), Some(&1));
+        assert_eq!(document.term_counts.get("beta"), None);
+        assert_eq!(document.term_counts.get("skip"), None);
+    }
+
+    #[test]
+    fn tfidf_batch_construction_accepts_empty_inputs_and_text() {
+        let empty = TfIdfCorpus::from_texts(std::iter::empty::<&str>(), CorpusOptions::default())
+            .unwrap();
+        assert!(empty.is_empty());
+
+        let corpus = TfIdfCorpus::from_texts([""], CorpusOptions::default()).unwrap();
+        assert_eq!(corpus.len(), 1);
+        assert_eq!(corpus.documents()[0].total_terms, 0);
+    }
+
+    #[test]
+    fn tfidf_from_documents_reuses_duplicate_id_validation() {
+        let documents = vec![
+            TextDocument::new("dup", "rust cargo"),
+            TextDocument::new("dup", "video scene"),
+        ];
+
+        let error = TfIdfCorpus::from_documents(documents, CorpusOptions::default()).unwrap_err();
+        assert!(matches!(error, DetectError::InvalidArgument(message) if message.contains("document id `dup` already exists")));
+    }
+
+    #[test]
+    fn bm25_from_texts_builds_searchable_corpus_and_assigns_ids() {
+        let corpus = Bm25Corpus::from_texts(
+            [
+                "rust cargo crates rust ownership",
+                "frames ffmpeg scene detection",
+            ],
+            Bm25Options::default(),
+        )
+        .unwrap();
+
+        assert_eq!(corpus.documents()[0].id, "doc-0");
+        assert_eq!(corpus.documents()[1].id, "doc-1");
+        assert_eq!(corpus.search("rust cargo", 1).unwrap()[0].id, "doc-0");
+    }
+
+    #[test]
+    fn bm25_from_documents_preserves_ids_and_matches_incremental_behavior() {
+        let documents = vec![
+            TextDocument::new("rust", "rust cargo crates rust ownership"),
+            TextDocument::new("video", "frames ffmpeg scene detection"),
+        ];
+        let from_documents =
+            Bm25Corpus::from_documents(documents.clone(), Bm25Options::default()).unwrap();
+
+        let mut incremental = Bm25Corpus::default();
+        for document in documents {
+            incremental.add_text_document(&document).unwrap();
+        }
+
+        assert_eq!(from_documents.documents(), incremental.documents());
+        assert_eq!(from_documents.search("rust cargo", 1).unwrap()[0].id, "rust");
+    }
+
+    #[test]
+    fn bm25_batch_construction_honors_options_and_empty_inputs() {
+        let mut stop_words = BTreeSet::new();
+        stop_words.insert("skip".to_string());
+        let corpus = Bm25Corpus::from_texts(
+            ["skip beta beta gamma gamma"],
+            Bm25Options {
+                min_term_len: 5,
+                stop_words,
+                ..Bm25Options::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(corpus.documents()[0].term_counts.get("skip"), None);
+        assert_eq!(corpus.documents()[0].term_counts.get("beta"), None);
+        assert_eq!(corpus.documents()[0].term_counts.get("gamma"), Some(&2));
+
+        let empty = Bm25Corpus::from_documents(
+            std::iter::empty::<TextDocument<'static>>(),
+            Bm25Options::default(),
+        )
+        .unwrap();
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn bm25_from_documents_reuses_duplicate_id_validation() {
+        let documents = vec![
+            TextDocument::new("dup", "rust cargo"),
+            TextDocument::new("dup", "video scene"),
+        ];
+
+        let error = Bm25Corpus::from_documents(documents, Bm25Options::default()).unwrap_err();
+        assert!(matches!(error, DetectError::InvalidArgument(message) if message.contains("document id `dup` already exists")));
     }
 }
