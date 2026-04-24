@@ -15,6 +15,7 @@ categories.workspace = true
 [dependencies]
 text-analysis-core.workspace = true
 text-analysis-models = { workspace = true, features = ["tokenizers"] }
+text-analysis-transcription.workspace = true
 video-analysis-core.workspace = true
 
 [dev-dependencies]

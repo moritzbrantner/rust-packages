@@ -82,6 +82,10 @@ impl OwnedTextDocument {
     }
 }
 
+pub fn segment_document_id(stream_id: &str, segment_index: u64) -> String {
+    format!("{stream_id}:{segment_index}")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TextStats {
     pub bytes: usize,
@@ -790,6 +794,11 @@ fn push_paragraph(text: &str, byte_start: usize, byte_end: usize, paragraphs: &m
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn segment_document_ids_include_stream_and_index() {
+        assert_eq!(segment_document_id("subs", 7), "subs:7");
+    }
 
     #[test]
     fn tokenizes_and_counts_words() {

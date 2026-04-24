@@ -291,3 +291,60 @@ fn transcript_to_features_dataset_pipeline_keeps_packages_compatible() {
     assert!(scene_csv.contains("Scene Number,Start Frame"));
     assert!(scene_csv.contains("1,0,00:00:00.000"));
 }
+
+#[test]
+fn subtitles_flow_through_linguistics_and_incremental_indexes() {
+    let transcription = va::text_transcription::parse_srt(
+        "1\n00:00:00,000 --> 00:00:01,000\nRust cargo crates\n\n2\n00:00:01,000 --> 00:00:02,000\nBerlin roadmap launch\n\n3\n00:00:02,000 --> 00:00:03,000\nCargo build pipeline\n",
+    )
+    .unwrap();
+    let linguistic = va::text_linguistics::analyze_transcription(
+        &transcription,
+        &va::text_linguistics::LinguisticAnalysisOptions::default(),
+    )
+    .unwrap();
+
+    assert_eq!(linguistic.cues.len(), 3);
+    assert!(linguistic
+        .aggregate
+        .tokens
+        .iter()
+        .any(|token| token.normalized == "cargo"));
+
+    let segments = transcription
+        .segments
+        .iter()
+        .map(va::text_transcription::segment_to_owned_text_segment)
+        .collect::<Vec<_>>();
+
+    let mut tfidf = va::text_corpus::TfIdfCorpus::default();
+    let mut bm25 = va::text_corpus::Bm25Corpus::default();
+    let embedder = va::text_semantics::HashedTextEmbedder::new(
+        va::text_semantics::TextEmbeddingConfig {
+            dimensions: 64,
+            use_idf: true,
+        },
+        va::text_corpus::CorpusOptions::default(),
+    )
+    .unwrap();
+    let mut semantic = va::text_semantics::SemanticTextIndex::new(embedder.clone());
+    let mut embedding_index = va::text_semantics::EmbeddingSearchIndex::new(embedder);
+
+    for segment in &segments {
+        let segment = segment.as_segment();
+        tfidf.add_text_segment("subs", &segment).unwrap();
+        bm25.add_text_segment("subs", &segment).unwrap();
+        semantic.add_text_segment("subs", &segment).unwrap();
+        embedding_index.add_text_segment("subs", &segment).unwrap();
+    }
+
+    assert_eq!(tfidf.documents()[0].id, "subs:1");
+    assert_eq!(bm25.documents()[2].id, "subs:3");
+    assert_eq!(tfidf.search("cargo build", 1).unwrap()[0].id, "subs:3");
+    assert_eq!(bm25.search("roadmap berlin", 1).unwrap()[0].id, "subs:2");
+    assert_eq!(semantic.search("cargo crates", 1).unwrap()[0].id, "subs:1");
+    assert_eq!(
+        embedding_index.search("pipeline", 1).unwrap()[0].id,
+        "subs:3"
+    );
+}

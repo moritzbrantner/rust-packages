@@ -7,6 +7,7 @@ use text_analysis_core::{
     TextProcessingOptions, TextSpan, Token, TokenKind,
 };
 use text_analysis_models::{TokenizedText, TokenizerBundle, TokenizerSource};
+use text_analysis_transcription::{TranscriptSegment, TranscriptionResult};
 use video_analysis_core::{AnalysisEvent, OwnedTextSegment, Result, TextAnalyzer, TextSegment};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1768,6 +1769,18 @@ pub struct LinguisticAnalysis {
     pub style: StyleProfile,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubtitleCueLinguisticAnalysis {
+    pub cue: TranscriptSegment,
+    pub analysis: LinguisticAnalysis,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubtitleLinguisticAnalysis {
+    pub cues: Vec<SubtitleCueLinguisticAnalysis>,
+    pub aggregate: LinguisticAnalysis,
+}
+
 pub fn analyze_document(
     document: &TextDocument<'_>,
     options: &LinguisticAnalysisOptions,
@@ -1780,6 +1793,44 @@ pub fn analyze_segment(
     options: &LinguisticAnalysisOptions,
 ) -> Result<LinguisticAnalysis> {
     analyze_text(segment.text, options)
+}
+
+pub fn analyze_subtitle_segments(
+    segments: &[TranscriptSegment],
+    options: &LinguisticAnalysisOptions,
+) -> Result<SubtitleLinguisticAnalysis> {
+    let cues = segments
+        .iter()
+        .cloned()
+        .map(|cue| {
+            let analysis = analyze_text(&cue.text, options)?;
+            Ok(SubtitleCueLinguisticAnalysis { cue, analysis })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let aggregate = analyze_text(&join_subtitle_text(segments, None), options)?;
+
+    Ok(SubtitleLinguisticAnalysis { cues, aggregate })
+}
+
+pub fn analyze_transcription(
+    result: &TranscriptionResult,
+    options: &LinguisticAnalysisOptions,
+) -> Result<SubtitleLinguisticAnalysis> {
+    let cues = result
+        .segments
+        .iter()
+        .cloned()
+        .map(|cue| {
+            let analysis = analyze_text(&cue.text, options)?;
+            Ok(SubtitleCueLinguisticAnalysis { cue, analysis })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let aggregate = analyze_text(
+        &join_subtitle_text(&result.segments, result.text.as_deref()),
+        options,
+    )?;
+
+    Ok(SubtitleLinguisticAnalysis { cues, aggregate })
 }
 
 pub fn analyze_text(text: &str, options: &LinguisticAnalysisOptions) -> Result<LinguisticAnalysis> {
@@ -1884,6 +1935,18 @@ pub fn analyze_text(text: &str, options: &LinguisticAnalysisOptions) -> Result<L
         topics,
         style,
     })
+}
+
+fn join_subtitle_text(segments: &[TranscriptSegment], aggregate_text: Option<&str>) -> String {
+    if let Some(text) = aggregate_text.filter(|text| !text.trim().is_empty()) {
+        return text.to_string();
+    }
+
+    segments
+        .iter()
+        .map(|segment| segment.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 impl Default for StyleProfile {
@@ -2521,6 +2584,7 @@ fn build_entity(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use text_analysis_transcription::{parse_srt, parse_webvtt};
 
     #[test]
     fn detects_english_text() {
@@ -2540,7 +2604,9 @@ mod tests {
     fn falls_back_to_und_for_empty_text() {
         let detector = LanguageDetector::default();
         let profile = detector.detect_text("");
-        let primary = profile.primary.expect("empty text still yields a fallback profile");
+        let primary = profile
+            .primary
+            .expect("empty text still yields a fallback profile");
 
         assert_eq!(primary.language, "und");
         assert_eq!(primary.confidence, 0.0);
@@ -2646,12 +2712,7 @@ mod tests {
                 input_ids: vec![10, 11, 12, 13],
                 attention_mask: vec![1, 1, 1, 1],
                 token_type_ids: None,
-                offsets: vec![
-                    Some((0, 5)),
-                    Some((5, 5)),
-                    Some((6, 11)),
-                    Some((50, 51)),
-                ],
+                offsets: vec![Some((0, 5)), Some((5, 5)), Some((6, 11)), Some((50, 51))],
             },
         )
         .unwrap();
@@ -2774,6 +2835,85 @@ mod tests {
     }
 
     #[test]
+    fn analyzes_subtitle_segments_per_cue_and_in_aggregate() {
+        let cues = vec![
+            TranscriptSegment {
+                index: 0,
+                start_seconds: Some(0.0),
+                end_seconds: Some(1.0),
+                text: "Alice visited Berlin".to_string(),
+                language: Some("en".to_string()),
+                speaker: Some("narrator".to_string()),
+                confidence: Some(0.9),
+                is_final: true,
+            },
+            TranscriptSegment {
+                index: 1,
+                start_seconds: Some(1.0),
+                end_seconds: Some(2.0),
+                text: "Sie praesentierte die Roadmap".to_string(),
+                language: Some("de".to_string()),
+                speaker: None,
+                confidence: Some(0.8),
+                is_final: true,
+            },
+        ];
+
+        let analysis =
+            analyze_subtitle_segments(&cues, &LinguisticAnalysisOptions::default()).unwrap();
+
+        assert_eq!(analysis.cues.len(), 2);
+        assert_eq!(analysis.cues[0].cue, cues[0]);
+        assert_eq!(analysis.cues[1].cue, cues[1]);
+        assert!(!analysis.cues[0].analysis.tokens.is_empty());
+        assert!(!analysis.cues[1].analysis.tokens.is_empty());
+        assert!(!analysis.aggregate.tokens.is_empty());
+    }
+
+    #[test]
+    fn analyzes_transcription_using_explicit_transcript_text_when_present() {
+        let transcription = parse_srt(
+            "1\n00:00:00,000 --> 00:00:01,000\nAlice visited Berlin\n\n2\n00:00:01,000 --> 00:00:02,000\nShe presented the roadmap\n",
+        )
+        .unwrap();
+
+        let analysis =
+            analyze_transcription(&transcription, &LinguisticAnalysisOptions::default()).unwrap();
+
+        assert_eq!(analysis.cues.len(), 2);
+        assert!(!analysis.aggregate.entities.is_empty());
+        assert!(analysis
+            .aggregate
+            .tokens
+            .iter()
+            .any(|token| token.normalized == "roadmap"));
+    }
+
+    #[test]
+    fn analyzes_transcription_falling_back_to_joined_cue_text() {
+        let mut transcription = parse_webvtt(
+            "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHello Berlin\n\n00:00:01.000 --> 00:00:02.000\nHola Madrid\n",
+        )
+        .unwrap();
+        transcription.text = Some("   ".to_string());
+
+        let analysis =
+            analyze_transcription(&transcription, &LinguisticAnalysisOptions::default()).unwrap();
+
+        assert_eq!(analysis.cues.len(), 2);
+        assert!(analysis
+            .aggregate
+            .tokens
+            .iter()
+            .any(|token| token.normalized == "hello"));
+        assert!(analysis
+            .aggregate
+            .tokens
+            .iter()
+            .any(|token| token.normalized == "hola"));
+    }
+
+    #[test]
     fn classifies_discourse_topics_and_style() {
         let text = "First, we introduce the API. However, the migration is tricky. Finally, the rollout is stable.";
         let analysis = analyze_text(text, &LinguisticAnalysisOptions::default()).unwrap();
@@ -2887,9 +3027,11 @@ mod tests {
             .iter()
             .any(|entity| entity.entity_type == EntityType::Date
                 && entity.mention.text.contains("2024")));
-        assert!(entities
-            .iter()
-            .any(|entity| entity.entity_type == EntityType::Amount
-                && entity.mention.text == "$99"));
+        assert!(
+            entities
+                .iter()
+                .any(|entity| entity.entity_type == EntityType::Amount
+                    && entity.mention.text == "$99")
+        );
     }
 }

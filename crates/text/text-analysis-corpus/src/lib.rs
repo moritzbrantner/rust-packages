@@ -2,8 +2,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use text_analysis_core::{tokenize, TextDocument, TextProcessingOptions, TokenKind};
-use video_analysis_core::{DetectError, Result};
+use text_analysis_core::{
+    segment_document_id, tokenize, TextDocument, TextProcessingOptions, TokenKind,
+};
+use video_analysis_core::{DetectError, Result, TextSegment};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CorpusOptions {
@@ -152,6 +154,22 @@ impl Bm25Corpus {
         Ok(corpus)
     }
 
+    pub fn from_text_segments<'a, I>(
+        stream_id: &str,
+        segments: I,
+        options: Bm25Options,
+    ) -> Result<Self>
+    where
+        I: IntoIterator<Item = TextSegment<'a>>,
+    {
+        validate_stream_id(stream_id)?;
+        let mut corpus = Self::new(options);
+        for segment in segments {
+            corpus.add_text_segment(stream_id, &segment)?;
+        }
+        Ok(corpus)
+    }
+
     pub fn options(&self) -> &Bm25Options {
         &self.options
     }
@@ -170,6 +188,18 @@ impl Bm25Corpus {
 
     pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<usize> {
         self.add_document(document.id, document.text)
+    }
+
+    pub fn add_text_segment(
+        &mut self,
+        stream_id: &str,
+        segment: &TextSegment<'_>,
+    ) -> Result<usize> {
+        validate_stream_id(stream_id)?;
+        self.add_document(
+            segment_document_id(stream_id, segment.segment_index),
+            segment.text,
+        )
     }
 
     pub fn add_document(&mut self, id: impl Into<String>, text: &str) -> Result<usize> {
@@ -307,6 +337,22 @@ impl TfIdfCorpus {
         Ok(corpus)
     }
 
+    pub fn from_text_segments<'a, I>(
+        stream_id: &str,
+        segments: I,
+        options: CorpusOptions,
+    ) -> Result<Self>
+    where
+        I: IntoIterator<Item = TextSegment<'a>>,
+    {
+        validate_stream_id(stream_id)?;
+        let mut corpus = Self::new(options);
+        for segment in segments {
+            corpus.add_text_segment(stream_id, &segment)?;
+        }
+        Ok(corpus)
+    }
+
     pub fn options(&self) -> &CorpusOptions {
         &self.options
     }
@@ -329,6 +375,18 @@ impl TfIdfCorpus {
 
     pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<usize> {
         self.add_document(document.id, document.text)
+    }
+
+    pub fn add_text_segment(
+        &mut self,
+        stream_id: &str,
+        segment: &TextSegment<'_>,
+    ) -> Result<usize> {
+        validate_stream_id(stream_id)?;
+        self.add_document(
+            segment_document_id(stream_id, segment.segment_index),
+            segment.text,
+        )
     }
 
     pub fn add_document(&mut self, id: impl Into<String>, text: &str) -> Result<usize> {
@@ -592,6 +650,13 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
 }
 
+fn validate_stream_id(stream_id: &str) -> Result<()> {
+    if stream_id.trim().is_empty() {
+        return Err(invalid_argument("stream id must not be empty"));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -712,11 +777,7 @@ mod tests {
 
     #[test]
     fn tfidf_from_texts_matches_incremental_indexing_and_assigns_ids() {
-        let texts = [
-            "rust text text",
-            "video text",
-            "audio scene transcript",
-        ];
+        let texts = ["rust text text", "video text", "audio scene transcript"];
 
         let from_texts = TfIdfCorpus::from_texts(texts, CorpusOptions::default()).unwrap();
 
@@ -750,6 +811,64 @@ mod tests {
     }
 
     #[test]
+    fn tfidf_indexes_text_segments_incrementally() {
+        let mut corpus = TfIdfCorpus::default();
+        let segments = vec![
+            TextSegment {
+                segment_index: 0,
+                timestamp: None,
+                text: "rust cargo ownership",
+                language: Some("en"),
+                is_final: true,
+            },
+            TextSegment {
+                segment_index: 1,
+                timestamp: None,
+                text: "video scene detection",
+                language: Some("en"),
+                is_final: true,
+            },
+            TextSegment {
+                segment_index: 2,
+                timestamp: None,
+                text: "cargo crates and compiler",
+                language: Some("en"),
+                is_final: true,
+            },
+        ];
+        for segment in &segments {
+            corpus.add_text_segment("subs", segment).unwrap();
+        }
+
+        assert_eq!(corpus.documents()[0].id, "subs:0");
+        assert_eq!(corpus.documents()[1].id, "subs:1");
+        assert_eq!(corpus.documents()[2].id, "subs:2");
+        assert_eq!(corpus.search("compiler cargo", 1).unwrap()[0].id, "subs:2");
+        assert!(matches!(
+            corpus.add_text_segment("subs", &segments[0]),
+            Err(DetectError::InvalidArgument(message))
+                if message.contains("document id `subs:0` already exists")
+        ));
+    }
+
+    #[test]
+    fn tfidf_from_text_segments_validates_stream_id() {
+        let segments = vec![TextSegment {
+            segment_index: 0,
+            timestamp: None,
+            text: "rust cargo",
+            language: None,
+            is_final: true,
+        }];
+
+        let error =
+            TfIdfCorpus::from_text_segments("   ", segments, CorpusOptions::default()).unwrap_err();
+        assert!(
+            matches!(error, DetectError::InvalidArgument(message) if message == "stream id must not be empty")
+        );
+    }
+
+    #[test]
     fn tfidf_batch_construction_honors_options() {
         let mut stop_words = BTreeSet::new();
         stop_words.insert("skip".to_string());
@@ -775,8 +894,8 @@ mod tests {
 
     #[test]
     fn tfidf_batch_construction_accepts_empty_inputs_and_text() {
-        let empty = TfIdfCorpus::from_texts(std::iter::empty::<&str>(), CorpusOptions::default())
-            .unwrap();
+        let empty =
+            TfIdfCorpus::from_texts(std::iter::empty::<&str>(), CorpusOptions::default()).unwrap();
         assert!(empty.is_empty());
 
         let corpus = TfIdfCorpus::from_texts([""], CorpusOptions::default()).unwrap();
@@ -792,7 +911,9 @@ mod tests {
         ];
 
         let error = TfIdfCorpus::from_documents(documents, CorpusOptions::default()).unwrap_err();
-        assert!(matches!(error, DetectError::InvalidArgument(message) if message.contains("document id `dup` already exists")));
+        assert!(
+            matches!(error, DetectError::InvalidArgument(message) if message.contains("document id `dup` already exists"))
+        );
     }
 
     #[test]
@@ -826,7 +947,68 @@ mod tests {
         }
 
         assert_eq!(from_documents.documents(), incremental.documents());
-        assert_eq!(from_documents.search("rust cargo", 1).unwrap()[0].id, "rust");
+        assert_eq!(
+            from_documents.search("rust cargo", 1).unwrap()[0].id,
+            "rust"
+        );
+    }
+
+    #[test]
+    fn bm25_indexes_text_segments_and_searches_generated_ids() {
+        let segments = vec![
+            TextSegment {
+                segment_index: 0,
+                timestamp: None,
+                text: "guten tag berlin",
+                language: Some("de"),
+                is_final: true,
+            },
+            TextSegment {
+                segment_index: 1,
+                timestamp: None,
+                text: "rust cargo crates ownership",
+                language: Some("en"),
+                is_final: true,
+            },
+            TextSegment {
+                segment_index: 2,
+                timestamp: None,
+                text: "cargo build pipeline",
+                language: Some("en"),
+                is_final: true,
+            },
+        ];
+        let corpus =
+            Bm25Corpus::from_text_segments("subs", segments.clone(), Bm25Options::default())
+                .unwrap();
+
+        assert_eq!(corpus.documents()[0].id, "subs:0");
+        assert_eq!(corpus.documents()[1].id, "subs:1");
+        assert_eq!(corpus.documents()[2].id, "subs:2");
+        assert_eq!(corpus.search("cargo ownership", 1).unwrap()[0].id, "subs:1");
+
+        let mut incremental = Bm25Corpus::default();
+        for segment in &segments {
+            incremental.add_text_segment("subs", segment).unwrap();
+        }
+        assert_eq!(corpus.documents(), incremental.documents());
+    }
+
+    #[test]
+    fn bm25_text_segment_ingestion_rejects_empty_stream_id() {
+        let segment = TextSegment {
+            segment_index: 0,
+            timestamp: None,
+            text: "rust cargo",
+            language: None,
+            is_final: true,
+        };
+        let error = Bm25Corpus::default()
+            .add_text_segment(" ", &segment)
+            .unwrap_err();
+        assert!(
+            matches!(error, DetectError::InvalidArgument(message) if message == "stream id must not be empty")
+        );
     }
 
     #[test]
@@ -863,6 +1045,8 @@ mod tests {
         ];
 
         let error = Bm25Corpus::from_documents(documents, Bm25Options::default()).unwrap_err();
-        assert!(matches!(error, DetectError::InvalidArgument(message) if message.contains("document id `dup` already exists")));
+        assert!(
+            matches!(error, DetectError::InvalidArgument(message) if message.contains("document id `dup` already exists"))
+        );
     }
 }

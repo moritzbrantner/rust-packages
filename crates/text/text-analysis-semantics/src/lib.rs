@@ -2,12 +2,12 @@
 
 use std::collections::BTreeMap;
 
-use text_analysis_core::{tokenize_words, TextDocument};
+use text_analysis_core::{segment_document_id, tokenize_words, TextDocument};
 use text_analysis_corpus::{term_counts, CorpusOptions, TfIdfCorpus};
 use vector_analysis_core::cosine_similarity;
 pub use vector_analysis_core::DenseVector;
 use vector_analysis_index::{SearchConfig, VectorRecord, VectorSearchIndex};
-use video_analysis_core::{DetectError, Result};
+use video_analysis_core::{DetectError, Result, TextSegment};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TextEmbeddingConfig {
@@ -161,6 +161,14 @@ impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
         self.vectors.add(VectorRecord::new(id, vector))
     }
 
+    pub fn add_text_segment(&mut self, stream_id: &str, segment: &TextSegment<'_>) -> Result<()> {
+        validate_stream_id(stream_id)?;
+        self.add_document(
+            segment_document_id(stream_id, segment.segment_index),
+            segment.text,
+        )
+    }
+
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<SemanticMatch>> {
         let query = self.embedder.embed_text(query)?;
         let results = self.vectors.search(
@@ -220,6 +228,14 @@ impl SemanticTextIndex {
 
     pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<()> {
         self.add_document(document.id, document.text)
+    }
+
+    pub fn add_text_segment(&mut self, stream_id: &str, segment: &TextSegment<'_>) -> Result<()> {
+        validate_stream_id(stream_id)?;
+        self.add_document(
+            segment_document_id(stream_id, segment.segment_index),
+            segment.text,
+        )
     }
 
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<SemanticMatch>> {
@@ -404,6 +420,13 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
 }
 
+fn validate_stream_id(stream_id: &str) -> Result<()> {
+    if stream_id.trim().is_empty() {
+        return Err(invalid_argument("stream id must not be empty"));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -537,6 +560,68 @@ mod tests {
 
         let results = index.search("cargo", 1).unwrap();
         assert_eq!(results[0].id, "rust");
+    }
+
+    #[test]
+    fn generic_embedding_index_adds_text_segments_with_generated_ids() {
+        let mut index = EmbeddingSearchIndex::new(TinyEmbedder);
+        let rust_segment = TextSegment {
+            segment_index: 4,
+            timestamp: None,
+            text: "rust cargo segment",
+            language: Some("en"),
+            is_final: true,
+        };
+        let fruit_segment = TextSegment {
+            segment_index: 5,
+            timestamp: None,
+            text: "orange banana segment",
+            language: Some("en"),
+            is_final: true,
+        };
+        index.add_text_segment("subs", &rust_segment).unwrap();
+        index.add_text_segment("subs", &fruit_segment).unwrap();
+
+        let results = index.search("cargo", 1).unwrap();
+        assert_eq!(results[0].id, "subs:4");
+        assert!(matches!(
+            index.add_text_segment("subs", &rust_segment),
+            Err(DetectError::InvalidArgument(message))
+                if message.contains("document id `subs:4` already exists")
+        ));
+        assert!(matches!(
+            index.add_text_segment(" ", &rust_segment),
+            Err(DetectError::InvalidArgument(message)) if message == "stream id must not be empty"
+        ));
+    }
+
+    #[test]
+    fn semantic_index_adds_text_segments_with_generated_ids() {
+        let mut index = SemanticTextIndex::new(HashedTextEmbedder::default());
+        let first = TextSegment {
+            segment_index: 0,
+            timestamp: None,
+            text: "rust cargo crates",
+            language: Some("en"),
+            is_final: true,
+        };
+        let second = TextSegment {
+            segment_index: 1,
+            timestamp: None,
+            text: "banana citrus apple",
+            language: Some("en"),
+            is_final: true,
+        };
+        index.add_text_segment("subs", &first).unwrap();
+        index.add_text_segment("subs", &second).unwrap();
+
+        assert_eq!(index.corpus().documents()[0].id, "subs:0");
+        assert_eq!(index.corpus().documents()[1].id, "subs:1");
+        assert_eq!(index.search("cargo", 1).unwrap()[0].id, "subs:0");
+        assert!(matches!(
+            index.add_text_segment("", &first),
+            Err(DetectError::InvalidArgument(message)) if message == "stream id must not be empty"
+        ));
     }
 
     #[test]

@@ -2309,6 +2309,7 @@ dependencies = [
  "tempfile",
  "text-analysis-core",
  "text-analysis-models",
+ "text-analysis-transcription",
  "video-analysis-core",
 ]
 

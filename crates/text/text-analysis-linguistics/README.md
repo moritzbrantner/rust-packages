@@ -14,20 +14,25 @@ Heuristic-first linguistic analysis pipeline for `video-analysis`.
 ## Example
 
 ```rust,ignore
-use text_analysis_linguistics::{analyze_text, LinguisticAnalysisOptions};
+use text_analysis_linguistics::{analyze_transcription, LinguisticAnalysisOptions};
+use text_analysis_transcription::parse_srt;
 
-let analysis = analyze_text(
-    "Alice visited Berlin and presented the roadmap.",
+let subtitles = parse_srt(
+    "1\n00:00:00,000 --> 00:00:01,000\nAlice visited Berlin\n\n2\n00:00:01,000 --> 00:00:02,000\nShe presented the roadmap\n",
+)?;
+let analysis = analyze_transcription(
+    &subtitles,
     &LinguisticAnalysisOptions::default(),
 )?;
 
-assert_eq!(analysis.language.primary.as_ref().map(|p| p.language.as_str()), Some("en"));
-assert!(!analysis.entities.is_empty());
+assert_eq!(analysis.cues.len(), 2);
+assert!(!analysis.aggregate.entities.is_empty());
 ```
 
 ## Related crates
 
 - `text-analysis-core`
 - `text-analysis-models`
+- `text-analysis-transcription` for SRT, WebVTT, Whisper JSON, and plain transcript parsing
 - `text-analysis-corpus` for TF-IDF and BM25 corpus indexing from text inputs
 - `video-analysis-core`
