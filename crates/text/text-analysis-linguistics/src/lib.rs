@@ -3,8 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use text_analysis_core::{
-    detect_script_profile, split_sentence_spans, tokenize, tokenize_words, Sentence, TextDocument,
-    TextProcessingOptions, TextSpan, Token, TokenKind,
+    build_annotation_graph_from_parts, detect_script_profile, split_paragraphs,
+    split_sentence_spans, tokenize, tokenize_words, AnnotationConfidence, AnnotationProvenance,
+    Sentence, TextAnnotationGraph, TextDocument, TextProcessingOptions, TextSpan, Token, TokenKind,
 };
 use text_analysis_models::{TokenizedText, TokenizerBundle, TokenizerSource};
 use text_analysis_transcription::{TranscriptSegment, TranscriptionResult};
@@ -1708,6 +1709,19 @@ pub struct StyleProfile {
     pub disfluency_markers: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnalysisProfile {
+    Fast,
+    Balanced,
+    Rich,
+}
+
+impl Default for AnalysisProfile {
+    fn default() -> Self {
+        Self::Rich
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct LinguisticAnalysisOptions {
     pub processing: TextProcessingOptions,
@@ -1747,7 +1761,132 @@ impl Default for LinguisticAnalysisOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct TextNlpConfig {
+    pub profile: AnalysisProfile,
+    pub options: LinguisticAnalysisOptions,
+    pub prefer_model_backends: bool,
+    pub model_family: Option<String>,
+}
+
+impl Default for TextNlpConfig {
+    fn default() -> Self {
+        Self::rich()
+    }
+}
+
+impl TextNlpConfig {
+    pub fn fast() -> Self {
+        Self {
+            profile: AnalysisProfile::Fast,
+            options: options_for_profile(AnalysisProfile::Fast),
+            prefer_model_backends: false,
+            model_family: None,
+        }
+    }
+
+    pub fn balanced() -> Self {
+        Self {
+            profile: AnalysisProfile::Balanced,
+            options: options_for_profile(AnalysisProfile::Balanced),
+            prefer_model_backends: true,
+            model_family: None,
+        }
+    }
+
+    pub fn rich() -> Self {
+        Self {
+            profile: AnalysisProfile::Rich,
+            options: options_for_profile(AnalysisProfile::Rich),
+            prefer_model_backends: true,
+            model_family: Some("default-rich".to_string()),
+        }
+    }
+
+    pub fn from_options(options: LinguisticAnalysisOptions) -> Self {
+        Self {
+            profile: AnalysisProfile::Balanced,
+            options,
+            prefer_model_backends: true,
+            model_family: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextNlpPipeline {
+    config: TextNlpConfig,
+}
+
+impl Default for TextNlpPipeline {
+    fn default() -> Self {
+        Self::new(TextNlpConfig::default())
+    }
+}
+
+impl TextNlpPipeline {
+    pub fn new(config: TextNlpConfig) -> Self {
+        Self { config }
+    }
+
+    pub fn config(&self) -> &TextNlpConfig {
+        &self.config
+    }
+
+    pub fn analyze_text(&self, text: &str) -> Result<LinguisticAnalysis> {
+        analyze_text_with_config(text, &self.config)
+    }
+
+    pub fn analyze_document(&self, document: &TextDocument<'_>) -> Result<LinguisticAnalysis> {
+        self.analyze_text(document.text)
+    }
+
+    pub fn analyze_segment(&self, segment: &TextSegment<'_>) -> Result<LinguisticAnalysis> {
+        self.analyze_text(segment.text)
+    }
+
+    pub fn analyze_subtitle_segments(
+        &self,
+        segments: &[TranscriptSegment],
+    ) -> Result<SubtitleLinguisticAnalysis> {
+        let cues = segments
+            .iter()
+            .cloned()
+            .map(|cue| {
+                let analysis = self.analyze_text(&cue.text)?;
+                Ok(SubtitleCueLinguisticAnalysis { cue, analysis })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let aggregate = self.analyze_text(&join_subtitle_text(segments, None))?;
+        Ok(SubtitleLinguisticAnalysis { cues, aggregate })
+    }
+
+    pub fn analyze_transcription(
+        &self,
+        result: &TranscriptionResult,
+    ) -> Result<SubtitleLinguisticAnalysis> {
+        let cues = result
+            .segments
+            .iter()
+            .cloned()
+            .map(|cue| {
+                let analysis = self.analyze_text(&cue.text)?;
+                Ok(SubtitleCueLinguisticAnalysis { cue, analysis })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let aggregate = self.analyze_text(&join_subtitle_text(
+            &result.segments,
+            result.text.as_deref(),
+        ))?;
+        Ok(SubtitleLinguisticAnalysis { cues, aggregate })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct LinguisticAnalysis {
+    pub profile: AnalysisProfile,
+    pub provenance: AnnotationProvenance,
+    pub confidence: AnnotationConfidence,
+    pub graph: TextAnnotationGraph,
     pub language: LanguageProfile,
     pub tokenizer: TokenizerSelection,
     pub sentences: Vec<Sentence>,
@@ -1769,6 +1908,44 @@ pub struct LinguisticAnalysis {
     pub style: StyleProfile,
 }
 
+impl LinguisticAnalysis {
+    pub fn token_ref(&self, token_index: usize) -> Option<&text_analysis_core::CanonicalToken> {
+        self.graph.tokens.get(token_index)
+    }
+
+    pub fn sentence_ref(
+        &self,
+        sentence_index: usize,
+    ) -> Option<&text_analysis_core::AnnotatedSentence> {
+        self.graph.sentences.get(sentence_index)
+    }
+}
+
+fn options_for_profile(profile: AnalysisProfile) -> LinguisticAnalysisOptions {
+    let mut options = LinguisticAnalysisOptions::default();
+    match profile {
+        AnalysisProfile::Fast => {
+            options.tokenizer_policy.mode = TokenizationMode::Word;
+            options.enable_alignment = false;
+            options.enable_coreference = false;
+            options.enable_events = false;
+            options.enable_discourse = false;
+            options.enable_topics = false;
+            options.enable_style = false;
+        }
+        AnalysisProfile::Balanced => {}
+        AnalysisProfile::Rich => {
+            options.enable_alignment = true;
+            options.enable_coreference = true;
+            options.enable_events = true;
+            options.enable_discourse = true;
+            options.enable_topics = true;
+            options.enable_style = true;
+        }
+    }
+    options
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubtitleCueLinguisticAnalysis {
     pub cue: TranscriptSegment,
@@ -1785,55 +1962,37 @@ pub fn analyze_document(
     document: &TextDocument<'_>,
     options: &LinguisticAnalysisOptions,
 ) -> Result<LinguisticAnalysis> {
-    analyze_text(document.text, options)
+    TextNlpPipeline::new(TextNlpConfig::from_options(options.clone())).analyze_document(document)
 }
 
 pub fn analyze_segment(
     segment: &TextSegment<'_>,
     options: &LinguisticAnalysisOptions,
 ) -> Result<LinguisticAnalysis> {
-    analyze_text(segment.text, options)
+    TextNlpPipeline::new(TextNlpConfig::from_options(options.clone())).analyze_segment(segment)
 }
 
 pub fn analyze_subtitle_segments(
     segments: &[TranscriptSegment],
     options: &LinguisticAnalysisOptions,
 ) -> Result<SubtitleLinguisticAnalysis> {
-    let cues = segments
-        .iter()
-        .cloned()
-        .map(|cue| {
-            let analysis = analyze_text(&cue.text, options)?;
-            Ok(SubtitleCueLinguisticAnalysis { cue, analysis })
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let aggregate = analyze_text(&join_subtitle_text(segments, None), options)?;
-
-    Ok(SubtitleLinguisticAnalysis { cues, aggregate })
+    TextNlpPipeline::new(TextNlpConfig::from_options(options.clone()))
+        .analyze_subtitle_segments(segments)
 }
 
 pub fn analyze_transcription(
     result: &TranscriptionResult,
     options: &LinguisticAnalysisOptions,
 ) -> Result<SubtitleLinguisticAnalysis> {
-    let cues = result
-        .segments
-        .iter()
-        .cloned()
-        .map(|cue| {
-            let analysis = analyze_text(&cue.text, options)?;
-            Ok(SubtitleCueLinguisticAnalysis { cue, analysis })
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let aggregate = analyze_text(
-        &join_subtitle_text(&result.segments, result.text.as_deref()),
-        options,
-    )?;
-
-    Ok(SubtitleLinguisticAnalysis { cues, aggregate })
+    TextNlpPipeline::new(TextNlpConfig::from_options(options.clone())).analyze_transcription(result)
 }
 
 pub fn analyze_text(text: &str, options: &LinguisticAnalysisOptions) -> Result<LinguisticAnalysis> {
+    analyze_text_with_config(text, &TextNlpConfig::from_options(options.clone()))
+}
+
+fn analyze_text_with_config(text: &str, config: &TextNlpConfig) -> Result<LinguisticAnalysis> {
+    let options = &config.options;
     let language_detector = LanguageDetector {
         options: options.language_detection.clone(),
         lexicons: LexiconStore::default(),
@@ -1848,7 +2007,7 @@ pub fn analyze_text(text: &str, options: &LinguisticAnalysisOptions) -> Result<L
             .as_ref()
             .map(|prediction| prediction.language.as_str()),
         Some("linguistic-analysis"),
-        None,
+        config.model_family.as_deref(),
     );
 
     let sentences = split_sentence_spans(text, &options.processing);
@@ -1913,8 +2072,27 @@ pub fn analyze_text(text: &str, options: &LinguisticAnalysisOptions) -> Result<L
     } else {
         StyleProfile::default()
     };
+    let graph =
+        build_annotation_graph_from_parts(text, &tokens, &sentences, &split_paragraphs(text));
+    let confidence = summarize_analysis_confidence(
+        &language,
+        &lemmas.lemmas,
+        &pos,
+        &entities,
+        &events,
+        alignments.as_ref(),
+    );
+    let provenance = analysis_provenance(
+        &tokenizer,
+        alignments.as_ref(),
+        config.prefer_model_backends,
+    );
 
     Ok(LinguisticAnalysis {
+        profile: config.profile,
+        provenance,
+        confidence,
+        graph,
         language,
         tokenizer,
         sentences,
@@ -1947,6 +2125,44 @@ fn join_subtitle_text(segments: &[TranscriptSegment], aggregate_text: Option<&st
         .map(|segment| segment.text.as_str())
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn summarize_analysis_confidence(
+    language: &LanguageProfile,
+    lemmas: &[Lemma],
+    pos: &[PosAnnotation],
+    entities: &[NamedEntity],
+    events: &[ExtractedEvent],
+    alignments: Option<&TokenAlignmentMap>,
+) -> AnnotationConfidence {
+    let mut values = Vec::new();
+    if let Some(primary) = &language.primary {
+        values.push(primary.confidence);
+    }
+    values.extend(lemmas.iter().map(|lemma| lemma.confidence));
+    values.extend(pos.iter().map(|annotation| annotation.confidence));
+    values.extend(entities.iter().map(|entity| entity.confidence));
+    values.extend(events.iter().map(|event| event.confidence));
+    if alignments.is_some() {
+        values.push(0.85);
+    }
+    if values.is_empty() {
+        AnnotationConfidence::new(0.0)
+    } else {
+        AnnotationConfidence::new(values.iter().sum::<f32>() / values.len() as f32)
+    }
+}
+
+fn analysis_provenance(
+    tokenizer: &TokenizerSelection,
+    alignments: Option<&TokenAlignmentMap>,
+    prefer_model_backends: bool,
+) -> AnnotationProvenance {
+    if alignments.is_some() || (prefer_model_backends && tokenizer.source.is_some()) {
+        AnnotationProvenance::Tokenizer
+    } else {
+        AnnotationProvenance::Heuristic
+    }
 }
 
 impl Default for StyleProfile {
@@ -3033,5 +3249,33 @@ mod tests {
                 .any(|entity| entity.entity_type == EntityType::Amount
                     && entity.mention.text == "$99")
         );
+    }
+
+    #[test]
+    fn text_nlp_pipeline_exposes_rich_graph_and_profile_metadata() {
+        let pipeline = TextNlpPipeline::default();
+        let analysis = pipeline
+            .analyze_text("Alice presented the roadmap in Berlin.")
+            .unwrap();
+
+        assert_eq!(analysis.profile, AnalysisProfile::Rich);
+        assert_eq!(analysis.graph.tokens.len(), analysis.tokens.len());
+        assert_eq!(analysis.provenance, AnnotationProvenance::Tokenizer);
+        assert!(analysis.confidence.get() > 0.0);
+        assert_eq!(analysis.token_ref(0).unwrap().text, "Alice");
+    }
+
+    #[test]
+    fn fast_profile_disables_heavier_annotations() {
+        let pipeline = TextNlpPipeline::new(TextNlpConfig::fast());
+        let analysis = pipeline
+            .analyze_text("Alice presented the roadmap in Berlin.")
+            .unwrap();
+
+        assert_eq!(analysis.profile, AnalysisProfile::Fast);
+        assert!(analysis.alignments.is_none());
+        assert!(analysis.events.is_empty());
+        assert!(analysis.discourse.is_empty());
+        assert!(analysis.topics.descriptors.is_empty());
     }
 }

@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use text_analysis_core::tokenize_words;
+use text_analysis_linguistics::LinguisticAnalysis;
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,6 +24,20 @@ pub struct MarkovChain {
     order: usize,
     transitions: BTreeMap<Vec<String>, BTreeMap<String, usize>>,
     starts: BTreeMap<Vec<String>, usize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MarkovInputMode {
+    Surface,
+    Normalized,
+    Lemma,
+    EntityAware,
+}
+
+impl Default for MarkovInputMode {
+    fn default() -> Self {
+        Self::Normalized
+    }
 }
 
 impl MarkovChain {
@@ -76,6 +91,21 @@ impl MarkovChain {
     {
         for document in documents {
             self.train_text(document.as_ref());
+        }
+    }
+
+    pub fn train_analysis(&mut self, analysis: &LinguisticAnalysis, mode: MarkovInputMode) {
+        let tokens = analysis_tokens(analysis, mode);
+        self.train_tokens(&tokens);
+    }
+
+    pub fn train_analyses<'a>(
+        &mut self,
+        analyses: impl IntoIterator<Item = &'a LinguisticAnalysis>,
+        mode: MarkovInputMode,
+    ) {
+        for analysis in analyses {
+            self.train_analysis(analysis, mode);
         }
     }
 
@@ -268,6 +298,57 @@ impl Default for MarkovChain {
     }
 }
 
+pub fn analysis_tokens(analysis: &LinguisticAnalysis, mode: MarkovInputMode) -> Vec<String> {
+    match mode {
+        MarkovInputMode::Surface => analysis
+            .tokens
+            .iter()
+            .map(|token| token.text.clone())
+            .collect(),
+        MarkovInputMode::Normalized => analysis
+            .tokens
+            .iter()
+            .map(|token| token.normalized.clone())
+            .collect(),
+        MarkovInputMode::Lemma => analysis
+            .lemmas
+            .iter()
+            .map(|lemma| lemma.value.clone())
+            .collect(),
+        MarkovInputMode::EntityAware => entity_aware_tokens(analysis),
+    }
+}
+
+fn entity_aware_tokens(analysis: &LinguisticAnalysis) -> Vec<String> {
+    let mut entity_starts = BTreeMap::new();
+    for entity in &analysis.entities {
+        entity_starts.insert(
+            entity.token_start,
+            (
+                entity.token_end,
+                format!(
+                    "entity:{:?}:{}",
+                    entity.entity_type,
+                    entity.normalized.to_lowercase()
+                ),
+            ),
+        );
+    }
+
+    let mut tokens = Vec::new();
+    let mut index = 0;
+    while index < analysis.tokens.len() {
+        if let Some((token_end, label)) = entity_starts.get(&index) {
+            tokens.push(label.clone());
+            index = (*token_end).max(index + 1);
+        } else {
+            tokens.push(analysis.tokens[index].normalized.clone());
+            index += 1;
+        }
+    }
+    tokens
+}
+
 fn best_next(counts: &BTreeMap<String, usize>) -> Option<String> {
     counts
         .iter()
@@ -375,5 +456,27 @@ mod tests {
 
         assert!(!chain.is_empty());
         assert_eq!(chain.total_transitions(), 4);
+    }
+
+    #[test]
+    fn trains_from_linguistic_analysis_using_shared_outputs() {
+        let analysis = text_analysis_linguistics::analyze_text(
+            "Alice launched the roadmap in Berlin.",
+            &text_analysis_linguistics::LinguisticAnalysisOptions::default(),
+        )
+        .unwrap();
+
+        let mut chain = MarkovChain::new(1).unwrap();
+        chain.train_analysis(&analysis, MarkovInputMode::Lemma);
+        assert!(chain
+            .transitions()
+            .keys()
+            .flatten()
+            .any(|token| token == "launch"));
+
+        let entity_tokens = analysis_tokens(&analysis, MarkovInputMode::EntityAware);
+        assert!(entity_tokens
+            .iter()
+            .any(|token| token.starts_with("entity:Person:alice")));
     }
 }

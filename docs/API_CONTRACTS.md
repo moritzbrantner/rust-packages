@@ -29,6 +29,7 @@ Runtime and external integration crates use a shared feature policy:
 | `comfyui-data` | ComfyUI workflow and prompt graph data contracts | `serde`, `serde_json` | Workflow JSON nodes, links, groups, validation helpers, API prompt nodes and links | Applications importing, validating, or emitting ComfyUI graphs |
 | `comfyui-models` | ComfyUI model folder and inventory contracts | `serde`, `thiserror` | Core model folder keys, default relative paths, inventory scanning, extra model paths YAML generation | Applications managing shared ComfyUI model libraries |
 | `data-inversion-core` | Shared lossy inverse-conversion metadata | `video-analysis-core` | `InformationFidelity`, `InversionMethod`, `InversionTrace`, generated value wrappers | Synthesis crates and applications that need explicit interpolation/assumption metadata |
+| `numbers-core` | Shared scalar numeric summaries and ranges | `video-analysis-core` | Running stats, weighted summaries, quantiles, histograms, numeric range helpers | `dense-data`, `video-analysis-data`, analytics workflows, and reporting utilities |
 | `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core` | Normalized sample conversion, mono mixing, window functions, frame iteration, streaming frame windows, level helpers | Audio analysis crates and applications |
 | `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
 | `audio-analysis-io` | Audio input convenience facade | `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports | Applications that want audio-specific input APIs |
@@ -49,14 +50,14 @@ Runtime and external integration crates use a shared feature policy:
 | `text-analysis-semantics` | Lightweight semantic text analysis | `text-analysis-core`, `text-analysis-corpus`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core` | Hashed text embeddings, `TextEmbeddingBackend`, generic embedding search, text similarity, co-occurrence graphs, related-term scoring | Applications, search, semantic analysis prototypes |
 | `text-analysis-synthesis` | Deterministic inverse text generation | `data-inversion-core`, `text-analysis-core`, `video-analysis-core` | Weighted term prompts, term/event to document generation, generated text segments | Applications turning features/events back into approximate prose |
 | `text-analysis-transcription` | Reusable transcript parsing and ASR command wrappers | `video-analysis-core`, `video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, text segment source adapter | Use cases, applications, text pipelines |
-| `dense-data` | Generic dense point aggregation and clustering | `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, bounds, fixed-grid buckets, deterministic k-means clusters | Tables, graphs, charts, maps, media features, and analytics workflows |
+| `dense-data` | Generic dense point aggregation and clustering | `numbers-core`, `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, per-dimension summaries, bounds, fixed-grid buckets, deterministic k-means clusters | Tables, graphs, charts, maps, media features, and analytics workflows |
 | `vector-analysis-core` | Dense vector contracts and metrics | `video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
 | `vector-analysis-index` | Exact vector search and assignment | `vector-analysis-core`, `video-analysis-core` | In-memory vector index, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
 | `three-d-processing-core` | Generic 3D processing primitives | `video-analysis-core` | 3D vectors, points, bounds, transforms, quaternions, rigid transforms, line segments, point clouds, centroids, voxel downsampling | Mesh processing, applications, future 3D workflows |
 | `three-d-processing-io` | 3D interchange formats | `three-d-processing-core`, `three-d-processing-mesh`, `video-analysis-core`, `serde_json`, `base64` | `OBJ`, `PLY`, and minimal embedded `.gltf` mesh/point-cloud I/O | Applications, CLI workflows, posture export |
 | `three-d-processing-mesh` | Triangle mesh processing | `three-d-processing-core`, `video-analysis-core` | Mesh validation, topology, triangle normals, vertex normals, bounds, surface area, volume, transforms, smoothing, deterministic sampling | Applications and future 3D workflows |
 | `video-analysis-core` | Canonical shared contracts and pipelines | External utility crates only | Time/frame types, media samples, detection traits/results, analyzer traits/results, observations, metrics, pipeline builders | All functional Rust crates |
-| `video-analysis-data` | Online stream normalization and aggregation | `video-analysis-core` | `DataRecord`, `DataPayload`, bucket configuration, bucket summaries, stream summaries | Use cases, reporting, UI JSON generation |
+| `video-analysis-data` | Online stream normalization and aggregation | `numbers-core`, `video-analysis-core` | `DataRecord`, `DataPayload`, bucket configuration, bucket summaries, stream summaries | Use cases, reporting, UI JSON generation |
 | `video-analysis-dataset` | Retained analysis dataset records | `video-analysis-core`, `video-analysis-posture`, `serde` | Serializable owned records for scenes, cuts, media metadata, observations, events, metrics, tracks, features, and structured 2D/3D pose records | Transform, feature, storage, analytics workflows |
 | `video-analysis-transform` | Deterministic dataset transformations | `video-analysis-dataset` | Filtering, time windows, scene grouping, time/frame joins, dedupe, merge, numeric feature resampling | Feature extraction and applications |
 | `video-analysis-features` | Reusable feature extraction over retained datasets | `video-analysis-core`, `video-analysis-dataset`, `video-analysis-transform` | Scene stats, label histograms, transcript stats, audio event stats, track summaries, vector means | Applications and downstream ML/analytics workflows |
@@ -269,6 +270,23 @@ Vector crates intentionally use exact CPU algorithms. Approximate nearest
 neighbor backends can be added later behind separate implementation crates
 without changing the core vector contracts.
 
+## Numbers Contracts
+
+`numbers-core` provides reusable scalar numeric building blocks for analytics
+and reporting code that should not reimplement one-off min/max/mean, weighted
+stats, quantiles, or histograms.
+
+- `RunningStats` tracks total observations, finite/non-finite counts, weighted
+  sums, mean, variance, and standard deviation.
+- `NumberSummary` is the stable descriptive summary returned by scalar
+  aggregators.
+- `NumberRange` owns finite scalar bounds plus normalization, denormalization,
+  and clamping helpers.
+- `HistogramConfig`, `HistogramBin`, and `Histogram` expose deterministic
+  fixed-width histograms over finite values.
+- `quantile` and `quartiles` provide deterministic percentile interpolation
+  over finite copied inputs.
+
 ## Dense Data Contracts
 
 `dense-data` provides generic dense numeric point processing for UI and media
@@ -278,9 +296,11 @@ maps, and feature-derived media timelines.
 - `DensePoint` stores finite coordinates, a positive weight, an optional scalar
   value, and an optional id.
 - `DenseDataset` retains dimension-consistent points and exposes averages,
-  bounds, buckets, and k-means clustering.
+  summaries, bounds, buckets, and k-means clustering.
 - `DenseAverages` reports weighted coordinate means and optional weighted value
   means.
+- `DenseSummary` exposes weighted per-dimension `NumberSummary` values, optional
+  weighted scalar value stats, total weight, and bounds.
 - `BucketGrid`, `BucketKey`, and `DenseBucket` group points into deterministic
   fixed-width coordinate buckets.
 - `KMeansConfig`, `DenseCluster`, and `ClusterResult` expose deterministic CPU

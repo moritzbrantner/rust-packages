@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use numbers_core::{NumberSummary, RunningStats};
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -116,6 +117,10 @@ impl DenseDataset {
         dense_averages(&self.points)
     }
 
+    pub fn summary(&self) -> Result<DenseSummary> {
+        dense_summary(&self.points)
+    }
+
     pub fn bounds(&self) -> Result<DenseBounds> {
         dense_bounds(&self.points)
     }
@@ -137,6 +142,16 @@ pub struct DenseAverages {
     pub value_count: u64,
     pub value_weight_sum: f64,
     pub value: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DenseSummary {
+    pub count: u64,
+    pub dimensions: usize,
+    pub weight_sum: f64,
+    pub coordinate_stats: Vec<NumberSummary>,
+    pub value_stats: Option<NumberSummary>,
+    pub bounds: DenseBounds,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -292,51 +307,16 @@ pub struct ClusterResult {
     pub clusters: Vec<DenseCluster>,
 }
 
+pub fn dense_summary(points: &[DensePoint]) -> Result<DenseSummary> {
+    SummaryAccumulator::from_points(points)?.summary()
+}
+
 pub fn dense_averages(points: &[DensePoint]) -> Result<DenseAverages> {
-    let dimensions = validate_point_set(points)?;
-    let mut coordinates = vec![0.0; dimensions];
-    let mut weight_sum = 0.0;
-    let mut value = 0.0;
-    let mut value_count = 0;
-    let mut value_weight_sum = 0.0;
-
-    for point in points {
-        weight_sum += point.weight;
-        for (mean, coordinate) in coordinates.iter_mut().zip(&point.coordinates) {
-            *mean += point.weight * coordinate;
-        }
-        if let Some(point_value) = point.value {
-            value += point.weight * point_value;
-            value_count += 1;
-            value_weight_sum += point.weight;
-        }
-    }
-
-    for coordinate in &mut coordinates {
-        *coordinate /= weight_sum;
-    }
-
-    Ok(DenseAverages {
-        count: points.len() as u64,
-        weight_sum,
-        coordinates,
-        value_count,
-        value_weight_sum,
-        value: (value_count > 0).then_some(value / value_weight_sum),
-    })
+    SummaryAccumulator::from_points(points)?.averages()
 }
 
 pub fn dense_bounds(points: &[DensePoint]) -> Result<DenseBounds> {
-    let dimensions = validate_point_set(points)?;
-    let mut min = vec![f64::INFINITY; dimensions];
-    let mut max = vec![f64::NEG_INFINITY; dimensions];
-    for point in points {
-        for (index, coordinate) in point.coordinates.iter().enumerate() {
-            min[index] = min[index].min(*coordinate);
-            max[index] = max[index].max(*coordinate);
-        }
-    }
-    Ok(DenseBounds { min, max })
+    SummaryAccumulator::from_points(points)?.bounds()
 }
 
 pub fn bucket_points(points: &[DensePoint], grid: &BucketGrid) -> Result<Vec<DenseBucket>> {
@@ -478,10 +458,9 @@ impl ClusterAccumulator {
 struct SummaryAccumulator {
     count: u64,
     weight_sum: f64,
-    coordinates: Vec<f64>,
-    value: f64,
-    value_count: u64,
-    value_weight_sum: f64,
+    coordinate_stats: Vec<RunningStats>,
+    value_stats: RunningStats,
+    has_values: bool,
     min: Vec<f64>,
     max: Vec<f64>,
 }
@@ -491,33 +470,50 @@ impl SummaryAccumulator {
         Self {
             count: 0,
             weight_sum: 0.0,
-            coordinates: Vec::new(),
-            value: 0.0,
-            value_count: 0,
-            value_weight_sum: 0.0,
+            coordinate_stats: Vec::new(),
+            value_stats: RunningStats::new(),
+            has_values: false,
             min: Vec::new(),
             max: Vec::new(),
         }
     }
 
+    fn from_points(points: &[DensePoint]) -> Result<Self> {
+        validate_point_set(points)?;
+        let mut summary = Self::new();
+        for point in points {
+            summary.push(point);
+        }
+        Ok(summary)
+    }
+
     fn push(&mut self, point: &DensePoint) {
-        if self.coordinates.is_empty() {
-            self.coordinates.resize(point.dimensions(), 0.0);
+        if self.coordinate_stats.is_empty() {
+            self.coordinate_stats
+                .resize_with(point.dimensions(), RunningStats::new);
             self.min.resize(point.dimensions(), f64::INFINITY);
             self.max.resize(point.dimensions(), f64::NEG_INFINITY);
         }
 
         self.count += 1;
         self.weight_sum += point.weight;
-        for (index, coordinate) in point.coordinates.iter().enumerate() {
-            self.coordinates[index] += point.weight * coordinate;
+        for (index, (stats, coordinate)) in self
+            .coordinate_stats
+            .iter_mut()
+            .zip(&point.coordinates)
+            .enumerate()
+        {
+            stats
+                .push_weighted(*coordinate, point.weight)
+                .expect("validated points have valid coordinate weights");
             self.min[index] = self.min[index].min(*coordinate);
             self.max[index] = self.max[index].max(*coordinate);
         }
         if let Some(point_value) = point.value {
-            self.value += point.weight * point_value;
-            self.value_count += 1;
-            self.value_weight_sum += point.weight;
+            self.value_stats
+                .push_weighted(point_value, point.weight)
+                .expect("validated points have valid scalar weights");
+            self.has_values = true;
         }
     }
 
@@ -525,17 +521,26 @@ impl SummaryAccumulator {
         if self.count == 0 {
             return Err(invalid_argument("dense point set must not be empty"));
         }
-        let mut coordinates = self.coordinates.clone();
-        for coordinate in &mut coordinates {
-            *coordinate /= self.weight_sum;
-        }
+        let coordinates = self
+            .coordinate_stats
+            .iter()
+            .map(|stats| {
+                stats
+                    .summary()
+                    .mean
+                    .expect("coordinate summary has a weighted mean")
+            })
+            .collect();
+        let value_summary = self.has_values.then(|| self.value_stats.summary());
         Ok(DenseAverages {
             count: self.count,
             weight_sum: self.weight_sum,
             coordinates,
-            value_count: self.value_count,
-            value_weight_sum: self.value_weight_sum,
-            value: (self.value_count > 0).then_some(self.value / self.value_weight_sum),
+            value_count: value_summary.as_ref().map_or(0, |summary| summary.count),
+            value_weight_sum: value_summary
+                .as_ref()
+                .map_or(0.0, |summary| summary.weight_sum),
+            value: value_summary.and_then(|summary| summary.mean),
         })
     }
 
@@ -546,6 +551,21 @@ impl SummaryAccumulator {
         Ok(DenseBounds {
             min: self.min.clone(),
             max: self.max.clone(),
+        })
+    }
+
+    fn summary(&self) -> Result<DenseSummary> {
+        Ok(DenseSummary {
+            count: self.count,
+            dimensions: self.coordinate_stats.len(),
+            weight_sum: self.weight_sum,
+            coordinate_stats: self
+                .coordinate_stats
+                .iter()
+                .map(RunningStats::summary)
+                .collect(),
+            value_stats: self.has_values.then(|| self.value_stats.summary()),
+            bounds: self.bounds()?,
         })
     }
 }
@@ -666,6 +686,10 @@ mod tests {
         DensePoint::new(coordinates).unwrap()
     }
 
+    fn assert_close(left: f64, right: f64) {
+        assert!((left - right).abs() < 1.0e-12, "{left} != {right}");
+    }
+
     #[test]
     fn weighted_averages_include_coordinates_and_values() {
         let points = [
@@ -687,6 +711,69 @@ mod tests {
         assert_eq!(averages.weight_sum, 4.0);
         assert_eq!(averages.coordinates, vec![7.5, 5.0]);
         assert_eq!(averages.value, Some(17.5));
+    }
+
+    #[test]
+    fn dense_summary_matches_weighted_averages_and_bounds() {
+        let points = [
+            point([0.0, 2.0])
+                .weighted(1.0)
+                .unwrap()
+                .valued(10.0)
+                .unwrap(),
+            point([10.0, 6.0])
+                .weighted(3.0)
+                .unwrap()
+                .valued(20.0)
+                .unwrap(),
+        ];
+
+        let summary = dense_summary(&points).unwrap();
+
+        assert_eq!(summary.count, 2);
+        assert_eq!(summary.dimensions, 2);
+        assert_eq!(summary.weight_sum, 4.0);
+        assert_eq!(summary.coordinate_stats.len(), 2);
+        assert_eq!(summary.coordinate_stats[0].mean, Some(7.5));
+        assert_eq!(summary.coordinate_stats[1].mean, Some(5.0));
+        assert_eq!(summary.coordinate_stats[0].min, Some(0.0));
+        assert_eq!(summary.coordinate_stats[0].max, Some(10.0));
+        assert_eq!(summary.bounds.min, vec![0.0, 2.0]);
+        assert_eq!(summary.bounds.max, vec![10.0, 6.0]);
+        assert_eq!(
+            summary.value_stats.as_ref().and_then(|stats| stats.mean),
+            Some(17.5)
+        );
+        assert_eq!(
+            summary.value_stats.as_ref().map(|stats| stats.weight_sum),
+            Some(4.0)
+        );
+    }
+
+    #[test]
+    fn dataset_summary_wraps_point_summary() {
+        let dataset = DenseDataset::from_points([
+            point([1.0, 2.0]),
+            point([3.0, 4.0]).weighted(2.0).unwrap(),
+        ])
+        .unwrap();
+
+        let summary = dataset.summary().unwrap();
+
+        assert_eq!(summary.count, 2);
+        assert_close(summary.coordinate_stats[0].mean.unwrap(), 7.0 / 3.0);
+        assert_close(summary.coordinate_stats[1].mean.unwrap(), 10.0 / 3.0);
+    }
+
+    #[test]
+    fn dense_summary_omits_value_stats_when_points_have_no_values() {
+        let summary = dense_summary(&[point([1.0]), point([3.0])]).unwrap();
+        assert!(summary.value_stats.is_none());
+    }
+
+    #[test]
+    fn dense_summary_rejects_empty_point_sets() {
+        assert!(dense_summary(&[]).is_err());
     }
 
     #[test]

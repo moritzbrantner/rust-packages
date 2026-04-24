@@ -44,7 +44,7 @@ Recommended publish order:
 
 1. Wave 1 foundations: `video-analysis-core`, `audio-analysis-core`,
    `image-analysis-core`, `text-analysis-core`, `vector-analysis-core`,
-   `three-d-processing-core`, `data-inversion-core`, `dense-data`,
+   `three-d-processing-core`, `data-inversion-core`, `numbers-core`, `dense-data`,
    `video-analysis-ingest`
 2. Wave 2 pure-Rust leaf crates on top of the foundations
 3. Wave 3 external/runtime crates

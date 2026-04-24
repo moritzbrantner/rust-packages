@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::mem;
 
+use numbers_core::RunningStats;
 use video_analysis_core::{
     AudioBuffer, AudioFrame, DetectError, Result, TextSegment, Timestamp, VideoFrame,
 };
@@ -427,7 +428,7 @@ struct BucketAccumulator {
     estimated_bytes: u64,
     start_timestamp: Option<Timestamp>,
     end_timestamp: Option<Timestamp>,
-    streams: BTreeMap<String, StreamSummary>,
+    streams: BTreeMap<String, StreamAccumulator>,
 }
 
 impl BucketAccumulator {
@@ -465,13 +466,38 @@ impl BucketAccumulator {
             estimated_bytes: self.estimated_bytes,
             start_timestamp: self.start_timestamp,
             end_timestamp: self.end_timestamp,
-            streams: self.streams,
+            streams: self
+                .streams
+                .into_iter()
+                .map(|(stream_id, summary)| (stream_id, summary.finish()))
+                .collect(),
         }
     }
 }
 
-impl StreamSummary {
+#[derive(Debug, Default, Clone)]
+struct StreamAccumulator {
+    records: u64,
+    estimated_bytes: u64,
+    first_sequence: Option<u64>,
+    last_sequence: Option<u64>,
+    first_timestamp: Option<Timestamp>,
+    last_timestamp: Option<Timestamp>,
+    payload_counts: BTreeMap<DataStreamKind, u64>,
+    video: VideoSummary,
+    audio: AudioSummary,
+    text: TextSummary,
+    numeric: RunningStats,
+    vector: VectorAccumulator,
+}
+
+impl StreamAccumulator {
     fn push(&mut self, record: DataRecord<'_>, estimated_bytes: u64, max_vector_dimensions: usize) {
+        self.record_metadata(&record, estimated_bytes);
+        self.push_payload(record.payload, max_vector_dimensions);
+    }
+
+    fn record_metadata(&mut self, record: &DataRecord<'_>, estimated_bytes: u64) {
         self.records += 1;
         self.estimated_bytes += estimated_bytes;
         self.first_sequence.get_or_insert(record.sequence);
@@ -479,8 +505,10 @@ impl StreamSummary {
         update_first_timestamp(&mut self.first_timestamp, record.timestamp);
         update_last_timestamp(&mut self.last_timestamp, record.timestamp);
         *self.payload_counts.entry(record.kind()).or_default() += 1;
+    }
 
-        match record.payload {
+    fn push_payload(&mut self, payload: DataPayload<'_>, max_vector_dimensions: usize) {
+        match payload {
             DataPayload::Video { width, height, .. } => {
                 self.video.frames += 1;
                 self.video.pixels += width as u64 * height as u64;
@@ -509,56 +537,65 @@ impl StreamSummary {
             DataPayload::Custom { .. } => {}
         }
     }
-}
 
-impl NumericSummary {
-    fn push(&mut self, value: f64) {
-        self.count += 1;
-        if !value.is_finite() {
-            self.non_finite_count += 1;
-            return;
+    fn finish(self) -> StreamSummary {
+        let numeric = self.numeric.summary();
+        StreamSummary {
+            records: self.records,
+            estimated_bytes: self.estimated_bytes,
+            first_sequence: self.first_sequence,
+            last_sequence: self.last_sequence,
+            first_timestamp: self.first_timestamp,
+            last_timestamp: self.last_timestamp,
+            payload_counts: self.payload_counts,
+            video: self.video,
+            audio: self.audio,
+            text: self.text,
+            numeric: NumericSummary {
+                count: numeric.count,
+                finite_count: numeric.finite_count,
+                non_finite_count: numeric.non_finite_count,
+                min: numeric.min,
+                max: numeric.max,
+                mean: numeric.mean,
+            },
+            vector: self.vector.finish(),
         }
-
-        self.finite_count += 1;
-        self.min = Some(self.min.map_or(value, |min| min.min(value)));
-        self.max = Some(self.max.map_or(value, |max| max.max(value)));
-        let previous = self.mean.unwrap_or(value);
-        self.mean = Some(previous + (value - previous) / self.finite_count as f64);
     }
 }
 
-impl VectorSummary {
+#[derive(Debug, Default, Clone)]
+struct VectorAccumulator {
+    norm_stats: RunningStats,
+    dimensions: Option<usize>,
+    mismatched_dimensions: u64,
+    tracked_dimensions: usize,
+    tracked_mean_count: u64,
+    mean: Vec<f64>,
+}
+
+impl VectorAccumulator {
     fn push(&mut self, values: &[f32], max_vector_dimensions: usize) {
-        self.count += 1;
+        self.record_dimensions(values.len());
+
+        let Some(norm) = finite_vector_norm(values) else {
+            self.norm_stats.push(f64::NAN);
+            return;
+        };
+
+        self.norm_stats.push(norm);
+        self.track_mean(values, max_vector_dimensions);
+    }
+
+    fn record_dimensions(&mut self, dimensions: usize) {
         match self.dimensions {
-            Some(dimensions) if dimensions != values.len() => self.mismatched_dimensions += 1,
-            None => self.dimensions = Some(values.len()),
+            Some(current) if current != dimensions => self.mismatched_dimensions += 1,
+            None => self.dimensions = Some(dimensions),
             _ => {}
         }
+    }
 
-        let mut norm_squared = 0.0;
-        let mut all_finite = true;
-        for value in values {
-            let value = *value as f64;
-            if !value.is_finite() {
-                all_finite = false;
-                continue;
-            }
-            norm_squared += value * value;
-        }
-
-        if !all_finite {
-            self.non_finite_count += 1;
-            return;
-        }
-
-        self.finite_count += 1;
-        let norm = norm_squared.sqrt();
-        self.min_norm = Some(self.min_norm.map_or(norm, |min| min.min(norm)));
-        self.max_norm = Some(self.max_norm.map_or(norm, |max| max.max(norm)));
-        let previous_norm = self.mean_norm.unwrap_or(norm);
-        self.mean_norm = Some(previous_norm + (norm - previous_norm) / self.finite_count as f64);
-
+    fn track_mean(&mut self, values: &[f32], max_vector_dimensions: usize) {
         if values.len() > max_vector_dimensions {
             return;
         }
@@ -578,6 +615,23 @@ impl VectorSummary {
             *mean += (value - *mean) / self.tracked_mean_count as f64;
         }
     }
+
+    fn finish(self) -> VectorSummary {
+        let summary = self.norm_stats.summary();
+        VectorSummary {
+            count: summary.count,
+            finite_count: summary.finite_count,
+            non_finite_count: summary.non_finite_count,
+            dimensions: self.dimensions,
+            mismatched_dimensions: self.mismatched_dimensions,
+            tracked_dimensions: self.tracked_dimensions,
+            tracked_mean_count: self.tracked_mean_count,
+            mean: self.mean,
+            min_norm: summary.min,
+            max_norm: summary.max,
+            mean_norm: summary.mean,
+        }
+    }
 }
 
 fn audio_buffer_bytes(data: &AudioBuffer) -> usize {
@@ -587,6 +641,18 @@ fn audio_buffer_bytes(data: &AudioBuffer) -> usize {
         AudioBuffer::I32(values) => mem::size_of_val(values.as_slice()),
         AudioBuffer::F32(values) => mem::size_of_val(values.as_slice()),
     }
+}
+
+fn finite_vector_norm(values: &[f32]) -> Option<f64> {
+    let mut norm_squared = 0.0;
+    for value in values {
+        let value = *value as f64;
+        if !value.is_finite() {
+            return None;
+        }
+        norm_squared += value * value;
+    }
+    Some(norm_squared.sqrt())
 }
 
 fn update_first_timestamp(target: &mut Option<Timestamp>, candidate: Option<Timestamp>) {

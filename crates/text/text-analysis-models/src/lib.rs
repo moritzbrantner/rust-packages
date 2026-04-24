@@ -13,7 +13,10 @@ use candle_nn::{Linear as CandleLinear, Module as CandleModule, VarBuilder as Ca
 #[cfg(feature = "candle")]
 use candle_transformers::models::{bert as candle_bert, distilbert as candle_distilbert};
 use serde_json::Value;
-use text_analysis_semantics::{DenseVector, TextEmbeddingBackend};
+use text_analysis_core::AnnotationProvenance;
+use text_analysis_semantics::{
+    DenseVector, TextEmbeddingBackend, TextEmbeddingBackendKind, TextEmbeddingMetadata,
+};
 use video_analysis_core::{DetectError, Result, TextSegment};
 use video_analysis_models::{
     HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelTask, RawPrediction,
@@ -31,6 +34,107 @@ pub enum TruncationStrategy {
 pub enum PoolingStrategy {
     Cls,
     Mean,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextRuntimeBackend {
+    Tokenizers,
+    Onnx,
+    Candle,
+    External,
+    Heuristic,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModelCacheConfig {
+    pub cache_dir: Option<PathBuf>,
+}
+
+impl Default for ModelCacheConfig {
+    fn default() -> Self {
+        Self { cache_dir: None }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextRuntimeConfig {
+    pub backend_priority: Vec<TextRuntimeBackend>,
+    pub tokenizer_source: TokenizerSource,
+    pub cache: ModelCacheConfig,
+}
+
+impl Default for TextRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            backend_priority: default_backend_priority(),
+            tokenizer_source: TokenizerSource::default(),
+            cache: ModelCacheConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextRuntimeCatalog {
+    pub default_tokenizer: TokenizerSource,
+    pub classifier_presets: Vec<TokenizerPreset>,
+    pub embedder_presets: Vec<TokenizerPreset>,
+}
+
+impl Default for TextRuntimeCatalog {
+    fn default() -> Self {
+        Self {
+            default_tokenizer: TokenizerSource::default(),
+            classifier_presets: vec![TokenizerPreset::DistilbertSst2],
+            embedder_presets: vec![TokenizerPreset::MiniLmL6V2],
+        }
+    }
+}
+
+pub trait TokenizerBackend {
+    fn tokenize_text(&self, text: &str) -> Result<TokenizedText>;
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Tokenizers
+    }
+}
+
+pub trait SequenceLabeler {
+    fn label_text(&mut self, text: &str) -> Result<Vec<RawPrediction>>;
+
+    fn runtime_backend(&self) -> TextRuntimeBackend;
+}
+
+pub trait TokenClassifier {
+    fn classify_tokenized_text(&mut self, tokens: &TokenizedText) -> Result<Vec<RawPrediction>>;
+
+    fn runtime_backend(&self) -> TextRuntimeBackend;
+}
+
+pub trait SentenceEmbedder: TextEmbeddingBackend {
+    fn runtime_backend(&self) -> TextRuntimeBackend;
+}
+
+pub trait TextClassifier {
+    fn classify_text(&mut self, text: &str) -> Result<Vec<RawPrediction>>;
+
+    fn runtime_backend(&self) -> TextRuntimeBackend;
+}
+
+pub fn default_backend_priority() -> Vec<TextRuntimeBackend> {
+    vec![
+        TextRuntimeBackend::Onnx,
+        TextRuntimeBackend::Candle,
+        TextRuntimeBackend::Tokenizers,
+        TextRuntimeBackend::Heuristic,
+    ]
+}
+
+pub fn select_text_runtime_backend(priority: &[TextRuntimeBackend]) -> TextRuntimeBackend {
+    priority
+        .iter()
+        .copied()
+        .next()
+        .unwrap_or(TextRuntimeBackend::Heuristic)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -281,6 +385,12 @@ impl TokenizerBundle {
     }
 }
 
+impl TokenizerBackend for TokenizerBundle {
+    fn tokenize_text(&self, text: &str) -> Result<TokenizedText> {
+        self.tokenize(text)
+    }
+}
+
 impl TokenizedText {
     pub fn truncate(&mut self, max_length: usize) {
         self.input_ids.truncate(max_length);
@@ -513,6 +623,36 @@ impl<R: OnnxTextClassifierRunner> TextModelBackend for OnnxTextClassifier<R> {
     }
 }
 
+impl<R: OnnxTextClassifierRunner> SequenceLabeler for OnnxTextClassifier<R> {
+    fn label_text(&mut self, text: &str) -> Result<Vec<RawPrediction>> {
+        self.classify(text)
+    }
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Onnx
+    }
+}
+
+impl<R: OnnxTextClassifierRunner> TokenClassifier for OnnxTextClassifier<R> {
+    fn classify_tokenized_text(&mut self, tokens: &TokenizedText) -> Result<Vec<RawPrediction>> {
+        self.classify_tokenized(tokens)
+    }
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Onnx
+    }
+}
+
+impl<R: OnnxTextClassifierRunner> TextClassifier for OnnxTextClassifier<R> {
+    fn classify_text(&mut self, text: &str) -> Result<Vec<RawPrediction>> {
+        self.classify(text)
+    }
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Onnx
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct OnnxTextEmbedder<R = UnavailableOnnxRunner> {
     tokenizer: TokenizerBundle,
@@ -584,6 +724,21 @@ impl<R: OnnxTextEmbeddingRunner> TextEmbeddingBackend for OnnxTextEmbedder<R> {
     fn embed_text(&self, text: &str) -> Result<DenseVector> {
         let tokens = self.tokenizer.tokenize(text)?;
         self.embed_tokenized(&tokens)
+    }
+
+    fn metadata(&self) -> TextEmbeddingMetadata {
+        TextEmbeddingMetadata {
+            backend: TextEmbeddingBackendKind::Onnx,
+            provenance: AnnotationProvenance::Onnx,
+            model_name: Some("onnx-text-embedder".to_string()),
+            dimensions: None,
+        }
+    }
+}
+
+impl<R: OnnxTextEmbeddingRunner> SentenceEmbedder for OnnxTextEmbedder<R> {
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Onnx
     }
 }
 
@@ -678,6 +833,36 @@ impl TextModelBackend for CandleTextClassifier {
     }
 }
 
+impl SequenceLabeler for CandleTextClassifier {
+    fn label_text(&mut self, text: &str) -> Result<Vec<RawPrediction>> {
+        self.classify(text)
+    }
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Candle
+    }
+}
+
+impl TokenClassifier for CandleTextClassifier {
+    fn classify_tokenized_text(&mut self, tokens: &TokenizedText) -> Result<Vec<RawPrediction>> {
+        self.classify_tokenized(tokens)
+    }
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Candle
+    }
+}
+
+impl TextClassifier for CandleTextClassifier {
+    fn classify_text(&mut self, text: &str) -> Result<Vec<RawPrediction>> {
+        self.classify(text)
+    }
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Candle
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct CandleTextEmbedder {
     tokenizer: TokenizerBundle,
@@ -726,6 +911,15 @@ impl TextEmbeddingBackend for CandleTextEmbedder {
         let tokens = self.tokenizer.tokenize(text)?;
         self.embed_tokenized(&tokens)
     }
+
+    fn metadata(&self) -> TextEmbeddingMetadata {
+        TextEmbeddingMetadata {
+            backend: TextEmbeddingBackendKind::Candle,
+            provenance: AnnotationProvenance::Candle,
+            model_name: Some("candle-text-embedder".to_string()),
+            dimensions: None,
+        }
+    }
 }
 
 impl CandleTextEmbedder {
@@ -749,6 +943,12 @@ impl CandleTextEmbedder {
                 "native Candle execution requires the `candle` feature",
             ))
         }
+    }
+}
+
+impl SentenceEmbedder for CandleTextEmbedder {
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Candle
     }
 }
 
@@ -1524,6 +1724,40 @@ mod tests {
         let bundle =
             TokenizerBundle::from_cached_source(TokenizerSource::local(path.clone())).unwrap();
         assert_eq!(bundle.tokenizer_path(), path.as_path());
+    }
+
+    #[test]
+    fn runtime_defaults_expose_rich_backend_order() {
+        let config = TextRuntimeConfig::default();
+        assert_eq!(
+            config.backend_priority,
+            vec![
+                TextRuntimeBackend::Onnx,
+                TextRuntimeBackend::Candle,
+                TextRuntimeBackend::Tokenizers,
+                TextRuntimeBackend::Heuristic,
+            ]
+        );
+        assert_eq!(
+            select_text_runtime_backend(&config.backend_priority),
+            TextRuntimeBackend::Onnx
+        );
+        assert_eq!(
+            select_text_runtime_backend(&[]),
+            TextRuntimeBackend::Heuristic
+        );
+    }
+
+    #[test]
+    fn runtime_catalog_tracks_default_presets() {
+        let catalog = TextRuntimeCatalog::default();
+        assert_eq!(catalog.default_tokenizer, TokenizerSource::default());
+        assert!(catalog
+            .embedder_presets
+            .contains(&TokenizerPreset::MiniLmL6V2));
+        assert!(catalog
+            .classifier_presets
+            .contains(&TokenizerPreset::DistilbertSst2));
     }
 
     #[cfg(feature = "external-tests")]

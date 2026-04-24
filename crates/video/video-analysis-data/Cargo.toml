@@ -13,4 +13,5 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+numbers-core.workspace = true
 video-analysis-core.workspace = true

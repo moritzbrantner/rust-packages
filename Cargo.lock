@@ -637,6 +637,8 @@ dependencies = [
 name = "dense-data"
 version = "0.1.0"
 dependencies = [
+ "criterion",
+ "numbers-core",
  "video-analysis-core",
 ]
 
@@ -1570,6 +1572,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "numbers-core"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2306,6 +2316,7 @@ dependencies = [
 name = "text-analysis-linguistics"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "tempfile",
  "text-analysis-core",
  "text-analysis-models",
@@ -2320,10 +2331,12 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "criterion",
  "ndarray",
  "ort",
  "serde_json",
  "tempfile",
+ "text-analysis-core",
  "text-analysis-semantics",
  "tokenizers",
  "vector-analysis-core",
@@ -2336,6 +2349,7 @@ name = "text-analysis-prediction"
 version = "0.1.0"
 dependencies = [
  "text-analysis-core",
+ "text-analysis-linguistics",
  "video-analysis-core",
 ]
 
@@ -2343,6 +2357,7 @@ dependencies = [
 name = "text-analysis-semantics"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "text-analysis-core",
  "text-analysis-corpus",
  "vector-analysis-core",
@@ -2356,6 +2371,7 @@ version = "0.1.0"
 dependencies = [
  "data-inversion-core",
  "text-analysis-core",
+ "text-analysis-linguistics",
  "video-analysis-core",
 ]
 
@@ -2770,6 +2786,7 @@ dependencies = [
  "image-analysis-segmentation",
  "image-analysis-synthesis",
  "num-rational",
+ "numbers-core",
  "tempfile",
  "text-analysis-core",
  "text-analysis-corpus",
@@ -2846,6 +2863,7 @@ dependencies = [
 name = "video-analysis-data"
 version = "0.1.0"
 dependencies = [
+ "numbers-core",
  "video-analysis-core",
 ]
 

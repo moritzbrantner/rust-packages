@@ -8,14 +8,23 @@ Lightweight semantic text embeddings and search for `video-analysis`.
 
 ## Example
 
-```rust,ignore
-use text_analysis_semantics::{HashedTextEmbedder, SemanticTextIndex};
+```rust,no_run
+use text_analysis_corpus::CorpusOptions;
+use text_analysis_semantics::{HashedTextEmbedder, SemanticTextIndex, TextEmbeddingConfig};
 
-let embedder = HashedTextEmbedder::default();
-let mut index = SemanticTextIndex::new(embedder.dimensions())?;
+let embedder = HashedTextEmbedder::new(
+    TextEmbeddingConfig {
+        dimensions: 128,
+        use_idf: true,
+    },
+    CorpusOptions::default(),
+) .unwrap();
+let mut index = SemanticTextIndex::new(embedder);
 
-index.insert("scene-1", embedder.embed("opening scene with presenter"))?;
-let _ = index.search(embedder.embed("presenter on screen")?, 5)?;
+index.add_document("scene-1", "opening scene with presenter").unwrap();
+let matches = index.search("presenter on screen", 5).unwrap();
+
+assert_eq!(matches[0].metadata.model_name.as_deref(), Some("hashed-text-embedder"));
 ```
 
 ## Related crates

@@ -8,13 +8,14 @@ Shared text documents, tokenization, spans, and statistics for `video-analysis`.
 
 ## Example
 
-```rust,ignore
-use text_analysis_core::{tokenize, TextDocument, TextProcessingOptions};
+```rust,no_run
+use text_analysis_core::{build_annotation_graph, TextDocument, TextProcessingOptions};
 
-let document = TextDocument::new("Rust-first multimodal analysis.");
-let tokens = tokenize(document, &TextProcessingOptions::default());
+let document = TextDocument::new("doc-1", "Rust-first multimodal analysis.");
+let graph = build_annotation_graph(document.text, &TextProcessingOptions::default());
 
-assert!(!tokens.is_empty());
+assert!(!graph.tokens.is_empty());
+assert_eq!(graph.sentences.len(), 1);
 ```
 
 ## Related crates

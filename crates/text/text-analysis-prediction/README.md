@@ -8,13 +8,18 @@ Deterministic Markov-chain text prediction for `video-analysis`.
 
 ## Example
 
-```rust,ignore
-use text_analysis_prediction::MarkovChain;
+```rust,no_run
+use text_analysis_linguistics::{analyze_text, LinguisticAnalysisOptions};
+use text_analysis_prediction::{MarkovChain, MarkovInputMode};
 
-let mut model = MarkovChain::new(2)?;
-model.train_text("scene transitions follow strong visual changes");
+let analysis = analyze_text(
+    "Scene transitions follow strong visual changes.",
+    &LinguisticAnalysisOptions::default(),
+) .unwrap();
+let mut model = MarkovChain::new(2).unwrap();
+model.train_analysis(&analysis, MarkovInputMode::Lemma);
 
-let _next = model.predict_next(["scene", "transitions"], 3)?;
+let _next = model.predict_next(["scene", "transitions"], 3).unwrap();
 ```
 
 ## Related crates

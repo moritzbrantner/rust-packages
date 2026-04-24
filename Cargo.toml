@@ -31,6 +31,7 @@ members = [
     "crates/comfyui/comfyui-models",
     "crates/data/data-inversion-core",
     "crates/data/dense-data",
+    "crates/data/numbers-core",
     "crates/image/image-analysis-core",
     "crates/image/image-analysis-detection",
     "crates/image/image-analysis-processing",
@@ -118,6 +119,7 @@ comfyui-data = { version = "0.1.0", path = "crates/comfyui/comfyui-data" }
 comfyui-models = { version = "0.1.0", path = "crates/comfyui/comfyui-models" }
 data-inversion-core = { version = "0.1.0", path = "crates/data/data-inversion-core" }
 dense-data = { version = "0.1.0", path = "crates/data/dense-data" }
+numbers-core = { version = "0.1.0", path = "crates/data/numbers-core" }
 audio-analysis-core = { version = "0.1.0", path = "crates/audio/audio-analysis-core" }
 audio-analysis-fourier = { version = "0.1.0", path = "crates/audio/audio-analysis-fourier" }
 audio-analysis-io = { version = "0.1.0", path = "crates/audio/audio-analysis-io" }
@@ -218,6 +220,7 @@ audio-analysis-separation.workspace = true
 audio-analysis-synthesis.workspace = true
 data-inversion-core.workspace = true
 dense-data.workspace = true
+numbers-core.workspace = true
 image-analysis-core.workspace = true
 image-analysis-detection.workspace = true
 image-analysis-processing.workspace = true

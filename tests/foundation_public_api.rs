@@ -8,6 +8,7 @@ use dense_data::{BucketGrid, DenseDataset, DensePoint};
 use image_analysis_core::{mean_rgb, ImagePixelFormat, OwnedImage};
 use image_analysis_processing::grayscale_image;
 use image_analysis_synthesis::{solid_image, ImageSynthesisConfig, RgbColor};
+use numbers_core::{quartiles, summarize_numbers};
 use tempfile::tempdir;
 use three_d_processing_core::{centroid, voxel_downsample, Point3};
 use three_d_processing_io::{read_mesh, write_obj_mesh};
@@ -54,7 +55,13 @@ fn foundation_crates_support_basic_consumer_workflows() -> Result<(), Box<dyn st
     ])?;
     assert_eq!(dataset.len(), 2);
     assert_eq!(dataset.averages()?.count, 2);
+    assert_eq!(dataset.summary()?.coordinate_stats[0].mean, Some(0.5));
     assert!(!dataset.buckets(&BucketGrid::uniform(2, 1.0)?)?.is_empty());
+
+    let scalar_summary = summarize_numbers(&[1.0, 2.0, 3.0, f64::NAN]);
+    assert_eq!(scalar_summary.finite_count, 3);
+    assert_eq!(scalar_summary.mean, Some(2.0));
+    assert_eq!(quartiles(&[1.0, 2.0, 3.0, 4.0])?.median, 2.5);
 
     let image = OwnedImage::new(2, 1, ImagePixelFormat::Rgb24, vec![255, 0, 0, 0, 255, 0], 6)?;
     let mean = mean_rgb(&image.as_view())?;

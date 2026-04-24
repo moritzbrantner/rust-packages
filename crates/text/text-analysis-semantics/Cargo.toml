@@ -18,3 +18,10 @@ text-analysis-corpus.workspace = true
 vector-analysis-core.workspace = true
 vector-analysis-index.workspace = true
 video-analysis-core.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "semantic_index"
+harness = false

@@ -19,4 +19,9 @@ text-analysis-transcription.workspace = true
 video-analysis-core.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 tempfile.workspace = true
+
+[[bench]]
+name = "pipeline"
+harness = false

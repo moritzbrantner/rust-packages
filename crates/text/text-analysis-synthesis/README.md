@@ -8,13 +8,21 @@ Deterministic text synthesis from terms and events for `video-analysis`.
 
 ## Example
 
-```rust,ignore
-use text_analysis_synthesis::{generate_document, WeightedTerm};
+```rust,no_run
+use text_analysis_linguistics::{analyze_text, LinguisticAnalysisOptions};
+use text_analysis_synthesis::{synthesize_from_analysis, TextSynthesisOptions};
 
-let terms = vec![WeightedTerm::new("analysis", 0.9), WeightedTerm::new("scene", 0.7)];
-let document = generate_document(&terms)?;
+let analysis = analyze_text(
+    "Alice presented the roadmap in Berlin.",
+    &LinguisticAnalysisOptions::default(),
+) .unwrap();
+let document = synthesize_from_analysis(
+    "doc-1",
+    &analysis,
+    TextSynthesisOptions::default(),
+) .unwrap();
 
-let _ = document;
+assert!(!document.value.text.trim().is_empty());
 ```
 
 ## Related crates

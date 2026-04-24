@@ -103,6 +103,55 @@ pub struct TextSpan {
     pub char_end: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AnnotationId(pub usize);
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AnnotationConfidence(f32);
+
+impl AnnotationConfidence {
+    pub fn new(value: f32) -> Self {
+        let value = if value.is_finite() {
+            value.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        Self(value)
+    }
+
+    pub fn get(self) -> f32 {
+        self.0
+    }
+}
+
+impl Default for AnnotationConfidence {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+impl From<f32> for AnnotationConfidence {
+    fn from(value: f32) -> Self {
+        Self::new(value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnnotationProvenance {
+    Heuristic,
+    Tokenizer,
+    Onnx,
+    Candle,
+    External,
+    Derived,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TextSpanRef {
+    pub id: AnnotationId,
+    pub span: TextSpan,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextBoundaryOptions {
     pub lowercase: bool,
@@ -181,6 +230,62 @@ pub struct Paragraph {
     pub text: String,
     pub span: TextSpan,
     pub sentence_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CanonicalToken {
+    pub id: AnnotationId,
+    pub span: TextSpanRef,
+    pub text: String,
+    pub normalized: String,
+    pub kind: TokenKind,
+    pub sentence_id: AnnotationId,
+    pub paragraph_id: Option<AnnotationId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnnotatedSentence {
+    pub id: AnnotationId,
+    pub span: TextSpanRef,
+    pub text: String,
+    pub token_start: usize,
+    pub token_end: usize,
+    pub token_ids: Vec<AnnotationId>,
+    pub paragraph_id: Option<AnnotationId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnnotatedParagraph {
+    pub id: AnnotationId,
+    pub span: TextSpanRef,
+    pub text: String,
+    pub sentence_start: usize,
+    pub sentence_end: usize,
+    pub sentence_ids: Vec<AnnotationId>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextAnnotationGraph {
+    pub text: String,
+    pub provenance: AnnotationProvenance,
+    pub confidence: AnnotationConfidence,
+    pub tokens: Vec<CanonicalToken>,
+    pub sentences: Vec<AnnotatedSentence>,
+    pub paragraphs: Vec<AnnotatedParagraph>,
+}
+
+impl TextAnnotationGraph {
+    pub fn token(&self, id: AnnotationId) -> Option<&CanonicalToken> {
+        self.tokens.iter().find(|token| token.id == id)
+    }
+
+    pub fn sentence(&self, id: AnnotationId) -> Option<&AnnotatedSentence> {
+        self.sentences.iter().find(|sentence| sentence.id == id)
+    }
+
+    pub fn paragraph(&self, id: AnnotationId) -> Option<&AnnotatedParagraph> {
+        self.paragraphs.iter().find(|paragraph| paragraph.id == id)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -503,6 +608,133 @@ pub fn split_paragraphs(text: &str) -> Vec<Paragraph> {
     paragraphs
 }
 
+pub fn build_annotation_graph(text: &str, options: &TextProcessingOptions) -> TextAnnotationGraph {
+    let tokens = tokenize(text, options);
+    let sentences = split_sentence_spans(text, options);
+    let paragraphs = split_paragraphs(text);
+    build_annotation_graph_from_parts(text, &tokens, &sentences, &paragraphs)
+}
+
+pub fn build_annotation_graph_from_parts(
+    text: &str,
+    tokens: &[Token],
+    sentences: &[Sentence],
+    paragraphs: &[Paragraph],
+) -> TextAnnotationGraph {
+    let token_id_offset = 0;
+    let sentence_id_offset = tokens.len();
+    let paragraph_id_offset = tokens.len() + sentences.len();
+
+    let annotated_paragraphs = paragraphs
+        .iter()
+        .enumerate()
+        .map(|(index, paragraph)| {
+            let id = AnnotationId(paragraph_id_offset + index);
+            let sentence_indices = sentences
+                .iter()
+                .enumerate()
+                .filter(|(_, sentence)| span_is_inside(sentence.span, paragraph.span))
+                .map(|(sentence_index, _)| sentence_index)
+                .collect::<Vec<_>>();
+            let sentence_ids = sentence_indices
+                .iter()
+                .map(|sentence_index| AnnotationId(sentence_id_offset + sentence_index))
+                .collect::<Vec<_>>();
+            let sentence_start = sentence_indices.first().copied().unwrap_or(sentences.len());
+            let sentence_end = sentence_indices
+                .last()
+                .map(|index| index + 1)
+                .unwrap_or(sentence_start);
+
+            AnnotatedParagraph {
+                id,
+                span: TextSpanRef {
+                    id,
+                    span: paragraph.span,
+                },
+                text: paragraph.text.clone(),
+                sentence_start,
+                sentence_end,
+                sentence_ids,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let annotated_sentences = sentences
+        .iter()
+        .enumerate()
+        .map(|(sentence_index, sentence)| {
+            let id = AnnotationId(sentence_id_offset + sentence_index);
+            let token_indices = tokens
+                .iter()
+                .enumerate()
+                .filter(|(_, token)| span_is_inside(token.span, sentence.span))
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>();
+            let paragraph_id = annotated_paragraphs
+                .iter()
+                .find(|paragraph| span_is_inside(sentence.span, paragraph.span.span))
+                .map(|paragraph| paragraph.id);
+            AnnotatedSentence {
+                id,
+                span: TextSpanRef {
+                    id,
+                    span: sentence.span,
+                },
+                text: sentence.text.clone(),
+                token_start: token_indices.first().copied().unwrap_or(tokens.len()),
+                token_end: token_indices
+                    .last()
+                    .map(|index| index + 1)
+                    .unwrap_or(tokens.len()),
+                token_ids: token_indices
+                    .into_iter()
+                    .map(|index| AnnotationId(token_id_offset + index))
+                    .collect(),
+                paragraph_id,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let annotated_tokens = tokens
+        .iter()
+        .enumerate()
+        .map(|(token_index, token)| {
+            let id = AnnotationId(token_id_offset + token_index);
+            let sentence_id = annotated_sentences
+                .iter()
+                .find(|sentence| span_is_inside(token.span, sentence.span.span))
+                .map(|sentence| sentence.id)
+                .unwrap_or(AnnotationId(sentence_id_offset));
+            let paragraph_id = annotated_paragraphs
+                .iter()
+                .find(|paragraph| span_is_inside(token.span, paragraph.span.span))
+                .map(|paragraph| paragraph.id);
+            CanonicalToken {
+                id,
+                span: TextSpanRef {
+                    id,
+                    span: token.span,
+                },
+                text: token.text.clone(),
+                normalized: token.normalized.clone(),
+                kind: token.kind,
+                sentence_id,
+                paragraph_id,
+            }
+        })
+        .collect();
+
+    TextAnnotationGraph {
+        text: text.to_string(),
+        provenance: AnnotationProvenance::Tokenizer,
+        confidence: AnnotationConfidence::default(),
+        tokens: annotated_tokens,
+        sentences: annotated_sentences,
+        paragraphs: annotated_paragraphs,
+    }
+}
+
 pub fn detailed_text_stats(text: &str, options: &TextProcessingOptions) -> DetailedTextStats {
     let basic = text_stats(text);
     let paragraphs = split_paragraphs(text).len();
@@ -550,6 +782,10 @@ fn span_for(text: &str, byte_start: usize, byte_end: usize) -> TextSpan {
         char_start: text[..byte_start].chars().count(),
         char_end: text[..byte_end].chars().count(),
     }
+}
+
+fn span_is_inside(inner: TextSpan, outer: TextSpan) -> bool {
+    inner.byte_start >= outer.byte_start && inner.byte_end <= outer.byte_end
 }
 
 fn starts_url(text: &str, byte_index: usize) -> bool {
@@ -910,5 +1146,29 @@ mod tests {
         assert_eq!(stats.paragraphs, 2);
         assert_eq!(stats.basic.sentences, 2);
         assert!(stats.average_words_per_sentence > 0.0);
+    }
+
+    #[test]
+    fn builds_annotation_graph_with_stable_cross_references() {
+        let graph = build_annotation_graph(
+            "Alice launched the API.\n\nBerlin hosted the event.",
+            &TextProcessingOptions::default(),
+        );
+        assert_eq!(graph.tokens.len(), 8);
+        assert_eq!(graph.sentences.len(), 2);
+        assert_eq!(graph.paragraphs.len(), 2);
+        assert_eq!(graph.provenance, AnnotationProvenance::Tokenizer);
+        assert!(graph.confidence.get() > 0.0);
+
+        let first_sentence = &graph.sentences[0];
+        let first_token = graph.token(first_sentence.token_ids[0]).unwrap();
+        assert_eq!(first_token.text, "Alice");
+        assert_eq!(first_token.sentence_id, first_sentence.id);
+        assert_eq!(first_token.paragraph_id, first_sentence.paragraph_id);
+
+        let second_paragraph = &graph.paragraphs[1];
+        assert_eq!(second_paragraph.sentence_ids.len(), 1);
+        let sentence = graph.sentence(second_paragraph.sentence_ids[0]).unwrap();
+        assert_eq!(sentence.text, "Berlin hosted the event.");
     }
 }

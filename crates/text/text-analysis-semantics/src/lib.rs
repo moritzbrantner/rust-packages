@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use text_analysis_core::{segment_document_id, tokenize_words, TextDocument};
+use text_analysis_core::{segment_document_id, tokenize_words, AnnotationProvenance, TextDocument};
 use text_analysis_corpus::{term_counts, CorpusOptions, TfIdfCorpus};
 use vector_analysis_core::cosine_similarity;
 pub use vector_analysis_core::DenseVector;
@@ -30,8 +30,40 @@ pub struct HashedTextEmbedder {
     pub corpus_options: CorpusOptions,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextEmbeddingBackendKind {
+    Hashed,
+    Onnx,
+    Candle,
+    External,
+    Custom,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextEmbeddingMetadata {
+    pub backend: TextEmbeddingBackendKind,
+    pub provenance: AnnotationProvenance,
+    pub model_name: Option<String>,
+    pub dimensions: Option<usize>,
+}
+
+impl Default for TextEmbeddingMetadata {
+    fn default() -> Self {
+        Self {
+            backend: TextEmbeddingBackendKind::Custom,
+            provenance: AnnotationProvenance::Derived,
+            model_name: None,
+            dimensions: None,
+        }
+    }
+}
+
 pub trait TextEmbeddingBackend {
     fn embed_text(&self, text: &str) -> Result<DenseVector>;
+
+    fn metadata(&self) -> TextEmbeddingMetadata {
+        TextEmbeddingMetadata::default()
+    }
 
     fn embed_document(&self, document: &TextDocument<'_>) -> Result<DenseVector> {
         self.embed_text(document.text)
@@ -102,6 +134,15 @@ impl TextEmbeddingBackend for HashedTextEmbedder {
     fn embed_document(&self, document: &TextDocument<'_>) -> Result<DenseVector> {
         HashedTextEmbedder::embed_document(self, document)
     }
+
+    fn metadata(&self) -> TextEmbeddingMetadata {
+        TextEmbeddingMetadata {
+            backend: TextEmbeddingBackendKind::Hashed,
+            provenance: AnnotationProvenance::Heuristic,
+            model_name: Some("hashed-text-embedder".to_string()),
+            dimensions: Some(self.config.dimensions),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -109,6 +150,7 @@ pub struct SemanticMatch {
     pub id: String,
     pub score: f32,
     pub distance: f32,
+    pub metadata: TextEmbeddingMetadata,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -116,6 +158,8 @@ pub struct EmbeddingSearchIndex<E> {
     embedder: E,
     vectors: VectorSearchIndex,
 }
+
+pub type SemanticIndex<E> = EmbeddingSearchIndex<E>;
 
 impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
     pub fn new(embedder: E) -> Self {
@@ -131,6 +175,10 @@ impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
 
     pub fn embedder_mut(&mut self) -> &mut E {
         &mut self.embedder
+    }
+
+    pub fn backend_metadata(&self) -> TextEmbeddingMetadata {
+        self.embedder.metadata()
     }
 
     pub fn add_document(&mut self, id: impl Into<String>, text: &str) -> Result<()> {
@@ -170,6 +218,7 @@ impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
     }
 
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<SemanticMatch>> {
+        let metadata = self.embedder.metadata();
         let query = self.embedder.embed_text(query)?;
         let results = self.vectors.search(
             &query,
@@ -184,6 +233,7 @@ impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
                 id: result.id,
                 score: result.score,
                 distance: result.distance,
+                metadata: metadata.clone(),
             })
             .collect())
     }
@@ -213,6 +263,10 @@ impl SemanticTextIndex {
         &self.corpus
     }
 
+    pub fn backend_metadata(&self) -> TextEmbeddingMetadata {
+        self.embedder.metadata()
+    }
+
     pub fn add_document(&mut self, id: impl Into<String>, text: &str) -> Result<()> {
         let id = id.into();
         self.corpus.add_document(id.clone(), text)?;
@@ -239,6 +293,7 @@ impl SemanticTextIndex {
     }
 
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<SemanticMatch>> {
+        let metadata = self.embedder.metadata();
         let query = self
             .embedder
             .embed_text_with_corpus(query, Some(&self.corpus))?;
@@ -255,6 +310,7 @@ impl SemanticTextIndex {
                 id: result.id,
                 score: result.score,
                 distance: result.distance,
+                metadata: metadata.clone(),
             })
             .collect())
     }
@@ -549,6 +605,15 @@ mod tests {
             let has_rust = text.contains("rust") || text.contains("cargo");
             DenseVector::new(if has_rust { [1.0, 0.0] } else { [0.0, 1.0] })
         }
+
+        fn metadata(&self) -> TextEmbeddingMetadata {
+            TextEmbeddingMetadata {
+                backend: TextEmbeddingBackendKind::Custom,
+                provenance: AnnotationProvenance::External,
+                model_name: Some("tiny".to_string()),
+                dimensions: Some(2),
+            }
+        }
     }
 
     #[test]
@@ -634,5 +699,30 @@ mod tests {
         let direct = embedder.embed_text("rust cargo").unwrap();
         let via_trait = embed_with_trait(&embedder, "rust cargo").unwrap();
         assert_eq!(direct, via_trait);
+    }
+
+    #[test]
+    fn semantic_matches_include_backend_metadata() {
+        let mut index = EmbeddingSearchIndex::new(TinyEmbedder);
+        index.add_document("rust", "rust cargo").unwrap();
+
+        let results = index.search("cargo", 1).unwrap();
+        assert_eq!(
+            results[0].metadata.backend,
+            TextEmbeddingBackendKind::Custom
+        );
+        assert_eq!(
+            results[0].metadata.provenance,
+            AnnotationProvenance::External
+        );
+        assert_eq!(results[0].metadata.model_name.as_deref(), Some("tiny"));
+
+        let hashed = HashedTextEmbedder::default().metadata();
+        assert_eq!(hashed.backend, TextEmbeddingBackendKind::Hashed);
+        assert_eq!(hashed.provenance, AnnotationProvenance::Heuristic);
+        assert_eq!(
+            hashed.dimensions,
+            Some(TextEmbeddingConfig::default().dimensions)
+        );
     }
 }

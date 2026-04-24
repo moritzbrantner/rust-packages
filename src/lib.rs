@@ -16,6 +16,7 @@ pub use image_analysis_detection as image_detection;
 pub use image_analysis_processing as image_processing;
 pub use image_analysis_segmentation as image_segmentation;
 pub use image_analysis_synthesis as image_synthesis;
+pub use numbers_core as numbers;
 pub use text_analysis_core as text_core;
 pub use text_analysis_corpus as text_corpus;
 pub use text_analysis_features as text_features;

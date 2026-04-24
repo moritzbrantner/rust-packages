@@ -16,6 +16,7 @@ categories.workspace = true
 ndarray = { workspace = true, optional = true }
 ort = { workspace = true, optional = true }
 serde_json.workspace = true
+text-analysis-core.workspace = true
 text-analysis-semantics.workspace = true
 tokenizers = { workspace = true, optional = true }
 vector-analysis-core.workspace = true
@@ -33,4 +34,10 @@ candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transfor
 external-tests = ["onnx", "candle"]
 
 [dev-dependencies]
+criterion.workspace = true
 tempfile.workspace = true
+
+[[bench]]
+name = "tokenizer"
+harness = false
+required-features = ["tokenizers"]

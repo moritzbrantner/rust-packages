@@ -2,24 +2,42 @@
 
 Deterministic dense point datasets, bucketing, and clustering for `video-analysis`.
 
-## Feature flags
+## Highlights
 
-- No optional feature flags today.
+- Weighted dense point summaries with per-dimension stats
+- Deterministic fixed-grid bucketing
+- Deterministic k-means clustering
+- Dataset and point-set helpers for tables, charts, and media-derived features
 
 ## Example
 
-```rust,ignore
-use dense_data::{DenseDataset, DensePoint};
+```rust,no_run
+use dense_data::{BucketGrid, DenseDataset, DensePoint, KMeansConfig};
 
-let dataset = DenseDataset::new(vec![
-    DensePoint::new(vec![0.0, 0.0], 1.0)?,
-    DensePoint::new(vec![1.0, 1.0], 2.0)?,
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+let dataset = DenseDataset::from_points([
+    DensePoint::new([0.0, 0.0])?.named("left"),
+    DensePoint::new([1.0, 1.0])?
+        .named("right")
+        .weighted(2.0)?
+        .valued(4.0)?,
 ])?;
 
-let _clusters = dataset.k_means(2)?;
+let summary = dataset.summary()?;
+assert_eq!(summary.dimensions, 2);
+assert_eq!(summary.coordinate_stats[0].mean, Some(2.0 / 3.0));
+
+let buckets = dataset.buckets(&BucketGrid::uniform(2, 1.0)?)?;
+assert_eq!(buckets.len(), 2);
+
+let clusters = dataset.k_means(KMeansConfig::new(2)?)?;
+assert_eq!(clusters.clusters.len(), 2);
+    Ok(())
+}
 ```
 
 ## Related crates
 
+- `numbers-core`
 - `vector-analysis-core`
 - `video-analysis-data`

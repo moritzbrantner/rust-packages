@@ -13,20 +13,19 @@ Heuristic-first linguistic analysis pipeline for `video-analysis`.
 
 ## Example
 
-```rust,ignore
-use text_analysis_linguistics::{analyze_transcription, LinguisticAnalysisOptions};
+```rust,no_run
+use text_analysis_linguistics::{TextNlpPipeline, TextNlpConfig};
 use text_analysis_transcription::parse_srt;
 
 let subtitles = parse_srt(
     "1\n00:00:00,000 --> 00:00:01,000\nAlice visited Berlin\n\n2\n00:00:01,000 --> 00:00:02,000\nShe presented the roadmap\n",
-)?;
-let analysis = analyze_transcription(
-    &subtitles,
-    &LinguisticAnalysisOptions::default(),
-)?;
+) .unwrap();
+let pipeline = TextNlpPipeline::new(TextNlpConfig::rich());
+let analysis = pipeline.analyze_transcription(&subtitles).unwrap();
 
 assert_eq!(analysis.cues.len(), 2);
 assert!(!analysis.aggregate.entities.is_empty());
+assert_eq!(analysis.aggregate.graph.tokens.len(), analysis.aggregate.tokens.len());
 ```
 
 ## Related crates
