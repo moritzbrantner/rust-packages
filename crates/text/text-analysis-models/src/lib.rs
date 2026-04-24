@@ -15,7 +15,10 @@ use candle_transformers::models::{bert as candle_bert, distilbert as candle_dist
 use serde_json::Value;
 use text_analysis_semantics::{DenseVector, TextEmbeddingBackend};
 use video_analysis_core::{DetectError, Result, TextSegment};
-use video_analysis_models::{ModelBundle, ModelTask, RawPrediction, TextModelBackend};
+use video_analysis_models::{
+    HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelTask, RawPrediction,
+    TextModelBackend,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TruncationStrategy {
@@ -38,6 +41,147 @@ pub struct TokenizedText {
     pub offsets: Vec<Option<(usize, usize)>>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenizerPreset {
+    BertBaseUncased,
+    DistilbertSst2,
+    MiniLmL6V2,
+}
+
+impl TokenizerPreset {
+    pub const ALL: &'static [Self] = &[
+        Self::BertBaseUncased,
+        Self::DistilbertSst2,
+        Self::MiniLmL6V2,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::BertBaseUncased => "bert-base-uncased",
+            Self::DistilbertSst2 => "distilbert-sst2",
+            Self::MiniLmL6V2 => "minilm-l6-v2",
+        }
+    }
+
+    fn source(self) -> TokenizerSource {
+        match self {
+            Self::BertBaseUncased => TokenizerSource::huggingface("bert-base-uncased"),
+            Self::DistilbertSst2 => {
+                TokenizerSource::huggingface("distilbert-base-uncased-finetuned-sst-2-english")
+            }
+            Self::MiniLmL6V2 => {
+                TokenizerSource::huggingface("sentence-transformers/all-MiniLM-L6-v2")
+            }
+        }
+    }
+}
+
+impl Default for TokenizerPreset {
+    fn default() -> Self {
+        Self::MiniLmL6V2
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TokenizerSource {
+    Local(PathBuf),
+    Preset(TokenizerPreset),
+    HuggingFace {
+        repo_id: String,
+        revision: String,
+        tokenizer_file: String,
+    },
+}
+
+impl TokenizerSource {
+    pub fn local(path: impl Into<PathBuf>) -> Self {
+        Self::Local(path.into())
+    }
+
+    pub fn preset(preset: TokenizerPreset) -> Self {
+        Self::Preset(preset)
+    }
+
+    pub fn huggingface(repo_id: impl Into<String>) -> Self {
+        Self::HuggingFace {
+            repo_id: repo_id.into(),
+            revision: "main".to_string(),
+            tokenizer_file: "tokenizer.json".to_string(),
+        }
+    }
+
+    fn resolve_path(&self, options: &TokenizerDownloadOptions) -> Result<PathBuf> {
+        match self {
+            Self::Local(path) => Ok(path.clone()),
+            Self::Preset(preset) => preset.source().resolve_path(options),
+            Self::HuggingFace {
+                repo_id,
+                revision,
+                tokenizer_file,
+            } => {
+                let downloaded = options.downloader().download(
+                    &HuggingFaceModelSpec::new(
+                        repo_id.clone(),
+                        ModelTask::Custom("tokenizer".to_string()),
+                    )
+                    .name(format!("{repo_id}-tokenizer"))
+                    .revision(revision.clone())
+                    .file(tokenizer_file.clone()),
+                )?;
+                downloaded
+                    .files
+                    .get(tokenizer_file)
+                    .cloned()
+                    .ok_or_else(|| {
+                        DetectError::Source(format!(
+                            "downloaded tokenizer `{repo_id}` did not contain `{tokenizer_file}`"
+                        ))
+                    })
+            }
+        }
+    }
+}
+
+impl Default for TokenizerSource {
+    fn default() -> Self {
+        Self::Preset(TokenizerPreset::default())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TokenizerDownloadOptions {
+    pub cache_dir: Option<PathBuf>,
+    pub token: Option<String>,
+    pub progress: bool,
+    pub max_retries: usize,
+}
+
+impl TokenizerDownloadOptions {
+    pub fn downloader(&self) -> HuggingFaceDownloader {
+        let mut downloader = HuggingFaceDownloader::new()
+            .progress(self.progress)
+            .max_retries(self.max_retries);
+        if let Some(cache_dir) = &self.cache_dir {
+            downloader = downloader.cache_dir(cache_dir.clone());
+        }
+        if let Some(token) = &self.token {
+            downloader = downloader.token(token.clone());
+        }
+        downloader
+    }
+}
+
+impl Default for TokenizerDownloadOptions {
+    fn default() -> Self {
+        Self {
+            cache_dir: None,
+            token: None,
+            progress: true,
+            max_retries: 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TokenizerBundle {
     tokenizer_path: PathBuf,
@@ -57,6 +201,21 @@ impl TokenizerBundle {
     pub fn from_bundle(bundle: &ModelBundle) -> Result<Self> {
         let tokenizer_path = required_bundle_file(bundle, "tokenizer.json")?;
         Ok(Self::new(tokenizer_path))
+    }
+
+    pub fn from_default_cached() -> Result<Self> {
+        Self::from_cached_source(TokenizerSource::default())
+    }
+
+    pub fn from_cached_source(source: TokenizerSource) -> Result<Self> {
+        Self::from_cached_source_with_options(source, &TokenizerDownloadOptions::default())
+    }
+
+    pub fn from_cached_source_with_options(
+        source: TokenizerSource,
+        options: &TokenizerDownloadOptions,
+    ) -> Result<Self> {
+        Ok(Self::new(source.resolve_path(options)?))
     }
 
     pub fn max_length(mut self, max_length: usize) -> Self {
@@ -1341,6 +1500,32 @@ mod tests {
         assert_eq!(spec.repo_id, "fake/repo");
     }
 
+    #[test]
+    fn tokenizer_source_defaults_to_minilm() {
+        assert_eq!(
+            TokenizerSource::default(),
+            TokenizerSource::Preset(TokenizerPreset::MiniLmL6V2)
+        );
+        assert_eq!(TokenizerPreset::default(), TokenizerPreset::MiniLmL6V2);
+        assert_eq!(
+            TokenizerPreset::ALL,
+            &[
+                TokenizerPreset::BertBaseUncased,
+                TokenizerPreset::DistilbertSst2,
+                TokenizerPreset::MiniLmL6V2
+            ]
+        );
+    }
+
+    #[test]
+    fn tokenizer_bundle_can_be_built_from_local_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("custom-tokenizer.json");
+        let bundle =
+            TokenizerBundle::from_cached_source(TokenizerSource::local(path.clone())).unwrap();
+        assert_eq!(bundle.tokenizer_path(), path.as_path());
+    }
+
     #[cfg(feature = "external-tests")]
     #[test]
     #[ignore]
@@ -1436,5 +1621,32 @@ mod tests {
             .unwrap();
         assert_eq!(left.dimensions(), right.dimensions());
         assert!(left.dimensions() > 0);
+    }
+
+    #[cfg(all(feature = "external-tests", feature = "tokenizers"))]
+    #[test]
+    #[ignore]
+    fn downloads_default_tokenizer_once_and_reuses_cached_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let options = TokenizerDownloadOptions {
+            cache_dir: Some(dir.path().join("hf-cache")),
+            progress: false,
+            max_retries: 1,
+            ..TokenizerDownloadOptions::default()
+        };
+
+        let first =
+            TokenizerBundle::from_cached_source_with_options(TokenizerSource::default(), &options)
+                .unwrap();
+        let first_metadata = fs::metadata(first.tokenizer_path()).unwrap();
+        let tokenized = first.tokenize("Rust crates and cargo packages").unwrap();
+        assert!(!tokenized.input_ids.is_empty());
+
+        let second =
+            TokenizerBundle::from_cached_source_with_options(TokenizerSource::default(), &options)
+                .unwrap();
+        let second_metadata = fs::metadata(second.tokenizer_path()).unwrap();
+        assert_eq!(first.tokenizer_path(), second.tokenizer_path());
+        assert_eq!(first_metadata.len(), second_metadata.len());
     }
 }

@@ -12,13 +12,19 @@ Optional model-backed text classification and embedding adapters for `video-anal
 ## Example
 
 ```rust,ignore
-use text_analysis_models::{TextClassifierBundle, TokenizerBundle};
+use text_analysis_models::{TokenizerBundle, TokenizerPreset, TokenizerSource};
 
-let tokenizer = TokenizerBundle::from_dir("bundles/sentiment")?;
-let classifier = TextClassifierBundle::from_dir("bundles/sentiment", tokenizer)?;
+let default_tokenizer = TokenizerBundle::from_default_cached()?;
+let bert_tokenizer = TokenizerBundle::from_cached_source(
+    TokenizerSource::preset(TokenizerPreset::BertBaseUncased),
+)?;
 
-let _ = classifier;
+let _ = (default_tokenizer, bert_tokenizer);
 ```
+
+`from_default_cached` and `from_cached_source` download the tokenizer on first
+use through the Hugging Face cache and reuse the cached file on subsequent
+calls. By default that cache lives outside the git worktree.
 
 ## Related crates
 
