@@ -24,7 +24,7 @@ Package README index:
 - ComfyUI: [`comfyui-data`](crates/comfyui/comfyui-data/README.md), [`comfyui-models`](crates/comfyui/comfyui-models/README.md)
 - Data: [`data-inversion-core`](crates/data/data-inversion-core/README.md), [`dense-data`](crates/data/dense-data/README.md)
 - Image: [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
-- Text: [`text-analysis-core`](crates/text/text-analysis-core/README.md), [`text-analysis-corpus`](crates/text/text-analysis-corpus/README.md), [`text-analysis-features`](crates/text/text-analysis-features/README.md), [`text-analysis-models`](crates/text/text-analysis-models/README.md), [`text-analysis-prediction`](crates/text/text-analysis-prediction/README.md), [`text-analysis-semantics`](crates/text/text-analysis-semantics/README.md), [`text-analysis-synthesis`](crates/text/text-analysis-synthesis/README.md), [`text-analysis-transcription`](crates/text/text-analysis-transcription/README.md)
+- Text: [`text-analysis-core`](crates/text/text-analysis-core/README.md), [`text-analysis-corpus`](crates/text/text-analysis-corpus/README.md), [`text-analysis-features`](crates/text/text-analysis-features/README.md), [`text-analysis-linguistics`](crates/text/text-analysis-linguistics/README.md), [`text-analysis-models`](crates/text/text-analysis-models/README.md), [`text-analysis-prediction`](crates/text/text-analysis-prediction/README.md), [`text-analysis-semantics`](crates/text/text-analysis-semantics/README.md), [`text-analysis-synthesis`](crates/text/text-analysis-synthesis/README.md), [`text-analysis-transcription`](crates/text/text-analysis-transcription/README.md)
 - Vector and 3D: [`vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md)
 - Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-use-cases`](crates/video/video-analysis-use-cases/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
 
@@ -69,6 +69,10 @@ Package README index:
 - `text-analysis-features`: stop words, keywords, stemming, extractive
   summaries, lexicon sentiment, rule entities, readability, pattern events,
   reusable text analyzers, term frequencies, and character/token n-grams.
+- `text-analysis-linguistics`: heuristic-first language detection, tokenizer
+  routing, token/subword alignment, lemmatization, morphology, POS tagging,
+  chunking, dependency parsing, typed entities, coreference, events, discourse,
+  topics, style profiles, and a `TextAnalyzer` adapter.
 - `text-analysis-models`: optional tokenizer, ONNX, and Candle adapters for
   model-backed text classification and embeddings. Default builds stay light;
   `onnx`, `candle`, and `external-tests` are opt-in features.
@@ -308,6 +312,7 @@ flowchart LR
     textcorpus[text-analysis-corpus]
     textcore[text-analysis-core]
     textfeatures[text-analysis-features]
+    textlinguistics[text-analysis-linguistics]
     textprediction[text-analysis-prediction]
     textsemantics[text-analysis-semantics]
     texttranscription[text-analysis-transcription]
@@ -886,7 +891,10 @@ segments or a `TextSegmentSource`. For larger document collections,
 search; `text-analysis-semantics` adds hashed semantic embeddings,
 co-occurrence graphs, related terms, and semantic search; and
 `text-analysis-prediction` provides Markov next-token prediction and
-generation.
+generation. `text-analysis-linguistics` adds heuristic-first language
+detection, tokenizer routing, token/subword alignment, lemma/POS/morphology
+annotation, dependency parsing, typed entities, coreference, event extraction,
+discourse segmentation, topic descriptors, and style profiles.
 
 ### Data Aggregation
 

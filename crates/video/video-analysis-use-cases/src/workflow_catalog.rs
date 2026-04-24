@@ -609,7 +609,7 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
     ];
 
     WorkflowCatalog {
-        version: 2,
+        version: 3,
         port_kinds: all_port_kinds(),
         compatibility: compatibility_pairs(),
         nodes,
@@ -1031,12 +1031,31 @@ mod tests {
     }
 
     #[test]
-    fn catalog_serialization_includes_value_type() {
+    fn binary_media_type_assignability_is_directional() {
+        let generic_audio = WorkflowTypeSpec::Binary {
+            media_type: Some("audio/*".to_string()),
+            semantic: Some(WorkflowSemanticKind::AudioFile),
+        };
+        let wav_audio = WorkflowTypeSpec::Binary {
+            media_type: Some("audio/wav".to_string()),
+            semantic: Some(WorkflowSemanticKind::AudioWav),
+        };
+
+        assert!(!workflow_types_assignable(&generic_audio, &wav_audio));
+        assert!(!workflow_types_assignable(&wav_audio, &generic_audio));
+    }
+
+    #[test]
+    fn catalog_serialization_includes_value_type_and_input_metadata() {
         let catalog = default_workflow_catalog();
         let json = serde_json::to_value(catalog).expect("catalog serializes");
         let first_port = &json["nodes"][0]["outputs"][0];
+        let config_port = &json["nodes"][0]["outputs"][1];
 
         assert!(first_port.get("value_type").is_some());
-        assert_eq!(json["version"], 2);
+        assert_eq!(config_port["exposable_input"], true);
+        assert_eq!(config_port["input_surface"], "config");
+        assert_eq!(config_port["runtime_validation"], "external_input");
+        assert_eq!(json["version"], 3);
     }
 }

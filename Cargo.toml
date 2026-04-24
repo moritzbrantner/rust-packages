@@ -39,6 +39,7 @@ members = [
     "crates/text/text-analysis-corpus",
     "crates/text/text-analysis-core",
     "crates/text/text-analysis-features",
+    "crates/text/text-analysis-linguistics",
     "crates/text/text-analysis-models",
     "crates/text/text-analysis-prediction",
     "crates/text/text-analysis-semantics",
@@ -136,6 +137,7 @@ image-analysis-synthesis = { version = "0.1.0", path = "crates/image/image-analy
 text-analysis-core = { version = "0.1.0", path = "crates/text/text-analysis-core" }
 text-analysis-corpus = { version = "0.1.0", path = "crates/text/text-analysis-corpus" }
 text-analysis-features = { version = "0.1.0", path = "crates/text/text-analysis-features" }
+text-analysis-linguistics = { version = "0.1.0", path = "crates/text/text-analysis-linguistics" }
 text-analysis-models = { version = "0.1.0", path = "crates/text/text-analysis-models" }
 text-analysis-prediction = { version = "0.1.0", path = "crates/text/text-analysis-prediction" }
 text-analysis-semantics = { version = "0.1.0", path = "crates/text/text-analysis-semantics" }
@@ -224,6 +226,7 @@ image-analysis-synthesis.workspace = true
 text-analysis-core.workspace = true
 text-analysis-corpus.workspace = true
 text-analysis-features.workspace = true
+text-analysis-linguistics.workspace = true
 text-analysis-models.workspace = true
 text-analysis-prediction.workspace = true
 text-analysis-semantics.workspace = true

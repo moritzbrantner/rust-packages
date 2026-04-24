@@ -2303,6 +2303,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "text-analysis-linguistics"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
+ "text-analysis-core",
+ "text-analysis-models",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "text-analysis-models"
 version = "0.1.0"
 dependencies = [
@@ -2763,6 +2773,7 @@ dependencies = [
  "text-analysis-core",
  "text-analysis-corpus",
  "text-analysis-features",
+ "text-analysis-linguistics",
  "text-analysis-models",
  "text-analysis-prediction",
  "text-analysis-semantics",

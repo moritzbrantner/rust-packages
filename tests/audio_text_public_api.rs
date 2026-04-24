@@ -16,6 +16,7 @@ use audio_analysis_synthesis::{synthesize_tone, AudioSynthesisConfig, ToneSpec};
 use num_rational::Rational64;
 use support::{click_track, owned_f32_frame, sine};
 use tempfile::tempdir;
+use text_analysis_linguistics::{analyze_text, LinguisticAnalysisOptions};
 use text_analysis_models::{pool_embedding_output, softmax, PoolingStrategy};
 use text_analysis_synthesis::{
     synthesize_from_terms, terms_from_counts, TermPrompt, TextSynthesisOptions,
@@ -97,6 +98,23 @@ fn audio_and_text_packages_support_smoke_workflows() -> Result<(), Box<dyn std::
     )
     .score(0.8)]);
     assert!(event_terms.iter().any(|term| term.term == "rust"));
+
+    let linguistic = analyze_text(
+        "Alice presented the tokenizer roadmap in Berlin.",
+        &LinguisticAnalysisOptions::default(),
+    )?;
+    assert_eq!(
+        linguistic
+            .language
+            .primary
+            .as_ref()
+            .map(|prediction| prediction.language.as_str()),
+        Some("en")
+    );
+    assert!(linguistic
+        .entities
+        .iter()
+        .any(|entity| entity.mention.text.contains("Alice")));
 
     let _ = Rational64::new(30, 1);
     Ok(())

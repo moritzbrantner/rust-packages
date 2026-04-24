@@ -19,6 +19,7 @@ pub use image_analysis_synthesis as image_synthesis;
 pub use text_analysis_core as text_core;
 pub use text_analysis_corpus as text_corpus;
 pub use text_analysis_features as text_features;
+pub use text_analysis_linguistics as text_linguistics;
 pub use text_analysis_models as text_models;
 pub use text_analysis_prediction as text_prediction;
 pub use text_analysis_semantics as text_semantics;

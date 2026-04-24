@@ -13,6 +13,24 @@ fn root_facade_reexports_core_and_domain_packages() {
         va::text_features::summarize_text("Rust tests keep package boundaries honest.", 3);
     assert_eq!(summary.stats.words, 6);
 
+    let linguistic = va::text_linguistics::analyze_text(
+        "Alice launched the API in Berlin.",
+        &va::text_linguistics::LinguisticAnalysisOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        linguistic
+            .language
+            .primary
+            .as_ref()
+            .map(|prediction| prediction.language.as_str()),
+        Some("en")
+    );
+    assert!(linguistic
+        .events
+        .iter()
+        .any(|event| event.lemma == "launch"));
+
     let dataset = dataset_with_scene_text_and_feature();
     let features = va::features::FeaturePipeline::builder()
         .extractor(va::features::SceneStatsExtractor)
