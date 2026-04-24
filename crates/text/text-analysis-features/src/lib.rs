@@ -63,6 +63,15 @@ pub struct NgramFrequency {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ShingleSimilarity {
+    pub left_count: usize,
+    pub right_count: usize,
+    pub intersection_count: usize,
+    pub union_count: usize,
+    pub jaccard: f32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ReadabilitySummary {
     pub sentence_count: usize,
     pub word_count: usize,
@@ -381,6 +390,72 @@ pub fn token_ngram_frequencies(
         .map(|window| window.to_vec())
         .collect::<Vec<_>>();
     Ok(ngram_frequencies(ngrams))
+}
+
+pub fn character_shingles(text: &str, n: usize) -> Result<BTreeSet<String>> {
+    Ok(character_ngrams(text, n)?.into_iter().collect())
+}
+
+pub fn token_shingles(
+    text: &str,
+    n: usize,
+    options: &TextProcessingOptions,
+) -> Result<BTreeSet<Vec<String>>> {
+    if n == 0 {
+        return Err(DetectError::InvalidArgument(
+            "shingle size must be greater than zero".to_string(),
+        ));
+    }
+    let tokens = tokenize(text, options)
+        .into_iter()
+        .filter(|token| token.kind != TokenKind::Punctuation)
+        .map(|token| token.normalized)
+        .collect::<Vec<_>>();
+    if tokens.len() < n {
+        return Ok(BTreeSet::new());
+    }
+    Ok(tokens.windows(n).map(|window| window.to_vec()).collect())
+}
+
+pub fn shingle_jaccard_similarity<T>(left: &BTreeSet<T>, right: &BTreeSet<T>) -> ShingleSimilarity
+where
+    T: Ord,
+{
+    let intersection_count = left.intersection(right).count();
+    let union_count = left.union(right).count();
+    let jaccard = if union_count == 0 {
+        1.0
+    } else {
+        intersection_count as f32 / union_count as f32
+    };
+    ShingleSimilarity {
+        left_count: left.len(),
+        right_count: right.len(),
+        intersection_count,
+        union_count,
+        jaccard,
+    }
+}
+
+pub fn character_shingle_similarity(
+    text: &str,
+    other: &str,
+    n: usize,
+) -> Result<ShingleSimilarity> {
+    let left = character_shingles(text, n)?;
+    let right = character_shingles(other, n)?;
+    Ok(shingle_jaccard_similarity(&left, &right))
+}
+
+pub fn token_shingle_similarity(
+    text: &str,
+    other: &str,
+    n: usize,
+    options: &TextProcessingOptions,
+) -> Result<ShingleSimilarity> {
+    let left = token_shingles(text, n, options)?;
+    let right = token_shingles(other, n, options)?;
+    Ok(shingle_jaccard_similarity(&left, &right))
 }
 
 pub fn readability_summary(text: &str, options: &TextProcessingOptions) -> ReadabilitySummary {
@@ -921,6 +996,44 @@ mod tests {
         let ngrams = character_ngram_frequencies("ababa", 2).unwrap();
         assert_eq!(ngrams[0].terms, vec!["ab"]);
         assert_eq!(ngrams[0].count, 2);
+    }
+
+    #[test]
+    fn builds_unique_token_shingles_from_normalized_tokens() {
+        let shingles = token_shingles(
+            "Rust, cargo, rust tests",
+            2,
+            &TextProcessingOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(shingles.len(), 3);
+        assert!(shingles.contains(&vec!["rust".to_string(), "cargo".to_string()]));
+        assert!(shingles.contains(&vec!["cargo".to_string(), "rust".to_string()]));
+        assert!(shingles.contains(&vec!["rust".to_string(), "tests".to_string()]));
+    }
+
+    #[test]
+    fn computes_token_shingle_jaccard_similarity() {
+        let similarity = token_shingle_similarity(
+            "rust cargo builds crates",
+            "rust cargo runs tests",
+            2,
+            &TextProcessingOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(similarity.left_count, 3);
+        assert_eq!(similarity.right_count, 3);
+        assert_eq!(similarity.intersection_count, 1);
+        assert_eq!(similarity.union_count, 5);
+        assert!((similarity.jaccard - 0.2).abs() < 0.001);
+    }
+
+    #[test]
+    fn computes_character_shingle_jaccard_similarity() {
+        let similarity = character_shingle_similarity("banana", "bandana", 2).unwrap();
+        assert_eq!(similarity.intersection_count, 3);
+        assert_eq!(similarity.union_count, 5);
+        assert!((similarity.jaccard - 0.6).abs() < 0.001);
     }
 
     #[test]

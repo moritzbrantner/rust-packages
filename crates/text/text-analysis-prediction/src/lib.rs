@@ -41,6 +41,17 @@ impl MarkovChain {
         self.order
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.starts.is_empty()
+    }
+
+    pub fn total_transitions(&self) -> usize {
+        self.transitions
+            .values()
+            .map(|counts| counts.values().sum::<usize>())
+            .sum()
+    }
+
     pub fn contexts(&self) -> usize {
         self.transitions.len()
     }
@@ -58,9 +69,13 @@ impl MarkovChain {
         self.train_tokens(&tokens);
     }
 
-    pub fn train_documents<'a>(&mut self, documents: impl IntoIterator<Item = &'a str>) {
+    pub fn train_documents<I, S>(&mut self, documents: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
         for document in documents {
-            self.train_text(document);
+            self.train_text(document.as_ref());
         }
     }
 
@@ -346,5 +361,19 @@ mod tests {
         assert!(chain.predict_next(["rust"], 1).is_err());
         assert!(chain.generate(&["rust", "cargo"], 0).is_err());
         assert!(chain.perplexity("rust cargo").is_err());
+    }
+
+    #[test]
+    fn trains_from_owned_documents_and_tracks_transitions() {
+        let mut chain = MarkovChain::new(2).unwrap();
+        assert!(chain.is_empty());
+
+        chain.train_documents([
+            "rust cargo builds crates".to_string(),
+            "rust cargo runs tests".to_string(),
+        ]);
+
+        assert!(!chain.is_empty());
+        assert_eq!(chain.total_transitions(), 4);
     }
 }

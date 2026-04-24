@@ -117,6 +117,24 @@ pub enum WorkflowTypeSpec {
     },
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkflowInputSurface {
+    SourceUrl,
+    CollectionUrl,
+    File,
+    Config,
+    Generic,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkflowRuntimeValidation {
+    Strict,
+    Unsafe,
+    ExternalInput,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PortSpec {
     pub id: String,
@@ -127,6 +145,14 @@ pub struct PortSpec {
     pub optional: bool,
     #[serde(default)]
     pub stream: bool,
+    #[serde(default)]
+    pub exposable_input: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_surface: Option<WorkflowInputSurface>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub suggested_adapters: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_validation: Option<WorkflowRuntimeValidation>,
 }
 
 impl PortSpec {
@@ -138,6 +164,10 @@ impl PortSpec {
             kind,
             optional: false,
             stream: false,
+            exposable_input: false,
+            input_surface: None,
+            suggested_adapters: Vec::new(),
+            runtime_validation: None,
         }
     }
 
@@ -151,8 +181,28 @@ impl PortSpec {
         self
     }
 
+    pub fn exposable_input(mut self, surface: WorkflowInputSurface) -> Self {
+        self.exposable_input = true;
+        self.input_surface = Some(surface);
+        self
+    }
+
     pub fn value_type(mut self, value_type: WorkflowTypeSpec) -> Self {
         self.value_type = value_type;
+        self
+    }
+
+    pub fn suggested_adapters<I, S>(mut self, suggested_adapters: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.suggested_adapters = suggested_adapters.into_iter().map(Into::into).collect();
+        self
+    }
+
+    pub fn runtime_validation(mut self, mode: WorkflowRuntimeValidation) -> Self {
+        self.runtime_validation = Some(mode);
         self
     }
 }
@@ -214,7 +264,9 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
         )
         .outputs(vec![
             port("run", "Run", PortKind::RunTrigger),
-            port("config", "Config", PortKind::RunConfig),
+            port("config", "Config", PortKind::RunConfig)
+                .exposable_input(WorkflowInputSurface::Config)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
         ]),
         node(
             "source",
@@ -224,13 +276,19 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             true,
         )
         .outputs(vec![
-            port("url", "YouTube URL", PortKind::YoutubeUrl),
+            port("url", "YouTube URL", PortKind::YoutubeUrl)
+                .exposable_input(WorkflowInputSurface::SourceUrl)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
             port(
                 "collection",
                 "Collection URL",
                 PortKind::YoutubeCollectionUrl,
-            ),
-            port("file", "Video File", PortKind::VideoFile),
+            )
+            .exposable_input(WorkflowInputSurface::CollectionUrl)
+            .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("file", "Video File", PortKind::VideoFile)
+                .exposable_input(WorkflowInputSurface::File)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
         ]),
         node(
             "vite-api",
@@ -252,10 +310,21 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             false,
         )
         .inputs(vec![
-            port("url", "URL", PortKind::YoutubeUrl).optional(),
-            port("collection", "Collection", PortKind::YoutubeCollectionUrl).optional(),
-            port("file", "File", PortKind::VideoFile).optional(),
-            port("args", "Args", PortKind::RunConfig),
+            port("url", "URL", PortKind::YoutubeUrl)
+                .optional()
+                .exposable_input(WorkflowInputSurface::SourceUrl)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("collection", "Collection", PortKind::YoutubeCollectionUrl)
+                .optional()
+                .exposable_input(WorkflowInputSurface::CollectionUrl)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("file", "File", PortKind::VideoFile)
+                .optional()
+                .exposable_input(WorkflowInputSurface::File)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("args", "Args", PortKind::RunConfig)
+                .exposable_input(WorkflowInputSurface::Config)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
         ])
         .outputs(vec![
             port("file", "Video", PortKind::VideoFile),
@@ -269,9 +338,17 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             false,
         )
         .inputs(vec![
-            port("url", "URL", PortKind::YoutubeUrl).optional(),
-            port("file", "File", PortKind::MediaFile).optional(),
-            port("args", "Args", PortKind::RunConfig),
+            port("url", "URL", PortKind::YoutubeUrl)
+                .optional()
+                .exposable_input(WorkflowInputSurface::SourceUrl)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("file", "File", PortKind::MediaFile)
+                .optional()
+                .exposable_input(WorkflowInputSurface::File)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("args", "Args", PortKind::RunConfig)
+                .exposable_input(WorkflowInputSurface::Config)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
         ])
         .outputs(vec![
             port("file", "Media", PortKind::MediaFile),
@@ -285,9 +362,17 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             false,
         )
         .inputs(vec![
-            port("url", "URL", PortKind::YoutubeUrl).optional(),
-            port("file", "File", PortKind::VideoFile).optional(),
-            port("args", "Args", PortKind::RunConfig),
+            port("url", "URL", PortKind::YoutubeUrl)
+                .optional()
+                .exposable_input(WorkflowInputSurface::SourceUrl)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("file", "File", PortKind::VideoFile)
+                .optional()
+                .exposable_input(WorkflowInputSurface::File)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("args", "Args", PortKind::RunConfig)
+                .exposable_input(WorkflowInputSurface::Config)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
         ])
         .outputs(vec![
             port("subtitle", "Subtitle", PortKind::SubtitleFile),
@@ -304,7 +389,9 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             "collection",
             "Collection",
             PortKind::YoutubeCollectionUrl,
-        )])
+        )
+        .exposable_input(WorkflowInputSurface::CollectionUrl)
+        .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
         .outputs(vec![port(
             "manifest",
             "Manifest",
@@ -339,7 +426,9 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             WorkflowCategory::Youtube,
             false,
         )
-        .inputs(vec![port("url", "URL", PortKind::YoutubeUrl)])
+        .inputs(vec![port("url", "URL", PortKind::YoutubeUrl)
+            .exposable_input(WorkflowInputSurface::SourceUrl)
+            .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
         .outputs(vec![port("file", "Video", PortKind::VideoFile)]),
         node(
             "ffmpeg",
@@ -348,7 +437,9 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             WorkflowCategory::Ingest,
             false,
         )
-        .inputs(vec![port("file", "File", PortKind::MediaFile)])
+        .inputs(vec![port("file", "File", PortKind::MediaFile)
+            .exposable_input(WorkflowInputSurface::File)
+            .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
         .outputs(vec![
             port("video", "Video Frames", PortKind::VideoFile).stream(),
             port("audio", "Audio Frames", PortKind::AudioFile).stream(),
@@ -469,7 +560,9 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             WorkflowCategory::Song,
             false,
         )
-        .inputs(vec![port("file", "Media", PortKind::MediaFile)])
+        .inputs(vec![port("file", "Media", PortKind::MediaFile)
+            .exposable_input(WorkflowInputSurface::File)
+            .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
         .outputs(vec![port(
             "fingerprint",
             "Fingerprint",
@@ -484,7 +577,9 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
         )
         .inputs(vec![
             port("fingerprint", "Fingerprint", PortKind::SongFingerprint),
-            port("catalog", "Catalog", PortKind::SongCatalog),
+            port("catalog", "Catalog", PortKind::SongCatalog)
+                .exposable_input(WorkflowInputSurface::Generic)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
         ])
         .outputs(vec![port("matches", "Matches", PortKind::SongMatches)]),
         node(
@@ -494,7 +589,9 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             WorkflowCategory::Song,
             false,
         )
-        .inputs(vec![port("file", "Media", PortKind::MediaFile)])
+        .inputs(vec![port("file", "Media", PortKind::MediaFile)
+            .exposable_input(WorkflowInputSurface::File)
+            .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
         .outputs(vec![port("features", "Features", PortKind::MusicFeatures)]),
         node(
             "song-report-writer",
