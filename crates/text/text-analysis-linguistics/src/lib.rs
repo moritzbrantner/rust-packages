@@ -1241,21 +1241,6 @@ pub fn extract_named_entities(
                 .map(|annotation| annotation.tag)
                 .unwrap_or(PosTag::X);
             let token = &tokens[cursor];
-            if is_date_token(token) {
-                entities.push(build_entity(
-                    next_id,
-                    EntityType::Date,
-                    text,
-                    sentence_index,
-                    cursor,
-                    cursor + 1,
-                    tokens,
-                    0.85,
-                ));
-                next_id += 1;
-                cursor += 1;
-                continue;
-            }
             if token.text.starts_with('$') && token.text[1..].chars().any(|ch| ch.is_ascii_digit())
             {
                 entities.push(build_entity(
@@ -1267,6 +1252,21 @@ pub fn extract_named_entities(
                     cursor + 1,
                     tokens,
                     0.9,
+                ));
+                next_id += 1;
+                cursor += 1;
+                continue;
+            }
+            if is_date_token(token) {
+                entities.push(build_entity(
+                    next_id,
+                    EntityType::Date,
+                    text,
+                    sentence_index,
+                    cursor,
+                    cursor + 1,
+                    tokens,
+                    0.85,
                 ));
                 next_id += 1;
                 cursor += 1;
@@ -2537,11 +2537,55 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_und_for_empty_text() {
+        let detector = LanguageDetector::default();
+        let profile = detector.detect_text("");
+        let primary = profile.primary.expect("empty text still yields a fallback profile");
+
+        assert_eq!(primary.language, "und");
+        assert_eq!(primary.confidence, 0.0);
+        assert_eq!(primary.reason, "script fallback");
+        assert_eq!(profile.token_count, 0);
+        assert!(profile.alternatives.is_empty());
+        assert!(profile.sentence_predictions.is_empty());
+    }
+
+    #[test]
     fn selects_default_mixed_tokenizer_policy() {
         let registry = TokenizerRegistry::default();
         let selection = registry.select(Some("en"), Some("linguistic-analysis"), None);
         assert_eq!(selection.mode, TokenizationMode::Mixed);
         assert!(selection.source.is_some());
+    }
+
+    #[test]
+    fn tokenizer_selection_prefers_task_override_and_word_mode_has_no_source() {
+        let mut registry = TokenizerRegistry::default();
+        let language_source = TokenizerSource::local("/tmp/language-tokenizer.json");
+        let family_source = TokenizerSource::local("/tmp/family-tokenizer.json");
+        let task_source = TokenizerSource::local("/tmp/task-tokenizer.json");
+
+        registry
+            .policy
+            .language_overrides
+            .insert("en".to_string(), language_source);
+        registry
+            .policy
+            .model_family_overrides
+            .insert("bert".to_string(), family_source);
+        registry
+            .policy
+            .task_overrides
+            .insert("classification".to_string(), task_source.clone());
+
+        let selection = registry.select(Some("en"), Some("classification"), Some("bert"));
+        assert_eq!(selection.source, Some(task_source));
+        assert_eq!(selection.reason, "task override for `classification`");
+
+        registry.policy.mode = TokenizationMode::Word;
+        let word_only = registry.select(Some("en"), Some("classification"), Some("bert"));
+        assert_eq!(word_only.mode, TokenizationMode::Word);
+        assert_eq!(word_only.source, None);
     }
 
     #[test]
@@ -2578,6 +2622,49 @@ mod tests {
     }
 
     #[test]
+    fn ignores_invalid_subword_offsets_during_alignment() {
+        let text = "hello world";
+        let tokens = tokenize(
+            text,
+            &TextProcessingOptions {
+                include_punctuation: false,
+                ..TextProcessingOptions::default()
+            },
+        );
+        let alignment = align_tokenized_text(
+            text,
+            &tokens,
+            TokenizerSelection {
+                mode: TokenizationMode::Mixed,
+                source: Some(TokenizerSource::default()),
+                language: Some("en".to_string()),
+                task: None,
+                model_family: None,
+                reason: "test".to_string(),
+            },
+            &TokenizedText {
+                input_ids: vec![10, 11, 12, 13],
+                attention_mask: vec![1, 1, 1, 1],
+                token_type_ids: None,
+                offsets: vec![
+                    Some((0, 5)),
+                    Some((5, 5)),
+                    Some((6, 11)),
+                    Some((50, 51)),
+                ],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(alignment.subwords[0].text.as_deref(), Some("hello"));
+        assert_eq!(alignment.subwords[1].span, None);
+        assert_eq!(alignment.subwords[2].text.as_deref(), Some("world"));
+        assert_eq!(alignment.subwords[3].span, None);
+        assert_eq!(alignment.aligned_tokens[0].subword_indices, vec![0]);
+        assert_eq!(alignment.aligned_tokens[1].subword_indices, vec![2]);
+    }
+
+    #[test]
     fn lemmatizes_plural_and_inflected_tokens() {
         let tokens = tokenize(
             "Cars were running",
@@ -2589,6 +2676,38 @@ mod tests {
         let lemmas = lemmatize_tokens(&tokens, Some("en"), &LemmaOptions::default());
         assert_eq!(lemmas.lemmas[0].value, "car");
         assert_eq!(lemmas.lemmas[1].value, "be");
+    }
+
+    #[test]
+    fn morphology_annotation_tolerates_missing_lemma_and_pos_entries() {
+        let tokens = tokenize(
+            "They were testing robots",
+            &TextProcessingOptions {
+                include_punctuation: false,
+                ..TextProcessingOptions::default()
+            },
+        );
+        let lemmas = lemmatize_tokens(&tokens, Some("en"), &LemmaOptions::default());
+        let mut partial_lemmas = lemmas.clone();
+        partial_lemmas.lemmas.truncate(3);
+        let pos = PosTagger::default().tag_tokens(&tokens, &lemmas);
+        let annotations = annotate_morphology(&tokens, &partial_lemmas, &pos[..3]);
+
+        assert_eq!(annotations.len(), 4);
+        assert!(annotations[0]
+            .tags
+            .features
+            .contains(&MorphFeature::Person3));
+        assert!(annotations[0]
+            .tags
+            .features
+            .contains(&MorphFeature::NumberPlur));
+        assert!(annotations[1]
+            .tags
+            .features
+            .contains(&MorphFeature::TensePast));
+        assert_eq!(annotations[3].lemma, None);
+        assert!(annotations[3].tags.features.is_empty());
     }
 
     #[test]
@@ -2675,5 +2794,102 @@ mod tests {
         assert!(final_events
             .iter()
             .any(|event| event.label.starts_with("text:topic:")));
+    }
+
+    #[test]
+    fn extracts_dates_and_amounts_without_pos_annotations() {
+        let text = "Launch on January 2024 costs $99.";
+        let sentences = vec![Sentence {
+            text: text.to_string(),
+            span: TextSpan {
+                byte_start: 0,
+                byte_end: text.len(),
+                char_start: 0,
+                char_end: text.chars().count(),
+            },
+            token_count: 6,
+        }];
+        let tokens = vec![
+            Token {
+                text: "Launch".to_string(),
+                normalized: "launch".to_string(),
+                span: TextSpan {
+                    byte_start: 0,
+                    byte_end: 6,
+                    char_start: 0,
+                    char_end: 6,
+                },
+                kind: TokenKind::Word,
+            },
+            Token {
+                text: "on".to_string(),
+                normalized: "on".to_string(),
+                span: TextSpan {
+                    byte_start: 7,
+                    byte_end: 9,
+                    char_start: 7,
+                    char_end: 9,
+                },
+                kind: TokenKind::Word,
+            },
+            Token {
+                text: "January".to_string(),
+                normalized: "january".to_string(),
+                span: TextSpan {
+                    byte_start: 10,
+                    byte_end: 17,
+                    char_start: 10,
+                    char_end: 17,
+                },
+                kind: TokenKind::Word,
+            },
+            Token {
+                text: "2024".to_string(),
+                normalized: "2024".to_string(),
+                span: TextSpan {
+                    byte_start: 18,
+                    byte_end: 22,
+                    char_start: 18,
+                    char_end: 22,
+                },
+                kind: TokenKind::Number,
+            },
+            Token {
+                text: "costs".to_string(),
+                normalized: "costs".to_string(),
+                span: TextSpan {
+                    byte_start: 23,
+                    byte_end: 28,
+                    char_start: 23,
+                    char_end: 28,
+                },
+                kind: TokenKind::Word,
+            },
+            Token {
+                text: "$99".to_string(),
+                normalized: "$99".to_string(),
+                span: TextSpan {
+                    byte_start: 29,
+                    byte_end: 32,
+                    char_start: 29,
+                    char_end: 32,
+                },
+                kind: TokenKind::Other,
+            },
+        ];
+        let entities = extract_named_entities(text, &sentences, &tokens, &[]);
+
+        assert!(entities
+            .iter()
+            .any(|entity| entity.entity_type == EntityType::Date
+                && entity.mention.text.to_lowercase().contains("january")));
+        assert!(entities
+            .iter()
+            .any(|entity| entity.entity_type == EntityType::Date
+                && entity.mention.text.contains("2024")));
+        assert!(entities
+            .iter()
+            .any(|entity| entity.entity_type == EntityType::Amount
+                && entity.mention.text == "$99"));
     }
 }
