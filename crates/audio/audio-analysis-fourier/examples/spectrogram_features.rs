@@ -1,4 +1,4 @@
-use audio_analysis_fourier::{spectrogram, spectral_flux, FourierTransform, StftConfig};
+use audio_analysis_fourier::{spectral_flux, spectrogram, FourierTransform, StftConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample_rate = 8_000;
@@ -9,7 +9,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect::<Vec<_>>();
 
-    let frames = spectrogram(&samples, sample_rate, &StftConfig::new(256, 128)?.pad_final_frame(true))?;
+    let frames = spectrogram(
+        &samples,
+        sample_rate,
+        &StftConfig::new(256, 128)?.pad_final_frame(true),
+    )?;
     let transform = FourierTransform::new(256)?;
     let full = transform.analyze_samples(&samples[..256], sample_rate)?;
 

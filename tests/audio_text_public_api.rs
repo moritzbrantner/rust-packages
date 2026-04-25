@@ -12,8 +12,8 @@ use audio_analysis_rhythm::{
     detect_onsets, estimate_tempo, onset_envelope, OnsetDetectorConfig, TempoEstimatorConfig,
 };
 use audio_analysis_separation::{
-    is_demucs_available, DemucsModel, HtdemucsOptions, HtdemucsSeparator,
-    SeparationOutputFormat, Stem, StemLayout,
+    is_demucs_available, DemucsModel, HtdemucsOptions, HtdemucsSeparator, SeparationOutputFormat,
+    Stem, StemLayout,
 };
 use audio_analysis_synthesis::{synthesize_tone, AudioSynthesisConfig, ToneSpec};
 use num_rational::Rational64;

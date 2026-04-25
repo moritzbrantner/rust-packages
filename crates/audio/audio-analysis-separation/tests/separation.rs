@@ -1,11 +1,11 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+#[cfg(feature = "external-tests")]
+use audio_analysis_separation::is_demucs_available;
 use audio_analysis_separation::{
     DemucsModel, HtdemucsOptions, HtdemucsSeparator, SeparationOutputFormat, Stem, StemLayout,
 };
-#[cfg(feature = "external-tests")]
-use audio_analysis_separation::is_demucs_available;
 use tempfile::tempdir;
 
 fn args_as_strings(args: Vec<OsString>) -> Vec<String> {
@@ -40,7 +40,10 @@ fn stem_names_and_file_names_are_stable() {
 fn demucs_models_derive_expected_default_layouts() {
     assert_eq!(DemucsModel::Htdemucs.default_layout(), StemLayout::FourStem);
     assert_eq!(DemucsModel::MdXExtra.default_layout(), StemLayout::FourStem);
-    assert_eq!(DemucsModel::Htdemucs6s.default_layout(), StemLayout::SixStem);
+    assert_eq!(
+        DemucsModel::Htdemucs6s.default_layout(),
+        StemLayout::SixStem
+    );
 }
 
 #[test]
@@ -54,7 +57,10 @@ fn options_validation_rejects_invalid_values() {
     assert!(HtdemucsOptions::new("out").overlap(1.0).validate().is_err());
     assert!(HtdemucsOptions::new("out").jobs(0).validate().is_err());
     assert!(HtdemucsOptions::new("out").segment(0).validate().is_err());
-    assert!(HtdemucsOptions::new("out").sample_rate(0).validate().is_err());
+    assert!(HtdemucsOptions::new("out")
+        .sample_rate(0)
+        .validate()
+        .is_err());
     assert!(HtdemucsOptions::new("out")
         .layout(StemLayout::Custom(Vec::new()))
         .validate()
@@ -149,10 +155,8 @@ fn predicts_standard_htdemucs_stem_paths() {
 
 #[test]
 fn predicts_six_stem_and_two_stem_outputs() {
-    let six = HtdemucsSeparator::new(
-        HtdemucsOptions::new("out").model(DemucsModel::Htdemucs6s),
-    )
-    .unwrap();
+    let six =
+        HtdemucsSeparator::new(HtdemucsOptions::new("out").model(DemucsModel::Htdemucs6s)).unwrap();
     assert_eq!(
         six.expected_stems()
             .iter()
@@ -182,8 +186,13 @@ fn discovers_present_and_missing_outputs_with_bytes() {
     std::fs::write(stem_dir.join("drums.wav"), []).unwrap();
 
     let separator = HtdemucsSeparator::new(HtdemucsOptions::new(&output_dir)).unwrap();
-    let result = separator.discover_result(dir.path().join("song.wav")).unwrap();
-    assert_eq!(result.missing_stems, vec![Stem::Drums, Stem::Bass, Stem::Other]);
+    let result = separator
+        .discover_result(dir.path().join("song.wav"))
+        .unwrap();
+    assert_eq!(
+        result.missing_stems,
+        vec![Stem::Drums, Stem::Bass, Stem::Other]
+    );
     assert!(!result.all_outputs_present);
     let vocals = result
         .stems
@@ -210,7 +219,10 @@ fn custom_filename_template_changes_discovery_paths() {
     .unwrap();
     let result = separator.discover_result("/tmp/song.wav").unwrap();
     assert_eq!(result.output_dir, PathBuf::from("out/htdemucs"));
-    assert_eq!(result.stems[0].path, PathBuf::from("out/htdemucs/song/vocals.mp3"));
+    assert_eq!(
+        result.stems[0].path,
+        PathBuf::from("out/htdemucs/song/vocals.mp3")
+    );
 }
 
 #[cfg(feature = "external-tests")]

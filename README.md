@@ -26,7 +26,7 @@ Package README index:
 - Image: [`image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-io`](crates/image/image-analysis-io/README.md), [`image-analysis-models`](crates/image/image-analysis-models/README.md), [`image-analysis-onnx`](crates/image/image-analysis-onnx/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
 - Text: [`text-analysis-core`](crates/text/text-analysis-core/README.md), [`text-analysis-corpus`](crates/text/text-analysis-corpus/README.md), [`text-analysis-features`](crates/text/text-analysis-features/README.md), [`text-analysis-linguistics`](crates/text/text-analysis-linguistics/README.md), [`text-analysis-models`](crates/text/text-analysis-models/README.md), [`text-analysis-prediction`](crates/text/text-analysis-prediction/README.md), [`text-analysis-semantics`](crates/text/text-analysis-semantics/README.md), [`text-analysis-synthesis`](crates/text/text-analysis-synthesis/README.md), [`text-analysis-transcription`](crates/text/text-analysis-transcription/README.md)
 - Vector and 3D: [`vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md)
-- Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-use-cases`](crates/video/video-analysis-use-cases/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
+- Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-use-cases`](crates/video/video-analysis-use-cases/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
 
 - `video-analysis`: umbrella re-export crate.
 - `comfyui-data`: serde contracts and helpers for ComfyUI workflow JSON and
@@ -157,6 +157,8 @@ Package README index:
   projection, sorting, and CPU compositing helpers for Gaussian splatting.
 - `video-analysis-radiance-io`: COLMAP text, Nerfstudio transforms, and
   GraphDeco/Nerfstudio Gaussian splat PLY import/export helpers.
+- `video-analysis-radiance-pipeline`: library-first loading, validation,
+  summary, and CPU preview rendering across the radiance crates.
 - `video-analysis-output`: scene/stats CSV and simple HTML output helpers.
 - `video-analysis-split`: ffmpeg CLI based scene splitting.
 - `video-analysis-cli`: `vanalyze` command-line tool.
@@ -515,11 +517,11 @@ cargo run -p video-analysis-use-cases -- youtube-video \
 The output report includes local asset paths, scenes, observations, transcript
 segments, audio events, text events, and data bucket summaries.
 
-Radiance-field crates currently stop at representation and interchange:
-`video-analysis-radiance-fields` owns shared scene/camera contracts and
-`video-analysis-radiance-io` owns COLMAP/Nerfstudio/PLY parsing. A future
-conversion crate can sit on top of those APIs once the workflow boundary is
-better defined.
+Radiance-field crates now include a library-first composition layer:
+`video-analysis-radiance-fields` owns shared scene/camera contracts,
+`video-analysis-radiance-io` owns COLMAP/Nerfstudio/PLY parsing, and
+`video-analysis-radiance-pipeline` wires those surfaces into typed project
+loading, validation, summaries, and CPU Gaussian preview rendering.
 
 ```bash
 bash scripts/setup_radiance_external_tools.sh
@@ -527,8 +529,8 @@ bash scripts/setup_radiance_external_tools.sh
 
 This workspace does not implement native NeRF/3DGS training or a production GPU
 renderer. Distorted COLMAP camera models are parsed and retained by the IO
-crate, but direct ray/camera conversion is currently limited to undistorted
-`SIMPLE_PINHOLE` and `PINHOLE` cameras.
+crate, but pipeline normalization and direct ray/camera conversion are
+currently limited to undistorted `SIMPLE_PINHOLE` and `PINHOLE` cameras.
 
 ### Reference Recognition
 

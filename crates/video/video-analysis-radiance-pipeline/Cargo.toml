@@ -1,0 +1,24 @@
+[package]
+name = "video-analysis-radiance-pipeline"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Typed radiance project loading, validation, summaries, and CPU previews for video-analysis."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+video-analysis-core.workspace = true
+video-analysis-gaussian-splatting.workspace = true
+video-analysis-radiance-fields.workspace = true
+video-analysis-radiance-io.workspace = true
+video-analysis-reconstruction.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

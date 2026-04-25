@@ -181,7 +181,8 @@ pub fn spectrogram(
         .collect::<Result<Vec<_>>>()?;
     let needs_partial = config.pad_final_frame
         && !samples.is_empty()
-        && (frames.is_empty() || (frames.last().unwrap().start_sample + config.fft_size < samples.len()));
+        && (frames.is_empty()
+            || (frames.last().unwrap().start_sample + config.fft_size < samples.len()));
     if needs_partial {
         let start_sample = if samples.len() <= config.fft_size {
             0
@@ -489,9 +490,7 @@ mod tests {
         assert!(zero_crossing_rate(&alternating) > 0.9);
 
         let transform = FourierTransform::with_window(512, WindowFunction::Rectangular).unwrap();
-        let quiet = transform
-            .analyze_samples(&vec![0.0; 512], 8_000)
-            .unwrap();
+        let quiet = transform.analyze_samples(&vec![0.0; 512], 8_000).unwrap();
         let tone = transform
             .analyze_samples(&sine_len(440.0, 8_000, 512), 8_000)
             .unwrap();

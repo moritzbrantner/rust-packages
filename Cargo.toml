@@ -73,6 +73,7 @@ members = [
     "crates/video/video-analysis-posture-io",
     "crates/video/video-analysis-radiance-fields",
     "crates/video/video-analysis-radiance-io",
+    "crates/video/video-analysis-radiance-pipeline",
     "crates/video/video-analysis-recognition",
     "crates/video/video-analysis-reconstruction",
     "crates/video/video-analysis-split",
@@ -100,10 +101,12 @@ categories = ["multimedia", "computer-vision", "science", "algorithms"]
 [workspace.dependencies]
 base64 = "0.22.1"
 clap = { version = "4.5.51", features = ["derive"] }
+chrono = { version = "0.4.42", default-features = false, features = ["clock", "serde"] }
 ffmpeg-next = { version = "8.0.0", default-features = false }
 hf-hub = { version = "0.5.0", default-features = false, features = ["ureq"] }
 num-rational = "0.4.2"
 num-traits = "0.2.19"
+rusqlite = "0.32.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 shlex = "1.3.0"
@@ -178,6 +181,7 @@ video-analysis-posture = { version = "0.1.0", path = "crates/video/video-analysi
 video-analysis-posture-io = { version = "0.1.0", path = "crates/video/video-analysis-posture-io" }
 video-analysis-radiance-fields = { version = "0.1.0", path = "crates/video/video-analysis-radiance-fields" }
 video-analysis-radiance-io = { version = "0.1.0", path = "crates/video/video-analysis-radiance-io" }
+video-analysis-radiance-pipeline = { version = "0.1.0", path = "crates/video/video-analysis-radiance-pipeline" }
 video-analysis-recognition = { version = "0.1.0", path = "crates/video/video-analysis-recognition" }
 video-analysis-reconstruction = { version = "0.1.0", path = "crates/video/video-analysis-reconstruction" }
 video-analysis-split = { version = "0.1.0", path = "crates/video/video-analysis-split" }

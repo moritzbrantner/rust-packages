@@ -207,8 +207,7 @@ pub fn onset_envelope_with_strategy(
                 OnsetEnvelopeStrategy::SpectralFluxLike => {
                     let abs_mean =
                         frame.iter().map(|sample| sample.abs()).sum::<f32>() / frame.len() as f32;
-                    let strength =
-                        (abs_mean - previous_abs_mean.unwrap_or(abs_mean)).max(0.0);
+                    let strength = (abs_mean - previous_abs_mean.unwrap_or(abs_mean)).max(0.0);
                     previous_abs_mean = Some(abs_mean);
                     strength
                 }

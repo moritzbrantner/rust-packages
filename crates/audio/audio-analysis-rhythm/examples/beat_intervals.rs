@@ -15,8 +15,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let onsets = detect_onsets(&envelope, OnsetDetectorConfig::default())?;
     let tempo = estimate_tempo(&onsets, TempoEstimatorConfig::default())?;
     let intervals = inter_onset_intervals(&onsets);
-    let beats = beat_grid(onsets.first().map(|onset| onset.timestamp_seconds).unwrap_or(0.0), tempo.bpm.unwrap_or(120.0), 4)?;
+    let beats = beat_grid(
+        onsets
+            .first()
+            .map(|onset| onset.timestamp_seconds)
+            .unwrap_or(0.0),
+        tempo.bpm.unwrap_or(120.0),
+        4,
+    )?;
 
-    println!("onsets={} intervals={intervals:?} beats={beats:?}", onsets.len());
+    println!(
+        "onsets={} intervals={intervals:?} beats={beats:?}",
+        onsets.len()
+    );
     Ok(())
 }

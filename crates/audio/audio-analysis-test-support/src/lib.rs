@@ -87,7 +87,10 @@ pub fn mixed_sources(tracks: &[Vec<f32>]) -> Vec<f32> {
     let len = tracks.iter().map(Vec::len).max().unwrap_or(0);
     let mut mixed = vec![0.0_f32; len];
     for track in tracks {
-        for (out, sample) in mixed.iter_mut().zip(track.iter().copied().chain(std::iter::repeat(0.0))) {
+        for (out, sample) in mixed
+            .iter_mut()
+            .zip(track.iter().copied().chain(std::iter::repeat(0.0)))
+        {
             *out = (*out + sample).clamp(-1.0, 1.0);
         }
     }
@@ -197,7 +200,10 @@ mod tests {
         assert_eq!(impulse_train(1_000, 120.0, 1.0)[0], 1.0);
         assert_eq!(pink_noise(1, 80).len(), 80);
         assert_eq!(chirp(220.0, 440.0, 8_000, 0.01).len(), 80);
-        assert_eq!(stepped_tones(&[(220.0, 0.01), (440.0, 0.01)], 8_000).len(), 160);
+        assert_eq!(
+            stepped_tones(&[(220.0, 0.01), (440.0, 0.01)], 8_000).len(),
+            160
+        );
         assert_eq!(mixed_sources(&[vec![0.5; 4], vec![0.25; 4]]), vec![0.75; 4]);
     }
 

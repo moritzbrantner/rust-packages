@@ -751,7 +751,10 @@ mod tests {
 
     #[test]
     fn audio_format_spec_validates_and_reports_duration() {
-        let spec = AudioFormatSpec::new(48_000, 2).unwrap().frame_samples(2_048).unwrap();
+        let spec = AudioFormatSpec::new(48_000, 2)
+            .unwrap()
+            .frame_samples(2_048)
+            .unwrap();
         assert_eq!(spec.duration_seconds(4_800).unwrap(), 0.1);
         assert!(AudioFormatSpec::new(0, 2).is_err());
         assert!(AudioFormatSpec::new(48_000, 0).is_err());

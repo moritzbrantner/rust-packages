@@ -299,7 +299,11 @@ pub fn synthesize_noise_burst(
     )?;
     Ok(Generated::new(
         frame,
-        InversionTrace::new("noise_burst", "owned_audio_frame", InformationFidelity::Interpolated),
+        InversionTrace::new(
+            "noise_burst",
+            "owned_audio_frame",
+            InformationFidelity::Interpolated,
+        ),
     ))
 }
 
@@ -509,10 +513,11 @@ mod tests {
 
     #[test]
     fn synthesize_click_and_noise_burst_generate_audio() {
-        let click = synthesize_click(0.0, 0.01, 0.8, AudioSynthesisConfig::new(8_000, 1).unwrap())
-            .unwrap();
-        let noise = synthesize_noise_burst(0.01, 0.5, 7, AudioSynthesisConfig::new(8_000, 2).unwrap())
-            .unwrap();
+        let click =
+            synthesize_click(0.0, 0.01, 0.8, AudioSynthesisConfig::new(8_000, 1).unwrap()).unwrap();
+        let noise =
+            synthesize_noise_burst(0.01, 0.5, 7, AudioSynthesisConfig::new(8_000, 2).unwrap())
+                .unwrap();
         assert_eq!(click.value.channels, 1);
         assert_eq!(noise.value.channels, 2);
         assert!(noise.value.samples_per_channel() > 0);

@@ -101,6 +101,16 @@ pub struct ColmapTrackElement {
     pub point2d_index: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ColmapCameraSupport {
+    pub camera_id: u32,
+    pub raw_model: String,
+    pub model: CameraModel,
+    pub supported_for_view_conversion: bool,
+    pub supported_for_reconstruction_conversion: bool,
+    pub reason: Option<String>,
+}
+
 pub fn read_colmap_text_dir(path: impl AsRef<Path>) -> IoResult<ColmapDataset> {
     let path = path.as_ref();
     Ok(ColmapDataset {
@@ -108,6 +118,41 @@ pub fn read_colmap_text_dir(path: impl AsRef<Path>) -> IoResult<ColmapDataset> {
         images: read_colmap_images(path.join("images.txt"))?,
         points: read_colmap_points(path.join("points3D.txt"))?,
     })
+}
+
+pub fn inspect_colmap_camera_support(dataset: &ColmapDataset) -> Vec<ColmapCameraSupport> {
+    dataset
+        .cameras
+        .iter()
+        .map(|camera| match camera.raw_model.as_str() {
+            "SIMPLE_PINHOLE" | "PINHOLE" => ColmapCameraSupport {
+                camera_id: camera.id,
+                raw_model: camera.raw_model.clone(),
+                model: camera.model.clone(),
+                supported_for_view_conversion: true,
+                supported_for_reconstruction_conversion: true,
+                reason: None,
+            },
+            "SIMPLE_RADIAL" | "RADIAL" | "OPENCV" => ColmapCameraSupport {
+                camera_id: camera.id,
+                raw_model: camera.raw_model.clone(),
+                model: camera.model.clone(),
+                supported_for_view_conversion: false,
+                supported_for_reconstruction_conversion: false,
+                reason: Some(
+                    "pipeline MVP preserves distortion metadata at the I/O layer but does not normalize this camera model into direct ray/view conversion".to_string(),
+                ),
+            },
+            other => ColmapCameraSupport {
+                camera_id: camera.id,
+                raw_model: camera.raw_model.clone(),
+                model: camera.model.clone(),
+                supported_for_view_conversion: false,
+                supported_for_reconstruction_conversion: false,
+                reason: Some(format!("unsupported COLMAP camera model `{other}`")),
+            },
+        })
+        .collect()
 }
 
 pub fn write_colmap_text_dir(path: impl AsRef<Path>, dataset: &ColmapDataset) -> IoResult<()> {
@@ -1004,6 +1049,85 @@ mod tests {
             colmap_to_view_set(&dataset),
             Err(RadianceIoError::UnsupportedCameraModel { .. })
         ));
+    }
+
+    #[test]
+    fn inspect_colmap_camera_support_marks_pinhole_models_supported() {
+        let dataset = ColmapDataset {
+            cameras: vec![ColmapCamera {
+                id: 7,
+                model: CameraModel::Pinhole,
+                raw_model: "PINHOLE".to_string(),
+                width: 64,
+                height: 48,
+                params: vec![50.0, 50.0, 32.0, 24.0],
+            }],
+            images: Vec::new(),
+            points: Vec::new(),
+        };
+
+        assert_eq!(
+            inspect_colmap_camera_support(&dataset),
+            vec![ColmapCameraSupport {
+                camera_id: 7,
+                raw_model: "PINHOLE".to_string(),
+                model: CameraModel::Pinhole,
+                supported_for_view_conversion: true,
+                supported_for_reconstruction_conversion: true,
+                reason: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn inspect_colmap_camera_support_marks_distorted_models_unsupported() {
+        let dataset = ColmapDataset {
+            cameras: vec![ColmapCamera {
+                id: 3,
+                model: CameraModel::OpenCv,
+                raw_model: "OPENCV".to_string(),
+                width: 64,
+                height: 48,
+                params: vec![50.0, 50.0, 32.0, 24.0, 0.1, 0.2, 0.0, 0.0],
+            }],
+            images: Vec::new(),
+            points: Vec::new(),
+        };
+
+        let support = inspect_colmap_camera_support(&dataset);
+        assert_eq!(support.len(), 1);
+        assert!(!support[0].supported_for_view_conversion);
+        assert!(!support[0].supported_for_reconstruction_conversion);
+        assert!(support[0]
+            .reason
+            .as_deref()
+            .unwrap()
+            .contains("pipeline MVP preserves distortion metadata"));
+    }
+
+    #[test]
+    fn inspect_colmap_camera_support_marks_unknown_models_unsupported() {
+        let dataset = ColmapDataset {
+            cameras: vec![ColmapCamera {
+                id: 5,
+                model: CameraModel::Unsupported("FISHEYE".to_string()),
+                raw_model: "FISHEYE".to_string(),
+                width: 64,
+                height: 48,
+                params: vec![50.0, 50.0, 32.0, 24.0],
+            }],
+            images: Vec::new(),
+            points: Vec::new(),
+        };
+
+        let support = inspect_colmap_camera_support(&dataset);
+        assert_eq!(support.len(), 1);
+        assert!(!support[0].supported_for_view_conversion);
+        assert!(!support[0].supported_for_reconstruction_conversion);
+        assert_eq!(
+            support[0].reason.as_deref(),
+            Some("unsupported COLMAP camera model `FISHEYE`")
+        );
     }
 
     #[test]
