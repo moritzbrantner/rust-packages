@@ -19,4 +19,3 @@ let _ = transforms;
 
 - `video-analysis-radiance-fields`
 - `video-analysis-reconstruction`
-- `video-analysis-radiance-pipeline`

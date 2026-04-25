@@ -31,7 +31,6 @@ video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-ingest.workspace = true
 video-analysis-models.workspace = true
-video-analysis-radiance-pipeline.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -3060,7 +3060,6 @@ dependencies = [
  "video-analysis-posture-io",
  "video-analysis-radiance-fields",
  "video-analysis-radiance-io",
- "video-analysis-radiance-pipeline",
  "video-analysis-recognition",
  "video-analysis-reconstruction",
  "video-analysis-segmentation",
@@ -3261,19 +3260,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "video-analysis-radiance-pipeline"
-version = "0.1.0"
-dependencies = [
- "tempfile",
- "video-analysis-core",
- "video-analysis-ffmpeg",
- "video-analysis-gaussian-splatting",
- "video-analysis-ingest",
- "video-analysis-radiance-fields",
- "video-analysis-radiance-io",
-]
-
-[[package]]
 name = "video-analysis-recognition"
 version = "0.1.0"
 dependencies = [
@@ -3378,7 +3364,6 @@ dependencies = [
  "video-analysis-ffmpeg",
  "video-analysis-ingest",
  "video-analysis-models",
- "video-analysis-radiance-pipeline",
  "video-analysis-test-support",
 ]
 

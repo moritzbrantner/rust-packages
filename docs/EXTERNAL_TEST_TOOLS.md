@@ -75,13 +75,11 @@ is unavailable.
 
 ## Radiance / Nerfstudio
 
-The radiance pipeline needs `ffmpeg`, `colmap`, and `ns-process-data` for the
-current ignored external test:
+Future radiance conversion workflows need `ffmpeg`, `colmap`, and
+`ns-process-data`:
 
 ```bash
 bash scripts/setup_radiance_external_tools.sh
-cargo test -p video-analysis-radiance-pipeline \
-  --features external-tests --test external_pipeline -- --ignored
 ```
 
 By default the Nerfstudio installer creates a local Conda-compatible prefix in

@@ -32,6 +32,7 @@ tokenizers = ["dep:tokenizers"]
 onnx = ["tokenizers", "dep:ort", "dep:ndarray"]
 candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers"]
 external-tests = ["onnx", "candle"]
+slow-external-tests = ["external-tests"]
 
 [dev-dependencies]
 criterion.workspace = true

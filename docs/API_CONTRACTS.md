@@ -78,7 +78,6 @@ Runtime and external integration crates use a shared feature policy:
 | `video-analysis-radiance-fields` | Shared 3D geometry, camera, ray, and volume contracts | `video-analysis-core` | Vector/color/ray types, camera intrinsics/pose, radiance field trait, rendering/grid specs | Gaussian splatting, reconstruction, applications |
 | `video-analysis-gaussian-splatting` | 3D Gaussian primitive projection and CPU compositing | `video-analysis-core`, `video-analysis-radiance-fields` | Gaussian primitives, projection config/results, splat rendering helpers | Applications and future 3D workflows |
 | `video-analysis-radiance-io` | Radiance-field and 3DGS interchange formats | `video-analysis-core`, `video-analysis-radiance-fields`, `video-analysis-gaussian-splatting`, `video-analysis-reconstruction` | COLMAP text, Nerfstudio transforms, Gaussian splat PLY, preview PLY | Conversion tools and applications |
-| `video-analysis-radiance-pipeline` | Video/image to radiance-scene command orchestration | `video-analysis-core`, `video-analysis-ffmpeg`, `video-analysis-ingest`, `video-analysis-radiance-io` | Frame extraction args, COLMAP/Nerfstudio command builders, external pipeline runner | Use cases and applications |
 | `video-analysis-reconstruction` | Sparse reconstruction and triangulation contracts | `video-analysis-core`, `video-analysis-radiance-fields` | Camera/image/point IDs, features, matches, tracks, sparse reconstruction, triangulation/projection helpers | Applications and future 3D workflows |
 | `video-analysis-cli` | `vanalyze` command-line composition | Core, detectors, FFmpeg, models, output, split | CLI commands and file outputs | End users and automation |
 | `video-analysis-use-cases` | Runnable end-to-end workflows | Core, data, detectors, FFmpeg, ingest, models | `youtube-video` workflow and JSON report schema | End users, `@video-analysis/ui`, web app |
@@ -257,8 +256,9 @@ video use cases and model adapters.
   `OnnxTextEmbedder`, `CandleTextClassifier`, and `CandleTextEmbedder`.
   The default feature set is empty. `tokenizers` enables Hugging Face tokenizer
   loading, `onnx` enables ONNX dependencies and bundle validation, `candle`
-  enables Candle dependencies and architecture checks, and `external-tests`
-  opts into network/model tests.
+  enables Candle dependencies and architecture checks, `external-tests` opts
+  into network/model tests, and `slow-external-tests` gates slow ONNX runtime
+  execution checks.
 - `text-analysis-transcription` owns `TranscriptFormat`, `TranscriptSegment`,
   `TranscriptionResult`, `Transcriber`, `CommandTranscriber`,
   `WhisperCliTranscriber`, and `TranscriptSegmentSource`. It parses Whisper
@@ -880,15 +880,6 @@ neural rendering and reconstruction crates continue to interoperate through
 - `read_gaussian_splat_ply`, `write_gaussian_splat_ply`, and
   `write_preview_point_cloud_ply`.
 
-`video-analysis-radiance-pipeline` exposes:
-
-- `RadianceTrainingMethod`
-- `VideoToRadianceRequest`
-- `VideoToRadianceResult`
-- `VideoToRadiancePipeline`
-- Command builders for frame extraction, COLMAP, Nerfstudio data processing,
-  training, and Gaussian splat export.
-
 `video-analysis-reconstruction` exposes:
 
 - `CameraId`
@@ -1102,9 +1093,6 @@ Allowed internal dependencies:
 - `video-analysis-radiance-io` -> `video-analysis-core`,
   `video-analysis-radiance-fields`, `video-analysis-gaussian-splatting`,
   `video-analysis-reconstruction`, `serde`, `serde_json`, `thiserror`.
-- `video-analysis-radiance-pipeline` -> `video-analysis-core`,
-  `video-analysis-ffmpeg`, `video-analysis-ingest`,
-  `video-analysis-radiance-fields`, `video-analysis-radiance-io`.
 - `video-analysis-reconstruction` -> `video-analysis-core`,
   `video-analysis-radiance-fields`.
 - `video-analysis-cli` -> crates it composes for CLI workflows.

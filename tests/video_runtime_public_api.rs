@@ -15,7 +15,6 @@ use video_analysis_models::{
     RawPrediction,
 };
 use video_analysis_radiance_fields::{CameraIntrinsics, CameraPose, ColorRgb, Vec2, Vec3};
-use video_analysis_radiance_pipeline::{VideoToRadiancePipeline, VideoToRadianceRequest};
 use video_analysis_reconstruction::{match_binary_features, BinaryFeature, Feature2d, MatchConfig};
 use video_analysis_segmentation::{
     default_sam2_model_spec, VideoSegmentationPrompt, VideoSegmentationRequest,
@@ -62,11 +61,6 @@ fn runtime_and_projection_crates_expose_hermetic_public_surfaces(
 
     let split_plan = build_split_plan("demo.mp4", &[scene(0, 15)], &SplitOptions::default())?;
     assert_eq!(split_plan.jobs.len(), 1);
-
-    let radiance_request = VideoToRadianceRequest::new("video.mp4", "work");
-    let layout = VideoToRadiancePipeline::expected_layout(&radiance_request);
-    assert!(layout.frames_dir.ends_with("frames"));
-    assert!(VideoToRadiancePipeline::build_frame_extraction_args(&radiance_request)?.len() > 4);
 
     let intrinsics = CameraIntrinsics::pinhole(32, 32, FRAC_PI_3)?;
     let pose = CameraPose::identity();

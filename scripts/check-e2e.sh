@@ -18,4 +18,3 @@ cargo test -p video-analysis-models --features external-tests --test huggingface
 cargo test -p video-analysis-split --features external-tests --test ffmpeg_split -- --ignored
 cargo test -p video-analysis-cli --test cli_smoke vanalyze_detect_writes_scene_csv_for_generated_video -- --ignored
 cargo test -p video-analysis-use-cases --test external_tools -- --ignored
-cargo test -p video-analysis-radiance-pipeline --features external-tests --test external_pipeline -- --ignored

@@ -4,7 +4,11 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 #[cfg(feature = "onnx")]
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(feature = "onnx")]
+use std::sync::{Mutex, OnceLock};
+#[cfg(feature = "onnx")]
+use std::time::Instant;
 
 #[cfg(feature = "candle")]
 use candle_core::{DType as CandleDType, Device as CandleDevice, Tensor as CandleTensor};
@@ -432,17 +436,34 @@ impl OnnxTextEmbeddingRunner for UnavailableOnnxRunner {
 #[derive(Debug)]
 pub struct NativeOnnxRunner {
     session: Mutex<ort::session::Session>,
+    model_path: PathBuf,
+    first_run_observed: AtomicBool,
 }
 
 #[cfg(feature = "onnx")]
 impl NativeOnnxRunner {
     pub fn new(model_path: impl AsRef<Path>) -> Result<Self> {
+        let model_path = model_path.as_ref().to_path_buf();
+        let timing_enabled = onnx_timing_enabled();
+        if timing_enabled {
+            log_onnx_stage_event("NativeOnnxRunner::new", &model_path, "start");
+        }
+        let started = timing_enabled.then(Instant::now);
         let session = ort::session::Session::builder()
-            .map_err(ort_error)?
-            .commit_from_file(model_path.as_ref())
-            .map_err(ort_error)?;
+            .and_then(|mut builder| builder.commit_from_file(&model_path));
+        if let Some(started) = started {
+            log_onnx_stage_timing(
+                "NativeOnnxRunner::new",
+                &model_path,
+                started.elapsed(),
+                session.is_ok(),
+            );
+        }
+        let session = session.map_err(ort_error)?;
         Ok(Self {
             session: Mutex::new(session),
+            model_path,
+            first_run_observed: AtomicBool::new(false),
         })
     }
 
@@ -494,7 +515,22 @@ impl NativeOnnxRunner {
                 "ONNX text model does not expose a supported text input",
             ));
         }
-        let outputs = session.run(inputs).map_err(ort_error)?;
+        let log_first_run =
+            onnx_timing_enabled() && !self.first_run_observed.swap(true, Ordering::Relaxed);
+        if log_first_run {
+            log_onnx_stage_event("NativeOnnxRunner::session.run", &self.model_path, "start");
+        }
+        let started = log_first_run.then(Instant::now);
+        let outputs = session.run(inputs);
+        if let Some(started) = started {
+            log_onnx_stage_timing(
+                "NativeOnnxRunner::session.run",
+                &self.model_path,
+                started.elapsed(),
+                outputs.is_ok(),
+            );
+        }
+        let outputs = outputs.map_err(ort_error)?;
         let (shape, values) = outputs[0].try_extract_tensor::<f32>().map_err(ort_error)?;
         let shape = shape
             .iter()
@@ -1516,12 +1552,44 @@ fn ort_error(error: ort::Error) -> DetectError {
     DetectError::Source(format!("ONNX runtime error: {error}"))
 }
 
+#[cfg(feature = "onnx")]
+fn onnx_timing_enabled() -> bool {
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        std::env::var_os("VIDEO_ANALYSIS_ONNX_TIMING")
+            .map(|value| {
+                let value = value.to_string_lossy();
+                !value.is_empty() && value != "0" && !value.eq_ignore_ascii_case("false")
+            })
+            .unwrap_or(false)
+    })
+}
+
+#[cfg(feature = "onnx")]
+fn log_onnx_stage_timing(stage: &str, model_path: &Path, elapsed: std::time::Duration, ok: bool) {
+    eprintln!(
+        "text-analysis-models onnx timing: stage={stage} model={} elapsed_ms={} status={}",
+        model_path.display(),
+        elapsed.as_millis(),
+        if ok { "ok" } else { "err" }
+    );
+}
+
+#[cfg(feature = "onnx")]
+fn log_onnx_stage_event(stage: &str, model_path: &Path, event: &str) {
+    eprintln!(
+        "text-analysis-models onnx timing: stage={stage} model={} event={event}",
+        model_path.display()
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Write;
     use video_analysis_models::{
-        HuggingFaceModelSpec, ModelBundleFile, ModelBundleManifest, ModelTask,
+        HuggingFaceModelSpec, ModelBundle, ModelBundleFile, ModelBundleManifest, ModelBundleStore,
+        ModelTask,
     };
 
     #[derive(Debug)]
@@ -1750,43 +1818,175 @@ mod tests {
     }
 
     #[cfg(feature = "external-tests")]
-    #[test]
-    #[ignore]
-    fn downloads_distilbert_onnx_preset_and_classifies_sentence() {
-        use video_analysis_models::{HuggingFaceDownloader, ModelBundleStore, ModelPreset};
+    fn tiny_pinned_onnx_classifier_spec() -> HuggingFaceModelSpec {
+        HuggingFaceModelSpec::new(
+            "onnx-internal-testing/tiny-random-BertForSequenceClassification-ONNX",
+            ModelTask::TextClassification,
+        )
+        .name("tiny-random-bert-sequence-classification-onnx")
+        .revision("bd9b3e860b0783fce290eaacd78dff74bb2e88a3")
+        .file("config.json")
+        .file("tokenizer.json")
+        .file("tokenizer_config.json")
+        .file("onnx/model.onnx")
+    }
 
+    #[cfg(feature = "external-tests")]
+    fn tiny_pinned_onnx_embedder_spec() -> HuggingFaceModelSpec {
+        HuggingFaceModelSpec::new(
+            "onnx-internal-testing/tiny-random-BertModel-ONNX",
+            ModelTask::TextEmbedding,
+        )
+        .name("tiny-random-bert-model-onnx")
+        .revision("3f74b196fbb9932eddd11953553cb7ce04ae671a")
+        .file("config.json")
+        .file("tokenizer.json")
+        .file("tokenizer_config.json")
+        .file("onnx/model.onnx")
+    }
+
+    #[cfg(feature = "external-tests")]
+    fn assert_nonempty_file(path: impl AsRef<Path>) {
+        let path = path.as_ref();
+        let metadata = fs::metadata(path)
+            .unwrap_or_else(|err| panic!("expected `{}` metadata: {err}", path.display()));
+        assert!(
+            metadata.is_file() && metadata.len() > 0,
+            "expected `{}` to be a non-empty file",
+            path.display()
+        );
+    }
+
+    #[cfg(feature = "external-tests")]
+    fn download_bundle(spec: &HuggingFaceModelSpec) -> (tempfile::TempDir, ModelBundle) {
         let dir = tempfile::tempdir().unwrap();
         let bundle = ModelBundleStore::new(dir.path().join("bundles"))
-            .downloader(HuggingFaceDownloader::new().progress(false).max_retries(1))
-            .download(&ModelPreset::XenovaDistilbertSst2Onnx.spec())
+            .downloader(
+                HuggingFaceDownloader::new()
+                    .cache_dir(dir.path().join("cache"))
+                    .progress(false)
+                    .max_retries(1),
+            )
+            .download(spec)
             .unwrap();
-        let mut classifier = OnnxTextClassifier::from_bundle(bundle).unwrap();
-        let predictions = classifier.classify("I love reliable Rust tools.").unwrap();
-        assert!(predictions
-            .iter()
-            .any(|prediction| prediction.label.as_deref() == Some("POSITIVE")));
+        (dir, bundle)
+    }
+
+    #[cfg(feature = "slow-external-tests")]
+    fn slow_onnx_tests_enabled() -> bool {
+        std::env::var_os("RUN_SLOW_ONNX_TESTS")
+            .map(|value| {
+                let value = value.to_string_lossy();
+                !value.is_empty() && value != "0" && !value.eq_ignore_ascii_case("false")
+            })
+            .unwrap_or(false)
+    }
+
+    #[cfg(all(feature = "slow-external-tests", feature = "onnx"))]
+    fn log_slow_test_stage_timing(stage: &str, elapsed: std::time::Duration) {
+        if onnx_timing_enabled() {
+            eprintln!(
+                "text-analysis-models slow onnx test timing: stage={stage} elapsed_ms={}",
+                elapsed.as_millis()
+            );
+        }
     }
 
     #[cfg(feature = "external-tests")]
     #[test]
     #[ignore]
-    fn downloads_minilm_onnx_preset_and_embeds_sentences() {
-        use video_analysis_models::{HuggingFaceDownloader, ModelBundleStore, ModelPreset};
+    fn downloads_tiny_pinned_onnx_classifier_bundle_and_validates_metadata() {
+        use video_analysis_models::{HuggingFaceDownloader, ModelBundleStore};
 
         let dir = tempfile::tempdir().unwrap();
         let bundle = ModelBundleStore::new(dir.path().join("bundles"))
-            .downloader(HuggingFaceDownloader::new().progress(false).max_retries(1))
-            .download(&ModelPreset::XenovaMiniLmL6V2Onnx.spec())
+            .downloader(
+                HuggingFaceDownloader::new()
+                    .cache_dir(dir.path().join("cache"))
+                    .progress(false)
+                    .max_retries(1),
+            )
+            .download(&tiny_pinned_onnx_classifier_spec())
             .unwrap();
+        let info = validate_onnx_bundle(&bundle).unwrap();
+        assert_nonempty_file(bundle.manifest_path());
+        assert_nonempty_file(info.config_path);
+        assert_nonempty_file(info.tokenizer_path);
+        assert_nonempty_file(info.model_path);
+    }
+
+    #[cfg(feature = "external-tests")]
+    #[test]
+    #[ignore]
+    fn downloads_tiny_pinned_onnx_embedder_bundle_and_validates_metadata() {
+        let (_dir, bundle) = download_bundle(&tiny_pinned_onnx_embedder_spec());
+        let info = validate_onnx_bundle(&bundle).unwrap();
+        assert_nonempty_file(bundle.manifest_path());
+        assert_nonempty_file(info.config_path);
+        assert_nonempty_file(info.tokenizer_path);
+        assert_nonempty_file(info.model_path);
+    }
+
+    #[cfg(all(feature = "slow-external-tests", feature = "onnx"))]
+    #[test]
+    #[ignore = "requires network access and opt-in slow ONNX runtime coverage"]
+    fn runs_tiny_pinned_onnx_classifier_runtime_when_requested() {
+        if !slow_onnx_tests_enabled() {
+            eprintln!("skipping slow ONNX runtime test; set RUN_SLOW_ONNX_TESTS=1 to enable");
+            return;
+        }
+
+        let started = std::time::Instant::now();
+        let (_dir, bundle) = download_bundle(&tiny_pinned_onnx_classifier_spec());
+        log_slow_test_stage_timing("download_bundle", started.elapsed());
+
+        let started = std::time::Instant::now();
+        let mut classifier = OnnxTextClassifier::from_bundle(bundle).unwrap();
+        log_slow_test_stage_timing("OnnxTextClassifier::from_bundle", started.elapsed());
+
+        let started = std::time::Instant::now();
+        let predictions = classifier
+            .classify("Rust crates and cargo packages")
+            .unwrap();
+        log_slow_test_stage_timing("OnnxTextClassifier::classify", started.elapsed());
+        assert!(!predictions.is_empty());
+        assert!(predictions
+            .iter()
+            .all(|prediction| prediction.score.unwrap_or(0.0).is_finite()));
+    }
+
+    #[cfg(all(feature = "slow-external-tests", feature = "onnx"))]
+    #[test]
+    #[ignore = "requires network access and opt-in slow ONNX runtime coverage"]
+    fn runs_tiny_pinned_onnx_embedder_runtime_when_requested() {
+        if !slow_onnx_tests_enabled() {
+            eprintln!("skipping slow ONNX runtime test; set RUN_SLOW_ONNX_TESTS=1 to enable");
+            return;
+        }
+
+        let started = std::time::Instant::now();
+        let (_dir, bundle) = download_bundle(&tiny_pinned_onnx_embedder_spec());
+        log_slow_test_stage_timing("download_bundle", started.elapsed());
+
+        let started = std::time::Instant::now();
         let embedder = OnnxTextEmbedder::from_bundle(bundle).unwrap();
+        log_slow_test_stage_timing("OnnxTextEmbedder::from_bundle", started.elapsed());
+
+        let started = std::time::Instant::now();
         let left = embedder
             .embed_text("Rust crates and cargo packages")
             .unwrap();
+        log_slow_test_stage_timing("OnnxTextEmbedder::embed_text.left", started.elapsed());
+
+        let started = std::time::Instant::now();
         let right = embedder
             .embed_text("A completely different sentence")
             .unwrap();
+        log_slow_test_stage_timing("OnnxTextEmbedder::embed_text.right", started.elapsed());
         assert_eq!(left.dimensions(), right.dimensions());
         assert!(left.dimensions() > 0);
+        assert!(left.as_slice().iter().all(|value| value.is_finite()));
+        assert!(right.as_slice().iter().all(|value| value.is_finite()));
     }
 
     #[cfg(feature = "external-tests")]
