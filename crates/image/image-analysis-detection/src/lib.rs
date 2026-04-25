@@ -4,10 +4,9 @@ use std::collections::BTreeMap;
 
 use image_analysis_core::ImageView;
 use image_analysis_segmentation::{
-    default_sam_model_spec, ImageSegment, ImageSegmentationBackend, ImageSegmentationRequest,
+    ImageSegment, ImageSegmentationBackend, ImageSegmentationRequest,
 };
 use video_analysis_core::{BoundingBox, FramePosition, Result, VideoFrame};
-use video_analysis_models::HuggingFaceModelSpec;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageDetection {
@@ -32,6 +31,13 @@ pub struct ImageDetectionRequest {
 }
 
 impl ImageDetectionRequest {
+    pub fn automatic_mask_proposals() -> Self {
+        Self {
+            segmentation: ImageSegmentationRequest::automatic_mask_generation(),
+            ..Self::default()
+        }
+    }
+
     pub fn min_mask_pixels(mut self, value: usize) -> Self {
         self.min_mask_pixels = value.max(1);
         self
@@ -51,10 +57,6 @@ impl Default for ImageDetectionRequest {
             default_label: "object".to_string(),
         }
     }
-}
-
-pub fn default_detection_model_spec() -> HuggingFaceModelSpec {
-    default_sam_model_spec()
 }
 
 pub fn segment_to_detection(segment: &ImageSegment, default_label: &str) -> ImageDetection {
@@ -109,10 +111,6 @@ impl<B> MaskProposalDetector<B> {
 }
 
 impl<B: ImageSegmentationBackend> MaskProposalDetector<B> {
-    pub fn model_spec(&self) -> HuggingFaceModelSpec {
-        self.backend.model_spec()
-    }
-
     pub fn detect_image(&mut self, image: &ImageView<'_>) -> Result<Vec<ImageDetection>> {
         let segments = self
             .backend
@@ -152,10 +150,6 @@ mod tests {
     }
 
     impl ImageSegmentationBackend for StubSegmentationBackend {
-        fn model_spec(&self) -> HuggingFaceModelSpec {
-            default_sam_model_spec()
-        }
-
         fn segment_image(
             &mut self,
             _image: &ImageView<'_>,
@@ -182,14 +176,6 @@ mod tests {
             8 * 3,
         )
         .unwrap()
-    }
-
-    #[test]
-    fn default_detection_model_spec_uses_sam() {
-        assert_eq!(
-            default_detection_model_spec().repo_id,
-            "facebook/sam-vit-base"
-        );
     }
 
     #[test]
@@ -221,5 +207,21 @@ mod tests {
         let detections = detector.detect_frame(&frame(&owned.data)).unwrap();
         assert_eq!(detections.position.frame_index, 3);
         assert_eq!(detections.detections.len(), 1);
+    }
+
+    #[test]
+    fn automatic_mask_proposals_are_explicit() {
+        assert!(
+            !ImageDetectionRequest::default()
+                .segmentation
+                .prompt
+                .automatic_mask_generation
+        );
+        assert!(
+            ImageDetectionRequest::automatic_mask_proposals()
+                .segmentation
+                .prompt
+                .automatic_mask_generation
+        );
     }
 }

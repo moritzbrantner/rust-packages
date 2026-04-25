@@ -56,8 +56,8 @@ impl ImageSynthesisConfig {
 impl Default for ImageSynthesisConfig {
     fn default() -> Self {
         Self {
-            width: 640,
-            height: 360,
+            width: 512,
+            height: 512,
             pixel_format: ImagePixelFormat::Rgb24,
         }
     }

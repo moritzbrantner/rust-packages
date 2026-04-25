@@ -37,6 +37,21 @@ pub struct ImageView<'a> {
 }
 
 impl<'a> ImageView<'a> {
+    pub fn packed(
+        width: u32,
+        height: u32,
+        pixel_format: ImagePixelFormat,
+        data: &'a [u8],
+    ) -> Result<Self> {
+        Self::new(
+            width,
+            height,
+            pixel_format,
+            data,
+            width as usize * pixel_format.bytes_per_pixel(),
+        )
+    }
+
     pub fn new(
         width: u32,
         height: u32,
@@ -130,6 +145,36 @@ pub struct OwnedImage {
 }
 
 impl OwnedImage {
+    pub fn new_rgb(width: u32, height: u32, data: Vec<u8>) -> Result<Self> {
+        Self::new(
+            width,
+            height,
+            ImagePixelFormat::Rgb24,
+            data,
+            width as usize * ImagePixelFormat::Rgb24.bytes_per_pixel(),
+        )
+    }
+
+    pub fn new_bgr(width: u32, height: u32, data: Vec<u8>) -> Result<Self> {
+        Self::new(
+            width,
+            height,
+            ImagePixelFormat::Bgr24,
+            data,
+            width as usize * ImagePixelFormat::Bgr24.bytes_per_pixel(),
+        )
+    }
+
+    pub fn new_gray(width: u32, height: u32, data: Vec<u8>) -> Result<Self> {
+        Self::new(
+            width,
+            height,
+            ImagePixelFormat::Gray8,
+            data,
+            width as usize * ImagePixelFormat::Gray8.bytes_per_pixel(),
+        )
+    }
+
     pub fn new(
         width: u32,
         height: u32,
@@ -230,14 +275,7 @@ mod tests {
 
     #[test]
     fn computes_luma_histogram() {
-        let image = OwnedImage::new(
-            2,
-            1,
-            ImagePixelFormat::Rgb24,
-            vec![0, 0, 0, 255, 255, 255],
-            6,
-        )
-        .unwrap();
+        let image = OwnedImage::new_rgb(2, 1, vec![0, 0, 0, 255, 255, 255]).unwrap();
         assert_eq!(luma_histogram(&image.as_view(), 2).unwrap(), vec![1, 1]);
     }
 
@@ -248,5 +286,11 @@ mod tests {
         let compact = compact_image(&view).unwrap();
         assert_eq!(compact.stride, 3);
         assert_eq!(compact.data, vec![1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn packed_view_uses_tight_stride() {
+        let view = ImageView::packed(2, 1, ImagePixelFormat::Gray8, &[0, 255]).unwrap();
+        assert_eq!(view.stride, 2);
     }
 }

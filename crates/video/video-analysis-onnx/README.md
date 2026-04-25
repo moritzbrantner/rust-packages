@@ -9,18 +9,30 @@ ONNX-backed video model inference adapters for `video-analysis`.
 
 ## Example
 
-```rust,ignore
-use video_analysis_onnx::{OnnxModelBackend, OnnxObjectDetectionOptions};
+```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use image_analysis_onnx::OnnxImagePreprocessing;
+use num_rational::Rational64;
+use video_analysis_core::{FramePosition, PixelFormat, VideoFrame};
+use video_analysis_onnx::preprocess_frame;
 
-let backend = OnnxModelBackend::from_bundle("bundles/yolos-tiny")?;
-let options = OnnxObjectDetectionOptions::default();
-
-let _ = backend;
-let _ = options;
+let bytes = vec![255_u8; 2 * 2 * 3];
+let frame = VideoFrame::packed(
+    FramePosition::from_frame_index(0, Rational64::new(1, 1)),
+    2,
+    2,
+    PixelFormat::Rgb24,
+    &bytes,
+    6,
+)?;
+let tensor = preprocess_frame(&frame, &OnnxImagePreprocessing::default())?;
+assert_eq!(tensor.channels, 3);
+# Ok(())
+# }
 ```
 
 ## Related crates
 
 - `video-analysis-models`
-- `image-analysis-processing`
+- `image-analysis-onnx`
 - `video-analysis-cli`

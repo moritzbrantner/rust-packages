@@ -199,13 +199,29 @@ helpers without requiring video timeline semantics.
   `ImagePixelFormat`, image compacting, mean RGB, and luma histograms.
 - `ImageView::from_video_frame` and `OwnedImage::from_video_frame` bridge core
   `VideoFrame<'_>` values into still-image workflows.
+- `image-analysis-io` owns PNG/JPEG/WebP file loading and saving for
+  `OwnedImage` buffers.
 - `image-analysis-processing` owns `ImageOperation`, `ImageProcessor`,
   `ImageRegion`, crop, nearest-neighbor resize, grayscale, invert, threshold,
   convolution, and sharpen helpers.
+- `image-analysis-segmentation` owns still-image prompts, binary masks,
+  segments, and pure segmentation backend contracts with explicit opt-in
+  automatic mask generation helpers.
+- `image-analysis-detection` owns canonical still-image detections plus
+  mask-proposal adapters over segmentation backends.
+- `image-analysis-synthesis` owns deterministic, non-AI image generation from
+  colors, histograms, and regions.
+- `image-analysis-models` owns image model presets and model-backed backend
+  traits for segmentation, classification, embeddings, and captioning.
+- `image-analysis-onnx` owns still-image ONNX preprocessing and optional
+  runtime-backed image model adapters.
+- `image-analysis-comfyui` owns ComfyUI workflow builders for AI image
+  generation and manipulation.
 
 Image processing outputs are compact `OwnedImage` buffers. Image crates should
-not own media decoding, scene timing, model execution, CLI branching, or report
-serialization.
+not own scene timing, CLI branching, or report serialization. Pure image crates
+stay classical and memory-first; AI/runtime integrations live in dedicated
+image model/runtime/orchestration crates.
 
 ## Text Analysis Contracts
 

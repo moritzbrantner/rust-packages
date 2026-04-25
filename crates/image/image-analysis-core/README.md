@@ -8,14 +8,17 @@ Shared image views, pixel formats, and image statistics for `video-analysis`.
 
 ## Example
 
-```rust,ignore
-use image_analysis_core::{ImageView, OwnedImage};
+```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use image_analysis_core::{luma_histogram, mean_rgb, ImageView, OwnedImage};
 
 let image = OwnedImage::new_rgb(1920, 1080, vec![0; 1920 * 1080 * 3])?;
 let view: ImageView<'_> = image.as_view();
 
-let _ = view.mean_rgb();
-let _ = view.luma_histogram(16);
+let _ = mean_rgb(&view)?;
+let _ = luma_histogram(&view, 16)?;
+# Ok(())
+# }
 ```
 
 ## Related crates

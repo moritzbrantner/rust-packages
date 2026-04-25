@@ -1,0 +1,23 @@
+[package]
+name = "text-analysis-whisper-cpp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Native whisper.cpp transcription bindings and model management."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+hound = "3.5.1"
+sha1 = "0.10.6"
+ureq = { version = "2.12.1", default-features = true }
+
+[build-dependencies]
+cmake = "0.1.54"

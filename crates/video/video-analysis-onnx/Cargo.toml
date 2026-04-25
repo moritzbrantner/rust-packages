@@ -14,7 +14,7 @@ categories.workspace = true
 
 [dependencies]
 image-analysis-core.workspace = true
-image-analysis-processing.workspace = true
+image-analysis-onnx.workspace = true
 ort = { workspace = true, optional = true }
 serde_json.workspace = true
 video-analysis-core.workspace = true
@@ -23,7 +23,7 @@ video-analysis-posture.workspace = true
 
 [features]
 default = []
-onnxruntime = ["dep:ort"]
+onnxruntime = ["dep:ort", "image-analysis-onnx/onnxruntime"]
 external-tests = ["onnxruntime"]
 
 [dev-dependencies]

@@ -8,19 +8,24 @@ Image segmentation primitives and SAM model defaults for `video-analysis`.
 
 ## Example
 
-```rust,ignore
-use image_analysis_segmentation::{default_sam_model_spec, ImageSegmentationPrompt, SegmentationPoint};
+```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use image_analysis_segmentation::{
+    ImageSegmentationPrompt, ImageSegmentationRequest, SegmentationPoint,
+};
 
 let prompt = ImageSegmentationPrompt::new()
     .point(SegmentationPoint::foreground(200, 120))
     .multimask_output(false);
 
-let _ = default_sam_model_spec();
-let _ = prompt;
+let request = ImageSegmentationRequest::new(prompt);
+let _ = request.min_mask_pixels(32);
+# Ok(())
+# }
 ```
 
 ## Related crates
 
 - `image-analysis-core`
 - `image-analysis-detection`
-- `video-analysis-segmentation`
+- `image-analysis-models`

@@ -8,6 +8,15 @@ fn root_facade_reexports_core_and_domain_packages() {
     let frame = checkerboard_frame(8, 8, 0);
     let image = va::image_core::ImageView::from_video_frame(&frame.as_frame()).unwrap();
     assert_eq!(image.width, 8);
+    assert_eq!(
+        va::image_models::default_sam_model_spec().repo_id,
+        "facebook/sam-vit-base"
+    );
+    let workflow = va::image_comfyui::build_generation_workflow(
+        &va::image_comfyui::ImageGenerationRequest::new("red cube"),
+    )
+    .unwrap();
+    assert!(!workflow.nodes.is_empty());
 
     let summary =
         va::text_features::summarize_text("Rust tests keep package boundaries honest.", 3);

@@ -11,8 +11,13 @@ pub use audio_analysis_separation as audio_separation;
 pub use audio_analysis_synthesis as audio_synthesis;
 pub use data_inversion_core as inversion;
 pub use dense_data as dense;
+pub use image_analysis_comfyui as image_comfyui;
 pub use image_analysis_core as image_core;
 pub use image_analysis_detection as image_detection;
+pub use image_analysis_io as image_io;
+pub use image_analysis_models as image_models;
+#[cfg(feature = "onnx-backend")]
+pub use image_analysis_onnx as image_onnx;
 pub use image_analysis_processing as image_processing;
 pub use image_analysis_segmentation as image_segmentation;
 pub use image_analysis_synthesis as image_synthesis;

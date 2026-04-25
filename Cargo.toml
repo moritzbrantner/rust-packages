@@ -33,7 +33,11 @@ members = [
     "crates/data/dense-data",
     "crates/data/numbers-core",
     "crates/image/image-analysis-core",
+    "crates/image/image-analysis-comfyui",
     "crates/image/image-analysis-detection",
+    "crates/image/image-analysis-io",
+    "crates/image/image-analysis-models",
+    "crates/image/image-analysis-onnx",
     "crates/image/image-analysis-processing",
     "crates/image/image-analysis-segmentation",
     "crates/image/image-analysis-synthesis",
@@ -46,6 +50,7 @@ members = [
     "crates/text/text-analysis-semantics",
     "crates/text/text-analysis-synthesis",
     "crates/text/text-analysis-transcription",
+    "crates/text/text-analysis-whisper-cpp",
     "crates/three-d/three-d-processing-core",
     "crates/three-d/three-d-processing-io",
     "crates/three-d/three-d-processing-mesh",
@@ -115,6 +120,7 @@ ndarray = "0.17.2"
 candle-core = "0.10.2"
 candle-nn = "0.10.2"
 candle-transformers = "0.10.2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 comfyui-data = { version = "0.1.0", path = "crates/comfyui/comfyui-data" }
 comfyui-models = { version = "0.1.0", path = "crates/comfyui/comfyui-models" }
 data-inversion-core = { version = "0.1.0", path = "crates/data/data-inversion-core" }
@@ -132,7 +138,11 @@ audio-analysis-synthesis = { version = "0.1.0", path = "crates/audio/audio-analy
 audio-analysis-test-support = { version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
 video-analysis-test-support = { version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
 image-analysis-core = { version = "0.1.0", path = "crates/image/image-analysis-core" }
+image-analysis-comfyui = { version = "0.1.0", path = "crates/image/image-analysis-comfyui" }
 image-analysis-detection = { version = "0.1.0", path = "crates/image/image-analysis-detection" }
+image-analysis-io = { version = "0.1.0", path = "crates/image/image-analysis-io" }
+image-analysis-models = { version = "0.1.0", path = "crates/image/image-analysis-models" }
+image-analysis-onnx = { version = "0.1.0", path = "crates/image/image-analysis-onnx" }
 image-analysis-processing = { version = "0.1.0", path = "crates/image/image-analysis-processing" }
 image-analysis-segmentation = { version = "0.1.0", path = "crates/image/image-analysis-segmentation" }
 image-analysis-synthesis = { version = "0.1.0", path = "crates/image/image-analysis-synthesis" }
@@ -145,6 +155,7 @@ text-analysis-prediction = { version = "0.1.0", path = "crates/text/text-analysi
 text-analysis-semantics = { version = "0.1.0", path = "crates/text/text-analysis-semantics" }
 text-analysis-synthesis = { version = "0.1.0", path = "crates/text/text-analysis-synthesis" }
 text-analysis-transcription = { version = "0.1.0", path = "crates/text/text-analysis-transcription" }
+text-analysis-whisper-cpp = { version = "0.1.0", path = "crates/text/text-analysis-whisper-cpp" }
 vector-analysis-core = { version = "0.1.0", path = "crates/vector/vector-analysis-core" }
 vector-analysis-index = { version = "0.1.0", path = "crates/vector/vector-analysis-index" }
 three-d-processing-core = { version = "0.1.0", path = "crates/three-d/three-d-processing-core" }
@@ -179,7 +190,7 @@ video-analysis-use-cases = { version = "0.1.0", path = "crates/video/video-analy
 
 [features]
 default = []
-onnx = ["dep:video-analysis-onnx"]
+onnx = ["dep:image-analysis-onnx", "dep:video-analysis-onnx"]
 ffmpeg-backend = ["video-analysis-ffmpeg/ffmpeg-backend"]
 ffmpeg-tests = ["ffmpeg-backend"]
 onnx-backend = ["onnx"]
@@ -221,8 +232,12 @@ audio-analysis-synthesis.workspace = true
 data-inversion-core.workspace = true
 dense-data.workspace = true
 numbers-core.workspace = true
+image-analysis-comfyui.workspace = true
 image-analysis-core.workspace = true
 image-analysis-detection.workspace = true
+image-analysis-io.workspace = true
+image-analysis-models.workspace = true
+image-analysis-onnx = { workspace = true, optional = true }
 image-analysis-processing.workspace = true
 image-analysis-segmentation.workspace = true
 image-analysis-synthesis.workspace = true

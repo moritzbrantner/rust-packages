@@ -4,50 +4,6 @@ use std::collections::BTreeMap;
 
 use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
 use video_analysis_core::{BoundingBox, DetectError, Result};
-use video_analysis_models::{HuggingFaceModelSpec, ModelTask};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum SamImagePreset {
-    #[default]
-    VitBase,
-    VitLarge,
-    VitHuge,
-}
-
-impl SamImagePreset {
-    pub const ALL: &'static [Self] = &[Self::VitBase, Self::VitLarge, Self::VitHuge];
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::VitBase => "sam-vit-base",
-            Self::VitLarge => "sam-vit-large",
-            Self::VitHuge => "sam-vit-huge",
-        }
-    }
-
-    pub fn repo_id(self) -> &'static str {
-        match self {
-            Self::VitBase => "facebook/sam-vit-base",
-            Self::VitLarge => "facebook/sam-vit-large",
-            Self::VitHuge => "facebook/sam-vit-huge",
-        }
-    }
-
-    pub fn model_spec(self) -> HuggingFaceModelSpec {
-        HuggingFaceModelSpec::new(
-            self.repo_id(),
-            ModelTask::Custom("image_segmentation".to_string()),
-        )
-        .name(self.as_str())
-        .file("config.json")
-        .file("preprocessor_config.json")
-        .first_available_file(["model.safetensors", "pytorch_model.bin"])
-    }
-}
-
-pub fn default_sam_model_spec() -> HuggingFaceModelSpec {
-    SamImagePreset::default().model_spec()
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PointLabel {
@@ -131,6 +87,10 @@ impl ImageSegmentationRequest {
         }
     }
 
+    pub fn automatic_mask_generation() -> Self {
+        Self::new(ImageSegmentationPrompt::automatic_mask_generation())
+    }
+
     pub fn min_mask_pixels(mut self, value: usize) -> Self {
         self.min_mask_pixels = value.max(1);
         self
@@ -139,7 +99,7 @@ impl ImageSegmentationRequest {
 
 impl Default for ImageSegmentationRequest {
     fn default() -> Self {
-        Self::new(ImageSegmentationPrompt::automatic_mask_generation())
+        Self::new(ImageSegmentationPrompt::default())
     }
 }
 
@@ -284,10 +244,6 @@ impl ImageSegment {
 }
 
 pub trait ImageSegmentationBackend {
-    fn model_spec(&self) -> HuggingFaceModelSpec {
-        default_sam_model_spec()
-    }
-
     fn segment_image(
         &mut self,
         image: &ImageView<'_>,
@@ -298,16 +254,6 @@ pub trait ImageSegmentationBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn default_sam_image_spec_uses_meta_vit_base() {
-        let spec = default_sam_model_spec();
-        assert_eq!(spec.repo_id, "facebook/sam-vit-base");
-        assert_eq!(
-            spec.task,
-            ModelTask::Custom("image_segmentation".to_string())
-        );
-    }
 
     #[test]
     fn binary_mask_bounding_box_tracks_active_region() {
@@ -323,5 +269,20 @@ mod tests {
     fn image_segment_rejects_empty_masks() {
         let mask = BinaryMask::empty(4, 4).unwrap();
         assert!(ImageSegment::new(mask).is_err());
+    }
+
+    #[test]
+    fn segmentation_request_default_is_manual() {
+        let request = ImageSegmentationRequest::default();
+        assert!(!request.prompt.automatic_mask_generation);
+        assert!(request.prompt.points.is_empty());
+        assert!(request.prompt.boxes.is_empty());
+    }
+
+    #[test]
+    fn segmentation_request_can_opt_into_automatic_masks() {
+        let request = ImageSegmentationRequest::automatic_mask_generation();
+        assert!(request.prompt.automatic_mask_generation);
+        assert!(request.prompt.multimask_output);
     }
 }

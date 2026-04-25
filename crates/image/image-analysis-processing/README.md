@@ -8,15 +8,17 @@ CPU image processing primitives for `video-analysis`.
 
 ## Example
 
-```rust,ignore
+```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use image_analysis_processing::{ImageOperation, ImageProcessor};
 
-let processor = ImageProcessor::new(vec![
-    ImageOperation::Grayscale,
-    ImageOperation::Threshold(110),
-]);
+let processor = ImageProcessor::new()
+    .operation(ImageOperation::Grayscale)
+    .operation(ImageOperation::Threshold { level: 110 });
 
 let _ = processor;
+# Ok(())
+# }
 ```
 
 ## Related crates

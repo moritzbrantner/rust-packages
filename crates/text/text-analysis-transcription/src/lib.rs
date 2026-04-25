@@ -5,6 +5,11 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use serde::Deserialize;
+pub use text_analysis_whisper_cpp::{
+    transcription_catalog as whisper_cpp_catalog, ModelStore as WhisperCppModelStore,
+    WhisperCppCatalog, WhisperCppConfig, WhisperCppModel, WhisperCppModelStatus, WhisperCppPhase,
+    WhisperCppProgressEvent, WhisperCppSegment, WhisperCppTranscriber as NativeWhisperCppTranscriber,
+};
 use thiserror::Error;
 use video_analysis_core::{OwnedTextSegment, Timebase, Timestamp};
 use video_analysis_ingest::{
@@ -21,6 +26,8 @@ pub enum TranscriptionError {
     InvalidTranscript(String),
     #[error("transcriber command `{0}` failed")]
     CommandFailed(String),
+    #[error("{0}")]
+    WhisperCpp(#[from] text_analysis_whisper_cpp::WhisperCppError),
 }
 
 pub type Result<T> = std::result::Result<T, TranscriptionError>;
@@ -157,6 +164,71 @@ impl Transcriber for WhisperCliTranscriber {
         let mut result = parse_whisper_json(&bytes)?;
         result.source = Some(transcript_path.to_string_lossy().into_owned());
         Ok(result)
+    }
+}
+
+pub struct WhisperCppTranscriber {
+    inner: NativeWhisperCppTranscriber,
+}
+
+impl WhisperCppTranscriber {
+    pub fn new(config: WhisperCppConfig) -> Self {
+        Self {
+            inner: NativeWhisperCppTranscriber::new(config),
+        }
+    }
+
+    pub fn with_model_store(mut self, store: WhisperCppModelStore) -> Self {
+        self.inner = self.inner.with_model_store(store);
+        self
+    }
+
+    pub fn on_progress<F>(mut self, callback: F) -> Self
+    where
+        F: FnMut(WhisperCppProgressEvent) + 'static,
+    {
+        self.inner = self.inner.on_progress(callback);
+        self
+    }
+
+    pub fn transcribe_with_progress(
+        &mut self,
+        input: &Path,
+        progress: &mut dyn FnMut(WhisperCppProgressEvent),
+    ) -> Result<TranscriptionResult> {
+        let transcript = self.inner.transcribe_file_with_progress(input, progress)?;
+        Ok(whisper_cpp_result_to_transcription_result(transcript))
+    }
+}
+
+impl Transcriber for WhisperCppTranscriber {
+    fn transcribe(&mut self, input: &Path) -> Result<TranscriptionResult> {
+        let transcript = self.inner.transcribe_file(input)?;
+        Ok(whisper_cpp_result_to_transcription_result(transcript))
+    }
+}
+
+fn whisper_cpp_result_to_transcription_result(
+    transcript: text_analysis_whisper_cpp::WhisperCppTranscription,
+) -> TranscriptionResult {
+    TranscriptionResult {
+        text: transcript.text,
+        language: transcript.language.clone(),
+        segments: transcript
+            .segments
+            .into_iter()
+            .map(|segment| TranscriptSegment {
+                index: segment.index,
+                start_seconds: segment.start_seconds,
+                end_seconds: segment.end_seconds,
+                text: segment.text,
+                language: transcript.language.clone(),
+                speaker: None,
+                confidence: segment.confidence,
+                is_final: true,
+            })
+            .collect(),
+        source: transcript.source,
     }
 }
 

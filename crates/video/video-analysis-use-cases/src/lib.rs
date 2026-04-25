@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use text_analysis_features::TranscriptHeuristicAnalyzer;
 use text_analysis_transcription::{
     segment_to_owned_text_segment, Transcriber, TranscriptSegment, WhisperCliTranscriber,
+    WhisperCppConfig, WhisperCppModel, WhisperCppProgressEvent, WhisperCppTranscriber,
 };
 use video_analysis_core::{
     AnalysisEvent, BoundingBox, DetectError, Observation, ObservationKind, RealtimeVideoPipeline,
@@ -43,7 +44,8 @@ pub mod youtube {
         LocalFileFilterSpec, ManifestFilterSpec, MetadataDepth, ModelCommandConfig,
         ObservationReport, RegionReport, SceneReport, SourceReport, SourceSpec, StreamBucketReport,
         TextReport, TranscriptSegmentReport, TranscriptionConfig, TranscriptionEngine,
-        TranscriptionReport, VideoReport, YoutubeCollectionManifest, YoutubeCollectionManifestItem,
+        TranscriptionReport, VideoReport, WhisperCppConfig, WhisperCppModel,
+        YoutubeCollectionManifest, YoutubeCollectionManifestItem,
         YoutubeCollectionManifestRequest, YoutubeCollectionReport, YoutubeCollectionRunRequest,
         YoutubeCollectionSource, YoutubeCollectionSourceReport, YoutubeRunOptions,
         YoutubeRunRequest, YoutubeVideoReport, YoutubeVideoRequest, YOUTUBE_VIDEO_USE_CASE,
@@ -61,8 +63,10 @@ pub struct YoutubeVideoRequest {
     pub max_frames: Option<u64>,
     pub visual_sample_every: u64,
     pub skip_transcription: bool,
+    pub transcriber_engine: TranscriptionEngine,
     pub transcriber_command: Option<PathBuf>,
     pub transcriber_args: Vec<String>,
+    pub whisper_cpp: WhisperCppConfig,
     pub object_command: Option<PathBuf>,
     pub object_args: Vec<String>,
     pub ocr_command: Option<PathBuf>,
@@ -83,8 +87,10 @@ impl Default for YoutubeVideoRequest {
             max_frames: None,
             visual_sample_every: 30,
             skip_transcription: false,
+            transcriber_engine: TranscriptionEngine::default(),
             transcriber_command: None,
             transcriber_args: Vec::new(),
+            whisper_cpp: WhisperCppConfig::default(),
             object_command: None,
             object_args: Vec::new(),
             ocr_command: None,
@@ -113,6 +119,7 @@ pub struct ExternalCommandConfig {
 #[serde(rename_all = "snake_case")]
 pub enum TranscriptionEngine {
     #[default]
+    WhisperCpp,
     Whisper,
     #[serde(alias = "fast_whisper")]
     FasterWhisper,
@@ -125,6 +132,8 @@ pub struct TranscriptionConfig {
     #[serde(default)]
     pub engine: TranscriptionEngine,
     pub command: Option<ExternalCommandConfig>,
+    #[serde(default)]
+    pub whisper_cpp: WhisperCppConfig,
 }
 
 impl Default for TranscriptionConfig {
@@ -133,7 +142,17 @@ impl Default for TranscriptionConfig {
             enabled: true,
             engine: TranscriptionEngine::default(),
             command: None,
+            whisper_cpp: WhisperCppConfig::default(),
         }
+    }
+}
+
+impl TranscriptionConfig {
+    pub fn normalized(mut self) -> Self {
+        if self.engine == TranscriptionEngine::Whisper && self.command.is_none() {
+            self.engine = TranscriptionEngine::WhisperCpp;
+        }
+        self
     }
 }
 
@@ -592,6 +611,13 @@ pub enum CollectionItemStatus {
 }
 
 pub fn run_youtube_video(args: YoutubeVideoRequest) -> Result<YoutubeVideoReport> {
+    run_youtube_video_with_progress(args, &mut |_| {})
+}
+
+pub fn run_youtube_video_with_progress(
+    args: YoutubeVideoRequest,
+    progress: &mut dyn FnMut(WhisperCppProgressEvent),
+) -> Result<YoutubeVideoReport> {
     fs::create_dir_all(&args.work_dir)?;
     let report_path = args
         .output
@@ -630,7 +656,7 @@ pub fn run_youtube_video(args: YoutubeVideoRequest) -> Result<YoutubeVideoReport
         skipped.push("on-screen text OCR: pass --ocr-command".to_string());
     }
 
-    let (transcription, audio_wav) = transcribe_video(&args, &video_path);
+    let (transcription, audio_wav) = transcribe_video(&args, &video_path, progress);
     match transcription.status.as_str() {
         "completed" => completed.push("transcription".to_string()),
         _ => skipped.push(format!(
@@ -711,6 +737,19 @@ pub fn run_youtube_video_workflow(
     work_dir: PathBuf,
     report_path: PathBuf,
 ) -> Result<YoutubeVideoReport> {
+    run_youtube_video_workflow_with_progress(request, work_dir, report_path, &mut |_| {})
+}
+
+pub fn run_youtube_video_workflow_with_progress(
+    request: YoutubeRunRequest,
+    work_dir: PathBuf,
+    report_path: PathBuf,
+    progress: &mut dyn FnMut(WhisperCppProgressEvent),
+) -> Result<YoutubeVideoReport> {
+    let request = YoutubeRunRequest {
+        transcription: request.transcription.normalized(),
+        ..request
+    };
     request.validate()?;
     let mut args = YoutubeVideoRequest {
         work_dir: work_dir.clone(),
@@ -720,6 +759,8 @@ pub fn run_youtube_video_workflow(
         max_frames: request.max_frames,
         visual_sample_every: request.visual_sample_every,
         skip_transcription: !request.transcription.enabled,
+        transcriber_engine: request.transcription.engine,
+        whisper_cpp: request.transcription.whisper_cpp.clone(),
         ..YoutubeVideoRequest::default()
     };
     match request.source {
@@ -743,7 +784,7 @@ pub fn run_youtube_video_workflow(
         args.text_args = config.args;
     }
 
-    let report = run_youtube_video(args)?;
+    let report = run_youtube_video_with_progress(args, progress)?;
     write_youtube_video_report(&report_path, &report)?;
     Ok(report)
 }
@@ -774,6 +815,22 @@ pub fn run_youtube_collection_workflow(
     work_dir: PathBuf,
     report_path: PathBuf,
 ) -> Result<YoutubeCollectionReport> {
+    run_youtube_collection_workflow_with_progress(request, work_dir, report_path, &mut |_| {})
+}
+
+pub fn run_youtube_collection_workflow_with_progress(
+    request: YoutubeCollectionRunRequest,
+    work_dir: PathBuf,
+    report_path: PathBuf,
+    progress: &mut dyn FnMut(WhisperCppProgressEvent),
+) -> Result<YoutubeCollectionReport> {
+    let request = YoutubeCollectionRunRequest {
+        analysis: YoutubeRunOptions {
+            transcription: request.analysis.transcription.clone().normalized(),
+            ..request.analysis.clone()
+        },
+        ..request
+    };
     request.validate()?;
     fs::create_dir_all(&work_dir)?;
 
@@ -907,7 +964,12 @@ pub fn run_youtube_collection_workflow(
             },
             analysis_work_dir.clone(),
         );
-        match run_youtube_video_workflow(item_request, analysis_work_dir, item_report_path) {
+        match run_youtube_video_workflow_with_progress(
+            item_request,
+            analysis_work_dir,
+            item_report_path,
+            progress,
+        ) {
             Ok(report) => item_reports.push(collection_item_report(
                 item,
                 Some(&local_video_path),
@@ -1777,6 +1839,7 @@ fn build_video_pipeline(args: &YoutubeVideoRequest) -> Result<RealtimeVideoPipel
 fn transcribe_video(
     args: &YoutubeVideoRequest,
     video_path: &Path,
+    progress: &mut dyn FnMut(WhisperCppProgressEvent),
 ) -> (TranscriptionReport, Option<PathBuf>) {
     if args.skip_transcription {
         return (
@@ -1790,28 +1853,25 @@ fn transcribe_video(
         );
     }
 
-    let command = match &args.transcriber_command {
-        Some(command) => command.clone(),
-        None => {
-            let default = PathBuf::from("whisper");
-            if resolve_command(&default).is_none() {
-                return (
-                    TranscriptionReport {
-                        status: "skipped".to_string(),
-                        text: None,
-                        segments: Vec::new(),
-                        message: Some("install whisper or pass --transcriber-command".to_string()),
-                    },
-                    None,
-                );
-            }
-            default
+    match extract_audio_wav(video_path, &args.work_dir).and_then(|audio_path| {
+        if args.transcriber_engine == TranscriptionEngine::WhisperCpp {
+            run_whisper_cpp(&args.whisper_cpp, &audio_path, progress)
+        } else {
+            let command = match &args.transcriber_command {
+                Some(command) => command.clone(),
+                None => {
+                    let default = PathBuf::from("whisper");
+                    if resolve_command(&default).is_none() {
+                        return Err(DetectError::Source(
+                            "install whisper or pass --transcriber-command".to_string(),
+                        ));
+                    }
+                    default
+                }
+            };
+            run_whisper_command(&command, &args.transcriber_args, &audio_path)
         }
-    };
-
-    match extract_audio_wav(video_path, &args.work_dir)
-        .and_then(|audio_path| run_whisper_command(&command, &args.transcriber_args, &audio_path))
-    {
+    }) {
         Ok((report, audio_path)) => (report, Some(audio_path)),
         Err(err) => (
             TranscriptionReport {
@@ -1827,6 +1887,36 @@ fn transcribe_video(
 
 fn extract_audio_wav(video_path: &Path, work_dir: &Path) -> Result<PathBuf> {
     extract_wav(video_path, work_dir.join("audio.wav"), 16_000)
+}
+
+fn run_whisper_cpp(
+    config: &WhisperCppConfig,
+    audio_path: &Path,
+    progress: &mut dyn FnMut(WhisperCppProgressEvent),
+) -> Result<(TranscriptionReport, PathBuf)> {
+    let mut transcriber = WhisperCppTranscriber::new(config.clone());
+    let parsed = transcriber
+        .transcribe_with_progress(audio_path, progress)
+        .map_err(|err| DetectError::Source(err.to_string()))?;
+    let segments = parsed
+        .segments
+        .into_iter()
+        .map(|segment| TranscriptSegmentReport {
+            index: segment.index,
+            start_seconds: segment.start_seconds,
+            end_seconds: segment.end_seconds,
+            text: segment.text.trim().to_string(),
+        })
+        .collect::<Vec<_>>();
+    Ok((
+        TranscriptionReport {
+            status: "completed".to_string(),
+            text: parsed.text.map(|text| text.trim().to_string()),
+            segments,
+            message: parsed.source,
+        },
+        audio_path.to_path_buf(),
+    ))
 }
 
 fn run_whisper_command(

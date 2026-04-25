@@ -23,7 +23,7 @@ Package README index:
 - Audio: [`audio-analysis-core`](crates/audio/audio-analysis-core/README.md), [`audio-analysis-fourier`](crates/audio/audio-analysis-fourier/README.md), [`audio-analysis-io`](crates/audio/audio-analysis-io/README.md), [`audio-analysis-pitch`](crates/audio/audio-analysis-pitch/README.md), [`audio-analysis-processing`](crates/audio/audio-analysis-processing/README.md), [`audio-analysis-recognition`](crates/audio/audio-analysis-recognition/README.md), [`audio-analysis-rhythm`](crates/audio/audio-analysis-rhythm/README.md), [`audio-analysis-separation`](crates/audio/audio-analysis-separation/README.md), [`audio-analysis-synthesis`](crates/audio/audio-analysis-synthesis/README.md)
 - ComfyUI: [`comfyui-data`](crates/comfyui/comfyui-data/README.md), [`comfyui-models`](crates/comfyui/comfyui-models/README.md)
 - Data: [`data-inversion-core`](crates/data/data-inversion-core/README.md), [`numbers-core`](crates/data/numbers-core/README.md), [`dense-data`](crates/data/dense-data/README.md)
-- Image: [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
+- Image: [`image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-io`](crates/image/image-analysis-io/README.md), [`image-analysis-models`](crates/image/image-analysis-models/README.md), [`image-analysis-onnx`](crates/image/image-analysis-onnx/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
 - Text: [`text-analysis-core`](crates/text/text-analysis-core/README.md), [`text-analysis-corpus`](crates/text/text-analysis-corpus/README.md), [`text-analysis-features`](crates/text/text-analysis-features/README.md), [`text-analysis-linguistics`](crates/text/text-analysis-linguistics/README.md), [`text-analysis-models`](crates/text/text-analysis-models/README.md), [`text-analysis-prediction`](crates/text/text-analysis-prediction/README.md), [`text-analysis-semantics`](crates/text/text-analysis-semantics/README.md), [`text-analysis-synthesis`](crates/text/text-analysis-synthesis/README.md), [`text-analysis-transcription`](crates/text/text-analysis-transcription/README.md)
 - Vector and 3D: [`vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md)
 - Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-use-cases`](crates/video/video-analysis-use-cases/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
@@ -57,10 +57,20 @@ Package README index:
   stem separation.
 - `audio-analysis-synthesis`: deterministic tone, onset, and pitch-event audio
   synthesis into core audio frames with inversion trace metadata.
+- `image-analysis-comfyui`: ComfyUI workflow builders for text-to-image,
+  image-to-image, inpaint, and upscale image-generation flows.
 - `image-analysis-core`: borrowed/owned image views, RGB/BGR/gray pixel
   contracts, compacting, mean color, and luma histograms.
+- `image-analysis-io`: PNG/JPEG/WebP loading and saving for compact
+  `OwnedImage` buffers.
+- `image-analysis-models`: image-specific model presets plus classification,
+  embedding, captioning, and model-backed segmentation backend traits.
+- `image-analysis-onnx`: still-image ONNX preprocessing, bundle validation,
+  fake-runner seams, and optional native object-detection execution.
 - `image-analysis-processing`: deterministic CPU image crop, resize, grayscale,
   inversion, thresholding, and 3x3 convolution pipelines.
+- `image-analysis-segmentation`: prompt, binary-mask, and image-segment
+  contracts with explicit opt-in automatic mask generation defaults.
 - `image-analysis-synthesis`: deterministic solid, gradient, histogram, and
   region-based image synthesis into owned image buffers.
 - `text-analysis-corpus`: corpus-scale term indexing, corpus statistics,
@@ -254,6 +264,7 @@ and stays outside the default contributor gate.
 - `video-analysis-cli`: `onnx` enables the ONNX crate dependency and
   `onnxruntime` enables native runtime execution.
 - `text-analysis-models`: `onnx`, `candle`, and `external-tests`.
+- `image-analysis-onnx`: `onnxruntime` and `external-tests`.
 - `video-analysis-onnx`: `onnxruntime` and `external-tests`.
 - `video-analysis-ffmpeg`: `ffmpeg-backend`, `ffmpeg-tests`, and
   `external-tests`.

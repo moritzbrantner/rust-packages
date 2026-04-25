@@ -8,16 +8,35 @@ Object detection built from image segmentation masks and SAM defaults for `video
 
 ## Example
 
-```rust,ignore
-use image_analysis_detection::{ImageDetectionRequest, SegmentBackedDetector};
+```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use image_analysis_detection::{ImageDetectionRequest, MaskProposalDetector};
+use image_analysis_segmentation::ImageSegmentationBackend;
+use image_analysis_core::ImageView;
+use video_analysis_core::Result;
 
-let detector = SegmentBackedDetector::default();
-let request = ImageDetectionRequest::default();
-let _ = detector.detect(&request)?;
+struct EmptyBackend;
+
+impl ImageSegmentationBackend for EmptyBackend {
+    fn segment_image(
+        &mut self,
+        _image: &ImageView<'_>,
+        _request: &image_analysis_segmentation::ImageSegmentationRequest,
+    ) -> Result<Vec<image_analysis_segmentation::ImageSegment>> {
+        Ok(Vec::new())
+    }
+}
+
+let mut detector = MaskProposalDetector::new(EmptyBackend)
+    .request(ImageDetectionRequest::automatic_mask_proposals());
+let image = image_analysis_core::OwnedImage::new_rgb(1, 1, vec![0, 0, 0])?;
+let _ = detector.detect_image(&image.as_view())?;
+# Ok(())
+# }
 ```
 
 ## Related crates
 
 - `image-analysis-core`
 - `image-analysis-segmentation`
-- `video-analysis-models`
+- `image-analysis-models`
