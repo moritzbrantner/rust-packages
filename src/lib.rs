@@ -11,6 +11,7 @@ pub use audio_analysis_separation as audio_separation;
 pub use audio_analysis_synthesis as audio_synthesis;
 pub use data_inversion_core as inversion;
 pub use dense_data as dense;
+pub use graph_analysis_core as graph_core;
 pub use image_analysis_comfyui as image_comfyui;
 pub use image_analysis_core as image_core;
 pub use image_analysis_detection as image_detection;

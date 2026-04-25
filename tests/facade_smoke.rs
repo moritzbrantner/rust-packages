@@ -56,6 +56,24 @@ fn root_facade_reexports_core_and_domain_packages() {
     ])
     .unwrap();
     assert_eq!(dense.summary().unwrap().coordinate_stats[0].mean, Some(0.5));
+
+    let mut graph = va::graph_core::Graph::directed();
+    graph.connect("scene-a", "scene-b").unwrap();
+    graph.connect("scene-b", "scene-c").unwrap();
+    assert!(va::graph_core::is_weakly_connected(&graph));
+    assert!(!va::graph_core::is_strongly_connected(&graph));
+    assert_eq!(
+        va::graph_core::shortest_path(&graph, "scene-a", "scene-c")
+            .unwrap()
+            .unwrap()
+            .nodes,
+        vec![
+            "scene-a".to_string(),
+            "scene-b".to_string(),
+            "scene-c".to_string()
+        ]
+    );
+
     let features = va::features::FeaturePipeline::builder()
         .extractor(va::features::SceneStatsExtractor)
         .extractor(va::features::TranscriptStatsExtractor)

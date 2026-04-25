@@ -11,8 +11,9 @@ use serde::{Deserialize, Serialize};
 use text_analysis_features::TranscriptHeuristicAnalyzer;
 use text_analysis_transcription::{
     segment_to_owned_text_segment, Transcriber, TranscriptSegment, WhisperCliTranscriber,
-    WhisperCppConfig, WhisperCppModel, WhisperCppProgressEvent, WhisperCppTranscriber,
+    WhisperCppProgressEvent, WhisperCppTranscriber,
 };
+pub use text_analysis_transcription::{WhisperCppConfig, WhisperCppModel};
 use video_analysis_core::{
     AnalysisEvent, BoundingBox, DetectError, Observation, ObservationKind, RealtimeVideoPipeline,
     Result, SampledVideoAnalyzer,
@@ -36,19 +37,21 @@ pub mod workflow_catalog;
 
 pub mod youtube {
     pub use super::{
-        discover_youtube_collection_manifest, run_youtube_collection_workflow, run_youtube_video,
-        run_youtube_video_workflow, write_youtube_video_report, AlreadyDownloadedPolicy,
-        AppliedCollectionFilters, AssetReport, AudioReport, CapabilityReport,
-        CollectionAssetReport, CollectionItemReport, CollectionItemStatus, CollectionSummary,
-        DataBucketReport, EventReport, ExternalCommandConfig, FailedProbeBehavior,
-        LocalFileFilterSpec, ManifestFilterSpec, MetadataDepth, ModelCommandConfig,
-        ObservationReport, RegionReport, SceneReport, SourceReport, SourceSpec, StreamBucketReport,
-        TextReport, TranscriptSegmentReport, TranscriptionConfig, TranscriptionEngine,
-        TranscriptionReport, VideoReport, WhisperCppConfig, WhisperCppModel,
-        YoutubeCollectionManifest, YoutubeCollectionManifestItem,
-        YoutubeCollectionManifestRequest, YoutubeCollectionReport, YoutubeCollectionRunRequest,
-        YoutubeCollectionSource, YoutubeCollectionSourceReport, YoutubeRunOptions,
-        YoutubeRunRequest, YoutubeVideoReport, YoutubeVideoRequest, YOUTUBE_VIDEO_USE_CASE,
+        discover_youtube_collection_manifest, run_youtube_collection_workflow,
+        run_youtube_collection_workflow_with_progress, run_youtube_video,
+        run_youtube_video_workflow, run_youtube_video_workflow_with_progress,
+        write_youtube_video_report, AlreadyDownloadedPolicy, AppliedCollectionFilters, AssetReport,
+        AudioReport, CapabilityReport, CollectionAssetReport, CollectionItemReport,
+        CollectionItemStatus, CollectionSummary, DataBucketReport, EventReport,
+        ExternalCommandConfig, FailedProbeBehavior, LocalFileFilterSpec, ManifestFilterSpec,
+        MetadataDepth, ModelCommandConfig, ObservationReport, RegionReport, SceneReport,
+        SourceReport, SourceSpec, StreamBucketReport, TextReport, TranscriptSegmentReport,
+        TranscriptionConfig, TranscriptionEngine, TranscriptionReport, VideoReport,
+        WhisperCppConfig, WhisperCppModel, YoutubeCollectionManifest,
+        YoutubeCollectionManifestItem, YoutubeCollectionManifestRequest, YoutubeCollectionReport,
+        YoutubeCollectionRunRequest, YoutubeCollectionSource, YoutubeCollectionSourceReport,
+        YoutubeRunOptions, YoutubeRunRequest, YoutubeVideoReport, YoutubeVideoRequest,
+        YOUTUBE_VIDEO_USE_CASE,
     };
 }
 
@@ -2197,6 +2200,55 @@ fn display_path(path: &Path) -> String {
 mod tests {
     use super::*;
     use video_analysis_core::TextAnalyzer;
+
+    #[test]
+    fn normalizes_legacy_whisper_without_custom_command_to_whisper_cpp() {
+        let config = TranscriptionConfig {
+            enabled: true,
+            engine: TranscriptionEngine::Whisper,
+            command: None,
+            whisper_cpp: WhisperCppConfig::default(),
+        }
+        .normalized();
+
+        assert_eq!(config.engine, TranscriptionEngine::WhisperCpp);
+    }
+
+    #[test]
+    fn preserves_legacy_whisper_when_custom_command_is_present() {
+        let config = TranscriptionConfig {
+            enabled: true,
+            engine: TranscriptionEngine::Whisper,
+            command: Some(ExternalCommandConfig {
+                command: PathBuf::from("/usr/local/bin/whisper"),
+                args: vec!["--model".to_string(), "base.en".to_string()],
+            }),
+            whisper_cpp: WhisperCppConfig::default(),
+        }
+        .normalized();
+
+        assert_eq!(config.engine, TranscriptionEngine::Whisper);
+    }
+
+    #[test]
+    fn whisper_cpp_config_round_trips_through_serde() {
+        let config = TranscriptionConfig {
+            enabled: true,
+            engine: TranscriptionEngine::WhisperCpp,
+            command: None,
+            whisper_cpp: WhisperCppConfig {
+                model: WhisperCppModel::LargeV3Turbo,
+                language: Some("de".to_string()),
+                translate: true,
+                threads: Some(6),
+            },
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        let decoded: TranscriptionConfig = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(decoded, config);
+    }
 
     #[test]
     fn parses_transcript_whisper_json_segments() {

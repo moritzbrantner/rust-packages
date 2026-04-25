@@ -203,9 +203,7 @@ pub struct whisper_full_params {
 
 unsafe extern "C" {
     pub fn whisper_context_default_params() -> whisper_context_params;
-    pub fn whisper_full_default_params(
-        strategy: whisper_sampling_strategy,
-    ) -> whisper_full_params;
+    pub fn whisper_full_default_params(strategy: whisper_sampling_strategy) -> whisper_full_params;
     pub fn whisper_init_from_file_with_params(
         path_model: *const c_char,
         params: whisper_context_params,

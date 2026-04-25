@@ -22,7 +22,7 @@ Package README index:
 - Root facade: [`video-analysis`](src/lib.rs), [README](README.md)
 - Audio: [`audio-analysis-core`](crates/audio/audio-analysis-core/README.md), [`audio-analysis-fourier`](crates/audio/audio-analysis-fourier/README.md), [`audio-analysis-io`](crates/audio/audio-analysis-io/README.md), [`audio-analysis-pitch`](crates/audio/audio-analysis-pitch/README.md), [`audio-analysis-processing`](crates/audio/audio-analysis-processing/README.md), [`audio-analysis-recognition`](crates/audio/audio-analysis-recognition/README.md), [`audio-analysis-rhythm`](crates/audio/audio-analysis-rhythm/README.md), [`audio-analysis-separation`](crates/audio/audio-analysis-separation/README.md), [`audio-analysis-synthesis`](crates/audio/audio-analysis-synthesis/README.md)
 - ComfyUI: [`comfyui-data`](crates/comfyui/comfyui-data/README.md), [`comfyui-models`](crates/comfyui/comfyui-models/README.md)
-- Data: [`data-inversion-core`](crates/data/data-inversion-core/README.md), [`numbers-core`](crates/data/numbers-core/README.md), [`dense-data`](crates/data/dense-data/README.md)
+- Data: [`data-inversion-core`](crates/data/data-inversion-core/README.md), [`graph-analysis-core`](crates/data/graph-analysis-core/README.md), [`numbers-core`](crates/data/numbers-core/README.md), [`dense-data`](crates/data/dense-data/README.md)
 - Image: [`image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-io`](crates/image/image-analysis-io/README.md), [`image-analysis-models`](crates/image/image-analysis-models/README.md), [`image-analysis-onnx`](crates/image/image-analysis-onnx/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
 - Text: [`text-analysis-core`](crates/text/text-analysis-core/README.md), [`text-analysis-corpus`](crates/text/text-analysis-corpus/README.md), [`text-analysis-features`](crates/text/text-analysis-features/README.md), [`text-analysis-linguistics`](crates/text/text-analysis-linguistics/README.md), [`text-analysis-models`](crates/text/text-analysis-models/README.md), [`text-analysis-prediction`](crates/text/text-analysis-prediction/README.md), [`text-analysis-semantics`](crates/text/text-analysis-semantics/README.md), [`text-analysis-synthesis`](crates/text/text-analysis-synthesis/README.md), [`text-analysis-transcription`](crates/text/text-analysis-transcription/README.md)
 - Vector and 3D: [`vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md)
@@ -35,6 +35,9 @@ Package README index:
   scanning, and `extra_model_paths.yaml` generation helpers.
 - `data-inversion-core`: shared trace metadata for lossy inverse conversions,
   including fidelity, confidence, assumptions, and interpolation notes.
+- `graph-analysis-core`: deterministic graph and tree primitives for cycle
+  detection, connected-component analysis, shortest paths, spanning trees, and
+  tree validation.
 - `numbers-core`: scalar numeric summaries, weighted running stats, quantiles,
   histograms, and range helpers for analytics and reporting crates.
 - `audio-analysis-core`: normalized audio sample conversion, mono mixing,

@@ -30,6 +30,7 @@ members = [
     "crates/comfyui/comfyui-data",
     "crates/comfyui/comfyui-models",
     "crates/data/data-inversion-core",
+    "crates/data/graph-analysis-core",
     "crates/data/dense-data",
     "crates/data/numbers-core",
     "crates/image/image-analysis-core",
@@ -124,6 +125,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 comfyui-data = { version = "0.1.0", path = "crates/comfyui/comfyui-data" }
 comfyui-models = { version = "0.1.0", path = "crates/comfyui/comfyui-models" }
 data-inversion-core = { version = "0.1.0", path = "crates/data/data-inversion-core" }
+graph-analysis-core = { version = "0.1.0", path = "crates/data/graph-analysis-core" }
 dense-data = { version = "0.1.0", path = "crates/data/dense-data" }
 numbers-core = { version = "0.1.0", path = "crates/data/numbers-core" }
 audio-analysis-core = { version = "0.1.0", path = "crates/audio/audio-analysis-core" }
@@ -230,6 +232,7 @@ audio-analysis-rhythm.workspace = true
 audio-analysis-separation.workspace = true
 audio-analysis-synthesis.workspace = true
 data-inversion-core.workspace = true
+graph-analysis-core.workspace = true
 dense-data.workspace = true
 numbers-core.workspace = true
 image-analysis-comfyui.workspace = true

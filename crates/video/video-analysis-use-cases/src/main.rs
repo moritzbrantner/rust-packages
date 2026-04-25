@@ -7,7 +7,8 @@ use video_analysis_radiance_pipeline::{
     RadianceTrainingMethod, VideoToRadiancePipeline, VideoToRadianceRequest,
 };
 use video_analysis_use_cases::youtube::{
-    run_youtube_video, write_youtube_video_report, YoutubeVideoRequest,
+    run_youtube_video, write_youtube_video_report, TranscriptionEngine, WhisperCppConfig,
+    YoutubeVideoRequest,
 };
 
 #[derive(Debug, Parser)]
@@ -105,6 +106,11 @@ struct RadianceSceneArgs {
 impl From<YoutubeVideoArgs> for YoutubeVideoRequest {
     fn from(args: YoutubeVideoArgs) -> Self {
         Self {
+            transcriber_engine: if args.transcriber_command.is_some() {
+                TranscriptionEngine::Whisper
+            } else {
+                TranscriptionEngine::WhisperCpp
+            },
             url: args.url,
             input: args.input,
             work_dir: args.work_dir,
@@ -116,6 +122,7 @@ impl From<YoutubeVideoArgs> for YoutubeVideoRequest {
             skip_transcription: args.skip_transcription,
             transcriber_command: args.transcriber_command,
             transcriber_args: args.transcriber_args,
+            whisper_cpp: WhisperCppConfig::default(),
             object_command: args.object_command,
             object_args: args.object_args,
             ocr_command: args.ocr_command,

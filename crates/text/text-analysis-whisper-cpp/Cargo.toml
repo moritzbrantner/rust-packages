@@ -16,8 +16,11 @@ categories.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 hound = "3.5.1"
-sha1 = "0.10.6"
+sha2 = "0.10.9"
 ureq = { version = "2.12.1", default-features = true }
 
 [build-dependencies]
 cmake = "0.1.54"
+
+[dev-dependencies]
+tempfile.workspace = true

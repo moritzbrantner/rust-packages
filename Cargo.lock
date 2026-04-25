@@ -1088,6 +1088,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "graph-analysis-core"
+version = "0.1.0"
+dependencies = [
+ "video-analysis-core",
+]
+
+[[package]]
 name = "half"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2350,10 +2357,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "sha1"
-version = "0.10.6"
+name = "sha2"
+version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
+checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -2588,7 +2595,8 @@ dependencies = [
  "cmake",
  "hound",
  "serde",
- "sha1",
+ "sha2",
+ "tempfile",
  "thiserror 2.0.18",
  "ureq 2.12.1",
 ]
@@ -3008,6 +3016,7 @@ dependencies = [
  "comfyui-models",
  "data-inversion-core",
  "dense-data",
+ "graph-analysis-core",
  "image-analysis-comfyui",
  "image-analysis-core",
  "image-analysis-detection",

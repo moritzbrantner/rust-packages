@@ -6,9 +6,10 @@ use std::process::{Command, Stdio};
 
 use serde::Deserialize;
 pub use text_analysis_whisper_cpp::{
-    transcription_catalog as whisper_cpp_catalog, ModelStore as WhisperCppModelStore,
-    WhisperCppCatalog, WhisperCppConfig, WhisperCppModel, WhisperCppModelStatus, WhisperCppPhase,
-    WhisperCppProgressEvent, WhisperCppSegment, WhisperCppTranscriber as NativeWhisperCppTranscriber,
+    transcription_catalog as whisper_cpp_catalog, whisper_cpp_system_info,
+    ModelStore as WhisperCppModelStore, WhisperCppCatalog, WhisperCppConfig, WhisperCppModel,
+    WhisperCppModelStatus, WhisperCppPhase, WhisperCppProgressEvent, WhisperCppSegment,
+    WhisperCppTranscriber as NativeWhisperCppTranscriber,
 };
 use thiserror::Error;
 use video_analysis_core::{OwnedTextSegment, Timebase, Timestamp};

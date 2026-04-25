@@ -5,6 +5,7 @@ use comfyui_models::{
 };
 use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};
 use dense_data::{BucketGrid, DenseDataset, DensePoint};
+use graph_analysis_core::{minimum_spanning_tree, shortest_path, Graph};
 use image_analysis_core::{mean_rgb, ImagePixelFormat, OwnedImage};
 use image_analysis_processing::grayscale_image;
 use image_analysis_synthesis::{solid_image, ImageSynthesisConfig, RgbColor};
@@ -57,6 +58,16 @@ fn foundation_crates_support_basic_consumer_workflows() -> Result<(), Box<dyn st
     assert_eq!(dataset.averages()?.count, 2);
     assert_eq!(dataset.summary()?.coordinate_stats[0].mean, Some(0.5));
     assert!(!dataset.buckets(&BucketGrid::uniform(2, 1.0)?)?.is_empty());
+
+    let mut graph = Graph::undirected();
+    graph.connect_weighted("a", "b", 2.0)?;
+    graph.connect_weighted("b", "c", 1.0)?;
+    graph.connect_weighted("a", "c", 5.0)?;
+    assert_eq!(
+        shortest_path(&graph, "a", "c")?.unwrap().nodes,
+        vec!["a".to_string(), "b".to_string(), "c".to_string()]
+    );
+    assert_eq!(minimum_spanning_tree(&graph)?.total_weight, 3.0);
 
     let scalar_summary = summarize_numbers(&[1.0, 2.0, 3.0, f64::NAN]);
     assert_eq!(scalar_summary.finite_count, 3);

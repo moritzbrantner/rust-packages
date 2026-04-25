@@ -20,8 +20,23 @@ fn main() {
         .define("WHISPER_BUILD_EXAMPLES", "OFF")
         .define("WHISPER_BUILD_SERVER", "OFF")
         .define("GGML_BACKEND_DL", "OFF")
-        .define("GGML_METAL", if cfg!(target_os = "macos") { "ON" } else { "OFF" })
-        .define("GGML_METAL_EMBED_LIBRARY", if cfg!(target_os = "macos") { "ON" } else { "OFF" })
+        .define("GGML_OPENMP", "OFF")
+        .define(
+            "GGML_METAL",
+            if cfg!(target_os = "macos") {
+                "ON"
+            } else {
+                "OFF"
+            },
+        )
+        .define(
+            "GGML_METAL_EMBED_LIBRARY",
+            if cfg!(target_os = "macos") {
+                "ON"
+            } else {
+                "OFF"
+            },
+        )
         .define("WHISPER_COREML", "OFF")
         .define("WHISPER_OPENVINO", "OFF");
 
@@ -34,10 +49,13 @@ fn main() {
     }
 
     if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-lib=dylib=c++");
         println!("cargo:rustc-link-lib=framework=Accelerate");
         println!("cargo:rustc-link-lib=framework=Foundation");
         println!("cargo:rustc-link-lib=framework=Metal");
         println!("cargo:rustc-link-lib=framework=MetalKit");
+    } else if cfg!(target_os = "linux") {
+        println!("cargo:rustc-link-lib=dylib=stdc++");
     }
 }
 

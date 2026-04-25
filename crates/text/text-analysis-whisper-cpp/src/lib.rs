@@ -9,7 +9,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use sha1::{Digest, Sha1};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum WhisperCppModel {
@@ -83,20 +83,22 @@ impl WhisperCppModel {
         )
     }
 
-    pub fn checksum_sha1(self) -> &'static str {
+    pub fn checksum_sha256(self) -> &'static str {
         match self {
-            Self::TinyEn => "c78c86eb1a8faa21b369bcd33207cc90d64ae9df",
-            Self::Tiny => "bd577a113a864445d4c299885e0cb97d4ba92b5f",
-            Self::BaseEn => "137c40403d78fd54d454da0f9bd998f78703390c",
-            Self::Base => "465707469ff3a37a2b9b8d8f89f2f99de7299dac",
-            Self::SmallEn => "db8a495a91d927739e50b3fc1cc4c6b8f6c2d022",
-            Self::Small => "55356645c2b361a969dfd0ef2c5a50d530afd8d5",
-            Self::MediumEn => "8c30f0e44ce9560643ebd10bbe50cd20eafd3723",
-            Self::Medium => "fd9727b6e1217c2f614f9b698455c4ffd82463b4",
-            Self::LargeV1 => "b1caaf735c4cc1429223d5a74f0f4d0b9b59a299",
-            Self::LargeV2 => "0f4c8e34f21cf1a914c59d8b3ce882345ad349d6",
-            Self::LargeV3 => "ad82bf6a9043ceed055076d0fd39f5f186ff8062",
-            Self::LargeV3Turbo => "4af2b29d7ec73d781377bfd1758ca957a807e941",
+            Self::TinyEn => "0d686a2a6a22b02da2ef3101d4c86e68461363a623c58f27f81b1b2d36b42317",
+            Self::Tiny => "518970a29bedb265f23ac48d486ddbc63bedffd90967b10140ae5ac61243acf3",
+            Self::BaseEn => "ff7d10f8526045d48149699b43aeaa014e4b337239bc5a35251116fc179aabcf",
+            Self::Base => "2f62d18b50c3f3feafbf990eec23a93d319660b1efbdd3fff55e52b7cde2e374",
+            Self::SmallEn => "0d57184d34ae7d736e5bb2db5bf83debe730bd53dcefa235a0979b9dcfd33fb3",
+            Self::Small => "edd29d67e70b000132af65205b99bb774b77abc13d10103e14f80ce2242913e1",
+            Self::MediumEn => "a163589aa264d5188df3b05ed4eac56bfd97e26910f207809d869f7e99886fd2",
+            Self::Medium => "d3d5696e6a3e0ca2aa08eb31cad208ffa1e87b3cc341f59e628fbdcf8122de9b",
+            Self::LargeV1 => "cbcb187d1e1abe979d33636cdc63381de20738eeda0885c39440b086e184248a",
+            Self::LargeV2 => "c6d6d3dcebc5e0074175386e17eba305fc5cc7d3d5dff3ecfd11e8f2bd4222d7",
+            Self::LargeV3 => "766d11cebbdf5a67c179c5774e2642b609e35e1a30240e7b559d5647c655b0a4",
+            Self::LargeV3Turbo => {
+                "5a4b65b05933d70ce9d5aa6265eb128fa5eba38f6fee40836fdedc4d2fde42ad"
+            }
         }
     }
 
@@ -221,8 +223,9 @@ pub enum WhisperCppError {
 
 pub type Result<T> = std::result::Result<T, WhisperCppError>;
 
-type ProgressCallback = dyn FnMut(WhisperCppProgressEvent);
+type OwnedProgressCallback = dyn FnMut(WhisperCppProgressEvent) + 'static;
 
+#[derive(Clone)]
 pub struct ModelStore {
     root: PathBuf,
 }
@@ -266,10 +269,10 @@ impl ModelStore {
         }
     }
 
-    pub fn ensure_model(
+    fn ensure_model(
         &self,
         model: WhisperCppModel,
-        progress: Option<&mut ProgressCallback>,
+        progress: &mut ProgressSink<'_>,
     ) -> Result<PathBuf> {
         fs::create_dir_all(self.models_dir())?;
         let model_path = self.model_path(model);
@@ -282,8 +285,7 @@ impl ModelStore {
             return Ok(model_path);
         }
 
-        emit_progress(
-            progress,
+        progress.emit(
             WhisperCppPhase::DownloadingModel,
             format!("downloading whisper.cpp model `{model}`"),
             Some(0.0),
@@ -302,7 +304,7 @@ impl ModelStore {
             .and_then(|value| value.parse::<u64>().ok());
         let mut reader = response.into_reader();
         let mut file = BufWriter::new(File::create(&temp_path)?);
-        let mut hasher = Sha1::new();
+        let mut hasher = Sha256::new();
         let mut downloaded = 0_u64;
         let mut buffer = [0_u8; 64 * 1024];
 
@@ -316,9 +318,9 @@ impl ModelStore {
             file.write_all(&buffer[..read])?;
             hasher.update(&buffer[..read]);
             downloaded += read as u64;
-            let fraction = total_bytes.map(|total| (downloaded as f32 / total as f32).clamp(0.0, 1.0));
-            emit_progress(
-                progress,
+            let fraction =
+                total_bytes.map(|total| (downloaded as f32 / total as f32).clamp(0.0, 1.0));
+            progress.emit(
                 WhisperCppPhase::DownloadingModel,
                 format!("downloading whisper.cpp model `{model}`"),
                 fraction,
@@ -327,7 +329,7 @@ impl ModelStore {
         file.flush()?;
 
         let checksum = format!("{:x}", hasher.finalize());
-        if checksum != model.checksum_sha1() {
+        if checksum != model.checksum_sha256() {
             let _ = fs::remove_file(&temp_path);
             return Err(WhisperCppError::InvalidChecksum { model });
         }
@@ -340,7 +342,7 @@ impl ModelStore {
 pub struct WhisperCppTranscriber {
     config: WhisperCppConfig,
     store: ModelStore,
-    progress: Option<Box<ProgressCallback>>,
+    progress: Option<Box<OwnedProgressCallback>>,
 }
 
 impl WhisperCppTranscriber {
@@ -366,139 +368,25 @@ impl WhisperCppTranscriber {
     }
 
     pub fn transcribe_file(&mut self, input: &Path) -> Result<WhisperCppTranscription> {
-        self.transcribe_file_with_optional_progress(input, None)
+        let store = self.store.clone();
+        let config = self.config.clone();
+        let mut progress = ProgressSink::new(self.progress_deref_mut());
+        transcribe_impl(&store, &config, input, &mut progress)
     }
 
     pub fn transcribe_file_with_progress(
         &mut self,
         input: &Path,
-        progress: &mut ProgressCallback,
+        progress: &mut dyn FnMut(WhisperCppProgressEvent),
     ) -> Result<WhisperCppTranscription> {
-        self.transcribe_file_with_optional_progress(input, Some(progress))
+        let mut progress = ProgressSink::new(Some(progress));
+        transcribe_impl(&self.store, &self.config, input, &mut progress)
     }
 
-    fn transcribe_file_with_optional_progress(
-        &mut self,
-        input: &Path,
-        external_progress: Option<&mut ProgressCallback>,
-    ) -> Result<WhisperCppTranscription> {
-        let mut external_progress = external_progress;
-        emit_progress(
-            progress_target(external_progress.as_deref_mut(), self.progress_deref_mut()),
-            WhisperCppPhase::Preparing,
-            format!("preparing native whisper.cpp transcription for {}", input.display()),
-            None,
-        );
-
-        let model_path = self
-            .store
-            .ensure_model(
-                self.config.model,
-                progress_target(external_progress.as_deref_mut(), self.progress_deref_mut()),
-            )?;
-
-        emit_progress(
-            progress_target(external_progress.as_deref_mut(), self.progress_deref_mut()),
-            WhisperCppPhase::LoadingModel,
-            format!("loading whisper.cpp model `{}`", self.config.model),
-            None,
-        );
-
-        let audio = read_wav_mono_f32(input)?;
-        emit_progress(
-            progress_target(external_progress.as_deref_mut(), self.progress_deref_mut()),
-            WhisperCppPhase::Transcribing,
-            format!("transcribing audio with whisper.cpp model `{}`", self.config.model),
-            None,
-        );
-
-        let context = WhisperContext::from_model(&model_path)?;
-        let mut params =
-            unsafe { ffi::whisper_full_default_params(ffi::whisper_sampling_strategy::WHISPER_SAMPLING_GREEDY) };
-        params.n_threads = resolve_threads(self.config.threads);
-        params.translate = self.config.translate;
-        params.print_progress = false;
-        params.print_realtime = false;
-        params.print_special = false;
-        params.print_timestamps = false;
-        params.no_timestamps = false;
-
-        let language = match self.config.language.as_deref().filter(|value| !value.is_empty()) {
-            Some(value) if value.eq_ignore_ascii_case("auto") => None,
-            Some(value) => Some(
-                CString::new(value)
-                    .map_err(|_| WhisperCppError::UnsupportedLanguage(value.to_string()))?,
-            ),
-            None => None,
-        };
-        if let Some(language) = language.as_ref() {
-            let lang_id = unsafe { ffi::whisper_lang_id(language.as_ptr()) };
-            if lang_id < 0 {
-                return Err(WhisperCppError::UnsupportedLanguage(
-                    language.to_string_lossy().into_owned(),
-                ));
-            }
-            params.language = language.as_ptr();
-            params.detect_language = false;
-        } else {
-            params.language = std::ptr::null();
-            params.detect_language = true;
-        }
-
-        let status = unsafe {
-            ffi::whisper_full(context.raw, params, audio.samples.as_ptr(), audio.samples.len() as i32)
-        };
-        if status != 0 {
-            return Err(WhisperCppError::Inference(model_path.display().to_string()));
-        }
-
-        let segment_count = unsafe { ffi::whisper_full_n_segments(context.raw) };
-        let mut segments = Vec::with_capacity(segment_count.max(0) as usize);
-        for index in 0..segment_count {
-            let text_ptr = unsafe { ffi::whisper_full_get_segment_text(context.raw, index) };
-            let text = c_string(text_ptr)?.trim().to_string();
-            let start = unsafe { ffi::whisper_full_get_segment_t0(context.raw, index) };
-            let end = unsafe { ffi::whisper_full_get_segment_t1(context.raw, index) };
-            let token_count = unsafe { ffi::whisper_full_n_tokens(context.raw, index) };
-            let confidence = if token_count > 0 {
-                let mut total = 0.0_f32;
-                for token_index in 0..token_count {
-                    total +=
-                        unsafe { ffi::whisper_full_get_token_p(context.raw, index, token_index) };
-                }
-                Some(total / token_count as f32)
-            } else {
-                None
-            };
-            segments.push(WhisperCppSegment {
-                index: index as u64,
-                start_seconds: Some(timestamp_to_seconds(start)),
-                end_seconds: Some(timestamp_to_seconds(end)),
-                text,
-                confidence,
-            });
-        }
-
-        let language = unsafe { ffi::whisper_full_lang_id(context.raw) };
-        let language = if language >= 0 {
-            Some(c_string(unsafe { ffi::whisper_lang_str(language) })?)
-        } else {
-            None
-        };
-        let text = join_segments(&segments);
-
-        Ok(WhisperCppTranscription {
-            text,
-            language,
-            segments,
-            source: Some(model_path.to_string_lossy().into_owned()),
-        })
-    }
-
-    fn progress_deref_mut(&mut self) -> Option<&mut ProgressCallback> {
+    fn progress_deref_mut(&mut self) -> Option<&mut dyn FnMut(WhisperCppProgressEvent)> {
         self.progress
             .as_mut()
-            .map(|callback| callback.as_mut() as &mut ProgressCallback)
+            .map(|callback| callback.as_mut() as &mut dyn FnMut(WhisperCppProgressEvent))
     }
 }
 
@@ -511,32 +399,148 @@ pub fn whisper_cpp_system_info() -> Option<String> {
     if value.is_null() {
         return None;
     }
-    CStr::from_ptr(value)
+    unsafe { CStr::from_ptr(value) }
         .to_str()
         .ok()
         .map(|value| value.to_string())
 }
 
-fn emit_progress(
-    mut callback: Option<&mut ProgressCallback>,
-    phase: WhisperCppPhase,
-    message: String,
-    progress: Option<f32>,
-) {
-    if let Some(callback) = callback.as_mut() {
-        callback(WhisperCppProgressEvent {
-            phase,
-            message,
-            progress,
+fn transcribe_impl(
+    store: &ModelStore,
+    config: &WhisperCppConfig,
+    input: &Path,
+    progress: &mut ProgressSink<'_>,
+) -> Result<WhisperCppTranscription> {
+    let model = config.model;
+    progress.emit(
+        WhisperCppPhase::Preparing,
+        format!(
+            "preparing native whisper.cpp transcription for {}",
+            input.display()
+        ),
+        None,
+    );
+
+    let model_path = store.ensure_model(model, progress)?;
+    progress.emit(
+        WhisperCppPhase::LoadingModel,
+        format!("loading whisper.cpp model `{model}`"),
+        None,
+    );
+
+    let audio = read_wav_mono_f32(input)?;
+    progress.emit(
+        WhisperCppPhase::Transcribing,
+        format!("transcribing audio with whisper.cpp model `{model}`"),
+        None,
+    );
+
+    let context = WhisperContext::from_model(&model_path)?;
+    let mut params = unsafe {
+        ffi::whisper_full_default_params(ffi::whisper_sampling_strategy::WHISPER_SAMPLING_GREEDY)
+    };
+    params.n_threads = resolve_threads(config.threads);
+    params.translate = config.translate;
+    params.print_progress = false;
+    params.print_realtime = false;
+    params.print_special = false;
+    params.print_timestamps = false;
+    params.no_timestamps = false;
+
+    let language = match config.language.as_deref().filter(|value| !value.is_empty()) {
+        Some(value) if value.eq_ignore_ascii_case("auto") => None,
+        Some(value) => Some(
+            CString::new(value)
+                .map_err(|_| WhisperCppError::UnsupportedLanguage(value.to_string()))?,
+        ),
+        None => None,
+    };
+    if let Some(language) = language.as_ref() {
+        let lang_id = unsafe { ffi::whisper_lang_id(language.as_ptr()) };
+        if lang_id < 0 {
+            return Err(WhisperCppError::UnsupportedLanguage(
+                language.to_string_lossy().into_owned(),
+            ));
+        }
+        params.language = language.as_ptr();
+        params.detect_language = false;
+    } else {
+        params.language = std::ptr::null();
+        params.detect_language = true;
+    }
+
+    let status = unsafe {
+        ffi::whisper_full(
+            context.raw,
+            params,
+            audio.samples.as_ptr(),
+            audio.samples.len() as i32,
+        )
+    };
+    if status != 0 {
+        return Err(WhisperCppError::Inference(model_path.display().to_string()));
+    }
+
+    let segment_count = unsafe { ffi::whisper_full_n_segments(context.raw) };
+    let mut segments = Vec::with_capacity(segment_count.max(0) as usize);
+    for index in 0..segment_count {
+        let text_ptr = unsafe { ffi::whisper_full_get_segment_text(context.raw, index) };
+        let text = c_string(text_ptr)?.trim().to_string();
+        let start = unsafe { ffi::whisper_full_get_segment_t0(context.raw, index) };
+        let end = unsafe { ffi::whisper_full_get_segment_t1(context.raw, index) };
+        let token_count = unsafe { ffi::whisper_full_n_tokens(context.raw, index) };
+        let confidence = if token_count > 0 {
+            let mut total = 0.0_f32;
+            for token_index in 0..token_count {
+                total += unsafe { ffi::whisper_full_get_token_p(context.raw, index, token_index) };
+            }
+            Some(total / token_count as f32)
+        } else {
+            None
+        };
+        segments.push(WhisperCppSegment {
+            index: index as u64,
+            start_seconds: Some(timestamp_to_seconds(start)),
+            end_seconds: Some(timestamp_to_seconds(end)),
+            text,
+            confidence,
         });
     }
+
+    let language = unsafe { ffi::whisper_full_lang_id(context.raw) };
+    let language = if language >= 0 {
+        Some(c_string(unsafe { ffi::whisper_lang_str(language) })?)
+    } else {
+        None
+    };
+    let text = join_segments(&segments);
+
+    Ok(WhisperCppTranscription {
+        text,
+        language,
+        segments,
+        source: Some(model_path.to_string_lossy().into_owned()),
+    })
 }
 
-fn progress_target<'a>(
-    external: Option<&'a mut ProgressCallback>,
-    internal: Option<&'a mut ProgressCallback>,
-) -> Option<&'a mut ProgressCallback> {
-    external.or(internal)
+struct ProgressSink<'a> {
+    callback: Option<&'a mut dyn FnMut(WhisperCppProgressEvent)>,
+}
+
+impl<'a> ProgressSink<'a> {
+    fn new(callback: Option<&'a mut dyn FnMut(WhisperCppProgressEvent)>) -> Self {
+        Self { callback }
+    }
+
+    fn emit(&mut self, phase: WhisperCppPhase, message: String, progress: Option<f32>) {
+        if let Some(callback) = self.callback.as_mut() {
+            callback(WhisperCppProgressEvent {
+                phase,
+                message,
+                progress,
+            });
+        }
+    }
 }
 
 fn read_wav_mono_f32(path: &Path) -> Result<AudioSamples> {
@@ -617,7 +621,7 @@ fn c_string(value: *const std::ffi::c_char) -> Result<String> {
     if value.is_null() {
         return Ok(String::new());
     }
-    CStr::from_ptr(value)
+    unsafe { CStr::from_ptr(value) }
         .to_str()
         .map(|value| value.to_string())
         .map_err(|_| WhisperCppError::InvalidUtf8)
@@ -708,6 +712,7 @@ impl Drop for FileLock {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
 
     #[test]
     fn model_metadata_matches_expected_file_names() {
@@ -736,5 +741,16 @@ mod tests {
             store.lock_path(WhisperCppModel::SmallEn),
             PathBuf::from("/tmp/video-analysis-studio-test/models/ggml-small.en.bin.lock")
         );
+    }
+
+    #[test]
+    fn file_lock_creates_and_releases_lock_path() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("model.lock");
+        {
+            let _lock = FileLock::acquire(path.clone()).unwrap();
+            assert!(path.is_file());
+        }
+        assert!(!path.exists());
     }
 }
