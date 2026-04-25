@@ -364,7 +364,7 @@ impl<R: OnnxImageClassificationRunner> ImageClassifierBackend for OnnxImageClass
         let mut labels = output
             .class_ids
             .into_iter()
-            .zip(output.scores.into_iter())
+            .zip(output.scores)
             .filter(|(_, score)| score.is_finite() && *score >= self.options.score_threshold)
             .map(|(class_id, score)| {
                 ImageClassification::new(
@@ -904,6 +904,7 @@ mod tests {
 
     use std::collections::BTreeMap;
 
+    use image_analysis_core::OwnedImage;
     use image_analysis_models::ImageClassifierBackend;
     use tempfile::tempdir;
     use video_analysis_models::{ModelBundleFile, ModelBundleManifest};

@@ -2607,6 +2607,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "text-analysis-core",
  "wasm-bindgen",
 ]

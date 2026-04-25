@@ -45,15 +45,9 @@ pub enum TextRuntimeBackend {
     Heuristic,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ModelCacheConfig {
     pub cache_dir: Option<PathBuf>,
-}
-
-impl Default for ModelCacheConfig {
-    fn default() -> Self {
-        Self { cache_dir: None }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -145,10 +139,11 @@ pub struct TokenizedText {
     pub offsets: Vec<Option<(usize, usize)>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TokenizerPreset {
     BertBaseUncased,
     DistilbertSst2,
+    #[default]
     MiniLmL6V2,
 }
 
@@ -177,12 +172,6 @@ impl TokenizerPreset {
                 TokenizerSource::huggingface("sentence-transformers/all-MiniLM-L6-v2")
             }
         }
-    }
-}
-
-impl Default for TokenizerPreset {
-    fn default() -> Self {
-        Self::MiniLmL6V2
     }
 }
 

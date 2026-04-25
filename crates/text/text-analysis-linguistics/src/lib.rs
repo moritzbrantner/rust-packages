@@ -258,19 +258,10 @@ impl LexiconStore {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct LanguageDetector {
     pub options: LanguageDetectionOptions,
     pub lexicons: LexiconStore,
-}
-
-impl Default for LanguageDetector {
-    fn default() -> Self {
-        Self {
-            options: LanguageDetectionOptions::default(),
-            lexicons: LexiconStore::default(),
-        }
-    }
 }
 
 impl LanguageDetector {
@@ -432,17 +423,9 @@ pub struct TokenizerSelection {
     pub reason: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TokenizerRegistry {
     pub policy: TokenizerPolicy,
-}
-
-impl Default for TokenizerRegistry {
-    fn default() -> Self {
-        Self {
-            policy: TokenizerPolicy::default(),
-        }
-    }
 }
 
 impl TokenizerRegistry {
@@ -616,19 +599,10 @@ pub struct Lemma {
     pub confidence: f32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct LemmaOptions {
     pub language: Option<String>,
     pub lowercase_proper_nouns: bool,
-}
-
-impl Default for LemmaOptions {
-    fn default() -> Self {
-        Self {
-            language: None,
-            lowercase_proper_nouns: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -749,28 +723,14 @@ pub struct PosAnnotation {
     pub reason: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PosTaggingOptions {
     pub language: Option<String>,
 }
 
-impl Default for PosTaggingOptions {
-    fn default() -> Self {
-        Self { language: None }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PosTagger {
     pub options: PosTaggingOptions,
-}
-
-impl Default for PosTagger {
-    fn default() -> Self {
-        Self {
-            options: PosTaggingOptions::default(),
-        }
-    }
 }
 
 impl PosTagger {
@@ -1250,8 +1210,7 @@ pub fn extract_named_entities(
                     EntityType::Amount,
                     text,
                     sentence_index,
-                    cursor,
-                    cursor + 1,
+                    cursor..(cursor + 1),
                     tokens,
                     0.9,
                 ));
@@ -1265,8 +1224,7 @@ pub fn extract_named_entities(
                     EntityType::Date,
                     text,
                     sentence_index,
-                    cursor,
-                    cursor + 1,
+                    cursor..(cursor + 1),
                     tokens,
                     0.85,
                 ));
@@ -1294,8 +1252,7 @@ pub fn extract_named_entities(
                     entity_type,
                     text,
                     sentence_index,
-                    start_index,
-                    end_index,
+                    start_index..end_index,
                     tokens,
                     0.7,
                 ));
@@ -1365,17 +1322,9 @@ pub struct CorefCluster {
     pub mentions: Vec<CorefMention>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CorefResolver {
     pub speaker_aware: bool,
-}
-
-impl Default for CorefResolver {
-    fn default() -> Self {
-        Self {
-            speaker_aware: false,
-        }
-    }
 }
 
 impl CorefResolver {
@@ -1709,17 +1658,12 @@ pub struct StyleProfile {
     pub disfluency_markers: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AnalysisProfile {
     Fast,
     Balanced,
+    #[default]
     Rich,
-}
-
-impl Default for AnalysisProfile {
-    fn default() -> Self {
-        Self::Rich
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2501,10 +2445,12 @@ fn heuristic_lemma(token: &Token, language: Option<&str>, options: &LemmaOptions
         return (token.text.clone(), 1.0);
     } else if matches!(
         token.kind,
-        TokenKind::Url | TokenKind::Email | TokenKind::Mention | TokenKind::Hashtag
+        TokenKind::Url
+            | TokenKind::Email
+            | TokenKind::Mention
+            | TokenKind::Hashtag
+            | TokenKind::Number
     ) {
-        return (token.normalized.clone(), 1.0);
-    } else if token.kind == TokenKind::Number {
         return (token.normalized.clone(), 1.0);
     } else if options.lowercase_proper_nouns {
         token.text.to_lowercase()
@@ -2770,11 +2716,12 @@ fn build_entity(
     entity_type: EntityType,
     text: &str,
     sentence_index: usize,
-    token_start: usize,
-    token_end: usize,
+    token_range: std::ops::Range<usize>,
     tokens: &[Token],
     confidence: f32,
 ) -> NamedEntity {
+    let token_start = token_range.start;
+    let token_end = token_range.end;
     let span = TextSpan {
         byte_start: tokens[token_start].span.byte_start,
         byte_end: tokens[token_end - 1].span.byte_end,

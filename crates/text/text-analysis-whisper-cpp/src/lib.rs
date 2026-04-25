@@ -11,13 +11,16 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Default,
+)]
 pub enum WhisperCppModel {
     #[serde(rename = "tiny.en")]
     TinyEn,
     #[serde(rename = "tiny")]
     Tiny,
     #[serde(rename = "base.en")]
+    #[default]
     BaseEn,
     #[serde(rename = "base")]
     Base,
@@ -110,19 +113,13 @@ impl WhisperCppModel {
     }
 }
 
-impl Default for WhisperCppModel {
-    fn default() -> Self {
-        Self::BaseEn
-    }
-}
-
 impl Display for WhisperCppModel {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.id())
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct WhisperCppConfig {
     #[serde(default)]
     pub model: WhisperCppModel,
@@ -130,17 +127,6 @@ pub struct WhisperCppConfig {
     #[serde(default)]
     pub translate: bool,
     pub threads: Option<usize>,
-}
-
-impl Default for WhisperCppConfig {
-    fn default() -> Self {
-        Self {
-            model: WhisperCppModel::default(),
-            language: None,
-            translate: false,
-            threads: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

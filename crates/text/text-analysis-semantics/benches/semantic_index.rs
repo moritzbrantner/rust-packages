@@ -15,12 +15,9 @@ fn bench_semantic_index(c: &mut Criterion) {
     );
 
     for i in 0..256 {
-        index
-            .add_document(
-                format!("doc-{i}"),
-                format!("rust cargo pipeline benchmark document {i}"),
-            )
-            .unwrap();
+        let document_id = format!("doc-{i}");
+        let document_text = format!("rust cargo pipeline benchmark document {i}");
+        index.add_document(document_id, &document_text).unwrap();
     }
 
     c.bench_function("semantic_text_index_search", |b| {

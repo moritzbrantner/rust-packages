@@ -26,18 +26,13 @@ pub struct MarkovChain {
     starts: BTreeMap<Vec<String>, usize>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MarkovInputMode {
     Surface,
+    #[default]
     Normalized,
     Lemma,
     EntityAware,
-}
-
-impl Default for MarkovInputMode {
-    fn default() -> Self {
-        Self::Normalized
-    }
 }
 
 impl MarkovChain {
