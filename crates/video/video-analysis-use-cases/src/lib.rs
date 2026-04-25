@@ -5,8 +5,10 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::str::FromStr;
 
 use audio_analysis_processing::AudioEnergyAnalyzer;
+use audio_analysis_separation::{DemucsModel, HtdemucsOptions, HtdemucsSeparator, Stem};
 use serde::{Deserialize, Serialize};
 use text_analysis_features::TranscriptHeuristicAnalyzer;
 use text_analysis_transcription::{
@@ -41,8 +43,9 @@ pub mod youtube {
         run_youtube_collection_workflow_with_progress, run_youtube_video,
         run_youtube_video_workflow, run_youtube_video_workflow_with_progress,
         write_youtube_video_report, AlreadyDownloadedPolicy, AppliedCollectionFilters, AssetReport,
-        AudioReport, CapabilityReport, CollectionAssetReport, CollectionItemReport,
-        CollectionItemStatus, CollectionSummary, DataBucketReport, EventReport,
+        AudioReport, AudioSeparationConfig, AudioSeparationReport, AudioStemReport,
+        CapabilityReport, CollectionAssetReport, CollectionItemReport, CollectionItemStatus,
+        CollectionSummary, DataBucketReport, EventReport,
         ExternalCommandConfig, FailedProbeBehavior, LocalFileFilterSpec, ManifestFilterSpec,
         MetadataDepth, ModelCommandConfig, ObservationReport, RegionReport, SceneReport,
         SourceReport, SourceSpec, StreamBucketReport, TextReport, TranscriptSegmentReport,
@@ -70,6 +73,7 @@ pub struct YoutubeVideoRequest {
     pub transcriber_command: Option<PathBuf>,
     pub transcriber_args: Vec<String>,
     pub whisper_cpp: WhisperCppConfig,
+    pub audio_separation: AudioSeparationConfig,
     pub object_command: Option<PathBuf>,
     pub object_args: Vec<String>,
     pub ocr_command: Option<PathBuf>,
@@ -94,6 +98,7 @@ impl Default for YoutubeVideoRequest {
             transcriber_command: None,
             transcriber_args: Vec::new(),
             whisper_cpp: WhisperCppConfig::default(),
+            audio_separation: AudioSeparationConfig::default(),
             object_command: None,
             object_args: Vec::new(),
             ocr_command: None,
@@ -159,6 +164,28 @@ impl TranscriptionConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct AudioSeparationConfig {
+    pub enabled: bool,
+    pub command: Option<ExternalCommandConfig>,
+    pub model: Option<String>,
+    pub two_stems: Option<String>,
+    pub device: Option<String>,
+    pub output_dir: Option<PathBuf>,
+}
+
+impl AudioSeparationConfig {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(model) = &self.model {
+            DemucsModel::from_str(model)?;
+        }
+        if let Some(stem) = &self.two_stems {
+            Stem::from_str(stem)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ModelCommandConfig {
     pub object: Option<ExternalCommandConfig>,
@@ -180,6 +207,8 @@ pub struct YoutubeRunRequest {
     #[serde(default)]
     pub transcription: TranscriptionConfig,
     #[serde(default)]
+    pub audio_separation: AudioSeparationConfig,
+    #[serde(default)]
     pub models: ModelCommandConfig,
 }
 
@@ -190,6 +219,7 @@ impl YoutubeRunRequest {
             self.min_scene_len,
             self.visual_sample_every,
         )?;
+        self.audio_separation.validate()?;
         match &self.source {
             SourceSpec::YoutubeUrl { url } => validate_youtube_url(url),
             SourceSpec::LocalFile { path } => validate_local_file(path),
@@ -263,6 +293,8 @@ pub struct YoutubeRunOptions {
     #[serde(default)]
     pub transcription: TranscriptionConfig,
     #[serde(default)]
+    pub audio_separation: AudioSeparationConfig,
+    #[serde(default)]
     pub models: ModelCommandConfig,
 }
 
@@ -274,6 +306,7 @@ impl Default for YoutubeRunOptions {
             max_frames: None,
             visual_sample_every: default_visual_sample_every(),
             transcription: TranscriptionConfig::default(),
+            audio_separation: AudioSeparationConfig::default(),
             models: ModelCommandConfig::default(),
         }
     }
@@ -285,7 +318,8 @@ impl YoutubeRunOptions {
             self.scene_threshold,
             self.min_scene_len,
             self.visual_sample_every,
-        )
+        )?;
+        self.audio_separation.validate()
     }
 
     fn to_request(&self, source: SourceSpec, work_dir: PathBuf) -> YoutubeRunRequest {
@@ -297,6 +331,7 @@ impl YoutubeRunOptions {
             max_frames: self.max_frames,
             visual_sample_every: self.visual_sample_every,
             transcription: self.transcription.clone(),
+            audio_separation: self.audio_separation.clone(),
             models: self.models.clone(),
         }
     }
@@ -503,7 +538,24 @@ pub struct AudioReport {
     pub status: String,
     pub frames_processed: u64,
     pub events: Vec<EventReport>,
+    pub separation: Option<AudioSeparationReport>,
     pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AudioSeparationReport {
+    pub status: String,
+    pub model: String,
+    pub output_dir: String,
+    pub stems: Vec<AudioStemReport>,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AudioStemReport {
+    pub stem: String,
+    pub path: String,
+    pub bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -659,7 +711,7 @@ pub fn run_youtube_video_with_progress(
         skipped.push("on-screen text OCR: pass --ocr-command".to_string());
     }
 
-    let (transcription, audio_wav) = transcribe_video(&args, &video_path, progress);
+    let (transcription, mut audio_wav) = transcribe_video(&args, &video_path, progress);
     match transcription.status.as_str() {
         "completed" => completed.push("transcription".to_string()),
         _ => skipped.push(format!(
@@ -667,6 +719,52 @@ pub fn run_youtube_video_with_progress(
             transcription.message.as_deref().unwrap_or("not available")
         )),
     }
+
+    let separation_report = if args.audio_separation.enabled {
+        let audio_path = match &audio_wav {
+            Some(path) => path.clone(),
+            None => {
+                let extracted = extract_audio_wav(&video_path, &args.work_dir)?;
+                audio_wav = Some(extracted.clone());
+                extracted
+            }
+        };
+        match run_audio_separation(&args.audio_separation, &audio_path, &args.work_dir) {
+            Ok(report) => {
+                if report.status == "completed" {
+                    completed.push("audio_separation".to_string());
+                } else {
+                    skipped.push(format!(
+                        "audio separation: {}",
+                        report.message.as_deref().unwrap_or("not available")
+                    ));
+                }
+                Some(report)
+            }
+            Err(err) => {
+                skipped.push(format!("audio separation: {err}"));
+                Some(AudioSeparationReport {
+                    status: "skipped".to_string(),
+                    model: args
+                        .audio_separation
+                        .model
+                        .clone()
+                        .unwrap_or_else(|| DemucsModel::default().to_string()),
+                    output_dir: display_path(
+                        &args
+                            .audio_separation
+                            .output_dir
+                            .clone()
+                            .unwrap_or_else(|| args.work_dir.join("separated")),
+                    ),
+                    stems: Vec::new(),
+                    message: Some(err.to_string()),
+                })
+            }
+        }
+    } else {
+        None
+    };
 
     let audio_report = match analyze_audio(&video_path, &mut aggregator, &mut data_buckets) {
         Ok(report) => {
@@ -677,9 +775,12 @@ pub fn run_youtube_video_with_progress(
             status: "skipped".to_string(),
             frames_processed: 0,
             events: Vec::new(),
+            separation: separation_report.clone(),
             message: Some(err.to_string()),
         },
     };
+    let mut audio_report = audio_report;
+    audio_report.separation = separation_report;
     if audio_report.status != "completed" {
         skipped.push(format!(
             "audio analysis: {}",
@@ -764,6 +865,7 @@ pub fn run_youtube_video_workflow_with_progress(
         skip_transcription: !request.transcription.enabled,
         transcriber_engine: request.transcription.engine,
         whisper_cpp: request.transcription.whisper_cpp.clone(),
+        audio_separation: request.audio_separation.clone(),
         ..YoutubeVideoRequest::default()
     };
     match request.source {
@@ -1892,6 +1994,55 @@ fn extract_audio_wav(video_path: &Path, work_dir: &Path) -> Result<PathBuf> {
     extract_wav(video_path, work_dir.join("audio.wav"), 16_000)
 }
 
+fn run_audio_separation(
+    config: &AudioSeparationConfig,
+    audio_path: &Path,
+    work_dir: &Path,
+) -> Result<AudioSeparationReport> {
+    let model = config
+        .model
+        .as_deref()
+        .map(DemucsModel::from_str)
+        .transpose()?
+        .unwrap_or_default();
+    let output_dir = config
+        .output_dir
+        .clone()
+        .unwrap_or_else(|| work_dir.join("separated"));
+    let mut options = HtdemucsOptions::new(&output_dir).model(model.clone());
+    if let Some(command) = &config.command {
+        options = options.command(command.command.clone());
+        for arg in &command.args {
+            options = options.command_arg(arg.clone());
+        }
+    }
+    if let Some(two_stems) = &config.two_stems {
+        options = options.two_stems(Stem::from_str(two_stems)?);
+    }
+    if let Some(device) = &config.device {
+        options = options.device(device.clone());
+    }
+
+    let separator = HtdemucsSeparator::new(options)?;
+    let result = separator.separate(audio_path)?;
+    Ok(AudioSeparationReport {
+        status: "completed".to_string(),
+        model: result.model.to_string(),
+        output_dir: display_path(&result.output_dir),
+        stems: result
+            .stems
+            .into_iter()
+            .filter(|stem| stem.exists)
+            .map(|stem| AudioStemReport {
+                stem: stem.stem.to_string(),
+                path: display_path(&stem.path),
+                bytes: stem.bytes,
+            })
+            .collect(),
+        message: None,
+    })
+}
+
 fn run_whisper_cpp(
     config: &WhisperCppConfig,
     audio_path: &Path,
@@ -1984,6 +2135,7 @@ fn analyze_audio(
         status: "completed".to_string(),
         frames_processed: result.frames_processed,
         events: result.events.iter().map(event_report).collect(),
+        separation: None,
         message: None,
     })
 }
@@ -2251,6 +2403,25 @@ mod tests {
     }
 
     #[test]
+    fn audio_separation_config_validates_known_values() {
+        let config = AudioSeparationConfig {
+            enabled: true,
+            command: None,
+            model: Some("htdemucs".to_string()),
+            two_stems: Some("vocals".to_string()),
+            device: Some("cpu".to_string()),
+            output_dir: Some(PathBuf::from("separated")),
+        };
+        config.validate().unwrap();
+        assert!(AudioSeparationConfig {
+            model: Some(" ".to_string()),
+            ..config.clone()
+        }
+        .validate()
+        .is_err());
+    }
+
+    #[test]
     fn parses_transcript_whisper_json_segments() {
         let parsed = text_analysis_transcription::parse_whisper_json(
             br#"{"text":"hello world","segments":[{"start":0.0,"end":1.5,"text":" hello"}]}"#,
@@ -2300,5 +2471,6 @@ mod tests {
         assert_eq!(report.use_case, YOUTUBE_VIDEO_USE_CASE);
         assert_eq!(report.transcription.status, "skipped");
         assert!(report.video.frames_processed > 0);
+        assert!(report.audio.separation.is_none());
     }
 }

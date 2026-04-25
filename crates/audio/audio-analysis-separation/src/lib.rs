@@ -1,8 +1,11 @@
 #![doc = include_str!("../README.md")]
 
 use std::ffi::OsString;
+use std::fmt::{Display, Formatter};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::str::FromStr;
 
 use video_analysis_core::{DetectError, Result};
 
@@ -32,21 +35,253 @@ impl Stem {
         }
     }
 
-    pub fn file_name(&self) -> String {
-        format!("{}.wav", self.as_str())
+    pub fn residual_for(primary: &Stem) -> Stem {
+        match primary {
+            Self::Vocals => Self::NoVocals,
+            stem => Self::Custom(format!("no_{}", stem.as_str())),
+        }
     }
+
+    pub fn file_name(&self, format: &SeparationOutputFormat) -> String {
+        format!("{}.{}", self.as_str(), format.extension())
+    }
+}
+
+impl Display for Stem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for Stem {
+    type Err = DetectError;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let normalized = input.trim().to_ascii_lowercase().replace('-', "_");
+        if normalized.is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "stem must not be empty".to_string(),
+            ));
+        }
+        Ok(match normalized.as_str() {
+            "vocals" => Self::Vocals,
+            "drums" => Self::Drums,
+            "bass" => Self::Bass,
+            "other" => Self::Other,
+            "guitar" => Self::Guitar,
+            "piano" => Self::Piano,
+            "no_vocals" => Self::NoVocals,
+            _ => Self::Custom(normalized),
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub enum DemucsModel {
+    #[default]
+    Htdemucs,
+    HtdemucsFt,
+    Htdemucs6s,
+    MdX,
+    MdXExtra,
+    MdXQ,
+    Custom(String),
+}
+
+impl DemucsModel {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Htdemucs => "htdemucs",
+            Self::HtdemucsFt => "htdemucs_ft",
+            Self::Htdemucs6s => "htdemucs_6s",
+            Self::MdX => "mdx",
+            Self::MdXExtra => "mdx_extra",
+            Self::MdXQ => "mdx_q",
+            Self::Custom(value) => value.as_str(),
+        }
+    }
+
+    pub fn default_layout(&self) -> StemLayout {
+        match self {
+            Self::Htdemucs6s => StemLayout::SixStem,
+            Self::Htdemucs
+            | Self::HtdemucsFt
+            | Self::MdX
+            | Self::MdXExtra
+            | Self::MdXQ
+            | Self::Custom(_) => StemLayout::FourStem,
+        }
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.as_str().trim().is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "demucs model must not be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Display for DemucsModel {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for DemucsModel {
+    type Err = DetectError;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let normalized = input.trim().to_ascii_lowercase().replace('-', "_");
+        if normalized.is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "demucs model must not be empty".to_string(),
+            ));
+        }
+        Ok(match normalized.as_str() {
+            "htdemucs" => Self::Htdemucs,
+            "htdemucs_ft" => Self::HtdemucsFt,
+            "htdemucs_6s" => Self::Htdemucs6s,
+            "mdx" => Self::MdX,
+            "mdx_extra" => Self::MdXExtra,
+            "mdx_q" => Self::MdXQ,
+            _ => Self::Custom(normalized),
+        })
+    }
+}
+
+impl From<String> for DemucsModel {
+    fn from(value: String) -> Self {
+        Self::from_str(&value).unwrap_or(Self::Custom(value))
+    }
+}
+
+impl From<&str> for DemucsModel {
+    fn from(value: &str) -> Self {
+        Self::from(value.to_string())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StemLayout {
+    FourStem,
+    SixStem,
+    TwoStem { primary: Stem, residual: Stem },
+    Custom(Vec<Stem>),
+}
+
+impl StemLayout {
+    pub fn stems(&self) -> Vec<Stem> {
+        match self {
+            Self::FourStem => vec![Stem::Vocals, Stem::Drums, Stem::Bass, Stem::Other],
+            Self::SixStem => vec![
+                Stem::Vocals,
+                Stem::Drums,
+                Stem::Bass,
+                Stem::Other,
+                Stem::Guitar,
+                Stem::Piano,
+            ],
+            Self::TwoStem { primary, residual } => vec![primary.clone(), residual.clone()],
+            Self::Custom(stems) => stems.clone(),
+        }
+    }
+
+    fn validate(&self) -> Result<()> {
+        if let Self::Custom(stems) = self {
+            if stems.is_empty() {
+                return Err(DetectError::InvalidArgument(
+                    "custom stem layout must contain at least one stem".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum SeparationOutputFormat {
+    #[default]
+    Wav,
+    Mp3,
+    Flac,
+    Custom(String),
+}
+
+impl SeparationOutputFormat {
+    pub fn extension(&self) -> &str {
+        match self {
+            Self::Wav => "wav",
+            Self::Mp3 => "mp3",
+            Self::Flac => "flac",
+            Self::Custom(ext) => ext,
+        }
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.extension().trim().is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "output format extension must not be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SeparationRunMode {
+    Execute,
+    DryRun,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeparationCommand {
+    pub program: PathBuf,
+    pub args: Vec<OsString>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeparatedStem {
+    pub stem: Stem,
+    pub path: PathBuf,
+    pub exists: bool,
+    pub bytes: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeparationResult {
+    pub input: PathBuf,
+    pub model: DemucsModel,
+    pub layout: StemLayout,
+    pub output_dir: PathBuf,
+    pub stems: Vec<SeparatedStem>,
+    pub missing_stems: Vec<Stem>,
+    pub all_outputs_present: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeparationExecution {
+    pub command: SeparationCommand,
+    pub result: SeparationResult,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HtdemucsOptions {
     pub command: PathBuf,
     pub command_args: Vec<OsString>,
-    pub model: String,
+    pub model: DemucsModel,
     pub output_dir: PathBuf,
+    pub layout: Option<StemLayout>,
+    pub output_format: SeparationOutputFormat,
     pub two_stems: Option<Stem>,
     pub device: Option<String>,
     pub shifts: Option<u32>,
     pub overlap: Option<f32>,
+    pub jobs: Option<u32>,
+    pub segment: Option<u32>,
+    pub sample_rate: Option<u32>,
+    pub filename: Option<String>,
     pub extra_args: Vec<OsString>,
 }
 
@@ -68,8 +303,18 @@ impl HtdemucsOptions {
         self
     }
 
-    pub fn model(mut self, model: impl Into<String>) -> Self {
+    pub fn model(mut self, model: impl Into<DemucsModel>) -> Self {
         self.model = model.into();
+        self
+    }
+
+    pub fn layout(mut self, layout: StemLayout) -> Self {
+        self.layout = Some(layout);
+        self
+    }
+
+    pub fn output_format(mut self, output_format: SeparationOutputFormat) -> Self {
+        self.output_format = output_format;
         self
     }
 
@@ -93,6 +338,26 @@ impl HtdemucsOptions {
         self
     }
 
+    pub fn jobs(mut self, jobs: u32) -> Self {
+        self.jobs = Some(jobs);
+        self
+    }
+
+    pub fn segment(mut self, segment: u32) -> Self {
+        self.segment = Some(segment);
+        self
+    }
+
+    pub fn sample_rate(mut self, sample_rate: u32) -> Self {
+        self.sample_rate = Some(sample_rate);
+        self
+    }
+
+    pub fn filename(mut self, filename: impl Into<String>) -> Self {
+        self.filename = Some(filename.into());
+        self
+    }
+
     pub fn extra_arg(mut self, arg: impl Into<OsString>) -> Self {
         self.extra_args.push(arg.into());
         self
@@ -104,9 +369,14 @@ impl HtdemucsOptions {
                 "demucs command must not be empty".to_string(),
             ));
         }
-        if self.model.trim().is_empty() {
+        self.model.validate()?;
+        self.output_format.validate()?;
+        if let Some(layout) = &self.layout {
+            layout.validate()?;
+        }
+        if self.two_stems.is_some() && self.layout.is_some() {
             return Err(DetectError::InvalidArgument(
-                "demucs model must not be empty".to_string(),
+                "custom layout cannot be combined with two_stems".to_string(),
             ));
         }
         if let Some(overlap) = self.overlap {
@@ -115,6 +385,30 @@ impl HtdemucsOptions {
                     "demucs overlap must be finite and in the range [0, 1)".to_string(),
                 ));
             }
+        }
+        if self.jobs == Some(0) {
+            return Err(DetectError::InvalidArgument(
+                "demucs jobs must be greater than zero".to_string(),
+            ));
+        }
+        if self.segment == Some(0) {
+            return Err(DetectError::InvalidArgument(
+                "demucs segment must be greater than zero".to_string(),
+            ));
+        }
+        if self.sample_rate == Some(0) {
+            return Err(DetectError::InvalidArgument(
+                "demucs sample_rate must be greater than zero".to_string(),
+            ));
+        }
+        if self
+            .filename
+            .as_ref()
+            .is_some_and(|filename| filename.trim().is_empty())
+        {
+            return Err(DetectError::InvalidArgument(
+                "demucs filename template must not be empty".to_string(),
+            ));
         }
         Ok(())
     }
@@ -125,30 +419,21 @@ impl Default for HtdemucsOptions {
         Self {
             command: PathBuf::from("demucs"),
             command_args: Vec::new(),
-            model: "htdemucs".to_string(),
+            model: DemucsModel::default(),
             output_dir: PathBuf::from("separated"),
+            layout: None,
+            output_format: SeparationOutputFormat::Wav,
             two_stems: None,
             device: None,
             shifts: None,
             overlap: None,
+            jobs: None,
+            segment: None,
+            sample_rate: None,
+            filename: None,
             extra_args: Vec::new(),
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SeparatedStem {
-    pub stem: Stem,
-    pub path: PathBuf,
-    pub exists: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SeparationResult {
-    pub input: PathBuf,
-    pub model: String,
-    pub output_dir: PathBuf,
-    pub stems: Vec<SeparatedStem>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -162,14 +447,58 @@ impl HtdemucsSeparator {
         Ok(Self { options })
     }
 
-    pub fn build_args(&self, input: impl AsRef<Path>) -> Result<Vec<OsString>> {
+    pub fn validate_input_path(&self, input: &Path) -> Result<()> {
+        if input.as_os_str().is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "audio input path must not be empty".to_string(),
+            ));
+        }
+        if input.file_stem().is_none() {
+            return Err(DetectError::InvalidArgument(
+                "audio input path must include a file name".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn expected_layout(&self) -> StemLayout {
+        if let Some(primary) = &self.options.two_stems {
+            return StemLayout::TwoStem {
+                primary: primary.clone(),
+                residual: Stem::residual_for(primary),
+            };
+        }
+        self.options
+            .layout
+            .clone()
+            .unwrap_or_else(|| self.options.model.default_layout())
+    }
+
+    pub fn expected_stems(&self) -> Vec<Stem> {
+        self.expected_layout().stems()
+    }
+
+    pub fn build_command(&self, input: impl AsRef<Path>) -> Result<SeparationCommand> {
+        let input = input.as_ref();
         self.options.validate()?;
+        self.validate_input_path(input)?;
+
         let mut args = Vec::new();
         args.extend(self.options.command_args.iter().cloned());
         args.push(OsString::from("-n"));
-        args.push(OsString::from(&self.options.model));
+        args.push(OsString::from(self.options.model.as_str()));
         args.push(OsString::from("-o"));
         args.push(self.options.output_dir.as_os_str().to_os_string());
+        match &self.options.output_format {
+            SeparationOutputFormat::Wav => {}
+            SeparationOutputFormat::Mp3 => args.push(OsString::from("--mp3")),
+            SeparationOutputFormat::Flac => args.push(OsString::from("--flac")),
+            SeparationOutputFormat::Custom(_) => {}
+        }
+        if let Some(filename) = &self.options.filename {
+            args.push(OsString::from("--filename"));
+            args.push(OsString::from(filename));
+        }
         if let Some(stem) = &self.options.two_stems {
             args.push(OsString::from("--two-stems"));
             args.push(OsString::from(stem.as_str()));
@@ -186,22 +515,59 @@ impl HtdemucsSeparator {
             args.push(OsString::from("--overlap"));
             args.push(OsString::from(overlap.to_string()));
         }
+        if let Some(jobs) = self.options.jobs {
+            args.push(OsString::from("-j"));
+            args.push(OsString::from(jobs.to_string()));
+        }
+        if let Some(segment) = self.options.segment {
+            args.push(OsString::from("--segment"));
+            args.push(OsString::from(segment.to_string()));
+        }
+        if let Some(sample_rate) = self.options.sample_rate {
+            args.push(OsString::from("--samplerate"));
+            args.push(OsString::from(sample_rate.to_string()));
+        }
         args.extend(self.options.extra_args.iter().cloned());
-        args.push(input.as_ref().as_os_str().to_os_string());
-        Ok(args)
+        args.push(input.as_os_str().to_os_string());
+
+        Ok(SeparationCommand {
+            program: self.options.command.clone(),
+            args,
+        })
+    }
+
+    pub fn build_args(&self, input: impl AsRef<Path>) -> Result<Vec<OsString>> {
+        Ok(self.build_command(input)?.args)
+    }
+
+    pub fn dry_run(&self, input: impl AsRef<Path>) -> Result<SeparationExecution> {
+        let input = input.as_ref();
+        Ok(SeparationExecution {
+            command: self.build_command(input)?,
+            result: self.discover_result(input)?,
+        })
     }
 
     pub fn separate(&self, input: impl AsRef<Path>) -> Result<SeparationResult> {
         let input = input.as_ref();
         self.options.validate()?;
-        let status = Command::new(&self.options.command)
-            .args(self.build_args(input)?)
+        self.validate_input_path(input)?;
+        if !input.is_file() {
+            return Err(DetectError::Source(format!(
+                "demucs input `{}` does not exist or is not a file",
+                input.display()
+            )));
+        }
+
+        let command = self.build_command(input)?;
+        let status = Command::new(&command.program)
+            .args(&command.args)
             .stdin(Stdio::null())
             .status()
             .map_err(|err| {
                 DetectError::Source(format!(
                     "failed to start demucs command `{}`: {err}",
-                    self.options.command.display()
+                    command.program.display()
                 ))
             })?;
         if !status.success() {
@@ -209,43 +575,89 @@ impl HtdemucsSeparator {
                 "demucs command exited with status {status}"
             )));
         }
-        Ok(self.expected_result(input))
+
+        let result = self.discover_result(input)?;
+        if !result.all_outputs_present {
+            return Err(DetectError::Source(format!(
+                "demucs completed but missing expected outputs: {}",
+                result
+                    .missing_stems
+                    .iter()
+                    .map(Stem::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )));
+        }
+        Ok(result)
     }
 
-    pub fn expected_result(&self, input: impl AsRef<Path>) -> SeparationResult {
+    pub fn discover_result(&self, input: impl AsRef<Path>) -> Result<SeparationResult> {
         let input = input.as_ref();
+        self.options.validate()?;
+        self.validate_input_path(input)?;
+
         let source_name = input
             .file_stem()
             .and_then(|value| value.to_str())
             .unwrap_or("audio");
-        let output_dir = self
-            .options
-            .output_dir
-            .join(&self.options.model)
-            .join(source_name);
-        let stems = self
-            .expected_stems()
+        let layout = self.expected_layout();
+        let model_dir = self.options.output_dir.join(self.options.model.as_str());
+        let output_dir = if self.options.filename.is_some() {
+            model_dir.clone()
+        } else {
+            model_dir.join(source_name)
+        };
+        let stems = layout
+            .stems()
             .into_iter()
             .map(|stem| {
-                let path = output_dir.join(stem.file_name());
-                let exists = path.exists();
-                SeparatedStem { stem, path, exists }
+                let path = self.output_path_for_stem(&model_dir, source_name, &stem);
+                let bytes = file_size_if_nonempty(&path);
+                let exists = bytes.is_some();
+                SeparatedStem {
+                    stem,
+                    path,
+                    exists,
+                    bytes,
+                }
             })
-            .collect();
-        SeparationResult {
+            .collect::<Vec<_>>();
+        let missing_stems = stems
+            .iter()
+            .filter(|stem| !stem.exists)
+            .map(|stem| stem.stem.clone())
+            .collect::<Vec<_>>();
+
+        Ok(SeparationResult {
             input: input.to_path_buf(),
             model: self.options.model.clone(),
+            layout,
             output_dir,
+            all_outputs_present: missing_stems.is_empty(),
+            missing_stems,
             stems,
-        }
+        })
     }
 
-    pub fn expected_stems(&self) -> Vec<Stem> {
-        match &self.options.two_stems {
-            Some(Stem::Vocals) => vec![Stem::Vocals, Stem::NoVocals],
-            Some(stem) => vec![stem.clone(), Stem::Custom(format!("no_{}", stem.as_str()))],
-            None => vec![Stem::Vocals, Stem::Drums, Stem::Bass, Stem::Other],
+    pub fn expected_result(&self, input: impl AsRef<Path>) -> SeparationResult {
+        self.discover_result(input)
+            .expect("separator expected_result uses validated static path computation")
+    }
+
+    fn output_path_for_stem(&self, model_dir: &Path, source_name: &str, stem: &Stem) -> PathBuf {
+        if let Some(template) = &self.options.filename {
+            let rendered = render_filename_template(
+                template,
+                source_name,
+                stem.as_str(),
+                self.options.output_format.extension(),
+                self.options.model.as_str(),
+            );
+            return model_dir.join(rendered);
         }
+        model_dir
+            .join(source_name)
+            .join(stem.file_name(&self.options.output_format))
     }
 }
 
@@ -261,194 +673,25 @@ pub fn is_demucs_available() -> bool {
         .unwrap_or(false)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+fn render_filename_template(
+    template: &str,
+    track: &str,
+    stem: &str,
+    ext: &str,
+    model: &str,
+) -> PathBuf {
+    PathBuf::from(
+        template
+            .replace("{track}", track)
+            .replace("{stem}", stem)
+            .replace("{ext}", ext)
+            .replace("{model}", model),
+    )
+}
 
-    fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
-        let samples = (sample_rate as f32 * seconds) as usize;
-        (0..samples)
-            .map(|index| {
-                let t = index as f32 / sample_rate as f32;
-                (2.0 * std::f32::consts::PI * freq_hz * t).sin()
-            })
-            .collect()
-    }
-
-    fn write_pcm16_wav(
-        path: impl AsRef<Path>,
-        sample_rate: u32,
-        channels: u16,
-        samples: &[f32],
-    ) -> std::io::Result<()> {
-        let path = path.as_ref();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let mut file = std::fs::File::create(path)?;
-        let data_len = samples.len() as u32 * 2;
-        let byte_rate = sample_rate * channels as u32 * 2;
-        let block_align = channels * 2;
-
-        use std::io::Write;
-
-        file.write_all(b"RIFF")?;
-        file.write_all(&(36 + data_len).to_le_bytes())?;
-        file.write_all(b"WAVEfmt ")?;
-        file.write_all(&16_u32.to_le_bytes())?;
-        file.write_all(&1_u16.to_le_bytes())?;
-        file.write_all(&channels.to_le_bytes())?;
-        file.write_all(&sample_rate.to_le_bytes())?;
-        file.write_all(&byte_rate.to_le_bytes())?;
-        file.write_all(&block_align.to_le_bytes())?;
-        file.write_all(&16_u16.to_le_bytes())?;
-        file.write_all(b"data")?;
-        file.write_all(&data_len.to_le_bytes())?;
-        for sample in samples {
-            let value = (sample.clamp(-1.0, 1.0) * i16::MAX as f32).round() as i16;
-            file.write_all(&value.to_le_bytes())?;
-        }
-        Ok(())
-    }
-
-    fn args_as_strings(args: Vec<OsString>) -> Vec<String> {
-        args.into_iter()
-            .map(|arg| arg.to_string_lossy().to_string())
-            .collect()
-    }
-
-    #[test]
-    fn stem_names_and_file_names_are_stable() {
-        let stems = [
-            (Stem::Vocals, "vocals", "vocals.wav"),
-            (Stem::Drums, "drums", "drums.wav"),
-            (Stem::Bass, "bass", "bass.wav"),
-            (Stem::Other, "other", "other.wav"),
-            (Stem::Guitar, "guitar", "guitar.wav"),
-            (Stem::Piano, "piano", "piano.wav"),
-            (Stem::NoVocals, "no_vocals", "no_vocals.wav"),
-            (
-                Stem::Custom("karaoke".to_string()),
-                "karaoke",
-                "karaoke.wav",
-            ),
-        ];
-        for (stem, name, file_name) in stems {
-            assert_eq!(stem.as_str(), name);
-            assert_eq!(stem.file_name(), file_name);
-        }
-    }
-
-    #[test]
-    fn options_validation_rejects_invalid_values() {
-        assert!(HtdemucsOptions::new("out").command("").validate().is_err());
-        assert!(HtdemucsOptions::new("out").model(" ").validate().is_err());
-        assert!(HtdemucsOptions::new("out")
-            .overlap(-0.1)
-            .validate()
-            .is_err());
-        assert!(HtdemucsOptions::new("out").overlap(1.0).validate().is_err());
-        assert!(HtdemucsOptions::new("out")
-            .overlap(f32::NAN)
-            .validate()
-            .is_err());
-    }
-
-    #[test]
-    fn builds_htdemucs_command_arguments() {
-        let separator = HtdemucsSeparator::new(
-            HtdemucsOptions::new("out")
-                .command_arg("python")
-                .command_arg("-m")
-                .two_stems(Stem::Vocals)
-                .device("cpu")
-                .shifts(2)
-                .overlap(0.25)
-                .extra_arg("--jobs")
-                .extra_arg("1"),
-        )
-        .unwrap();
-        let args = args_as_strings(separator.build_args("song.wav").unwrap());
-        assert_eq!(
-            args,
-            vec![
-                "python",
-                "-m",
-                "-n",
-                "htdemucs",
-                "-o",
-                "out",
-                "--two-stems",
-                "vocals",
-                "--device",
-                "cpu",
-                "--shifts",
-                "2",
-                "--overlap",
-                "0.25",
-                "--jobs",
-                "1",
-                "song.wav"
-            ]
-        );
-    }
-
-    #[test]
-    fn predicts_standard_htdemucs_stem_paths() {
-        let separator = HtdemucsSeparator::new(HtdemucsOptions::new("out")).unwrap();
-        let result = separator.expected_result("/tmp/song.mp3");
-        assert_eq!(result.output_dir, PathBuf::from("out/htdemucs/song"));
-        assert_eq!(
-            result
-                .stems
-                .iter()
-                .map(|stem| stem.stem.as_str())
-                .collect::<Vec<_>>(),
-            vec!["vocals", "drums", "bass", "other"]
-        );
-        assert_eq!(
-            result.stems[0].path,
-            PathBuf::from("out/htdemucs/song/vocals.wav")
-        );
-    }
-
-    #[test]
-    fn predicts_two_stem_outputs_for_non_vocal_stems() {
-        let separator =
-            HtdemucsSeparator::new(HtdemucsOptions::new("out").two_stems(Stem::Drums)).unwrap();
-        assert_eq!(
-            separator
-                .expected_stems()
-                .iter()
-                .map(Stem::as_str)
-                .collect::<Vec<_>>(),
-            vec!["drums", "no_drums"]
-        );
-    }
-
-    #[test]
-    #[ignore = "requires real Demucs installation and model availability"]
-    fn real_demucs_smoke_test_when_requested() {
-        if std::env::var("RUN_REAL_DEMUCS_TESTS").ok().as_deref() != Some("1") {
-            eprintln!("skipping real Demucs smoke test; set RUN_REAL_DEMUCS_TESTS=1");
-            return;
-        }
-        if !is_demucs_available() {
-            panic!("RUN_REAL_DEMUCS_TESTS=1 but demucs is unavailable");
-        }
-        let dir = tempfile::tempdir().unwrap();
-        let input = dir.path().join("tone.wav");
-        write_pcm16_wav(&input, 8_000, 1, &sine(440.0, 8_000, 0.1)).unwrap();
-        let command = std::env::var_os("DEMUCS_COMMAND")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| "demucs".into());
-        let separator = HtdemucsSeparator::new(
-            HtdemucsOptions::new(dir.path().join("out"))
-                .command(command)
-                .device("cpu"),
-        )
-        .unwrap();
-        let result = separator.separate(&input).unwrap();
-        assert!(result.stems.iter().any(|stem| stem.path.exists()));
-    }
+fn file_size_if_nonempty(path: &Path) -> Option<u64> {
+    fs::metadata(path)
+        .ok()
+        .filter(|metadata| metadata.is_file() && metadata.len() > 0)
+        .map(|metadata| metadata.len())
 }

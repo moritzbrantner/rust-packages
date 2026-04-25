@@ -56,8 +56,9 @@ Package README index:
   sample-backed reference libraries, similarity search, and recognition events.
 - `audio-analysis-rhythm`: onset detection, tempo estimation, and a rhythm
   analyzer that emits onset and BPM events.
-- `audio-analysis-separation`: HTDemucs/Demucs command wrapper for instrument
-  stem separation.
+- `audio-analysis-separation`: typed HTDemucs/Demucs integration for vocal and
+  instrument stem separation through the external `demucs` CLI, including
+  model-aware output discovery.
 - `audio-analysis-synthesis`: deterministic tone, onset, and pitch-event audio
   synthesis into core audio frames with inversion trace metadata.
 - `image-analysis-comfyui`: ComfyUI workflow builders for text-to-image,

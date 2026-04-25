@@ -14,7 +14,7 @@ use video_analysis_core::{
     AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result, Timestamp,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AudioEmbedding {
     values: Vec<f32>,
 }
@@ -233,7 +233,7 @@ impl EmbeddingAccumulator {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AudioReference {
     id: String,
     label: String,
@@ -320,6 +320,13 @@ impl AudioReference {
 pub struct AudioReferenceLibrary {
     references: BTreeMap<String, AudioReference>,
     dimensions: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct AudioReferenceLibrarySnapshot {
+    pub version: u32,
+    pub dimensions: Option<usize>,
+    pub references: Vec<AudioReference>,
 }
 
 impl AudioReferenceLibrary {
@@ -416,6 +423,44 @@ impl AudioReferenceLibrary {
 
     pub fn dimensions(&self) -> Option<usize> {
         self.dimensions
+    }
+
+    pub fn to_snapshot(&self) -> AudioReferenceLibrarySnapshot {
+        AudioReferenceLibrarySnapshot {
+            version: 1,
+            dimensions: self.dimensions,
+            references: self.references.values().cloned().collect(),
+        }
+    }
+
+    pub fn from_snapshot(snapshot: AudioReferenceLibrarySnapshot) -> Result<Self> {
+        if snapshot.version != 1 {
+            return Err(DetectError::InvalidArgument(format!(
+                "unsupported audio reference library snapshot version `{}`",
+                snapshot.version
+            )));
+        }
+        let mut library = Self::new();
+        for reference in snapshot.references {
+            library.add_reference(reference)?;
+        }
+        if snapshot.dimensions.is_some() && snapshot.dimensions != library.dimensions {
+            return Err(DetectError::InvalidArgument(
+                "audio reference library snapshot dimensions did not match references".to_string(),
+            ));
+        }
+        Ok(library)
+    }
+
+    pub fn to_json_string(&self) -> Result<String> {
+        serde_json::to_string_pretty(&self.to_snapshot())
+            .map_err(|err| DetectError::Source(err.to_string()))
+    }
+
+    pub fn from_json_str(json: &str) -> Result<Self> {
+        let snapshot = serde_json::from_str::<AudioReferenceLibrarySnapshot>(json)
+            .map_err(|err| DetectError::Source(err.to_string()))?;
+        Self::from_snapshot(snapshot)
     }
 
     pub fn search(
@@ -1206,5 +1251,19 @@ mod tests {
             .process_frame(&frame.as_frame().unwrap())
             .unwrap()
             .is_empty());
+    }
+
+    #[test]
+    fn reference_library_round_trips_through_json_snapshot() {
+        let extractor = embedder();
+        let mut library = AudioReferenceLibrary::new();
+        library
+            .add_reference_samples("a4", "A4", &sine(440.0, 8_000, 0.25), 8_000, &extractor)
+            .unwrap();
+        let json = library.to_json_string().unwrap();
+        let restored = AudioReferenceLibrary::from_json_str(&json).unwrap();
+        assert_eq!(restored.len(), 1);
+        assert_eq!(restored.dimensions(), library.dimensions());
+        assert_eq!(restored.reference("a4").unwrap().label(), "A4");
     }
 }

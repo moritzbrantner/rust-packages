@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use clap::{ArgGroup, CommandFactory, FromArgMatches, Parser, Subcommand};
 use video_analysis_core::Result;
 use video_analysis_use_cases::youtube::{
-    run_youtube_video, write_youtube_video_report, TranscriptionEngine, WhisperCppConfig,
-    YoutubeVideoRequest,
+    run_youtube_video, write_youtube_video_report, AudioSeparationConfig, TranscriptionEngine,
+    WhisperCppConfig, YoutubeVideoRequest,
 };
 
 #[derive(Debug, Parser)]
@@ -87,6 +87,7 @@ impl From<YoutubeVideoArgs> for YoutubeVideoRequest {
             transcriber_command: args.transcriber_command,
             transcriber_args: args.transcriber_args,
             whisper_cpp: WhisperCppConfig::default(),
+            audio_separation: AudioSeparationConfig::default(),
             object_command: args.object_command,
             object_args: args.object_args,
             ocr_command: args.ocr_command,

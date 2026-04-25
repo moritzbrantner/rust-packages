@@ -1,4 +1,7 @@
-use audio_analysis_io::{open_audio_input, AudioFrameSource, AudioInput, AudioInputOptions};
+use audio_analysis_core::ChannelMix;
+use audio_analysis_io::{
+    decode_audio_to_mono_f32, open_audio_input, AudioFrameSource, AudioInput, AudioInputOptions,
+};
 use video_analysis_core::{AudioBuffer, AudioSampleFormat};
 use video_analysis_ffmpeg::{is_ffmpeg_available, is_ffprobe_available};
 
@@ -90,4 +93,41 @@ fn decodes_generated_pcm16_wav_when_ffmpeg_is_available() {
 
     assert_eq!(total_samples, 800);
     assert!(saw_signal);
+}
+
+#[test]
+fn decodes_compressed_audio_when_ffmpeg_is_available() {
+    let required = std::env::var("FFMPEG_EXTERNAL_TESTS").ok().as_deref() == Some("1");
+    if !required {
+        eprintln!("skipping compressed FFmpeg decode test; set FFMPEG_EXTERNAL_TESTS=1");
+        return;
+    }
+    if !(is_ffmpeg_available() && is_ffprobe_available()) {
+        panic!("FFMPEG_EXTERNAL_TESTS=1 but ffmpeg/ffprobe is unavailable");
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let wav = dir.path().join("tone.wav");
+    let mp3 = dir.path().join("tone.mp3");
+    write_pcm16_wav(&wav, 8_000, 1, &sine(330.0, 8_000, 0.1)).unwrap();
+    let status = std::process::Command::new("ffmpeg")
+        .arg("-y")
+        .arg("-v")
+        .arg("error")
+        .arg("-i")
+        .arg(&wav)
+        .arg(&mp3)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let (metadata, mono) = decode_audio_to_mono_f32(
+        AudioInput::File(mp3),
+        AudioInputOptions::recorded().samples_per_chunk(128),
+        ChannelMix::Average,
+    )
+    .unwrap();
+
+    assert_eq!(metadata.channels, 1);
+    assert!(mono.iter().any(|sample| sample.abs() > 0.01));
 }

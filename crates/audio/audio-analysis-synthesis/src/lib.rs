@@ -14,6 +14,12 @@ pub enum Waveform {
     Pulse,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClippingPolicy {
+    Clamp,
+    Normalize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AmplitudeEnvelope {
     pub gain: f32,
@@ -112,6 +118,7 @@ pub struct AudioSynthesisConfig {
     pub channels: u16,
     pub start_timestamp: Timestamp,
     pub envelope: AmplitudeEnvelope,
+    pub clipping_policy: ClippingPolicy,
 }
 
 impl AudioSynthesisConfig {
@@ -130,6 +137,7 @@ impl AudioSynthesisConfig {
             channels,
             start_timestamp: Timestamp::new(0, Timebase::new(1, sample_rate as i32)),
             envelope: AmplitudeEnvelope::default(),
+            clipping_policy: ClippingPolicy::Clamp,
         })
     }
 
@@ -137,6 +145,11 @@ impl AudioSynthesisConfig {
         envelope.validate()?;
         self.envelope = envelope;
         Ok(self)
+    }
+
+    pub fn clipping_policy(mut self, clipping_policy: ClippingPolicy) -> Self {
+        self.clipping_policy = clipping_policy;
+        self
     }
 }
 
@@ -186,9 +199,11 @@ pub fn synthesize_timeline(
             let sample = wave_sample(segment.tone.waveform, segment.tone.frequency_hz, t)
                 * segment.tone.amplitude
                 * env;
-            mono[start + offset] = (mono[start + offset] + sample).clamp(-1.0, 1.0);
+            mono[start + offset] += sample;
         }
     }
+
+    apply_clipping_policy(&mut mono, config.clipping_policy);
 
     let mut interleaved = Vec::with_capacity(mono.len() * channels);
     for sample in mono {
@@ -220,6 +235,72 @@ pub fn synthesize_timeline(
         "continuous tones are sampled at the configured sample rate",
     );
     Ok(Generated::new(frame, trace))
+}
+
+pub fn synthesize_click(
+    start_seconds: f32,
+    duration_seconds: f32,
+    amplitude: f32,
+    config: AudioSynthesisConfig,
+) -> Result<Generated<OwnedAudioFrame>> {
+    synthesize_timeline(
+        &[ToneSegment {
+            start_seconds,
+            tone: ToneSpec {
+                frequency_hz: 1_800.0,
+                duration_seconds,
+                amplitude,
+                waveform: Waveform::Pulse,
+            },
+        }],
+        config,
+    )
+}
+
+pub fn synthesize_noise_burst(
+    duration_seconds: f32,
+    amplitude: f32,
+    seed: u64,
+    config: AudioSynthesisConfig,
+) -> Result<Generated<OwnedAudioFrame>> {
+    if !duration_seconds.is_finite() || duration_seconds <= 0.0 {
+        return Err(invalid_argument(
+            "noise duration_seconds must be finite and greater than zero",
+        ));
+    }
+    if !amplitude.is_finite() || amplitude < 0.0 {
+        return Err(invalid_argument(
+            "noise amplitude must be finite and non-negative",
+        ));
+    }
+
+    let len = seconds_to_samples(duration_seconds, config.sample_rate)?.max(1);
+    let channels = config.channels as usize;
+    let mut state = seed;
+    let mut mono = Vec::with_capacity(len);
+    for _ in 0..len {
+        state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+        let noise = (((state >> 32) as u32) as f32 / u32::MAX as f32) * 2.0 - 1.0;
+        mono.push(noise * amplitude);
+    }
+    apply_clipping_policy(&mut mono, config.clipping_policy);
+
+    let mut interleaved = Vec::with_capacity(mono.len() * channels);
+    for sample in mono {
+        for _ in 0..channels {
+            interleaved.push(sample);
+        }
+    }
+    let frame = OwnedAudioFrame::new(
+        config.start_timestamp,
+        config.sample_rate,
+        config.channels,
+        AudioBuffer::F32(interleaved),
+    )?;
+    Ok(Generated::new(
+        frame,
+        InversionTrace::new("noise_burst", "owned_audio_frame", InformationFidelity::Interpolated),
+    ))
 }
 
 pub fn event_to_tone_segment(
@@ -320,6 +401,27 @@ fn envelope_gain(offset: usize, len: usize, sample_rate: u32, envelope: Amplitud
     envelope.gain * attack.min(release)
 }
 
+fn apply_clipping_policy(samples: &mut [f32], clipping_policy: ClippingPolicy) {
+    match clipping_policy {
+        ClippingPolicy::Clamp => {
+            for sample in samples {
+                *sample = sample.clamp(-1.0, 1.0);
+            }
+        }
+        ClippingPolicy::Normalize => {
+            let peak = samples
+                .iter()
+                .map(|sample| sample.abs())
+                .fold(0.0_f32, f32::max);
+            if peak > 1.0 {
+                for sample in samples {
+                    *sample /= peak;
+                }
+            }
+        }
+    }
+}
+
 fn wave_sample(waveform: Waveform, frequency_hz: f32, t: f32) -> f32 {
     let phase = (frequency_hz * t).fract();
     match waveform {
@@ -369,5 +471,50 @@ mod tests {
         let segment = event_to_tone_segment(&event, 0.2).unwrap();
         assert_eq!(segment.tone.frequency_hz, 220.0);
         assert_eq!(segment.tone.amplitude, 0.7);
+    }
+
+    #[test]
+    fn clipping_policy_can_normalize_overlap() {
+        let generated = synthesize_timeline(
+            &[
+                ToneSegment {
+                    start_seconds: 0.0,
+                    tone: ToneSpec {
+                        frequency_hz: 440.0,
+                        duration_seconds: 0.05,
+                        amplitude: 1.0,
+                        waveform: Waveform::Sine,
+                    },
+                },
+                ToneSegment {
+                    start_seconds: 0.0,
+                    tone: ToneSpec {
+                        frequency_hz: 440.0,
+                        duration_seconds: 0.05,
+                        amplitude: 1.0,
+                        waveform: Waveform::Sine,
+                    },
+                },
+            ],
+            AudioSynthesisConfig::new(8_000, 1)
+                .unwrap()
+                .clipping_policy(ClippingPolicy::Normalize),
+        )
+        .unwrap();
+        let AudioBuffer::F32(samples) = generated.value.data else {
+            panic!("expected synthesized f32 data");
+        };
+        assert!(samples.iter().all(|sample| sample.abs() <= 1.0));
+    }
+
+    #[test]
+    fn synthesize_click_and_noise_burst_generate_audio() {
+        let click = synthesize_click(0.0, 0.01, 0.8, AudioSynthesisConfig::new(8_000, 1).unwrap())
+            .unwrap();
+        let noise = synthesize_noise_burst(0.01, 0.5, 7, AudioSynthesisConfig::new(8_000, 2).unwrap())
+            .unwrap();
+        assert_eq!(click.value.channels, 1);
+        assert_eq!(noise.value.channels, 2);
+        assert!(noise.value.samples_per_channel() > 0);
     }
 }

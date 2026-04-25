@@ -52,6 +52,56 @@ pub fn white_noise(seed: u64, len: usize) -> Vec<f32> {
         .collect()
 }
 
+pub fn pink_noise(seed: u64, len: usize) -> Vec<f32> {
+    let white = white_noise(seed, len.max(1));
+    let mut acc = 0.0_f32;
+    white
+        .into_iter()
+        .map(|sample| {
+            acc = 0.98 * acc + 0.02 * sample;
+            acc.clamp(-1.0, 1.0)
+        })
+        .collect()
+}
+
+pub fn chirp(start_hz: f32, end_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
+    let samples = (sample_rate as f32 * seconds) as usize;
+    (0..samples)
+        .map(|index| {
+            let progress = index as f32 / samples.max(1) as f32;
+            let frequency = start_hz + (end_hz - start_hz) * progress;
+            let t = index as f32 / sample_rate as f32;
+            (2.0 * PI * frequency * t).sin()
+        })
+        .collect()
+}
+
+pub fn stepped_tones(tones: &[(f32, f32)], sample_rate: u32) -> Vec<f32> {
+    tones
+        .iter()
+        .flat_map(|(frequency, seconds)| sine(*frequency, sample_rate, *seconds))
+        .collect()
+}
+
+pub fn mixed_sources(tracks: &[Vec<f32>]) -> Vec<f32> {
+    let len = tracks.iter().map(Vec::len).max().unwrap_or(0);
+    let mut mixed = vec![0.0_f32; len];
+    for track in tracks {
+        for (out, sample) in mixed.iter_mut().zip(track.iter().copied().chain(std::iter::repeat(0.0))) {
+            *out = (*out + sample).clamp(-1.0, 1.0);
+        }
+    }
+    mixed
+}
+
+pub fn common_sample_rates() -> &'static [u32] {
+    &[8_000, 16_000, 44_100, 48_000]
+}
+
+pub fn temp_wav_dir() -> io::Result<tempfile::TempDir> {
+    tempfile::tempdir()
+}
+
 pub fn interleaved_stereo(left: &[f32], right: &[f32]) -> Vec<f32> {
     assert_eq!(left.len(), right.len(), "stereo channels must match");
     left.iter()
@@ -145,6 +195,10 @@ mod tests {
         assert_eq!(stereo.len(), 160);
         assert_eq!(click_track(1_000, 120.0, 1.0)[0], 1.0);
         assert_eq!(impulse_train(1_000, 120.0, 1.0)[0], 1.0);
+        assert_eq!(pink_noise(1, 80).len(), 80);
+        assert_eq!(chirp(220.0, 440.0, 8_000, 0.01).len(), 80);
+        assert_eq!(stepped_tones(&[(220.0, 0.01), (440.0, 0.01)], 8_000).len(), 160);
+        assert_eq!(mixed_sources(&[vec![0.5; 4], vec![0.25; 4]]), vec![0.75; 4]);
     }
 
     #[test]

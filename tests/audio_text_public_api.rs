@@ -11,7 +11,10 @@ use audio_analysis_recognition::{
 use audio_analysis_rhythm::{
     detect_onsets, estimate_tempo, onset_envelope, OnsetDetectorConfig, TempoEstimatorConfig,
 };
-use audio_analysis_separation::{is_demucs_available, HtdemucsOptions, HtdemucsSeparator, Stem};
+use audio_analysis_separation::{
+    is_demucs_available, DemucsModel, HtdemucsOptions, HtdemucsSeparator,
+    SeparationOutputFormat, Stem, StemLayout,
+};
 use audio_analysis_synthesis::{synthesize_tone, AudioSynthesisConfig, ToneSpec};
 use num_rational::Rational64;
 use support::{click_track, owned_f32_frame, sine};
@@ -54,10 +57,21 @@ fn audio_and_text_packages_support_smoke_workflows() -> Result<(), Box<dyn std::
     assert!(tempo.bpm.unwrap() > 100.0);
 
     let output_dir = tempdir()?;
-    let separator =
-        HtdemucsSeparator::new(HtdemucsOptions::new(output_dir.path()).two_stems(Stem::Vocals))?;
+    let separator = HtdemucsSeparator::new(
+        HtdemucsOptions::new(output_dir.path())
+            .model(DemucsModel::Htdemucs)
+            .two_stems(Stem::Vocals)
+            .output_format(SeparationOutputFormat::Wav),
+    )?;
     let args = separator.build_args("input.wav")?;
     assert!(args.iter().any(|arg| arg == "--two-stems"));
+    assert_eq!(
+        separator.expected_layout(),
+        StemLayout::TwoStem {
+            primary: Stem::Vocals,
+            residual: Stem::NoVocals,
+        }
+    );
     let _ = is_demucs_available();
 
     let synthesized = synthesize_tone(

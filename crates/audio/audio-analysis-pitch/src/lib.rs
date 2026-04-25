@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+use std::collections::VecDeque;
+
 use audio_analysis_core::mono_samples;
 use video_analysis_core::{AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result};
 
@@ -52,6 +54,67 @@ impl PitchEstimate {
     pub fn unpitched(confidence: f32) -> Self {
         Self {
             frequency_hz: None,
+            confidence,
+        }
+    }
+
+    pub fn midi_note(&self) -> Option<f32> {
+        self.frequency_hz.and_then(frequency_to_midi_note)
+    }
+
+    pub fn note_name(&self) -> Option<String> {
+        self.frequency_hz.and_then(frequency_to_note_name)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PitchSmoother {
+    window_size: usize,
+    history: VecDeque<PitchEstimate>,
+}
+
+impl PitchSmoother {
+    pub fn new(window_size: usize) -> Result<Self> {
+        if window_size == 0 {
+            return Err(DetectError::InvalidArgument(
+                "pitch smoother window_size must be greater than zero".to_string(),
+            ));
+        }
+        Ok(Self {
+            window_size,
+            history: VecDeque::new(),
+        })
+    }
+
+    pub fn smooth(&mut self, estimate: PitchEstimate) -> PitchEstimate {
+        self.history.push_back(estimate);
+        while self.history.len() > self.window_size {
+            self.history.pop_front();
+        }
+
+        let mut frequencies = self
+            .history
+            .iter()
+            .filter_map(|estimate| estimate.frequency_hz)
+            .collect::<Vec<_>>();
+        if frequencies.is_empty() {
+            let confidence = self
+                .history
+                .iter()
+                .map(|estimate| estimate.confidence)
+                .fold(0.0_f32, f32::max);
+            return PitchEstimate::unpitched(confidence);
+        }
+
+        frequencies.sort_by(f32::total_cmp);
+        let confidence = self
+            .history
+            .iter()
+            .map(|estimate| estimate.confidence)
+            .sum::<f32>()
+            / self.history.len() as f32;
+        PitchEstimate {
+            frequency_hz: Some(frequencies[frequencies.len() / 2]),
             confidence,
         }
     }
@@ -204,6 +267,33 @@ fn parabolic_lag(best_lag: usize, min_lag: usize, scores: &[f32]) -> f32 {
     }
 }
 
+pub fn frequency_to_midi_note(frequency_hz: f32) -> Option<f32> {
+    (frequency_hz.is_finite() && frequency_hz > 0.0)
+        .then_some(69.0 + 12.0 * (frequency_hz / 440.0).log2())
+}
+
+pub fn frequency_to_note_name(frequency_hz: f32) -> Option<String> {
+    let midi = frequency_to_midi_note(frequency_hz)?;
+    let rounded = midi.round() as i32;
+    let octave = rounded.div_euclid(12) - 1;
+    let note = match rounded.rem_euclid(12) {
+        0 => "C",
+        1 => "C#",
+        2 => "D",
+        3 => "D#",
+        4 => "E",
+        5 => "F",
+        6 => "F#",
+        7 => "G",
+        8 => "G#",
+        9 => "A",
+        10 => "A#",
+        11 => "B",
+        _ => return None,
+    };
+    Some(format!("{note}{octave}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -352,5 +442,37 @@ mod tests {
         assert!(events[0].label.starts_with("audio:pitch:"));
         assert_eq!(events[0].timestamp, Some(frame.timestamp));
         assert!(events[0].score.unwrap() > 0.6);
+    }
+
+    #[test]
+    fn pitch_helpers_convert_to_midi_and_note_names() {
+        let estimate = PitchEstimate {
+            frequency_hz: Some(440.0),
+            confidence: 0.9,
+        };
+        assert!((estimate.midi_note().unwrap() - 69.0).abs() < 0.01);
+        assert_eq!(estimate.note_name().as_deref(), Some("A4"));
+        assert_eq!(frequency_to_note_name(261.63).as_deref(), Some("C4"));
+        assert!(frequency_to_midi_note(0.0).is_none());
+    }
+
+    #[test]
+    fn smoother_median_stabilizes_pitch_history() {
+        let mut smoother = PitchSmoother::new(3).unwrap();
+        let a = smoother.smooth(PitchEstimate {
+            frequency_hz: Some(440.0),
+            confidence: 0.8,
+        });
+        let b = smoother.smooth(PitchEstimate {
+            frequency_hz: Some(460.0),
+            confidence: 0.8,
+        });
+        let c = smoother.smooth(PitchEstimate {
+            frequency_hz: Some(442.0),
+            confidence: 0.8,
+        });
+        assert_eq!(a.frequency_hz, Some(440.0));
+        assert_eq!(b.frequency_hz, Some(460.0));
+        assert_eq!(c.frequency_hz, Some(442.0));
     }
 }

@@ -14,6 +14,18 @@ pub struct OnsetStrength {
     pub strength: f32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OnsetEnvelopeStrategy {
+    EnergyRise,
+    SpectralFluxLike,
+}
+
+impl Default for OnsetEnvelopeStrategy {
+    fn default() -> Self {
+        Self::EnergyRise
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Onset {
     pub timestamp_seconds: f64,
@@ -161,6 +173,20 @@ pub fn onset_envelope(
     sample_rate: u32,
     frame_spec: FrameSpec,
 ) -> Result<Vec<OnsetStrength>> {
+    onset_envelope_with_strategy(
+        samples,
+        sample_rate,
+        frame_spec,
+        OnsetEnvelopeStrategy::EnergyRise,
+    )
+}
+
+pub fn onset_envelope_with_strategy(
+    samples: &[f32],
+    sample_rate: u32,
+    frame_spec: FrameSpec,
+    strategy: OnsetEnvelopeStrategy,
+) -> Result<Vec<OnsetStrength>> {
     if sample_rate == 0 {
         return Err(DetectError::InvalidAudioFormat {
             sample_rate,
@@ -168,12 +194,25 @@ pub fn onset_envelope(
         });
     }
     let mut previous_energy = None;
+    let mut previous_abs_mean = None;
     Ok(frame_spec
         .frames(samples)
         .enumerate()
         .map(|(frame_index, (start_sample, frame))| {
             let energy = rms(frame);
-            let strength = (energy - previous_energy.unwrap_or(energy)).max(0.0);
+            let strength = match strategy {
+                OnsetEnvelopeStrategy::EnergyRise => {
+                    (energy - previous_energy.unwrap_or(energy)).max(0.0)
+                }
+                OnsetEnvelopeStrategy::SpectralFluxLike => {
+                    let abs_mean =
+                        frame.iter().map(|sample| sample.abs()).sum::<f32>() / frame.len() as f32;
+                    let strength =
+                        (abs_mean - previous_abs_mean.unwrap_or(abs_mean)).max(0.0);
+                    previous_abs_mean = Some(abs_mean);
+                    strength
+                }
+            };
             previous_energy = Some(energy);
             OnsetStrength {
                 frame_index,
@@ -183,6 +222,31 @@ pub fn onset_envelope(
                 strength,
             }
         })
+        .collect())
+}
+
+pub fn inter_onset_intervals(onsets: &[Onset]) -> Vec<f64> {
+    onsets
+        .windows(2)
+        .map(|pair| pair[1].timestamp_seconds - pair[0].timestamp_seconds)
+        .filter(|interval| *interval > 0.0)
+        .collect()
+}
+
+pub fn beat_grid(start_seconds: f64, bpm: f32, beats: usize) -> Result<Vec<f64>> {
+    if !start_seconds.is_finite() || start_seconds < 0.0 {
+        return Err(DetectError::InvalidArgument(
+            "beat grid start_seconds must be finite and non-negative".to_string(),
+        ));
+    }
+    if !bpm.is_finite() || bpm <= 0.0 {
+        return Err(DetectError::InvalidArgument(
+            "beat grid bpm must be finite and positive".to_string(),
+        ));
+    }
+    let interval = 60.0 / bpm as f64;
+    Ok((0..beats)
+        .map(|index| start_seconds + index as f64 * interval)
         .collect())
 }
 
@@ -485,6 +549,30 @@ mod tests {
         let regular = estimate_tempo(&regular, TempoEstimatorConfig::default()).unwrap();
         let irregular = estimate_tempo(&irregular, TempoEstimatorConfig::default()).unwrap();
         assert!(irregular.confidence < regular.confidence);
+    }
+
+    #[test]
+    fn alternate_envelope_strategy_and_interval_helpers_work() {
+        let samples = click_track(1_000, 120.0, 2.0);
+        let envelope = onset_envelope_with_strategy(
+            &samples,
+            1_000,
+            FrameSpec::new(50, 25).unwrap(),
+            OnsetEnvelopeStrategy::SpectralFluxLike,
+        )
+        .unwrap();
+        assert!(!envelope.is_empty());
+        let onsets = detect_onsets(&envelope, OnsetDetectorConfig::default()).unwrap();
+        let intervals = inter_onset_intervals(&onsets);
+        assert!(intervals.iter().all(|interval| *interval > 0.0));
+    }
+
+    #[test]
+    fn beat_grid_returns_evenly_spaced_beats() {
+        let grid = beat_grid(0.5, 120.0, 4).unwrap();
+        assert_eq!(grid, vec![0.5, 1.0, 1.5, 2.0]);
+        assert!(beat_grid(-0.1, 120.0, 4).is_err());
+        assert!(beat_grid(0.0, 0.0, 4).is_err());
     }
 
     #[test]

@@ -35,8 +35,11 @@ use through the Hugging Face cache and reuse the cached file on subsequent
 calls. By default that cache lives outside the git worktree.
 
 For ONNX debugging, set `VIDEO_ANALYSIS_ONNX_TIMING=1` to log timing for
-`NativeOnnxRunner::new` and the first `session.run`. The slow ONNX runtime tests
-also require `RUN_SLOW_ONNX_TESTS=1` in addition to `--features slow-external-tests`.
+`NativeOnnxRunner::new`, including `Session::builder`, builder configuration,
+`commit_from_file`, and the first `session.run`. The text ONNX runner currently
+uses a conservative CPU-only session profile with single-threaded execution and
+disabled graph optimization. The slow ONNX runtime tests also require
+`RUN_SLOW_ONNX_TESTS=1` in addition to `--features slow-external-tests`.
 
 ## Related crates
 

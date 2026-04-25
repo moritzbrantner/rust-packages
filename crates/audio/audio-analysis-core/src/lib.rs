@@ -3,6 +3,51 @@
 use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result, Timebase, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AudioFormatSpec {
+    pub sample_rate: u32,
+    pub channels: u16,
+    pub frame_samples: Option<usize>,
+}
+
+impl AudioFormatSpec {
+    pub fn new(sample_rate: u32, channels: u16) -> Result<Self> {
+        let spec = Self {
+            sample_rate,
+            channels,
+            frame_samples: None,
+        };
+        spec.validate()?;
+        Ok(spec)
+    }
+
+    pub fn frame_samples(mut self, frame_samples: usize) -> Result<Self> {
+        self.frame_samples = Some(frame_samples);
+        self.validate()?;
+        Ok(self)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.sample_rate == 0 || self.channels == 0 {
+            return Err(DetectError::InvalidAudioFormat {
+                sample_rate: self.sample_rate,
+                channels: self.channels,
+            });
+        }
+        if self.frame_samples == Some(0) {
+            return Err(DetectError::InvalidArgument(
+                "frame_samples must be greater than zero".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn duration_seconds(&self, samples_per_channel: usize) -> Result<f64> {
+        self.validate()?;
+        Ok(samples_per_channel as f64 / self.sample_rate as f64)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChannelMix {
     Average,
     First,
@@ -371,14 +416,14 @@ pub fn zero_pad_to(mut samples: Vec<f32>, target_len: usize) -> Vec<f32> {
     samples
 }
 
-fn timestamp_to_sample(timestamp: Timestamp, sample_rate: u32) -> Result<u64> {
-    if sample_rate == 0 || timestamp.timebase.den == 0 {
-        return Err(DetectError::InvalidAudioFormat {
-            sample_rate,
-            channels: 1,
-        });
+pub fn seconds_to_samples(seconds: f64, sample_rate: u32) -> Result<u64> {
+    AudioFormatSpec::new(sample_rate, 1)?;
+    if !seconds.is_finite() || seconds < 0.0 {
+        return Err(DetectError::InvalidArgument(
+            "audio duration must be a finite non-negative value".to_string(),
+        ));
     }
-    let samples = timestamp.seconds() * sample_rate as f64;
+    let samples = seconds * sample_rate as f64;
     if !samples.is_finite() || samples < 0.0 {
         return Err(DetectError::InvalidArgument(
             "audio timestamp must resolve to a finite non-negative sample index".to_string(),
@@ -387,7 +432,22 @@ fn timestamp_to_sample(timestamp: Timestamp, sample_rate: u32) -> Result<u64> {
     Ok(samples.round() as u64)
 }
 
-fn sample_to_timestamp(sample: u64, sample_rate: u32) -> Timestamp {
+pub fn samples_to_seconds(samples: u64, sample_rate: u32) -> Result<f64> {
+    AudioFormatSpec::new(sample_rate, 1)?;
+    Ok(samples as f64 / sample_rate as f64)
+}
+
+pub fn timestamp_to_sample(timestamp: Timestamp, sample_rate: u32) -> Result<u64> {
+    if timestamp.timebase.den == 0 {
+        return Err(DetectError::InvalidAudioFormat {
+            sample_rate,
+            channels: 1,
+        });
+    }
+    seconds_to_samples(timestamp.seconds(), sample_rate)
+}
+
+pub fn sample_to_timestamp(sample: u64, sample_rate: u32) -> Timestamp {
     Timestamp::new(sample as i64, Timebase::new(1, sample_rate as i32))
 }
 
@@ -687,5 +747,46 @@ mod tests {
         assert_approx_eq(rms(&[1.0, -1.0]), 1.0, 1.0e-6);
         assert_eq!(peak(&[]), 0.0);
         assert_eq!(mean_absolute(&[]), 0.0);
+    }
+
+    #[test]
+    fn audio_format_spec_validates_and_reports_duration() {
+        let spec = AudioFormatSpec::new(48_000, 2).unwrap().frame_samples(2_048).unwrap();
+        assert_eq!(spec.duration_seconds(4_800).unwrap(), 0.1);
+        assert!(AudioFormatSpec::new(0, 2).is_err());
+        assert!(AudioFormatSpec::new(48_000, 0).is_err());
+        assert!(AudioFormatSpec::new(48_000, 2)
+            .unwrap()
+            .frame_samples(0)
+            .is_err());
+    }
+
+    #[test]
+    fn sample_and_timestamp_helpers_round_trip() {
+        let timestamp = Timestamp::new(2_205, Timebase::new(1, 44_100));
+        let sample = timestamp_to_sample(timestamp, 44_100).unwrap();
+        assert_eq!(sample, 2_205);
+        assert_eq!(sample_to_timestamp(sample, 44_100), timestamp);
+        assert_eq!(seconds_to_samples(0.5, 16_000).unwrap(), 8_000);
+        assert_eq!(samples_to_seconds(8_000, 16_000).unwrap(), 0.5);
+        assert!(seconds_to_samples(-1.0, 16_000).is_err());
+    }
+
+    #[test]
+    fn streaming_buffer_detects_overlapping_chunks() {
+        let config = StreamingFrameConfig::new(4, 2).unwrap();
+        let mut buffer = StreamingFrameBuffer::new(config).unwrap();
+        let first = AudioBuffer::F32(vec![0.0, 1.0, 2.0, 3.0]);
+        let second = AudioBuffer::F32(vec![2.0, 3.0, 4.0, 5.0]);
+        let first_frame = AudioFrame::new(ts(), 48_000, 1, &first).unwrap();
+        let overlapping = AudioFrame::new(
+            Timestamp::new(2, Timebase::new(1, 48_000)),
+            48_000,
+            1,
+            &second,
+        )
+        .unwrap();
+        buffer.push_frame(&first_frame).unwrap();
+        assert!(buffer.push_frame(&overlapping).is_err());
     }
 }

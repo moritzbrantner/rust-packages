@@ -122,6 +122,7 @@ dependencies = [
 name = "audio-analysis-io"
 version = "0.1.0"
 dependencies = [
+ "audio-analysis-core",
  "tempfile",
  "video-analysis-core",
  "video-analysis-ffmpeg",
@@ -189,6 +190,7 @@ dependencies = [
 name = "audio-analysis-test-support"
 version = "0.1.0"
 dependencies = [
+ "tempfile",
  "video-analysis-core",
 ]
 
@@ -3351,6 +3353,7 @@ name = "video-analysis-use-cases"
 version = "0.1.0"
 dependencies = [
  "audio-analysis-processing",
+ "audio-analysis-separation",
  "clap",
  "serde",
  "serde_json",

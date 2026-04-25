@@ -129,6 +129,7 @@ pub struct StftConfig {
     pub fft_size: usize,
     pub hop_size: usize,
     pub window: WindowFunction,
+    pub pad_final_frame: bool,
 }
 
 impl StftConfig {
@@ -139,11 +140,17 @@ impl StftConfig {
             fft_size,
             hop_size,
             window: WindowFunction::Hann,
+            pad_final_frame: false,
         })
     }
 
     pub fn window(mut self, window: WindowFunction) -> Self {
         self.window = window;
+        self
+    }
+
+    pub fn pad_final_frame(mut self, pad_final_frame: bool) -> Self {
+        self.pad_final_frame = pad_final_frame;
         self
     }
 }
@@ -162,7 +169,8 @@ pub fn spectrogram(
 ) -> Result<Vec<SpectrogramFrame>> {
     let transform = FourierTransform::with_window(config.fft_size, config.window)?;
     let spec = FrameSpec::new(config.fft_size, config.hop_size)?;
-    spec.frames(samples)
+    let mut frames = spec
+        .frames(samples)
         .map(|(start_sample, frame)| {
             Ok(SpectrogramFrame {
                 start_sample,
@@ -170,7 +178,48 @@ pub fn spectrogram(
                 spectrum: transform.analyze_samples(frame, sample_rate)?,
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>>>()?;
+    let needs_partial = config.pad_final_frame
+        && !samples.is_empty()
+        && (frames.is_empty() || (frames.last().unwrap().start_sample + config.fft_size < samples.len()));
+    if needs_partial {
+        let start_sample = if samples.len() <= config.fft_size {
+            0
+        } else {
+            ((samples.len() - 1) / config.hop_size) * config.hop_size
+        };
+        let padded = zero_pad_to(samples[start_sample..].to_vec(), config.fft_size);
+        frames.push(SpectrogramFrame {
+            start_sample,
+            start_seconds: start_sample as f64 / sample_rate as f64,
+            spectrum: transform.analyze_samples(&padded, sample_rate)?,
+        });
+    }
+    Ok(frames)
+}
+
+pub fn zero_crossing_rate(samples: &[f32]) -> f32 {
+    if samples.len() < 2 {
+        return 0.0;
+    }
+    let crossings = samples
+        .windows(2)
+        .filter(|pair| {
+            let left = pair[0];
+            let right = pair[1];
+            (left < 0.0 && right >= 0.0) || (left >= 0.0 && right < 0.0)
+        })
+        .count();
+    crossings as f32 / (samples.len() - 1) as f32
+}
+
+pub fn spectral_flux(previous: &Spectrum, current: &Spectrum) -> f32 {
+    previous
+        .bins
+        .iter()
+        .zip(current.bins.iter())
+        .map(|(left, right)| (right.magnitude - left.magnitude).max(0.0))
+        .sum()
 }
 
 pub fn spectral_features(spectrum: &Spectrum) -> SpectralFeatures {
@@ -398,6 +447,14 @@ mod tests {
     }
 
     #[test]
+    fn stft_can_include_a_padded_final_frame() {
+        let config = StftConfig::new(256, 128).unwrap().pad_final_frame(true);
+        let frames = spectrogram(&vec![0.0; 300], 48_000, &config).unwrap();
+        assert_eq!(frames.len(), 2);
+        assert_eq!(frames[1].start_sample, 256);
+    }
+
+    #[test]
     fn silent_spectrum_has_empty_features() {
         let transform = FourierTransform::with_window(512, WindowFunction::Rectangular).unwrap();
         let features = transform
@@ -424,6 +481,21 @@ mod tests {
             .unwrap()
             .features();
         assert!(noise.flatness > tone.flatness);
+    }
+
+    #[test]
+    fn zero_crossing_rate_and_spectral_flux_are_exposed() {
+        let alternating = [1.0, -1.0, 1.0, -1.0];
+        assert!(zero_crossing_rate(&alternating) > 0.9);
+
+        let transform = FourierTransform::with_window(512, WindowFunction::Rectangular).unwrap();
+        let quiet = transform
+            .analyze_samples(&vec![0.0; 512], 8_000)
+            .unwrap();
+        let tone = transform
+            .analyze_samples(&sine_len(440.0, 8_000, 512), 8_000)
+            .unwrap();
+        assert!(spectral_flux(&quiet, &tone) > 0.0);
     }
 
     #[test]

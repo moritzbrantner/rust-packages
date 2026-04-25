@@ -18,6 +18,7 @@ name = "video-analysis-use-cases"
 path = "src/main.rs"
 
 [dependencies]
+audio-analysis-separation.workspace = true
 audio-analysis-processing.workspace = true
 clap.workspace = true
 serde.workspace = true

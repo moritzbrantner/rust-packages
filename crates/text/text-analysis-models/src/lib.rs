@@ -449,8 +449,63 @@ impl NativeOnnxRunner {
             log_onnx_stage_event("NativeOnnxRunner::new", &model_path, "start");
         }
         let started = timing_enabled.then(Instant::now);
-        let session = ort::session::Session::builder()
-            .and_then(|mut builder| builder.commit_from_file(&model_path));
+
+        if timing_enabled {
+            log_onnx_stage_event(
+                "NativeOnnxRunner::new.Session::builder",
+                &model_path,
+                "start",
+            );
+        }
+        let builder_started = timing_enabled.then(Instant::now);
+        let builder = ort::session::Session::builder();
+        if let Some(builder_started) = builder_started {
+            log_onnx_stage_timing(
+                "NativeOnnxRunner::new.Session::builder",
+                &model_path,
+                builder_started.elapsed(),
+                builder.is_ok(),
+            );
+        }
+        let builder = builder.map_err(ort_error)?;
+
+        if timing_enabled {
+            log_onnx_stage_event(
+                "NativeOnnxRunner::new.configure_builder",
+                &model_path,
+                "start",
+            );
+        }
+        let configure_started = timing_enabled.then(Instant::now);
+        let builder = configure_native_onnx_session_builder(builder);
+        if let Some(configure_started) = configure_started {
+            log_onnx_stage_timing(
+                "NativeOnnxRunner::new.configure_builder",
+                &model_path,
+                configure_started.elapsed(),
+                builder.is_ok(),
+            );
+        }
+        let mut builder = builder.map_err(ort_error)?;
+
+        if timing_enabled {
+            log_onnx_stage_event(
+                "NativeOnnxRunner::new.commit_from_file",
+                &model_path,
+                "start",
+            );
+        }
+        let commit_started = timing_enabled.then(Instant::now);
+        let session = builder.commit_from_file(&model_path);
+        if let Some(commit_started) = commit_started {
+            log_onnx_stage_timing(
+                "NativeOnnxRunner::new.commit_from_file",
+                &model_path,
+                commit_started.elapsed(),
+                session.is_ok(),
+            );
+        }
+
         if let Some(started) = started {
             log_onnx_stage_timing(
                 "NativeOnnxRunner::new",
@@ -460,6 +515,9 @@ impl NativeOnnxRunner {
             );
         }
         let session = session.map_err(ort_error)?;
+        if timing_enabled {
+            log_onnx_stage_event("NativeOnnxRunner::new", &model_path, "done");
+        }
         Ok(Self {
             session: Mutex::new(session),
             model_path,
@@ -542,6 +600,19 @@ impl NativeOnnxRunner {
             .collect::<Result<Vec<_>>>()?;
         Ok((values.to_vec(), shape))
     }
+}
+
+#[cfg(feature = "onnx")]
+fn configure_native_onnx_session_builder(
+    builder: ort::session::builder::SessionBuilder,
+) -> ort::session::builder::BuilderResult {
+    builder
+        .with_no_environment_execution_providers()?
+        .with_execution_providers([ort::ep::CPUExecutionProvider::default().build()])?
+        .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Disable)?
+        .with_parallel_execution(false)?
+        .with_intra_threads(1)?
+        .with_inter_threads(1)
 }
 
 #[cfg(feature = "onnx")]
@@ -1548,7 +1619,7 @@ fn candle_error(error: candle_core::Error) -> DetectError {
 }
 
 #[cfg(feature = "onnx")]
-fn ort_error(error: ort::Error) -> DetectError {
+fn ort_error<T>(error: ort::Error<T>) -> DetectError {
     DetectError::Source(format!("ONNX runtime error: {error}"))
 }
 
@@ -1941,8 +2012,16 @@ mod tests {
         log_slow_test_stage_timing("download_bundle", started.elapsed());
 
         let started = std::time::Instant::now();
-        let mut classifier = OnnxTextClassifier::from_bundle(bundle).unwrap();
-        log_slow_test_stage_timing("OnnxTextClassifier::from_bundle", started.elapsed());
+        let info = validate_onnx_bundle(&bundle).unwrap();
+        log_slow_test_stage_timing("validate_onnx_bundle", started.elapsed());
+
+        let started = std::time::Instant::now();
+        let runner = NativeOnnxRunner::new(&info.model_path).unwrap();
+        log_slow_test_stage_timing("NativeOnnxRunner::new", started.elapsed());
+
+        let started = std::time::Instant::now();
+        let mut classifier = OnnxTextClassifier::from_runner(bundle, runner).unwrap();
+        log_slow_test_stage_timing("OnnxTextClassifier::from_runner", started.elapsed());
 
         let started = std::time::Instant::now();
         let predictions = classifier
@@ -1969,8 +2048,16 @@ mod tests {
         log_slow_test_stage_timing("download_bundle", started.elapsed());
 
         let started = std::time::Instant::now();
-        let embedder = OnnxTextEmbedder::from_bundle(bundle).unwrap();
-        log_slow_test_stage_timing("OnnxTextEmbedder::from_bundle", started.elapsed());
+        let info = validate_onnx_bundle(&bundle).unwrap();
+        log_slow_test_stage_timing("validate_onnx_bundle", started.elapsed());
+
+        let started = std::time::Instant::now();
+        let runner = NativeOnnxRunner::new(&info.model_path).unwrap();
+        log_slow_test_stage_timing("NativeOnnxRunner::new", started.elapsed());
+
+        let started = std::time::Instant::now();
+        let embedder = OnnxTextEmbedder::from_runner(bundle, runner).unwrap();
+        log_slow_test_stage_timing("OnnxTextEmbedder::from_runner", started.elapsed());
 
         let started = std::time::Instant::now();
         let left = embedder

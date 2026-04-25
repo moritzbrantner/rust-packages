@@ -2,8 +2,12 @@
 
 use std::path::PathBuf;
 
-use video_analysis_core::Result;
-pub use video_analysis_ffmpeg::{AudioMetadata, FfmpegAudioSource, FfmpegAudioSourceOptions};
+use audio_analysis_core::{interleaved_to_mono, ChannelMix};
+use video_analysis_core::{OwnedAudioFrame, Result};
+pub use video_analysis_ffmpeg::{
+    probe_audio as probe_audio_file, probe_audio_input, AudioMetadata, FfmpegAudioSource,
+    FfmpegAudioSourceOptions,
+};
 pub use video_analysis_ingest::{AudioFrameSource, AudioStreamInfo, SourceMode};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -92,6 +96,59 @@ pub fn open_audio_input(
     }
 }
 
+pub fn probe_audio_input_metadata(input: &AudioInput) -> Result<AudioMetadata> {
+    match input {
+        AudioInput::File(path) => probe_audio_file(path).map_err(|err| {
+            video_analysis_core::DetectError::Source(format!(
+                "failed to probe audio file `{}`: {err}",
+                path.display()
+            ))
+        }),
+        AudioInput::Input(input) | AudioInput::Live(input) => {
+            probe_audio_input(input).map_err(|err| {
+                video_analysis_core::DetectError::Source(format!(
+                    "failed to probe audio input `{input}`: {err}"
+                ))
+            })
+        }
+    }
+}
+
+pub fn open_audio_input_with_metadata(
+    input: AudioInput,
+    options: AudioInputOptions,
+) -> Result<(AudioMetadata, FfmpegAudioSource)> {
+    let metadata = probe_audio_input_metadata(&input)?;
+    let source = open_audio_input(input, options)?;
+    Ok((metadata, source))
+}
+
+pub fn decode_audio_to_f32(
+    input: AudioInput,
+    options: AudioInputOptions,
+) -> Result<(AudioMetadata, Vec<OwnedAudioFrame>)> {
+    let (metadata, mut source) = open_audio_input_with_metadata(input, options)?;
+    let mut frames = Vec::new();
+    while let Some(frame) = source.next_audio_frame()? {
+        frames.push(frame);
+    }
+    Ok((metadata, frames))
+}
+
+pub fn decode_audio_to_mono_f32(
+    input: AudioInput,
+    options: AudioInputOptions,
+    mix: ChannelMix,
+) -> Result<(AudioMetadata, Vec<f32>)> {
+    let (metadata, frames) = decode_audio_to_f32(input, options)?;
+    let mut mono = Vec::new();
+    for frame in frames {
+        let samples = interleaved_to_mono(&frame.data, frame.channels, mix)?;
+        mono.extend(samples);
+    }
+    Ok((metadata, mono))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,5 +223,13 @@ mod tests {
             let options = AudioInputOptions::default().into_ffmpeg_options(requested_mode);
             assert_eq!(options.mode, expected_mode);
         }
+    }
+
+    #[test]
+    fn metadata_probe_errors_include_input_context() {
+        let error = probe_audio_input_metadata(&AudioInput::File("missing.wav".into()))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("missing.wav"));
     }
 }
