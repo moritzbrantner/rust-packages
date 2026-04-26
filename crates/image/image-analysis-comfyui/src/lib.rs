@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use comfyui_data::{ComfyWorkflow, WorkflowInput, WorkflowLink, WorkflowNode, WorkflowOutput};
+use comfyui_data::{
+    ComfySocketType, ComfyWorkflow, WorkflowInput, WorkflowLink, WorkflowNode, WorkflowOutput,
+};
 use serde_json::Value;
 use video_analysis_core::{DetectError, Result};
 
@@ -162,15 +164,15 @@ pub fn build_generation_workflow(request: &ImageGenerationRequest) -> Result<Com
 
 fn build_text_to_image_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
     let links = vec![
-        WorkflowLink::new(1, 1_u64, 0, 5_u64, 0, "MODEL"),
-        WorkflowLink::new(2, 1_u64, 1, 2_u64, 0, "CLIP"),
-        WorkflowLink::new(3, 1_u64, 1, 3_u64, 0, "CLIP"),
-        WorkflowLink::new(4, 1_u64, 2, 6_u64, 1, "VAE"),
-        WorkflowLink::new(5, 2_u64, 0, 5_u64, 1, "CONDITIONING"),
-        WorkflowLink::new(6, 3_u64, 0, 5_u64, 2, "CONDITIONING"),
-        WorkflowLink::new(7, 4_u64, 0, 5_u64, 3, "LATENT"),
-        WorkflowLink::new(8, 5_u64, 0, 6_u64, 0, "LATENT"),
-        WorkflowLink::new(9, 6_u64, 0, 7_u64, 0, "IMAGE"),
+        socket_link(1, 1, 0, 5, 0, ComfySocketType::Model),
+        socket_link(2, 1, 1, 2, 0, ComfySocketType::Clip),
+        socket_link(3, 1, 1, 3, 0, ComfySocketType::Clip),
+        socket_link(4, 1, 2, 6, 1, ComfySocketType::Vae),
+        socket_link(5, 2, 0, 5, 1, ComfySocketType::Conditioning),
+        socket_link(6, 3, 0, 5, 2, ComfySocketType::Conditioning),
+        socket_link(7, 4, 0, 5, 3, ComfySocketType::Latent),
+        socket_link(8, 5, 0, 6, 0, ComfySocketType::Latent),
+        socket_link(9, 6, 0, 7, 0, ComfySocketType::Image),
     ];
     workflow(
         vec![
@@ -179,31 +181,41 @@ fn build_text_to_image_workflow(request: &ImageGenerationRequest) -> ComfyWorkfl
                 "CheckpointLoaderSimple",
                 vec![],
                 vec![
-                    output("MODEL", "MODEL", 0, &[1]),
-                    output("CLIP", "CLIP", 1, &[2, 3]),
-                    output("VAE", "VAE", 2, &[4]),
+                    output("MODEL", ComfySocketType::Model, 0, &[1]),
+                    output("CLIP", ComfySocketType::Clip, 1, &[2, 3]),
+                    output("VAE", ComfySocketType::Vae, 2, &[4]),
                 ],
                 vec![Value::String(request.checkpoint.clone())],
             ),
             node(
                 2,
                 "CLIPTextEncode",
-                vec![linked_input("clip", "CLIP", 2)],
-                vec![output("CONDITIONING", "CONDITIONING", 0, &[5])],
+                vec![linked_input("clip", ComfySocketType::Clip, 2)],
+                vec![output(
+                    "CONDITIONING",
+                    ComfySocketType::Conditioning,
+                    0,
+                    &[5],
+                )],
                 vec![Value::String(request.prompt.clone())],
             ),
             node(
                 3,
                 "CLIPTextEncode",
-                vec![linked_input("clip", "CLIP", 3)],
-                vec![output("CONDITIONING", "CONDITIONING", 0, &[6])],
+                vec![linked_input("clip", ComfySocketType::Clip, 3)],
+                vec![output(
+                    "CONDITIONING",
+                    ComfySocketType::Conditioning,
+                    0,
+                    &[6],
+                )],
                 vec![Value::String(request.negative_prompt.clone())],
             ),
             node(
                 4,
                 "EmptyLatentImage",
                 vec![],
-                vec![output("LATENT", "LATENT", 0, &[7])],
+                vec![output("LATENT", ComfySocketType::Latent, 0, &[7])],
                 vec![
                     Value::from(request.width),
                     Value::from(request.height),
@@ -214,28 +226,28 @@ fn build_text_to_image_workflow(request: &ImageGenerationRequest) -> ComfyWorkfl
                 5,
                 "KSampler",
                 vec![
-                    linked_input("model", "MODEL", 1),
-                    linked_input("positive", "CONDITIONING", 5),
-                    linked_input("negative", "CONDITIONING", 6),
-                    linked_input("latent_image", "LATENT", 7),
+                    linked_input("model", ComfySocketType::Model, 1),
+                    linked_input("positive", ComfySocketType::Conditioning, 5),
+                    linked_input("negative", ComfySocketType::Conditioning, 6),
+                    linked_input("latent_image", ComfySocketType::Latent, 7),
                 ],
-                vec![output("LATENT", "LATENT", 0, &[8])],
+                vec![output("LATENT", ComfySocketType::Latent, 0, &[8])],
                 sampler_widgets(request, 1.0),
             ),
             node(
                 6,
                 "VAEDecode",
                 vec![
-                    linked_input("samples", "LATENT", 8),
-                    linked_input("vae", "VAE", 4),
+                    linked_input("samples", ComfySocketType::Latent, 8),
+                    linked_input("vae", ComfySocketType::Vae, 4),
                 ],
-                vec![output("IMAGE", "IMAGE", 0, &[9])],
+                vec![output("IMAGE", ComfySocketType::Image, 0, &[9])],
                 vec![],
             ),
             node(
                 7,
                 "SaveImage",
-                vec![linked_input("images", "IMAGE", 9)],
+                vec![linked_input("images", ComfySocketType::Image, 9)],
                 vec![],
                 vec![Value::String(request.output_prefix.clone())],
             ),
@@ -246,17 +258,17 @@ fn build_text_to_image_workflow(request: &ImageGenerationRequest) -> ComfyWorkfl
 
 fn build_image_to_image_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
     let links = vec![
-        WorkflowLink::new(1, 1_u64, 0, 6_u64, 0, "MODEL"),
-        WorkflowLink::new(2, 1_u64, 1, 2_u64, 0, "CLIP"),
-        WorkflowLink::new(3, 1_u64, 1, 3_u64, 0, "CLIP"),
-        WorkflowLink::new(4, 1_u64, 2, 5_u64, 1, "VAE"),
-        WorkflowLink::new(5, 2_u64, 0, 6_u64, 1, "CONDITIONING"),
-        WorkflowLink::new(6, 3_u64, 0, 6_u64, 2, "CONDITIONING"),
-        WorkflowLink::new(7, 4_u64, 0, 5_u64, 0, "IMAGE"),
-        WorkflowLink::new(8, 5_u64, 0, 6_u64, 3, "LATENT"),
-        WorkflowLink::new(9, 6_u64, 0, 7_u64, 0, "LATENT"),
-        WorkflowLink::new(10, 1_u64, 2, 7_u64, 1, "VAE"),
-        WorkflowLink::new(11, 7_u64, 0, 8_u64, 0, "IMAGE"),
+        socket_link(1, 1, 0, 6, 0, ComfySocketType::Model),
+        socket_link(2, 1, 1, 2, 0, ComfySocketType::Clip),
+        socket_link(3, 1, 1, 3, 0, ComfySocketType::Clip),
+        socket_link(4, 1, 2, 5, 1, ComfySocketType::Vae),
+        socket_link(5, 2, 0, 6, 1, ComfySocketType::Conditioning),
+        socket_link(6, 3, 0, 6, 2, ComfySocketType::Conditioning),
+        socket_link(7, 4, 0, 5, 0, ComfySocketType::Image),
+        socket_link(8, 5, 0, 6, 3, ComfySocketType::Latent),
+        socket_link(9, 6, 0, 7, 0, ComfySocketType::Latent),
+        socket_link(10, 1, 2, 7, 1, ComfySocketType::Vae),
+        socket_link(11, 7, 0, 8, 0, ComfySocketType::Image),
     ];
     workflow(
         vec![
@@ -265,31 +277,41 @@ fn build_image_to_image_workflow(request: &ImageGenerationRequest) -> ComfyWorkf
                 "CheckpointLoaderSimple",
                 vec![],
                 vec![
-                    output("MODEL", "MODEL", 0, &[1]),
-                    output("CLIP", "CLIP", 1, &[2, 3]),
-                    output("VAE", "VAE", 2, &[4, 10]),
+                    output("MODEL", ComfySocketType::Model, 0, &[1]),
+                    output("CLIP", ComfySocketType::Clip, 1, &[2, 3]),
+                    output("VAE", ComfySocketType::Vae, 2, &[4, 10]),
                 ],
                 vec![Value::String(request.checkpoint.clone())],
             ),
             node(
                 2,
                 "CLIPTextEncode",
-                vec![linked_input("clip", "CLIP", 2)],
-                vec![output("CONDITIONING", "CONDITIONING", 0, &[5])],
+                vec![linked_input("clip", ComfySocketType::Clip, 2)],
+                vec![output(
+                    "CONDITIONING",
+                    ComfySocketType::Conditioning,
+                    0,
+                    &[5],
+                )],
                 vec![Value::String(request.prompt.clone())],
             ),
             node(
                 3,
                 "CLIPTextEncode",
-                vec![linked_input("clip", "CLIP", 3)],
-                vec![output("CONDITIONING", "CONDITIONING", 0, &[6])],
+                vec![linked_input("clip", ComfySocketType::Clip, 3)],
+                vec![output(
+                    "CONDITIONING",
+                    ComfySocketType::Conditioning,
+                    0,
+                    &[6],
+                )],
                 vec![Value::String(request.negative_prompt.clone())],
             ),
             node(
                 4,
                 "LoadImage",
                 vec![],
-                vec![output("IMAGE", "IMAGE", 0, &[7])],
+                vec![output("IMAGE", ComfySocketType::Image, 0, &[7])],
                 vec![Value::String(
                     request.input_image.clone().unwrap_or_default(),
                 )],
@@ -298,38 +320,38 @@ fn build_image_to_image_workflow(request: &ImageGenerationRequest) -> ComfyWorkf
                 5,
                 "VAEEncode",
                 vec![
-                    linked_input("pixels", "IMAGE", 7),
-                    linked_input("vae", "VAE", 4),
+                    linked_input("pixels", ComfySocketType::Image, 7),
+                    linked_input("vae", ComfySocketType::Vae, 4),
                 ],
-                vec![output("LATENT", "LATENT", 0, &[8])],
+                vec![output("LATENT", ComfySocketType::Latent, 0, &[8])],
                 vec![],
             ),
             node(
                 6,
                 "KSampler",
                 vec![
-                    linked_input("model", "MODEL", 1),
-                    linked_input("positive", "CONDITIONING", 5),
-                    linked_input("negative", "CONDITIONING", 6),
-                    linked_input("latent_image", "LATENT", 8),
+                    linked_input("model", ComfySocketType::Model, 1),
+                    linked_input("positive", ComfySocketType::Conditioning, 5),
+                    linked_input("negative", ComfySocketType::Conditioning, 6),
+                    linked_input("latent_image", ComfySocketType::Latent, 8),
                 ],
-                vec![output("LATENT", "LATENT", 0, &[9])],
+                vec![output("LATENT", ComfySocketType::Latent, 0, &[9])],
                 sampler_widgets(request, request.denoise),
             ),
             node(
                 7,
                 "VAEDecode",
                 vec![
-                    linked_input("samples", "LATENT", 9),
-                    linked_input("vae", "VAE", 10),
+                    linked_input("samples", ComfySocketType::Latent, 9),
+                    linked_input("vae", ComfySocketType::Vae, 10),
                 ],
-                vec![output("IMAGE", "IMAGE", 0, &[11])],
+                vec![output("IMAGE", ComfySocketType::Image, 0, &[11])],
                 vec![],
             ),
             node(
                 8,
                 "SaveImage",
-                vec![linked_input("images", "IMAGE", 11)],
+                vec![linked_input("images", ComfySocketType::Image, 11)],
                 vec![],
                 vec![Value::String(request.output_prefix.clone())],
             ),
@@ -340,18 +362,18 @@ fn build_image_to_image_workflow(request: &ImageGenerationRequest) -> ComfyWorkf
 
 fn build_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
     let links = vec![
-        WorkflowLink::new(1, 1_u64, 0, 7_u64, 0, "MODEL"),
-        WorkflowLink::new(2, 1_u64, 1, 2_u64, 0, "CLIP"),
-        WorkflowLink::new(3, 1_u64, 1, 3_u64, 0, "CLIP"),
-        WorkflowLink::new(4, 1_u64, 2, 6_u64, 1, "VAE"),
-        WorkflowLink::new(5, 2_u64, 0, 7_u64, 1, "CONDITIONING"),
-        WorkflowLink::new(6, 3_u64, 0, 7_u64, 2, "CONDITIONING"),
-        WorkflowLink::new(7, 4_u64, 0, 6_u64, 0, "IMAGE"),
-        WorkflowLink::new(8, 5_u64, 0, 6_u64, 2, "MASK"),
-        WorkflowLink::new(9, 6_u64, 0, 7_u64, 3, "LATENT"),
-        WorkflowLink::new(10, 7_u64, 0, 8_u64, 0, "LATENT"),
-        WorkflowLink::new(11, 1_u64, 2, 8_u64, 1, "VAE"),
-        WorkflowLink::new(12, 8_u64, 0, 9_u64, 0, "IMAGE"),
+        socket_link(1, 1, 0, 7, 0, ComfySocketType::Model),
+        socket_link(2, 1, 1, 2, 0, ComfySocketType::Clip),
+        socket_link(3, 1, 1, 3, 0, ComfySocketType::Clip),
+        socket_link(4, 1, 2, 6, 1, ComfySocketType::Vae),
+        socket_link(5, 2, 0, 7, 1, ComfySocketType::Conditioning),
+        socket_link(6, 3, 0, 7, 2, ComfySocketType::Conditioning),
+        socket_link(7, 4, 0, 6, 0, ComfySocketType::Image),
+        socket_link(8, 5, 0, 6, 2, ComfySocketType::Mask),
+        socket_link(9, 6, 0, 7, 3, ComfySocketType::Latent),
+        socket_link(10, 7, 0, 8, 0, ComfySocketType::Latent),
+        socket_link(11, 1, 2, 8, 1, ComfySocketType::Vae),
+        socket_link(12, 8, 0, 9, 0, ComfySocketType::Image),
     ];
     workflow(
         vec![
@@ -360,31 +382,41 @@ fn build_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
                 "CheckpointLoaderSimple",
                 vec![],
                 vec![
-                    output("MODEL", "MODEL", 0, &[1]),
-                    output("CLIP", "CLIP", 1, &[2, 3]),
-                    output("VAE", "VAE", 2, &[4, 11]),
+                    output("MODEL", ComfySocketType::Model, 0, &[1]),
+                    output("CLIP", ComfySocketType::Clip, 1, &[2, 3]),
+                    output("VAE", ComfySocketType::Vae, 2, &[4, 11]),
                 ],
                 vec![Value::String(request.checkpoint.clone())],
             ),
             node(
                 2,
                 "CLIPTextEncode",
-                vec![linked_input("clip", "CLIP", 2)],
-                vec![output("CONDITIONING", "CONDITIONING", 0, &[5])],
+                vec![linked_input("clip", ComfySocketType::Clip, 2)],
+                vec![output(
+                    "CONDITIONING",
+                    ComfySocketType::Conditioning,
+                    0,
+                    &[5],
+                )],
                 vec![Value::String(request.prompt.clone())],
             ),
             node(
                 3,
                 "CLIPTextEncode",
-                vec![linked_input("clip", "CLIP", 3)],
-                vec![output("CONDITIONING", "CONDITIONING", 0, &[6])],
+                vec![linked_input("clip", ComfySocketType::Clip, 3)],
+                vec![output(
+                    "CONDITIONING",
+                    ComfySocketType::Conditioning,
+                    0,
+                    &[6],
+                )],
                 vec![Value::String(request.negative_prompt.clone())],
             ),
             node(
                 4,
                 "LoadImage",
                 vec![],
-                vec![output("IMAGE", "IMAGE", 0, &[7])],
+                vec![output("IMAGE", ComfySocketType::Image, 0, &[7])],
                 vec![Value::String(
                     request.input_image.clone().unwrap_or_default(),
                 )],
@@ -393,7 +425,7 @@ fn build_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
                 5,
                 "LoadImageMask",
                 vec![],
-                vec![output("MASK", "MASK", 0, &[8])],
+                vec![output("MASK", ComfySocketType::Mask, 0, &[8])],
                 vec![Value::String(
                     request.mask_image.clone().unwrap_or_default(),
                 )],
@@ -402,39 +434,39 @@ fn build_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
                 6,
                 "VAEEncodeForInpaint",
                 vec![
-                    linked_input("pixels", "IMAGE", 7),
-                    linked_input("vae", "VAE", 4),
-                    linked_input("mask", "MASK", 8),
+                    linked_input("pixels", ComfySocketType::Image, 7),
+                    linked_input("vae", ComfySocketType::Vae, 4),
+                    linked_input("mask", ComfySocketType::Mask, 8),
                 ],
-                vec![output("LATENT", "LATENT", 0, &[9])],
+                vec![output("LATENT", ComfySocketType::Latent, 0, &[9])],
                 vec![],
             ),
             node(
                 7,
                 "KSampler",
                 vec![
-                    linked_input("model", "MODEL", 1),
-                    linked_input("positive", "CONDITIONING", 5),
-                    linked_input("negative", "CONDITIONING", 6),
-                    linked_input("latent_image", "LATENT", 9),
+                    linked_input("model", ComfySocketType::Model, 1),
+                    linked_input("positive", ComfySocketType::Conditioning, 5),
+                    linked_input("negative", ComfySocketType::Conditioning, 6),
+                    linked_input("latent_image", ComfySocketType::Latent, 9),
                 ],
-                vec![output("LATENT", "LATENT", 0, &[10])],
+                vec![output("LATENT", ComfySocketType::Latent, 0, &[10])],
                 sampler_widgets(request, request.denoise),
             ),
             node(
                 8,
                 "VAEDecode",
                 vec![
-                    linked_input("samples", "LATENT", 10),
-                    linked_input("vae", "VAE", 11),
+                    linked_input("samples", ComfySocketType::Latent, 10),
+                    linked_input("vae", ComfySocketType::Vae, 11),
                 ],
-                vec![output("IMAGE", "IMAGE", 0, &[12])],
+                vec![output("IMAGE", ComfySocketType::Image, 0, &[12])],
                 vec![],
             ),
             node(
                 9,
                 "SaveImage",
-                vec![linked_input("images", "IMAGE", 12)],
+                vec![linked_input("images", ComfySocketType::Image, 12)],
                 vec![],
                 vec![Value::String(request.output_prefix.clone())],
             ),
@@ -445,9 +477,9 @@ fn build_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
 
 fn build_upscale_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
     let links = vec![
-        WorkflowLink::new(1, 1_u64, 0, 3_u64, 0, "IMAGE"),
-        WorkflowLink::new(2, 2_u64, 0, 3_u64, 1, "UPSCALE_MODEL"),
-        WorkflowLink::new(3, 3_u64, 0, 4_u64, 0, "IMAGE"),
+        socket_link(1, 1, 0, 3, 0, ComfySocketType::Image),
+        socket_link(2, 2, 0, 3, 1, ComfySocketType::UpscaleModel),
+        socket_link(3, 3, 0, 4, 0, ComfySocketType::Image),
     ];
     workflow(
         vec![
@@ -455,7 +487,7 @@ fn build_upscale_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
                 1,
                 "LoadImage",
                 vec![],
-                vec![output("IMAGE", "IMAGE", 0, &[1])],
+                vec![output("IMAGE", ComfySocketType::Image, 0, &[1])],
                 vec![Value::String(
                     request.input_image.clone().unwrap_or_default(),
                 )],
@@ -464,23 +496,28 @@ fn build_upscale_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
                 2,
                 "UpscaleModelLoader",
                 vec![],
-                vec![output("UPSCALE_MODEL", "UPSCALE_MODEL", 0, &[2])],
+                vec![output(
+                    "UPSCALE_MODEL",
+                    ComfySocketType::UpscaleModel,
+                    0,
+                    &[2],
+                )],
                 vec![Value::String(request.upscale_model.clone())],
             ),
             node(
                 3,
                 "ImageUpscaleWithModel",
                 vec![
-                    linked_input("image", "IMAGE", 1),
-                    linked_input("upscale_model", "UPSCALE_MODEL", 2),
+                    linked_input("image", ComfySocketType::Image, 1),
+                    linked_input("upscale_model", ComfySocketType::UpscaleModel, 2),
                 ],
-                vec![output("IMAGE", "IMAGE", 0, &[3])],
+                vec![output("IMAGE", ComfySocketType::Image, 0, &[3])],
                 vec![],
             ),
             node(
                 4,
                 "SaveImage",
-                vec![linked_input("images", "IMAGE", 3)],
+                vec![linked_input("images", ComfySocketType::Image, 3)],
                 vec![],
                 vec![Value::String(request.output_prefix.clone())],
             ),
@@ -491,18 +528,18 @@ fn build_upscale_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
 
 fn build_flux_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
     let links = vec![
-        WorkflowLink::new(1, 1_u64, 0, 8_u64, 0, "IMAGE"),
-        WorkflowLink::new(2, 2_u64, 0, 8_u64, 2, "MASK"),
-        WorkflowLink::new(3, 3_u64, 0, 6_u64, 0, "CLIP"),
-        WorkflowLink::new(4, 3_u64, 0, 7_u64, 0, "CLIP"),
-        WorkflowLink::new(5, 4_u64, 0, 9_u64, 0, "MODEL"),
-        WorkflowLink::new(6, 5_u64, 0, 8_u64, 1, "VAE"),
-        WorkflowLink::new(7, 5_u64, 0, 10_u64, 1, "VAE"),
-        WorkflowLink::new(8, 6_u64, 0, 9_u64, 1, "CONDITIONING"),
-        WorkflowLink::new(9, 7_u64, 0, 9_u64, 2, "CONDITIONING"),
-        WorkflowLink::new(10, 8_u64, 0, 9_u64, 3, "LATENT"),
-        WorkflowLink::new(11, 9_u64, 0, 10_u64, 0, "LATENT"),
-        WorkflowLink::new(12, 10_u64, 0, 11_u64, 0, "IMAGE"),
+        socket_link(1, 1, 0, 8, 0, ComfySocketType::Image),
+        socket_link(2, 2, 0, 8, 2, ComfySocketType::Mask),
+        socket_link(3, 3, 0, 6, 0, ComfySocketType::Clip),
+        socket_link(4, 3, 0, 7, 0, ComfySocketType::Clip),
+        socket_link(5, 4, 0, 9, 0, ComfySocketType::Model),
+        socket_link(6, 5, 0, 8, 1, ComfySocketType::Vae),
+        socket_link(7, 5, 0, 10, 1, ComfySocketType::Vae),
+        socket_link(8, 6, 0, 9, 1, ComfySocketType::Conditioning),
+        socket_link(9, 7, 0, 9, 2, ComfySocketType::Conditioning),
+        socket_link(10, 8, 0, 9, 3, ComfySocketType::Latent),
+        socket_link(11, 9, 0, 10, 0, ComfySocketType::Latent),
+        socket_link(12, 10, 0, 11, 0, ComfySocketType::Image),
     ];
     workflow(
         vec![
@@ -510,7 +547,7 @@ fn build_flux_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflo
                 1,
                 "LoadImage",
                 vec![],
-                vec![output("IMAGE", "IMAGE", 0, &[1])],
+                vec![output("IMAGE", ComfySocketType::Image, 0, &[1])],
                 vec![Value::String(
                     request.input_image.clone().unwrap_or_default(),
                 )],
@@ -519,7 +556,7 @@ fn build_flux_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflo
                 2,
                 "LoadImageMask",
                 vec![],
-                vec![output("MASK", "MASK", 0, &[2])],
+                vec![output("MASK", ComfySocketType::Mask, 0, &[2])],
                 vec![Value::String(
                     request.mask_image.clone().unwrap_or_default(),
                 )],
@@ -528,7 +565,7 @@ fn build_flux_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflo
                 3,
                 "DualCLIPLoader",
                 vec![],
-                vec![output("CLIP", "CLIP", 0, &[3, 4])],
+                vec![output("CLIP", ComfySocketType::Clip, 0, &[3, 4])],
                 vec![
                     Value::String("clip_l.safetensors".to_string()),
                     Value::String("t5xxl_fp8_e4m3fn.safetensors".to_string()),
@@ -539,7 +576,7 @@ fn build_flux_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflo
                 4,
                 "UNETLoader",
                 vec![],
-                vec![output("MODEL", "MODEL", 0, &[5])],
+                vec![output("MODEL", ComfySocketType::Model, 0, &[5])],
                 vec![
                     Value::String(request.checkpoint.clone()),
                     Value::String("default".to_string()),
@@ -549,60 +586,70 @@ fn build_flux_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflo
                 5,
                 "VAELoader",
                 vec![],
-                vec![output("VAE", "VAE", 0, &[6, 7])],
+                vec![output("VAE", ComfySocketType::Vae, 0, &[6, 7])],
                 vec![Value::String("ae.safetensors".to_string())],
             ),
             node(
                 6,
                 "CLIPTextEncode",
-                vec![linked_input("clip", "CLIP", 3)],
-                vec![output("CONDITIONING", "CONDITIONING", 0, &[8])],
+                vec![linked_input("clip", ComfySocketType::Clip, 3)],
+                vec![output(
+                    "CONDITIONING",
+                    ComfySocketType::Conditioning,
+                    0,
+                    &[8],
+                )],
                 vec![Value::String(request.prompt.clone())],
             ),
             node(
                 7,
                 "CLIPTextEncode",
-                vec![linked_input("clip", "CLIP", 4)],
-                vec![output("CONDITIONING", "CONDITIONING", 0, &[9])],
+                vec![linked_input("clip", ComfySocketType::Clip, 4)],
+                vec![output(
+                    "CONDITIONING",
+                    ComfySocketType::Conditioning,
+                    0,
+                    &[9],
+                )],
                 vec![Value::String(request.negative_prompt.clone())],
             ),
             node(
                 8,
                 "VAEEncodeForInpaint",
                 vec![
-                    linked_input("pixels", "IMAGE", 1),
-                    linked_input("vae", "VAE", 6),
-                    linked_input("mask", "MASK", 2),
+                    linked_input("pixels", ComfySocketType::Image, 1),
+                    linked_input("vae", ComfySocketType::Vae, 6),
+                    linked_input("mask", ComfySocketType::Mask, 2),
                 ],
-                vec![output("LATENT", "LATENT", 0, &[10])],
+                vec![output("LATENT", ComfySocketType::Latent, 0, &[10])],
                 vec![],
             ),
             node(
                 9,
                 "KSampler",
                 vec![
-                    linked_input("model", "MODEL", 5),
-                    linked_input("positive", "CONDITIONING", 8),
-                    linked_input("negative", "CONDITIONING", 9),
-                    linked_input("latent_image", "LATENT", 10),
+                    linked_input("model", ComfySocketType::Model, 5),
+                    linked_input("positive", ComfySocketType::Conditioning, 8),
+                    linked_input("negative", ComfySocketType::Conditioning, 9),
+                    linked_input("latent_image", ComfySocketType::Latent, 10),
                 ],
-                vec![output("LATENT", "LATENT", 0, &[11])],
+                vec![output("LATENT", ComfySocketType::Latent, 0, &[11])],
                 sampler_widgets(request, request.denoise),
             ),
             node(
                 10,
                 "VAEDecode",
                 vec![
-                    linked_input("samples", "LATENT", 11),
-                    linked_input("vae", "VAE", 7),
+                    linked_input("samples", ComfySocketType::Latent, 11),
+                    linked_input("vae", ComfySocketType::Vae, 7),
                 ],
-                vec![output("IMAGE", "IMAGE", 0, &[12])],
+                vec![output("IMAGE", ComfySocketType::Image, 0, &[12])],
                 vec![],
             ),
             node(
                 11,
                 "SaveImage",
-                vec![linked_input("images", "IMAGE", 12)],
+                vec![linked_input("images", ComfySocketType::Image, 12)],
                 vec![],
                 vec![Value::String(request.output_prefix.clone())],
             ),
@@ -689,7 +736,7 @@ fn node(
     node
 }
 
-fn linked_input(name: &str, value_type: &str, link: u64) -> WorkflowInput {
+fn linked_input(name: &str, value_type: ComfySocketType, link: u64) -> WorkflowInput {
     WorkflowInput {
         name: name.to_string(),
         value_type: value_type.to_string(),
@@ -698,7 +745,12 @@ fn linked_input(name: &str, value_type: &str, link: u64) -> WorkflowInput {
     }
 }
 
-fn output(name: &str, value_type: &str, slot_index: u64, links: &[u64]) -> WorkflowOutput {
+fn output(
+    name: &str,
+    value_type: ComfySocketType,
+    slot_index: u64,
+    links: &[u64],
+) -> WorkflowOutput {
     WorkflowOutput {
         name: name.to_string(),
         value_type: value_type.to_string(),
@@ -706,6 +758,24 @@ fn output(name: &str, value_type: &str, slot_index: u64, links: &[u64]) -> Workf
         links: links.to_vec(),
         extensions: BTreeMap::new(),
     }
+}
+
+fn socket_link(
+    id: u64,
+    origin_id: u64,
+    origin_slot: u64,
+    target_id: u64,
+    target_slot: u64,
+    value_type: ComfySocketType,
+) -> WorkflowLink {
+    WorkflowLink::new(
+        id,
+        origin_id,
+        origin_slot,
+        target_id,
+        target_slot,
+        value_type.to_string(),
+    )
 }
 
 fn sampler_widgets(request: &ImageGenerationRequest, denoise: f32) -> Vec<Value> {

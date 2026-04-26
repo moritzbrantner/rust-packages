@@ -17,6 +17,19 @@ fn root_facade_reexports_core_and_domain_packages() {
     )
     .unwrap();
     assert!(!workflow.nodes.is_empty());
+    assert!(workflow
+        .observed_socket_types()
+        .contains(&va::comfyui_data::ComfySocketType::Latent));
+
+    let latent = va::comfyui_latents::LatentBatch::new(
+        va::tensor_data::F32Tensor::from_dims([1, 4, 64, 64], vec![0.0; 16_384]).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(latent.image_size().unwrap().width, 512);
+    assert_eq!(
+        va::comfyui_models::ComfyModelRole::Vae.kind(),
+        va::comfyui_models::ComfyModelKind::Vae
+    );
 
     let summary =
         va::text_features::summarize_text("Rust tests keep package boundaries honest.", 3);

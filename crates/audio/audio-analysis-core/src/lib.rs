@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+use tensor_data::{F32Tensor, F32TensorView};
 use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result, Timebase, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,6 +67,136 @@ impl MonoSamples {
             return 0.0;
         }
         self.samples.len() as f64 / self.sample_rate as f64
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioWaveformBatchView<'a> {
+    pub sample_rate: u32,
+    tensor: F32TensorView<'a>,
+}
+
+impl<'a> AudioWaveformBatchView<'a> {
+    pub fn new(sample_rate: u32, tensor: F32TensorView<'a>) -> Result<Self> {
+        let batch = Self {
+            sample_rate,
+            tensor,
+        };
+        batch.validate()?;
+        Ok(batch)
+    }
+
+    pub fn from_dims(
+        sample_rate: u32,
+        dims: impl Into<Vec<usize>>,
+        values: &'a [f32],
+    ) -> Result<Self> {
+        Self::new(sample_rate, F32TensorView::from_dims(dims, values)?)
+    }
+
+    pub fn tensor(&self) -> &F32TensorView<'a> {
+        &self.tensor
+    }
+
+    pub fn batch_size(&self) -> usize {
+        self.tensor.shape().dimensions()[0]
+    }
+
+    pub fn channel_count(&self) -> usize {
+        self.tensor.shape().dimensions()[1]
+    }
+
+    pub fn time_steps(&self) -> usize {
+        self.tensor.shape().dimensions()[2]
+    }
+
+    pub fn duration_seconds(&self) -> f64 {
+        self.time_steps() as f64 / self.sample_rate as f64
+    }
+
+    pub fn waveform(&self, batch_index: usize, channel_index: usize) -> Result<&'a [f32]> {
+        if batch_index >= self.batch_size() || channel_index >= self.channel_count() {
+            return Err(DetectError::InvalidArgument(format!(
+                "waveform index [{batch_index}, {channel_index}] is out of bounds for [{}, {}]",
+                self.batch_size(),
+                self.channel_count()
+            )));
+        }
+        let time_steps = self.time_steps();
+        let start = batch_index * self.channel_count() * time_steps + channel_index * time_steps;
+        Ok(&self.tensor.values()[start..start + time_steps])
+    }
+
+    fn validate(&self) -> Result<()> {
+        AudioFormatSpec::new(self.sample_rate, 1)?;
+        self.tensor.validate()?;
+        if self.tensor.shape().rank() != 3 {
+            return Err(DetectError::InvalidArgument(
+                "audio waveform batches must use rank 3 [B,C,T] tensors".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OwnedAudioWaveformBatch {
+    pub sample_rate: u32,
+    tensor: F32Tensor,
+}
+
+impl OwnedAudioWaveformBatch {
+    pub fn new(sample_rate: u32, tensor: F32Tensor) -> Result<Self> {
+        let batch = Self {
+            sample_rate,
+            tensor,
+        };
+        batch.as_view()?;
+        Ok(batch)
+    }
+
+    pub fn from_audio_frames(frames: &[video_analysis_core::OwnedAudioFrame]) -> Result<Self> {
+        if frames.is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "audio waveform batches must contain at least one frame".to_string(),
+            ));
+        }
+        let first = &frames[0];
+        let sample_rate = first.sample_rate;
+        let channels = first.channels as usize;
+        let time_steps = first.samples_per_channel();
+        let mut values = Vec::with_capacity(frames.len() * channels * time_steps);
+
+        for frame in frames {
+            if frame.sample_rate != sample_rate
+                || frame.channels as usize != channels
+                || frame.samples_per_channel() != time_steps
+            {
+                return Err(DetectError::InvalidArgument(
+                    "all audio frames in a batch must share sample rate, channel count, and samples per channel"
+                        .to_string(),
+                ));
+            }
+            let normalized = normalized_samples(&frame.data);
+            for channel in 0..channels {
+                for time_index in 0..time_steps {
+                    values.push(normalized[time_index * channels + channel]);
+                }
+            }
+        }
+
+        Self::new(
+            sample_rate,
+            F32Tensor::from_dims([frames.len(), channels, time_steps], values)?,
+        )
+    }
+
+    pub fn tensor(&self) -> &F32Tensor {
+        &self.tensor
+    }
+
+    pub fn as_view(&self) -> Result<AudioWaveformBatchView<'_>> {
+        AudioWaveformBatchView::new(self.sample_rate, self.tensor.as_view())
     }
 }
 
@@ -518,6 +649,29 @@ mod tests {
         let buffer = AudioBuffer::F32(vec![1.0, -1.0, 0.5, 0.25]);
         let mono = interleaved_to_mono(&buffer, 2, ChannelMix::First).unwrap();
         assert_eq!(mono, vec![1.0, 0.5]);
+    }
+
+    #[test]
+    fn batches_existing_audio_frames_into_channel_major_waveforms() {
+        let first = video_analysis_core::OwnedAudioFrame::new(
+            ts(),
+            48_000,
+            1,
+            AudioBuffer::F32(vec![0.1, 0.2]),
+        )
+        .unwrap();
+        let second = video_analysis_core::OwnedAudioFrame::new(
+            ts(),
+            48_000,
+            1,
+            AudioBuffer::F32(vec![0.3, 0.4]),
+        )
+        .unwrap();
+
+        let batch = OwnedAudioWaveformBatch::from_audio_frames(&[first, second]).unwrap();
+        let view = batch.as_view().unwrap();
+        assert_eq!(view.batch_size(), 2);
+        assert_eq!(view.waveform(1, 0).unwrap(), &[0.3, 0.4]);
     }
 
     #[test]

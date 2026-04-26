@@ -1,10 +1,10 @@
 [package]
-name = "audio-analysis-core"
+name = "tensor-data"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Shared audio frame conversion, windowing, and streaming helpers for video-analysis."
+description = "Small finite f32 tensor contracts and metadata for video-analysis."
 readme = "README.md"
 repository.workspace = true
 homepage.workspace = true
@@ -13,13 +13,6 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-tensor-data.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 video-analysis-core.workspace = true
-
-[dev-dependencies]
-criterion.workspace = true
-proptest.workspace = true
-
-[[bench]]
-name = "core"
-harness = false

@@ -39,6 +39,127 @@ pub enum ComfyDataError {
 pub type Result<T> = std::result::Result<T, ComfyDataError>;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComfySocketType {
+    Int,
+    Float,
+    String,
+    Boolean,
+    Combo,
+    Image,
+    Mask,
+    Audio,
+    Video,
+    Latent,
+    Model,
+    Clip,
+    ClipVision,
+    Vae,
+    Conditioning,
+    UpscaleModel,
+    ModelPatch,
+    Mesh,
+    Noise,
+    Sampler,
+    Sigmas,
+    Guider,
+    Custom(String),
+}
+
+impl ComfySocketType {
+    pub fn from_socket_type(value: &str) -> Self {
+        let normalized = value.trim();
+        match normalized.to_ascii_uppercase().as_str() {
+            "INT" => Self::Int,
+            "FLOAT" => Self::Float,
+            "STRING" => Self::String,
+            "BOOLEAN" | "BOOL" => Self::Boolean,
+            "COMBO" => Self::Combo,
+            "IMAGE" => Self::Image,
+            "MASK" => Self::Mask,
+            "AUDIO" => Self::Audio,
+            "VIDEO" => Self::Video,
+            "LATENT" => Self::Latent,
+            "MODEL" => Self::Model,
+            "CLIP" => Self::Clip,
+            "CLIP_VISION" => Self::ClipVision,
+            "VAE" => Self::Vae,
+            "CONDITIONING" => Self::Conditioning,
+            "UPSCALE_MODEL" => Self::UpscaleModel,
+            "MODEL_PATCH" | "MODELPATCH" => Self::ModelPatch,
+            "MESH" => Self::Mesh,
+            "NOISE" => Self::Noise,
+            "SAMPLER" => Self::Sampler,
+            "SIGMAS" => Self::Sigmas,
+            "GUIDER" => Self::Guider,
+            value => Self::Custom(value.to_string()),
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Int => "INT",
+            Self::Float => "FLOAT",
+            Self::String => "STRING",
+            Self::Boolean => "BOOLEAN",
+            Self::Combo => "COMBO",
+            Self::Image => "IMAGE",
+            Self::Mask => "MASK",
+            Self::Audio => "AUDIO",
+            Self::Video => "VIDEO",
+            Self::Latent => "LATENT",
+            Self::Model => "MODEL",
+            Self::Clip => "CLIP",
+            Self::ClipVision => "CLIP_VISION",
+            Self::Vae => "VAE",
+            Self::Conditioning => "CONDITIONING",
+            Self::UpscaleModel => "UPSCALE_MODEL",
+            Self::ModelPatch => "MODELPATCH",
+            Self::Mesh => "MESH",
+            Self::Noise => "NOISE",
+            Self::Sampler => "SAMPLER",
+            Self::Sigmas => "SIGMAS",
+            Self::Guider => "GUIDER",
+            Self::Custom(value) => value.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for ComfySocketType {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct WorkflowTypeInventory {
+    pub inputs: BTreeSet<ComfySocketType>,
+    pub outputs: BTreeSet<ComfySocketType>,
+    pub links: BTreeSet<ComfySocketType>,
+}
+
+impl WorkflowTypeInventory {
+    pub fn all(&self) -> BTreeSet<ComfySocketType> {
+        self.inputs
+            .iter()
+            .chain(&self.outputs)
+            .chain(&self.links)
+            .cloned()
+            .collect()
+    }
+
+    pub fn contains(&self, socket_type: &ComfySocketType) -> bool {
+        self.inputs.contains(socket_type)
+            || self.outputs.contains(socket_type)
+            || self.links.contains(socket_type)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inputs.is_empty() && self.outputs.is_empty() && self.links.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum WorkflowNodeId {
     Number(u64),
@@ -163,6 +284,28 @@ impl ComfyWorkflow {
             }
         }
         Ok(())
+    }
+
+    pub fn observed_socket_types(&self) -> WorkflowTypeInventory {
+        let mut inventory = WorkflowTypeInventory::default();
+        for node in &self.nodes {
+            for input in &node.inputs {
+                inventory
+                    .inputs
+                    .insert(ComfySocketType::from_socket_type(&input.value_type));
+            }
+            for output in &node.outputs {
+                inventory
+                    .outputs
+                    .insert(ComfySocketType::from_socket_type(&output.value_type));
+            }
+        }
+        for link in &self.links {
+            inventory
+                .links
+                .insert(ComfySocketType::from_socket_type(&link.value_type));
+        }
+        inventory
     }
 }
 
@@ -390,6 +533,9 @@ pub fn write_prompt_pretty(prompt: &PromptGraph, writer: impl Write) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use image_analysis_comfyui::{
+        build_generation_workflow, ComfyWorkflowPreset, ImageGenerationMode, ImageGenerationRequest,
+    };
 
     #[test]
     fn parses_and_validates_workflow_links() {
@@ -441,5 +587,49 @@ mod tests {
         let link = parse_prompt_link(&prompt["2"].inputs["model"]).unwrap();
         assert_eq!(link.node_id, "1");
         assert_eq!(link.output_index, 0);
+    }
+
+    #[test]
+    fn normalizes_socket_types_emitted_by_image_analysis_comfyui() {
+        let workflows = [
+            build_generation_workflow(&ImageGenerationRequest::new("red cube")).unwrap(),
+            build_generation_workflow(
+                &ImageGenerationRequest::new("repair")
+                    .mode(ImageGenerationMode::Inpaint)
+                    .input_image("input.png")
+                    .mask_image("mask.png"),
+            )
+            .unwrap(),
+            build_generation_workflow(
+                &ImageGenerationRequest::new("upscale")
+                    .mode(ImageGenerationMode::Upscale)
+                    .input_image("input.png"),
+            )
+            .unwrap(),
+            build_generation_workflow(
+                &ImageGenerationRequest::new("flux")
+                    .preset(ComfyWorkflowPreset::FluxInpaint)
+                    .mode(ImageGenerationMode::Inpaint)
+                    .checkpoint("flux1-dev.safetensors")
+                    .input_image("input.png")
+                    .mask_image("mask.png"),
+            )
+            .unwrap(),
+        ];
+
+        let observed: BTreeSet<_> = workflows
+            .iter()
+            .flat_map(|workflow| workflow.observed_socket_types().all())
+            .map(|socket_type| socket_type.to_string())
+            .collect();
+
+        assert!(observed.contains("MODEL"));
+        assert!(observed.contains("CLIP"));
+        assert!(observed.contains("VAE"));
+        assert!(observed.contains("CONDITIONING"));
+        assert!(observed.contains("LATENT"));
+        assert!(observed.contains("IMAGE"));
+        assert!(observed.contains("MASK"));
+        assert!(observed.contains("UPSCALE_MODEL"));
     }
 }

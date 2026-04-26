@@ -114,6 +114,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "proptest",
+ "tensor-data",
  "video-analysis-core",
 ]
 
@@ -483,9 +484,19 @@ checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 name = "comfyui-data"
 version = "0.1.0"
 dependencies = [
+ "image-analysis-comfyui",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "comfyui-latents"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tensor-data",
+ "video-analysis-core",
 ]
 
 [[package]]
@@ -1417,6 +1428,7 @@ dependencies = [
 name = "image-analysis-core"
 version = "0.1.0"
 dependencies = [
+ "tensor-data",
  "video-analysis-core",
 ]
 
@@ -2595,6 +2607,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tensor-data"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "text-analysis-core"
 version = "0.1.0"
 dependencies = [
@@ -3127,6 +3148,8 @@ dependencies = [
  "audio-analysis-rhythm",
  "audio-analysis-separation",
  "audio-analysis-synthesis",
+ "comfyui-data",
+ "comfyui-latents",
  "comfyui-models",
  "data-inversion-core",
  "dense-data",
@@ -3143,6 +3166,7 @@ dependencies = [
  "num-rational",
  "numbers-core",
  "tempfile",
+ "tensor-data",
  "text-analysis-core",
  "text-analysis-corpus",
  "text-analysis-features",

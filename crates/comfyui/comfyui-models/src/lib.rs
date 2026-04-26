@@ -208,6 +208,100 @@ pub struct ComfyModelAsset {
     pub is_directory: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComfyModelRole {
+    Checkpoint,
+    DiffusionModel,
+    TextEncoder,
+    Vae,
+    ClipVision,
+    ControlNet,
+    UpscaleModel,
+    AudioEncoder,
+    ModelPatch,
+    Lora,
+    Embedding,
+}
+
+impl ComfyModelRole {
+    pub fn kind(self) -> ComfyModelKind {
+        match self {
+            Self::Checkpoint => ComfyModelKind::Checkpoint,
+            Self::DiffusionModel => ComfyModelKind::DiffusionModel,
+            Self::TextEncoder => ComfyModelKind::TextEncoder,
+            Self::Vae => ComfyModelKind::Vae,
+            Self::ClipVision => ComfyModelKind::ClipVision,
+            Self::ControlNet => ComfyModelKind::ControlNet,
+            Self::UpscaleModel => ComfyModelKind::UpscaleModel,
+            Self::AudioEncoder => ComfyModelKind::AudioEncoder,
+            Self::ModelPatch => ComfyModelKind::ModelPatch,
+            Self::Lora => ComfyModelKind::Lora,
+            Self::Embedding => ComfyModelKind::Embedding,
+        }
+    }
+
+    pub fn from_kind(kind: &ComfyModelKind) -> Option<Self> {
+        Some(match kind {
+            ComfyModelKind::Checkpoint => Self::Checkpoint,
+            ComfyModelKind::DiffusionModel => Self::DiffusionModel,
+            ComfyModelKind::TextEncoder => Self::TextEncoder,
+            ComfyModelKind::Vae => Self::Vae,
+            ComfyModelKind::ClipVision => Self::ClipVision,
+            ComfyModelKind::ControlNet => Self::ControlNet,
+            ComfyModelKind::UpscaleModel => Self::UpscaleModel,
+            ComfyModelKind::AudioEncoder => Self::AudioEncoder,
+            ComfyModelKind::ModelPatch => Self::ModelPatch,
+            ComfyModelKind::Lora => Self::Lora,
+            ComfyModelKind::Embedding => Self::Embedding,
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ComfyModelRef {
+    pub role: ComfyModelRole,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relative_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub full_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_root: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bytes: Option<u64>,
+    #[serde(default)]
+    pub is_directory: bool,
+}
+
+impl ComfyModelRef {
+    pub fn new(role: ComfyModelRole, name: impl Into<String>) -> Self {
+        Self {
+            role,
+            name: name.into(),
+            relative_path: None,
+            full_path: None,
+            source_root: None,
+            bytes: None,
+            is_directory: false,
+        }
+    }
+
+    pub fn from_asset(asset: &ComfyModelAsset) -> Option<Self> {
+        let role = ComfyModelRole::from_kind(&asset.kind)?;
+        Some(Self {
+            role,
+            name: asset.name.clone(),
+            relative_path: Some(asset.relative_path.clone()),
+            full_path: Some(asset.full_path.clone()),
+            source_root: Some(asset.source_root.clone()),
+            bytes: asset.bytes,
+            is_directory: asset.is_directory,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComfyModelRoot {
     pub base_path: PathBuf,
@@ -526,5 +620,54 @@ mod tests {
         assert!(yaml.contains("is_default: true"));
         assert!(yaml.contains("checkpoints: 'models/checkpoints'"));
         assert!(yaml.contains("text_encoders: |"));
+    }
+
+    #[test]
+    fn model_roles_map_to_expected_folder_keys() {
+        assert_eq!(
+            ComfyModelRole::Checkpoint.kind(),
+            ComfyModelKind::Checkpoint
+        );
+        assert_eq!(
+            ComfyModelRole::TextEncoder.kind(),
+            ComfyModelKind::TextEncoder
+        );
+        assert_eq!(ComfyModelRole::Vae.kind(), ComfyModelKind::Vae);
+        assert_eq!(
+            ComfyModelRole::ClipVision.kind(),
+            ComfyModelKind::ClipVision
+        );
+        assert_eq!(
+            ComfyModelRole::UpscaleModel.kind(),
+            ComfyModelKind::UpscaleModel
+        );
+        assert_eq!(
+            ComfyModelRole::ModelPatch.kind(),
+            ComfyModelKind::ModelPatch
+        );
+        assert_eq!(
+            ComfyModelRole::AudioEncoder.kind(),
+            ComfyModelKind::AudioEncoder
+        );
+    }
+
+    #[test]
+    fn builds_model_refs_from_assets_when_role_is_known() {
+        let asset = ComfyModelAsset {
+            kind: ComfyModelKind::Vae,
+            name: "vae/ae.safetensors".to_string(),
+            relative_path: PathBuf::from("vae/ae.safetensors"),
+            full_path: PathBuf::from("/models/vae/ae.safetensors"),
+            source_root: PathBuf::from("/models"),
+            bytes: Some(12),
+            is_directory: false,
+        };
+
+        let model_ref = ComfyModelRef::from_asset(&asset).unwrap();
+        assert_eq!(model_ref.role, ComfyModelRole::Vae);
+        assert_eq!(
+            model_ref.relative_path.as_deref(),
+            Some(Path::new("vae/ae.safetensors"))
+        );
     }
 }

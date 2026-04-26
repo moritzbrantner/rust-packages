@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+use tensor_data::F32Tensor;
 use video_analysis_core::{DetectError, PixelFormat, Result, VideoFrame};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -214,6 +215,214 @@ impl OwnedImage {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ImageBatchView<'a> {
+    pub batch_size: usize,
+    pub width: u32,
+    pub height: u32,
+    pub pixel_format: ImagePixelFormat,
+    pub data: &'a [u8],
+    pub row_stride: usize,
+    pub image_stride: usize,
+}
+
+impl<'a> ImageBatchView<'a> {
+    pub fn packed(
+        batch_size: usize,
+        width: u32,
+        height: u32,
+        pixel_format: ImagePixelFormat,
+        data: &'a [u8],
+    ) -> Result<Self> {
+        let row_stride = width as usize * pixel_format.bytes_per_pixel();
+        Self::new(
+            batch_size,
+            width,
+            height,
+            pixel_format,
+            data,
+            row_stride,
+            row_stride * height as usize,
+        )
+    }
+
+    pub fn new(
+        batch_size: usize,
+        width: u32,
+        height: u32,
+        pixel_format: ImagePixelFormat,
+        data: &'a [u8],
+        row_stride: usize,
+        image_stride: usize,
+    ) -> Result<Self> {
+        let batch = Self {
+            batch_size,
+            width,
+            height,
+            pixel_format,
+            data,
+            row_stride,
+            image_stride,
+        };
+        batch.validate()?;
+        Ok(batch)
+    }
+
+    pub fn validate(self) -> Result<()> {
+        if self.batch_size == 0 {
+            return Err(DetectError::InvalidArgument(
+                "image batches must contain at least one image".to_string(),
+            ));
+        }
+        let packed_width = self.width as usize * self.pixel_format.bytes_per_pixel();
+        if self.row_stride < packed_width {
+            return Err(DetectError::InvalidFrameBuffer {
+                expected: packed_width,
+                actual: self.row_stride,
+            });
+        }
+        let packed_image = self.row_stride * self.height as usize;
+        if self.image_stride < packed_image {
+            return Err(DetectError::InvalidFrameBuffer {
+                expected: packed_image,
+                actual: self.image_stride,
+            });
+        }
+        let expected = self.image_stride * self.batch_size;
+        if self.data.len() < expected {
+            return Err(DetectError::InvalidFrameBuffer {
+                expected,
+                actual: self.data.len(),
+            });
+        }
+        Ok(())
+    }
+
+    pub fn image(self, index: usize) -> Result<ImageView<'a>> {
+        if index >= self.batch_size {
+            return Err(DetectError::InvalidArgument(format!(
+                "image batch index {index} is out of bounds for batch of size {}",
+                self.batch_size
+            )));
+        }
+        let start = index * self.image_stride;
+        let end = start + self.image_stride;
+        ImageView::new(
+            self.width,
+            self.height,
+            self.pixel_format,
+            &self.data[start..end],
+            self.row_stride,
+        )
+    }
+
+    pub fn compact_len(self) -> usize {
+        self.batch_size
+            * self.width as usize
+            * self.height as usize
+            * self.pixel_format.bytes_per_pixel()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OwnedImageBatch {
+    pub batch_size: usize,
+    pub width: u32,
+    pub height: u32,
+    pub pixel_format: ImagePixelFormat,
+    pub data: Vec<u8>,
+    pub row_stride: usize,
+    pub image_stride: usize,
+}
+
+impl OwnedImageBatch {
+    pub fn packed(
+        batch_size: usize,
+        width: u32,
+        height: u32,
+        pixel_format: ImagePixelFormat,
+        data: Vec<u8>,
+    ) -> Result<Self> {
+        let row_stride = width as usize * pixel_format.bytes_per_pixel();
+        Self::new(
+            batch_size,
+            width,
+            height,
+            pixel_format,
+            data,
+            row_stride,
+            row_stride * height as usize,
+        )
+    }
+
+    pub fn new(
+        batch_size: usize,
+        width: u32,
+        height: u32,
+        pixel_format: ImagePixelFormat,
+        data: Vec<u8>,
+        row_stride: usize,
+        image_stride: usize,
+    ) -> Result<Self> {
+        let batch = Self {
+            batch_size,
+            width,
+            height,
+            pixel_format,
+            data,
+            row_stride,
+            image_stride,
+        };
+        batch.as_view().validate()?;
+        Ok(batch)
+    }
+
+    pub fn from_images(images: &[OwnedImage]) -> Result<Self> {
+        if images.is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "image batch must contain at least one image".to_string(),
+            ));
+        }
+        let first = &images[0];
+        let row_stride = first.width as usize * first.pixel_format.bytes_per_pixel();
+        let image_stride = row_stride * first.height as usize;
+        let mut data = Vec::with_capacity(image_stride * images.len());
+        for image in images {
+            if image.width != first.width
+                || image.height != first.height
+                || image.pixel_format != first.pixel_format
+            {
+                return Err(DetectError::InvalidArgument(
+                    "all images in a batch must share width, height, and pixel format".to_string(),
+                ));
+            }
+            let compact = compact_image(&image.as_view())?;
+            data.extend_from_slice(&compact.data);
+        }
+        Self::new(
+            images.len(),
+            first.width,
+            first.height,
+            first.pixel_format,
+            data,
+            row_stride,
+            image_stride,
+        )
+    }
+
+    pub fn as_view(&self) -> ImageBatchView<'_> {
+        ImageBatchView {
+            batch_size: self.batch_size,
+            width: self.width,
+            height: self.height,
+            pixel_format: self.pixel_format,
+            data: &self.data,
+            row_stride: self.row_stride,
+            image_stride: self.image_stride,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RgbMean {
     pub red: f32,
@@ -269,6 +478,17 @@ pub fn luma_histogram(image: &ImageView<'_>, bins: usize) -> Result<Vec<u64>> {
     Ok(histogram)
 }
 
+pub fn mask_tensor_from_luma(image: &ImageView<'_>) -> Result<F32Tensor> {
+    image.validate()?;
+    let mut values = Vec::with_capacity(image.width as usize * image.height as usize);
+    for y in 0..image.height {
+        for x in 0..image.width {
+            values.push(image.luma(x, y) as f32 / 255.0);
+        }
+    }
+    F32Tensor::from_dims([image.height as usize, image.width as usize], values)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -292,5 +512,26 @@ mod tests {
     fn packed_view_uses_tight_stride() {
         let view = ImageView::packed(2, 1, ImagePixelFormat::Gray8, &[0, 255]).unwrap();
         assert_eq!(view.stride, 2);
+    }
+
+    #[test]
+    fn batches_images_from_existing_owned_images() {
+        let first = OwnedImage::new_rgb(1, 1, vec![0, 0, 0]).unwrap();
+        let second = OwnedImage::new_rgb(1, 1, vec![255, 255, 255]).unwrap();
+
+        let batch = OwnedImageBatch::from_images(&[first, second]).unwrap();
+        assert_eq!(batch.batch_size, 2);
+        assert_eq!(
+            batch.as_view().image(1).unwrap().pixel_rgb(0, 0),
+            [255, 255, 255]
+        );
+    }
+
+    #[test]
+    fn converts_luma_into_mask_tensor() {
+        let image = OwnedImage::new_rgb(1, 1, vec![255, 255, 255]).unwrap();
+        let mask = mask_tensor_from_luma(&image.as_view()).unwrap();
+        assert_eq!(mask.shape().dimensions(), &[1, 1]);
+        assert_eq!(mask.values(), &[1.0]);
     }
 }

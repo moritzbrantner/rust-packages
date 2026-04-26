@@ -9,8 +9,19 @@ pub enum PortKind {
     YoutubeCollectionUrl,
     VideoFile,
     ImageFile,
+    ImageBatch,
     AudioFile,
+    AudioWaveform,
     MediaFile,
+    MaskTensor,
+    LatentBatch,
+    Conditioning,
+    ModelRef,
+    VaeRef,
+    ClipRef,
+    ClipVisionRef,
+    UpscaleModelRef,
+    ModelPatchRef,
     Transcript,
     SubtitleFile,
     SceneList,
@@ -45,9 +56,20 @@ pub enum WorkflowSemanticKind {
     YoutubeCollectionUrl,
     VideoFile,
     ImageFile,
+    ImageBatch,
     AudioFile,
+    AudioWaveform,
     AudioWav,
     MediaFile,
+    MaskTensor,
+    LatentBatch,
+    Conditioning,
+    ModelRef,
+    VaeRef,
+    ClipRef,
+    ClipVisionRef,
+    UpscaleModelRef,
+    ModelPatchRef,
     Transcript,
     SubtitleFile,
     VideoMetadata,
@@ -504,7 +526,7 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
         .outputs(vec![
             port("video", "Video Frames", PortKind::VideoFile).stream(),
-            port("audio", "Audio Frames", PortKind::AudioFile).stream(),
+            port("audio", "Audio Frames", PortKind::AudioWaveform).stream(),
         ]),
         node(
             "video-pipeline",
@@ -558,7 +580,9 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             WorkflowCategory::Audio,
             false,
         )
-        .inputs(vec![port("audio", "Audio", PortKind::AudioFile).stream()])
+        .inputs(vec![
+            port("audio", "Audio", PortKind::AudioWaveform).stream()
+        ])
         .outputs(vec![port("events", "Events", PortKind::AudioEvents)]),
         node(
             "transcriber",
@@ -567,7 +591,7 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             WorkflowCategory::Text,
             false,
         )
-        .inputs(vec![port("audio", "Audio", PortKind::AudioFile)])
+        .inputs(vec![port("audio", "Audio", PortKind::AudioWaveform)])
         .outputs(vec![port("transcript", "Transcript", PortKind::Transcript)]),
         node(
             "text-pipeline",
@@ -596,7 +620,7 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
         )
         .inputs(vec![
             port("video", "Video", PortKind::VideoFile).stream(),
-            port("audio", "Audio", PortKind::AudioFile).stream(),
+            port("audio", "Audio", PortKind::AudioWaveform).stream(),
             port("text", "Text", PortKind::Transcript).stream(),
         ])
         .outputs(vec![port("buckets", "Buckets", PortKind::DataBuckets)]),
@@ -671,7 +695,7 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
     ];
 
     WorkflowCatalog {
-        version: 4,
+        version: 5,
         port_kinds: all_port_kinds(),
         compatibility: compatibility_pairs(),
         nodes,
@@ -816,8 +840,19 @@ fn all_port_kinds() -> Vec<PortKind> {
         YoutubeCollectionUrl,
         VideoFile,
         ImageFile,
+        ImageBatch,
         AudioFile,
+        AudioWaveform,
         MediaFile,
+        MaskTensor,
+        LatentBatch,
+        Conditioning,
+        ModelRef,
+        VaeRef,
+        ClipRef,
+        ClipVisionRef,
+        UpscaleModelRef,
+        ModelPatchRef,
         Transcript,
         SubtitleFile,
         SceneList,
@@ -871,8 +906,19 @@ fn workflow_type_for_port_kind(kind: PortKind) -> WorkflowTypeSpec {
         YoutubeCollectionUrl => string_type(Some(WorkflowSemanticKind::YoutubeCollectionUrl)),
         VideoFile => binary_type(Some("video/*"), Some(WorkflowSemanticKind::VideoFile)),
         ImageFile => binary_type(Some("image/*"), Some(WorkflowSemanticKind::ImageFile)),
+        ImageBatch => open_object(Some(WorkflowSemanticKind::ImageBatch)),
         AudioFile => binary_type(Some("audio/*"), Some(WorkflowSemanticKind::AudioFile)),
+        AudioWaveform => open_object(Some(WorkflowSemanticKind::AudioWaveform)),
         MediaFile => binary_type(None, Some(WorkflowSemanticKind::MediaFile)),
+        MaskTensor => open_object(Some(WorkflowSemanticKind::MaskTensor)),
+        LatentBatch => open_object(Some(WorkflowSemanticKind::LatentBatch)),
+        Conditioning => open_object(Some(WorkflowSemanticKind::Conditioning)),
+        ModelRef => generic_model_ref_type(),
+        VaeRef => open_object(Some(WorkflowSemanticKind::VaeRef)),
+        ClipRef => open_object(Some(WorkflowSemanticKind::ClipRef)),
+        ClipVisionRef => open_object(Some(WorkflowSemanticKind::ClipVisionRef)),
+        UpscaleModelRef => open_object(Some(WorkflowSemanticKind::UpscaleModelRef)),
+        ModelPatchRef => open_object(Some(WorkflowSemanticKind::ModelPatchRef)),
         Transcript => open_object(Some(WorkflowSemanticKind::Transcript)),
         SubtitleFile => string_type(Some(WorkflowSemanticKind::SubtitleFile)),
         SceneList => open_object(Some(WorkflowSemanticKind::SceneResult)),
@@ -921,6 +967,19 @@ fn open_object(semantic: Option<WorkflowSemanticKind>) -> WorkflowTypeSpec {
         properties: Vec::new(),
         additional_properties: true,
         semantic,
+    }
+}
+
+fn generic_model_ref_type() -> WorkflowTypeSpec {
+    WorkflowTypeSpec::Union {
+        variants: vec![
+            open_object(Some(WorkflowSemanticKind::ModelRef)),
+            open_object(Some(WorkflowSemanticKind::VaeRef)),
+            open_object(Some(WorkflowSemanticKind::ClipRef)),
+            open_object(Some(WorkflowSemanticKind::ClipVisionRef)),
+            open_object(Some(WorkflowSemanticKind::UpscaleModelRef)),
+            open_object(Some(WorkflowSemanticKind::ModelPatchRef)),
+        ],
     }
 }
 
@@ -1120,13 +1179,16 @@ mod tests {
         assert_eq!(config_port["exposable_input"], true);
         assert_eq!(config_port["input_surface"], "config");
         assert_eq!(config_port["runtime_validation"], "external_input");
-        assert_eq!(json["version"], 4);
+        assert_eq!(json["version"], 5);
     }
 
     #[test]
     fn workflow_catalog_includes_new_use_case_nodes_and_image_ports() {
         let catalog = default_workflow_catalog();
         assert!(catalog.port_kinds.contains(&PortKind::ImageFile));
+        assert!(catalog.port_kinds.contains(&PortKind::AudioWaveform));
+        assert!(catalog.port_kinds.contains(&PortKind::LatentBatch));
+        assert!(catalog.port_kinds.contains(&PortKind::ModelPatchRef));
         assert!(catalog
             .nodes
             .iter()
@@ -1139,5 +1201,33 @@ mod tests {
             .nodes
             .iter()
             .any(|node| node.id == "image-person-edit-workflow"));
+    }
+
+    #[test]
+    fn specialized_model_refs_are_assignable_to_generic_model_refs() {
+        assert!(workflow_types_assignable(
+            &workflow_type_for_port_kind(PortKind::VaeRef),
+            &workflow_type_for_port_kind(PortKind::ModelRef),
+        ));
+        assert!(!workflow_types_assignable(
+            &workflow_type_for_port_kind(PortKind::ModelRef),
+            &workflow_type_for_port_kind(PortKind::VaeRef),
+        ));
+    }
+
+    #[test]
+    fn in_memory_media_types_do_not_match_file_asset_types() {
+        assert!(!workflow_types_assignable(
+            &workflow_type_for_port_kind(PortKind::AudioWaveform),
+            &workflow_type_for_port_kind(PortKind::AudioFile),
+        ));
+        assert!(!workflow_types_assignable(
+            &workflow_type_for_port_kind(PortKind::ImageBatch),
+            &workflow_type_for_port_kind(PortKind::ImageFile),
+        ));
+        assert!(!workflow_types_assignable(
+            &workflow_type_for_port_kind(PortKind::LatentBatch),
+            &workflow_type_for_port_kind(PortKind::RunConfig),
+        ));
     }
 }

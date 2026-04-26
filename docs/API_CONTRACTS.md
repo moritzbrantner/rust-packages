@@ -26,11 +26,13 @@ Runtime and external integration crates use a shared feature policy:
 | Package | Role | Depends on | Exposes | Consumed by |
 | --- | --- | --- | --- | --- |
 | `video-analysis` | Root facade crate | Library crates except CLI and use cases | Re-exports core items, detector items, and package modules | Applications that want one import surface |
-| `comfyui-data` | ComfyUI workflow and prompt graph data contracts | `serde`, `serde_json` | Workflow JSON nodes, links, groups, validation helpers, API prompt nodes and links | Applications importing, validating, or emitting ComfyUI graphs |
-| `comfyui-models` | ComfyUI model folder and inventory contracts | `serde`, `thiserror` | Core model folder keys, default relative paths, inventory scanning, extra model paths YAML generation | Applications managing shared ComfyUI model libraries |
+| `comfyui-data` | ComfyUI workflow and socket typing contracts | `serde`, `serde_json` | Workflow JSON nodes, links, groups, validation helpers, prompt nodes/links, normalized `ComfySocketType`, workflow socket inventories | Applications importing, validating, inventorying, or emitting ComfyUI graphs |
+| `comfyui-latents` | ComfyUI latent-space contracts | `tensor-data`, `video-analysis-core`, `serde` | `LatentBatch`, `LatentMask`, `LatentImageSize`, mask compatibility checks | Applications or integrations that need stable latent-space data contracts |
+| `comfyui-models` | ComfyUI model folder, inventory, and reference contracts | `serde`, `thiserror` | Core model folder keys, default relative paths, inventory scanning, extra model paths YAML generation, `ComfyModelRole`, `ComfyModelRef` | Applications managing shared ComfyUI model libraries |
 | `data-inversion-core` | Shared lossy inverse-conversion metadata | `video-analysis-core` | `InformationFidelity`, `InversionMethod`, `InversionTrace`, generated value wrappers | Synthesis crates and applications that need explicit interpolation/assumption metadata |
 | `numbers-core` | Shared scalar numeric summaries and ranges | `video-analysis-core` | Running stats, weighted summaries, quantiles, histograms, numeric range helpers | `dense-data`, `video-analysis-data`, analytics workflows, and reporting utilities |
-| `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core` | Normalized sample conversion, mono mixing, window functions, frame iteration, streaming frame windows, level helpers | Audio analysis crates and applications |
+| `tensor-data` | Generic finite `f32` tensor contracts | `video-analysis-core`, `serde`, `serde_json` | `TensorShape`, `F32Tensor`, `F32TensorView`, shape/element validation, metadata | `comfyui-latents`, audio/image bridges, and future tensor-oriented interop crates |
+| `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core`, `tensor-data` | Normalized sample conversion, mono mixing, window functions, frame iteration, streaming frame windows, level helpers, waveform batch contracts | Audio analysis crates and applications |
 | `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
 | `audio-analysis-io` | Audio input convenience facade | `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports | Applications that want audio-specific input APIs |
 | `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
@@ -39,7 +41,7 @@ Runtime and external integration crates use a shared feature policy:
 | `audio-analysis-rhythm` | Rhythm and tempo analysis | `audio-analysis-core`, `video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
 | `audio-analysis-synthesis` | Deterministic inverse audio generation | `data-inversion-core`, `video-analysis-core` | Tone specs, tone timelines, pitch/onset event to tone conversion, synthesized `OwnedAudioFrame` values | Applications prototyping audio from symbolic or analyzed events |
-| `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core` | Borrowed/owned image views, pixel formats, compacting, mean color, luma histograms | Image processing crates, applications, video frame preprocessing |
+| `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core`, `tensor-data` | Borrowed/owned image views, image batches, pixel formats, compacting, mean color, luma histograms, mask tensor bridge helpers | Image processing crates, applications, video frame preprocessing |
 | `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains | Applications, preprocessing workflows |
 | `image-analysis-synthesis` | Deterministic inverse image generation | `data-inversion-core`, `image-analysis-core`, `video-analysis-core` | Solid images, gradients, luma-histogram expansion, region painting | Applications reconstructing approximate image buffers from summaries or regions |
 | `text-analysis-corpus` | Corpus-scale text statistics and search | `text-analysis-core`, `video-analysis-core` | Corpus options, indexed document term counts, corpus term stats, TF-IDF scores/search, BM25 ranking/search | Applications, text analytics, semantic indexing |
@@ -650,9 +652,13 @@ fields can be repaired where supported by `PredictionRepairOptions`.
 
 ## ComfyUI Contracts
 
-The `comfyui-data` and `comfyui-models` crates are standalone
+The `comfyui-data`, `comfyui-latents`, and `comfyui-models` crates are
+standalone
 interoperability packages for ComfyUI data that applications may need to read or
 write.
+
+The checked-in type/ownership matrix lives in
+[`COMFYUI_TYPE_MATRIX.md`](COMFYUI_TYPE_MATRIX.md).
 
 `comfyui-data` exposes:
 
@@ -661,8 +667,16 @@ write.
 - `WorkflowNodeId`, which accepts numeric and string node ids.
 - `ComfyWorkflow::validate`, which checks duplicate node/link ids and missing
   link references.
+- `ComfySocketType` plus `WorkflowTypeInventory` for normalized socket-type
+  inventories across workflow inputs, outputs, and links.
 - `PromptGraph`, `PromptNode`, `PromptLink`, `prompt_link`, and
   `parse_prompt_link` for ComfyUI API prompt graphs.
+
+`comfyui-latents` exposes:
+
+- `LatentBatch` for validated rank-4 latent tensors with optional latent masks.
+- `LatentMask` for validated latent-mask tensors and compatibility checks.
+- `LatentImageSize` for ComfyUI-style 1/8 latent-to-image size conversions.
 
 `comfyui-models` exposes:
 
@@ -670,6 +684,8 @@ write.
   `loras`, `vae`, `text_encoders`, `diffusion_models`, `clip_vision`,
   `controlnet`, `upscale_models`, `audio_encoders`, and legacy aliases such as
   `clip` and `unet`.
+- `ComfyModelRole` and `ComfyModelRef` for stable runtime-facing references to
+  typed ComfyUI model assets.
 - `ComfyModelRoot` and `ComfyModelAsset` for scanning typed model folders.
 - `ExtraModelPathsConfig` and `ExtraModelPathSection` for generating
   `extra_model_paths.yaml` style configuration.
