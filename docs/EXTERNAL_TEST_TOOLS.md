@@ -50,6 +50,26 @@ The setup script publishes `.external-test-tools/bin` in GitHub Actions through
 `.external-test-tools/bin` and `.audio-tools/bin` to `PATH` if those directories
 exist.
 
+The multimodal workflow smoke tests also include optional command adapters under
+`scripts/`:
+
+- `scripts/opencv_red_car_detector.py`: external-model JSON protocol adapter for
+  red-car detection in sampled video frames. Requires Python with `cv2` and
+  `numpy`.
+- `scripts/run_comfyui_image_edit.py`: image-edit JSON protocol adapter that
+  submits generated workflows to a ComfyUI server when `COMFYUI_URL` is set.
+
+Optional env vars used by the ignored external smoke tests:
+
+- `AUDIO_VOICE_ANALYSIS_TRANSCRIBER`: command path for a real transcription CLI
+  used by `audio-voice-analysis`.
+- `IMAGE_PERSON_EDIT_INPUT`: local image path for the real image-edit smoke
+  test.
+- `IMAGE_PERSON_EDIT_DETECTOR_COMMAND`: detector command path for the real
+  image-edit smoke test.
+- `IMAGE_PERSON_EDIT_EDITOR_COMMAND`: optional editor command path for the real
+  image-edit smoke test.
+
 ## Model Backend Python Dependencies
 
 Native or external model-backend experiments can use an isolated Python

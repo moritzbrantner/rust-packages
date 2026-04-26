@@ -8,6 +8,7 @@ pub enum PortKind {
     YoutubeUrl,
     YoutubeCollectionUrl,
     VideoFile,
+    ImageFile,
     AudioFile,
     MediaFile,
     Transcript,
@@ -43,6 +44,7 @@ pub enum WorkflowSemanticKind {
     YoutubeUrl,
     YoutubeCollectionUrl,
     VideoFile,
+    ImageFile,
     AudioFile,
     AudioWav,
     MediaFile,
@@ -289,6 +291,9 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
             port("file", "Video File", PortKind::VideoFile)
                 .exposable_input(WorkflowInputSurface::File)
                 .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("image", "Image File", PortKind::ImageFile)
+                .exposable_input(WorkflowInputSurface::File)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
         ]),
         node(
             "vite-api",
@@ -328,6 +333,63 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
         ])
         .outputs(vec![
             port("file", "Video", PortKind::VideoFile),
+            port("report", "Report", PortKind::JsonReport),
+        ]),
+        node(
+            "video-red-cars-workflow",
+            "Video Red Cars Workflow",
+            "video-analysis-use-cases",
+            WorkflowCategory::Video,
+            false,
+        )
+        .inputs(vec![
+            port("file", "File", PortKind::VideoFile)
+                .exposable_input(WorkflowInputSurface::File)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("args", "Args", PortKind::RunConfig)
+                .exposable_input(WorkflowInputSurface::Config)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+        ])
+        .outputs(vec![
+            port("file", "Video", PortKind::VideoFile),
+            port("report", "Report", PortKind::JsonReport),
+        ]),
+        node(
+            "audio-voice-analysis-workflow",
+            "Audio Voice Analysis Workflow",
+            "video-analysis-use-cases",
+            WorkflowCategory::Audio,
+            false,
+        )
+        .inputs(vec![
+            port("file", "Audio", PortKind::AudioFile)
+                .exposable_input(WorkflowInputSurface::File)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("args", "Args", PortKind::RunConfig)
+                .exposable_input(WorkflowInputSurface::Config)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+        ])
+        .outputs(vec![
+            port("audio", "Audio", PortKind::AudioFile),
+            port("report", "Report", PortKind::JsonReport),
+        ]),
+        node(
+            "image-person-edit-workflow",
+            "Image Person Edit Workflow",
+            "video-analysis-use-cases",
+            WorkflowCategory::Ui,
+            false,
+        )
+        .inputs(vec![
+            port("image", "Image", PortKind::ImageFile)
+                .exposable_input(WorkflowInputSurface::File)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+            port("args", "Args", PortKind::RunConfig)
+                .exposable_input(WorkflowInputSurface::Config)
+                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
+        ])
+        .outputs(vec![
+            port("image", "Image", PortKind::ImageFile),
             port("report", "Report", PortKind::JsonReport),
         ]),
         node(
@@ -609,7 +671,7 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
     ];
 
     WorkflowCatalog {
-        version: 3,
+        version: 4,
         port_kinds: all_port_kinds(),
         compatibility: compatibility_pairs(),
         nodes,
@@ -753,6 +815,7 @@ fn all_port_kinds() -> Vec<PortKind> {
         YoutubeUrl,
         YoutubeCollectionUrl,
         VideoFile,
+        ImageFile,
         AudioFile,
         MediaFile,
         Transcript,
@@ -807,6 +870,7 @@ fn workflow_type_for_port_kind(kind: PortKind) -> WorkflowTypeSpec {
         YoutubeUrl => string_type(Some(WorkflowSemanticKind::YoutubeUrl)),
         YoutubeCollectionUrl => string_type(Some(WorkflowSemanticKind::YoutubeCollectionUrl)),
         VideoFile => binary_type(Some("video/*"), Some(WorkflowSemanticKind::VideoFile)),
+        ImageFile => binary_type(Some("image/*"), Some(WorkflowSemanticKind::ImageFile)),
         AudioFile => binary_type(Some("audio/*"), Some(WorkflowSemanticKind::AudioFile)),
         MediaFile => binary_type(None, Some(WorkflowSemanticKind::MediaFile)),
         Transcript => open_object(Some(WorkflowSemanticKind::Transcript)),
@@ -1056,6 +1120,24 @@ mod tests {
         assert_eq!(config_port["exposable_input"], true);
         assert_eq!(config_port["input_surface"], "config");
         assert_eq!(config_port["runtime_validation"], "external_input");
-        assert_eq!(json["version"], 3);
+        assert_eq!(json["version"], 4);
+    }
+
+    #[test]
+    fn workflow_catalog_includes_new_use_case_nodes_and_image_ports() {
+        let catalog = default_workflow_catalog();
+        assert!(catalog.port_kinds.contains(&PortKind::ImageFile));
+        assert!(catalog
+            .nodes
+            .iter()
+            .any(|node| node.id == "video-red-cars-workflow"));
+        assert!(catalog
+            .nodes
+            .iter()
+            .any(|node| node.id == "audio-voice-analysis-workflow"));
+        assert!(catalog
+            .nodes
+            .iter()
+            .any(|node| node.id == "image-person-edit-workflow"));
     }
 }

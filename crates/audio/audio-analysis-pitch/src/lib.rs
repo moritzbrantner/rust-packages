@@ -67,6 +67,82 @@ impl PitchEstimate {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PitchFrameEstimate {
+    pub start_seconds: f64,
+    pub end_seconds: f64,
+    pub frequency_hz: Option<f32>,
+    pub confidence: f32,
+}
+
+impl PitchFrameEstimate {
+    pub fn note_name(&self) -> Option<String> {
+        self.frequency_hz.and_then(frequency_to_note_name)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SungNoteSegment {
+    pub start_seconds: f64,
+    pub end_seconds: f64,
+    pub frequency_hz: f32,
+    pub midi_note: f32,
+    pub note_name: String,
+    pub confidence: f32,
+    pub frames: usize,
+}
+
+pub fn segment_pitch_track(
+    frames: &[PitchFrameEstimate],
+    max_gap_seconds: f64,
+    min_duration_seconds: f64,
+) -> Vec<SungNoteSegment> {
+    let mut segments: Vec<SungNoteSegment> = Vec::new();
+    for frame in frames {
+        let Some(frequency_hz) = frame.frequency_hz else {
+            continue;
+        };
+        let Some(note_name) = frame.note_name() else {
+            continue;
+        };
+        let midi_note = frequency_to_midi_note(frequency_hz).unwrap_or(0.0);
+        if let Some(last) = segments.last_mut() {
+            let same_note = last.note_name == note_name;
+            let small_gap = frame.start_seconds - last.end_seconds <= max_gap_seconds.max(0.0);
+            if same_note && small_gap {
+                let total_frames = last.frames + 1;
+                last.end_seconds = last.end_seconds.max(frame.end_seconds);
+                last.frequency_hz =
+                    ((last.frequency_hz * last.frames as f32) + frequency_hz) / total_frames as f32;
+                last.midi_note =
+                    ((last.midi_note * last.frames as f32) + midi_note) / total_frames as f32;
+                last.confidence = ((last.confidence * last.frames as f32) + frame.confidence)
+                    / total_frames as f32;
+                last.frames = total_frames;
+                continue;
+            }
+        }
+
+        segments.push(SungNoteSegment {
+            start_seconds: frame.start_seconds,
+            end_seconds: frame.end_seconds,
+            frequency_hz,
+            midi_note,
+            note_name,
+            confidence: frame.confidence,
+            frames: 1,
+        });
+    }
+
+    segments
+        .into_iter()
+        .filter(|segment| segment.end_seconds > segment.start_seconds)
+        .filter(|segment| {
+            segment.end_seconds - segment.start_seconds >= min_duration_seconds.max(0.0)
+        })
+        .collect()
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PitchSmoother {
     window_size: usize,
@@ -474,5 +550,38 @@ mod tests {
         assert_eq!(a.frequency_hz, Some(440.0));
         assert_eq!(b.frequency_hz, Some(460.0));
         assert_eq!(c.frequency_hz, Some(442.0));
+    }
+
+    #[test]
+    fn segment_pitch_track_merges_adjacent_notes() {
+        let segments = segment_pitch_track(
+            &[
+                PitchFrameEstimate {
+                    start_seconds: 0.0,
+                    end_seconds: 0.08,
+                    frequency_hz: Some(440.0),
+                    confidence: 0.8,
+                },
+                PitchFrameEstimate {
+                    start_seconds: 0.08,
+                    end_seconds: 0.16,
+                    frequency_hz: Some(441.0),
+                    confidence: 0.85,
+                },
+                PitchFrameEstimate {
+                    start_seconds: 0.30,
+                    end_seconds: 0.44,
+                    frequency_hz: Some(493.88),
+                    confidence: 0.9,
+                },
+            ],
+            0.08,
+            0.1,
+        );
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].note_name, "A4");
+        assert!(segments[0].end_seconds >= 0.16);
+        assert_eq!(segments[1].note_name, "B4");
     }
 }

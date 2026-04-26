@@ -13,6 +13,21 @@ cargo run -p video-analysis-use-cases -- youtube-video \
   --url "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
   --work-dir use-case-output/youtube-video \
   --output use-case-output/youtube-video/analysis.json
+
+cargo run -p video-analysis-use-cases -- video-red-cars \
+  --input ./traffic.mp4 \
+  --vehicle-detector-command python3 \
+  --vehicle-detector-arg scripts/opencv_red_car_detector.py
+
+cargo run -p video-analysis-use-cases -- audio-voice-analysis \
+  --input ./voice.wav
+
+cargo run -p video-analysis-use-cases -- image-person-edit \
+  --input ./portrait.png \
+  --prompt "replace the detected person with a marble statue" \
+  --model flux1-dev.safetensors \
+  --person-detector-command python3 \
+  --person-detector-arg scripts/opencv_person_detector.py
 ```
 
 ## Config files

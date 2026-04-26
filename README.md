@@ -517,6 +517,25 @@ cargo run -p video-analysis-use-cases -- youtube-video \
 The output report includes local asset paths, scenes, observations, transcript
 segments, audio events, text events, and data bucket summaries.
 
+Additional runnable local-file workflows live in the same crate:
+
+```bash
+cargo run -p video-analysis-use-cases -- video-red-cars \
+  --input ./traffic.mp4 \
+  --vehicle-detector-command python3 \
+  --vehicle-detector-arg scripts/opencv_red_car_detector.py
+
+cargo run -p video-analysis-use-cases -- audio-voice-analysis \
+  --input ./voice.wav
+
+cargo run -p video-analysis-use-cases -- image-person-edit \
+  --input ./portrait.png \
+  --prompt "replace the detected person with a marble statue" \
+  --model flux1-dev.safetensors \
+  --person-detector-command python3 \
+  --person-detector-arg scripts/opencv_person_detector.py
+```
+
 Radiance-field crates now include a library-first composition layer:
 `video-analysis-radiance-fields` owns shared scene/camera contracts,
 `video-analysis-radiance-io` owns COLMAP/Nerfstudio/PLY parsing, and

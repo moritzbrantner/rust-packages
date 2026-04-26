@@ -144,6 +144,7 @@ fn write_srt_file(path: &Path, segments: &[TranscriptSegmentReport]) -> Result<(
         .map_err(|err| DetectError::Source(err.to_string()))
 }
 
+#[cfg(test)]
 fn srt_text(segments: &[TranscriptSegmentReport]) -> String {
     text_analysis_transcription::format_srt(&transcription_segments(segments))
 }

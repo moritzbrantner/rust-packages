@@ -15,8 +15,16 @@ pub enum ImageGenerationMode {
     Upscale,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ComfyWorkflowPreset {
+    #[default]
+    StandardStableDiffusion,
+    FluxInpaint,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageGenerationRequest {
+    pub preset: ComfyWorkflowPreset,
     pub mode: ImageGenerationMode,
     pub prompt: String,
     pub negative_prompt: String,
@@ -38,6 +46,7 @@ pub struct ImageGenerationRequest {
 impl ImageGenerationRequest {
     pub fn new(prompt: impl Into<String>) -> Self {
         Self {
+            preset: ComfyWorkflowPreset::default(),
             mode: ImageGenerationMode::TextToImage,
             prompt: prompt.into(),
             negative_prompt: String::new(),
@@ -55,6 +64,11 @@ impl ImageGenerationRequest {
             output_prefix: "image_analysis".to_string(),
             upscale_model: "4x-UltraSharp.pth".to_string(),
         }
+    }
+
+    pub fn preset(mut self, value: ComfyWorkflowPreset) -> Self {
+        self.preset = value;
+        self
     }
 
     pub fn mode(mut self, value: ImageGenerationMode) -> Self {
@@ -131,11 +145,14 @@ impl ImageGenerationRequest {
 
 pub fn build_generation_workflow(request: &ImageGenerationRequest) -> Result<ComfyWorkflow> {
     validate_request(request)?;
-    let workflow = match request.mode {
-        ImageGenerationMode::TextToImage => build_text_to_image_workflow(request),
-        ImageGenerationMode::ImageToImage => build_image_to_image_workflow(request),
-        ImageGenerationMode::Inpaint => build_inpaint_workflow(request),
-        ImageGenerationMode::Upscale => build_upscale_workflow(request),
+    let workflow = match (request.preset, request.mode) {
+        (ComfyWorkflowPreset::FluxInpaint, ImageGenerationMode::Inpaint) => {
+            build_flux_inpaint_workflow(request)
+        }
+        (_, ImageGenerationMode::TextToImage) => build_text_to_image_workflow(request),
+        (_, ImageGenerationMode::ImageToImage) => build_image_to_image_workflow(request),
+        (_, ImageGenerationMode::Inpaint) => build_inpaint_workflow(request),
+        (_, ImageGenerationMode::Upscale) => build_upscale_workflow(request),
     };
     workflow
         .validate()
@@ -472,6 +489,128 @@ fn build_upscale_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
     )
 }
 
+fn build_flux_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
+    let links = vec![
+        WorkflowLink::new(1, 1_u64, 0, 8_u64, 0, "IMAGE"),
+        WorkflowLink::new(2, 2_u64, 0, 8_u64, 2, "MASK"),
+        WorkflowLink::new(3, 3_u64, 0, 6_u64, 0, "CLIP"),
+        WorkflowLink::new(4, 3_u64, 0, 7_u64, 0, "CLIP"),
+        WorkflowLink::new(5, 4_u64, 0, 9_u64, 0, "MODEL"),
+        WorkflowLink::new(6, 5_u64, 0, 8_u64, 1, "VAE"),
+        WorkflowLink::new(7, 5_u64, 0, 10_u64, 1, "VAE"),
+        WorkflowLink::new(8, 6_u64, 0, 9_u64, 1, "CONDITIONING"),
+        WorkflowLink::new(9, 7_u64, 0, 9_u64, 2, "CONDITIONING"),
+        WorkflowLink::new(10, 8_u64, 0, 9_u64, 3, "LATENT"),
+        WorkflowLink::new(11, 9_u64, 0, 10_u64, 0, "LATENT"),
+        WorkflowLink::new(12, 10_u64, 0, 11_u64, 0, "IMAGE"),
+    ];
+    workflow(
+        vec![
+            node(
+                1,
+                "LoadImage",
+                vec![],
+                vec![output("IMAGE", "IMAGE", 0, &[1])],
+                vec![Value::String(
+                    request.input_image.clone().unwrap_or_default(),
+                )],
+            ),
+            node(
+                2,
+                "LoadImageMask",
+                vec![],
+                vec![output("MASK", "MASK", 0, &[2])],
+                vec![Value::String(
+                    request.mask_image.clone().unwrap_or_default(),
+                )],
+            ),
+            node(
+                3,
+                "DualCLIPLoader",
+                vec![],
+                vec![output("CLIP", "CLIP", 0, &[3, 4])],
+                vec![
+                    Value::String("clip_l.safetensors".to_string()),
+                    Value::String("t5xxl_fp8_e4m3fn.safetensors".to_string()),
+                    Value::String("flux".to_string()),
+                ],
+            ),
+            node(
+                4,
+                "UNETLoader",
+                vec![],
+                vec![output("MODEL", "MODEL", 0, &[5])],
+                vec![
+                    Value::String(request.checkpoint.clone()),
+                    Value::String("default".to_string()),
+                ],
+            ),
+            node(
+                5,
+                "VAELoader",
+                vec![],
+                vec![output("VAE", "VAE", 0, &[6, 7])],
+                vec![Value::String("ae.safetensors".to_string())],
+            ),
+            node(
+                6,
+                "CLIPTextEncode",
+                vec![linked_input("clip", "CLIP", 3)],
+                vec![output("CONDITIONING", "CONDITIONING", 0, &[8])],
+                vec![Value::String(request.prompt.clone())],
+            ),
+            node(
+                7,
+                "CLIPTextEncode",
+                vec![linked_input("clip", "CLIP", 4)],
+                vec![output("CONDITIONING", "CONDITIONING", 0, &[9])],
+                vec![Value::String(request.negative_prompt.clone())],
+            ),
+            node(
+                8,
+                "VAEEncodeForInpaint",
+                vec![
+                    linked_input("pixels", "IMAGE", 1),
+                    linked_input("vae", "VAE", 6),
+                    linked_input("mask", "MASK", 2),
+                ],
+                vec![output("LATENT", "LATENT", 0, &[10])],
+                vec![],
+            ),
+            node(
+                9,
+                "KSampler",
+                vec![
+                    linked_input("model", "MODEL", 5),
+                    linked_input("positive", "CONDITIONING", 8),
+                    linked_input("negative", "CONDITIONING", 9),
+                    linked_input("latent_image", "LATENT", 10),
+                ],
+                vec![output("LATENT", "LATENT", 0, &[11])],
+                sampler_widgets(request, request.denoise),
+            ),
+            node(
+                10,
+                "VAEDecode",
+                vec![
+                    linked_input("samples", "LATENT", 11),
+                    linked_input("vae", "VAE", 7),
+                ],
+                vec![output("IMAGE", "IMAGE", 0, &[12])],
+                vec![],
+            ),
+            node(
+                11,
+                "SaveImage",
+                vec![linked_input("images", "IMAGE", 12)],
+                vec![],
+                vec![Value::String(request.output_prefix.clone())],
+            ),
+        ],
+        links,
+    )
+}
+
 fn validate_request(request: &ImageGenerationRequest) -> Result<()> {
     if request.width == 0 || request.height == 0 {
         return Err(DetectError::InvalidDimensions {
@@ -621,6 +760,27 @@ mod tests {
             .nodes
             .iter()
             .any(|node| node.node_type == "VAEEncodeForInpaint"));
+    }
+
+    #[test]
+    fn builds_flux_inpaint_workflow() {
+        let workflow = build_generation_workflow(
+            &ImageGenerationRequest::new("replace the person with a sculpture")
+                .preset(ComfyWorkflowPreset::FluxInpaint)
+                .mode(ImageGenerationMode::Inpaint)
+                .checkpoint("flux1-dev.safetensors")
+                .input_image("input.png")
+                .mask_image("mask.png"),
+        )
+        .unwrap();
+        assert!(workflow
+            .nodes
+            .iter()
+            .any(|node| node.node_type == "UNETLoader"));
+        assert!(workflow
+            .nodes
+            .iter()
+            .any(|node| node.node_type == "DualCLIPLoader"));
     }
 
     #[test]

@@ -155,9 +155,10 @@ pub(crate) fn transcribe_media(
         if prepared.engine == TranscriptionEngine::WhisperCpp {
             run_whisper_cpp_transcriber(&prepared, &audio_path, progress)
         } else {
-            let command = prepared.command.clone().ok_or_else(|| {
-                DetectError::Source(default_transcriber_message(prepared.engine))
-            })?;
+            let command = prepared
+                .command
+                .clone()
+                .ok_or_else(|| DetectError::Source(default_transcriber_message(prepared.engine)))?;
             progress(WhisperCppProgressEvent {
                 phase: WhisperCppPhase::Preparing,
                 message: format!(

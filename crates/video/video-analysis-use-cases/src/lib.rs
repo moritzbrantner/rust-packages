@@ -34,6 +34,16 @@ use video_analysis_models::{
 };
 
 pub const YOUTUBE_VIDEO_USE_CASE: &str = "youtube-video";
+pub const VIDEO_RED_CARS_USE_CASE: &str = "video-red-cars";
+pub const AUDIO_VOICE_ANALYSIS_USE_CASE: &str = "audio-voice-analysis";
+pub const IMAGE_PERSON_EDIT_USE_CASE: &str = "image-person-edit";
+
+pub mod audio_voice_analysis;
+pub mod image_person_edit;
+mod song_impl;
+mod subtitle_impl;
+pub mod video_red_cars;
+mod workflow_support;
 
 pub mod workflow_catalog;
 
@@ -54,6 +64,25 @@ pub mod youtube {
         YoutubeCollectionReport, YoutubeCollectionRunRequest, YoutubeCollectionSource,
         YoutubeCollectionSourceReport, YoutubeRunOptions, YoutubeRunRequest, YoutubeVideoReport,
         YoutubeVideoRequest, YOUTUBE_VIDEO_USE_CASE,
+    };
+}
+
+pub mod song {
+    pub use crate::song_impl::{
+        import_song_catalog_items, run_song_analysis_workflow, MusicAnalysisConfig,
+        MusicAnalysisReport, MusicFeatureReport, MusicSegmentReport, SongAnalysisReport,
+        SongAnalysisRunRequest, SongAssetReport, SongCatalogConfig, SongCatalogImportItem,
+        SongCatalogImportRequest, SongCatalogImportResponse, SongCatalogImportResult,
+        SongCatalogMetadata, SongFingerprintQueryReport, SongIdentificationConfig,
+        SongIdentificationReport, SongMatchCandidateReport, SongMatchedSegmentReport,
+        SongSourceReport,
+    };
+}
+
+pub mod subtitle {
+    pub use crate::subtitle_impl::{
+        run_subtitle_generation_workflow, SubtitleAssetReport, SubtitleGenerationReport,
+        SubtitleGenerationRunRequest, SubtitleReport,
     };
 }
 

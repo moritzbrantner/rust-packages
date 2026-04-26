@@ -3,6 +3,15 @@ use std::path::{Path, PathBuf};
 
 use clap::{ArgGroup, CommandFactory, FromArgMatches, Parser, Subcommand};
 use video_analysis_core::Result;
+use video_analysis_use_cases::audio_voice_analysis::{
+    run_audio_voice_analysis, write_audio_voice_analysis_report, AudioVoiceAnalysisRequest,
+};
+use video_analysis_use_cases::image_person_edit::{
+    run_image_person_edit, write_image_person_edit_report, ImagePersonEditRequest,
+};
+use video_analysis_use_cases::video_red_cars::{
+    run_video_red_cars, write_video_red_cars_report, VideoRedCarsRequest,
+};
 use video_analysis_use_cases::youtube::{
     run_youtube_video, write_youtube_video_report, AudioSeparationConfig, TranscriptionEngine,
     WhisperCppConfig, YoutubeVideoRequest,
@@ -22,6 +31,9 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum CommandKind {
     YoutubeVideo(YoutubeVideoArgs),
+    VideoRedCars(VideoRedCarsArgs),
+    AudioVoiceAnalysis(AudioVoiceAnalysisArgs),
+    ImagePersonEdit(ImagePersonEditArgs),
 }
 
 #[derive(Debug, Parser)]
@@ -98,6 +110,130 @@ impl From<YoutubeVideoArgs> for YoutubeVideoRequest {
     }
 }
 
+#[derive(Debug, Parser)]
+struct VideoRedCarsArgs {
+    #[arg(long)]
+    input: PathBuf,
+    #[arg(long, default_value = "use-case-output/video-red-cars")]
+    work_dir: PathBuf,
+    #[arg(long)]
+    output: Option<PathBuf>,
+    #[arg(long, default_value_t = 27.0)]
+    scene_threshold: f32,
+    #[arg(long, default_value_t = 15)]
+    min_scene_len: u64,
+    #[arg(long)]
+    max_frames: Option<u64>,
+    #[arg(long, default_value_t = 30)]
+    visual_sample_every: u64,
+    #[arg(long)]
+    vehicle_detector_command: PathBuf,
+    #[arg(long = "vehicle-detector-arg")]
+    vehicle_detector_args: Vec<String>,
+}
+
+impl From<VideoRedCarsArgs> for VideoRedCarsRequest {
+    fn from(args: VideoRedCarsArgs) -> Self {
+        Self {
+            input: args.input,
+            work_dir: args.work_dir,
+            output: args.output,
+            scene_threshold: args.scene_threshold,
+            min_scene_len: args.min_scene_len,
+            max_frames: args.max_frames,
+            visual_sample_every: args.visual_sample_every,
+            vehicle_detector_command: args.vehicle_detector_command,
+            vehicle_detector_args: args.vehicle_detector_args,
+        }
+    }
+}
+
+#[derive(Debug, Parser)]
+struct AudioVoiceAnalysisArgs {
+    #[arg(long)]
+    input: PathBuf,
+    #[arg(long, default_value = "use-case-output/audio-voice-analysis")]
+    work_dir: PathBuf,
+    #[arg(long)]
+    output: Option<PathBuf>,
+    #[arg(long)]
+    transcriber_command: Option<PathBuf>,
+    #[arg(long = "transcriber-arg")]
+    transcriber_args: Vec<String>,
+    #[arg(long)]
+    demucs_command: Option<PathBuf>,
+    #[arg(long)]
+    require_voice_stem: bool,
+}
+
+impl From<AudioVoiceAnalysisArgs> for AudioVoiceAnalysisRequest {
+    fn from(args: AudioVoiceAnalysisArgs) -> Self {
+        let mut request = AudioVoiceAnalysisRequest {
+            input: args.input,
+            work_dir: args.work_dir,
+            output: args.output,
+            ..AudioVoiceAnalysisRequest::default()
+        };
+        if let Some(command) = args.transcriber_command {
+            request.transcription.engine = TranscriptionEngine::Whisper;
+            request.transcription.command = Some(video_analysis_use_cases::ExternalCommandConfig {
+                command,
+                args: args.transcriber_args,
+            });
+        }
+        if let Some(command) = args.demucs_command {
+            request.audio_separation.command =
+                Some(video_analysis_use_cases::ExternalCommandConfig {
+                    command,
+                    args: Vec::new(),
+                });
+        }
+        request.require_voice_stem = args.require_voice_stem;
+        request
+    }
+}
+
+#[derive(Debug, Parser)]
+struct ImagePersonEditArgs {
+    #[arg(long)]
+    input: PathBuf,
+    #[arg(long, default_value = "use-case-output/image-person-edit")]
+    work_dir: PathBuf,
+    #[arg(long)]
+    output: Option<PathBuf>,
+    #[arg(long)]
+    prompt: String,
+    #[arg(long, default_value = "")]
+    negative_prompt: String,
+    #[arg(long)]
+    model: String,
+    #[arg(long)]
+    person_detector_command: PathBuf,
+    #[arg(long = "person-detector-arg")]
+    person_detector_args: Vec<String>,
+    #[arg(long)]
+    editor_command: Option<PathBuf>,
+    #[arg(long = "editor-arg")]
+    editor_args: Vec<String>,
+}
+
+impl From<ImagePersonEditArgs> for ImagePersonEditRequest {
+    fn from(args: ImagePersonEditArgs) -> Self {
+        Self {
+            input: args.input,
+            work_dir: args.work_dir,
+            output: args.output,
+            prompt: args.prompt,
+            negative_prompt: args.negative_prompt,
+            model: args.model,
+            person_detector_command: args.person_detector_command,
+            person_detector_args: args.person_detector_args,
+            editor_command: args.editor_command,
+            editor_args: args.editor_args,
+        }
+    }
+}
+
 fn main() -> Result<()> {
     let cli = parse_cli()?;
     match cli.command {
@@ -109,6 +245,36 @@ fn main() -> Result<()> {
                 .unwrap_or_else(|| request.work_dir.join("analysis.json"));
             let report = run_youtube_video(request)?;
             write_youtube_video_report(&report_path, &report)?;
+            println!("{}", report_path.display());
+        }
+        CommandKind::VideoRedCars(args) => {
+            let request = VideoRedCarsRequest::from(args);
+            let report_path = request
+                .output
+                .clone()
+                .unwrap_or_else(|| request.work_dir.join("analysis.json"));
+            let report = run_video_red_cars(request)?;
+            write_video_red_cars_report(&report_path, &report)?;
+            println!("{}", report_path.display());
+        }
+        CommandKind::AudioVoiceAnalysis(args) => {
+            let request = AudioVoiceAnalysisRequest::from(args);
+            let report_path = request
+                .output
+                .clone()
+                .unwrap_or_else(|| request.work_dir.join("analysis.json"));
+            let report = run_audio_voice_analysis(request)?;
+            write_audio_voice_analysis_report(&report_path, &report)?;
+            println!("{}", report_path.display());
+        }
+        CommandKind::ImagePersonEdit(args) => {
+            let request = ImagePersonEditRequest::from(args);
+            let report_path = request
+                .output
+                .clone()
+                .unwrap_or_else(|| request.work_dir.join("analysis.json"));
+            let report = run_image_person_edit(request)?;
+            write_image_person_edit_report(&report_path, &report)?;
             println!("{}", report_path.display());
         }
     }
@@ -186,8 +352,12 @@ mod tests {
         )
         .unwrap();
 
-        let CommandKind::YoutubeVideo(args) = cli.command;
-        assert_eq!(args.input, Some(PathBuf::from("input.mp4")));
+        match cli.command {
+            CommandKind::YoutubeVideo(args) => {
+                assert_eq!(args.input, Some(PathBuf::from("input.mp4")));
+            }
+            other => panic!("expected youtube-video command, got {other:?}"),
+        }
     }
 
     #[test]
@@ -211,8 +381,12 @@ mod tests {
         )
         .unwrap();
 
-        let CommandKind::YoutubeVideo(args) = cli.command;
-        assert_eq!(args.input, Some(PathBuf::from("cli.mp4")));
-        assert_eq!(args.work_dir, PathBuf::from("from-cli"));
+        match cli.command {
+            CommandKind::YoutubeVideo(args) => {
+                assert_eq!(args.input, Some(PathBuf::from("cli.mp4")));
+                assert_eq!(args.work_dir, PathBuf::from("from-cli"));
+            }
+            other => panic!("expected youtube-video command, got {other:?}"),
+        }
     }
 }

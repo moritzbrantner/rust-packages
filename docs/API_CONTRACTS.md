@@ -80,7 +80,7 @@ Runtime and external integration crates use a shared feature policy:
 | `video-analysis-radiance-io` | Radiance-field and 3DGS interchange formats | `video-analysis-core`, `video-analysis-radiance-fields`, `video-analysis-gaussian-splatting`, `video-analysis-reconstruction` | COLMAP text, Nerfstudio transforms, Gaussian splat PLY, preview PLY | Conversion tools and applications |
 | `video-analysis-reconstruction` | Sparse reconstruction and triangulation contracts | `video-analysis-core`, `video-analysis-radiance-fields` | Camera/image/point IDs, features, matches, tracks, sparse reconstruction, triangulation/projection helpers | Applications and future 3D workflows |
 | `video-analysis-cli` | `vanalyze` command-line composition | Core, detectors, FFmpeg, models, output, split | CLI commands and file outputs | End users and automation |
-| `video-analysis-use-cases` | Runnable end-to-end workflows | Core, data, detectors, FFmpeg, ingest, models | `youtube-video` workflow and JSON report schema | End users, `@video-analysis/ui`, web app |
+| `video-analysis-use-cases` | Runnable end-to-end workflows | Core, data, detectors, FFmpeg, ingest, models, audio/image helpers | `youtube-video`, `video-red-cars`, `audio-voice-analysis`, and `image-person-edit` workflow/report surfaces | End users, `@video-analysis/ui`, web app |
 | `@video-analysis/ui` | React/Tailwind views for analysis data | React peer deps and generated report/data shapes | TypeScript report types, component subpath exports, Tailwind content export | Web apps and report viewers |
 
 ## Canonical Core Contracts
@@ -931,9 +931,12 @@ The command contracts are:
   the lighter `onnx` feature only enables bundle validation and the command
   surface.
 
-`video-analysis-use-cases` exposes runnable workflows. The current workflow is:
+`video-analysis-use-cases` exposes runnable workflows. Current workflows are:
 
 - `video-analysis-use-cases youtube-video`
+- `video-analysis-use-cases video-red-cars`
+- `video-analysis-use-cases audio-voice-analysis`
+- `video-analysis-use-cases image-person-edit`
 
 The YouTube video workflow accepts a URL or local video input. It can use
 optional external transcriber, object, OCR, and text model commands. Its primary
@@ -949,6 +952,17 @@ The reusable Rust API is exposed through
   clap or writing files itself.
 - `write_youtube_video_report`, which writes the report JSON for CLI and
   automation use.
+- `VIDEO_RED_CARS_USE_CASE`, currently `"video-red-cars"`, plus
+  `VideoRedCarsRequest`, `VideoRedCarsRunRequest`, `VideoRedCarsReport`,
+  `run_video_red_cars`, and `write_video_red_cars_report`.
+- `AUDIO_VOICE_ANALYSIS_USE_CASE`, currently `"audio-voice-analysis"`, plus
+  `AudioVoiceAnalysisRequest`, `AudioVoiceAnalysisRunRequest`,
+  `AudioVoiceAnalysisReport`, `run_audio_voice_analysis`, and
+  `write_audio_voice_analysis_report`.
+- `IMAGE_PERSON_EDIT_USE_CASE`, currently `"image-person-edit"`, plus
+  `ImagePersonEditRequest`, `ImagePersonEditRunRequest`,
+  `ImagePersonEditReport`, `run_image_person_edit`, and
+  `write_image_person_edit_report`.
 
 ## Rust-To-UI JSON Report Contracts
 
@@ -1004,6 +1018,8 @@ Data buckets:
 Compatibility notes:
 
 - `use_case` is canonically `"youtube-video"`.
+- The additional workflow identifiers are `"video-red-cars"`,
+  `"audio-voice-analysis"`, and `"image-person-edit"`.
 - Rust numeric fields such as `u64`, `u32`, `f32`, and `f64` become TypeScript
   `number`.
 - Rust `Option<T>` appears as optional and/or nullable UI fields where currently
