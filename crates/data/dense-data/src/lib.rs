@@ -2,6 +2,8 @@
 
 use std::collections::BTreeMap;
 
+use math_linear::{F32Matrix, MatrixShape};
+use math_statistics::{CovarianceMatrix, PrincipalComponents, RunningCovariance};
 use numbers_core::{NumberSummary, RunningStats};
 use video_analysis_core::{DetectError, Result};
 
@@ -131,6 +133,27 @@ impl DenseDataset {
 
     pub fn k_means(&self, config: KMeansConfig) -> Result<ClusterResult> {
         k_means(&self.points, config)
+    }
+
+    pub fn matrix(&self) -> Result<F32Matrix> {
+        let dimensions = self
+            .dimensions
+            .ok_or_else(|| invalid_argument("dense dataset must not be empty"))?;
+        let mut values = Vec::with_capacity(self.points.len() * dimensions);
+        for point in &self.points {
+            values.extend(point.coordinates.iter().map(|value| *value as f32));
+        }
+        F32Matrix::new(MatrixShape::new(self.points.len(), dimensions)?, values)
+    }
+
+    pub fn covariance_matrix(&self) -> Result<CovarianceMatrix> {
+        let matrix = self.matrix()?;
+        RunningCovariance::from_matrix(&matrix.as_view())?.covariance_matrix()
+    }
+
+    pub fn principal_components(&self, component_count: usize) -> Result<PrincipalComponents> {
+        let matrix = self.matrix()?;
+        PrincipalComponents::fit(&matrix.as_view(), component_count)
     }
 }
 
@@ -763,6 +786,17 @@ mod tests {
         assert_eq!(summary.count, 2);
         assert_close(summary.coordinate_stats[0].mean.unwrap(), 7.0 / 3.0);
         assert_close(summary.coordinate_stats[1].mean.unwrap(), 10.0 / 3.0);
+    }
+
+    #[test]
+    fn dataset_exposes_covariance_and_pca_helpers() {
+        let dataset =
+            DenseDataset::from_points([point([1.0, 1.0]), point([2.0, 2.0]), point([3.0, 3.0])])
+                .unwrap();
+        let covariance = dataset.covariance_matrix().unwrap();
+        let pca = dataset.principal_components(1).unwrap();
+        assert_eq!(covariance.matrix.shape().rows, 2);
+        assert_eq!(pca.components().shape().rows, 1);
     }
 
     #[test]

@@ -3,6 +3,7 @@
 use std::collections::VecDeque;
 
 use audio_analysis_core::{interleaved_to_mono, normalized_samples, ChannelMix};
+use math_signal_core::{BiquadCoefficients as DesignedBiquadCoefficients, SampleRate};
 use video_analysis_core::{
     AnalysisEvent, AudioAnalyzer, AudioBuffer, AudioFrame, DetectError, OwnedAudioFrame, Result,
 };
@@ -287,13 +288,7 @@ impl AudioTransform for DcBlock {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BiquadKind {
-    LowPass,
-    HighPass,
-    BandPass,
-    Notch,
-}
+pub use math_signal_core::BiquadDesign as BiquadKind;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BiquadSpec {
@@ -312,15 +307,6 @@ pub struct BiquadFilter {
 struct BiquadState {
     z1: f32,
     z2: f32,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct BiquadCoefficients {
-    b0: f32,
-    b1: f32,
-    b2: f32,
-    a1: f32,
-    a2: f32,
 }
 
 impl BiquadFilter {
@@ -554,53 +540,9 @@ fn owned_like(frame: &AudioFrame<'_>, samples: Vec<f32>) -> Result<OwnedAudioFra
     )
 }
 
-fn coefficients(spec: BiquadSpec, sample_rate: u32) -> Result<BiquadCoefficients> {
-    if !spec.cutoff_hz.is_finite() || spec.cutoff_hz <= 0.0 || !spec.q.is_finite() || spec.q <= 0.0
-    {
-        return Err(DetectError::InvalidArgument(
-            "biquad cutoff must be finite and positive, and q must be finite and positive"
-                .to_string(),
-        ));
-    }
-    let nyquist = sample_rate as f32 * 0.5;
-    if spec.cutoff_hz >= nyquist {
-        return Err(DetectError::InvalidArgument(
-            "biquad cutoff must be below Nyquist".to_string(),
-        ));
-    }
-
-    let omega = 2.0 * std::f32::consts::PI * spec.cutoff_hz / sample_rate as f32;
-    let sin = omega.sin();
-    let cos = omega.cos();
-    let alpha = sin / (2.0 * spec.q);
-    let (b0, b1, b2, a0, a1, a2) = match spec.kind {
-        BiquadKind::LowPass => (
-            (1.0 - cos) * 0.5,
-            1.0 - cos,
-            (1.0 - cos) * 0.5,
-            1.0 + alpha,
-            -2.0 * cos,
-            1.0 - alpha,
-        ),
-        BiquadKind::HighPass => (
-            (1.0 + cos) * 0.5,
-            -(1.0 + cos),
-            (1.0 + cos) * 0.5,
-            1.0 + alpha,
-            -2.0 * cos,
-            1.0 - alpha,
-        ),
-        BiquadKind::BandPass => (alpha, 0.0, -alpha, 1.0 + alpha, -2.0 * cos, 1.0 - alpha),
-        BiquadKind::Notch => (1.0, -2.0 * cos, 1.0, 1.0 + alpha, -2.0 * cos, 1.0 - alpha),
-    };
-
-    Ok(BiquadCoefficients {
-        b0: b0 / a0,
-        b1: b1 / a0,
-        b2: b2 / a0,
-        a1: a1 / a0,
-        a2: a2 / a0,
-    })
+fn coefficients(spec: BiquadSpec, sample_rate: u32) -> Result<DesignedBiquadCoefficients> {
+    spec.kind
+        .design(SampleRate::new(sample_rate)?, spec.cutoff_hz, spec.q)
 }
 
 #[cfg(test)]

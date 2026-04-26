@@ -16,6 +16,7 @@ use audio_analysis_separation::{
     Stem, StemLayout,
 };
 use audio_analysis_synthesis::{synthesize_tone, AudioSynthesisConfig, ToneSpec};
+use math_signal_core::{BiquadDesign, SampleRate, WindowFunction};
 use num_rational::Rational64;
 use support::{click_track, owned_f32_frame, sine};
 use tempfile::tempdir;
@@ -131,5 +132,17 @@ fn audio_and_text_packages_support_smoke_workflows() -> Result<(), Box<dyn std::
         .any(|entity| entity.mention.text.contains("Alice")));
 
     let _ = Rational64::new(30, 1);
+
+    let windowed = WindowFunction::Hann.apply(&[1.0, 1.0, 1.0, 1.0]);
+    assert!(windowed[1] > 0.7);
+    BiquadDesign::LowPass.design(SampleRate::new(sample_rate)?, 1_000.0, 0.707)?;
+
+    let corpus = text_analysis_corpus::TfIdfCorpus::from_texts(
+        ["rust cargo crates", "video scene reports"],
+        text_analysis_corpus::CorpusOptions::default(),
+    )?;
+    let sparse = corpus.sparse_term_matrix()?;
+    assert_eq!(sparse.matrix.rows(), 2);
+
     Ok(())
 }

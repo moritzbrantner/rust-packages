@@ -13,6 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+math-geometry-2d.workspace = true
 serde.workspace = true
 three-d-processing-core.workspace = true
 video-analysis-core.workspace = true

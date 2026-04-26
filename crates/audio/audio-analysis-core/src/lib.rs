@@ -1,5 +1,10 @@
 #![doc = include_str!("../README.md")]
 
+pub use math_signal_core::{
+    BiquadCoefficients, BiquadDesign, FirKernel1d, FrameStride, InterpolationMode, ResampleRatio,
+    ResampleSpec, SampleRate, WindowFunction, WindowSpec,
+};
+
 use tensor_data::{F32Tensor, F32TensorView};
 use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result, Timebase, Timestamp};
 
@@ -208,11 +213,7 @@ pub struct FrameSpec {
 
 impl FrameSpec {
     pub fn new(frame_size: usize, hop_size: usize) -> Result<Self> {
-        if frame_size == 0 || hop_size == 0 {
-            return Err(DetectError::InvalidArgument(
-                "frame_size and hop_size must be greater than zero".to_string(),
-            ));
-        }
+        FrameStride::new(frame_size, hop_size)?;
         Ok(Self {
             frame_size,
             hop_size,
@@ -228,10 +229,24 @@ impl FrameSpec {
     }
 
     pub fn frame_count(&self, samples_len: usize) -> usize {
-        if samples_len < self.frame_size {
-            return 0;
+        FrameStride::from(*self).frame_count(samples_len)
+    }
+}
+
+impl From<FrameSpec> for FrameStride {
+    fn from(value: FrameSpec) -> Self {
+        Self {
+            frame_size: value.frame_size,
+            hop_size: value.hop_size,
         }
-        1 + (samples_len - self.frame_size) / self.hop_size
+    }
+}
+
+impl TryFrom<FrameStride> for FrameSpec {
+    type Error = DetectError;
+
+    fn try_from(value: FrameStride) -> Result<Self> {
+        Self::new(value.frame_size, value.hop_size)
     }
 }
 
@@ -421,41 +436,6 @@ impl StreamingFrameBuffer {
             "streaming audio buffer exceeded max_buffered_samples ({})",
             self.config.max_buffered_samples
         )))
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WindowFunction {
-    Rectangular,
-    Hann,
-    Hamming,
-    Blackman,
-}
-
-impl WindowFunction {
-    pub fn coefficient(self, index: usize, len: usize) -> f32 {
-        if len <= 1 {
-            return 1.0;
-        }
-        let phase = 2.0 * std::f32::consts::PI * index as f32 / (len - 1) as f32;
-        match self {
-            Self::Rectangular => 1.0,
-            Self::Hann => 0.5 - 0.5 * phase.cos(),
-            Self::Hamming => 0.54 - 0.46 * phase.cos(),
-            Self::Blackman => 0.42 - 0.5 * phase.cos() + 0.08 * (2.0 * phase).cos(),
-        }
-    }
-
-    pub fn weights(self, len: usize) -> Vec<f32> {
-        (0..len).map(|index| self.coefficient(index, len)).collect()
-    }
-
-    pub fn apply(self, samples: &[f32]) -> Vec<f32> {
-        samples
-            .iter()
-            .enumerate()
-            .map(|(index, sample)| sample * self.coefficient(index, samples.len()))
-            .collect()
     }
 }
 

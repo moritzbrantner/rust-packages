@@ -16,10 +16,12 @@ use candle_core::{DType as CandleDType, Device as CandleDevice, Tensor as Candle
 use candle_nn::{Linear as CandleLinear, Module as CandleModule, VarBuilder as CandleVarBuilder};
 #[cfg(feature = "candle")]
 use candle_transformers::models::{bert as candle_bert, distilbert as candle_distilbert};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use text_analysis_core::AnnotationProvenance;
 use text_analysis_semantics::{
-    DenseVector, TextEmbeddingBackend, TextEmbeddingBackendKind, TextEmbeddingMetadata,
+    DenseVector, TextEmbeddingBackend as SemanticTextEmbeddingBackend, TextEmbeddingBackendKind,
+    TextEmbeddingMetadata,
 };
 use video_analysis_core::{DetectError, Result, TextSegment};
 use video_analysis_models::{
@@ -108,7 +110,33 @@ pub trait TokenClassifier {
     fn runtime_backend(&self) -> TextRuntimeBackend;
 }
 
-pub trait SentenceEmbedder: TextEmbeddingBackend {
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EmbeddingModelInfo {
+    pub model_name: String,
+    pub dimensions: usize,
+    pub normalized: bool,
+    pub max_tokens: Option<usize>,
+}
+
+pub trait EmbeddingCacheHooks {
+    fn load(&self, text: &str) -> Option<DenseVector>;
+
+    fn store(&self, text: &str, vector: &DenseVector);
+}
+
+pub trait TextEmbedderBackend: SemanticTextEmbeddingBackend {
+    fn embed_batch(&self, texts: &[&str]) -> Result<Vec<DenseVector>> {
+        texts.iter().map(|text| self.embed_text(text)).collect()
+    }
+
+    fn model_info(&self) -> EmbeddingModelInfo;
+
+    fn cache_hooks(&self) -> Option<&dyn EmbeddingCacheHooks> {
+        None
+    }
+}
+
+pub trait SentenceEmbedder: TextEmbedderBackend {
     fn runtime_backend(&self) -> TextRuntimeBackend;
 }
 
@@ -755,6 +783,9 @@ pub struct OnnxTextEmbedder<R = UnavailableOnnxRunner> {
     runner: R,
     pooling: PoolingStrategy,
     normalize: bool,
+    model_name: String,
+    dimensions: Option<usize>,
+    max_tokens: Option<usize>,
 }
 
 #[cfg(not(feature = "onnx"))]
@@ -766,6 +797,9 @@ impl OnnxTextEmbedder<UnavailableOnnxRunner> {
             runner: UnavailableOnnxRunner,
             pooling: PoolingStrategy::Mean,
             normalize: true,
+            model_name: bundle.manifest.name,
+            dimensions: embedding_dimensions_from_config_path(&info.config_path)?,
+            max_tokens: model_max_tokens_from_config_path(&info.config_path)?,
         })
     }
 }
@@ -779,6 +813,9 @@ impl OnnxTextEmbedder<NativeOnnxRunner> {
             runner: NativeOnnxRunner::new(info.model_path)?,
             pooling: PoolingStrategy::Mean,
             normalize: true,
+            model_name: bundle.manifest.name,
+            dimensions: embedding_dimensions_from_config_path(&info.config_path)?,
+            max_tokens: model_max_tokens_from_config_path(&info.config_path)?,
         })
     }
 }
@@ -791,6 +828,9 @@ impl<R: OnnxTextEmbeddingRunner> OnnxTextEmbedder<R> {
             runner,
             pooling: PoolingStrategy::Mean,
             normalize: true,
+            model_name: bundle.manifest.name,
+            dimensions: embedding_dimensions_from_config_path(&info.config_path)?,
+            max_tokens: model_max_tokens_from_config_path(&info.config_path)?,
         })
     }
 
@@ -816,7 +856,7 @@ impl<R: OnnxTextEmbeddingRunner> OnnxTextEmbedder<R> {
     }
 }
 
-impl<R: OnnxTextEmbeddingRunner> TextEmbeddingBackend for OnnxTextEmbedder<R> {
+impl<R: OnnxTextEmbeddingRunner> SemanticTextEmbeddingBackend for OnnxTextEmbedder<R> {
     fn embed_text(&self, text: &str) -> Result<DenseVector> {
         let tokens = self.tokenizer.tokenize(text)?;
         self.embed_tokenized(&tokens)
@@ -826,8 +866,19 @@ impl<R: OnnxTextEmbeddingRunner> TextEmbeddingBackend for OnnxTextEmbedder<R> {
         TextEmbeddingMetadata {
             backend: TextEmbeddingBackendKind::Onnx,
             provenance: AnnotationProvenance::Onnx,
-            model_name: Some("onnx-text-embedder".to_string()),
-            dimensions: None,
+            model_name: Some(self.model_name.clone()),
+            dimensions: self.dimensions,
+        }
+    }
+}
+
+impl<R: OnnxTextEmbeddingRunner> TextEmbedderBackend for OnnxTextEmbedder<R> {
+    fn model_info(&self) -> EmbeddingModelInfo {
+        EmbeddingModelInfo {
+            model_name: self.model_name.clone(),
+            dimensions: self.dimensions.unwrap_or(0),
+            normalized: self.normalize,
+            max_tokens: self.max_tokens.or(self.tokenizer.max_length),
         }
     }
 }
@@ -967,6 +1018,9 @@ pub struct CandleTextEmbedder {
     architecture: CandleEmbeddingArchitecture,
     pooling: PoolingStrategy,
     normalize: bool,
+    model_name: String,
+    dimensions: Option<usize>,
+    max_tokens: Option<usize>,
 }
 
 impl CandleTextEmbedder {
@@ -981,6 +1035,8 @@ impl CandleTextEmbedder {
             ));
         }
         let architecture = embedding_architecture_from_config(&config)?;
+        let dimensions = embedding_dimensions_from_config(&config);
+        let max_tokens = model_max_tokens_from_config(&config);
         Ok(Self {
             tokenizer: TokenizerBundle::new(tokenizer_path),
             config,
@@ -988,6 +1044,9 @@ impl CandleTextEmbedder {
             architecture,
             pooling: PoolingStrategy::Mean,
             normalize: true,
+            model_name: bundle.manifest.name,
+            dimensions,
+            max_tokens,
         })
     }
 
@@ -1002,7 +1061,7 @@ impl CandleTextEmbedder {
     }
 }
 
-impl TextEmbeddingBackend for CandleTextEmbedder {
+impl SemanticTextEmbeddingBackend for CandleTextEmbedder {
     fn embed_text(&self, text: &str) -> Result<DenseVector> {
         let tokens = self.tokenizer.tokenize(text)?;
         self.embed_tokenized(&tokens)
@@ -1012,8 +1071,19 @@ impl TextEmbeddingBackend for CandleTextEmbedder {
         TextEmbeddingMetadata {
             backend: TextEmbeddingBackendKind::Candle,
             provenance: AnnotationProvenance::Candle,
-            model_name: Some("candle-text-embedder".to_string()),
-            dimensions: None,
+            model_name: Some(self.model_name.clone()),
+            dimensions: self.dimensions,
+        }
+    }
+}
+
+impl TextEmbedderBackend for CandleTextEmbedder {
+    fn model_info(&self) -> EmbeddingModelInfo {
+        EmbeddingModelInfo {
+            model_name: self.model_name.clone(),
+            dimensions: self.dimensions.unwrap_or(0),
+            normalized: self.normalize,
+            max_tokens: self.max_tokens.or(self.tokenizer.max_length),
         }
     }
 }
@@ -1045,6 +1115,17 @@ impl CandleTextEmbedder {
 impl SentenceEmbedder for CandleTextEmbedder {
     fn runtime_backend(&self) -> TextRuntimeBackend {
         TextRuntimeBackend::Candle
+    }
+}
+
+impl TextEmbedderBackend for text_analysis_semantics::HashedTextEmbedder {
+    fn model_info(&self) -> EmbeddingModelInfo {
+        EmbeddingModelInfo {
+            model_name: "hashed-text-embedder".to_string(),
+            dimensions: self.config.dimensions,
+            normalized: true,
+            max_tokens: None,
+        }
     }
 }
 
@@ -1193,6 +1274,30 @@ fn architectures_from_config(config: &Value) -> Vec<&str> {
         .flatten()
         .filter_map(Value::as_str)
         .collect::<Vec<_>>()
+}
+
+fn embedding_dimensions_from_config_path(config_path: &Path) -> Result<Option<usize>> {
+    Ok(embedding_dimensions_from_config(&read_json(config_path)?))
+}
+
+fn embedding_dimensions_from_config(config: &Value) -> Option<usize> {
+    config
+        .get("hidden_size")
+        .or_else(|| config.get("dim"))
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+}
+
+fn model_max_tokens_from_config_path(config_path: &Path) -> Result<Option<usize>> {
+    Ok(model_max_tokens_from_config(&read_json(config_path)?))
+}
+
+fn model_max_tokens_from_config(config: &Value) -> Option<usize> {
+    config
+        .get("max_position_embeddings")
+        .or_else(|| config.get("max_seq_len"))
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
 }
 
 fn required_bundle_file(bundle: &ModelBundle, remote_path: &str) -> Result<PathBuf> {

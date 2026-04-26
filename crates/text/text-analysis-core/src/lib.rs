@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use serde::{Deserialize, Serialize};
 use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
 use video_analysis_core::{OwnedTextSegment, TextSegment, Timestamp};
@@ -288,7 +289,7 @@ impl TextAnnotationGraph {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TextProcessingOptions {
     pub language: Option<String>,
     pub lowercase: bool,

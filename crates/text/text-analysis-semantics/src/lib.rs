@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use math_sparse_data::SparseVector;
 use text_analysis_core::{segment_document_id, tokenize_words, AnnotationProvenance, TextDocument};
 use text_analysis_corpus::{term_counts, CorpusOptions, TfIdfCorpus};
 use vector_analysis_core::cosine_similarity;
@@ -123,6 +124,46 @@ impl HashedTextEmbedder {
             values[index] += sign * (*count as f32).ln_1p() * idf;
         }
         DenseVector::new(values)?.l2_normalized()
+    }
+
+    pub fn embed_text_sparse(
+        &self,
+        text: &str,
+        corpus: Option<&TfIdfCorpus>,
+    ) -> Result<SparseVector> {
+        let counts = term_counts(text, &self.corpus_options);
+        self.embed_counts_sparse(&counts, corpus)
+    }
+
+    pub fn embed_counts_sparse(
+        &self,
+        counts: &BTreeMap<String, usize>,
+        corpus: Option<&TfIdfCorpus>,
+    ) -> Result<SparseVector> {
+        if counts.is_empty() {
+            return Err(invalid_argument("text must contain at least one term"));
+        }
+        let mut buckets = BTreeMap::<usize, f32>::new();
+        for (term, count) in counts {
+            let hash = stable_hash(term.as_bytes());
+            let index = hash as usize % self.config.dimensions;
+            let sign = if hash & 1 == 0 { 1.0 } else { -1.0 };
+            let idf = if self.config.use_idf {
+                corpus
+                    .map(|corpus| corpus.inverse_document_frequency(term))
+                    .unwrap_or(1.0)
+            } else {
+                1.0
+            };
+            *buckets.entry(index).or_insert(0.0) += sign * (*count as f32).ln_1p() * idf;
+        }
+        SparseVector::new(
+            self.config.dimensions,
+            buckets.keys().copied().collect(),
+            buckets.values().copied().collect(),
+        )?
+        .canonicalized()?
+        .normalize_l2()
     }
 }
 
@@ -724,5 +765,15 @@ mod tests {
             hashed.dimensions,
             Some(TextEmbeddingConfig::default().dimensions)
         );
+    }
+
+    #[test]
+    fn hashed_embedder_can_emit_sparse_vectors() {
+        let embedder = HashedTextEmbedder::default();
+        let sparse = embedder
+            .embed_text_sparse("rust cargo crates", None)
+            .unwrap();
+        assert_eq!(sparse.dimensions(), embedder.config.dimensions);
+        assert!(sparse.nnz() > 0);
     }
 }

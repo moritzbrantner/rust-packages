@@ -1,0 +1,937 @@
+#![doc = include_str!("../README.md")]
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use serde::{Deserialize, Serialize};
+use text_analysis_core::{tokenize, TextProcessingOptions, TokenKind};
+use text_analysis_corpus::{Bm25Corpus, Bm25Options, CorpusOptions};
+use text_analysis_models::{EmbeddingModelInfo, TextEmbedderBackend};
+use vector_analysis_index::{
+    SerializableVectorRecord, VectorRecord, VectorRecordMetadata, VectorSearchFilter,
+    VectorSearchIndex,
+};
+use video_analysis_core::{DetectError, Result};
+
+const TITLE_METADATA_KEY: &str = "__title";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SearchDocument {
+    pub id: String,
+    pub title: Option<String>,
+    pub body: String,
+    pub metadata: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DocumentChunk {
+    pub chunk_id: String,
+    pub document_id: String,
+    pub text: String,
+    pub ordinal: usize,
+    pub metadata: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IngestionOptions {
+    pub chunk_tokens: usize,
+    pub chunk_overlap_tokens: usize,
+    pub store_raw_text: bool,
+}
+
+impl Default for IngestionOptions {
+    fn default() -> Self {
+        Self {
+            chunk_tokens: 256,
+            chunk_overlap_tokens: 32,
+            store_raw_text: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct SearchFilter {
+    pub metadata_equals: BTreeMap<String, String>,
+    pub required_tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct HybridConfig {
+    pub semantic_weight: f32,
+    pub lexical_weight: f32,
+    pub rerank_window: usize,
+}
+
+impl Default for HybridConfig {
+    fn default() -> Self {
+        Self {
+            semantic_weight: 0.8,
+            lexical_weight: 0.2,
+            rerank_window: 64,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SearchQuery {
+    pub text: String,
+    pub top_k: usize,
+    pub filter: Option<SearchFilter>,
+    pub hybrid: HybridConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub chunk_id: String,
+    pub document_id: String,
+    pub score: f32,
+    pub semantic_score: f32,
+    pub lexical_score: f32,
+    pub snippet: String,
+    pub metadata: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IngestReport {
+    pub documents_received: usize,
+    pub documents_replaced: usize,
+    pub documents_skipped: usize,
+    pub chunks_indexed: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RetrievalIndex<B> {
+    embedder: B,
+    corpus_options: CorpusOptions,
+    bm25_options: Bm25Options,
+    chunks: BTreeMap<String, DocumentChunk>,
+    raw_text_by_chunk_id: BTreeMap<String, String>,
+    document_chunks: BTreeMap<String, Vec<String>>,
+    vectors: VectorSearchIndex,
+    bm25: Bm25Corpus,
+}
+
+impl<B: TextEmbedderBackend> RetrievalIndex<B> {
+    pub fn new(embedder: B) -> Self {
+        Self::with_options(embedder, CorpusOptions::default(), Bm25Options::default())
+    }
+
+    pub fn with_options(
+        embedder: B,
+        corpus_options: CorpusOptions,
+        bm25_options: Bm25Options,
+    ) -> Self {
+        Self {
+            embedder,
+            bm25: Bm25Corpus::new(bm25_options.clone()),
+            corpus_options,
+            bm25_options,
+            chunks: BTreeMap::new(),
+            raw_text_by_chunk_id: BTreeMap::new(),
+            document_chunks: BTreeMap::new(),
+            vectors: VectorSearchIndex::new(),
+        }
+    }
+
+    pub fn from_parts(
+        embedder: B,
+        corpus_options: CorpusOptions,
+        bm25_options: Bm25Options,
+        chunks: Vec<DocumentChunk>,
+        raw_text_by_chunk_id: BTreeMap<String, String>,
+        vector_records: Vec<SerializableVectorRecord>,
+    ) -> Result<Self> {
+        let mut index = Self::with_options(embedder, corpus_options, bm25_options);
+        for chunk in chunks {
+            index.insert_chunk_state(chunk);
+        }
+        index.raw_text_by_chunk_id = raw_text_by_chunk_id;
+        index.vectors = VectorSearchIndex::import_records(vector_records)?;
+        index.rebuild_bm25()?;
+        index.validate_vector_state()?;
+        Ok(index)
+    }
+
+    pub fn embedder(&self) -> &B {
+        &self.embedder
+    }
+
+    pub fn embedder_info(&self) -> EmbeddingModelInfo {
+        self.embedder.model_info()
+    }
+
+    pub fn corpus_options(&self) -> &CorpusOptions {
+        &self.corpus_options
+    }
+
+    pub fn bm25_options(&self) -> &Bm25Options {
+        &self.bm25_options
+    }
+
+    pub fn chunks(&self) -> Vec<&DocumentChunk> {
+        self.chunks.values().collect()
+    }
+
+    pub fn chunk(&self, chunk_id: &str) -> Option<&DocumentChunk> {
+        self.chunks.get(chunk_id)
+    }
+
+    pub fn raw_text(&self, chunk_id: &str) -> Option<&str> {
+        self.raw_text_by_chunk_id.get(chunk_id).map(String::as_str)
+    }
+
+    pub fn vector_records(&self) -> Vec<SerializableVectorRecord> {
+        self.vectors.export_records()
+    }
+
+    pub fn ingest_documents(
+        &mut self,
+        docs: &[SearchDocument],
+        options: &IngestionOptions,
+    ) -> Result<IngestReport> {
+        validate_ingestion_options(options)?;
+
+        let mut replaced = 0;
+        let mut skipped = 0;
+        for document in docs {
+            validate_document(document)?;
+            if self.document_chunks.contains_key(&document.id) {
+                self.remove_document(&document.id);
+                replaced += 1;
+            }
+
+            let chunks = chunk_document(document, options, &self.corpus_options.processing)?;
+            if chunks.is_empty() {
+                skipped += 1;
+                continue;
+            }
+
+            for chunk in chunks {
+                if options.store_raw_text {
+                    self.raw_text_by_chunk_id
+                        .insert(chunk.chunk_id.clone(), chunk.text.clone());
+                }
+                self.insert_chunk_state(chunk);
+            }
+        }
+
+        self.rebuild_indices()?;
+        Ok(IngestReport {
+            documents_received: docs.len(),
+            documents_replaced: replaced,
+            documents_skipped: skipped,
+            chunks_indexed: self.chunks.len(),
+        })
+    }
+
+    pub fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>> {
+        validate_query(query)?;
+        self.ensure_non_empty()?;
+
+        let normalized_query = normalize_query(&query.text, &self.corpus_options.processing)?;
+        let query_vector = self.embedder.embed_text(&normalized_query)?;
+        self.validate_query_dimensions(query_vector.dimensions())?;
+
+        let filter = query.filter.as_ref();
+        let overfetch = query
+            .hybrid
+            .rerank_window
+            .max(query.top_k)
+            .max(query.top_k * 4);
+        let semantic_hits = self.vectors.search_filtered(
+            query_vector.as_slice(),
+            overfetch,
+            filter.map(search_filter_to_vector_filter).as_ref(),
+        )?;
+        let lexical_hits = self.bm25.search(&normalized_query, overfetch)?;
+
+        let semantic_scores = semantic_hits
+            .iter()
+            .map(|hit| (hit.id.as_str().to_string(), hit.score))
+            .collect::<BTreeMap<_, _>>();
+        let lexical_scores = lexical_hits
+            .into_iter()
+            .filter(|hit| self.matches_filter(&hit.id, filter))
+            .map(|hit| (hit.id, hit.score))
+            .collect::<BTreeMap<_, _>>();
+
+        let normalized_semantic = normalize_scores(&semantic_scores);
+        let normalized_lexical = normalize_scores(&lexical_scores);
+
+        let mut merged_ids = normalized_semantic.keys().cloned().collect::<BTreeSet<_>>();
+        merged_ids.extend(normalized_lexical.keys().cloned());
+
+        let mut results = merged_ids
+            .into_iter()
+            .filter_map(|chunk_id| {
+                let chunk = self.chunks.get(&chunk_id)?;
+                let semantic_score = normalized_semantic.get(&chunk_id).copied().unwrap_or(0.0);
+                let lexical_score = normalized_lexical.get(&chunk_id).copied().unwrap_or(0.0);
+                let score = semantic_score * query.hybrid.semantic_weight
+                    + lexical_score * query.hybrid.lexical_weight;
+                Some(SearchResult {
+                    chunk_id: chunk.chunk_id.clone(),
+                    document_id: chunk.document_id.clone(),
+                    score,
+                    semantic_score,
+                    lexical_score,
+                    snippet: self.build_snippet(chunk, &normalized_query),
+                    metadata: chunk.metadata.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+
+        results.sort_by(|left, right| {
+            right
+                .score
+                .total_cmp(&left.score)
+                .then_with(|| right.semantic_score.total_cmp(&left.semantic_score))
+                .then_with(|| right.lexical_score.total_cmp(&left.lexical_score))
+                .then_with(|| left.chunk_id.cmp(&right.chunk_id))
+        });
+        results.truncate(query.top_k);
+        Ok(results)
+    }
+
+    pub fn related_chunks(&self, chunk_id: &str, top_k: usize) -> Result<Vec<SearchResult>> {
+        if top_k == 0 {
+            return Err(invalid_argument("search limit must be greater than zero"));
+        }
+        self.ensure_non_empty()?;
+
+        let query_record = self
+            .vectors
+            .records()
+            .iter()
+            .find(|record| record.id == chunk_id)
+            .ok_or_else(|| invalid_argument(format!("chunk `{chunk_id}` was not indexed")))?;
+        let hits = self
+            .vectors
+            .search_filtered(query_record.vector.as_slice(), top_k + 1, None)?;
+
+        let mut results = hits
+            .into_iter()
+            .filter(|hit| hit.id.as_str() != chunk_id)
+            .filter_map(|hit| {
+                let chunk = self.chunks.get(hit.id.as_str())?;
+                Some(SearchResult {
+                    chunk_id: chunk.chunk_id.clone(),
+                    document_id: chunk.document_id.clone(),
+                    score: hit.score,
+                    semantic_score: hit.score,
+                    lexical_score: 0.0,
+                    snippet: self.build_snippet(chunk, &chunk.text),
+                    metadata: chunk.metadata.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+        results.truncate(top_k);
+        Ok(results)
+    }
+
+    fn insert_chunk_state(&mut self, chunk: DocumentChunk) {
+        self.document_chunks
+            .entry(chunk.document_id.clone())
+            .or_default()
+            .push(chunk.chunk_id.clone());
+        self.chunks.insert(chunk.chunk_id.clone(), chunk);
+    }
+
+    fn remove_document(&mut self, document_id: &str) {
+        if let Some(chunk_ids) = self.document_chunks.remove(document_id) {
+            for chunk_id in chunk_ids {
+                self.chunks.remove(&chunk_id);
+                self.raw_text_by_chunk_id.remove(&chunk_id);
+            }
+        }
+    }
+
+    fn rebuild_indices(&mut self) -> Result<()> {
+        self.rebuild_bm25()?;
+        if self.chunks.is_empty() {
+            self.vectors = VectorSearchIndex::new();
+            return Ok(());
+        }
+
+        let texts = self
+            .chunks
+            .values()
+            .map(|chunk| {
+                self.raw_text_by_chunk_id
+                    .get(&chunk.chunk_id)
+                    .map(String::as_str)
+                    .unwrap_or(chunk.text.as_str())
+            })
+            .collect::<Vec<_>>();
+        let vectors = self.embedder.embed_batch(&texts)?;
+        if vectors.len() != self.chunks.len() {
+            return Err(invalid_argument(
+                "embedder returned a different number of vectors than input texts",
+            ));
+        }
+        self.validate_embedded_dimensions(vectors.iter().map(|vector| vector.dimensions()))?;
+
+        let mut index = VectorSearchIndex::new();
+        for (chunk, vector) in self.chunks.values().zip(vectors.into_iter()) {
+            index.add(VectorRecord::with_payload(
+                chunk.chunk_id.clone(),
+                vector,
+                VectorRecordMetadata {
+                    tags: metadata_tags(&chunk.metadata),
+                    metadata: chunk.metadata.clone(),
+                },
+            ))?;
+        }
+        self.vectors = index;
+        Ok(())
+    }
+
+    fn rebuild_bm25(&mut self) -> Result<()> {
+        let mut bm25 = Bm25Corpus::new(self.bm25_options.clone());
+        for chunk in self.chunks.values() {
+            bm25.add_document(chunk.chunk_id.clone(), &chunk.text)?;
+        }
+        self.bm25 = bm25;
+        Ok(())
+    }
+
+    fn validate_embedded_dimensions(
+        &self,
+        vector_dimensions: impl IntoIterator<Item = usize>,
+    ) -> Result<()> {
+        let expected = self.embedder.model_info().dimensions;
+        if expected == 0 {
+            return Ok(());
+        }
+        if vector_dimensions
+            .into_iter()
+            .any(|dimensions| dimensions != expected)
+        {
+            return Err(invalid_argument(format!(
+                "embedder produced vectors that did not match advertised dimensions {expected}"
+            )));
+        }
+        Ok(())
+    }
+
+    fn validate_vector_state(&self) -> Result<()> {
+        let chunk_ids = self.chunks.keys().cloned().collect::<BTreeSet<_>>();
+        let vector_ids = self
+            .vectors
+            .records()
+            .iter()
+            .map(|record| record.id.clone())
+            .collect::<BTreeSet<_>>();
+        if chunk_ids != vector_ids {
+            return Err(invalid_argument(
+                "persisted vector records and chunk catalog do not describe the same ids",
+            ));
+        }
+        if let Some(dimensions) = self.vectors.dimensions() {
+            let expected = self.embedder.model_info().dimensions;
+            if expected > 0 && expected != dimensions {
+                return Err(invalid_argument(format!(
+                    "embedder dimensions {expected} did not match persisted index dimensions {dimensions}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_query_dimensions(&self, dimensions: usize) -> Result<()> {
+        if let Some(index_dimensions) = self.vectors.dimensions() {
+            if dimensions != index_dimensions {
+                return Err(invalid_argument(format!(
+                    "query vector dimensions {dimensions} did not match index dimensions {index_dimensions}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn matches_filter(&self, chunk_id: &str, filter: Option<&SearchFilter>) -> bool {
+        let Some(filter) = filter else {
+            return true;
+        };
+        let Some(chunk) = self.chunks.get(chunk_id) else {
+            return false;
+        };
+        let tags = metadata_tags(&chunk.metadata);
+        filter
+            .required_tags
+            .iter()
+            .all(|tag| tags.iter().any(|candidate| candidate == tag))
+            && filter
+                .metadata_equals
+                .iter()
+                .all(|(key, value)| chunk.metadata.get(key) == Some(value))
+    }
+
+    fn build_snippet(&self, chunk: &DocumentChunk, normalized_query: &str) -> String {
+        let text = self
+            .raw_text_by_chunk_id
+            .get(&chunk.chunk_id)
+            .map(String::as_str)
+            .unwrap_or(chunk.text.as_str());
+        build_snippet(text, normalized_query)
+    }
+
+    fn ensure_non_empty(&self) -> Result<()> {
+        if self.chunks.is_empty() {
+            return Err(invalid_argument("search index is empty"));
+        }
+        Ok(())
+    }
+}
+
+fn validate_document(document: &SearchDocument) -> Result<()> {
+    if document.id.trim().is_empty() {
+        return Err(invalid_argument("document id must not be empty"));
+    }
+    if document.body.trim().is_empty() {
+        return Err(invalid_argument("document body must not be empty"));
+    }
+    Ok(())
+}
+
+fn validate_ingestion_options(options: &IngestionOptions) -> Result<()> {
+    if options.chunk_tokens == 0 {
+        return Err(invalid_argument(
+            "chunk token size must be greater than zero",
+        ));
+    }
+    if options.chunk_overlap_tokens >= options.chunk_tokens {
+        return Err(invalid_argument(
+            "chunk overlap must be smaller than the chunk token size",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_query(query: &SearchQuery) -> Result<()> {
+    if query.top_k == 0 {
+        return Err(invalid_argument("search limit must be greater than zero"));
+    }
+    if !query.hybrid.semantic_weight.is_finite()
+        || !query.hybrid.lexical_weight.is_finite()
+        || query.hybrid.semantic_weight < 0.0
+        || query.hybrid.lexical_weight < 0.0
+    {
+        return Err(invalid_argument(
+            "hybrid weights must be finite and non-negative",
+        ));
+    }
+    if query.hybrid.semantic_weight + query.hybrid.lexical_weight <= f32::EPSILON {
+        return Err(invalid_argument("hybrid weights must not both be zero"));
+    }
+    if query.hybrid.rerank_window == 0 {
+        return Err(invalid_argument("rerank window must be greater than zero"));
+    }
+    let _ = normalize_query(&query.text, &TextProcessingOptions::default())?;
+    Ok(())
+}
+
+fn chunk_document(
+    document: &SearchDocument,
+    options: &IngestionOptions,
+    processing: &TextProcessingOptions,
+) -> Result<Vec<DocumentChunk>> {
+    let tokens = tokenize(document.body.as_str(), processing)
+        .into_iter()
+        .filter(|token| {
+            matches!(
+                token.kind,
+                TokenKind::Word
+                    | TokenKind::Number
+                    | TokenKind::Url
+                    | TokenKind::Email
+                    | TokenKind::Mention
+                    | TokenKind::Hashtag
+            )
+        })
+        .collect::<Vec<_>>();
+    if tokens.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut chunks = Vec::new();
+    let step = options.chunk_tokens - options.chunk_overlap_tokens;
+    let metadata = document_metadata(document);
+    let mut start = 0;
+    let mut ordinal = 0;
+    while start < tokens.len() {
+        let end = (start + options.chunk_tokens).min(tokens.len());
+        let byte_start = tokens[start].span.byte_start;
+        let byte_end = tokens[end - 1].span.byte_end;
+        let text = document
+            .body
+            .get(byte_start..byte_end)
+            .ok_or_else(|| invalid_argument("token spans did not align to valid UTF-8 boundaries"))?
+            .trim()
+            .to_string();
+        if !text.is_empty() {
+            chunks.push(DocumentChunk {
+                chunk_id: format!("{}:{ordinal}", document.id),
+                document_id: document.id.clone(),
+                text,
+                ordinal,
+                metadata: metadata.clone(),
+            });
+            ordinal += 1;
+        }
+        if end == tokens.len() {
+            break;
+        }
+        start += step;
+    }
+    Ok(chunks)
+}
+
+fn document_metadata(document: &SearchDocument) -> BTreeMap<String, String> {
+    let mut metadata = document.metadata.clone();
+    if let Some(title) = &document.title {
+        metadata
+            .entry(TITLE_METADATA_KEY.to_string())
+            .or_insert_with(|| title.clone());
+    }
+    metadata
+}
+
+fn normalize_query(query: &str, processing: &TextProcessingOptions) -> Result<String> {
+    let tokens = tokenize(query, processing)
+        .into_iter()
+        .filter(|token| {
+            matches!(
+                token.kind,
+                TokenKind::Word
+                    | TokenKind::Number
+                    | TokenKind::Url
+                    | TokenKind::Email
+                    | TokenKind::Mention
+                    | TokenKind::Hashtag
+            )
+        })
+        .map(|token| token.normalized)
+        .collect::<Vec<_>>();
+    if tokens.is_empty() {
+        return Err(invalid_argument(
+            "query must contain at least one searchable term",
+        ));
+    }
+    Ok(tokens.join(" "))
+}
+
+fn metadata_tags(metadata: &BTreeMap<String, String>) -> Vec<String> {
+    metadata
+        .get("tags")
+        .map(|tags| {
+            tags.split([',', ';'])
+                .flat_map(|group| group.split_whitespace())
+                .map(str::trim)
+                .filter(|tag| !tag.is_empty())
+                .map(ToString::to_string)
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn search_filter_to_vector_filter(filter: &SearchFilter) -> VectorSearchFilter {
+    VectorSearchFilter {
+        required_tags: filter.required_tags.clone(),
+        metadata_equals: filter.metadata_equals.clone(),
+    }
+}
+
+fn normalize_scores(scores: &BTreeMap<String, f32>) -> BTreeMap<String, f32> {
+    if scores.is_empty() {
+        return BTreeMap::new();
+    }
+    let min = scores.values().copied().fold(f32::INFINITY, f32::min);
+    let max = scores.values().copied().fold(f32::NEG_INFINITY, f32::max);
+    if (max - min).abs() <= f32::EPSILON {
+        return scores
+            .keys()
+            .cloned()
+            .map(|id| (id, 1.0))
+            .collect::<BTreeMap<_, _>>();
+    }
+    scores
+        .iter()
+        .map(|(id, score)| (id.clone(), (score - min) / (max - min)))
+        .collect()
+}
+
+fn build_snippet(text: &str, normalized_query: &str) -> String {
+    let terms = tokenize(normalized_query, &TextProcessingOptions::default())
+        .into_iter()
+        .map(|token| token.normalized)
+        .collect::<Vec<_>>();
+    let text_lower = text.to_lowercase();
+    let match_start = terms.iter().filter_map(|term| text_lower.find(term)).min();
+
+    let snippet = match match_start {
+        Some(byte_index) => {
+            let start = text[..byte_index]
+                .char_indices()
+                .rev()
+                .nth(60)
+                .map(|(index, _)| index)
+                .unwrap_or(0);
+            let end = text[byte_index..]
+                .char_indices()
+                .nth(160)
+                .map(|(index, _)| byte_index + index)
+                .unwrap_or(text.len());
+            text[start..end].trim()
+        }
+        None => text
+            .char_indices()
+            .nth(160)
+            .map(|(index, _)| &text[..index])
+            .unwrap_or(text)
+            .trim(),
+    };
+    snippet.to_string()
+}
+
+fn invalid_argument(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(message.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use text_analysis_semantics::{HashedTextEmbedder, TextEmbeddingConfig};
+
+    fn embedder() -> HashedTextEmbedder {
+        HashedTextEmbedder::new(
+            TextEmbeddingConfig {
+                dimensions: 32,
+                use_idf: true,
+            },
+            CorpusOptions::default(),
+        )
+        .unwrap()
+    }
+
+    fn query(text: &str) -> SearchQuery {
+        SearchQuery {
+            text: text.to_string(),
+            top_k: 3,
+            filter: None,
+            hybrid: HybridConfig::default(),
+        }
+    }
+
+    #[test]
+    fn chunking_preserves_order_and_ids() {
+        let document = SearchDocument {
+            id: "doc-1".to_string(),
+            title: None,
+            body: (0..10)
+                .map(|index| format!("token{index}"))
+                .collect::<Vec<_>>()
+                .join(" "),
+            metadata: BTreeMap::new(),
+        };
+
+        let chunks = chunk_document(
+            &document,
+            &IngestionOptions {
+                chunk_tokens: 4,
+                chunk_overlap_tokens: 1,
+                store_raw_text: true,
+            },
+            &TextProcessingOptions::default(),
+        )
+        .unwrap();
+
+        assert_eq!(chunks[0].chunk_id, "doc-1:0");
+        assert_eq!(chunks[1].chunk_id, "doc-1:1");
+        assert_eq!(chunks[0].ordinal, 0);
+        assert_eq!(chunks[1].ordinal, 1);
+    }
+
+    #[test]
+    fn empty_query_returns_error() {
+        let index = RetrievalIndex::new(embedder());
+        let err = index.search(&query("   ")).unwrap_err();
+        assert!(matches!(err, DetectError::InvalidArgument(message) if message.contains("query")));
+    }
+
+    #[test]
+    fn replacing_document_rebuilds_chunk_set() {
+        let mut index = RetrievalIndex::new(embedder());
+        let options = IngestionOptions {
+            chunk_tokens: 3,
+            chunk_overlap_tokens: 1,
+            store_raw_text: true,
+        };
+
+        index
+            .ingest_documents(
+                &[SearchDocument {
+                    id: "doc".to_string(),
+                    title: None,
+                    body: "rust cargo crates docs search".to_string(),
+                    metadata: BTreeMap::new(),
+                }],
+                &options,
+            )
+            .unwrap();
+        let original_texts = index
+            .chunks
+            .values()
+            .map(|chunk| chunk.text.clone())
+            .collect::<Vec<_>>();
+
+        let report = index
+            .ingest_documents(
+                &[SearchDocument {
+                    id: "doc".to_string(),
+                    title: None,
+                    body: "music playlists and recommendations".to_string(),
+                    metadata: BTreeMap::new(),
+                }],
+                &options,
+            )
+            .unwrap();
+
+        assert_eq!(report.documents_replaced, 1);
+        assert!(index
+            .chunks
+            .keys()
+            .all(|chunk_id| chunk_id.starts_with("doc:")));
+        assert!(index.chunks.values().all(|chunk| !original_texts
+            .iter()
+            .any(|original| original == &chunk.text)));
+    }
+
+    #[test]
+    fn hybrid_search_returns_expected_chunk() {
+        let mut index = RetrievalIndex::new(embedder());
+        index
+            .ingest_documents(
+                &[
+                    SearchDocument {
+                        id: "doc-1".to_string(),
+                        title: Some("Rust Search".to_string()),
+                        body: "Rust cargo crates enable semantic search over documentation."
+                            .to_string(),
+                        metadata: BTreeMap::from([
+                            ("lang".to_string(), "en".to_string()),
+                            ("tags".to_string(), "docs rust".to_string()),
+                        ]),
+                    },
+                    SearchDocument {
+                        id: "doc-2".to_string(),
+                        title: None,
+                        body: "Berlin travel plans and restaurant notes.".to_string(),
+                        metadata: BTreeMap::from([("lang".to_string(), "en".to_string())]),
+                    },
+                ],
+                &IngestionOptions::default(),
+            )
+            .unwrap();
+
+        let results = index.search(&query("rust documentation search")).unwrap();
+
+        assert_eq!(results[0].document_id, "doc-1");
+        assert!(results[0].semantic_score > 0.0);
+    }
+
+    #[test]
+    fn filters_exclude_non_matching_chunks() {
+        let mut index = RetrievalIndex::new(embedder());
+        index
+            .ingest_documents(
+                &[
+                    SearchDocument {
+                        id: "doc-1".to_string(),
+                        title: None,
+                        body: "English cargo docs".to_string(),
+                        metadata: BTreeMap::from([
+                            ("lang".to_string(), "en".to_string()),
+                            ("tags".to_string(), "docs".to_string()),
+                        ]),
+                    },
+                    SearchDocument {
+                        id: "doc-2".to_string(),
+                        title: None,
+                        body: "German cargo docs".to_string(),
+                        metadata: BTreeMap::from([
+                            ("lang".to_string(), "de".to_string()),
+                            ("tags".to_string(), "docs".to_string()),
+                        ]),
+                    },
+                ],
+                &IngestionOptions::default(),
+            )
+            .unwrap();
+
+        let mut query = query("cargo docs");
+        query.filter = Some(SearchFilter {
+            metadata_equals: BTreeMap::from([("lang".to_string(), "en".to_string())]),
+            required_tags: vec!["docs".to_string()],
+        });
+
+        let results = index.search(&query).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].document_id, "doc-1");
+    }
+
+    #[test]
+    fn related_chunks_excludes_self() {
+        let mut index = RetrievalIndex::new(embedder());
+        index
+            .ingest_documents(
+                &[SearchDocument {
+                    id: "doc-1".to_string(),
+                    title: None,
+                    body: "rust cargo crates semantic search documentation indexing retrieval"
+                        .to_string(),
+                    metadata: BTreeMap::new(),
+                }],
+                &IngestionOptions {
+                    chunk_tokens: 4,
+                    chunk_overlap_tokens: 1,
+                    store_raw_text: true,
+                },
+            )
+            .unwrap();
+
+        let related = index.related_chunks("doc-1:0", 2).unwrap();
+        assert!(related.iter().all(|result| result.chunk_id != "doc-1:0"));
+    }
+
+    #[test]
+    fn from_parts_validates_dimension_mismatch() {
+        let chunks = vec![DocumentChunk {
+            chunk_id: "doc:0".to_string(),
+            document_id: "doc".to_string(),
+            text: "rust cargo docs".to_string(),
+            ordinal: 0,
+            metadata: BTreeMap::new(),
+        }];
+        let records = vec![SerializableVectorRecord {
+            id: "doc:0".into(),
+            vector: vec![1.0, 0.0],
+            payload: VectorRecordMetadata::default(),
+        }];
+
+        let err = RetrievalIndex::from_parts(
+            embedder(),
+            CorpusOptions::default(),
+            Bm25Options::default(),
+            chunks,
+            BTreeMap::new(),
+            records,
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(err, DetectError::InvalidArgument(message) if message.contains("dimensions"))
+        );
+    }
+}

@@ -1,14 +1,66 @@
 #![doc = include_str!("../README.md")]
 
 use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
+use math_geometry_2d::RectU32;
+use math_linear::Kernel2d;
 use video_analysis_core::{DetectError, Result};
 
+/// Compatibility-only image region type.
+///
+/// Prefer [`RectU32`] for new shared 2D APIs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ImageRegion {
     pub x: u32,
     pub y: u32,
     pub width: u32,
     pub height: u32,
+}
+
+impl ImageRegion {
+    pub fn new(x: u32, y: u32, width: u32, height: u32) -> Result<Self> {
+        let region = Self {
+            x,
+            y,
+            width,
+            height,
+        };
+        let _: RectU32 = region.into();
+        region.to_rect().validate()?;
+        Ok(region)
+    }
+
+    pub fn to_rect(self) -> RectU32 {
+        RectU32 {
+            x: self.x,
+            y: self.y,
+            width: self.width,
+            height: self.height,
+        }
+    }
+
+    pub fn from_rect(rect: RectU32) -> Self {
+        Self {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+        }
+    }
+}
+
+impl From<ImageRegion> for RectU32 {
+    fn from(value: ImageRegion) -> Self {
+        value.to_rect()
+    }
+}
+
+impl TryFrom<RectU32> for ImageRegion {
+    type Error = DetectError;
+
+    fn try_from(value: RectU32) -> Result<Self> {
+        value.validate()?;
+        Ok(Self::from_rect(value))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +80,20 @@ pub enum ImageOperation {
         divisor: f32,
         bias: f32,
     },
+}
+
+impl ImageOperation {
+    pub fn crop_rect(region: RectU32) -> Self {
+        Self::Crop(ImageRegion::from_rect(region))
+    }
+
+    pub fn convolve_kernel2d(kernel: Kernel2d, divisor: f32, bias: f32) -> Result<Self> {
+        Ok(Self::Convolve3x3 {
+            kernel: kernel.as_array_3x3()?,
+            divisor,
+            bias,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -74,6 +140,10 @@ pub fn apply_operation(image: &ImageView<'_>, operation: &ImageOperation) -> Res
 }
 
 pub fn crop_image(image: &ImageView<'_>, region: ImageRegion) -> Result<OwnedImage> {
+    crop_image_rect(image, region.into())
+}
+
+pub fn crop_image_rect(image: &ImageView<'_>, region: RectU32) -> Result<OwnedImage> {
     image.validate()?;
     validate_region(image, region)?;
     let bpp = image.pixel_format.bytes_per_pixel();
@@ -145,16 +215,21 @@ pub fn convolve_3x3(
     divisor: f32,
     bias: f32,
 ) -> Result<OwnedImage> {
+    convolve_3x3_kernel(image, &Kernel2d::from(kernel), divisor, bias)
+}
+
+pub fn convolve_3x3_kernel(
+    image: &ImageView<'_>,
+    kernel: &Kernel2d,
+    divisor: f32,
+    bias: f32,
+) -> Result<OwnedImage> {
     if !divisor.is_finite() || divisor == 0.0 || !bias.is_finite() {
         return Err(DetectError::InvalidArgument(
             "convolution divisor must be finite and non-zero, and bias must be finite".to_string(),
         ));
     }
-    if kernel.iter().any(|value| !value.is_finite()) {
-        return Err(DetectError::InvalidArgument(
-            "convolution kernel values must be finite".to_string(),
-        ));
-    }
+    let kernel = kernel.as_array_3x3()?;
     map_pixels(image, image.pixel_format, |source, x, y| {
         let mut output = [0.0_f32; 3];
         for ky in 0..3 {
@@ -177,12 +252,7 @@ pub fn convolve_3x3(
 }
 
 pub fn sharpen_image(image: &ImageView<'_>) -> Result<OwnedImage> {
-    convolve_3x3(
-        image,
-        [0.0, -1.0, 0.0, -1.0, 5.0, -1.0, 0.0, -1.0, 0.0],
-        1.0,
-        0.0,
-    )
+    convolve_3x3_kernel(image, &Kernel2d::sharpen_3x3(), 1.0, 0.0)
 }
 
 fn map_pixels(
@@ -220,21 +290,10 @@ fn write_pixel(
     }
 }
 
-fn validate_region(image: &ImageView<'_>, region: ImageRegion) -> Result<()> {
-    if region.width == 0 || region.height == 0 {
-        return Err(DetectError::InvalidDimensions {
-            width: region.width,
-            height: region.height,
-        });
-    }
-    let max_x = region
-        .x
-        .checked_add(region.width)
-        .ok_or_else(|| DetectError::InvalidArgument("crop region x range overflows".to_string()))?;
-    let max_y = region
-        .y
-        .checked_add(region.height)
-        .ok_or_else(|| DetectError::InvalidArgument("crop region y range overflows".to_string()))?;
+fn validate_region(image: &ImageView<'_>, region: RectU32) -> Result<()> {
+    region.validate()?;
+    let max_x = region.max_x()?;
+    let max_y = region.max_y()?;
     if max_x > image.width || max_y > image.height {
         return Err(DetectError::InvalidArgument(
             "crop region must be contained by the image".to_string(),
@@ -285,5 +344,18 @@ mod tests {
             .process(&image().as_view())
             .unwrap();
         assert_eq!((processed.width, processed.height), (2, 2));
+    }
+
+    #[test]
+    fn shared_rect_and_kernel_helpers_round_trip() {
+        let cropped =
+            crop_image_rect(&image().as_view(), RectU32::new(0, 0, 2, 2).unwrap()).unwrap();
+        assert_eq!(cropped.width, 2);
+        let operation =
+            ImageOperation::convolve_kernel2d(Kernel2d::identity_3x3(), 1.0, 0.0).unwrap();
+        match operation {
+            ImageOperation::Convolve3x3 { kernel, .. } => assert_eq!(kernel[4], 1.0),
+            _ => panic!("expected convolve operation"),
+        }
     }
 }

@@ -1,0 +1,18 @@
+[package]
+name = "math-statistics"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Shared multivariate statistics for dense matrix inputs and streaming observations."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+math-linear.workspace = true
+numbers-core.workspace = true
+video-analysis-core.workspace = true

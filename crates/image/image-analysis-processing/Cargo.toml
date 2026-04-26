@@ -14,4 +14,6 @@ categories.workspace = true
 
 [dependencies]
 image-analysis-core.workspace = true
+math-geometry-2d.workspace = true
+math-linear.workspace = true
 video-analysis-core.workspace = true

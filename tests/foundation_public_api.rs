@@ -9,6 +9,11 @@ use graph_analysis_core::{minimum_spanning_tree, shortest_path, Graph};
 use image_analysis_core::{mean_rgb, ImagePixelFormat, OwnedImage};
 use image_analysis_processing::grayscale_image;
 use image_analysis_synthesis::{solid_image, ImageSynthesisConfig, RgbColor};
+use math_geometry_2d::{NormalizedPoint2, RectU32, Size2u};
+use math_linear::{F32Matrix, Kernel2d};
+use math_signal_core::{BiquadDesign, SampleRate, WindowFunction};
+use math_sparse_data::SparseVector;
+use math_statistics::{PrincipalComponents, RunningCovariance};
 use numbers_core::{quartiles, summarize_numbers};
 use tempfile::tempdir;
 use three_d_processing_core::{centroid, voxel_downsample, Point3};
@@ -74,11 +79,23 @@ fn foundation_crates_support_basic_consumer_workflows() -> Result<(), Box<dyn st
     assert_eq!(scalar_summary.mean, Some(2.0));
     assert_eq!(quartiles(&[1.0, 2.0, 3.0, 4.0])?.median, 2.5);
 
+    let rect = RectU32::new(2, 3, 4, 5)?;
+    assert_eq!(rect.area()?, 20);
+    let center = rect.center_f32().to_normalized(Size2u::new(12, 16)?)?;
+    assert!(center.x > 0.0 && center.y > 0.0);
+    assert_eq!(
+        NormalizedPoint2::new(0.5, 0.5)?
+            .to_pixel_point(Size2u::new(10, 8)?)
+            .x,
+        5
+    );
+
     let image = OwnedImage::new(2, 1, ImagePixelFormat::Rgb24, vec![255, 0, 0, 0, 255, 0], 6)?;
     let mean = mean_rgb(&image.as_view())?;
     assert!(mean.red > mean.blue);
     let grayscale = grayscale_image(&image.as_view())?;
     assert_eq!(grayscale.pixel_format, ImagePixelFormat::Gray8);
+    assert_eq!(Kernel2d::sharpen_3x3().as_array_3x3()?[4], 5.0);
 
     let synthesized = solid_image(
         RgbColor::WHITE,
@@ -109,6 +126,25 @@ fn foundation_crates_support_basic_consumer_workflows() -> Result<(), Box<dyn st
         )?,
         vec![0]
     );
+
+    let matrix = F32Matrix::from_rows([[1.0, 0.0], [0.0, 1.0]])?;
+    assert_eq!(matrix.matmul(&matrix.as_view())?.shape().rows, 2);
+    let covariance = RunningCovariance::from_matrix(&matrix.as_view())?.covariance_matrix()?;
+    assert_eq!(covariance.matrix.shape().rows, 2);
+    assert_eq!(
+        PrincipalComponents::fit(&matrix.as_view(), 1)?
+            .components()
+            .shape()
+            .rows,
+        1
+    );
+
+    let windowed = WindowFunction::Hann.apply(&[1.0, 1.0, 1.0, 1.0]);
+    assert!(windowed[0].abs() < 1.0e-6);
+    BiquadDesign::LowPass.design(SampleRate::new(48_000)?, 1_000.0, 0.707)?;
+
+    let sparse = SparseVector::from_dense(&[1.0, 0.0, 2.0])?.canonicalized()?;
+    assert_eq!(sparse.to_dense(), vec![1.0, 0.0, 2.0]);
 
     let mesh = Mesh::new(
         [

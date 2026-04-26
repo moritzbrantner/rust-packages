@@ -45,7 +45,7 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
     cargoMetadata(workspaceRoot),
     readFile(`${workspaceRoot}/${architectureDocPath}`, "utf8"),
     readFile(`${workspaceRoot}/packages/video-analysis-ui/package.json`, "utf8"),
-    readFile(`${workspaceRoot}/packages/video-analysis-web/package.json`, "utf8"),
+    readFile(`${workspaceRoot}/prototypes/web/video-analysis-web/package.json`, "utf8"),
   ]);
 
   const contractRows = parseWorkspaceContractMap(contractMarkdown);
@@ -97,9 +97,9 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
       name: webInfo.name ?? "@video-analysis/web",
       kind: "frontend",
       domain: "apps",
-      path: "packages/video-analysis-web",
-      description: "Interactive workspace testbed for use cases, flows, and package architecture.",
-      role: "Testing project that drives the UI package and local Rust workflows.",
+      path: "prototypes/web/video-analysis-web",
+      description: "Interactive prototype testbed for use cases, flows, and package architecture.",
+      role: "Prototype project that drives the UI package and local Rust workflows.",
       exposes: ["Interactive run, flow, result, and architecture views"],
       consumedBy: ["Developers exploring workspace behavior locally"],
       tags: extractContractTags("dashboard report workflow json report scenes observations data buckets"),

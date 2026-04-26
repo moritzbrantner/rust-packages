@@ -32,29 +32,36 @@ Runtime and external integration crates use a shared feature policy:
 | `data-inversion-core` | Shared lossy inverse-conversion metadata | `video-analysis-core` | `InformationFidelity`, `InversionMethod`, `InversionTrace`, generated value wrappers | Synthesis crates and applications that need explicit interpolation/assumption metadata |
 | `numbers-core` | Shared scalar numeric summaries and ranges | `video-analysis-core` | Running stats, weighted summaries, quantiles, histograms, numeric range helpers | `dense-data`, `video-analysis-data`, analytics workflows, and reporting utilities |
 | `tensor-data` | Generic finite `f32` tensor contracts | `video-analysis-core`, `serde`, `serde_json` | `TensorShape`, `F32Tensor`, `F32TensorView`, shape/element validation, metadata | `comfyui-latents`, audio/image bridges, and future tensor-oriented interop crates |
-| `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core`, `tensor-data` | Normalized sample conversion, mono mixing, window functions, frame iteration, streaming frame windows, level helpers, waveform batch contracts | Audio analysis crates and applications |
+| `math-geometry-2d` | Shared 2D geometry primitives | `video-analysis-core` | Checked 2D points, rectangles, normalized coordinates, polygons, bounds, affine transforms, and `BoundingBox` interop | Image/video/posture crates and UI-adjacent layout workflows |
+| `math-linear` | Shared dense matrix and kernel contracts | `video-analysis-core`, `tensor-data`, `vector-analysis-core` | Matrix shapes/views, matrix multiply, row/column helpers, tensor/vector bridges, `Kernel1d`, `Kernel2d` | Image/video preprocessing, text model utilities, dense/statistical workflows |
+| `math-signal-core` | Shared signal-domain math | `video-analysis-core`, `numbers-core` | Sample-rate/resampling descriptors, windows, frame strides, interpolation, FIR kernels, and biquad design helpers | Audio crates and future time-series/video transform workflows |
+| `math-sparse-data` | Shared sparse vector and matrix contracts | `video-analysis-core`, `vector-analysis-core`, `numbers-core` | Sparse vectors, COO/CSR matrices, sparse similarities, dense bridges | Text corpus/semantic crates and future retrieval/index workflows |
+| `math-statistics` | Shared multivariate statistics | `video-analysis-core`, `numbers-core`, `math-linear` | Running covariance, covariance matrices, normalizers, PCA-lite, weighted observations | Dense-data, feature extraction, and analytics workflows |
+| `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core`, `tensor-data`, `math-signal-core` | Normalized sample conversion, mono mixing, shared window functions, frame iteration, streaming frame windows, level helpers, waveform batch contracts | Audio analysis crates and applications |
 | `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
 | `audio-analysis-io` | Audio input convenience facade | `audio-analysis-core`, `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, WAV export for single-item waveform batches | Applications that want audio-specific input APIs |
 | `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
-| `audio-analysis-processing` | Realtime-safe audio processing | `audio-analysis-core`, `video-analysis-core`, `video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources | Applications, preprocessing workflows, audio pipelines |
+| `audio-analysis-processing` | Realtime-safe audio processing | `audio-analysis-core`, `math-signal-core`, `video-analysis-core`, `video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources | Applications, preprocessing workflows, audio pipelines |
 | `audio-analysis-recognition` | Audio similarity and recognition | `audio-analysis-core`, `audio-analysis-fourier`, `video-analysis-core` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events | Applications, audio pipelines, reference matching workflows |
 | `audio-analysis-rhythm` | Rhythm and tempo analysis | `audio-analysis-core`, `video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
 | `audio-analysis-synthesis` | Deterministic inverse audio generation | `data-inversion-core`, `video-analysis-core` | Tone specs, tone timelines, pitch/onset event to tone conversion, synthesized `OwnedAudioFrame` values | Applications prototyping audio from symbolic or analyzed events |
 | `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core`, `tensor-data` | Borrowed/owned image views, image batches, pixel formats, compacting, mean color, luma histograms, mask tensor bridge helpers | Image processing crates, applications, video frame preprocessing |
-| `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains | Applications, preprocessing workflows |
+| `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `math-geometry-2d`, `math-linear`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains, shared `RectU32`/`Kernel2d` bridges | Applications, preprocessing workflows |
 | `image-analysis-synthesis` | Deterministic inverse image generation | `data-inversion-core`, `image-analysis-core`, `video-analysis-core` | Solid images, gradients, luma-histogram expansion, region painting | Applications reconstructing approximate image buffers from summaries or regions |
-| `text-analysis-corpus` | Corpus-scale text statistics and search | `text-analysis-core`, `video-analysis-core` | Corpus options, indexed document term counts, corpus term stats, TF-IDF scores/search, BM25 ranking/search | Applications, text analytics, semantic indexing |
+| `text-analysis-corpus` | Corpus-scale text statistics and search | `text-analysis-core`, `math-sparse-data`, `video-analysis-core` | Corpus options, indexed document term counts, corpus term stats, TF-IDF scores/search, BM25 ranking/search, sparse term matrices/vectors | Applications, text analytics, semantic indexing |
 | `text-analysis-core` | Shared text analysis utilities | `video-analysis-core`, `unicode-normalization`, `unicode-segmentation` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, Unicode word/grapheme spans, script profiles, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
 | `text-analysis-features` | Text feature extraction | `text-analysis-core`, `video-analysis-core` | Stop words, keywords, stemming, extractive summaries, sentiment, rule entities, readability, pattern detection, reusable text analyzers, term frequencies, character/token n-grams | Applications, text pipelines, downstream text analytics |
 | `text-analysis-models` | Optional model-backed text analysis | `text-analysis-semantics`, `vector-analysis-core`, `video-analysis-core`, `video-analysis-models`, optional `tokenizers`/`ort`/Candle crates | Tokenizer bundles, ONNX text classifiers/embedders with fake-runner seams, Candle classifier/embedder architecture validation | Applications that need native text model execution |
 | `text-analysis-prediction` | Text prediction models | `text-analysis-core`, `video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring | Applications, text pipelines, prototyping |
-| `text-analysis-semantics` | Lightweight semantic text analysis | `text-analysis-core`, `text-analysis-corpus`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core` | Hashed text embeddings, `TextEmbeddingBackend`, generic embedding search, text similarity, co-occurrence graphs, related-term scoring | Applications, search, semantic analysis prototypes |
+| `text-analysis-retrieval` | Semantic and hybrid retrieval orchestration | `text-analysis-core`, `text-analysis-corpus`, `text-analysis-models`, `vector-analysis-index`, `video-analysis-core`, `serde` | Search documents/chunks, chunking options, hybrid query/ranking, metadata filters, search results, related-chunk lookup, persistence-friendly vector exports | Applications, search prototypes, retrieval workflows |
+| `text-analysis-retrieval-storage` | Retrieval index persistence | `text-analysis-retrieval`, `text-analysis-models`, `vector-analysis-index`, `serde`, `serde_json`, `thiserror` | Retrieval manifests, chunk/vector JSONL snapshots, corpus metadata, rehydration helpers | Applications and local retrieval snapshots |
+| `text-analysis-semantics` | Lightweight semantic text analysis | `text-analysis-core`, `text-analysis-corpus`, `math-sparse-data`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core` | Hashed text embeddings, optional sparse hashed embeddings, `TextEmbeddingBackend`, generic embedding search, text similarity, co-occurrence graphs, related-term scoring | Applications, search, semantic analysis prototypes |
 | `text-analysis-synthesis` | Deterministic inverse text generation | `data-inversion-core`, `text-analysis-core`, `video-analysis-core` | Weighted term prompts, term/event to document generation, generated text segments | Applications turning features/events back into approximate prose |
 | `text-analysis-transcription` | Reusable transcript parsing and ASR command wrappers | `audio-analysis-core`, `audio-analysis-io`, `video-analysis-core`, `video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, waveform-batch transcription bridge, text segment source adapter | Use cases, applications, text pipelines |
-| `dense-data` | Generic dense point aggregation and clustering | `numbers-core`, `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, per-dimension summaries, bounds, fixed-grid buckets, deterministic k-means clusters | Tables, graphs, charts, maps, media features, and analytics workflows |
+| `dense-data` | Generic dense point aggregation and clustering | `numbers-core`, `math-linear`, `math-statistics`, `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, per-dimension summaries, bounds, fixed-grid buckets, deterministic k-means clusters, covariance, and PCA helpers | Tables, graphs, charts, maps, media features, and analytics workflows |
 | `vector-analysis-core` | Dense vector contracts and metrics | `video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
-| `vector-analysis-index` | Exact vector search and assignment | `vector-analysis-core`, `video-analysis-core` | In-memory vector index, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
+| `vector-analysis-index` | Exact vector search and assignment | `vector-analysis-core`, `video-analysis-core`, `serde` | In-memory vector index, filtered search, metadata payloads, serializable vector records, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
 | `three-d-processing-core` | Generic 3D processing primitives | `video-analysis-core` | 3D vectors, points, bounds, transforms, quaternions, rigid transforms, line segments, point clouds, centroids, voxel downsampling | Mesh processing, applications, future 3D workflows |
 | `three-d-processing-io` | 3D interchange formats | `three-d-processing-core`, `three-d-processing-mesh`, `video-analysis-core`, `serde_json`, `base64` | `OBJ`, `PLY`, and minimal embedded `.gltf` mesh/point-cloud I/O | Applications, CLI workflows, posture export |
 | `three-d-processing-mesh` | Triangle mesh processing | `three-d-processing-core`, `video-analysis-core` | Mesh validation, topology, triangle normals, vertex normals, bounds, surface area, volume, transforms, smoothing, deterministic sampling | Applications and future 3D workflows |
@@ -82,7 +89,7 @@ Runtime and external integration crates use a shared feature policy:
 | `video-analysis-radiance-io` | Radiance-field and 3DGS interchange formats | `video-analysis-core`, `video-analysis-radiance-fields`, `video-analysis-gaussian-splatting`, `video-analysis-reconstruction` | COLMAP text, Nerfstudio transforms, Gaussian splat PLY, preview PLY | Conversion tools and applications |
 | `video-analysis-reconstruction` | Sparse reconstruction and triangulation contracts | `video-analysis-core`, `video-analysis-radiance-fields` | Camera/image/point IDs, features, matches, tracks, sparse reconstruction, triangulation/projection helpers | Applications and future 3D workflows |
 | `video-analysis-cli` | `vanalyze` command-line composition | Core, detectors, FFmpeg, models, output, split | CLI commands and file outputs | End users and automation |
-| `video-analysis-use-cases` | Runnable end-to-end workflows | Core, data, detectors, FFmpeg, ingest, models, audio/image helpers | `youtube-video`, `video-red-cars`, `audio-voice-analysis`, and `image-person-edit` workflow/report surfaces | End users, `@video-analysis/ui`, web app |
+| `video-analysis-use-cases` | Prototype runnable end-to-end workflows | Core, data, detectors, FFmpeg, ingest, models, audio/image helpers | `youtube-video`, `video-red-cars`, `audio-voice-analysis`, and `image-person-edit` workflow/report surfaces | End users, `@video-analysis/ui`, prototype web app |
 | `@video-analysis/ui` | React/Tailwind views for analysis data | React peer deps and generated report/data shapes | TypeScript report types, component subpath exports, Tailwind content export | Web apps and report viewers |
 
 ## Canonical Core Contracts
@@ -161,6 +168,8 @@ The `audio-analysis-*` crates build on the canonical `AudioFrame`,
   normalized `f32` samples, mixes interleaved channels to mono, applies common
   windows, iterates fixed-size analysis frames, and provides
   `StreamingFrameBuffer` for overlap-preserving windows across incoming chunks.
+  `WindowFunction` and related window/frame-stride math are shared with
+  `math-signal-core`.
 - `audio-analysis-fourier` provides FFT spectra, STFT spectrogram frames,
   spectral centroid/bandwidth/rolloff/flatness features, and an
   `AudioAnalyzer` that emits dominant-frequency events.
@@ -206,7 +215,9 @@ helpers without requiring video timeline semantics.
   `OwnedImage` buffers.
 - `image-analysis-processing` owns `ImageOperation`, `ImageProcessor`,
   `ImageRegion`, crop, nearest-neighbor resize, grayscale, invert, threshold,
-  convolution, and sharpen helpers.
+  convolution, and sharpen helpers. New shared geometry and kernel entrypoints
+  prefer `math-geometry-2d::RectU32` and `math-linear::Kernel2d` while keeping
+  `ImageRegion` and `[f32; 9]` compatibility shims.
 - `image-analysis-segmentation` owns still-image prompts, binary masks,
   segments, and pure segmentation backend contracts with explicit opt-in
   automatic mask generation helpers.
@@ -255,10 +266,13 @@ video use cases and model adapters.
   `TranscriptHeuristicAnalyzer` for `TextPipeline`.
 - `text-analysis-corpus` keeps `TfIdfCorpus` stable and adds `Bm25Corpus` for
   BM25 document ranking with duplicate-id rejection and empty-query handling.
+  It now also exposes optional sparse term matrices and vectors backed by
+  `math-sparse-data`.
 - `text-analysis-semantics` keeps `HashedTextEmbedder` and `SemanticTextIndex`
   while adding `TextEmbeddingBackend` and `EmbeddingSearchIndex<E>`. Embedding
   APIs return `DenseVector` directly instead of encoding vectors into
-  `AnalysisEvent` values.
+  `AnalysisEvent` values, and can optionally emit sparse hashed embeddings
+  backed by `math-sparse-data`.
 - `text-analysis-models` owns optional model-backed text execution surfaces:
   `TokenizerBundle`, `TokenizedText`, `OnnxTextClassifier`,
   `OnnxTextEmbedder`, `CandleTextClassifier`, and `CandleTextEmbedder`.
@@ -318,6 +332,10 @@ stats, quantiles, or histograms.
 `dense-data` provides generic dense numeric point processing for UI and media
 workflows that need the same aggregation shape across tables, graphs, charts,
 maps, and feature-derived media timelines.
+
+- `DenseDataset` keeps its summary, bounds, bucket, and k-means APIs while now
+  exposing matrix, covariance, and PCA helpers built on `math-linear` and
+  `math-statistics`.
 
 - `DensePoint` stores finite coordinates, a positive weight, an optional scalar
   value, and an optional id.
@@ -996,7 +1014,7 @@ The reusable Rust API is exposed through
 
 The use-case JSON report is the main contract between Rust output and React
 components. The serialized Rust report structs in
-`crates/video/video-analysis-use-cases/src/main.rs` align with the TypeScript
+`prototypes/rust/video-analysis-use-cases/src/main.rs` align with the TypeScript
 interfaces in `packages/video-analysis-ui/src/types.ts`.
 
 Top-level report:

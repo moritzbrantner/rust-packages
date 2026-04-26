@@ -14,6 +14,7 @@ categories.workspace = true
 
 [dependencies]
 audio-analysis-core.workspace = true
+math-signal-core.workspace = true
 video-analysis-core.workspace = true
 video-analysis-ingest.workspace = true
 

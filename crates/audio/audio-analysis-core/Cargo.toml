@@ -13,6 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+math-signal-core.workspace = true
 tensor-data.workspace = true
 video-analysis-core.workspace = true
 

@@ -4,15 +4,16 @@
   "type": "module",
   "packageManager": "bun@1.3.13",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "prototypes/web/*"
   ],
   "scripts": {
     "check": "scripts/check.sh",
     "ui:build": "bun run --cwd packages/video-analysis-ui build",
     "ui:test": "bun run --cwd packages/video-analysis-ui test",
-    "web:dev": "bun run --cwd packages/video-analysis-web dev",
-    "web:build": "bun run --cwd packages/video-analysis-web build",
-    "web:typecheck": "bun run --cwd packages/video-analysis-web typecheck",
-    "web:test": "bun run --cwd packages/video-analysis-web test"
+    "web:dev": "bun run --cwd prototypes/web/video-analysis-web dev",
+    "web:build": "bun run --cwd prototypes/web/video-analysis-web build",
+    "web:typecheck": "bun run --cwd prototypes/web/video-analysis-web typecheck",
+    "web:test": "bun run --cwd prototypes/web/video-analysis-web test"
   }
 }

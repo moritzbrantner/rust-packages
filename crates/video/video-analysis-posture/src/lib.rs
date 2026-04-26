@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use math_geometry_2d::{NormalizedPoint2, Point2f, Size2u};
 use serde::{Deserialize, Serialize};
 use three_d_processing_core::{LineSegment3, Point3, Vector3};
 use video_analysis_core::{
@@ -54,6 +55,27 @@ impl Keypoint {
             }
         }
         Ok(())
+    }
+
+    pub fn to_point2f(&self) -> Result<Point2f> {
+        Point2f::new(self.x, self.y)
+    }
+
+    pub fn from_point2f(name: impl Into<String>, point: Point2f) -> Result<Self> {
+        Self::new(name, point.x, point.y)
+    }
+
+    pub fn to_normalized_point2(&self, image_size: Size2u) -> Result<NormalizedPoint2> {
+        self.to_point2f()?.to_normalized(image_size)
+    }
+
+    pub fn from_normalized_point2(
+        name: impl Into<String>,
+        point: NormalizedPoint2,
+        image_size: Size2u,
+    ) -> Result<Self> {
+        let point = point.to_pixel_point_f32(image_size);
+        Self::new(name, point.x, point.y)
     }
 }
 
@@ -897,6 +919,16 @@ mod tests {
             .unwrap();
         let observations = analyzer.process_frame(&frame).unwrap();
         assert!(observations.is_empty());
+    }
+
+    #[test]
+    fn keypoints_convert_through_shared_geometry() {
+        let keypoint = Keypoint::new("nose", 32.0, 24.0).unwrap();
+        let size = Size2u::new(64, 48).unwrap();
+        let normalized = keypoint.to_normalized_point2(size).unwrap();
+        let round_trip = Keypoint::from_normalized_point2("nose", normalized, size).unwrap();
+        assert!((round_trip.x - keypoint.x).abs() < 1.0e-6);
+        assert!((round_trip.y - keypoint.y).abs() < 1.0e-6);
     }
 
     #[test]

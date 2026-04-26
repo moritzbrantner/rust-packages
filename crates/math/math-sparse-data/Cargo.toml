@@ -1,0 +1,18 @@
+[package]
+name = "math-sparse-data"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Sparse vector and matrix contracts for text, retrieval, and feature indexing."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+numbers-core.workspace = true
+vector-analysis-core.workspace = true
+video-analysis-core.workspace = true

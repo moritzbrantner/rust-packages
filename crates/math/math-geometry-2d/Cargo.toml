@@ -1,0 +1,16 @@
+[package]
+name = "math-geometry-2d"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Shared 2D geometry contracts for multimodal image, video, and layout processing."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+video-analysis-core.workspace = true

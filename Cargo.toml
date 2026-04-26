@@ -35,6 +35,11 @@ members = [
     "crates/data/dense-data",
     "crates/data/numbers-core",
     "crates/data/tensor-data",
+    "crates/math/math-geometry-2d",
+    "crates/math/math-linear",
+    "crates/math/math-signal-core",
+    "crates/math/math-sparse-data",
+    "crates/math/math-statistics",
     "crates/image/image-analysis-core",
     "crates/image/image-analysis-comfyui",
     "crates/image/image-analysis-detection",
@@ -50,6 +55,8 @@ members = [
     "crates/text/text-analysis-linguistics",
     "crates/text/text-analysis-models",
     "crates/text/text-analysis-prediction",
+    "crates/text/text-analysis-retrieval",
+    "crates/text/text-analysis-retrieval-storage",
     "crates/text/text-analysis-semantics",
     "crates/text/text-analysis-synthesis",
     "crates/text/text-analysis-transcription",
@@ -84,7 +91,7 @@ members = [
     "crates/video/video-analysis-segmentation",
     "crates/video/video-analysis-tracking",
     "crates/video/video-analysis-transform",
-    "crates/video/video-analysis-use-cases",
+    "prototypes/rust/video-analysis-use-cases",
     "crates/video/video-analysis-cli",
 ]
 resolver = "2"
@@ -135,6 +142,11 @@ graph-analysis-core = { version = "0.1.0", path = "crates/data/graph-analysis-co
 dense-data = { version = "0.1.0", path = "crates/data/dense-data" }
 numbers-core = { version = "0.1.0", path = "crates/data/numbers-core" }
 tensor-data = { version = "0.1.0", path = "crates/data/tensor-data" }
+math-geometry-2d = { version = "0.1.0", path = "crates/math/math-geometry-2d" }
+math-linear = { version = "0.1.0", path = "crates/math/math-linear" }
+math-signal-core = { version = "0.1.0", path = "crates/math/math-signal-core" }
+math-sparse-data = { version = "0.1.0", path = "crates/math/math-sparse-data" }
+math-statistics = { version = "0.1.0", path = "crates/math/math-statistics" }
 audio-analysis-core = { version = "0.1.0", path = "crates/audio/audio-analysis-core" }
 audio-analysis-fourier = { version = "0.1.0", path = "crates/audio/audio-analysis-fourier" }
 audio-analysis-io = { version = "0.1.0", path = "crates/audio/audio-analysis-io" }
@@ -161,6 +173,8 @@ text-analysis-features = { version = "0.1.0", path = "crates/text/text-analysis-
 text-analysis-linguistics = { version = "0.1.0", path = "crates/text/text-analysis-linguistics" }
 text-analysis-models = { version = "0.1.0", path = "crates/text/text-analysis-models" }
 text-analysis-prediction = { version = "0.1.0", path = "crates/text/text-analysis-prediction" }
+text-analysis-retrieval = { version = "0.1.0", path = "crates/text/text-analysis-retrieval" }
+text-analysis-retrieval-storage = { version = "0.1.0", path = "crates/text/text-analysis-retrieval-storage" }
 text-analysis-semantics = { version = "0.1.0", path = "crates/text/text-analysis-semantics" }
 text-analysis-synthesis = { version = "0.1.0", path = "crates/text/text-analysis-synthesis" }
 text-analysis-transcription = { version = "0.1.0", path = "crates/text/text-analysis-transcription" }
@@ -195,7 +209,7 @@ video-analysis-synthesis = { version = "0.1.0", path = "crates/video/video-analy
 video-analysis-segmentation = { version = "0.1.0", path = "crates/video/video-analysis-segmentation" }
 video-analysis-tracking = { version = "0.1.0", path = "crates/video/video-analysis-tracking" }
 video-analysis-transform = { version = "0.1.0", path = "crates/video/video-analysis-transform" }
-video-analysis-use-cases = { version = "0.1.0", path = "crates/video/video-analysis-use-cases" }
+video-analysis-use-cases = { version = "0.1.0", path = "prototypes/rust/video-analysis-use-cases" }
 
 [features]
 default = []
@@ -242,6 +256,11 @@ graph-analysis-core.workspace = true
 dense-data.workspace = true
 numbers-core.workspace = true
 tensor-data.workspace = true
+math-geometry-2d.workspace = true
+math-linear.workspace = true
+math-signal-core.workspace = true
+math-sparse-data.workspace = true
+math-statistics.workspace = true
 comfyui-data.workspace = true
 comfyui-latents.workspace = true
 comfyui-models.workspace = true
@@ -260,6 +279,8 @@ text-analysis-features.workspace = true
 text-analysis-linguistics.workspace = true
 text-analysis-models.workspace = true
 text-analysis-prediction.workspace = true
+text-analysis-retrieval.workspace = true
+text-analysis-retrieval-storage.workspace = true
 text-analysis-semantics.workspace = true
 text-analysis-synthesis.workspace = true
 text-analysis-transcription.workspace = true

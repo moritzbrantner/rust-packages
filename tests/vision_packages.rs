@@ -31,3 +31,28 @@ fn segmentation_masks_can_be_converted_into_detection_boxes() {
         va::BoundingBox::new(3, 2, 4, 3).unwrap()
     );
 }
+
+#[test]
+fn shared_geometry_and_kernels_flow_through_vision_packages() {
+    let rect = va::geometry2d::RectU32::new(1, 1, 2, 2).unwrap();
+    let image = va::image_core::OwnedImage::new(
+        4,
+        4,
+        va::image_core::ImagePixelFormat::Rgb24,
+        vec![0; 4 * 4 * 3],
+        12,
+    )
+    .unwrap();
+    let cropped = va::image_processing::crop_image_rect(&image.as_view(), rect).unwrap();
+    let filtered = va::image_processing::convolve_3x3_kernel(
+        &cropped.as_view(),
+        &va::linear::Kernel2d::identity_3x3(),
+        1.0,
+        0.0,
+    )
+    .unwrap();
+    assert_eq!(filtered.width, 2);
+    let bbox = va::BoundingBox::try_from(rect).unwrap();
+    let round_trip = va::geometry2d::RectU32::from(bbox);
+    assert_eq!(round_trip, rect);
+}

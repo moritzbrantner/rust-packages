@@ -14,8 +14,8 @@ workspace licensing terms.
 ## Crates
 
 Rust crates are grouped under `crates/` by input or integration domain:
-`audio/`, `video/`, `image/`, `text/`, `vector/`, `data/`, `three-d/`, and
-`comfyui/`.
+`audio/`, `video/`, `image/`, `text/`, `vector/`, `data/`, `math/`,
+`three-d/`, and `comfyui/`.
 
 Package README index:
 
@@ -23,10 +23,12 @@ Package README index:
 - Audio: [`audio-analysis-core`](crates/audio/audio-analysis-core/README.md), [`audio-analysis-fourier`](crates/audio/audio-analysis-fourier/README.md), [`audio-analysis-io`](crates/audio/audio-analysis-io/README.md), [`audio-analysis-pitch`](crates/audio/audio-analysis-pitch/README.md), [`audio-analysis-processing`](crates/audio/audio-analysis-processing/README.md), [`audio-analysis-recognition`](crates/audio/audio-analysis-recognition/README.md), [`audio-analysis-rhythm`](crates/audio/audio-analysis-rhythm/README.md), [`audio-analysis-separation`](crates/audio/audio-analysis-separation/README.md), [`audio-analysis-synthesis`](crates/audio/audio-analysis-synthesis/README.md)
 - ComfyUI: [`comfyui-data`](crates/comfyui/comfyui-data/README.md), [`comfyui-latents`](crates/comfyui/comfyui-latents/README.md), [`comfyui-models`](crates/comfyui/comfyui-models/README.md)
 - Data: [`data-inversion-core`](crates/data/data-inversion-core/README.md), [`graph-analysis-core`](crates/data/graph-analysis-core/README.md), [`numbers-core`](crates/data/numbers-core/README.md), [`tensor-data`](crates/data/tensor-data/README.md), [`dense-data`](crates/data/dense-data/README.md)
+- Math: [`math-geometry-2d`](crates/math/math-geometry-2d/README.md), [`math-linear`](crates/math/math-linear/README.md), [`math-signal-core`](crates/math/math-signal-core/README.md), [`math-sparse-data`](crates/math/math-sparse-data/README.md), [`math-statistics`](crates/math/math-statistics/README.md)
 - Image: [`image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-io`](crates/image/image-analysis-io/README.md), [`image-analysis-models`](crates/image/image-analysis-models/README.md), [`image-analysis-onnx`](crates/image/image-analysis-onnx/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
-- Text: [`text-analysis-core`](crates/text/text-analysis-core/README.md), [`text-analysis-corpus`](crates/text/text-analysis-corpus/README.md), [`text-analysis-features`](crates/text/text-analysis-features/README.md), [`text-analysis-linguistics`](crates/text/text-analysis-linguistics/README.md), [`text-analysis-models`](crates/text/text-analysis-models/README.md), [`text-analysis-prediction`](crates/text/text-analysis-prediction/README.md), [`text-analysis-semantics`](crates/text/text-analysis-semantics/README.md), [`text-analysis-synthesis`](crates/text/text-analysis-synthesis/README.md), [`text-analysis-transcription`](crates/text/text-analysis-transcription/README.md)
+- Text: [`text-analysis-core`](crates/text/text-analysis-core/README.md), [`text-analysis-corpus`](crates/text/text-analysis-corpus/README.md), [`text-analysis-features`](crates/text/text-analysis-features/README.md), [`text-analysis-linguistics`](crates/text/text-analysis-linguistics/README.md), [`text-analysis-models`](crates/text/text-analysis-models/README.md), [`text-analysis-prediction`](crates/text/text-analysis-prediction/README.md), [`text-analysis-retrieval`](crates/text/text-analysis-retrieval/README.md), [`text-analysis-retrieval-storage`](crates/text/text-analysis-retrieval-storage/README.md), [`text-analysis-semantics`](crates/text/text-analysis-semantics/README.md), [`text-analysis-synthesis`](crates/text/text-analysis-synthesis/README.md), [`text-analysis-transcription`](crates/text/text-analysis-transcription/README.md)
 - Vector and 3D: [`vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md)
-- Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-use-cases`](crates/video/video-analysis-use-cases/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
+- Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
+- Prototypes: [`video-analysis-use-cases`](prototypes/rust/video-analysis-use-cases/README.md), `@video-analysis/web` in `prototypes/web/video-analysis-web`
 
 - `video-analysis`: umbrella re-export crate.
 - `comfyui-data`: serde contracts and helpers for ComfyUI workflow JSON and
@@ -45,6 +47,17 @@ Package README index:
   histograms, and range helpers for analytics and reporting crates.
 - `tensor-data`: finite `f32` tensor shapes, borrowed/owned tensor values, and
   lightweight tensor metadata for interop contracts.
+- `math-geometry-2d`: shared checked 2D points, rectangles, normalized
+  coordinates, polygons, bounds, and affine transforms for image, video, and
+  posture workflows.
+- `math-linear`: dense matrix shapes, row/column views, matrix multiply,
+  tensor/vector bridges, and shared 1D/2D kernel contracts.
+- `math-signal-core`: sample-rate, window, resampling, frame-stride, FIR, and
+  biquad design contracts for audio and time-series workflows.
+- `math-sparse-data`: sparse vectors plus COO/CSR matrices for text, retrieval,
+  and feature indexing workflows.
+- `math-statistics`: streaming covariance, normalizers, covariance matrices,
+  and PCA-lite utilities for dense multivariate inputs.
 - `audio-analysis-core`: normalized audio sample conversion, mono mixing,
   windowing, frame iteration, streaming frame windows, waveform batches, and
   level helpers for audio analysis crates.
@@ -101,6 +114,11 @@ Package README index:
   features.
 - `text-analysis-prediction`: deterministic token Markov chains for next-token
   prediction, generation, and perplexity scoring.
+- `text-analysis-retrieval`: library-first document chunking, semantic/vector
+  search, BM25 lexical search, hybrid ranking, metadata filtering, and
+  related-content lookup.
+- `text-analysis-retrieval-storage`: manifest, chunk, vector, and corpus
+  persistence helpers for saving and reloading retrieval indexes.
 - `text-analysis-semantics`: lightweight hashed text embeddings, a
   `TextEmbeddingBackend` trait, generic embedding search, text similarity, and
   co-occurrence/related-term analysis.
@@ -168,9 +186,18 @@ Package README index:
 - `video-analysis-output`: scene/stats CSV and simple HTML output helpers.
 - `video-analysis-split`: ffmpeg CLI based scene splitting.
 - `video-analysis-cli`: `vanalyze` command-line tool.
-- `video-analysis-use-cases`: runnable end-to-end use-case pipelines.
+- `video-analysis-use-cases`: prototype runnable end-to-end use-case pipelines.
 - `@video-analysis/ui`: React + TailwindCSS component packs for viewing
   analysis results in an application UI.
+- `@video-analysis/web`: prototype Vite app for trying workflows, reports, and
+  package integrations locally.
+
+## Repository Layout
+
+- `crates/`: reusable Rust packages intended to stay focused and composable.
+- `packages/`: reusable frontend packages such as `@video-analysis/ui`.
+- `prototypes/`: executable experiments and testbeds, including use-case
+  workflows, the local web app, and future search/recommendation prototypes.
 
 ## Frontend Component Packs
 
@@ -213,7 +240,7 @@ export default {
 
 ## Use-Case Website
 
-`packages/video-analysis-web` is a Vite React app for trying the available
+`prototypes/web/video-analysis-web` is a Vite React app for trying the available
 use-case workflows and viewing generated reports with the component packs.
 
 ```bash
@@ -478,7 +505,8 @@ flowchart LR
 
 ### YouTube Video Use Case
 
-The `video-analysis-use-cases` crate contains runnable composition examples.
+The prototype crate `prototypes/rust/video-analysis-use-cases` contains
+runnable composition examples.
 The first pipeline downloads or accepts a YouTube video, detects scenes,
 extracts/segments transcript text, performs simple audio activity detection,
 aggregates video/audio/text records into data buckets, and can call external

@@ -1,6 +1,7 @@
 # video-analysis-use-cases
 
-Runnable end-to-end workflows built from the `video-analysis` crates.
+Prototype runnable end-to-end workflows built from the `video-analysis`
+crates.
 
 ## Feature flags
 

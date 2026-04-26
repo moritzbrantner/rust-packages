@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+use math_geometry_2d::RectU32;
+use math_linear::Kernel2d;
 use video_analysis_core::{
     BoundingBox, DetectError, OwnedVideoFrame, PixelFormat, Result, VideoFrame,
 };
@@ -42,6 +44,10 @@ impl FrameEditor {
         self.edit(FrameEdit::Crop(region))
     }
 
+    pub fn crop_rect(self, region: RectU32) -> Result<Self> {
+        Ok(self.crop(region.try_into()?))
+    }
+
     pub fn box_blur(self, radius: u32) -> Self {
         self.edit(FrameEdit::BoxBlur { radius })
     }
@@ -69,6 +75,10 @@ impl FrameEditor {
         })
     }
 
+    pub fn filter_3x3_kernel(self, kernel: Kernel2d, divisor: f32, bias: f32) -> Result<Self> {
+        Ok(self.filter_3x3(kernel.as_array_3x3()?, divisor, bias))
+    }
+
     pub fn edits(&self) -> &[FrameEdit] {
         &self.edits
     }
@@ -83,6 +93,10 @@ impl FrameEditor {
 }
 
 pub fn crop_frame(frame: &VideoFrame<'_>, region: BoundingBox) -> Result<OwnedVideoFrame> {
+    crop_frame_rect(frame, region.into())
+}
+
+pub fn crop_frame_rect(frame: &VideoFrame<'_>, region: RectU32) -> Result<OwnedVideoFrame> {
     validate_region(frame, region)?;
     let pixel_format = frame.pixel_format;
     let stride = region.width as usize * 3;
@@ -172,16 +186,21 @@ pub fn filter_3x3_frame(
     divisor: f32,
     bias: f32,
 ) -> Result<OwnedVideoFrame> {
+    filter_3x3_frame_kernel(frame, &Kernel2d::from(kernel), divisor, bias)
+}
+
+pub fn filter_3x3_frame_kernel(
+    frame: &VideoFrame<'_>,
+    kernel: &Kernel2d,
+    divisor: f32,
+    bias: f32,
+) -> Result<OwnedVideoFrame> {
     if !divisor.is_finite() || divisor == 0.0 || !bias.is_finite() {
         return Err(DetectError::InvalidArgument(
             "filter divisor must be finite and non-zero, and bias must be finite".to_string(),
         ));
     }
-    if kernel.iter().any(|value| !value.is_finite()) {
-        return Err(DetectError::InvalidArgument(
-            "filter kernel values must be finite".to_string(),
-        ));
-    }
+    let kernel = kernel.as_array_3x3()?;
     map_pixels(frame, |x, y| {
         let mut output = [0.0f32; 3];
         for ky in 0..3 {
@@ -206,21 +225,11 @@ pub fn filter_3x3_frame(
 }
 
 pub fn sharpen_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
-    filter_3x3_frame(
-        frame,
-        [0.0, -1.0, 0.0, -1.0, 5.0, -1.0, 0.0, -1.0, 0.0],
-        1.0,
-        0.0,
-    )
+    filter_3x3_frame_kernel(frame, &Kernel2d::sharpen_3x3(), 1.0, 0.0)
 }
 
 pub fn edge_detect_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
-    filter_3x3_frame(
-        frame,
-        [-1.0, -1.0, -1.0, -1.0, 8.0, -1.0, -1.0, -1.0, -1.0],
-        1.0,
-        0.0,
-    )
+    filter_3x3_frame_kernel(frame, &Kernel2d::edge_3x3(), 1.0, 0.0)
 }
 
 fn apply_edit(frame: &VideoFrame<'_>, edit: &FrameEdit) -> Result<OwnedVideoFrame> {
@@ -305,7 +314,8 @@ fn write_native_pixel(
     }
 }
 
-fn validate_region(frame: &VideoFrame<'_>, region: BoundingBox) -> Result<()> {
+fn validate_region(frame: &VideoFrame<'_>, region: RectU32) -> Result<()> {
+    region.validate()?;
     let x1 = region.x.checked_add(region.width).ok_or_else(|| {
         DetectError::InvalidArgument("crop region exceeds frame boundary".to_string())
     })?;
@@ -355,7 +365,7 @@ mod tests {
     #[test]
     fn crop_extracts_region() {
         let cropped =
-            crop_frame(&frame().as_frame(), BoundingBox::new(1, 0, 2, 1).unwrap()).unwrap();
+            crop_frame_rect(&frame().as_frame(), RectU32::new(1, 0, 2, 1).unwrap()).unwrap();
 
         assert_eq!(cropped.width, 2);
         assert_eq!(cropped.height, 1);
@@ -372,7 +382,8 @@ mod tests {
     #[test]
     fn editor_chains_operations() {
         let edited = FrameEditor::new()
-            .crop(BoundingBox::new(0, 0, 2, 1).unwrap())
+            .crop_rect(RectU32::new(0, 0, 2, 1).unwrap())
+            .unwrap()
             .invert()
             .apply(&frame().as_frame())
             .unwrap();
@@ -386,5 +397,15 @@ mod tests {
         let blurred = box_blur_frame(&frame().as_frame(), 1).unwrap();
 
         assert_eq!(&blurred.data[0..3], &[76, 81, 22]);
+    }
+
+    #[test]
+    fn shared_kernel_helper_builds_filter_edit() {
+        let edited = FrameEditor::new()
+            .filter_3x3_kernel(Kernel2d::identity_3x3(), 1.0, 0.0)
+            .unwrap()
+            .apply(&frame().as_frame())
+            .unwrap();
+        assert_eq!(edited.width, frame().width);
     }
 }

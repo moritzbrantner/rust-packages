@@ -2,12 +2,14 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use math_sparse_data::{CooMatrix, CsrMatrix, SparseVector};
+use serde::{Deserialize, Serialize};
 use text_analysis_core::{
     segment_document_id, tokenize, TextDocument, TextProcessingOptions, TokenKind,
 };
 use video_analysis_core::{DetectError, Result, TextSegment};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CorpusOptions {
     pub processing: TextProcessingOptions,
     pub min_term_len: usize,
@@ -72,7 +74,7 @@ pub struct DocumentSearchResult {
     pub matched_terms: usize,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Bm25Options {
     pub k1: f32,
     pub b: f32,
@@ -96,6 +98,12 @@ pub struct Bm25SearchResult {
     pub id: String,
     pub score: f32,
     pub matched_terms: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SparseTermMatrix {
+    pub vocabulary: Vec<String>,
+    pub matrix: CsrMatrix,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -295,6 +303,10 @@ impl Bm25Corpus {
         let document_count = self.document_frequency.get(term).copied().unwrap_or(0) as f32;
         (1.0 + (documents - document_count + 0.5) / (document_count + 0.5)).ln()
     }
+
+    pub fn sparse_term_matrix(&self) -> Result<SparseTermMatrix> {
+        build_sparse_term_matrix(&self.documents)
+    }
 }
 
 impl Default for TfIdfCorpus {
@@ -431,6 +443,10 @@ impl TfIdfCorpus {
                 self.total_terms as f32 / self.documents.len() as f32
             },
         }
+    }
+
+    pub fn sparse_term_matrix(&self) -> Result<SparseTermMatrix> {
+        build_sparse_term_matrix(&self.documents)
     }
 
     pub fn term_stats(&self, limit: usize) -> Vec<CorpusTermStats> {
@@ -607,6 +623,26 @@ pub fn term_counts(text: &str, options: &CorpusOptions) -> BTreeMap<String, usiz
     counts
 }
 
+pub fn sparse_term_vector(
+    counts: &BTreeMap<String, usize>,
+    vocabulary: &[String],
+) -> Result<SparseVector> {
+    let index_by_term = vocabulary
+        .iter()
+        .enumerate()
+        .map(|(index, term)| (term.as_str(), index))
+        .collect::<BTreeMap<_, _>>();
+    let mut indices = Vec::new();
+    let mut values = Vec::new();
+    for (term, count) in counts {
+        if let Some(index) = index_by_term.get(term.as_str()) {
+            indices.push(*index);
+            values.push(*count as f32);
+        }
+    }
+    SparseVector::new(vocabulary.len().max(1), indices, values)
+}
+
 fn bm25_term_counts(text: &str, options: &Bm25Options) -> BTreeMap<String, usize> {
     term_counts(
         text,
@@ -636,6 +672,31 @@ fn truncate_limit<T>(values: &mut Vec<T>, limit: usize) {
     if limit > 0 {
         values.truncate(limit);
     }
+}
+
+fn build_sparse_term_matrix(documents: &[IndexedDocument]) -> Result<SparseTermMatrix> {
+    let vocabulary = documents
+        .iter()
+        .flat_map(|document| document.term_counts.keys().cloned())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let index_by_term = vocabulary
+        .iter()
+        .enumerate()
+        .map(|(index, term)| (term.as_str(), index))
+        .collect::<BTreeMap<_, _>>();
+    let mut entries = Vec::new();
+    for (row, document) in documents.iter().enumerate() {
+        for (term, count) in &document.term_counts {
+            if let Some(col) = index_by_term.get(term.as_str()) {
+                entries.push((row, *col, *count as f32));
+            }
+        }
+    }
+    let matrix =
+        CooMatrix::new(documents.len().max(1), vocabulary.len().max(1), entries)?.to_csr()?;
+    Ok(SparseTermMatrix { vocabulary, matrix })
 }
 
 fn l2_norm(values: impl IntoIterator<Item = f32>) -> f32 {
@@ -1047,6 +1108,26 @@ mod tests {
         let error = Bm25Corpus::from_documents(documents, Bm25Options::default()).unwrap_err();
         assert!(
             matches!(error, DetectError::InvalidArgument(message) if message.contains("document id `dup` already exists"))
+        );
+    }
+
+    #[test]
+    fn sparse_term_outputs_round_trip() {
+        let corpus =
+            TfIdfCorpus::from_texts(["rust cargo", "cargo build"], CorpusOptions::default())
+                .unwrap();
+        let sparse = corpus.sparse_term_matrix().unwrap();
+        assert_eq!(sparse.matrix.rows(), 2);
+        assert!(sparse.vocabulary.iter().any(|term| term == "cargo"));
+        let vector =
+            sparse_term_vector(&corpus.documents()[0].term_counts, &sparse.vocabulary).unwrap();
+        assert_eq!(
+            vector
+                .to_dense()
+                .iter()
+                .filter(|value| **value > 0.0)
+                .count(),
+            2
         );
     }
 }

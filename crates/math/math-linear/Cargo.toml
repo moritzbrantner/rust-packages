@@ -1,0 +1,18 @@
+[package]
+name = "math-linear"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Dense matrix and kernel contracts bridging tensor-data and vector-analysis-core."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+tensor-data.workspace = true
+vector-analysis-core.workspace = true
+video-analysis-core.workspace = true

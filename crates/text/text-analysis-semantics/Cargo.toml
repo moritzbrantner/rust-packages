@@ -13,6 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+math-sparse-data.workspace = true
 text-analysis-core.workspace = true
 text-analysis-corpus.workspace = true
 vector-analysis-core.workspace = true
