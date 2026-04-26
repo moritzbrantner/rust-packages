@@ -277,428 +277,86 @@ pub struct PortCompatibility {
     pub target: PortKind,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+struct WorkflowCatalogDefinition {
+    version: u32,
+    nodes: Vec<NodeDefinition>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+struct NodeDefinition {
+    id: String,
+    title: String,
+    package_name: String,
+    category: WorkflowCategory,
+    #[serde(default)]
+    ui_owned: bool,
+    #[serde(default)]
+    inputs: Vec<PortDefinition>,
+    #[serde(default)]
+    outputs: Vec<PortDefinition>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+struct PortDefinition {
+    id: String,
+    label: String,
+    kind: PortKind,
+    #[serde(default)]
+    optional: bool,
+    #[serde(default)]
+    stream: bool,
+    #[serde(default)]
+    exposable_input: bool,
+    #[serde(default)]
+    input_surface: Option<WorkflowInputSurface>,
+    #[serde(default)]
+    suggested_adapters: Vec<String>,
+    #[serde(default)]
+    runtime_validation: Option<WorkflowRuntimeValidation>,
+}
+
+impl From<NodeDefinition> for NodeSpec {
+    fn from(value: NodeDefinition) -> Self {
+        Self {
+            id: value.id,
+            title: value.title,
+            package_name: value.package_name,
+            category: value.category,
+            ui_owned: value.ui_owned,
+            inputs: value.inputs.into_iter().map(Into::into).collect(),
+            outputs: value.outputs.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<PortDefinition> for PortSpec {
+    fn from(value: PortDefinition) -> Self {
+        Self {
+            id: value.id,
+            label: value.label,
+            value_type: workflow_type_for_port_kind(value.kind),
+            kind: value.kind,
+            optional: value.optional,
+            stream: value.stream,
+            exposable_input: value.exposable_input,
+            input_surface: value.input_surface,
+            suggested_adapters: value.suggested_adapters,
+            runtime_validation: value.runtime_validation,
+        }
+    }
+}
+
 pub fn default_workflow_catalog() -> WorkflowCatalog {
-    let nodes = vec![
-        node(
-            "react-page",
-            "React Page",
-            "@video-analysis-studio/ui",
-            WorkflowCategory::App,
-            true,
-        )
-        .outputs(vec![
-            port("run", "Run", PortKind::RunTrigger),
-            port("config", "Config", PortKind::RunConfig)
-                .exposable_input(WorkflowInputSurface::Config)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-        ]),
-        node(
-            "source",
-            "Source",
-            "@video-analysis-studio/ui",
-            WorkflowCategory::Ingest,
-            true,
-        )
-        .outputs(vec![
-            port("url", "YouTube URL", PortKind::YoutubeUrl)
-                .exposable_input(WorkflowInputSurface::SourceUrl)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port(
-                "collection",
-                "Collection URL",
-                PortKind::YoutubeCollectionUrl,
-            )
-            .exposable_input(WorkflowInputSurface::CollectionUrl)
-            .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("file", "Video File", PortKind::VideoFile)
-                .exposable_input(WorkflowInputSurface::File)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("image", "Image File", PortKind::ImageFile)
-                .exposable_input(WorkflowInputSurface::File)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-        ]),
-        node(
-            "vite-api",
-            "Studio API",
-            "studio-core",
-            WorkflowCategory::App,
-            false,
-        )
-        .inputs(vec![
-            port("run", "Run", PortKind::RunTrigger),
-            port("config", "Config", PortKind::RunConfig),
-        ])
-        .outputs(vec![port("args", "Arguments", PortKind::RunConfig)]),
-        node(
-            "youtube-workflow",
-            "YouTube Workflow",
-            "video-analysis-use-cases",
-            WorkflowCategory::Youtube,
-            false,
-        )
-        .inputs(vec![
-            port("url", "URL", PortKind::YoutubeUrl)
-                .optional()
-                .exposable_input(WorkflowInputSurface::SourceUrl)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("collection", "Collection", PortKind::YoutubeCollectionUrl)
-                .optional()
-                .exposable_input(WorkflowInputSurface::CollectionUrl)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("file", "File", PortKind::VideoFile)
-                .optional()
-                .exposable_input(WorkflowInputSurface::File)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("args", "Args", PortKind::RunConfig)
-                .exposable_input(WorkflowInputSurface::Config)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-        ])
-        .outputs(vec![
-            port("file", "Video", PortKind::VideoFile),
-            port("report", "Report", PortKind::JsonReport),
-        ]),
-        node(
-            "video-red-cars-workflow",
-            "Video Red Cars Workflow",
-            "video-analysis-use-cases",
-            WorkflowCategory::Video,
-            false,
-        )
-        .inputs(vec![
-            port("file", "File", PortKind::VideoFile)
-                .exposable_input(WorkflowInputSurface::File)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("args", "Args", PortKind::RunConfig)
-                .exposable_input(WorkflowInputSurface::Config)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-        ])
-        .outputs(vec![
-            port("file", "Video", PortKind::VideoFile),
-            port("report", "Report", PortKind::JsonReport),
-        ]),
-        node(
-            "audio-voice-analysis-workflow",
-            "Audio Voice Analysis Workflow",
-            "video-analysis-use-cases",
-            WorkflowCategory::Audio,
-            false,
-        )
-        .inputs(vec![
-            port("file", "Audio", PortKind::AudioFile)
-                .exposable_input(WorkflowInputSurface::File)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("args", "Args", PortKind::RunConfig)
-                .exposable_input(WorkflowInputSurface::Config)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-        ])
-        .outputs(vec![
-            port("audio", "Audio", PortKind::AudioFile),
-            port("report", "Report", PortKind::JsonReport),
-        ]),
-        node(
-            "image-person-edit-workflow",
-            "Image Person Edit Workflow",
-            "video-analysis-use-cases",
-            WorkflowCategory::Ui,
-            false,
-        )
-        .inputs(vec![
-            port("image", "Image", PortKind::ImageFile)
-                .exposable_input(WorkflowInputSurface::File)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("args", "Args", PortKind::RunConfig)
-                .exposable_input(WorkflowInputSurface::Config)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-        ])
-        .outputs(vec![
-            port("image", "Image", PortKind::ImageFile),
-            port("report", "Report", PortKind::JsonReport),
-        ]),
-        node(
-            "song-workflow",
-            "Song Workflow",
-            "video-analysis-use-cases",
-            WorkflowCategory::Song,
-            false,
-        )
-        .inputs(vec![
-            port("url", "URL", PortKind::YoutubeUrl)
-                .optional()
-                .exposable_input(WorkflowInputSurface::SourceUrl)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("file", "File", PortKind::MediaFile)
-                .optional()
-                .exposable_input(WorkflowInputSurface::File)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("args", "Args", PortKind::RunConfig)
-                .exposable_input(WorkflowInputSurface::Config)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-        ])
-        .outputs(vec![
-            port("file", "Media", PortKind::MediaFile),
-            port("report", "Report", PortKind::JsonReport),
-        ]),
-        node(
-            "subtitle-workflow",
-            "Subtitle Workflow",
-            "text-analysis-transcription",
-            WorkflowCategory::Text,
-            false,
-        )
-        .inputs(vec![
-            port("url", "URL", PortKind::YoutubeUrl)
-                .optional()
-                .exposable_input(WorkflowInputSurface::SourceUrl)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("file", "File", PortKind::VideoFile)
-                .optional()
-                .exposable_input(WorkflowInputSurface::File)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-            port("args", "Args", PortKind::RunConfig)
-                .exposable_input(WorkflowInputSurface::Config)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-        ])
-        .outputs(vec![
-            port("subtitle", "Subtitle", PortKind::SubtitleFile),
-            port("report", "Report", PortKind::JsonReport),
-        ]),
-        node(
-            "collection-manifest",
-            "Collection Manifest",
-            "video-analysis-use-cases",
-            WorkflowCategory::Collection,
-            false,
-        )
-        .inputs(vec![port(
-            "collection",
-            "Collection",
-            PortKind::YoutubeCollectionUrl,
-        )
-        .exposable_input(WorkflowInputSurface::CollectionUrl)
-        .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
-        .outputs(vec![port(
-            "manifest",
-            "Manifest",
-            PortKind::CollectionManifest,
-        )]),
-        node(
-            "collection-download-loop",
-            "Collection Download Loop",
-            "video-analysis-use-cases",
-            WorkflowCategory::Collection,
-            false,
-        )
-        .inputs(vec![port(
-            "manifest",
-            "Manifest",
-            PortKind::CollectionManifest,
-        )])
-        .outputs(vec![port("items", "Items", PortKind::CollectionItems)]),
-        node(
-            "collection-report",
-            "Collection Report",
-            "video-analysis-use-cases",
-            WorkflowCategory::Collection,
-            false,
-        )
-        .inputs(vec![port("items", "Items", PortKind::CollectionItems)])
-        .outputs(vec![port("report", "Report", PortKind::JsonReport)]),
-        node(
-            "download",
-            "YouTube Download",
-            "video-analysis-use-cases",
-            WorkflowCategory::Youtube,
-            false,
-        )
-        .inputs(vec![port("url", "URL", PortKind::YoutubeUrl)
-            .exposable_input(WorkflowInputSurface::SourceUrl)
-            .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
-        .outputs(vec![port("file", "Video", PortKind::VideoFile)]),
-        node(
-            "ffmpeg",
-            "FFmpeg Decode",
-            "video-analysis-ffmpeg",
-            WorkflowCategory::Ingest,
-            false,
-        )
-        .inputs(vec![port("file", "File", PortKind::MediaFile)
-            .exposable_input(WorkflowInputSurface::File)
-            .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
-        .outputs(vec![
-            port("video", "Video Frames", PortKind::VideoFile).stream(),
-            port("audio", "Audio Frames", PortKind::AudioWaveform).stream(),
-        ]),
-        node(
-            "video-pipeline",
-            "Video Pipeline",
-            "video-analysis-core",
-            WorkflowCategory::Video,
-            false,
-        )
-        .inputs(vec![port("video", "Frames", PortKind::VideoFile).stream()])
-        .outputs(vec![
-            port("scenes", "Scenes", PortKind::SceneList),
-            port("observations", "Observations", PortKind::ObservationList),
-        ]),
-        node(
-            "content-detector",
-            "Content Detector",
-            "video-analysis-detectors",
-            WorkflowCategory::Video,
-            false,
-        )
-        .inputs(vec![port("video", "Frames", PortKind::VideoFile).stream()])
-        .outputs(vec![port("scenes", "Scenes", PortKind::SceneList)]),
-        node(
-            "model-sampler",
-            "Model Sampler",
-            "video-analysis-core",
-            WorkflowCategory::Video,
-            false,
-        )
-        .inputs(vec![port("video", "Frames", PortKind::VideoFile).stream()])
-        .outputs(vec![
-            port("sampled", "Sampled Frames", PortKind::VideoFile).stream()
-        ]),
-        node(
-            "external-models",
-            "External Models",
-            "video-analysis-models",
-            WorkflowCategory::Video,
-            false,
-        )
-        .inputs(vec![port("video", "Frames", PortKind::VideoFile).stream()])
-        .outputs(vec![port(
-            "observations",
-            "Observations",
-            PortKind::ObservationList,
-        )]),
-        node(
-            "audio-pipeline",
-            "Audio Pipeline",
-            "audio-analysis-processing",
-            WorkflowCategory::Audio,
-            false,
-        )
-        .inputs(vec![
-            port("audio", "Audio", PortKind::AudioWaveform).stream()
-        ])
-        .outputs(vec![port("events", "Events", PortKind::AudioEvents)]),
-        node(
-            "transcriber",
-            "Transcriber",
-            "text-analysis-transcription",
-            WorkflowCategory::Text,
-            false,
-        )
-        .inputs(vec![port("audio", "Audio", PortKind::AudioWaveform)])
-        .outputs(vec![port("transcript", "Transcript", PortKind::Transcript)]),
-        node(
-            "text-pipeline",
-            "Text Pipeline",
-            "text-analysis-features",
-            WorkflowCategory::Text,
-            false,
-        )
-        .inputs(vec![port("transcript", "Transcript", PortKind::Transcript)])
-        .outputs(vec![port("events", "Events", PortKind::TextEvents)]),
-        node(
-            "subtitle-writer",
-            "Subtitle Writer",
-            "text-analysis-transcription",
-            WorkflowCategory::Text,
-            false,
-        )
-        .inputs(vec![port("transcript", "Transcript", PortKind::Transcript)])
-        .outputs(vec![port("subtitle", "Subtitle", PortKind::SubtitleFile)]),
-        node(
-            "buckets",
-            "Data Buckets",
-            "video-analysis-data",
-            WorkflowCategory::Data,
-            false,
-        )
-        .inputs(vec![
-            port("video", "Video", PortKind::VideoFile).stream(),
-            port("audio", "Audio", PortKind::AudioWaveform).stream(),
-            port("text", "Text", PortKind::Transcript).stream(),
-        ])
-        .outputs(vec![port("buckets", "Buckets", PortKind::DataBuckets)]),
-        node(
-            "report-writer",
-            "Report Writer",
-            "video-analysis-use-cases",
-            WorkflowCategory::Output,
-            false,
-        )
-        .inputs(vec![
-            port("scenes", "Scenes", PortKind::SceneList).optional(),
-            port("observations", "Observations", PortKind::ObservationList).optional(),
-            port("audio", "Audio Events", PortKind::AudioEvents).optional(),
-            port("text", "Text Events", PortKind::TextEvents).optional(),
-            port("buckets", "Buckets", PortKind::DataBuckets).optional(),
-        ])
-        .outputs(vec![port("report", "Report", PortKind::JsonReport)]),
-        node(
-            "song-fingerprinter",
-            "Song Fingerprinter",
-            "audio-analysis-recognition",
-            WorkflowCategory::Song,
-            false,
-        )
-        .inputs(vec![port("file", "Media", PortKind::MediaFile)
-            .exposable_input(WorkflowInputSurface::File)
-            .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
-        .outputs(vec![port(
-            "fingerprint",
-            "Fingerprint",
-            PortKind::SongFingerprint,
-        )]),
-        node(
-            "song-catalog-matcher",
-            "Song Catalog Matcher",
-            "video-analysis-use-cases",
-            WorkflowCategory::Song,
-            false,
-        )
-        .inputs(vec![
-            port("fingerprint", "Fingerprint", PortKind::SongFingerprint),
-            port("catalog", "Catalog", PortKind::SongCatalog)
-                .exposable_input(WorkflowInputSurface::Generic)
-                .runtime_validation(WorkflowRuntimeValidation::ExternalInput),
-        ])
-        .outputs(vec![port("matches", "Matches", PortKind::SongMatches)]),
-        node(
-            "song-music-analyzer",
-            "Music Analyzer",
-            "video-analysis-use-cases",
-            WorkflowCategory::Song,
-            false,
-        )
-        .inputs(vec![port("file", "Media", PortKind::MediaFile)
-            .exposable_input(WorkflowInputSurface::File)
-            .runtime_validation(WorkflowRuntimeValidation::ExternalInput)])
-        .outputs(vec![port("features", "Features", PortKind::MusicFeatures)]),
-        node(
-            "song-report-writer",
-            "Song Report Writer",
-            "video-analysis-use-cases",
-            WorkflowCategory::Song,
-            false,
-        )
-        .inputs(vec![
-            port("matches", "Matches", PortKind::SongMatches).optional(),
-            port("features", "Features", PortKind::MusicFeatures).optional(),
-            port("transcript", "Lyrics", PortKind::Transcript).optional(),
-        ])
-        .outputs(vec![port("report", "Report", PortKind::JsonReport)]),
-    ];
+    let definition =
+        serde_json::from_str::<WorkflowCatalogDefinition>(include_str!("workflow_catalog.json"))
+            .expect("embedded workflow catalog JSON is valid");
 
     WorkflowCatalog {
-        version: 5,
+        version: definition.version,
         port_kinds: all_port_kinds(),
         compatibility: compatibility_pairs(),
-        nodes,
+        nodes: definition.nodes.into_iter().map(Into::into).collect(),
     }
 }
 
@@ -792,42 +450,6 @@ pub fn workflow_types_assignable(source: &WorkflowTypeSpec, target: &WorkflowTyp
                 )
         }
         _ => false,
-    }
-}
-
-fn node(
-    id: impl Into<String>,
-    title: impl Into<String>,
-    package_name: impl Into<String>,
-    category: WorkflowCategory,
-    ui_owned: bool,
-) -> NodeBuilder {
-    NodeBuilder(NodeSpec {
-        id: id.into(),
-        title: title.into(),
-        package_name: package_name.into(),
-        category,
-        ui_owned,
-        inputs: Vec::new(),
-        outputs: Vec::new(),
-    })
-}
-
-fn port(id: impl Into<String>, label: impl Into<String>, kind: PortKind) -> PortSpec {
-    PortSpec::new(id, label, kind)
-}
-
-struct NodeBuilder(NodeSpec);
-
-impl NodeBuilder {
-    fn inputs(mut self, inputs: Vec<PortSpec>) -> Self {
-        self.0.inputs = inputs;
-        self
-    }
-
-    fn outputs(mut self, outputs: Vec<PortSpec>) -> NodeSpec {
-        self.0.outputs = outputs;
-        self.0
     }
 }
 

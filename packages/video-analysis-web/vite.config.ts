@@ -5,6 +5,8 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
+import { loadWorkspaceArchitecture } from "./workspaceArchitectureLoader";
+
 const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 interface UseCaseFormPayload {
@@ -38,9 +40,11 @@ function youtubeAnalysisApi(): Plugin {
     name: "youtube-analysis-api",
     configureServer(server) {
       server.middlewares.use("/api/run-youtube-video", handleRunYoutubeVideo);
+      server.middlewares.use("/api/workspace-architecture", handleWorkspaceArchitecture);
     },
     configurePreviewServer(server) {
       server.middlewares.use("/api/run-youtube-video", handleRunYoutubeVideo);
+      server.middlewares.use("/api/workspace-architecture", handleWorkspaceArchitecture);
     },
   };
 }
@@ -97,6 +101,21 @@ async function handleRunYoutubeVideo(req: any, res: any, next: any) {
         output_files: [],
         message: error instanceof Error ? error.message : String(error),
       },
+    });
+  }
+}
+
+async function handleWorkspaceArchitecture(req: any, res: any, next: any) {
+  if (req.method !== "GET") {
+    next();
+    return;
+  }
+
+  try {
+    sendJson(res, 200, await loadWorkspaceArchitecture(workspaceRoot));
+  } catch (error) {
+    sendJson(res, 500, {
+      message: error instanceof Error ? error.message : String(error),
     });
   }
 }

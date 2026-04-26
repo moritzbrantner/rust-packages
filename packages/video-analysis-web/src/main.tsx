@@ -37,6 +37,7 @@ import {
 import "./index.css";
 import "@xyflow/react/dist/style.css";
 import { sampleReport } from "./sampleReport";
+import { ArchitectureOverview } from "./ArchitectureOverview";
 import {
   ResultPageEditor,
   addDashboardWidgetForDataKind,
@@ -55,7 +56,7 @@ import {
 import { WorkflowExecutionEditor } from "./WorkflowExecutionEditor";
 
 type UseCaseId = "youtube-video";
-type ViewMode = "overview" | "run" | "workflow" | "flow" | "result" | "scenes" | "signals" | "data";
+type ViewMode = "overview" | "architecture" | "run" | "workflow" | "flow" | "result" | "scenes" | "signals" | "data";
 
 interface AnalysisApiResponse {
   report?: YoutubeVideoReport;
@@ -265,6 +266,7 @@ function App() {
                 value={viewMode}
                 options={[
                   ["overview", "Overview"],
+                  ["architecture", "Architecture"],
                   ["run", "Run"],
                   ["workflow", "Workflow"],
                   ["flow", "Flow"],
@@ -311,6 +313,7 @@ function App() {
             ) : (
               <section className="min-w-0 space-y-4">
               {viewMode === "overview" && <Overview report={report} />}
+              {viewMode === "architecture" && <ArchitectureOverview />}
               {viewMode === "workflow" && (
                 <WorkflowExecutionEditor
                   form={form}

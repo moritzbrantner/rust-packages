@@ -1,0 +1,565 @@
+{
+  "version": 5,
+  "nodes": [
+    {
+      "id": "react-page",
+      "title": "React Page",
+      "package_name": "@video-analysis-studio/ui",
+      "category": "app",
+      "ui_owned": true,
+      "outputs": [
+        { "id": "run", "label": "Run", "kind": "run_trigger" },
+        {
+          "id": "config",
+          "label": "Config",
+          "kind": "run_config",
+          "exposable_input": true,
+          "input_surface": "config",
+          "runtime_validation": "external_input"
+        }
+      ]
+    },
+    {
+      "id": "source",
+      "title": "Source",
+      "package_name": "@video-analysis-studio/ui",
+      "category": "ingest",
+      "ui_owned": true,
+      "outputs": [
+        {
+          "id": "url",
+          "label": "YouTube URL",
+          "kind": "youtube_url",
+          "exposable_input": true,
+          "input_surface": "source_url",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "collection",
+          "label": "Collection URL",
+          "kind": "youtube_collection_url",
+          "exposable_input": true,
+          "input_surface": "collection_url",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "file",
+          "label": "Video File",
+          "kind": "video_file",
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "image",
+          "label": "Image File",
+          "kind": "image_file",
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        }
+      ]
+    },
+    {
+      "id": "vite-api",
+      "title": "Studio API",
+      "package_name": "studio-core",
+      "category": "app",
+      "inputs": [
+        { "id": "run", "label": "Run", "kind": "run_trigger" },
+        { "id": "config", "label": "Config", "kind": "run_config" }
+      ],
+      "outputs": [
+        { "id": "args", "label": "Arguments", "kind": "run_config" }
+      ]
+    },
+    {
+      "id": "youtube-workflow",
+      "title": "YouTube Workflow",
+      "package_name": "video-analysis-use-cases",
+      "category": "youtube",
+      "inputs": [
+        {
+          "id": "url",
+          "label": "URL",
+          "kind": "youtube_url",
+          "optional": true,
+          "exposable_input": true,
+          "input_surface": "source_url",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "collection",
+          "label": "Collection",
+          "kind": "youtube_collection_url",
+          "optional": true,
+          "exposable_input": true,
+          "input_surface": "collection_url",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "file",
+          "label": "File",
+          "kind": "video_file",
+          "optional": true,
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "args",
+          "label": "Args",
+          "kind": "run_config",
+          "exposable_input": true,
+          "input_surface": "config",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "file", "label": "Video", "kind": "video_file" },
+        { "id": "report", "label": "Report", "kind": "json_report" }
+      ]
+    },
+    {
+      "id": "video-red-cars-workflow",
+      "title": "Video Red Cars Workflow",
+      "package_name": "video-analysis-use-cases",
+      "category": "video",
+      "inputs": [
+        {
+          "id": "file",
+          "label": "File",
+          "kind": "video_file",
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "args",
+          "label": "Args",
+          "kind": "run_config",
+          "exposable_input": true,
+          "input_surface": "config",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "file", "label": "Video", "kind": "video_file" },
+        { "id": "report", "label": "Report", "kind": "json_report" }
+      ]
+    },
+    {
+      "id": "audio-voice-analysis-workflow",
+      "title": "Audio Voice Analysis Workflow",
+      "package_name": "video-analysis-use-cases",
+      "category": "audio",
+      "inputs": [
+        {
+          "id": "file",
+          "label": "Audio",
+          "kind": "audio_file",
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "args",
+          "label": "Args",
+          "kind": "run_config",
+          "exposable_input": true,
+          "input_surface": "config",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "audio", "label": "Audio", "kind": "audio_file" },
+        { "id": "report", "label": "Report", "kind": "json_report" }
+      ]
+    },
+    {
+      "id": "image-person-edit-workflow",
+      "title": "Image Person Edit Workflow",
+      "package_name": "video-analysis-use-cases",
+      "category": "ui",
+      "inputs": [
+        {
+          "id": "image",
+          "label": "Image",
+          "kind": "image_file",
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "args",
+          "label": "Args",
+          "kind": "run_config",
+          "exposable_input": true,
+          "input_surface": "config",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "image", "label": "Image", "kind": "image_file" },
+        { "id": "report", "label": "Report", "kind": "json_report" }
+      ]
+    },
+    {
+      "id": "song-workflow",
+      "title": "Song Workflow",
+      "package_name": "video-analysis-use-cases",
+      "category": "song",
+      "inputs": [
+        {
+          "id": "url",
+          "label": "URL",
+          "kind": "youtube_url",
+          "optional": true,
+          "exposable_input": true,
+          "input_surface": "source_url",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "file",
+          "label": "File",
+          "kind": "media_file",
+          "optional": true,
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "args",
+          "label": "Args",
+          "kind": "run_config",
+          "exposable_input": true,
+          "input_surface": "config",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "file", "label": "Media", "kind": "media_file" },
+        { "id": "report", "label": "Report", "kind": "json_report" }
+      ]
+    },
+    {
+      "id": "subtitle-workflow",
+      "title": "Subtitle Workflow",
+      "package_name": "text-analysis-transcription",
+      "category": "text",
+      "inputs": [
+        {
+          "id": "url",
+          "label": "URL",
+          "kind": "youtube_url",
+          "optional": true,
+          "exposable_input": true,
+          "input_surface": "source_url",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "file",
+          "label": "File",
+          "kind": "video_file",
+          "optional": true,
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        },
+        {
+          "id": "args",
+          "label": "Args",
+          "kind": "run_config",
+          "exposable_input": true,
+          "input_surface": "config",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "subtitle", "label": "Subtitle", "kind": "subtitle_file" },
+        { "id": "report", "label": "Report", "kind": "json_report" }
+      ]
+    },
+    {
+      "id": "collection-manifest",
+      "title": "Collection Manifest",
+      "package_name": "video-analysis-use-cases",
+      "category": "collection",
+      "inputs": [
+        {
+          "id": "collection",
+          "label": "Collection",
+          "kind": "youtube_collection_url",
+          "exposable_input": true,
+          "input_surface": "collection_url",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "manifest", "label": "Manifest", "kind": "collection_manifest" }
+      ]
+    },
+    {
+      "id": "collection-download-loop",
+      "title": "Collection Download Loop",
+      "package_name": "video-analysis-use-cases",
+      "category": "collection",
+      "inputs": [
+        { "id": "manifest", "label": "Manifest", "kind": "collection_manifest" }
+      ],
+      "outputs": [
+        { "id": "items", "label": "Items", "kind": "collection_items" }
+      ]
+    },
+    {
+      "id": "collection-report",
+      "title": "Collection Report",
+      "package_name": "video-analysis-use-cases",
+      "category": "collection",
+      "inputs": [
+        { "id": "items", "label": "Items", "kind": "collection_items" }
+      ],
+      "outputs": [
+        { "id": "report", "label": "Report", "kind": "json_report" }
+      ]
+    },
+    {
+      "id": "download",
+      "title": "YouTube Download",
+      "package_name": "video-analysis-use-cases",
+      "category": "youtube",
+      "inputs": [
+        {
+          "id": "url",
+          "label": "URL",
+          "kind": "youtube_url",
+          "exposable_input": true,
+          "input_surface": "source_url",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "file", "label": "Video", "kind": "video_file" }
+      ]
+    },
+    {
+      "id": "ffmpeg",
+      "title": "FFmpeg Decode",
+      "package_name": "video-analysis-ffmpeg",
+      "category": "ingest",
+      "inputs": [
+        {
+          "id": "file",
+          "label": "File",
+          "kind": "media_file",
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "video", "label": "Video Frames", "kind": "video_file", "stream": true },
+        { "id": "audio", "label": "Audio Frames", "kind": "audio_waveform", "stream": true }
+      ]
+    },
+    {
+      "id": "video-pipeline",
+      "title": "Video Pipeline",
+      "package_name": "video-analysis-core",
+      "category": "video",
+      "inputs": [
+        { "id": "video", "label": "Frames", "kind": "video_file", "stream": true }
+      ],
+      "outputs": [
+        { "id": "scenes", "label": "Scenes", "kind": "scene_list" },
+        { "id": "observations", "label": "Observations", "kind": "observation_list" }
+      ]
+    },
+    {
+      "id": "content-detector",
+      "title": "Content Detector",
+      "package_name": "video-analysis-detectors",
+      "category": "video",
+      "inputs": [
+        { "id": "video", "label": "Frames", "kind": "video_file", "stream": true }
+      ],
+      "outputs": [
+        { "id": "scenes", "label": "Scenes", "kind": "scene_list" }
+      ]
+    },
+    {
+      "id": "model-sampler",
+      "title": "Model Sampler",
+      "package_name": "video-analysis-core",
+      "category": "video",
+      "inputs": [
+        { "id": "video", "label": "Frames", "kind": "video_file", "stream": true }
+      ],
+      "outputs": [
+        { "id": "sampled", "label": "Sampled Frames", "kind": "video_file", "stream": true }
+      ]
+    },
+    {
+      "id": "external-models",
+      "title": "External Models",
+      "package_name": "video-analysis-models",
+      "category": "video",
+      "inputs": [
+        { "id": "video", "label": "Frames", "kind": "video_file", "stream": true }
+      ],
+      "outputs": [
+        { "id": "observations", "label": "Observations", "kind": "observation_list" }
+      ]
+    },
+    {
+      "id": "audio-pipeline",
+      "title": "Audio Pipeline",
+      "package_name": "audio-analysis-processing",
+      "category": "audio",
+      "inputs": [
+        { "id": "audio", "label": "Audio", "kind": "audio_waveform", "stream": true }
+      ],
+      "outputs": [
+        { "id": "events", "label": "Events", "kind": "audio_events" }
+      ]
+    },
+    {
+      "id": "transcriber",
+      "title": "Transcriber",
+      "package_name": "text-analysis-transcription",
+      "category": "text",
+      "inputs": [
+        { "id": "audio", "label": "Audio", "kind": "audio_waveform" }
+      ],
+      "outputs": [
+        { "id": "transcript", "label": "Transcript", "kind": "transcript" }
+      ]
+    },
+    {
+      "id": "text-pipeline",
+      "title": "Text Pipeline",
+      "package_name": "text-analysis-features",
+      "category": "text",
+      "inputs": [
+        { "id": "transcript", "label": "Transcript", "kind": "transcript" }
+      ],
+      "outputs": [
+        { "id": "events", "label": "Events", "kind": "text_events" }
+      ]
+    },
+    {
+      "id": "subtitle-writer",
+      "title": "Subtitle Writer",
+      "package_name": "text-analysis-transcription",
+      "category": "text",
+      "inputs": [
+        { "id": "transcript", "label": "Transcript", "kind": "transcript" }
+      ],
+      "outputs": [
+        { "id": "subtitle", "label": "Subtitle", "kind": "subtitle_file" }
+      ]
+    },
+    {
+      "id": "buckets",
+      "title": "Data Buckets",
+      "package_name": "video-analysis-data",
+      "category": "data",
+      "inputs": [
+        { "id": "video", "label": "Video", "kind": "video_file", "stream": true },
+        { "id": "audio", "label": "Audio", "kind": "audio_waveform", "stream": true },
+        { "id": "text", "label": "Text", "kind": "transcript", "stream": true }
+      ],
+      "outputs": [
+        { "id": "buckets", "label": "Buckets", "kind": "data_buckets" }
+      ]
+    },
+    {
+      "id": "report-writer",
+      "title": "Report Writer",
+      "package_name": "video-analysis-use-cases",
+      "category": "output",
+      "inputs": [
+        { "id": "scenes", "label": "Scenes", "kind": "scene_list", "optional": true },
+        { "id": "observations", "label": "Observations", "kind": "observation_list", "optional": true },
+        { "id": "audio", "label": "Audio Events", "kind": "audio_events", "optional": true },
+        { "id": "text", "label": "Text Events", "kind": "text_events", "optional": true },
+        { "id": "buckets", "label": "Buckets", "kind": "data_buckets", "optional": true }
+      ],
+      "outputs": [
+        { "id": "report", "label": "Report", "kind": "json_report" }
+      ]
+    },
+    {
+      "id": "song-fingerprinter",
+      "title": "Song Fingerprinter",
+      "package_name": "audio-analysis-recognition",
+      "category": "song",
+      "inputs": [
+        {
+          "id": "file",
+          "label": "Media",
+          "kind": "media_file",
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "fingerprint", "label": "Fingerprint", "kind": "song_fingerprint" }
+      ]
+    },
+    {
+      "id": "song-catalog-matcher",
+      "title": "Song Catalog Matcher",
+      "package_name": "video-analysis-use-cases",
+      "category": "song",
+      "inputs": [
+        { "id": "fingerprint", "label": "Fingerprint", "kind": "song_fingerprint" },
+        {
+          "id": "catalog",
+          "label": "Catalog",
+          "kind": "song_catalog",
+          "exposable_input": true,
+          "input_surface": "generic",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "matches", "label": "Matches", "kind": "song_matches" }
+      ]
+    },
+    {
+      "id": "song-music-analyzer",
+      "title": "Music Analyzer",
+      "package_name": "video-analysis-use-cases",
+      "category": "song",
+      "inputs": [
+        {
+          "id": "file",
+          "label": "Media",
+          "kind": "media_file",
+          "exposable_input": true,
+          "input_surface": "file",
+          "runtime_validation": "external_input"
+        }
+      ],
+      "outputs": [
+        { "id": "features", "label": "Features", "kind": "music_features" }
+      ]
+    },
+    {
+      "id": "song-report-writer",
+      "title": "Song Report Writer",
+      "package_name": "video-analysis-use-cases",
+      "category": "song",
+      "inputs": [
+        { "id": "matches", "label": "Matches", "kind": "song_matches", "optional": true },
+        { "id": "features", "label": "Features", "kind": "music_features", "optional": true },
+        { "id": "transcript", "label": "Lyrics", "kind": "transcript", "optional": true }
+      ],
+      "outputs": [
+        { "id": "report", "label": "Report", "kind": "json_report" }
+      ]
+    }
+  ]
+}
