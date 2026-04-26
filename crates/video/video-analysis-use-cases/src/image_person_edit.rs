@@ -3,10 +3,12 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use comfyui_latents::{LatentImageSize, LatentMask};
+use comfyui_models::{ComfyModelRef, ComfyModelRole};
 use image_analysis_comfyui::{
     build_generation_workflow, ComfyWorkflowPreset, ImageGenerationMode, ImageGenerationRequest,
 };
-use image_analysis_core::{ImagePixelFormat, OwnedImage};
+use image_analysis_core::{mask_tensor_from_luma, ImagePixelFormat, OwnedImage};
 use image_analysis_io::{read_image, write_image};
 use serde::{Deserialize, Serialize};
 use video_analysis_core::{
@@ -180,13 +182,18 @@ pub fn run_image_person_edit(args: ImagePersonEditRequest) -> Result<ImagePerson
 
     let mask = person_mask(&image, &detections);
     write_image(&mask_path, &mask)?;
+    let _latent_mask = LatentMask::from_image_mask(
+        mask_tensor_from_luma(&mask.as_view())?,
+        LatentImageSize::new(mask.width, mask.height)?,
+    )?;
+    let checkpoint = ComfyModelRef::new(ComfyModelRole::Checkpoint, args.model.clone());
 
     let workflow = build_generation_workflow(
         &ImageGenerationRequest::new(&args.prompt)
             .preset(ComfyWorkflowPreset::FluxInpaint)
             .mode(ImageGenerationMode::Inpaint)
             .negative_prompt(&args.negative_prompt)
-            .checkpoint(&args.model)
+            .checkpoint_ref(checkpoint)
             .input_image(display_path(&args.input))
             .mask_image(display_path(&mask_path))
             .output_prefix("edited"),
@@ -473,6 +480,35 @@ mod tests {
         assert!(json.contains("UNETLoader"));
         assert!(json.contains("flux1-dev.safetensors"));
         assert!(json.contains("person_mask.png"));
+    }
+
+    #[test]
+    fn image_person_edit_converts_person_mask_into_latent_mask() {
+        let mask = person_mask(
+            &test_image(),
+            &[PersonDetectionReport {
+                label: "person".to_string(),
+                score: Some(0.9),
+                region: RegionReport {
+                    x: 8,
+                    y: 8,
+                    width: 8,
+                    height: 8,
+                },
+                attributes: BTreeMap::new(),
+            }],
+        );
+        let latent_mask = LatentMask::from_image_mask(
+            mask_tensor_from_luma(&mask.as_view()).unwrap(),
+            LatentImageSize::new(mask.width, mask.height).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(latent_mask.tensor().shape().dimensions(), &[4, 4]);
+        assert!(latent_mask
+            .tensor()
+            .values()
+            .iter()
+            .any(|value| *value > 0.0));
     }
 
     #[test]

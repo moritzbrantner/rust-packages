@@ -1659,8 +1659,7 @@ mod tests {
     use super::*;
     use std::io::Write;
     use video_analysis_models::{
-        HuggingFaceModelSpec, ModelBundle, ModelBundleFile, ModelBundleManifest, ModelBundleStore,
-        ModelTask,
+        HuggingFaceModelSpec, ModelBundle, ModelBundleFile, ModelBundleManifest, ModelTask,
     };
 
     #[derive(Debug)]

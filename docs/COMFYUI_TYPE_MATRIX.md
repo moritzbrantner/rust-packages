@@ -31,7 +31,7 @@ onto workspace crates. It combines:
 | `CLIP` | Yes | Runtime-leaning | `comfyui-data` | Semantic inventory only | Represent as a typed socket category; concrete runtime schema is deferred. |
 | `CLIP_VISION` | No | Mixed | `comfyui-data` + `comfyui-models` | Semantic inventory + model refs | Asset lookup is stable through `ComfyModelRole::ClipVision`. |
 | `VAE` | Yes | Mixed | `comfyui-data` + `comfyui-models` | Semantic inventory + model refs | VAE asset refs are stable; runtime payload remains abstract. |
-| `CONDITIONING` | Yes | Runtime-only today | `comfyui-data` | Deferred runtime schema | Keep as a normalized workflow semantic in phase 1 only. |
+| `CONDITIONING` | Yes | Minimal runtime contract | `comfyui-data` + `tensor-data` | Minimal tensor-backed runtime schema | `ConditioningBatch` owns stable `[T,C]` embedding tensors plus optional pooled `[C]` embeddings. |
 | `UPSCALE_MODEL` | Yes | Mixed | `comfyui-data` + `comfyui-models` | Semantic inventory + model refs | Asset lookup is stable through `ComfyModelRole::UpscaleModel`. |
 | `MODEL_PATCH` / `MODELPATCH` | No | Mixed | `comfyui-data` + `comfyui-models` | Semantic inventory + model refs | Asset lookup is stable through `ComfyModelRole::ModelPatch`. |
 | `MESH` | No | Portable | `three-d-processing-*` + radiance crates | Existing | Mesh/radiance-like data already belongs to 3D and radiance packages. |
@@ -48,5 +48,7 @@ onto workspace crates. It combines:
 - `comfyui-models` owns model folder kinds and stable model-reference contracts.
 - `image-analysis-core` owns image buffers and image batches.
 - `audio-analysis-core` owns waveform batches.
-- Runtime-only sockets such as `CONDITIONING`, `NOISE`, `SAMPLER`, `SIGMAS`,
-  and `GUIDER` remain intentionally schema-light in phase 1.
+- `comfyui-data` owns the minimal tensor-backed `ConditioningBatch` contract.
+- Runtime-only sockets such as `NOISE`, `SAMPLER`, `SIGMAS`, and `GUIDER`
+  remain intentionally schema-light until a second concrete producer/consumer
+  pair appears in the workspace.

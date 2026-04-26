@@ -26,7 +26,7 @@ Runtime and external integration crates use a shared feature policy:
 | Package | Role | Depends on | Exposes | Consumed by |
 | --- | --- | --- | --- | --- |
 | `video-analysis` | Root facade crate | Library crates except CLI and use cases | Re-exports core items, detector items, and package modules | Applications that want one import surface |
-| `comfyui-data` | ComfyUI workflow and socket typing contracts | `serde`, `serde_json` | Workflow JSON nodes, links, groups, validation helpers, prompt nodes/links, normalized `ComfySocketType`, workflow socket inventories | Applications importing, validating, inventorying, or emitting ComfyUI graphs |
+| `comfyui-data` | ComfyUI workflow and socket typing contracts | `serde`, `serde_json`, `tensor-data`, `thiserror` | Workflow JSON nodes, links, groups, validation helpers, prompt nodes/links, normalized `ComfySocketType`, workflow socket inventories, `ConditioningItem`, `ConditioningBatch` | Applications importing, validating, inventorying, or emitting ComfyUI graphs |
 | `comfyui-latents` | ComfyUI latent-space contracts | `tensor-data`, `video-analysis-core`, `serde` | `LatentBatch`, `LatentMask`, `LatentImageSize`, mask compatibility checks | Applications or integrations that need stable latent-space data contracts |
 | `comfyui-models` | ComfyUI model folder, inventory, and reference contracts | `serde`, `thiserror` | Core model folder keys, default relative paths, inventory scanning, extra model paths YAML generation, `ComfyModelRole`, `ComfyModelRef` | Applications managing shared ComfyUI model libraries |
 | `data-inversion-core` | Shared lossy inverse-conversion metadata | `video-analysis-core` | `InformationFidelity`, `InversionMethod`, `InversionTrace`, generated value wrappers | Synthesis crates and applications that need explicit interpolation/assumption metadata |
@@ -34,7 +34,7 @@ Runtime and external integration crates use a shared feature policy:
 | `tensor-data` | Generic finite `f32` tensor contracts | `video-analysis-core`, `serde`, `serde_json` | `TensorShape`, `F32Tensor`, `F32TensorView`, shape/element validation, metadata | `comfyui-latents`, audio/image bridges, and future tensor-oriented interop crates |
 | `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core`, `tensor-data` | Normalized sample conversion, mono mixing, window functions, frame iteration, streaming frame windows, level helpers, waveform batch contracts | Audio analysis crates and applications |
 | `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
-| `audio-analysis-io` | Audio input convenience facade | `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports | Applications that want audio-specific input APIs |
+| `audio-analysis-io` | Audio input convenience facade | `audio-analysis-core`, `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, WAV export for single-item waveform batches | Applications that want audio-specific input APIs |
 | `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
 | `audio-analysis-processing` | Realtime-safe audio processing | `audio-analysis-core`, `video-analysis-core`, `video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources | Applications, preprocessing workflows, audio pipelines |
 | `audio-analysis-recognition` | Audio similarity and recognition | `audio-analysis-core`, `audio-analysis-fourier`, `video-analysis-core` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events | Applications, audio pipelines, reference matching workflows |
@@ -51,7 +51,7 @@ Runtime and external integration crates use a shared feature policy:
 | `text-analysis-prediction` | Text prediction models | `text-analysis-core`, `video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring | Applications, text pipelines, prototyping |
 | `text-analysis-semantics` | Lightweight semantic text analysis | `text-analysis-core`, `text-analysis-corpus`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core` | Hashed text embeddings, `TextEmbeddingBackend`, generic embedding search, text similarity, co-occurrence graphs, related-term scoring | Applications, search, semantic analysis prototypes |
 | `text-analysis-synthesis` | Deterministic inverse text generation | `data-inversion-core`, `text-analysis-core`, `video-analysis-core` | Weighted term prompts, term/event to document generation, generated text segments | Applications turning features/events back into approximate prose |
-| `text-analysis-transcription` | Reusable transcript parsing and ASR command wrappers | `video-analysis-core`, `video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, text segment source adapter | Use cases, applications, text pipelines |
+| `text-analysis-transcription` | Reusable transcript parsing and ASR command wrappers | `audio-analysis-core`, `audio-analysis-io`, `video-analysis-core`, `video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, waveform-batch transcription bridge, text segment source adapter | Use cases, applications, text pipelines |
 | `dense-data` | Generic dense point aggregation and clustering | `numbers-core`, `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, per-dimension summaries, bounds, fixed-grid buckets, deterministic k-means clusters | Tables, graphs, charts, maps, media features, and analytics workflows |
 | `vector-analysis-core` | Dense vector contracts and metrics | `video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
 | `vector-analysis-index` | Exact vector search and assignment | `vector-analysis-core`, `video-analysis-core` | In-memory vector index, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
@@ -167,7 +167,9 @@ The `audio-analysis-*` crates build on the canonical `AudioFrame`,
 - `audio-analysis-io` re-exports the shared audio ingest traits and FFmpeg
   source types behind audio-named `AudioInput`, `AudioInputOptions`, and
   `open_audio_input` conveniences. FFmpeg remains the only default decode
-  backend.
+  backend. It also owns `decode_audio_to_waveform_batch` and
+  `write_waveform_batch_as_wav` for bridging decoded audio into portable
+  waveform contracts and file-based tools.
 - `audio-analysis-pitch` estimates fundamental frequency with normalized
   autocorrelation and emits pitch events when confidence crosses the configured
   threshold.
@@ -215,9 +217,13 @@ helpers without requiring video timeline semantics.
 - `image-analysis-models` owns image model presets and model-backed backend
   traits for segmentation, classification, embeddings, and captioning.
 - `image-analysis-onnx` owns still-image ONNX preprocessing and optional
-  runtime-backed image model adapters.
+  runtime-backed image model adapters. It now exposes batch preprocessing as
+  `OnnxImageBatchTensor`, `image_batch_to_tensor`, and
+  `preprocess_image_batch`.
 - `image-analysis-comfyui` owns ComfyUI workflow builders for AI image
-  generation and manipulation.
+  generation and manipulation. `ImageGenerationRequest` now prefers typed
+  `ComfyModelRef` values for checkpoint and upscale model selection while
+  keeping string builder shims for compatibility.
 
 Image processing outputs are compact `OwnedImage` buffers. Image crates should
 not own scene timing, CLI branching, or report serialization. Pure image crates
@@ -263,9 +269,11 @@ video use cases and model adapters.
   execution checks.
 - `text-analysis-transcription` owns `TranscriptFormat`, `TranscriptSegment`,
   `TranscriptionResult`, `Transcriber`, `CommandTranscriber`,
-  `WhisperCliTranscriber`, and `TranscriptSegmentSource`. It parses Whisper
-  JSON, SRT, WebVTT, and plain line transcripts, and converts transcript
-  segments into `OwnedTextSegment` values.
+  `WhisperCliTranscriber`, `transcribe_waveform_batch`, and
+  `TranscriptSegmentSource`. It parses Whisper JSON, SRT, WebVTT, and plain
+  line transcripts, converts transcript segments into `OwnedTextSegment`
+  values, and bridges waveform batches into the existing file-based
+  transcription path.
 
 Deterministic text crates should emit deterministic features and label-based
 `AnalysisEvent` values. Model-backed classification and embeddings are
@@ -669,13 +677,17 @@ The checked-in type/ownership matrix lives in
   link references.
 - `ComfySocketType` plus `WorkflowTypeInventory` for normalized socket-type
   inventories across workflow inputs, outputs, and links.
+- `ConditioningItem` and `ConditioningBatch` for minimal tensor-backed
+  conditioning payloads with validated `[T,C]` embeddings and optional pooled
+  `[C]` embeddings.
 - `PromptGraph`, `PromptNode`, `PromptLink`, `prompt_link`, and
   `parse_prompt_link` for ComfyUI API prompt graphs.
 
 `comfyui-latents` exposes:
 
 - `LatentBatch` for validated rank-4 latent tensors with optional latent masks.
-- `LatentMask` for validated latent-mask tensors and compatibility checks.
+- `LatentMask` for validated latent-mask tensors, compatibility checks, and
+  conversion from full-resolution image masks via 8x8 max pooling.
 - `LatentImageSize` for ComfyUI-style 1/8 latent-to-image size conversions.
 
 `comfyui-models` exposes:
@@ -1074,13 +1086,13 @@ only the views they need.
 
 Allowed internal dependencies:
 
-- `comfyui-data`: `serde`, `serde_json`, `thiserror`.
+- `comfyui-data`: `serde`, `serde_json`, `tensor-data`, `thiserror`.
 - `comfyui-models`: `serde`, `thiserror`.
 - `audio-analysis-core` -> `video-analysis-core`.
 - `audio-analysis-fourier` -> `audio-analysis-core`,
   `video-analysis-core`.
-- `audio-analysis-io` -> `video-analysis-core`, `video-analysis-ingest`,
-  `video-analysis-ffmpeg`.
+- `audio-analysis-io` -> `audio-analysis-core`, `video-analysis-core`,
+  `video-analysis-ingest`, `video-analysis-ffmpeg`, `hound`.
 - `audio-analysis-pitch` -> `audio-analysis-core`,
   `video-analysis-core`.
 - `audio-analysis-processing` -> `audio-analysis-core`,
@@ -1097,8 +1109,9 @@ Allowed internal dependencies:
   `unicode-normalization`.
 - `text-analysis-features` -> `text-analysis-core`,
   `video-analysis-core`.
-- `text-analysis-transcription` -> `video-analysis-core`,
-  `video-analysis-ingest`, `serde`, `serde_json`, `thiserror`.
+- `text-analysis-transcription` -> `audio-analysis-core`,
+  `audio-analysis-io`, `video-analysis-core`, `video-analysis-ingest`,
+  `serde`, `serde_json`, `thiserror`.
 - `vector-analysis-core` -> `video-analysis-core`.
 - `vector-analysis-index` -> `vector-analysis-core`,
   `video-analysis-core`.

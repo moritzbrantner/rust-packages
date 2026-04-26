@@ -60,7 +60,7 @@ fn observed_comfyui_types_map_to_matrix_rows() {
         ),
         (
             va::comfyui_data::ComfySocketType::Conditioning,
-            "Deferred runtime schema",
+            "Minimal tensor-backed runtime schema",
         ),
         (
             va::comfyui_data::ComfySocketType::UpscaleModel,

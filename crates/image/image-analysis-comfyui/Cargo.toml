@@ -14,5 +14,6 @@ categories.workspace = true
 
 [dependencies]
 comfyui-data.workspace = true
+comfyui-models.workspace = true
 serde_json.workspace = true
 video-analysis-core.workspace = true

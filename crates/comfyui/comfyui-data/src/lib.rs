@@ -6,6 +6,7 @@ use std::io::{Read, Write};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use tensor_data::F32Tensor;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -34,6 +35,8 @@ pub enum ComfyDataError {
     },
     #[error("invalid ComfyUI JSON: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("invalid conditioning schema: {0}")]
+    InvalidConditioning(String),
 }
 
 pub type Result<T> = std::result::Result<T, ComfyDataError>;
@@ -156,6 +159,93 @@ impl WorkflowTypeInventory {
 
     pub fn is_empty(&self) -> bool {
         self.inputs.is_empty() && self.outputs.is_empty() && self.links.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConditioningItem {
+    pub embedding: F32Tensor,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pooled_embedding: Option<F32Tensor>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, Value>,
+}
+
+impl ConditioningItem {
+    pub fn new(embedding: F32Tensor) -> Result<Self> {
+        let item = Self {
+            embedding,
+            pooled_embedding: None,
+            metadata: BTreeMap::new(),
+        };
+        item.validate()?;
+        Ok(item)
+    }
+
+    pub fn with_pooled_embedding(mut self, pooled_embedding: F32Tensor) -> Result<Self> {
+        self.pooled_embedding = Some(pooled_embedding);
+        self.validate()?;
+        Ok(self)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.embedding
+            .validate()
+            .map_err(|err| ComfyDataError::InvalidConditioning(err.to_string()))?;
+        let embedding_dims = self.embedding.shape().dimensions();
+        if embedding_dims.len() != 2 {
+            return Err(ComfyDataError::InvalidConditioning(
+                "conditioning embeddings must be rank 2 [T,C] tensors".to_string(),
+            ));
+        }
+        if let Some(pooled_embedding) = &self.pooled_embedding {
+            pooled_embedding
+                .validate()
+                .map_err(|err| ComfyDataError::InvalidConditioning(err.to_string()))?;
+            let pooled_dims = pooled_embedding.shape().dimensions();
+            if pooled_dims.len() != 1 {
+                return Err(ComfyDataError::InvalidConditioning(
+                    "pooled conditioning embeddings must be rank 1 [C] tensors".to_string(),
+                ));
+            }
+            if pooled_dims[0] != embedding_dims[1] {
+                return Err(ComfyDataError::InvalidConditioning(format!(
+                    "pooled conditioning embedding width {} does not match embedding channel dimension {}",
+                    pooled_dims[0], embedding_dims[1]
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConditioningBatch {
+    pub items: Vec<ConditioningItem>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, Value>,
+}
+
+impl ConditioningBatch {
+    pub fn new(items: Vec<ConditioningItem>) -> Result<Self> {
+        let batch = Self {
+            items,
+            metadata: BTreeMap::new(),
+        };
+        batch.validate()?;
+        Ok(batch)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.items.is_empty() {
+            return Err(ComfyDataError::InvalidConditioning(
+                "conditioning batches must contain at least one item".to_string(),
+            ));
+        }
+        for item in &self.items {
+            item.validate()?;
+        }
+        Ok(())
     }
 }
 
@@ -631,5 +721,42 @@ mod tests {
         assert!(observed.contains("IMAGE"));
         assert!(observed.contains("MASK"));
         assert!(observed.contains("UPSCALE_MODEL"));
+    }
+
+    #[test]
+    fn conditioning_batch_rejects_empty_items() {
+        let error = ConditioningBatch::new(Vec::new()).unwrap_err();
+        assert!(matches!(error, ComfyDataError::InvalidConditioning(_)));
+    }
+
+    #[test]
+    fn conditioning_batch_rejects_non_rank_two_embeddings() {
+        let error =
+            ConditioningItem::new(F32Tensor::from_dims([3], vec![0.0; 3]).unwrap()).unwrap_err();
+        assert!(matches!(error, ComfyDataError::InvalidConditioning(_)));
+    }
+
+    #[test]
+    fn conditioning_batch_rejects_pooled_width_mismatches() {
+        let error = ConditioningItem::new(F32Tensor::from_dims([2, 4], vec![0.0; 8]).unwrap())
+            .unwrap()
+            .with_pooled_embedding(F32Tensor::from_dims([3], vec![0.0; 3]).unwrap())
+            .unwrap_err();
+        assert!(matches!(error, ComfyDataError::InvalidConditioning(_)));
+    }
+
+    #[test]
+    fn conditioning_batch_round_trips_through_serde() {
+        let batch = ConditioningBatch::new(vec![ConditioningItem::new(
+            F32Tensor::from_dims([2, 4], vec![0.0; 8]).unwrap(),
+        )
+        .unwrap()
+        .with_pooled_embedding(F32Tensor::from_dims([4], vec![0.5; 4]).unwrap())
+        .unwrap()])
+        .unwrap();
+        let json = serde_json::to_vec(&batch).unwrap();
+        let decoded: ConditioningBatch = serde_json::from_slice(&json).unwrap();
+        decoded.validate().unwrap();
+        assert_eq!(decoded, batch);
     }
 }

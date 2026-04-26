@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use comfyui_data::{
     ComfySocketType, ComfyWorkflow, WorkflowInput, WorkflowLink, WorkflowNode, WorkflowOutput,
 };
+use comfyui_models::{ComfyModelRef, ComfyModelRole};
 use serde_json::Value;
 use video_analysis_core::{DetectError, Result};
 
@@ -37,12 +38,12 @@ pub struct ImageGenerationRequest {
     pub sampler_name: String,
     pub scheduler: String,
     pub seed: u64,
-    pub checkpoint: String,
+    pub checkpoint: ComfyModelRef,
     pub input_image: Option<String>,
     pub mask_image: Option<String>,
     pub denoise: f32,
     pub output_prefix: String,
-    pub upscale_model: String,
+    pub upscale_model: ComfyModelRef,
 }
 
 impl ImageGenerationRequest {
@@ -59,12 +60,12 @@ impl ImageGenerationRequest {
             sampler_name: "euler".to_string(),
             scheduler: "normal".to_string(),
             seed: 0,
-            checkpoint: "sdxl.safetensors".to_string(),
+            checkpoint: ComfyModelRef::new(ComfyModelRole::Checkpoint, "sdxl.safetensors"),
             input_image: None,
             mask_image: None,
             denoise: 0.8,
             output_prefix: "image_analysis".to_string(),
-            upscale_model: "4x-UltraSharp.pth".to_string(),
+            upscale_model: ComfyModelRef::new(ComfyModelRole::UpscaleModel, "4x-UltraSharp.pth"),
         }
     }
 
@@ -114,8 +115,13 @@ impl ImageGenerationRequest {
         self
     }
 
+    pub fn checkpoint_ref(mut self, value: ComfyModelRef) -> Self {
+        self.checkpoint = value;
+        self
+    }
+
     pub fn checkpoint(mut self, value: impl Into<String>) -> Self {
-        self.checkpoint = value.into();
+        self.checkpoint = ComfyModelRef::new(ComfyModelRole::Checkpoint, value);
         self
     }
 
@@ -139,8 +145,13 @@ impl ImageGenerationRequest {
         self
     }
 
+    pub fn upscale_model_ref(mut self, value: ComfyModelRef) -> Self {
+        self.upscale_model = value;
+        self
+    }
+
     pub fn upscale_model(mut self, value: impl Into<String>) -> Self {
-        self.upscale_model = value.into();
+        self.upscale_model = ComfyModelRef::new(ComfyModelRole::UpscaleModel, value);
         self
     }
 }
@@ -185,7 +196,7 @@ fn build_text_to_image_workflow(request: &ImageGenerationRequest) -> ComfyWorkfl
                     output("CLIP", ComfySocketType::Clip, 1, &[2, 3]),
                     output("VAE", ComfySocketType::Vae, 2, &[4]),
                 ],
-                vec![Value::String(request.checkpoint.clone())],
+                vec![Value::String(request.checkpoint.name.clone())],
             ),
             node(
                 2,
@@ -281,7 +292,7 @@ fn build_image_to_image_workflow(request: &ImageGenerationRequest) -> ComfyWorkf
                     output("CLIP", ComfySocketType::Clip, 1, &[2, 3]),
                     output("VAE", ComfySocketType::Vae, 2, &[4, 10]),
                 ],
-                vec![Value::String(request.checkpoint.clone())],
+                vec![Value::String(request.checkpoint.name.clone())],
             ),
             node(
                 2,
@@ -386,7 +397,7 @@ fn build_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
                     output("CLIP", ComfySocketType::Clip, 1, &[2, 3]),
                     output("VAE", ComfySocketType::Vae, 2, &[4, 11]),
                 ],
-                vec![Value::String(request.checkpoint.clone())],
+                vec![Value::String(request.checkpoint.name.clone())],
             ),
             node(
                 2,
@@ -502,7 +513,7 @@ fn build_upscale_workflow(request: &ImageGenerationRequest) -> ComfyWorkflow {
                     0,
                     &[2],
                 )],
-                vec![Value::String(request.upscale_model.clone())],
+                vec![Value::String(request.upscale_model.name.clone())],
             ),
             node(
                 3,
@@ -578,7 +589,7 @@ fn build_flux_inpaint_workflow(request: &ImageGenerationRequest) -> ComfyWorkflo
                 vec![],
                 vec![output("MODEL", ComfySocketType::Model, 0, &[5])],
                 vec![
-                    Value::String(request.checkpoint.clone()),
+                    Value::String(request.checkpoint.name.clone()),
                     Value::String("default".to_string()),
                 ],
             ),
@@ -673,6 +684,26 @@ fn validate_request(request: &ImageGenerationRequest) -> Result<()> {
     if !request.denoise.is_finite() || !(0.0..=1.0).contains(&request.denoise) {
         return Err(DetectError::InvalidArgument(
             "denoise must be finite and in the range 0..=1".to_string(),
+        ));
+    }
+    if request.checkpoint.role != ComfyModelRole::Checkpoint {
+        return Err(DetectError::InvalidArgument(
+            "checkpoint model ref must use the checkpoint role".to_string(),
+        ));
+    }
+    if request.checkpoint.name.trim().is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "checkpoint model name is required".to_string(),
+        ));
+    }
+    if request.upscale_model.role != ComfyModelRole::UpscaleModel {
+        return Err(DetectError::InvalidArgument(
+            "upscale_model ref must use the upscale_model role".to_string(),
+        ));
+    }
+    if request.upscale_model.name.trim().is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "upscale_model name is required".to_string(),
         ));
     }
     match request.mode {
@@ -792,6 +823,35 @@ fn sampler_widgets(request: &ImageGenerationRequest, denoise: f32) -> Vec<Value>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn typed_model_ref_builders_match_compatibility_builders() {
+        let typed = ImageGenerationRequest::new("fox")
+            .checkpoint_ref(ComfyModelRef::new(
+                ComfyModelRole::Checkpoint,
+                "flux1-dev.safetensors",
+            ))
+            .upscale_model_ref(ComfyModelRef::new(
+                ComfyModelRole::UpscaleModel,
+                "4x-UltraSharp.pth",
+            ));
+        let compatible = ImageGenerationRequest::new("fox")
+            .checkpoint("flux1-dev.safetensors")
+            .upscale_model("4x-UltraSharp.pth");
+        assert_eq!(
+            build_generation_workflow(&typed).unwrap(),
+            build_generation_workflow(&compatible).unwrap()
+        );
+    }
+
+    #[test]
+    fn rejects_role_mismatches_in_model_refs() {
+        let error = build_generation_workflow(&ImageGenerationRequest::new("fox").checkpoint_ref(
+            ComfyModelRef::new(ComfyModelRole::UpscaleModel, "4x-UltraSharp.pth"),
+        ))
+        .unwrap_err();
+        assert!(matches!(error, DetectError::InvalidArgument(_)));
+    }
 
     #[test]
     fn builds_text_to_image_workflow() {

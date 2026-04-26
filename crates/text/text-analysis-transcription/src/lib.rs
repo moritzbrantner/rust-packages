@@ -4,6 +4,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use audio_analysis_core::OwnedAudioWaveformBatch;
+use audio_analysis_io::write_waveform_batch_as_wav;
 use serde::Deserialize;
 pub use text_analysis_whisper_cpp::{
     transcription_catalog as whisper_cpp_catalog, whisper_cpp_system_info,
@@ -27,6 +29,8 @@ pub enum TranscriptionError {
     InvalidTranscript(String),
     #[error("transcriber command `{0}` failed")]
     CommandFailed(String),
+    #[error("{0}")]
+    Detect(#[from] video_analysis_core::DetectError),
     #[error("{0}")]
     WhisperCpp(#[from] text_analysis_whisper_cpp::WhisperCppError),
 }
@@ -395,6 +399,15 @@ pub fn write_srt(path: impl AsRef<Path>, segments: &[TranscriptSegment]) -> Resu
     Ok(())
 }
 
+pub fn transcribe_waveform_batch<T: Transcriber>(
+    transcriber: &mut T,
+    batch: &OwnedAudioWaveformBatch,
+    wav_path: &Path,
+) -> Result<TranscriptionResult> {
+    write_waveform_batch_as_wav(wav_path, batch)?;
+    transcriber.transcribe(wav_path)
+}
+
 pub fn format_srt_timestamp(seconds: f64) -> String {
     let total_millis = (seconds.max(0.0) * 1_000.0).round() as u64;
     let millis = total_millis % 1_000;
@@ -558,6 +571,8 @@ fn find_transcript_json(output_dir: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
+    use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
     use video_analysis_ingest::TextSegmentSource;
 
     #[test]
@@ -669,5 +684,35 @@ mod tests {
         let mut transcriber = CommandTranscriber::new("false", TranscriptFormat::Plain);
         let err = transcriber.transcribe(Path::new("missing")).unwrap_err();
         assert!(matches!(err, TranscriptionError::CommandFailed(_)));
+    }
+
+    #[test]
+    fn transcribes_waveform_batches_via_existing_command_transcriber() {
+        let dir = tempdir().unwrap();
+        let script_path = dir.path().join("transcriber.sh");
+        fs::write(&script_path, "#!/bin/sh\nprintf 'hello from batch\\n'\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let mut permissions = fs::metadata(&script_path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&script_path, permissions).unwrap();
+        }
+
+        let mut transcriber = CommandTranscriber::new(&script_path, TranscriptFormat::Plain);
+        let frame = OwnedAudioFrame::new(
+            Timestamp::new(0, Timebase::new(1, 16_000)),
+            16_000,
+            1,
+            AudioBuffer::F32(vec![0.0, 0.25, -0.25, 0.5]),
+        )
+        .unwrap();
+        let batch = OwnedAudioWaveformBatch::from_audio_frames(&[frame]).unwrap();
+        let wav_path = dir.path().join("input.wav");
+
+        let result = transcribe_waveform_batch(&mut transcriber, &batch, &wav_path).unwrap();
+        assert_eq!(result.text.as_deref(), Some("hello from batch"));
+        assert!(wav_path.is_file());
     }
 }

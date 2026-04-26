@@ -133,6 +133,7 @@ name = "audio-analysis-io"
 version = "0.1.0"
 dependencies = [
  "audio-analysis-core",
+ "hound",
  "tempfile",
  "video-analysis-core",
  "video-analysis-ffmpeg",
@@ -487,6 +488,7 @@ dependencies = [
  "image-analysis-comfyui",
  "serde",
  "serde_json",
+ "tensor-data",
  "thiserror 2.0.18",
 ]
 
@@ -1420,6 +1422,7 @@ name = "image-analysis-comfyui"
 version = "0.1.0"
 dependencies = [
  "comfyui-data",
+ "comfyui-models",
  "serde_json",
  "video-analysis-core",
 ]
@@ -2707,6 +2710,8 @@ dependencies = [
 name = "text-analysis-transcription"
 version = "0.1.0"
 dependencies = [
+ "audio-analysis-core",
+ "audio-analysis-io",
  "serde",
  "serde_json",
  "tempfile",
@@ -3510,6 +3515,8 @@ dependencies = [
  "audio-analysis-test-support",
  "chrono",
  "clap",
+ "comfyui-latents",
+ "comfyui-models",
  "image-analysis-comfyui",
  "image-analysis-core",
  "image-analysis-io",

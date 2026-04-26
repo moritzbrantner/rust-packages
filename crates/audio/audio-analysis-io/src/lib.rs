@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use audio_analysis_core::{interleaved_to_mono, ChannelMix};
+use audio_analysis_core::{interleaved_to_mono, ChannelMix, OwnedAudioWaveformBatch};
 use video_analysis_core::{OwnedAudioFrame, Result};
 pub use video_analysis_ffmpeg::{
     probe_audio as probe_audio_file, probe_audio_input, AudioMetadata, FfmpegAudioSource,
@@ -135,6 +135,15 @@ pub fn decode_audio_to_f32(
     Ok((metadata, frames))
 }
 
+pub fn decode_audio_to_waveform_batch(
+    input: AudioInput,
+    options: AudioInputOptions,
+) -> Result<(AudioMetadata, OwnedAudioWaveformBatch)> {
+    let (metadata, frames) = decode_audio_to_f32(input, options)?;
+    let batch = OwnedAudioWaveformBatch::from_audio_frames(&frames)?;
+    Ok((metadata, batch))
+}
+
 pub fn decode_audio_to_mono_f32(
     input: AudioInput,
     options: AudioInputOptions,
@@ -149,9 +158,57 @@ pub fn decode_audio_to_mono_f32(
     Ok((metadata, mono))
 }
 
+pub fn write_waveform_batch_as_wav(
+    path: impl AsRef<Path>,
+    batch: &OwnedAudioWaveformBatch,
+) -> Result<()> {
+    let view = batch.as_view()?;
+    if view.batch_size() != 1 {
+        return Err(video_analysis_core::DetectError::InvalidArgument(
+            "waveform WAV export requires a batch size of 1".to_string(),
+        ));
+    }
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let spec = hound::WavSpec {
+        channels: view.channel_count() as u16,
+        sample_rate: view.sample_rate,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(path, spec).map_err(|err| {
+        video_analysis_core::DetectError::Source(format!(
+            "failed to create WAV `{}`: {err}",
+            path.display()
+        ))
+    })?;
+    for time_index in 0..view.time_steps() {
+        for channel_index in 0..view.channel_count() {
+            let sample = view.waveform(0, channel_index)?[time_index];
+            writer.write_sample(sample).map_err(|err| {
+                video_analysis_core::DetectError::Source(format!(
+                    "failed to write WAV sample `{}`: {err}",
+                    path.display()
+                ))
+            })?;
+        }
+    }
+    writer.finalize().map_err(|err| {
+        video_analysis_core::DetectError::Source(format!(
+            "failed to finalize WAV `{}`: {err}",
+            path.display()
+        ))
+    })?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
+    use video_analysis_core::{AudioBuffer, Timebase, Timestamp};
 
     #[test]
     fn recorded_options_map_to_ffmpeg_recorded_mode() {
@@ -231,5 +288,51 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(error.contains("missing.wav"));
+    }
+
+    #[test]
+    fn writes_single_item_waveform_batches_to_wav() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("waveform.wav");
+        let frame = OwnedAudioFrame::new(
+            Timestamp::new(0, Timebase::new(1, 16_000)),
+            16_000,
+            2,
+            AudioBuffer::F32(vec![0.0, 0.5, -0.25, 0.25]),
+        )
+        .unwrap();
+        let batch = OwnedAudioWaveformBatch::from_audio_frames(&[frame]).unwrap();
+
+        write_waveform_batch_as_wav(&path, &batch).unwrap();
+
+        let mut reader = hound::WavReader::open(&path).unwrap();
+        let samples = reader
+            .samples::<f32>()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(reader.spec().channels, 2);
+        assert_eq!(samples, vec![0.0, 0.5, -0.25, 0.25]);
+    }
+
+    #[test]
+    fn rejects_multi_item_waveform_batches_for_wav_export() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("waveform.wav");
+        let first = OwnedAudioFrame::new(
+            Timestamp::new(0, Timebase::new(1, 16_000)),
+            16_000,
+            1,
+            AudioBuffer::F32(vec![0.0, 0.25]),
+        )
+        .unwrap();
+        let second = OwnedAudioFrame::new(
+            Timestamp::new(2, Timebase::new(1, 16_000)),
+            16_000,
+            1,
+            AudioBuffer::F32(vec![0.5, 0.75]),
+        )
+        .unwrap();
+        let batch = OwnedAudioWaveformBatch::from_audio_frames(&[first, second]).unwrap();
+        assert!(write_waveform_batch_as_wav(&path, &batch).is_err());
     }
 }

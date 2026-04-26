@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "onnxruntime")]
 use std::sync::Mutex;
 
-use image_analysis_core::ImageView;
+use image_analysis_core::{compact_image, ImageBatchView, ImageView, OwnedImageBatch};
 use image_analysis_detection::ImageDetection;
 use image_analysis_models::{ImageClassification, ImageClassifierBackend};
 use image_analysis_processing::resize_nearest;
@@ -52,6 +52,15 @@ impl Default for OnnxImagePreprocessing {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OnnxImageTensor {
+    pub channels: usize,
+    pub width: u32,
+    pub height: u32,
+    pub values: Vec<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OnnxImageBatchTensor {
+    pub batch_size: usize,
     pub channels: usize,
     pub width: u32,
     pub height: u32,
@@ -478,11 +487,34 @@ pub fn preprocess_image(
     validate_preprocessing(options)?;
     image.validate()?;
     let resized = if image.width == options.input_width && image.height == options.input_height {
-        image_analysis_core::compact_image(image)?
+        compact_image(image)?
     } else {
         resize_nearest(image, options.input_width, options.input_height)?
     };
     image_to_tensor(&resized.as_view(), options)
+}
+
+pub fn preprocess_image_batch(
+    batch: ImageBatchView<'_>,
+    options: &OnnxImagePreprocessing,
+) -> Result<OnnxImageBatchTensor> {
+    validate_preprocessing(options)?;
+    batch.validate()?;
+    if batch.width == options.input_width && batch.height == options.input_height {
+        return image_batch_to_tensor(batch, options);
+    }
+
+    let mut resized = Vec::with_capacity(batch.batch_size);
+    for index in 0..batch.batch_size {
+        let image = batch.image(index)?;
+        resized.push(resize_nearest(
+            &image,
+            options.input_width,
+            options.input_height,
+        )?);
+    }
+    let resized_batch = OwnedImageBatch::from_images(&resized)?;
+    image_batch_to_tensor(resized_batch.as_view(), options)
 }
 
 pub fn image_to_tensor(
@@ -514,6 +546,28 @@ pub fn image_to_tensor(
         channels: 3,
         width,
         height,
+        values,
+    })
+}
+
+pub fn image_batch_to_tensor(
+    batch: ImageBatchView<'_>,
+    options: &OnnxImagePreprocessing,
+) -> Result<OnnxImageBatchTensor> {
+    validate_preprocessing(options)?;
+    batch.validate()?;
+    let pixels_per_image = batch.width as usize * batch.height as usize;
+    let mut values = Vec::with_capacity(batch.batch_size * 3 * pixels_per_image);
+    for index in 0..batch.batch_size {
+        let image = batch.image(index)?;
+        let tensor = image_to_tensor(&image, options)?;
+        values.extend(tensor.values);
+    }
+    Ok(OnnxImageBatchTensor {
+        batch_size: batch.batch_size,
+        channels: 3,
+        width: batch.width,
+        height: batch.height,
         values,
     })
 }
@@ -904,7 +958,7 @@ mod tests {
 
     use std::collections::BTreeMap;
 
-    use image_analysis_core::OwnedImage;
+    use image_analysis_core::{OwnedImage, OwnedImageBatch};
     use image_analysis_models::ImageClassifierBackend;
     use tempfile::tempdir;
     use video_analysis_models::{ModelBundleFile, ModelBundleManifest};
@@ -978,6 +1032,23 @@ mod tests {
         let tensor = image_to_tensor(&image.as_view(), &OnnxImagePreprocessing::default()).unwrap();
         assert_eq!(tensor.values.len(), 6);
         assert_eq!(tensor.channels, 3);
+    }
+
+    #[test]
+    fn preprocess_image_batch_stacks_single_image_outputs_in_batch_order() {
+        let first = OwnedImage::new_rgb(2, 1, vec![255, 0, 0, 0, 255, 0]).unwrap();
+        let second = OwnedImage::new_rgb(2, 1, vec![0, 0, 255, 255, 255, 255]).unwrap();
+        let batch = OwnedImageBatch::from_images(&[first.clone(), second.clone()]).unwrap();
+        let options = OnnxImagePreprocessing::default();
+
+        let stacked = preprocess_image_batch(batch.as_view(), &options).unwrap();
+        let first_tensor = preprocess_image(&first.as_view(), &options).unwrap();
+        let second_tensor = preprocess_image(&second.as_view(), &options).unwrap();
+        let expected = [first_tensor.values, second_tensor.values].concat();
+
+        assert_eq!(stacked.batch_size, 2);
+        assert_eq!(stacked.channels, 3);
+        assert_eq!(stacked.values, expected);
     }
 
     #[test]

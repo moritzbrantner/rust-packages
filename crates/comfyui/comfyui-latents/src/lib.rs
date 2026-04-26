@@ -61,6 +61,41 @@ impl LatentMask {
         Ok(mask)
     }
 
+    pub fn from_image_mask(mask: F32Tensor, image_size: LatentImageSize) -> Result<Self> {
+        mask.validate()?;
+        let dims = mask.shape().dimensions();
+        if dims.len() != 2 {
+            return Err(invalid_argument(
+                "image masks must be rank 2 [H,W] tensors before latent conversion",
+            ));
+        }
+        if dims[0] != image_size.height as usize || dims[1] != image_size.width as usize {
+            return Err(invalid_argument(format!(
+                "image mask dimensions [{}, {}] do not match image size [{}, {}]",
+                dims[0], dims[1], image_size.height, image_size.width
+            )));
+        }
+        let (latent_height, latent_width) = image_size.latent_dimensions()?;
+        let mut values = Vec::with_capacity(latent_height * latent_width);
+        for latent_y in 0..latent_height {
+            for latent_x in 0..latent_width {
+                let mut pooled = 0.0_f32;
+                for image_y in latent_y * LatentImageSize::SCALE_FACTOR as usize
+                    ..(latent_y + 1) * LatentImageSize::SCALE_FACTOR as usize
+                {
+                    for image_x in latent_x * LatentImageSize::SCALE_FACTOR as usize
+                        ..(latent_x + 1) * LatentImageSize::SCALE_FACTOR as usize
+                    {
+                        let index = image_y * image_size.width as usize + image_x;
+                        pooled = pooled.max(mask.values()[index]);
+                    }
+                }
+                values.push(pooled);
+            }
+        }
+        Self::new(F32Tensor::from_dims([latent_height, latent_width], values)?)
+    }
+
     pub fn tensor(&self) -> &F32Tensor {
         &self.tensor
     }
@@ -217,5 +252,19 @@ mod tests {
         assert_eq!(size.width, 768);
         assert_eq!(size.height, 512);
         assert_eq!(size.latent_dimensions().unwrap(), (64, 96));
+    }
+
+    #[test]
+    fn converts_image_mask_into_pooled_latent_mask() {
+        let mut values = vec![0.0_f32; 16 * 16];
+        values[7 * 16 + 7] = 1.0;
+        values[8 * 16 + 8] = 0.5;
+        let mask = LatentMask::from_image_mask(
+            F32Tensor::from_dims([16, 16], values).unwrap(),
+            LatentImageSize::new(16, 16).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(mask.tensor().shape().dimensions(), &[2, 2]);
+        assert_eq!(mask.tensor().values(), &[1.0, 0.0, 0.0, 0.5]);
     }
 }
