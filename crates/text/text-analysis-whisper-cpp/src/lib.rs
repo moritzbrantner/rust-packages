@@ -90,7 +90,7 @@ impl WhisperCppModel {
         match self {
             Self::TinyEn => "0d686a2a6a22b02da2ef3101d4c86e68461363a623c58f27f81b1b2d36b42317",
             Self::Tiny => "518970a29bedb265f23ac48d486ddbc63bedffd90967b10140ae5ac61243acf3",
-            Self::BaseEn => "ff7d10f8526045d48149699b43aeaa014e4b337239bc5a35251116fc179aabcf",
+            Self::BaseEn => "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002",
             Self::Base => "2f62d18b50c3f3feafbf990eec23a93d319660b1efbdd3fff55e52b7cde2e374",
             Self::SmallEn => "0d57184d34ae7d736e5bb2db5bf83debe730bd53dcefa235a0979b9dcfd33fb3",
             Self::Small => "edd29d67e70b000132af65205b99bb774b77abc13d10103e14f80ce2242913e1",
@@ -433,14 +433,7 @@ fn transcribe_impl(
     params.print_timestamps = false;
     params.no_timestamps = false;
 
-    let language = match config.language.as_deref().filter(|value| !value.is_empty()) {
-        Some(value) if value.eq_ignore_ascii_case("auto") => None,
-        Some(value) => Some(
-            CString::new(value)
-                .map_err(|_| WhisperCppError::UnsupportedLanguage(value.to_string()))?,
-        ),
-        None => None,
-    };
+    let language = resolve_language(config)?;
     if let Some(language) = language.as_ref() {
         let lang_id = unsafe { ffi::whisper_lang_id(language.as_ptr()) };
         if lang_id < 0 {
@@ -449,11 +442,10 @@ fn transcribe_impl(
             ));
         }
         params.language = language.as_ptr();
-        params.detect_language = false;
     } else {
         params.language = std::ptr::null();
-        params.detect_language = true;
     }
+    params.detect_language = false;
 
     let status = unsafe {
         ffi::whisper_full(
@@ -507,6 +499,27 @@ fn transcribe_impl(
         segments,
         source: Some(model_path.to_string_lossy().into_owned()),
     })
+}
+
+fn resolve_language(config: &WhisperCppConfig) -> Result<Option<CString>> {
+    match config.language.as_deref().map(str::trim) {
+        Some("") => resolve_default_language(config.model),
+        Some(value) if value.eq_ignore_ascii_case("auto") => resolve_default_language(config.model),
+        Some(value) => CString::new(value)
+            .map(Some)
+            .map_err(|_| WhisperCppError::UnsupportedLanguage(value.to_string())),
+        None => resolve_default_language(config.model),
+    }
+}
+
+fn resolve_default_language(model: WhisperCppModel) -> Result<Option<CString>> {
+    if model.multilingual() {
+        Ok(None)
+    } else {
+        CString::new("en")
+            .map(Some)
+            .map_err(|_| WhisperCppError::UnsupportedLanguage("en".to_string()))
+    }
 }
 
 struct ProgressSink<'a> {
@@ -738,5 +751,43 @@ mod tests {
             assert!(path.is_file());
         }
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn english_only_models_default_to_english() {
+        let config = WhisperCppConfig {
+            model: WhisperCppModel::BaseEn,
+            language: None,
+            translate: false,
+            threads: None,
+        };
+
+        let language = resolve_language(&config).unwrap().unwrap();
+        assert_eq!(language.to_str().unwrap(), "en");
+    }
+
+    #[test]
+    fn multilingual_models_default_to_auto_detection_without_detect_only_mode() {
+        let config = WhisperCppConfig {
+            model: WhisperCppModel::Base,
+            language: None,
+            translate: false,
+            threads: None,
+        };
+
+        assert_eq!(resolve_language(&config).unwrap(), None);
+    }
+
+    #[test]
+    fn auto_language_uses_english_for_english_only_models() {
+        let config = WhisperCppConfig {
+            model: WhisperCppModel::SmallEn,
+            language: Some("auto".to_string()),
+            translate: false,
+            threads: None,
+        };
+
+        let language = resolve_language(&config).unwrap().unwrap();
+        assert_eq!(language.to_str().unwrap(), "en");
     }
 }
