@@ -11,6 +11,7 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+default-run = "vanalyze"
 
 [[bin]]
 name = "vanalyze"
@@ -41,3 +42,16 @@ video-analysis-split.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 video-analysis-ffmpeg = { workspace = true, features = ["test-utils"] }
+
+# Shared package surface targets.
+[[bin]]
+name = "video-analysis-cli-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "video-analysis-cli-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "video-analysis-cli-ui"
+path = "../../package-surfaces/ui.rs"

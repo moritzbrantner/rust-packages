@@ -26,3 +26,16 @@ criterion.workspace = true
 [[bench]]
 name = "semantic_index"
 harness = false
+
+# Shared package surface targets.
+[[bin]]
+name = "text-analysis-semantics-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "text-analysis-semantics-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "text-analysis-semantics-ui"
+path = "../../package-surfaces/ui.rs"

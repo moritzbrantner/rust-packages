@@ -15,3 +15,16 @@ categories.workspace = true
 [dependencies]
 numbers-core.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "math-signal-core-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "math-signal-core-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "math-signal-core-ui"
+path = "../../package-surfaces/ui.rs"

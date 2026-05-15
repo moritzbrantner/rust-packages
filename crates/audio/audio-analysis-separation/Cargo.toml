@@ -21,3 +21,16 @@ external-tests = []
 
 [dev-dependencies]
 tempfile.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "audio-analysis-separation-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "audio-analysis-separation-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "audio-analysis-separation-ui"
+path = "../../package-surfaces/ui.rs"

@@ -41,10 +41,12 @@ function youtubeAnalysisApi(): Plugin {
     configureServer(server) {
       server.middlewares.use("/api/run-youtube-video", handleRunYoutubeVideo);
       server.middlewares.use("/api/workspace-architecture", handleWorkspaceArchitecture);
+      server.middlewares.use("/api/packages", handlePackages);
     },
     configurePreviewServer(server) {
       server.middlewares.use("/api/run-youtube-video", handleRunYoutubeVideo);
       server.middlewares.use("/api/workspace-architecture", handleWorkspaceArchitecture);
+      server.middlewares.use("/api/packages", handlePackages);
     },
   };
 }
@@ -113,6 +115,35 @@ async function handleWorkspaceArchitecture(req: any, res: any, next: any) {
 
   try {
     sendJson(res, 200, await loadWorkspaceArchitecture(workspaceRoot));
+  } catch (error) {
+    sendJson(res, 500, {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function handlePackages(req: any, res: any, next: any) {
+  if (req.method !== "GET") {
+    next();
+    return;
+  }
+
+  try {
+    const url = new URL(req.url ?? "", "http://localhost");
+    const name = url.searchParams.get("name")?.trim();
+    const architecture = await loadWorkspaceArchitecture(workspaceRoot);
+    if (!name) {
+      sendJson(res, 200, architecture.packages);
+      return;
+    }
+
+    const packageInfo = architecture.packages.find((pkg) => pkg.name === name);
+    if (!packageInfo) {
+      sendJson(res, 404, { message: `unknown package \`${name}\`` });
+      return;
+    }
+
+    sendJson(res, 200, packageInfo);
   } catch (error) {
     sendJson(res, 500, {
       message: error instanceof Error ? error.message : String(error),

@@ -15,3 +15,16 @@ categories.workspace = true
 [dependencies]
 text-analysis-core.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "text-analysis-features-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "text-analysis-features-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "text-analysis-features-ui"
+path = "../../package-surfaces/ui.rs"

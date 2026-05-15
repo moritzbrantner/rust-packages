@@ -20,3 +20,16 @@ video-analysis-core.workspace = true
 
 [dev-dependencies]
 num-rational.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "video-analysis-posture-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "video-analysis-posture-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "video-analysis-posture-ui"
+path = "../../package-surfaces/ui.rs"

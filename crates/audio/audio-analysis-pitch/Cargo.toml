@@ -22,3 +22,16 @@ criterion.workspace = true
 [[bench]]
 name = "pitch"
 harness = false
+
+# Shared package surface targets.
+[[bin]]
+name = "audio-analysis-pitch-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "audio-analysis-pitch-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "audio-analysis-pitch-ui"
+path = "../../package-surfaces/ui.rs"

@@ -8,3 +8,16 @@ publish = false
 [dependencies]
 tempfile.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "audio-analysis-test-support-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "audio-analysis-test-support-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "audio-analysis-test-support-ui"
+path = "../../package-surfaces/ui.rs"

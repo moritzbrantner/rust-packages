@@ -17,3 +17,16 @@ comfyui-data.workspace = true
 comfyui-models.workspace = true
 serde_json.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "image-analysis-comfyui-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "image-analysis-comfyui-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "image-analysis-comfyui-ui"
+path = "../../package-surfaces/ui.rs"

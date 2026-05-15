@@ -17,3 +17,16 @@ serde.workspace = true
 unicode-normalization.workspace = true
 unicode-segmentation.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "text-analysis-core-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "text-analysis-core-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "text-analysis-core-ui"
+path = "../../package-surfaces/ui.rs"

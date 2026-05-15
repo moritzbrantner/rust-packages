@@ -25,3 +25,16 @@ vector-analysis-index.workspace = true
 tempfile.workspace = true
 text-analysis-corpus.workspace = true
 text-analysis-semantics.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "text-analysis-retrieval-storage-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "text-analysis-retrieval-storage-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "text-analysis-retrieval-storage-ui"
+path = "../../package-surfaces/ui.rs"

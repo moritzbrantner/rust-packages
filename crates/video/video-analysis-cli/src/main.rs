@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use clap::{ArgGroup, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use three_d_processing_core::Point3;
 use three_d_processing_io::{read_mesh, write_mesh};
+use video_analysis_cli::package_catalog::{package_by_name, package_catalog, PackageInfo};
 use video_analysis_core::{DetectError, PixelFormat, Result, SceneDetector, ScenePipeline};
 use video_analysis_detectors::{
     AdaptiveDetector, AdaptiveScoreAlgorithm, ContentDetector, ContentScoreAlgorithm, HashDetector,
@@ -38,6 +39,7 @@ struct Cli {
 enum Command {
     Detect(AnalyzeArgs),
     List(AnalyzeArgs),
+    Packages(PackagesArgs),
     Split(SplitArgs),
     Models(ModelsArgs),
     Mesh(MeshArgs),
@@ -68,6 +70,31 @@ struct SplitArgs {
     output_dir: PathBuf,
     #[command(flatten)]
     detector_options: DetectorOptions,
+}
+
+#[derive(Debug, Parser)]
+struct PackagesArgs {
+    #[command(subcommand)]
+    command: PackagesCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum PackagesCommand {
+    List(PackageListArgs),
+    Inspect(PackageInspectArgs),
+}
+
+#[derive(Debug, Parser)]
+struct PackageListArgs {
+    #[arg(long, default_value_t = false)]
+    json: bool,
+}
+
+#[derive(Debug, Parser)]
+struct PackageInspectArgs {
+    package: String,
+    #[arg(long, default_value_t = false)]
+    json: bool,
 }
 
 #[derive(Debug, Parser)]
@@ -424,6 +451,10 @@ fn main() -> Result<()> {
                 );
             }
         }
+        Command::Packages(args) => match args.command {
+            PackagesCommand::List(args) => list_packages(args)?,
+            PackagesCommand::Inspect(args) => inspect_package(args)?,
+        },
         Command::Split(args) => {
             let result = run_detection(&args.input, &args.detection, &args.detector_options)?;
             let options = SplitOptions {
@@ -514,6 +545,66 @@ fn list_model_presets() {
             spec.task
         );
     }
+}
+
+fn list_packages(args: PackageListArgs) -> Result<()> {
+    let packages = package_catalog();
+    if args.json {
+        serde_json::to_writer_pretty(
+            std::io::stdout(),
+            &serde_json::json!(packages
+                .iter()
+                .map(package_to_json)
+                .collect::<Vec<serde_json::Value>>()),
+        )
+        .map_err(|err| {
+            DetectError::Source(format!("failed to write package catalog JSON: {err}"))
+        })?;
+        println!();
+        return Ok(());
+    }
+
+    for package in packages {
+        println!("{:<32} {}", package.name, package.role);
+    }
+    Ok(())
+}
+
+fn inspect_package(args: PackageInspectArgs) -> Result<()> {
+    let Some(package) = package_by_name(&args.package) else {
+        return Err(DetectError::InvalidArgument(format!(
+            "unknown package `{}`",
+            args.package
+        )));
+    };
+
+    if args.json {
+        serde_json::to_writer_pretty(std::io::stdout(), &package_to_json(&package)).map_err(
+            |err| DetectError::Source(format!("failed to write package metadata JSON: {err}")),
+        )?;
+        println!();
+        return Ok(());
+    }
+
+    println!("package\t{}", package.name);
+    println!("role\t{}", package.role);
+    for capability in package.capabilities {
+        println!("{}\t{}", capability.kind.as_str(), capability.entrypoint);
+    }
+    Ok(())
+}
+
+fn package_to_json(package: &PackageInfo) -> serde_json::Value {
+    serde_json::json!({
+        "name": package.name,
+        "role": package.role,
+        "capabilities": package.capabilities.iter().map(|capability| {
+            serde_json::json!({
+                "kind": capability.kind.as_str(),
+                "entrypoint": capability.entrypoint,
+            })
+        }).collect::<Vec<serde_json::Value>>(),
+    })
 }
 
 fn download_model(args: ModelDownloadArgs) -> Result<()> {

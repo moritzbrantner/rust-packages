@@ -254,6 +254,22 @@ The app includes the YouTube video use case, a command builder for
 dashboard views for scenes, observations, transcript, events, buckets, and split
 plans.
 
+## Package Surfaces
+
+Every workspace package is expected to be reachable as a library, a CLI surface,
+a web endpoint, and a webpage UI. Rust crates wire shared package-surface targets
+into their own manifests, so each crate can run package-local binaries:
+
+```bash
+cargo run -p video-analysis-core --bin video-analysis-core-cli -- info
+cargo run -p video-analysis-core --bin video-analysis-core-api -- --port 8080
+cargo run -p video-analysis-core --bin video-analysis-core-ui -- --port 8081
+cargo run -p video-analysis-cli -- packages inspect video-analysis-core --json
+```
+
+The local web app still exposes the workspace catalog at `/api/packages` and
+renders each package surface in the architecture view.
+
 ## Workspace Checks
 
 Run the full local verification baseline before publishing changes:

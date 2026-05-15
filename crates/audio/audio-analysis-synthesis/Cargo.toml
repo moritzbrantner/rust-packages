@@ -15,3 +15,16 @@ categories.workspace = true
 [dependencies]
 data-inversion-core.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "audio-analysis-synthesis-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "audio-analysis-synthesis-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "audio-analysis-synthesis-ui"
+path = "../../package-surfaces/ui.rs"

@@ -22,3 +22,16 @@ video-analysis-reconstruction.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "video-analysis-radiance-pipeline-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "video-analysis-radiance-pipeline-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "video-analysis-radiance-pipeline-ui"
+path = "../../package-surfaces/ui.rs"

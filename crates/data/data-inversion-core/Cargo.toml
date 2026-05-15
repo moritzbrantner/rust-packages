@@ -14,3 +14,16 @@ categories.workspace = true
 
 [dependencies]
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "data-inversion-core-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "data-inversion-core-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "data-inversion-core-ui"
+path = "../../package-surfaces/ui.rs"

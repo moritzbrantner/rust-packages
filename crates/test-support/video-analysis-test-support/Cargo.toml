@@ -11,3 +11,16 @@ video-analysis-core.workspace = true
 video-analysis-dataset.workspace = true
 video-analysis-radiance-fields.workspace = true
 video-analysis-radiance-io.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "video-analysis-test-support-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "video-analysis-test-support-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "video-analysis-test-support-ui"
+path = "../../package-surfaces/ui.rs"

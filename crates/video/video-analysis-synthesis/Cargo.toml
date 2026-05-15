@@ -16,3 +16,16 @@ categories.workspace = true
 data-inversion-core.workspace = true
 num-rational.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "video-analysis-synthesis-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "video-analysis-synthesis-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "video-analysis-synthesis-ui"
+path = "../../package-surfaces/ui.rs"

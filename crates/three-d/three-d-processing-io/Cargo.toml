@@ -22,3 +22,16 @@ video-analysis-core.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "three-d-processing-io-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "three-d-processing-io-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "three-d-processing-io-ui"
+path = "../../package-surfaces/ui.rs"

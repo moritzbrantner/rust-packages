@@ -1,5 +1,7 @@
 export type PackageKind = "rust" | "frontend";
 
+export type PackageCapabilityKind = "library" | "cli" | "endpoint" | "ui";
+
 export type PackageDomain =
   | "facade"
   | "apps"
@@ -25,6 +27,12 @@ export interface WorkspaceArchitecturePackage {
   exposes: string[];
   consumedBy: string[];
   tags: string[];
+  capabilities: WorkspaceArchitectureCapability[];
+}
+
+export interface WorkspaceArchitectureCapability {
+  kind: PackageCapabilityKind;
+  entrypoint: string;
 }
 
 export interface WorkspaceArchitectureDependency {

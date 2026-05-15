@@ -43,3 +43,16 @@ tempfile.workspace = true
 name = "tokenizer"
 harness = false
 required-features = ["tokenizers"]
+
+# Shared package surface targets.
+[[bin]]
+name = "text-analysis-models-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "text-analysis-models-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "text-analysis-models-ui"
+path = "../../package-surfaces/ui.rs"

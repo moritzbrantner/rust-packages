@@ -29,3 +29,16 @@ external-tests = ["onnxruntime"]
 
 [dev-dependencies]
 tempfile.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "image-analysis-onnx-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "image-analysis-onnx-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "image-analysis-onnx-ui"
+path = "../../package-surfaces/ui.rs"

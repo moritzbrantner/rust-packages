@@ -9,6 +9,21 @@ formats, file formats, package exports, and dependency boundaries.
 samples, scene detection, metrics, observations, analyzers, and pipelines. Other
 crates should compose around those contracts instead of defining parallel types.
 
+## Package Surface Policy
+
+Every workspace package should be reachable through the same four surfaces:
+
+- Library: a Rust `lib` target or an importable frontend package.
+- CLI: a package-local `<package>-cli` binary.
+- Web endpoint: a package-local `<package>-api` binary exposing
+  `/api/package`.
+- Webpage UI: a package-local `<package>-ui` binary serving a package page.
+
+The CLI/API/UI binaries use shared source files under `crates/package-surfaces`
+so each crate has the same operational shape without duplicating server or
+markup code. Richer crate-specific behavior can replace those shared targets
+when a crate needs it.
+
 ## Feature Flag Policy
 
 Runtime and external integration crates use a shared feature policy:
@@ -88,9 +103,10 @@ Runtime and external integration crates use a shared feature policy:
 | `video-analysis-gaussian-splatting` | 3D Gaussian primitive projection and CPU compositing | `video-analysis-core`, `video-analysis-radiance-fields` | Gaussian primitives, projection config/results, splat rendering helpers | Applications and future 3D workflows |
 | `video-analysis-radiance-io` | Radiance-field and 3DGS interchange formats | `video-analysis-core`, `video-analysis-radiance-fields`, `video-analysis-gaussian-splatting`, `video-analysis-reconstruction` | COLMAP text, Nerfstudio transforms, Gaussian splat PLY, preview PLY | Conversion tools and applications |
 | `video-analysis-reconstruction` | Sparse reconstruction and triangulation contracts | `video-analysis-core`, `video-analysis-radiance-fields` | Camera/image/point IDs, features, matches, tracks, sparse reconstruction, triangulation/projection helpers | Applications and future 3D workflows |
-| `video-analysis-cli` | `vanalyze` command-line composition | Core, detectors, FFmpeg, models, output, split | CLI commands and file outputs | End users and automation |
+| `video-analysis-cli` | `vanalyze` command-line composition | Core, detectors, FFmpeg, models, output, split | CLI commands, package catalog metadata, and file outputs | End users and automation |
 | `video-analysis-use-cases` | Prototype runnable end-to-end workflows | Core, data, detectors, FFmpeg, ingest, models, audio/image helpers | `youtube-video`, `video-red-cars`, `audio-voice-analysis`, and `image-person-edit` workflow/report surfaces | End users, `@video-analysis/ui`, prototype web app |
 | `@video-analysis/ui` | React/Tailwind views for analysis data | React peer deps and generated report/data shapes | TypeScript report types, component subpath exports, Tailwind content export | Web apps and report viewers |
+| `@video-analysis/web` | Prototype app for local workflows, endpoints, and package UI | `@video-analysis/ui`, Vite, React | `/api/run-youtube-video`, `/api/workspace-architecture`, `/api/packages`, architecture and workflow pages | Developers exploring package behavior locally |
 
 ## Canonical Core Contracts
 

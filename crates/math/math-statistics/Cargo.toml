@@ -16,3 +16,16 @@ categories.workspace = true
 math-linear.workspace = true
 numbers-core.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "math-statistics-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "math-statistics-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "math-statistics-ui"
+path = "../../package-surfaces/ui.rs"

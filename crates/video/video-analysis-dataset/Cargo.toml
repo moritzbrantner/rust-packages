@@ -21,3 +21,16 @@ video-analysis-posture.workspace = true
 num-rational.workspace = true
 serde_json.workspace = true
 three-d-processing-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "video-analysis-dataset-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "video-analysis-dataset-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "video-analysis-dataset-ui"
+path = "../../package-surfaces/ui.rs"

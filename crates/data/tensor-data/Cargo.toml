@@ -16,3 +16,16 @@ categories.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "tensor-data-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "tensor-data-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "tensor-data-ui"
+path = "../../package-surfaces/ui.rs"

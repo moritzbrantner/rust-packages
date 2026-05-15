@@ -21,3 +21,16 @@ video-analysis-ingest.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "audio-analysis-io-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "audio-analysis-io-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "audio-analysis-io-ui"
+path = "../../package-surfaces/ui.rs"

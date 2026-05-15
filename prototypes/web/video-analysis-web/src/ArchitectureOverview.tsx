@@ -54,7 +54,16 @@ export function ArchitectureOverview() {
       if (!needle) {
         return true;
       }
-      const searchable = [pkg.name, pkg.role, pkg.description, pkg.path ?? "", ...pkg.tags].join(" ").toLowerCase();
+      const searchable = [
+        pkg.name,
+        pkg.role,
+        pkg.description,
+        pkg.path ?? "",
+        ...pkg.tags,
+        ...pkg.capabilities.map((capability) => `${capability.kind} ${capability.entrypoint}`),
+      ]
+        .join(" ")
+        .toLowerCase();
       return searchable.includes(needle);
     });
   }, [data, query, selectedDomains]);
@@ -294,6 +303,16 @@ export function ArchitectureOverview() {
                   </div>
                 </div>
 
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {selectedPackage.capabilities.map((capability) => (
+                    <CapabilityTile
+                      key={`${selectedPackage.name}-${capability.kind}`}
+                      label={capability.kind}
+                      entrypoint={capability.entrypoint}
+                    />
+                  ))}
+                </div>
+
                 <div className="grid gap-4 xl:grid-cols-[1fr_320px_1fr]">
                   <RelationColumn
                     title="Depends On"
@@ -486,6 +505,15 @@ function MetricTile({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2">
       <div className="text-[11px] uppercase text-zinc-500">{label}</div>
       <div className="mt-1 text-lg font-semibold text-zinc-950">{value}</div>
+    </div>
+  );
+}
+
+function CapabilityTile({ label, entrypoint }: { label: string; entrypoint: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-zinc-200 bg-white px-3 py-3">
+      <div className="text-[11px] font-semibold uppercase text-zinc-500">{label}</div>
+      <div className="mt-2 break-words text-sm font-medium leading-5 text-zinc-800">{entrypoint}</div>
     </div>
   );
 }

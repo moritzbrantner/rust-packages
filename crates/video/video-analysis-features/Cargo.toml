@@ -19,3 +19,16 @@ video-analysis-transform.workspace = true
 
 [dev-dependencies]
 num-rational.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "video-analysis-features-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "video-analysis-features-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "video-analysis-features-ui"
+path = "../../package-surfaces/ui.rs"

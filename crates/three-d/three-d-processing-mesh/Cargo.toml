@@ -16,3 +16,16 @@ categories.workspace = true
 serde.workspace = true
 three-d-processing-core.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "three-d-processing-mesh-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "three-d-processing-mesh-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "three-d-processing-mesh-ui"
+path = "../../package-surfaces/ui.rs"

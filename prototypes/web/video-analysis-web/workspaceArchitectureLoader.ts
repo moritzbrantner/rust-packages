@@ -24,6 +24,7 @@ interface CargoMetadataPackage {
   description: string | null;
   manifest_path: string;
   dependencies: CargoMetadataDependency[];
+  targets: CargoMetadataTarget[];
 }
 
 interface CargoMetadataDependency {
@@ -31,6 +32,11 @@ interface CargoMetadataDependency {
   kind: string | null;
   optional: boolean;
   path?: string | null;
+}
+
+interface CargoMetadataTarget {
+  kind: string[];
+  name: string;
 }
 
 interface CargoMetadataResponse {
@@ -89,6 +95,7 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
           .filter(Boolean)
           .join(" "),
       ),
+      capabilities: capabilitiesFor("@video-analysis/ui", "frontend", "packages/video-analysis-ui", true),
     });
   }
 
@@ -103,6 +110,12 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
       exposes: ["Interactive run, flow, result, and architecture views"],
       consumedBy: ["Developers exploring workspace behavior locally"],
       tags: extractContractTags("dashboard report workflow json report scenes observations data buckets"),
+      capabilities: capabilitiesFor(
+        "@video-analysis/web",
+        "frontend",
+        "prototypes/web/video-analysis-web",
+        true,
+      ),
     });
   }
 
@@ -166,6 +179,7 @@ function toArchitecturePackage(
   const description = pkg.description ?? contract?.role ?? "";
   const exposes = splitExposes(contract?.exposesText);
   const consumedBy = splitConsumedBy(contract?.consumedByText);
+  const hasLibraryTarget = pkg.targets.some((target) => target.kind.includes("lib"));
 
   return {
     name: pkg.name,
@@ -177,7 +191,58 @@ function toArchitecturePackage(
     exposes,
     consumedBy,
     tags: extractContractTags([contract?.role, contract?.exposesText, description].filter(Boolean).join(" ")),
+    capabilities: capabilitiesFor(pkg.name, "rust", path, hasLibraryTarget),
   };
+}
+
+function capabilitiesFor(
+  name: string,
+  kind: "rust" | "frontend",
+  path: string | null,
+  hasLibraryTarget: boolean,
+): WorkspaceArchitecturePackage["capabilities"] {
+  return [
+    {
+      kind: "library",
+      entrypoint: libraryEntrypoint(name, kind, path, hasLibraryTarget),
+    },
+    {
+      kind: "cli",
+      entrypoint:
+        kind === "rust"
+          ? `cargo run -p ${name} --bin ${name}-cli -- info`
+          : "frontend package scripts",
+    },
+    {
+      kind: "endpoint",
+      entrypoint:
+        kind === "rust"
+          ? `cargo run -p ${name} --bin ${name}-api -- --port 8080`
+          : `/api/packages?name=${encodeURIComponent(name)}`,
+    },
+    {
+      kind: "ui",
+      entrypoint:
+        kind === "rust"
+          ? `cargo run -p ${name} --bin ${name}-ui -- --port 8081`
+          : `Architecture page package detail for ${name}`,
+    },
+  ];
+}
+
+function libraryEntrypoint(
+  name: string,
+  kind: "rust" | "frontend",
+  path: string | null,
+  hasLibraryTarget: boolean,
+): string {
+  if (kind === "frontend") {
+    return name === "@video-analysis/ui" ? "import from @video-analysis/ui" : path ?? name;
+  }
+  if (hasLibraryTarget) {
+    return `use ${name.replaceAll("-", "_")}`;
+  }
+  return "add src/lib.rs before publishing new library APIs";
 }
 
 function cargoMetadata(workspaceRoot: string): Promise<CargoMetadataResponse> {

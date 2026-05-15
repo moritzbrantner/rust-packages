@@ -39,6 +39,7 @@ describe("workspace architecture server helpers", () => {
         exposes: [],
         consumedBy: [],
         tags: ["video_frames", "observations"],
+        capabilities: [],
       },
       {
         name: "video-analysis-detectors",
@@ -50,6 +51,7 @@ describe("workspace architecture server helpers", () => {
         exposes: [],
         consumedBy: [],
         tags: ["scenes", "video_frames"],
+        capabilities: [],
       },
       {
         name: "text-analysis-core",
@@ -61,6 +63,7 @@ describe("workspace architecture server helpers", () => {
         exposes: [],
         consumedBy: [],
         tags: ["text_segments"],
+        capabilities: [],
       },
     ];
     const dependencies: WorkspaceArchitectureDependency[] = [

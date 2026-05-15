@@ -25,3 +25,16 @@ criterion.workspace = true
 [[bench]]
 name = "recognition"
 harness = false
+
+# Shared package surface targets.
+[[bin]]
+name = "audio-analysis-recognition-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "audio-analysis-recognition-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "audio-analysis-recognition-ui"
+path = "../../package-surfaces/ui.rs"

@@ -15,3 +15,16 @@ categories.workspace = true
 [dependencies]
 serde.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "three-d-processing-core-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "three-d-processing-core-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "three-d-processing-core-ui"
+path = "../../package-surfaces/ui.rs"

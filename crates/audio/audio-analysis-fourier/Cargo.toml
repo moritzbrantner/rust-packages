@@ -23,3 +23,16 @@ criterion.workspace = true
 [[bench]]
 name = "fourier"
 harness = false
+
+# Shared package surface targets.
+[[bin]]
+name = "audio-analysis-fourier-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "audio-analysis-fourier-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "audio-analysis-fourier-ui"
+path = "../../package-surfaces/ui.rs"

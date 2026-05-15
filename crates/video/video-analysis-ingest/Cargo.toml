@@ -15,3 +15,16 @@ categories.workspace = true
 [dependencies]
 num-rational.workspace = true
 video-analysis-core.workspace = true
+
+# Shared package surface targets.
+[[bin]]
+name = "video-analysis-ingest-cli"
+path = "../../package-surfaces/cli.rs"
+
+[[bin]]
+name = "video-analysis-ingest-api"
+path = "../../package-surfaces/api.rs"
+
+[[bin]]
+name = "video-analysis-ingest-ui"
+path = "../../package-surfaces/ui.rs"
