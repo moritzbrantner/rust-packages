@@ -24,6 +24,8 @@ bun run web:build
 bun run web:test
 ```
 
+This gate includes UI browser e2e tests and web API integration tests.
+
 Run the external checks only for crates or docs that depend on those toolchains:
 
 ```bash

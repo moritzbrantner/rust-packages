@@ -73,3 +73,40 @@ pub use video_analysis_storage as storage;
 pub use video_analysis_synthesis as synthesis;
 pub use video_analysis_tracking as tracking;
 pub use video_analysis_transform as transform;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn facade_reexports_foundational_library_types() {
+        let timestamp = Timestamp::new(3, Timebase::new(1, 2));
+        assert_eq!(timestamp.seconds(), 1.5);
+
+        let tensor = tensor_data::F32Tensor::from_dims([1, 2], vec![0.0, 1.0]).unwrap();
+        assert_eq!(tensor.shape().dimensions(), &[1, 2]);
+
+        let vector = vector_core::DenseVector::new([3.0, 4.0]).unwrap();
+        assert_eq!(vector_core::l2_norm(vector.as_slice()).unwrap(), 5.0);
+    }
+
+    #[test]
+    fn facade_reexports_domain_library_modules() {
+        let image = image_synthesis::solid_image(
+            image_synthesis::RgbColor::new(1, 2, 3),
+            image_synthesis::ImageSynthesisConfig {
+                width: 2,
+                height: 2,
+                pixel_format: image_core::ImagePixelFormat::Rgb24,
+            },
+        )
+        .unwrap();
+        assert_eq!(image.value.width, 2);
+
+        let summary = text_features::summarize_text("facade unit tests cover package exports", 4);
+        assert_eq!(summary.stats.words, 6);
+
+        let graph = graph_core::Graph::directed();
+        assert_eq!(graph.node_count(), 0);
+    }
+}

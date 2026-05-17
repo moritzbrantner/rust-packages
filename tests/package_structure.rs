@@ -18,10 +18,160 @@ fn library_manifests_do_not_embed_generic_runtime_surfaces() {
     }
 }
 
+#[test]
+fn rust_library_crates_have_unit_tests() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let missing = workspace_manifests(root)
+        .into_iter()
+        .filter_map(|manifest| {
+            let crate_dir = manifest.parent()?;
+            let src_dir = crate_dir.join("src");
+            let lib_rs = src_dir.join("lib.rs");
+            if !lib_rs.is_file() {
+                return None;
+            }
+            (!has_rust_test_marker(&src_dir))
+                .then(|| crate_dir.strip_prefix(root).unwrap_or(crate_dir).display().to_string())
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        missing.is_empty(),
+        "Rust library crates need unit tests in src/: {}",
+        missing.join(", ")
+    );
+}
+
+#[test]
+fn cli_packages_have_integration_tests() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let missing = workspace_manifests(root)
+        .into_iter()
+        .filter_map(|manifest| {
+            let manifest_text = fs::read_to_string(&manifest).ok()?;
+            let crate_dir = manifest.parent()?;
+            let has_cli_surface = manifest_text.contains("[[bin]]") || crate_dir.join("src/main.rs").is_file();
+            if !has_cli_surface {
+                return None;
+            }
+            (!has_rust_integration_test(crate_dir))
+                .then(|| crate_dir.strip_prefix(root).unwrap_or(crate_dir).display().to_string())
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        missing.is_empty(),
+        "CLI packages need integration tests under tests/: {}",
+        missing.join(", ")
+    );
+}
+
+#[test]
+fn api_packages_have_http_integration_tests() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let web_package = root.join("prototypes/web/video-analysis-web");
+
+    assert!(
+        web_package.join("src/api.integration.test.ts").is_file(),
+        "@video-analysis/web needs API integration tests"
+    );
+}
+
+#[test]
+fn frontend_libraries_and_ui_packages_have_expected_test_layers() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+    assert!(
+        has_frontend_unit_test(&root.join("packages/text-core-wasm")),
+        "@mb-rust/text-core-wasm needs frontend package unit tests"
+    );
+    assert!(
+        has_frontend_e2e_test(&root.join("packages/video-analysis-ui")),
+        "@video-analysis/ui needs browser e2e tests"
+    );
+    assert!(
+        has_frontend_e2e_test(&root.join("prototypes/web/video-analysis-web")),
+        "@video-analysis/web needs browser e2e tests"
+    );
+}
+
 fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     let mut manifests = Vec::new();
     collect_manifests(root, &mut manifests);
     manifests
+}
+
+fn has_rust_test_marker(src_dir: &Path) -> bool {
+    let Ok(entries) = fs::read_dir(src_dir) else {
+        return false;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if has_rust_test_marker(&path) {
+                return true;
+            }
+        } else if path.extension().is_some_and(|extension| extension == "rs") {
+            let Ok(source) = fs::read_to_string(&path) else {
+                continue;
+            };
+            if source.contains("#[cfg(test)]") || source.contains("#[test]") {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn has_rust_integration_test(crate_dir: &Path) -> bool {
+    crate_dir
+        .join("tests")
+        .read_dir()
+        .ok()
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|entry| entry.path().extension().is_some_and(|extension| extension == "rs"))
+}
+
+fn has_frontend_unit_test(package_dir: &Path) -> bool {
+    has_file_matching(package_dir, |path| {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with(".test.js") || name.ends_with(".test.ts") || name.ends_with(".test.tsx"))
+    })
+}
+
+fn has_frontend_e2e_test(package_dir: &Path) -> bool {
+    has_file_matching(&package_dir.join("e2e"), |path| {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with(".spec.ts") || name.ends_with(".spec.tsx"))
+    })
+}
+
+fn has_file_matching(dir: &Path, predicate: impl Fn(&Path) -> bool + Copy) -> bool {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return false;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        if file_name == "node_modules" || file_name == "dist" || file_name == "target" {
+            continue;
+        }
+        if path.is_dir() {
+            if has_file_matching(&path, predicate) {
+                return true;
+            }
+        } else if predicate(&path) {
+            return true;
+        }
+    }
+    false
 }
 
 fn collect_manifests(dir: &Path, manifests: &mut Vec<PathBuf>) {

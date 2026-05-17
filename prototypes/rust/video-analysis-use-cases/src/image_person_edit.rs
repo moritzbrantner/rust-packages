@@ -462,7 +462,7 @@ mod tests {
             ],
         );
         assert_eq!(mask.pixel_format, ImagePixelFormat::Gray8);
-        assert!(mask.data.iter().any(|value| *value == 255));
+        assert!(mask.data.contains(&255));
     }
 
     #[test]

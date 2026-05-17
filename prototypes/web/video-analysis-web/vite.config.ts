@@ -7,7 +7,7 @@ import { defineConfig, type Plugin } from "vite";
 
 import { loadWorkspaceArchitecture } from "./workspaceArchitectureLoader";
 
-const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url));
+const workspaceRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
 interface UseCaseFormPayload {
   sourceMode?: string;

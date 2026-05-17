@@ -26,6 +26,15 @@ Library crates should not declare generic CLI/API/UI `[[bin]]` targets. Adapter
 packages depend on the library and own their runtime, transport, and webpage
 code.
 
+## Test Surface Policy
+
+Each package surface has a matching test layer:
+
+- Library code owns Rust unit tests beside the implementation.
+- CLI adapters own integration tests that execute the compiled binary.
+- API adapters own integration tests that call the HTTP endpoints.
+- UI packages own browser e2e tests that render the package through a real page.
+
 ## Feature Flag Policy
 
 Runtime and external integration crates use a shared feature policy:

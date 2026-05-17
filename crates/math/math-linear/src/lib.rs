@@ -378,6 +378,10 @@ impl<'a> RowView<'a> {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = f32> + '_ {
         (0..self.len).map(|index| self.values[self.offset + index * self.stride])
     }
@@ -402,6 +406,10 @@ pub struct ColumnView<'a> {
 impl<'a> ColumnView<'a> {
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     pub fn iter(&self) -> impl Iterator<Item = f32> + '_ {

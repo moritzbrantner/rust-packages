@@ -371,7 +371,7 @@ impl<B: TextEmbedderBackend> RetrievalIndex<B> {
         self.validate_embedded_dimensions(vectors.iter().map(|vector| vector.dimensions()))?;
 
         let mut index = VectorSearchIndex::new();
-        for (chunk, vector) in self.chunks.values().zip(vectors.into_iter()) {
+        for (chunk, vector) in self.chunks.values().zip(vectors) {
             index.add(VectorRecord::with_payload(
                 chunk.chunk_id.clone(),
                 vector,

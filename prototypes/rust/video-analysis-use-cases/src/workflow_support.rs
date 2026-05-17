@@ -35,7 +35,7 @@ pub(crate) fn validate_youtube_url(url: &str) -> Result<()> {
         .next()
         .unwrap_or_default()
         .split('@')
-        .last()
+        .next_back()
         .unwrap_or_default()
         .split(':')
         .next()

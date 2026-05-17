@@ -7,4 +7,6 @@ test-corpora/
 .video-analysis-models/
 node_modules/
 packages/*/node_modules/
+packages/*/playwright-report/
+packages/*/test-results/
 packages/video-analysis-web/dist/

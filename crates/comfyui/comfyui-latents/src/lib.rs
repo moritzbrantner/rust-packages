@@ -37,7 +37,9 @@ impl LatentImageSize {
     }
 
     pub fn latent_dimensions(self) -> Result<(usize, usize)> {
-        if self.width % Self::SCALE_FACTOR != 0 || self.height % Self::SCALE_FACTOR != 0 {
+        if !self.width.is_multiple_of(Self::SCALE_FACTOR)
+            || !self.height.is_multiple_of(Self::SCALE_FACTOR)
+        {
             return Err(invalid_argument(
                 "image size must be divisible by the latent scale factor",
             ));

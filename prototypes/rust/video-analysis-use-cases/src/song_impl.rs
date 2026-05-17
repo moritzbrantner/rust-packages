@@ -58,15 +58,9 @@ impl SongAnalysisRunRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SongCatalogConfig {
     pub db_path: Option<PathBuf>,
-}
-
-impl Default for SongCatalogConfig {
-    fn default() -> Self {
-        Self { db_path: None }
-    }
 }
 
 impl SongCatalogConfig {

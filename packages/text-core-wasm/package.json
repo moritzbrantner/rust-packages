@@ -22,6 +22,7 @@
   },
   "scripts": {
     "build": "wasm-pack build ../../crates/bindings/text-core-wasm --target web --release --out-dir ../../../packages/text-core-wasm/pkg --out-name index",
-    "prepare": "bun run build"
+    "prepare": "bun run build",
+    "test": "bun test"
   }
 }

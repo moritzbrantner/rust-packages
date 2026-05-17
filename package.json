@@ -9,11 +9,17 @@
   ],
   "scripts": {
     "check": "scripts/check.sh",
+    "text-wasm:test": "bun run --cwd packages/text-core-wasm test",
     "ui:build": "bun run --cwd packages/video-analysis-ui build",
     "ui:test": "bun run --cwd packages/video-analysis-ui test",
+    "ui:test:unit": "bun run --cwd packages/video-analysis-ui test:unit",
+    "ui:test:e2e": "bun run --cwd packages/video-analysis-ui test:e2e",
     "web:dev": "bun run --cwd prototypes/web/video-analysis-web dev",
     "web:build": "bun run --cwd prototypes/web/video-analysis-web build",
     "web:typecheck": "bun run --cwd prototypes/web/video-analysis-web typecheck",
-    "web:test": "bun run --cwd prototypes/web/video-analysis-web test"
+    "web:test": "bun run --cwd prototypes/web/video-analysis-web test",
+    "web:test:unit": "bun run --cwd prototypes/web/video-analysis-web test:unit",
+    "web:test:api": "bun run --cwd prototypes/web/video-analysis-web test:api",
+    "web:test:e2e": "bun run --cwd prototypes/web/video-analysis-web test:e2e"
   }
 }

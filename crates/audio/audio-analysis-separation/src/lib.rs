@@ -695,3 +695,50 @@ fn file_size_if_nonempty(path: &Path) -> Option<u64> {
         .filter(|metadata| metadata.is_file() && metadata.len() > 0)
         .map(|metadata| metadata.len())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stem_parsing_normalizes_known_and_custom_values() {
+        assert_eq!("vocals".parse::<Stem>().unwrap(), Stem::Vocals);
+        assert_eq!("no-vocals".parse::<Stem>().unwrap(), Stem::NoVocals);
+        assert_eq!(
+            " Lead-Guitar ".parse::<Stem>().unwrap(),
+            Stem::Custom("lead_guitar".to_string())
+        );
+        assert!(" ".parse::<Stem>().is_err());
+    }
+
+    #[test]
+    fn custom_model_and_format_validation_rejects_empty_values() {
+        assert!(DemucsModel::Custom(" ".to_string()).validate().is_err());
+        assert!(SeparationOutputFormat::Custom(" ".to_string())
+            .validate()
+            .is_err());
+    }
+
+    #[test]
+    fn filename_template_renders_track_stem_extension_and_model() {
+        assert_eq!(
+            render_filename_template(
+                "{model}/{track}/{stem}.{ext}",
+                "song",
+                "vocals",
+                "flac",
+                "htdemucs",
+            ),
+            PathBuf::from("htdemucs/song/vocals.flac")
+        );
+    }
+
+    #[test]
+    fn separator_rejects_inputs_without_file_names() {
+        let separator = HtdemucsSeparator::new(HtdemucsOptions::default()).unwrap();
+
+        assert!(separator.validate_input_path(Path::new("")).is_err());
+        assert!(separator.validate_input_path(Path::new("/")).is_err());
+        assert!(separator.validate_input_path(Path::new("song.wav")).is_ok());
+    }
+}

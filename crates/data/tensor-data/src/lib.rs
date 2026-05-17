@@ -56,7 +56,7 @@ impl TensorShape {
                 "tensor shape must have at least one dimension",
             ));
         }
-        if self.dims.iter().any(|dimension| *dimension == 0) {
+        if self.dims.contains(&0) {
             return Err(invalid_argument(
                 "tensor shape dimensions must be greater than zero",
             ));

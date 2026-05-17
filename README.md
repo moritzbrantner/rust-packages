@@ -297,7 +297,8 @@ For the default contributor gate, run:
 scripts/check-fast.sh
 ```
 
-The script runs Rust tests, strict clippy, and the UI/web production builds.
+The script runs Rust tests, strict clippy, the UI/web production builds, API
+integration tests, and browser e2e coverage for the UI package.
 FFmpeg decode coverage is intentionally opt-in so the default suite stays
 hermetic:
 
@@ -316,6 +317,10 @@ Release-oriented changes should also pass the documentation build:
 ```bash
 cargo doc --workspace --no-deps
 ```
+
+Package surfaces use matching test layers: Rust libraries keep unit tests close
+to the implementation, CLI and API adapters use integration tests, and UI
+packages use browser e2e tests.
 
 For crate packaging and publish-order checks, use
 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).

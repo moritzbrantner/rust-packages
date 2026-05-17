@@ -7,6 +7,10 @@
 - Release-readiness doc pass: `cargo doc --workspace --no-deps`
 - Frontend-only checks: `bun run ui:build`, `bun run ui:test`, `bun run web:typecheck`, `bun run web:build`, `bun run web:test`
 
+Package surfaces use matching test layers: Rust libraries keep unit tests close
+to implementation code, CLI and API adapters use integration tests, and UI
+packages use browser e2e tests.
+
 Use the fast baseline for normal code changes. Use the full baseline before release-oriented changes or when you touch external-tool integrations.
 Before tagging or publishing crates, also require `cargo doc --workspace --no-deps`
 and the package dry-run checklist in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).

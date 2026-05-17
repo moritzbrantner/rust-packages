@@ -78,7 +78,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest --run --environment jsdom"
+    "test": "bun run test:unit && bun run test:e2e",
+    "test:unit": "vitest --run --environment jsdom src",
+    "test:e2e": "playwright test"
   },
   "peerDependencies": {
     "react": ">=18.2.0",
@@ -86,11 +88,14 @@
     "tailwindcss": ">=3.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.2",
     "jsdom": "^27.0.1",
     "typescript": "^6.0.2",
+    "vite": "^7.3.0",
     "vitest": "^3.2.4"
   }
 }

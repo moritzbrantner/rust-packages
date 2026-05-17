@@ -148,10 +148,10 @@ impl RunningCovariance {
             .map(|(value, mean)| value - mean)
             .collect::<Vec<_>>();
 
-        for row in 0..self.dimensions {
-            for col in 0..self.dimensions {
+        for (row, delta_value) in delta.iter().enumerate().take(self.dimensions) {
+            for (col, delta2_value) in delta2.iter().enumerate().take(self.dimensions) {
                 self.m2[row * self.dimensions + col] +=
-                    observation.weight * delta[row] * delta2[col];
+                    observation.weight * delta_value * delta2_value;
             }
         }
         self.weight_sum = new_weight_sum;

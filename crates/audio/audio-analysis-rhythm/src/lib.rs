@@ -14,16 +14,11 @@ pub struct OnsetStrength {
     pub strength: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum OnsetEnvelopeStrategy {
+    #[default]
     EnergyRise,
     SpectralFluxLike,
-}
-
-impl Default for OnsetEnvelopeStrategy {
-    fn default() -> Self {
-        Self::EnergyRise
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
