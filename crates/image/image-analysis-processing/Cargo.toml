@@ -17,16 +17,3 @@ image-analysis-core.workspace = true
 math-geometry-2d.workspace = true
 math-linear.workspace = true
 video-analysis-core.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "image-analysis-processing-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "image-analysis-processing-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "image-analysis-processing-ui"
-path = "../../package-surfaces/ui.rs"

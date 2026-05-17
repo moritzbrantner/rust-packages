@@ -16,16 +16,3 @@ categories.workspace = true
 text-analysis-core.workspace = true
 text-analysis-linguistics.workspace = true
 video-analysis-core.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "text-analysis-prediction-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "text-analysis-prediction-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "text-analysis-prediction-ui"
-path = "../../package-surfaces/ui.rs"

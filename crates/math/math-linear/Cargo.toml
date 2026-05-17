@@ -16,16 +16,3 @@ categories.workspace = true
 tensor-data.workspace = true
 vector-analysis-core.workspace = true
 video-analysis-core.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "math-linear-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "math-linear-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "math-linear-ui"
-path = "../../package-surfaces/ui.rs"

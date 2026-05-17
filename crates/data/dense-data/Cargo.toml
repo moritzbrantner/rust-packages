@@ -24,16 +24,3 @@ criterion.workspace = true
 [[bench]]
 name = "pipeline"
 harness = false
-
-# Shared package surface targets.
-[[bin]]
-name = "dense-data-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "dense-data-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "dense-data-ui"
-path = "../../package-surfaces/ui.rs"

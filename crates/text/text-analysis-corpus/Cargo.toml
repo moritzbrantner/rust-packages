@@ -17,16 +17,3 @@ math-sparse-data.workspace = true
 serde.workspace = true
 text-analysis-core.workspace = true
 video-analysis-core.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "text-analysis-corpus-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "text-analysis-corpus-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "text-analysis-corpus-ui"
-path = "../../package-surfaces/ui.rs"

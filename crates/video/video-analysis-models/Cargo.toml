@@ -28,16 +28,3 @@ external-tests = []
 [dev-dependencies]
 num-rational.workspace = true
 tempfile.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "video-analysis-models-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "video-analysis-models-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "video-analysis-models-ui"
-path = "../../package-surfaces/ui.rs"

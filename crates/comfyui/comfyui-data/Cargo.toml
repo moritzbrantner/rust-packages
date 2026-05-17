@@ -20,16 +20,3 @@ thiserror.workspace = true
 
 [dev-dependencies]
 image-analysis-comfyui.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "comfyui-data-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "comfyui-data-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "comfyui-data-ui"
-path = "../../package-surfaces/ui.rs"

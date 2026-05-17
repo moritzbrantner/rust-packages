@@ -17,7 +17,7 @@ pub struct PackageCapability {
 pub enum PackageCapabilityKind {
     Library,
     Cli,
-    Endpoint,
+    Api,
     Ui,
 }
 
@@ -26,7 +26,7 @@ impl PackageCapabilityKind {
         match self {
             Self::Library => "library",
             Self::Cli => "cli",
-            Self::Endpoint => "endpoint",
+            Self::Api => "api",
             Self::Ui => "ui",
         }
     }
@@ -69,7 +69,7 @@ fn capabilities_for(name: &str) -> Vec<PackageCapability> {
             entrypoint: cli_entrypoint(name),
         },
         PackageCapability {
-            kind: PackageCapabilityKind::Endpoint,
+            kind: PackageCapabilityKind::Api,
             entrypoint: api_entrypoint(name),
         },
         PackageCapability {
@@ -92,21 +92,21 @@ fn cli_entrypoint(name: &str) -> String {
     if name.starts_with('@') {
         return "frontend package scripts".to_string();
     }
-    format!("cargo run -p {name} --bin {name}-cli -- info")
+    format!("{name}/cli (package {name}-cli)")
 }
 
 fn api_entrypoint(name: &str) -> String {
     if name.starts_with('@') {
         return format!("/api/packages?name={}", percent_encode(name));
     }
-    format!("cargo run -p {name} --bin {name}-api -- --port 8080")
+    format!("{name}/api (package {name}-api)")
 }
 
 fn ui_entrypoint(name: &str) -> String {
     if name.starts_with('@') {
         return format!("Architecture page package detail for {name}");
     }
-    format!("cargo run -p {name} --bin {name}-ui -- --port 8081")
+    format!("{name}/ui (package {name}-ui)")
 }
 
 fn percent_encode(value: &str) -> String {
@@ -197,7 +197,7 @@ mod tests {
                 .iter()
                 .map(|capability| capability.kind.as_str())
                 .collect();
-            assert_eq!(kinds, ["library", "cli", "endpoint", "ui"]);
+            assert_eq!(kinds, ["library", "cli", "api", "ui"]);
         }
     }
 

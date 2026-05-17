@@ -18,16 +18,3 @@ image-analysis-detection.workspace = true
 image-analysis-segmentation.workspace = true
 video-analysis-core.workspace = true
 video-analysis-models.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "image-analysis-models-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "image-analysis-models-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "image-analysis-models-ui"
-path = "../../package-surfaces/ui.rs"

@@ -14,16 +14,3 @@ categories.workspace = true
 
 [dependencies]
 video-analysis-core.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "video-analysis-radiance-fields-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "video-analysis-radiance-fields-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "video-analysis-radiance-fields-ui"
-path = "../../package-surfaces/ui.rs"

@@ -39,11 +39,11 @@ fn vanalyze_exposes_package_capabilities_from_binary() {
     assert!(stdout.contains("\"name\": \"video-analysis-core\""));
     assert!(stdout.contains("\"kind\": \"library\""));
     assert!(stdout.contains("\"kind\": \"cli\""));
-    assert!(stdout.contains("\"kind\": \"endpoint\""));
+    assert!(stdout.contains("\"kind\": \"api\""));
     assert!(stdout.contains("\"kind\": \"ui\""));
-    assert!(stdout.contains("video-analysis-core-cli"));
-    assert!(stdout.contains("video-analysis-core-api"));
-    assert!(stdout.contains("video-analysis-core-ui"));
+    assert!(stdout.contains("video-analysis-core/cli"));
+    assert!(stdout.contains("video-analysis-core/api"));
+    assert!(stdout.contains("video-analysis-core/ui"));
 }
 
 #[test]

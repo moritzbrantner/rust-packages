@@ -16,16 +16,3 @@ categories.workspace = true
 serde.workspace = true
 vector-analysis-core.workspace = true
 video-analysis-core.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "vector-analysis-index-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "vector-analysis-index-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "vector-analysis-index-ui"
-path = "../../package-surfaces/ui.rs"

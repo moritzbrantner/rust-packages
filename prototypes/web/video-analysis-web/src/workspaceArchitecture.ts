@@ -1,6 +1,6 @@
 export type PackageKind = "rust" | "frontend";
 
-export type PackageCapabilityKind = "library" | "cli" | "endpoint" | "ui";
+export type PackageCapabilityKind = "library" | "cli" | "api" | "ui";
 
 export type PackageDomain =
   | "facade"

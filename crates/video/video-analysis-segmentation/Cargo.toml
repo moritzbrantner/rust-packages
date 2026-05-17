@@ -20,16 +20,3 @@ video-analysis-models.workspace = true
 [dev-dependencies]
 video-analysis-ffmpeg.workspace = true
 video-analysis-ingest.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "video-analysis-segmentation-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "video-analysis-segmentation-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "video-analysis-segmentation-ui"
-path = "../../package-surfaces/ui.rs"

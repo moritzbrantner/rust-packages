@@ -298,16 +298,3 @@ comfyui-latents.workspace = true
 comfyui-models.workspace = true
 num-rational.workspace = true
 tensor-data.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "video-analysis-cli"
-path = "crates/package-surfaces/cli.rs"
-
-[[bin]]
-name = "video-analysis-api"
-path = "crates/package-surfaces/api.rs"
-
-[[bin]]
-name = "video-analysis-ui"
-path = "crates/package-surfaces/ui.rs"

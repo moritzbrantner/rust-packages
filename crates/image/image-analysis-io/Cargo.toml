@@ -19,16 +19,3 @@ video-analysis-core.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "image-analysis-io-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "image-analysis-io-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "image-analysis-io-ui"
-path = "../../package-surfaces/ui.rs"

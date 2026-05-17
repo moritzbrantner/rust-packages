@@ -16,16 +16,3 @@ categories.workspace = true
 serde.workspace = true
 tensor-data.workspace = true
 video-analysis-core.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "comfyui-latents-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "comfyui-latents-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "comfyui-latents-ui"
-path = "../../package-surfaces/ui.rs"

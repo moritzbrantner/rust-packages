@@ -256,19 +256,32 @@ plans.
 
 ## Package Surfaces
 
-Every workspace package is expected to be reachable as a library, a CLI surface,
-a web endpoint, and a webpage UI. Rust crates wire shared package-surface targets
-into their own manifests, so each crate can run package-local binaries:
+Runtime packages should keep the reusable library crate separate from adapters.
+When a library needs a command line, HTTP API, or browser UI, add adjacent
+adapter packages under the library directory:
+
+```text
+<name>/
+  Cargo.toml       # library package
+  src/lib.rs
+  cli/             # CLI package, depends on ..
+  api/             # API package, depends on ..
+  ui/              # webpage package, depends on ..
+```
+
+For example, a text-processing package should expose reusable text logic from
+`text-analysis-.../src/lib.rs`, while `text-analysis-.../cli`,
+`text-analysis-.../api`, and `text-analysis-.../ui` own the application code
+for those surfaces. The library crate should not declare generic `[[bin]]`
+targets for CLI/API/UI adapters.
 
 ```bash
-cargo run -p video-analysis-core --bin video-analysis-core-cli -- info
-cargo run -p video-analysis-core --bin video-analysis-core-api -- --port 8080
-cargo run -p video-analysis-core --bin video-analysis-core-ui -- --port 8081
 cargo run -p video-analysis-cli -- packages inspect video-analysis-core --json
 ```
 
-The local web app still exposes the workspace catalog at `/api/packages` and
-renders each package surface in the architecture view.
+The current `video-analysis-cli` package is the workspace-level `vanalyze`
+adapter. The local web app still exposes the workspace catalog at
+`/api/packages` and renders package surface locations in the architecture view.
 
 ## Workspace Checks
 

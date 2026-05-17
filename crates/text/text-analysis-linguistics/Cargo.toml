@@ -25,16 +25,3 @@ tempfile.workspace = true
 [[bench]]
 name = "pipeline"
 harness = false
-
-# Shared package surface targets.
-[[bin]]
-name = "text-analysis-linguistics-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "text-analysis-linguistics-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "text-analysis-linguistics-ui"
-path = "../../package-surfaces/ui.rs"

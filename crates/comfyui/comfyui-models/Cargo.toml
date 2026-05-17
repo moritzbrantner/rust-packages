@@ -18,16 +18,3 @@ thiserror.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "comfyui-models-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "comfyui-models-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "comfyui-models-ui"
-path = "../../package-surfaces/ui.rs"

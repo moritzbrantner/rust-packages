@@ -22,16 +22,3 @@ serde-wasm-bindgen = "0.6.5"
 
 [dev-dependencies]
 serde_json.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "text-core-wasm-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "text-core-wasm-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "text-core-wasm-ui"
-path = "../../package-surfaces/ui.rs"

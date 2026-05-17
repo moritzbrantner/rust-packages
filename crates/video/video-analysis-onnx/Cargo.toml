@@ -29,16 +29,3 @@ external-tests = ["onnxruntime"]
 [dev-dependencies]
 num-rational.workspace = true
 tempfile.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "video-analysis-onnx-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "video-analysis-onnx-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "video-analysis-onnx-ui"
-path = "../../package-surfaces/ui.rs"

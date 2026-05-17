@@ -210,21 +210,21 @@ function capabilitiesFor(
       kind: "cli",
       entrypoint:
         kind === "rust"
-          ? `cargo run -p ${name} --bin ${name}-cli -- info`
+          ? `${name}/cli (package ${name}-cli)`
           : "frontend package scripts",
     },
     {
-      kind: "endpoint",
+      kind: "api",
       entrypoint:
         kind === "rust"
-          ? `cargo run -p ${name} --bin ${name}-api -- --port 8080`
+          ? `${name}/api (package ${name}-api)`
           : `/api/packages?name=${encodeURIComponent(name)}`,
     },
     {
       kind: "ui",
       entrypoint:
         kind === "rust"
-          ? `cargo run -p ${name} --bin ${name}-ui -- --port 8081`
+          ? `${name}/ui (package ${name}-ui)`
           : `Architecture page package detail for ${name}`,
     },
   ];

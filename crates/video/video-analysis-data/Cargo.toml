@@ -15,16 +15,3 @@ categories.workspace = true
 [dependencies]
 numbers-core.workspace = true
 video-analysis-core.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "video-analysis-data-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "video-analysis-data-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "video-analysis-data-ui"
-path = "../../package-surfaces/ui.rs"

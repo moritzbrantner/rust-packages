@@ -50,16 +50,3 @@ audio-analysis-test-support.workspace = true
 tempfile.workspace = true
 video-analysis-ffmpeg = { workspace = true, features = ["test-utils"] }
 video-analysis-test-support.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "video-analysis-use-cases-cli"
-path = "../../../crates/package-surfaces/cli.rs"
-
-[[bin]]
-name = "video-analysis-use-cases-api"
-path = "../../../crates/package-surfaces/api.rs"
-
-[[bin]]
-name = "video-analysis-use-cases-ui"
-path = "../../../crates/package-surfaces/ui.rs"

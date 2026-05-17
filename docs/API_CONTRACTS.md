@@ -11,18 +11,20 @@ crates should compose around those contracts instead of defining parallel types.
 
 ## Package Surface Policy
 
-Every workspace package should be reachable through the same four surfaces:
+Runtime packages use the same four-surface shape, but the adapters stay outside
+the reusable library crate:
 
 - Library: a Rust `lib` target or an importable frontend package.
-- CLI: a package-local `<package>-cli` binary.
-- Web endpoint: a package-local `<package>-api` binary exposing
-  `/api/package`.
-- Webpage UI: a package-local `<package>-ui` binary serving a package page.
+- CLI: an adjacent `<package>/cli` package, published or named as
+  `<package>-cli`.
+- API: an adjacent `<package>/api` package exposing HTTP endpoints, published or
+  named as `<package>-api`.
+- UI: an adjacent `<package>/ui` package serving a webpage or frontend bundle,
+  published or named as `<package>-ui`.
 
-The CLI/API/UI binaries use shared source files under `crates/package-surfaces`
-so each crate has the same operational shape without duplicating server or
-markup code. Richer crate-specific behavior can replace those shared targets
-when a crate needs it.
+Library crates should not declare generic CLI/API/UI `[[bin]]` targets. Adapter
+packages depend on the library and own their runtime, transport, and webpage
+code.
 
 ## Feature Flag Policy
 

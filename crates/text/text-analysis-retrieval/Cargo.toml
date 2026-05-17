@@ -23,16 +23,3 @@ video-analysis-core.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 text-analysis-semantics.workspace = true
-
-# Shared package surface targets.
-[[bin]]
-name = "text-analysis-retrieval-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "text-analysis-retrieval-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "text-analysis-retrieval-ui"
-path = "../../package-surfaces/ui.rs"

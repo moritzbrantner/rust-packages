@@ -24,16 +24,3 @@ proptest.workspace = true
 [[bench]]
 name = "core"
 harness = false
-
-# Shared package surface targets.
-[[bin]]
-name = "audio-analysis-core-cli"
-path = "../../package-surfaces/cli.rs"
-
-[[bin]]
-name = "audio-analysis-core-api"
-path = "../../package-surfaces/api.rs"
-
-[[bin]]
-name = "audio-analysis-core-ui"
-path = "../../package-surfaces/ui.rs"
