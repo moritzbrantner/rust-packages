@@ -2766,6 +2766,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "text-analysis-search"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "text-analysis-corpus",
+ "text-analysis-models",
+ "text-analysis-retrieval",
+ "text-analysis-semantics",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "text-analysis-semantics"
 version = "0.1.0"
 dependencies = [
@@ -3268,6 +3280,7 @@ dependencies = [
  "text-analysis-prediction",
  "text-analysis-retrieval",
  "text-analysis-retrieval-storage",
+ "text-analysis-search",
  "text-analysis-semantics",
  "text-analysis-synthesis",
  "text-analysis-transcription",

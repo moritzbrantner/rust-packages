@@ -1,0 +1,23 @@
+[package]
+name = "text-analysis-search"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Unified search API for full-text, semantic, hybrid, filtered, and sorted text corpora."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+serde.workspace = true
+text-analysis-models.workspace = true
+text-analysis-retrieval.workspace = true
+video-analysis-core.workspace = true
+
+[dev-dependencies]
+text-analysis-corpus.workspace = true
+text-analysis-semantics.workspace = true

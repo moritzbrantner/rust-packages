@@ -1,7 +1,7 @@
 #[cfg(feature = "external-tests")]
 mod external {
     use std::path::{Path, PathBuf};
-    use std::process::{Command, Stdio};
+    use std::process::Command;
 
     use text_analysis_transcription::{Transcriber, WhisperCliTranscriber};
 

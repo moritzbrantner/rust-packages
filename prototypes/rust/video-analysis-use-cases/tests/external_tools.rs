@@ -15,7 +15,7 @@ use video_analysis_use_cases::{run_youtube_video, YoutubeVideoRequest};
 fn yt_dlp_can_resolve_default_smoke_test_video() {
     video_analysis_test_support::require_command("yt-dlp");
     let url = std::env::var("YTDLP_TEST_URL")
-        .unwrap_or_else(|_| "https://www.youtube.com/watch?v=BaW_jenozKc".to_string());
+        .unwrap_or_else(|_| "https://www.youtube.com/watch?v=jNQXAC9IVRw".to_string());
     let output = std::process::Command::new("yt-dlp")
         .args(["--simulate", "--skip-download", "--print", "id"])
         .arg(url)
@@ -157,7 +157,7 @@ fn generated_video_red_cars_workflow_counts_red_cars() {
             "-f",
             "lavfi",
             "-i",
-            "color=c=black:s=96x96:d=0.5:r=10",
+            "color=c=white:s=96x96:d=0.5:r=10",
             "-filter_complex",
             "[0:v]drawbox=x=10:y=20:w=30:h=18:color=red:t=fill[a];[1:v]drawbox=x=40:y=30:w=24:h=16:color=red:t=fill[b];[a][b]concat=n=2:v=1:a=0",
             "-pix_fmt",

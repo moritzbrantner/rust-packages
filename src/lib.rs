@@ -40,6 +40,7 @@ pub use text_analysis_models as text_models;
 pub use text_analysis_prediction as text_prediction;
 pub use text_analysis_retrieval as text_retrieval;
 pub use text_analysis_retrieval_storage as text_retrieval_storage;
+pub use text_analysis_search as text_search;
 pub use text_analysis_semantics as text_semantics;
 pub use text_analysis_synthesis as text_synthesis;
 pub use text_analysis_transcription as text_transcription;

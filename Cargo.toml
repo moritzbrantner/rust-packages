@@ -57,6 +57,7 @@ members = [
     "crates/text/text-analysis-prediction",
     "crates/text/text-analysis-retrieval",
     "crates/text/text-analysis-retrieval-storage",
+    "crates/text/text-analysis-search",
     "crates/text/text-analysis-semantics",
     "crates/text/text-analysis-synthesis",
     "crates/text/text-analysis-transcription",
@@ -175,6 +176,7 @@ text-analysis-models = { version = "0.1.0", path = "crates/text/text-analysis-mo
 text-analysis-prediction = { version = "0.1.0", path = "crates/text/text-analysis-prediction" }
 text-analysis-retrieval = { version = "0.1.0", path = "crates/text/text-analysis-retrieval" }
 text-analysis-retrieval-storage = { version = "0.1.0", path = "crates/text/text-analysis-retrieval-storage" }
+text-analysis-search = { version = "0.1.0", path = "crates/text/text-analysis-search" }
 text-analysis-semantics = { version = "0.1.0", path = "crates/text/text-analysis-semantics" }
 text-analysis-synthesis = { version = "0.1.0", path = "crates/text/text-analysis-synthesis" }
 text-analysis-transcription = { version = "0.1.0", path = "crates/text/text-analysis-transcription" }
@@ -281,6 +283,7 @@ text-analysis-models.workspace = true
 text-analysis-prediction.workspace = true
 text-analysis-retrieval.workspace = true
 text-analysis-retrieval-storage.workspace = true
+text-analysis-search.workspace = true
 text-analysis-semantics.workspace = true
 text-analysis-synthesis.workspace = true
 text-analysis-transcription.workspace = true
