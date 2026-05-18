@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "check": "scripts/check.sh",
+    "text-wasm:bench": "bun run --cwd packages/text-core-wasm bench:browser",
     "text-wasm:test": "bun run --cwd packages/text-core-wasm test",
     "ui:build": "bun run --cwd packages/video-analysis-ui build",
     "ui:test": "bun run --cwd packages/video-analysis-ui test",

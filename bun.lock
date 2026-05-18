@@ -8,6 +8,9 @@
     "packages/text-core-wasm": {
       "name": "@mb-rust/text-core-wasm",
       "version": "0.1.0",
+      "devDependencies": {
+        "playwright": "^1.60.0",
+      },
     },
     "packages/video-analysis-ui": {
       "name": "@video-analysis/ui",

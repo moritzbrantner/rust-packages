@@ -2670,6 +2670,7 @@ dependencies = [
 name = "text-analysis-core"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "serde",
  "unicode-normalization",
  "unicode-segmentation",
@@ -3219,6 +3220,7 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 name = "vector-analysis-core"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "video-analysis-core",
 ]
 
@@ -3226,6 +3228,7 @@ dependencies = [
 name = "vector-analysis-index"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "serde",
  "vector-analysis-core",
  "video-analysis-core",

@@ -418,8 +418,22 @@ mod tests {
     use super::*;
     use audio_analysis_test_support::{click_track, stepped_tones, write_pcm16_wav};
 
+    fn skip_if_ffmpeg_tools_unavailable() -> bool {
+        if video_analysis_ffmpeg::is_ffmpeg_available()
+            && video_analysis_ffmpeg::is_ffprobe_available()
+        {
+            return false;
+        }
+        eprintln!("skipping audio voice analysis test because ffmpeg/ffprobe is unavailable");
+        true
+    }
+
     #[test]
     fn audio_voice_analysis_segments_pitch_track_into_notes() {
+        if skip_if_ffmpeg_tools_unavailable() {
+            return;
+        }
+
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("notes.wav");
         let samples = stepped_tones(&[(440.0, 0.25), (493.88, 0.25)], 16_000);
@@ -432,6 +446,10 @@ mod tests {
 
     #[test]
     fn audio_voice_analysis_reports_tempo_from_click_like_input() {
+        if skip_if_ffmpeg_tools_unavailable() {
+            return;
+        }
+
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("tempo.wav");
         let samples = click_track(16_000, 120.0, 4.0);

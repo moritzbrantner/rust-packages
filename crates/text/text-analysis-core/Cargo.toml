@@ -17,3 +17,10 @@ serde.workspace = true
 unicode-normalization.workspace = true
 unicode-segmentation.workspace = true
 video-analysis-core.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "segmentation"
+harness = false
