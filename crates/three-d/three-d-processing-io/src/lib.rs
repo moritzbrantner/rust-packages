@@ -489,9 +489,9 @@ fn decode_vec3_accessor(
     let mut points = Vec::with_capacity(accessor.count as usize);
     for chunk in slice.chunks_exact(12) {
         points.push(Point3::new(
-            f32::from_le_bytes(chunk[0..4].try_into().unwrap()),
-            f32::from_le_bytes(chunk[4..8].try_into().unwrap()),
-            f32::from_le_bytes(chunk[8..12].try_into().unwrap()),
+            f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]),
+            f32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]),
+            f32::from_le_bytes([chunk[8], chunk[9], chunk[10], chunk[11]]),
         ));
     }
     Ok(points)
@@ -522,7 +522,7 @@ fn decode_index_accessor(
         .ok_or_else(|| invalid_argument("glTF index accessor exceeds buffer length"))?;
     Ok(slice
         .chunks_exact(4)
-        .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()) as usize)
+        .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]) as usize)
         .collect())
 }
 

@@ -585,7 +585,9 @@ pub fn center_and_scale(points: &[Point3], target_extent: f32) -> Result<Option<
             "target extent must be finite and greater than zero",
         ));
     }
-    let bounds = Bounds3::from_points(points)?.expect("non-empty points");
+    let Some(bounds) = Bounds3::from_points(points)? else {
+        return Ok(None);
+    };
     let center = bounds.center();
     let extent = bounds.size();
     let max_extent = extent.x.max(extent.y).max(extent.z);

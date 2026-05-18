@@ -63,7 +63,8 @@ impl FlashFilter {
     }
 
     fn filter_suppress(&mut self, frame_index: u64, above_threshold: bool) -> Vec<u64> {
-        let min_length_met = frame_index.saturating_sub(self.last_above.unwrap()) >= self.length;
+        let last_above = self.last_above.unwrap_or(frame_index);
+        let min_length_met = frame_index.saturating_sub(last_above) >= self.length;
         if above_threshold && min_length_met {
             self.last_above = Some(frame_index);
             vec![frame_index]
@@ -73,18 +74,17 @@ impl FlashFilter {
     }
 
     fn filter_merge(&mut self, frame_index: u64, above_threshold: bool) -> Vec<u64> {
-        let min_length_met = frame_index.saturating_sub(self.last_above.unwrap()) >= self.length;
+        let last_above = self.last_above.unwrap_or(frame_index);
+        let min_length_met = frame_index.saturating_sub(last_above) >= self.length;
         if above_threshold {
             self.last_above = Some(frame_index);
         }
+        let current_last_above = self.last_above.unwrap_or(frame_index);
         if self.merge_triggered {
-            let merged = self
-                .last_above
-                .unwrap()
-                .saturating_sub(self.merge_start.unwrap_or(frame_index));
+            let merged = current_last_above.saturating_sub(self.merge_start.unwrap_or(frame_index));
             if min_length_met && !above_threshold && merged >= self.length {
                 self.merge_triggered = false;
-                return vec![self.last_above.unwrap()];
+                return vec![current_last_above];
             }
             return Vec::new();
         }

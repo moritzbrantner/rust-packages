@@ -462,12 +462,14 @@ impl BucketAggregator {
             }
         }
 
-        let active = self.active.as_mut().expect("active bucket exists");
-        active.push(record, self.config.max_vector_dimensions);
+        if let Some(active) = self.active.as_mut() {
+            active.push(record, self.config.max_vector_dimensions);
+        }
 
         if self.active_is_complete() {
-            let active = self.active.take().expect("active bucket exists");
-            completed.push(active.finish());
+            if let Some(active) = self.active.take() {
+                completed.push(active.finish());
+            }
         }
 
         Ok(completed)

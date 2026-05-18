@@ -30,8 +30,13 @@ fn rust_library_crates_have_unit_tests() {
             if !lib_rs.is_file() {
                 return None;
             }
-            (!has_rust_test_marker(&src_dir))
-                .then(|| crate_dir.strip_prefix(root).unwrap_or(crate_dir).display().to_string())
+            (!has_rust_test_marker(&src_dir)).then(|| {
+                crate_dir
+                    .strip_prefix(root)
+                    .unwrap_or(crate_dir)
+                    .display()
+                    .to_string()
+            })
         })
         .collect::<Vec<_>>();
 
@@ -50,12 +55,18 @@ fn cli_packages_have_integration_tests() {
         .filter_map(|manifest| {
             let manifest_text = fs::read_to_string(&manifest).ok()?;
             let crate_dir = manifest.parent()?;
-            let has_cli_surface = manifest_text.contains("[[bin]]") || crate_dir.join("src/main.rs").is_file();
+            let has_cli_surface =
+                manifest_text.contains("[[bin]]") || crate_dir.join("src/main.rs").is_file();
             if !has_cli_surface {
                 return None;
             }
-            (!has_rust_integration_test(crate_dir))
-                .then(|| crate_dir.strip_prefix(root).unwrap_or(crate_dir).display().to_string())
+            (!has_rust_integration_test(crate_dir)).then(|| {
+                crate_dir
+                    .strip_prefix(root)
+                    .unwrap_or(crate_dir)
+                    .display()
+                    .to_string()
+            })
         })
         .collect::<Vec<_>>();
 
@@ -132,14 +143,23 @@ fn has_rust_integration_test(crate_dir: &Path) -> bool {
         .into_iter()
         .flatten()
         .flatten()
-        .any(|entry| entry.path().extension().is_some_and(|extension| extension == "rs"))
+        .any(|entry| {
+            entry
+                .path()
+                .extension()
+                .is_some_and(|extension| extension == "rs")
+        })
 }
 
 fn has_frontend_unit_test(package_dir: &Path) -> bool {
     has_file_matching(package_dir, |path| {
         path.file_name()
             .and_then(|name| name.to_str())
-            .is_some_and(|name| name.ends_with(".test.js") || name.ends_with(".test.ts") || name.ends_with(".test.tsx"))
+            .is_some_and(|name| {
+                name.ends_with(".test.js")
+                    || name.ends_with(".test.ts")
+                    || name.ends_with(".test.tsx")
+            })
     })
 }
 

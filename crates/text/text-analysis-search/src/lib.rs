@@ -48,10 +48,11 @@ pub enum SortOrder {
     Descending,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 /// Variants describing search sort.
 pub enum SearchSort {
     /// The relevance variant.
+    #[default]
     Relevance,
     /// The document identifier variant.
     DocumentId(SortOrder),
@@ -64,12 +65,6 @@ pub enum SearchSort {
         /// The order value for this variant.
         order: SortOrder,
     },
-}
-
-impl Default for SearchSort {
-    fn default() -> Self {
-        Self::Relevance
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
