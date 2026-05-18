@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+use std::collections::BTreeMap;
+use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -56,6 +58,27 @@ pub struct TranscriptSegment {
     pub speaker: Option<String>,
     pub confidence: Option<f32>,
     pub is_final: bool,
+}
+
+impl TranscriptSegment {
+    pub fn metadata(&self) -> BTreeMap<String, String> {
+        let mut metadata = BTreeMap::new();
+        insert_optional(&mut metadata, "language", self.language.as_deref());
+        insert_optional(&mut metadata, "speaker", self.speaker.as_deref());
+        insert_optional_number(&mut metadata, "start_seconds", self.start_seconds);
+        insert_optional_number(&mut metadata, "end_seconds", self.end_seconds);
+        insert_optional_display(&mut metadata, "confidence", self.confidence);
+        metadata
+    }
+
+    pub fn metadata_with_source(&self, source: impl Into<String>) -> BTreeMap<String, String> {
+        let mut metadata = self.metadata();
+        let source = source.into();
+        if !source.is_empty() {
+            metadata.insert("source".to_string(), source);
+        }
+        metadata
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -548,6 +571,26 @@ fn whisper_confidence(avg_logprob: Option<f32>, no_speech_prob: Option<f32>) -> 
     avg_logprob.or(no_speech_prob.map(|probability| 1.0 - probability))
 }
 
+fn insert_optional(metadata: &mut BTreeMap<String, String>, key: &str, value: Option<&str>) {
+    if let Some(value) = value {
+        metadata.insert(key.to_string(), value.to_string());
+    }
+}
+
+fn insert_optional_number(metadata: &mut BTreeMap<String, String>, key: &str, value: Option<f64>) {
+    insert_optional_display(metadata, key, value);
+}
+
+fn insert_optional_display<T: fmt::Display>(
+    metadata: &mut BTreeMap<String, String>,
+    key: &str,
+    value: Option<T>,
+) {
+    if let Some(value) = value {
+        metadata.insert(key.to_string(), value.to_string());
+    }
+}
+
 fn find_transcript_json(output_dir: &Path) -> Option<PathBuf> {
     let mut candidates = fs::read_dir(output_dir)
         .ok()?
@@ -658,6 +701,29 @@ mod tests {
         assert_eq!(owned.segment_index, 2);
         assert_eq!(owned.timestamp.unwrap().seconds(), 1.25);
         assert_eq!(owned.language.as_deref(), Some("en"));
+    }
+
+    #[test]
+    fn transcript_segment_metadata_preserves_optional_fields() {
+        let segment = TranscriptSegment {
+            index: 2,
+            start_seconds: Some(1.25),
+            end_seconds: Some(2.0),
+            text: "hello".to_string(),
+            language: Some("en".to_string()),
+            speaker: Some("speaker-1".to_string()),
+            confidence: Some(0.75),
+            is_final: true,
+        };
+
+        let metadata = segment.metadata_with_source("fixture.srt");
+
+        assert_eq!(metadata["language"], "en");
+        assert_eq!(metadata["speaker"], "speaker-1");
+        assert_eq!(metadata["start_seconds"], "1.25");
+        assert_eq!(metadata["end_seconds"], "2");
+        assert_eq!(metadata["confidence"], "0.75");
+        assert_eq!(metadata["source"], "fixture.srt");
     }
 
     #[test]

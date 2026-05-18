@@ -66,8 +66,7 @@ pub struct PersistedSearchIndex {
 impl PersistedSearchIndex {
     pub fn from_index<B: TextEmbedderBackend>(index: &RetrievalIndex<B>) -> Self {
         let chunks = index
-            .chunks()
-            .into_iter()
+            .chunks_iter()
             .map(|chunk| PersistedChunkRecord {
                 chunk: chunk.clone(),
                 raw_text: index.raw_text(&chunk.chunk_id).map(ToString::to_string),
@@ -152,6 +151,7 @@ impl PersistedSearchIndex {
     }
 
     pub fn into_index<B: TextEmbedderBackend>(self, embedder: B) -> Result<RetrievalIndex<B>> {
+        validate_embedder_compatibility(&self.manifest.embedder, &embedder.model_info())?;
         let raw_text_by_chunk_id = self
             .chunks
             .iter()
@@ -225,6 +225,31 @@ fn read_jsonl<T: for<'de> Deserialize<'de>>(path: impl AsRef<Path>) -> Result<Ve
     Ok(values)
 }
 
+fn validate_embedder_compatibility(
+    persisted: &EmbeddingModelInfo,
+    current: &EmbeddingModelInfo,
+) -> Result<()> {
+    if !persisted.model_name.is_empty()
+        && !current.model_name.is_empty()
+        && persisted.model_name != current.model_name
+    {
+        return Err(StorageError::InvalidState(format!(
+            "persisted embedder `{}` did not match provided embedder `{}`",
+            persisted.model_name, current.model_name
+        )));
+    }
+    if persisted.dimensions > 0
+        && current.dimensions > 0
+        && persisted.dimensions != current.dimensions
+    {
+        return Err(StorageError::InvalidState(format!(
+            "persisted embedder dimensions {} did not match provided embedder dimensions {}",
+            persisted.dimensions, current.dimensions
+        )));
+    }
+    Ok(())
+}
+
 fn json_error(error: serde_json::Error) -> StorageError {
     StorageError::Json(error.to_string())
 }
@@ -235,8 +260,11 @@ mod tests {
 
     use tempfile::tempdir;
     use text_analysis_corpus::CorpusOptions;
+    use text_analysis_models::TextEmbedderBackend;
     use text_analysis_retrieval::{HybridConfig, IngestionOptions, SearchDocument, SearchQuery};
-    use text_analysis_semantics::{HashedTextEmbedder, TextEmbeddingConfig};
+    use text_analysis_semantics::{
+        DenseVector, HashedTextEmbedder, TextEmbeddingBackend, TextEmbeddingConfig,
+    };
 
     use super::*;
 
@@ -249,6 +277,29 @@ mod tests {
             CorpusOptions::default(),
         )
         .unwrap()
+    }
+
+    #[derive(Debug, Clone)]
+    struct NamedEmbedder {
+        name: String,
+        dimensions: usize,
+    }
+
+    impl TextEmbeddingBackend for NamedEmbedder {
+        fn embed_text(&self, _text: &str) -> video_analysis_core::Result<DenseVector> {
+            DenseVector::new(vec![1.0; self.dimensions])
+        }
+    }
+
+    impl TextEmbedderBackend for NamedEmbedder {
+        fn model_info(&self) -> EmbeddingModelInfo {
+            EmbeddingModelInfo {
+                model_name: self.name.clone(),
+                dimensions: self.dimensions,
+                normalized: false,
+                max_tokens: None,
+            }
+        }
     }
 
     #[test]
@@ -308,6 +359,54 @@ mod tests {
         let err = PersistedSearchIndex::load_from_path(dir.path()).unwrap_err();
         assert!(
             matches!(err, StorageError::InvalidManifest(message) if message.contains("chunks"))
+        );
+    }
+
+    #[test]
+    fn loading_rejects_incompatible_embedder_name_or_dimensions() {
+        let mut index = RetrievalIndex::new(NamedEmbedder {
+            name: "persisted".to_string(),
+            dimensions: 4,
+        });
+        index
+            .ingest_documents(
+                &[SearchDocument {
+                    id: "doc-1".to_string(),
+                    title: None,
+                    body: "rust cargo crates".to_string(),
+                    metadata: BTreeMap::new(),
+                }],
+                &IngestionOptions::default(),
+            )
+            .unwrap();
+
+        let dir = tempdir().unwrap();
+        PersistedSearchIndex::from_index(&index)
+            .save_to_path(dir.path())
+            .unwrap();
+
+        let wrong_name = PersistedSearchIndex::load_with_embedder(
+            dir.path(),
+            NamedEmbedder {
+                name: "other".to_string(),
+                dimensions: 4,
+            },
+        )
+        .unwrap_err();
+        assert!(
+            matches!(wrong_name, StorageError::InvalidState(message) if message.contains("embedder"))
+        );
+
+        let wrong_dimensions = PersistedSearchIndex::load_with_embedder(
+            dir.path(),
+            NamedEmbedder {
+                name: "persisted".to_string(),
+                dimensions: 8,
+            },
+        )
+        .unwrap_err();
+        assert!(
+            matches!(wrong_dimensions, StorageError::InvalidState(message) if message.contains("dimensions"))
         );
     }
 }

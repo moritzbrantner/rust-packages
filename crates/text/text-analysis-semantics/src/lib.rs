@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use math_sparse_data::SparseVector;
 use text_analysis_core::{segment_document_id, tokenize_words, AnnotationProvenance, TextDocument};
@@ -296,6 +296,15 @@ impl SemanticTextIndex {
         }
     }
 
+    pub fn from_documents<'a, I>(embedder: HashedTextEmbedder, documents: I) -> Result<Self>
+    where
+        I: IntoIterator<Item = TextDocument<'a>>,
+    {
+        let mut index = Self::new(embedder);
+        index.add_documents(documents)?;
+        Ok(index)
+    }
+
     pub fn embedder(&self) -> &HashedTextEmbedder {
         &self.embedder
     }
@@ -323,6 +332,32 @@ impl SemanticTextIndex {
 
     pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<()> {
         self.add_document(document.id, document.text)
+    }
+
+    pub fn add_documents<'a, I>(&mut self, documents: I) -> Result<()>
+    where
+        I: IntoIterator<Item = TextDocument<'a>>,
+    {
+        let documents = documents
+            .into_iter()
+            .map(|document| (document.id.to_string(), document.text.to_string()))
+            .collect::<Vec<_>>();
+        self.validate_new_document_ids(documents.iter().map(|(id, _)| id.as_str()))?;
+
+        for (id, text) in &documents {
+            self.corpus.add_document(id.clone(), text)?;
+        }
+        if self.embedder.config.use_idf {
+            self.rebuild_vectors()
+        } else {
+            for (id, text) in documents {
+                let vector = self
+                    .embedder
+                    .embed_text_with_corpus(&text, Some(&self.corpus))?;
+                self.vectors.add(VectorRecord::new(id, vector))?;
+            }
+            Ok(())
+        }
     }
 
     pub fn add_text_segment(&mut self, stream_id: &str, segment: &TextSegment<'_>) -> Result<()> {
@@ -365,6 +400,21 @@ impl SemanticTextIndex {
             vectors.add(VectorRecord::new(document.id.clone(), vector))?;
         }
         self.vectors = vectors;
+        Ok(())
+    }
+
+    fn validate_new_document_ids<'a>(&self, ids: impl IntoIterator<Item = &'a str>) -> Result<()> {
+        let mut seen = BTreeSet::new();
+        for id in ids {
+            if id.trim().is_empty() {
+                return Err(invalid_argument("document id must not be empty"));
+            }
+            if self.corpus.document(id).is_some() || !seen.insert(id.to_string()) {
+                return Err(invalid_argument(format!(
+                    "document id `{id}` already exists"
+                )));
+            }
+        }
         Ok(())
     }
 }
@@ -605,6 +655,29 @@ mod tests {
     }
 
     #[test]
+    fn idf_weighted_batch_ingestion_rebuilds_vectors_once_after_corpus_update() {
+        let embedder = HashedTextEmbedder::new(
+            TextEmbeddingConfig {
+                dimensions: 64,
+                use_idf: true,
+            },
+            CorpusOptions::default(),
+        )
+        .unwrap();
+        let documents = [
+            TextDocument::new("rust", "rust cargo crates"),
+            TextDocument::new("fruit", "orange banana apple"),
+            TextDocument::new("search", "semantic retrieval search"),
+        ];
+
+        let index = SemanticTextIndex::from_documents(embedder, documents).unwrap();
+
+        assert_eq!(index.corpus().len(), 3);
+        assert_eq!(index.vectors.records().len(), 3);
+        assert_eq!(index.search("cargo", 1).unwrap()[0].id, "rust");
+    }
+
+    #[test]
     fn finds_related_terms_from_context_windows() {
         let mut graph = CooccurrenceGraph::default();
         graph.train_text("rust cargo build rust cargo test rust ownership");
@@ -728,6 +801,26 @@ mod tests {
             index.add_text_segment("", &first),
             Err(DetectError::InvalidArgument(message)) if message == "stream id must not be empty"
         ));
+    }
+
+    #[test]
+    fn stream_segment_document_constructor_matches_corpus_and_semantic_ids() {
+        let segment = TextSegment {
+            segment_index: 9,
+            timestamp: None,
+            text: "rust cargo segment",
+            language: Some("en"),
+            is_final: true,
+        };
+        let document = TextDocument::from_stream_segment("subs", &segment);
+        let mut corpus = TfIdfCorpus::default();
+        corpus.add_text_segment("subs", &segment).unwrap();
+        let mut semantic = SemanticTextIndex::new(HashedTextEmbedder::default());
+        semantic.add_text_segment("subs", &segment).unwrap();
+
+        assert_eq!(document.id, "subs:9");
+        assert_eq!(corpus.documents()[0].id, document.id);
+        assert_eq!(semantic.corpus().documents()[0].id, document.id);
     }
 
     #[test]

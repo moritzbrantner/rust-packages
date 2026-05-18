@@ -25,3 +25,4 @@ vector-analysis-index.workspace = true
 tempfile.workspace = true
 text-analysis-corpus.workspace = true
 text-analysis-semantics.workspace = true
+video-analysis-core.workspace = true

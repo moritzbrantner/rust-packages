@@ -2746,6 +2746,7 @@ dependencies = [
  "text-analysis-corpus",
  "text-analysis-models",
  "text-analysis-semantics",
+ "text-analysis-transcription",
  "vector-analysis-index",
  "video-analysis-core",
 ]
@@ -2763,6 +2764,7 @@ dependencies = [
  "text-analysis-semantics",
  "thiserror 2.0.18",
  "vector-analysis-index",
+ "video-analysis-core",
 ]
 
 [[package]]

@@ -17,6 +17,7 @@ serde.workspace = true
 text-analysis-core.workspace = true
 text-analysis-corpus.workspace = true
 text-analysis-models.workspace = true
+text-analysis-transcription.workspace = true
 vector-analysis-index.workspace = true
 video-analysis-core.workspace = true
 

@@ -25,6 +25,24 @@ impl<'a> TextDocument<'a> {
         }
     }
 
+    pub fn from_segment_id(id: &'a str, segment: &TextSegment<'a>) -> Self {
+        Self {
+            id,
+            text: segment.text,
+            language: segment.language,
+            timestamp: segment.timestamp,
+        }
+    }
+
+    pub fn from_stream_segment(stream_id: &str, segment: &TextSegment<'_>) -> OwnedTextDocument {
+        OwnedTextDocument::from_stream_segment(stream_id, segment)
+    }
+
+    /// Builds a document using `stream_id` directly as the document id.
+    ///
+    /// Prefer [`TextDocument::from_segment_id`] when the id has already been
+    /// chosen, or [`TextDocument::from_stream_segment`] when converting a
+    /// stream segment into the canonical `stream_id:segment_index` id.
     pub fn from_segment(stream_id: &'a str, segment: &TextSegment<'a>) -> Self {
         Self {
             id: stream_id,
@@ -63,6 +81,34 @@ impl OwnedTextDocument {
         self
     }
 
+    pub fn from_segment_id(id: impl Into<String>, segment: &OwnedTextSegment) -> Self {
+        let segment = segment.as_segment();
+        Self {
+            id: id.into(),
+            text: segment.text.to_string(),
+            language: segment.language.map(ToString::to_string),
+            timestamp: segment.timestamp,
+        }
+    }
+
+    pub fn from_stream_segment(stream_id: &str, segment: &TextSegment<'_>) -> Self {
+        Self {
+            id: segment_document_id(stream_id, segment.segment_index),
+            text: segment.text.to_string(),
+            language: segment.language.map(ToString::to_string),
+            timestamp: segment.timestamp,
+        }
+    }
+
+    pub fn from_owned_stream_segment(stream_id: &str, segment: &OwnedTextSegment) -> Self {
+        Self::from_stream_segment(stream_id, &segment.as_segment())
+    }
+
+    /// Builds a document using the supplied `stream_id` directly as the id.
+    ///
+    /// Prefer [`OwnedTextDocument::from_segment_id`] when the id has already
+    /// been chosen, or [`OwnedTextDocument::from_owned_stream_segment`] for the
+    /// canonical `stream_id:segment_index` id.
     pub fn from_segment(stream_id: impl Into<String>, segment: &OwnedTextSegment) -> Self {
         let segment = segment.as_segment();
         Self {

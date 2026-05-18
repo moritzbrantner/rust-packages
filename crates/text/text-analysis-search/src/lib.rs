@@ -309,7 +309,9 @@ fn to_hybrid_config(mode: SearchMode, candidate_limit: usize) -> Result<HybridCo
 fn to_retrieval_filter(filter: &SearchFilter) -> RetrievalSearchFilter {
     RetrievalSearchFilter {
         metadata_equals: filter.metadata_equals.clone(),
+        metadata_contains: filter.metadata_contains.clone(),
         required_tags: filter.required_tags.clone(),
+        document_ids: filter.document_ids.clone(),
     }
 }
 

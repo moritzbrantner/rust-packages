@@ -3,9 +3,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
-use text_analysis_core::{tokenize, TextProcessingOptions, TokenKind};
+use text_analysis_core::{tokenize, TextDocument, TextProcessingOptions, TokenKind};
 use text_analysis_corpus::{Bm25Corpus, Bm25Options, CorpusOptions};
 use text_analysis_models::{EmbeddingModelInfo, TextEmbedderBackend};
+use text_analysis_transcription::TranscriptSegment;
 use vector_analysis_index::{
     SerializableVectorRecord, VectorRecord, VectorRecordMetadata, VectorSearchFilter,
     VectorSearchIndex,
@@ -20,6 +21,62 @@ pub struct SearchDocument {
     pub title: Option<String>,
     pub body: String,
     pub metadata: BTreeMap<String, String>,
+}
+
+impl SearchDocument {
+    pub fn new(id: impl Into<String>, body: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            title: None,
+            body: body.into(),
+            metadata: BTreeMap::new(),
+        }
+    }
+
+    pub fn from_text_document(document: &TextDocument<'_>) -> Self {
+        let mut metadata = BTreeMap::new();
+        if let Some(language) = document.language {
+            metadata.insert("language".to_string(), language.to_string());
+        }
+        if let Some(timestamp) = document.timestamp {
+            metadata.insert(
+                "timestamp_seconds".to_string(),
+                timestamp.seconds().to_string(),
+            );
+        }
+        Self {
+            id: document.id.to_string(),
+            title: None,
+            body: document.text.to_string(),
+            metadata,
+        }
+    }
+
+    pub fn from_transcript_segment(stream_id: &str, segment: &TranscriptSegment) -> Self {
+        Self::from_transcript_segment_with_source(stream_id, segment, None)
+    }
+
+    pub fn from_transcript_segment_with_source(
+        stream_id: &str,
+        segment: &TranscriptSegment,
+        source: impl Into<Option<String>>,
+    ) -> Self {
+        let mut metadata = segment.metadata();
+        if let Some(source) = source.into() {
+            if !source.is_empty() {
+                metadata.insert("source".to_string(), source);
+            }
+        }
+        if let Some(start_seconds) = segment.start_seconds {
+            metadata.insert("timestamp_seconds".to_string(), start_seconds.to_string());
+        }
+        Self {
+            id: text_analysis_core::segment_document_id(stream_id, segment.index),
+            title: None,
+            body: segment.text.clone(),
+            metadata,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,7 +108,16 @@ impl Default for IngestionOptions {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct SearchFilter {
     pub metadata_equals: BTreeMap<String, String>,
+    pub metadata_contains: BTreeMap<String, String>,
     pub required_tags: Vec<String>,
+    pub document_ids: BTreeSet<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RetrievalMode {
+    FullText,
+    Semantic,
+    Hybrid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -77,6 +143,71 @@ pub struct SearchQuery {
     pub top_k: usize,
     pub filter: Option<SearchFilter>,
     pub hybrid: HybridConfig,
+}
+
+impl SearchQuery {
+    pub fn new(text: impl Into<String>, top_k: usize) -> Self {
+        Self {
+            text: text.into(),
+            top_k,
+            filter: None,
+            hybrid: HybridConfig::default(),
+        }
+    }
+
+    pub fn full_text(text: impl Into<String>, top_k: usize) -> Self {
+        Self::new(text, top_k).mode(RetrievalMode::FullText)
+    }
+
+    pub fn semantic(text: impl Into<String>, top_k: usize) -> Self {
+        Self::new(text, top_k).mode(RetrievalMode::Semantic)
+    }
+
+    pub fn hybrid(text: impl Into<String>, top_k: usize, config: HybridConfig) -> Self {
+        Self {
+            text: text.into(),
+            top_k,
+            filter: None,
+            hybrid: config,
+        }
+    }
+
+    pub fn filter(mut self, filter: SearchFilter) -> Self {
+        self.filter = Some(filter);
+        self
+    }
+
+    pub fn mode(mut self, mode: RetrievalMode) -> Self {
+        match mode {
+            RetrievalMode::FullText => {
+                self.hybrid.semantic_weight = 0.0;
+                self.hybrid.lexical_weight = 1.0;
+            }
+            RetrievalMode::Semantic => {
+                self.hybrid.semantic_weight = 1.0;
+                self.hybrid.lexical_weight = 0.0;
+            }
+            RetrievalMode::Hybrid => {
+                if self.hybrid.semantic_weight <= f32::EPSILON {
+                    self.hybrid.semantic_weight = HybridConfig::default().semantic_weight;
+                }
+                if self.hybrid.lexical_weight <= f32::EPSILON {
+                    self.hybrid.lexical_weight = HybridConfig::default().lexical_weight;
+                }
+            }
+        }
+        self
+    }
+
+    pub fn retrieval_mode(&self) -> RetrievalMode {
+        let semantic = self.hybrid.semantic_weight > f32::EPSILON;
+        let lexical = self.hybrid.lexical_weight > f32::EPSILON;
+        match (semantic, lexical) {
+            (false, true) => RetrievalMode::FullText,
+            (true, false) => RetrievalMode::Semantic,
+            _ => RetrievalMode::Hybrid,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -171,6 +302,10 @@ impl<B: TextEmbedderBackend> RetrievalIndex<B> {
         self.chunks.values().collect()
     }
 
+    pub fn chunks_iter(&self) -> impl Iterator<Item = &DocumentChunk> {
+        self.chunks.values()
+    }
+
     pub fn chunk(&self, chunk_id: &str) -> Option<&DocumentChunk> {
         self.chunks.get(chunk_id)
     }
@@ -228,24 +363,38 @@ impl<B: TextEmbedderBackend> RetrievalIndex<B> {
         self.ensure_non_empty()?;
 
         let normalized_query = normalize_query(&query.text, &self.corpus_options.processing)?;
-        let query_vector = self.embedder.embed_text(&normalized_query)?;
-        self.validate_query_dimensions(query_vector.dimensions())?;
-
         let filter = query.filter.as_ref();
         let overfetch = query
             .hybrid
             .rerank_window
             .max(query.top_k)
             .max(query.top_k * 4);
-        let semantic_hits = self.vectors.search_filtered(
-            query_vector.as_slice(),
-            overfetch,
-            filter.map(search_filter_to_vector_filter).as_ref(),
-        )?;
-        let lexical_hits = self.bm25.search(&normalized_query, overfetch)?;
+        let post_filter_limit = if filter.is_some_and(requires_post_filter) {
+            self.chunks.len()
+        } else {
+            overfetch
+        };
+
+        let semantic_hits = if query.hybrid.semantic_weight > f32::EPSILON {
+            let query_vector = self.embedder.embed_text(&normalized_query)?;
+            self.validate_query_dimensions(query_vector.dimensions())?;
+            self.vectors.search_filtered(
+                query_vector.as_slice(),
+                post_filter_limit,
+                filter.map(search_filter_to_vector_filter).as_ref(),
+            )?
+        } else {
+            Vec::new()
+        };
+        let lexical_hits = if query.hybrid.lexical_weight > f32::EPSILON {
+            self.bm25.search(&normalized_query, post_filter_limit)?
+        } else {
+            Vec::new()
+        };
 
         let semantic_scores = semantic_hits
             .iter()
+            .filter(|hit| self.matches_filter(hit.id.as_str(), filter))
             .map(|hit| (hit.id.as_str().to_string(), hit.score))
             .collect::<BTreeMap<_, _>>();
         let lexical_scores = lexical_hits
@@ -455,6 +604,17 @@ impl<B: TextEmbedderBackend> RetrievalIndex<B> {
         let Some(chunk) = self.chunks.get(chunk_id) else {
             return false;
         };
+        if !filter.document_ids.is_empty() && !filter.document_ids.contains(&chunk.document_id) {
+            return false;
+        }
+        if !filter.metadata_contains.iter().all(|(key, needle)| {
+            chunk
+                .metadata
+                .get(key)
+                .is_some_and(|value| value.contains(needle))
+        }) {
+            return false;
+        }
         let tags = metadata_tags(&chunk.metadata);
         filter
             .required_tags
@@ -643,6 +803,10 @@ fn search_filter_to_vector_filter(filter: &SearchFilter) -> VectorSearchFilter {
     }
 }
 
+fn requires_post_filter(filter: &SearchFilter) -> bool {
+    !filter.document_ids.is_empty() || !filter.metadata_contains.is_empty()
+}
+
 fn normalize_scores(scores: &BTreeMap<String, f32>) -> BTreeMap<String, f32> {
     if scores.is_empty() {
         return BTreeMap::new();
@@ -702,7 +866,11 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use text_analysis_semantics::{HashedTextEmbedder, TextEmbeddingConfig};
+    use std::cell::Cell;
+    use text_analysis_semantics::{
+        DenseVector, HashedTextEmbedder, TextEmbeddingBackend, TextEmbeddingConfig,
+        TextEmbeddingMetadata,
+    };
 
     fn embedder() -> HashedTextEmbedder {
         HashedTextEmbedder::new(
@@ -713,6 +881,49 @@ mod tests {
             CorpusOptions::default(),
         )
         .unwrap()
+    }
+
+    #[derive(Debug)]
+    struct FlaggedEmbedder {
+        panic_on_embed: Cell<bool>,
+    }
+
+    impl FlaggedEmbedder {
+        fn new() -> Self {
+            Self {
+                panic_on_embed: Cell::new(false),
+            }
+        }
+    }
+
+    impl TextEmbeddingBackend for FlaggedEmbedder {
+        fn embed_text(&self, text: &str) -> video_analysis_core::Result<DenseVector> {
+            if self.panic_on_embed.get() {
+                panic!("query embedding should have been skipped");
+            }
+            DenseVector::new([
+                text.bytes().filter(|byte| byte % 2 == 0).count() as f32 + 1.0,
+                text.bytes().filter(|byte| byte % 2 == 1).count() as f32 + 1.0,
+            ])
+        }
+
+        fn metadata(&self) -> TextEmbeddingMetadata {
+            TextEmbeddingMetadata {
+                dimensions: Some(2),
+                ..TextEmbeddingMetadata::default()
+            }
+        }
+    }
+
+    impl TextEmbedderBackend for FlaggedEmbedder {
+        fn model_info(&self) -> EmbeddingModelInfo {
+            EmbeddingModelInfo {
+                model_name: "flagged".to_string(),
+                dimensions: 2,
+                normalized: false,
+                max_tokens: None,
+            }
+        }
     }
 
     fn query(text: &str) -> SearchQuery {
@@ -758,6 +969,36 @@ mod tests {
         let index = RetrievalIndex::new(embedder());
         let err = index.search(&query("   ")).unwrap_err();
         assert!(matches!(err, DetectError::InvalidArgument(message) if message.contains("query")));
+    }
+
+    #[test]
+    fn search_document_from_transcript_segment_preserves_metadata() {
+        let segment = TranscriptSegment {
+            index: 7,
+            start_seconds: Some(1.25),
+            end_seconds: Some(2.5),
+            text: "hello retrieval".to_string(),
+            language: Some("en".to_string()),
+            speaker: Some("narrator".to_string()),
+            confidence: Some(0.8),
+            is_final: true,
+        };
+
+        let document = SearchDocument::from_transcript_segment_with_source(
+            "subs",
+            &segment,
+            Some("fixture.srt".to_string()),
+        );
+
+        assert_eq!(document.id, "subs:7");
+        assert_eq!(document.body, "hello retrieval");
+        assert_eq!(document.metadata["language"], "en");
+        assert_eq!(document.metadata["speaker"], "narrator");
+        assert_eq!(document.metadata["start_seconds"], "1.25");
+        assert_eq!(document.metadata["end_seconds"], "2.5");
+        assert_eq!(document.metadata["confidence"], "0.8");
+        assert_eq!(document.metadata["timestamp_seconds"], "1.25");
+        assert_eq!(document.metadata["source"], "fixture.srt");
     }
 
     #[test]
@@ -842,6 +1083,91 @@ mod tests {
     }
 
     #[test]
+    fn full_text_search_skips_query_embedding() {
+        let mut index = RetrievalIndex::new(FlaggedEmbedder::new());
+        index
+            .ingest_documents(
+                &[SearchDocument {
+                    id: "doc-1".to_string(),
+                    title: None,
+                    body: "rust cargo full text search".to_string(),
+                    metadata: BTreeMap::new(),
+                }],
+                &IngestionOptions::default(),
+            )
+            .unwrap();
+        index.embedder().panic_on_embed.set(true);
+
+        let results = index
+            .search(&SearchQuery::full_text("cargo search", 1))
+            .unwrap();
+
+        assert_eq!(results[0].document_id, "doc-1");
+        assert_eq!(results[0].semantic_score, 0.0);
+        assert!(results[0].lexical_score > 0.0);
+    }
+
+    #[test]
+    fn semantic_search_does_not_require_lexical_matches() {
+        let mut index = RetrievalIndex::new(embedder());
+        index
+            .ingest_documents(
+                &[SearchDocument {
+                    id: "doc-1".to_string(),
+                    title: None,
+                    body: "alpha beta gamma".to_string(),
+                    metadata: BTreeMap::new(),
+                }],
+                &IngestionOptions::default(),
+            )
+            .unwrap();
+
+        let results = index
+            .search(&SearchQuery::semantic("unshared tokens", 1))
+            .unwrap();
+
+        assert_eq!(results[0].document_id, "doc-1");
+        assert_eq!(results[0].lexical_score, 0.0);
+        assert!(results[0].semantic_score > 0.0);
+    }
+
+    #[test]
+    fn post_filter_search_expands_candidates_before_filtering() {
+        let mut index = RetrievalIndex::new(embedder());
+        let mut docs = Vec::new();
+        for number in 0..40 {
+            docs.push(SearchDocument {
+                id: format!("doc-{number:02}"),
+                title: None,
+                body: "common search text".to_string(),
+                metadata: BTreeMap::from([(
+                    "note".to_string(),
+                    if number == 39 {
+                        "contains-special-target".to_string()
+                    } else {
+                        "ordinary".to_string()
+                    },
+                )]),
+            });
+        }
+        index
+            .ingest_documents(&docs, &IngestionOptions::default())
+            .unwrap();
+
+        let filter = SearchFilter {
+            metadata_contains: BTreeMap::from([("note".to_string(), "special".to_string())]),
+            document_ids: BTreeSet::from(["doc-39".to_string()]),
+            ..SearchFilter::default()
+        };
+        let results = index
+            .search(&SearchQuery::full_text("common", 1).filter(filter))
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].document_id, "doc-39");
+    }
+
+    #[test]
     fn filters_exclude_non_matching_chunks() {
         let mut index = RetrievalIndex::new(embedder());
         index
@@ -873,7 +1199,9 @@ mod tests {
         let mut query = query("cargo docs");
         query.filter = Some(SearchFilter {
             metadata_equals: BTreeMap::from([("lang".to_string(), "en".to_string())]),
+            metadata_contains: BTreeMap::new(),
             required_tags: vec!["docs".to_string()],
+            document_ids: BTreeSet::new(),
         });
 
         let results = index.search(&query).unwrap();
