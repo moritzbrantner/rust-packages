@@ -17,6 +17,13 @@ and the package dry-run checklist in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CH
 
 ## Local Setup
 
+Install the Rust WASM build prerequisites used by `@mb-rust/text-core-wasm`:
+
+```bash
+rustup target add wasm32-unknown-unknown
+cargo install wasm-pack --locked --version 0.14.0
+```
+
 Install the JavaScript workspace dependencies:
 
 ```bash
