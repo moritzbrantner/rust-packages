@@ -22,8 +22,17 @@ fn write_script(dir: &Path, name: &str, body: &str) -> PathBuf {
     path
 }
 
+fn media_tools_available() -> bool {
+    video_analysis_ffmpeg::is_ffmpeg_available() && video_analysis_ffmpeg::is_ffprobe_available()
+}
+
 #[test]
 fn video_red_cars_workflow_uses_fake_detector() {
+    if !media_tools_available() {
+        eprintln!("skipping red-car workflow smoke test because ffmpeg/ffprobe is unavailable");
+        return;
+    }
+
     let dir = tempfile::tempdir().unwrap();
     let video = dir.path().join("video.mp4");
     video_analysis_ffmpeg::write_two_scene_test_video(&video).unwrap();
@@ -53,6 +62,13 @@ fn video_red_cars_workflow_uses_fake_detector() {
 
 #[test]
 fn audio_voice_analysis_workflow_uses_fake_separator_and_transcriber() {
+    if !media_tools_available() {
+        eprintln!(
+            "skipping audio voice analysis workflow smoke test because ffmpeg/ffprobe is unavailable"
+        );
+        return;
+    }
+
     let dir = tempfile::tempdir().unwrap();
     let audio = dir.path().join("input.wav");
     let samples = mixed_sources(&[
