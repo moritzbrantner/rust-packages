@@ -15,25 +15,30 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Data type for audio embedding.
 pub struct AudioEmbedding {
     values: Vec<f32>,
 }
 
 impl AudioEmbedding {
+    /// Creates a new value.
     pub fn new(values: impl Into<Vec<f32>>) -> Result<Self> {
         let mut values = values.into();
         normalize_values(&mut values)?;
         Ok(Self { values })
     }
 
+    /// Returns values.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> usize {
         self.values.len()
     }
 
+    /// Returns cosine similarity.
     pub fn cosine_similarity(&self, other: &Self) -> Result<f32> {
         if self.dimensions() != other.dimensions() {
             return Err(DetectError::InvalidArgument(format!(
@@ -51,9 +56,12 @@ impl AudioEmbedding {
     }
 }
 
+/// Trait for audio embedding extractor implementations.
 pub trait AudioEmbeddingExtractor {
+    /// Returns embed samples.
     fn embed_samples(&self, samples: &[f32], sample_rate: u32) -> Result<AudioEmbedding>;
 
+    /// Returns embed frame.
     fn embed_frame(&self, frame: &AudioFrame<'_>) -> Result<AudioEmbedding> {
         let samples = interleaved_to_mono(frame.data, frame.channels, ChannelMix::Average)?;
         self.embed_samples(&samples, frame.sample_rate)
@@ -61,14 +69,20 @@ pub trait AudioEmbeddingExtractor {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for spectral embedding config.
 pub struct SpectralEmbeddingConfig {
+    /// The FFT size value.
     pub fft_size: usize,
+    /// The hop size value.
     pub hop_size: usize,
+    /// The bands value.
     pub bands: usize,
+    /// The window value.
     pub window: WindowFunction,
 }
 
 impl SpectralEmbeddingConfig {
+    /// Creates a new value.
     pub fn new(fft_size: usize, hop_size: usize, bands: usize) -> Result<Self> {
         FourierTransform::new(fft_size)?;
         FrameSpec::new(fft_size, hop_size)?;
@@ -85,6 +99,7 @@ impl SpectralEmbeddingConfig {
         })
     }
 
+    /// Returns window.
     pub fn window(mut self, window: WindowFunction) -> Self {
         self.window = window;
         self
@@ -103,16 +118,20 @@ impl Default for SpectralEmbeddingConfig {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// Data type for spectral audio embedder.
 pub struct SpectralAudioEmbedder {
+    /// The config value.
     pub config: SpectralEmbeddingConfig,
 }
 
 impl SpectralAudioEmbedder {
+    /// Creates a new value.
     pub fn new(config: SpectralEmbeddingConfig) -> Result<Self> {
         SpectralEmbeddingConfig::new(config.fft_size, config.hop_size, config.bands)?;
         Ok(Self { config })
     }
 
+    /// Returns streaming config.
     pub fn streaming_config(&self, channel_mix: ChannelMix) -> Result<StreamingFrameConfig> {
         Ok(
             StreamingFrameConfig::new(self.config.fft_size, self.config.hop_size)?
@@ -234,6 +253,7 @@ impl EmbeddingAccumulator {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Data type for audio reference.
 pub struct AudioReference {
     id: String,
     label: String,
@@ -242,6 +262,7 @@ pub struct AudioReference {
 }
 
 impl AudioReference {
+    /// Creates a new value.
     pub fn new(id: impl Into<String>, label: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -251,11 +272,13 @@ impl AudioReference {
         }
     }
 
+    /// Returns this value with embedding.
     pub fn with_embedding(mut self, embedding: AudioEmbedding) -> Result<Self> {
         self.add_embedding(embedding)?;
         Ok(self)
     }
 
+    /// Returns this value with samples.
     pub fn with_samples<E: AudioEmbeddingExtractor>(
         mut self,
         samples: &[f32],
@@ -266,11 +289,13 @@ impl AudioReference {
         Ok(self)
     }
 
+    /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
     }
 
+    /// Adds add embedding to this value.
     pub fn add_embedding(&mut self, embedding: AudioEmbedding) -> Result<()> {
         if let Some(dimensions) = self.dimensions() {
             if dimensions != embedding.dimensions() {
@@ -286,6 +311,7 @@ impl AudioReference {
         Ok(())
     }
 
+    /// Adds add samples to this value.
     pub fn add_samples<E: AudioEmbeddingExtractor>(
         &mut self,
         samples: &[f32],
@@ -295,45 +321,57 @@ impl AudioReference {
         self.add_embedding(extractor.embed_samples(samples, sample_rate)?)
     }
 
+    /// Returns identifier.
     pub fn id(&self) -> &str {
         &self.id
     }
 
+    /// Returns label.
     pub fn label(&self) -> &str {
         &self.label
     }
 
+    /// Returns embeddings.
     pub fn embeddings(&self) -> &[AudioEmbedding] {
         &self.embeddings
     }
 
+    /// Returns attributes.
     pub fn attributes(&self) -> &BTreeMap<String, String> {
         &self.attributes
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> Option<usize> {
         self.embeddings.first().map(AudioEmbedding::dimensions)
     }
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// Data type for audio reference library.
 pub struct AudioReferenceLibrary {
     references: BTreeMap<String, AudioReference>,
     dimensions: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Data type for audio reference library snapshot.
 pub struct AudioReferenceLibrarySnapshot {
+    /// The version value.
     pub version: u32,
+    /// The dimensions value.
     pub dimensions: Option<usize>,
+    /// The references value.
     pub references: Vec<AudioReference>,
 }
 
 impl AudioReferenceLibrary {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Adds add reference to this value.
     pub fn add_reference(&mut self, reference: AudioReference) -> Result<()> {
         if reference.id().is_empty() {
             return Err(DetectError::InvalidArgument(
@@ -363,6 +401,7 @@ impl AudioReferenceLibrary {
         Ok(())
     }
 
+    /// Adds add reference embedding to this value.
     pub fn add_reference_embedding(
         &mut self,
         id: impl Into<String>,
@@ -372,6 +411,7 @@ impl AudioReferenceLibrary {
         self.add_reference(AudioReference::new(id, label).with_embedding(embedding)?)
     }
 
+    /// Adds add reference samples to this value.
     pub fn add_reference_samples<E: AudioEmbeddingExtractor>(
         &mut self,
         id: impl Into<String>,
@@ -387,6 +427,7 @@ impl AudioReferenceLibrary {
         )?)
     }
 
+    /// Adds add sample to this value.
     pub fn add_sample(&mut self, id: &str, embedding: AudioEmbedding) -> Result<()> {
         self.validate_dimensions(embedding.dimensions())?;
         let reference = self.references.get_mut(id).ok_or_else(|| {
@@ -395,6 +436,7 @@ impl AudioReferenceLibrary {
         reference.add_embedding(embedding)
     }
 
+    /// Adds add sample from samples to this value.
     pub fn add_sample_from_samples<E: AudioEmbeddingExtractor>(
         &mut self,
         id: &str,
@@ -405,26 +447,32 @@ impl AudioReferenceLibrary {
         self.add_sample(id, extractor.embed_samples(samples, sample_rate)?)
     }
 
+    /// Returns reference.
     pub fn reference(&self, id: &str) -> Option<&AudioReference> {
         self.references.get(id)
     }
 
+    /// Returns references.
     pub fn references(&self) -> impl Iterator<Item = &AudioReference> {
         self.references.values()
     }
 
+    /// Returns len.
     pub fn len(&self) -> usize {
         self.references.len()
     }
 
+    /// Returns whether is empty.
     pub fn is_empty(&self) -> bool {
         self.references.is_empty()
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> Option<usize> {
         self.dimensions
     }
 
+    /// Converts this value to snapshot.
     pub fn to_snapshot(&self) -> AudioReferenceLibrarySnapshot {
         AudioReferenceLibrarySnapshot {
             version: 1,
@@ -433,6 +481,7 @@ impl AudioReferenceLibrary {
         }
     }
 
+    /// Builds this value from snapshot.
     pub fn from_snapshot(snapshot: AudioReferenceLibrarySnapshot) -> Result<Self> {
         if snapshot.version != 1 {
             return Err(DetectError::InvalidArgument(format!(
@@ -452,17 +501,20 @@ impl AudioReferenceLibrary {
         Ok(library)
     }
 
+    /// Converts this value to JSON string.
     pub fn to_json_string(&self) -> Result<String> {
         serde_json::to_string_pretty(&self.to_snapshot())
             .map_err(|err| DetectError::Source(err.to_string()))
     }
 
+    /// Builds this value from JSON str.
     pub fn from_json_str(json: &str) -> Result<Self> {
         let snapshot = serde_json::from_str::<AudioReferenceLibrarySnapshot>(json)
             .map_err(|err| DetectError::Source(err.to_string()))?;
         Self::from_snapshot(snapshot)
     }
 
+    /// Returns search.
     pub fn search(
         &self,
         embedding: &AudioEmbedding,
@@ -508,12 +560,16 @@ impl AudioReferenceLibrary {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for audio match options.
 pub struct AudioMatchOptions {
+    /// The min score value.
     pub min_score: f32,
+    /// The max results value.
     pub max_results: usize,
 }
 
 impl AudioMatchOptions {
+    /// Creates a new value.
     pub fn new(min_score: f32) -> Result<Self> {
         let options = Self {
             min_score,
@@ -523,6 +579,7 @@ impl AudioMatchOptions {
         Ok(options)
     }
 
+    /// Returns max results.
     pub fn max_results(mut self, value: usize) -> Self {
         self.max_results = value;
         self
@@ -554,18 +611,26 @@ impl Default for AudioMatchOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for audio recognition match.
 pub struct AudioRecognitionMatch {
+    /// The reference identifier value.
     pub reference_id: String,
+    /// Label assigned to this value.
     pub label: String,
+    /// Score assigned to this value.
     pub score: f32,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for audio similarity.
 pub struct AudioSimilarity {
+    /// Score assigned to this value.
     pub score: f32,
 }
 
+/// Returns compare audio samples.
 pub fn compare_audio_samples<E: AudioEmbeddingExtractor>(
     left: &[f32],
     right: &[f32],
@@ -580,25 +645,39 @@ pub fn compare_audio_samples<E: AudioEmbeddingExtractor>(
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for fingerprint record.
 pub struct FingerprintRecord {
+    /// Timestamp associated with this value.
     pub timestamp: Option<f64>,
+    /// The duration value.
     pub duration: f64,
+    /// The compressed value.
     pub compressed: Option<String>,
+    /// The raw value.
     pub raw: Vec<i64>,
+    /// The raw JSON value.
     pub raw_json: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for fingerprint matched segment.
 pub struct FingerprintMatchedSegment {
+    /// The query start seconds value.
     pub query_start_seconds: Option<f64>,
+    /// The catalog start seconds value.
     pub catalog_start_seconds: Option<f64>,
+    /// Duration in seconds.
     pub duration_seconds: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for fingerprint candidate.
 pub struct FingerprintCandidate<T> {
+    /// The item value.
     pub item: T,
+    /// Score assigned to this value.
     pub score: f32,
+    /// The matched segment value.
     pub matched_segment: Option<FingerprintMatchedSegment>,
 }
 
@@ -609,6 +688,7 @@ struct FpcalcOutput {
     fingerprint: serde_json::Value,
 }
 
+/// Runs fpcalc.
 pub fn run_fpcalc(
     command: impl AsRef<Path>,
     media_path: impl AsRef<Path>,
@@ -635,6 +715,7 @@ pub fn run_fpcalc(
     parse_fpcalc_json(&String::from_utf8_lossy(&output.stdout))
 }
 
+/// Runs default fpcalc.
 pub fn run_default_fpcalc(
     media_path: impl AsRef<Path>,
     chunk_seconds: Option<u64>,
@@ -642,6 +723,7 @@ pub fn run_default_fpcalc(
     run_fpcalc(PathBuf::from("fpcalc"), media_path, chunk_seconds)
 }
 
+/// Parses parse fpcalc JSON.
 pub fn parse_fpcalc_json(output: &str) -> Result<Vec<FingerprintRecord>> {
     let trimmed = output.trim();
     if trimmed.is_empty() {
@@ -657,6 +739,7 @@ pub fn parse_fpcalc_json(output: &str) -> Result<Vec<FingerprintRecord>> {
         .collect()
 }
 
+/// Parses parse fpcalc record.
 pub fn parse_fpcalc_record(line: &str) -> Result<FingerprintRecord> {
     let parsed: FpcalcOutput = serde_json::from_str(line)
         .map_err(|err| DetectError::InvalidArgument(format!("invalid fpcalc JSON: {err}")))?;
@@ -688,17 +771,20 @@ pub fn parse_fpcalc_record(line: &str) -> Result<FingerprintRecord> {
     })
 }
 
+/// Returns duration prefilter.
 pub fn duration_prefilter(query_duration: f64, catalog_duration: f64) -> bool {
     let tolerance = query_duration.max(catalog_duration) * 0.10;
     (query_duration - catalog_duration).abs() <= tolerance.max(10.0)
 }
 
+/// Returns shifted similarity.
 pub fn shifted_similarity(left: &[i64], right: &[i64]) -> f32 {
     (-12..=12)
         .map(|offset| fingerprint_similarity_with_offset(left, right, offset))
         .fold(0.0, f32::max)
 }
 
+/// Returns fingerprint similarity with offset.
 pub fn fingerprint_similarity_with_offset(left: &[i64], right: &[i64], offset: isize) -> f32 {
     if left.is_empty() || right.is_empty() {
         return 0.0;
@@ -723,6 +809,7 @@ pub fn fingerprint_similarity_with_offset(left: &[i64], right: &[i64], offset: i
     1.0 - (distance as f32 / max_distance as f32)
 }
 
+/// Returns rank fingerprint candidates.
 pub fn rank_fingerprint_candidates<T, I>(
     query_full: &FingerprintRecord,
     query_chunks: &[FingerprintRecord],
@@ -782,6 +869,7 @@ where
     ranked
 }
 
+/// Data type for audio recognition analyzer.
 pub struct AudioRecognitionAnalyzer<E> {
     name: String,
     extractor: E,
@@ -791,6 +879,7 @@ pub struct AudioRecognitionAnalyzer<E> {
 }
 
 impl<E: AudioEmbeddingExtractor> AudioRecognitionAnalyzer<E> {
+    /// Creates a new value.
     pub fn new(
         name: impl Into<String>,
         extractor: E,
@@ -806,25 +895,30 @@ impl<E: AudioEmbeddingExtractor> AudioRecognitionAnalyzer<E> {
         })
     }
 
+    /// Returns match options.
     pub fn match_options(mut self, options: AudioMatchOptions) -> Self {
         self.match_options = options;
         self
     }
 
+    /// Returns library.
     pub fn library(&self) -> &AudioReferenceLibrary {
         &self.library
     }
 
+    /// Returns extractor.
     pub fn extractor(&self) -> &E {
         &self.extractor
     }
 
+    /// Returns reset.
     pub fn reset(&mut self) {
         self.windows.reset();
     }
 }
 
 impl AudioRecognitionAnalyzer<SpectralAudioEmbedder> {
+    /// Returns spectral.
     pub fn spectral(name: impl Into<String>, library: AudioReferenceLibrary) -> Result<Self> {
         let extractor = SpectralAudioEmbedder::default();
         let streaming_config = extractor.streaming_config(ChannelMix::Average)?;

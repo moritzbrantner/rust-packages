@@ -9,14 +9,19 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for latent image size.
 pub struct LatentImageSize {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
 }
 
 impl LatentImageSize {
+    /// Constant for scale factor.
     pub const SCALE_FACTOR: u32 = 8;
 
+    /// Creates a new value.
     pub fn new(width: u32, height: u32) -> Result<Self> {
         if width == 0 || height == 0 {
             return Err(DetectError::InvalidDimensions { width, height });
@@ -24,6 +29,7 @@ impl LatentImageSize {
         Ok(Self { width, height })
     }
 
+    /// Builds this value from latent dimensions.
     pub fn from_latent_dimensions(latent_height: usize, latent_width: usize) -> Result<Self> {
         let width = u32::try_from(latent_width)
             .map_err(|_| invalid_argument("latent width exceeds u32"))?
@@ -36,6 +42,7 @@ impl LatentImageSize {
         Self::new(width, height)
     }
 
+    /// Returns latent dimensions.
     pub fn latent_dimensions(self) -> Result<(usize, usize)> {
         if !self.width.is_multiple_of(Self::SCALE_FACTOR)
             || !self.height.is_multiple_of(Self::SCALE_FACTOR)
@@ -52,17 +59,20 @@ impl LatentImageSize {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for latent mask.
 pub struct LatentMask {
     tensor: F32Tensor,
 }
 
 impl LatentMask {
+    /// Creates a new value.
     pub fn new(tensor: F32Tensor) -> Result<Self> {
         let mask = Self { tensor };
         mask.validate()?;
         Ok(mask)
     }
 
+    /// Builds this value from image mask.
     pub fn from_image_mask(mask: F32Tensor, image_size: LatentImageSize) -> Result<Self> {
         mask.validate()?;
         let dims = mask.shape().dimensions();
@@ -98,14 +108,17 @@ impl LatentMask {
         Self::new(F32Tensor::from_dims([latent_height, latent_width], values)?)
     }
 
+    /// Returns tensor.
     pub fn tensor(&self) -> &F32Tensor {
         &self.tensor
     }
 
+    /// Returns rank.
     pub fn rank(&self) -> usize {
         self.tensor.shape().rank()
     }
 
+    /// Returns spatial dimensions.
     pub fn spatial_dimensions(&self) -> (usize, usize) {
         let dims = self.tensor.shape().dimensions();
         match dims {
@@ -115,6 +128,7 @@ impl LatentMask {
         }
     }
 
+    /// Returns compatible with.
     pub fn compatible_with(&self, batch: &LatentBatch) -> bool {
         let dims = self.tensor.shape().dimensions();
         match dims {
@@ -145,6 +159,7 @@ impl LatentMask {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for latent batch.
 pub struct LatentBatch {
     samples: F32Tensor,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -152,6 +167,7 @@ pub struct LatentBatch {
 }
 
 impl LatentBatch {
+    /// Creates a new value.
     pub fn new(samples: F32Tensor) -> Result<Self> {
         let batch = Self {
             samples,
@@ -161,14 +177,17 @@ impl LatentBatch {
         Ok(batch)
     }
 
+    /// Returns samples.
     pub fn samples(&self) -> &F32Tensor {
         &self.samples
     }
 
+    /// Returns mask.
     pub fn mask(&self) -> Option<&LatentMask> {
         self.mask.as_ref()
     }
 
+    /// Returns this value with mask.
     pub fn with_mask(mut self, mask: LatentMask) -> Result<Self> {
         if !mask.compatible_with(&self) {
             return Err(invalid_argument(
@@ -179,26 +198,32 @@ impl LatentBatch {
         Ok(self)
     }
 
+    /// Returns batch size.
     pub fn batch_size(&self) -> usize {
         self.samples.shape().dimensions()[0]
     }
 
+    /// Returns channel count.
     pub fn channel_count(&self) -> usize {
         self.samples.shape().dimensions()[1]
     }
 
+    /// Returns latent height.
     pub fn latent_height(&self) -> usize {
         self.samples.shape().dimensions()[2]
     }
 
+    /// Returns latent width.
     pub fn latent_width(&self) -> usize {
         self.samples.shape().dimensions()[3]
     }
 
+    /// Returns image size.
     pub fn image_size(&self) -> Result<LatentImageSize> {
         LatentImageSize::from_latent_dimensions(self.latent_height(), self.latent_width())
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         self.samples.validate()?;
         if self.samples.shape().rank() != 4 {

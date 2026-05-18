@@ -23,35 +23,53 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// Data type for radiance project paths.
 pub struct RadianceProjectPaths {
+    /// The COLMAP text dir value.
     pub colmap_text_dir: Option<PathBuf>,
+    /// The Nerfstudio transforms JSON value.
     pub nerfstudio_transforms_json: Option<PathBuf>,
+    /// The gaussian splat PLY value.
     pub gaussian_splat_ply: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for COLMAP project.
 pub struct ColmapProject {
+    /// The dataset value.
     pub dataset: ColmapDataset,
+    /// The view set value.
     pub view_set: CameraViewSet,
+    /// The sparse reconstruction value.
     pub sparse_reconstruction: SparseReconstruction,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for Nerfstudio project.
 pub struct NerfstudioProject {
+    /// The transforms value.
     pub transforms: NerfstudioTransforms,
+    /// The view set value.
     pub view_set: CameraViewSet,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for radiance project.
 pub struct RadianceProject {
+    /// The COLMAP value.
     pub colmap: Option<ColmapProject>,
+    /// The Nerfstudio value.
     pub nerfstudio: Option<NerfstudioProject>,
+    /// The gaussian splats value.
     pub gaussian_splats: Option<GaussianSplatScene>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing radiance view source.
 pub enum RadianceViewSource {
+    /// The COLMAP variant.
     Colmap,
+    /// The Nerfstudio variant.
     Nerfstudio,
 }
 
@@ -67,61 +85,94 @@ impl fmt::Display for RadianceViewSource {
 impl error::Error for RadianceViewSource {}
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for radiance project summary.
 pub struct RadianceProjectSummary {
+    /// The available view sources value.
     pub available_view_sources: Vec<RadianceViewSource>,
+    /// The COLMAP camera count value.
     pub colmap_camera_count: usize,
+    /// The COLMAP image count value.
     pub colmap_image_count: usize,
+    /// The COLMAP point count value.
     pub colmap_point_count: usize,
+    /// The Nerfstudio frame count value.
     pub nerfstudio_frame_count: usize,
+    /// The gaussian splat count value.
     pub gaussian_splat_count: usize,
+    /// The camera center bounds value.
     pub camera_center_bounds: Option<AxisAlignedBounds>,
+    /// The gaussian bounds value.
     pub gaussian_bounds: Option<AxisAlignedBounds>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for gaussian preview request.
 pub struct GaussianPreviewRequest {
+    /// The source value.
     pub source: RadianceViewSource,
+    /// The view index value.
     pub view_index: usize,
+    /// The projection value.
     pub projection: ProjectionConfig,
+    /// The render value.
     pub render: SplatRenderConfig,
+    /// The min opacity value.
     pub min_opacity: Option<f32>,
+    /// The downsample stride value.
     pub downsample_stride: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for gaussian preview image.
 pub struct GaussianPreviewImage {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The pixels value.
     pub pixels: Vec<SplatPixel>,
 }
 
 #[derive(Debug, Error)]
+/// Variants describing radiance pipeline error.
 pub enum RadiancePipelineError {
     #[error("I/O error: {0}")]
+    /// The I/O variant.
     Io(#[from] std::io::Error),
     #[error("{0}")]
+    /// The detect variant.
     Detect(#[from] DetectError),
     #[error("{0}")]
+    /// The radiance I/O variant.
     RadianceIo(#[from] RadianceIoError),
     #[error("at least one radiance input path must be provided")]
+    /// The missing inputs variant.
     MissingInputs,
     #[error("missing requested view source: {0:?}")]
+    /// The missing view source variant.
     MissingViewSource(RadianceViewSource),
     #[error("missing Gaussian splats")]
+    /// The missing gaussian splats variant.
     MissingGaussianSplats,
     #[error(
         "requested {source:?} view index {requested}, but only {available} view(s) are available"
     )]
+    /// The view index out of range variant.
     ViewIndexOutOfRange {
+        /// Source value for this variant.
         source: RadianceViewSource,
+        /// The requested value for this variant.
         requested: usize,
+        /// The available value for this variant.
         available: usize,
     },
     #[error("unsupported COLMAP camera models: {0:?}")]
+    /// The unsupported COLMAP camera models variant.
     UnsupportedColmapCameraModels(Vec<ColmapCameraSupport>),
 }
 
 impl RadianceProject {
+    /// Builds this value from paths.
     pub fn from_paths(paths: &RadianceProjectPaths) -> Result<Self, RadiancePipelineError> {
         if paths.colmap_text_dir.is_none()
             && paths.nerfstudio_transforms_json.is_none()
@@ -173,6 +224,7 @@ impl RadianceProject {
         })
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<(), RadiancePipelineError> {
         if let Some(colmap) = &self.colmap {
             validate_colmap_project(colmap)?;
@@ -186,6 +238,7 @@ impl RadianceProject {
         Ok(())
     }
 
+    /// Returns summary.
     pub fn summary(&self) -> Result<RadianceProjectSummary, RadiancePipelineError> {
         self.validate()?;
 
@@ -239,6 +292,7 @@ impl RadianceProject {
         })
     }
 
+    /// Returns render gaussian preview.
     pub fn render_gaussian_preview(
         &self,
         request: &GaussianPreviewRequest,

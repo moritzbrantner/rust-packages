@@ -19,19 +19,30 @@ use video_analysis_posture::{Keypoint, Keypoint3d, Pose3dEstimate, PoseEstimate}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing model task.
 pub enum ModelTask {
+    /// The object detection variant.
     ObjectDetection,
+    /// The pose estimation2d variant.
     PoseEstimation2d,
+    /// The pose lifting3d variant.
     PoseLifting3d,
+    /// The image classification variant.
     ImageClassification,
+    /// The text classification variant.
     TextClassification,
+    /// The token classification variant.
     TokenClassification,
+    /// The zero shot classification variant.
     ZeroShotClassification,
+    /// The text embedding variant.
     TextEmbedding,
+    /// The custom variant.
     Custom(String),
 }
 
 impl ModelTask {
+    /// Returns default kind.
     pub fn default_kind(&self) -> ObservationKind {
         match self {
             Self::ObjectDetection => ObservationKind::Object,
@@ -47,6 +58,7 @@ impl ModelTask {
         }
     }
 
+    /// Returns default label.
     pub fn default_label(&self) -> &'static str {
         match self {
             Self::ObjectDetection => "object",
@@ -78,36 +90,50 @@ impl ModelTask {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing model file request.
 pub enum ModelFileRequest {
+    /// The required variant.
     Required(String),
+    /// The optional variant.
     Optional(String),
+    /// The first available variant.
     FirstAvailable(Vec<String>),
 }
 
 impl ModelFileRequest {
+    /// Returns required.
     pub fn required(path: impl Into<String>) -> Self {
         Self::Required(path.into())
     }
 
+    /// Returns optional.
     pub fn optional(path: impl Into<String>) -> Self {
         Self::Optional(path.into())
     }
 
+    /// Returns first available.
     pub fn first_available(paths: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self::FirstAvailable(paths.into_iter().map(Into::into).collect())
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for hugging face model spec.
 pub struct HuggingFaceModelSpec {
+    /// Human-readable name for this value.
     pub name: String,
+    /// The repo identifier value.
     pub repo_id: String,
+    /// The revision value.
     pub revision: String,
+    /// The task value.
     pub task: ModelTask,
+    /// The files value.
     pub files: Vec<ModelFileRequest>,
 }
 
 impl HuggingFaceModelSpec {
+    /// Creates a new value.
     pub fn new(repo_id: impl Into<String>, task: ModelTask) -> Self {
         let repo_id = repo_id.into();
         Self {
@@ -119,30 +145,36 @@ impl HuggingFaceModelSpec {
         }
     }
 
+    /// Builds this value from preset.
     pub fn from_preset(preset: ModelPreset) -> Self {
         preset.spec()
     }
 
+    /// Returns name.
     pub fn name(mut self, value: impl Into<String>) -> Self {
         self.name = value.into();
         self
     }
 
+    /// Returns revision.
     pub fn revision(mut self, value: impl Into<String>) -> Self {
         self.revision = value.into();
         self
     }
 
+    /// Returns file.
     pub fn file(mut self, path: impl Into<String>) -> Self {
         self.files.push(ModelFileRequest::required(path));
         self
     }
 
+    /// Returns optional file.
     pub fn optional_file(mut self, path: impl Into<String>) -> Self {
         self.files.push(ModelFileRequest::optional(path));
         self
     }
 
+    /// Returns first available file.
     pub fn first_available_file(
         mut self,
         paths: impl IntoIterator<Item = impl Into<String>>,
@@ -153,17 +185,26 @@ impl HuggingFaceModelSpec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing model preset.
 pub enum ModelPreset {
+    /// The detr resnet50 variant.
     DetrResnet50,
+    /// The yolos tiny variant.
     YolosTiny,
+    /// The distilbert sst2 variant.
     DistilbertSst2,
+    /// The bert base ner variant.
     BertBaseNer,
+    /// The mini lm l6 v2 variant.
     MiniLmL6V2,
+    /// The xenova distilbert sst2 ONNX variant.
     XenovaDistilbertSst2Onnx,
+    /// The xenova mini lm l6 v2 ONNX variant.
     XenovaMiniLmL6V2Onnx,
 }
 
 impl ModelPreset {
+    /// Constant for all.
     pub const ALL: &'static [Self] = &[
         Self::DetrResnet50,
         Self::YolosTiny,
@@ -174,6 +215,7 @@ impl ModelPreset {
         Self::XenovaMiniLmL6V2Onnx,
     ];
 
+    /// Borrows this value as a str.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::DetrResnet50 => "detr-resnet-50",
@@ -186,6 +228,7 @@ impl ModelPreset {
         }
     }
 
+    /// Returns spec.
     pub fn spec(self) -> HuggingFaceModelSpec {
         match self {
             Self::DetrResnet50 => {
@@ -280,18 +323,23 @@ impl FromStr for ModelPreset {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for downloaded model.
 pub struct DownloadedModel {
+    /// The spec value.
     pub spec: HuggingFaceModelSpec,
+    /// The files value.
     pub files: BTreeMap<String, PathBuf>,
 }
 
 impl DownloadedModel {
+    /// Returns model dir.
     pub fn model_dir(&self) -> Option<&Path> {
         self.files.values().next().and_then(|path| path.parent())
     }
 }
 
 #[derive(Debug, Clone)]
+/// Data type for hugging face downloader.
 pub struct HuggingFaceDownloader {
     cache_dir: Option<PathBuf>,
     token: Option<String>,
@@ -311,30 +359,36 @@ impl Default for HuggingFaceDownloader {
 }
 
 impl HuggingFaceDownloader {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns cache dir.
     pub fn cache_dir(mut self, path: impl Into<PathBuf>) -> Self {
         self.cache_dir = Some(path.into());
         self
     }
 
+    /// Returns token.
     pub fn token(mut self, value: impl Into<String>) -> Self {
         self.token = Some(value.into());
         self
     }
 
+    /// Returns progress.
     pub fn progress(mut self, value: bool) -> Self {
         self.progress = value;
         self
     }
 
+    /// Returns max retries.
     pub fn max_retries(mut self, value: usize) -> Self {
         self.max_retries = value;
         self
     }
 
+    /// Returns download.
     pub fn download(&self, spec: &HuggingFaceModelSpec) -> Result<DownloadedModel> {
         if spec.files.is_empty() {
             return Err(DetectError::InvalidArgument(
@@ -415,6 +469,7 @@ impl HuggingFaceDownloader {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for model bundle store.
 pub struct ModelBundleStore {
     root: PathBuf,
     downloader: HuggingFaceDownloader,
@@ -422,29 +477,44 @@ pub struct ModelBundleStore {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for model bundle manifest.
 pub struct ModelBundleManifest {
+    /// The schema version value.
     pub schema_version: u32,
+    /// Human-readable name for this value.
     pub name: String,
+    /// The repo identifier value.
     pub repo_id: String,
+    /// The revision value.
     pub revision: String,
+    /// The task value.
     pub task: ModelTask,
+    /// The files value.
     pub files: BTreeMap<String, ModelBundleFile>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for model bundle file.
 pub struct ModelBundleFile {
+    /// The remote path value.
     pub remote_path: String,
+    /// The local path value.
     pub local_path: String,
+    /// The size bytes value.
     pub size_bytes: u64,
 }
 
 #[derive(Debug, Clone)]
+/// Data type for model bundle.
 pub struct ModelBundle {
+    /// The root value.
     pub root: PathBuf,
+    /// The manifest value.
     pub manifest: ModelBundleManifest,
 }
 
 impl ModelBundleStore {
+    /// Creates a new value.
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self {
             root: root.into(),
@@ -453,31 +523,37 @@ impl ModelBundleStore {
         }
     }
 
+    /// Returns downloader.
     pub fn downloader(mut self, downloader: HuggingFaceDownloader) -> Self {
         self.downloader = downloader;
         self
     }
 
+    /// Returns overwrite.
     pub fn overwrite(mut self, value: bool) -> Self {
         self.overwrite = value;
         self
     }
 
+    /// Returns root.
     pub fn root(&self) -> &Path {
         &self.root
     }
 
+    /// Returns bundle dir.
     pub fn bundle_dir(&self, spec: &HuggingFaceModelSpec) -> PathBuf {
         self.root
             .join(safe_bundle_segment(&spec.name))
             .join(safe_bundle_segment(&spec.revision))
     }
 
+    /// Returns download.
     pub fn download(&self, spec: &HuggingFaceModelSpec) -> Result<ModelBundle> {
         let downloaded = self.downloader.download(spec)?;
         self.materialize(&downloaded)
     }
 
+    /// Returns materialize.
     pub fn materialize(&self, downloaded: &DownloadedModel) -> Result<ModelBundle> {
         let bundle_root = self.bundle_dir(&downloaded.spec);
         let manifest_path = bundle_root.join("manifest.json");
@@ -555,6 +631,7 @@ impl ModelBundleStore {
         })
     }
 
+    /// Returns load.
     pub fn load(&self, name: impl AsRef<str>, revision: impl AsRef<str>) -> Result<ModelBundle> {
         ModelBundle::load(
             self.root
@@ -566,10 +643,12 @@ impl ModelBundleStore {
 }
 
 impl ModelBundle {
+    /// Returns manifest path.
     pub fn manifest_path(&self) -> PathBuf {
         self.root.join("manifest.json")
     }
 
+    /// Returns file path.
     pub fn file_path(&self, remote_path: &str) -> Option<PathBuf> {
         self.manifest
             .files
@@ -577,6 +656,7 @@ impl ModelBundle {
             .map(|file| self.root.join(&file.local_path))
     }
 
+    /// Converts this value to downloaded model.
     pub fn to_downloaded_model(&self) -> DownloadedModel {
         let files = self
             .manifest
@@ -604,6 +684,7 @@ impl ModelBundle {
         DownloadedModel { spec, files }
     }
 
+    /// Returns load.
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         let manifest_path = if path.is_dir() {
@@ -692,26 +773,40 @@ fn absolute_path(path: PathBuf) -> PathBuf {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+/// Data type for raw prediction.
 pub struct RawPrediction {
+    /// The kind value.
     pub kind: Option<String>,
+    /// Label assigned to this value.
     pub label: Option<String>,
+    /// Text content for this value.
     pub text: Option<String>,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The region value.
     pub region: Option<RawBoundingBox>,
     #[serde(default)]
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for raw keypoint2d.
 pub struct RawKeypoint2d {
+    /// Human-readable name for this value.
     pub name: String,
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The visible value.
     pub visible: Option<bool>,
 }
 
 impl RawKeypoint2d {
+    /// Creates a new value.
     pub fn new(name: impl Into<String>, x: f32, y: f32) -> Self {
         Self {
             name: name.into(),
@@ -722,6 +817,7 @@ impl RawKeypoint2d {
         }
     }
 
+    /// Converts this value to keypoint.
     pub fn to_keypoint(&self) -> Result<Keypoint> {
         let mut keypoint = Keypoint::new(self.name.clone(), self.x, self.y)?;
         if let Some(score) = self.score {
@@ -735,16 +831,24 @@ impl RawKeypoint2d {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for raw keypoint3d.
 pub struct RawKeypoint3d {
+    /// Human-readable name for this value.
     pub name: String,
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
+    /// The z value.
     pub z: f32,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The visible value.
     pub visible: Option<bool>,
 }
 
 impl RawKeypoint3d {
+    /// Creates a new value.
     pub fn new(name: impl Into<String>, x: f32, y: f32, z: f32) -> Self {
         Self {
             name: name.into(),
@@ -756,6 +860,7 @@ impl RawKeypoint3d {
         }
     }
 
+    /// Converts this value to keypoint.
     pub fn to_keypoint(&self) -> Result<Keypoint3d> {
         let mut keypoint = Keypoint3d::new(
             self.name.clone(),
@@ -772,18 +877,26 @@ impl RawKeypoint3d {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+/// Data type for raw pose2d prediction.
 pub struct RawPose2dPrediction {
+    /// Identifier for this value.
     pub id: Option<String>,
+    /// Label assigned to this value.
     pub label: Option<String>,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The region value.
     pub region: Option<RawBoundingBox>,
     #[serde(default)]
+    /// The keypoints value.
     pub keypoints: Vec<RawKeypoint2d>,
     #[serde(default)]
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl RawPose2dPrediction {
+    /// Converts this value to pose estimate.
     pub fn to_pose_estimate(&self, frame_size: Option<(u32, u32)>) -> Result<PoseEstimate> {
         let keypoints = self
             .keypoints
@@ -804,17 +917,24 @@ impl RawPose2dPrediction {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+/// Data type for raw pose3d prediction.
 pub struct RawPose3dPrediction {
+    /// Identifier for this value.
     pub id: Option<String>,
+    /// Label assigned to this value.
     pub label: Option<String>,
+    /// Score assigned to this value.
     pub score: Option<f32>,
     #[serde(default)]
+    /// The keypoints value.
     pub keypoints: Vec<RawKeypoint3d>,
     #[serde(default)]
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl RawPose3dPrediction {
+    /// Converts this value to pose 3d estimate.
     pub fn to_pose_3d_estimate(&self) -> Result<Pose3dEstimate> {
         let keypoints = self
             .keypoints
@@ -832,6 +952,7 @@ impl RawPose3dPrediction {
 }
 
 impl RawPrediction {
+    /// Returns object.
     pub fn object(label: impl Into<String>, score: f32, region: RawBoundingBox) -> Self {
         Self {
             kind: Some("object".to_string()),
@@ -842,6 +963,7 @@ impl RawPrediction {
         }
     }
 
+    /// Returns label.
     pub fn label(label: impl Into<String>, score: f32) -> Self {
         Self {
             label: Some(label.into()),
@@ -852,20 +974,31 @@ impl RawPrediction {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+/// Data type for raw bounding box.
 pub struct RawBoundingBox {
+    /// The x value.
     pub x: Option<f32>,
+    /// The y value.
     pub y: Option<f32>,
+    /// Width in pixels.
     pub width: Option<f32>,
+    /// Height in pixels.
     pub height: Option<f32>,
+    /// The xmin value.
     pub xmin: Option<f32>,
+    /// The ymin value.
     pub ymin: Option<f32>,
+    /// The xmax value.
     pub xmax: Option<f32>,
+    /// The ymax value.
     pub ymax: Option<f32>,
     #[serde(default)]
+    /// The normalized value.
     pub normalized: bool,
 }
 
 impl RawBoundingBox {
+    /// Returns xywh.
     pub fn xywh(x: f32, y: f32, width: f32, height: f32) -> Self {
         Self {
             x: Some(x),
@@ -876,6 +1009,7 @@ impl RawBoundingBox {
         }
     }
 
+    /// Returns xyxy.
     pub fn xyxy(xmin: f32, ymin: f32, xmax: f32, ymax: f32) -> Self {
         Self {
             xmin: Some(xmin),
@@ -936,16 +1070,24 @@ impl RawBoundingBox {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for normalized prediction.
 pub struct NormalizedPrediction {
+    /// The kind value.
     pub kind: ObservationKind,
+    /// Label assigned to this value.
     pub label: Option<String>,
+    /// Text content for this value.
     pub text: Option<String>,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The region value.
     pub region: Option<BoundingBox>,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl NormalizedPrediction {
+    /// Converts this value to observation.
     pub fn to_observation(&self, analyzer: impl Into<String>) -> Observation {
         let mut observation = Observation::new(analyzer, self.kind.clone());
         if let Some(label) = &self.label {
@@ -966,6 +1108,7 @@ impl NormalizedPrediction {
         observation
     }
 
+    /// Converts this value to event.
     pub fn to_event(&self, analyzer: impl Into<String>) -> AnalysisEvent {
         let label = self
             .label
@@ -981,10 +1124,15 @@ impl NormalizedPrediction {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for prediction repair options.
 pub struct PredictionRepairOptions {
+    /// The min score value.
     pub min_score: Option<f32>,
+    /// The clamp regions value.
     pub clamp_regions: bool,
+    /// The nms IoU threshold value.
     pub nms_iou_threshold: Option<f32>,
+    /// The fill missing labels value.
     pub fill_missing_labels: bool,
 }
 
@@ -999,6 +1147,7 @@ impl Default for PredictionRepairOptions {
     }
 }
 
+/// Returns normalize predictions.
 pub fn normalize_predictions(
     raw: Vec<RawPrediction>,
     task: &ModelTask,
@@ -1110,32 +1259,45 @@ fn bbox_iou(left: BoundingBox, right: BoundingBox) -> f32 {
     intersection / (left_area + right_area - intersection)
 }
 
+/// Trait for vision model backend implementations.
 pub trait VisionModelBackend {
+    /// Returns task.
     fn task(&self) -> ModelTask;
+    /// Returns predict frame.
     fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPrediction>>;
 }
 
+/// Trait for pose model backend implementations.
 pub trait PoseModelBackend {
+    /// Returns task.
     fn task(&self) -> ModelTask {
         ModelTask::PoseEstimation2d
     }
 
+    /// Returns predict frame.
     fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPose2dPrediction>>;
 }
 
+/// Trait for pose lift model backend implementations.
 pub trait PoseLiftModelBackend {
+    /// Returns task.
     fn task(&self) -> ModelTask {
         ModelTask::PoseLifting3d
     }
 
+    /// Returns lift poses.
     fn lift_poses(&mut self, sequence: &[RawPose2dPrediction]) -> Result<Vec<RawPose3dPrediction>>;
 }
 
+/// Trait for text model backend implementations.
 pub trait TextModelBackend {
+    /// Returns task.
     fn task(&self) -> ModelTask;
+    /// Returns predict text.
     fn predict_text(&mut self, segment: &TextSegment<'_>) -> Result<Vec<RawPrediction>>;
 }
 
+/// Data type for model video analyzer.
 pub struct ModelVideoAnalyzer<B> {
     name: String,
     backend: B,
@@ -1143,6 +1305,7 @@ pub struct ModelVideoAnalyzer<B> {
 }
 
 impl<B> ModelVideoAnalyzer<B> {
+    /// Creates a new value.
     pub fn new(name: impl Into<String>, backend: B) -> Self {
         Self {
             name: name.into(),
@@ -1151,15 +1314,18 @@ impl<B> ModelVideoAnalyzer<B> {
         }
     }
 
+    /// Returns repair options.
     pub fn repair_options(mut self, value: PredictionRepairOptions) -> Self {
         self.repair = value;
         self
     }
 
+    /// Returns backend.
     pub fn backend(&self) -> &B {
         &self.backend
     }
 
+    /// Returns backend mut.
     pub fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
@@ -1182,6 +1348,7 @@ impl<B: VisionModelBackend> VideoAnalyzer for ModelVideoAnalyzer<B> {
     }
 }
 
+/// Data type for model text analyzer.
 pub struct ModelTextAnalyzer<B> {
     name: String,
     backend: B,
@@ -1189,6 +1356,7 @@ pub struct ModelTextAnalyzer<B> {
 }
 
 impl<B> ModelTextAnalyzer<B> {
+    /// Creates a new value.
     pub fn new(name: impl Into<String>, backend: B) -> Self {
         Self {
             name: name.into(),
@@ -1197,15 +1365,18 @@ impl<B> ModelTextAnalyzer<B> {
         }
     }
 
+    /// Returns repair options.
     pub fn repair_options(mut self, value: PredictionRepairOptions) -> Self {
         self.repair = value;
         self
     }
 
+    /// Returns backend.
     pub fn backend(&self) -> &B {
         &self.backend
     }
 
+    /// Returns backend mut.
     pub fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
@@ -1233,6 +1404,7 @@ impl<B: TextModelBackend> TextAnalyzer for ModelTextAnalyzer<B> {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for external command model.
 pub struct ExternalCommandModel {
     command: PathBuf,
     args: Vec<String>,
@@ -1240,6 +1412,7 @@ pub struct ExternalCommandModel {
 }
 
 impl ExternalCommandModel {
+    /// Creates a new value.
     pub fn new(command: impl Into<PathBuf>, model: DownloadedModel) -> Self {
         Self {
             command: command.into(),
@@ -1248,20 +1421,24 @@ impl ExternalCommandModel {
         }
     }
 
+    /// Returns arg.
     pub fn arg(mut self, value: impl Into<String>) -> Self {
         self.args.push(value.into());
         self
     }
 
+    /// Returns args.
     pub fn args(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.args.extend(values.into_iter().map(Into::into));
         self
     }
 
+    /// Returns model.
     pub fn model(&self) -> &DownloadedModel {
         &self.model
     }
 
+    /// Returns persistent.
     pub fn persistent(self) -> PersistentExternalCommandModel {
         PersistentExternalCommandModel::new(self.command, self.model).args(self.args)
     }
@@ -1305,6 +1482,7 @@ impl ExternalCommandModel {
     }
 }
 
+/// Data type for persistent external command model.
 pub struct PersistentExternalCommandModel {
     command: PathBuf,
     args: Vec<String>,
@@ -1319,6 +1497,7 @@ struct PersistentCommandChild {
 }
 
 impl PersistentExternalCommandModel {
+    /// Creates a new value.
     pub fn new(command: impl Into<PathBuf>, model: DownloadedModel) -> Self {
         Self {
             command: command.into(),
@@ -1328,20 +1507,24 @@ impl PersistentExternalCommandModel {
         }
     }
 
+    /// Returns arg.
     pub fn arg(mut self, value: impl Into<String>) -> Self {
         self.args.push(value.into());
         self
     }
 
+    /// Returns args.
     pub fn args(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.args.extend(values.into_iter().map(Into::into));
         self
     }
 
+    /// Returns model.
     pub fn model(&self) -> &DownloadedModel {
         &self.model
     }
 
+    /// Returns stop.
     pub fn stop(&mut self) -> Result<()> {
         if let Some(mut child) = self.child.take() {
             drop(child.stdin);

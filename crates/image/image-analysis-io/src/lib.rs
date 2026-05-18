@@ -8,13 +8,18 @@ use image_analysis_core::{ImagePixelFormat, OwnedImage};
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing image file format.
 pub enum ImageFileFormat {
+    /// The png variant.
     Png,
+    /// The jpeg variant.
     Jpeg,
+    /// The web p variant.
     WebP,
 }
 
 impl ImageFileFormat {
+    /// Builds this value from path.
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         let extension = path
@@ -45,11 +50,13 @@ impl ImageFileFormat {
     }
 }
 
+/// Reads image.
 pub fn read_image(path: impl AsRef<Path>) -> Result<OwnedImage> {
     let path = path.as_ref();
     read_image_with_format(path, ImageFileFormat::from_path(path)?)
 }
 
+/// Reads image with format.
 pub fn read_image_with_format(
     path: impl AsRef<Path>,
     format: ImageFileFormat,
@@ -63,11 +70,13 @@ pub fn read_image_with_format(
     dynamic_to_owned(image)
 }
 
+/// Writes image.
 pub fn write_image(path: impl AsRef<Path>, image: &OwnedImage) -> Result<()> {
     let path = path.as_ref();
     write_image_with_format(path, image, ImageFileFormat::from_path(path)?)
 }
 
+/// Writes image with format.
 pub fn write_image_with_format(
     path: impl AsRef<Path>,
     image: &OwnedImage,

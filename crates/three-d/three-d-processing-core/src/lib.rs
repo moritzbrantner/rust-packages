@@ -7,27 +7,36 @@ use serde::{Deserialize, Serialize};
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+/// Data type for vector3.
 pub struct Vector3 {
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
+    /// The z value.
     pub z: f32,
 }
 
 impl Vector3 {
+    /// Constant for zero.
     pub const ZERO: Self = Self::new(0.0, 0.0, 0.0);
 
+    /// Creates a new value.
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
 
+    /// Returns whether this value is finite.
     pub fn is_finite(self) -> bool {
         self.x.is_finite() && self.y.is_finite() && self.z.is_finite()
     }
 
+    /// Returns dot.
     pub fn dot(self, rhs: Self) -> f32 {
         self.x.mul_add(rhs.x, self.y.mul_add(rhs.y, self.z * rhs.z))
     }
 
+    /// Returns cross.
     pub fn cross(self, rhs: Self) -> Self {
         Self::new(
             self.y.mul_add(rhs.z, -(self.z * rhs.y)),
@@ -36,18 +45,22 @@ impl Vector3 {
         )
     }
 
+    /// Returns length squared.
     pub fn length_squared(self) -> f32 {
         self.dot(self)
     }
 
+    /// Returns length.
     pub fn length(self) -> f32 {
         self.length_squared().sqrt()
     }
 
+    /// Returns distance.
     pub fn distance(self, rhs: Self) -> f32 {
         (self - rhs).length()
     }
 
+    /// Normalizes this value.
     pub fn normalize(self) -> Result<Self> {
         validate_finite_vector(self, "vector")?;
         let length = self.length();
@@ -107,25 +120,33 @@ impl Div<f32> for Vector3 {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+/// Data type for point3.
 pub struct Point3 {
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
+    /// The z value.
     pub z: f32,
 }
 
 impl Point3 {
+    /// Creates a new value.
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
 
+    /// Returns whether this value is finite.
     pub fn is_finite(self) -> bool {
         self.x.is_finite() && self.y.is_finite() && self.z.is_finite()
     }
 
+    /// Returns distance.
     pub fn distance(self, rhs: Self) -> f32 {
         (self - rhs).length()
     }
 
+    /// Returns midpoint.
     pub fn midpoint(self, rhs: Self) -> Self {
         self + ((rhs - self) * 0.5)
     }
@@ -156,12 +177,16 @@ impl Sub<Point3> for Point3 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for bounds3.
 pub struct Bounds3 {
+    /// The min value.
     pub min: Point3,
+    /// The max value.
     pub max: Point3,
 }
 
 impl Bounds3 {
+    /// Builds this value from points.
     pub fn from_points(points: &[Point3]) -> Result<Option<Self>> {
         validate_points(points)?;
         let Some(first) = points.first().copied() else {
@@ -180,27 +205,34 @@ impl Bounds3 {
         Ok(Some(Self { min, max }))
     }
 
+    /// Returns size.
     pub fn size(self) -> Vector3 {
         self.max - self.min
     }
 
+    /// Returns center.
     pub fn center(self) -> Point3 {
         self.min + (self.size() * 0.5)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for transform3.
 pub struct Transform3 {
+    /// The translation value.
     pub translation: Vector3,
+    /// The scale value.
     pub scale: f32,
 }
 
 impl Transform3 {
+    /// Constant for identity.
     pub const IDENTITY: Self = Self {
         translation: Vector3::ZERO,
         scale: 1.0,
     };
 
+    /// Creates a new value.
     pub fn new(translation: Vector3, scale: f32) -> Result<Self> {
         if !translation.is_finite() || !scale.is_finite() || scale == 0.0 {
             return Err(invalid_argument(
@@ -210,6 +242,7 @@ impl Transform3 {
         Ok(Self { translation, scale })
     }
 
+    /// Returns apply point.
     pub fn apply_point(self, point: Point3) -> Point3 {
         Point3::new(
             point.x * self.scale + self.translation.x,
@@ -220,24 +253,33 @@ impl Transform3 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for quaternion.
 pub struct Quaternion {
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
+    /// The z value.
     pub z: f32,
+    /// The w value.
     pub w: f32,
 }
 
 impl Quaternion {
+    /// Constant for identity.
     pub const IDENTITY: Self = Self::new(0.0, 0.0, 0.0, 1.0);
 
+    /// Creates a new value.
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }
 
+    /// Returns whether this value is finite.
     pub fn is_finite(self) -> bool {
         self.x.is_finite() && self.y.is_finite() && self.z.is_finite() && self.w.is_finite()
     }
 
+    /// Builds this value from axis angle.
     pub fn from_axis_angle(axis: Vector3, angle_radians: f32) -> Result<Self> {
         validate_finite_vector(axis, "axis")?;
         if !angle_radians.is_finite() {
@@ -254,6 +296,7 @@ impl Quaternion {
         ))
     }
 
+    /// Returns dot.
     pub fn dot(self, rhs: Self) -> f32 {
         self.x.mul_add(
             rhs.x,
@@ -261,10 +304,12 @@ impl Quaternion {
         )
     }
 
+    /// Returns norm.
     pub fn norm(self) -> f32 {
         self.dot(self).sqrt()
     }
 
+    /// Normalizes this value.
     pub fn normalize(self) -> Result<Self> {
         if !self.is_finite() {
             return Err(invalid_argument("quaternion components must be finite"));
@@ -283,10 +328,12 @@ impl Quaternion {
         ))
     }
 
+    /// Returns conjugate.
     pub fn conjugate(self) -> Self {
         Self::new(-self.x, -self.y, -self.z, self.w)
     }
 
+    /// Returns rotate vector.
     pub fn rotate_vector(self, vector: Vector3) -> Result<Vector3> {
         let q = self.normalize()?;
         validate_finite_vector(vector, "vector")?;
@@ -296,6 +343,7 @@ impl Quaternion {
         Ok(vector + ((2.0 * q.w) * uv) + (2.0 * uuv))
     }
 
+    /// Returns mul quaternion.
     pub fn mul_quaternion(self, rhs: Self) -> Result<Self> {
         let lhs = self.normalize()?;
         let rhs = rhs.normalize()?;
@@ -313,17 +361,22 @@ impl Quaternion {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for rigid transform3.
 pub struct RigidTransform3 {
+    /// The rotation value.
     pub rotation: Quaternion,
+    /// The translation value.
     pub translation: Vector3,
 }
 
 impl RigidTransform3 {
+    /// Constant for identity.
     pub const IDENTITY: Self = Self {
         rotation: Quaternion::IDENTITY,
         translation: Vector3::ZERO,
     };
 
+    /// Creates a new value.
     pub fn new(rotation: Quaternion, translation: Vector3) -> Result<Self> {
         let rotation = rotation.normalize()?;
         validate_finite_vector(translation, "translation")?;
@@ -333,6 +386,7 @@ impl RigidTransform3 {
         })
     }
 
+    /// Returns apply point.
     pub fn apply_point(self, point: Point3) -> Result<Point3> {
         let rotated = self
             .rotation
@@ -344,16 +398,19 @@ impl RigidTransform3 {
         ))
     }
 
+    /// Returns apply vector.
     pub fn apply_vector(self, vector: Vector3) -> Result<Vector3> {
         self.rotation.rotate_vector(vector)
     }
 
+    /// Returns inverse.
     pub fn inverse(self) -> Result<Self> {
         let rotation = self.rotation.normalize()?.conjugate();
         let translation = rotation.rotate_vector(self.translation * -1.0)?;
         Self::new(rotation, translation)
     }
 
+    /// Returns compose.
     pub fn compose(self, rhs: Self) -> Result<Self> {
         let rotation = self.rotation.mul_quaternion(rhs.rotation)?;
         let translation = self.apply_vector(rhs.translation)? + self.translation;
@@ -362,12 +419,16 @@ impl RigidTransform3 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for line segment3.
 pub struct LineSegment3 {
+    /// The start value.
     pub start: Point3,
+    /// The end value.
     pub end: Point3,
 }
 
 impl LineSegment3 {
+    /// Creates a new value.
     pub fn new(start: Point3, end: Point3) -> Result<Self> {
         validate_points(&[start, end])?;
         if start == end {
@@ -378,43 +439,52 @@ impl LineSegment3 {
         Ok(Self { start, end })
     }
 
+    /// Returns length.
     pub fn length(self) -> f32 {
         self.start.distance(self.end)
     }
 
+    /// Returns midpoint.
     pub fn midpoint(self) -> Point3 {
         self.start.midpoint(self.end)
     }
 
+    /// Returns direction.
     pub fn direction(self) -> Result<Vector3> {
         (self.end - self.start).normalize()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for point cloud.
 pub struct PointCloud {
     points: Vec<Point3>,
 }
 
 impl PointCloud {
+    /// Creates a new value.
     pub fn new(points: impl Into<Vec<Point3>>) -> Result<Self> {
         let points = points.into();
         validate_points(&points)?;
         Ok(Self { points })
     }
 
+    /// Returns points.
     pub fn points(&self) -> &[Point3] {
         &self.points
     }
 
+    /// Returns bounds.
     pub fn bounds(&self) -> Result<Option<Bounds3>> {
         Bounds3::from_points(&self.points)
     }
 
+    /// Returns centroid.
     pub fn centroid(&self) -> Result<Option<Point3>> {
         centroid(&self.points)
     }
 
+    /// Returns transformed.
     pub fn transformed(&self, transform: Transform3) -> Result<Self> {
         PointCloud::new(
             self.points
@@ -425,20 +495,24 @@ impl PointCloud {
         )
     }
 
+    /// Returns transformed rigid.
     pub fn transformed_rigid(&self, transform: RigidTransform3) -> Result<Self> {
         PointCloud::new(transform_rigid(&self.points, transform)?)
     }
 
+    /// Returns voxel downsample.
     pub fn voxel_downsample(&self, voxel_size: f32) -> Result<Self> {
         PointCloud::new(voxel_downsample(&self.points, voxel_size)?)
     }
 
+    /// Returns center and scale.
     pub fn center_and_scale(&self, target_extent: f32) -> Result<Option<Self>> {
         center_and_scale(&self.points, target_extent)
             .map(|value| value.map(|points| Self { points }))
     }
 }
 
+/// Returns centroid.
 pub fn centroid(points: &[Point3]) -> Result<Option<Point3>> {
     validate_points(points)?;
     if points.is_empty() {
@@ -456,11 +530,13 @@ pub fn centroid(points: &[Point3]) -> Result<Option<Point3>> {
     )))
 }
 
+/// Returns point distance.
 pub fn point_distance(a: Point3, b: Point3) -> Result<f32> {
     validate_points(&[a, b])?;
     Ok(a.distance(b))
 }
 
+/// Returns transform rigid.
 pub fn transform_rigid(points: &[Point3], transform: RigidTransform3) -> Result<Vec<Point3>> {
     validate_points(points)?;
     points
@@ -470,6 +546,7 @@ pub fn transform_rigid(points: &[Point3], transform: RigidTransform3) -> Result<
         .collect()
 }
 
+/// Returns voxel downsample.
 pub fn voxel_downsample(points: &[Point3], voxel_size: f32) -> Result<Vec<Point3>> {
     validate_points(points)?;
     if !voxel_size.is_finite() || voxel_size <= 0.0 {
@@ -497,6 +574,7 @@ pub fn voxel_downsample(points: &[Point3], voxel_size: f32) -> Result<Vec<Point3
         .collect())
 }
 
+/// Returns center and scale.
 pub fn center_and_scale(points: &[Point3], target_extent: f32) -> Result<Option<Vec<Point3>>> {
     validate_points(points)?;
     if points.is_empty() {

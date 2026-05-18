@@ -10,13 +10,18 @@ use video_analysis_core::{DetectError, Result};
 /// Prefer [`RectU32`] for new shared 2D APIs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ImageRegion {
+    /// The x value.
     pub x: u32,
+    /// The y value.
     pub y: u32,
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
 }
 
 impl ImageRegion {
+    /// Creates a new value.
     pub fn new(x: u32, y: u32, width: u32, height: u32) -> Result<Self> {
         let region = Self {
             x,
@@ -29,6 +34,7 @@ impl ImageRegion {
         Ok(region)
     }
 
+    /// Converts this value to rect.
     pub fn to_rect(self) -> RectU32 {
         RectU32 {
             x: self.x,
@@ -38,6 +44,7 @@ impl ImageRegion {
         }
     }
 
+    /// Builds this value from rect.
     pub fn from_rect(rect: RectU32) -> Self {
         Self {
             x: rect.x,
@@ -64,29 +71,44 @@ impl TryFrom<RectU32> for ImageRegion {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Variants describing image operation.
 pub enum ImageOperation {
+    /// The crop variant.
     Crop(ImageRegion),
+    /// The resize nearest variant.
     ResizeNearest {
+        /// Width in pixels.
         width: u32,
+        /// Height in pixels.
         height: u32,
     },
+    /// The grayscale variant.
     Grayscale,
+    /// The invert variant.
     Invert,
+    /// The threshold variant.
     Threshold {
+        /// The level value for this variant.
         level: u8,
     },
+    /// The convolve3x3 variant.
     Convolve3x3 {
+        /// The kernel value for this variant.
         kernel: [f32; 9],
+        /// The divisor value for this variant.
         divisor: f32,
+        /// The bias value for this variant.
         bias: f32,
     },
 }
 
 impl ImageOperation {
+    /// Returns crop rect.
     pub fn crop_rect(region: RectU32) -> Self {
         Self::Crop(ImageRegion::from_rect(region))
     }
 
+    /// Returns convolve kernel2d.
     pub fn convolve_kernel2d(kernel: Kernel2d, divisor: f32, bias: f32) -> Result<Self> {
         Ok(Self::Convolve3x3 {
             kernel: kernel.as_array_3x3()?,
@@ -97,24 +119,29 @@ impl ImageOperation {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// Data type for image processor.
 pub struct ImageProcessor {
     operations: Vec<ImageOperation>,
 }
 
 impl ImageProcessor {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns operation.
     pub fn operation(mut self, operation: ImageOperation) -> Self {
         self.operations.push(operation);
         self
     }
 
+    /// Returns operations.
     pub fn operations(&self) -> &[ImageOperation] {
         &self.operations
     }
 
+    /// Returns process.
     pub fn process(&self, image: &ImageView<'_>) -> Result<OwnedImage> {
         let mut current = image_analysis_core::compact_image(image)?;
         for operation in &self.operations {
@@ -124,6 +151,7 @@ impl ImageProcessor {
     }
 }
 
+/// Returns apply operation.
 pub fn apply_operation(image: &ImageView<'_>, operation: &ImageOperation) -> Result<OwnedImage> {
     match operation {
         ImageOperation::Crop(region) => crop_image(image, *region),
@@ -139,10 +167,12 @@ pub fn apply_operation(image: &ImageView<'_>, operation: &ImageOperation) -> Res
     }
 }
 
+/// Returns crop image.
 pub fn crop_image(image: &ImageView<'_>, region: ImageRegion) -> Result<OwnedImage> {
     crop_image_rect(image, region.into())
 }
 
+/// Returns crop image rect.
 pub fn crop_image_rect(image: &ImageView<'_>, region: RectU32) -> Result<OwnedImage> {
     image.validate()?;
     validate_region(image, region)?;
@@ -164,6 +194,7 @@ pub fn crop_image_rect(image: &ImageView<'_>, region: RectU32) -> Result<OwnedIm
     )
 }
 
+/// Returns resize nearest.
 pub fn resize_nearest(image: &ImageView<'_>, width: u32, height: u32) -> Result<OwnedImage> {
     image.validate()?;
     if width == 0 || height == 0 {
@@ -189,12 +220,14 @@ pub fn resize_nearest(image: &ImageView<'_>, width: u32, height: u32) -> Result<
     OwnedImage::new(width, height, image.pixel_format, data, stride)
 }
 
+/// Returns grayscale image.
 pub fn grayscale_image(image: &ImageView<'_>) -> Result<OwnedImage> {
     map_pixels(image, ImagePixelFormat::Gray8, |source, x, y| {
         [source.luma(x, y); 3]
     })
 }
 
+/// Returns invert image.
 pub fn invert_image(image: &ImageView<'_>) -> Result<OwnedImage> {
     map_pixels(image, image.pixel_format, |source, x, y| {
         let [red, green, blue] = source.pixel_rgb(x, y);
@@ -202,6 +235,7 @@ pub fn invert_image(image: &ImageView<'_>) -> Result<OwnedImage> {
     })
 }
 
+/// Returns threshold image.
 pub fn threshold_image(image: &ImageView<'_>, level: u8) -> Result<OwnedImage> {
     map_pixels(image, ImagePixelFormat::Gray8, |source, x, y| {
         let value = if source.luma(x, y) >= level { 255 } else { 0 };
@@ -209,6 +243,7 @@ pub fn threshold_image(image: &ImageView<'_>, level: u8) -> Result<OwnedImage> {
     })
 }
 
+/// Returns convolve 3x3.
 pub fn convolve_3x3(
     image: &ImageView<'_>,
     kernel: [f32; 9],
@@ -218,6 +253,7 @@ pub fn convolve_3x3(
     convolve_3x3_kernel(image, &Kernel2d::from(kernel), divisor, bias)
 }
 
+/// Returns convolve 3x3 kernel.
 pub fn convolve_3x3_kernel(
     image: &ImageView<'_>,
     kernel: &Kernel2d,
@@ -251,6 +287,7 @@ pub fn convolve_3x3_kernel(
     })
 }
 
+/// Returns sharpen image.
 pub fn sharpen_image(image: &ImageView<'_>) -> Result<OwnedImage> {
     convolve_3x3_kernel(image, &Kernel2d::sharpen_3x3(), 1.0, 0.0)
 }

@@ -15,6 +15,7 @@ use text_analysis_transcription::{
     segment_to_owned_text_segment, Transcriber, TranscriptSegment, WhisperCliTranscriber,
     WhisperCppProgressEvent, WhisperCppTranscriber,
 };
+/// Re-exports the text analysis transcription whisper cpp config API.
 pub use text_analysis_transcription::{WhisperCppConfig, WhisperCppModel};
 use video_analysis_core::{
     AnalysisEvent, BoundingBox, DetectError, Observation, ObservationKind, RealtimeVideoPipeline,
@@ -33,21 +34,31 @@ use video_analysis_models::{
     ModelVideoAnalyzer,
 };
 
+/// Constant for youtube video use case.
 pub const YOUTUBE_VIDEO_USE_CASE: &str = "youtube-video";
+/// Constant for video red cars use case.
 pub const VIDEO_RED_CARS_USE_CASE: &str = "video-red-cars";
+/// Constant for audio voice analysis use case.
 pub const AUDIO_VOICE_ANALYSIS_USE_CASE: &str = "audio-voice-analysis";
+/// Constant for image person edit use case.
 pub const IMAGE_PERSON_EDIT_USE_CASE: &str = "image-person-edit";
 
+/// Public module for audio voice analysis.
 pub mod audio_voice_analysis;
+/// Public module for image person edit.
 pub mod image_person_edit;
 mod song_impl;
 mod subtitle_impl;
+/// Public module for video red cars.
 pub mod video_red_cars;
 mod workflow_support;
 
+/// Public module for workflow catalog.
 pub mod workflow_catalog;
 
+/// Public module for youtube.
 pub mod youtube {
+    /// Re-exports the super API.
     pub use super::{
         discover_youtube_collection_manifest, run_youtube_collection_workflow,
         run_youtube_collection_workflow_with_progress, run_youtube_video,
@@ -67,7 +78,9 @@ pub mod youtube {
     };
 }
 
+/// Public module for song.
 pub mod song {
+    /// Re-exports the song impl API.
     pub use crate::song_impl::{
         import_song_catalog_items, run_song_analysis_workflow, MusicAnalysisConfig,
         MusicAnalysisReport, MusicFeatureReport, MusicSegmentReport, SongAnalysisReport,
@@ -79,7 +92,9 @@ pub mod song {
     };
 }
 
+/// Public module for subtitle.
 pub mod subtitle {
+    /// Re-exports the subtitle impl API.
     pub use crate::subtitle_impl::{
         run_subtitle_generation_workflow, SubtitleAssetReport, SubtitleGenerationReport,
         SubtitleGenerationRunRequest, SubtitleReport,
@@ -87,26 +102,47 @@ pub mod subtitle {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for youtube video request.
 pub struct YoutubeVideoRequest {
+    /// URL associated with this value.
     pub url: Option<String>,
+    /// The input value.
     pub input: Option<PathBuf>,
+    /// The work dir value.
     pub work_dir: PathBuf,
+    /// The output value.
     pub output: Option<PathBuf>,
+    /// The scene threshold value.
     pub scene_threshold: f32,
+    /// The min scene len value.
     pub min_scene_len: u64,
+    /// The max frames value.
     pub max_frames: Option<u64>,
+    /// The visual sample every value.
     pub visual_sample_every: u64,
+    /// The skip transcription value.
     pub skip_transcription: bool,
+    /// The transcriber engine value.
     pub transcriber_engine: TranscriptionEngine,
+    /// The transcriber command value.
     pub transcriber_command: Option<PathBuf>,
+    /// The transcriber args value.
     pub transcriber_args: Vec<String>,
+    /// The whisper cpp value.
     pub whisper_cpp: WhisperCppConfig,
+    /// The audio separation value.
     pub audio_separation: AudioSeparationConfig,
+    /// The object command value.
     pub object_command: Option<PathBuf>,
+    /// The object args value.
     pub object_args: Vec<String>,
+    /// The ocr command value.
     pub ocr_command: Option<PathBuf>,
+    /// The ocr args value.
     pub ocr_args: Vec<String>,
+    /// The text command value.
     pub text_command: Option<PathBuf>,
+    /// The text args value.
     pub text_args: Vec<String>,
 }
 
@@ -139,36 +175,58 @@ impl Default for YoutubeVideoRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+/// Variants describing source spec.
 pub enum SourceSpec {
-    YoutubeUrl { url: String },
-    LocalFile { path: PathBuf },
+    /// The youtube URL variant.
+    YoutubeUrl {
+        /// URL associated with this variant.
+        url: String,
+    },
+    /// The local file variant.
+    LocalFile {
+        /// Filesystem path for this variant.
+        path: PathBuf,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for external command config.
 pub struct ExternalCommandConfig {
+    /// The command value.
     pub command: PathBuf,
     #[serde(default)]
+    /// The args value.
     pub args: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing transcription engine.
 pub enum TranscriptionEngine {
     #[default]
+    /// The whisper cpp variant.
     WhisperCpp,
+    /// The whisper variant.
     Whisper,
     #[serde(alias = "fast_whisper")]
+    /// The faster whisper variant.
     FasterWhisper,
+    /// The whisper x variant.
     WhisperX,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for transcription config.
 pub struct TranscriptionConfig {
+    /// The enabled value.
     pub enabled: bool,
     #[serde(default)]
+    /// The engine value.
     pub engine: TranscriptionEngine,
+    /// The command value.
     pub command: Option<ExternalCommandConfig>,
     #[serde(default)]
+    /// The whisper cpp value.
     pub whisper_cpp: WhisperCppConfig,
 }
 
@@ -184,6 +242,7 @@ impl Default for TranscriptionConfig {
 }
 
 impl TranscriptionConfig {
+    /// Returns a normalized copy of this value.
     pub fn normalized(mut self) -> Self {
         if self.engine == TranscriptionEngine::Whisper && self.command.is_none() {
             self.engine = TranscriptionEngine::WhisperCpp;
@@ -193,16 +252,24 @@ impl TranscriptionConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+/// Data type for audio separation config.
 pub struct AudioSeparationConfig {
+    /// The enabled value.
     pub enabled: bool,
+    /// The command value.
     pub command: Option<ExternalCommandConfig>,
+    /// The model value.
     pub model: Option<String>,
+    /// The two stems value.
     pub two_stems: Option<String>,
+    /// The device value.
     pub device: Option<String>,
+    /// The output dir value.
     pub output_dir: Option<PathBuf>,
 }
 
 impl AudioSeparationConfig {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if let Some(model) = &self.model {
             DemucsModel::from_str(model)?;
@@ -215,32 +282,47 @@ impl AudioSeparationConfig {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for model command config.
 pub struct ModelCommandConfig {
+    /// The object value.
     pub object: Option<ExternalCommandConfig>,
+    /// The ocr value.
     pub ocr: Option<ExternalCommandConfig>,
+    /// Text content for this value.
     pub text: Option<ExternalCommandConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for youtube run request.
 pub struct YoutubeRunRequest {
+    /// The source value.
     pub source: SourceSpec,
+    /// The work dir value.
     pub work_dir: Option<PathBuf>,
     #[serde(default = "default_scene_threshold")]
+    /// The scene threshold value.
     pub scene_threshold: f32,
     #[serde(default = "default_min_scene_len")]
+    /// The min scene len value.
     pub min_scene_len: u64,
+    /// The max frames value.
     pub max_frames: Option<u64>,
     #[serde(default = "default_visual_sample_every")]
+    /// The visual sample every value.
     pub visual_sample_every: u64,
     #[serde(default)]
+    /// The transcription value.
     pub transcription: TranscriptionConfig,
     #[serde(default)]
+    /// The audio separation value.
     pub audio_separation: AudioSeparationConfig,
     #[serde(default)]
+    /// The models value.
     pub models: ModelCommandConfig,
 }
 
 impl YoutubeRunRequest {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         validate_analysis_options(
             self.scene_threshold,
@@ -257,72 +339,109 @@ impl YoutubeRunRequest {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing metadata depth.
 pub enum MetadataDepth {
+    /// The fast variant.
     Fast,
     #[default]
+    /// The enriched when needed variant.
     EnrichedWhenNeeded,
+    /// The full variant.
     Full,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing already downloaded policy.
 pub enum AlreadyDownloadedPolicy {
+    /// The include variant.
     Include,
+    /// The skip variant.
     Skip,
     #[default]
+    /// The reuse variant.
     Reuse,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+/// Data type for manifest filter spec.
 pub struct ManifestFilterSpec {
+    /// The title contains value.
     pub title_contains: Option<String>,
     #[serde(default)]
+    /// The title excludes value.
     pub title_excludes: Vec<String>,
+    /// The playlist index min value.
     pub playlist_index_min: Option<u64>,
+    /// The playlist index max value.
     pub playlist_index_max: Option<u64>,
+    /// The upload date from value.
     pub upload_date_from: Option<String>,
+    /// The upload date to value.
     pub upload_date_to: Option<String>,
+    /// The duration seconds min value.
     pub duration_seconds_min: Option<f64>,
+    /// The duration seconds max value.
     pub duration_seconds_max: Option<f64>,
     #[serde(default)]
+    /// The already downloaded value.
     pub already_downloaded: AlreadyDownloadedPolicy,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing failed probe behavior.
 pub enum FailedProbeBehavior {
     #[default]
+    /// The failed variant.
     Failed,
+    /// The include variant.
     Include,
+    /// The filtered variant.
     Filtered,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+/// Data type for local file filter spec.
 pub struct LocalFileFilterSpec {
+    /// The duration seconds min value.
     pub duration_seconds_min: Option<f64>,
+    /// The duration seconds max value.
     pub duration_seconds_max: Option<f64>,
+    /// The file size bytes min value.
     pub file_size_bytes_min: Option<u64>,
+    /// The file size bytes max value.
     pub file_size_bytes_max: Option<u64>,
     #[serde(default)]
+    /// The extension allowlist value.
     pub extension_allowlist: Vec<String>,
     #[serde(default)]
+    /// The failed probe behavior value.
     pub failed_probe_behavior: FailedProbeBehavior,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for youtube run options.
 pub struct YoutubeRunOptions {
     #[serde(default = "default_scene_threshold")]
+    /// The scene threshold value.
     pub scene_threshold: f32,
     #[serde(default = "default_min_scene_len")]
+    /// The min scene len value.
     pub min_scene_len: u64,
+    /// The max frames value.
     pub max_frames: Option<u64>,
     #[serde(default = "default_visual_sample_every")]
+    /// The visual sample every value.
     pub visual_sample_every: u64,
     #[serde(default)]
+    /// The transcription value.
     pub transcription: TranscriptionConfig,
     #[serde(default)]
+    /// The audio separation value.
     pub audio_separation: AudioSeparationConfig,
     #[serde(default)]
+    /// The models value.
     pub models: ModelCommandConfig,
 }
 
@@ -341,6 +460,7 @@ impl Default for YoutubeRunOptions {
 }
 
 impl YoutubeRunOptions {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         validate_analysis_options(
             self.scene_threshold,
@@ -367,19 +487,34 @@ impl YoutubeRunOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+/// Variants describing youtube collection source.
 pub enum YoutubeCollectionSource {
-    PlaylistUrl { url: String },
-    ChannelUrl { url: String },
-    YoutubeUrl { url: String },
+    /// The playlist URL variant.
+    PlaylistUrl {
+        /// URL associated with this variant.
+        url: String,
+    },
+    /// The channel URL variant.
+    ChannelUrl {
+        /// URL associated with this variant.
+        url: String,
+    },
+    /// The youtube URL variant.
+    YoutubeUrl {
+        /// URL associated with this variant.
+        url: String,
+    },
 }
 
 impl YoutubeCollectionSource {
+    /// Returns URL.
     pub fn url(&self) -> &str {
         match self {
             Self::PlaylistUrl { url } | Self::ChannelUrl { url } | Self::YoutubeUrl { url } => url,
         }
     }
 
+    /// Returns kind name.
     pub fn kind_name(&self) -> &'static str {
         match self {
             Self::PlaylistUrl { .. } => "playlist_url",
@@ -390,16 +525,22 @@ impl YoutubeCollectionSource {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for youtube collection manifest request.
 pub struct YoutubeCollectionManifestRequest {
+    /// The source value.
     pub source: YoutubeCollectionSource,
     #[serde(default)]
+    /// The metadata filter value.
     pub metadata_filter: ManifestFilterSpec,
     #[serde(default)]
+    /// The metadata depth value.
     pub metadata_depth: MetadataDepth,
+    /// The max items value.
     pub max_items: Option<u64>,
 }
 
 impl YoutubeCollectionManifestRequest {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         validate_youtube_url(self.source.url())?;
         validate_manifest_filter(&self.metadata_filter)?;
@@ -413,22 +554,32 @@ impl YoutubeCollectionManifestRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for youtube collection run request.
 pub struct YoutubeCollectionRunRequest {
+    /// The source value.
     pub source: Option<YoutubeCollectionSource>,
+    /// The manifest value.
     pub manifest: Option<YoutubeCollectionManifest>,
     #[serde(default)]
+    /// The metadata filter value.
     pub metadata_filter: ManifestFilterSpec,
     #[serde(default)]
+    /// The local file filter value.
     pub local_file_filter: LocalFileFilterSpec,
     #[serde(default)]
+    /// The analysis value.
     pub analysis: YoutubeRunOptions,
     #[serde(default)]
+    /// The delete filtered downloads value.
     pub delete_filtered_downloads: bool,
+    /// The work dir value.
     pub work_dir: Option<PathBuf>,
+    /// The max items value.
     pub max_items: Option<u64>,
 }
 
 impl YoutubeCollectionRunRequest {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.source.is_none() && self.manifest.is_none() {
             return Err(DetectError::InvalidArgument(
@@ -451,252 +602,417 @@ impl YoutubeCollectionRunRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for youtube collection manifest.
 pub struct YoutubeCollectionManifest {
+    /// The collection identifier value.
     pub collection_id: String,
+    /// The source value.
     pub source: YoutubeCollectionSource,
+    /// The title value.
     pub title: Option<String>,
+    /// The items value.
     pub items: Vec<YoutubeCollectionManifestItem>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for youtube collection manifest item.
 pub struct YoutubeCollectionManifestItem {
+    /// The item identifier value.
     pub item_id: String,
+    /// The youtube identifier value.
     pub youtube_id: Option<String>,
+    /// The playlist index value.
     pub playlist_index: Option<u64>,
+    /// The title value.
     pub title: Option<String>,
+    /// The source URL value.
     pub source_url: String,
+    /// Duration in seconds.
     pub duration_seconds: Option<f64>,
+    /// The upload date value.
     pub upload_date: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for youtube video report.
 pub struct YoutubeVideoReport {
+    /// The use case value.
     pub use_case: String,
+    /// The source value.
     pub source: SourceReport,
+    /// The assets value.
     pub assets: AssetReport,
+    /// The capabilities value.
     pub capabilities: CapabilityReport,
+    /// The video value.
     pub video: VideoReport,
+    /// The transcription value.
     pub transcription: TranscriptionReport,
+    /// The audio value.
     pub audio: AudioReport,
+    /// Text content for this value.
     pub text: TextReport,
+    /// The data buckets value.
     pub data_buckets: Vec<DataBucketReport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for source report.
 pub struct SourceReport {
+    /// URL associated with this value.
     pub url: Option<String>,
+    /// The local video value.
     pub local_video: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for asset report.
 pub struct AssetReport {
+    /// The work dir value.
     pub work_dir: String,
+    /// The report path value.
     pub report_path: String,
+    /// The audio wav value.
     pub audio_wav: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for capability report.
 pub struct CapabilityReport {
+    /// The completed value.
     pub completed: Vec<String>,
+    /// The skipped value.
     pub skipped: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for video report.
 pub struct VideoReport {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The frame rate value.
     pub frame_rate: String,
+    /// Duration in seconds.
     pub duration_seconds: Option<f64>,
+    /// The frames processed value.
     pub frames_processed: u64,
+    /// The scenes value.
     pub scenes: Vec<SceneReport>,
+    /// The observations value.
     pub observations: Vec<ObservationReport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for scene report.
 pub struct SceneReport {
+    /// The index value.
     pub index: u64,
+    /// The start frame value.
     pub start_frame: u64,
+    /// The end frame value.
     pub end_frame: u64,
+    /// The start seconds value.
     pub start_seconds: f64,
+    /// The end seconds value.
     pub end_seconds: f64,
+    /// The observations value.
     pub observations: Vec<ObservationReport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for observation report.
 pub struct ObservationReport {
+    /// The timestamp seconds value.
     pub timestamp_seconds: Option<f64>,
+    /// The frame index value.
     pub frame_index: Option<u64>,
+    /// The scene index value.
     pub scene_index: Option<u64>,
+    /// The analyzer value.
     pub analyzer: String,
+    /// The kind value.
     pub kind: String,
+    /// Label assigned to this value.
     pub label: Option<String>,
+    /// Text content for this value.
     pub text: Option<String>,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The region value.
     pub region: Option<RegionReport>,
+    /// The track identifier value.
     pub track_id: Option<String>,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for region report.
 pub struct RegionReport {
+    /// The x value.
     pub x: u32,
+    /// The y value.
     pub y: u32,
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for transcription report.
 pub struct TranscriptionReport {
+    /// The status value.
     pub status: String,
+    /// Text content for this value.
     pub text: Option<String>,
+    /// The segments value.
     pub segments: Vec<TranscriptSegmentReport>,
+    /// The message value.
     pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for transcript segment report.
 pub struct TranscriptSegmentReport {
+    /// The index value.
     pub index: u64,
+    /// The start seconds value.
     pub start_seconds: Option<f64>,
+    /// The end seconds value.
     pub end_seconds: Option<f64>,
+    /// Text content for this value.
     pub text: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for audio report.
 pub struct AudioReport {
+    /// The status value.
     pub status: String,
+    /// The frames processed value.
     pub frames_processed: u64,
+    /// The events value.
     pub events: Vec<EventReport>,
+    /// The separation value.
     pub separation: Option<AudioSeparationReport>,
+    /// The message value.
     pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for audio separation report.
 pub struct AudioSeparationReport {
+    /// The status value.
     pub status: String,
+    /// The model value.
     pub model: String,
+    /// The output dir value.
     pub output_dir: String,
+    /// The stems value.
     pub stems: Vec<AudioStemReport>,
+    /// The message value.
     pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for audio stem report.
 pub struct AudioStemReport {
+    /// The stem value.
     pub stem: String,
+    /// Filesystem path for this value.
     pub path: String,
+    /// The bytes value.
     pub bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for text report.
 pub struct TextReport {
+    /// The status value.
     pub status: String,
+    /// The segments processed value.
     pub segments_processed: u64,
+    /// The events value.
     pub events: Vec<EventReport>,
+    /// The message value.
     pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for event report.
 pub struct EventReport {
+    /// The timestamp seconds value.
     pub timestamp_seconds: Option<f64>,
+    /// The analyzer value.
     pub analyzer: String,
+    /// Label assigned to this value.
     pub label: String,
+    /// Score assigned to this value.
     pub score: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for data bucket report.
 pub struct DataBucketReport {
+    /// The bucket index value.
     pub bucket_index: u64,
+    /// The records value.
     pub records: u64,
+    /// The estimated bytes value.
     pub estimated_bytes: u64,
+    /// The streams value.
     pub streams: Vec<StreamBucketReport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for stream bucket report.
 pub struct StreamBucketReport {
+    /// The stream identifier value.
     pub stream_id: String,
+    /// The records value.
     pub records: u64,
+    /// The estimated bytes value.
     pub estimated_bytes: u64,
+    /// The payload counts value.
     pub payload_counts: BTreeMap<String, u64>,
+    /// The video frames value.
     pub video_frames: u64,
+    /// The audio frames value.
     pub audio_frames: u64,
+    /// The text segments value.
     pub text_segments: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for youtube collection report.
 pub struct YoutubeCollectionReport {
     #[serde(alias = "use_case")]
+    /// The workflow value.
     pub workflow: String,
+    /// The collection value.
     pub collection: CollectionSummary,
+    /// The source value.
     pub source: YoutubeCollectionSourceReport,
+    /// The filters value.
     pub filters: AppliedCollectionFilters,
+    /// The items value.
     pub items: Vec<CollectionItemReport>,
+    /// The assets value.
     pub assets: CollectionAssetReport,
+    /// The capabilities value.
     pub capabilities: CapabilityReport,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for collection summary.
 pub struct CollectionSummary {
+    /// The collection identifier value.
     pub collection_id: String,
+    /// The title value.
     pub title: Option<String>,
+    /// The source URL value.
     pub source_url: String,
+    /// The discovered items value.
     pub discovered_items: u64,
+    /// The selected items value.
     pub selected_items: u64,
+    /// The analyzed items value.
     pub analyzed_items: u64,
+    /// The failed items value.
     pub failed_items: u64,
+    /// The filtered items value.
     pub filtered_items: u64,
+    /// The skipped items value.
     pub skipped_items: u64,
+    /// The downloaded items value.
     pub downloaded_items: u64,
+    /// The total duration seconds value.
     pub total_duration_seconds: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for youtube collection source report.
 pub struct YoutubeCollectionSourceReport {
+    /// The kind value.
     pub kind: String,
+    /// URL associated with this value.
     pub url: String,
+    /// The title value.
     pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for applied collection filters.
 pub struct AppliedCollectionFilters {
+    /// Metadata associated with this value.
     pub metadata: Vec<String>,
+    /// The local file value.
     pub local_file: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for collection asset report.
 pub struct CollectionAssetReport {
+    /// The work dir value.
     pub work_dir: String,
+    /// The report path value.
     pub report_path: String,
+    /// The manifest path value.
     pub manifest_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for collection item report.
 pub struct CollectionItemReport {
+    /// The item identifier value.
     pub item_id: String,
+    /// The youtube identifier value.
     pub youtube_id: Option<String>,
+    /// The playlist index value.
     pub playlist_index: Option<u64>,
+    /// The title value.
     pub title: Option<String>,
+    /// The source URL value.
     pub source_url: String,
+    /// The local video value.
     pub local_video: Option<String>,
+    /// The status value.
     pub status: CollectionItemStatus,
+    /// The error value.
     pub error: Option<String>,
+    /// The report value.
     pub report: Option<YoutubeVideoReport>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing collection item status.
 pub enum CollectionItemStatus {
+    /// The discovered variant.
     Discovered,
+    /// The metadata filtered variant.
     MetadataFiltered,
+    /// The downloaded variant.
     Downloaded,
+    /// The file filtered variant.
     FileFiltered,
+    /// The analyzed variant.
     Analyzed,
+    /// The failed variant.
     Failed,
+    /// The skipped existing variant.
     SkippedExisting,
 }
 
+/// Runs youtube video.
 pub fn run_youtube_video(args: YoutubeVideoRequest) -> Result<YoutubeVideoReport> {
     run_youtube_video_with_progress(args, &mut |_| {})
 }
 
+/// Runs youtube video with progress.
 pub fn run_youtube_video_with_progress(
     args: YoutubeVideoRequest,
     progress: &mut dyn FnMut(WhisperCppProgressEvent),
@@ -864,6 +1180,7 @@ pub fn run_youtube_video_with_progress(
     Ok(report)
 }
 
+/// Runs youtube video workflow.
 pub fn run_youtube_video_workflow(
     request: YoutubeRunRequest,
     work_dir: PathBuf,
@@ -872,6 +1189,7 @@ pub fn run_youtube_video_workflow(
     run_youtube_video_workflow_with_progress(request, work_dir, report_path, &mut |_| {})
 }
 
+/// Runs youtube video workflow with progress.
 pub fn run_youtube_video_workflow_with_progress(
     request: YoutubeRunRequest,
     work_dir: PathBuf,
@@ -922,10 +1240,12 @@ pub fn run_youtube_video_workflow_with_progress(
     Ok(report)
 }
 
+/// Writes youtube video report.
 pub fn write_youtube_video_report(path: &Path, report: &YoutubeVideoReport) -> Result<()> {
     write_json_report(path, report)
 }
 
+/// Returns discover youtube collection manifest.
 pub fn discover_youtube_collection_manifest(
     request: YoutubeCollectionManifestRequest,
 ) -> Result<YoutubeCollectionManifest> {
@@ -943,6 +1263,7 @@ pub fn discover_youtube_collection_manifest(
     Ok(manifest)
 }
 
+/// Runs youtube collection workflow.
 pub fn run_youtube_collection_workflow(
     request: YoutubeCollectionRunRequest,
     work_dir: PathBuf,
@@ -951,6 +1272,7 @@ pub fn run_youtube_collection_workflow(
     run_youtube_collection_workflow_with_progress(request, work_dir, report_path, &mut |_| {})
 }
 
+/// Runs youtube collection workflow with progress.
 pub fn run_youtube_collection_workflow_with_progress(
     request: YoutubeCollectionRunRequest,
     work_dir: PathBuf,

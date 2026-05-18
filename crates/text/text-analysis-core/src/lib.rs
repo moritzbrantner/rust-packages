@@ -8,14 +8,20 @@ use unicode_segmentation::UnicodeSegmentation;
 use video_analysis_core::{OwnedTextSegment, TextSegment, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for text document.
 pub struct TextDocument<'a> {
+    /// Identifier for this value.
     pub id: &'a str,
+    /// Text content for this value.
     pub text: &'a str,
+    /// Language tag for this value.
     pub language: Option<&'a str>,
+    /// Timestamp associated with this value.
     pub timestamp: Option<Timestamp>,
 }
 
 impl<'a> TextDocument<'a> {
+    /// Creates a new value.
     pub fn new(id: &'a str, text: &'a str) -> Self {
         Self {
             id,
@@ -25,6 +31,7 @@ impl<'a> TextDocument<'a> {
         }
     }
 
+    /// Builds this value from segment identifier.
     pub fn from_segment_id(id: &'a str, segment: &TextSegment<'a>) -> Self {
         Self {
             id,
@@ -34,6 +41,7 @@ impl<'a> TextDocument<'a> {
         }
     }
 
+    /// Builds this value from stream segment.
     pub fn from_stream_segment(stream_id: &str, segment: &TextSegment<'_>) -> OwnedTextDocument {
         OwnedTextDocument::from_stream_segment(stream_id, segment)
     }
@@ -54,14 +62,20 @@ impl<'a> TextDocument<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for owned text document.
 pub struct OwnedTextDocument {
+    /// Identifier for this value.
     pub id: String,
+    /// Text content for this value.
     pub text: String,
+    /// Language tag for this value.
     pub language: Option<String>,
+    /// Timestamp associated with this value.
     pub timestamp: Option<Timestamp>,
 }
 
 impl OwnedTextDocument {
+    /// Creates a new value.
     pub fn new(id: impl Into<String>, text: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -71,16 +85,19 @@ impl OwnedTextDocument {
         }
     }
 
+    /// Returns language.
     pub fn language(mut self, language: impl Into<String>) -> Self {
         self.language = Some(language.into());
         self
     }
 
+    /// Returns timestamp.
     pub fn timestamp(mut self, timestamp: Timestamp) -> Self {
         self.timestamp = Some(timestamp);
         self
     }
 
+    /// Builds this value from segment identifier.
     pub fn from_segment_id(id: impl Into<String>, segment: &OwnedTextSegment) -> Self {
         let segment = segment.as_segment();
         Self {
@@ -91,6 +108,7 @@ impl OwnedTextDocument {
         }
     }
 
+    /// Builds this value from stream segment.
     pub fn from_stream_segment(stream_id: &str, segment: &TextSegment<'_>) -> Self {
         Self {
             id: segment_document_id(stream_id, segment.segment_index),
@@ -100,6 +118,7 @@ impl OwnedTextDocument {
         }
     }
 
+    /// Builds this value from owned stream segment.
     pub fn from_owned_stream_segment(stream_id: &str, segment: &OwnedTextSegment) -> Self {
         Self::from_stream_segment(stream_id, &segment.as_segment())
     }
@@ -119,6 +138,7 @@ impl OwnedTextDocument {
         }
     }
 
+    /// Borrows this value as a document.
     pub fn as_document(&self) -> TextDocument<'_> {
         TextDocument {
             id: &self.id,
@@ -129,34 +149,49 @@ impl OwnedTextDocument {
     }
 }
 
+/// Returns segment document identifier.
 pub fn segment_document_id(stream_id: &str, segment_index: u64) -> String {
     format!("{stream_id}:{segment_index}")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for text stats.
 pub struct TextStats {
+    /// The bytes value.
     pub bytes: usize,
+    /// The chars value.
     pub chars: usize,
+    /// The words value.
     pub words: usize,
+    /// The lines value.
     pub lines: usize,
+    /// The sentences value.
     pub sentences: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for text span.
 pub struct TextSpan {
+    /// The byte start value.
     pub byte_start: usize,
+    /// The byte end value.
     pub byte_end: usize,
+    /// The char start value.
     pub char_start: usize,
+    /// The char end value.
     pub char_end: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Data type for annotation identifier.
 pub struct AnnotationId(pub usize);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for annotation confidence.
 pub struct AnnotationConfidence(f32);
 
 impl AnnotationConfidence {
+    /// Creates a new value.
     pub fn new(value: f32) -> Self {
         let value = if value.is_finite() {
             value.clamp(0.0, 1.0)
@@ -166,6 +201,7 @@ impl AnnotationConfidence {
         Self(value)
     }
 
+    /// Returns get.
     pub fn get(self) -> f32 {
         self.0
     }
@@ -184,27 +220,43 @@ impl From<f32> for AnnotationConfidence {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing annotation provenance.
 pub enum AnnotationProvenance {
+    /// The heuristic variant.
     Heuristic,
+    /// The tokenizer variant.
     Tokenizer,
+    /// The ONNX variant.
     Onnx,
+    /// The candle variant.
     Candle,
+    /// The external variant.
     External,
+    /// The derived variant.
     Derived,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for text span ref.
 pub struct TextSpanRef {
+    /// Identifier for this value.
     pub id: AnnotationId,
+    /// The span value.
     pub span: TextSpan,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for text boundary options.
 pub struct TextBoundaryOptions {
+    /// The lowercase value.
     pub lowercase: bool,
+    /// The normalize unicode value.
     pub normalize_unicode: bool,
+    /// The include numbers value.
     pub include_numbers: bool,
+    /// The include punctuation value.
     pub include_punctuation: bool,
+    /// The min chars value.
     pub min_chars: usize,
 }
 
@@ -221,126 +273,203 @@ impl Default for TextBoundaryOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for word segment.
 pub struct WordSegment {
+    /// Text content for this value.
     pub text: String,
+    /// The normalized value.
     pub normalized: String,
+    /// The span value.
     pub span: TextSpan,
+    /// The kind value.
     pub kind: TokenKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for grapheme span.
 pub struct GraphemeSpan {
+    /// Text content for this value.
     pub text: String,
+    /// The span value.
     pub span: TextSpan,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for script profile.
 pub struct ScriptProfile {
+    /// The scripts value.
     pub scripts: BTreeMap<String, usize>,
+    /// The digits value.
     pub digits: usize,
+    /// The whitespace value.
     pub whitespace: usize,
+    /// The punctuation value.
     pub punctuation: usize,
+    /// The other value.
     pub other: usize,
+    /// The dominant script value.
     pub dominant_script: Option<String>,
+    /// The is mixed value.
     pub is_mixed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for token.
 pub struct Token {
+    /// Text content for this value.
     pub text: String,
+    /// The normalized value.
     pub normalized: String,
+    /// The span value.
     pub span: TextSpan,
+    /// The kind value.
     pub kind: TokenKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing token kind.
 pub enum TokenKind {
+    /// The word variant.
     Word,
+    /// The number variant.
     Number,
+    /// The URL variant.
     Url,
+    /// The email variant.
     Email,
+    /// The mention variant.
     Mention,
+    /// The hashtag variant.
     Hashtag,
+    /// The punctuation variant.
     Punctuation,
+    /// The other variant.
     Other,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for sentence.
 pub struct Sentence {
+    /// Text content for this value.
     pub text: String,
+    /// The span value.
     pub span: TextSpan,
+    /// The token count value.
     pub token_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for paragraph.
 pub struct Paragraph {
+    /// Text content for this value.
     pub text: String,
+    /// The span value.
     pub span: TextSpan,
+    /// The sentence count value.
     pub sentence_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for canonical token.
 pub struct CanonicalToken {
+    /// Identifier for this value.
     pub id: AnnotationId,
+    /// The span value.
     pub span: TextSpanRef,
+    /// Text content for this value.
     pub text: String,
+    /// The normalized value.
     pub normalized: String,
+    /// The kind value.
     pub kind: TokenKind,
+    /// The sentence identifier value.
     pub sentence_id: AnnotationId,
+    /// The paragraph identifier value.
     pub paragraph_id: Option<AnnotationId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for annotated sentence.
 pub struct AnnotatedSentence {
+    /// Identifier for this value.
     pub id: AnnotationId,
+    /// The span value.
     pub span: TextSpanRef,
+    /// Text content for this value.
     pub text: String,
+    /// The token start value.
     pub token_start: usize,
+    /// The token end value.
     pub token_end: usize,
+    /// The token identifiers value.
     pub token_ids: Vec<AnnotationId>,
+    /// The paragraph identifier value.
     pub paragraph_id: Option<AnnotationId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for annotated paragraph.
 pub struct AnnotatedParagraph {
+    /// Identifier for this value.
     pub id: AnnotationId,
+    /// The span value.
     pub span: TextSpanRef,
+    /// Text content for this value.
     pub text: String,
+    /// The sentence start value.
     pub sentence_start: usize,
+    /// The sentence end value.
     pub sentence_end: usize,
+    /// The sentence identifiers value.
     pub sentence_ids: Vec<AnnotationId>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for text annotation graph.
 pub struct TextAnnotationGraph {
+    /// Text content for this value.
     pub text: String,
+    /// The provenance value.
     pub provenance: AnnotationProvenance,
+    /// Confidence score for this value.
     pub confidence: AnnotationConfidence,
+    /// The tokens value.
     pub tokens: Vec<CanonicalToken>,
+    /// The sentences value.
     pub sentences: Vec<AnnotatedSentence>,
+    /// The paragraphs value.
     pub paragraphs: Vec<AnnotatedParagraph>,
 }
 
 impl TextAnnotationGraph {
+    /// Returns token.
     pub fn token(&self, id: AnnotationId) -> Option<&CanonicalToken> {
         self.tokens.iter().find(|token| token.id == id)
     }
 
+    /// Returns sentence.
     pub fn sentence(&self, id: AnnotationId) -> Option<&AnnotatedSentence> {
         self.sentences.iter().find(|sentence| sentence.id == id)
     }
 
+    /// Returns paragraph.
     pub fn paragraph(&self, id: AnnotationId) -> Option<&AnnotatedParagraph> {
         self.paragraphs.iter().find(|paragraph| paragraph.id == id)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for text processing options.
 pub struct TextProcessingOptions {
+    /// Language tag for this value.
     pub language: Option<String>,
+    /// The lowercase value.
     pub lowercase: bool,
+    /// The normalize unicode value.
     pub normalize_unicode: bool,
+    /// The keep apostrophes value.
     pub keep_apostrophes: bool,
+    /// The include punctuation value.
     pub include_punctuation: bool,
 }
 
@@ -357,15 +486,23 @@ impl Default for TextProcessingOptions {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for detailed text stats.
 pub struct DetailedTextStats {
+    /// The basic value.
     pub basic: TextStats,
+    /// The paragraphs value.
     pub paragraphs: usize,
+    /// The tokens value.
     pub tokens: usize,
+    /// The unique tokens value.
     pub unique_tokens: usize,
+    /// The average words per sentence value.
     pub average_words_per_sentence: f32,
+    /// The average chars per word value.
     pub average_chars_per_word: f32,
 }
 
+/// Returns text stats.
 pub fn text_stats(text: &str) -> TextStats {
     TextStats {
         bytes: text.len(),
@@ -376,10 +513,12 @@ pub fn text_stats(text: &str) -> TextStats {
     }
 }
 
+/// Returns normalize whitespace.
 pub fn normalize_whitespace(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// Returns normalize text.
 pub fn normalize_text(text: &str, options: &TextProcessingOptions) -> String {
     let normalized = if options.normalize_unicode {
         text.nfkc().collect::<String>()
@@ -393,6 +532,7 @@ pub fn normalize_text(text: &str, options: &TextProcessingOptions) -> String {
     }
 }
 
+/// Returns tokenize words.
 pub fn tokenize_words(text: &str) -> Vec<String> {
     let options = TextProcessingOptions::default();
     tokenize(text, &options)
@@ -412,6 +552,7 @@ pub fn tokenize_words(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// Returns word counts.
 pub fn word_counts(text: &str) -> BTreeMap<String, usize> {
     let mut counts = BTreeMap::new();
     for token in tokenize_words(text) {
@@ -420,6 +561,7 @@ pub fn word_counts(text: &str) -> BTreeMap<String, usize> {
     counts
 }
 
+/// Returns split sentences.
 pub fn split_sentences(text: &str) -> Vec<String> {
     split_sentence_spans(text, &TextProcessingOptions::default())
         .into_iter()
@@ -427,6 +569,7 @@ pub fn split_sentences(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// Returns segment words.
 pub fn segment_words(text: &str, options: &TextBoundaryOptions) -> Vec<WordSegment> {
     let processing = TextProcessingOptions {
         lowercase: options.lowercase,
@@ -477,6 +620,7 @@ pub fn segment_words(text: &str, options: &TextBoundaryOptions) -> Vec<WordSegme
     segments
 }
 
+/// Returns segment graphemes.
 pub fn segment_graphemes(text: &str) -> Vec<GraphemeSpan> {
     UnicodeSegmentation::grapheme_indices(text, true)
         .map(|(byte_start, grapheme)| {
@@ -489,6 +633,7 @@ pub fn segment_graphemes(text: &str) -> Vec<GraphemeSpan> {
         .collect()
 }
 
+/// Returns detect script profile.
 pub fn detect_script_profile(text: &str) -> ScriptProfile {
     let mut scripts = BTreeMap::<String, usize>::new();
     let mut digits = 0;
@@ -527,6 +672,7 @@ pub fn detect_script_profile(text: &str) -> ScriptProfile {
     }
 }
 
+/// Returns tokenize.
 pub fn tokenize(text: &str, options: &TextProcessingOptions) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut byte_index = 0;
@@ -595,6 +741,7 @@ pub fn tokenize(text: &str, options: &TextProcessingOptions) -> Vec<Token> {
     tokens
 }
 
+/// Returns split sentence spans.
 pub fn split_sentence_spans(text: &str, options: &TextProcessingOptions) -> Vec<Sentence> {
     let mut sentences = Vec::new();
     let mut start = 0;
@@ -626,6 +773,7 @@ pub fn split_sentence_spans(text: &str, options: &TextProcessingOptions) -> Vec<
     sentences
 }
 
+/// Returns split paragraphs.
 pub fn split_paragraphs(text: &str) -> Vec<Paragraph> {
     let mut paragraphs = Vec::new();
     let mut paragraph_start = None;
@@ -655,6 +803,7 @@ pub fn split_paragraphs(text: &str) -> Vec<Paragraph> {
     paragraphs
 }
 
+/// Builds annotation graph.
 pub fn build_annotation_graph(text: &str, options: &TextProcessingOptions) -> TextAnnotationGraph {
     let tokens = tokenize(text, options);
     let sentences = split_sentence_spans(text, options);
@@ -662,6 +811,7 @@ pub fn build_annotation_graph(text: &str, options: &TextProcessingOptions) -> Te
     build_annotation_graph_from_parts(text, &tokens, &sentences, &paragraphs)
 }
 
+/// Builds annotation graph from parts.
 pub fn build_annotation_graph_from_parts(
     text: &str,
     tokens: &[Token],
@@ -782,6 +932,7 @@ pub fn build_annotation_graph_from_parts(
     }
 }
 
+/// Returns detailed text stats.
 pub fn detailed_text_stats(text: &str, options: &TextProcessingOptions) -> DetailedTextStats {
     let basic = text_stats(text);
     let paragraphs = split_paragraphs(text).len();

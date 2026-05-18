@@ -16,44 +16,78 @@ use video_analysis_ingest::{
 };
 
 #[derive(Debug, Error)]
+/// Variants describing FFmpeg error.
 pub enum FfmpegError {
     #[error("ffprobe failed for `{input}`: {message}")]
-    ProbeFailed { input: String, message: String },
+    /// The probe failed variant.
+    ProbeFailed {
+        /// Input value that triggered this variant.
+        input: String,
+        /// Diagnostic message for this variant.
+        message: String,
+    },
     #[error("ffmpeg failed to start for `{input}`: {message}")]
-    StartFailed { input: String, message: String },
+    /// The start failed variant.
+    StartFailed {
+        /// Input value that triggered this variant.
+        input: String,
+        /// Diagnostic message for this variant.
+        message: String,
+    },
     #[error("missing or invalid video metadata: {0}")]
+    /// The invalid metadata variant.
     InvalidMetadata(String),
 }
 
 #[derive(Debug, Clone)]
+/// Data type for video metadata.
 pub struct VideoMetadata {
+    /// The input value.
     pub input: String,
+    /// Filesystem path for this value.
     pub path: Option<PathBuf>,
+    /// The mode value.
     pub mode: SourceMode,
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The frame rate value.
     pub frame_rate: Rational64,
+    /// Duration in seconds.
     pub duration_seconds: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
+/// Data type for audio metadata.
 pub struct AudioMetadata {
+    /// The input value.
     pub input: String,
+    /// Filesystem path for this value.
     pub path: Option<PathBuf>,
+    /// The mode value.
     pub mode: SourceMode,
+    /// Sample rate in hertz.
     pub sample_rate: u32,
+    /// Number of audio channels.
     pub channels: u16,
+    /// Duration in seconds.
     pub duration_seconds: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
+/// Data type for FFmpeg source options.
 pub struct FfmpegSourceOptions {
+    /// The mode value.
     pub mode: SourceMode,
+    /// The realtime value.
     pub realtime: bool,
+    /// The extra input args value.
     pub extra_input_args: Vec<String>,
 }
 
 impl FfmpegSourceOptions {
+    /// Returns recorded.
     pub fn recorded() -> Self {
         Self {
             mode: SourceMode::Recorded,
@@ -62,6 +96,7 @@ impl FfmpegSourceOptions {
         }
     }
 
+    /// Returns live.
     pub fn live() -> Self {
         Self {
             mode: SourceMode::Live,
@@ -70,6 +105,7 @@ impl FfmpegSourceOptions {
         }
     }
 
+    /// Returns extra input arg.
     pub fn extra_input_arg(mut self, arg: impl Into<String>) -> Self {
         self.extra_input_args.push(arg.into());
         self
@@ -77,14 +113,20 @@ impl FfmpegSourceOptions {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for FFmpeg audio source options.
 pub struct FfmpegAudioSourceOptions {
+    /// The mode value.
     pub mode: SourceMode,
+    /// The realtime value.
     pub realtime: bool,
+    /// The samples per chunk value.
     pub samples_per_chunk: usize,
+    /// The extra input args value.
     pub extra_input_args: Vec<String>,
 }
 
 impl FfmpegAudioSourceOptions {
+    /// Returns recorded.
     pub fn recorded() -> Self {
         Self {
             mode: SourceMode::Recorded,
@@ -94,6 +136,7 @@ impl FfmpegAudioSourceOptions {
         }
     }
 
+    /// Returns live.
     pub fn live() -> Self {
         Self {
             mode: SourceMode::Live,
@@ -103,17 +146,20 @@ impl FfmpegAudioSourceOptions {
         }
     }
 
+    /// Returns samples per chunk.
     pub fn samples_per_chunk(mut self, samples: usize) -> Self {
         self.samples_per_chunk = samples.max(1);
         self
     }
 
+    /// Returns extra input arg.
     pub fn extra_input_arg(mut self, arg: impl Into<String>) -> Self {
         self.extra_input_args.push(arg.into());
         self
     }
 }
 
+/// Data type for FFmpeg video source.
 pub struct FfmpegVideoSource {
     metadata: VideoMetadata,
     source_info: MediaSourceInfo,
@@ -124,10 +170,12 @@ pub struct FfmpegVideoSource {
 }
 
 impl FfmpegVideoSource {
+    /// Returns open.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         Self::open_path_with_options(path, FfmpegSourceOptions::recorded())
     }
 
+    /// Returns open path with options.
     pub fn open_path_with_options(
         path: impl AsRef<Path>,
         options: FfmpegSourceOptions,
@@ -139,14 +187,17 @@ impl FfmpegVideoSource {
         Self::spawn(input, metadata, options)
     }
 
+    /// Returns open input.
     pub fn open_input(input: impl Into<String>) -> Result<Self> {
         Self::open_input_with_options(input, FfmpegSourceOptions::recorded())
     }
 
+    /// Returns open live.
     pub fn open_live(input: impl Into<String>) -> Result<Self> {
         Self::open_input_with_options(input, FfmpegSourceOptions::live())
     }
 
+    /// Returns open input with options.
     pub fn open_input_with_options(
         input: impl Into<String>,
         options: FfmpegSourceOptions,
@@ -222,10 +273,12 @@ impl FfmpegVideoSource {
         })
     }
 
+    /// Returns metadata.
     pub fn metadata(&self) -> &VideoMetadata {
         &self.metadata
     }
 
+    /// Returns source info.
     pub fn source_info(&self) -> &MediaSourceInfo {
         &self.source_info
     }
@@ -298,6 +351,7 @@ impl MediaSource for FfmpegVideoSource {
     }
 }
 
+/// Data type for FFmpeg audio source.
 pub struct FfmpegAudioSource {
     metadata: AudioMetadata,
     source_info: MediaSourceInfo,
@@ -308,10 +362,12 @@ pub struct FfmpegAudioSource {
 }
 
 impl FfmpegAudioSource {
+    /// Returns open.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         Self::open_path_with_options(path, FfmpegAudioSourceOptions::recorded())
     }
 
+    /// Returns open path with options.
     pub fn open_path_with_options(
         path: impl AsRef<Path>,
         options: FfmpegAudioSourceOptions,
@@ -323,14 +379,17 @@ impl FfmpegAudioSource {
         Self::spawn(input, metadata, options)
     }
 
+    /// Returns open input.
     pub fn open_input(input: impl Into<String>) -> Result<Self> {
         Self::open_input_with_options(input, FfmpegAudioSourceOptions::recorded())
     }
 
+    /// Returns open live.
     pub fn open_live(input: impl Into<String>) -> Result<Self> {
         Self::open_input_with_options(input, FfmpegAudioSourceOptions::live())
     }
 
+    /// Returns open input with options.
     pub fn open_input_with_options(
         input: impl Into<String>,
         options: FfmpegAudioSourceOptions,
@@ -406,10 +465,12 @@ impl FfmpegAudioSource {
         })
     }
 
+    /// Returns metadata.
     pub fn metadata(&self) -> &AudioMetadata {
         &self.metadata
     }
 
+    /// Returns source info.
     pub fn source_info(&self) -> &MediaSourceInfo {
         &self.source_info
     }
@@ -481,20 +542,24 @@ impl MediaSource for FfmpegAudioSource {
     }
 }
 
+/// Returns probe.
 pub fn probe(path: impl AsRef<Path>) -> std::result::Result<VideoMetadata, FfmpegError> {
     let path = path.as_ref().to_path_buf();
     probe_path_with_mode(path, SourceMode::Recorded)
 }
 
+/// Returns probe input.
 pub fn probe_input(input: impl AsRef<str>) -> std::result::Result<VideoMetadata, FfmpegError> {
     probe_input_with_mode(input.as_ref(), None, SourceMode::Recorded)
 }
 
+/// Returns probe audio.
 pub fn probe_audio(path: impl AsRef<Path>) -> std::result::Result<AudioMetadata, FfmpegError> {
     let path = path.as_ref().to_path_buf();
     probe_audio_path_with_mode(path, SourceMode::Recorded)
 }
 
+/// Returns probe audio input.
 pub fn probe_audio_input(
     input: impl AsRef<str>,
 ) -> std::result::Result<AudioMetadata, FfmpegError> {
@@ -608,6 +673,7 @@ fn probe_input_with_mode(
     })
 }
 
+/// Returns whether is FFmpeg available.
 pub fn is_ffmpeg_available() -> bool {
     Command::new("ffmpeg")
         .arg("-version")
@@ -618,6 +684,7 @@ pub fn is_ffmpeg_available() -> bool {
         .unwrap_or(false)
 }
 
+/// Returns whether is ffprobe available.
 pub fn is_ffprobe_available() -> bool {
     Command::new("ffprobe")
         .arg("-version")
@@ -628,6 +695,7 @@ pub fn is_ffprobe_available() -> bool {
         .unwrap_or(false)
 }
 
+/// Returns extract wav.
 pub fn extract_wav(
     media_path: impl AsRef<Path>,
     output_path: impl AsRef<Path>,
@@ -667,6 +735,7 @@ pub fn extract_wav(
 }
 
 #[cfg(feature = "test-utils")]
+/// Writes two scene test video.
 pub fn write_two_scene_test_video(path: impl AsRef<Path>) -> Result<()> {
     let path = path.as_ref();
     let status = Command::new("ffmpeg")
@@ -697,6 +766,7 @@ pub fn write_two_scene_test_video(path: impl AsRef<Path>) -> Result<()> {
 }
 
 #[cfg(feature = "test-utils")]
+/// Writes test audio.
 pub fn write_test_audio(path: impl AsRef<Path>) -> Result<()> {
     let path = path.as_ref();
     let status = Command::new("ffmpeg")
@@ -754,6 +824,7 @@ fn parse_rate(value: &str) -> std::result::Result<Rational64, FfmpegError> {
     Ok(Rational64::new(num, den))
 }
 
+/// Returns ensure parent dir.
 pub fn ensure_parent_dir(path: &Path) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -761,6 +832,7 @@ pub fn ensure_parent_dir(path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Returns touch text.
 pub fn touch_text(path: &Path, text: &str) -> std::io::Result<()> {
     ensure_parent_dir(path)?;
     let mut file = std::fs::File::create(path)?;

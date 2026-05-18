@@ -10,66 +10,109 @@ use tensor_data::F32Tensor;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+/// Variants describing comfy data error.
 pub enum ComfyDataError {
     #[error("duplicate workflow node id `{0}`")]
+    /// The duplicate node identifier variant.
     DuplicateNodeId(WorkflowNodeId),
     #[error("duplicate workflow link id `{0}`")]
+    /// The duplicate link identifier variant.
     DuplicateLinkId(u64),
     #[error("workflow link `{link_id}` references missing {endpoint} node `{node_id}`")]
+    /// The missing link node variant.
     MissingLinkNode {
+        /// The link identifier value for this variant.
         link_id: u64,
+        /// The endpoint value for this variant.
         endpoint: &'static str,
+        /// The node identifier value for this variant.
         node_id: WorkflowNodeId,
     },
     #[error("workflow node `{node_id}` input `{input}` references missing link `{link_id}`")]
+    /// The missing input link variant.
     MissingInputLink {
+        /// The node identifier value for this variant.
         node_id: WorkflowNodeId,
+        /// Input value that triggered this variant.
         input: String,
+        /// The link identifier value for this variant.
         link_id: u64,
     },
     #[error("workflow node `{node_id}` output `{output}` references missing link `{link_id}`")]
+    /// The missing output link variant.
     MissingOutputLink {
+        /// The node identifier value for this variant.
         node_id: WorkflowNodeId,
+        /// The output value for this variant.
         output: String,
+        /// The link identifier value for this variant.
         link_id: u64,
     },
     #[error("invalid ComfyUI JSON: {0}")]
+    /// The JSON variant.
     Json(#[from] serde_json::Error),
     #[error("invalid conditioning schema: {0}")]
+    /// The invalid conditioning variant.
     InvalidConditioning(String),
 }
 
+/// Type alias for result.
 pub type Result<T> = std::result::Result<T, ComfyDataError>;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing comfy socket type.
 pub enum ComfySocketType {
+    /// The int variant.
     Int,
+    /// The float variant.
     Float,
+    /// The string variant.
     String,
+    /// The boolean variant.
     Boolean,
+    /// The combo variant.
     Combo,
+    /// The image variant.
     Image,
+    /// The mask variant.
     Mask,
+    /// The audio variant.
     Audio,
+    /// The video variant.
     Video,
+    /// The latent variant.
     Latent,
+    /// The model variant.
     Model,
+    /// The clip variant.
     Clip,
+    /// The clip vision variant.
     ClipVision,
+    /// The vae variant.
     Vae,
+    /// The conditioning variant.
     Conditioning,
+    /// The upscale model variant.
     UpscaleModel,
+    /// The model patch variant.
     ModelPatch,
+    /// The mesh variant.
     Mesh,
+    /// The noise variant.
     Noise,
+    /// The sampler variant.
     Sampler,
+    /// The sigmas variant.
     Sigmas,
+    /// The guider variant.
     Guider,
+    /// The custom variant.
     Custom(String),
 }
 
 impl ComfySocketType {
+    /// Builds this value from socket type.
     pub fn from_socket_type(value: &str) -> Self {
         let normalized = value.trim();
         match normalized.to_ascii_uppercase().as_str() {
@@ -99,6 +142,7 @@ impl ComfySocketType {
         }
     }
 
+    /// Borrows this value as a str.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Int => "INT",
@@ -135,13 +179,18 @@ impl fmt::Display for ComfySocketType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// Data type for workflow type inventory.
 pub struct WorkflowTypeInventory {
+    /// The inputs value.
     pub inputs: BTreeSet<ComfySocketType>,
+    /// The outputs value.
     pub outputs: BTreeSet<ComfySocketType>,
+    /// The links value.
     pub links: BTreeSet<ComfySocketType>,
 }
 
 impl WorkflowTypeInventory {
+    /// Returns all.
     pub fn all(&self) -> BTreeSet<ComfySocketType> {
         self.inputs
             .iter()
@@ -151,27 +200,34 @@ impl WorkflowTypeInventory {
             .collect()
     }
 
+    /// Returns contains.
     pub fn contains(&self, socket_type: &ComfySocketType) -> bool {
         self.inputs.contains(socket_type)
             || self.outputs.contains(socket_type)
             || self.links.contains(socket_type)
     }
 
+    /// Returns whether is empty.
     pub fn is_empty(&self) -> bool {
         self.inputs.is_empty() && self.outputs.is_empty() && self.links.is_empty()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for conditioning item.
 pub struct ConditioningItem {
+    /// The embedding value.
     pub embedding: F32Tensor,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The pooled embedding value.
     pub pooled_embedding: Option<F32Tensor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    /// Metadata associated with this value.
     pub metadata: BTreeMap<String, Value>,
 }
 
 impl ConditioningItem {
+    /// Creates a new value.
     pub fn new(embedding: F32Tensor) -> Result<Self> {
         let item = Self {
             embedding,
@@ -182,12 +238,14 @@ impl ConditioningItem {
         Ok(item)
     }
 
+    /// Returns this value with pooled embedding.
     pub fn with_pooled_embedding(mut self, pooled_embedding: F32Tensor) -> Result<Self> {
         self.pooled_embedding = Some(pooled_embedding);
         self.validate()?;
         Ok(self)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         self.embedding
             .validate()
@@ -220,13 +278,17 @@ impl ConditioningItem {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for conditioning batch.
 pub struct ConditioningBatch {
+    /// The items value.
     pub items: Vec<ConditioningItem>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    /// Metadata associated with this value.
     pub metadata: BTreeMap<String, Value>,
 }
 
 impl ConditioningBatch {
+    /// Creates a new value.
     pub fn new(items: Vec<ConditioningItem>) -> Result<Self> {
         let batch = Self {
             items,
@@ -236,6 +298,7 @@ impl ConditioningBatch {
         Ok(batch)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.items.is_empty() {
             return Err(ComfyDataError::InvalidConditioning(
@@ -251,8 +314,11 @@ impl ConditioningBatch {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
+/// Variants describing workflow node identifier.
 pub enum WorkflowNodeId {
+    /// The number variant.
     Number(u64),
+    /// The string variant.
     String(String),
 }
 
@@ -284,42 +350,57 @@ impl From<&str> for WorkflowNodeId {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+/// Data type for comfy workflow.
 pub struct ComfyWorkflow {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The version value.
     pub version: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The state value.
     pub state: Option<Value>,
     #[serde(default)]
+    /// The nodes value.
     pub nodes: Vec<WorkflowNode>,
     #[serde(default)]
+    /// The links value.
     pub links: Vec<WorkflowLink>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// The groups value.
     pub groups: Vec<WorkflowGroup>,
     #[serde(default, skip_serializing_if = "Map::is_empty")]
+    /// The config value.
     pub config: Map<String, Value>,
     #[serde(default, skip_serializing_if = "Map::is_empty")]
+    /// The extra value.
     pub extra: Map<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The last node identifier value.
     pub last_node_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The last link identifier value.
     pub last_link_id: Option<u64>,
     #[serde(flatten)]
+    /// The extensions value.
     pub extensions: BTreeMap<String, Value>,
 }
 
 impl ComfyWorkflow {
+    /// Builds this value from reader.
     pub fn from_reader(reader: impl Read) -> Result<Self> {
         Ok(serde_json::from_reader(reader)?)
     }
 
+    /// Builds this value from JSON str.
     pub fn from_json_str(input: &str) -> Result<Self> {
         Ok(serde_json::from_str(input)?)
     }
 
+    /// Writes pretty.
     pub fn write_pretty(&self, writer: impl Write) -> Result<()> {
         Ok(serde_json::to_writer_pretty(writer, self)?)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         let mut node_ids = BTreeSet::new();
         for node in &self.nodes {
@@ -376,6 +457,7 @@ impl ComfyWorkflow {
         Ok(())
     }
 
+    /// Returns observed socket types.
     pub fn observed_socket_types(&self) -> WorkflowTypeInventory {
         let mut inventory = WorkflowTypeInventory::default();
         for node in &self.nodes {
@@ -400,33 +482,47 @@ impl ComfyWorkflow {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for workflow node.
 pub struct WorkflowNode {
+    /// Identifier for this value.
     pub id: WorkflowNodeId,
     #[serde(rename = "type")]
+    /// The node type value.
     pub node_type: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The pos value.
     pub pos: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The size value.
     pub size: Option<Value>,
     #[serde(default, skip_serializing_if = "Map::is_empty")]
+    /// The flags value.
     pub flags: Map<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The order value.
     pub order: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The mode value.
     pub mode: Option<i64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// The inputs value.
     pub inputs: Vec<WorkflowInput>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// The outputs value.
     pub outputs: Vec<WorkflowOutput>,
     #[serde(default, skip_serializing_if = "Map::is_empty")]
+    /// The properties value.
     pub properties: Map<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// The widgets values value.
     pub widgets_values: Vec<Value>,
     #[serde(flatten)]
+    /// The extensions value.
     pub extensions: BTreeMap<String, Value>,
 }
 
 impl WorkflowNode {
+    /// Creates a new value.
     pub fn new(id: impl Into<WorkflowNodeId>, node_type: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -446,41 +542,60 @@ impl WorkflowNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for workflow input.
 pub struct WorkflowInput {
+    /// Human-readable name for this value.
     pub name: String,
     #[serde(rename = "type")]
+    /// The value type value.
     pub value_type: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The link value.
     pub link: Option<u64>,
     #[serde(flatten)]
+    /// The extensions value.
     pub extensions: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for workflow output.
 pub struct WorkflowOutput {
+    /// Human-readable name for this value.
     pub name: String,
     #[serde(rename = "type")]
+    /// The value type value.
     pub value_type: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The slot index value.
     pub slot_index: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// The links value.
     pub links: Vec<u64>,
     #[serde(flatten)]
+    /// The extensions value.
     pub extensions: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(from = "WorkflowLinkTuple", into = "WorkflowLinkTuple")]
+/// Data type for workflow link.
 pub struct WorkflowLink {
+    /// Identifier for this value.
     pub id: u64,
+    /// The origin identifier value.
     pub origin_id: WorkflowNodeId,
+    /// The origin slot value.
     pub origin_slot: u64,
+    /// The target identifier value.
     pub target_id: WorkflowNodeId,
+    /// The target slot value.
     pub target_slot: u64,
+    /// The value type value.
     pub value_type: String,
 }
 
 impl WorkflowLink {
+    /// Creates a new value.
     pub fn new(
         id: u64,
         origin_id: impl Into<WorkflowNodeId>,
@@ -530,32 +645,45 @@ impl From<WorkflowLink> for WorkflowLinkTuple {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for workflow group.
 pub struct WorkflowGroup {
+    /// The title value.
     pub title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The bounding value.
     pub bounding: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The color value.
     pub color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The font size value.
     pub font_size: Option<u64>,
     #[serde(flatten)]
+    /// The extensions value.
     pub extensions: BTreeMap<String, Value>,
 }
 
+/// Type alias for prompt graph.
 pub type PromptGraph = BTreeMap<String, PromptNode>;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for prompt node.
 pub struct PromptNode {
+    /// The class type value.
     pub class_type: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    /// The inputs value.
     pub inputs: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The meta value.
     pub _meta: Option<Value>,
     #[serde(flatten)]
+    /// The extensions value.
     pub extensions: BTreeMap<String, Value>,
 }
 
 impl PromptNode {
+    /// Creates a new value.
     pub fn new(class_type: impl Into<String>) -> Self {
         Self {
             class_type: class_type.into(),
@@ -565,11 +693,13 @@ impl PromptNode {
         }
     }
 
+    /// Returns input.
     pub fn input(mut self, name: impl Into<String>, value: impl Into<Value>) -> Self {
         self.inputs.insert(name.into(), value.into());
         self
     }
 
+    /// Returns linked input.
     pub fn linked_input(
         self,
         name: impl Into<String>,
@@ -581,11 +711,15 @@ impl PromptNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for prompt link.
 pub struct PromptLink {
+    /// The node identifier value.
     pub node_id: String,
+    /// The output index value.
     pub output_index: u64,
 }
 
+/// Returns prompt link.
 pub fn prompt_link(node_id: impl Into<String>, output_index: u64) -> Value {
     Value::Array(vec![
         Value::String(node_id.into()),
@@ -593,6 +727,7 @@ pub fn prompt_link(node_id: impl Into<String>, output_index: u64) -> Value {
     ])
 }
 
+/// Parses parse prompt link.
 pub fn parse_prompt_link(value: &Value) -> Option<PromptLink> {
     let values = value.as_array()?;
     if values.len() != 2 {
@@ -608,14 +743,17 @@ pub fn parse_prompt_link(value: &Value) -> Option<PromptLink> {
     })
 }
 
+/// Returns prompt from reader.
 pub fn prompt_from_reader(reader: impl Read) -> Result<PromptGraph> {
     Ok(serde_json::from_reader(reader)?)
 }
 
+/// Returns prompt from JSON str.
 pub fn prompt_from_json_str(input: &str) -> Result<PromptGraph> {
     Ok(serde_json::from_str(input)?)
 }
 
+/// Writes prompt pretty.
 pub fn write_prompt_pretty(prompt: &PromptGraph, writer: impl Write) -> Result<()> {
     Ok(serde_json::to_writer_pretty(writer, prompt)?)
 }

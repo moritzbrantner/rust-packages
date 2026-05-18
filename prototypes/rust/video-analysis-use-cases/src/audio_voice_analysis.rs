@@ -1,3 +1,5 @@
+//! Internal module support for audio voice analysis.
+
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -34,12 +36,19 @@ const DEFAULT_NOTE_GAP_SECONDS: f64 = 0.08;
 const DEFAULT_NOTE_MIN_DURATION_SECONDS: f64 = 0.12;
 
 #[derive(Debug, Clone)]
+/// Data type for audio voice analysis request.
 pub struct AudioVoiceAnalysisRequest {
+    /// The input value.
     pub input: PathBuf,
+    /// The work dir value.
     pub work_dir: PathBuf,
+    /// The output value.
     pub output: Option<PathBuf>,
+    /// The transcription value.
     pub transcription: TranscriptionConfig,
+    /// The audio separation value.
     pub audio_separation: AudioSeparationConfig,
+    /// The require voice stem value.
     pub require_voice_stem: bool,
 }
 
@@ -65,18 +74,25 @@ impl Default for AudioVoiceAnalysisRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for audio voice analysis run request.
 pub struct AudioVoiceAnalysisRunRequest {
+    /// The input value.
     pub input: PathBuf,
+    /// The work dir value.
     pub work_dir: Option<PathBuf>,
     #[serde(default)]
+    /// The transcription value.
     pub transcription: TranscriptionConfig,
     #[serde(default = "default_audio_separation_config")]
+    /// The audio separation value.
     pub audio_separation: AudioSeparationConfig,
     #[serde(default)]
+    /// The require voice stem value.
     pub require_voice_stem: bool,
 }
 
 impl AudioVoiceAnalysisRunRequest {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         validate_local_file(&self.input)?;
         self.audio_separation.validate()?;
@@ -85,44 +101,71 @@ impl AudioVoiceAnalysisRunRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for audio source report.
 pub struct AudioSourceReport {
+    /// The local audio value.
     pub local_audio: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for audio voice analysis asset report.
 pub struct AudioVoiceAnalysisAssetReport {
+    /// The work dir value.
     pub work_dir: String,
+    /// The report path value.
     pub report_path: String,
+    /// The transcription audio value.
     pub transcription_audio: Option<String>,
+    /// The voice stem value.
     pub voice_stem: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for sung note report.
 pub struct SungNoteReport {
+    /// The start seconds value.
     pub start_seconds: f64,
+    /// The end seconds value.
     pub end_seconds: f64,
+    /// The frequency hz value.
     pub frequency_hz: f32,
+    /// The midi note value.
     pub midi_note: f32,
+    /// The note name value.
     pub note_name: String,
+    /// Confidence score for this value.
     pub confidence: f32,
+    /// The frames value.
     pub frames: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for audio voice analysis report.
 pub struct AudioVoiceAnalysisReport {
     #[serde(alias = "use_case")]
+    /// The workflow value.
     pub workflow: String,
+    /// The source value.
     pub source: AudioSourceReport,
+    /// The assets value.
     pub assets: AudioVoiceAnalysisAssetReport,
+    /// The capabilities value.
     pub capabilities: CapabilityReport,
+    /// The voice source value.
     pub voice_source: String,
+    /// The tempo BPM value.
     pub tempo_bpm: Option<f32>,
+    /// The tempo confidence value.
     pub tempo_confidence: f32,
+    /// The sung notes value.
     pub sung_notes: Vec<SungNoteReport>,
+    /// The transcription value.
     pub transcription: TranscriptionReport,
+    /// The separation value.
     pub separation: Option<AudioSeparationReport>,
 }
 
+/// Runs audio voice analysis.
 pub fn run_audio_voice_analysis(
     args: AudioVoiceAnalysisRequest,
 ) -> Result<AudioVoiceAnalysisReport> {
@@ -214,6 +257,7 @@ pub fn run_audio_voice_analysis(
     })
 }
 
+/// Runs audio voice analysis workflow.
 pub fn run_audio_voice_analysis_workflow(
     request: AudioVoiceAnalysisRunRequest,
     work_dir: PathBuf,
@@ -232,6 +276,7 @@ pub fn run_audio_voice_analysis_workflow(
     Ok(report)
 }
 
+/// Writes audio voice analysis report.
 pub fn write_audio_voice_analysis_report(
     path: &Path,
     report: &AudioVoiceAnalysisReport,

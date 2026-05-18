@@ -12,58 +12,88 @@ use thiserror::Error;
 use vector_analysis_index::SerializableVectorRecord;
 
 #[derive(Debug, Error)]
+/// Variants describing storage error.
 pub enum StorageError {
     #[error("I/O error: {0}")]
+    /// The I/O variant.
     Io(#[from] std::io::Error),
     #[error("JSON error: {0}")]
+    /// The JSON variant.
     Json(String),
     #[error("invalid manifest: {0}")]
+    /// The invalid manifest variant.
     InvalidManifest(String),
     #[error("invalid retrieval state: {0}")]
+    /// The invalid state variant.
     InvalidState(String),
 }
 
+/// Type alias for result.
 pub type Result<T> = std::result::Result<T, StorageError>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for retrieval file.
 pub struct RetrievalFile {
+    /// Filesystem path for this value.
     pub path: String,
+    /// The records value.
     pub records: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for retrieval manifest.
 pub struct RetrievalManifest {
+    /// The schema version value.
     pub schema_version: u32,
+    /// The chunk count value.
     pub chunk_count: u64,
+    /// The vector count value.
     pub vector_count: u64,
+    /// The dimensions value.
     pub dimensions: Option<usize>,
+    /// The embedder value.
     pub embedder: EmbeddingModelInfo,
+    /// The chunks file value.
     pub chunks_file: RetrievalFile,
+    /// The vectors file value.
     pub vectors_file: RetrievalFile,
+    /// The corpus file value.
     pub corpus_file: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for persisted corpus metadata.
 pub struct PersistedCorpusMetadata {
+    /// The corpus options value.
     pub corpus_options: text_analysis_corpus::CorpusOptions,
+    /// The bm25 options value.
     pub bm25_options: text_analysis_corpus::Bm25Options,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for persisted chunk record.
 pub struct PersistedChunkRecord {
+    /// The chunk value.
     pub chunk: DocumentChunk,
+    /// The raw text value.
     pub raw_text: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for persisted search index.
 pub struct PersistedSearchIndex {
+    /// The manifest value.
     pub manifest: RetrievalManifest,
+    /// The corpus value.
     pub corpus: PersistedCorpusMetadata,
+    /// The chunks value.
     pub chunks: Vec<PersistedChunkRecord>,
+    /// The vectors value.
     pub vectors: Vec<SerializableVectorRecord>,
 }
 
 impl PersistedSearchIndex {
+    /// Builds this value from index.
     pub fn from_index<B: TextEmbedderBackend>(index: &RetrievalIndex<B>) -> Self {
         let chunks = index
             .chunks_iter()
@@ -101,6 +131,7 @@ impl PersistedSearchIndex {
         }
     }
 
+    /// Returns save to path.
     pub fn save_to_path(&self, path: &Path) -> Result<()> {
         fs::create_dir_all(path)?;
         write_json(path.join("manifest.json"), &self.manifest)?;
@@ -110,6 +141,7 @@ impl PersistedSearchIndex {
         Ok(())
     }
 
+    /// Returns load from path.
     pub fn load_from_path(path: &Path) -> Result<Self> {
         let manifest = read_json::<RetrievalManifest>(path.join("manifest.json"))?;
         let corpus = read_json::<PersistedCorpusMetadata>(path.join(&manifest.corpus_file))?;
@@ -150,6 +182,7 @@ impl PersistedSearchIndex {
         })
     }
 
+    /// Consumes this value into an index.
     pub fn into_index<B: TextEmbedderBackend>(self, embedder: B) -> Result<RetrievalIndex<B>> {
         validate_embedder_compatibility(&self.manifest.embedder, &embedder.model_info())?;
         let raw_text_by_chunk_id = self
@@ -179,6 +212,7 @@ impl PersistedSearchIndex {
         .map_err(|err| StorageError::InvalidState(err.to_string()))
     }
 
+    /// Returns load with embedder.
     pub fn load_with_embedder<B: TextEmbedderBackend>(
         path: &Path,
         embedder: B,

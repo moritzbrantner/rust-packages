@@ -8,16 +8,24 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for tracked detection.
 pub struct TrackedDetection {
+    /// The kind value.
     pub kind: ObservationKind,
+    /// The region value.
     pub region: BoundingBox,
+    /// Label assigned to this value.
     pub label: Option<String>,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The track hint value.
     pub track_hint: Option<String>,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl TrackedDetection {
+    /// Creates a new value.
     pub fn new(region: BoundingBox) -> Self {
         Self {
             kind: ObservationKind::Object,
@@ -29,26 +37,31 @@ impl TrackedDetection {
         }
     }
 
+    /// Returns kind.
     pub fn kind(mut self, kind: ObservationKind) -> Self {
         self.kind = kind;
         self
     }
 
+    /// Returns label.
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
     }
 
+    /// Returns score.
     pub fn score(mut self, score: f32) -> Self {
         self.score = Some(score);
         self
     }
 
+    /// Returns track hint.
     pub fn track_hint(mut self, track_hint: impl Into<String>) -> Self {
         self.track_hint = Some(track_hint.into());
         self
     }
 
+    /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
@@ -56,23 +69,38 @@ impl TrackedDetection {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for object track.
 pub struct ObjectTrack {
+    /// Identifier for this value.
     pub id: String,
+    /// The kind value.
     pub kind: ObservationKind,
+    /// The region value.
     pub region: BoundingBox,
+    /// Label assigned to this value.
     pub label: Option<String>,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The first position value.
     pub first_position: FramePosition,
+    /// The last position value.
     pub last_position: FramePosition,
+    /// The age frames value.
     pub age_frames: u64,
+    /// The missed frames value.
     pub missed_frames: u64,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for tracking options.
 pub struct TrackingOptions {
+    /// The min IoU value.
     pub min_iou: f32,
+    /// The max missed frames value.
     pub max_missed_frames: u64,
+    /// The min score value.
     pub min_score: Option<f32>,
 }
 
@@ -87,6 +115,7 @@ impl Default for TrackingOptions {
 }
 
 impl TrackingOptions {
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.min_iou.is_finite() || !(0.0..=1.0).contains(&self.min_iou) {
             return Err(DetectError::InvalidArgument(
@@ -105,6 +134,7 @@ impl TrackingOptions {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for IoU tracker.
 pub struct IouTracker {
     options: TrackingOptions,
     tracks: BTreeMap<String, ObjectTrack>,
@@ -112,6 +142,7 @@ pub struct IouTracker {
 }
 
 impl IouTracker {
+    /// Creates a new value.
     pub fn new(options: TrackingOptions) -> Result<Self> {
         options.validate()?;
         Ok(Self {
@@ -121,14 +152,17 @@ impl IouTracker {
         })
     }
 
+    /// Returns options.
     pub fn options(&self) -> TrackingOptions {
         self.options
     }
 
+    /// Returns tracks.
     pub fn tracks(&self) -> impl Iterator<Item = &ObjectTrack> {
         self.tracks.values()
     }
 
+    /// Returns update.
     pub fn update(
         &mut self,
         position: FramePosition,
@@ -241,6 +275,7 @@ impl IouTracker {
         Ok(visible)
     }
 
+    /// Returns reset.
     pub fn reset(&mut self) {
         self.tracks.clear();
         self.next_id = 1;
@@ -253,10 +288,13 @@ impl IouTracker {
     }
 }
 
+/// Trait for object detection backend implementations.
 pub trait ObjectDetectionBackend {
+    /// Returns detect frame.
     fn detect_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<TrackedDetection>>;
 }
 
+/// Data type for object tracking analyzer.
 pub struct ObjectTrackingAnalyzer<B> {
     name: String,
     backend: B,
@@ -264,6 +302,7 @@ pub struct ObjectTrackingAnalyzer<B> {
 }
 
 impl<B> ObjectTrackingAnalyzer<B> {
+    /// Creates a new value.
     pub fn new(name: impl Into<String>, backend: B, options: TrackingOptions) -> Result<Self> {
         Ok(Self {
             name: name.into(),
@@ -272,18 +311,22 @@ impl<B> ObjectTrackingAnalyzer<B> {
         })
     }
 
+    /// Returns backend.
     pub fn backend(&self) -> &B {
         &self.backend
     }
 
+    /// Returns backend mut.
     pub fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
 
+    /// Returns tracker.
     pub fn tracker(&self) -> &IouTracker {
         &self.tracker
     }
 
+    /// Returns tracker mut.
     pub fn tracker_mut(&mut self) -> &mut IouTracker {
         &mut self.tracker
     }
@@ -304,6 +347,7 @@ impl<B: ObjectDetectionBackend> VideoAnalyzer for ObjectTrackingAnalyzer<B> {
     }
 }
 
+/// Returns bbox IoU.
 pub fn bbox_iou(left: BoundingBox, right: BoundingBox) -> f32 {
     let left_x1 = left.x.saturating_add(left.width);
     let left_y1 = left.y.saturating_add(left.height);

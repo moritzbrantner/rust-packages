@@ -11,25 +11,30 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for tensor shape.
 pub struct TensorShape {
     dims: Vec<usize>,
 }
 
 impl TensorShape {
+    /// Creates a new value.
     pub fn new(dims: impl Into<Vec<usize>>) -> Result<Self> {
         let shape = Self { dims: dims.into() };
         shape.validate()?;
         Ok(shape)
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> &[usize] {
         &self.dims
     }
 
+    /// Returns rank.
     pub fn rank(&self) -> usize {
         self.dims.len()
     }
 
+    /// Returns element count.
     pub fn element_count(&self) -> Result<usize> {
         self.dims.iter().try_fold(1_usize, |count, dimension| {
             count
@@ -38,6 +43,7 @@ impl TensorShape {
         })
     }
 
+    /// Returns reshape.
     pub fn reshape(&self, dims: impl Into<Vec<usize>>) -> Result<Self> {
         let reshaped = Self::new(dims)?;
         if reshaped.element_count()? != self.element_count()? {
@@ -67,6 +73,7 @@ impl TensorShape {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for f32 tensor.
 pub struct F32Tensor {
     shape: TensorShape,
     values: Vec<f32>,
@@ -75,6 +82,7 @@ pub struct F32Tensor {
 }
 
 impl F32Tensor {
+    /// Creates a new value.
     pub fn new(shape: TensorShape, values: Vec<f32>) -> Result<Self> {
         let tensor = Self {
             shape,
@@ -85,41 +93,50 @@ impl F32Tensor {
         Ok(tensor)
     }
 
+    /// Builds this value from dims.
     pub fn from_dims(dims: impl Into<Vec<usize>>, values: Vec<f32>) -> Result<Self> {
         Self::new(TensorShape::new(dims)?, values)
     }
 
+    /// Returns shape.
     pub fn shape(&self) -> &TensorShape {
         &self.shape
     }
 
+    /// Returns values.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
 
+    /// Consumes this value into a values.
     pub fn into_values(self) -> Vec<f32> {
         self.values
     }
 
+    /// Returns metadata.
     pub fn metadata(&self) -> &BTreeMap<String, Value> {
         &self.metadata
     }
 
+    /// Returns this value with metadata.
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<Value>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
 
+    /// Sets metadata.
     pub fn set_metadata(&mut self, key: impl Into<String>, value: impl Into<Value>) -> &mut Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
 
+    /// Returns reshape.
     pub fn reshape(mut self, dims: impl Into<Vec<usize>>) -> Result<Self> {
         self.shape = self.shape.reshape(dims)?;
         Ok(self)
     }
 
+    /// Borrows this value as a view.
     pub fn as_view(&self) -> F32TensorView<'_> {
         F32TensorView {
             shape: self.shape.clone(),
@@ -128,6 +145,7 @@ impl F32Tensor {
         }
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         let expected = self.shape.element_count()?;
         if expected != self.values.len() {
@@ -144,6 +162,7 @@ impl F32Tensor {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for f32 tensor view.
 pub struct F32TensorView<'a> {
     shape: TensorShape,
     values: &'a [f32],
@@ -151,6 +170,7 @@ pub struct F32TensorView<'a> {
 }
 
 impl<'a> F32TensorView<'a> {
+    /// Creates a new value.
     pub fn new(shape: TensorShape, values: &'a [f32]) -> Result<Self> {
         let view = Self {
             shape,
@@ -161,38 +181,46 @@ impl<'a> F32TensorView<'a> {
         Ok(view)
     }
 
+    /// Builds this value from dims.
     pub fn from_dims(dims: impl Into<Vec<usize>>, values: &'a [f32]) -> Result<Self> {
         Self::new(TensorShape::new(dims)?, values)
     }
 
+    /// Returns shape.
     pub fn shape(&self) -> &TensorShape {
         &self.shape
     }
 
+    /// Returns values.
     pub fn values(&self) -> &'a [f32] {
         self.values
     }
 
+    /// Returns metadata.
     pub fn metadata(&self) -> &BTreeMap<String, Value> {
         &self.metadata
     }
 
+    /// Returns this value with metadata.
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<Value>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
 
+    /// Returns reshape.
     pub fn reshape(mut self, dims: impl Into<Vec<usize>>) -> Result<Self> {
         self.shape = self.shape.reshape(dims)?;
         Ok(self)
     }
 
+    /// Consumes this value into an owned.
     pub fn into_owned(self) -> Result<F32Tensor> {
         let mut tensor = F32Tensor::new(self.shape, self.values.to_vec())?;
         tensor.metadata = self.metadata;
         Ok(tensor)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         let expected = self.shape.element_count()?;
         if expected != self.values.len() {

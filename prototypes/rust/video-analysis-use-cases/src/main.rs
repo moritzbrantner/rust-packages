@@ -1,3 +1,5 @@
+//! Internal module support for main.
+
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 

@@ -7,9 +7,11 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Data type for sample rate.
 pub struct SampleRate(pub u32);
 
 impl SampleRate {
+    /// Creates a new value.
     pub fn new(value: u32) -> Result<Self> {
         if value == 0 {
             return Err(DetectError::InvalidAudioFormat {
@@ -20,53 +22,69 @@ impl SampleRate {
         Ok(Self(value))
     }
 
+    /// Returns get.
     pub fn get(self) -> u32 {
         self.0
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for resample ratio.
 pub struct ResampleRatio {
+    /// The input value.
     pub input: SampleRate,
+    /// The output value.
     pub output: SampleRate,
 }
 
 impl ResampleRatio {
+    /// Creates a new value.
     pub fn new(input: SampleRate, output: SampleRate) -> Result<Self> {
         let ratio = Self { input, output };
         ratio.validate()?;
         Ok(ratio)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         SampleRate::new(self.input.get())?;
         SampleRate::new(self.output.get())?;
         Ok(())
     }
 
+    /// Borrows this value as a f64.
     pub fn as_f64(self) -> f64 {
         self.output.get() as f64 / self.input.get() as f64
     }
 
+    /// Returns source position for output.
     pub fn source_position_for_output(self, output_index: usize) -> f64 {
         output_index as f64 * self.input.get() as f64 / self.output.get() as f64
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing interpolation mode.
 pub enum InterpolationMode {
+    /// The nearest variant.
     Nearest,
+    /// The linear variant.
     Linear,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for resample spec.
 pub struct ResampleSpec {
+    /// The input value.
     pub input: SampleRate,
+    /// The output value.
     pub output: SampleRate,
+    /// The interpolation value.
     pub interpolation: InterpolationMode,
 }
 
 impl ResampleSpec {
+    /// Creates a new value.
     pub fn new(
         input: SampleRate,
         output: SampleRate,
@@ -81,11 +99,13 @@ impl ResampleSpec {
         Ok(spec)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         ResampleRatio::new(self.input, self.output)?;
         Ok(())
     }
 
+    /// Returns ratio.
     pub fn ratio(self) -> ResampleRatio {
         ResampleRatio {
             input: self.input,
@@ -95,14 +115,20 @@ impl ResampleSpec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing window function.
 pub enum WindowFunction {
+    /// The rectangular variant.
     Rectangular,
+    /// The hann variant.
     Hann,
+    /// The hamming variant.
     Hamming,
+    /// The blackman variant.
     Blackman,
 }
 
 impl WindowFunction {
+    /// Returns coefficient.
     pub fn coefficient(self, index: usize, len: usize) -> f32 {
         if len <= 1 {
             return 1.0;
@@ -116,10 +142,12 @@ impl WindowFunction {
         }
     }
 
+    /// Returns weights.
     pub fn weights(self, len: usize) -> Vec<f32> {
         (0..len).map(|index| self.coefficient(index, len)).collect()
     }
 
+    /// Returns apply.
     pub fn apply(self, samples: &[f32]) -> Vec<f32> {
         samples
             .iter()
@@ -130,18 +158,23 @@ impl WindowFunction {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for window spec.
 pub struct WindowSpec {
+    /// The function value.
     pub function: WindowFunction,
+    /// The len value.
     pub len: usize,
 }
 
 impl WindowSpec {
+    /// Creates a new value.
     pub fn new(function: WindowFunction, len: usize) -> Result<Self> {
         let spec = Self { function, len };
         spec.validate()?;
         Ok(spec)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if self.len == 0 {
             return Err(invalid_argument("window length must be greater than zero"));
@@ -149,18 +182,23 @@ impl WindowSpec {
         Ok(())
     }
 
+    /// Returns weights.
     pub fn weights(self) -> Vec<f32> {
         self.function.weights(self.len)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for frame stride.
 pub struct FrameStride {
+    /// The frame size value.
     pub frame_size: usize,
+    /// The hop size value.
     pub hop_size: usize,
 }
 
 impl FrameStride {
+    /// Creates a new value.
     pub fn new(frame_size: usize, hop_size: usize) -> Result<Self> {
         if frame_size == 0 || hop_size == 0 {
             return Err(invalid_argument(
@@ -173,6 +211,7 @@ impl FrameStride {
         })
     }
 
+    /// Returns frame count.
     pub fn frame_count(self, samples_len: usize) -> usize {
         if samples_len < self.frame_size {
             return 0;
@@ -182,23 +221,35 @@ impl FrameStride {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing biquad design.
 pub enum BiquadDesign {
+    /// The low pass variant.
     LowPass,
+    /// The high pass variant.
     HighPass,
+    /// The band pass variant.
     BandPass,
+    /// The notch variant.
     Notch,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for biquad coefficients.
 pub struct BiquadCoefficients {
+    /// The b0 value.
     pub b0: f32,
+    /// The b1 value.
     pub b1: f32,
+    /// The b2 value.
     pub b2: f32,
+    /// The a1 value.
     pub a1: f32,
+    /// The a2 value.
     pub a2: f32,
 }
 
 impl BiquadCoefficients {
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if [self.b0, self.b1, self.b2, self.a1, self.a2]
             .iter()
@@ -211,6 +262,7 @@ impl BiquadCoefficients {
 }
 
 impl BiquadDesign {
+    /// Returns design.
     pub fn design(
         self,
         sample_rate: SampleRate,
@@ -270,11 +322,13 @@ impl BiquadDesign {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for fir kernel1d.
 pub struct FirKernel1d {
     values: Vec<f32>,
 }
 
 impl FirKernel1d {
+    /// Creates a new value.
     pub fn new(values: impl Into<Vec<f32>>) -> Result<Self> {
         let kernel = Self {
             values: values.into(),
@@ -283,10 +337,12 @@ impl FirKernel1d {
         Ok(kernel)
     }
 
+    /// Returns values.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.values.is_empty() {
             return Err(invalid_argument("FIR kernel must not be empty"));
@@ -298,6 +354,7 @@ impl FirKernel1d {
     }
 }
 
+/// Returns interpolate at.
 pub fn interpolate_at(samples: &[f32], position: f64, mode: InterpolationMode) -> Result<f32> {
     if samples.is_empty() {
         return Err(invalid_argument("samples must not be empty"));
@@ -324,6 +381,7 @@ pub fn interpolate_at(samples: &[f32], position: f64, mode: InterpolationMode) -
     })
 }
 
+/// Returns resample indices.
 pub fn resample_indices(spec: ResampleSpec, output_len: usize) -> Result<Vec<f64>> {
     spec.validate()?;
     Ok((0..output_len)
@@ -331,6 +389,7 @@ pub fn resample_indices(spec: ResampleSpec, output_len: usize) -> Result<Vec<f64
         .collect())
 }
 
+/// Returns FFT bin frequency.
 pub fn fft_bin_frequency(bin: usize, fft_size: usize, sample_rate: SampleRate) -> Result<f32> {
     if fft_size == 0 {
         return Err(invalid_argument("fft_size must be greater than zero"));
@@ -341,6 +400,7 @@ pub fn fft_bin_frequency(bin: usize, fft_size: usize, sample_rate: SampleRate) -
     Ok(bin as f32 * sample_rate.get() as f32 / fft_size as f32)
 }
 
+/// Returns frequency to FFT bin.
 pub fn frequency_to_fft_bin(
     frequency_hz: f32,
     fft_size: usize,

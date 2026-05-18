@@ -9,6 +9,7 @@ use std::process::{Command, Stdio};
 use audio_analysis_core::OwnedAudioWaveformBatch;
 use audio_analysis_io::write_waveform_batch_as_wav;
 use serde::Deserialize;
+/// Re-exports the text analysis whisper cpp API.
 pub use text_analysis_whisper_cpp::{
     transcription_catalog as whisper_cpp_catalog, whisper_cpp_system_info,
     ModelStore as WhisperCppModelStore, WhisperCppCatalog, WhisperCppConfig, WhisperCppModel,
@@ -22,45 +23,69 @@ use video_analysis_ingest::{
 };
 
 #[derive(Debug, Error)]
+/// Variants describing transcription error.
 pub enum TranscriptionError {
     #[error("I/O error: {0}")]
+    /// The I/O variant.
     Io(#[from] std::io::Error),
     #[error("invalid transcript JSON: {0}")]
+    /// The JSON variant.
     Json(#[from] serde_json::Error),
     #[error("invalid transcript: {0}")]
+    /// The invalid transcript variant.
     InvalidTranscript(String),
     #[error("transcriber command `{0}` failed")]
+    /// The command failed variant.
     CommandFailed(String),
     #[error("{0}")]
+    /// The detect variant.
     Detect(#[from] video_analysis_core::DetectError),
     #[error("{0}")]
+    /// The whisper cpp variant.
     WhisperCpp(#[from] text_analysis_whisper_cpp::WhisperCppError),
 }
 
+/// Type alias for result.
 pub type Result<T> = std::result::Result<T, TranscriptionError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing transcript format.
 pub enum TranscriptFormat {
+    /// The plain variant.
     Plain,
+    /// The lines variant.
     Lines,
+    /// The whisper JSON variant.
     WhisperJson,
+    /// The srt variant.
     Srt,
+    /// The web vtt variant.
     WebVtt,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for transcript segment.
 pub struct TranscriptSegment {
+    /// The index value.
     pub index: u64,
+    /// The start seconds value.
     pub start_seconds: Option<f64>,
+    /// The end seconds value.
     pub end_seconds: Option<f64>,
+    /// Text content for this value.
     pub text: String,
+    /// Language tag for this value.
     pub language: Option<String>,
+    /// The speaker value.
     pub speaker: Option<String>,
+    /// Confidence score for this value.
     pub confidence: Option<f32>,
+    /// The is final value.
     pub is_final: bool,
 }
 
 impl TranscriptSegment {
+    /// Returns metadata.
     pub fn metadata(&self) -> BTreeMap<String, String> {
         let mut metadata = BTreeMap::new();
         insert_optional(&mut metadata, "language", self.language.as_deref());
@@ -71,6 +96,7 @@ impl TranscriptSegment {
         metadata
     }
 
+    /// Returns metadata with source.
     pub fn metadata_with_source(&self, source: impl Into<String>) -> BTreeMap<String, String> {
         let mut metadata = self.metadata();
         let source = source.into();
@@ -82,18 +108,26 @@ impl TranscriptSegment {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for transcription result.
 pub struct TranscriptionResult {
+    /// Text content for this value.
     pub text: Option<String>,
+    /// Language tag for this value.
     pub language: Option<String>,
+    /// The segments value.
     pub segments: Vec<TranscriptSegment>,
+    /// The source value.
     pub source: Option<String>,
 }
 
+/// Trait for transcriber implementations.
 pub trait Transcriber {
+    /// Returns transcribe.
     fn transcribe(&mut self, input: &Path) -> Result<TranscriptionResult>;
 }
 
 #[derive(Debug, Clone)]
+/// Data type for command transcriber.
 pub struct CommandTranscriber {
     command: PathBuf,
     args: Vec<String>,
@@ -101,6 +135,7 @@ pub struct CommandTranscriber {
 }
 
 impl CommandTranscriber {
+    /// Creates a new value.
     pub fn new(command: impl Into<PathBuf>, format: TranscriptFormat) -> Self {
         Self {
             command: command.into(),
@@ -109,6 +144,7 @@ impl CommandTranscriber {
         }
     }
 
+    /// Returns args.
     pub fn args(mut self, args: impl IntoIterator<Item = String>) -> Self {
         self.args.extend(args);
         self
@@ -132,6 +168,7 @@ impl Transcriber for CommandTranscriber {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for whisper cli transcriber.
 pub struct WhisperCliTranscriber {
     command: PathBuf,
     args: Vec<String>,
@@ -139,6 +176,7 @@ pub struct WhisperCliTranscriber {
 }
 
 impl WhisperCliTranscriber {
+    /// Creates a new value.
     pub fn new(command: impl Into<PathBuf>) -> Self {
         Self {
             command: command.into(),
@@ -147,11 +185,13 @@ impl WhisperCliTranscriber {
         }
     }
 
+    /// Returns args.
     pub fn args(mut self, args: impl IntoIterator<Item = String>) -> Self {
         self.args.extend(args);
         self
     }
 
+    /// Returns output dir.
     pub fn output_dir(mut self, output_dir: impl Into<PathBuf>) -> Self {
         self.output_dir = Some(output_dir.into());
         self
@@ -195,22 +235,26 @@ impl Transcriber for WhisperCliTranscriber {
     }
 }
 
+/// Data type for whisper cpp transcriber.
 pub struct WhisperCppTranscriber {
     inner: NativeWhisperCppTranscriber,
 }
 
 impl WhisperCppTranscriber {
+    /// Creates a new value.
     pub fn new(config: WhisperCppConfig) -> Self {
         Self {
             inner: NativeWhisperCppTranscriber::new(config),
         }
     }
 
+    /// Returns this value with model store.
     pub fn with_model_store(mut self, store: WhisperCppModelStore) -> Self {
         self.inner = self.inner.with_model_store(store);
         self
     }
 
+    /// Returns on progress.
     pub fn on_progress<F>(mut self, callback: F) -> Self
     where
         F: FnMut(WhisperCppProgressEvent) + 'static,
@@ -219,6 +263,7 @@ impl WhisperCppTranscriber {
         self
     }
 
+    /// Returns transcribe with progress.
     pub fn transcribe_with_progress(
         &mut self,
         input: &Path,
@@ -260,6 +305,7 @@ fn whisper_cpp_result_to_transcription_result(
     }
 }
 
+/// Data type for transcript segment source.
 pub struct TranscriptSegmentSource {
     source_info: MediaSourceInfo,
     segments: Vec<TranscriptSegment>,
@@ -267,10 +313,12 @@ pub struct TranscriptSegmentSource {
 }
 
 impl TranscriptSegmentSource {
+    /// Returns recorded.
     pub fn recorded(input: impl Into<String>, segments: Vec<TranscriptSegment>) -> Self {
         Self::new(SourceMode::Recorded, input, segments)
     }
 
+    /// Returns live.
     pub fn live(input: impl Into<String>, segments: Vec<TranscriptSegment>) -> Self {
         Self::new(SourceMode::Live, input, segments)
     }
@@ -329,6 +377,7 @@ struct WhisperSegment {
     no_speech_prob: Option<f32>,
 }
 
+/// Parses parse whisper JSON.
 pub fn parse_whisper_json(bytes: &[u8]) -> Result<TranscriptionResult> {
     let parsed: WhisperOutput = serde_json::from_slice(bytes)?;
     let segments = parsed
@@ -354,14 +403,17 @@ pub fn parse_whisper_json(bytes: &[u8]) -> Result<TranscriptionResult> {
     })
 }
 
+/// Parses parse srt.
 pub fn parse_srt(text: &str) -> Result<TranscriptionResult> {
     parse_subtitle_blocks(text, TranscriptFormat::Srt)
 }
 
+/// Parses parse webvtt.
 pub fn parse_webvtt(text: &str) -> Result<TranscriptionResult> {
     parse_subtitle_blocks(text, TranscriptFormat::WebVtt)
 }
 
+/// Parses parse plain lines.
 pub fn parse_plain_lines(text: &str) -> TranscriptionResult {
     let segments = text
         .lines()
@@ -394,6 +446,7 @@ pub fn parse_plain_lines(text: &str) -> TranscriptionResult {
     }
 }
 
+/// Returns format srt.
 pub fn format_srt(segments: &[TranscriptSegment]) -> String {
     let mut output = String::new();
     for (index, segment) in segments.iter().enumerate() {
@@ -413,6 +466,7 @@ pub fn format_srt(segments: &[TranscriptSegment]) -> String {
     output
 }
 
+/// Writes srt.
 pub fn write_srt(path: impl AsRef<Path>, segments: &[TranscriptSegment]) -> Result<()> {
     let path = path.as_ref();
     if let Some(parent) = path.parent() {
@@ -422,6 +476,7 @@ pub fn write_srt(path: impl AsRef<Path>, segments: &[TranscriptSegment]) -> Resu
     Ok(())
 }
 
+/// Returns transcribe waveform batch.
 pub fn transcribe_waveform_batch<T: Transcriber>(
     transcriber: &mut T,
     batch: &OwnedAudioWaveformBatch,
@@ -431,6 +486,7 @@ pub fn transcribe_waveform_batch<T: Transcriber>(
     transcriber.transcribe(wav_path)
 }
 
+/// Returns format srt timestamp.
 pub fn format_srt_timestamp(seconds: f64) -> String {
     let total_millis = (seconds.max(0.0) * 1_000.0).round() as u64;
     let millis = total_millis % 1_000;
@@ -442,6 +498,7 @@ pub fn format_srt_timestamp(seconds: f64) -> String {
     format!("{hours:02}:{minutes:02}:{secs:02},{millis:03}")
 }
 
+/// Returns segment to owned text segment.
 pub fn segment_to_owned_text_segment(segment: &TranscriptSegment) -> OwnedTextSegment {
     let mut owned =
         OwnedTextSegment::new(segment.index, segment.text.clone()).finality(segment.is_final);

@@ -6,34 +6,50 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for onset strength.
 pub struct OnsetStrength {
+    /// The frame index value.
     pub frame_index: usize,
+    /// The start sample value.
     pub start_sample: usize,
+    /// The timestamp seconds value.
     pub timestamp_seconds: f64,
+    /// The energy value.
     pub energy: f32,
+    /// The strength value.
     pub strength: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing onset envelope strategy.
 pub enum OnsetEnvelopeStrategy {
     #[default]
+    /// The energy rise variant.
     EnergyRise,
+    /// The spectral flux like variant.
     SpectralFluxLike,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for onset.
 pub struct Onset {
+    /// The timestamp seconds value.
     pub timestamp_seconds: f64,
+    /// The strength value.
     pub strength: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for onset detector config.
 pub struct OnsetDetectorConfig {
+    /// The strength threshold value.
     pub strength_threshold: f32,
+    /// The min interval seconds value.
     pub min_interval_seconds: f64,
 }
 
 impl OnsetDetectorConfig {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if !self.strength_threshold.is_finite() || self.strength_threshold < 0.0 {
             return Err(DetectError::InvalidArgument(
@@ -59,14 +75,17 @@ impl Default for OnsetDetectorConfig {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for onset detector.
 pub struct OnsetDetector {
     name: String,
+    /// The config value.
     pub config: OnsetDetectorConfig,
     previous_energy: Option<f32>,
     last_onset_seconds: Option<f64>,
 }
 
 impl OnsetDetector {
+    /// Creates a new value.
     pub fn new(config: OnsetDetectorConfig) -> Result<Self> {
         config.validate()?;
         Ok(Self {
@@ -77,11 +96,13 @@ impl OnsetDetector {
         })
     }
 
+    /// Returns reset.
     pub fn reset(&mut self) {
         self.previous_energy = None;
         self.last_onset_seconds = None;
     }
 
+    /// Returns process energy.
     pub fn process_energy(&mut self, timestamp: Timestamp, energy: f32) -> Option<Onset> {
         let strength = (energy - self.previous_energy.unwrap_or(energy)).max(0.0);
         self.previous_energy = Some(energy);
@@ -127,12 +148,16 @@ impl AudioAnalyzer for OnsetDetector {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for tempo estimator config.
 pub struct TempoEstimatorConfig {
+    /// The min BPM value.
     pub min_bpm: f32,
+    /// The max BPM value.
     pub max_bpm: f32,
 }
 
 impl TempoEstimatorConfig {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if !self.min_bpm.is_finite()
             || !self.max_bpm.is_finite()
@@ -157,12 +182,17 @@ impl Default for TempoEstimatorConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for tempo estimate.
 pub struct TempoEstimate {
+    /// The BPM value.
     pub bpm: Option<f32>,
+    /// Confidence score for this value.
     pub confidence: f32,
+    /// The onset count value.
     pub onset_count: usize,
 }
 
+/// Returns onset envelope.
 pub fn onset_envelope(
     samples: &[f32],
     sample_rate: u32,
@@ -176,6 +206,7 @@ pub fn onset_envelope(
     )
 }
 
+/// Returns onset envelope with strategy.
 pub fn onset_envelope_with_strategy(
     samples: &[f32],
     sample_rate: u32,
@@ -219,6 +250,7 @@ pub fn onset_envelope_with_strategy(
         .collect())
 }
 
+/// Returns inter onset intervals.
 pub fn inter_onset_intervals(onsets: &[Onset]) -> Vec<f64> {
     onsets
         .windows(2)
@@ -227,6 +259,7 @@ pub fn inter_onset_intervals(onsets: &[Onset]) -> Vec<f64> {
         .collect()
 }
 
+/// Returns beat grid.
 pub fn beat_grid(start_seconds: f64, bpm: f32, beats: usize) -> Result<Vec<f64>> {
     if !start_seconds.is_finite() || start_seconds < 0.0 {
         return Err(DetectError::InvalidArgument(
@@ -244,6 +277,7 @@ pub fn beat_grid(start_seconds: f64, bpm: f32, beats: usize) -> Result<Vec<f64>>
         .collect())
 }
 
+/// Returns detect onsets.
 pub fn detect_onsets(
     envelope: &[OnsetStrength],
     config: OnsetDetectorConfig,
@@ -271,6 +305,7 @@ pub fn detect_onsets(
     Ok(onsets)
 }
 
+/// Returns estimate tempo.
 pub fn estimate_tempo(onsets: &[Onset], config: TempoEstimatorConfig) -> Result<TempoEstimate> {
     config.validate()?;
     if onsets.len() < 2 {
@@ -323,6 +358,7 @@ pub fn estimate_tempo(onsets: &[Onset], config: TempoEstimatorConfig) -> Result<
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for rhythm analyzer.
 pub struct RhythmAnalyzer {
     name: String,
     onset_detector: OnsetDetector,
@@ -331,6 +367,7 @@ pub struct RhythmAnalyzer {
 }
 
 impl RhythmAnalyzer {
+    /// Creates a new value.
     pub fn new(
         onset_config: OnsetDetectorConfig,
         tempo_config: TempoEstimatorConfig,
@@ -344,6 +381,7 @@ impl RhythmAnalyzer {
         })
     }
 
+    /// Returns onsets.
     pub fn onsets(&self) -> &[Onset] {
         &self.onsets
     }

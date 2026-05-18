@@ -11,30 +11,46 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for term frequency.
 pub struct TermFrequency {
+    /// The term value.
     pub term: String,
+    /// Number of items represented by this value.
     pub count: usize,
+    /// The frequency value.
     pub frequency: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for text feature summary.
 pub struct TextFeatureSummary {
+    /// The stats value.
     pub stats: TextStats,
+    /// The unique terms value.
     pub unique_terms: usize,
+    /// The lexical diversity value.
     pub lexical_diversity: f32,
+    /// The top terms value.
     pub top_terms: Vec<TermFrequency>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for stop words.
 pub struct StopWords {
+    /// Language tag for this value.
     pub language: Option<String>,
+    /// The terms value.
     pub terms: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for keyword options.
 pub struct KeywordOptions {
+    /// The max terms value.
     pub max_terms: usize,
+    /// The min term len value.
     pub min_term_len: usize,
+    /// The stop words value.
     pub stop_words: StopWords,
 }
 
@@ -49,39 +65,61 @@ impl Default for KeywordOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for keyword.
 pub struct Keyword {
+    /// Text content for this value.
     pub text: String,
+    /// Score assigned to this value.
     pub score: f32,
+    /// Number of items represented by this value.
     pub count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ngram frequency.
 pub struct NgramFrequency {
+    /// The terms value.
     pub terms: Vec<String>,
+    /// Number of items represented by this value.
     pub count: usize,
+    /// The frequency value.
     pub frequency: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for shingle similarity.
 pub struct ShingleSimilarity {
+    /// The left count value.
     pub left_count: usize,
+    /// The right count value.
     pub right_count: usize,
+    /// The intersection count value.
     pub intersection_count: usize,
+    /// The union count value.
     pub union_count: usize,
+    /// The jaccard value.
     pub jaccard: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for readability summary.
 pub struct ReadabilitySummary {
+    /// The sentence count value.
     pub sentence_count: usize,
+    /// The word count value.
     pub word_count: usize,
+    /// The average sentence words value.
     pub average_sentence_words: f32,
+    /// The average word chars value.
     pub average_word_chars: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for stem options.
 pub struct StemOptions {
+    /// The min term len value.
     pub min_term_len: usize,
+    /// The stop words value.
     pub stop_words: StopWords,
 }
 
@@ -98,9 +136,13 @@ impl Default for StemOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for extractive summary options.
 pub struct ExtractiveSummaryOptions {
+    /// The max sentences value.
     pub max_sentences: usize,
+    /// The min sentence words value.
     pub min_sentence_words: usize,
+    /// The stop words value.
     pub stop_words: StopWords,
 }
 
@@ -115,16 +157,24 @@ impl Default for ExtractiveSummaryOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for summary sentence.
 pub struct SummarySentence {
+    /// The index value.
     pub index: usize,
+    /// Text content for this value.
     pub text: String,
+    /// The span value.
     pub span: TextSpan,
+    /// Score assigned to this value.
     pub score: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for sentiment lexicon.
 pub struct SentimentLexicon {
+    /// The terms value.
     pub terms: BTreeMap<String, f32>,
+    /// The neutral threshold value.
     pub neutral_threshold: f32,
 }
 
@@ -166,22 +216,36 @@ impl Default for SentimentLexicon {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for sentiment summary.
 pub struct SentimentSummary {
+    /// The positive score value.
     pub positive_score: f32,
+    /// The negative score value.
     pub negative_score: f32,
+    /// The compound value.
     pub compound: f32,
+    /// The token count value.
     pub token_count: usize,
+    /// The matched terms value.
     pub matched_terms: usize,
+    /// Label assigned to this value.
     pub label: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for entity rule set.
 pub struct EntityRuleSet {
+    /// The emails value.
     pub emails: bool,
+    /// The URLs value.
     pub urls: bool,
+    /// The mentions value.
     pub mentions: bool,
+    /// The hashtags value.
     pub hashtags: bool,
+    /// The numbers value.
     pub numbers: bool,
+    /// The capitalized phrases value.
     pub capitalized_phrases: bool,
 }
 
@@ -199,18 +263,28 @@ impl Default for EntityRuleSet {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for entity mention.
 pub struct EntityMention {
+    /// The kind value.
     pub kind: String,
+    /// Text content for this value.
     pub text: String,
+    /// The normalized value.
     pub normalized: String,
+    /// The span value.
     pub span: TextSpan,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for text analysis options.
 pub struct TextAnalysisOptions {
+    /// The processing value.
     pub processing: TextProcessingOptions,
+    /// The keywords value.
     pub keywords: KeywordOptions,
+    /// The emit top terms value.
     pub emit_top_terms: usize,
+    /// The emit patterns value.
     pub emit_patterns: bool,
 }
 
@@ -225,6 +299,7 @@ impl Default for TextAnalysisOptions {
     }
 }
 
+/// Returns summarize text.
 pub fn summarize_text(text: &str, max_terms: usize) -> TextFeatureSummary {
     let stats = text_stats(text);
     let stop_words = english_stop_words();
@@ -243,6 +318,7 @@ pub fn summarize_text(text: &str, max_terms: usize) -> TextFeatureSummary {
     }
 }
 
+/// Returns term frequencies.
 pub fn term_frequencies(text: &str) -> Vec<TermFrequency> {
     let counts = word_counts(text);
     let total = counts.values().sum::<usize>().max(1) as f32;
@@ -263,6 +339,7 @@ pub fn term_frequencies(text: &str) -> Vec<TermFrequency> {
     terms
 }
 
+/// Returns top terms.
 pub fn top_terms(text: &str, limit: usize, stop_words: &BTreeSet<String>) -> Vec<TermFrequency> {
     term_frequencies(text)
         .into_iter()
@@ -271,6 +348,7 @@ pub fn top_terms(text: &str, limit: usize, stop_words: &BTreeSet<String>) -> Vec
         .collect()
 }
 
+/// Returns english stop words.
 pub fn english_stop_words() -> StopWords {
     let terms = [
         "a", "about", "after", "all", "also", "an", "and", "any", "are", "as", "at", "be",
@@ -289,6 +367,7 @@ pub fn english_stop_words() -> StopWords {
     }
 }
 
+/// Returns keywords.
 pub fn keywords(text: &str, options: &KeywordOptions) -> Vec<Keyword> {
     let processing = TextProcessingOptions::default();
     let mut counts = BTreeMap::<String, usize>::new();
@@ -328,6 +407,7 @@ pub fn keywords(text: &str, options: &KeywordOptions) -> Vec<Keyword> {
     terms
 }
 
+/// Returns character ngrams.
 pub fn character_ngrams(text: &str, n: usize) -> Result<Vec<String>> {
     if n == 0 {
         return Err(DetectError::InvalidArgument(
@@ -344,6 +424,7 @@ pub fn character_ngrams(text: &str, n: usize) -> Result<Vec<String>> {
         .collect())
 }
 
+/// Returns character ngram frequencies.
 pub fn character_ngram_frequencies(text: &str, n: usize) -> Result<Vec<NgramFrequency>> {
     let ngrams = character_ngrams(text, n)?;
     Ok(ngram_frequencies(
@@ -354,6 +435,7 @@ pub fn character_ngram_frequencies(text: &str, n: usize) -> Result<Vec<NgramFreq
     ))
 }
 
+/// Returns token ngrams.
 pub fn token_ngrams(text: &str, n: usize) -> Result<Vec<Vec<String>>> {
     if n == 0 {
         return Err(DetectError::InvalidArgument(
@@ -367,6 +449,7 @@ pub fn token_ngrams(text: &str, n: usize) -> Result<Vec<Vec<String>>> {
     Ok(tokens.windows(n).map(|window| window.to_vec()).collect())
 }
 
+/// Returns token ngram frequencies.
 pub fn token_ngram_frequencies(
     text: &str,
     n: usize,
@@ -392,10 +475,12 @@ pub fn token_ngram_frequencies(
     Ok(ngram_frequencies(ngrams))
 }
 
+/// Returns character shingles.
 pub fn character_shingles(text: &str, n: usize) -> Result<BTreeSet<String>> {
     Ok(character_ngrams(text, n)?.into_iter().collect())
 }
 
+/// Returns token shingles.
 pub fn token_shingles(
     text: &str,
     n: usize,
@@ -417,6 +502,7 @@ pub fn token_shingles(
     Ok(tokens.windows(n).map(|window| window.to_vec()).collect())
 }
 
+/// Returns shingle jaccard similarity.
 pub fn shingle_jaccard_similarity<T>(left: &BTreeSet<T>, right: &BTreeSet<T>) -> ShingleSimilarity
 where
     T: Ord,
@@ -437,6 +523,7 @@ where
     }
 }
 
+/// Returns character shingle similarity.
 pub fn character_shingle_similarity(
     text: &str,
     other: &str,
@@ -447,6 +534,7 @@ pub fn character_shingle_similarity(
     Ok(shingle_jaccard_similarity(&left, &right))
 }
 
+/// Returns token shingle similarity.
 pub fn token_shingle_similarity(
     text: &str,
     other: &str,
@@ -458,6 +546,7 @@ pub fn token_shingle_similarity(
     Ok(shingle_jaccard_similarity(&left, &right))
 }
 
+/// Returns readability summary.
 pub fn readability_summary(text: &str, options: &TextProcessingOptions) -> ReadabilitySummary {
     let stats = detailed_text_stats(text, options);
     ReadabilitySummary {
@@ -468,6 +557,7 @@ pub fn readability_summary(text: &str, options: &TextProcessingOptions) -> Reada
     }
 }
 
+/// Returns stem terms.
 pub fn stem_terms(text: &str, options: &StemOptions) -> Vec<String> {
     tokenize_words(text)
         .into_iter()
@@ -478,6 +568,7 @@ pub fn stem_terms(text: &str, options: &StemOptions) -> Vec<String> {
         .collect()
 }
 
+/// Returns extractive summary.
 pub fn extractive_summary(
     text: &str,
     options: &ExtractiveSummaryOptions,
@@ -538,6 +629,7 @@ pub fn extractive_summary(
     Ok(ranked)
 }
 
+/// Returns sentiment.
 pub fn sentiment(text: &str, lexicon: &SentimentLexicon) -> SentimentSummary {
     let mut positive_score = 0.0_f32;
     let mut negative_score = 0.0_f32;
@@ -578,6 +670,7 @@ pub fn sentiment(text: &str, lexicon: &SentimentLexicon) -> SentimentSummary {
     }
 }
 
+/// Returns rule entities.
 pub fn rule_entities(text: &str, rules: &EntityRuleSet) -> Vec<EntityMention> {
     let tokens = tokenize(text, &TextProcessingOptions::default());
     let mut mentions = Vec::new();
@@ -614,6 +707,7 @@ pub fn rule_entities(text: &str, rules: &EntityRuleSet) -> Vec<EntityMention> {
 }
 
 #[derive(Debug, Default, Clone)]
+/// Data type for text stats analyzer.
 pub struct TextStatsAnalyzer;
 
 impl TextAnalyzer for TextStatsAnalyzer {
@@ -630,11 +724,14 @@ impl TextAnalyzer for TextStatsAnalyzer {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Data type for keyword analyzer.
 pub struct KeywordAnalyzer {
+    /// The options value.
     pub options: KeywordOptions,
 }
 
 impl KeywordAnalyzer {
+    /// Creates a new value.
     pub fn new(options: KeywordOptions) -> Self {
         Self { options }
     }
@@ -661,6 +758,7 @@ impl TextAnalyzer for KeywordAnalyzer {
 }
 
 #[derive(Debug, Default, Clone)]
+/// Data type for pattern analyzer.
 pub struct PatternAnalyzer;
 
 impl TextAnalyzer for PatternAnalyzer {
@@ -682,6 +780,7 @@ impl TextAnalyzer for PatternAnalyzer {
 }
 
 #[derive(Debug, Default, Clone)]
+/// Data type for transcript heuristic analyzer.
 pub struct TranscriptHeuristicAnalyzer;
 
 impl TextAnalyzer for TranscriptHeuristicAnalyzer {
@@ -713,11 +812,14 @@ impl TextAnalyzer for TranscriptHeuristicAnalyzer {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Data type for extractive summary analyzer.
 pub struct ExtractiveSummaryAnalyzer {
+    /// The options value.
     pub options: ExtractiveSummaryOptions,
 }
 
 impl ExtractiveSummaryAnalyzer {
+    /// Creates a new value.
     pub fn new(options: ExtractiveSummaryOptions) -> Self {
         Self { options }
     }
@@ -744,11 +846,14 @@ impl TextAnalyzer for ExtractiveSummaryAnalyzer {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Data type for sentiment analyzer.
 pub struct SentimentAnalyzer {
+    /// The lexicon value.
     pub lexicon: SentimentLexicon,
 }
 
 impl SentimentAnalyzer {
+    /// Creates a new value.
     pub fn new(lexicon: SentimentLexicon) -> Self {
         Self { lexicon }
     }
@@ -771,11 +876,14 @@ impl TextAnalyzer for SentimentAnalyzer {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Data type for entity rule analyzer.
 pub struct EntityRuleAnalyzer {
+    /// The rules value.
     pub rules: EntityRuleSet,
 }
 
 impl EntityRuleAnalyzer {
+    /// Creates a new value.
     pub fn new(rules: EntityRuleSet) -> Self {
         Self { rules }
     }

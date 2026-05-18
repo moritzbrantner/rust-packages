@@ -21,22 +21,35 @@ use video_analysis_reconstruction::{
 };
 
 #[derive(Debug, Error)]
+/// Variants describing radiance I/O error.
 pub enum RadianceIoError {
     #[error("I/O error: {0}")]
+    /// The I/O variant.
     Io(#[from] std::io::Error),
     #[error("JSON error: {0}")]
+    /// The JSON variant.
     Json(#[from] serde_json::Error),
     #[error("parse error in {path}:{line}: {message}")]
+    /// The parse variant.
     Parse {
+        /// Filesystem path for this variant.
         path: String,
+        /// Line number associated with this variant.
         line: usize,
+        /// Diagnostic message for this variant.
         message: String,
     },
     #[error("unsupported camera model {model}")]
-    UnsupportedCameraModel { model: String },
+    /// The unsupported camera model variant.
+    UnsupportedCameraModel {
+        /// Model associated with this variant.
+        model: String,
+    },
     #[error("unsupported PLY format: {0}")]
+    /// The unsupported PLY variant.
     UnsupportedPly(String),
     #[error("invalid data: {0}")]
+    /// The invalid data variant.
     InvalidData(String),
 }
 
@@ -46,71 +59,115 @@ impl From<DetectError> for RadianceIoError {
     }
 }
 
+/// Type alias for I/O result.
 pub type IoResult<T> = std::result::Result<T, RadianceIoError>;
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for COLMAP dataset.
 pub struct ColmapDataset {
+    /// The cameras value.
     pub cameras: Vec<ColmapCamera>,
+    /// The images value.
     pub images: Vec<ColmapImage>,
+    /// The points value.
     pub points: Vec<ColmapPoint3d>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for COLMAP camera.
 pub struct ColmapCamera {
+    /// Identifier for this value.
     pub id: u32,
+    /// The model value.
     pub model: CameraModel,
+    /// The raw model value.
     pub raw_model: String,
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The params value.
     pub params: Vec<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for COLMAP image.
 pub struct ColmapImage {
+    /// Identifier for this value.
     pub id: u32,
+    /// The qw value.
     pub qw: f32,
+    /// The qx value.
     pub qx: f32,
+    /// The qy value.
     pub qy: f32,
+    /// The qz value.
     pub qz: f32,
+    /// The tx value.
     pub tx: f32,
+    /// The ty value.
     pub ty: f32,
+    /// The tz value.
     pub tz: f32,
+    /// The camera identifier value.
     pub camera_id: u32,
+    /// Human-readable name for this value.
     pub name: String,
+    /// The points2d value.
     pub points2d: Vec<ColmapPoint2d>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for COLMAP point2d.
 pub struct ColmapPoint2d {
+    /// The xy value.
     pub xy: Vec2,
+    /// The point3d identifier value.
     pub point3d_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for COLMAP point3d.
 pub struct ColmapPoint3d {
+    /// Identifier for this value.
     pub id: u64,
+    /// The xyz value.
     pub xyz: Vec3,
+    /// The color value.
     pub color: ColorRgb,
+    /// The error value.
     pub error: f32,
+    /// The track value.
     pub track: Vec<ColmapTrackElement>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for COLMAP track element.
 pub struct ColmapTrackElement {
+    /// The image identifier value.
     pub image_id: u32,
+    /// The point2d index value.
     pub point2d_index: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for COLMAP camera support.
 pub struct ColmapCameraSupport {
+    /// The camera identifier value.
     pub camera_id: u32,
+    /// The raw model value.
     pub raw_model: String,
+    /// The model value.
     pub model: CameraModel,
+    /// The supported for view conversion value.
     pub supported_for_view_conversion: bool,
+    /// The supported for reconstruction conversion value.
     pub supported_for_reconstruction_conversion: bool,
+    /// The reason value.
     pub reason: Option<String>,
 }
 
+/// Reads COLMAP text dir.
 pub fn read_colmap_text_dir(path: impl AsRef<Path>) -> IoResult<ColmapDataset> {
     let path = path.as_ref();
     Ok(ColmapDataset {
@@ -120,6 +177,7 @@ pub fn read_colmap_text_dir(path: impl AsRef<Path>) -> IoResult<ColmapDataset> {
     })
 }
 
+/// Returns inspect COLMAP camera support.
 pub fn inspect_colmap_camera_support(dataset: &ColmapDataset) -> Vec<ColmapCameraSupport> {
     dataset
         .cameras
@@ -155,6 +213,7 @@ pub fn inspect_colmap_camera_support(dataset: &ColmapDataset) -> Vec<ColmapCamer
         .collect()
 }
 
+/// Writes COLMAP text dir.
 pub fn write_colmap_text_dir(path: impl AsRef<Path>, dataset: &ColmapDataset) -> IoResult<()> {
     let path = path.as_ref();
     fs::create_dir_all(path)?;
@@ -164,6 +223,7 @@ pub fn write_colmap_text_dir(path: impl AsRef<Path>, dataset: &ColmapDataset) ->
     Ok(())
 }
 
+/// Returns COLMAP to view set.
 pub fn colmap_to_view_set(dataset: &ColmapDataset) -> IoResult<CameraViewSet> {
     let cameras = dataset
         .cameras
@@ -194,6 +254,7 @@ pub fn colmap_to_view_set(dataset: &ColmapDataset) -> IoResult<CameraViewSet> {
     Ok(view_set)
 }
 
+/// Returns COLMAP to sparse reconstruction.
 pub fn colmap_to_sparse_reconstruction(dataset: &ColmapDataset) -> IoResult<SparseReconstruction> {
     let view_set = colmap_to_view_set(dataset)?;
     let mut reconstruction = SparseReconstruction::new();
@@ -520,46 +581,66 @@ fn camera_model_from_colmap(model: &str) -> CameraModel {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for Nerfstudio transforms.
 pub struct NerfstudioTransforms {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The camera model value.
     pub camera_model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The fl x value.
     pub fl_x: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The fl y value.
     pub fl_y: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The cx value.
     pub cx: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The cy value.
     pub cy: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The w value.
     pub w: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The h value.
     pub h: Option<u32>,
+    /// The frames value.
     pub frames: Vec<NerfstudioFrame>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for Nerfstudio frame.
 pub struct NerfstudioFrame {
+    /// The file path value.
     pub file_path: String,
+    /// The transform matrix value.
     pub transform_matrix: [[f32; 4]; 4],
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The fl x value.
     pub fl_x: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The fl y value.
     pub fl_y: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The cx value.
     pub cx: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The cy value.
     pub cy: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The w value.
     pub w: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The h value.
     pub h: Option<u32>,
 }
 
+/// Reads Nerfstudio transforms.
 pub fn read_nerfstudio_transforms(path: impl AsRef<Path>) -> IoResult<NerfstudioTransforms> {
     Ok(serde_json::from_reader(BufReader::new(File::open(path)?))?)
 }
 
+/// Writes Nerfstudio transforms.
 pub fn write_nerfstudio_transforms(
     path: impl AsRef<Path>,
     value: &NerfstudioTransforms,
@@ -568,6 +649,7 @@ pub fn write_nerfstudio_transforms(
     Ok(())
 }
 
+/// Returns transforms to view set.
 pub fn transforms_to_view_set(value: &NerfstudioTransforms) -> IoResult<CameraViewSet> {
     let mut views = Vec::with_capacity(value.frames.len());
     for (index, frame) in value.frames.iter().enumerate() {
@@ -636,6 +718,7 @@ enum PlyScalarKind {
     UInt,
 }
 
+/// Reads gaussian splat PLY.
 pub fn read_gaussian_splat_ply(path: impl AsRef<Path>) -> IoResult<GaussianSplatScene> {
     let file = File::open(path)?;
     let mut reader = BufReader::new(file);
@@ -697,6 +780,7 @@ pub fn read_gaussian_splat_ply(path: impl AsRef<Path>) -> IoResult<GaussianSplat
     Ok(scene)
 }
 
+/// Writes gaussian splat PLY.
 pub fn write_gaussian_splat_ply(
     path: impl AsRef<Path>,
     scene: &GaussianSplatScene,
@@ -765,6 +849,7 @@ pub fn write_gaussian_splat_ply(
     Ok(())
 }
 
+/// Writes preview point cloud PLY.
 pub fn write_preview_point_cloud_ply(
     path: impl AsRef<Path>,
     scene: &GaussianSplatScene,

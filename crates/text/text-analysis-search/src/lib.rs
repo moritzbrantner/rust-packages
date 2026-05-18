@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use text_analysis_models::TextEmbedderBackend;
+/// Re-exports the text analysis retrieval API.
 pub use text_analysis_retrieval::{
     DocumentChunk, IngestReport, IngestionOptions, RetrievalIndex, SearchDocument,
 };
@@ -14,11 +15,17 @@ use text_analysis_retrieval::{
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Variants describing search mode.
 pub enum SearchMode {
+    /// The full text variant.
     FullText,
+    /// The semantic variant.
     Semantic,
+    /// The hybrid variant.
     Hybrid {
+        /// The semantic weight value for this variant.
         semantic_weight: f32,
+        /// The full text weight value for this variant.
         full_text_weight: f32,
     },
 }
@@ -33,17 +40,30 @@ impl Default for SearchMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Variants describing sort order.
 pub enum SortOrder {
+    /// The ascending variant.
     Ascending,
+    /// The descending variant.
     Descending,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Variants describing search sort.
 pub enum SearchSort {
+    /// The relevance variant.
     Relevance,
+    /// The document identifier variant.
     DocumentId(SortOrder),
+    /// The chunk identifier variant.
     ChunkId(SortOrder),
-    Metadata { key: String, order: SortOrder },
+    /// The metadata variant.
+    Metadata {
+        /// The key value for this variant.
+        key: String,
+        /// The order value for this variant.
+        order: SortOrder,
+    },
 }
 
 impl Default for SearchSort {
@@ -53,25 +73,39 @@ impl Default for SearchSort {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+/// Data type for search filter.
 pub struct SearchFilter {
+    /// The metadata equals value.
     pub metadata_equals: BTreeMap<String, String>,
+    /// The metadata contains value.
     pub metadata_contains: BTreeMap<String, String>,
+    /// The required tags value.
     pub required_tags: Vec<String>,
+    /// The document identifiers value.
     pub document_ids: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for search options.
 pub struct SearchOptions {
+    /// The query value.
     pub query: String,
+    /// The top k value.
     pub top_k: usize,
+    /// The mode value.
     pub mode: SearchMode,
+    /// The filter value.
     pub filter: Option<SearchFilter>,
+    /// The sort value.
     pub sort: SearchSort,
+    /// The facet fields value.
     pub facet_fields: Vec<String>,
+    /// The candidate limit value.
     pub candidate_limit: Option<usize>,
 }
 
 impl SearchOptions {
+    /// Creates a new value.
     pub fn new(query: impl Into<String>) -> Self {
         Self {
             query: query.into(),
@@ -84,31 +118,37 @@ impl SearchOptions {
         }
     }
 
+    /// Returns top k.
     pub fn top_k(mut self, top_k: usize) -> Self {
         self.top_k = top_k;
         self
     }
 
+    /// Returns mode.
     pub fn mode(mut self, mode: SearchMode) -> Self {
         self.mode = mode;
         self
     }
 
+    /// Returns filter.
     pub fn filter(mut self, filter: SearchFilter) -> Self {
         self.filter = Some(filter);
         self
     }
 
+    /// Returns sort.
     pub fn sort(mut self, sort: SearchSort) -> Self {
         self.sort = sort;
         self
     }
 
+    /// Returns facet field.
     pub fn facet_field(mut self, field: impl Into<String>) -> Self {
         self.facet_fields.push(field.into());
         self
     }
 
+    /// Returns candidate limit.
     pub fn candidate_limit(mut self, candidate_limit: usize) -> Self {
         self.candidate_limit = Some(candidate_limit);
         self
@@ -122,57 +162,79 @@ impl Default for SearchOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for search hit.
 pub struct SearchHit {
+    /// The chunk identifier value.
     pub chunk_id: String,
+    /// The document identifier value.
     pub document_id: String,
+    /// Score assigned to this value.
     pub score: f32,
+    /// The semantic score value.
     pub semantic_score: f32,
+    /// The full text score value.
     pub full_text_score: f32,
+    /// The snippet value.
     pub snippet: String,
+    /// Metadata associated with this value.
     pub metadata: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+/// Data type for search facets.
 pub struct SearchFacets {
+    /// Metadata associated with this value.
     pub metadata: BTreeMap<String, BTreeMap<String, usize>>,
+    /// The tags value.
     pub tags: BTreeMap<String, usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for search response.
 pub struct SearchResponse {
+    /// The hits value.
     pub hits: Vec<SearchHit>,
+    /// The total candidates value.
     pub total_candidates: usize,
+    /// The facets value.
     pub facets: SearchFacets,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for search engine.
 pub struct SearchEngine<B> {
     index: RetrievalIndex<B>,
 }
 
 impl<B: TextEmbedderBackend> SearchEngine<B> {
+    /// Creates a new value.
     pub fn new(embedder: B) -> Self {
         Self {
             index: RetrievalIndex::new(embedder),
         }
     }
 
+    /// Builds this value from retrieval index.
     pub fn from_retrieval_index(index: RetrievalIndex<B>) -> Self {
         Self { index }
     }
 
+    /// Returns index.
     pub fn index(&self) -> &RetrievalIndex<B> {
         &self.index
     }
 
+    /// Returns index mut.
     pub fn index_mut(&mut self) -> &mut RetrievalIndex<B> {
         &mut self.index
     }
 
+    /// Consumes this value into a retrieval index.
     pub fn into_retrieval_index(self) -> RetrievalIndex<B> {
         self.index
     }
 
+    /// Returns ingest documents.
     pub fn ingest_documents(
         &mut self,
         docs: &[SearchDocument],
@@ -181,6 +243,7 @@ impl<B: TextEmbedderBackend> SearchEngine<B> {
         self.index.ingest_documents(docs, options)
     }
 
+    /// Returns search.
     pub fn search(&self, options: &SearchOptions) -> Result<SearchResponse> {
         validate_options(options)?;
 
@@ -212,6 +275,7 @@ impl<B: TextEmbedderBackend> SearchEngine<B> {
         })
     }
 
+    /// Returns related.
     pub fn related(&self, chunk_id: &str, top_k: usize) -> Result<Vec<SearchHit>> {
         self.index
             .related_chunks(chunk_id, top_k)

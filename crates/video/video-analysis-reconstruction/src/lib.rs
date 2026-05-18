@@ -19,21 +19,28 @@ fn validate_finite(value: f32, name: &str) -> Result<()> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Data type for camera identifier.
 pub struct CameraId(pub u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Data type for image identifier.
 pub struct ImageId(pub u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Data type for point3d identifier.
 pub struct Point3dId(pub u64);
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for reconstruction camera.
 pub struct ReconstructionCamera {
+    /// Identifier for this value.
     pub id: CameraId,
+    /// The intrinsics value.
     pub intrinsics: CameraIntrinsics,
 }
 
 impl ReconstructionCamera {
+    /// Creates a new value.
     pub fn new(id: CameraId, intrinsics: CameraIntrinsics) -> Result<Self> {
         intrinsics.validate()?;
         Ok(Self { id, intrinsics })
@@ -41,13 +48,18 @@ impl ReconstructionCamera {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for feature2d.
 pub struct Feature2d {
+    /// The pixel value.
     pub pixel: Vec2,
+    /// The color value.
     pub color: Option<ColorRgb>,
+    /// Score assigned to this value.
     pub score: f32,
 }
 
 impl Feature2d {
+    /// Creates a new value.
     pub fn new(pixel: Vec2) -> Result<Self> {
         let feature = Self {
             pixel,
@@ -58,18 +70,21 @@ impl Feature2d {
         Ok(feature)
     }
 
+    /// Returns this value with color.
     pub fn with_color(mut self, color: ColorRgb) -> Result<Self> {
         self.color = Some(color);
         self.validate()?;
         Ok(self)
     }
 
+    /// Returns this value with score.
     pub fn with_score(mut self, score: f32) -> Result<Self> {
         self.score = score;
         self.validate()?;
         Ok(self)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.pixel.is_finite() {
             return Err(invalid_argument("feature pixel must be finite"));
@@ -90,12 +105,16 @@ impl Feature2d {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for binary feature.
 pub struct BinaryFeature {
+    /// The keypoint value.
     pub keypoint: Feature2d,
+    /// The descriptor value.
     pub descriptor: Vec<u8>,
 }
 
 impl BinaryFeature {
+    /// Creates a new value.
     pub fn new(keypoint: Feature2d, descriptor: impl Into<Vec<u8>>) -> Result<Self> {
         let feature = Self {
             keypoint,
@@ -105,6 +124,7 @@ impl BinaryFeature {
         Ok(feature)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         self.keypoint.validate()?;
         if self.descriptor.is_empty() {
@@ -115,14 +135,20 @@ impl BinaryFeature {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for feature match.
 pub struct FeatureMatch {
+    /// The left feature value.
     pub left_feature: usize,
+    /// The right feature value.
     pub right_feature: usize,
+    /// The distance value.
     pub distance: u32,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 impl FeatureMatch {
+    /// Creates a new value.
     pub fn new(
         left_feature: usize,
         right_feature: usize,
@@ -139,6 +165,7 @@ impl FeatureMatch {
         Ok(feature_match)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         validate_finite(self.confidence, "match confidence")?;
         if !(0.0..=1.0).contains(&self.confidence) {
@@ -151,13 +178,18 @@ impl FeatureMatch {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for match config.
 pub struct MatchConfig {
+    /// The max distance value.
     pub max_distance: u32,
+    /// The ratio value.
     pub ratio: f32,
+    /// The cross check value.
     pub cross_check: bool,
 }
 
 impl MatchConfig {
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         validate_finite(self.ratio, "ratio")?;
         if self.ratio <= 0.0 || self.ratio > 1.0 {
@@ -177,6 +209,7 @@ impl Default for MatchConfig {
     }
 }
 
+/// Returns hamming distance.
 pub fn hamming_distance(left: &[u8], right: &[u8]) -> Result<u32> {
     if left.len() != right.len() {
         return Err(invalid_argument(
@@ -193,6 +226,7 @@ pub fn hamming_distance(left: &[u8], right: &[u8]) -> Result<u32> {
         .sum())
 }
 
+/// Returns match binary features.
 pub fn match_binary_features(
     left: &[BinaryFeature],
     right: &[BinaryFeature],
@@ -280,12 +314,16 @@ fn nearest_binary_descriptor(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Data type for image feature key.
 pub struct ImageFeatureKey {
+    /// The image identifier value.
     pub image_id: ImageId,
+    /// The feature index value.
     pub feature_index: usize,
 }
 
 impl ImageFeatureKey {
+    /// Creates a new value.
     pub const fn new(image_id: ImageId, feature_index: usize) -> Self {
         Self {
             image_id,
@@ -295,13 +333,18 @@ impl ImageFeatureKey {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for image pair matches.
 pub struct ImagePairMatches {
+    /// The left image identifier value.
     pub left_image_id: ImageId,
+    /// The right image identifier value.
     pub right_image_id: ImageId,
+    /// The matches value.
     pub matches: Vec<FeatureMatch>,
 }
 
 impl ImagePairMatches {
+    /// Creates a new value.
     pub fn new(
         left_image_id: ImageId,
         right_image_id: ImageId,
@@ -316,6 +359,7 @@ impl ImagePairMatches {
         Ok(pair)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.left_image_id == self.right_image_id {
             return Err(invalid_argument("pair matches must reference two images"));
@@ -328,12 +372,16 @@ impl ImagePairMatches {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for track element.
 pub struct TrackElement {
+    /// The image identifier value.
     pub image_id: ImageId,
+    /// The feature index value.
     pub feature_index: usize,
 }
 
 impl TrackElement {
+    /// Creates a new value.
     pub const fn new(image_id: ImageId, feature_index: usize) -> Self {
         Self {
             image_id,
@@ -341,17 +389,21 @@ impl TrackElement {
         }
     }
 
+    /// Creates a new value.
     pub const fn key(&self) -> ImageFeatureKey {
         ImageFeatureKey::new(self.image_id, self.feature_index)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for track.
 pub struct Track {
+    /// The elements value.
     pub elements: Vec<TrackElement>,
 }
 
 impl Track {
+    /// Creates a new value.
     pub fn new(elements: impl Into<Vec<TrackElement>>) -> Result<Self> {
         let track = Self {
             elements: elements.into(),
@@ -360,6 +412,7 @@ impl Track {
         Ok(track)
     }
 
+    /// Builds this value from match.
     pub fn from_match(
         left_image_id: ImageId,
         right_image_id: ImageId,
@@ -372,6 +425,7 @@ impl Track {
         ])
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.elements.len() < 2 {
             return Err(invalid_argument("track must contain at least two elements"));
@@ -388,6 +442,7 @@ impl Track {
     }
 }
 
+/// Builds tracks.
 pub fn build_tracks(pair_matches: &[ImagePairMatches]) -> Result<Vec<Track>> {
     let mut indices = BTreeMap::new();
     for pair in pair_matches {
@@ -484,15 +539,22 @@ impl UnionFind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for reconstruction image.
 pub struct ReconstructionImage {
+    /// Identifier for this value.
     pub id: ImageId,
+    /// The camera identifier value.
     pub camera_id: CameraId,
+    /// Human-readable name for this value.
     pub name: String,
+    /// The pose value.
     pub pose: CameraPose,
+    /// The features value.
     pub features: Vec<Feature2d>,
 }
 
 impl ReconstructionImage {
+    /// Creates a new value.
     pub fn new(
         id: ImageId,
         camera_id: CameraId,
@@ -509,6 +571,7 @@ impl ReconstructionImage {
         })
     }
 
+    /// Adds add feature to this value.
     pub fn add_feature(&mut self, feature: Feature2d) -> Result<usize> {
         feature.validate()?;
         let index = self.features.len();
@@ -516,6 +579,7 @@ impl ReconstructionImage {
         Ok(index)
     }
 
+    /// Returns feature.
     pub fn feature(&self, index: usize) -> Result<Feature2d> {
         self.features.get(index).copied().ok_or_else(|| {
             invalid_argument(format!(
@@ -525,6 +589,7 @@ impl ReconstructionImage {
         })
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         self.pose.validate()?;
         for feature in &self.features {
@@ -535,15 +600,22 @@ impl ReconstructionImage {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for sparse point3d.
 pub struct SparsePoint3d {
+    /// Identifier for this value.
     pub id: Point3dId,
+    /// The position value.
     pub position: Vec3,
+    /// The color value.
     pub color: ColorRgb,
+    /// The track value.
     pub track: Track,
+    /// The reprojection error value.
     pub reprojection_error: f32,
 }
 
 impl SparsePoint3d {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if !self.position.is_finite() {
             return Err(invalid_argument("sparse point position must be finite"));
@@ -563,14 +635,20 @@ impl SparsePoint3d {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for triangulation config.
 pub struct TriangulationConfig {
+    /// The min angle radians value.
     pub min_angle_radians: f32,
+    /// The max reprojection error value.
     pub max_reprojection_error: f32,
+    /// The min depth value.
     pub min_depth: f32,
+    /// The max ray distance value.
     pub max_ray_distance: f32,
 }
 
 impl TriangulationConfig {
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         for (name, value) in [
             ("min_angle_radians", self.min_angle_radians),
@@ -614,14 +692,20 @@ impl Default for TriangulationConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for triangulated point.
 pub struct TriangulatedPoint {
+    /// The position value.
     pub position: Vec3,
+    /// The ray distance value.
     pub ray_distance: f32,
+    /// The angle radians value.
     pub angle_radians: f32,
+    /// The reprojection error value.
     pub reprojection_error: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for sparse reconstruction.
 pub struct SparseReconstruction {
     cameras: BTreeMap<CameraId, ReconstructionCamera>,
     images: BTreeMap<ImageId, ReconstructionImage>,
@@ -630,6 +714,7 @@ pub struct SparseReconstruction {
 }
 
 impl SparseReconstruction {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self {
             cameras: BTreeMap::new(),
@@ -639,18 +724,22 @@ impl SparseReconstruction {
         }
     }
 
+    /// Returns cameras.
     pub fn cameras(&self) -> &BTreeMap<CameraId, ReconstructionCamera> {
         &self.cameras
     }
 
+    /// Returns images.
     pub fn images(&self) -> &BTreeMap<ImageId, ReconstructionImage> {
         &self.images
     }
 
+    /// Returns points.
     pub fn points(&self) -> &BTreeMap<Point3dId, SparsePoint3d> {
         &self.points
     }
 
+    /// Adds add camera to this value.
     pub fn add_camera(&mut self, camera: ReconstructionCamera) -> Result<()> {
         if self.cameras.contains_key(&camera.id) {
             return Err(invalid_argument(format!(
@@ -663,6 +752,7 @@ impl SparseReconstruction {
         Ok(())
     }
 
+    /// Adds add image to this value.
     pub fn add_image(&mut self, image: ReconstructionImage) -> Result<()> {
         if !self.cameras.contains_key(&image.camera_id) {
             return Err(invalid_argument(format!(
@@ -681,12 +771,14 @@ impl SparseReconstruction {
         Ok(())
     }
 
+    /// Returns image mut.
     pub fn image_mut(&mut self, image_id: ImageId) -> Result<&mut ReconstructionImage> {
         self.images
             .get_mut(&image_id)
             .ok_or_else(|| invalid_argument(format!("missing image {:?}", image_id)))
     }
 
+    /// Returns camera for image.
     pub fn camera_for_image(&self, image_id: ImageId) -> Result<&ReconstructionCamera> {
         let image = self.image(image_id)?;
         self.cameras.get(&image.camera_id).ok_or_else(|| {
@@ -697,12 +789,14 @@ impl SparseReconstruction {
         })
     }
 
+    /// Returns image.
     pub fn image(&self, image_id: ImageId) -> Result<&ReconstructionImage> {
         self.images
             .get(&image_id)
             .ok_or_else(|| invalid_argument(format!("missing image {:?}", image_id)))
     }
 
+    /// Returns insert point.
     pub fn insert_point(
         &mut self,
         position: Vec3,
@@ -724,6 +818,7 @@ impl SparseReconstruction {
         Ok(id)
     }
 
+    /// Returns triangulate track.
     pub fn triangulate_track(
         &self,
         track: &Track,
@@ -808,6 +903,7 @@ impl SparseReconstruction {
         })
     }
 
+    /// Returns insert triangulated track.
     pub fn insert_triangulated_track(
         &mut self,
         track: Track,
@@ -823,6 +919,7 @@ impl SparseReconstruction {
         )
     }
 
+    /// Returns retain points with max error.
     pub fn retain_points_with_max_error(&mut self, max_reprojection_error: f32) -> Result<()> {
         validate_finite(max_reprojection_error, "max_reprojection_error")?;
         if max_reprojection_error < 0.0 {
@@ -835,6 +932,7 @@ impl SparseReconstruction {
         Ok(())
     }
 
+    /// Returns export points as PLY.
     pub fn export_points_as_ply(&self) -> Result<String> {
         let mut output = String::new();
         writeln!(output, "ply").expect("write to String cannot fail");
@@ -912,6 +1010,7 @@ struct TrackObservation<'a> {
     feature: Feature2d,
 }
 
+/// Returns triangulate observation pair.
 pub fn triangulate_observation_pair(
     left_image: &ReconstructionImage,
     left_intrinsics: CameraIntrinsics,
@@ -1013,6 +1112,7 @@ fn closest_points_between_rays(left: Ray, right: Ray) -> Result<ClosestRayPoints
     })
 }
 
+/// Returns project point.
 pub fn project_point(
     pose: CameraPose,
     intrinsics: CameraIntrinsics,
@@ -1033,6 +1133,7 @@ pub fn project_point(
     )))
 }
 
+/// Returns reprojection error.
 pub fn reprojection_error(
     pose: CameraPose,
     intrinsics: CameraIntrinsics,
@@ -1073,6 +1174,7 @@ fn midpoint(left: Vec3, right: Vec3) -> Vec3 {
     (left + right) * 0.5
 }
 
+/// Returns ray angle.
 pub fn ray_angle(left: Ray, right: Ray) -> f32 {
     left.direction
         .dot(right.direction)

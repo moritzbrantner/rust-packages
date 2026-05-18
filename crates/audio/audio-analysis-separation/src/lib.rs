@@ -10,18 +10,28 @@ use std::str::FromStr;
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Variants describing stem.
 pub enum Stem {
+    /// The vocals variant.
     Vocals,
+    /// The drums variant.
     Drums,
+    /// The bass variant.
     Bass,
+    /// The other variant.
     Other,
+    /// The guitar variant.
     Guitar,
+    /// The piano variant.
     Piano,
+    /// The no vocals variant.
     NoVocals,
+    /// The custom variant.
     Custom(String),
 }
 
 impl Stem {
+    /// Borrows this value as a str.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Vocals => "vocals",
@@ -35,6 +45,7 @@ impl Stem {
         }
     }
 
+    /// Returns residual for.
     pub fn residual_for(primary: &Stem) -> Stem {
         match primary {
             Self::Vocals => Self::NoVocals,
@@ -42,6 +53,7 @@ impl Stem {
         }
     }
 
+    /// Returns file name.
     pub fn file_name(&self, format: &SeparationOutputFormat) -> String {
         format!("{}.{}", self.as_str(), format.extension())
     }
@@ -77,18 +89,27 @@ impl FromStr for Stem {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+/// Variants describing demucs model.
 pub enum DemucsModel {
     #[default]
+    /// The htdemucs variant.
     Htdemucs,
+    /// The htdemucs ft variant.
     HtdemucsFt,
+    /// The htdemucs6s variant.
     Htdemucs6s,
+    /// The md x variant.
     MdX,
+    /// The md x extra variant.
     MdXExtra,
+    /// The md xq variant.
     MdXQ,
+    /// The custom variant.
     Custom(String),
 }
 
 impl DemucsModel {
+    /// Borrows this value as a str.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Htdemucs => "htdemucs",
@@ -101,6 +122,7 @@ impl DemucsModel {
         }
     }
 
+    /// Returns default layout.
     pub fn default_layout(&self) -> StemLayout {
         match self {
             Self::Htdemucs6s => StemLayout::SixStem,
@@ -164,14 +186,25 @@ impl From<&str> for DemucsModel {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Variants describing stem layout.
 pub enum StemLayout {
+    /// The four stem variant.
     FourStem,
+    /// The six stem variant.
     SixStem,
-    TwoStem { primary: Stem, residual: Stem },
+    /// The two stem variant.
+    TwoStem {
+        /// The primary value for this variant.
+        primary: Stem,
+        /// The residual value for this variant.
+        residual: Stem,
+    },
+    /// The custom variant.
     Custom(Vec<Stem>),
 }
 
 impl StemLayout {
+    /// Returns stems.
     pub fn stems(&self) -> Vec<Stem> {
         match self {
             Self::FourStem => vec![Stem::Vocals, Stem::Drums, Stem::Bass, Stem::Other],
@@ -201,15 +234,21 @@ impl StemLayout {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// Variants describing separation output format.
 pub enum SeparationOutputFormat {
     #[default]
+    /// The wav variant.
     Wav,
+    /// The mp3 variant.
     Mp3,
+    /// The flac variant.
     Flac,
+    /// The custom variant.
     Custom(String),
 }
 
 impl SeparationOutputFormat {
+    /// Returns extension.
     pub fn extension(&self) -> &str {
         match self {
             Self::Wav => "wav",
@@ -230,62 +269,101 @@ impl SeparationOutputFormat {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing separation run mode.
 pub enum SeparationRunMode {
+    /// The execute variant.
     Execute,
+    /// The dry run variant.
     DryRun,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for separation command.
 pub struct SeparationCommand {
+    /// The program value.
     pub program: PathBuf,
+    /// The args value.
     pub args: Vec<OsString>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for separated stem.
 pub struct SeparatedStem {
+    /// The stem value.
     pub stem: Stem,
+    /// Filesystem path for this value.
     pub path: PathBuf,
+    /// The exists value.
     pub exists: bool,
+    /// The bytes value.
     pub bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for separation result.
 pub struct SeparationResult {
+    /// The input value.
     pub input: PathBuf,
+    /// The model value.
     pub model: DemucsModel,
+    /// The layout value.
     pub layout: StemLayout,
+    /// The output dir value.
     pub output_dir: PathBuf,
+    /// The stems value.
     pub stems: Vec<SeparatedStem>,
+    /// The missing stems value.
     pub missing_stems: Vec<Stem>,
+    /// The all outputs present value.
     pub all_outputs_present: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for separation execution.
 pub struct SeparationExecution {
+    /// The command value.
     pub command: SeparationCommand,
+    /// The result value.
     pub result: SeparationResult,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for htdemucs options.
 pub struct HtdemucsOptions {
+    /// The command value.
     pub command: PathBuf,
+    /// The command args value.
     pub command_args: Vec<OsString>,
+    /// The model value.
     pub model: DemucsModel,
+    /// The output dir value.
     pub output_dir: PathBuf,
+    /// The layout value.
     pub layout: Option<StemLayout>,
+    /// The output format value.
     pub output_format: SeparationOutputFormat,
+    /// The two stems value.
     pub two_stems: Option<Stem>,
+    /// The device value.
     pub device: Option<String>,
+    /// The shifts value.
     pub shifts: Option<u32>,
+    /// The overlap value.
     pub overlap: Option<f32>,
+    /// The jobs value.
     pub jobs: Option<u32>,
+    /// The segment value.
     pub segment: Option<u32>,
+    /// Sample rate in hertz.
     pub sample_rate: Option<u32>,
+    /// The filename value.
     pub filename: Option<String>,
+    /// The extra args value.
     pub extra_args: Vec<OsString>,
 }
 
 impl HtdemucsOptions {
+    /// Creates a new value.
     pub fn new(output_dir: impl Into<PathBuf>) -> Self {
         Self {
             output_dir: output_dir.into(),
@@ -293,76 +371,91 @@ impl HtdemucsOptions {
         }
     }
 
+    /// Returns command.
     pub fn command(mut self, command: impl Into<PathBuf>) -> Self {
         self.command = command.into();
         self
     }
 
+    /// Returns command arg.
     pub fn command_arg(mut self, arg: impl Into<OsString>) -> Self {
         self.command_args.push(arg.into());
         self
     }
 
+    /// Returns model.
     pub fn model(mut self, model: impl Into<DemucsModel>) -> Self {
         self.model = model.into();
         self
     }
 
+    /// Returns layout.
     pub fn layout(mut self, layout: StemLayout) -> Self {
         self.layout = Some(layout);
         self
     }
 
+    /// Returns output format.
     pub fn output_format(mut self, output_format: SeparationOutputFormat) -> Self {
         self.output_format = output_format;
         self
     }
 
+    /// Returns two stems.
     pub fn two_stems(mut self, stem: Stem) -> Self {
         self.two_stems = Some(stem);
         self
     }
 
+    /// Returns device.
     pub fn device(mut self, device: impl Into<String>) -> Self {
         self.device = Some(device.into());
         self
     }
 
+    /// Returns shifts.
     pub fn shifts(mut self, shifts: u32) -> Self {
         self.shifts = Some(shifts);
         self
     }
 
+    /// Returns overlap.
     pub fn overlap(mut self, overlap: f32) -> Self {
         self.overlap = Some(overlap);
         self
     }
 
+    /// Returns jobs.
     pub fn jobs(mut self, jobs: u32) -> Self {
         self.jobs = Some(jobs);
         self
     }
 
+    /// Returns segment.
     pub fn segment(mut self, segment: u32) -> Self {
         self.segment = Some(segment);
         self
     }
 
+    /// Returns sample rate.
     pub fn sample_rate(mut self, sample_rate: u32) -> Self {
         self.sample_rate = Some(sample_rate);
         self
     }
 
+    /// Returns filename.
     pub fn filename(mut self, filename: impl Into<String>) -> Self {
         self.filename = Some(filename.into());
         self
     }
 
+    /// Returns extra arg.
     pub fn extra_arg(mut self, arg: impl Into<OsString>) -> Self {
         self.extra_args.push(arg.into());
         self
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.command.as_os_str().is_empty() {
             return Err(DetectError::InvalidArgument(
@@ -437,16 +530,20 @@ impl Default for HtdemucsOptions {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// Data type for htdemucs separator.
 pub struct HtdemucsSeparator {
+    /// The options value.
     pub options: HtdemucsOptions,
 }
 
 impl HtdemucsSeparator {
+    /// Creates a new value.
     pub fn new(options: HtdemucsOptions) -> Result<Self> {
         options.validate()?;
         Ok(Self { options })
     }
 
+    /// Validates input path.
     pub fn validate_input_path(&self, input: &Path) -> Result<()> {
         if input.as_os_str().is_empty() {
             return Err(DetectError::InvalidArgument(
@@ -461,6 +558,7 @@ impl HtdemucsSeparator {
         Ok(())
     }
 
+    /// Returns expected layout.
     pub fn expected_layout(&self) -> StemLayout {
         if let Some(primary) = &self.options.two_stems {
             return StemLayout::TwoStem {
@@ -474,10 +572,12 @@ impl HtdemucsSeparator {
             .unwrap_or_else(|| self.options.model.default_layout())
     }
 
+    /// Returns expected stems.
     pub fn expected_stems(&self) -> Vec<Stem> {
         self.expected_layout().stems()
     }
 
+    /// Builds command.
     pub fn build_command(&self, input: impl AsRef<Path>) -> Result<SeparationCommand> {
         let input = input.as_ref();
         self.options.validate()?;
@@ -536,10 +636,12 @@ impl HtdemucsSeparator {
         })
     }
 
+    /// Builds args.
     pub fn build_args(&self, input: impl AsRef<Path>) -> Result<Vec<OsString>> {
         Ok(self.build_command(input)?.args)
     }
 
+    /// Returns dry run.
     pub fn dry_run(&self, input: impl AsRef<Path>) -> Result<SeparationExecution> {
         let input = input.as_ref();
         Ok(SeparationExecution {
@@ -548,6 +650,7 @@ impl HtdemucsSeparator {
         })
     }
 
+    /// Returns separate.
     pub fn separate(&self, input: impl AsRef<Path>) -> Result<SeparationResult> {
         let input = input.as_ref();
         self.options.validate()?;
@@ -591,6 +694,7 @@ impl HtdemucsSeparator {
         Ok(result)
     }
 
+    /// Returns discover result.
     pub fn discover_result(&self, input: impl AsRef<Path>) -> Result<SeparationResult> {
         let input = input.as_ref();
         self.options.validate()?;
@@ -639,6 +743,7 @@ impl HtdemucsSeparator {
         })
     }
 
+    /// Returns expected result.
     pub fn expected_result(&self, input: impl AsRef<Path>) -> SeparationResult {
         self.discover_result(input)
             .expect("separator expected_result uses validated static path computation")
@@ -661,6 +766,7 @@ impl HtdemucsSeparator {
     }
 }
 
+/// Returns whether is demucs available.
 pub fn is_demucs_available() -> bool {
     let command = std::env::var_os("DEMUCS_COMMAND").unwrap_or_else(|| OsString::from("demucs"));
     Command::new(command)

@@ -1,3 +1,5 @@
+//! Internal module support for workflow support.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};

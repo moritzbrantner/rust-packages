@@ -10,44 +10,65 @@ use thiserror::Error;
 use video_analysis_dataset::{AnalysisDataset, DatasetMetadata, DatasetRecord};
 
 #[derive(Debug, Error)]
+/// Variants describing storage error.
 pub enum StorageError {
     #[error("I/O error: {0}")]
+    /// The I/O variant.
     Io(#[from] std::io::Error),
     #[error("JSON error: {0}")]
+    /// The JSON variant.
     Json(String),
     #[error("invalid manifest: {0}")]
+    /// The invalid manifest variant.
     InvalidManifest(String),
     #[error("unsupported dataset format: {0}")]
+    /// The unsupported format variant.
     UnsupportedFormat(String),
 }
 
+/// Type alias for result.
 pub type Result<T> = std::result::Result<T, StorageError>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for dataset manifest.
 pub struct DatasetManifest {
+    /// The schema version value.
     pub schema_version: u32,
+    /// The dataset name value.
     pub dataset_name: Option<String>,
+    /// The record count value.
     pub record_count: u64,
+    /// The record counts value.
     pub record_counts: BTreeMap<String, u64>,
+    /// The files value.
     pub files: Vec<DatasetFile>,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for dataset file.
 pub struct DatasetFile {
+    /// Filesystem path for this value.
     pub path: String,
+    /// The format value.
     pub format: DatasetFileFormat,
+    /// The records value.
     pub records: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing dataset file format.
 pub enum DatasetFileFormat {
+    /// The JSON lines variant.
     JsonLines,
     #[serde(other)]
+    /// The unsupported variant.
     Unsupported,
 }
 
+/// Writes jsonl.
 pub fn write_jsonl(path: impl AsRef<Path>, dataset: &AnalysisDataset) -> Result<()> {
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
@@ -60,6 +81,7 @@ pub fn write_jsonl(path: impl AsRef<Path>, dataset: &AnalysisDataset) -> Result<
     Ok(())
 }
 
+/// Reads jsonl.
 pub fn read_jsonl(path: impl AsRef<Path>) -> Result<AnalysisDataset> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -76,16 +98,19 @@ pub fn read_jsonl(path: impl AsRef<Path>) -> Result<AnalysisDataset> {
     Ok(dataset)
 }
 
+/// Writes dataset JSON.
 pub fn write_dataset_json(path: impl AsRef<Path>, dataset: &AnalysisDataset) -> Result<()> {
     let file = File::create(path)?;
     serde_json::to_writer_pretty(BufWriter::new(file), dataset).map_err(json_error)
 }
 
+/// Reads dataset JSON.
 pub fn read_dataset_json(path: impl AsRef<Path>) -> Result<AnalysisDataset> {
     let file = File::open(path)?;
     serde_json::from_reader(BufReader::new(file)).map_err(json_error)
 }
 
+/// Builds manifest.
 pub fn build_manifest(
     dataset: &AnalysisDataset,
     records_path: impl AsRef<Path>,
@@ -109,16 +134,19 @@ pub fn build_manifest(
     }
 }
 
+/// Writes manifest.
 pub fn write_manifest(path: impl AsRef<Path>, manifest: &DatasetManifest) -> Result<()> {
     let file = File::create(path)?;
     serde_json::to_writer_pretty(BufWriter::new(file), manifest).map_err(json_error)
 }
 
+/// Reads manifest.
 pub fn read_manifest(path: impl AsRef<Path>) -> Result<DatasetManifest> {
     let file = File::open(path)?;
     serde_json::from_reader(BufReader::new(file)).map_err(json_error)
 }
 
+/// Writes dataset dir.
 pub fn write_dataset_dir(
     dir: impl AsRef<Path>,
     dataset: &AnalysisDataset,
@@ -132,6 +160,7 @@ pub fn write_dataset_dir(
     Ok(manifest)
 }
 
+/// Reads dataset dir.
 pub fn read_dataset_dir(dir: impl AsRef<Path>) -> Result<AnalysisDataset> {
     let dir = dir.as_ref();
     let manifest = read_manifest(dir.join("manifest.json"))?;

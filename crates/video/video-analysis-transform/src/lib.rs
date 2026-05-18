@@ -10,8 +10,11 @@ use video_analysis_dataset::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
+/// Variants describing transform error.
 pub enum TransformError {
+    /// The invalid window seconds variant.
     InvalidWindowSeconds(f64),
+    /// The invalid tolerance seconds variant.
     InvalidToleranceSeconds(f64),
 }
 
@@ -33,8 +36,10 @@ impl fmt::Display for TransformError {
 
 impl Error for TransformError {}
 
+/// Type alias for result.
 pub type Result<T> = std::result::Result<T, TransformError>;
 
+/// Returns record timestamp seconds.
 pub fn record_timestamp_seconds(record: &DatasetRecord) -> Option<f64> {
     match record {
         DatasetRecord::VideoFrame(record) => Some(record.position.timestamp.seconds),
@@ -52,6 +57,7 @@ pub fn record_timestamp_seconds(record: &DatasetRecord) -> Option<f64> {
     }
 }
 
+/// Returns record frame index.
 pub fn record_frame_index(record: &DatasetRecord) -> Option<u64> {
     match record {
         DatasetRecord::VideoFrame(record) => Some(record.position.frame_index),
@@ -69,6 +75,7 @@ pub fn record_frame_index(record: &DatasetRecord) -> Option<u64> {
     }
 }
 
+/// Returns record scene index.
 pub fn record_scene_index(record: &DatasetRecord) -> Option<u64> {
     match record {
         DatasetRecord::Scene(record) => Some(record.scene_index),
@@ -78,6 +85,7 @@ pub fn record_scene_index(record: &DatasetRecord) -> Option<u64> {
     }
 }
 
+/// Returns sort by time.
 pub fn sort_by_time(records: &mut [DatasetRecord]) {
     records.sort_by(|left, right| {
         match (
@@ -92,6 +100,7 @@ pub fn sort_by_time(records: &mut [DatasetRecord]) {
     });
 }
 
+/// Returns filter records.
 pub fn filter_records(
     records: impl IntoIterator<Item = DatasetRecord>,
     mut predicate: impl FnMut(&DatasetRecord) -> bool,
@@ -102,6 +111,7 @@ pub fn filter_records(
         .collect()
 }
 
+/// Returns filter dataset.
 pub fn filter_dataset(
     dataset: &AnalysisDataset,
     mut predicate: impl FnMut(&DatasetRecord) -> bool,
@@ -118,13 +128,19 @@ pub fn filter_dataset(
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for time window.
 pub struct TimeWindow {
+    /// The index value.
     pub index: u64,
+    /// The start seconds value.
     pub start_seconds: f64,
+    /// The end seconds value.
     pub end_seconds: f64,
+    /// The records value.
     pub records: Vec<DatasetRecord>,
 }
 
+/// Returns window by time.
 pub fn window_by_time(records: &[DatasetRecord], seconds: f64) -> Result<Vec<TimeWindow>> {
     if seconds <= 0.0 || !seconds.is_finite() {
         return Err(TransformError::InvalidWindowSeconds(seconds));
@@ -154,11 +170,15 @@ pub fn window_by_time(records: &[DatasetRecord], seconds: f64) -> Result<Vec<Tim
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for scene group.
 pub struct SceneGroup {
+    /// The scene value.
     pub scene: SceneRecord,
+    /// The records value.
     pub records: Vec<DatasetRecord>,
 }
 
+/// Returns group by scene.
 pub fn group_by_scene(dataset: &AnalysisDataset) -> Vec<SceneGroup> {
     let scenes = dataset.scenes().cloned().collect::<Vec<_>>();
     let mut groups = scenes
@@ -210,11 +230,14 @@ fn scene_index_by_bounds(scenes: &[SceneRecord], record: &DatasetRecord) -> Opti
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for temporal join options.
 pub struct TemporalJoinOptions {
+    /// The tolerance seconds value.
     pub tolerance_seconds: f64,
 }
 
 impl TemporalJoinOptions {
+    /// Creates a new value.
     pub fn new(tolerance_seconds: f64) -> Result<Self> {
         if tolerance_seconds < 0.0 || !tolerance_seconds.is_finite() {
             return Err(TransformError::InvalidToleranceSeconds(tolerance_seconds));
@@ -224,19 +247,28 @@ impl TemporalJoinOptions {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for frame join options.
 pub struct FrameJoinOptions {
+    /// The tolerance frames value.
     pub tolerance_frames: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for joined record pair.
 pub struct JoinedRecordPair {
+    /// The left index value.
     pub left_index: usize,
+    /// The right index value.
     pub right_index: usize,
+    /// The delta value.
     pub delta: f64,
+    /// The left value.
     pub left: DatasetRecord,
+    /// The right value.
     pub right: DatasetRecord,
 }
 
+/// Returns join by time.
 pub fn join_by_time(
     left: &[DatasetRecord],
     right: &[DatasetRecord],
@@ -270,6 +302,7 @@ pub fn join_by_time(
     joined
 }
 
+/// Returns join by frame.
 pub fn join_by_frame(
     left: &[DatasetRecord],
     right: &[DatasetRecord],
@@ -299,6 +332,7 @@ pub fn join_by_frame(
     joined
 }
 
+/// Returns record identity key.
 pub fn record_identity_key(record: &DatasetRecord) -> Option<String> {
     match record {
         DatasetRecord::VideoFrame(record) => {
@@ -351,10 +385,12 @@ fn event_identity(record: &AnalysisEventRecord) -> String {
     )
 }
 
+/// Returns dedupe records.
 pub fn dedupe_records(records: Vec<DatasetRecord>) -> Vec<DatasetRecord> {
     dedupe_by(records, record_identity_key)
 }
 
+/// Returns dedupe by.
 pub fn dedupe_by(
     records: Vec<DatasetRecord>,
     mut key_fn: impl FnMut(&DatasetRecord) -> Option<String>,
@@ -373,6 +409,7 @@ pub fn dedupe_by(
     deduped
 }
 
+/// Returns merge sorted by time.
 pub fn merge_sorted_by_time(datasets: &[AnalysisDataset]) -> AnalysisDataset {
     let mut merged = datasets
         .first()
@@ -386,14 +423,21 @@ pub fn merge_sorted_by_time(datasets: &[AnalysisDataset]) -> AnalysisDataset {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing aggregation.
 pub enum Aggregation {
+    /// The count variant.
     Count,
+    /// The sum variant.
     Sum,
+    /// The min variant.
     Min,
+    /// The max variant.
     Max,
+    /// The mean variant.
     Mean,
 }
 
+/// Returns resample numeric features.
 pub fn resample_numeric_features(
     features: &[FeatureRecord],
     interval_seconds: f64,
@@ -450,6 +494,7 @@ pub fn resample_numeric_features(
 }
 
 impl Aggregation {
+    /// Borrows this value as a str.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Count => "count",

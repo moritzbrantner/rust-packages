@@ -10,43 +10,70 @@ use serde_json::Value;
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing image generation mode.
 pub enum ImageGenerationMode {
     #[default]
+    /// The text to image variant.
     TextToImage,
+    /// The image to image variant.
     ImageToImage,
+    /// The inpaint variant.
     Inpaint,
+    /// The upscale variant.
     Upscale,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing comfy workflow preset.
 pub enum ComfyWorkflowPreset {
     #[default]
+    /// The standard stable diffusion variant.
     StandardStableDiffusion,
+    /// The flux inpaint variant.
     FluxInpaint,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for image generation request.
 pub struct ImageGenerationRequest {
+    /// The preset value.
     pub preset: ComfyWorkflowPreset,
+    /// The mode value.
     pub mode: ImageGenerationMode,
+    /// The prompt value.
     pub prompt: String,
+    /// The negative prompt value.
     pub negative_prompt: String,
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The steps value.
     pub steps: u32,
+    /// The cfg scale value.
     pub cfg_scale: f32,
+    /// The sampler name value.
     pub sampler_name: String,
+    /// The scheduler value.
     pub scheduler: String,
+    /// The seed value.
     pub seed: u64,
+    /// The checkpoint value.
     pub checkpoint: ComfyModelRef,
+    /// The input image value.
     pub input_image: Option<String>,
+    /// The mask image value.
     pub mask_image: Option<String>,
+    /// The denoise value.
     pub denoise: f32,
+    /// The output prefix value.
     pub output_prefix: String,
+    /// The upscale model value.
     pub upscale_model: ComfyModelRef,
 }
 
 impl ImageGenerationRequest {
+    /// Creates a new value.
     pub fn new(prompt: impl Into<String>) -> Self {
         Self {
             preset: ComfyWorkflowPreset::default(),
@@ -69,93 +96,111 @@ impl ImageGenerationRequest {
         }
     }
 
+    /// Returns preset.
     pub fn preset(mut self, value: ComfyWorkflowPreset) -> Self {
         self.preset = value;
         self
     }
 
+    /// Returns mode.
     pub fn mode(mut self, value: ImageGenerationMode) -> Self {
         self.mode = value;
         self
     }
 
+    /// Returns negative prompt.
     pub fn negative_prompt(mut self, value: impl Into<String>) -> Self {
         self.negative_prompt = value.into();
         self
     }
 
+    /// Returns size.
     pub fn size(mut self, width: u32, height: u32) -> Self {
         self.width = width;
         self.height = height;
         self
     }
 
+    /// Returns steps.
     pub fn steps(mut self, value: u32) -> Self {
         self.steps = value;
         self
     }
 
+    /// Returns cfg scale.
     pub fn cfg_scale(mut self, value: f32) -> Self {
         self.cfg_scale = value;
         self
     }
 
+    /// Returns sampler name.
     pub fn sampler_name(mut self, value: impl Into<String>) -> Self {
         self.sampler_name = value.into();
         self
     }
 
+    /// Returns scheduler.
     pub fn scheduler(mut self, value: impl Into<String>) -> Self {
         self.scheduler = value.into();
         self
     }
 
+    /// Returns seed.
     pub fn seed(mut self, value: u64) -> Self {
         self.seed = value;
         self
     }
 
+    /// Returns checkpoint ref.
     pub fn checkpoint_ref(mut self, value: ComfyModelRef) -> Self {
         self.checkpoint = value;
         self
     }
 
+    /// Returns checkpoint.
     pub fn checkpoint(mut self, value: impl Into<String>) -> Self {
         self.checkpoint = ComfyModelRef::new(ComfyModelRole::Checkpoint, value);
         self
     }
 
+    /// Returns input image.
     pub fn input_image(mut self, value: impl Into<String>) -> Self {
         self.input_image = Some(value.into());
         self
     }
 
+    /// Returns mask image.
     pub fn mask_image(mut self, value: impl Into<String>) -> Self {
         self.mask_image = Some(value.into());
         self
     }
 
+    /// Returns denoise.
     pub fn denoise(mut self, value: f32) -> Self {
         self.denoise = value;
         self
     }
 
+    /// Returns output prefix.
     pub fn output_prefix(mut self, value: impl Into<String>) -> Self {
         self.output_prefix = value.into();
         self
     }
 
+    /// Returns upscale model ref.
     pub fn upscale_model_ref(mut self, value: ComfyModelRef) -> Self {
         self.upscale_model = value;
         self
     }
 
+    /// Returns upscale model.
     pub fn upscale_model(mut self, value: impl Into<String>) -> Self {
         self.upscale_model = ComfyModelRef::new(ComfyModelRole::UpscaleModel, value);
         self
     }
 }
 
+/// Builds generation workflow.
 pub fn build_generation_workflow(request: &ImageGenerationRequest) -> Result<ComfyWorkflow> {
     validate_request(request)?;
     let workflow = match (request.preset, request.mode) {

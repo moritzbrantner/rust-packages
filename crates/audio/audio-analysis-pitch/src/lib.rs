@@ -6,13 +6,18 @@ use audio_analysis_core::mono_samples;
 use video_analysis_core::{AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for pitch detector config.
 pub struct PitchDetectorConfig {
+    /// The min frequency hz value.
     pub min_frequency_hz: f32,
+    /// The max frequency hz value.
     pub max_frequency_hz: f32,
+    /// The confidence threshold value.
     pub confidence_threshold: f32,
 }
 
 impl PitchDetectorConfig {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if !self.min_frequency_hz.is_finite()
             || !self.max_frequency_hz.is_finite()
@@ -45,12 +50,16 @@ impl Default for PitchDetectorConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for pitch estimate.
 pub struct PitchEstimate {
+    /// The frequency hz value.
     pub frequency_hz: Option<f32>,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 impl PitchEstimate {
+    /// Returns unpitched.
     pub fn unpitched(confidence: f32) -> Self {
         Self {
             frequency_hz: None,
@@ -58,40 +67,57 @@ impl PitchEstimate {
         }
     }
 
+    /// Returns midi note.
     pub fn midi_note(&self) -> Option<f32> {
         self.frequency_hz.and_then(frequency_to_midi_note)
     }
 
+    /// Returns note name.
     pub fn note_name(&self) -> Option<String> {
         self.frequency_hz.and_then(frequency_to_note_name)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for pitch frame estimate.
 pub struct PitchFrameEstimate {
+    /// The start seconds value.
     pub start_seconds: f64,
+    /// The end seconds value.
     pub end_seconds: f64,
+    /// The frequency hz value.
     pub frequency_hz: Option<f32>,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 impl PitchFrameEstimate {
+    /// Returns note name.
     pub fn note_name(&self) -> Option<String> {
         self.frequency_hz.and_then(frequency_to_note_name)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for sung note segment.
 pub struct SungNoteSegment {
+    /// The start seconds value.
     pub start_seconds: f64,
+    /// The end seconds value.
     pub end_seconds: f64,
+    /// The frequency hz value.
     pub frequency_hz: f32,
+    /// The midi note value.
     pub midi_note: f32,
+    /// The note name value.
     pub note_name: String,
+    /// Confidence score for this value.
     pub confidence: f32,
+    /// The frames value.
     pub frames: usize,
 }
 
+/// Returns segment pitch track.
 pub fn segment_pitch_track(
     frames: &[PitchFrameEstimate],
     max_gap_seconds: f64,
@@ -144,12 +170,14 @@ pub fn segment_pitch_track(
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for pitch smoother.
 pub struct PitchSmoother {
     window_size: usize,
     history: VecDeque<PitchEstimate>,
 }
 
 impl PitchSmoother {
+    /// Creates a new value.
     pub fn new(window_size: usize) -> Result<Self> {
         if window_size == 0 {
             return Err(DetectError::InvalidArgument(
@@ -162,6 +190,7 @@ impl PitchSmoother {
         })
     }
 
+    /// Returns smooth.
     pub fn smooth(&mut self, estimate: PitchEstimate) -> PitchEstimate {
         self.history.push_back(estimate);
         while self.history.len() > self.window_size {
@@ -197,12 +226,15 @@ impl PitchSmoother {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for autocorrelation pitch detector.
 pub struct AutocorrelationPitchDetector {
     name: String,
+    /// The config value.
     pub config: PitchDetectorConfig,
 }
 
 impl AutocorrelationPitchDetector {
+    /// Creates a new value.
     pub fn new(config: PitchDetectorConfig) -> Result<Self> {
         config.validate()?;
         Ok(Self {
@@ -211,11 +243,13 @@ impl AutocorrelationPitchDetector {
         })
     }
 
+    /// Returns estimate frame.
     pub fn estimate_frame(&self, frame: &AudioFrame<'_>) -> Result<PitchEstimate> {
         let mono = mono_samples(frame)?;
         self.estimate_samples(&mono.samples, mono.sample_rate)
     }
 
+    /// Returns estimate samples.
     pub fn estimate_samples(&self, samples: &[f32], sample_rate: u32) -> Result<PitchEstimate> {
         if sample_rate == 0 {
             return Err(DetectError::InvalidAudioFormat {
@@ -343,11 +377,13 @@ fn parabolic_lag(best_lag: usize, min_lag: usize, scores: &[f32]) -> f32 {
     }
 }
 
+/// Returns frequency to midi note.
 pub fn frequency_to_midi_note(frequency_hz: f32) -> Option<f32> {
     (frequency_hz.is_finite() && frequency_hz > 0.0)
         .then_some(69.0 + 12.0 * (frequency_hz / 440.0).log2())
 }
 
+/// Returns frequency to note name.
 pub fn frequency_to_note_name(frequency_hz: f32) -> Option<String> {
     let midi = frequency_to_midi_note(frequency_hz)?;
     let rounded = midi.round() as i32;

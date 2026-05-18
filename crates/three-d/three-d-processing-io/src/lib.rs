@@ -10,6 +10,7 @@ use three_d_processing_core::{Point3, PointCloud};
 use three_d_processing_mesh::{Mesh, Triangle};
 use video_analysis_core::{DetectError, Result};
 
+/// Reads mesh.
 pub fn read_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
     match extension(path.as_ref()) {
         Some("obj") => read_obj_mesh(path),
@@ -22,6 +23,7 @@ pub fn read_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
     }
 }
 
+/// Writes mesh.
 pub fn write_mesh(path: impl AsRef<Path>, mesh: &Mesh) -> Result<()> {
     match extension(path.as_ref()) {
         Some("obj") => write_obj_mesh(path, mesh),
@@ -34,6 +36,7 @@ pub fn write_mesh(path: impl AsRef<Path>, mesh: &Mesh) -> Result<()> {
     }
 }
 
+/// Reads obj mesh.
 pub fn read_obj_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
     let file = fs::File::open(path.as_ref())?;
     let reader = BufReader::new(file);
@@ -82,6 +85,7 @@ pub fn read_obj_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
     Mesh::new(vertices, triangles)
 }
 
+/// Writes obj mesh.
 pub fn write_obj_mesh(path: impl AsRef<Path>, mesh: &Mesh) -> Result<()> {
     mesh.validate()?;
     let mut output = String::new();
@@ -100,6 +104,7 @@ pub fn write_obj_mesh(path: impl AsRef<Path>, mesh: &Mesh) -> Result<()> {
     Ok(())
 }
 
+/// Reads PLY mesh.
 pub fn read_ply_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
     let file = fs::File::open(path.as_ref())?;
     let mut reader = BufReader::new(file);
@@ -147,6 +152,7 @@ pub fn read_ply_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
     Mesh::new(vertices, triangles)
 }
 
+/// Writes PLY mesh.
 pub fn write_ply_mesh(path: impl AsRef<Path>, mesh: &Mesh) -> Result<()> {
     mesh.validate()?;
     let mut output = String::new();
@@ -168,6 +174,7 @@ pub fn write_ply_mesh(path: impl AsRef<Path>, mesh: &Mesh) -> Result<()> {
     Ok(())
 }
 
+/// Reads PLY point cloud.
 pub fn read_ply_point_cloud(path: impl AsRef<Path>) -> Result<PointCloud> {
     let file = fs::File::open(path.as_ref())?;
     let mut reader = BufReader::new(file);
@@ -188,6 +195,7 @@ pub fn read_ply_point_cloud(path: impl AsRef<Path>) -> Result<PointCloud> {
     PointCloud::new(points)
 }
 
+/// Writes PLY point cloud.
 pub fn write_ply_point_cloud(path: impl AsRef<Path>, cloud: &PointCloud) -> Result<()> {
     let mut output = String::new();
     output.push_str("ply\nformat ascii 1.0\n");
@@ -200,6 +208,7 @@ pub fn write_ply_point_cloud(path: impl AsRef<Path>, cloud: &PointCloud) -> Resu
     Ok(())
 }
 
+/// Reads gltf mesh.
 pub fn read_gltf_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
     let data = fs::read(path.as_ref())?;
     let document: MinimalGltf = serde_json::from_slice(&data)
@@ -242,6 +251,7 @@ pub fn read_gltf_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
     Mesh::new(positions, triangles)
 }
 
+/// Writes gltf mesh.
 pub fn write_gltf_mesh(path: impl AsRef<Path>, mesh: &Mesh) -> Result<()> {
     mesh.validate()?;
     let mut bytes = Vec::new();

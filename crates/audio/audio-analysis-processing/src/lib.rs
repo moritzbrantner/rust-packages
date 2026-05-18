@@ -9,61 +9,77 @@ use video_analysis_core::{
 };
 use video_analysis_ingest::{AudioFrameSource, MediaSourceInfo};
 
+/// Trait for audio transform implementations.
 pub trait AudioTransform {
+    /// Returns name.
     fn name(&self) -> &str;
+    /// Returns reset.
     fn reset(&mut self);
+    /// Returns process frame.
     fn process_frame(&mut self, frame: &AudioFrame<'_>) -> Result<Option<OwnedAudioFrame>>;
 
+    /// Returns finish.
     fn finish(&mut self) -> Result<Vec<OwnedAudioFrame>> {
         Ok(Vec::new())
     }
 }
 
 #[derive(Default)]
+/// Data type for audio processor.
 pub struct AudioProcessor {
     transforms: Vec<Box<dyn AudioTransform>>,
     output_channels: Option<u16>,
 }
 
 impl AudioProcessor {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns transform.
     pub fn transform<T: AudioTransform + 'static>(mut self, transform: T) -> Self {
         self.transforms.push(Box::new(transform));
         self
     }
 
+    /// Returns gain.
     pub fn gain(self, linear: f32) -> Self {
         self.transform(Gain { linear })
     }
 
+    /// Returns gain db.
     pub fn gain_db(self, db: f32) -> Self {
         self.gain(10.0_f32.powf(db / 20.0))
     }
 
+    /// Returns hard clip.
     pub fn hard_clip(self, min: f32, max: f32) -> Self {
         self.transform(HardClip { min, max })
     }
 
+    /// Returns mono.
     pub fn mono(mut self, mix: ChannelMix) -> Self {
         self.output_channels = Some(1);
         self.transform(Mono { mix })
     }
 
+    /// Returns dc block.
     pub fn dc_block(self, coefficient: f32) -> Self {
         self.transform(DcBlock::new(coefficient))
     }
 
+    /// Returns biquad.
     pub fn biquad(self, spec: BiquadSpec) -> Self {
         self.transform(BiquadFilter::new(spec))
     }
 
+    /// Returns noise gate.
     pub fn noise_gate(self, spec: NoiseGateSpec) -> Self {
         self.transform(NoiseGate { spec })
     }
 
+    /// Returns process frame.
     pub fn process_frame(&mut self, frame: OwnedAudioFrame) -> Result<Option<OwnedAudioFrame>> {
         let mut current = Some(frame);
         for transform in &mut self.transforms {
@@ -76,6 +92,7 @@ impl AudioProcessor {
         Ok(current)
     }
 
+    /// Returns finish.
     pub fn finish(&mut self) -> Result<Vec<OwnedAudioFrame>> {
         let mut output = Vec::new();
         for transform in &mut self.transforms {
@@ -84,17 +101,20 @@ impl AudioProcessor {
         Ok(output)
     }
 
+    /// Returns reset.
     pub fn reset(&mut self) {
         for transform in &mut self.transforms {
             transform.reset();
         }
     }
 
+    /// Returns output channels.
     pub fn output_channels(&self) -> Option<u16> {
         self.output_channels
     }
 }
 
+/// Data type for processed audio source.
 pub struct ProcessedAudioSource<S> {
     source: S,
     processor: AudioProcessor,
@@ -104,6 +124,7 @@ pub struct ProcessedAudioSource<S> {
 }
 
 impl<S: AudioFrameSource> ProcessedAudioSource<S> {
+    /// Creates a new value.
     pub fn new(source: S, processor: AudioProcessor) -> Self {
         let mut source_info = source.source_info().clone();
         if let Some(channels) = processor.output_channels() {
@@ -120,18 +141,22 @@ impl<S: AudioFrameSource> ProcessedAudioSource<S> {
         }
     }
 
+    /// Returns inner.
     pub fn inner(&self) -> &S {
         &self.source
     }
 
+    /// Returns inner mut.
     pub fn inner_mut(&mut self) -> &mut S {
         &mut self.source
     }
 
+    /// Returns processor.
     pub fn processor(&self) -> &AudioProcessor {
         &self.processor
     }
 
+    /// Returns processor mut.
     pub fn processor_mut(&mut self) -> &mut AudioProcessor {
         &mut self.processor
     }
@@ -166,7 +191,9 @@ impl<S: AudioFrameSource> AudioFrameSource for ProcessedAudioSource<S> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for gain.
 pub struct Gain {
+    /// The linear value.
     pub linear: f32,
 }
 
@@ -188,8 +215,11 @@ impl AudioTransform for Gain {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for hard clip.
 pub struct HardClip {
+    /// The min value.
     pub min: f32,
+    /// The max value.
     pub max: f32,
 }
 
@@ -211,7 +241,9 @@ impl AudioTransform for HardClip {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for mono.
 pub struct Mono {
+    /// The mix value.
     pub mix: ChannelMix,
 }
 
@@ -235,7 +267,9 @@ impl AudioTransform for Mono {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for dc block.
 pub struct DcBlock {
+    /// The coefficient value.
     pub coefficient: f32,
     states: Vec<DcBlockState>,
 }
@@ -247,6 +281,7 @@ struct DcBlockState {
 }
 
 impl DcBlock {
+    /// Creates a new value.
     pub fn new(coefficient: f32) -> Self {
         Self {
             coefficient,
@@ -288,17 +323,24 @@ impl AudioTransform for DcBlock {
     }
 }
 
+/// Re-exports the biquad kind API.
 pub use math_signal_core::BiquadDesign as BiquadKind;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for biquad spec.
 pub struct BiquadSpec {
+    /// The kind value.
     pub kind: BiquadKind,
+    /// The cutoff hz value.
     pub cutoff_hz: f32,
+    /// The q value.
     pub q: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for biquad filter.
 pub struct BiquadFilter {
+    /// The spec value.
     pub spec: BiquadSpec,
     states: Vec<BiquadState>,
 }
@@ -310,6 +352,7 @@ struct BiquadState {
 }
 
 impl BiquadFilter {
+    /// Creates a new value.
     pub fn new(spec: BiquadSpec) -> Self {
         Self {
             spec,
@@ -347,8 +390,11 @@ impl AudioTransform for BiquadFilter {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for noise gate spec.
 pub struct NoiseGateSpec {
+    /// The threshold value.
     pub threshold: f32,
+    /// The attenuation value.
     pub attenuation: f32,
 }
 
@@ -362,7 +408,9 @@ impl Default for NoiseGateSpec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for noise gate.
 pub struct NoiseGate {
+    /// The spec value.
     pub spec: NoiseGateSpec,
 }
 
@@ -395,6 +443,7 @@ impl AudioTransform for NoiseGate {
     }
 }
 
+/// Returns collect audio frames.
 pub fn collect_audio_frames<S: AudioFrameSource>(source: &mut S) -> Result<Vec<OwnedAudioFrame>> {
     let mut frames = Vec::new();
     while let Some(frame) = source.next_audio_frame()? {
@@ -403,6 +452,7 @@ pub fn collect_audio_frames<S: AudioFrameSource>(source: &mut S) -> Result<Vec<O
     Ok(frames)
 }
 
+/// Returns process audio source.
 pub fn process_audio_source<S: AudioFrameSource>(
     source: &mut S,
     processor: &mut AudioProcessor,
@@ -418,6 +468,7 @@ pub fn process_audio_source<S: AudioFrameSource>(
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for audio energy analyzer.
 pub struct AudioEnergyAnalyzer {
     silence_threshold: f32,
     loud_threshold: f32,
@@ -425,6 +476,7 @@ pub struct AudioEnergyAnalyzer {
 }
 
 impl AudioEnergyAnalyzer {
+    /// Creates a new value.
     pub fn new(silence_threshold: f32, loud_threshold: f32) -> Result<Self> {
         if !silence_threshold.is_finite()
             || !loud_threshold.is_finite()
@@ -442,6 +494,7 @@ impl AudioEnergyAnalyzer {
         })
     }
 
+    /// Returns rms.
     pub fn rms(buffer: &AudioBuffer) -> f32 {
         audio_buffer_rms(buffer)
     }
@@ -481,6 +534,7 @@ impl AudioAnalyzer for AudioEnergyAnalyzer {
     }
 }
 
+/// Returns audio buffer rms.
 pub fn audio_buffer_rms(buffer: &AudioBuffer) -> f32 {
     let (sum, count) = match buffer {
         AudioBuffer::U8(values) => values.iter().fold((0.0, 0_usize), |(sum, count), value| {

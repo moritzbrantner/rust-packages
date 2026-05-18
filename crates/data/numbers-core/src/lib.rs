@@ -3,26 +3,41 @@
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for number summary.
 pub struct NumberSummary {
+    /// Number of items represented by this value.
     pub count: u64,
+    /// The finite count value.
     pub finite_count: u64,
+    /// The non finite count value.
     pub non_finite_count: u64,
+    /// The min value.
     pub min: Option<f64>,
+    /// The max value.
     pub max: Option<f64>,
+    /// The sum value.
     pub sum: Option<f64>,
+    /// The mean value.
     pub mean: Option<f64>,
+    /// The variance value.
     pub variance: Option<f64>,
+    /// The std dev value.
     pub std_dev: Option<f64>,
+    /// The weight sum value.
     pub weight_sum: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for number range.
 pub struct NumberRange {
+    /// The min value.
     pub min: f64,
+    /// The max value.
     pub max: f64,
 }
 
 impl NumberRange {
+    /// Creates a new value.
     pub fn new(min: f64, max: f64) -> Result<Self> {
         if !min.is_finite() || !max.is_finite() {
             return Err(invalid_argument("number range bounds must be finite"));
@@ -33,6 +48,7 @@ impl NumberRange {
         Ok(Self { min, max })
     }
 
+    /// Clamps a value into this range.
     pub fn clamp(self, value: f64) -> Result<f64> {
         if !value.is_finite() {
             return Err(invalid_argument("range value must be finite"));
@@ -40,6 +56,7 @@ impl NumberRange {
         Ok(value.clamp(self.min, self.max))
     }
 
+    /// Normalizes this value.
     pub fn normalize(self, value: f64) -> Result<f64> {
         let value = self.clamp(value)?;
         if self.min == self.max {
@@ -48,6 +65,7 @@ impl NumberRange {
         Ok((value - self.min) / (self.max - self.min))
     }
 
+    /// Denormalizes this value.
     pub fn denormalize(self, value: f64) -> Result<f64> {
         if !value.is_finite() {
             return Err(invalid_argument("normalized value must be finite"));
@@ -60,31 +78,42 @@ impl NumberRange {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for quartile summary.
 pub struct QuartileSummary {
+    /// The first quartile value.
     pub q1: f64,
+    /// The median value.
     pub median: f64,
+    /// The third quartile value.
     pub q3: f64,
+    /// The interquartile range value.
     pub iqr: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for histogram config.
 pub struct HistogramConfig {
+    /// The bins value.
     pub bins: usize,
+    /// The range value.
     pub range: Option<NumberRange>,
 }
 
 impl HistogramConfig {
+    /// Creates a new value.
     pub fn new(bins: usize) -> Result<Self> {
         let config = Self { bins, range: None };
         config.validate()?;
         Ok(config)
     }
 
+    /// Returns this value with range.
     pub fn with_range(mut self, range: NumberRange) -> Self {
         self.range = Some(range);
         self
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.bins == 0 {
             return Err(invalid_argument("histogram bin count must be positive"));
@@ -97,21 +126,31 @@ impl HistogramConfig {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for histogram bin.
 pub struct HistogramBin {
+    /// The start value.
     pub start: f64,
+    /// The end value.
     pub end: f64,
+    /// Number of items represented by this value.
     pub count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for histogram.
 pub struct Histogram {
+    /// The bins value.
     pub bins: Vec<HistogramBin>,
+    /// Number of items represented by this value.
     pub count: u64,
+    /// The min value.
     pub min: f64,
+    /// The max value.
     pub max: f64,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// Data type for running stats.
 pub struct RunningStats {
     count: u64,
     finite_count: u64,
@@ -125,25 +164,30 @@ pub struct RunningStats {
 }
 
 impl RunningStats {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Adds push to this value.
     pub fn push(&mut self, value: f64) {
         self.push_weighted_internal(value, 1.0, false)
             .expect("unit weight is valid");
     }
 
+    /// Adds push weighted to this value.
     pub fn push_weighted(&mut self, value: f64, weight: f64) -> Result<()> {
         self.push_weighted_internal(value, weight, true)
     }
 
+    /// Returns extend.
     pub fn extend(&mut self, values: impl IntoIterator<Item = f64>) {
         for value in values {
             self.push(value);
         }
     }
 
+    /// Returns merge.
     pub fn merge(&mut self, other: &Self) {
         self.count += other.count;
         self.finite_count += other.finite_count;
@@ -169,6 +213,7 @@ impl RunningStats {
         self.weight_sum = total_weight;
     }
 
+    /// Returns summary.
     pub fn summary(&self) -> NumberSummary {
         let variance = (self.weight_sum > 0.0).then_some(self.m2 / self.weight_sum);
         NumberSummary {
@@ -227,12 +272,14 @@ impl RunningStats {
     }
 }
 
+/// Returns summarize numbers.
 pub fn summarize_numbers(values: &[f64]) -> NumberSummary {
     let mut stats = RunningStats::new();
     stats.extend(values.iter().copied());
     stats.summary()
 }
 
+/// Returns quantile.
 pub fn quantile(values: &[f64], quantile: f64) -> Result<f64> {
     if !quantile.is_finite() || !(0.0..=1.0).contains(&quantile) {
         return Err(invalid_argument(
@@ -252,6 +299,7 @@ pub fn quantile(values: &[f64], quantile: f64) -> Result<f64> {
     Ok(finite[lower] + (finite[upper] - finite[lower]) * fraction)
 }
 
+/// Returns quartiles.
 pub fn quartiles(values: &[f64]) -> Result<QuartileSummary> {
     let q1 = quantile(values, 0.25)?;
     let median = quantile(values, 0.5)?;
@@ -264,6 +312,7 @@ pub fn quartiles(values: &[f64]) -> Result<QuartileSummary> {
     })
 }
 
+/// Returns histogram.
 pub fn histogram(values: &[f64], config: HistogramConfig) -> Result<Histogram> {
     config.validate()?;
 

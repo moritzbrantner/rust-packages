@@ -8,12 +8,16 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing sparse similarity metric.
 pub enum SparseSimilarityMetric {
+    /// The dot variant.
     Dot,
+    /// The cosine variant.
     Cosine,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for sparse vector.
 pub struct SparseVector {
     dimensions: usize,
     indices: Vec<usize>,
@@ -21,6 +25,7 @@ pub struct SparseVector {
 }
 
 impl SparseVector {
+    /// Creates a new value.
     pub fn new(dimensions: usize, indices: Vec<usize>, values: Vec<f32>) -> Result<Self> {
         let vector = Self {
             dimensions,
@@ -31,22 +36,27 @@ impl SparseVector {
         Ok(vector)
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> usize {
         self.dimensions
     }
 
+    /// Returns indices.
     pub fn indices(&self) -> &[usize] {
         &self.indices
     }
 
+    /// Returns values.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
 
+    /// Returns nnz.
     pub fn nnz(&self) -> usize {
         self.indices.len()
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.dimensions == 0 {
             return Err(invalid_argument(
@@ -67,6 +77,7 @@ impl SparseVector {
         Ok(())
     }
 
+    /// Returns canonicalized.
     pub fn canonicalized(&self) -> Result<Self> {
         self.validate()?;
         let mut pairs = self
@@ -95,6 +106,7 @@ impl SparseVector {
         Self::new(self.dimensions, indices, values)
     }
 
+    /// Returns dot.
     pub fn dot(&self, other: &Self) -> Result<f32> {
         let left = self.canonicalized()?;
         let right = other.canonicalized()?;
@@ -118,6 +130,7 @@ impl SparseVector {
         Ok(acc)
     }
 
+    /// Returns cosine similarity.
     pub fn cosine_similarity(&self, other: &Self) -> Result<f32> {
         let left_norm = self
             .values
@@ -139,6 +152,7 @@ impl SparseVector {
         Ok(self.dot(other)? / (left_norm * right_norm))
     }
 
+    /// Returns normalize l2.
     pub fn normalize_l2(&self) -> Result<Self> {
         let norm = self
             .values
@@ -158,6 +172,7 @@ impl SparseVector {
         )
     }
 
+    /// Converts this value to dense.
     pub fn to_dense(&self) -> Vec<f32> {
         let mut dense = vec![0.0; self.dimensions];
         for (&index, &value) in self.indices.iter().zip(&self.values) {
@@ -166,6 +181,7 @@ impl SparseVector {
         dense
     }
 
+    /// Builds this value from dense.
     pub fn from_dense(values: &[f32]) -> Result<Self> {
         if values.is_empty() {
             return Err(invalid_argument("dense vector must not be empty"));
@@ -194,6 +210,7 @@ impl TryFrom<&DenseVector> for SparseVector {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for coo matrix.
 pub struct CooMatrix {
     rows: usize,
     cols: usize,
@@ -201,6 +218,7 @@ pub struct CooMatrix {
 }
 
 impl CooMatrix {
+    /// Creates a new value.
     pub fn new(rows: usize, cols: usize, entries: Vec<(usize, usize, f32)>) -> Result<Self> {
         let matrix = Self {
             rows,
@@ -211,22 +229,27 @@ impl CooMatrix {
         Ok(matrix)
     }
 
+    /// Returns rows.
     pub fn rows(&self) -> usize {
         self.rows
     }
 
+    /// Returns cols.
     pub fn cols(&self) -> usize {
         self.cols
     }
 
+    /// Returns entries.
     pub fn entries(&self) -> &[(usize, usize, f32)] {
         &self.entries
     }
 
+    /// Returns nnz.
     pub fn nnz(&self) -> usize {
         self.entries.len()
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.rows == 0 || self.cols == 0 {
             return Err(invalid_argument(
@@ -244,6 +267,7 @@ impl CooMatrix {
         Ok(())
     }
 
+    /// Returns canonicalized.
     pub fn canonicalized(&self) -> Result<Self> {
         self.validate()?;
         let mut entries = self.entries.clone();
@@ -263,12 +287,14 @@ impl CooMatrix {
         Self::new(self.rows, self.cols, output)
     }
 
+    /// Converts this value to csr.
     pub fn to_csr(&self) -> Result<CsrMatrix> {
         CsrMatrix::from_coo(self)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for csr matrix.
 pub struct CsrMatrix {
     rows: usize,
     cols: usize,
@@ -278,6 +304,7 @@ pub struct CsrMatrix {
 }
 
 impl CsrMatrix {
+    /// Creates a new value.
     pub fn new(
         rows: usize,
         cols: usize,
@@ -296,6 +323,7 @@ impl CsrMatrix {
         Ok(matrix)
     }
 
+    /// Builds this value from coo.
     pub fn from_coo(coo: &CooMatrix) -> Result<Self> {
         let canonical = coo.canonicalized()?;
         let mut row_offsets = vec![0usize; canonical.rows + 1];
@@ -323,14 +351,17 @@ impl CsrMatrix {
         )
     }
 
+    /// Returns rows.
     pub fn rows(&self) -> usize {
         self.rows
     }
 
+    /// Returns cols.
     pub fn cols(&self) -> usize {
         self.cols
     }
 
+    /// Returns row.
     pub fn row(&self, index: usize) -> Result<SparseRow<'_>> {
         if index >= self.rows {
             return Err(invalid_argument("CSR row index is out of bounds"));
@@ -344,10 +375,12 @@ impl CsrMatrix {
         })
     }
 
+    /// Returns rows iter.
     pub fn rows_iter(&self) -> impl Iterator<Item = SparseRow<'_>> {
         (0..self.rows).map(|index| self.row(index).expect("indices are validated"))
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.rows == 0 || self.cols == 0 {
             return Err(invalid_argument(
@@ -386,6 +419,7 @@ impl CsrMatrix {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for sparse row.
 pub struct SparseRow<'a> {
     cols: usize,
     indices: &'a [usize],
@@ -393,18 +427,22 @@ pub struct SparseRow<'a> {
 }
 
 impl<'a> SparseRow<'a> {
+    /// Returns cols.
     pub fn cols(&self) -> usize {
         self.cols
     }
 
+    /// Returns indices.
     pub fn indices(&self) -> &'a [usize] {
         self.indices
     }
 
+    /// Returns values.
     pub fn values(&self) -> &'a [f32] {
         self.values
     }
 
+    /// Converts this value to sparse vector.
     pub fn to_sparse_vector(&self) -> Result<SparseVector> {
         SparseVector::new(self.cols, self.indices.to_vec(), self.values.to_vec())
     }

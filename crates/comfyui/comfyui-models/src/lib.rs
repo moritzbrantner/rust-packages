@@ -9,6 +9,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Constant for supported model extensions.
 pub const SUPPORTED_MODEL_EXTENSIONS: &[&str] = &[
     "ckpt",
     "pt",
@@ -20,48 +21,83 @@ pub const SUPPORTED_MODEL_EXTENSIONS: &[&str] = &[
     "sft",
 ];
 
+/// Constant for config extensions.
 pub const CONFIG_EXTENSIONS: &[&str] = &["yaml", "yml"];
 
 #[derive(Debug, Error)]
+/// Variants describing comfy model error.
 pub enum ComfyModelError {
     #[error("unknown ComfyUI model folder key `{0}`")]
+    /// The unknown model kind variant.
     UnknownModelKind(String),
     #[error("model path `{path}` is outside root `{root}`")]
-    PathOutsideRoot { path: PathBuf, root: PathBuf },
+    /// The path outside root variant.
+    PathOutsideRoot {
+        /// Filesystem path for this variant.
+        path: PathBuf,
+        /// Root filesystem path for this variant.
+        root: PathBuf,
+    },
     #[error("model inventory error: {0}")]
+    /// The I/O variant.
     Io(#[from] std::io::Error),
 }
 
+/// Type alias for result.
 pub type Result<T> = std::result::Result<T, ComfyModelError>;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing comfy model kind.
 pub enum ComfyModelKind {
+    /// The checkpoint variant.
     Checkpoint,
+    /// The config variant.
     Config,
+    /// The lora variant.
     Lora,
+    /// The vae variant.
     Vae,
+    /// The text encoder variant.
     TextEncoder,
+    /// The diffusion model variant.
     DiffusionModel,
+    /// The clip vision variant.
     ClipVision,
+    /// The style model variant.
     StyleModel,
+    /// The embedding variant.
     Embedding,
+    /// The diffusers variant.
     Diffusers,
+    /// The vae approx variant.
     VaeApprox,
+    /// The control net variant.
     ControlNet,
+    /// The gligen variant.
     Gligen,
+    /// The upscale model variant.
     UpscaleModel,
+    /// The latent upscale model variant.
     LatentUpscaleModel,
+    /// The custom nodes variant.
     CustomNodes,
+    /// The hypernetwork variant.
     Hypernetwork,
+    /// The photomaker variant.
     Photomaker,
+    /// The classifier variant.
     Classifier,
+    /// The model patch variant.
     ModelPatch,
+    /// The audio encoder variant.
     AudioEncoder,
+    /// The custom variant.
     Custom(String),
 }
 
 impl ComfyModelKind {
+    /// Constant for core.
     pub const CORE: &'static [Self] = &[
         Self::Checkpoint,
         Self::Config,
@@ -86,6 +122,7 @@ impl ComfyModelKind {
         Self::AudioEncoder,
     ];
 
+    /// Returns key.
     pub fn key(&self) -> &str {
         match self {
             Self::Checkpoint => "checkpoints",
@@ -113,6 +150,7 @@ impl ComfyModelKind {
         }
     }
 
+    /// Builds this value from key.
     pub fn from_key(key: &str) -> Result<Self> {
         Ok(match key {
             "checkpoints" => Self::Checkpoint,
@@ -141,6 +179,7 @@ impl ComfyModelKind {
         })
     }
 
+    /// Returns default relative paths.
     pub fn default_relative_paths(&self) -> &'static [&'static str] {
         match self {
             Self::Checkpoint => &["models/checkpoints"],
@@ -168,6 +207,7 @@ impl ComfyModelKind {
         }
     }
 
+    /// Returns accepted extensions.
     pub fn accepted_extensions(&self) -> BTreeSet<&'static str> {
         match self {
             Self::Config => CONFIG_EXTENSIONS.iter().copied().collect(),
@@ -178,6 +218,7 @@ impl ComfyModelKind {
         }
     }
 
+    /// Returns accepts directories.
     pub fn accepts_directories(&self) -> bool {
         matches!(self, Self::Diffusers | Self::CustomNodes)
     }
@@ -198,33 +239,54 @@ impl FromStr for ComfyModelKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for comfy model asset.
 pub struct ComfyModelAsset {
+    /// The kind value.
     pub kind: ComfyModelKind,
+    /// Human-readable name for this value.
     pub name: String,
+    /// The relative path value.
     pub relative_path: PathBuf,
+    /// The full path value.
     pub full_path: PathBuf,
+    /// The source root value.
     pub source_root: PathBuf,
+    /// The bytes value.
     pub bytes: Option<u64>,
+    /// The is directory value.
     pub is_directory: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing comfy model role.
 pub enum ComfyModelRole {
+    /// The checkpoint variant.
     Checkpoint,
+    /// The diffusion model variant.
     DiffusionModel,
+    /// The text encoder variant.
     TextEncoder,
+    /// The vae variant.
     Vae,
+    /// The clip vision variant.
     ClipVision,
+    /// The control net variant.
     ControlNet,
+    /// The upscale model variant.
     UpscaleModel,
+    /// The audio encoder variant.
     AudioEncoder,
+    /// The model patch variant.
     ModelPatch,
+    /// The lora variant.
     Lora,
+    /// The embedding variant.
     Embedding,
 }
 
 impl ComfyModelRole {
+    /// Returns kind.
     pub fn kind(self) -> ComfyModelKind {
         match self {
             Self::Checkpoint => ComfyModelKind::Checkpoint,
@@ -241,6 +303,7 @@ impl ComfyModelRole {
         }
     }
 
+    /// Builds this value from kind.
     pub fn from_kind(kind: &ComfyModelKind) -> Option<Self> {
         Some(match kind {
             ComfyModelKind::Checkpoint => Self::Checkpoint,
@@ -260,22 +323,31 @@ impl ComfyModelRole {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for comfy model ref.
 pub struct ComfyModelRef {
+    /// The role value.
     pub role: ComfyModelRole,
+    /// Human-readable name for this value.
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The relative path value.
     pub relative_path: Option<PathBuf>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The full path value.
     pub full_path: Option<PathBuf>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The source root value.
     pub source_root: Option<PathBuf>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The bytes value.
     pub bytes: Option<u64>,
     #[serde(default)]
+    /// The is directory value.
     pub is_directory: bool,
 }
 
 impl ComfyModelRef {
+    /// Creates a new value.
     pub fn new(role: ComfyModelRole, name: impl Into<String>) -> Self {
         Self {
             role,
@@ -288,6 +360,7 @@ impl ComfyModelRef {
         }
     }
 
+    /// Builds this value from asset.
     pub fn from_asset(asset: &ComfyModelAsset) -> Option<Self> {
         let role = ComfyModelRole::from_kind(&asset.kind)?;
         Some(Self {
@@ -303,12 +376,15 @@ impl ComfyModelRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for comfy model root.
 pub struct ComfyModelRoot {
+    /// The base path value.
     pub base_path: PathBuf,
     extra_paths: BTreeMap<ComfyModelKind, Vec<PathBuf>>,
 }
 
 impl ComfyModelRoot {
+    /// Creates a new value.
     pub fn new(base_path: impl Into<PathBuf>) -> Self {
         Self {
             base_path: base_path.into(),
@@ -316,16 +392,19 @@ impl ComfyModelRoot {
         }
     }
 
+    /// Adds add extra path to this value.
     pub fn add_extra_path(&mut self, kind: ComfyModelKind, path: impl Into<PathBuf>) -> &mut Self {
         self.extra_paths.entry(kind).or_default().push(path.into());
         self
     }
 
+    /// Returns this value with extra path.
     pub fn with_extra_path(mut self, kind: ComfyModelKind, path: impl Into<PathBuf>) -> Self {
         self.add_extra_path(kind, path);
         self
     }
 
+    /// Returns paths for.
     pub fn paths_for(&self, kind: &ComfyModelKind) -> Vec<PathBuf> {
         let mut paths: Vec<_> = kind
             .default_relative_paths()
@@ -338,10 +417,12 @@ impl ComfyModelRoot {
         paths
     }
 
+    /// Returns extra paths.
     pub fn extra_paths(&self) -> &BTreeMap<ComfyModelKind, Vec<PathBuf>> {
         &self.extra_paths
     }
 
+    /// Returns scan.
     pub fn scan(&self) -> Result<Vec<ComfyModelAsset>> {
         let mut assets = Vec::new();
         for kind in ComfyModelKind::CORE {
@@ -360,6 +441,7 @@ impl ComfyModelRoot {
         Ok(assets)
     }
 
+    /// Returns scan kind.
     pub fn scan_kind(
         &self,
         kind: &ComfyModelKind,
@@ -373,17 +455,21 @@ impl ComfyModelRoot {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for extra model paths config.
 pub struct ExtraModelPathsConfig {
+    /// The sections value.
     pub sections: BTreeMap<String, ExtraModelPathSection>,
 }
 
 impl ExtraModelPathsConfig {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self {
             sections: BTreeMap::new(),
         }
     }
 
+    /// Returns insert section.
     pub fn insert_section(
         mut self,
         name: impl Into<String>,
@@ -393,6 +479,7 @@ impl ExtraModelPathsConfig {
         self
     }
 
+    /// Converts this value to yaml string.
     pub fn to_yaml_string(&self) -> String {
         let mut output = String::new();
         for (name, section) in &self.sections {
@@ -436,13 +523,18 @@ impl Default for ExtraModelPathsConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for extra model path section.
 pub struct ExtraModelPathSection {
+    /// The base path value.
     pub base_path: PathBuf,
+    /// The is default value.
     pub is_default: bool,
+    /// The paths value.
     pub paths: BTreeMap<String, Vec<PathBuf>>,
 }
 
 impl ExtraModelPathSection {
+    /// Creates a new value.
     pub fn new(base_path: impl Into<PathBuf>) -> Self {
         Self {
             base_path: base_path.into(),
@@ -451,6 +543,7 @@ impl ExtraModelPathSection {
         }
     }
 
+    /// Returns default ComfyUI.
     pub fn default_comfyui(base_path: impl Into<PathBuf>) -> Self {
         let mut section = Self::new(base_path);
         for kind in ComfyModelKind::CORE {
@@ -468,11 +561,13 @@ impl ExtraModelPathSection {
         section
     }
 
+    /// Returns default first.
     pub fn default_first(mut self, value: bool) -> Self {
         self.is_default = value;
         self
     }
 
+    /// Adds add path to this value.
     pub fn add_path(&mut self, kind: ComfyModelKind, path: impl Into<PathBuf>) -> &mut Self {
         self.paths
             .entry(kind.key().to_string())

@@ -1,3 +1,5 @@
+//! Internal module support for subtitle impl.
+
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -14,16 +16,22 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for subtitle generation run request.
 pub struct SubtitleGenerationRunRequest {
+    /// The source value.
     pub source: SourceSpec,
+    /// The work dir value.
     pub work_dir: Option<PathBuf>,
     #[serde(default)]
+    /// The transcription value.
     pub transcription: TranscriptionConfig,
     #[serde(default = "default_overwrite")]
+    /// The overwrite value.
     pub overwrite: bool,
 }
 
 impl SubtitleGenerationRunRequest {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         match &self.source {
             SourceSpec::YoutubeUrl { url } => validate_youtube_url(url),
@@ -33,32 +41,50 @@ impl SubtitleGenerationRunRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for subtitle generation report.
 pub struct SubtitleGenerationReport {
     #[serde(alias = "use_case")]
+    /// The workflow value.
     pub workflow: String,
+    /// The source value.
     pub source: SourceReport,
+    /// The assets value.
     pub assets: SubtitleAssetReport,
+    /// The capabilities value.
     pub capabilities: CapabilityReport,
+    /// The transcription value.
     pub transcription: TranscriptionReport,
+    /// The subtitle value.
     pub subtitle: SubtitleReport,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for subtitle asset report.
 pub struct SubtitleAssetReport {
+    /// The work dir value.
     pub work_dir: String,
+    /// The report path value.
     pub report_path: String,
+    /// The audio wav value.
     pub audio_wav: Option<String>,
+    /// The subtitle path value.
     pub subtitle_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for subtitle report.
 pub struct SubtitleReport {
+    /// The format value.
     pub format: String,
+    /// Filesystem path for this value.
     pub path: String,
+    /// The segments value.
     pub segments: u64,
+    /// The message value.
     pub message: Option<String>,
 }
 
+/// Runs subtitle generation workflow.
 pub fn run_subtitle_generation_workflow(
     request: SubtitleGenerationRunRequest,
     work_dir: PathBuf,

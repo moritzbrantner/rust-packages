@@ -8,12 +8,16 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing flash filter mode.
 pub enum FlashFilterMode {
+    /// The merge variant.
     Merge,
+    /// The suppress variant.
     Suppress,
 }
 
 #[derive(Debug, Clone)]
+/// Data type for flash filter.
 pub struct FlashFilter {
     mode: FlashFilterMode,
     length: u64,
@@ -24,6 +28,7 @@ pub struct FlashFilter {
 }
 
 impl FlashFilter {
+    /// Creates a new value.
     pub fn new(mode: FlashFilterMode, length: u64) -> Self {
         Self {
             mode,
@@ -35,6 +40,7 @@ impl FlashFilter {
         }
     }
 
+    /// Returns max behind.
     pub fn max_behind(&self) -> usize {
         match self.mode {
             FlashFilterMode::Suppress => 0,
@@ -42,6 +48,7 @@ impl FlashFilter {
         }
     }
 
+    /// Returns filter.
     pub fn filter(&mut self, frame_index: u64, above_threshold: bool) -> Vec<u64> {
         if self.length == 0 {
             return above_threshold.then_some(frame_index).into_iter().collect();
@@ -97,25 +104,34 @@ impl FlashFilter {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for algorithm score.
 pub struct AlgorithmScore {
+    /// The position value.
     pub position: FramePosition,
+    /// The raw value.
     pub raw: f32,
+    /// The normalized value.
     pub normalized: f32,
 }
 
+/// Trait for score algorithm implementations.
 pub trait ScoreAlgorithm {
+    /// Returns name.
     fn name(&self) -> &'static str;
 
+    /// Returns latency.
     fn latency(&self) -> usize {
         0
     }
 
+    /// Returns process frame.
     fn process_frame(
         &mut self,
         frame: &VideoFrame<'_>,
         metrics: Option<&mut dyn MetricsSink>,
     ) -> Result<Vec<AlgorithmScore>>;
 
+    /// Returns finish.
     fn finish(
         &mut self,
         _last_position: FramePosition,
@@ -125,12 +141,14 @@ pub trait ScoreAlgorithm {
     }
 }
 
+/// Data type for weighted component.
 pub struct WeightedComponent {
     algorithm: Box<dyn ScoreAlgorithm>,
     weight: f32,
 }
 
 impl WeightedComponent {
+    /// Creates a new value.
     pub fn new<A: ScoreAlgorithm + 'static>(algorithm: A, weight: f32) -> Result<Self> {
         if !weight.is_finite() || weight <= 0.0 {
             return Err(DetectError::InvalidArgument(
@@ -143,15 +161,18 @@ impl WeightedComponent {
         })
     }
 
+    /// Returns name.
     pub fn name(&self) -> &'static str {
         self.algorithm.name()
     }
 
+    /// Returns weight.
     pub fn weight(&self) -> f32 {
         self.weight
     }
 }
 
+/// Data type for weighted composite detector.
 pub struct WeightedCompositeDetector {
     components: Vec<WeightedComponent>,
     threshold: f32,
@@ -180,6 +201,7 @@ impl PendingCompositeScore {
 }
 
 #[derive(Default)]
+/// Data type for weighted composite detector builder.
 pub struct WeightedCompositeDetectorBuilder {
     components: Vec<WeightedComponent>,
     threshold: Option<f32>,
@@ -188,6 +210,7 @@ pub struct WeightedCompositeDetectorBuilder {
 }
 
 impl WeightedCompositeDetector {
+    /// Constant for metric keys.
     pub const METRIC_KEYS: &'static [&'static str] = &[
         "combined_score",
         "combined_cut",
@@ -195,6 +218,7 @@ impl WeightedCompositeDetector {
         "combined_vote_count",
     ];
 
+    /// Returns builder.
     pub fn builder() -> WeightedCompositeDetectorBuilder {
         WeightedCompositeDetectorBuilder::default()
     }
@@ -267,6 +291,7 @@ impl WeightedCompositeDetector {
 }
 
 impl WeightedCompositeDetectorBuilder {
+    /// Returns component.
     pub fn component<A: ScoreAlgorithm + 'static>(mut self, algorithm: A, weight: f32) -> Self {
         self.components.push(WeightedComponent {
             algorithm: Box::new(algorithm),
@@ -275,26 +300,31 @@ impl WeightedCompositeDetectorBuilder {
         self
     }
 
+    /// Returns weighted component.
     pub fn weighted_component(mut self, component: WeightedComponent) -> Self {
         self.components.push(component);
         self
     }
 
+    /// Returns threshold.
     pub fn threshold(mut self, value: f32) -> Self {
         self.threshold = Some(value);
         self
     }
 
+    /// Returns min scene len.
     pub fn min_scene_len(mut self, value: u64) -> Self {
         self.min_scene_len = Some(value);
         self
     }
 
+    /// Returns filter mode.
     pub fn filter_mode(mut self, value: FlashFilterMode) -> Self {
         self.filter_mode = Some(value);
         self
     }
 
+    /// Returns build.
     pub fn build(self) -> Result<WeightedCompositeDetector> {
         if self.components.is_empty() {
             return Err(DetectError::InvalidArgument(
@@ -439,10 +469,15 @@ fn normalize_threshold(raw: f32, threshold: f32) -> f32 {
 }
 
 #[derive(Debug, Clone, Copy)]
+/// Data type for content weights.
 pub struct ContentWeights {
+    /// The delta hue value.
     pub delta_hue: f32,
+    /// The delta sat value.
     pub delta_sat: f32,
+    /// The delta lum value.
     pub delta_lum: f32,
+    /// The delta edges value.
     pub delta_edges: f32,
 }
 
@@ -458,6 +493,7 @@ impl Default for ContentWeights {
 }
 
 impl ContentWeights {
+    /// Constant for luma only.
     pub const LUMA_ONLY: Self = Self {
         delta_hue: 0.0,
         delta_sat: 0.0,
@@ -471,6 +507,7 @@ impl ContentWeights {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for content detector.
 pub struct ContentDetector {
     threshold: f32,
     scorer: ContentScorer,
@@ -484,6 +521,7 @@ impl Default for ContentDetector {
 }
 
 impl ContentDetector {
+    /// Constant for metric keys.
     pub const METRIC_KEYS: &'static [&'static str] = &[
         "content_val",
         "delta_hue",
@@ -492,6 +530,7 @@ impl ContentDetector {
         "delta_edges",
     ];
 
+    /// Creates a new value.
     pub fn new(threshold: f32, min_scene_len: u64) -> Self {
         Self {
             threshold,
@@ -500,11 +539,13 @@ impl ContentDetector {
         }
     }
 
+    /// Returns this value with weights.
     pub fn with_weights(mut self, weights: ContentWeights) -> Self {
         self.scorer.weights = weights;
         self
     }
 
+    /// Returns luma only.
     pub fn luma_only(mut self, value: bool) -> Self {
         if value {
             self.scorer.weights = ContentWeights::LUMA_ONLY;
@@ -512,6 +553,7 @@ impl ContentDetector {
         self
     }
 
+    /// Returns kernel size.
     pub fn kernel_size(mut self, value: Option<usize>) -> Result<Self> {
         if let Some(size) = value {
             if size < 3 || size % 2 == 0 {
@@ -524,6 +566,7 @@ impl ContentDetector {
         Ok(self)
     }
 
+    /// Returns filter mode.
     pub fn filter_mode(mut self, mode: FlashFilterMode, min_scene_len: u64) -> Self {
         self.flash_filter = FlashFilter::new(mode, min_scene_len);
         self
@@ -636,12 +679,14 @@ fn set_content_metrics(
 }
 
 #[derive(Debug, Clone)]
+/// Data type for content score algorithm.
 pub struct ContentScoreAlgorithm {
     threshold: f32,
     scorer: ContentScorer,
 }
 
 impl ContentScoreAlgorithm {
+    /// Creates a new value.
     pub fn new(threshold: f32) -> Self {
         Self {
             threshold,
@@ -649,11 +694,13 @@ impl ContentScoreAlgorithm {
         }
     }
 
+    /// Returns this value with weights.
     pub fn with_weights(mut self, weights: ContentWeights) -> Self {
         self.scorer.weights = weights;
         self
     }
 
+    /// Returns luma only.
     pub fn luma_only(mut self, value: bool) -> Self {
         if value {
             self.scorer.weights = ContentWeights::LUMA_ONLY;
@@ -661,6 +708,7 @@ impl ContentScoreAlgorithm {
         self
     }
 
+    /// Returns kernel size.
     pub fn kernel_size(mut self, value: Option<usize>) -> Result<Self> {
         if let Some(size) = value {
             if size < 3 || size % 2 == 0 {
@@ -732,6 +780,7 @@ impl FrameData {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for adaptive detector.
 pub struct AdaptiveDetector {
     scorer: ContentScorer,
     adaptive_threshold: f32,
@@ -749,6 +798,7 @@ impl Default for AdaptiveDetector {
 }
 
 impl AdaptiveDetector {
+    /// Constant for metric keys.
     pub const METRIC_KEYS: &'static [&'static str] = &[
         "content_val",
         "delta_hue",
@@ -758,6 +808,7 @@ impl AdaptiveDetector {
         "adaptive_ratio",
     ];
 
+    /// Creates a new value.
     pub fn new(
         adaptive_threshold: f32,
         min_scene_len: u64,
@@ -776,6 +827,7 @@ impl AdaptiveDetector {
         }
     }
 
+    /// Returns luma only.
     pub fn luma_only(mut self, value: bool) -> Self {
         if value {
             self.scorer.weights = ContentWeights::LUMA_ONLY;
@@ -859,6 +911,7 @@ impl SceneDetector for AdaptiveDetector {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for adaptive score algorithm.
 pub struct AdaptiveScoreAlgorithm {
     scorer: ContentScorer,
     adaptive_threshold: f32,
@@ -868,6 +921,7 @@ pub struct AdaptiveScoreAlgorithm {
 }
 
 impl AdaptiveScoreAlgorithm {
+    /// Creates a new value.
     pub fn new(adaptive_threshold: f32, window_width: usize, min_content_val: f32) -> Self {
         assert!(window_width >= 1, "window_width must be at least 1");
         Self {
@@ -879,6 +933,7 @@ impl AdaptiveScoreAlgorithm {
         }
     }
 
+    /// Returns luma only.
     pub fn luma_only(mut self, value: bool) -> Self {
         if value {
             self.scorer.weights = ContentWeights::LUMA_ONLY;
@@ -949,12 +1004,16 @@ impl ScoreAlgorithm for AdaptiveScoreAlgorithm {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing threshold method.
 pub enum ThresholdMethod {
+    /// The floor variant.
     Floor,
+    /// The ceiling variant.
     Ceiling,
 }
 
 #[derive(Debug, Clone)]
+/// Data type for threshold detector.
 pub struct ThresholdDetector {
     threshold: f32,
     min_scene_len: u64,
@@ -980,8 +1039,10 @@ impl Default for ThresholdDetector {
 }
 
 impl ThresholdDetector {
+    /// Constant for metric keys.
     pub const METRIC_KEYS: &'static [&'static str] = &["average_rgb"];
 
+    /// Creates a new value.
     pub fn new(threshold: f32, min_scene_len: u64) -> Self {
         Self {
             threshold,
@@ -996,16 +1057,19 @@ impl ThresholdDetector {
         }
     }
 
+    /// Returns fade bias.
     pub fn fade_bias(mut self, value: f32) -> Self {
         self.fade_bias = value.clamp(-1.0, 1.0);
         self
     }
 
+    /// Adds add final scene to this value.
     pub fn add_final_scene(mut self, value: bool) -> Self {
         self.add_final_scene = value;
         self
     }
 
+    /// Returns method.
     pub fn method(mut self, value: ThresholdMethod) -> Self {
         self.method = value;
         self
@@ -1104,6 +1168,7 @@ impl SceneDetector for ThresholdDetector {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for histogram detector.
 pub struct HistogramDetector {
     threshold: f32,
     bins: usize,
@@ -1119,8 +1184,10 @@ impl Default for HistogramDetector {
 }
 
 impl HistogramDetector {
+    /// Constant for metric keys.
     pub const METRIC_KEYS: &'static [&'static str] = &["hist_diff"];
 
+    /// Creates a new value.
     pub fn new(threshold: f32, bins: usize, min_scene_len: u64) -> Self {
         Self {
             threshold: 1.0 - threshold.clamp(0.0, 1.0),
@@ -1177,6 +1244,7 @@ impl SceneDetector for HistogramDetector {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for histogram score algorithm.
 pub struct HistogramScoreAlgorithm {
     threshold: f32,
     bins: usize,
@@ -1184,6 +1252,7 @@ pub struct HistogramScoreAlgorithm {
 }
 
 impl HistogramScoreAlgorithm {
+    /// Creates a new value.
     pub fn new(threshold: f32, bins: usize) -> Self {
         Self {
             threshold,
@@ -1226,6 +1295,7 @@ impl ScoreAlgorithm for HistogramScoreAlgorithm {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for hash detector.
 pub struct HashDetector {
     threshold: f32,
     size: usize,
@@ -1242,8 +1312,10 @@ impl Default for HashDetector {
 }
 
 impl HashDetector {
+    /// Constant for metric keys.
     pub const METRIC_KEYS: &'static [&'static str] = &["hash_dist"];
 
+    /// Creates a new value.
     pub fn new(threshold: f32, size: usize, lowpass: usize, min_scene_len: u64) -> Self {
         Self {
             threshold,
@@ -1306,6 +1378,7 @@ impl SceneDetector for HashDetector {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for hash score algorithm.
 pub struct HashScoreAlgorithm {
     threshold: f32,
     size: usize,
@@ -1314,6 +1387,7 @@ pub struct HashScoreAlgorithm {
 }
 
 impl HashScoreAlgorithm {
+    /// Creates a new value.
     pub fn new(threshold: f32, size: usize, lowpass: usize) -> Self {
         Self {
             threshold,

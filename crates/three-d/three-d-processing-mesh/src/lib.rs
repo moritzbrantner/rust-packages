@@ -7,11 +7,14 @@ use three_d_processing_core::{Bounds3, Point3, RigidTransform3, Transform3, Vect
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+/// Data type for edge.
 pub struct Edge {
+    /// The vertices value.
     pub vertices: [usize; 2],
 }
 
 impl Edge {
+    /// Creates a new value.
     pub fn new(a: usize, b: usize) -> Result<Self> {
         if a == b {
             return Err(invalid_argument(
@@ -25,17 +28,21 @@ impl Edge {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for triangle.
 pub struct Triangle {
+    /// The vertices value.
     pub vertices: [usize; 3],
 }
 
 impl Triangle {
+    /// Creates a new value.
     pub const fn new(a: usize, b: usize, c: usize) -> Self {
         Self {
             vertices: [a, b, c],
         }
     }
 
+    /// Returns edges.
     pub fn edges(self) -> Result<[Edge; 3]> {
         Ok([
             Edge::new(self.vertices[0], self.vertices[1])?,
@@ -46,20 +53,29 @@ impl Triangle {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for mesh topology.
 pub struct MeshTopology {
+    /// The edges value.
     pub edges: Vec<Edge>,
+    /// The boundary edges value.
     pub boundary_edges: Vec<Edge>,
+    /// The vertex neighbors value.
     pub vertex_neighbors: Vec<Vec<usize>>,
+    /// The triangle neighbors value.
     pub triangle_neighbors: Vec<Vec<usize>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for mesh.
 pub struct Mesh {
+    /// The vertices value.
     pub vertices: Vec<Point3>,
+    /// The triangles value.
     pub triangles: Vec<Triangle>,
 }
 
 impl Mesh {
+    /// Creates a new value.
     pub fn new(
         vertices: impl Into<Vec<Point3>>,
         triangles: impl Into<Vec<Triangle>>,
@@ -72,6 +88,7 @@ impl Mesh {
         Ok(mesh)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.vertices.iter().any(|vertex| !vertex.is_finite()) {
             return Err(invalid_argument("mesh vertices must be finite"));
@@ -94,42 +111,52 @@ impl Mesh {
         Ok(())
     }
 
+    /// Returns bounds.
     pub fn bounds(&self) -> Result<Option<Bounds3>> {
         Bounds3::from_points(&self.vertices)
     }
 
+    /// Returns surface area.
     pub fn surface_area(&self) -> Result<f32> {
         surface_area(self)
     }
 
+    /// Returns face normals.
     pub fn face_normals(&self) -> Result<Vec<Vector3>> {
         face_normals(self)
     }
 
+    /// Returns vertex normals.
     pub fn vertex_normals(&self) -> Result<Vec<Vector3>> {
         vertex_normals(self)
     }
 
+    /// Returns topology.
     pub fn topology(&self) -> Result<MeshTopology> {
         mesh_topology(self)
     }
 
+    /// Returns connected components.
     pub fn connected_components(&self) -> Result<Vec<Mesh>> {
         connected_components(self)
     }
 
+    /// Returns whether is manifold.
     pub fn is_manifold(&self) -> Result<bool> {
         is_manifold(self)
     }
 
+    /// Returns whether is watertight.
     pub fn is_watertight(&self) -> Result<bool> {
         is_watertight(self)
     }
 
+    /// Returns volume.
     pub fn volume(&self) -> Result<f32> {
         volume(self)
     }
 
+    /// Returns transformed.
     pub fn transformed(&self, transform: Transform3) -> Result<Self> {
         Mesh::new(
             self.vertices
@@ -141,6 +168,7 @@ impl Mesh {
         )
     }
 
+    /// Returns transformed rigid.
     pub fn transformed_rigid(&self, transform: RigidTransform3) -> Result<Self> {
         Mesh::new(
             self.vertices
@@ -152,19 +180,23 @@ impl Mesh {
         )
     }
 
+    /// Returns merged with.
     pub fn merged_with(&self, other: &Mesh) -> Result<Self> {
         merge_meshes([self, other])
     }
 
+    /// Returns sample points uniform.
     pub fn sample_points_uniform(&self, sample_count: usize) -> Result<Vec<Point3>> {
         sample_points_uniform(self, sample_count)
     }
 
+    /// Returns laplacian smooth.
     pub fn laplacian_smooth(&self, iterations: usize, lambda: f32) -> Result<Self> {
         laplacian_smooth(self, iterations, lambda)
     }
 }
 
+/// Returns triangle normal.
 pub fn triangle_normal(mesh: &Mesh, triangle: Triangle) -> Result<Vector3> {
     mesh.validate()?;
     for index in triangle.vertices {
@@ -178,6 +210,7 @@ pub fn triangle_normal(mesh: &Mesh, triangle: Triangle) -> Result<Vector3> {
     (b - a).cross(c - a).normalize()
 }
 
+/// Returns triangle area.
 pub fn triangle_area(mesh: &Mesh, triangle: Triangle) -> Result<f32> {
     mesh.validate()?;
     for index in triangle.vertices {
@@ -191,12 +224,14 @@ pub fn triangle_area(mesh: &Mesh, triangle: Triangle) -> Result<f32> {
     Ok((b - a).cross(c - a).length() * 0.5)
 }
 
+/// Returns surface area.
 pub fn surface_area(mesh: &Mesh) -> Result<f32> {
     mesh.triangles.iter().try_fold(0.0_f32, |area, triangle| {
         Ok(area + triangle_area(mesh, *triangle)?)
     })
 }
 
+/// Returns face normals.
 pub fn face_normals(mesh: &Mesh) -> Result<Vec<Vector3>> {
     mesh.triangles
         .iter()
@@ -205,6 +240,7 @@ pub fn face_normals(mesh: &Mesh) -> Result<Vec<Vector3>> {
         .collect()
 }
 
+/// Returns vertex normals.
 pub fn vertex_normals(mesh: &Mesh) -> Result<Vec<Vector3>> {
     mesh.validate()?;
     let mut normals = vec![Vector3::ZERO; mesh.vertices.len()];
@@ -222,6 +258,7 @@ pub fn vertex_normals(mesh: &Mesh) -> Result<Vec<Vector3>> {
     Ok(normals)
 }
 
+/// Returns mesh topology.
 pub fn mesh_topology(mesh: &Mesh) -> Result<MeshTopology> {
     mesh.validate()?;
     let mut edge_map: BTreeMap<Edge, Vec<usize>> = BTreeMap::new();
@@ -267,6 +304,7 @@ pub fn mesh_topology(mesh: &Mesh) -> Result<MeshTopology> {
     })
 }
 
+/// Returns connected components.
 pub fn connected_components(mesh: &Mesh) -> Result<Vec<Mesh>> {
     let topology = mesh_topology(mesh)?;
     let mut visited = vec![false; mesh.triangles.len()];
@@ -310,6 +348,7 @@ pub fn connected_components(mesh: &Mesh) -> Result<Vec<Mesh>> {
     Ok(components)
 }
 
+/// Returns whether is manifold.
 pub fn is_manifold(mesh: &Mesh) -> Result<bool> {
     mesh.validate()?;
     let mut edge_counts: BTreeMap<Edge, usize> = BTreeMap::new();
@@ -321,6 +360,7 @@ pub fn is_manifold(mesh: &Mesh) -> Result<bool> {
     Ok(edge_counts.values().all(|count| *count <= 2))
 }
 
+/// Returns whether is watertight.
 pub fn is_watertight(mesh: &Mesh) -> Result<bool> {
     mesh.validate()?;
     let mut edge_counts: BTreeMap<Edge, usize> = BTreeMap::new();
@@ -332,6 +372,7 @@ pub fn is_watertight(mesh: &Mesh) -> Result<bool> {
     Ok(edge_counts.values().all(|count| *count == 2))
 }
 
+/// Returns volume.
 pub fn volume(mesh: &Mesh) -> Result<f32> {
     mesh.validate()?;
     let mut signed_volume = 0.0_f32;
@@ -347,6 +388,7 @@ pub fn volume(mesh: &Mesh) -> Result<f32> {
     Ok(signed_volume.abs())
 }
 
+/// Returns merge meshes.
 pub fn merge_meshes<'a>(meshes: impl IntoIterator<Item = &'a Mesh>) -> Result<Mesh> {
     let mut vertices = Vec::new();
     let mut triangles = Vec::new();
@@ -365,6 +407,7 @@ pub fn merge_meshes<'a>(meshes: impl IntoIterator<Item = &'a Mesh>) -> Result<Me
     Mesh::new(vertices, triangles)
 }
 
+/// Returns sample points uniform.
 pub fn sample_points_uniform(mesh: &Mesh, sample_count: usize) -> Result<Vec<Point3>> {
     mesh.validate()?;
     if sample_count == 0 || mesh.triangles.is_empty() {
@@ -413,6 +456,7 @@ pub fn sample_points_uniform(mesh: &Mesh, sample_count: usize) -> Result<Vec<Poi
     Ok(points)
 }
 
+/// Returns laplacian smooth.
 pub fn laplacian_smooth(mesh: &Mesh, iterations: usize, lambda: f32) -> Result<Mesh> {
     mesh.validate()?;
     if !lambda.is_finite() || !(0.0..=1.0).contains(&lambda) {

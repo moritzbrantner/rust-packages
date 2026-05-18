@@ -16,14 +16,20 @@ use video_analysis_core::{DetectError, Result};
 const TITLE_METADATA_KEY: &str = "__title";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for search document.
 pub struct SearchDocument {
+    /// Identifier for this value.
     pub id: String,
+    /// The title value.
     pub title: Option<String>,
+    /// The body value.
     pub body: String,
+    /// Metadata associated with this value.
     pub metadata: BTreeMap<String, String>,
 }
 
 impl SearchDocument {
+    /// Creates a new value.
     pub fn new(id: impl Into<String>, body: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -33,6 +39,7 @@ impl SearchDocument {
         }
     }
 
+    /// Builds this value from text document.
     pub fn from_text_document(document: &TextDocument<'_>) -> Self {
         let mut metadata = BTreeMap::new();
         if let Some(language) = document.language {
@@ -52,10 +59,12 @@ impl SearchDocument {
         }
     }
 
+    /// Builds this value from transcript segment.
     pub fn from_transcript_segment(stream_id: &str, segment: &TranscriptSegment) -> Self {
         Self::from_transcript_segment_with_source(stream_id, segment, None)
     }
 
+    /// Builds this value from transcript segment with source.
     pub fn from_transcript_segment_with_source(
         stream_id: &str,
         segment: &TranscriptSegment,
@@ -80,18 +89,28 @@ impl SearchDocument {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for document chunk.
 pub struct DocumentChunk {
+    /// The chunk identifier value.
     pub chunk_id: String,
+    /// The document identifier value.
     pub document_id: String,
+    /// Text content for this value.
     pub text: String,
+    /// The ordinal value.
     pub ordinal: usize,
+    /// Metadata associated with this value.
     pub metadata: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for ingestion options.
 pub struct IngestionOptions {
+    /// The chunk tokens value.
     pub chunk_tokens: usize,
+    /// The chunk overlap tokens value.
     pub chunk_overlap_tokens: usize,
+    /// The store raw text value.
     pub store_raw_text: bool,
 }
 
@@ -106,24 +125,37 @@ impl Default for IngestionOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+/// Data type for search filter.
 pub struct SearchFilter {
+    /// The metadata equals value.
     pub metadata_equals: BTreeMap<String, String>,
+    /// The metadata contains value.
     pub metadata_contains: BTreeMap<String, String>,
+    /// The required tags value.
     pub required_tags: Vec<String>,
+    /// The document identifiers value.
     pub document_ids: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Variants describing retrieval mode.
 pub enum RetrievalMode {
+    /// The full text variant.
     FullText,
+    /// The semantic variant.
     Semantic,
+    /// The hybrid variant.
     Hybrid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for hybrid config.
 pub struct HybridConfig {
+    /// The semantic weight value.
     pub semantic_weight: f32,
+    /// The lexical weight value.
     pub lexical_weight: f32,
+    /// The rerank window value.
     pub rerank_window: usize,
 }
 
@@ -138,14 +170,20 @@ impl Default for HybridConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for search query.
 pub struct SearchQuery {
+    /// Text content for this value.
     pub text: String,
+    /// The top k value.
     pub top_k: usize,
+    /// The filter value.
     pub filter: Option<SearchFilter>,
+    /// The hybrid value.
     pub hybrid: HybridConfig,
 }
 
 impl SearchQuery {
+    /// Creates a new value.
     pub fn new(text: impl Into<String>, top_k: usize) -> Self {
         Self {
             text: text.into(),
@@ -155,14 +193,17 @@ impl SearchQuery {
         }
     }
 
+    /// Returns full text.
     pub fn full_text(text: impl Into<String>, top_k: usize) -> Self {
         Self::new(text, top_k).mode(RetrievalMode::FullText)
     }
 
+    /// Returns semantic.
     pub fn semantic(text: impl Into<String>, top_k: usize) -> Self {
         Self::new(text, top_k).mode(RetrievalMode::Semantic)
     }
 
+    /// Returns hybrid.
     pub fn hybrid(text: impl Into<String>, top_k: usize, config: HybridConfig) -> Self {
         Self {
             text: text.into(),
@@ -172,11 +213,13 @@ impl SearchQuery {
         }
     }
 
+    /// Returns filter.
     pub fn filter(mut self, filter: SearchFilter) -> Self {
         self.filter = Some(filter);
         self
     }
 
+    /// Returns mode.
     pub fn mode(mut self, mode: RetrievalMode) -> Self {
         match mode {
             RetrievalMode::FullText => {
@@ -199,6 +242,7 @@ impl SearchQuery {
         self
     }
 
+    /// Returns retrieval mode.
     pub fn retrieval_mode(&self) -> RetrievalMode {
         let semantic = self.hybrid.semantic_weight > f32::EPSILON;
         let lexical = self.hybrid.lexical_weight > f32::EPSILON;
@@ -211,25 +255,39 @@ impl SearchQuery {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for search result.
 pub struct SearchResult {
+    /// The chunk identifier value.
     pub chunk_id: String,
+    /// The document identifier value.
     pub document_id: String,
+    /// Score assigned to this value.
     pub score: f32,
+    /// The semantic score value.
     pub semantic_score: f32,
+    /// The lexical score value.
     pub lexical_score: f32,
+    /// The snippet value.
     pub snippet: String,
+    /// Metadata associated with this value.
     pub metadata: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for ingest report.
 pub struct IngestReport {
+    /// The documents received value.
     pub documents_received: usize,
+    /// The documents replaced value.
     pub documents_replaced: usize,
+    /// The documents skipped value.
     pub documents_skipped: usize,
+    /// The chunks indexed value.
     pub chunks_indexed: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for retrieval index.
 pub struct RetrievalIndex<B> {
     embedder: B,
     corpus_options: CorpusOptions,
@@ -242,10 +300,12 @@ pub struct RetrievalIndex<B> {
 }
 
 impl<B: TextEmbedderBackend> RetrievalIndex<B> {
+    /// Creates a new value.
     pub fn new(embedder: B) -> Self {
         Self::with_options(embedder, CorpusOptions::default(), Bm25Options::default())
     }
 
+    /// Returns this value with options.
     pub fn with_options(
         embedder: B,
         corpus_options: CorpusOptions,
@@ -263,6 +323,7 @@ impl<B: TextEmbedderBackend> RetrievalIndex<B> {
         }
     }
 
+    /// Builds this value from parts.
     pub fn from_parts(
         embedder: B,
         corpus_options: CorpusOptions,
@@ -282,42 +343,52 @@ impl<B: TextEmbedderBackend> RetrievalIndex<B> {
         Ok(index)
     }
 
+    /// Returns embedder.
     pub fn embedder(&self) -> &B {
         &self.embedder
     }
 
+    /// Returns embedder info.
     pub fn embedder_info(&self) -> EmbeddingModelInfo {
         self.embedder.model_info()
     }
 
+    /// Returns corpus options.
     pub fn corpus_options(&self) -> &CorpusOptions {
         &self.corpus_options
     }
 
+    /// Returns bm25 options.
     pub fn bm25_options(&self) -> &Bm25Options {
         &self.bm25_options
     }
 
+    /// Returns chunks.
     pub fn chunks(&self) -> Vec<&DocumentChunk> {
         self.chunks.values().collect()
     }
 
+    /// Returns chunks iter.
     pub fn chunks_iter(&self) -> impl Iterator<Item = &DocumentChunk> {
         self.chunks.values()
     }
 
+    /// Returns chunk.
     pub fn chunk(&self, chunk_id: &str) -> Option<&DocumentChunk> {
         self.chunks.get(chunk_id)
     }
 
+    /// Returns raw text.
     pub fn raw_text(&self, chunk_id: &str) -> Option<&str> {
         self.raw_text_by_chunk_id.get(chunk_id).map(String::as_str)
     }
 
+    /// Returns vector records.
     pub fn vector_records(&self) -> Vec<SerializableVectorRecord> {
         self.vectors.export_records()
     }
 
+    /// Returns ingest documents.
     pub fn ingest_documents(
         &mut self,
         docs: &[SearchDocument],
@@ -358,6 +429,7 @@ impl<B: TextEmbedderBackend> RetrievalIndex<B> {
         })
     }
 
+    /// Returns search.
     pub fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>> {
         validate_query(query)?;
         self.ensure_non_empty()?;
@@ -441,6 +513,7 @@ impl<B: TextEmbedderBackend> RetrievalIndex<B> {
         Ok(results)
     }
 
+    /// Returns related chunks.
     pub fn related_chunks(&self, chunk_id: &str, top_k: usize) -> Result<Vec<SearchResult>> {
         if top_k == 0 {
             return Err(invalid_argument("search limit must be greater than zero"));

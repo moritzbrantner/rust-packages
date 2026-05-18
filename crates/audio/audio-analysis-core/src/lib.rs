@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+/// Re-exports the math signal core API.
 pub use math_signal_core::{
     BiquadCoefficients, BiquadDesign, FirKernel1d, FrameStride, InterpolationMode, ResampleRatio,
     ResampleSpec, SampleRate, WindowFunction, WindowSpec,
@@ -9,13 +10,18 @@ use tensor_data::{F32Tensor, F32TensorView};
 use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result, Timebase, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for audio format spec.
 pub struct AudioFormatSpec {
+    /// Sample rate in hertz.
     pub sample_rate: u32,
+    /// Number of audio channels.
     pub channels: u16,
+    /// The frame samples value.
     pub frame_samples: Option<usize>,
 }
 
 impl AudioFormatSpec {
+    /// Creates a new value.
     pub fn new(sample_rate: u32, channels: u16) -> Result<Self> {
         let spec = Self {
             sample_rate,
@@ -26,12 +32,14 @@ impl AudioFormatSpec {
         Ok(spec)
     }
 
+    /// Returns frame samples.
     pub fn frame_samples(mut self, frame_samples: usize) -> Result<Self> {
         self.frame_samples = Some(frame_samples);
         self.validate()?;
         Ok(self)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.sample_rate == 0 || self.channels == 0 {
             return Err(DetectError::InvalidAudioFormat {
@@ -47,6 +55,7 @@ impl AudioFormatSpec {
         Ok(())
     }
 
+    /// Returns duration seconds.
     pub fn duration_seconds(&self, samples_per_channel: usize) -> Result<f64> {
         self.validate()?;
         Ok(samples_per_channel as f64 / self.sample_rate as f64)
@@ -54,19 +63,27 @@ impl AudioFormatSpec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing channel mix.
 pub enum ChannelMix {
+    /// The average variant.
     Average,
+    /// The first variant.
     First,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for mono samples.
 pub struct MonoSamples {
+    /// Timestamp associated with this value.
     pub timestamp: Timestamp,
+    /// Sample rate in hertz.
     pub sample_rate: u32,
+    /// The samples value.
     pub samples: Vec<f32>,
 }
 
 impl MonoSamples {
+    /// Returns duration seconds.
     pub fn duration_seconds(&self) -> f64 {
         if self.sample_rate == 0 {
             return 0.0;
@@ -76,12 +93,15 @@ impl MonoSamples {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for audio waveform batch view.
 pub struct AudioWaveformBatchView<'a> {
+    /// Sample rate in hertz.
     pub sample_rate: u32,
     tensor: F32TensorView<'a>,
 }
 
 impl<'a> AudioWaveformBatchView<'a> {
+    /// Creates a new value.
     pub fn new(sample_rate: u32, tensor: F32TensorView<'a>) -> Result<Self> {
         let batch = Self {
             sample_rate,
@@ -91,6 +111,7 @@ impl<'a> AudioWaveformBatchView<'a> {
         Ok(batch)
     }
 
+    /// Builds this value from dims.
     pub fn from_dims(
         sample_rate: u32,
         dims: impl Into<Vec<usize>>,
@@ -99,26 +120,32 @@ impl<'a> AudioWaveformBatchView<'a> {
         Self::new(sample_rate, F32TensorView::from_dims(dims, values)?)
     }
 
+    /// Returns tensor.
     pub fn tensor(&self) -> &F32TensorView<'a> {
         &self.tensor
     }
 
+    /// Returns batch size.
     pub fn batch_size(&self) -> usize {
         self.tensor.shape().dimensions()[0]
     }
 
+    /// Returns channel count.
     pub fn channel_count(&self) -> usize {
         self.tensor.shape().dimensions()[1]
     }
 
+    /// Returns time steps.
     pub fn time_steps(&self) -> usize {
         self.tensor.shape().dimensions()[2]
     }
 
+    /// Returns duration seconds.
     pub fn duration_seconds(&self) -> f64 {
         self.time_steps() as f64 / self.sample_rate as f64
     }
 
+    /// Returns waveform.
     pub fn waveform(&self, batch_index: usize, channel_index: usize) -> Result<&'a [f32]> {
         if batch_index >= self.batch_size() || channel_index >= self.channel_count() {
             return Err(DetectError::InvalidArgument(format!(
@@ -145,12 +172,15 @@ impl<'a> AudioWaveformBatchView<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for owned audio waveform batch.
 pub struct OwnedAudioWaveformBatch {
+    /// Sample rate in hertz.
     pub sample_rate: u32,
     tensor: F32Tensor,
 }
 
 impl OwnedAudioWaveformBatch {
+    /// Creates a new value.
     pub fn new(sample_rate: u32, tensor: F32Tensor) -> Result<Self> {
         let batch = Self {
             sample_rate,
@@ -160,6 +190,7 @@ impl OwnedAudioWaveformBatch {
         Ok(batch)
     }
 
+    /// Builds this value from audio frames.
     pub fn from_audio_frames(frames: &[video_analysis_core::OwnedAudioFrame]) -> Result<Self> {
         if frames.is_empty() {
             return Err(DetectError::InvalidArgument(
@@ -196,22 +227,28 @@ impl OwnedAudioWaveformBatch {
         )
     }
 
+    /// Returns tensor.
     pub fn tensor(&self) -> &F32Tensor {
         &self.tensor
     }
 
+    /// Borrows this value as a view.
     pub fn as_view(&self) -> Result<AudioWaveformBatchView<'_>> {
         AudioWaveformBatchView::new(self.sample_rate, self.tensor.as_view())
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for frame spec.
 pub struct FrameSpec {
+    /// The frame size value.
     pub frame_size: usize,
+    /// The hop size value.
     pub hop_size: usize,
 }
 
 impl FrameSpec {
+    /// Creates a new value.
     pub fn new(frame_size: usize, hop_size: usize) -> Result<Self> {
         FrameStride::new(frame_size, hop_size)?;
         Ok(Self {
@@ -220,6 +257,7 @@ impl FrameSpec {
         })
     }
 
+    /// Returns frames.
     pub fn frames<'a>(&self, samples: &'a [f32]) -> AudioFrames<'a> {
         AudioFrames {
             samples,
@@ -228,6 +266,7 @@ impl FrameSpec {
         }
     }
 
+    /// Returns frame count.
     pub fn frame_count(&self, samples_len: usize) -> usize {
         FrameStride::from(*self).frame_count(samples_len)
     }
@@ -251,6 +290,7 @@ impl TryFrom<FrameStride> for FrameSpec {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for audio frames.
 pub struct AudioFrames<'a> {
     samples: &'a [f32],
     spec: FrameSpec,
@@ -272,14 +312,20 @@ impl<'a> Iterator for AudioFrames<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for streaming frame config.
 pub struct StreamingFrameConfig {
+    /// The frame size value.
     pub frame_size: usize,
+    /// The hop size value.
     pub hop_size: usize,
+    /// The channel mix value.
     pub channel_mix: ChannelMix,
+    /// The max buffered samples value.
     pub max_buffered_samples: usize,
 }
 
 impl StreamingFrameConfig {
+    /// Creates a new value.
     pub fn new(frame_size: usize, hop_size: usize) -> Result<Self> {
         FrameSpec::new(frame_size, hop_size)?;
         Ok(Self {
@@ -290,11 +336,13 @@ impl StreamingFrameConfig {
         })
     }
 
+    /// Returns channel mix.
     pub fn channel_mix(mut self, mix: ChannelMix) -> Self {
         self.channel_mix = mix;
         self
     }
 
+    /// Returns max buffered samples.
     pub fn max_buffered_samples(mut self, samples: usize) -> Self {
         self.max_buffered_samples = samples.max(self.frame_size);
         self
@@ -302,14 +350,20 @@ impl StreamingFrameConfig {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for audio window.
 pub struct AudioWindow {
+    /// Timestamp associated with this value.
     pub timestamp: Timestamp,
+    /// Sample rate in hertz.
     pub sample_rate: u32,
+    /// The start sample value.
     pub start_sample: u64,
+    /// The samples value.
     pub samples: Vec<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for streaming frame buffer.
 pub struct StreamingFrameBuffer {
     config: StreamingFrameConfig,
     sample_rate: Option<u32>,
@@ -320,6 +374,7 @@ pub struct StreamingFrameBuffer {
 }
 
 impl StreamingFrameBuffer {
+    /// Creates a new value.
     pub fn new(config: StreamingFrameConfig) -> Result<Self> {
         FrameSpec::new(config.frame_size, config.hop_size)?;
         if config.max_buffered_samples < config.frame_size {
@@ -337,6 +392,7 @@ impl StreamingFrameBuffer {
         })
     }
 
+    /// Adds push frame to this value.
     pub fn push_frame(&mut self, frame: &AudioFrame<'_>) -> Result<Vec<AudioWindow>> {
         self.validate_stream_format(frame)?;
         let frame_start_sample = timestamp_to_sample(frame.timestamp, frame.sample_rate)?;
@@ -384,6 +440,7 @@ impl StreamingFrameBuffer {
         Ok(windows)
     }
 
+    /// Returns reset.
     pub fn reset(&mut self) {
         self.sample_rate = None;
         self.channels = None;
@@ -392,6 +449,7 @@ impl StreamingFrameBuffer {
         self.next_window_start_sample = None;
     }
 
+    /// Returns buffered samples.
     pub fn buffered_samples(&self) -> usize {
         self.buffer.len()
     }
@@ -439,10 +497,12 @@ impl StreamingFrameBuffer {
     }
 }
 
+/// Returns mono samples.
 pub fn mono_samples(frame: &AudioFrame<'_>) -> Result<MonoSamples> {
     mono_samples_with_mix(frame, ChannelMix::Average)
 }
 
+/// Returns mono samples with mix.
 pub fn mono_samples_with_mix(frame: &AudioFrame<'_>, mix: ChannelMix) -> Result<MonoSamples> {
     let samples = interleaved_to_mono(frame.data, frame.channels, mix)?;
     Ok(MonoSamples {
@@ -452,6 +512,7 @@ pub fn mono_samples_with_mix(frame: &AudioFrame<'_>, mix: ChannelMix) -> Result<
     })
 }
 
+/// Returns interleaved to mono.
 pub fn interleaved_to_mono(
     buffer: &AudioBuffer,
     channels: u16,
@@ -483,6 +544,7 @@ pub fn interleaved_to_mono(
     })
 }
 
+/// Returns normalized samples.
 pub fn normalized_samples(buffer: &AudioBuffer) -> Vec<f32> {
     match buffer {
         AudioBuffer::U8(values) => values
@@ -501,6 +563,7 @@ pub fn normalized_samples(buffer: &AudioBuffer) -> Vec<f32> {
     }
 }
 
+/// Returns rms.
 pub fn rms(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return 0.0;
@@ -508,6 +571,7 @@ pub fn rms(samples: &[f32]) -> f32 {
     (samples.iter().map(|sample| sample * sample).sum::<f32>() / samples.len() as f32).sqrt()
 }
 
+/// Returns peak.
 pub fn peak(samples: &[f32]) -> f32 {
     samples
         .iter()
@@ -515,6 +579,7 @@ pub fn peak(samples: &[f32]) -> f32 {
         .fold(0.0_f32, f32::max)
 }
 
+/// Returns mean absolute.
 pub fn mean_absolute(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return 0.0;
@@ -522,11 +587,13 @@ pub fn mean_absolute(samples: &[f32]) -> f32 {
     samples.iter().map(|sample| sample.abs()).sum::<f32>() / samples.len() as f32
 }
 
+/// Returns zero pad to.
 pub fn zero_pad_to(mut samples: Vec<f32>, target_len: usize) -> Vec<f32> {
     samples.resize(target_len, 0.0);
     samples
 }
 
+/// Returns seconds to samples.
 pub fn seconds_to_samples(seconds: f64, sample_rate: u32) -> Result<u64> {
     AudioFormatSpec::new(sample_rate, 1)?;
     if !seconds.is_finite() || seconds < 0.0 {
@@ -543,11 +610,13 @@ pub fn seconds_to_samples(seconds: f64, sample_rate: u32) -> Result<u64> {
     Ok(samples.round() as u64)
 }
 
+/// Returns samples to seconds.
 pub fn samples_to_seconds(samples: u64, sample_rate: u32) -> Result<f64> {
     AudioFormatSpec::new(sample_rate, 1)?;
     Ok(samples as f64 / sample_rate as f64)
 }
 
+/// Returns timestamp to sample.
 pub fn timestamp_to_sample(timestamp: Timestamp, sample_rate: u32) -> Result<u64> {
     if timestamp.timebase.den == 0 {
         return Err(DetectError::InvalidAudioFormat {
@@ -558,6 +627,7 @@ pub fn timestamp_to_sample(timestamp: Timestamp, sample_rate: u32) -> Result<u64
     seconds_to_samples(timestamp.seconds(), sample_rate)
 }
 
+/// Returns sample to timestamp.
 pub fn sample_to_timestamp(sample: u64, sample_rate: u32) -> Timestamp {
     Timestamp::new(sample as i64, Timebase::new(1, sample_rate as i32))
 }

@@ -17,26 +17,34 @@ fn validate_finite(value: f32, name: &str) -> Result<()> {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
+/// Data type for vec2.
 pub struct Vec2 {
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
 }
 
 impl Vec2 {
+    /// Constant for zero.
     pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
 
+    /// Creates a new value.
     pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
 
+    /// Returns whether this value is finite.
     pub fn is_finite(self) -> bool {
         self.x.is_finite() && self.y.is_finite()
     }
 
+    /// Returns length squared.
     pub fn length_squared(self) -> f32 {
         self.x.mul_add(self.x, self.y * self.y)
     }
 
+    /// Returns length.
     pub fn length(self) -> f32 {
         self.length_squared().sqrt()
     }
@@ -67,50 +75,63 @@ impl Mul<f32> for Vec2 {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
+/// Data type for vec3.
 pub struct Vec3 {
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
+    /// The z value.
     pub z: f32,
 }
 
 impl Vec3 {
+    /// Constant for zero.
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
     };
+    /// Constant for x.
     pub const X: Self = Self {
         x: 1.0,
         y: 0.0,
         z: 0.0,
     };
+    /// Constant for y.
     pub const Y: Self = Self {
         x: 0.0,
         y: 1.0,
         z: 0.0,
     };
+    /// Constant for z.
     pub const Z: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 1.0,
     };
 
+    /// Creates a new value.
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
 
+    /// Returns splat.
     pub fn splat(value: f32) -> Self {
         Self::new(value, value, value)
     }
 
+    /// Returns whether this value is finite.
     pub fn is_finite(self) -> bool {
         self.x.is_finite() && self.y.is_finite() && self.z.is_finite()
     }
 
+    /// Returns dot.
     pub fn dot(self, rhs: Self) -> f32 {
         self.x.mul_add(rhs.x, self.y.mul_add(rhs.y, self.z * rhs.z))
     }
 
+    /// Returns cross.
     pub fn cross(self, rhs: Self) -> Self {
         Self::new(
             self.y.mul_add(rhs.z, -(self.z * rhs.y)),
@@ -119,14 +140,17 @@ impl Vec3 {
         )
     }
 
+    /// Returns length squared.
     pub fn length_squared(self) -> f32 {
         self.dot(self)
     }
 
+    /// Returns length.
     pub fn length(self) -> f32 {
         self.length_squared().sqrt()
     }
 
+    /// Normalizes this value.
     pub fn normalize(self) -> Result<Self> {
         if !self.is_finite() {
             return Err(invalid_argument("vector components must be finite"));
@@ -138,10 +162,12 @@ impl Vec3 {
         Ok(self / length)
     }
 
+    /// Returns min.
     pub fn min(self, rhs: Self) -> Self {
         Self::new(self.x.min(rhs.x), self.y.min(rhs.y), self.z.min(rhs.z))
     }
 
+    /// Returns max.
     pub fn max(self, rhs: Self) -> Self {
         Self::new(self.x.max(rhs.x), self.y.max(rhs.y), self.z.max(rhs.z))
     }
@@ -196,24 +222,33 @@ impl Div<f32> for Vec3 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for color RGB.
 pub struct ColorRgb {
+    /// The r value.
     pub r: f32,
+    /// The g value.
     pub g: f32,
+    /// The b value.
     pub b: f32,
 }
 
 impl ColorRgb {
+    /// Constant for black.
     pub const BLACK: Self = Self::new(0.0, 0.0, 0.0);
+    /// Constant for white.
     pub const WHITE: Self = Self::new(1.0, 1.0, 1.0);
 
+    /// Creates a new value.
     pub const fn new(r: f32, g: f32, b: f32) -> Self {
         Self { r, g, b }
     }
 
+    /// Returns whether this value is finite.
     pub fn is_finite(self) -> bool {
         self.r.is_finite() && self.g.is_finite() && self.b.is_finite()
     }
 
+    /// Clamps this value into the 0..=1 range.
     pub fn clamp01(self) -> Self {
         Self::new(
             self.r.clamp(0.0, 1.0),
@@ -262,14 +297,20 @@ impl Mul<ColorRgb> for f32 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for ray.
 pub struct Ray {
+    /// The origin value.
     pub origin: Vec3,
+    /// The direction value.
     pub direction: Vec3,
+    /// The t min value.
     pub t_min: f32,
+    /// The t max value.
     pub t_max: f32,
 }
 
 impl Ray {
+    /// Creates a new value.
     pub fn new(origin: Vec3, direction: Vec3, t_min: f32, t_max: f32) -> Result<Self> {
         let ray = Self {
             origin,
@@ -281,10 +322,12 @@ impl Ray {
         Ok(ray)
     }
 
+    /// Returns at.
     pub fn at(self, t: f32) -> Vec3 {
         self.origin + (self.direction * t)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.origin.is_finite() || !self.direction.is_finite() {
             return Err(invalid_argument("ray origin and direction must be finite"));
@@ -304,16 +347,24 @@ impl Ray {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for camera intrinsics.
 pub struct CameraIntrinsics {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The fx value.
     pub fx: f32,
+    /// The fy value.
     pub fy: f32,
+    /// The cx value.
     pub cx: f32,
+    /// The cy value.
     pub cy: f32,
 }
 
 impl CameraIntrinsics {
+    /// Creates a new value.
     pub fn new(width: u32, height: u32, fx: f32, fy: f32, cx: f32, cy: f32) -> Result<Self> {
         let intrinsics = Self {
             width,
@@ -327,6 +378,7 @@ impl CameraIntrinsics {
         Ok(intrinsics)
     }
 
+    /// Returns pinhole.
     pub fn pinhole(width: u32, height: u32, vertical_fov_radians: f32) -> Result<Self> {
         if width == 0 || height == 0 {
             return Err(invalid_argument("camera dimensions must be positive"));
@@ -348,6 +400,7 @@ impl CameraIntrinsics {
         )
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if self.width == 0 || self.height == 0 {
             return Err(invalid_argument("camera dimensions must be positive"));
@@ -368,22 +421,33 @@ impl CameraIntrinsics {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Variants describing camera model.
 pub enum CameraModel {
+    /// The pinhole variant.
     Pinhole,
+    /// The simple pinhole variant.
     SimplePinhole,
+    /// The radial variant.
     Radial,
+    /// The simple radial variant.
     SimpleRadial,
+    /// The open cv variant.
     OpenCv,
+    /// The unsupported variant.
     Unsupported(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for camera distortion.
 pub struct CameraDistortion {
+    /// The model value.
     pub model: CameraModel,
+    /// The params value.
     pub params: Vec<f32>,
 }
 
 impl CameraDistortion {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.params.iter().any(|value| !value.is_finite()) {
             return Err(invalid_argument("camera distortion params must be finite"));
@@ -393,20 +457,29 @@ impl CameraDistortion {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing coordinate system.
 pub enum CoordinateSystem {
+    /// The COLMAP camera variant.
     ColmapCamera,
+    /// The workspace camera variant.
     WorkspaceCamera,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for camera pose.
 pub struct CameraPose {
+    /// The position value.
     pub position: Vec3,
+    /// The right value.
     pub right: Vec3,
+    /// The up value.
     pub up: Vec3,
+    /// The forward value.
     pub forward: Vec3,
 }
 
 impl CameraPose {
+    /// Creates a new value.
     pub fn new(position: Vec3, right: Vec3, up: Vec3, forward: Vec3) -> Result<Self> {
         let pose = Self {
             position,
@@ -418,6 +491,7 @@ impl CameraPose {
         Ok(pose)
     }
 
+    /// Returns identity.
     pub fn identity() -> Self {
         Self {
             position: Vec3::ZERO,
@@ -427,6 +501,7 @@ impl CameraPose {
         }
     }
 
+    /// Builds this value from COLMAP world to camera.
     pub fn from_colmap_world_to_camera(
         qw: f32,
         qx: f32,
@@ -485,6 +560,7 @@ impl CameraPose {
         )
     }
 
+    /// Returns look at.
     pub fn look_at(position: Vec3, target: Vec3, up_hint: Vec3) -> Result<Self> {
         let forward = (target - position).normalize()?;
         let right = up_hint.cross(forward).normalize()?;
@@ -492,6 +568,7 @@ impl CameraPose {
         Self::new(position, right, up, forward)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.position.is_finite() {
             return Err(invalid_argument("camera position must be finite"));
@@ -521,12 +598,14 @@ impl CameraPose {
         Ok(())
     }
 
+    /// Returns camera to world direction.
     pub fn camera_to_world_direction(self, camera_direction: Vec3) -> Vec3 {
         (self.right * camera_direction.x)
             + (self.up * camera_direction.y)
             + (self.forward * camera_direction.z)
     }
 
+    /// Returns world to camera point.
     pub fn world_to_camera_point(self, point: Vec3) -> Vec3 {
         let offset = point - self.position;
         Vec3::new(
@@ -536,6 +615,7 @@ impl CameraPose {
         )
     }
 
+    /// Returns pixel ray.
     pub fn pixel_ray(
         self,
         intrinsics: CameraIntrinsics,
@@ -559,15 +639,22 @@ impl CameraPose {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for camera view.
 pub struct CameraView {
+    /// Identifier for this value.
     pub id: u32,
+    /// Human-readable name for this value.
     pub name: String,
+    /// The intrinsics value.
     pub intrinsics: CameraIntrinsics,
+    /// The distortion value.
     pub distortion: Option<CameraDistortion>,
+    /// The pose value.
     pub pose: CameraPose,
 }
 
 impl CameraView {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.name.trim().is_empty() {
             return Err(invalid_argument("camera view name must not be empty"));
@@ -581,11 +668,14 @@ impl CameraView {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for camera view set.
 pub struct CameraViewSet {
+    /// The views value.
     pub views: Vec<CameraView>,
 }
 
 impl CameraViewSet {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         for view in &self.views {
             view.validate()?;
@@ -593,6 +683,7 @@ impl CameraViewSet {
         Ok(())
     }
 
+    /// Returns camera center bounds.
     pub fn camera_center_bounds(&self) -> Result<Option<AxisAlignedBounds>> {
         self.validate()?;
         let Some(first) = self.views.first() else {
@@ -608,6 +699,7 @@ impl CameraViewSet {
         Ok(Some(AxisAlignedBounds::new(min, max)?))
     }
 
+    /// Returns view count.
     pub fn view_count(&self) -> usize {
         self.views.len()
     }
@@ -630,14 +722,20 @@ fn expand_degenerate_bounds(min: &mut Vec3, max: &mut Vec3) {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for radiance sample.
 pub struct RadianceSample {
+    /// The position value.
     pub position: Vec3,
+    /// The direction value.
     pub direction: Vec3,
+    /// The t value.
     pub t: f32,
+    /// The delta value.
     pub delta: f32,
 }
 
 impl RadianceSample {
+    /// Creates a new value.
     pub fn new(position: Vec3, direction: Vec3, t: f32, delta: f32) -> Result<Self> {
         let sample = Self {
             position,
@@ -649,6 +747,7 @@ impl RadianceSample {
         Ok(sample)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.position.is_finite() || !self.direction.is_finite() {
             return Err(invalid_argument(
@@ -667,23 +766,29 @@ impl RadianceSample {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for radiance.
 pub struct Radiance {
+    /// The color value.
     pub color: ColorRgb,
+    /// The density value.
     pub density: f32,
 }
 
 impl Radiance {
+    /// Constant for transparent.
     pub const TRANSPARENT: Self = Self {
         color: ColorRgb::BLACK,
         density: 0.0,
     };
 
+    /// Creates a new value.
     pub fn new(color: ColorRgb, density: f32) -> Result<Self> {
         let radiance = Self { color, density };
         radiance.validate()?;
         Ok(radiance)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.color.is_finite() {
             return Err(invalid_argument("radiance color must be finite"));
@@ -698,16 +803,21 @@ impl Radiance {
     }
 }
 
+/// Trait for radiance field implementations.
 pub trait RadianceField {
+    /// Returns query.
     fn query(&self, sample: RadianceSample) -> Result<Radiance>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for constant radiance field.
 pub struct ConstantRadianceField {
+    /// The radiance value.
     pub radiance: Radiance,
 }
 
 impl ConstantRadianceField {
+    /// Creates a new value.
     pub fn new(radiance: Radiance) -> Self {
         Self { radiance }
     }
@@ -720,15 +830,22 @@ impl RadianceField for ConstantRadianceField {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for volume render config.
 pub struct VolumeRenderConfig {
+    /// The near value.
     pub near: f32,
+    /// The far value.
     pub far: f32,
+    /// The step size value.
     pub step_size: f32,
+    /// The background value.
     pub background: ColorRgb,
+    /// The opacity stop value.
     pub opacity_stop: f32,
 }
 
 impl VolumeRenderConfig {
+    /// Creates a new value.
     pub fn new(near: f32, far: f32, step_size: f32) -> Result<Self> {
         let config = Self {
             near,
@@ -740,16 +857,19 @@ impl VolumeRenderConfig {
         Ok(config)
     }
 
+    /// Returns background.
     pub fn background(mut self, color: ColorRgb) -> Self {
         self.background = color;
         self
     }
 
+    /// Returns opacity stop.
     pub fn opacity_stop(mut self, opacity: f32) -> Self {
         self.opacity_stop = opacity;
         self
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         for (name, value) in [
             ("near", self.near),
@@ -793,12 +913,17 @@ impl Default for VolumeRenderConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for rendered ray.
 pub struct RenderedRay {
+    /// The color value.
     pub color: ColorRgb,
+    /// The opacity value.
     pub opacity: f32,
+    /// The samples value.
     pub samples: u32,
 }
 
+/// Returns render ray.
 pub fn render_ray<F: RadianceField>(
     field: &F,
     ray: Ray,
@@ -846,18 +971,23 @@ pub fn render_ray<F: RadianceField>(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for axis aligned bounds.
 pub struct AxisAlignedBounds {
+    /// The min value.
     pub min: Vec3,
+    /// The max value.
     pub max: Vec3,
 }
 
 impl AxisAlignedBounds {
+    /// Creates a new value.
     pub fn new(min: Vec3, max: Vec3) -> Result<Self> {
         let bounds = Self { min, max };
         bounds.validate()?;
         Ok(bounds)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.min.is_finite() || !self.max.is_finite() {
             return Err(invalid_argument("bounds must be finite"));
@@ -870,6 +1000,7 @@ impl AxisAlignedBounds {
         Ok(())
     }
 
+    /// Returns contains.
     pub fn contains(self, point: Vec3) -> bool {
         point.x >= self.min.x
             && point.y >= self.min.y
@@ -881,13 +1012,18 @@ impl AxisAlignedBounds {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for grid resolution.
 pub struct GridResolution {
+    /// The x value.
     pub x: u32,
+    /// The y value.
     pub y: u32,
+    /// The z value.
     pub z: u32,
 }
 
 impl GridResolution {
+    /// Creates a new value.
     pub fn new(x: u32, y: u32, z: u32) -> Result<Self> {
         if x == 0 || y == 0 || z == 0 {
             return Err(invalid_argument("grid resolution must be positive"));
@@ -895,18 +1031,23 @@ impl GridResolution {
         Ok(Self { x, y, z })
     }
 
+    /// Returns voxel count.
     pub fn voxel_count(self) -> u64 {
         u64::from(self.x) * u64::from(self.y) * u64::from(self.z)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for radiance grid spec.
 pub struct RadianceGridSpec {
+    /// The bounds value.
     pub bounds: AxisAlignedBounds,
+    /// The resolution value.
     pub resolution: GridResolution,
 }
 
 impl RadianceGridSpec {
+    /// Creates a new value.
     pub fn new(bounds: AxisAlignedBounds, resolution: GridResolution) -> Result<Self> {
         bounds.validate()?;
         Ok(Self { bounds, resolution })

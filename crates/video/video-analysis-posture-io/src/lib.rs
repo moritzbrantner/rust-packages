@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use video_analysis_core::{DetectError, Result};
 use video_analysis_posture::{Keypoint, PoseEstimate, Skeleton, StickFigure3d};
 
+/// Reads coco keypoints JSON.
 pub fn read_coco_keypoints_json(path: impl AsRef<Path>) -> Result<Vec<PoseEstimate>> {
     let data = fs::read(path.as_ref())?;
     let document: CocoKeypointsDocument = serde_json::from_slice(&data)
@@ -21,6 +22,7 @@ pub fn read_coco_keypoints_json(path: impl AsRef<Path>) -> Result<Vec<PoseEstima
         .collect()
 }
 
+/// Writes coco keypoints JSON.
 pub fn write_coco_keypoints_json(path: impl AsRef<Path>, poses: &[PoseEstimate]) -> Result<()> {
     let skeleton = Skeleton::coco_17();
     let document = CocoKeypointsDocument {
@@ -58,6 +60,7 @@ pub fn write_coco_keypoints_json(path: impl AsRef<Path>, poses: &[PoseEstimate])
     Ok(())
 }
 
+/// Writes stick figure PLY.
 pub fn write_stick_figure_ply(path: impl AsRef<Path>, figure: &StickFigure3d) -> Result<()> {
     figure.validate()?;
     let mut output = String::new();
@@ -80,6 +83,7 @@ pub fn write_stick_figure_ply(path: impl AsRef<Path>, figure: &StickFigure3d) ->
     Ok(())
 }
 
+/// Writes stick figure gltf.
 pub fn write_stick_figure_gltf(path: impl AsRef<Path>, figure: &StickFigure3d) -> Result<()> {
     figure.validate()?;
     let edges = indexed_segments(figure);

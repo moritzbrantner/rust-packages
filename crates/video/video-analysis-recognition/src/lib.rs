@@ -8,25 +8,30 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for embedding.
 pub struct Embedding {
     values: Vec<f32>,
 }
 
 impl Embedding {
+    /// Creates a new value.
     pub fn new(values: impl Into<Vec<f32>>) -> Result<Self> {
         let mut values = values.into();
         normalize_values(&mut values)?;
         Ok(Self { values })
     }
 
+    /// Returns values.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> usize {
         self.values.len()
     }
 
+    /// Returns cosine similarity.
     pub fn cosine_similarity(&self, other: &Self) -> Result<f32> {
         if self.dimensions() != other.dimensions() {
             return Err(DetectError::InvalidArgument(format!(
@@ -45,6 +50,7 @@ impl Embedding {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for reference identity.
 pub struct ReferenceIdentity {
     id: String,
     label: String,
@@ -54,6 +60,7 @@ pub struct ReferenceIdentity {
 }
 
 impl ReferenceIdentity {
+    /// Creates a new value.
     pub fn new(id: impl Into<String>, label: impl Into<String>, kind: ObservationKind) -> Self {
         Self {
             id: id.into(),
@@ -64,16 +71,19 @@ impl ReferenceIdentity {
         }
     }
 
+    /// Returns this value with embedding.
     pub fn with_embedding(mut self, embedding: impl Into<Vec<f32>>) -> Result<Self> {
         self.add_embedding(embedding)?;
         Ok(self)
     }
 
+    /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
     }
 
+    /// Adds add embedding to this value.
     pub fn add_embedding(&mut self, embedding: impl Into<Vec<f32>>) -> Result<()> {
         let embedding = Embedding::new(embedding)?;
         if let Some(dimensions) = self.dimensions() {
@@ -90,42 +100,51 @@ impl ReferenceIdentity {
         Ok(())
     }
 
+    /// Returns identifier.
     pub fn id(&self) -> &str {
         &self.id
     }
 
+    /// Returns label.
     pub fn label(&self) -> &str {
         &self.label
     }
 
+    /// Returns kind.
     pub fn kind(&self) -> &ObservationKind {
         &self.kind
     }
 
+    /// Returns embeddings.
     pub fn embeddings(&self) -> &[Embedding] {
         &self.embeddings
     }
 
+    /// Returns attributes.
     pub fn attributes(&self) -> &BTreeMap<String, String> {
         &self.attributes
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> Option<usize> {
         self.embeddings.first().map(Embedding::dimensions)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
+/// Data type for reference library.
 pub struct ReferenceLibrary {
     identities: BTreeMap<String, ReferenceIdentity>,
     dimensions: Option<usize>,
 }
 
 impl ReferenceLibrary {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Adds add identity to this value.
     pub fn add_identity(&mut self, identity: ReferenceIdentity) -> Result<()> {
         if identity.id().is_empty() {
             return Err(DetectError::InvalidArgument(
@@ -154,6 +173,7 @@ impl ReferenceLibrary {
         Ok(())
     }
 
+    /// Adds add reference to this value.
     pub fn add_reference(
         &mut self,
         id: impl Into<String>,
@@ -165,6 +185,7 @@ impl ReferenceLibrary {
         self.add_identity(identity)
     }
 
+    /// Adds add sample to this value.
     pub fn add_sample(&mut self, id: &str, embedding: impl Into<Vec<f32>>) -> Result<()> {
         let embedding = Embedding::new(embedding)?;
         self.validate_dimensions(embedding.dimensions())?;
@@ -176,26 +197,32 @@ impl ReferenceLibrary {
         Ok(())
     }
 
+    /// Returns identity.
     pub fn identity(&self, id: &str) -> Option<&ReferenceIdentity> {
         self.identities.get(id)
     }
 
+    /// Returns identities.
     pub fn identities(&self) -> impl Iterator<Item = &ReferenceIdentity> {
         self.identities.values()
     }
 
+    /// Returns len.
     pub fn len(&self) -> usize {
         self.identities.len()
     }
 
+    /// Returns whether is empty.
     pub fn is_empty(&self) -> bool {
         self.identities.is_empty()
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> Option<usize> {
         self.dimensions
     }
 
+    /// Returns search.
     pub fn search(
         &self,
         embedding: &Embedding,
@@ -251,12 +278,16 @@ impl ReferenceLibrary {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for match options.
 pub struct MatchOptions {
+    /// The min score value.
     pub min_score: f32,
+    /// The max results value.
     pub max_results: usize,
 }
 
 impl MatchOptions {
+    /// Creates a new value.
     pub fn new(min_score: f32) -> Result<Self> {
         let options = Self {
             min_score,
@@ -266,6 +297,7 @@ impl MatchOptions {
         Ok(options)
     }
 
+    /// Returns max results.
     pub fn max_results(mut self, value: usize) -> Self {
         self.max_results = value;
         self
@@ -296,26 +328,41 @@ impl Default for MatchOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for recognition match.
 pub struct RecognitionMatch {
+    /// The reference identifier value.
     pub reference_id: String,
+    /// Label assigned to this value.
     pub label: String,
+    /// The kind value.
     pub kind: ObservationKind,
+    /// Score assigned to this value.
     pub score: f32,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for recognition candidate.
 pub struct RecognitionCandidate {
+    /// The kind value.
     pub kind: ObservationKind,
+    /// The embedding value.
     pub embedding: Embedding,
+    /// The region value.
     pub region: Option<BoundingBox>,
+    /// The detector label value.
     pub detector_label: Option<String>,
+    /// The detection score value.
     pub detection_score: Option<f32>,
+    /// The track identifier value.
     pub track_id: Option<String>,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl RecognitionCandidate {
+    /// Creates a new value.
     pub fn new(kind: ObservationKind, embedding: impl Into<Vec<f32>>) -> Result<Self> {
         Ok(Self {
             kind,
@@ -328,36 +375,44 @@ impl RecognitionCandidate {
         })
     }
 
+    /// Returns region.
     pub fn region(mut self, region: BoundingBox) -> Self {
         self.region = Some(region);
         self
     }
 
+    /// Returns detector label.
     pub fn detector_label(mut self, label: impl Into<String>) -> Self {
         self.detector_label = Some(label.into());
         self
     }
 
+    /// Returns detection score.
     pub fn detection_score(mut self, score: f32) -> Self {
         self.detection_score = Some(score);
         self
     }
 
+    /// Returns track identifier.
     pub fn track_id(mut self, track_id: impl Into<String>) -> Self {
         self.track_id = Some(track_id.into());
         self
     }
 
+    /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
     }
 }
 
+/// Trait for recognition backend implementations.
 pub trait RecognitionBackend {
+    /// Returns process frame.
     fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RecognitionCandidate>>;
 }
 
+/// Data type for recognition video analyzer.
 pub struct RecognitionVideoAnalyzer<B> {
     name: String,
     backend: B,
@@ -368,6 +423,7 @@ pub struct RecognitionVideoAnalyzer<B> {
 }
 
 impl<B> RecognitionVideoAnalyzer<B> {
+    /// Creates a new value.
     pub fn new(name: impl Into<String>, backend: B, library: ReferenceLibrary) -> Self {
         Self {
             name: name.into(),
@@ -379,25 +435,30 @@ impl<B> RecognitionVideoAnalyzer<B> {
         }
     }
 
+    /// Returns match options.
     pub fn match_options(mut self, value: MatchOptions) -> Self {
         self.match_options = value;
         self
     }
 
+    /// Returns temporal options.
     pub fn temporal_options(mut self, value: TemporalRecognitionOptions) -> Self {
         self.temporal_options = value;
         self.aggregator = TemporalRecognitionAggregator::new(value);
         self
     }
 
+    /// Returns backend.
     pub fn backend(&self) -> &B {
         &self.backend
     }
 
+    /// Returns backend mut.
     pub fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
 
+    /// Returns library.
     pub fn library(&self) -> &ReferenceLibrary {
         &self.library
     }
@@ -449,13 +510,18 @@ impl<B: RecognitionBackend> VideoAnalyzer for RecognitionVideoAnalyzer<B> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for temporal recognition options.
 pub struct TemporalRecognitionOptions {
+    /// The min hits value.
     pub min_hits: usize,
+    /// The max gap frames value.
     pub max_gap_frames: u64,
+    /// The min average score value.
     pub min_average_score: f32,
 }
 
 impl TemporalRecognitionOptions {
+    /// Returns immediate.
     pub fn immediate() -> Self {
         Self {
             min_hits: 1,
@@ -464,6 +530,7 @@ impl TemporalRecognitionOptions {
         }
     }
 
+    /// Returns track window.
     pub fn track_window(
         min_hits: usize,
         max_gap_frames: u64,
@@ -495,12 +562,14 @@ impl TemporalRecognitionOptions {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for temporal recognition aggregator.
 pub struct TemporalRecognitionAggregator {
     options: TemporalRecognitionOptions,
     tracks: BTreeMap<String, TrackState>,
 }
 
 impl TemporalRecognitionAggregator {
+    /// Creates a new value.
     pub fn new(options: TemporalRecognitionOptions) -> Self {
         Self {
             options,
@@ -508,6 +577,7 @@ impl TemporalRecognitionAggregator {
         }
     }
 
+    /// Returns accept.
     pub fn accept(
         &mut self,
         analyzer: &str,
@@ -566,12 +636,14 @@ impl TemporalRecognitionAggregator {
         })
     }
 
+    /// Returns prune.
     pub fn prune(&mut self, position: FramePosition) {
         let max_gap = self.options.max_gap_frames;
         self.tracks
             .retain(|_, state| position.frame_index.saturating_sub(state.last_frame) <= max_gap);
     }
 
+    /// Returns reset.
     pub fn reset(&mut self) {
         self.tracks.clear();
     }

@@ -1,3 +1,5 @@
+//! Internal module support for song impl.
+
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -29,20 +31,28 @@ const DEFAULT_MAX_BPM: f32 = 200.0;
 const FINGERPRINT_CHUNK_SECONDS: u64 = 120;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song analysis run request.
 pub struct SongAnalysisRunRequest {
+    /// The source value.
     pub source: SourceSpec,
+    /// The work dir value.
     pub work_dir: Option<PathBuf>,
     #[serde(default)]
+    /// The catalog value.
     pub catalog: SongCatalogConfig,
     #[serde(default)]
+    /// The identification value.
     pub identification: SongIdentificationConfig,
     #[serde(default)]
+    /// The transcription value.
     pub transcription: TranscriptionConfig,
     #[serde(default)]
+    /// The music value.
     pub music: MusicAnalysisConfig,
 }
 
 impl SongAnalysisRunRequest {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         match &self.source {
             SourceSpec::YoutubeUrl { url } => validate_youtube_url(url),
@@ -53,17 +63,21 @@ impl SongAnalysisRunRequest {
         Ok(())
     }
 
+    /// Returns resolved catalog path.
     pub fn resolved_catalog_path(&self, data_dir: &Path) -> PathBuf {
         self.catalog.resolved_path(data_dir)
     }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for song catalog config.
 pub struct SongCatalogConfig {
+    /// The db path value.
     pub db_path: Option<PathBuf>,
 }
 
 impl SongCatalogConfig {
+    /// Returns resolved path.
     pub fn resolved_path(&self, data_dir: &Path) -> PathBuf {
         self.db_path
             .clone()
@@ -72,14 +86,19 @@ impl SongCatalogConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song identification config.
 pub struct SongIdentificationConfig {
     #[serde(default = "default_true")]
+    /// The enabled value.
     pub enabled: bool,
     #[serde(default = "default_identification_min_score")]
+    /// The min score value.
     pub min_score: f32,
     #[serde(default = "default_identification_ambiguous_margin")]
+    /// The ambiguous margin value.
     pub ambiguous_margin: f32,
     #[serde(default = "default_identification_max_candidates")]
+    /// The max candidates value.
     pub max_candidates: usize,
 }
 
@@ -95,6 +114,7 @@ impl Default for SongIdentificationConfig {
 }
 
 impl SongIdentificationConfig {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if !self.min_score.is_finite() || !(0.0..=1.0).contains(&self.min_score) {
             return Err(DetectError::InvalidArgument(
@@ -116,17 +136,24 @@ impl SongIdentificationConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for music analysis config.
 pub struct MusicAnalysisConfig {
     #[serde(default = "default_true")]
+    /// The enabled value.
     pub enabled: bool,
+    /// The command value.
     pub command: Option<ExternalCommandConfig>,
     #[serde(default = "default_window_seconds")]
+    /// The window seconds value.
     pub window_seconds: f64,
     #[serde(default = "default_hop_seconds")]
+    /// The hop seconds value.
     pub hop_seconds: f64,
     #[serde(default = "default_min_bpm")]
+    /// The min BPM value.
     pub min_bpm: f32,
     #[serde(default = "default_max_bpm")]
+    /// The max BPM value.
     pub max_bpm: f32,
 }
 
@@ -144,6 +171,7 @@ impl Default for MusicAnalysisConfig {
 }
 
 impl MusicAnalysisConfig {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if !self.window_seconds.is_finite() || self.window_seconds <= 0.0 {
             return Err(DetectError::InvalidArgument(
@@ -165,133 +193,218 @@ impl MusicAnalysisConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song catalog import request.
 pub struct SongCatalogImportRequest {
+    /// The catalog db path value.
     pub catalog_db_path: Option<PathBuf>,
+    /// The items value.
     pub items: Vec<SongCatalogImportItem>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song catalog import item.
 pub struct SongCatalogImportItem {
+    /// The source value.
     pub source: SourceSpec,
+    /// Metadata associated with this value.
     pub metadata: SongCatalogMetadata,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song catalog metadata.
 pub struct SongCatalogMetadata {
+    /// The title value.
     pub title: String,
+    /// The artist value.
     pub artist: Option<String>,
+    /// The album value.
     pub album: Option<String>,
+    /// The isrc value.
     pub isrc: Option<String>,
+    /// The source URI value.
     pub source_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song catalog import response.
 pub struct SongCatalogImportResponse {
+    /// The catalog path value.
     pub catalog_path: String,
+    /// The imported value.
     pub imported: u64,
+    /// The failed value.
     pub failed: u64,
+    /// The results value.
     pub results: Vec<SongCatalogImportResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song catalog import result.
 pub struct SongCatalogImportResult {
+    /// The index value.
     pub index: u64,
+    /// The track identifier value.
     pub track_id: Option<String>,
+    /// The title value.
     pub title: String,
+    /// The status value.
     pub status: String,
+    /// The message value.
     pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song analysis report.
 pub struct SongAnalysisReport {
     #[serde(alias = "use_case")]
+    /// The workflow value.
     pub workflow: String,
+    /// The source value.
     pub source: SongSourceReport,
+    /// The assets value.
     pub assets: SongAssetReport,
+    /// The capabilities value.
     pub capabilities: CapabilityReport,
+    /// The identification value.
     pub identification: SongIdentificationReport,
+    /// The lyrics value.
     pub lyrics: TranscriptionReport,
+    /// The music value.
     pub music: MusicAnalysisReport,
+    /// The data buckets value.
     pub data_buckets: Vec<DataBucketReport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song source report.
 pub struct SongSourceReport {
+    /// URL associated with this value.
     pub url: Option<String>,
+    /// The local media value.
     pub local_media: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song asset report.
 pub struct SongAssetReport {
+    /// The work dir value.
     pub work_dir: String,
+    /// The report path value.
     pub report_path: String,
+    /// The transcription wav value.
     pub transcription_wav: Option<String>,
+    /// The music analysis wav value.
     pub music_analysis_wav: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song identification report.
 pub struct SongIdentificationReport {
+    /// The status value.
     pub status: String,
+    /// The query value.
     pub query: Option<SongFingerprintQueryReport>,
+    /// The catalog path value.
     pub catalog_path: String,
+    /// The top match value.
     pub top_match: Option<SongMatchCandidateReport>,
+    /// The candidates value.
     pub candidates: Vec<SongMatchCandidateReport>,
+    /// The message value.
     pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song fingerprint query report.
 pub struct SongFingerprintQueryReport {
+    /// Duration in seconds.
     pub duration_seconds: f64,
+    /// The fingerprint value.
     pub fingerprint: String,
+    /// The chunk count value.
     pub chunk_count: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song match candidate report.
 pub struct SongMatchCandidateReport {
+    /// The track identifier value.
     pub track_id: String,
+    /// The title value.
     pub title: String,
+    /// The artist value.
     pub artist: Option<String>,
+    /// The album value.
     pub album: Option<String>,
+    /// The isrc value.
     pub isrc: Option<String>,
+    /// The source URI value.
     pub source_uri: Option<String>,
+    /// Duration in seconds.
     pub duration_seconds: f64,
+    /// Score assigned to this value.
     pub score: f32,
+    /// The matched segment value.
     pub matched_segment: Option<SongMatchedSegmentReport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for song matched segment report.
 pub struct SongMatchedSegmentReport {
+    /// The query start seconds value.
     pub query_start_seconds: Option<f64>,
+    /// The catalog start seconds value.
     pub catalog_start_seconds: Option<f64>,
+    /// Duration in seconds.
     pub duration_seconds: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for music analysis report.
 pub struct MusicAnalysisReport {
+    /// The status value.
     pub status: String,
+    /// The global value.
     pub global: Option<MusicFeatureReport>,
+    /// The segments value.
     pub segments: Vec<MusicSegmentReport>,
+    /// The message value.
     pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for music feature report.
 pub struct MusicFeatureReport {
+    /// The BPM value.
     pub bpm: Option<f32>,
+    /// The BPM confidence value.
     pub bpm_confidence: Option<f32>,
+    /// The key value.
     pub key: Option<String>,
+    /// The mode value.
     pub mode: Option<String>,
+    /// The key confidence value.
     pub key_confidence: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for music segment report.
 pub struct MusicSegmentReport {
+    /// The index value.
     pub index: u64,
+    /// The start seconds value.
     pub start_seconds: f64,
+    /// The end seconds value.
     pub end_seconds: f64,
+    /// The BPM value.
     pub bpm: Option<f32>,
+    /// The BPM confidence value.
     pub bpm_confidence: Option<f32>,
+    /// The key value.
     pub key: Option<String>,
+    /// The mode value.
     pub mode: Option<String>,
+    /// The key confidence value.
     pub key_confidence: Option<f32>,
 }
 
@@ -315,6 +428,7 @@ struct CatalogChunk {
     raw: Vec<i64>,
 }
 
+/// Runs song analysis workflow.
 pub fn run_song_analysis_workflow(
     request: SongAnalysisRunRequest,
     data_dir: PathBuf,
@@ -409,6 +523,7 @@ pub fn run_song_analysis_workflow(
     Ok(report)
 }
 
+/// Returns import song catalog items.
 pub fn import_song_catalog_items(
     request: SongCatalogImportRequest,
     data_dir: PathBuf,

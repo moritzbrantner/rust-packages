@@ -7,18 +7,23 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for point2f.
 pub struct Point2f {
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
 }
 
 impl Point2f {
+    /// Creates a new value.
     pub fn new(x: f32, y: f32) -> Result<Self> {
         let point = Self { x, y };
         point.validate()?;
         Ok(point)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.x.is_finite() || !self.y.is_finite() {
             return Err(invalid_argument("2D point coordinates must be finite"));
@@ -26,11 +31,13 @@ impl Point2f {
         Ok(())
     }
 
+    /// Returns translate.
     pub fn translate(self, delta: Vector2f) -> Result<Self> {
         delta.validate()?;
         Self::new(self.x + delta.x, self.y + delta.y)
     }
 
+    /// Converts this value to normalized.
     pub fn to_normalized(self, size: Size2u) -> Result<NormalizedPoint2> {
         size.validate()?;
         NormalizedPoint2::new(self.x / size.width as f32, self.y / size.height as f32)
@@ -38,30 +45,39 @@ impl Point2f {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for point2i.
 pub struct Point2i {
+    /// The x value.
     pub x: i32,
+    /// The y value.
     pub y: i32,
 }
 
 impl Point2i {
+    /// Creates a new value.
     pub const fn new(x: i32, y: i32) -> Self {
         Self { x, y }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for vector2f.
 pub struct Vector2f {
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
 }
 
 impl Vector2f {
+    /// Creates a new value.
     pub fn new(x: f32, y: f32) -> Result<Self> {
         let vector = Self { x, y };
         vector.validate()?;
         Ok(vector)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.x.is_finite() || !self.y.is_finite() {
             return Err(invalid_argument("2D vector components must be finite"));
@@ -69,6 +85,7 @@ impl Vector2f {
         Ok(())
     }
 
+    /// Returns length.
     pub fn length(self) -> Result<f32> {
         self.validate()?;
         Ok((self.x * self.x + self.y * self.y).sqrt())
@@ -76,18 +93,23 @@ impl Vector2f {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for size2u.
 pub struct Size2u {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
 }
 
 impl Size2u {
+    /// Creates a new value.
     pub fn new(width: u32, height: u32) -> Result<Self> {
         let size = Self { width, height };
         size.validate()?;
         Ok(size)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if self.width == 0 || self.height == 0 {
             return Err(DetectError::InvalidDimensions {
@@ -98,6 +120,7 @@ impl Size2u {
         Ok(())
     }
 
+    /// Returns area.
     pub fn area(self) -> Result<u64> {
         self.validate()?;
         Ok(self.width as u64 * self.height as u64)
@@ -105,14 +128,20 @@ impl Size2u {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for rect u32.
 pub struct RectU32 {
+    /// The x value.
     pub x: u32,
+    /// The y value.
     pub y: u32,
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
 }
 
 impl RectU32 {
+    /// Creates a new value.
     pub fn new(x: u32, y: u32, width: u32, height: u32) -> Result<Self> {
         let rect = Self {
             x,
@@ -124,6 +153,7 @@ impl RectU32 {
         Ok(rect)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if self.width == 0 || self.height == 0 {
             return Err(DetectError::InvalidDimensions {
@@ -136,18 +166,21 @@ impl RectU32 {
         Ok(())
     }
 
+    /// Returns max x.
     pub fn max_x(self) -> Result<u32> {
         self.x
             .checked_add(self.width)
             .ok_or_else(|| invalid_argument("rectangle x range overflows"))
     }
 
+    /// Returns max y.
     pub fn max_y(self) -> Result<u32> {
         self.y
             .checked_add(self.height)
             .ok_or_else(|| invalid_argument("rectangle y range overflows"))
     }
 
+    /// Returns contains.
     pub fn contains(self, other: Self) -> Result<bool> {
         self.validate()?;
         other.validate()?;
@@ -157,11 +190,13 @@ impl RectU32 {
             && self.max_y()? >= other.max_y()?)
     }
 
+    /// Returns contains point.
     pub fn contains_point(self, x: u32, y: u32) -> Result<bool> {
         self.validate()?;
         Ok(x >= self.x && x < self.max_x()? && y >= self.y && y < self.max_y()?)
     }
 
+    /// Returns intersects.
     pub fn intersects(self, other: Self) -> Result<bool> {
         self.validate()?;
         other.validate()?;
@@ -171,6 +206,7 @@ impl RectU32 {
             && other.y < self.max_y()?)
     }
 
+    /// Returns intersection.
     pub fn intersection(self, other: Self) -> Result<Option<Self>> {
         if !self.intersects(other)? {
             return Ok(None);
@@ -182,6 +218,7 @@ impl RectU32 {
         Self::new(x, y, max_x - x, max_y - y).map(Some)
     }
 
+    /// Returns union.
     pub fn union(self, other: Self) -> Result<Self> {
         self.validate()?;
         other.validate()?;
@@ -192,10 +229,12 @@ impl RectU32 {
         Self::new(x, y, max_x - x, max_y - y)
     }
 
+    /// Returns clamp to.
     pub fn clamp_to(self, bounds: Self) -> Result<Option<Self>> {
         self.intersection(bounds)
     }
 
+    /// Returns translate.
     pub fn translate(self, dx: i32, dy: i32) -> Result<Self> {
         self.validate()?;
         let x = self.x as i64 + dx as i64;
@@ -208,6 +247,7 @@ impl RectU32 {
         Self::new(x as u32, y as u32, self.width, self.height)
     }
 
+    /// Returns scale.
     pub fn scale(self, factor: f32) -> Result<Self> {
         if !factor.is_finite() || factor <= 0.0 {
             return Err(invalid_argument("scale factor must be finite and positive"));
@@ -225,6 +265,7 @@ impl RectU32 {
         Self::new(x as u32, y as u32, width as u32, height as u32)
     }
 
+    /// Returns inflate.
     pub fn inflate(self, dx: i32, dy: i32) -> Result<Self> {
         self.validate()?;
         let x = self.x as i64 - dx as i64;
@@ -246,6 +287,7 @@ impl RectU32 {
         Self::new(x as u32, y as u32, width as u32, height as u32)
     }
 
+    /// Returns center f32.
     pub fn center_f32(self) -> Point2f {
         Point2f {
             x: self.x as f32 + self.width as f32 / 2.0,
@@ -253,11 +295,13 @@ impl RectU32 {
         }
     }
 
+    /// Returns area.
     pub fn area(self) -> Result<u64> {
         self.validate()?;
         Ok(self.width as u64 * self.height as u64)
     }
 
+    /// Returns size.
     pub fn size(self) -> Size2u {
         Size2u {
             width: self.width,
@@ -286,14 +330,20 @@ impl TryFrom<RectU32> for BoundingBox {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for rect f32.
 pub struct RectF32 {
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
+    /// Width in pixels.
     pub width: f32,
+    /// Height in pixels.
     pub height: f32,
 }
 
 impl RectF32 {
+    /// Creates a new value.
     pub fn new(x: f32, y: f32, width: f32, height: f32) -> Result<Self> {
         let rect = Self {
             x,
@@ -305,6 +355,7 @@ impl RectF32 {
         Ok(rect)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if [self.x, self.y, self.width, self.height]
             .iter()
@@ -320,16 +371,19 @@ impl RectF32 {
         Ok(())
     }
 
+    /// Returns max x.
     pub fn max_x(self) -> Result<f32> {
         self.validate()?;
         Ok(self.x + self.width)
     }
 
+    /// Returns max y.
     pub fn max_y(self) -> Result<f32> {
         self.validate()?;
         Ok(self.y + self.height)
     }
 
+    /// Returns contains point.
     pub fn contains_point(self, point: Point2f) -> Result<bool> {
         self.validate()?;
         point.validate()?;
@@ -339,6 +393,7 @@ impl RectF32 {
             && point.y <= self.max_y()?)
     }
 
+    /// Returns intersects.
     pub fn intersects(self, other: Self) -> Result<bool> {
         self.validate()?;
         other.validate()?;
@@ -348,6 +403,7 @@ impl RectF32 {
             && other.y < self.max_y()?)
     }
 
+    /// Returns intersection.
     pub fn intersection(self, other: Self) -> Result<Option<Self>> {
         if !self.intersects(other)? {
             return Ok(None);
@@ -359,6 +415,7 @@ impl RectF32 {
         Self::new(x, y, max_x - x, max_y - y).map(Some)
     }
 
+    /// Returns union.
     pub fn union(self, other: Self) -> Result<Self> {
         self.validate()?;
         other.validate()?;
@@ -369,15 +426,18 @@ impl RectF32 {
         Self::new(x, y, max_x - x, max_y - y)
     }
 
+    /// Returns clamp to.
     pub fn clamp_to(self, bounds: Self) -> Result<Option<Self>> {
         self.intersection(bounds)
     }
 
+    /// Returns translate.
     pub fn translate(self, delta: Vector2f) -> Result<Self> {
         delta.validate()?;
         Self::new(self.x + delta.x, self.y + delta.y, self.width, self.height)
     }
 
+    /// Returns scale.
     pub fn scale(self, factor: f32) -> Result<Self> {
         if !factor.is_finite() || factor <= 0.0 {
             return Err(invalid_argument("scale factor must be finite and positive"));
@@ -390,6 +450,7 @@ impl RectF32 {
         )
     }
 
+    /// Returns inflate.
     pub fn inflate(self, dx: f32, dy: f32) -> Result<Self> {
         if !dx.is_finite() || !dy.is_finite() {
             return Err(invalid_argument("inflate deltas must be finite"));
@@ -402,11 +463,13 @@ impl RectF32 {
         )
     }
 
+    /// Returns center.
     pub fn center(self) -> Result<Point2f> {
         self.validate()?;
         Point2f::new(self.x + self.width / 2.0, self.y + self.height / 2.0)
     }
 
+    /// Returns area.
     pub fn area(self) -> Result<f32> {
         self.validate()?;
         Ok(self.width * self.height)
@@ -414,18 +477,23 @@ impl RectF32 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for normalized point2.
 pub struct NormalizedPoint2 {
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
 }
 
 impl NormalizedPoint2 {
+    /// Creates a new value.
     pub fn new(x: f32, y: f32) -> Result<Self> {
         let point = Self { x, y };
         point.validate()?;
         Ok(point)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.x.is_finite() || !self.y.is_finite() {
             return Err(invalid_argument("normalized coordinates must be finite"));
@@ -438,6 +506,7 @@ impl NormalizedPoint2 {
         Ok(())
     }
 
+    /// Converts this value to pixel point.
     pub fn to_pixel_point(self, size: Size2u) -> Point2i {
         Point2i {
             x: (self.x * size.width as f32).round() as i32,
@@ -445,6 +514,7 @@ impl NormalizedPoint2 {
         }
     }
 
+    /// Converts this value to pixel point f32.
     pub fn to_pixel_point_f32(self, size: Size2u) -> Point2f {
         Point2f {
             x: self.x * size.width as f32,
@@ -454,16 +524,24 @@ impl NormalizedPoint2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for affine2.
 pub struct Affine2 {
+    /// The m11 value.
     pub m11: f32,
+    /// The m12 value.
     pub m12: f32,
+    /// The m21 value.
     pub m21: f32,
+    /// The m22 value.
     pub m22: f32,
+    /// The tx value.
     pub tx: f32,
+    /// The ty value.
     pub ty: f32,
 }
 
 impl Affine2 {
+    /// Creates a new value.
     pub const fn identity() -> Self {
         Self {
             m11: 1.0,
@@ -475,6 +553,7 @@ impl Affine2 {
         }
     }
 
+    /// Creates a new value.
     pub const fn translation(tx: f32, ty: f32) -> Self {
         Self {
             tx,
@@ -483,6 +562,7 @@ impl Affine2 {
         }
     }
 
+    /// Creates a new value.
     pub const fn scaling(sx: f32, sy: f32) -> Self {
         Self {
             m11: sx,
@@ -494,6 +574,7 @@ impl Affine2 {
         }
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if [self.m11, self.m12, self.m21, self.m22, self.tx, self.ty]
             .iter()
@@ -504,11 +585,13 @@ impl Affine2 {
         Ok(())
     }
 
+    /// Returns determinant.
     pub fn determinant(self) -> Result<f32> {
         self.validate()?;
         Ok(self.m11 * self.m22 - self.m12 * self.m21)
     }
 
+    /// Returns apply point.
     pub fn apply_point(self, point: Point2f) -> Point2f {
         Point2f {
             x: self.m11 * point.x + self.m12 * point.y + self.tx,
@@ -516,6 +599,7 @@ impl Affine2 {
         }
     }
 
+    /// Returns invert.
     pub fn invert(self) -> Result<Self> {
         self.validate()?;
         let det = self.determinant()?;
@@ -539,6 +623,7 @@ impl Affine2 {
         })
     }
 
+    /// Returns compose.
     pub fn compose(self, next: Self) -> Result<Self> {
         self.validate()?;
         next.validate()?;
@@ -554,11 +639,13 @@ impl Affine2 {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for polygon2f.
 pub struct Polygon2f {
     points: Vec<Point2f>,
 }
 
 impl Polygon2f {
+    /// Creates a new value.
     pub fn new(points: impl Into<Vec<Point2f>>) -> Result<Self> {
         let polygon = Self {
             points: points.into(),
@@ -567,10 +654,12 @@ impl Polygon2f {
         Ok(polygon)
     }
 
+    /// Returns points.
     pub fn points(&self) -> &[Point2f] {
         &self.points
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.points.len() < 3 {
             return Err(invalid_argument(
@@ -583,6 +672,7 @@ impl Polygon2f {
         Ok(())
     }
 
+    /// Returns bounds.
     pub fn bounds(&self) -> Result<Bounds2f> {
         self.validate()?;
         let mut min_x = self.points[0].x;
@@ -603,12 +693,16 @@ impl Polygon2f {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for bounds2f.
 pub struct Bounds2f {
+    /// The min value.
     pub min: Point2f,
+    /// The max value.
     pub max: Point2f,
 }
 
 impl Bounds2f {
+    /// Creates a new value.
     pub fn new(min: Point2f, max: Point2f) -> Result<Self> {
         min.validate()?;
         max.validate()?;
@@ -618,6 +712,7 @@ impl Bounds2f {
         Ok(Self { min, max })
     }
 
+    /// Returns contains.
     pub fn contains(self, point: Point2f) -> Result<bool> {
         point.validate()?;
         Ok(point.x >= self.min.x
@@ -626,6 +721,7 @@ impl Bounds2f {
             && point.y <= self.max.y)
     }
 
+    /// Returns union.
     pub fn union(self, other: Self) -> Result<Self> {
         Self::new(
             Point2f {

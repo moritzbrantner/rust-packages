@@ -9,29 +9,42 @@ use video_analysis_dataset::{
 };
 use video_analysis_transform::{group_by_scene, window_by_time};
 
+/// Trait for feature extractor implementations.
 pub trait FeatureExtractor {
+    /// Returns name.
     fn name(&self) -> &str;
+    /// Returns extract.
     fn extract(&self, dataset: &AnalysisDataset) -> Result<Vec<FeatureRecord>>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Variants describing feature scope.
 pub enum FeatureScope {
+    /// The global variant.
     Global,
+    /// The per scene variant.
     PerScene,
-    FixedWindow { seconds: f64 },
+    /// The fixed window variant.
+    FixedWindow {
+        /// The seconds value for this variant.
+        seconds: f64,
+    },
 }
 
 #[derive(Default)]
+/// Data type for feature pipeline builder.
 pub struct FeaturePipelineBuilder {
     extractors: Vec<Box<dyn FeatureExtractor>>,
 }
 
 impl FeaturePipelineBuilder {
+    /// Returns extractor.
     pub fn extractor<E: FeatureExtractor + 'static>(mut self, extractor: E) -> Self {
         self.extractors.push(Box::new(extractor));
         self
     }
 
+    /// Returns build.
     pub fn build(self) -> FeaturePipeline {
         FeaturePipeline {
             extractors: self.extractors,
@@ -39,15 +52,18 @@ impl FeaturePipelineBuilder {
     }
 }
 
+/// Data type for feature pipeline.
 pub struct FeaturePipeline {
     extractors: Vec<Box<dyn FeatureExtractor>>,
 }
 
 impl FeaturePipeline {
+    /// Returns builder.
     pub fn builder() -> FeaturePipelineBuilder {
         FeaturePipelineBuilder::default()
     }
 
+    /// Returns extract.
     pub fn extract(&self, dataset: &AnalysisDataset) -> Result<Vec<FeatureRecord>> {
         let mut features = Vec::new();
         for extractor in &self.extractors {
@@ -58,6 +74,7 @@ impl FeaturePipeline {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Data type for scene stats extractor.
 pub struct SceneStatsExtractor;
 
 impl FeatureExtractor for SceneStatsExtractor {
@@ -136,7 +153,9 @@ impl FeatureExtractor for SceneStatsExtractor {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for observation label histogram extractor.
 pub struct ObservationLabelHistogramExtractor {
+    /// The scope value.
     pub scope: FeatureScope,
 }
 
@@ -193,6 +212,7 @@ impl FeatureExtractor for ObservationLabelHistogramExtractor {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Data type for transcript stats extractor.
 pub struct TranscriptStatsExtractor;
 
 impl FeatureExtractor for TranscriptStatsExtractor {
@@ -224,6 +244,7 @@ impl FeatureExtractor for TranscriptStatsExtractor {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Data type for audio event stats extractor.
 pub struct AudioEventStatsExtractor;
 
 impl FeatureExtractor for AudioEventStatsExtractor {
@@ -264,6 +285,7 @@ impl FeatureExtractor for AudioEventStatsExtractor {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Data type for track summary extractor.
 pub struct TrackSummaryExtractor;
 
 impl FeatureExtractor for TrackSummaryExtractor {
@@ -367,6 +389,7 @@ impl TrackAccumulator {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Data type for feature vector mean extractor.
 pub struct FeatureVectorMeanExtractor;
 
 impl FeatureExtractor for FeatureVectorMeanExtractor {

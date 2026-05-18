@@ -5,7 +5,9 @@ use std::path::{Path, PathBuf};
 
 use image_analysis_core::ImageView;
 #[cfg(feature = "onnxruntime")]
+/// Re-exports the native ONNX runner API.
 pub use image_analysis_onnx::NativeOnnxRunner;
+/// Re-exports the image analysis ONNX API.
 pub use image_analysis_onnx::{
     classification_options_from_bundle, decode_object_detections, image_to_tensor,
     options_from_bundle, preprocessing_from_config, validate_onnx_vision_bundle,
@@ -23,12 +25,14 @@ use video_analysis_models::{
 use video_analysis_posture::{KeypointSpace, Skeleton};
 
 #[derive(Debug, Clone)]
+/// Data type for ONNX object detector.
 pub struct OnnxObjectDetector<R = UnavailableOnnxRunner> {
     inner: image_analysis_onnx::OnnxObjectDetector<R>,
 }
 
 #[cfg(not(feature = "onnxruntime"))]
 impl OnnxObjectDetector<UnavailableOnnxRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         Ok(Self {
             inner: image_analysis_onnx::OnnxObjectDetector::from_bundle(bundle)?,
@@ -38,6 +42,7 @@ impl OnnxObjectDetector<UnavailableOnnxRunner> {
 
 #[cfg(feature = "onnxruntime")]
 impl OnnxObjectDetector<NativeOnnxRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         Ok(Self {
             inner: image_analysis_onnx::OnnxObjectDetector::from_bundle(bundle)?,
@@ -46,26 +51,31 @@ impl OnnxObjectDetector<NativeOnnxRunner> {
 }
 
 impl<R: OnnxObjectDetectionRunner> OnnxObjectDetector<R> {
+    /// Builds this value from runner.
     pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
         Ok(Self {
             inner: image_analysis_onnx::OnnxObjectDetector::from_runner(bundle, runner)?,
         })
     }
 
+    /// Returns this value with options.
     pub fn with_options(options: OnnxObjectDetectionOptions, runner: R) -> Result<Self> {
         Ok(Self {
             inner: image_analysis_onnx::OnnxObjectDetector::with_options(options, runner)?,
         })
     }
 
+    /// Returns preprocessing.
     pub fn preprocessing(&self) -> &OnnxImagePreprocessing {
         self.inner.preprocessing()
     }
 
+    /// Returns labels.
     pub fn labels(&self) -> &BTreeMap<i64, String> {
         self.inner.labels()
     }
 
+    /// Returns predict frame with original size.
     pub fn predict_frame_with_original_size(
         &mut self,
         frame: &VideoFrame<'_>,
@@ -102,11 +112,17 @@ impl<R: OnnxObjectDetectionRunner> VisionModelBackend for OnnxObjectDetector<R> 
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX pose2d options.
 pub struct OnnxPose2dOptions {
+    /// The preprocessing value.
     pub preprocessing: OnnxImagePreprocessing,
+    /// The skeleton value.
     pub skeleton: Skeleton,
+    /// The output space value.
     pub output_space: KeypointSpace,
+    /// The min pose score value.
     pub min_pose_score: f32,
+    /// The min keypoint score value.
     pub min_keypoint_score: f32,
 }
 
@@ -123,9 +139,12 @@ impl Default for OnnxPose2dOptions {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Data type for unavailable pose2d runner.
 pub struct UnavailablePose2dRunner;
 
+/// Trait for ONNX pose2d runner implementations.
 pub trait OnnxPose2dRunner {
+    /// Runs pose 2d.
     fn run_pose_2d(&mut self, input: &OnnxImageTensor) -> Result<Vec<RawPose2dPrediction>>;
 }
 
@@ -139,12 +158,14 @@ impl OnnxPose2dRunner for UnavailablePose2dRunner {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for ONNX pose2d estimator.
 pub struct OnnxPose2dEstimator<R = UnavailablePose2dRunner> {
     options: OnnxPose2dOptions,
     runner: R,
 }
 
 impl OnnxPose2dEstimator<UnavailablePose2dRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         Ok(Self {
             options: pose_2d_options_from_bundle(&bundle)?,
@@ -154,6 +175,7 @@ impl OnnxPose2dEstimator<UnavailablePose2dRunner> {
 }
 
 impl<R: OnnxPose2dRunner> OnnxPose2dEstimator<R> {
+    /// Builds this value from runner.
     pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
         Ok(Self {
             options: pose_2d_options_from_bundle(&bundle)?,
@@ -161,6 +183,7 @@ impl<R: OnnxPose2dRunner> OnnxPose2dEstimator<R> {
         })
     }
 
+    /// Returns this value with options.
     pub fn with_options(options: OnnxPose2dOptions, runner: R) -> Result<Self> {
         validate_preprocessing(&options.preprocessing)?;
         validate_threshold(options.min_pose_score)?;
@@ -168,6 +191,7 @@ impl<R: OnnxPose2dRunner> OnnxPose2dEstimator<R> {
         Ok(Self { options, runner })
     }
 
+    /// Returns options.
     pub fn options(&self) -> &OnnxPose2dOptions {
         &self.options
     }
@@ -193,7 +217,9 @@ impl<R: OnnxPose2dRunner> PoseModelBackend for OnnxPose2dEstimator<R> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX pose lifter options.
 pub struct OnnxPoseLifterOptions {
+    /// The min pose score value.
     pub min_pose_score: f32,
 }
 
@@ -206,9 +232,12 @@ impl Default for OnnxPoseLifterOptions {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Data type for unavailable pose lift runner.
 pub struct UnavailablePoseLiftRunner;
 
+/// Trait for ONNX pose lift runner implementations.
 pub trait OnnxPoseLiftRunner {
+    /// Runs pose lift.
     fn run_pose_lift(
         &mut self,
         sequence: &[RawPose2dPrediction],
@@ -228,12 +257,14 @@ impl OnnxPoseLiftRunner for UnavailablePoseLiftRunner {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for ONNX pose lifter.
 pub struct OnnxPoseLifter<R = UnavailablePoseLiftRunner> {
     options: OnnxPoseLifterOptions,
     runner: R,
 }
 
 impl OnnxPoseLifter<UnavailablePoseLiftRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         validate_onnx_pose_bundle(&bundle, ModelTask::PoseLifting3d)?;
         Ok(Self {
@@ -244,6 +275,7 @@ impl OnnxPoseLifter<UnavailablePoseLiftRunner> {
 }
 
 impl<R: OnnxPoseLiftRunner> OnnxPoseLifter<R> {
+    /// Builds this value from runner.
     pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
         validate_onnx_pose_bundle(&bundle, ModelTask::PoseLifting3d)?;
         Ok(Self {
@@ -252,6 +284,7 @@ impl<R: OnnxPoseLiftRunner> OnnxPoseLifter<R> {
         })
     }
 
+    /// Returns this value with options.
     pub fn with_options(options: OnnxPoseLifterOptions, runner: R) -> Result<Self> {
         validate_threshold(options.min_pose_score)?;
         Ok(Self { options, runner })
@@ -268,6 +301,7 @@ impl<R: OnnxPoseLiftRunner> PoseLiftModelBackend for OnnxPoseLifter<R> {
     }
 }
 
+/// Returns preprocess frame.
 pub fn preprocess_frame(
     frame: &VideoFrame<'_>,
     options: &OnnxImagePreprocessing,
@@ -276,6 +310,7 @@ pub fn preprocess_frame(
     image_analysis_onnx::preprocess_image(&image, options)
 }
 
+/// Validates ONNX pose bundle.
 pub fn validate_onnx_pose_bundle(
     bundle: &ModelBundle,
     task: ModelTask,
@@ -312,6 +347,7 @@ pub fn validate_onnx_pose_bundle(
     })
 }
 
+/// Returns pose 2d options from bundle.
 pub fn pose_2d_options_from_bundle(bundle: &ModelBundle) -> Result<OnnxPose2dOptions> {
     let info = validate_onnx_pose_bundle(bundle, ModelTask::PoseEstimation2d)?;
     let config = read_json(&info.config_path)?;

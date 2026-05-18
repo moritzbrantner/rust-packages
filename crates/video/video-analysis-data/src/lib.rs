@@ -9,29 +9,53 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Variants describing data stream kind.
 pub enum DataStreamKind {
+    /// The video variant.
     Video,
+    /// The audio variant.
     Audio,
+    /// The text variant.
     Text,
+    /// The number variant.
     Number,
+    /// The vector variant.
     Vector,
+    /// The custom variant.
     Custom,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Variants describing bucket mode.
 pub enum BucketMode {
-    FixedDuration { seconds: f64 },
-    RecordCount { records: u64 },
-    ByteSize { bytes: u64 },
+    /// The fixed duration variant.
+    FixedDuration {
+        /// The seconds value for this variant.
+        seconds: f64,
+    },
+    /// The record count variant.
+    RecordCount {
+        /// The records value for this variant.
+        records: u64,
+    },
+    /// The byte size variant.
+    ByteSize {
+        /// Byte count associated with this variant.
+        bytes: u64,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for bucket config.
 pub struct BucketConfig {
+    /// The mode value.
     pub mode: BucketMode,
+    /// The max vector dimensions value.
     pub max_vector_dimensions: usize,
 }
 
 impl BucketConfig {
+    /// Returns fixed duration seconds.
     pub fn fixed_duration_seconds(seconds: f64) -> Result<Self> {
         let config = Self {
             mode: BucketMode::FixedDuration { seconds },
@@ -41,6 +65,7 @@ impl BucketConfig {
         Ok(config)
     }
 
+    /// Returns record count.
     pub fn record_count(records: u64) -> Result<Self> {
         let config = Self {
             mode: BucketMode::RecordCount { records },
@@ -50,6 +75,7 @@ impl BucketConfig {
         Ok(config)
     }
 
+    /// Returns byte size.
     pub fn byte_size(bytes: u64) -> Result<Self> {
         let config = Self {
             mode: BucketMode::ByteSize { bytes },
@@ -59,6 +85,7 @@ impl BucketConfig {
         Ok(config)
     }
 
+    /// Returns max vector dimensions.
     pub fn max_vector_dimensions(mut self, dimensions: usize) -> Self {
         self.max_vector_dimensions = dimensions;
         self
@@ -92,30 +119,48 @@ impl Default for BucketConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Variants describing data payload.
 pub enum DataPayload<'a> {
+    /// The video variant.
     Video {
+        /// Width in pixels.
         width: u32,
+        /// Height in pixels.
         height: u32,
+        /// Byte count associated with this variant.
         bytes: usize,
     },
+    /// The audio variant.
     Audio {
+        /// Sample rate in hertz.
         sample_rate: u32,
+        /// Number of audio channels.
         channels: u16,
+        /// The samples per channel value for this variant.
         samples_per_channel: usize,
+        /// Byte count associated with this variant.
         bytes: usize,
     },
+    /// The text variant.
     Text {
+        /// Text associated with this variant.
         text: &'a str,
     },
+    /// The number variant.
     Number(f64),
+    /// The vector variant.
     Vector(&'a [f32]),
+    /// The custom variant.
     Custom {
+        /// Label associated with this variant.
         label: &'a str,
+        /// Byte count associated with this variant.
         bytes: usize,
     },
 }
 
 impl DataPayload<'_> {
+    /// Returns estimated bytes.
     pub fn estimated_bytes(&self) -> usize {
         match self {
             Self::Video { bytes, .. } => *bytes,
@@ -127,6 +172,7 @@ impl DataPayload<'_> {
         }
     }
 
+    /// Returns kind.
     pub fn kind(&self) -> DataStreamKind {
         match self {
             Self::Video { .. } => DataStreamKind::Video,
@@ -140,14 +186,20 @@ impl DataPayload<'_> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for data record.
 pub struct DataRecord<'a> {
+    /// The stream identifier value.
     pub stream_id: &'a str,
+    /// The sequence value.
     pub sequence: u64,
+    /// Timestamp associated with this value.
     pub timestamp: Option<Timestamp>,
+    /// The payload value.
     pub payload: DataPayload<'a>,
 }
 
 impl<'a> DataRecord<'a> {
+    /// Returns video frame.
     pub fn video_frame(stream_id: &'a str, sequence: u64, frame: &VideoFrame<'_>) -> Self {
         Self {
             stream_id,
@@ -161,6 +213,7 @@ impl<'a> DataRecord<'a> {
         }
     }
 
+    /// Returns audio frame.
     pub fn audio_frame(stream_id: &'a str, sequence: u64, frame: &AudioFrame<'_>) -> Self {
         Self {
             stream_id,
@@ -175,6 +228,7 @@ impl<'a> DataRecord<'a> {
         }
     }
 
+    /// Returns text segment.
     pub fn text_segment(stream_id: &'a str, segment: &TextSegment<'a>) -> Self {
         Self {
             stream_id,
@@ -184,6 +238,7 @@ impl<'a> DataRecord<'a> {
         }
     }
 
+    /// Returns number.
     pub fn number(
         stream_id: &'a str,
         sequence: u64,
@@ -198,6 +253,7 @@ impl<'a> DataRecord<'a> {
         }
     }
 
+    /// Returns vector.
     pub fn vector(
         stream_id: &'a str,
         sequence: u64,
@@ -212,6 +268,7 @@ impl<'a> DataRecord<'a> {
         }
     }
 
+    /// Returns custom.
     pub fn custom(
         stream_id: &'a str,
         sequence: u64,
@@ -227,91 +284,149 @@ impl<'a> DataRecord<'a> {
         }
     }
 
+    /// Returns kind.
     pub fn kind(&self) -> DataStreamKind {
         self.payload.kind()
     }
 
+    /// Returns estimated bytes.
     pub fn estimated_bytes(&self) -> usize {
         self.payload.estimated_bytes()
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for data bucket.
 pub struct DataBucket {
+    /// The bucket index value.
     pub bucket_index: u64,
+    /// The mode value.
     pub mode: BucketMode,
+    /// The records value.
     pub records: u64,
+    /// The estimated bytes value.
     pub estimated_bytes: u64,
+    /// The start timestamp value.
     pub start_timestamp: Option<Timestamp>,
+    /// The end timestamp value.
     pub end_timestamp: Option<Timestamp>,
+    /// The streams value.
     pub streams: BTreeMap<String, StreamSummary>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
+/// Data type for stream summary.
 pub struct StreamSummary {
+    /// The records value.
     pub records: u64,
+    /// The estimated bytes value.
     pub estimated_bytes: u64,
+    /// The first sequence value.
     pub first_sequence: Option<u64>,
+    /// The last sequence value.
     pub last_sequence: Option<u64>,
+    /// The first timestamp value.
     pub first_timestamp: Option<Timestamp>,
+    /// The last timestamp value.
     pub last_timestamp: Option<Timestamp>,
+    /// The payload counts value.
     pub payload_counts: BTreeMap<DataStreamKind, u64>,
+    /// The video value.
     pub video: VideoSummary,
+    /// The audio value.
     pub audio: AudioSummary,
+    /// Text content for this value.
     pub text: TextSummary,
+    /// The numeric value.
     pub numeric: NumericSummary,
+    /// The vector value.
     pub vector: VectorSummary,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
+/// Data type for video summary.
 pub struct VideoSummary {
+    /// The frames value.
     pub frames: u64,
+    /// The pixels value.
     pub pixels: u64,
+    /// The max width value.
     pub max_width: u32,
+    /// The max height value.
     pub max_height: u32,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
+/// Data type for audio summary.
 pub struct AudioSummary {
+    /// The frames value.
     pub frames: u64,
+    /// The samples per channel value.
     pub samples_per_channel: u64,
+    /// The max channels value.
     pub max_channels: u16,
+    /// The sample rates value.
     pub sample_rates: BTreeMap<u32, u64>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
+/// Data type for text summary.
 pub struct TextSummary {
+    /// The segments value.
     pub segments: u64,
+    /// The bytes value.
     pub bytes: u64,
+    /// The chars value.
     pub chars: u64,
+    /// The words value.
     pub words: u64,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
+/// Data type for numeric summary.
 pub struct NumericSummary {
+    /// Number of items represented by this value.
     pub count: u64,
+    /// The finite count value.
     pub finite_count: u64,
+    /// The non finite count value.
     pub non_finite_count: u64,
+    /// The min value.
     pub min: Option<f64>,
+    /// The max value.
     pub max: Option<f64>,
+    /// The mean value.
     pub mean: Option<f64>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
+/// Data type for vector summary.
 pub struct VectorSummary {
+    /// Number of items represented by this value.
     pub count: u64,
+    /// The finite count value.
     pub finite_count: u64,
+    /// The non finite count value.
     pub non_finite_count: u64,
+    /// The dimensions value.
     pub dimensions: Option<usize>,
+    /// The mismatched dimensions value.
     pub mismatched_dimensions: u64,
+    /// The tracked dimensions value.
     pub tracked_dimensions: usize,
+    /// The tracked mean count value.
     pub tracked_mean_count: u64,
+    /// The mean value.
     pub mean: Vec<f64>,
+    /// The min norm value.
     pub min_norm: Option<f64>,
+    /// The max norm value.
     pub max_norm: Option<f64>,
+    /// The mean norm value.
     pub mean_norm: Option<f64>,
 }
 
+/// Data type for bucket aggregator.
 pub struct BucketAggregator {
     config: BucketConfig,
     active: Option<BucketAccumulator>,
@@ -319,6 +434,7 @@ pub struct BucketAggregator {
 }
 
 impl BucketAggregator {
+    /// Creates a new value.
     pub fn new(config: BucketConfig) -> Result<Self> {
         config.validate()?;
         Ok(Self {
@@ -328,6 +444,7 @@ impl BucketAggregator {
         })
     }
 
+    /// Adds push to this value.
     pub fn push(&mut self, record: DataRecord<'_>) -> Result<Vec<DataBucket>> {
         let mut completed = Vec::new();
 
@@ -356,10 +473,12 @@ impl BucketAggregator {
         Ok(completed)
     }
 
+    /// Returns finish.
     pub fn finish(&mut self) -> Option<DataBucket> {
         self.active.take().map(BucketAccumulator::finish)
     }
 
+    /// Returns config.
     pub fn config(&self) -> BucketConfig {
         self.config
     }

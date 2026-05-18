@@ -20,14 +20,20 @@ fn validate_finite(value: f32, name: &str) -> Result<()> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for quaternion.
 pub struct Quaternion {
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
+    /// The z value.
     pub z: f32,
+    /// The w value.
     pub w: f32,
 }
 
 impl Quaternion {
+    /// Constant for identity.
     pub const IDENTITY: Self = Self {
         x: 0.0,
         y: 0.0,
@@ -35,10 +41,12 @@ impl Quaternion {
         w: 1.0,
     };
 
+    /// Creates a new value.
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }
 
+    /// Returns length squared.
     pub fn length_squared(self) -> f32 {
         self.x.mul_add(
             self.x,
@@ -47,6 +55,7 @@ impl Quaternion {
         )
     }
 
+    /// Normalizes this value.
     pub fn normalize(self) -> Result<Self> {
         if !self.x.is_finite() || !self.y.is_finite() || !self.z.is_finite() || !self.w.is_finite()
         {
@@ -66,6 +75,7 @@ impl Quaternion {
         ))
     }
 
+    /// Converts this value to rotation matrix.
     pub fn to_rotation_matrix(self) -> Result<[[f32; 3]; 3]> {
         let q = self.normalize()?;
         let xx = q.x * q.x;
@@ -87,16 +97,24 @@ impl Quaternion {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for covariance3.
 pub struct Covariance3 {
+    /// The xx value.
     pub xx: f32,
+    /// The xy value.
     pub xy: f32,
+    /// The xz value.
     pub xz: f32,
+    /// The yy value.
     pub yy: f32,
+    /// The yz value.
     pub yz: f32,
+    /// The zz value.
     pub zz: f32,
 }
 
 impl Covariance3 {
+    /// Builds this value from scale rotation.
     pub fn from_scale_rotation(scale: Vec3, rotation: Quaternion) -> Result<Self> {
         validate_scale(scale)?;
         let r = rotation.to_rotation_matrix()?;
@@ -120,15 +138,22 @@ impl Covariance3 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for gaussian3d.
 pub struct Gaussian3d {
+    /// The center value.
     pub center: Vec3,
+    /// The scale value.
     pub scale: Vec3,
+    /// The rotation value.
     pub rotation: Quaternion,
+    /// The color value.
     pub color: ColorRgb,
+    /// The opacity value.
     pub opacity: f32,
 }
 
 impl Gaussian3d {
+    /// Creates a new value.
     pub fn new(
         center: Vec3,
         scale: Vec3,
@@ -147,6 +172,7 @@ impl Gaussian3d {
         Ok(gaussian)
     }
 
+    /// Returns isotropic.
     pub fn isotropic(center: Vec3, radius: f32, color: ColorRgb, opacity: f32) -> Result<Self> {
         Self::new(
             center,
@@ -157,6 +183,7 @@ impl Gaussian3d {
         )
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.center.is_finite() {
             return Err(invalid_argument("gaussian center must be finite"));
@@ -173,10 +200,12 @@ impl Gaussian3d {
         Ok(())
     }
 
+    /// Returns covariance.
     pub fn covariance(self) -> Result<Covariance3> {
         Covariance3::from_scale_rotation(self.scale, self.rotation)
     }
 
+    /// Returns max scale.
     pub fn max_scale(self) -> f32 {
         self.scale.x.max(self.scale.y).max(self.scale.z)
     }
@@ -195,11 +224,13 @@ fn validate_scale(scale: Vec3) -> Result<()> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for gaussian scene.
 pub struct GaussianScene {
     splats: Vec<Gaussian3d>,
 }
 
 impl GaussianScene {
+    /// Creates a new value.
     pub fn new(splats: impl Into<Vec<Gaussian3d>>) -> Result<Self> {
         let scene = Self {
             splats: splats.into(),
@@ -208,20 +239,24 @@ impl GaussianScene {
         Ok(scene)
     }
 
+    /// Returns empty.
     pub fn empty() -> Self {
         Self { splats: Vec::new() }
     }
 
+    /// Returns splats.
     pub fn splats(&self) -> &[Gaussian3d] {
         &self.splats
     }
 
+    /// Adds push to this value.
     pub fn push(&mut self, splat: Gaussian3d) -> Result<()> {
         splat.validate()?;
         self.splats.push(splat);
         Ok(())
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         for splat in &self.splats {
             splat.validate()?;
@@ -231,15 +266,22 @@ impl GaussianScene {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for projected gaussian.
 pub struct ProjectedGaussian {
+    /// The center value.
     pub center: Vec2,
+    /// The radius pixels value.
     pub radius_pixels: f32,
+    /// The depth value.
     pub depth: f32,
+    /// The color value.
     pub color: ColorRgb,
+    /// The opacity value.
     pub opacity: f32,
 }
 
 impl ProjectedGaussian {
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.center.is_finite() {
             return Err(invalid_argument("projected gaussian center must be finite"));
@@ -264,13 +306,18 @@ impl ProjectedGaussian {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for projection config.
 pub struct ProjectionConfig {
+    /// The min depth value.
     pub min_depth: f32,
+    /// The max radius pixels value.
     pub max_radius_pixels: f32,
+    /// The standard deviations value.
     pub standard_deviations: f32,
 }
 
 impl ProjectionConfig {
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         validate_finite(self.min_depth, "min_depth")?;
         validate_finite(self.max_radius_pixels, "max_radius_pixels")?;
@@ -298,6 +345,7 @@ impl Default for ProjectionConfig {
     }
 }
 
+/// Returns project gaussian.
 pub fn project_gaussian(
     gaussian: Gaussian3d,
     intrinsics: CameraIntrinsics,
@@ -335,6 +383,7 @@ pub fn project_gaussian(
     Ok(Some(projected))
 }
 
+/// Returns project scene.
 pub fn project_scene(
     scene: &GaussianScene,
     intrinsics: CameraIntrinsics,
@@ -351,6 +400,7 @@ pub fn project_scene(
     Ok(projected)
 }
 
+/// Returns sort back to front.
 pub fn sort_back_to_front(splats: &mut [ProjectedGaussian]) {
     splats.sort_by(|left, right| {
         right
@@ -361,12 +411,16 @@ pub fn sort_back_to_front(splats: &mut [ProjectedGaussian]) {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for splat pixel.
 pub struct SplatPixel {
+    /// The color value.
     pub color: ColorRgb,
+    /// The alpha value.
     pub alpha: f32,
 }
 
 impl SplatPixel {
+    /// Constant for transparent.
     pub const TRANSPARENT: Self = Self {
         color: ColorRgb::BLACK,
         alpha: 0.0,
@@ -374,14 +428,20 @@ impl SplatPixel {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for splat render config.
 pub struct SplatRenderConfig {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The background value.
     pub background: ColorRgb,
+    /// The alpha cutoff value.
     pub alpha_cutoff: f32,
 }
 
 impl SplatRenderConfig {
+    /// Creates a new value.
     pub fn new(width: u32, height: u32) -> Result<Self> {
         let config = Self {
             width,
@@ -392,11 +452,13 @@ impl SplatRenderConfig {
         Ok(config)
     }
 
+    /// Returns background.
     pub fn background(mut self, color: ColorRgb) -> Self {
         self.background = color;
         self
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if self.width == 0 || self.height == 0 {
             return Err(invalid_argument("render dimensions must be positive"));
@@ -423,6 +485,7 @@ impl Default for SplatRenderConfig {
     }
 }
 
+/// Returns gaussian weight.
 pub fn gaussian_weight(splat: ProjectedGaussian, pixel: Vec2) -> Result<f32> {
     splat.validate()?;
     if !pixel.is_finite() {
@@ -433,6 +496,7 @@ pub fn gaussian_weight(splat: ProjectedGaussian, pixel: Vec2) -> Result<f32> {
     Ok((-0.5 * offset.length_squared() / variance).exp())
 }
 
+/// Returns composite splats at pixel.
 pub fn composite_splats_at_pixel(
     splats_back_to_front: &[ProjectedGaussian],
     pixel: Vec2,
@@ -457,10 +521,12 @@ pub fn composite_splats_at_pixel(
     })
 }
 
+/// Returns splat pixel index.
 pub fn splat_pixel_index(x: u32, y: u32, width: u32) -> usize {
     y as usize * width as usize + x as usize
 }
 
+/// Returns render projected splats.
 pub fn render_projected_splats(
     splats_back_to_front: &[ProjectedGaussian],
     config: SplatRenderConfig,
@@ -485,12 +551,16 @@ pub fn render_projected_splats(
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for spherical harmonics RGB.
 pub struct SphericalHarmonicsRgb {
+    /// The degree value.
     pub degree: u8,
+    /// The coeffs value.
     pub coeffs: Vec<[f32; 3]>,
 }
 
 impl SphericalHarmonicsRgb {
+    /// Returns dc.
     pub fn dc(color: ColorRgb) -> Self {
         Self {
             degree: 0,
@@ -498,6 +568,7 @@ impl SphericalHarmonicsRgb {
         }
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         let expected = spherical_harmonic_coeff_count(self.degree);
         if self.coeffs.len() != expected {
@@ -516,6 +587,7 @@ impl SphericalHarmonicsRgb {
         Ok(())
     }
 
+    /// Returns preview color.
     pub fn preview_color(&self) -> ColorRgb {
         const SH_C0: f32 = 0.282_094_8;
         self.coeffs
@@ -538,17 +610,22 @@ fn spherical_harmonic_coeff_count(degree: u8) -> usize {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for scene transform3.
 pub struct SceneTransform3 {
+    /// The translation value.
     pub translation: Vec3,
+    /// The uniform scale value.
     pub uniform_scale: f32,
 }
 
 impl SceneTransform3 {
+    /// Constant for identity.
     pub const IDENTITY: Self = Self {
         translation: Vec3::ZERO,
         uniform_scale: 1.0,
     };
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.translation.is_finite() {
             return Err(invalid_argument(
@@ -564,15 +641,22 @@ impl SceneTransform3 {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for gaussian splat3d.
 pub struct GaussianSplat3d {
+    /// The mean value.
     pub mean: Vec3,
+    /// The scale log value.
     pub scale_log: Vec3,
+    /// The rotation value.
     pub rotation: Quaternion,
+    /// The opacity logit value.
     pub opacity_logit: f32,
+    /// The sh value.
     pub sh: SphericalHarmonicsRgb,
 }
 
 impl GaussianSplat3d {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if !self.mean.is_finite() {
             return Err(invalid_argument("splat mean must be finite"));
@@ -586,6 +670,7 @@ impl GaussianSplat3d {
         Ok(())
     }
 
+    /// Returns scale.
     pub fn scale(&self) -> Vec3 {
         Vec3::new(
             self.scale_log.x.exp(),
@@ -594,14 +679,17 @@ impl GaussianSplat3d {
         )
     }
 
+    /// Returns opacity.
     pub fn opacity(&self) -> f32 {
         1.0 / (1.0 + (-self.opacity_logit).exp())
     }
 
+    /// Returns preview color.
     pub fn preview_color(&self) -> ColorRgb {
         self.sh.preview_color()
     }
 
+    /// Converts this value to preview gaussian.
     pub fn to_preview_gaussian(&self) -> Result<Gaussian3d> {
         self.validate()?;
         Gaussian3d::new(
@@ -615,11 +703,14 @@ impl GaussianSplat3d {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for gaussian splat scene.
 pub struct GaussianSplatScene {
+    /// The splats value.
     pub splats: Vec<GaussianSplat3d>,
 }
 
 impl GaussianSplatScene {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         for splat in &self.splats {
             splat.validate()?;
@@ -627,6 +718,7 @@ impl GaussianSplatScene {
         Ok(())
     }
 
+    /// Returns stats.
     pub fn stats(&self) -> Result<GaussianSceneStats> {
         self.validate()?;
         if self.splats.is_empty() {
@@ -663,6 +755,7 @@ impl GaussianSplatScene {
         })
     }
 
+    /// Returns transformed.
     pub fn transformed(&self, transform: SceneTransform3) -> Result<Self> {
         self.validate()?;
         transform.validate()?;
@@ -682,6 +775,7 @@ impl GaussianSplatScene {
         })
     }
 
+    /// Returns retain opacity at least.
     pub fn retain_opacity_at_least(&mut self, min_opacity: f32) -> Result<()> {
         validate_finite(min_opacity, "min_opacity")?;
         if !(0.0..=1.0).contains(&min_opacity) {
@@ -692,6 +786,7 @@ impl GaussianSplatScene {
         Ok(())
     }
 
+    /// Returns retain in bounds.
     pub fn retain_in_bounds(&mut self, bounds: AxisAlignedBounds) -> Result<()> {
         bounds.validate()?;
         self.validate()?;
@@ -699,6 +794,7 @@ impl GaussianSplatScene {
         Ok(())
     }
 
+    /// Returns downsample stride.
     pub fn downsample_stride(&self, stride: usize) -> Result<Self> {
         self.validate()?;
         if stride == 0 {
@@ -727,11 +823,17 @@ fn expand_degenerate_bounds(min: &mut Vec3, max: &mut Vec3) {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for gaussian scene stats.
 pub struct GaussianSceneStats {
+    /// Number of items represented by this value.
     pub count: usize,
+    /// The bounds value.
     pub bounds: Option<AxisAlignedBounds>,
+    /// The mean opacity value.
     pub mean_opacity: f32,
+    /// The min scale value.
     pub min_scale: Vec3,
+    /// The max scale value.
     pub max_scale: Vec3,
 }
 

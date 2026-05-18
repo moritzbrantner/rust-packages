@@ -9,14 +9,20 @@ use image_analysis_segmentation::{
 use video_analysis_core::{BoundingBox, FramePosition, Result, VideoFrame};
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for image detection.
 pub struct ImageDetection {
+    /// Label assigned to this value.
     pub label: String,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The region value.
     pub region: BoundingBox,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl ImageDetection {
+    /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
@@ -24,13 +30,18 @@ impl ImageDetection {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for image detection request.
 pub struct ImageDetectionRequest {
+    /// The segmentation value.
     pub segmentation: ImageSegmentationRequest,
+    /// The min mask pixels value.
     pub min_mask_pixels: usize,
+    /// The default label value.
     pub default_label: String,
 }
 
 impl ImageDetectionRequest {
+    /// Returns automatic mask proposals.
     pub fn automatic_mask_proposals() -> Self {
         Self {
             segmentation: ImageSegmentationRequest::automatic_mask_generation(),
@@ -38,11 +49,13 @@ impl ImageDetectionRequest {
         }
     }
 
+    /// Returns min mask pixels.
     pub fn min_mask_pixels(mut self, value: usize) -> Self {
         self.min_mask_pixels = value.max(1);
         self
     }
 
+    /// Returns default label.
     pub fn default_label(mut self, value: impl Into<String>) -> Self {
         self.default_label = value.into();
         self
@@ -59,6 +72,7 @@ impl Default for ImageDetectionRequest {
     }
 }
 
+/// Returns segment to detection.
 pub fn segment_to_detection(segment: &ImageSegment, default_label: &str) -> ImageDetection {
     ImageDetection {
         label: segment
@@ -71,6 +85,7 @@ pub fn segment_to_detection(segment: &ImageSegment, default_label: &str) -> Imag
     }
 }
 
+/// Returns segments to detections.
 pub fn segments_to_detections(
     segments: &[ImageSegment],
     min_mask_pixels: usize,
@@ -83,12 +98,14 @@ pub fn segments_to_detections(
         .collect()
 }
 
+/// Data type for mask proposal detector.
 pub struct MaskProposalDetector<B> {
     backend: B,
     request: ImageDetectionRequest,
 }
 
 impl<B> MaskProposalDetector<B> {
+    /// Creates a new value.
     pub fn new(backend: B) -> Self {
         Self {
             backend,
@@ -96,21 +113,25 @@ impl<B> MaskProposalDetector<B> {
         }
     }
 
+    /// Returns request.
     pub fn request(mut self, value: ImageDetectionRequest) -> Self {
         self.request = value;
         self
     }
 
+    /// Returns backend.
     pub fn backend(&self) -> &B {
         &self.backend
     }
 
+    /// Returns backend mut.
     pub fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
 }
 
 impl<B: ImageSegmentationBackend> MaskProposalDetector<B> {
+    /// Returns detect image.
     pub fn detect_image(&mut self, image: &ImageView<'_>) -> Result<Vec<ImageDetection>> {
         let segments = self
             .backend
@@ -122,6 +143,7 @@ impl<B: ImageSegmentationBackend> MaskProposalDetector<B> {
         ))
     }
 
+    /// Returns detect frame.
     pub fn detect_frame(&mut self, frame: &VideoFrame<'_>) -> Result<FrameDetections> {
         let image = ImageView::from_video_frame(frame)?;
         let detections = self.detect_image(&image)?;
@@ -133,8 +155,11 @@ impl<B: ImageSegmentationBackend> MaskProposalDetector<B> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for frame detections.
 pub struct FrameDetections {
+    /// The position value.
     pub position: FramePosition,
+    /// The detections value.
     pub detections: Vec<ImageDetection>,
 }
 

@@ -10,15 +10,22 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for keypoint.
 pub struct Keypoint {
+    /// Human-readable name for this value.
     pub name: String,
+    /// The x value.
     pub x: f32,
+    /// The y value.
     pub y: f32,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The visible value.
     pub visible: Option<bool>,
 }
 
 impl Keypoint {
+    /// Creates a new value.
     pub fn new(name: impl Into<String>, x: f32, y: f32) -> Result<Self> {
         let keypoint = Self {
             name: name.into(),
@@ -31,17 +38,20 @@ impl Keypoint {
         Ok(keypoint)
     }
 
+    /// Returns score.
     pub fn score(mut self, score: f32) -> Result<Self> {
         self.score = Some(score);
         self.validate()?;
         Ok(self)
     }
 
+    /// Returns visible.
     pub fn visible(mut self, visible: bool) -> Self {
         self.visible = Some(visible);
         self
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.name.is_empty() {
             return Err(invalid_argument("keypoint name must not be empty"));
@@ -57,18 +67,22 @@ impl Keypoint {
         Ok(())
     }
 
+    /// Converts this value to point2f.
     pub fn to_point2f(&self) -> Result<Point2f> {
         Point2f::new(self.x, self.y)
     }
 
+    /// Builds this value from point2f.
     pub fn from_point2f(name: impl Into<String>, point: Point2f) -> Result<Self> {
         Self::new(name, point.x, point.y)
     }
 
+    /// Converts this value to normalized point2.
     pub fn to_normalized_point2(&self, image_size: Size2u) -> Result<NormalizedPoint2> {
         self.to_point2f()?.to_normalized(image_size)
     }
 
+    /// Builds this value from normalized point2.
     pub fn from_normalized_point2(
         name: impl Into<String>,
         point: NormalizedPoint2,
@@ -80,14 +94,20 @@ impl Keypoint {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for keypoint3d.
 pub struct Keypoint3d {
+    /// Human-readable name for this value.
     pub name: String,
+    /// The position value.
     pub position: Point3,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The visible value.
     pub visible: Option<bool>,
 }
 
 impl Keypoint3d {
+    /// Creates a new value.
     pub fn new(name: impl Into<String>, position: Point3) -> Result<Self> {
         let keypoint = Self {
             name: name.into(),
@@ -99,17 +119,20 @@ impl Keypoint3d {
         Ok(keypoint)
     }
 
+    /// Returns score.
     pub fn score(mut self, score: f32) -> Result<Self> {
         self.score = Some(score);
         self.validate()?;
         Ok(self)
     }
 
+    /// Returns visible.
     pub fn visible(mut self, visible: bool) -> Self {
         self.visible = Some(visible);
         self
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.name.is_empty() {
             return Err(invalid_argument("3D keypoint name must not be empty"));
@@ -127,19 +150,27 @@ impl Keypoint3d {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Variants describing keypoint space.
 pub enum KeypointSpace {
+    /// The pixel variant.
     Pixel,
+    /// The normalized variant.
     Normalized,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for skeleton edge.
 pub struct SkeletonEdge {
+    /// The from value.
     pub from: String,
+    /// The to value.
     pub to: String,
+    /// Label assigned to this value.
     pub label: Option<String>,
 }
 
 impl SkeletonEdge {
+    /// Creates a new value.
     pub fn new(from: impl Into<String>, to: impl Into<String>) -> Self {
         Self {
             from: from.into(),
@@ -148,6 +179,7 @@ impl SkeletonEdge {
         }
     }
 
+    /// Returns label.
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
@@ -155,12 +187,16 @@ impl SkeletonEdge {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for skeleton.
 pub struct Skeleton {
+    /// The keypoints value.
     pub keypoints: Vec<String>,
+    /// The edges value.
     pub edges: Vec<SkeletonEdge>,
 }
 
 impl Skeleton {
+    /// Creates a new value.
     pub fn new(keypoints: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self {
             keypoints: keypoints.into_iter().map(Into::into).collect(),
@@ -168,11 +204,13 @@ impl Skeleton {
         }
     }
 
+    /// Returns edge.
     pub fn edge(mut self, from: impl Into<String>, to: impl Into<String>) -> Self {
         self.edges.push(SkeletonEdge::new(from, to));
         self
     }
 
+    /// Returns edge label.
     pub fn edge_label(
         mut self,
         from: impl Into<String>,
@@ -183,6 +221,7 @@ impl Skeleton {
         self
     }
 
+    /// Returns coco 17.
     pub fn coco_17() -> Self {
         Self::new([
             "nose",
@@ -219,16 +258,24 @@ impl Skeleton {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for pose estimate.
 pub struct PoseEstimate {
+    /// Identifier for this value.
     pub id: Option<String>,
+    /// Label assigned to this value.
     pub label: Option<String>,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The region value.
     pub region: Option<BoundingBox>,
+    /// The keypoints value.
     pub keypoints: Vec<Keypoint>,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl PoseEstimate {
+    /// Creates a new value.
     pub fn new(keypoints: impl IntoIterator<Item = Keypoint>) -> Result<Self> {
         let estimate = Self {
             id: None,
@@ -242,36 +289,43 @@ impl PoseEstimate {
         Ok(estimate)
     }
 
+    /// Returns identifier.
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.id = Some(id.into());
         self
     }
 
+    /// Returns label.
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
     }
 
+    /// Returns score.
     pub fn score(mut self, score: f32) -> Result<Self> {
         self.score = Some(score);
         self.validate()?;
         Ok(self)
     }
 
+    /// Returns region.
     pub fn region(mut self, region: BoundingBox) -> Self {
         self.region = Some(region);
         self
     }
 
+    /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
     }
 
+    /// Returns keypoint.
     pub fn keypoint(&self, name: &str) -> Option<&Keypoint> {
         self.keypoints.iter().find(|keypoint| keypoint.name == name)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.keypoints.is_empty() {
             return Err(invalid_argument(
@@ -291,15 +345,22 @@ impl PoseEstimate {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for pose3d estimate.
 pub struct Pose3dEstimate {
+    /// Identifier for this value.
     pub id: Option<String>,
+    /// Label assigned to this value.
     pub label: Option<String>,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The keypoints value.
     pub keypoints: Vec<Keypoint3d>,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl Pose3dEstimate {
+    /// Creates a new value.
     pub fn new(keypoints: impl IntoIterator<Item = Keypoint3d>) -> Result<Self> {
         let estimate = Self {
             id: None,
@@ -312,31 +373,37 @@ impl Pose3dEstimate {
         Ok(estimate)
     }
 
+    /// Returns identifier.
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.id = Some(id.into());
         self
     }
 
+    /// Returns label.
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
     }
 
+    /// Returns score.
     pub fn score(mut self, score: f32) -> Result<Self> {
         self.score = Some(score);
         self.validate()?;
         Ok(self)
     }
 
+    /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
     }
 
+    /// Returns keypoint.
     pub fn keypoint(&self, name: &str) -> Option<&Keypoint3d> {
         self.keypoints.iter().find(|keypoint| keypoint.name == name)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.keypoints.is_empty() {
             return Err(invalid_argument(
@@ -354,18 +421,23 @@ impl Pose3dEstimate {
         Ok(())
     }
 
+    /// Converts this value to stick figure.
     pub fn to_stick_figure(&self, skeleton: Skeleton) -> Result<StickFigure3d> {
         StickFigure3d::new(skeleton, self.keypoints.clone())
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for stick figure3d.
 pub struct StickFigure3d {
+    /// The skeleton value.
     pub skeleton: Skeleton,
+    /// The keypoints value.
     pub keypoints: Vec<Keypoint3d>,
 }
 
 impl StickFigure3d {
+    /// Creates a new value.
     pub fn new(skeleton: Skeleton, keypoints: impl Into<Vec<Keypoint3d>>) -> Result<Self> {
         let figure = Self {
             skeleton,
@@ -375,6 +447,7 @@ impl StickFigure3d {
         Ok(figure)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         for keypoint in &self.keypoints {
             keypoint.validate()?;
@@ -382,10 +455,12 @@ impl StickFigure3d {
         Ok(())
     }
 
+    /// Returns keypoint.
     pub fn keypoint(&self, name: &str) -> Option<&Keypoint3d> {
         self.keypoints.iter().find(|keypoint| keypoint.name == name)
     }
 
+    /// Returns segments.
     pub fn segments(&self) -> Result<Vec<LineSegment3>> {
         self.validate()?;
         let mut segments = Vec::new();
@@ -403,35 +478,46 @@ impl StickFigure3d {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for pose sequence.
 pub struct PoseSequence<T> {
+    /// The frames value.
     pub frames: Vec<T>,
 }
 
 impl<T> PoseSequence<T> {
+    /// Creates a new value.
     pub fn new(frames: impl Into<Vec<T>>) -> Self {
         Self {
             frames: frames.into(),
         }
     }
 
+    /// Returns len.
     pub fn len(&self) -> usize {
         self.frames.len()
     }
 
+    /// Returns whether is empty.
     pub fn is_empty(&self) -> bool {
         self.frames.is_empty()
     }
 
+    /// Returns frames.
     pub fn frames(&self) -> &[T] {
         &self.frames
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for posture options.
 pub struct PostureOptions {
+    /// The keypoint space value.
     pub keypoint_space: KeypointSpace,
+    /// The min pose score value.
     pub min_pose_score: Option<f32>,
+    /// The min keypoint score value.
     pub min_keypoint_score: Option<f32>,
+    /// The infer region value.
     pub infer_region: bool,
 }
 
@@ -447,6 +533,7 @@ impl Default for PostureOptions {
 }
 
 impl PostureOptions {
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if let Some(score) = self.min_pose_score {
             if !score.is_finite() {
@@ -462,17 +549,22 @@ impl PostureOptions {
     }
 }
 
+/// Trait for posture backend implementations.
 pub trait PostureBackend {
+    /// Returns estimate frame.
     fn estimate_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<PoseEstimate>>;
 }
 
+/// Trait for posture lift backend implementations.
 pub trait PostureLiftBackend {
+    /// Returns lift sequence.
     fn lift_sequence(
         &mut self,
         sequence: &PoseSequence<PoseEstimate>,
     ) -> Result<PoseSequence<Pose3dEstimate>>;
 }
 
+/// Data type for posture analyzer.
 pub struct PostureAnalyzer<B> {
     name: String,
     backend: B,
@@ -480,6 +572,7 @@ pub struct PostureAnalyzer<B> {
 }
 
 impl<B> PostureAnalyzer<B> {
+    /// Creates a new value.
     pub fn new(name: impl Into<String>, backend: B) -> Self {
         Self {
             name: name.into(),
@@ -488,16 +581,19 @@ impl<B> PostureAnalyzer<B> {
         }
     }
 
+    /// Returns options.
     pub fn options(mut self, options: PostureOptions) -> Result<Self> {
         options.validate()?;
         self.options = options;
         Ok(self)
     }
 
+    /// Returns backend.
     pub fn backend(&self) -> &B {
         &self.backend
     }
 
+    /// Returns backend mut.
     pub fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
@@ -539,6 +635,7 @@ impl<B: PostureBackend> VideoAnalyzer for PostureAnalyzer<B> {
     }
 }
 
+/// Returns joint angle degrees.
 pub fn joint_angle_degrees(a: &Keypoint, b: &Keypoint, c: &Keypoint) -> Result<f32> {
     a.validate()?;
     b.validate()?;
@@ -548,6 +645,7 @@ pub fn joint_angle_degrees(a: &Keypoint, b: &Keypoint, c: &Keypoint) -> Result<f
     angle_from_vectors(Vector3::new(ab.0, ab.1, 0.0), Vector3::new(cb.0, cb.1, 0.0))
 }
 
+/// Returns joint angle 3d degrees.
 pub fn joint_angle_3d_degrees(a: &Keypoint3d, b: &Keypoint3d, c: &Keypoint3d) -> Result<f32> {
     a.validate()?;
     b.validate()?;
@@ -555,6 +653,7 @@ pub fn joint_angle_3d_degrees(a: &Keypoint3d, b: &Keypoint3d, c: &Keypoint3d) ->
     angle_from_vectors(a.position - b.position, c.position - b.position)
 }
 
+/// Returns bone lengths.
 pub fn bone_lengths(pose: &Pose3dEstimate, skeleton: &Skeleton) -> Result<BTreeMap<String, f32>> {
     pose.validate()?;
     let mut lengths = BTreeMap::new();
@@ -575,6 +674,7 @@ pub fn bone_lengths(pose: &Pose3dEstimate, skeleton: &Skeleton) -> Result<BTreeM
     Ok(lengths)
 }
 
+/// Returns normalize pose3d.
 pub fn normalize_pose3d(pose: &Pose3dEstimate, root_name: &str) -> Result<Pose3dEstimate> {
     pose.validate()?;
     let root = pose
@@ -608,6 +708,7 @@ pub fn normalize_pose3d(pose: &Pose3dEstimate, root_name: &str) -> Result<Pose3d
     Ok(normalized)
 }
 
+/// Returns interpolate missing joints.
 pub fn interpolate_missing_joints(
     pose: &Pose3dEstimate,
     skeleton: &Skeleton,
@@ -654,6 +755,7 @@ pub fn interpolate_missing_joints(
     Ok(interpolated)
 }
 
+/// Returns smooth pose sequence.
 pub fn smooth_pose_sequence(
     sequence: &PoseSequence<Pose3dEstimate>,
     window_radius: usize,

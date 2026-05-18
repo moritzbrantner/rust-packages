@@ -1,3 +1,5 @@
+//! Internal module support for image person edit.
+
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -23,16 +25,27 @@ use crate::workflow_support::{display_path, validate_local_file, write_json_repo
 use crate::{CapabilityReport, ExternalCommandConfig, RegionReport, IMAGE_PERSON_EDIT_USE_CASE};
 
 #[derive(Debug, Clone)]
+/// Data type for image person edit request.
 pub struct ImagePersonEditRequest {
+    /// The input value.
     pub input: PathBuf,
+    /// The work dir value.
     pub work_dir: PathBuf,
+    /// The output value.
     pub output: Option<PathBuf>,
+    /// The prompt value.
     pub prompt: String,
+    /// The negative prompt value.
     pub negative_prompt: String,
+    /// The model value.
     pub model: String,
+    /// The person detector command value.
     pub person_detector_command: PathBuf,
+    /// The person detector args value.
     pub person_detector_args: Vec<String>,
+    /// The editor command value.
     pub editor_command: Option<PathBuf>,
+    /// The editor args value.
     pub editor_args: Vec<String>,
 }
 
@@ -54,18 +67,27 @@ impl Default for ImagePersonEditRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for image person edit run request.
 pub struct ImagePersonEditRunRequest {
+    /// The input value.
     pub input: PathBuf,
+    /// The work dir value.
     pub work_dir: Option<PathBuf>,
+    /// The prompt value.
     pub prompt: String,
     #[serde(default)]
+    /// The negative prompt value.
     pub negative_prompt: String,
+    /// The model value.
     pub model: String,
+    /// The person detector value.
     pub person_detector: ExternalCommandConfig,
+    /// The editor value.
     pub editor: Option<ExternalCommandConfig>,
 }
 
 impl ImagePersonEditRunRequest {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         validate_local_file(&self.input)?;
         if self.prompt.trim().is_empty() {
@@ -83,68 +105,108 @@ impl ImagePersonEditRunRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for image person edit source report.
 pub struct ImagePersonEditSourceReport {
+    /// The local image value.
     pub local_image: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for image person edit asset report.
 pub struct ImagePersonEditAssetReport {
+    /// The work dir value.
     pub work_dir: String,
+    /// The report path value.
     pub report_path: String,
+    /// The person mask value.
     pub person_mask: String,
+    /// The workflow JSON value.
     pub workflow_json: String,
+    /// The edited image value.
     pub edited_image: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for person detection report.
 pub struct PersonDetectionReport {
+    /// Label assigned to this value.
     pub label: String,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The region value.
     pub region: RegionReport,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for image edit execution report.
 pub struct ImageEditExecutionReport {
+    /// The status value.
     pub status: String,
+    /// The output image value.
     pub output_image: Option<String>,
+    /// The message value.
     pub message: Option<String>,
     #[serde(default)]
+    /// Metadata associated with this value.
     pub metadata: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for image person edit report.
 pub struct ImagePersonEditReport {
     #[serde(alias = "use_case")]
+    /// The workflow value.
     pub workflow: String,
+    /// The source value.
     pub source: ImagePersonEditSourceReport,
+    /// The assets value.
     pub assets: ImagePersonEditAssetReport,
+    /// The capabilities value.
     pub capabilities: CapabilityReport,
+    /// The detections value.
     pub detections: Vec<PersonDetectionReport>,
+    /// The editing value.
     pub editing: ImageEditExecutionReport,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for image edit command request.
 pub struct ImageEditCommandRequest {
+    /// The prompt value.
     pub prompt: String,
+    /// The negative prompt value.
     pub negative_prompt: String,
+    /// The model value.
     pub model: String,
+    /// The input image value.
     pub input_image: String,
+    /// The mask image value.
     pub mask_image: String,
+    /// The output image value.
     pub output_image: String,
+    /// The workflow path value.
     pub workflow_path: String,
+    /// The workflow value.
     pub workflow: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for image edit command response.
 pub struct ImageEditCommandResponse {
+    /// The status value.
     pub status: String,
+    /// The output image value.
     pub output_image: Option<String>,
+    /// The message value.
     pub message: Option<String>,
     #[serde(default)]
+    /// Metadata associated with this value.
     pub metadata: BTreeMap<String, String>,
 }
 
+/// Runs image person edit.
 pub fn run_image_person_edit(args: ImagePersonEditRequest) -> Result<ImagePersonEditReport> {
     validate_local_file(&args.input)?;
     if args.prompt.trim().is_empty() {
@@ -255,6 +317,7 @@ pub fn run_image_person_edit(args: ImagePersonEditRequest) -> Result<ImagePerson
     })
 }
 
+/// Runs image person edit workflow.
 pub fn run_image_person_edit_workflow(
     request: ImagePersonEditRunRequest,
     work_dir: PathBuf,
@@ -277,6 +340,7 @@ pub fn run_image_person_edit_workflow(
     Ok(report)
 }
 
+/// Writes image person edit report.
 pub fn write_image_person_edit_report(path: &Path, report: &ImagePersonEditReport) -> Result<()> {
     write_json_report(path, report)
 }

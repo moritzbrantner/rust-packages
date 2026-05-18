@@ -9,32 +9,45 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for RGB color.
 pub struct RgbColor {
+    /// The red value.
     pub red: u8,
+    /// The green value.
     pub green: u8,
+    /// The blue value.
     pub blue: u8,
 }
 
 impl RgbColor {
+    /// Creates a new value.
     pub const fn new(red: u8, green: u8, blue: u8) -> Self {
         Self { red, green, blue }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for synthesized region.
 pub struct SynthesizedRegion {
+    /// The region value.
     pub region: BoundingBox,
+    /// The color value.
     pub color: RgbColor,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for frame synthesis spec.
 pub struct FrameSynthesisSpec {
+    /// The frame index value.
     pub frame_index: u64,
+    /// The background value.
     pub background: RgbColor,
+    /// The regions value.
     pub regions: Vec<SynthesizedRegion>,
 }
 
 impl FrameSynthesisSpec {
+    /// Creates a new value.
     pub fn new(frame_index: u64, background: RgbColor) -> Self {
         Self {
             frame_index,
@@ -43,6 +56,7 @@ impl FrameSynthesisSpec {
         }
     }
 
+    /// Returns region.
     pub fn region(mut self, region: SynthesizedRegion) -> Self {
         self.regions.push(region);
         self
@@ -50,14 +64,20 @@ impl FrameSynthesisSpec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for video synthesis config.
 pub struct VideoSynthesisConfig {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The FPS value.
     pub fps: Rational64,
+    /// The background value.
     pub background: RgbColor,
 }
 
 impl VideoSynthesisConfig {
+    /// Creates a new value.
     pub fn new(width: u32, height: u32, fps: Rational64) -> Result<Self> {
         if width == 0 || height == 0 {
             return Err(DetectError::InvalidDimensions { width, height });
@@ -73,6 +93,7 @@ impl VideoSynthesisConfig {
         })
     }
 
+    /// Returns background.
     pub fn background(mut self, background: RgbColor) -> Self {
         self.background = background;
         self
@@ -86,6 +107,7 @@ impl Default for VideoSynthesisConfig {
     }
 }
 
+/// Returns frame from spec.
 pub fn frame_from_spec(
     spec: &FrameSynthesisSpec,
     config: VideoSynthesisConfig,
@@ -120,6 +142,7 @@ pub fn frame_from_spec(
     Ok(Generated::new(frame, trace))
 }
 
+/// Returns storyboard from observations.
 pub fn storyboard_from_observations(
     observations: &[Observation],
     config: VideoSynthesisConfig,

@@ -6,13 +6,17 @@ use math_sparse_data::SparseVector;
 use text_analysis_core::{segment_document_id, tokenize_words, AnnotationProvenance, TextDocument};
 use text_analysis_corpus::{term_counts, CorpusOptions, TfIdfCorpus};
 use vector_analysis_core::cosine_similarity;
+/// Re-exports the dense vector API.
 pub use vector_analysis_core::DenseVector;
 use vector_analysis_index::{SearchConfig, VectorRecord, VectorSearchIndex};
 use video_analysis_core::{DetectError, Result, TextSegment};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for text embedding config.
 pub struct TextEmbeddingConfig {
+    /// The dimensions value.
     pub dimensions: usize,
+    /// The use idf value.
     pub use_idf: bool,
 }
 
@@ -26,25 +30,39 @@ impl Default for TextEmbeddingConfig {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// Data type for hashed text embedder.
 pub struct HashedTextEmbedder {
+    /// The config value.
     pub config: TextEmbeddingConfig,
+    /// The corpus options value.
     pub corpus_options: CorpusOptions,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing text embedding backend kind.
 pub enum TextEmbeddingBackendKind {
+    /// The hashed variant.
     Hashed,
+    /// The ONNX variant.
     Onnx,
+    /// The candle variant.
     Candle,
+    /// The external variant.
     External,
+    /// The custom variant.
     Custom,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for text embedding metadata.
 pub struct TextEmbeddingMetadata {
+    /// The backend value.
     pub backend: TextEmbeddingBackendKind,
+    /// The provenance value.
     pub provenance: AnnotationProvenance,
+    /// The model name value.
     pub model_name: Option<String>,
+    /// The dimensions value.
     pub dimensions: Option<usize>,
 }
 
@@ -59,19 +77,24 @@ impl Default for TextEmbeddingMetadata {
     }
 }
 
+/// Trait for text embedding backend implementations.
 pub trait TextEmbeddingBackend {
+    /// Returns embed text.
     fn embed_text(&self, text: &str) -> Result<DenseVector>;
 
+    /// Returns metadata.
     fn metadata(&self) -> TextEmbeddingMetadata {
         TextEmbeddingMetadata::default()
     }
 
+    /// Returns embed document.
     fn embed_document(&self, document: &TextDocument<'_>) -> Result<DenseVector> {
         self.embed_text(document.text)
     }
 }
 
 impl HashedTextEmbedder {
+    /// Creates a new value.
     pub fn new(config: TextEmbeddingConfig, corpus_options: CorpusOptions) -> Result<Self> {
         if config.dimensions == 0 {
             return Err(invalid_argument(
@@ -84,14 +107,17 @@ impl HashedTextEmbedder {
         })
     }
 
+    /// Returns embed text.
     pub fn embed_text(&self, text: &str) -> Result<DenseVector> {
         self.embed_text_with_corpus(text, None)
     }
 
+    /// Returns embed document.
     pub fn embed_document(&self, document: &TextDocument<'_>) -> Result<DenseVector> {
         self.embed_text(document.text)
     }
 
+    /// Returns embed text with corpus.
     pub fn embed_text_with_corpus(
         &self,
         text: &str,
@@ -101,6 +127,7 @@ impl HashedTextEmbedder {
         self.embed_counts(&counts, corpus)
     }
 
+    /// Returns embed counts.
     pub fn embed_counts(
         &self,
         counts: &BTreeMap<String, usize>,
@@ -126,6 +153,7 @@ impl HashedTextEmbedder {
         DenseVector::new(values)?.l2_normalized()
     }
 
+    /// Returns embed text sparse.
     pub fn embed_text_sparse(
         &self,
         text: &str,
@@ -135,6 +163,7 @@ impl HashedTextEmbedder {
         self.embed_counts_sparse(&counts, corpus)
     }
 
+    /// Returns embed counts sparse.
     pub fn embed_counts_sparse(
         &self,
         counts: &BTreeMap<String, usize>,
@@ -187,22 +216,30 @@ impl TextEmbeddingBackend for HashedTextEmbedder {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for semantic match.
 pub struct SemanticMatch {
+    /// Identifier for this value.
     pub id: String,
+    /// Score assigned to this value.
     pub score: f32,
+    /// The distance value.
     pub distance: f32,
+    /// Metadata associated with this value.
     pub metadata: TextEmbeddingMetadata,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for embedding search index.
 pub struct EmbeddingSearchIndex<E> {
     embedder: E,
     vectors: VectorSearchIndex,
 }
 
+/// Type alias for semantic index.
 pub type SemanticIndex<E> = EmbeddingSearchIndex<E>;
 
 impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
+    /// Creates a new value.
     pub fn new(embedder: E) -> Self {
         Self {
             embedder,
@@ -210,18 +247,22 @@ impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
         }
     }
 
+    /// Returns embedder.
     pub fn embedder(&self) -> &E {
         &self.embedder
     }
 
+    /// Returns embedder mut.
     pub fn embedder_mut(&mut self) -> &mut E {
         &mut self.embedder
     }
 
+    /// Returns backend metadata.
     pub fn backend_metadata(&self) -> TextEmbeddingMetadata {
         self.embedder.metadata()
     }
 
+    /// Adds add document to this value.
     pub fn add_document(&mut self, id: impl Into<String>, text: &str) -> Result<()> {
         let id = id.into();
         if id.trim().is_empty() {
@@ -236,6 +277,7 @@ impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
         self.vectors.add(VectorRecord::new(id, vector))
     }
 
+    /// Adds add text document to this value.
     pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<()> {
         let id = document.id.to_string();
         if id.trim().is_empty() {
@@ -250,6 +292,7 @@ impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
         self.vectors.add(VectorRecord::new(id, vector))
     }
 
+    /// Adds add text segment to this value.
     pub fn add_text_segment(&mut self, stream_id: &str, segment: &TextSegment<'_>) -> Result<()> {
         validate_stream_id(stream_id)?;
         self.add_document(
@@ -258,6 +301,7 @@ impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
         )
     }
 
+    /// Returns search.
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<SemanticMatch>> {
         let metadata = self.embedder.metadata();
         let query = self.embedder.embed_text(query)?;
@@ -281,6 +325,7 @@ impl<E: TextEmbeddingBackend> EmbeddingSearchIndex<E> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for semantic text index.
 pub struct SemanticTextIndex {
     embedder: HashedTextEmbedder,
     corpus: TfIdfCorpus,
@@ -288,6 +333,7 @@ pub struct SemanticTextIndex {
 }
 
 impl SemanticTextIndex {
+    /// Creates a new value.
     pub fn new(embedder: HashedTextEmbedder) -> Self {
         Self {
             corpus: TfIdfCorpus::new(embedder.corpus_options.clone()),
@@ -296,6 +342,7 @@ impl SemanticTextIndex {
         }
     }
 
+    /// Builds this value from documents.
     pub fn from_documents<'a, I>(embedder: HashedTextEmbedder, documents: I) -> Result<Self>
     where
         I: IntoIterator<Item = TextDocument<'a>>,
@@ -305,18 +352,22 @@ impl SemanticTextIndex {
         Ok(index)
     }
 
+    /// Returns embedder.
     pub fn embedder(&self) -> &HashedTextEmbedder {
         &self.embedder
     }
 
+    /// Returns corpus.
     pub fn corpus(&self) -> &TfIdfCorpus {
         &self.corpus
     }
 
+    /// Returns backend metadata.
     pub fn backend_metadata(&self) -> TextEmbeddingMetadata {
         self.embedder.metadata()
     }
 
+    /// Adds add document to this value.
     pub fn add_document(&mut self, id: impl Into<String>, text: &str) -> Result<()> {
         let id = id.into();
         self.corpus.add_document(id.clone(), text)?;
@@ -330,10 +381,12 @@ impl SemanticTextIndex {
         }
     }
 
+    /// Adds add text document to this value.
     pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<()> {
         self.add_document(document.id, document.text)
     }
 
+    /// Adds add documents to this value.
     pub fn add_documents<'a, I>(&mut self, documents: I) -> Result<()>
     where
         I: IntoIterator<Item = TextDocument<'a>>,
@@ -360,6 +413,7 @@ impl SemanticTextIndex {
         }
     }
 
+    /// Adds add text segment to this value.
     pub fn add_text_segment(&mut self, stream_id: &str, segment: &TextSegment<'_>) -> Result<()> {
         validate_stream_id(stream_id)?;
         self.add_document(
@@ -368,6 +422,7 @@ impl SemanticTextIndex {
         )
     }
 
+    /// Returns search.
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<SemanticMatch>> {
         let metadata = self.embedder.metadata();
         let query = self
@@ -420,8 +475,11 @@ impl SemanticTextIndex {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for cooccurrence config.
 pub struct CooccurrenceConfig {
+    /// The window size value.
     pub window_size: usize,
+    /// The min term len value.
     pub min_term_len: usize,
 }
 
@@ -435,14 +493,20 @@ impl Default for CooccurrenceConfig {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for related term.
 pub struct RelatedTerm {
+    /// The term value.
     pub term: String,
+    /// Number of items represented by this value.
     pub count: usize,
+    /// Score assigned to this value.
     pub score: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for cooccurrence graph.
 pub struct CooccurrenceGraph {
+    /// The config value.
     pub config: CooccurrenceConfig,
     term_counts: BTreeMap<String, usize>,
     pair_counts: BTreeMap<(String, String), usize>,
@@ -455,6 +519,7 @@ impl Default for CooccurrenceGraph {
 }
 
 impl CooccurrenceGraph {
+    /// Creates a new value.
     pub fn new(config: CooccurrenceConfig) -> Result<Self> {
         if config.window_size == 0 {
             return Err(invalid_argument(
@@ -468,14 +533,17 @@ impl CooccurrenceGraph {
         })
     }
 
+    /// Returns term counts.
     pub fn term_counts(&self) -> &BTreeMap<String, usize> {
         &self.term_counts
     }
 
+    /// Returns pair counts.
     pub fn pair_counts(&self) -> &BTreeMap<(String, String), usize> {
         &self.pair_counts
     }
 
+    /// Returns train text.
     pub fn train_text(&mut self, text: &str) {
         let tokens = tokenize_words(text)
             .into_iter()
@@ -484,6 +552,7 @@ impl CooccurrenceGraph {
         self.train_tokens(&tokens);
     }
 
+    /// Returns train tokens.
     pub fn train_tokens(&mut self, tokens: &[String]) {
         for token in tokens {
             *self.term_counts.entry(token.clone()).or_insert(0) += 1;
@@ -500,6 +569,7 @@ impl CooccurrenceGraph {
         }
     }
 
+    /// Returns related terms.
     pub fn related_terms(&self, term: &str, limit: usize) -> Vec<RelatedTerm> {
         let normalized = term.to_lowercase();
         let base_count = self
@@ -540,6 +610,7 @@ impl CooccurrenceGraph {
     }
 }
 
+/// Returns text similarity.
 pub fn text_similarity(left: &str, right: &str, embedder: &HashedTextEmbedder) -> Result<f32> {
     let left = embedder.embed_text(left)?;
     let right = embedder.embed_text(right)?;

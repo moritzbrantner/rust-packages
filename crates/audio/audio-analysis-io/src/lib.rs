@@ -4,27 +4,38 @@ use std::path::{Path, PathBuf};
 
 use audio_analysis_core::{interleaved_to_mono, ChannelMix, OwnedAudioWaveformBatch};
 use video_analysis_core::{OwnedAudioFrame, Result};
+/// Re-exports the video analysis FFmpeg API.
 pub use video_analysis_ffmpeg::{
     probe_audio as probe_audio_file, probe_audio_input, AudioMetadata, FfmpegAudioSource,
     FfmpegAudioSourceOptions,
 };
+/// Re-exports the video analysis ingest audio frame source API.
 pub use video_analysis_ingest::{AudioFrameSource, AudioStreamInfo, SourceMode};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Variants describing audio input.
 pub enum AudioInput {
+    /// The file variant.
     File(PathBuf),
+    /// The input variant.
     Input(String),
+    /// The live variant.
     Live(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for audio input options.
 pub struct AudioInputOptions {
+    /// The samples per chunk value.
     pub samples_per_chunk: usize,
+    /// The realtime value.
     pub realtime: bool,
+    /// The extra input args value.
     pub extra_input_args: Vec<String>,
 }
 
 impl AudioInputOptions {
+    /// Returns recorded.
     pub fn recorded() -> Self {
         Self {
             samples_per_chunk: 16_384,
@@ -33,6 +44,7 @@ impl AudioInputOptions {
         }
     }
 
+    /// Returns live.
     pub fn live() -> Self {
         Self {
             samples_per_chunk: 1024,
@@ -41,21 +53,25 @@ impl AudioInputOptions {
         }
     }
 
+    /// Returns samples per chunk.
     pub fn samples_per_chunk(mut self, samples: usize) -> Self {
         self.samples_per_chunk = samples.max(1);
         self
     }
 
+    /// Returns realtime.
     pub fn realtime(mut self, realtime: bool) -> Self {
         self.realtime = realtime;
         self
     }
 
+    /// Returns extra input arg.
     pub fn extra_input_arg(mut self, arg: impl Into<String>) -> Self {
         self.extra_input_args.push(arg.into());
         self
     }
 
+    /// Consumes this value into a FFmpeg options.
     pub fn into_ffmpeg_options(self, mode: SourceMode) -> FfmpegAudioSourceOptions {
         let mut options = if mode == SourceMode::Live || self.realtime {
             FfmpegAudioSourceOptions::live()
@@ -76,6 +92,7 @@ impl Default for AudioInputOptions {
     }
 }
 
+/// Returns open audio input.
 pub fn open_audio_input(
     input: AudioInput,
     options: AudioInputOptions,
@@ -96,6 +113,7 @@ pub fn open_audio_input(
     }
 }
 
+/// Returns probe audio input metadata.
 pub fn probe_audio_input_metadata(input: &AudioInput) -> Result<AudioMetadata> {
     match input {
         AudioInput::File(path) => probe_audio_file(path).map_err(|err| {
@@ -114,6 +132,7 @@ pub fn probe_audio_input_metadata(input: &AudioInput) -> Result<AudioMetadata> {
     }
 }
 
+/// Returns open audio input with metadata.
 pub fn open_audio_input_with_metadata(
     input: AudioInput,
     options: AudioInputOptions,
@@ -123,6 +142,7 @@ pub fn open_audio_input_with_metadata(
     Ok((metadata, source))
 }
 
+/// Returns decode audio to f32.
 pub fn decode_audio_to_f32(
     input: AudioInput,
     options: AudioInputOptions,
@@ -135,6 +155,7 @@ pub fn decode_audio_to_f32(
     Ok((metadata, frames))
 }
 
+/// Returns decode audio to waveform batch.
 pub fn decode_audio_to_waveform_batch(
     input: AudioInput,
     options: AudioInputOptions,
@@ -144,6 +165,7 @@ pub fn decode_audio_to_waveform_batch(
     Ok((metadata, batch))
 }
 
+/// Returns decode audio to mono f32.
 pub fn decode_audio_to_mono_f32(
     input: AudioInput,
     options: AudioInputOptions,
@@ -158,6 +180,7 @@ pub fn decode_audio_to_mono_f32(
     Ok((metadata, mono))
 }
 
+/// Writes waveform batch as wav.
 pub fn write_waveform_batch_as_wav(
     path: impl AsRef<Path>,
     batch: &OwnedAudioWaveformBatch,

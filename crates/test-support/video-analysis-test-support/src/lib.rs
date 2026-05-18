@@ -1,3 +1,5 @@
+//! Public API for the video-analysis-test-support crate.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -16,17 +18,21 @@ use video_analysis_radiance_io::{
     NerfstudioFrame, NerfstudioTransforms,
 };
 
+/// Constant for me at the zoo wikimedia URL.
 pub const ME_AT_THE_ZOO_WIKIMEDIA_URL: &str =
     "https://upload.wikimedia.org/wikipedia/commons/e/e0/Me_at_the_zoo.webm";
 
+/// Returns timestamp.
 pub fn timestamp(seconds: i64) -> Timestamp {
     Timestamp::new(seconds, Timebase::new(1, 1))
 }
 
+/// Returns timestamp at.
 pub fn timestamp_at(pts: i64, num: i32, den: i32) -> Timestamp {
     Timestamp::new(pts, Timebase::new(num, den))
 }
 
+/// Returns frame position.
 pub fn frame_position(frame_index: u64) -> FramePosition {
     FramePosition {
         frame_index,
@@ -34,10 +40,12 @@ pub fn frame_position(frame_index: u64) -> FramePosition {
     }
 }
 
+/// Returns frame position at rate.
 pub fn frame_position_at_rate(frame_index: u64, frame_rate: i64) -> FramePosition {
     FramePosition::from_frame_index(frame_index, Rational64::new(frame_rate, 1))
 }
 
+/// Returns scene.
 pub fn scene(start: u64, end: u64) -> Scene {
     Scene {
         start: frame_position(start),
@@ -45,6 +53,7 @@ pub fn scene(start: u64, end: u64) -> Scene {
     }
 }
 
+/// Returns RGB frame.
 pub fn rgb_frame(width: u32, height: u32, frame_index: u64, rgb: [u8; 3]) -> OwnedVideoFrame {
     let mut data = Vec::with_capacity(width as usize * height as usize * 3);
     for _ in 0..(width as usize * height as usize) {
@@ -60,6 +69,7 @@ pub fn rgb_frame(width: u32, height: u32, frame_index: u64, rgb: [u8; 3]) -> Own
     }
 }
 
+/// Returns checkerboard frame.
 pub fn checkerboard_frame(width: u32, height: u32, frame_index: u64) -> OwnedVideoFrame {
     let mut data = Vec::with_capacity(width as usize * height as usize * 3);
     for y in 0..height {
@@ -78,10 +88,12 @@ pub fn checkerboard_frame(width: u32, height: u32, frame_index: u64) -> OwnedVid
     }
 }
 
+/// Returns owned text segment.
 pub fn owned_text_segment(index: u64, text: impl Into<String>) -> OwnedTextSegment {
     OwnedTextSegment::new(index, text).timestamp(timestamp(index as i64))
 }
 
+/// Returns text segment.
 pub fn text_segment(index: u64, text: &str) -> TextSegment<'_> {
     TextSegment {
         segment_index: index,
@@ -92,6 +104,7 @@ pub fn text_segment(index: u64, text: &str) -> TextSegment<'_> {
     }
 }
 
+/// Returns dataset with scene text and feature.
 pub fn dataset_with_scene_text_and_feature() -> AnalysisDataset {
     let mut dataset = AnalysisDataset::empty();
     let scene = scene(0, 2);
@@ -116,6 +129,7 @@ pub fn dataset_with_scene_text_and_feature() -> AnalysisDataset {
     dataset
 }
 
+/// Returns comfy workflow JSON.
 pub fn comfy_workflow_json() -> &'static str {
     r#"{
   "version": 0.4,
@@ -129,6 +143,7 @@ pub fn comfy_workflow_json() -> &'static str {
 }"#
 }
 
+/// Returns comfy prompt JSON.
 pub fn comfy_prompt_json() -> &'static str {
     r#"{
   "1": {"class_type": "LoadImage", "inputs": {"image": "input.png"}},
@@ -136,6 +151,7 @@ pub fn comfy_prompt_json() -> &'static str {
 }"#
 }
 
+/// Returns minimal COLMAP dataset.
 pub fn minimal_colmap_dataset() -> ColmapDataset {
     ColmapDataset {
         cameras: vec![ColmapCamera {
@@ -175,6 +191,7 @@ pub fn minimal_colmap_dataset() -> ColmapDataset {
     }
 }
 
+/// Returns minimal Nerfstudio transforms.
 pub fn minimal_nerfstudio_transforms() -> NerfstudioTransforms {
     NerfstudioTransforms {
         camera_model: Some("PINHOLE".to_string()),
@@ -202,10 +219,12 @@ pub fn minimal_nerfstudio_transforms() -> NerfstudioTransforms {
     }
 }
 
+/// Returns require command.
 pub fn require_command(command: &str) -> PathBuf {
     find_command(command).unwrap_or_else(|| panic!("required command `{command}` is unavailable"))
 }
 
+/// Returns find command.
 pub fn find_command(command: &str) -> Option<PathBuf> {
     let path = Path::new(command);
     if path.components().count() > 1 && is_executable_command(path) {
@@ -218,6 +237,7 @@ pub fn find_command(command: &str) -> Option<PathBuf> {
     })
 }
 
+/// Returns command succeeds.
 pub fn command_succeeds(command: &str, args: &[&str]) -> bool {
     Command::new(command)
         .args(args)
@@ -229,6 +249,7 @@ pub fn command_succeeds(command: &str, args: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
+/// Returns find python with modules.
 pub fn find_python_with_modules(modules: &[&str]) -> Option<PathBuf> {
     let import = format!("import {}", modules.join(", "));
     [
@@ -249,6 +270,7 @@ pub fn find_python_with_modules(modules: &[&str]) -> Option<PathBuf> {
     })
 }
 
+/// Returns ensure me at the zoo fixture.
 pub fn ensure_me_at_the_zoo_fixture() -> PathBuf {
     if let Some(path) = std::env::var_os("ME_AT_THE_ZOO_VIDEO_PATH") {
         let path = PathBuf::from(path);
@@ -271,6 +293,7 @@ pub fn ensure_me_at_the_zoo_fixture() -> PathBuf {
     path
 }
 
+/// Asserts that a file exists and is nonempty.
 pub fn assert_nonempty_file(path: impl AsRef<Path>) {
     let path = path.as_ref();
     let metadata = fs::metadata(path)

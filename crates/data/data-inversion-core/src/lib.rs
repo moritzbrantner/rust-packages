@@ -3,35 +3,56 @@
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing information fidelity.
 pub enum InformationFidelity {
+    /// The exact variant.
     Exact,
+    /// The preserved variant.
     Preserved,
+    /// The quantized variant.
     Quantized,
+    /// The estimated variant.
     Estimated,
+    /// The interpolated variant.
     Interpolated,
+    /// The heuristic variant.
     Heuristic,
+    /// The placeholder variant.
     Placeholder,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing inversion method.
 pub enum InversionMethod {
+    /// The preserved variant.
     Preserved,
+    /// The defaulted variant.
     Defaulted,
+    /// The quantized variant.
     Quantized,
+    /// The inferred variant.
     Inferred,
+    /// The interpolated variant.
     Interpolated,
+    /// The template variant.
     Template,
+    /// The omitted variant.
     Omitted,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for inversion note.
 pub struct InversionNote {
+    /// The field value.
     pub field: String,
+    /// The method value.
     pub method: InversionMethod,
+    /// The message value.
     pub message: String,
 }
 
 impl InversionNote {
+    /// Creates a new value.
     pub fn new(
         field: impl Into<String>,
         method: InversionMethod,
@@ -46,16 +67,24 @@ impl InversionNote {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for inversion trace.
 pub struct InversionTrace {
+    /// The source type value.
     pub source_type: String,
+    /// The target type value.
     pub target_type: String,
+    /// The fidelity value.
     pub fidelity: InformationFidelity,
+    /// Confidence score for this value.
     pub confidence: f32,
+    /// The assumptions value.
     pub assumptions: Vec<String>,
+    /// The notes value.
     pub notes: Vec<InversionNote>,
 }
 
 impl InversionTrace {
+    /// Creates a new value.
     pub fn new(
         source_type: impl Into<String>,
         target_type: impl Into<String>,
@@ -71,17 +100,20 @@ impl InversionTrace {
         }
     }
 
+    /// Returns confidence.
     pub fn confidence(mut self, confidence: f32) -> Result<Self> {
         validate_confidence(confidence)?;
         self.confidence = confidence;
         Ok(self)
     }
 
+    /// Returns assumption.
     pub fn assumption(mut self, assumption: impl Into<String>) -> Self {
         self.assumptions.push(assumption.into());
         self
     }
 
+    /// Returns note.
     pub fn note(
         mut self,
         field: impl Into<String>,
@@ -92,6 +124,7 @@ impl InversionTrace {
         self
     }
 
+    /// Returns merge notes.
     pub fn merge_notes(&mut self, other: &InversionTrace) {
         self.assumptions.extend(other.assumptions.iter().cloned());
         self.notes.extend(other.notes.iter().cloned());
@@ -101,16 +134,21 @@ impl InversionTrace {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for generated.
 pub struct Generated<T> {
+    /// The value value.
     pub value: T,
+    /// The trace value.
     pub trace: InversionTrace,
 }
 
 impl<T> Generated<T> {
+    /// Creates a new value.
     pub fn new(value: T, trace: InversionTrace) -> Self {
         Self { value, trace }
     }
 
+    /// Returns map.
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Generated<U> {
         Generated {
             value: f(self.value),
@@ -119,6 +157,7 @@ impl<T> Generated<T> {
     }
 }
 
+/// Validates confidence.
 pub fn validate_confidence(confidence: f32) -> Result<()> {
     if !confidence.is_finite() || !(0.0..=1.0).contains(&confidence) {
         return Err(DetectError::InvalidArgument(
@@ -128,6 +167,7 @@ pub fn validate_confidence(confidence: f32) -> Result<()> {
     Ok(())
 }
 
+/// Returns weaker fidelity.
 pub fn weaker_fidelity(
     left: InformationFidelity,
     right: InformationFidelity,

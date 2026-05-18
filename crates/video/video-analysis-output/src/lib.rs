@@ -5,6 +5,7 @@ use std::io::{self, Write};
 use serde::Serialize;
 use video_analysis_core::{Cut, DetectionResult, FramePosition, MetricsStore, Scene};
 
+/// Writes scene list CSV.
 pub fn write_scene_list_csv(mut writer: impl Write, scenes: &[Scene]) -> io::Result<()> {
     writeln!(
         writer,
@@ -28,6 +29,7 @@ pub fn write_scene_list_csv(mut writer: impl Write, scenes: &[Scene]) -> io::Res
     Ok(())
 }
 
+/// Writes stats CSV.
 pub fn write_stats_csv(mut writer: impl Write, metrics: &MetricsStore) -> io::Result<()> {
     let keys: Vec<_> = metrics.keys().collect();
     write!(writer, "Frame Number,Frame Index")?;
@@ -48,6 +50,7 @@ pub fn write_stats_csv(mut writer: impl Write, metrics: &MetricsStore) -> io::Re
     Ok(())
 }
 
+/// Writes scene list HTML.
 pub fn write_scene_list_html(mut writer: impl Write, scenes: &[Scene]) -> io::Result<()> {
     writeln!(
         writer,
@@ -72,6 +75,7 @@ pub fn write_scene_list_html(mut writer: impl Write, scenes: &[Scene]) -> io::Re
     Ok(())
 }
 
+/// Writes detection result JSON.
 pub fn write_detection_result_json(
     mut writer: impl Write,
     result: &DetectionResult,
@@ -82,6 +86,7 @@ pub fn write_detection_result_json(
     Ok(())
 }
 
+/// Writes detection outputs.
 pub fn write_detection_outputs(
     result: &DetectionResult,
     scenes_writer: impl Write,

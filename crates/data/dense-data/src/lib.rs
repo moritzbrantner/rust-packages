@@ -8,14 +8,20 @@ use numbers_core::{NumberSummary, RunningStats};
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for dense point.
 pub struct DensePoint {
+    /// Identifier for this value.
     pub id: Option<String>,
+    /// The coordinates value.
     pub coordinates: Vec<f64>,
+    /// The weight value.
     pub weight: f64,
+    /// The value value.
     pub value: Option<f64>,
 }
 
 impl DensePoint {
+    /// Creates a new value.
     pub fn new(coordinates: impl Into<Vec<f64>>) -> Result<Self> {
         let point = Self {
             id: None,
@@ -27,27 +33,32 @@ impl DensePoint {
         Ok(point)
     }
 
+    /// Returns named.
     pub fn named(mut self, id: impl Into<String>) -> Self {
         self.id = Some(id.into());
         self
     }
 
+    /// Returns weighted.
     pub fn weighted(mut self, weight: f64) -> Result<Self> {
         self.weight = weight;
         self.validate()?;
         Ok(self)
     }
 
+    /// Returns valued.
     pub fn valued(mut self, value: f64) -> Result<Self> {
         self.value = Some(value);
         self.validate()?;
         Ok(self)
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> usize {
         self.coordinates.len()
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         validate_coordinates(&self.coordinates, "point coordinates")?;
         if self.weight <= 0.0 || !self.weight.is_finite() {
@@ -61,22 +72,26 @@ impl DensePoint {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// Data type for dense dataset.
 pub struct DenseDataset {
     dimensions: Option<usize>,
     points: Vec<DensePoint>,
 }
 
 impl DenseDataset {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Builds this value from points.
     pub fn from_points(points: impl IntoIterator<Item = DensePoint>) -> Result<Self> {
         let mut dataset = Self::new();
         dataset.extend(points)?;
         Ok(dataset)
     }
 
+    /// Adds push to this value.
     pub fn push(&mut self, point: DensePoint) -> Result<()> {
         point.validate()?;
         match self.dimensions {
@@ -92,6 +107,7 @@ impl DenseDataset {
         Ok(())
     }
 
+    /// Returns extend.
     pub fn extend(&mut self, points: impl IntoIterator<Item = DensePoint>) -> Result<()> {
         for point in points {
             self.push(point)?;
@@ -99,42 +115,52 @@ impl DenseDataset {
         Ok(())
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> Option<usize> {
         self.dimensions
     }
 
+    /// Returns whether is empty.
     pub fn is_empty(&self) -> bool {
         self.points.is_empty()
     }
 
+    /// Returns len.
     pub fn len(&self) -> usize {
         self.points.len()
     }
 
+    /// Returns points.
     pub fn points(&self) -> &[DensePoint] {
         &self.points
     }
 
+    /// Returns averages.
     pub fn averages(&self) -> Result<DenseAverages> {
         dense_averages(&self.points)
     }
 
+    /// Returns summary.
     pub fn summary(&self) -> Result<DenseSummary> {
         dense_summary(&self.points)
     }
 
+    /// Returns bounds.
     pub fn bounds(&self) -> Result<DenseBounds> {
         dense_bounds(&self.points)
     }
 
+    /// Returns buckets.
     pub fn buckets(&self, grid: &BucketGrid) -> Result<Vec<DenseBucket>> {
         bucket_points(&self.points, grid)
     }
 
+    /// Returns k means.
     pub fn k_means(&self, config: KMeansConfig) -> Result<ClusterResult> {
         k_means(&self.points, config)
     }
 
+    /// Returns matrix.
     pub fn matrix(&self) -> Result<F32Matrix> {
         let dimensions = self
             .dimensions
@@ -146,11 +172,13 @@ impl DenseDataset {
         F32Matrix::new(MatrixShape::new(self.points.len(), dimensions)?, values)
     }
 
+    /// Returns covariance matrix.
     pub fn covariance_matrix(&self) -> Result<CovarianceMatrix> {
         let matrix = self.matrix()?;
         RunningCovariance::from_matrix(&matrix.as_view())?.covariance_matrix()
     }
 
+    /// Returns principal components.
     pub fn principal_components(&self, component_count: usize) -> Result<PrincipalComponents> {
         let matrix = self.matrix()?;
         PrincipalComponents::fit(&matrix.as_view(), component_count)
@@ -158,38 +186,59 @@ impl DenseDataset {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for dense averages.
 pub struct DenseAverages {
+    /// Number of items represented by this value.
     pub count: u64,
+    /// The weight sum value.
     pub weight_sum: f64,
+    /// The coordinates value.
     pub coordinates: Vec<f64>,
+    /// The value count value.
     pub value_count: u64,
+    /// The value weight sum value.
     pub value_weight_sum: f64,
+    /// The value value.
     pub value: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for dense summary.
 pub struct DenseSummary {
+    /// Number of items represented by this value.
     pub count: u64,
+    /// The dimensions value.
     pub dimensions: usize,
+    /// The weight sum value.
     pub weight_sum: f64,
+    /// The coordinate stats value.
     pub coordinate_stats: Vec<NumberSummary>,
+    /// The value stats value.
     pub value_stats: Option<NumberSummary>,
+    /// The bounds value.
     pub bounds: DenseBounds,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for dense bounds.
 pub struct DenseBounds {
+    /// The min value.
     pub min: Vec<f64>,
+    /// The max value.
     pub max: Vec<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for bucket grid.
 pub struct BucketGrid {
+    /// The origin value.
     pub origin: Vec<f64>,
+    /// The widths value.
     pub widths: Vec<f64>,
 }
 
 impl BucketGrid {
+    /// Creates a new value.
     pub fn new(origin: impl Into<Vec<f64>>, widths: impl Into<Vec<f64>>) -> Result<Self> {
         let grid = Self {
             origin: origin.into(),
@@ -199,6 +248,7 @@ impl BucketGrid {
         Ok(grid)
     }
 
+    /// Returns uniform.
     pub fn uniform(dimensions: usize, width: f64) -> Result<Self> {
         if dimensions == 0 {
             return Err(invalid_argument("bucket grid dimensions must be positive"));
@@ -206,10 +256,12 @@ impl BucketGrid {
         Self::new(vec![0.0; dimensions], vec![width; dimensions])
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> usize {
         self.origin.len()
     }
 
+    /// Returns key for.
     pub fn key_for(&self, point: &DensePoint) -> Result<BucketKey> {
         self.validate()?;
         point.validate()?;
@@ -232,6 +284,7 @@ impl BucketGrid {
         Ok(BucketKey { indices })
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         validate_coordinates(&self.origin, "bucket grid origin")?;
         if self.widths.is_empty() {
@@ -256,28 +309,42 @@ impl BucketGrid {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Data type for bucket key.
 pub struct BucketKey {
+    /// The indices value.
     pub indices: Vec<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for dense bucket.
 pub struct DenseBucket {
+    /// The key value.
     pub key: BucketKey,
+    /// Number of items represented by this value.
     pub count: u64,
+    /// The weight sum value.
     pub weight_sum: f64,
+    /// The averages value.
     pub averages: DenseAverages,
+    /// The bounds value.
     pub bounds: DenseBounds,
+    /// The point indices value.
     pub point_indices: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for k means config.
 pub struct KMeansConfig {
+    /// The clusters value.
     pub clusters: usize,
+    /// The max iterations value.
     pub max_iterations: usize,
+    /// The tolerance value.
     pub tolerance: f64,
 }
 
 impl KMeansConfig {
+    /// Creates a new value.
     pub fn new(clusters: usize) -> Result<Self> {
         let config = Self {
             clusters,
@@ -287,6 +354,7 @@ impl KMeansConfig {
         Ok(config)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if self.clusters == 0 {
             return Err(invalid_argument("cluster count must be positive"));
@@ -314,34 +382,49 @@ impl Default for KMeansConfig {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for dense cluster.
 pub struct DenseCluster {
+    /// The cluster index value.
     pub cluster_index: usize,
+    /// The centroid value.
     pub centroid: Vec<f64>,
+    /// Number of items represented by this value.
     pub count: u64,
+    /// The weight sum value.
     pub weight_sum: f64,
+    /// The averages value.
     pub averages: Option<DenseAverages>,
+    /// The bounds value.
     pub bounds: Option<DenseBounds>,
+    /// The point indices value.
     pub point_indices: Vec<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for cluster result.
 pub struct ClusterResult {
+    /// The iterations value.
     pub iterations: usize,
+    /// The clusters value.
     pub clusters: Vec<DenseCluster>,
 }
 
+/// Returns dense summary.
 pub fn dense_summary(points: &[DensePoint]) -> Result<DenseSummary> {
     SummaryAccumulator::from_points(points)?.summary()
 }
 
+/// Returns dense averages.
 pub fn dense_averages(points: &[DensePoint]) -> Result<DenseAverages> {
     SummaryAccumulator::from_points(points)?.averages()
 }
 
+/// Returns dense bounds.
 pub fn dense_bounds(points: &[DensePoint]) -> Result<DenseBounds> {
     SummaryAccumulator::from_points(points)?.bounds()
 }
 
+/// Returns bucket points.
 pub fn bucket_points(points: &[DensePoint], grid: &BucketGrid) -> Result<Vec<DenseBucket>> {
     validate_point_set(points)?;
     grid.validate()?;
@@ -359,6 +442,7 @@ pub fn bucket_points(points: &[DensePoint], grid: &BucketGrid) -> Result<Vec<Den
         .collect()
 }
 
+/// Returns k means.
 pub fn k_means(points: &[DensePoint], config: KMeansConfig) -> Result<ClusterResult> {
     config.validate()?;
     let dimensions = validate_point_set(points)?;

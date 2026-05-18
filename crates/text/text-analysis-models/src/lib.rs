@@ -30,36 +30,55 @@ use video_analysis_models::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing truncation strategy.
 pub enum TruncationStrategy {
+    /// The none variant.
     None,
+    /// The longest first variant.
     LongestFirst,
+    /// The only first variant.
     OnlyFirst,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing pooling strategy.
 pub enum PoolingStrategy {
+    /// The cls variant.
     Cls,
+    /// The mean variant.
     Mean,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing text runtime backend.
 pub enum TextRuntimeBackend {
+    /// The tokenizers variant.
     Tokenizers,
+    /// The ONNX variant.
     Onnx,
+    /// The candle variant.
     Candle,
+    /// The external variant.
     External,
+    /// The heuristic variant.
     Heuristic,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// Data type for model cache config.
 pub struct ModelCacheConfig {
+    /// The cache dir value.
     pub cache_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for text runtime config.
 pub struct TextRuntimeConfig {
+    /// The backend priority value.
     pub backend_priority: Vec<TextRuntimeBackend>,
+    /// The tokenizer source value.
     pub tokenizer_source: TokenizerSource,
+    /// The cache value.
     pub cache: ModelCacheConfig,
 }
 
@@ -74,9 +93,13 @@ impl Default for TextRuntimeConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for text runtime catalog.
 pub struct TextRuntimeCatalog {
+    /// The default tokenizer value.
     pub default_tokenizer: TokenizerSource,
+    /// The classifier presets value.
     pub classifier_presets: Vec<TokenizerPreset>,
+    /// The embedder presets value.
     pub embedder_presets: Vec<TokenizerPreset>,
 }
 
@@ -90,62 +113,89 @@ impl Default for TextRuntimeCatalog {
     }
 }
 
+/// Trait for tokenizer backend implementations.
 pub trait TokenizerBackend {
+    /// Returns tokenize text.
     fn tokenize_text(&self, text: &str) -> Result<TokenizedText>;
 
+    /// Returns runtime backend.
     fn runtime_backend(&self) -> TextRuntimeBackend {
         TextRuntimeBackend::Tokenizers
     }
 }
 
+/// Trait for sequence labeler implementations.
 pub trait SequenceLabeler {
+    /// Returns label text.
     fn label_text(&mut self, text: &str) -> Result<Vec<RawPrediction>>;
 
+    /// Returns runtime backend.
     fn runtime_backend(&self) -> TextRuntimeBackend;
 }
 
+/// Trait for token classifier implementations.
 pub trait TokenClassifier {
+    /// Returns classify tokenized text.
     fn classify_tokenized_text(&mut self, tokens: &TokenizedText) -> Result<Vec<RawPrediction>>;
 
+    /// Returns runtime backend.
     fn runtime_backend(&self) -> TextRuntimeBackend;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for embedding model info.
 pub struct EmbeddingModelInfo {
+    /// The model name value.
     pub model_name: String,
+    /// The dimensions value.
     pub dimensions: usize,
+    /// The normalized value.
     pub normalized: bool,
+    /// The max tokens value.
     pub max_tokens: Option<usize>,
 }
 
+/// Trait for embedding cache hooks implementations.
 pub trait EmbeddingCacheHooks {
+    /// Returns load.
     fn load(&self, text: &str) -> Option<DenseVector>;
 
+    /// Returns store.
     fn store(&self, text: &str, vector: &DenseVector);
 }
 
+/// Trait for text embedder backend implementations.
 pub trait TextEmbedderBackend: SemanticTextEmbeddingBackend {
+    /// Returns embed batch.
     fn embed_batch(&self, texts: &[&str]) -> Result<Vec<DenseVector>> {
         texts.iter().map(|text| self.embed_text(text)).collect()
     }
 
+    /// Returns model info.
     fn model_info(&self) -> EmbeddingModelInfo;
 
+    /// Returns cache hooks.
     fn cache_hooks(&self) -> Option<&dyn EmbeddingCacheHooks> {
         None
     }
 }
 
+/// Trait for sentence embedder implementations.
 pub trait SentenceEmbedder: TextEmbedderBackend {
+    /// Returns runtime backend.
     fn runtime_backend(&self) -> TextRuntimeBackend;
 }
 
+/// Trait for text classifier implementations.
 pub trait TextClassifier {
+    /// Returns classify text.
     fn classify_text(&mut self, text: &str) -> Result<Vec<RawPrediction>>;
 
+    /// Returns runtime backend.
     fn runtime_backend(&self) -> TextRuntimeBackend;
 }
 
+/// Returns default backend priority.
 pub fn default_backend_priority() -> Vec<TextRuntimeBackend> {
     vec![
         TextRuntimeBackend::Onnx,
@@ -155,6 +205,7 @@ pub fn default_backend_priority() -> Vec<TextRuntimeBackend> {
     ]
 }
 
+/// Returns select text runtime backend.
 pub fn select_text_runtime_backend(priority: &[TextRuntimeBackend]) -> TextRuntimeBackend {
     priority
         .iter()
@@ -164,28 +215,39 @@ pub fn select_text_runtime_backend(priority: &[TextRuntimeBackend]) -> TextRunti
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for tokenized text.
 pub struct TokenizedText {
+    /// The input identifiers value.
     pub input_ids: Vec<i64>,
+    /// The attention mask value.
     pub attention_mask: Vec<i64>,
+    /// The token type identifiers value.
     pub token_type_ids: Option<Vec<i64>>,
+    /// The offsets value.
     pub offsets: Vec<Option<(usize, usize)>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing tokenizer preset.
 pub enum TokenizerPreset {
+    /// The bert base uncased variant.
     BertBaseUncased,
+    /// The distilbert sst2 variant.
     DistilbertSst2,
     #[default]
+    /// The mini lm l6 v2 variant.
     MiniLmL6V2,
 }
 
 impl TokenizerPreset {
+    /// Constant for all.
     pub const ALL: &'static [Self] = &[
         Self::BertBaseUncased,
         Self::DistilbertSst2,
         Self::MiniLmL6V2,
     ];
 
+    /// Borrows this value as a str.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::BertBaseUncased => "bert-base-uncased",
@@ -208,25 +270,35 @@ impl TokenizerPreset {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Variants describing tokenizer source.
 pub enum TokenizerSource {
+    /// The local variant.
     Local(PathBuf),
+    /// The preset variant.
     Preset(TokenizerPreset),
+    /// The hugging face variant.
     HuggingFace {
+        /// The repository identifier value for this variant.
         repo_id: String,
+        /// The revision value for this variant.
         revision: String,
+        /// The tokenizer file value for this variant.
         tokenizer_file: String,
     },
 }
 
 impl TokenizerSource {
+    /// Returns local.
     pub fn local(path: impl Into<PathBuf>) -> Self {
         Self::Local(path.into())
     }
 
+    /// Returns preset.
     pub fn preset(preset: TokenizerPreset) -> Self {
         Self::Preset(preset)
     }
 
+    /// Returns huggingface.
     pub fn huggingface(repo_id: impl Into<String>) -> Self {
         Self::HuggingFace {
             repo_id: repo_id.into(),
@@ -274,14 +346,20 @@ impl Default for TokenizerSource {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for tokenizer download options.
 pub struct TokenizerDownloadOptions {
+    /// The cache dir value.
     pub cache_dir: Option<PathBuf>,
+    /// The token value.
     pub token: Option<String>,
+    /// The progress value.
     pub progress: bool,
+    /// The max retries value.
     pub max_retries: usize,
 }
 
 impl TokenizerDownloadOptions {
+    /// Returns downloader.
     pub fn downloader(&self) -> HuggingFaceDownloader {
         let mut downloader = HuggingFaceDownloader::new()
             .progress(self.progress)
@@ -308,13 +386,17 @@ impl Default for TokenizerDownloadOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for tokenizer bundle.
 pub struct TokenizerBundle {
     tokenizer_path: PathBuf,
+    /// The max length value.
     pub max_length: Option<usize>,
+    /// The truncation value.
     pub truncation: TruncationStrategy,
 }
 
 impl TokenizerBundle {
+    /// Creates a new value.
     pub fn new(tokenizer_path: impl Into<PathBuf>) -> Self {
         Self {
             tokenizer_path: tokenizer_path.into(),
@@ -323,19 +405,23 @@ impl TokenizerBundle {
         }
     }
 
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: &ModelBundle) -> Result<Self> {
         let tokenizer_path = required_bundle_file(bundle, "tokenizer.json")?;
         Ok(Self::new(tokenizer_path))
     }
 
+    /// Builds this value from default cached.
     pub fn from_default_cached() -> Result<Self> {
         Self::from_cached_source(TokenizerSource::default())
     }
 
+    /// Builds this value from cached source.
     pub fn from_cached_source(source: TokenizerSource) -> Result<Self> {
         Self::from_cached_source_with_options(source, &TokenizerDownloadOptions::default())
     }
 
+    /// Builds this value from cached source with options.
     pub fn from_cached_source_with_options(
         source: TokenizerSource,
         options: &TokenizerDownloadOptions,
@@ -343,21 +429,25 @@ impl TokenizerBundle {
         Ok(Self::new(source.resolve_path(options)?))
     }
 
+    /// Returns max length.
     pub fn max_length(mut self, max_length: usize) -> Self {
         self.max_length = Some(max_length);
         self
     }
 
+    /// Returns truncation.
     pub fn truncation(mut self, strategy: TruncationStrategy) -> Self {
         self.truncation = strategy;
         self
     }
 
+    /// Returns tokenizer path.
     pub fn tokenizer_path(&self) -> &Path {
         &self.tokenizer_path
     }
 
     #[cfg(feature = "tokenizers")]
+    /// Returns tokenize.
     pub fn tokenize(&self, text: &str) -> Result<TokenizedText> {
         let tokenizer = tokenizers::Tokenizer::from_file(&self.tokenizer_path).map_err(|err| {
             DetectError::Source(format!(
@@ -399,6 +489,7 @@ impl TokenizerBundle {
     }
 
     #[cfg(not(feature = "tokenizers"))]
+    /// Returns tokenize.
     pub fn tokenize(&self, _text: &str) -> Result<TokenizedText> {
         Err(invalid_argument(
             "tokenizer execution requires the `tokenizers` feature",
@@ -413,6 +504,7 @@ impl TokenizerBackend for TokenizerBundle {
 }
 
 impl TokenizedText {
+    /// Returns truncate.
     pub fn truncate(&mut self, max_length: usize) {
         self.input_ids.truncate(max_length);
         self.attention_mask.truncate(max_length);
@@ -424,22 +516,32 @@ impl TokenizedText {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX bundle info.
 pub struct OnnxBundleInfo {
+    /// The config path value.
     pub config_path: PathBuf,
+    /// The tokenizer path value.
     pub tokenizer_path: PathBuf,
+    /// The model path value.
     pub model_path: PathBuf,
+    /// The labels value.
     pub labels: Vec<String>,
 }
 
+/// Trait for ONNX text classifier runner implementations.
 pub trait OnnxTextClassifierRunner {
+    /// Runs logits.
     fn run_logits(&mut self, tokens: &TokenizedText) -> Result<Vec<f32>>;
 }
 
+/// Trait for ONNX text embedding runner implementations.
 pub trait OnnxTextEmbeddingRunner {
+    /// Runs embeddings.
     fn run_embeddings(&self, tokens: &TokenizedText) -> Result<(Vec<f32>, Vec<usize>)>;
 }
 
 #[derive(Debug, Clone, Default)]
+/// Data type for unavailable ONNX runner.
 pub struct UnavailableOnnxRunner;
 
 impl OnnxTextClassifierRunner for UnavailableOnnxRunner {
@@ -462,6 +564,7 @@ impl OnnxTextEmbeddingRunner for UnavailableOnnxRunner {
 
 #[cfg(feature = "onnx")]
 #[derive(Debug)]
+/// Data type for native ONNX runner.
 pub struct NativeOnnxRunner {
     session: Mutex<ort::session::Session>,
     model_path: PathBuf,
@@ -470,6 +573,7 @@ pub struct NativeOnnxRunner {
 
 #[cfg(feature = "onnx")]
 impl NativeOnnxRunner {
+    /// Creates a new value.
     pub fn new(model_path: impl AsRef<Path>) -> Result<Self> {
         let model_path = model_path.as_ref().to_path_buf();
         let timing_enabled = onnx_timing_enabled();
@@ -665,6 +769,7 @@ impl OnnxTextEmbeddingRunner for NativeOnnxRunner {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for ONNX text classifier.
 pub struct OnnxTextClassifier<R = UnavailableOnnxRunner> {
     tokenizer: TokenizerBundle,
     labels: Vec<String>,
@@ -673,6 +778,7 @@ pub struct OnnxTextClassifier<R = UnavailableOnnxRunner> {
 
 #[cfg(not(feature = "onnx"))]
 impl OnnxTextClassifier<UnavailableOnnxRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let info = validate_onnx_bundle(&bundle)?;
         Ok(Self {
@@ -685,6 +791,7 @@ impl OnnxTextClassifier<UnavailableOnnxRunner> {
 
 #[cfg(feature = "onnx")]
 impl OnnxTextClassifier<NativeOnnxRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let info = validate_onnx_bundle(&bundle)?;
         Ok(Self {
@@ -696,6 +803,7 @@ impl OnnxTextClassifier<NativeOnnxRunner> {
 }
 
 impl<R: OnnxTextClassifierRunner> OnnxTextClassifier<R> {
+    /// Builds this value from runner.
     pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
         let info = validate_onnx_bundle(&bundle)?;
         Ok(Self {
@@ -705,19 +813,23 @@ impl<R: OnnxTextClassifierRunner> OnnxTextClassifier<R> {
         })
     }
 
+    /// Returns tokenizer.
     pub fn tokenizer(&self) -> &TokenizerBundle {
         &self.tokenizer
     }
 
+    /// Returns labels.
     pub fn labels(&self) -> &[String] {
         &self.labels
     }
 
+    /// Returns classify.
     pub fn classify(&mut self, text: &str) -> Result<Vec<RawPrediction>> {
         let tokens = self.tokenizer.tokenize(text)?;
         self.classify_tokenized(&tokens)
     }
 
+    /// Returns classify tokenized.
     pub fn classify_tokenized(&mut self, tokens: &TokenizedText) -> Result<Vec<RawPrediction>> {
         let logits = self.runner.run_logits(tokens)?;
         let probabilities = softmax(&logits);
@@ -778,6 +890,7 @@ impl<R: OnnxTextClassifierRunner> TextClassifier for OnnxTextClassifier<R> {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for ONNX text embedder.
 pub struct OnnxTextEmbedder<R = UnavailableOnnxRunner> {
     tokenizer: TokenizerBundle,
     runner: R,
@@ -790,6 +903,7 @@ pub struct OnnxTextEmbedder<R = UnavailableOnnxRunner> {
 
 #[cfg(not(feature = "onnx"))]
 impl OnnxTextEmbedder<UnavailableOnnxRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let info = validate_onnx_bundle(&bundle)?;
         Ok(Self {
@@ -806,6 +920,7 @@ impl OnnxTextEmbedder<UnavailableOnnxRunner> {
 
 #[cfg(feature = "onnx")]
 impl OnnxTextEmbedder<NativeOnnxRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let info = validate_onnx_bundle(&bundle)?;
         Ok(Self {
@@ -821,6 +936,7 @@ impl OnnxTextEmbedder<NativeOnnxRunner> {
 }
 
 impl<R: OnnxTextEmbeddingRunner> OnnxTextEmbedder<R> {
+    /// Builds this value from runner.
     pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
         let info = validate_onnx_bundle(&bundle)?;
         Ok(Self {
@@ -834,16 +950,19 @@ impl<R: OnnxTextEmbeddingRunner> OnnxTextEmbedder<R> {
         })
     }
 
+    /// Returns pooling.
     pub fn pooling(mut self, pooling: PoolingStrategy) -> Self {
         self.pooling = pooling;
         self
     }
 
+    /// Normalizes this value.
     pub fn normalize(mut self, normalize: bool) -> Self {
         self.normalize = normalize;
         self
     }
 
+    /// Returns embed tokenized.
     pub fn embed_tokenized(&self, tokens: &TokenizedText) -> Result<DenseVector> {
         let (values, shape) = self.runner.run_embeddings(tokens)?;
         pool_embedding_output(
@@ -902,6 +1021,7 @@ enum CandleEmbeddingArchitecture {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for candle text classifier.
 pub struct CandleTextClassifier {
     tokenizer: TokenizerBundle,
     labels: Vec<String>,
@@ -911,6 +1031,7 @@ pub struct CandleTextClassifier {
 }
 
 impl CandleTextClassifier {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let config_path = required_bundle_file(&bundle, "config.json")?;
         let tokenizer_path = required_bundle_file(&bundle, "tokenizer.json")?;
@@ -931,15 +1052,18 @@ impl CandleTextClassifier {
         })
     }
 
+    /// Returns labels.
     pub fn labels(&self) -> &[String] {
         &self.labels
     }
 
+    /// Returns classify.
     pub fn classify(&mut self, text: &str) -> Result<Vec<RawPrediction>> {
         let tokens = self.tokenizer.tokenize(text)?;
         self.classify_tokenized(&tokens)
     }
 
+    /// Returns classify tokenized.
     pub fn classify_tokenized(&self, tokens: &TokenizedText) -> Result<Vec<RawPrediction>> {
         #[cfg(feature = "candle")]
         {
@@ -1011,6 +1135,7 @@ impl TextClassifier for CandleTextClassifier {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for candle text embedder.
 pub struct CandleTextEmbedder {
     tokenizer: TokenizerBundle,
     config: Value,
@@ -1024,6 +1149,7 @@ pub struct CandleTextEmbedder {
 }
 
 impl CandleTextEmbedder {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let config_path = required_bundle_file(&bundle, "config.json")?;
         let tokenizer_path = required_bundle_file(&bundle, "tokenizer.json")?;
@@ -1050,11 +1176,13 @@ impl CandleTextEmbedder {
         })
     }
 
+    /// Returns pooling.
     pub fn pooling(mut self, pooling: PoolingStrategy) -> Self {
         self.pooling = pooling;
         self
     }
 
+    /// Normalizes this value.
     pub fn normalize(mut self, normalize: bool) -> Self {
         self.normalize = normalize;
         self
@@ -1089,6 +1217,7 @@ impl TextEmbedderBackend for CandleTextEmbedder {
 }
 
 impl CandleTextEmbedder {
+    /// Returns embed tokenized.
     pub fn embed_tokenized(&self, tokens: &TokenizedText) -> Result<DenseVector> {
         #[cfg(feature = "candle")]
         {
@@ -1129,6 +1258,7 @@ impl TextEmbedderBackend for text_analysis_semantics::HashedTextEmbedder {
     }
 }
 
+/// Validates ONNX bundle.
 pub fn validate_onnx_bundle(bundle: &ModelBundle) -> Result<OnnxBundleInfo> {
     let config_path = required_bundle_file(bundle, "config.json")?;
     let tokenizer_path = required_bundle_file(bundle, "tokenizer.json")?;
@@ -1144,6 +1274,7 @@ pub fn validate_onnx_bundle(bundle: &ModelBundle) -> Result<OnnxBundleInfo> {
     })
 }
 
+/// Returns pool embedding output.
 pub fn pool_embedding_output(
     values: &[f32],
     shape: &[usize],
@@ -1208,6 +1339,7 @@ pub fn pool_embedding_output(
     }
 }
 
+/// Returns softmax.
 pub fn softmax(logits: &[f32]) -> Vec<f32> {
     if logits.is_empty() {
         return Vec::new();

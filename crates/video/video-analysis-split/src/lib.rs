@@ -5,13 +5,19 @@ use std::process::Command;
 
 use video_analysis_core::{DetectError, Result, Scene};
 
+/// Constant for default template.
 pub const DEFAULT_TEMPLATE: &str = "$VIDEO_NAME-Scene-$SCENE_NUMBER.mp4";
 
 #[derive(Debug, Clone)]
+/// Data type for split options.
 pub struct SplitOptions {
+    /// The output dir value.
     pub output_dir: PathBuf,
+    /// The template value.
     pub template: String,
+    /// The video name value.
     pub video_name: Option<String>,
+    /// The FFmpeg args value.
     pub ffmpeg_args: Vec<String>,
 }
 
@@ -42,15 +48,22 @@ impl Default for SplitOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for split plan.
 pub struct SplitPlan {
+    /// The input video path value.
     pub input_video_path: PathBuf,
+    /// The jobs value.
     pub jobs: Vec<SplitJob>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for split job.
 pub struct SplitJob {
+    /// The scene index value.
     pub scene_index: usize,
+    /// The output path value.
     pub output_path: PathBuf,
+    /// The start seconds value.
     pub start_seconds: f64,
     /// FFmpeg receives this value through `-t`.
     ///
@@ -59,10 +72,12 @@ pub struct SplitJob {
     /// previous `end_seconds - start_seconds` behavior while documenting the
     /// policy at the split boundary.
     pub duration_seconds: f64,
+    /// The FFmpeg args value.
     pub ffmpeg_args: Vec<String>,
 }
 
 impl SplitJob {
+    /// Returns command args.
     pub fn command_args(&self, input_video_path: &Path) -> Vec<String> {
         let mut args = vec![
             "-y".to_string(),
@@ -81,6 +96,7 @@ impl SplitJob {
     }
 }
 
+/// Builds split plan.
 pub fn build_split_plan(
     input_video_path: impl AsRef<Path>,
     scenes: &[Scene],
@@ -122,6 +138,7 @@ pub fn build_split_plan(
     })
 }
 
+/// Returns split video FFmpeg.
 pub fn split_video_ffmpeg(
     input_video_path: impl AsRef<Path>,
     scenes: &[Scene],

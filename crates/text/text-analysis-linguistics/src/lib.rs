@@ -12,28 +12,45 @@ use text_analysis_transcription::{TranscriptSegment, TranscriptionResult};
 use video_analysis_core::{AnalysisEvent, OwnedTextSegment, Result, TextAnalyzer, TextSegment};
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for language prediction.
 pub struct LanguagePrediction {
+    /// Language tag for this value.
     pub language: String,
+    /// Confidence score for this value.
     pub confidence: f32,
+    /// The script value.
     pub script: Option<String>,
+    /// The reason value.
     pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for language profile.
 pub struct LanguageProfile {
+    /// The primary value.
     pub primary: Option<LanguagePrediction>,
+    /// The alternatives value.
     pub alternatives: Vec<LanguagePrediction>,
+    /// The dominant script value.
     pub dominant_script: Option<String>,
+    /// The is mixed value.
     pub is_mixed: bool,
+    /// The sentence predictions value.
     pub sentence_predictions: Vec<Option<LanguagePrediction>>,
+    /// The token count value.
     pub token_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for language detection options.
 pub struct LanguageDetectionOptions {
+    /// The min tokens for decision value.
     pub min_tokens_for_decision: usize,
+    /// The max alternatives value.
     pub max_alternatives: usize,
+    /// The mixed threshold value.
     pub mixed_threshold: f32,
+    /// The sentence level value.
     pub sentence_level: bool,
 }
 
@@ -49,12 +66,16 @@ impl Default for LanguageDetectionOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for language lexicon.
 pub struct LanguageLexicon<T> {
+    /// Language tag for this value.
     pub language: String,
+    /// The entries value.
     pub entries: BTreeSet<T>,
 }
 
 impl<T: Ord> LanguageLexicon<T> {
+    /// Creates a new value.
     pub fn new(language: impl Into<String>, entries: impl IntoIterator<Item = T>) -> Self {
         Self {
             language: language.into(),
@@ -64,13 +85,18 @@ impl<T: Ord> LanguageLexicon<T> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for lexicon entry.
 pub struct LexiconEntry {
+    /// The term value.
     pub term: String,
+    /// The category value.
     pub category: String,
+    /// The weight value.
     pub weight: f32,
 }
 
 impl LexiconEntry {
+    /// Creates a new value.
     pub fn new(term: impl Into<String>, category: impl Into<String>) -> Self {
         Self {
             term: term.into(),
@@ -79,6 +105,7 @@ impl LexiconEntry {
         }
     }
 
+    /// Returns weight.
     pub fn weight(mut self, weight: f32) -> Self {
         self.weight = weight;
         self
@@ -86,12 +113,19 @@ impl LexiconEntry {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for lexicon store.
 pub struct LexiconStore {
+    /// The stop words value.
     pub stop_words: BTreeMap<String, LanguageLexicon<String>>,
+    /// The abbreviations value.
     pub abbreviations: BTreeMap<String, LanguageLexicon<String>>,
+    /// The lexical classes value.
     pub lexical_classes: BTreeMap<String, Vec<LexiconEntry>>,
+    /// The gazetteers value.
     pub gazetteers: BTreeMap<String, Vec<LexiconEntry>>,
+    /// The valency hints value.
     pub valency_hints: BTreeMap<String, Vec<LexiconEntry>>,
+    /// The sentiment terms value.
     pub sentiment_terms: BTreeMap<String, Vec<LexiconEntry>>,
 }
 
@@ -102,6 +136,7 @@ impl Default for LexiconStore {
 }
 
 impl LexiconStore {
+    /// Returns multilingual defaults.
     pub fn multilingual_defaults() -> Self {
         let stop_words = BTreeMap::from([
             (
@@ -253,18 +288,23 @@ impl LexiconStore {
         }
     }
 
+    /// Returns stop words for.
     pub fn stop_words_for(&self, language: &str) -> Option<&LanguageLexicon<String>> {
         self.stop_words.get(language)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
+/// Data type for language detector.
 pub struct LanguageDetector {
+    /// The options value.
     pub options: LanguageDetectionOptions,
+    /// The lexicons value.
     pub lexicons: LexiconStore,
 }
 
 impl LanguageDetector {
+    /// Returns detect text.
     pub fn detect_text(&self, text: &str) -> LanguageProfile {
         let word_tokens = tokenize_words(text);
         let token_count = word_tokens.len();
@@ -386,18 +426,28 @@ impl LanguageDetector {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing tokenization mode.
 pub enum TokenizationMode {
+    /// The word variant.
     Word,
+    /// The subword variant.
     Subword,
+    /// The mixed variant.
     Mixed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for tokenizer policy.
 pub struct TokenizerPolicy {
+    /// The mode value.
     pub mode: TokenizationMode,
+    /// The default source value.
     pub default_source: TokenizerSource,
+    /// The language overrides value.
     pub language_overrides: BTreeMap<String, TokenizerSource>,
+    /// The task overrides value.
     pub task_overrides: BTreeMap<String, TokenizerSource>,
+    /// The model family overrides value.
     pub model_family_overrides: BTreeMap<String, TokenizerSource>,
 }
 
@@ -414,21 +464,31 @@ impl Default for TokenizerPolicy {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for tokenizer selection.
 pub struct TokenizerSelection {
+    /// The mode value.
     pub mode: TokenizationMode,
+    /// The source value.
     pub source: Option<TokenizerSource>,
+    /// Language tag for this value.
     pub language: Option<String>,
+    /// The task value.
     pub task: Option<String>,
+    /// The model family value.
     pub model_family: Option<String>,
+    /// The reason value.
     pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// Data type for tokenizer registry.
 pub struct TokenizerRegistry {
+    /// The policy value.
     pub policy: TokenizerPolicy,
 }
 
 impl TokenizerRegistry {
+    /// Returns select.
     pub fn select(
         &self,
         language: Option<&str>,
@@ -475,6 +535,7 @@ impl TokenizerRegistry {
         }
     }
 
+    /// Returns align.
     pub fn align(
         &self,
         text: &str,
@@ -496,29 +557,45 @@ impl TokenizerRegistry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for subword span.
 pub struct SubwordSpan {
+    /// The index value.
     pub index: usize,
+    /// The input identifier value.
     pub input_id: i64,
+    /// The span value.
     pub span: Option<TextSpan>,
+    /// Text content for this value.
     pub text: Option<String>,
+    /// The token type identifier value.
     pub token_type_id: Option<i64>,
+    /// The attention value.
     pub attention: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for aligned token.
 pub struct AlignedToken {
+    /// The token index value.
     pub token_index: usize,
+    /// The token value.
     pub token: Token,
+    /// The subword indices value.
     pub subword_indices: Vec<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for token alignment map.
 pub struct TokenAlignmentMap {
+    /// The selection value.
     pub selection: TokenizerSelection,
+    /// The subwords value.
     pub subwords: Vec<SubwordSpan>,
+    /// The aligned tokens value.
     pub aligned_tokens: Vec<AlignedToken>,
 }
 
+/// Returns align tokenized text.
 pub fn align_tokenized_text(
     text: &str,
     tokens: &[Token],
@@ -592,25 +669,37 @@ pub fn align_tokenized_text(
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for lemma.
 pub struct Lemma {
+    /// The token index value.
     pub token_index: usize,
+    /// The value value.
     pub value: String,
+    /// Language tag for this value.
     pub language: Option<String>,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
+/// Data type for lemma options.
 pub struct LemmaOptions {
+    /// Language tag for this value.
     pub language: Option<String>,
+    /// The lowercase proper nouns value.
     pub lowercase_proper_nouns: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for lemmatization result.
 pub struct LemmatizationResult {
+    /// Language tag for this value.
     pub language: Option<String>,
+    /// The lemmas value.
     pub lemmas: Vec<Lemma>,
 }
 
+/// Returns lemmatize tokens.
 pub fn lemmatize_tokens(
     tokens: &[Token],
     language: Option<&str>,
@@ -638,43 +727,70 @@ pub fn lemmatize_tokens(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Variants describing morph feature.
 pub enum MorphFeature {
+    /// The number sing variant.
     NumberSing,
+    /// The number plur variant.
     NumberPlur,
+    /// The person1 variant.
     Person1,
+    /// The person2 variant.
     Person2,
+    /// The person3 variant.
     Person3,
+    /// The tense past variant.
     TensePast,
+    /// The tense pres variant.
     TensePres,
+    /// The tense fut variant.
     TenseFut,
+    /// The aspect prog variant.
     AspectProg,
+    /// The aspect perf variant.
     AspectPerf,
+    /// The mood imp variant.
     MoodImp,
+    /// The verb form fin variant.
     VerbFormFin,
+    /// The verb form inf variant.
     VerbFormInf,
+    /// The case nom variant.
     CaseNom,
+    /// The case acc variant.
     CaseAcc,
+    /// The case dat variant.
     CaseDat,
+    /// The gender masc variant.
     GenderMasc,
+    /// The gender fem variant.
     GenderFem,
+    /// The gender neut variant.
     GenderNeut,
+    /// The definiteness def variant.
     DefinitenessDef,
+    /// The definiteness ind variant.
     DefinitenessInd,
+    /// The polarity neg variant.
     PolarityNeg,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for morph tag set.
 pub struct MorphTagSet {
+    /// The features value.
     pub features: BTreeSet<MorphFeature>,
 }
 
 impl MorphTagSet {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self {
             features: BTreeSet::new(),
         }
     }
 
+    /// Returns insert.
     pub fn insert(&mut self, feature: MorphFeature) {
         self.features.insert(feature);
     }
@@ -687,53 +803,86 @@ impl Default for MorphTagSet {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for morph annotation.
 pub struct MorphAnnotation {
+    /// The token index value.
     pub token_index: usize,
+    /// The lemma value.
     pub lemma: Option<String>,
+    /// The tags value.
     pub tags: MorphTagSet,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing pos tag.
 pub enum PosTag {
+    /// The adj variant.
     Adj,
+    /// The adp variant.
     Adp,
+    /// The adv variant.
     Adv,
+    /// The aux variant.
     Aux,
+    /// The cconj variant.
     Cconj,
+    /// The det variant.
     Det,
+    /// The intj variant.
     Intj,
+    /// The noun variant.
     Noun,
+    /// The num variant.
     Num,
+    /// The part variant.
     Part,
+    /// The pron variant.
     Pron,
+    /// The propn variant.
     Propn,
+    /// The punct variant.
     Punct,
+    /// The sconj variant.
     Sconj,
+    /// The sym variant.
     Sym,
+    /// The verb variant.
     Verb,
+    /// The x variant.
     X,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for pos annotation.
 pub struct PosAnnotation {
+    /// The token index value.
     pub token_index: usize,
+    /// The tag value.
     pub tag: PosTag,
+    /// Confidence score for this value.
     pub confidence: f32,
+    /// The reason value.
     pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// Data type for pos tagging options.
 pub struct PosTaggingOptions {
+    /// Language tag for this value.
     pub language: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
+/// Data type for pos tagger.
 pub struct PosTagger {
+    /// The options value.
     pub options: PosTaggingOptions,
 }
 
 impl PosTagger {
+    /// Returns tag tokens.
     pub fn tag_tokens(&self, tokens: &[Token], lemmas: &LemmatizationResult) -> Vec<PosAnnotation> {
         tokens
             .iter()
@@ -746,6 +895,7 @@ impl PosTagger {
     }
 }
 
+/// Returns annotate morphology.
 pub fn annotate_morphology(
     tokens: &[Token],
     lemmas: &LemmatizationResult,
@@ -843,25 +993,40 @@ pub fn annotate_morphology(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing chunk kind.
 pub enum ChunkKind {
+    /// The noun phrase variant.
     NounPhrase,
+    /// The verb phrase variant.
     VerbPhrase,
+    /// The prep phrase variant.
     PrepPhrase,
+    /// The adjective phrase variant.
     AdjectivePhrase,
+    /// The adverb phrase variant.
     AdverbPhrase,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for phrase chunk.
 pub struct PhraseChunk {
+    /// The kind value.
     pub kind: ChunkKind,
+    /// The sentence index value.
     pub sentence_index: usize,
+    /// The token start value.
     pub token_start: usize,
+    /// The token end value.
     pub token_end: usize,
+    /// The head token index value.
     pub head_token_index: usize,
+    /// Text content for this value.
     pub text: String,
+    /// The span value.
     pub span: TextSpan,
 }
 
+/// Returns chunk phrases.
 pub fn chunk_phrases(
     text: &str,
     sentences: &[Sentence],
@@ -979,52 +1144,85 @@ pub fn chunk_phrases(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing dependency relation.
 pub enum DependencyRelation {
+    /// The root variant.
     Root,
+    /// The nsubj variant.
     Nsubj,
+    /// The obj variant.
     Obj,
+    /// The iobj variant.
     Iobj,
+    /// The obl variant.
     Obl,
+    /// The advmod variant.
     Advmod,
+    /// The amod variant.
     Amod,
+    /// The det variant.
     Det,
+    /// The case variant.
     Case,
+    /// The aux variant.
     Aux,
+    /// The compound variant.
     Compound,
+    /// The cc variant.
     Cc,
+    /// The conj variant.
     Conj,
+    /// The appos variant.
     Appos,
+    /// The nmod variant.
     Nmod,
+    /// The dep variant.
     Dep,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for dependency node.
 pub struct DependencyNode {
+    /// The token index value.
     pub token_index: usize,
+    /// The head token index value.
     pub head_token_index: Option<usize>,
+    /// The relation value.
     pub relation: DependencyRelation,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for dependency edge.
 pub struct DependencyEdge {
+    /// The head token index value.
     pub head_token_index: usize,
+    /// The dependent token index value.
     pub dependent_token_index: usize,
+    /// The relation value.
     pub relation: DependencyRelation,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for dependency tree.
 pub struct DependencyTree {
+    /// The sentence index value.
     pub sentence_index: usize,
+    /// The root token index value.
     pub root_token_index: Option<usize>,
+    /// The nodes value.
     pub nodes: Vec<DependencyNode>,
+    /// The edges value.
     pub edges: Vec<DependencyEdge>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for dependency parser.
 pub struct DependencyParser;
 
 impl DependencyParser {
+    /// Parses parse document.
     pub fn parse_document(
         &self,
         sentences: &[Sentence],
@@ -1132,48 +1330,79 @@ impl DependencyParser {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Variants describing entity type.
 pub enum EntityType {
+    /// The person variant.
     Person,
+    /// The organization variant.
     Organization,
+    /// The location variant.
     Location,
+    /// The product variant.
     Product,
+    /// The date variant.
     Date,
+    /// The amount variant.
     Amount,
+    /// The law variant.
     Law,
+    /// The work variant.
     Work,
+    /// The event variant.
     Event,
+    /// The misc variant.
     Misc,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for entity mention span.
 pub struct EntityMentionSpan {
+    /// Text content for this value.
     pub text: String,
+    /// The span value.
     pub span: TextSpan,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for named entity.
 pub struct NamedEntity {
+    /// Identifier for this value.
     pub id: String,
+    /// The entity type value.
     pub entity_type: EntityType,
+    /// The mention value.
     pub mention: EntityMentionSpan,
+    /// The normalized value.
     pub normalized: String,
+    /// The sentence index value.
     pub sentence_index: usize,
+    /// The token start value.
     pub token_start: usize,
+    /// The token end value.
     pub token_end: usize,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for canonical entity.
 pub struct CanonicalEntity {
+    /// Identifier for this value.
     pub id: String,
+    /// The entity type value.
     pub entity_type: EntityType,
+    /// The canonical name value.
     pub canonical_name: String,
+    /// The aliases value.
     pub aliases: Vec<String>,
+    /// The mentions value.
     pub mentions: Vec<NamedEntity>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for entity linking options.
 pub struct EntityLinkingOptions {
+    /// The lowercase keys value.
     pub lowercase_keys: bool,
 }
 
@@ -1185,6 +1414,7 @@ impl Default for EntityLinkingOptions {
     }
 }
 
+/// Returns extract named entities.
 pub fn extract_named_entities(
     text: &str,
     sentences: &[Sentence],
@@ -1267,6 +1497,7 @@ pub fn extract_named_entities(
     entities
 }
 
+/// Returns canonicalize entities.
 pub fn canonicalize_entities(
     entities: &[NamedEntity],
     options: &EntityLinkingOptions,
@@ -1305,29 +1536,44 @@ pub fn canonicalize_entities(
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for coref mention.
 pub struct CorefMention {
+    /// Text content for this value.
     pub text: String,
+    /// The sentence index value.
     pub sentence_index: usize,
+    /// The token start value.
     pub token_start: usize,
+    /// The token end value.
     pub token_end: usize,
+    /// The entity type value.
     pub entity_type: Option<EntityType>,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for coref cluster.
 pub struct CorefCluster {
+    /// Identifier for this value.
     pub id: String,
+    /// The canonical text value.
     pub canonical_text: String,
+    /// The entity type value.
     pub entity_type: Option<EntityType>,
+    /// The mentions value.
     pub mentions: Vec<CorefMention>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// Data type for coref resolver.
 pub struct CorefResolver {
+    /// The speaker aware value.
     pub speaker_aware: bool,
 }
 
 impl CorefResolver {
+    /// Returns resolve.
     pub fn resolve(
         &self,
         tokens: &[Token],
@@ -1389,44 +1635,69 @@ impl CorefResolver {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing relation type.
 pub enum RelationType {
+    /// The action variant.
     Action,
+    /// The attribution variant.
     Attribution,
+    /// The temporal variant.
     Temporal,
+    /// The causal variant.
     Causal,
+    /// The location variant.
     Location,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for event argument.
 pub struct EventArgument {
+    /// The role value.
     pub role: String,
+    /// Text content for this value.
     pub text: String,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for relation triple.
 pub struct RelationTriple {
+    /// The subject value.
     pub subject: String,
+    /// The relation value.
     pub relation: String,
+    /// The object value.
     pub object: String,
+    /// The relation type value.
     pub relation_type: RelationType,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for extracted event.
 pub struct ExtractedEvent {
+    /// The sentence index value.
     pub sentence_index: usize,
+    /// The predicate value.
     pub predicate: String,
+    /// The lemma value.
     pub lemma: String,
+    /// The relation type value.
     pub relation_type: RelationType,
+    /// The arguments value.
     pub arguments: Vec<EventArgument>,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for event extractor.
 pub struct EventExtractor;
 
 impl EventExtractor {
+    /// Returns extract.
     pub fn extract(
         &self,
         trees: &[DependencyTree],
@@ -1510,48 +1781,77 @@ impl EventExtractor {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing discourse relation.
 pub enum DiscourseRelation {
+    /// The sequence variant.
     Sequence,
+    /// The elaboration variant.
     Elaboration,
+    /// The contrast variant.
     Contrast,
+    /// The cause variant.
     Cause,
+    /// The question answer variant.
     QuestionAnswer,
+    /// The transition variant.
     Transition,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing discourse segment kind.
 pub enum DiscourseSegmentKind {
+    /// The intro variant.
     Intro,
+    /// The body variant.
     Body,
+    /// The conclusion variant.
     Conclusion,
+    /// The question variant.
     Question,
+    /// The answer variant.
     Answer,
+    /// The claim variant.
     Claim,
+    /// The evidence variant.
     Evidence,
+    /// The topic shift variant.
     TopicShift,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for discourse segment.
 pub struct DiscourseSegment {
+    /// The index value.
     pub index: usize,
+    /// The kind value.
     pub kind: DiscourseSegmentKind,
+    /// The sentence start value.
     pub sentence_start: usize,
+    /// The sentence end value.
     pub sentence_end: usize,
+    /// Text content for this value.
     pub text: String,
+    /// The cues value.
     pub cues: Vec<String>,
+    /// The relation to previous value.
     pub relation_to_previous: Option<DiscourseRelation>,
+    /// Confidence score for this value.
     pub confidence: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for document outline.
 pub struct DocumentOutline {
+    /// The segments value.
     pub segments: Vec<DiscourseSegment>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for section classifier.
 pub struct SectionClassifier;
 
 impl SectionClassifier {
+    /// Returns classify.
     pub fn classify(&self, sentences: &[Sentence]) -> DocumentOutline {
         let mut segments = Vec::new();
         for (index, sentence) in sentences.iter().enumerate() {
@@ -1609,76 +1909,125 @@ impl SectionClassifier {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for topic descriptor.
 pub struct TopicDescriptor {
+    /// Label assigned to this value.
     pub label: String,
+    /// The terms value.
     pub terms: Vec<String>,
+    /// Score assigned to this value.
     pub score: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for topic cluster.
 pub struct TopicCluster {
+    /// Identifier for this value.
     pub id: String,
+    /// The descriptor value.
     pub descriptor: TopicDescriptor,
+    /// The sentence indices value.
     pub sentence_indices: Vec<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for topic model.
 pub struct TopicModel {
+    /// The descriptors value.
     pub descriptors: Vec<TopicDescriptor>,
+    /// The clusters value.
     pub clusters: Vec<TopicCluster>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing register estimate.
 pub enum RegisterEstimate {
+    /// The formal variant.
     Formal,
+    /// The neutral variant.
     Neutral,
+    /// The informal variant.
     Informal,
+    /// The technical variant.
     Technical,
+    /// The conversational variant.
     Conversational,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for complexity metrics.
 pub struct ComplexityMetrics {
+    /// The average sentence tokens value.
     pub average_sentence_tokens: f32,
+    /// The clause density value.
     pub clause_density: f32,
+    /// The type token ratio value.
     pub type_token_ratio: f32,
+    /// The lemma type token ratio value.
     pub lemma_type_token_ratio: f32,
+    /// The disfluency rate value.
     pub disfluency_rate: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for style profile.
 pub struct StyleProfile {
+    /// The register value.
     pub register: RegisterEstimate,
+    /// The complexity value.
     pub complexity: ComplexityMetrics,
+    /// The question count value.
     pub question_count: usize,
+    /// The exclamation count value.
     pub exclamation_count: usize,
+    /// The passive voice estimate value.
     pub passive_voice_estimate: f32,
+    /// The formality score value.
     pub formality_score: f32,
+    /// The repetitiveness value.
     pub repetitiveness: f32,
+    /// The disfluency markers value.
     pub disfluency_markers: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing analysis profile.
 pub enum AnalysisProfile {
+    /// The fast variant.
     Fast,
+    /// The balanced variant.
     Balanced,
     #[default]
+    /// The rich variant.
     Rich,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for linguistic analysis options.
 pub struct LinguisticAnalysisOptions {
+    /// The processing value.
     pub processing: TextProcessingOptions,
+    /// The language detection value.
     pub language_detection: LanguageDetectionOptions,
+    /// The tokenizer policy value.
     pub tokenizer_policy: TokenizerPolicy,
+    /// The lemma value.
     pub lemma: LemmaOptions,
+    /// The pos value.
     pub pos: PosTaggingOptions,
+    /// The entity linking value.
     pub entity_linking: EntityLinkingOptions,
+    /// The enable alignment value.
     pub enable_alignment: bool,
+    /// The enable coreference value.
     pub enable_coreference: bool,
+    /// The enable events value.
     pub enable_events: bool,
+    /// The enable discourse value.
     pub enable_discourse: bool,
+    /// The enable topics value.
     pub enable_topics: bool,
+    /// The enable style value.
     pub enable_style: bool,
 }
 
@@ -1705,10 +2054,15 @@ impl Default for LinguisticAnalysisOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for text nlp config.
 pub struct TextNlpConfig {
+    /// The profile value.
     pub profile: AnalysisProfile,
+    /// The options value.
     pub options: LinguisticAnalysisOptions,
+    /// The prefer model backends value.
     pub prefer_model_backends: bool,
+    /// The model family value.
     pub model_family: Option<String>,
 }
 
@@ -1719,6 +2073,7 @@ impl Default for TextNlpConfig {
 }
 
 impl TextNlpConfig {
+    /// Returns fast.
     pub fn fast() -> Self {
         Self {
             profile: AnalysisProfile::Fast,
@@ -1728,6 +2083,7 @@ impl TextNlpConfig {
         }
     }
 
+    /// Returns balanced.
     pub fn balanced() -> Self {
         Self {
             profile: AnalysisProfile::Balanced,
@@ -1737,6 +2093,7 @@ impl TextNlpConfig {
         }
     }
 
+    /// Returns rich.
     pub fn rich() -> Self {
         Self {
             profile: AnalysisProfile::Rich,
@@ -1746,6 +2103,7 @@ impl TextNlpConfig {
         }
     }
 
+    /// Builds this value from options.
     pub fn from_options(options: LinguisticAnalysisOptions) -> Self {
         Self {
             profile: AnalysisProfile::Balanced,
@@ -1757,6 +2115,7 @@ impl TextNlpConfig {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for text nlp pipeline.
 pub struct TextNlpPipeline {
     config: TextNlpConfig,
 }
@@ -1768,26 +2127,32 @@ impl Default for TextNlpPipeline {
 }
 
 impl TextNlpPipeline {
+    /// Creates a new value.
     pub fn new(config: TextNlpConfig) -> Self {
         Self { config }
     }
 
+    /// Returns config.
     pub fn config(&self) -> &TextNlpConfig {
         &self.config
     }
 
+    /// Returns analyze text.
     pub fn analyze_text(&self, text: &str) -> Result<LinguisticAnalysis> {
         analyze_text_with_config(text, &self.config)
     }
 
+    /// Returns analyze document.
     pub fn analyze_document(&self, document: &TextDocument<'_>) -> Result<LinguisticAnalysis> {
         self.analyze_text(document.text)
     }
 
+    /// Returns analyze segment.
     pub fn analyze_segment(&self, segment: &TextSegment<'_>) -> Result<LinguisticAnalysis> {
         self.analyze_text(segment.text)
     }
 
+    /// Returns analyze subtitle segments.
     pub fn analyze_subtitle_segments(
         &self,
         segments: &[TranscriptSegment],
@@ -1804,6 +2169,7 @@ impl TextNlpPipeline {
         Ok(SubtitleLinguisticAnalysis { cues, aggregate })
     }
 
+    /// Returns analyze transcription.
     pub fn analyze_transcription(
         &self,
         result: &TranscriptionResult,
@@ -1826,37 +2192,63 @@ impl TextNlpPipeline {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for linguistic analysis.
 pub struct LinguisticAnalysis {
+    /// The profile value.
     pub profile: AnalysisProfile,
+    /// The provenance value.
     pub provenance: AnnotationProvenance,
+    /// Confidence score for this value.
     pub confidence: AnnotationConfidence,
+    /// The graph value.
     pub graph: TextAnnotationGraph,
+    /// Language tag for this value.
     pub language: LanguageProfile,
+    /// The tokenizer value.
     pub tokenizer: TokenizerSelection,
+    /// The sentences value.
     pub sentences: Vec<Sentence>,
+    /// The tokens value.
     pub tokens: Vec<Token>,
+    /// The alignments value.
     pub alignments: Option<TokenAlignmentMap>,
+    /// The lemmas value.
     pub lemmas: Vec<Lemma>,
+    /// The morphology value.
     pub morphology: Vec<MorphAnnotation>,
+    /// The pos value.
     pub pos: Vec<PosAnnotation>,
+    /// The chunks value.
     pub chunks: Vec<PhraseChunk>,
+    /// The dependencies value.
     pub dependencies: Vec<DependencyTree>,
+    /// The entities value.
     pub entities: Vec<NamedEntity>,
+    /// The canonical entities value.
     pub canonical_entities: Vec<CanonicalEntity>,
+    /// The coreference value.
     pub coreference: Vec<CorefCluster>,
+    /// The events value.
     pub events: Vec<ExtractedEvent>,
+    /// The relations value.
     pub relations: Vec<RelationTriple>,
+    /// The discourse value.
     pub discourse: Vec<DiscourseSegment>,
+    /// The outline value.
     pub outline: DocumentOutline,
+    /// The topics value.
     pub topics: TopicModel,
+    /// The style value.
     pub style: StyleProfile,
 }
 
 impl LinguisticAnalysis {
+    /// Returns token ref.
     pub fn token_ref(&self, token_index: usize) -> Option<&text_analysis_core::CanonicalToken> {
         self.graph.tokens.get(token_index)
     }
 
+    /// Returns sentence ref.
     pub fn sentence_ref(
         &self,
         sentence_index: usize,
@@ -1891,17 +2283,24 @@ fn options_for_profile(profile: AnalysisProfile) -> LinguisticAnalysisOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for subtitle cue linguistic analysis.
 pub struct SubtitleCueLinguisticAnalysis {
+    /// The cue value.
     pub cue: TranscriptSegment,
+    /// The analysis value.
     pub analysis: LinguisticAnalysis,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for subtitle linguistic analysis.
 pub struct SubtitleLinguisticAnalysis {
+    /// The cues value.
     pub cues: Vec<SubtitleCueLinguisticAnalysis>,
+    /// The aggregate value.
     pub aggregate: LinguisticAnalysis,
 }
 
+/// Returns analyze document.
 pub fn analyze_document(
     document: &TextDocument<'_>,
     options: &LinguisticAnalysisOptions,
@@ -1909,6 +2308,7 @@ pub fn analyze_document(
     TextNlpPipeline::new(TextNlpConfig::from_options(options.clone())).analyze_document(document)
 }
 
+/// Returns analyze segment.
 pub fn analyze_segment(
     segment: &TextSegment<'_>,
     options: &LinguisticAnalysisOptions,
@@ -1916,6 +2316,7 @@ pub fn analyze_segment(
     TextNlpPipeline::new(TextNlpConfig::from_options(options.clone())).analyze_segment(segment)
 }
 
+/// Returns analyze subtitle segments.
 pub fn analyze_subtitle_segments(
     segments: &[TranscriptSegment],
     options: &LinguisticAnalysisOptions,
@@ -1924,6 +2325,7 @@ pub fn analyze_subtitle_segments(
         .analyze_subtitle_segments(segments)
 }
 
+/// Returns analyze transcription.
 pub fn analyze_transcription(
     result: &TranscriptionResult,
     options: &LinguisticAnalysisOptions,
@@ -1931,6 +2333,7 @@ pub fn analyze_transcription(
     TextNlpPipeline::new(TextNlpConfig::from_options(options.clone())).analyze_transcription(result)
 }
 
+/// Returns analyze text.
 pub fn analyze_text(text: &str, options: &LinguisticAnalysisOptions) -> Result<LinguisticAnalysis> {
     analyze_text_with_config(text, &TextNlpConfig::from_options(options.clone()))
 }
@@ -2131,12 +2534,14 @@ impl Default for StyleProfile {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for linguistic analyzer.
 pub struct LinguisticAnalyzer {
     options: LinguisticAnalysisOptions,
     segment_buffer: Vec<OwnedTextSegment>,
 }
 
 impl LinguisticAnalyzer {
+    /// Creates a new value.
     pub fn new(options: LinguisticAnalysisOptions) -> Self {
         Self {
             options,

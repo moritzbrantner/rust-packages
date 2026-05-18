@@ -10,10 +10,15 @@ use text_analysis_core::{
 use video_analysis_core::{DetectError, Result, TextSegment};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for corpus options.
 pub struct CorpusOptions {
+    /// The processing value.
     pub processing: TextProcessingOptions,
+    /// The min term len value.
     pub min_term_len: usize,
+    /// The stop words value.
     pub stop_words: BTreeSet<String>,
+    /// The max terms per document value.
     pub max_terms_per_document: Option<usize>,
 }
 
@@ -29,56 +34,87 @@ impl Default for CorpusOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for indexed document.
 pub struct IndexedDocument {
+    /// Identifier for this value.
     pub id: String,
+    /// The term counts value.
     pub term_counts: BTreeMap<String, usize>,
+    /// The total terms value.
     pub total_terms: usize,
 }
 
 impl IndexedDocument {
+    /// Returns unique terms.
     pub fn unique_terms(&self) -> usize {
         self.term_counts.len()
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for corpus stats.
 pub struct CorpusStats {
+    /// The documents value.
     pub documents: usize,
+    /// The total terms value.
     pub total_terms: usize,
+    /// The unique terms value.
     pub unique_terms: usize,
+    /// The average terms per document value.
     pub average_terms_per_document: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for corpus term stats.
 pub struct CorpusTermStats {
+    /// The term value.
     pub term: String,
+    /// The collection count value.
     pub collection_count: usize,
+    /// The document count value.
     pub document_count: usize,
+    /// The collection frequency value.
     pub collection_frequency: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for tf idf term.
 pub struct TfIdfTerm {
+    /// The term value.
     pub term: String,
+    /// Number of items represented by this value.
     pub count: usize,
+    /// The term frequency value.
     pub term_frequency: f32,
+    /// The inverse document frequency value.
     pub inverse_document_frequency: f32,
+    /// Score assigned to this value.
     pub score: f32,
+    /// The document count value.
     pub document_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for document search result.
 pub struct DocumentSearchResult {
+    /// Identifier for this value.
     pub id: String,
+    /// Score assigned to this value.
     pub score: f32,
+    /// The matched terms value.
     pub matched_terms: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for bm25 options.
 pub struct Bm25Options {
+    /// The k1 value.
     pub k1: f32,
+    /// The b value.
     pub b: f32,
+    /// The min term len value.
     pub min_term_len: usize,
+    /// The stop words value.
     pub stop_words: BTreeSet<String>,
 }
 
@@ -94,19 +130,27 @@ impl Default for Bm25Options {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for bm25 search result.
 pub struct Bm25SearchResult {
+    /// Identifier for this value.
     pub id: String,
+    /// Score assigned to this value.
     pub score: f32,
+    /// The matched terms value.
     pub matched_terms: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for sparse term matrix.
 pub struct SparseTermMatrix {
+    /// The vocabulary value.
     pub vocabulary: Vec<String>,
+    /// The matrix value.
     pub matrix: CsrMatrix,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for tf idf corpus.
 pub struct TfIdfCorpus {
     options: CorpusOptions,
     documents: Vec<IndexedDocument>,
@@ -116,6 +160,7 @@ pub struct TfIdfCorpus {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for bm25 corpus.
 pub struct Bm25Corpus {
     options: Bm25Options,
     documents: Vec<IndexedDocument>,
@@ -130,6 +175,7 @@ impl Default for Bm25Corpus {
 }
 
 impl Bm25Corpus {
+    /// Creates a new value.
     pub fn new(options: Bm25Options) -> Self {
         Self {
             options,
@@ -139,6 +185,7 @@ impl Bm25Corpus {
         }
     }
 
+    /// Builds this value from texts.
     pub fn from_texts<I, S>(texts: I, options: Bm25Options) -> Result<Self>
     where
         I: IntoIterator<Item = S>,
@@ -151,6 +198,7 @@ impl Bm25Corpus {
         Ok(corpus)
     }
 
+    /// Builds this value from documents.
     pub fn from_documents<'a, I>(documents: I, options: Bm25Options) -> Result<Self>
     where
         I: IntoIterator<Item = TextDocument<'a>>,
@@ -162,6 +210,7 @@ impl Bm25Corpus {
         Ok(corpus)
     }
 
+    /// Builds this value from text segments.
     pub fn from_text_segments<'a, I>(
         stream_id: &str,
         segments: I,
@@ -178,26 +227,32 @@ impl Bm25Corpus {
         Ok(corpus)
     }
 
+    /// Returns options.
     pub fn options(&self) -> &Bm25Options {
         &self.options
     }
 
+    /// Returns len.
     pub fn len(&self) -> usize {
         self.documents.len()
     }
 
+    /// Returns whether is empty.
     pub fn is_empty(&self) -> bool {
         self.documents.is_empty()
     }
 
+    /// Returns documents.
     pub fn documents(&self) -> &[IndexedDocument] {
         &self.documents
     }
 
+    /// Adds add text document to this value.
     pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<usize> {
         self.add_document(document.id, document.text)
     }
 
+    /// Adds add text segment to this value.
     pub fn add_text_segment(
         &mut self,
         stream_id: &str,
@@ -210,6 +265,7 @@ impl Bm25Corpus {
         )
     }
 
+    /// Adds add document to this value.
     pub fn add_document(&mut self, id: impl Into<String>, text: &str) -> Result<usize> {
         let id = id.into();
         if id.trim().is_empty() {
@@ -245,6 +301,7 @@ impl Bm25Corpus {
         Ok(self.documents.len() - 1)
     }
 
+    /// Returns search.
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<Bm25SearchResult>> {
         if limit == 0 {
             return Err(invalid_argument("search limit must be greater than zero"));
@@ -298,12 +355,14 @@ impl Bm25Corpus {
         Ok(results)
     }
 
+    /// Returns inverse document frequency.
     pub fn inverse_document_frequency(&self, term: &str) -> f32 {
         let documents = self.documents.len() as f32;
         let document_count = self.document_frequency.get(term).copied().unwrap_or(0) as f32;
         (1.0 + (documents - document_count + 0.5) / (document_count + 0.5)).ln()
     }
 
+    /// Returns sparse term matrix.
     pub fn sparse_term_matrix(&self) -> Result<SparseTermMatrix> {
         build_sparse_term_matrix(&self.documents)
     }
@@ -316,6 +375,7 @@ impl Default for TfIdfCorpus {
 }
 
 impl TfIdfCorpus {
+    /// Creates a new value.
     pub fn new(options: CorpusOptions) -> Self {
         Self {
             options,
@@ -326,6 +386,7 @@ impl TfIdfCorpus {
         }
     }
 
+    /// Builds this value from texts.
     pub fn from_texts<I, S>(texts: I, options: CorpusOptions) -> Result<Self>
     where
         I: IntoIterator<Item = S>,
@@ -338,6 +399,7 @@ impl TfIdfCorpus {
         Ok(corpus)
     }
 
+    /// Builds this value from documents.
     pub fn from_documents<'a, I>(documents: I, options: CorpusOptions) -> Result<Self>
     where
         I: IntoIterator<Item = TextDocument<'a>>,
@@ -349,6 +411,7 @@ impl TfIdfCorpus {
         Ok(corpus)
     }
 
+    /// Builds this value from text segments.
     pub fn from_text_segments<'a, I>(
         stream_id: &str,
         segments: I,
@@ -365,30 +428,37 @@ impl TfIdfCorpus {
         Ok(corpus)
     }
 
+    /// Returns options.
     pub fn options(&self) -> &CorpusOptions {
         &self.options
     }
 
+    /// Returns len.
     pub fn len(&self) -> usize {
         self.documents.len()
     }
 
+    /// Returns whether is empty.
     pub fn is_empty(&self) -> bool {
         self.documents.is_empty()
     }
 
+    /// Returns documents.
     pub fn documents(&self) -> &[IndexedDocument] {
         &self.documents
     }
 
+    /// Returns document.
     pub fn document(&self, id: &str) -> Option<&IndexedDocument> {
         self.documents.iter().find(|document| document.id == id)
     }
 
+    /// Adds add text document to this value.
     pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<usize> {
         self.add_document(document.id, document.text)
     }
 
+    /// Adds add text segment to this value.
     pub fn add_text_segment(
         &mut self,
         stream_id: &str,
@@ -401,6 +471,7 @@ impl TfIdfCorpus {
         )
     }
 
+    /// Adds add document to this value.
     pub fn add_document(&mut self, id: impl Into<String>, text: &str) -> Result<usize> {
         let id = id.into();
         if id.trim().is_empty() {
@@ -432,6 +503,7 @@ impl TfIdfCorpus {
         Ok(self.documents.len() - 1)
     }
 
+    /// Returns stats.
     pub fn stats(&self) -> CorpusStats {
         CorpusStats {
             documents: self.documents.len(),
@@ -445,10 +517,12 @@ impl TfIdfCorpus {
         }
     }
 
+    /// Returns sparse term matrix.
     pub fn sparse_term_matrix(&self) -> Result<SparseTermMatrix> {
         build_sparse_term_matrix(&self.documents)
     }
 
+    /// Returns term stats.
     pub fn term_stats(&self, limit: usize) -> Vec<CorpusTermStats> {
         let total = self.total_terms.max(1) as f32;
         let mut terms = self
@@ -472,6 +546,7 @@ impl TfIdfCorpus {
         terms
     }
 
+    /// Returns document tfidf.
     pub fn document_tfidf(&self, id: &str, limit: usize) -> Result<Vec<TfIdfTerm>> {
         let document = self
             .document(id)
@@ -479,12 +554,14 @@ impl TfIdfCorpus {
         Ok(self.tfidf_for_counts(&document.term_counts, document.total_terms, limit))
     }
 
+    /// Returns text tfidf.
     pub fn text_tfidf(&self, text: &str, limit: usize) -> Vec<TfIdfTerm> {
         let counts = term_counts(text, &self.options);
         let total_terms = counts.values().sum();
         self.tfidf_for_counts(&counts, total_terms, limit)
     }
 
+    /// Returns search.
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<DocumentSearchResult>> {
         if limit == 0 {
             return Err(invalid_argument("search limit must be greater than zero"));
@@ -540,10 +617,12 @@ impl TfIdfCorpus {
         Ok(results)
     }
 
+    /// Returns document count.
     pub fn document_count(&self, term: &str) -> usize {
         self.document_frequency.get(term).copied().unwrap_or(0)
     }
 
+    /// Returns inverse document frequency.
     pub fn inverse_document_frequency(&self, term: &str) -> f32 {
         let documents = self.documents.len() as f32;
         let document_count = self.document_count(term) as f32;
@@ -595,6 +674,7 @@ impl TfIdfCorpus {
     }
 }
 
+/// Returns terms.
 pub fn terms(text: &str, options: &CorpusOptions) -> Vec<String> {
     tokenize(text, &options.processing)
         .into_iter()
@@ -615,6 +695,7 @@ pub fn terms(text: &str, options: &CorpusOptions) -> Vec<String> {
         .collect()
 }
 
+/// Returns term counts.
 pub fn term_counts(text: &str, options: &CorpusOptions) -> BTreeMap<String, usize> {
     let mut counts = BTreeMap::new();
     for term in terms(text, options) {
@@ -623,6 +704,7 @@ pub fn term_counts(text: &str, options: &CorpusOptions) -> BTreeMap<String, usiz
     counts
 }
 
+/// Returns sparse term vector.
 pub fn sparse_term_vector(
     counts: &BTreeMap<String, usize>,
     vocabulary: &[String],

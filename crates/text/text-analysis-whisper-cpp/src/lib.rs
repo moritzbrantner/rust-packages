@@ -1,3 +1,5 @@
+//! Native whisper.cpp transcription bindings and model management.
+
 mod ffi;
 
 use std::ffi::{CStr, CString};
@@ -14,35 +16,49 @@ use sha2::{Digest, Sha256};
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Default,
 )]
+/// Variants describing whisper cpp model.
 pub enum WhisperCppModel {
     #[serde(rename = "tiny.en")]
+    /// The tiny en variant.
     TinyEn,
     #[serde(rename = "tiny")]
+    /// The tiny variant.
     Tiny,
     #[serde(rename = "base.en")]
     #[default]
+    /// The base en variant.
     BaseEn,
     #[serde(rename = "base")]
+    /// The base variant.
     Base,
     #[serde(rename = "small.en")]
+    /// The small en variant.
     SmallEn,
     #[serde(rename = "small")]
+    /// The small variant.
     Small,
     #[serde(rename = "medium.en")]
+    /// The medium en variant.
     MediumEn,
     #[serde(rename = "medium")]
+    /// The medium variant.
     Medium,
     #[serde(rename = "large-v1")]
+    /// The large v1 variant.
     LargeV1,
     #[serde(rename = "large-v2")]
+    /// The large v2 variant.
     LargeV2,
     #[serde(rename = "large-v3")]
+    /// The large v3 variant.
     LargeV3,
     #[serde(rename = "large-v3-turbo")]
+    /// The large v3 turbo variant.
     LargeV3Turbo,
 }
 
 impl WhisperCppModel {
+    /// Constant for all.
     pub const ALL: [Self; 12] = [
         Self::TinyEn,
         Self::Tiny,
@@ -58,6 +74,7 @@ impl WhisperCppModel {
         Self::LargeV3Turbo,
     ];
 
+    /// Returns identifier.
     pub fn id(self) -> &'static str {
         match self {
             Self::TinyEn => "tiny.en",
@@ -75,10 +92,12 @@ impl WhisperCppModel {
         }
     }
 
+    /// Returns file name.
     pub fn file_name(self) -> String {
         format!("ggml-{}.bin", self.id())
     }
 
+    /// Returns download URL.
     pub fn download_url(self) -> String {
         format!(
             "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{}",
@@ -86,6 +105,7 @@ impl WhisperCppModel {
         )
     }
 
+    /// Returns checksum sha256.
     pub fn checksum_sha256(self) -> &'static str {
         match self {
             Self::TinyEn => "0d686a2a6a22b02da2ef3101d4c86e68461363a623c58f27f81b1b2d36b42317",
@@ -105,6 +125,7 @@ impl WhisperCppModel {
         }
     }
 
+    /// Returns multilingual.
     pub fn multilingual(self) -> bool {
         !matches!(
             self,
@@ -120,42 +141,64 @@ impl Display for WhisperCppModel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+/// Data type for whisper cpp config.
 pub struct WhisperCppConfig {
     #[serde(default)]
+    /// The model value.
     pub model: WhisperCppModel,
+    /// Language tag for this value.
     pub language: Option<String>,
     #[serde(default)]
+    /// The translate value.
     pub translate: bool,
+    /// The threads value.
     pub threads: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for whisper cpp segment.
 pub struct WhisperCppSegment {
+    /// The index value.
     pub index: u64,
+    /// The start seconds value.
     pub start_seconds: Option<f64>,
+    /// The end seconds value.
     pub end_seconds: Option<f64>,
+    /// Text content for this value.
     pub text: String,
+    /// Confidence score for this value.
     pub confidence: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for whisper cpp transcription.
 pub struct WhisperCppTranscription {
+    /// Text content for this value.
     pub text: Option<String>,
+    /// Language tag for this value.
     pub language: Option<String>,
+    /// The segments value.
     pub segments: Vec<WhisperCppSegment>,
+    /// The source value.
     pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing whisper cpp phase.
 pub enum WhisperCppPhase {
+    /// The preparing variant.
     Preparing,
+    /// The downloading model variant.
     DownloadingModel,
+    /// The loading model variant.
     LoadingModel,
+    /// The transcribing variant.
     Transcribing,
 }
 
 impl WhisperCppPhase {
+    /// Borrows this value as a str.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Preparing => "preparing",
@@ -167,51 +210,76 @@ impl WhisperCppPhase {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for whisper cpp progress event.
 pub struct WhisperCppProgressEvent {
+    /// The phase value.
     pub phase: WhisperCppPhase,
+    /// The message value.
     pub message: String,
+    /// The progress value.
     pub progress: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for whisper cpp model status.
 pub struct WhisperCppModelStatus {
+    /// The model value.
     pub model: WhisperCppModel,
+    /// The cached value.
     pub cached: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for whisper cpp catalog.
 pub struct WhisperCppCatalog {
+    /// The default model value.
     pub default_model: WhisperCppModel,
+    /// The models value.
     pub models: Vec<WhisperCppModelStatus>,
 }
 
 #[derive(Debug, thiserror::Error)]
+/// Variants describing whisper cpp error.
 pub enum WhisperCppError {
     #[error("I/O error: {0}")]
+    /// The I/O variant.
     Io(#[from] std::io::Error),
     #[error("wave input error: {0}")]
+    /// The wav variant.
     Wav(#[from] hound::Error),
     #[error("network error: {0}")]
+    /// The http variant.
     Http(String),
     #[error("invalid input: {0}")]
+    /// The invalid input variant.
     InvalidInput(String),
     #[error("unsupported language `{0}`")]
+    /// The unsupported language variant.
     UnsupportedLanguage(String),
     #[error("downloaded model `{model}` failed checksum verification")]
-    InvalidChecksum { model: WhisperCppModel },
+    /// The invalid checksum variant.
+    InvalidChecksum {
+        /// Model associated with this variant.
+        model: WhisperCppModel,
+    },
     #[error("failed to initialize whisper.cpp from `{0}`")]
+    /// The initialization variant.
     Initialization(String),
     #[error("whisper.cpp inference failed for `{0}`")]
+    /// The inference variant.
     Inference(String),
     #[error("invalid utf-8 returned by whisper.cpp")]
+    /// The invalid utf8 variant.
     InvalidUtf8,
 }
 
+/// Type alias for result.
 pub type Result<T> = std::result::Result<T, WhisperCppError>;
 
 type OwnedProgressCallback = dyn FnMut(WhisperCppProgressEvent) + 'static;
 
 #[derive(Clone)]
+/// Data type for model store.
 pub struct ModelStore {
     root: PathBuf,
 }
@@ -225,23 +293,28 @@ impl Default for ModelStore {
 }
 
 impl ModelStore {
+    /// Creates a new value.
     pub fn new(root: PathBuf) -> Self {
         Self { root }
     }
 
+    /// Returns models dir.
     pub fn models_dir(&self) -> PathBuf {
         self.root.join("models")
     }
 
+    /// Returns model path.
     pub fn model_path(&self, model: WhisperCppModel) -> PathBuf {
         self.models_dir().join(model.file_name())
     }
 
+    /// Returns lock path.
     pub fn lock_path(&self, model: WhisperCppModel) -> PathBuf {
         self.models_dir()
             .join(format!("{}.lock", model.file_name()))
     }
 
+    /// Returns catalog.
     pub fn catalog(&self) -> WhisperCppCatalog {
         WhisperCppCatalog {
             default_model: WhisperCppModel::default(),
@@ -325,6 +398,7 @@ impl ModelStore {
     }
 }
 
+/// Data type for whisper cpp transcriber.
 pub struct WhisperCppTranscriber {
     config: WhisperCppConfig,
     store: ModelStore,
@@ -332,6 +406,7 @@ pub struct WhisperCppTranscriber {
 }
 
 impl WhisperCppTranscriber {
+    /// Creates a new value.
     pub fn new(config: WhisperCppConfig) -> Self {
         Self {
             config,
@@ -340,11 +415,13 @@ impl WhisperCppTranscriber {
         }
     }
 
+    /// Returns this value with model store.
     pub fn with_model_store(mut self, store: ModelStore) -> Self {
         self.store = store;
         self
     }
 
+    /// Returns on progress.
     pub fn on_progress<F>(mut self, callback: F) -> Self
     where
         F: FnMut(WhisperCppProgressEvent) + 'static,
@@ -353,6 +430,7 @@ impl WhisperCppTranscriber {
         self
     }
 
+    /// Returns transcribe file.
     pub fn transcribe_file(&mut self, input: &Path) -> Result<WhisperCppTranscription> {
         let store = self.store.clone();
         let config = self.config.clone();
@@ -360,6 +438,7 @@ impl WhisperCppTranscriber {
         transcribe_impl(&store, &config, input, &mut progress)
     }
 
+    /// Returns transcribe file with progress.
     pub fn transcribe_file_with_progress(
         &mut self,
         input: &Path,
@@ -376,10 +455,12 @@ impl WhisperCppTranscriber {
     }
 }
 
+/// Returns transcription catalog.
 pub fn transcription_catalog() -> WhisperCppCatalog {
     ModelStore::default().catalog()
 }
 
+/// Returns whisper cpp system info.
 pub fn whisper_cpp_system_info() -> Option<String> {
     let value = unsafe { ffi::whisper_print_system_info() };
     if value.is_null() {

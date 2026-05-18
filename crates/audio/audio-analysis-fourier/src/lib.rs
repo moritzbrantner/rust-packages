@@ -6,21 +6,31 @@ use rustfft::FftPlanner;
 use video_analysis_core::{AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for spectrum bin.
 pub struct SpectrumBin {
+    /// The index value.
     pub index: usize,
+    /// The frequency hz value.
     pub frequency_hz: f32,
+    /// The magnitude value.
     pub magnitude: f32,
+    /// The power value.
     pub power: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for spectrum.
 pub struct Spectrum {
+    /// Sample rate in hertz.
     pub sample_rate: u32,
+    /// The FFT size value.
     pub fft_size: usize,
+    /// The bins value.
     pub bins: Vec<SpectrumBin>,
 }
 
 impl Spectrum {
+    /// Returns dominant frequency hz.
     pub fn dominant_frequency_hz(&self) -> Option<f32> {
         self.bins
             .iter()
@@ -30,31 +40,43 @@ impl Spectrum {
             .map(|bin| bin.frequency_hz)
     }
 
+    /// Returns features.
     pub fn features(&self) -> SpectralFeatures {
         spectral_features(self)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for spectral features.
 pub struct SpectralFeatures {
+    /// The centroid hz value.
     pub centroid_hz: f32,
+    /// The bandwidth hz value.
     pub bandwidth_hz: f32,
+    /// The rolloff hz value.
     pub rolloff_hz: f32,
+    /// The flatness value.
     pub flatness: f32,
+    /// The dominant frequency hz value.
     pub dominant_frequency_hz: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for fourier transform.
 pub struct FourierTransform {
+    /// The FFT size value.
     pub fft_size: usize,
+    /// The window value.
     pub window: WindowFunction,
 }
 
 impl FourierTransform {
+    /// Creates a new value.
     pub fn new(fft_size: usize) -> Result<Self> {
         Self::with_window(fft_size, WindowFunction::Hann)
     }
 
+    /// Returns this value with window.
     pub fn with_window(fft_size: usize, window: WindowFunction) -> Result<Self> {
         if fft_size == 0 || !fft_size.is_power_of_two() {
             return Err(DetectError::InvalidArgument(
@@ -64,6 +86,7 @@ impl FourierTransform {
         Ok(Self { fft_size, window })
     }
 
+    /// Returns analyze samples.
     pub fn analyze_samples(&self, samples: &[f32], sample_rate: u32) -> Result<Spectrum> {
         if sample_rate == 0 {
             return Err(DetectError::InvalidAudioFormat {
@@ -109,6 +132,7 @@ impl FourierTransform {
         })
     }
 
+    /// Returns analyze frame.
     pub fn analyze_frame(&self, frame: &AudioFrame<'_>) -> Result<Spectrum> {
         let mono = mono_samples(frame)?;
         self.analyze_samples(&mono.samples, mono.sample_rate)
@@ -125,14 +149,20 @@ impl Default for FourierTransform {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for STFT config.
 pub struct StftConfig {
+    /// The FFT size value.
     pub fft_size: usize,
+    /// The hop size value.
     pub hop_size: usize,
+    /// The window value.
     pub window: WindowFunction,
+    /// The pad final frame value.
     pub pad_final_frame: bool,
 }
 
 impl StftConfig {
+    /// Creates a new value.
     pub fn new(fft_size: usize, hop_size: usize) -> Result<Self> {
         FourierTransform::new(fft_size)?;
         FrameSpec::new(fft_size, hop_size)?;
@@ -144,11 +174,13 @@ impl StftConfig {
         })
     }
 
+    /// Returns window.
     pub fn window(mut self, window: WindowFunction) -> Self {
         self.window = window;
         self
     }
 
+    /// Returns pad final frame.
     pub fn pad_final_frame(mut self, pad_final_frame: bool) -> Self {
         self.pad_final_frame = pad_final_frame;
         self
@@ -156,12 +188,17 @@ impl StftConfig {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for spectrogram frame.
 pub struct SpectrogramFrame {
+    /// The start sample value.
     pub start_sample: usize,
+    /// The start seconds value.
     pub start_seconds: f64,
+    /// The spectrum value.
     pub spectrum: Spectrum,
 }
 
+/// Returns spectrogram.
 pub fn spectrogram(
     samples: &[f32],
     sample_rate: u32,
@@ -199,6 +236,7 @@ pub fn spectrogram(
     Ok(frames)
 }
 
+/// Returns zero crossing rate.
 pub fn zero_crossing_rate(samples: &[f32]) -> f32 {
     if samples.len() < 2 {
         return 0.0;
@@ -214,6 +252,7 @@ pub fn zero_crossing_rate(samples: &[f32]) -> f32 {
     crossings as f32 / (samples.len() - 1) as f32
 }
 
+/// Returns spectral flux.
 pub fn spectral_flux(previous: &Spectrum, current: &Spectrum) -> f32 {
     previous
         .bins
@@ -223,6 +262,7 @@ pub fn spectral_flux(previous: &Spectrum, current: &Spectrum) -> f32 {
         .sum()
 }
 
+/// Returns spectral features.
 pub fn spectral_features(spectrum: &Spectrum) -> SpectralFeatures {
     let total_power = spectrum.bins.iter().map(|bin| bin.power).sum::<f32>();
     if total_power <= f32::EPSILON {
@@ -293,6 +333,7 @@ fn spectral_flatness(spectrum: &Spectrum) -> f32 {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for spectral analyzer.
 pub struct SpectralAnalyzer {
     name: String,
     transform: FourierTransform,
@@ -300,6 +341,7 @@ pub struct SpectralAnalyzer {
 }
 
 impl SpectralAnalyzer {
+    /// Creates a new value.
     pub fn new(transform: FourierTransform) -> Self {
         Self {
             name: "audio_spectral".to_string(),
@@ -308,6 +350,7 @@ impl SpectralAnalyzer {
         }
     }
 
+    /// Returns min magnitude.
     pub fn min_magnitude(mut self, value: f32) -> Self {
         self.min_magnitude = value.max(0.0);
         self

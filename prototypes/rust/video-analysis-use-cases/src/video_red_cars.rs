@@ -1,3 +1,5 @@
+//! Internal module support for video red cars.
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -25,15 +27,25 @@ const DEFAULT_VISUAL_SAMPLE_EVERY: u64 = 30;
 const DEFAULT_TRACK_IOU: f32 = 0.5;
 
 #[derive(Debug, Clone)]
+/// Data type for video red cars request.
 pub struct VideoRedCarsRequest {
+    /// The input value.
     pub input: PathBuf,
+    /// The work dir value.
     pub work_dir: PathBuf,
+    /// The output value.
     pub output: Option<PathBuf>,
+    /// The scene threshold value.
     pub scene_threshold: f32,
+    /// The min scene len value.
     pub min_scene_len: u64,
+    /// The max frames value.
     pub max_frames: Option<u64>,
+    /// The visual sample every value.
     pub visual_sample_every: u64,
+    /// The vehicle detector command value.
     pub vehicle_detector_command: PathBuf,
+    /// The vehicle detector args value.
     pub vehicle_detector_args: Vec<String>,
 }
 
@@ -54,20 +66,29 @@ impl Default for VideoRedCarsRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for video red cars run request.
 pub struct VideoRedCarsRunRequest {
+    /// The input value.
     pub input: PathBuf,
+    /// The work dir value.
     pub work_dir: Option<PathBuf>,
     #[serde(default = "default_scene_threshold")]
+    /// The scene threshold value.
     pub scene_threshold: f32,
     #[serde(default = "default_min_scene_len")]
+    /// The min scene len value.
     pub min_scene_len: u64,
+    /// The max frames value.
     pub max_frames: Option<u64>,
     #[serde(default = "default_visual_sample_every")]
+    /// The visual sample every value.
     pub visual_sample_every: u64,
+    /// The vehicle detector value.
     pub vehicle_detector: ExternalCommandConfig,
 }
 
 impl VideoRedCarsRunRequest {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         validate_local_file(&self.input)?;
         validate_analysis_options(
@@ -85,46 +106,74 @@ impl VideoRedCarsRunRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for video red cars report.
 pub struct VideoRedCarsReport {
     #[serde(alias = "use_case")]
+    /// The workflow value.
     pub workflow: String,
+    /// The source value.
     pub source: VideoRedCarsSourceReport,
+    /// The assets value.
     pub assets: VideoRedCarsAssetReport,
+    /// The capabilities value.
     pub capabilities: CapabilityReport,
+    /// The video value.
     pub video: VideoRedCarsVideoReport,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for video red cars source report.
 pub struct VideoRedCarsSourceReport {
+    /// The local video value.
     pub local_video: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for video red cars asset report.
 pub struct VideoRedCarsAssetReport {
+    /// The work dir value.
     pub work_dir: String,
+    /// The report path value.
     pub report_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for video red cars video report.
 pub struct VideoRedCarsVideoReport {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The frame rate value.
     pub frame_rate: String,
+    /// Duration in seconds.
     pub duration_seconds: Option<f64>,
+    /// The frames processed value.
     pub frames_processed: u64,
+    /// The scenes value.
     pub scenes: Vec<VideoRedCarsSceneReport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Data type for video red cars scene report.
 pub struct VideoRedCarsSceneReport {
+    /// The index value.
     pub index: u64,
+    /// The start frame value.
     pub start_frame: u64,
+    /// The end frame value.
     pub end_frame: u64,
+    /// The start seconds value.
     pub start_seconds: f64,
+    /// The end seconds value.
     pub end_seconds: f64,
+    /// The red car count value.
     pub red_car_count: u64,
+    /// The peak visible red cars value.
     pub peak_visible_red_cars: u64,
+    /// The sampled frames value.
     pub sampled_frames: u64,
+    /// The red car observations value.
     pub red_car_observations: Vec<ObservationReport>,
 }
 
@@ -135,6 +184,7 @@ struct RedCarObservation {
     region: BoundingBox,
 }
 
+/// Runs video red cars.
 pub fn run_video_red_cars(args: VideoRedCarsRequest) -> Result<VideoRedCarsReport> {
     validate_local_file(&args.input)?;
     validate_analysis_options(
@@ -265,6 +315,7 @@ pub fn run_video_red_cars(args: VideoRedCarsRequest) -> Result<VideoRedCarsRepor
     })
 }
 
+/// Runs video red cars workflow.
 pub fn run_video_red_cars_workflow(
     request: VideoRedCarsRunRequest,
     work_dir: PathBuf,
@@ -286,6 +337,7 @@ pub fn run_video_red_cars_workflow(
     Ok(report)
 }
 
+/// Writes video red cars report.
 pub fn write_video_red_cars_report(path: &Path, report: &VideoRedCarsReport) -> Result<()> {
     write_json_report(path, report)
 }

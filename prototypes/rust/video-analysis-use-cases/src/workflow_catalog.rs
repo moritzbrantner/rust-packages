@@ -1,185 +1,321 @@
+//! Internal module support for workflow catalog.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing port kind.
 pub enum PortKind {
+    /// The run trigger variant.
     RunTrigger,
+    /// The run config variant.
     RunConfig,
+    /// The youtube URL variant.
     YoutubeUrl,
+    /// The youtube collection URL variant.
     YoutubeCollectionUrl,
+    /// The video file variant.
     VideoFile,
+    /// The image file variant.
     ImageFile,
+    /// The image batch variant.
     ImageBatch,
+    /// The audio file variant.
     AudioFile,
+    /// The audio waveform variant.
     AudioWaveform,
+    /// The media file variant.
     MediaFile,
+    /// The mask tensor variant.
     MaskTensor,
+    /// The latent batch variant.
     LatentBatch,
+    /// The conditioning variant.
     Conditioning,
+    /// The model ref variant.
     ModelRef,
+    /// The vae ref variant.
     VaeRef,
+    /// The clip ref variant.
     ClipRef,
+    /// The clip vision ref variant.
     ClipVisionRef,
+    /// The upscale model ref variant.
     UpscaleModelRef,
+    /// The model patch ref variant.
     ModelPatchRef,
+    /// The transcript variant.
     Transcript,
+    /// The subtitle file variant.
     SubtitleFile,
+    /// The scene list variant.
     SceneList,
+    /// The observation list variant.
     ObservationList,
+    /// The audio events variant.
     AudioEvents,
+    /// The text events variant.
     TextEvents,
+    /// The data buckets variant.
     DataBuckets,
+    /// The JSON report variant.
     JsonReport,
+    /// The collection manifest variant.
     CollectionManifest,
+    /// The collection items variant.
     CollectionItems,
+    /// The song fingerprint variant.
     SongFingerprint,
+    /// The song catalog variant.
     SongCatalog,
+    /// The song matches variant.
     SongMatches,
+    /// The music features variant.
     MusicFeatures,
+    /// The template string variant.
     TemplateString,
+    /// The string variant.
     String,
+    /// The number variant.
     Number,
+    /// The boolean variant.
     Boolean,
+    /// The array variant.
     Array,
+    /// The object variant.
     Object,
+    /// The http request variant.
     HttpRequest,
+    /// The http response variant.
     HttpResponse,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing workflow semantic kind.
 pub enum WorkflowSemanticKind {
+    /// The run request variant.
     RunRequest,
+    /// The run config variant.
     RunConfig,
+    /// The template string variant.
     TemplateString,
+    /// The youtube URL variant.
     YoutubeUrl,
+    /// The youtube collection URL variant.
     YoutubeCollectionUrl,
+    /// The video file variant.
     VideoFile,
+    /// The image file variant.
     ImageFile,
+    /// The image batch variant.
     ImageBatch,
+    /// The audio file variant.
     AudioFile,
+    /// The audio waveform variant.
     AudioWaveform,
+    /// The audio wav variant.
     AudioWav,
+    /// The media file variant.
     MediaFile,
+    /// The mask tensor variant.
     MaskTensor,
+    /// The latent batch variant.
     LatentBatch,
+    /// The conditioning variant.
     Conditioning,
+    /// The model ref variant.
     ModelRef,
+    /// The vae ref variant.
     VaeRef,
+    /// The clip ref variant.
     ClipRef,
+    /// The clip vision ref variant.
     ClipVisionRef,
+    /// The upscale model ref variant.
     UpscaleModelRef,
+    /// The model patch ref variant.
     ModelPatchRef,
+    /// The transcript variant.
     Transcript,
+    /// The subtitle file variant.
     SubtitleFile,
+    /// The video metadata variant.
     VideoMetadata,
+    /// The scene result variant.
     SceneResult,
+    /// The video observation variant.
     VideoObservation,
+    /// The model request variant.
     ModelRequest,
+    /// The model prediction variant.
     ModelPrediction,
+    /// The transcript segment variant.
     TranscriptSegment,
+    /// The audio event variant.
     AudioEvent,
+    /// The text event variant.
     TextEvent,
+    /// The collection manifest variant.
     CollectionManifest,
+    /// The collection item variant.
     CollectionItem,
+    /// The collection report variant.
     CollectionReport,
+    /// The collection table variant.
     CollectionTable,
+    /// The song fingerprint variant.
     SongFingerprint,
+    /// The song catalog variant.
     SongCatalog,
+    /// The song match variant.
     SongMatch,
+    /// The music feature variant.
     MusicFeature,
+    /// The http request variant.
     HttpRequest,
+    /// The http response variant.
     HttpResponse,
+    /// The JSON report variant.
     JsonReport,
+    /// The dashboard view variant.
     DashboardView,
+    /// The data record variant.
     DataRecord,
+    /// The data bucket variant.
     DataBucket,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for workflow object property.
 pub struct WorkflowObjectProperty {
+    /// Human-readable name for this value.
     pub name: String,
+    /// The value value.
     pub value: WorkflowTypeSpec,
     #[serde(default)]
+    /// The required value.
     pub required: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+/// Variants describing workflow type spec.
 pub enum WorkflowTypeSpec {
+    /// The any variant.
     Any,
+    /// The null variant.
     Null,
+    /// The boolean variant.
     Boolean,
+    /// The number variant.
     Number,
+    /// The string variant.
     String {
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        /// Semantic meaning associated with this variant.
         semantic: Option<WorkflowSemanticKind>,
     },
+    /// The binary variant.
     Binary {
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        /// The media type value for this variant.
         media_type: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        /// Semantic meaning associated with this variant.
         semantic: Option<WorkflowSemanticKind>,
     },
+    /// The array variant.
     Array {
+        /// Item type represented by this value.
         items: Box<WorkflowTypeSpec>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        /// The minimum items value for this variant.
         min_items: Option<u32>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        /// The maximum items value for this variant.
         max_items: Option<u32>,
     },
+    /// The object variant.
     Object {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        /// Object properties represented by this value.
         properties: Vec<WorkflowObjectProperty>,
         #[serde(default)]
+        /// Whether additional object properties are allowed.
         additional_properties: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        /// Semantic meaning associated with this variant.
         semantic: Option<WorkflowSemanticKind>,
     },
+    /// The union variant.
     Union {
+        /// Candidate variants represented by this value.
         variants: Vec<WorkflowTypeSpec>,
     },
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing workflow input surface.
 pub enum WorkflowInputSurface {
+    /// The source URL variant.
     SourceUrl,
+    /// The collection URL variant.
     CollectionUrl,
+    /// The file variant.
     File,
+    /// The config variant.
     Config,
+    /// The generic variant.
     Generic,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing workflow runtime validation.
 pub enum WorkflowRuntimeValidation {
+    /// The strict variant.
     Strict,
+    /// The unsafe variant.
     Unsafe,
+    /// The external input variant.
     ExternalInput,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for port spec.
 pub struct PortSpec {
+    /// Identifier for this value.
     pub id: String,
+    /// Label assigned to this value.
     pub label: String,
+    /// The kind value.
     pub kind: PortKind,
+    /// The value type value.
     pub value_type: WorkflowTypeSpec,
     #[serde(default)]
+    /// The optional value.
     pub optional: bool,
     #[serde(default)]
+    /// The stream value.
     pub stream: bool,
     #[serde(default)]
+    /// The exposable input value.
     pub exposable_input: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The input surface value.
     pub input_surface: Option<WorkflowInputSurface>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// The suggested adapters value.
     pub suggested_adapters: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The runtime validation value.
     pub runtime_validation: Option<WorkflowRuntimeValidation>,
 }
 
 impl PortSpec {
+    /// Creates a new value.
     pub fn new(id: impl Into<String>, label: impl Into<String>, kind: PortKind) -> Self {
         Self {
             id: id.into(),
@@ -195,27 +331,32 @@ impl PortSpec {
         }
     }
 
+    /// Returns optional.
     pub fn optional(mut self) -> Self {
         self.optional = true;
         self
     }
 
+    /// Returns stream.
     pub fn stream(mut self) -> Self {
         self.stream = true;
         self
     }
 
+    /// Returns exposable input.
     pub fn exposable_input(mut self, surface: WorkflowInputSurface) -> Self {
         self.exposable_input = true;
         self.input_surface = Some(surface);
         self
     }
 
+    /// Returns value type.
     pub fn value_type(mut self, value_type: WorkflowTypeSpec) -> Self {
         self.value_type = value_type;
         self
     }
 
+    /// Returns suggested adapters.
     pub fn suggested_adapters<I, S>(mut self, suggested_adapters: I) -> Self
     where
         I: IntoIterator<Item = S>,
@@ -225,6 +366,7 @@ impl PortSpec {
         self
     }
 
+    /// Returns runtime validation.
     pub fn runtime_validation(mut self, mode: WorkflowRuntimeValidation) -> Self {
         self.runtime_validation = Some(mode);
         self
@@ -233,47 +375,77 @@ impl PortSpec {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+/// Variants describing workflow category.
 pub enum WorkflowCategory {
+    /// The app variant.
     App,
+    /// The ingest variant.
     Ingest,
+    /// The youtube variant.
     Youtube,
+    /// The video variant.
     Video,
+    /// The audio variant.
     Audio,
+    /// The text variant.
     Text,
+    /// The song variant.
     Song,
+    /// The collection variant.
     Collection,
+    /// The output variant.
     Output,
+    /// The data variant.
     Data,
+    /// The logic variant.
     Logic,
+    /// The network variant.
     Network,
+    /// The ui variant.
     Ui,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for node spec.
 pub struct NodeSpec {
+    /// Identifier for this value.
     pub id: String,
+    /// The title value.
     pub title: String,
+    /// The package name value.
     pub package_name: String,
+    /// The category value.
     pub category: WorkflowCategory,
     #[serde(default)]
+    /// The ui owned value.
     pub ui_owned: bool,
     #[serde(default)]
+    /// The inputs value.
     pub inputs: Vec<PortSpec>,
     #[serde(default)]
+    /// The outputs value.
     pub outputs: Vec<PortSpec>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for workflow catalog.
 pub struct WorkflowCatalog {
+    /// The version value.
     pub version: u32,
+    /// The port kinds value.
     pub port_kinds: Vec<PortKind>,
+    /// The nodes value.
     pub nodes: Vec<NodeSpec>,
+    /// The compatibility value.
     pub compatibility: Vec<PortCompatibility>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Data type for port compatibility.
 pub struct PortCompatibility {
+    /// The source value.
     pub source: PortKind,
+    /// The target value.
     pub target: PortKind,
 }
 
@@ -347,6 +519,7 @@ impl From<PortDefinition> for PortSpec {
     }
 }
 
+/// Returns default workflow catalog.
 pub fn default_workflow_catalog() -> WorkflowCatalog {
     let definition =
         serde_json::from_str::<WorkflowCatalogDefinition>(include_str!("workflow_catalog.json"))
@@ -360,6 +533,7 @@ pub fn default_workflow_catalog() -> WorkflowCatalog {
     }
 }
 
+/// Returns ports compatible.
 pub fn ports_compatible(source: PortKind, target: PortKind) -> bool {
     workflow_types_assignable(
         &workflow_type_for_port_kind(source),
@@ -367,6 +541,7 @@ pub fn ports_compatible(source: PortKind, target: PortKind) -> bool {
     )
 }
 
+/// Returns workflow types assignable.
 pub fn workflow_types_assignable(source: &WorkflowTypeSpec, target: &WorkflowTypeSpec) -> bool {
     match target {
         WorkflowTypeSpec::Any => return true,

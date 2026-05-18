@@ -5,24 +5,33 @@ use image_analysis_core::{ImagePixelFormat, OwnedImage};
 use video_analysis_core::{BoundingBox, DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for RGB color.
 pub struct RgbColor {
+    /// The red value.
     pub red: u8,
+    /// The green value.
     pub green: u8,
+    /// The blue value.
     pub blue: u8,
 }
 
 impl RgbColor {
+    /// Constant for black.
     pub const BLACK: Self = Self::new(0, 0, 0);
+    /// Constant for white.
     pub const WHITE: Self = Self::new(255, 255, 255);
 
+    /// Creates a new value.
     pub const fn new(red: u8, green: u8, blue: u8) -> Self {
         Self { red, green, blue }
     }
 
+    /// Creates a new value.
     pub const fn gray(value: u8) -> Self {
         Self::new(value, value, value)
     }
 
+    /// Returns luma.
     pub fn luma(self) -> u8 {
         (0.299 * self.red as f32 + 0.587 * self.green as f32 + 0.114 * self.blue as f32).round()
             as u8
@@ -30,13 +39,18 @@ impl RgbColor {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for image synthesis config.
 pub struct ImageSynthesisConfig {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The pixel format value.
     pub pixel_format: ImagePixelFormat,
 }
 
 impl ImageSynthesisConfig {
+    /// Creates a new value.
     pub fn new(width: u32, height: u32, pixel_format: ImagePixelFormat) -> Result<Self> {
         if width == 0 || height == 0 {
             return Err(DetectError::InvalidDimensions { width, height });
@@ -48,6 +62,7 @@ impl ImageSynthesisConfig {
         })
     }
 
+    /// Returns stride.
     pub fn stride(self) -> usize {
         self.width as usize * self.pixel_format.bytes_per_pixel()
     }
@@ -64,11 +79,15 @@ impl Default for ImageSynthesisConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for region paint.
 pub struct RegionPaint {
+    /// The region value.
     pub region: BoundingBox,
+    /// The color value.
     pub color: RgbColor,
 }
 
+/// Returns solid image.
 pub fn solid_image(color: RgbColor, config: ImageSynthesisConfig) -> Result<Generated<OwnedImage>> {
     ImageSynthesisConfig::new(config.width, config.height, config.pixel_format)?;
     let mut data = vec![0_u8; config.stride() * config.height as usize];
@@ -93,6 +112,7 @@ pub fn solid_image(color: RgbColor, config: ImageSynthesisConfig) -> Result<Gene
     Ok(Generated::new(image, trace))
 }
 
+/// Returns vertical gradient.
 pub fn vertical_gradient(
     top: RgbColor,
     bottom: RgbColor,
@@ -128,6 +148,7 @@ pub fn vertical_gradient(
     Ok(Generated::new(image, trace))
 }
 
+/// Returns image from luma histogram.
 pub fn image_from_luma_histogram(
     histogram: &[u64],
     config: ImageSynthesisConfig,
@@ -183,6 +204,7 @@ pub fn image_from_luma_histogram(
     Ok(Generated::new(image, trace))
 }
 
+/// Returns paint regions.
 pub fn paint_regions(
     background: RgbColor,
     regions: &[RegionPaint],

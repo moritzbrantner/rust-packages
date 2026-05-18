@@ -7,19 +7,27 @@ use text_analysis_linguistics::LinguisticAnalysis;
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for markov prediction.
 pub struct MarkovPrediction {
+    /// The token value.
     pub token: String,
+    /// Number of items represented by this value.
     pub count: usize,
+    /// The probability value.
     pub probability: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for markov generation.
 pub struct MarkovGeneration {
+    /// The tokens value.
     pub tokens: Vec<String>,
+    /// Text content for this value.
     pub text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for markov chain.
 pub struct MarkovChain {
     order: usize,
     transitions: BTreeMap<Vec<String>, BTreeMap<String, usize>>,
@@ -27,15 +35,21 @@ pub struct MarkovChain {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing markov input mode.
 pub enum MarkovInputMode {
+    /// The surface variant.
     Surface,
     #[default]
+    /// The normalized variant.
     Normalized,
+    /// The lemma variant.
     Lemma,
+    /// The entity aware variant.
     EntityAware,
 }
 
 impl MarkovChain {
+    /// Creates a new value.
     pub fn new(order: usize) -> Result<Self> {
         if order == 0 {
             return Err(invalid_argument("markov order must be greater than zero"));
@@ -47,14 +61,17 @@ impl MarkovChain {
         })
     }
 
+    /// Returns order.
     pub fn order(&self) -> usize {
         self.order
     }
 
+    /// Returns whether is empty.
     pub fn is_empty(&self) -> bool {
         self.starts.is_empty()
     }
 
+    /// Returns total transitions.
     pub fn total_transitions(&self) -> usize {
         self.transitions
             .values()
@@ -62,23 +79,28 @@ impl MarkovChain {
             .sum()
     }
 
+    /// Returns contexts.
     pub fn contexts(&self) -> usize {
         self.transitions.len()
     }
 
+    /// Returns starts.
     pub fn starts(&self) -> &BTreeMap<Vec<String>, usize> {
         &self.starts
     }
 
+    /// Returns transitions.
     pub fn transitions(&self) -> &BTreeMap<Vec<String>, BTreeMap<String, usize>> {
         &self.transitions
     }
 
+    /// Returns train text.
     pub fn train_text(&mut self, text: &str) {
         let tokens = tokenize_words(text);
         self.train_tokens(&tokens);
     }
 
+    /// Returns train documents.
     pub fn train_documents<I, S>(&mut self, documents: I)
     where
         I: IntoIterator<Item = S>,
@@ -89,11 +111,13 @@ impl MarkovChain {
         }
     }
 
+    /// Returns train analysis.
     pub fn train_analysis(&mut self, analysis: &LinguisticAnalysis, mode: MarkovInputMode) {
         let tokens = analysis_tokens(analysis, mode);
         self.train_tokens(&tokens);
     }
 
+    /// Returns train analyses.
     pub fn train_analyses<'a>(
         &mut self,
         analyses: impl IntoIterator<Item = &'a LinguisticAnalysis>,
@@ -104,6 +128,7 @@ impl MarkovChain {
         }
     }
 
+    /// Returns train tokens.
     pub fn train_tokens(&mut self, tokens: &[String]) {
         if tokens.len() < self.order {
             return;
@@ -125,6 +150,7 @@ impl MarkovChain {
         }
     }
 
+    /// Returns predict next.
     pub fn predict_next<'a>(
         &self,
         context: impl IntoIterator<Item = &'a str>,
@@ -137,6 +163,7 @@ impl MarkovChain {
         self.predict_next_tokens(&tokens, limit)
     }
 
+    /// Returns predict next tokens.
     pub fn predict_next_tokens(
         &self,
         context: &[String],
@@ -170,6 +197,7 @@ impl MarkovChain {
         Ok(predictions)
     }
 
+    /// Returns generate.
     pub fn generate(&self, seed: &[&str], max_tokens: usize) -> Result<MarkovGeneration> {
         let seed = seed
             .iter()
@@ -178,6 +206,7 @@ impl MarkovChain {
         self.generate_from_tokens(&seed, max_tokens)
     }
 
+    /// Returns generate from tokens.
     pub fn generate_from_tokens(
         &self,
         seed: &[String],
@@ -225,6 +254,7 @@ impl MarkovChain {
         })
     }
 
+    /// Returns perplexity.
     pub fn perplexity(&self, text: &str) -> Result<f32> {
         let tokens = tokenize_words(text);
         if tokens.len() <= self.order {
@@ -293,6 +323,7 @@ impl Default for MarkovChain {
     }
 }
 
+/// Returns analysis tokens.
 pub fn analysis_tokens(analysis: &LinguisticAnalysis, mode: MarkovInputMode) -> Vec<String> {
     match mode {
         MarkovInputMode::Surface => analysis

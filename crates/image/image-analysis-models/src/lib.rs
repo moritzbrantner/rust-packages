@@ -8,16 +8,22 @@ use video_analysis_core::{DetectError, Result};
 use video_analysis_models::{HuggingFaceModelSpec, ModelTask};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing SAM image preset.
 pub enum SamImagePreset {
     #[default]
+    /// The vit base variant.
     VitBase,
+    /// The vit large variant.
     VitLarge,
+    /// The vit huge variant.
     VitHuge,
 }
 
 impl SamImagePreset {
+    /// Constant for all.
     pub const ALL: &'static [Self] = &[Self::VitBase, Self::VitLarge, Self::VitHuge];
 
+    /// Borrows this value as a str.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::VitBase => "sam-vit-base",
@@ -26,6 +32,7 @@ impl SamImagePreset {
         }
     }
 
+    /// Returns repo identifier.
     pub fn repo_id(self) -> &'static str {
         match self {
             Self::VitBase => "facebook/sam-vit-base",
@@ -34,6 +41,7 @@ impl SamImagePreset {
         }
     }
 
+    /// Returns model spec.
     pub fn model_spec(self) -> HuggingFaceModelSpec {
         HuggingFaceModelSpec::new(
             self.repo_id(),
@@ -46,17 +54,21 @@ impl SamImagePreset {
     }
 }
 
+/// Returns default SAM model spec.
 pub fn default_sam_model_spec() -> HuggingFaceModelSpec {
     SamImagePreset::default().model_spec()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing image classification preset.
 pub enum ImageClassificationPreset {
     #[default]
+    /// The vit base patch16 224 variant.
     VitBasePatch16_224,
 }
 
 impl ImageClassificationPreset {
+    /// Returns model spec.
     pub fn model_spec(self) -> HuggingFaceModelSpec {
         match self {
             Self::VitBasePatch16_224 => HuggingFaceModelSpec::new(
@@ -72,12 +84,15 @@ impl ImageClassificationPreset {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing image embedding preset.
 pub enum ImageEmbeddingPreset {
     #[default]
+    /// The clip vit base patch32 variant.
     ClipVitBasePatch32,
 }
 
 impl ImageEmbeddingPreset {
+    /// Returns model spec.
     pub fn model_spec(self) -> HuggingFaceModelSpec {
         match self {
             Self::ClipVitBasePatch32 => HuggingFaceModelSpec::new(
@@ -93,12 +108,15 @@ impl ImageEmbeddingPreset {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing image caption preset.
 pub enum ImageCaptionPreset {
     #[default]
+    /// The blip base variant.
     BlipBase,
 }
 
 impl ImageCaptionPreset {
+    /// Returns model spec.
     pub fn model_spec(self) -> HuggingFaceModelSpec {
         match self {
             Self::BlipBase => HuggingFaceModelSpec::new(
@@ -114,13 +132,18 @@ impl ImageCaptionPreset {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for image classification.
 pub struct ImageClassification {
+    /// Label assigned to this value.
     pub label: String,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl ImageClassification {
+    /// Creates a new value.
     pub fn new(label: impl Into<String>) -> Self {
         Self {
             label: label.into(),
@@ -129,11 +152,13 @@ impl ImageClassification {
         }
     }
 
+    /// Returns score.
     pub fn score(mut self, value: f32) -> Self {
         self.score = Some(value);
         self
     }
 
+    /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
@@ -141,12 +166,16 @@ impl ImageClassification {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for image embedding.
 pub struct ImageEmbedding {
+    /// The vector value.
     pub vector: Vec<f32>,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl ImageEmbedding {
+    /// Creates a new value.
     pub fn new(vector: Vec<f32>) -> Result<Self> {
         if vector.is_empty() || vector.iter().any(|value| !value.is_finite()) {
             return Err(DetectError::InvalidArgument(
@@ -159,6 +188,7 @@ impl ImageEmbedding {
         })
     }
 
+    /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
@@ -166,13 +196,18 @@ impl ImageEmbedding {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for image caption.
 pub struct ImageCaption {
+    /// Text content for this value.
     pub text: String,
+    /// Score assigned to this value.
     pub score: Option<f32>,
+    /// The attributes value.
     pub attributes: BTreeMap<String, String>,
 }
 
 impl ImageCaption {
+    /// Creates a new value.
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
@@ -181,30 +216,40 @@ impl ImageCaption {
         }
     }
 
+    /// Returns score.
     pub fn score(mut self, value: f32) -> Self {
         self.score = Some(value);
         self
     }
 
+    /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
     }
 }
 
+/// Trait for model backed image segmentation backend implementations.
 pub trait ModelBackedImageSegmentationBackend: ImageSegmentationBackend {
+    /// Returns model spec.
     fn model_spec(&self) -> HuggingFaceModelSpec;
 }
 
+/// Trait for image classifier backend implementations.
 pub trait ImageClassifierBackend {
+    /// Returns classify image.
     fn classify_image(&mut self, image: &ImageView<'_>) -> Result<Vec<ImageClassification>>;
 }
 
+/// Trait for image embedder backend implementations.
 pub trait ImageEmbedderBackend {
+    /// Returns embed image.
     fn embed_image(&mut self, image: &ImageView<'_>) -> Result<ImageEmbedding>;
 }
 
+/// Trait for image captioner backend implementations.
 pub trait ImageCaptionerBackend {
+    /// Returns caption image.
     fn caption_image(&mut self, image: &ImageView<'_>) -> Result<Vec<ImageCaption>>;
 }
 

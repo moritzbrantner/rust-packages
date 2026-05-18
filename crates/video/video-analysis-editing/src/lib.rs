@@ -7,59 +7,81 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
+/// Variants describing frame edit.
 pub enum FrameEdit {
+    /// The crop variant.
     Crop(BoundingBox),
+    /// The box blur variant.
     BoxBlur {
+        /// The radius value for this variant.
         radius: u32,
     },
+    /// The grayscale variant.
     Grayscale,
+    /// The invert variant.
     Invert,
+    /// The brightness contrast variant.
     BrightnessContrast {
+        /// The brightness value for this variant.
         brightness: i16,
+        /// The contrast value for this variant.
         contrast: f32,
     },
+    /// The filter3x3 variant.
     Filter3x3 {
+        /// The kernel value for this variant.
         kernel: [f32; 9],
+        /// The divisor value for this variant.
         divisor: f32,
+        /// The bias value for this variant.
         bias: f32,
     },
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// Data type for frame editor.
 pub struct FrameEditor {
     edits: Vec<FrameEdit>,
 }
 
 impl FrameEditor {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns edit.
     pub fn edit(mut self, edit: FrameEdit) -> Self {
         self.edits.push(edit);
         self
     }
 
+    /// Returns crop.
     pub fn crop(self, region: BoundingBox) -> Self {
         self.edit(FrameEdit::Crop(region))
     }
 
+    /// Returns crop rect.
     pub fn crop_rect(self, region: RectU32) -> Result<Self> {
         Ok(self.crop(region.try_into()?))
     }
 
+    /// Returns box blur.
     pub fn box_blur(self, radius: u32) -> Self {
         self.edit(FrameEdit::BoxBlur { radius })
     }
 
+    /// Returns grayscale.
     pub fn grayscale(self) -> Self {
         self.edit(FrameEdit::Grayscale)
     }
 
+    /// Returns invert.
     pub fn invert(self) -> Self {
         self.edit(FrameEdit::Invert)
     }
 
+    /// Returns brightness contrast.
     pub fn brightness_contrast(self, brightness: i16, contrast: f32) -> Self {
         self.edit(FrameEdit::BrightnessContrast {
             brightness,
@@ -67,6 +89,7 @@ impl FrameEditor {
         })
     }
 
+    /// Returns filter 3x3.
     pub fn filter_3x3(self, kernel: [f32; 9], divisor: f32, bias: f32) -> Self {
         self.edit(FrameEdit::Filter3x3 {
             kernel,
@@ -75,14 +98,17 @@ impl FrameEditor {
         })
     }
 
+    /// Returns filter 3x3 kernel.
     pub fn filter_3x3_kernel(self, kernel: Kernel2d, divisor: f32, bias: f32) -> Result<Self> {
         Ok(self.filter_3x3(kernel.as_array_3x3()?, divisor, bias))
     }
 
+    /// Returns edits.
     pub fn edits(&self) -> &[FrameEdit] {
         &self.edits
     }
 
+    /// Returns apply.
     pub fn apply(&self, frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
         let mut current = compact_frame(frame);
         for edit in &self.edits {
@@ -92,10 +118,12 @@ impl FrameEditor {
     }
 }
 
+/// Returns crop frame.
 pub fn crop_frame(frame: &VideoFrame<'_>, region: BoundingBox) -> Result<OwnedVideoFrame> {
     crop_frame_rect(frame, region.into())
 }
 
+/// Returns crop frame rect.
 pub fn crop_frame_rect(frame: &VideoFrame<'_>, region: RectU32) -> Result<OwnedVideoFrame> {
     validate_region(frame, region)?;
     let pixel_format = frame.pixel_format;
@@ -117,6 +145,7 @@ pub fn crop_frame_rect(frame: &VideoFrame<'_>, region: RectU32) -> Result<OwnedV
     })
 }
 
+/// Returns box blur frame.
 pub fn box_blur_frame(frame: &VideoFrame<'_>, radius: u32) -> Result<OwnedVideoFrame> {
     if radius == 0 {
         return Ok(compact_frame(frame));
@@ -145,6 +174,7 @@ pub fn box_blur_frame(frame: &VideoFrame<'_>, radius: u32) -> Result<OwnedVideoF
     })
 }
 
+/// Returns grayscale frame.
 pub fn grayscale_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
     map_pixels(frame, |x, y| {
         let [red, green, blue] = frame.pixel_rgb(x, y);
@@ -153,6 +183,7 @@ pub fn grayscale_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
     })
 }
 
+/// Returns invert frame.
 pub fn invert_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
     map_pixels(frame, |x, y| {
         let [red, green, blue] = frame.pixel_rgb(x, y);
@@ -160,6 +191,7 @@ pub fn invert_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
     })
 }
 
+/// Returns brightness contrast frame.
 pub fn brightness_contrast_frame(
     frame: &VideoFrame<'_>,
     brightness: i16,
@@ -180,6 +212,7 @@ pub fn brightness_contrast_frame(
     })
 }
 
+/// Returns filter 3x3 frame.
 pub fn filter_3x3_frame(
     frame: &VideoFrame<'_>,
     kernel: [f32; 9],
@@ -189,6 +222,7 @@ pub fn filter_3x3_frame(
     filter_3x3_frame_kernel(frame, &Kernel2d::from(kernel), divisor, bias)
 }
 
+/// Returns filter 3x3 frame kernel.
 pub fn filter_3x3_frame_kernel(
     frame: &VideoFrame<'_>,
     kernel: &Kernel2d,
@@ -224,10 +258,12 @@ pub fn filter_3x3_frame_kernel(
     })
 }
 
+/// Returns sharpen frame.
 pub fn sharpen_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
     filter_3x3_frame_kernel(frame, &Kernel2d::sharpen_3x3(), 1.0, 0.0)
 }
 
+/// Returns edge detect frame.
 pub fn edge_detect_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
     filter_3x3_frame_kernel(frame, &Kernel2d::edge_3x3(), 1.0, 0.0)
 }

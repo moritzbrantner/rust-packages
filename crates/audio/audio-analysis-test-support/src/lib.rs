@@ -1,3 +1,5 @@
+//! Public API for the audio-analysis-test-support crate.
+
 use std::f32::consts::PI;
 use std::fs::File;
 use std::io::{self, Write};
@@ -5,11 +7,13 @@ use std::path::Path;
 
 use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Result, Timestamp};
 
+/// Generates a sine wave.
 pub fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
     let samples = (sample_rate as f32 * seconds) as usize;
     sine_len(freq_hz, sample_rate, samples)
 }
 
+/// Generates a sine wave with a fixed sample count.
 pub fn sine_len(freq_hz: f32, sample_rate: u32, len: usize) -> Vec<f32> {
     (0..len)
         .map(|index| {
@@ -19,6 +23,7 @@ pub fn sine_len(freq_hz: f32, sample_rate: u32, len: usize) -> Vec<f32> {
         .collect()
 }
 
+/// Returns impulse train.
 pub fn impulse_train(sample_rate: u32, bpm: f32, seconds: f32) -> Vec<f32> {
     let len = (sample_rate as f32 * seconds) as usize;
     let interval = (sample_rate as f32 * 60.0 / bpm).max(1.0) as usize;
@@ -29,6 +34,7 @@ pub fn impulse_train(sample_rate: u32, bpm: f32, seconds: f32) -> Vec<f32> {
     samples
 }
 
+/// Returns click track.
 pub fn click_track(sample_rate: u32, bpm: f32, seconds: f32) -> Vec<f32> {
     let len = (sample_rate as f32 * seconds) as usize;
     let interval = (sample_rate as f32 * 60.0 / bpm).max(1.0) as usize;
@@ -41,6 +47,7 @@ pub fn click_track(sample_rate: u32, bpm: f32, seconds: f32) -> Vec<f32> {
     samples
 }
 
+/// Returns white noise.
 pub fn white_noise(seed: u64, len: usize) -> Vec<f32> {
     let mut state = seed;
     (0..len)
@@ -52,6 +59,7 @@ pub fn white_noise(seed: u64, len: usize) -> Vec<f32> {
         .collect()
 }
 
+/// Returns pink noise.
 pub fn pink_noise(seed: u64, len: usize) -> Vec<f32> {
     let white = white_noise(seed, len.max(1));
     let mut acc = 0.0_f32;
@@ -64,6 +72,7 @@ pub fn pink_noise(seed: u64, len: usize) -> Vec<f32> {
         .collect()
 }
 
+/// Returns chirp.
 pub fn chirp(start_hz: f32, end_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
     let samples = (sample_rate as f32 * seconds) as usize;
     (0..samples)
@@ -76,6 +85,7 @@ pub fn chirp(start_hz: f32, end_hz: f32, sample_rate: u32, seconds: f32) -> Vec<
         .collect()
 }
 
+/// Returns stepped tones.
 pub fn stepped_tones(tones: &[(f32, f32)], sample_rate: u32) -> Vec<f32> {
     tones
         .iter()
@@ -83,6 +93,7 @@ pub fn stepped_tones(tones: &[(f32, f32)], sample_rate: u32) -> Vec<f32> {
         .collect()
 }
 
+/// Returns mixed sources.
 pub fn mixed_sources(tracks: &[Vec<f32>]) -> Vec<f32> {
     let len = tracks.iter().map(Vec::len).max().unwrap_or(0);
     let mut mixed = vec![0.0_f32; len];
@@ -97,14 +108,17 @@ pub fn mixed_sources(tracks: &[Vec<f32>]) -> Vec<f32> {
     mixed
 }
 
+/// Returns common sample rates.
 pub fn common_sample_rates() -> &'static [u32] {
     &[8_000, 16_000, 44_100, 48_000]
 }
 
+/// Returns temp wav dir.
 pub fn temp_wav_dir() -> io::Result<tempfile::TempDir> {
     tempfile::tempdir()
 }
 
+/// Returns interleaved stereo.
 pub fn interleaved_stereo(left: &[f32], right: &[f32]) -> Vec<f32> {
     assert_eq!(left.len(), right.len(), "stereo channels must match");
     left.iter()
@@ -113,6 +127,7 @@ pub fn interleaved_stereo(left: &[f32], right: &[f32]) -> Vec<f32> {
         .collect()
 }
 
+/// Returns owned f32 frame.
 pub fn owned_f32_frame(
     timestamp: Timestamp,
     sample_rate: u32,
@@ -122,6 +137,7 @@ pub fn owned_f32_frame(
     OwnedAudioFrame::new(timestamp, sample_rate, channels, AudioBuffer::F32(samples))
 }
 
+/// Returns owned i16 frame.
 pub fn owned_i16_frame(
     timestamp: Timestamp,
     sample_rate: u32,
@@ -131,6 +147,7 @@ pub fn owned_i16_frame(
     OwnedAudioFrame::new(timestamp, sample_rate, channels, AudioBuffer::I16(samples))
 }
 
+/// Writes pcm16 wav.
 pub fn write_pcm16_wav(
     path: impl AsRef<Path>,
     sample_rate: u32,
@@ -165,6 +182,7 @@ pub fn write_pcm16_wav(
     Ok(())
 }
 
+/// Asserts that two values are approximately equal.
 pub fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {
     assert!(
         (actual - expected).abs() <= tolerance,
@@ -172,6 +190,7 @@ pub fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {
     );
 }
 
+/// Asserts that two slices are approximately equal.
 pub fn assert_approx_slice(actual: &[f32], expected: &[f32], tolerance: f32) {
     assert_eq!(actual.len(), expected.len(), "slice lengths differ");
     for (index, (actual, expected)) in actual.iter().zip(expected).enumerate() {

@@ -5,23 +5,32 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing graph kind.
 pub enum GraphKind {
+    /// The directed variant.
     Directed,
+    /// The undirected variant.
     Undirected,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for graph edge.
 pub struct GraphEdge {
+    /// The source value.
     pub source: String,
+    /// The target value.
     pub target: String,
+    /// The weight value.
     pub weight: f64,
 }
 
 impl GraphEdge {
+    /// Creates a new value.
     pub fn new(source: impl Into<String>, target: impl Into<String>) -> Result<Self> {
         Self::weighted(source, target, 1.0)
     }
 
+    /// Returns weighted.
     pub fn weighted(
         source: impl Into<String>,
         target: impl Into<String>,
@@ -36,6 +45,7 @@ impl GraphEdge {
         Ok(edge)
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.source.is_empty() {
             return Err(invalid_argument("edge source must not be empty"));
@@ -51,6 +61,7 @@ impl GraphEdge {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for graph.
 pub struct Graph {
     kind: GraphKind,
     nodes: BTreeSet<String>,
@@ -58,6 +69,7 @@ pub struct Graph {
 }
 
 impl Graph {
+    /// Creates a new value.
     pub fn new(kind: GraphKind) -> Self {
         Self {
             kind,
@@ -66,14 +78,17 @@ impl Graph {
         }
     }
 
+    /// Returns directed.
     pub fn directed() -> Self {
         Self::new(GraphKind::Directed)
     }
 
+    /// Returns undirected.
     pub fn undirected() -> Self {
         Self::new(GraphKind::Undirected)
     }
 
+    /// Builds this value from edges.
     pub fn from_edges(kind: GraphKind, edges: impl IntoIterator<Item = GraphEdge>) -> Result<Self> {
         let mut graph = Self::new(kind);
         for edge in edges {
@@ -82,10 +97,12 @@ impl Graph {
         Ok(graph)
     }
 
+    /// Returns kind.
     pub fn kind(&self) -> GraphKind {
         self.kind
     }
 
+    /// Adds add node to this value.
     pub fn add_node(&mut self, node_id: impl Into<String>) -> Result<()> {
         let node_id = node_id.into();
         if node_id.is_empty() {
@@ -95,6 +112,7 @@ impl Graph {
         Ok(())
     }
 
+    /// Adds add edge to this value.
     pub fn add_edge(&mut self, edge: GraphEdge) -> Result<()> {
         let edge = normalize_edge(self.kind, edge)?;
         self.nodes.insert(edge.source.clone());
@@ -103,10 +121,12 @@ impl Graph {
         Ok(())
     }
 
+    /// Returns connect.
     pub fn connect(&mut self, source: impl Into<String>, target: impl Into<String>) -> Result<()> {
         self.add_edge(GraphEdge::new(source, target)?)
     }
 
+    /// Returns connect weighted.
     pub fn connect_weighted(
         &mut self,
         source: impl Into<String>,
@@ -116,57 +136,77 @@ impl Graph {
         self.add_edge(GraphEdge::weighted(source, target, weight)?)
     }
 
+    /// Returns contains node.
     pub fn contains_node(&self, node_id: &str) -> bool {
         self.nodes.contains(node_id)
     }
 
+    /// Returns node count.
     pub fn node_count(&self) -> usize {
         self.nodes.len()
     }
 
+    /// Returns edge count.
     pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
 
+    /// Returns whether is empty.
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
     }
 
+    /// Returns node identifiers.
     pub fn node_ids(&self) -> impl Iterator<Item = &str> {
         self.nodes.iter().map(String::as_str)
     }
 
+    /// Returns edges.
     pub fn edges(&self) -> &[GraphEdge] {
         &self.edges
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for graph component.
 pub struct GraphComponent {
+    /// The nodes value.
     pub nodes: Vec<String>,
+    /// The edge count value.
     pub edge_count: usize,
+    /// The total weight value.
     pub total_weight: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for graph cycle.
 pub struct GraphCycle {
+    /// The nodes value.
     pub nodes: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for shortest path.
 pub struct ShortestPath {
+    /// The nodes value.
     pub nodes: Vec<String>,
+    /// The total weight value.
     pub total_weight: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for shortest path tree.
 pub struct ShortestPathTree {
+    /// The source value.
     pub source: String,
+    /// The distances value.
     pub distances: BTreeMap<String, f64>,
+    /// The predecessors value.
     pub predecessors: BTreeMap<String, Option<String>>,
 }
 
 impl ShortestPathTree {
+    /// Returns path to.
     pub fn path_to(&self, target: &str) -> Option<ShortestPath> {
         let total_weight = *self.distances.get(target)?;
         let mut nodes = Vec::new();
@@ -188,26 +228,42 @@ impl ShortestPathTree {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for spanning forest.
 pub struct SpanningForest {
+    /// The nodes value.
     pub nodes: Vec<String>,
+    /// The component count value.
     pub component_count: usize,
+    /// The total weight value.
     pub total_weight: f64,
+    /// The edges value.
     pub edges: Vec<GraphEdge>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for tree analysis.
 pub struct TreeAnalysis {
+    /// The roots value.
     pub roots: Vec<String>,
+    /// The is tree value.
     pub is_tree: bool,
+    /// The is forest value.
     pub is_forest: bool,
+    /// The has cycle value.
     pub has_cycle: bool,
+    /// The component count value.
     pub component_count: usize,
+    /// The leaves value.
     pub leaves: Vec<String>,
+    /// The traversal order value.
     pub traversal_order: Vec<String>,
+    /// The depths value.
     pub depths: BTreeMap<String, usize>,
+    /// The parents value.
     pub parents: BTreeMap<String, Option<String>>,
 }
 
+/// Returns connected components.
 pub fn connected_components(graph: &Graph) -> Result<Vec<GraphComponent>> {
     if graph.kind != GraphKind::Undirected {
         return Err(invalid_argument(
@@ -217,12 +273,14 @@ pub fn connected_components(graph: &Graph) -> Result<Vec<GraphComponent>> {
     Ok(weakly_connected_components(graph))
 }
 
+/// Returns weakly connected components.
 pub fn weakly_connected_components(graph: &Graph) -> Vec<GraphComponent> {
     let (nodes, index_by_node) = node_index(graph);
     let adjacency = build_adjacency(graph, &index_by_node, TraversalMode::Undirected);
     component_search(graph, &nodes, &index_by_node, &adjacency)
 }
 
+/// Returns strongly connected components.
 pub fn strongly_connected_components(graph: &Graph) -> Vec<GraphComponent> {
     let (nodes, index_by_node) = node_index(graph);
     let adjacency = build_adjacency(graph, &index_by_node, TraversalMode::Native);
@@ -251,18 +309,22 @@ pub fn strongly_connected_components(graph: &Graph) -> Vec<GraphComponent> {
     components
 }
 
+/// Returns whether is connected.
 pub fn is_connected(graph: &Graph) -> Result<bool> {
     Ok(connected_components(graph)?.len() <= 1)
 }
 
+/// Returns whether is weakly connected.
 pub fn is_weakly_connected(graph: &Graph) -> bool {
     weakly_connected_components(graph).len() <= 1
 }
 
+/// Returns whether is strongly connected.
 pub fn is_strongly_connected(graph: &Graph) -> bool {
     strongly_connected_components(graph).len() <= 1
 }
 
+/// Returns find cycle.
 pub fn find_cycle(graph: &Graph) -> Option<GraphCycle> {
     let (nodes, index_by_node) = node_index(graph);
     let adjacency = build_adjacency(graph, &index_by_node, TraversalMode::Native);
@@ -278,10 +340,12 @@ pub fn find_cycle(graph: &Graph) -> Option<GraphCycle> {
     })
 }
 
+/// Returns whether has cycle.
 pub fn has_cycle(graph: &Graph) -> bool {
     find_cycle(graph).is_some()
 }
 
+/// Returns shortest paths from.
 pub fn shortest_paths_from(graph: &Graph, source: &str) -> Result<ShortestPathTree> {
     ensure_node_exists(graph, source)?;
     if graph.edges.iter().any(|edge| edge.weight < 0.0) {
@@ -340,11 +404,13 @@ pub fn shortest_paths_from(graph: &Graph, source: &str) -> Result<ShortestPathTr
     })
 }
 
+/// Returns shortest path.
 pub fn shortest_path(graph: &Graph, source: &str, target: &str) -> Result<Option<ShortestPath>> {
     ensure_node_exists(graph, target)?;
     Ok(shortest_paths_from(graph, source)?.path_to(target))
 }
 
+/// Returns minimum spanning forest.
 pub fn minimum_spanning_forest(graph: &Graph) -> Result<SpanningForest> {
     if graph.kind != GraphKind::Undirected {
         return Err(invalid_argument(
@@ -382,6 +448,7 @@ pub fn minimum_spanning_forest(graph: &Graph) -> Result<SpanningForest> {
     })
 }
 
+/// Returns minimum spanning tree.
 pub fn minimum_spanning_tree(graph: &Graph) -> Result<SpanningForest> {
     let forest = minimum_spanning_forest(graph)?;
     if !forest.nodes.is_empty() && forest.component_count != 1 {
@@ -392,6 +459,7 @@ pub fn minimum_spanning_tree(graph: &Graph) -> Result<SpanningForest> {
     Ok(forest)
 }
 
+/// Returns analyze tree.
 pub fn analyze_tree(graph: &Graph, root: Option<&str>) -> Result<TreeAnalysis> {
     if graph.kind != GraphKind::Undirected {
         return Err(invalid_argument(
@@ -467,10 +535,12 @@ pub fn analyze_tree(graph: &Graph, root: Option<&str>) -> Result<TreeAnalysis> {
     })
 }
 
+/// Returns whether is tree.
 pub fn is_tree(graph: &Graph) -> Result<bool> {
     Ok(analyze_tree(graph, None)?.is_tree)
 }
 
+/// Returns whether is forest.
 pub fn is_forest(graph: &Graph) -> Result<bool> {
     Ok(analyze_tree(graph, None)?.is_forest)
 }

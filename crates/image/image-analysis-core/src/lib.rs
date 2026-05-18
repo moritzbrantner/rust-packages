@@ -4,13 +4,18 @@ use tensor_data::F32Tensor;
 use video_analysis_core::{DetectError, PixelFormat, Result, VideoFrame};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing image pixel format.
 pub enum ImagePixelFormat {
+    /// The rgb24 variant.
     Rgb24,
+    /// The bgr24 variant.
     Bgr24,
+    /// The gray8 variant.
     Gray8,
 }
 
 impl ImagePixelFormat {
+    /// Creates a new value.
     pub const fn bytes_per_pixel(self) -> usize {
         match self {
             Self::Rgb24 | Self::Bgr24 => 3,
@@ -29,15 +34,22 @@ impl From<PixelFormat> for ImagePixelFormat {
 }
 
 #[derive(Debug, Clone, Copy)]
+/// Data type for image view.
 pub struct ImageView<'a> {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The pixel format value.
     pub pixel_format: ImagePixelFormat,
+    /// Underlying data buffer.
     pub data: &'a [u8],
+    /// The stride value.
     pub stride: usize,
 }
 
 impl<'a> ImageView<'a> {
+    /// Returns packed.
     pub fn packed(
         width: u32,
         height: u32,
@@ -53,6 +65,7 @@ impl<'a> ImageView<'a> {
         )
     }
 
+    /// Creates a new value.
     pub fn new(
         width: u32,
         height: u32,
@@ -71,6 +84,7 @@ impl<'a> ImageView<'a> {
         Ok(image)
     }
 
+    /// Builds this value from video frame.
     pub fn from_video_frame(frame: &VideoFrame<'a>) -> Result<Self> {
         Self::new(
             frame.width,
@@ -81,6 +95,7 @@ impl<'a> ImageView<'a> {
         )
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if self.width == 0 || self.height == 0 {
             return Err(DetectError::InvalidDimensions {
@@ -105,10 +120,12 @@ impl<'a> ImageView<'a> {
         Ok(())
     }
 
+    /// Returns compact len.
     pub fn compact_len(self) -> usize {
         self.width as usize * self.height as usize * self.pixel_format.bytes_per_pixel()
     }
 
+    /// Returns pixel RGB.
     pub fn pixel_rgb(self, x: u32, y: u32) -> [u8; 3] {
         let bpp = self.pixel_format.bytes_per_pixel();
         let offset = y as usize * self.stride + x as usize * bpp;
@@ -130,6 +147,7 @@ impl<'a> ImageView<'a> {
         }
     }
 
+    /// Returns luma.
     pub fn luma(self, x: u32, y: u32) -> u8 {
         let [red, green, blue] = self.pixel_rgb(x, y);
         (0.299 * red as f32 + 0.587 * green as f32 + 0.114 * blue as f32).round() as u8
@@ -137,15 +155,22 @@ impl<'a> ImageView<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for owned image.
 pub struct OwnedImage {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The pixel format value.
     pub pixel_format: ImagePixelFormat,
+    /// Underlying data buffer.
     pub data: Vec<u8>,
+    /// The stride value.
     pub stride: usize,
 }
 
 impl OwnedImage {
+    /// Returns new RGB.
     pub fn new_rgb(width: u32, height: u32, data: Vec<u8>) -> Result<Self> {
         Self::new(
             width,
@@ -156,6 +181,7 @@ impl OwnedImage {
         )
     }
 
+    /// Returns new BGR.
     pub fn new_bgr(width: u32, height: u32, data: Vec<u8>) -> Result<Self> {
         Self::new(
             width,
@@ -166,6 +192,7 @@ impl OwnedImage {
         )
     }
 
+    /// Returns new gray.
     pub fn new_gray(width: u32, height: u32, data: Vec<u8>) -> Result<Self> {
         Self::new(
             width,
@@ -176,6 +203,7 @@ impl OwnedImage {
         )
     }
 
+    /// Creates a new value.
     pub fn new(
         width: u32,
         height: u32,
@@ -194,6 +222,7 @@ impl OwnedImage {
         Ok(image)
     }
 
+    /// Borrows this value as a view.
     pub fn as_view(&self) -> ImageView<'_> {
         ImageView {
             width: self.width,
@@ -204,6 +233,7 @@ impl OwnedImage {
         }
     }
 
+    /// Builds this value from video frame.
     pub fn from_video_frame(frame: &VideoFrame<'_>) -> Result<Self> {
         compact_image(&ImageView::new(
             frame.width,
@@ -216,17 +246,26 @@ impl OwnedImage {
 }
 
 #[derive(Debug, Clone, Copy)]
+/// Data type for image batch view.
 pub struct ImageBatchView<'a> {
+    /// The batch size value.
     pub batch_size: usize,
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The pixel format value.
     pub pixel_format: ImagePixelFormat,
+    /// Underlying data buffer.
     pub data: &'a [u8],
+    /// The row stride value.
     pub row_stride: usize,
+    /// The image stride value.
     pub image_stride: usize,
 }
 
 impl<'a> ImageBatchView<'a> {
+    /// Returns packed.
     pub fn packed(
         batch_size: usize,
         width: u32,
@@ -246,6 +285,7 @@ impl<'a> ImageBatchView<'a> {
         )
     }
 
+    /// Creates a new value.
     pub fn new(
         batch_size: usize,
         width: u32,
@@ -268,6 +308,7 @@ impl<'a> ImageBatchView<'a> {
         Ok(batch)
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if self.batch_size == 0 {
             return Err(DetectError::InvalidArgument(
@@ -298,6 +339,7 @@ impl<'a> ImageBatchView<'a> {
         Ok(())
     }
 
+    /// Returns image.
     pub fn image(self, index: usize) -> Result<ImageView<'a>> {
         if index >= self.batch_size {
             return Err(DetectError::InvalidArgument(format!(
@@ -316,6 +358,7 @@ impl<'a> ImageBatchView<'a> {
         )
     }
 
+    /// Returns compact len.
     pub fn compact_len(self) -> usize {
         self.batch_size
             * self.width as usize
@@ -325,17 +368,26 @@ impl<'a> ImageBatchView<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for owned image batch.
 pub struct OwnedImageBatch {
+    /// The batch size value.
     pub batch_size: usize,
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The pixel format value.
     pub pixel_format: ImagePixelFormat,
+    /// Underlying data buffer.
     pub data: Vec<u8>,
+    /// The row stride value.
     pub row_stride: usize,
+    /// The image stride value.
     pub image_stride: usize,
 }
 
 impl OwnedImageBatch {
+    /// Returns packed.
     pub fn packed(
         batch_size: usize,
         width: u32,
@@ -355,6 +407,7 @@ impl OwnedImageBatch {
         )
     }
 
+    /// Creates a new value.
     pub fn new(
         batch_size: usize,
         width: u32,
@@ -377,6 +430,7 @@ impl OwnedImageBatch {
         Ok(batch)
     }
 
+    /// Builds this value from images.
     pub fn from_images(images: &[OwnedImage]) -> Result<Self> {
         if images.is_empty() {
             return Err(DetectError::InvalidArgument(
@@ -410,6 +464,7 @@ impl OwnedImageBatch {
         )
     }
 
+    /// Borrows this value as a view.
     pub fn as_view(&self) -> ImageBatchView<'_> {
         ImageBatchView {
             batch_size: self.batch_size,
@@ -424,12 +479,17 @@ impl OwnedImageBatch {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for RGB mean.
 pub struct RgbMean {
+    /// The red value.
     pub red: f32,
+    /// The green value.
     pub green: f32,
+    /// The blue value.
     pub blue: f32,
 }
 
+/// Returns compact image.
 pub fn compact_image(image: &ImageView<'_>) -> Result<OwnedImage> {
     image.validate()?;
     let bpp = image.pixel_format.bytes_per_pixel();
@@ -442,6 +502,7 @@ pub fn compact_image(image: &ImageView<'_>) -> Result<OwnedImage> {
     OwnedImage::new(image.width, image.height, image.pixel_format, data, row_len)
 }
 
+/// Returns mean RGB.
 pub fn mean_rgb(image: &ImageView<'_>) -> Result<RgbMean> {
     image.validate()?;
     let mut sum = [0_u64; 3];
@@ -461,6 +522,7 @@ pub fn mean_rgb(image: &ImageView<'_>) -> Result<RgbMean> {
     })
 }
 
+/// Returns luma histogram.
 pub fn luma_histogram(image: &ImageView<'_>, bins: usize) -> Result<Vec<u64>> {
     image.validate()?;
     if bins == 0 || bins > 256 {
@@ -478,6 +540,7 @@ pub fn luma_histogram(image: &ImageView<'_>, bins: usize) -> Result<Vec<u64>> {
     Ok(histogram)
 }
 
+/// Returns mask tensor from luma.
 pub fn mask_tensor_from_luma(image: &ImageView<'_>) -> Result<F32Tensor> {
     image.validate()?;
     let mut values = Vec::with_capacity(image.width as usize * image.height as usize);

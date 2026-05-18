@@ -14,21 +14,31 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing source mode.
 pub enum SourceMode {
+    /// The recorded variant.
     Recorded,
+    /// The live variant.
     Live,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for media source info.
 pub struct MediaSourceInfo {
+    /// The input value.
     pub input: String,
+    /// The mode value.
     pub mode: SourceMode,
+    /// The video value.
     pub video: Option<VideoStreamInfo>,
+    /// The audio value.
     pub audio: Vec<AudioStreamInfo>,
+    /// Text content for this value.
     pub text: Vec<TextStreamInfo>,
 }
 
 impl MediaSourceInfo {
+    /// Returns recorded.
     pub fn recorded(input: impl Into<String>) -> Self {
         Self {
             input: input.into(),
@@ -39,6 +49,7 @@ impl MediaSourceInfo {
         }
     }
 
+    /// Returns live.
     pub fn live(input: impl Into<String>) -> Self {
         Self {
             input: input.into(),
@@ -49,16 +60,19 @@ impl MediaSourceInfo {
         }
     }
 
+    /// Returns this value with video.
     pub fn with_video(mut self, video: VideoStreamInfo) -> Self {
         self.video = Some(video);
         self
     }
 
+    /// Returns this value with audio.
     pub fn with_audio(mut self, audio: AudioStreamInfo) -> Self {
         self.audio.push(audio);
         self
     }
 
+    /// Returns this value with text.
     pub fn with_text(mut self, text: TextStreamInfo) -> Self {
         self.text.push(text);
         self
@@ -66,58 +80,88 @@ impl MediaSourceInfo {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for video stream info.
 pub struct VideoStreamInfo {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The frame rate value.
     pub frame_rate: Option<Rational64>,
+    /// The pixel format value.
     pub pixel_format: PixelFormat,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for audio stream info.
 pub struct AudioStreamInfo {
+    /// Sample rate in hertz.
     pub sample_rate: u32,
+    /// Number of audio channels.
     pub channels: u16,
+    /// The sample format value.
     pub sample_format: AudioSampleFormat,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for text stream info.
 pub struct TextStreamInfo {
+    /// The format value.
     pub format: TextFormat,
+    /// Language tag for this value.
     pub language: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing text format.
 pub enum TextFormat {
+    /// The plain variant.
     Plain,
+    /// The lines variant.
     Lines,
+    /// The transcript variant.
     Transcript,
+    /// The subtitles variant.
     Subtitles,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Variants describing media sample.
 pub enum MediaSample {
+    /// The video variant.
     Video(OwnedVideoFrame),
+    /// The audio variant.
     Audio(OwnedAudioFrame),
+    /// The text variant.
     Text(OwnedTextSegment),
 }
 
+/// Trait for media source implementations.
 pub trait MediaSource {
+    /// Returns source info.
     fn source_info(&self) -> &MediaSourceInfo;
+    /// Returns next sample.
     fn next_sample(&mut self) -> Result<Option<MediaSample>>;
 
+    /// Returns mode.
     fn mode(&self) -> SourceMode {
         self.source_info().mode
     }
 
+    /// Returns whether is live.
     fn is_live(&self) -> bool {
         self.mode() == SourceMode::Live
     }
 }
 
+/// Trait for video frame source implementations.
 pub trait VideoFrameSource {
+    /// Returns source info.
     fn source_info(&self) -> &MediaSourceInfo;
+    /// Returns next video frame.
     fn next_video_frame(&mut self) -> Result<Option<OwnedVideoFrame>>;
 
+    /// Returns frame rate.
     fn frame_rate(&self) -> Option<Rational64> {
         self.source_info()
             .video
@@ -125,29 +169,39 @@ pub trait VideoFrameSource {
             .and_then(|video| video.frame_rate)
     }
 
+    /// Returns whether is live.
     fn is_live(&self) -> bool {
         self.source_info().mode == SourceMode::Live
     }
 }
 
+/// Trait for audio frame source implementations.
 pub trait AudioFrameSource {
+    /// Returns source info.
     fn source_info(&self) -> &MediaSourceInfo;
+    /// Returns next audio frame.
     fn next_audio_frame(&mut self) -> Result<Option<OwnedAudioFrame>>;
 
+    /// Returns whether is live.
     fn is_live(&self) -> bool {
         self.source_info().mode == SourceMode::Live
     }
 }
 
+/// Trait for text segment source implementations.
 pub trait TextSegmentSource {
+    /// Returns source info.
     fn source_info(&self) -> &MediaSourceInfo;
+    /// Returns next text segment.
     fn next_text_segment(&mut self) -> Result<Option<OwnedTextSegment>>;
 
+    /// Returns whether is live.
     fn is_live(&self) -> bool {
         self.source_info().mode == SourceMode::Live
     }
 }
 
+/// Returns analyze video source.
 pub fn analyze_video_source<S, F>(
     source: &mut S,
     pipeline: &mut ScenePipeline,
@@ -165,6 +219,7 @@ where
     pipeline.finish_detection()
 }
 
+/// Returns analyze video frames.
 pub fn analyze_video_frames<S, F>(
     source: &mut S,
     pipeline: &mut VideoAnalysisPipeline,
@@ -182,6 +237,7 @@ where
     pipeline.finish_analysis()
 }
 
+/// Returns analyze realtime video source.
 pub fn analyze_realtime_video_source<S, F>(
     source: &mut S,
     pipeline: &mut RealtimeVideoPipeline,
@@ -199,6 +255,7 @@ where
     pipeline.finish_analysis()
 }
 
+/// Returns analyze audio source.
 pub fn analyze_audio_source<S, F>(
     source: &mut S,
     pipeline: &mut AudioPipeline,
@@ -216,6 +273,7 @@ where
     pipeline.finish_analysis()
 }
 
+/// Returns analyze text source.
 pub fn analyze_text_source<S, F>(
     source: &mut S,
     pipeline: &mut TextPipeline,
@@ -233,6 +291,7 @@ where
     pipeline.finish_analysis()
 }
 
+/// Data type for text line source.
 pub struct TextLineSource<R> {
     source_info: MediaSourceInfo,
     reader: R,
@@ -241,14 +300,17 @@ pub struct TextLineSource<R> {
 }
 
 impl<R: BufRead> TextLineSource<R> {
+    /// Returns recorded.
     pub fn recorded(input: impl Into<String>, reader: R) -> Self {
         Self::new(SourceMode::Recorded, input, reader)
     }
 
+    /// Returns live.
     pub fn live(input: impl Into<String>, reader: R) -> Self {
         Self::new(SourceMode::Live, input, reader)
     }
 
+    /// Returns this value with language.
     pub fn with_language(mut self, language: impl Into<String>) -> Self {
         let language = language.into();
         self.language = Some(language.clone());
@@ -280,6 +342,7 @@ impl<R: BufRead> TextLineSource<R> {
 }
 
 impl TextLineSource<BufReader<File>> {
+    /// Returns open.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         let file = File::open(path)?;

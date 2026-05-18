@@ -8,17 +8,21 @@ use vector_analysis_core::{metric_distance, DenseVector, VectorMetric};
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+/// Data type for vector record identifier.
 pub struct VectorRecordId(String);
 
 impl VectorRecordId {
+    /// Creates a new value.
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
     }
 
+    /// Borrows this value as a str.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Consumes this value into a string.
     pub fn into_string(self) -> String {
         self.0
     }
@@ -49,23 +53,32 @@ impl From<&str> for VectorRecordId {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for vector record metadata.
 pub struct VectorRecordMetadata {
+    /// The tags value.
     pub tags: Vec<String>,
+    /// Metadata associated with this value.
     pub metadata: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for vector record.
 pub struct VectorRecord {
+    /// Identifier for this value.
     pub id: String,
+    /// The vector value.
     pub vector: DenseVector,
+    /// The payload value.
     pub payload: VectorRecordMetadata,
 }
 
 impl VectorRecord {
+    /// Creates a new value.
     pub fn new(id: impl Into<VectorRecordId>, vector: DenseVector) -> Self {
         Self::with_payload(id, vector, VectorRecordMetadata::default())
     }
 
+    /// Returns this value with payload.
     pub fn with_payload(
         id: impl Into<VectorRecordId>,
         vector: DenseVector,
@@ -79,20 +92,27 @@ impl VectorRecord {
         }
     }
 
+    /// Returns record identifier.
     pub fn record_id(&self) -> VectorRecordId {
         VectorRecordId::from(self.id.clone())
     }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for vector search filter.
 pub struct VectorSearchFilter {
+    /// The required tags value.
     pub required_tags: Vec<String>,
+    /// The metadata equals value.
     pub metadata_equals: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Data type for search config.
 pub struct SearchConfig {
+    /// The metric value.
     pub metric: VectorMetric,
+    /// The limit value.
     pub limit: usize,
 }
 
@@ -106,50 +126,68 @@ impl Default for SearchConfig {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for search result.
 pub struct SearchResult {
+    /// Identifier for this value.
     pub id: String,
+    /// The distance value.
     pub distance: f32,
+    /// Score assigned to this value.
     pub score: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for vector hit.
 pub struct VectorHit {
+    /// Identifier for this value.
     pub id: VectorRecordId,
+    /// The distance value.
     pub distance: f32,
+    /// Score assigned to this value.
     pub score: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for serializable vector record.
 pub struct SerializableVectorRecord {
+    /// Identifier for this value.
     pub id: VectorRecordId,
+    /// The vector value.
     pub vector: Vec<f32>,
+    /// The payload value.
     pub payload: VectorRecordMetadata,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// Data type for vector search index.
 pub struct VectorSearchIndex {
     dimensions: Option<usize>,
     records: Vec<VectorRecord>,
 }
 
 impl VectorSearchIndex {
+    /// Creates a new value.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> Option<usize> {
         self.dimensions
     }
 
+    /// Returns records.
     pub fn records(&self) -> &[VectorRecord] {
         &self.records
     }
 
+    /// Returns clear.
     pub fn clear(&mut self) {
         self.dimensions = None;
         self.records.clear();
     }
 
+    /// Returns add.
     pub fn add(&mut self, record: VectorRecord) -> Result<()> {
         record.vector.validate()?;
         if record.id.trim().is_empty() {
@@ -168,6 +206,7 @@ impl VectorSearchIndex {
         Ok(())
     }
 
+    /// Returns extend.
     pub fn extend(&mut self, records: impl IntoIterator<Item = VectorRecord>) -> Result<()> {
         for record in records {
             self.add(record)?;
@@ -175,12 +214,14 @@ impl VectorSearchIndex {
         Ok(())
     }
 
+    /// Builds this value from records.
     pub fn from_records(records: impl IntoIterator<Item = VectorRecord>) -> Result<Self> {
         let mut index = Self::new();
         index.extend(records)?;
         Ok(index)
     }
 
+    /// Returns export records.
     pub fn export_records(&self) -> Vec<SerializableVectorRecord> {
         self.records
             .iter()
@@ -192,6 +233,7 @@ impl VectorSearchIndex {
             .collect()
     }
 
+    /// Returns import records.
     pub fn import_records(
         records: impl IntoIterator<Item = SerializableVectorRecord>,
     ) -> Result<Self> {
@@ -206,6 +248,7 @@ impl VectorSearchIndex {
         Ok(index)
     }
 
+    /// Returns search.
     pub fn search(&self, query: &DenseVector, config: SearchConfig) -> Result<Vec<SearchResult>> {
         if config.limit == 0 {
             return Err(invalid_argument("search limit must be greater than zero"));
@@ -234,6 +277,7 @@ impl VectorSearchIndex {
         Ok(results)
     }
 
+    /// Returns search filtered.
     pub fn search_filtered(
         &self,
         query: &[f32],
@@ -274,6 +318,7 @@ impl VectorSearchIndex {
     }
 }
 
+/// Returns assign nearest centroids.
 pub fn assign_nearest_centroids(
     vectors: &[DenseVector],
     centroids: &[DenseVector],

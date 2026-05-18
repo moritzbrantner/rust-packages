@@ -1,3 +1,5 @@
+//! Build script support for generated or native crate artifacts.
+
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -5,26 +5,32 @@ use video_analysis_core::{FramePosition, Result, VideoFrame};
 use video_analysis_models::{HuggingFaceModelSpec, ModelTask};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing SAM video preset.
 pub enum SamVideoPreset {
     #[default]
+    /// The sam2 1 hiera large variant.
     Sam2_1HieraLarge,
 }
 
 impl SamVideoPreset {
+    /// Constant for all.
     pub const ALL: &'static [Self] = &[Self::Sam2_1HieraLarge];
 
+    /// Borrows this value as a str.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Sam2_1HieraLarge => "sam2.1-hiera-large",
         }
     }
 
+    /// Returns repo identifier.
     pub fn repo_id(self) -> &'static str {
         match self {
             Self::Sam2_1HieraLarge => "facebook/sam2.1-hiera-large",
         }
     }
 
+    /// Returns model spec.
     pub fn model_spec(self) -> HuggingFaceModelSpec {
         HuggingFaceModelSpec::new(
             self.repo_id(),
@@ -40,18 +46,24 @@ impl SamVideoPreset {
     }
 }
 
+/// Returns default sam2 model spec.
 pub fn default_sam2_model_spec() -> HuggingFaceModelSpec {
     SamVideoPreset::default().model_spec()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for video segmentation prompt.
 pub struct VideoSegmentationPrompt {
+    /// The prompt value.
     pub prompt: ImageSegmentationPrompt,
+    /// The object identifier value.
     pub object_id: Option<String>,
+    /// The propagate value.
     pub propagate: bool,
 }
 
 impl VideoSegmentationPrompt {
+    /// Creates a new value.
     pub fn new(prompt: ImageSegmentationPrompt) -> Self {
         Self {
             prompt,
@@ -60,11 +72,13 @@ impl VideoSegmentationPrompt {
         }
     }
 
+    /// Returns object identifier.
     pub fn object_id(mut self, value: impl Into<String>) -> Self {
         self.object_id = Some(value.into());
         self
     }
 
+    /// Returns propagate.
     pub fn propagate(mut self, value: bool) -> Self {
         self.propagate = value;
         self
@@ -78,12 +92,16 @@ impl Default for VideoSegmentationPrompt {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// Data type for video segmentation request.
 pub struct VideoSegmentationRequest {
+    /// The prompt value.
     pub prompt: VideoSegmentationPrompt,
+    /// The min mask pixels value.
     pub min_mask_pixels: usize,
 }
 
 impl VideoSegmentationRequest {
+    /// Returns min mask pixels.
     pub fn min_mask_pixels(mut self, value: usize) -> Self {
         self.min_mask_pixels = value.max(1);
         self
@@ -91,12 +109,16 @@ impl VideoSegmentationRequest {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for tracked segment.
 pub struct TrackedSegment {
+    /// The object identifier value.
     pub object_id: Option<String>,
+    /// The segment value.
     pub segment: ImageSegment,
 }
 
 impl TrackedSegment {
+    /// Creates a new value.
     pub fn new(segment: ImageSegment) -> Self {
         Self {
             object_id: None,
@@ -104,6 +126,7 @@ impl TrackedSegment {
         }
     }
 
+    /// Returns object identifier.
     pub fn object_id(mut self, value: impl Into<String>) -> Self {
         self.object_id = Some(value.into());
         self
@@ -111,16 +134,22 @@ impl TrackedSegment {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for frame segmentation.
 pub struct FrameSegmentation {
+    /// The position value.
     pub position: FramePosition,
+    /// The segments value.
     pub segments: Vec<TrackedSegment>,
 }
 
+/// Trait for video segmentation backend implementations.
 pub trait VideoSegmentationBackend {
+    /// Returns model spec.
     fn model_spec(&self) -> HuggingFaceModelSpec {
         default_sam2_model_spec()
     }
 
+    /// Returns segment frame.
     fn segment_frame(
         &mut self,
         frame: &VideoFrame<'_>,
@@ -128,12 +157,14 @@ pub trait VideoSegmentationBackend {
     ) -> Result<Vec<TrackedSegment>>;
 }
 
+/// Data type for video segmenter.
 pub struct VideoSegmenter<B> {
     backend: B,
     request: VideoSegmentationRequest,
 }
 
 impl<B> VideoSegmenter<B> {
+    /// Creates a new value.
     pub fn new(backend: B) -> Self {
         Self {
             backend,
@@ -141,25 +172,30 @@ impl<B> VideoSegmenter<B> {
         }
     }
 
+    /// Returns request.
     pub fn request(mut self, value: VideoSegmentationRequest) -> Self {
         self.request = value;
         self
     }
 
+    /// Returns backend.
     pub fn backend(&self) -> &B {
         &self.backend
     }
 
+    /// Returns backend mut.
     pub fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
 }
 
 impl<B: VideoSegmentationBackend> VideoSegmenter<B> {
+    /// Returns model spec.
     pub fn model_spec(&self) -> HuggingFaceModelSpec {
         self.backend.model_spec()
     }
 
+    /// Returns process frame.
     pub fn process_frame(&mut self, frame: &VideoFrame<'_>) -> Result<FrameSegmentation> {
         let segments = self.backend.segment_frame(frame, &self.request)?;
         Ok(FrameSegmentation {

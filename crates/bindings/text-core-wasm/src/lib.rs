@@ -1,3 +1,5 @@
+//! WASM bindings for text-analysis-core.
+
 use serde::Serialize;
 use serde_wasm_bindgen::to_value;
 use text_analysis_core::{
@@ -28,16 +30,19 @@ struct RawSegmentedDocument {
 }
 
 #[wasm_bindgen(js_name = extractWordTexts)]
+/// Returns extract word texts.
 pub fn extract_word_texts(text: &str) -> Result<JsValue, JsValue> {
     to_js_value(&extract_word_texts_data(text))
 }
 
 #[wasm_bindgen(js_name = splitSentences)]
+/// Returns split sentences binding.
 pub fn split_sentences_binding(text: &str) -> Result<JsValue, JsValue> {
     to_js_value(&split_sentences_data(text))
 }
 
 #[wasm_bindgen(js_name = segmentTextDocument)]
+/// Returns segment text document binding.
 pub fn segment_text_document_binding(
     text: &str,
     keep_apostrophes: bool,

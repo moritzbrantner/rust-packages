@@ -14,26 +14,41 @@ use video_analysis_core::{BoundingBox, DetectError, Result};
 use video_analysis_models::{ModelBundle, ModelTask};
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX vision bundle info.
 pub struct OnnxVisionBundleInfo {
+    /// The config path value.
     pub config_path: PathBuf,
+    /// The preprocessor config path value.
     pub preprocessor_config_path: Option<PathBuf>,
+    /// The model path value.
     pub model_path: PathBuf,
+    /// The labels value.
     pub labels: BTreeMap<i64, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing channel order.
 pub enum ChannelOrder {
+    /// The RGB variant.
     Rgb,
+    /// The BGR variant.
     Bgr,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX image preprocessing.
 pub struct OnnxImagePreprocessing {
+    /// The input width value.
     pub input_width: u32,
+    /// The input height value.
     pub input_height: u32,
+    /// The rescale factor value.
     pub rescale_factor: f32,
+    /// The mean value.
     pub mean: [f32; 3],
+    /// The std value.
     pub std: [f32; 3],
+    /// The channel order value.
     pub channel_order: ChannelOrder,
 }
 
@@ -51,35 +66,56 @@ impl Default for OnnxImagePreprocessing {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX image tensor.
 pub struct OnnxImageTensor {
+    /// Number of audio channels.
     pub channels: usize,
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The values value.
     pub values: Vec<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX image batch tensor.
 pub struct OnnxImageBatchTensor {
+    /// The batch size value.
     pub batch_size: usize,
+    /// Number of audio channels.
     pub channels: usize,
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// The values value.
     pub values: Vec<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing box format.
 pub enum BoxFormat {
+    /// The xyxy absolute variant.
     XyxyAbsolute,
+    /// The xyxy normalized variant.
     XyxyNormalized,
+    /// The cxcywh absolute variant.
     CxcywhAbsolute,
+    /// The cxcywh normalized variant.
     CxcywhNormalized,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX object detection options.
 pub struct OnnxObjectDetectionOptions {
+    /// The preprocessing value.
     pub preprocessing: OnnxImagePreprocessing,
+    /// The score threshold value.
     pub score_threshold: f32,
+    /// The labels value.
     pub labels: BTreeMap<i64, String>,
+    /// The box format value.
     pub box_format: BoxFormat,
 }
 
@@ -95,14 +131,21 @@ impl Default for OnnxObjectDetectionOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX object detection output.
 pub struct OnnxObjectDetectionOutput {
+    /// The boxes value.
     pub boxes: Vec<[f32; 4]>,
+    /// The class identifiers value.
     pub class_ids: Vec<i64>,
+    /// The scores value.
     pub scores: Vec<f32>,
+    /// The box format value.
     pub box_format: BoxFormat,
 }
 
+/// Trait for ONNX object detection runner implementations.
 pub trait OnnxObjectDetectionRunner {
+    /// Runs object detection.
     fn run_object_detection(
         &mut self,
         input: &OnnxImageTensor,
@@ -110,6 +153,7 @@ pub trait OnnxObjectDetectionRunner {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Data type for unavailable ONNX runner.
 pub struct UnavailableOnnxRunner;
 
 impl OnnxObjectDetectionRunner for UnavailableOnnxRunner {
@@ -126,12 +170,14 @@ impl OnnxObjectDetectionRunner for UnavailableOnnxRunner {
 
 #[cfg(feature = "onnxruntime")]
 #[derive(Debug)]
+/// Data type for native ONNX runner.
 pub struct NativeOnnxRunner {
     session: Mutex<ort::session::Session>,
 }
 
 #[cfg(feature = "onnxruntime")]
 impl NativeOnnxRunner {
+    /// Creates a new value.
     pub fn new(model_path: impl Into<PathBuf>) -> Result<Self> {
         let model_path = model_path.into();
         if !model_path.is_file() {
@@ -197,6 +243,7 @@ impl OnnxObjectDetectionRunner for NativeOnnxRunner {
 }
 
 #[derive(Debug, Clone)]
+/// Data type for ONNX object detector.
 pub struct OnnxObjectDetector<R = UnavailableOnnxRunner> {
     preprocessing: OnnxImagePreprocessing,
     score_threshold: f32,
@@ -207,6 +254,7 @@ pub struct OnnxObjectDetector<R = UnavailableOnnxRunner> {
 
 #[cfg(not(feature = "onnxruntime"))]
 impl OnnxObjectDetector<UnavailableOnnxRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         Self::from_runner(bundle, UnavailableOnnxRunner)
     }
@@ -214,6 +262,7 @@ impl OnnxObjectDetector<UnavailableOnnxRunner> {
 
 #[cfg(feature = "onnxruntime")]
 impl OnnxObjectDetector<NativeOnnxRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let info = validate_onnx_vision_bundle(&bundle)?;
         let options = options_from_bundle(&bundle)?;
@@ -228,6 +277,7 @@ impl OnnxObjectDetector<NativeOnnxRunner> {
 }
 
 impl<R: OnnxObjectDetectionRunner> OnnxObjectDetector<R> {
+    /// Builds this value from runner.
     pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
         let options = options_from_bundle(&bundle)?;
         Ok(Self {
@@ -239,6 +289,7 @@ impl<R: OnnxObjectDetectionRunner> OnnxObjectDetector<R> {
         })
     }
 
+    /// Returns this value with options.
     pub fn with_options(options: OnnxObjectDetectionOptions, runner: R) -> Result<Self> {
         validate_preprocessing(&options.preprocessing)?;
         validate_threshold(options.score_threshold)?;
@@ -251,14 +302,17 @@ impl<R: OnnxObjectDetectionRunner> OnnxObjectDetector<R> {
         })
     }
 
+    /// Returns preprocessing.
     pub fn preprocessing(&self) -> &OnnxImagePreprocessing {
         &self.preprocessing
     }
 
+    /// Returns labels.
     pub fn labels(&self) -> &BTreeMap<i64, String> {
         &self.labels
     }
 
+    /// Returns detect image.
     pub fn detect_image(&mut self, image: &ImageView<'_>) -> Result<Vec<ImageDetection>> {
         let input = preprocess_image(image, &self.preprocessing)?;
         let mut output = self.runner.run_object_detection(&input)?;
@@ -275,10 +329,15 @@ impl<R: OnnxObjectDetectionRunner> OnnxObjectDetector<R> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX image classification options.
 pub struct OnnxImageClassificationOptions {
+    /// The preprocessing value.
     pub preprocessing: OnnxImagePreprocessing,
+    /// The score threshold value.
     pub score_threshold: f32,
+    /// The labels value.
     pub labels: BTreeMap<i64, String>,
+    /// The top k value.
     pub top_k: usize,
 }
 
@@ -294,12 +353,17 @@ impl Default for OnnxImageClassificationOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX image classification output.
 pub struct OnnxImageClassificationOutput {
+    /// The class identifiers value.
     pub class_ids: Vec<i64>,
+    /// The scores value.
     pub scores: Vec<f32>,
 }
 
+/// Trait for ONNX image classification runner implementations.
 pub trait OnnxImageClassificationRunner {
+    /// Runs image classification.
     fn run_image_classification(
         &mut self,
         input: &OnnxImageTensor,
@@ -307,6 +371,7 @@ pub trait OnnxImageClassificationRunner {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Data type for unavailable ONNX image classification runner.
 pub struct UnavailableOnnxImageClassificationRunner;
 
 impl OnnxImageClassificationRunner for UnavailableOnnxImageClassificationRunner {
@@ -322,12 +387,14 @@ impl OnnxImageClassificationRunner for UnavailableOnnxImageClassificationRunner 
 }
 
 #[derive(Debug, Clone)]
+/// Data type for ONNX image classifier.
 pub struct OnnxImageClassifier<R = UnavailableOnnxImageClassificationRunner> {
     options: OnnxImageClassificationOptions,
     runner: R,
 }
 
 impl OnnxImageClassifier<UnavailableOnnxImageClassificationRunner> {
+    /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         Ok(Self {
             options: classification_options_from_bundle(&bundle)?,
@@ -337,6 +404,7 @@ impl OnnxImageClassifier<UnavailableOnnxImageClassificationRunner> {
 }
 
 impl<R: OnnxImageClassificationRunner> OnnxImageClassifier<R> {
+    /// Builds this value from runner.
     pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
         Ok(Self {
             options: classification_options_from_bundle(&bundle)?,
@@ -344,6 +412,7 @@ impl<R: OnnxImageClassificationRunner> OnnxImageClassifier<R> {
         })
     }
 
+    /// Returns this value with options.
     pub fn with_options(options: OnnxImageClassificationOptions, runner: R) -> Result<Self> {
         validate_preprocessing(&options.preprocessing)?;
         validate_threshold(options.score_threshold)?;
@@ -355,6 +424,7 @@ impl<R: OnnxImageClassificationRunner> OnnxImageClassifier<R> {
         Ok(Self { options, runner })
     }
 
+    /// Returns options.
     pub fn options(&self) -> &OnnxImageClassificationOptions {
         &self.options
     }
@@ -397,6 +467,7 @@ impl<R: OnnxImageClassificationRunner> ImageClassifierBackend for OnnxImageClass
     }
 }
 
+/// Validates ONNX vision bundle.
 pub fn validate_onnx_vision_bundle(bundle: &ModelBundle) -> Result<OnnxVisionBundleInfo> {
     match bundle.manifest.task {
         ModelTask::ObjectDetection | ModelTask::ImageClassification => {}
@@ -433,6 +504,7 @@ pub fn validate_onnx_vision_bundle(bundle: &ModelBundle) -> Result<OnnxVisionBun
     })
 }
 
+/// Returns options from bundle.
 pub fn options_from_bundle(bundle: &ModelBundle) -> Result<OnnxObjectDetectionOptions> {
     if bundle.manifest.task != ModelTask::ObjectDetection {
         return Err(DetectError::InvalidArgument(format!(
@@ -456,6 +528,7 @@ pub fn options_from_bundle(bundle: &ModelBundle) -> Result<OnnxObjectDetectionOp
     })
 }
 
+/// Returns classification options from bundle.
 pub fn classification_options_from_bundle(
     bundle: &ModelBundle,
 ) -> Result<OnnxImageClassificationOptions> {
@@ -480,6 +553,7 @@ pub fn classification_options_from_bundle(
     })
 }
 
+/// Returns preprocess image.
 pub fn preprocess_image(
     image: &ImageView<'_>,
     options: &OnnxImagePreprocessing,
@@ -494,6 +568,7 @@ pub fn preprocess_image(
     image_to_tensor(&resized.as_view(), options)
 }
 
+/// Returns preprocess image batch.
 pub fn preprocess_image_batch(
     batch: ImageBatchView<'_>,
     options: &OnnxImagePreprocessing,
@@ -517,6 +592,7 @@ pub fn preprocess_image_batch(
     image_batch_to_tensor(resized_batch.as_view(), options)
 }
 
+/// Returns image to tensor.
 pub fn image_to_tensor(
     image: &ImageView<'_>,
     options: &OnnxImagePreprocessing,
@@ -550,6 +626,7 @@ pub fn image_to_tensor(
     })
 }
 
+/// Returns image batch to tensor.
 pub fn image_batch_to_tensor(
     batch: ImageBatchView<'_>,
     options: &OnnxImagePreprocessing,
@@ -572,6 +649,7 @@ pub fn image_batch_to_tensor(
     })
 }
 
+/// Returns decode object detections.
 pub fn decode_object_detections(
     output: &OnnxObjectDetectionOutput,
     labels: &BTreeMap<i64, String>,
@@ -601,6 +679,7 @@ pub fn decode_object_detections(
         .collect()
 }
 
+/// Returns preprocessing from config.
 pub fn preprocessing_from_config(config: &Value) -> Result<OnnxImagePreprocessing> {
     let mut options = OnnxImagePreprocessing::default();
     if let Some(size) = config.get("size") {
@@ -638,6 +717,7 @@ pub fn preprocessing_from_config(config: &Value) -> Result<OnnxImagePreprocessin
     Ok(options)
 }
 
+/// Validates preprocessing.
 pub fn validate_preprocessing(options: &OnnxImagePreprocessing) -> Result<()> {
     if options.input_width == 0 || options.input_height == 0 {
         return Err(DetectError::InvalidDimensions {

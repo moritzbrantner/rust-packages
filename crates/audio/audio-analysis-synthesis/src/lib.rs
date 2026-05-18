@@ -6,24 +6,37 @@ use video_analysis_core::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing waveform.
 pub enum Waveform {
+    /// The sine variant.
     Sine,
+    /// The square variant.
     Square,
+    /// The saw variant.
     Saw,
+    /// The triangle variant.
     Triangle,
+    /// The pulse variant.
     Pulse,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing clipping policy.
 pub enum ClippingPolicy {
+    /// The clamp variant.
     Clamp,
+    /// The normalize variant.
     Normalize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for amplitude envelope.
 pub struct AmplitudeEnvelope {
+    /// The gain value.
     pub gain: f32,
+    /// The attack seconds value.
     pub attack_seconds: f32,
+    /// The release seconds value.
     pub release_seconds: f32,
 }
 
@@ -38,6 +51,7 @@ impl Default for AmplitudeEnvelope {
 }
 
 impl AmplitudeEnvelope {
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.gain.is_finite() || self.gain < 0.0 {
             return Err(invalid_argument(
@@ -58,14 +72,20 @@ impl AmplitudeEnvelope {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for tone spec.
 pub struct ToneSpec {
+    /// The frequency hz value.
     pub frequency_hz: f32,
+    /// Duration in seconds.
     pub duration_seconds: f32,
+    /// The amplitude value.
     pub amplitude: f32,
+    /// The waveform value.
     pub waveform: Waveform,
 }
 
 impl ToneSpec {
+    /// Generates a sine wave.
     pub fn sine(frequency_hz: f32, duration_seconds: f32) -> Self {
         Self {
             frequency_hz,
@@ -75,6 +95,7 @@ impl ToneSpec {
         }
     }
 
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.frequency_hz.is_finite() || self.frequency_hz <= 0.0 {
             return Err(invalid_argument(
@@ -96,12 +117,16 @@ impl ToneSpec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for tone segment.
 pub struct ToneSegment {
+    /// The start seconds value.
     pub start_seconds: f32,
+    /// The tone value.
     pub tone: ToneSpec,
 }
 
 impl ToneSegment {
+    /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if !self.start_seconds.is_finite() || self.start_seconds < 0.0 {
             return Err(invalid_argument(
@@ -113,15 +138,22 @@ impl ToneSegment {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for audio synthesis config.
 pub struct AudioSynthesisConfig {
+    /// Sample rate in hertz.
     pub sample_rate: u32,
+    /// Number of audio channels.
     pub channels: u16,
+    /// The start timestamp value.
     pub start_timestamp: Timestamp,
+    /// The envelope value.
     pub envelope: AmplitudeEnvelope,
+    /// The clipping policy value.
     pub clipping_policy: ClippingPolicy,
 }
 
 impl AudioSynthesisConfig {
+    /// Creates a new value.
     pub fn new(sample_rate: u32, channels: u16) -> Result<Self> {
         if sample_rate == 0 || channels == 0 {
             return Err(DetectError::InvalidAudioFormat {
@@ -141,12 +173,14 @@ impl AudioSynthesisConfig {
         })
     }
 
+    /// Returns envelope.
     pub fn envelope(mut self, envelope: AmplitudeEnvelope) -> Result<Self> {
         envelope.validate()?;
         self.envelope = envelope;
         Ok(self)
     }
 
+    /// Returns clipping policy.
     pub fn clipping_policy(mut self, clipping_policy: ClippingPolicy) -> Self {
         self.clipping_policy = clipping_policy;
         self
@@ -159,6 +193,7 @@ impl Default for AudioSynthesisConfig {
     }
 }
 
+/// Returns synthesize tone.
 pub fn synthesize_tone(
     tone: ToneSpec,
     config: AudioSynthesisConfig,
@@ -172,6 +207,7 @@ pub fn synthesize_tone(
     )
 }
 
+/// Returns synthesize timeline.
 pub fn synthesize_timeline(
     segments: &[ToneSegment],
     config: AudioSynthesisConfig,
@@ -237,6 +273,7 @@ pub fn synthesize_timeline(
     Ok(Generated::new(frame, trace))
 }
 
+/// Returns synthesize click.
 pub fn synthesize_click(
     start_seconds: f32,
     duration_seconds: f32,
@@ -257,6 +294,7 @@ pub fn synthesize_click(
     )
 }
 
+/// Returns synthesize noise burst.
 pub fn synthesize_noise_burst(
     duration_seconds: f32,
     amplitude: f32,
@@ -307,6 +345,7 @@ pub fn synthesize_noise_burst(
     ))
 }
 
+/// Returns event to tone segment.
 pub fn event_to_tone_segment(
     event: &AnalysisEvent,
     default_duration_seconds: f32,
@@ -342,6 +381,7 @@ pub fn event_to_tone_segment(
     None
 }
 
+/// Returns events to tone segments.
 pub fn events_to_tone_segments(
     events: &[AnalysisEvent],
     default_duration_seconds: f32,
@@ -352,6 +392,7 @@ pub fn events_to_tone_segments(
         .collect()
 }
 
+/// Returns synthesize events.
 pub fn synthesize_events(
     events: &[AnalysisEvent],
     default_duration_seconds: f32,

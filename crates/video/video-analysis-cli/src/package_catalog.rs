@@ -1,27 +1,42 @@
+//! Internal module support for package catalog.
+
 const CONTRACTS_MARKDOWN: &str = include_str!("../../../../docs/API_CONTRACTS.md");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for package info.
 pub struct PackageInfo {
+    /// Human-readable name for this value.
     pub name: String,
+    /// The role value.
     pub role: String,
+    /// The capabilities value.
     pub capabilities: Vec<PackageCapability>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for package capability.
 pub struct PackageCapability {
+    /// The kind value.
     pub kind: PackageCapabilityKind,
+    /// The entrypoint value.
     pub entrypoint: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing package capability kind.
 pub enum PackageCapabilityKind {
+    /// The library variant.
     Library,
+    /// The cli variant.
     Cli,
+    /// The API variant.
     Api,
+    /// The ui variant.
     Ui,
 }
 
 impl PackageCapabilityKind {
+    /// Borrows this value as a str.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Library => "library",
@@ -32,6 +47,7 @@ impl PackageCapabilityKind {
     }
 }
 
+/// Returns package catalog.
 pub fn package_catalog() -> Vec<PackageInfo> {
     let mut packages: Vec<PackageInfo> = parse_contract_table(CONTRACTS_MARKDOWN)
         .into_iter()
@@ -54,6 +70,7 @@ pub fn package_catalog() -> Vec<PackageInfo> {
     packages
 }
 
+/// Returns package by name.
 pub fn package_by_name(name: &str) -> Option<PackageInfo> {
     package_catalog().into_iter().find(|pkg| pkg.name == name)
 }

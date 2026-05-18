@@ -8,12 +8,16 @@ use text_analysis_linguistics::LinguisticAnalysis;
 use video_analysis_core::{AnalysisEvent, DetectError, OwnedTextSegment, Result};
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for term prompt.
 pub struct TermPrompt {
+    /// The term value.
     pub term: String,
+    /// The weight value.
     pub weight: f32,
 }
 
 impl TermPrompt {
+    /// Creates a new value.
     pub fn new(term: impl Into<String>, weight: f32) -> Self {
         Self {
             term: term.into(),
@@ -21,6 +25,7 @@ impl TermPrompt {
         }
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if normalize_whitespace(&self.term).is_empty() {
             return Err(invalid_argument("term prompt text must not be empty"));
@@ -35,10 +40,15 @@ impl TermPrompt {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for text synthesis options.
 pub struct TextSynthesisOptions {
+    /// The sentence count value.
     pub sentence_count: usize,
+    /// The min terms per sentence value.
     pub min_terms_per_sentence: usize,
+    /// The max terms per sentence value.
     pub max_terms_per_sentence: usize,
+    /// Language tag for this value.
     pub language: Option<String>,
 }
 
@@ -54,6 +64,7 @@ impl Default for TextSynthesisOptions {
 }
 
 impl TextSynthesisOptions {
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.sentence_count == 0 {
             return Err(invalid_argument("sentence_count must be greater than zero"));
@@ -69,6 +80,7 @@ impl TextSynthesisOptions {
     }
 }
 
+/// Returns synthesize from terms.
 pub fn synthesize_from_terms(
     id: impl Into<String>,
     terms: &[TermPrompt],
@@ -120,6 +132,7 @@ pub fn synthesize_from_terms(
     Ok(Generated::new(document, trace))
 }
 
+/// Returns synthesize segment from terms.
 pub fn synthesize_segment_from_terms(
     segment_index: u64,
     terms: &[TermPrompt],
@@ -130,6 +143,7 @@ pub fn synthesize_segment_from_terms(
     Ok(Generated::new(segment, generated.trace))
 }
 
+/// Returns synthesize from analysis.
 pub fn synthesize_from_analysis(
     id: impl Into<String>,
     analysis: &LinguisticAnalysis,
@@ -148,6 +162,7 @@ pub fn synthesize_from_analysis(
     Ok(generated)
 }
 
+/// Returns terms from counts.
 pub fn terms_from_counts(counts: &BTreeMap<String, usize>) -> Vec<TermPrompt> {
     counts
         .iter()
@@ -156,6 +171,7 @@ pub fn terms_from_counts(counts: &BTreeMap<String, usize>) -> Vec<TermPrompt> {
         .collect()
 }
 
+/// Returns terms from events.
 pub fn terms_from_events(events: &[AnalysisEvent]) -> Vec<TermPrompt> {
     let mut weights = BTreeMap::<String, f32>::new();
     for event in events {
@@ -170,6 +186,7 @@ pub fn terms_from_events(events: &[AnalysisEvent]) -> Vec<TermPrompt> {
         .collect()
 }
 
+/// Returns terms from analysis.
 pub fn terms_from_analysis(analysis: &LinguisticAnalysis) -> Vec<TermPrompt> {
     let mut weights = BTreeMap::<String, f32>::new();
 

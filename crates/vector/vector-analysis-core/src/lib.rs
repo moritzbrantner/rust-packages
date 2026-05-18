@@ -3,11 +3,13 @@
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for dense vector.
 pub struct DenseVector {
     values: Vec<f32>,
 }
 
 impl DenseVector {
+    /// Creates a new value.
     pub fn new(values: impl Into<Vec<f32>>) -> Result<Self> {
         let vector = Self {
             values: values.into(),
@@ -16,18 +18,22 @@ impl DenseVector {
         Ok(vector)
     }
 
+    /// Borrows this value as a slice.
     pub fn as_slice(&self) -> &[f32] {
         &self.values
     }
 
+    /// Consumes this value into a values.
     pub fn into_values(self) -> Vec<f32> {
         self.values
     }
 
+    /// Returns dimensions.
     pub fn dimensions(&self) -> usize {
         self.values.len()
     }
 
+    /// Validates this value.
     pub fn validate(&self) -> Result<()> {
         if self.values.is_empty() {
             return Err(invalid_argument("vector must not be empty"));
@@ -38,6 +44,7 @@ impl DenseVector {
         Ok(())
     }
 
+    /// Returns l2 normalized.
     pub fn l2_normalized(&self) -> Result<Self> {
         let norm = l2_norm(self.as_slice())?;
         if norm <= f32::EPSILON {
@@ -53,21 +60,32 @@ impl DenseVector {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing vector metric.
 pub enum VectorMetric {
+    /// The cosine variant.
     Cosine,
+    /// The euclidean variant.
     Euclidean,
+    /// The manhattan variant.
     Manhattan,
+    /// The dot variant.
     Dot,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Data type for vector stats.
 pub struct VectorStats {
+    /// The dimensions value.
     pub dimensions: usize,
+    /// The mean value.
     pub mean: Vec<f32>,
+    /// The min value.
     pub min: Vec<f32>,
+    /// The max value.
     pub max: Vec<f32>,
 }
 
+/// Returns dot.
 pub fn dot(left: &[f32], right: &[f32]) -> Result<f32> {
     validate_pair(left, right)?;
     Ok(left
@@ -77,11 +95,13 @@ pub fn dot(left: &[f32], right: &[f32]) -> Result<f32> {
         .sum())
 }
 
+/// Returns l2 norm.
 pub fn l2_norm(values: &[f32]) -> Result<f32> {
     validate_slice(values, "vector")?;
     Ok(values.iter().map(|value| value * value).sum::<f32>().sqrt())
 }
 
+/// Returns cosine similarity.
 pub fn cosine_similarity(left: &[f32], right: &[f32]) -> Result<f32> {
     let numerator = dot(left, right)?;
     let left_norm = l2_norm(left)?;
@@ -94,6 +114,7 @@ pub fn cosine_similarity(left: &[f32], right: &[f32]) -> Result<f32> {
     Ok(numerator / (left_norm * right_norm))
 }
 
+/// Returns euclidean distance.
 pub fn euclidean_distance(left: &[f32], right: &[f32]) -> Result<f32> {
     validate_pair(left, right)?;
     Ok(left
@@ -107,6 +128,7 @@ pub fn euclidean_distance(left: &[f32], right: &[f32]) -> Result<f32> {
         .sqrt())
 }
 
+/// Returns manhattan distance.
 pub fn manhattan_distance(left: &[f32], right: &[f32]) -> Result<f32> {
     validate_pair(left, right)?;
     Ok(left
@@ -116,6 +138,7 @@ pub fn manhattan_distance(left: &[f32], right: &[f32]) -> Result<f32> {
         .sum())
 }
 
+/// Returns mean vector.
 pub fn mean_vector(vectors: &[DenseVector]) -> Result<DenseVector> {
     let dimensions = validate_vector_set(vectors)?;
     let mut mean = vec![0.0_f32; dimensions];
@@ -130,6 +153,7 @@ pub fn mean_vector(vectors: &[DenseVector]) -> Result<DenseVector> {
     DenseVector::new(mean)
 }
 
+/// Returns vector stats.
 pub fn vector_stats(vectors: &[DenseVector]) -> Result<VectorStats> {
     let dimensions = validate_vector_set(vectors)?;
     let mut mean = vec![0.0_f32; dimensions];
@@ -153,6 +177,7 @@ pub fn vector_stats(vectors: &[DenseVector]) -> Result<VectorStats> {
     })
 }
 
+/// Returns metric distance.
 pub fn metric_distance(metric: VectorMetric, left: &[f32], right: &[f32]) -> Result<f32> {
     match metric {
         VectorMetric::Cosine => Ok(1.0 - cosine_similarity(left, right)?),
