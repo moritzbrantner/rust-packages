@@ -36,6 +36,7 @@ members = [
     "crates/data/dense-data",
     "crates/data/numbers-core",
     "crates/data/tensor-data",
+    "crates/math/finance-statistics",
     "crates/math/math-geometry-2d",
     "crates/math/math-linear",
     "crates/math/math-signal-core",
@@ -144,6 +145,7 @@ graph-analysis-core = { version = "0.1.0", path = "crates/data/graph-analysis-co
 dense-data = { version = "0.1.0", path = "crates/data/dense-data" }
 numbers-core = { version = "0.1.0", path = "crates/data/numbers-core" }
 tensor-data = { version = "0.1.0", path = "crates/data/tensor-data" }
+finance-statistics = { version = "0.1.0", path = "crates/math/finance-statistics" }
 math-geometry-2d = { version = "0.1.0", path = "crates/math/math-geometry-2d" }
 math-linear = { version = "0.1.0", path = "crates/math/math-linear" }
 math-signal-core = { version = "0.1.0", path = "crates/math/math-signal-core" }
@@ -261,6 +263,7 @@ graph-analysis-core.workspace = true
 dense-data.workspace = true
 numbers-core.workspace = true
 tensor-data.workspace = true
+finance-statistics.workspace = true
 math-geometry-2d.workspace = true
 math-linear.workspace = true
 math-signal-core.workspace = true

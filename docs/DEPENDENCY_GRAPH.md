@@ -48,6 +48,7 @@ flowchart LR
 
   subgraph group_math["Math"]
     direction TB
+    crate_finance_statistics["finance-statistics"]:::crate
     crate_math_geometry_2d["math-geometry-2d"]:::crate
     crate_math_linear["math-linear"]:::crate
     crate_math_signal_core["math-signal-core"]:::crate
@@ -169,6 +170,7 @@ flowchart LR
   crate_video_analysis --> crate_graph_analysis_core
   crate_video_analysis --> crate_numbers_core
   crate_video_analysis --> crate_tensor_data
+  crate_video_analysis --> crate_finance_statistics
   crate_video_analysis --> crate_math_geometry_2d
   crate_video_analysis --> crate_math_linear
   crate_video_analysis --> crate_math_signal_core
@@ -244,6 +246,8 @@ flowchart LR
   crate_graph_analysis_core --> crate_video_analysis_core
   crate_numbers_core --> crate_video_analysis_core
   crate_tensor_data --> crate_video_analysis_core
+  crate_finance_statistics --> crate_numbers_core
+  crate_finance_statistics --> crate_video_analysis_core
   crate_math_geometry_2d --> crate_video_analysis_core
   crate_math_linear --> crate_tensor_data
   crate_math_linear --> crate_vector_analysis_core

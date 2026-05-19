@@ -58,6 +58,7 @@ Runtime and external integration crates use a shared feature policy:
 | `data-inversion-core` | Shared lossy inverse-conversion metadata | `video-analysis-core` | `InformationFidelity`, `InversionMethod`, `InversionTrace`, generated value wrappers | Synthesis crates and applications that need explicit interpolation/assumption metadata |
 | `numbers-core` | Shared scalar numeric summaries and ranges | `video-analysis-core` | Running stats, weighted summaries, quantiles, histograms, numeric range helpers | `dense-data`, `video-analysis-data`, analytics workflows, and reporting utilities |
 | `tensor-data` | Generic finite `f32` tensor contracts | `video-analysis-core`, `serde`, `serde_json` | `TensorShape`, `F32Tensor`, `F32TensorView`, shape/element validation, metadata | `comfyui-latents`, audio/image bridges, and future tensor-oriented interop crates |
+| `finance-statistics` | Finance-oriented return and risk statistics | `video-analysis-core`, `numbers-core` | Simple/log returns, cumulative and annualized return, volatility, Sharpe, Sortino, beta/alpha, drawdown, historical VaR/CVaR, tracking error, rolling windows | Finance analytics, portfolio reporting, and future market-data workflows |
 | `math-geometry-2d` | Shared 2D geometry primitives | `video-analysis-core` | Checked 2D points, rectangles, normalized coordinates, polygons, bounds, affine transforms, and `BoundingBox` interop | Image/video/posture crates and UI-adjacent layout workflows |
 | `math-linear` | Shared dense matrix and kernel contracts | `video-analysis-core`, `tensor-data`, `vector-analysis-core` | Matrix shapes/views, matrix multiply, row/column helpers, tensor/vector bridges, `Kernel1d`, `Kernel2d` | Image/video preprocessing, text model utilities, dense/statistical workflows |
 | `math-signal-core` | Shared signal-domain math | `video-analysis-core`, `numbers-core` | Sample-rate/resampling descriptors, windows, frame strides, interpolation, FIR kernels, and biquad design helpers | Audio crates and future time-series/video transform workflows |
@@ -353,6 +354,22 @@ stats, quantiles, or histograms.
   fixed-width histograms over finite values.
 - `quantile` and `quartiles` provide deterministic percentile interpolation
   over finite copied inputs.
+
+## Finance Statistics Contracts
+
+`finance-statistics` builds on `numbers-core` for finance-specific return
+analytics without adding market-data or brokerage assumptions to the generic
+math crates.
+
+- Price-to-return helpers produce simple or log returns from strictly positive
+  prices.
+- Return series helpers expose sample/population variance, standard deviation,
+  cumulative return, annualized return, annualized volatility, Sharpe, Sortino,
+  beta/alpha, tracking error, and information ratio.
+- Risk helpers expose maximum drawdown and historical VaR/CVaR as positive loss
+  values.
+- Rolling helpers expose fixed-window mean, standard deviation, and
+  correlation.
 
 ## Dense Data Contracts
 

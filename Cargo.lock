@@ -937,6 +937,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "finance-statistics"
+version = "0.1.0"
+dependencies = [
+ "numbers-core",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3270,6 +3278,7 @@ dependencies = [
  "comfyui-models",
  "data-inversion-core",
  "dense-data",
+ "finance-statistics",
  "graph-analysis-core",
  "image-analysis-comfyui",
  "image-analysis-core",

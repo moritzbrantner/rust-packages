@@ -3,7 +3,9 @@
 use std::collections::BTreeMap;
 
 use math_linear::{F32Matrix, MatrixShape};
-use math_statistics::{CovarianceMatrix, PrincipalComponents, RunningCovariance};
+use math_statistics::{
+    CovarianceMatrix, PrincipalComponents, RunningCovariance, WeightedObservation,
+};
 use numbers_core::{NumberSummary, RunningStats};
 use video_analysis_core::{DetectError, Result};
 
@@ -174,8 +176,17 @@ impl DenseDataset {
 
     /// Returns covariance matrix.
     pub fn covariance_matrix(&self) -> Result<CovarianceMatrix> {
-        let matrix = self.matrix()?;
-        RunningCovariance::from_matrix(&matrix.as_view())?.covariance_matrix()
+        let dimensions = self
+            .dimensions
+            .ok_or_else(|| invalid_argument("dense dataset must not be empty"))?;
+        let mut covariance = RunningCovariance::new(dimensions)?;
+        for point in &self.points {
+            covariance.push(WeightedObservation::weighted(
+                point.coordinates.clone(),
+                point.weight,
+            )?)?;
+        }
+        covariance.covariance_matrix()
     }
 
     /// Returns principal components.
@@ -881,6 +892,22 @@ mod tests {
         let pca = dataset.principal_components(1).unwrap();
         assert_eq!(covariance.matrix.shape().rows, 2);
         assert_eq!(pca.components().shape().rows, 1);
+    }
+
+    #[test]
+    fn covariance_uses_point_weights() {
+        let dataset = DenseDataset::from_points([
+            point([0.0]).weighted(1.0).unwrap(),
+            point([10.0]).weighted(3.0).unwrap(),
+        ])
+        .unwrap();
+
+        let covariance = dataset.covariance_matrix().unwrap();
+
+        assert_eq!(covariance.count, 2);
+        assert_eq!(covariance.weight_sum, 4.0);
+        assert_eq!(covariance.means, vec![7.5]);
+        assert_close(covariance.matrix.values()[0] as f64, 18.75);
     }
 
     #[test]

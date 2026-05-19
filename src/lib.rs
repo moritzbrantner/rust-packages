@@ -30,6 +30,8 @@ pub use comfyui_models;
 pub use data_inversion_core as inversion;
 /// Re-exports the dense API.
 pub use dense_data as dense;
+/// Re-exports the finance statistics API.
+pub use finance_statistics as finance;
 /// Re-exports the graph core API.
 pub use graph_analysis_core as graph_core;
 /// Re-exports the image ComfyUI API.

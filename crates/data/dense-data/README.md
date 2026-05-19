@@ -5,6 +5,8 @@ Deterministic dense point datasets, bucketing, and clustering for `video-analysi
 ## Highlights
 
 - Weighted dense point summaries with per-dimension stats
+- `math-linear` matrix export for dense point coordinates
+- `math-statistics` covariance and PCA helpers
 - Deterministic fixed-grid bucketing
 - Deterministic k-means clustering
 - Dataset and point-set helpers for tables, charts, and media-derived features
@@ -30,6 +32,9 @@ assert_eq!(summary.coordinate_stats[0].mean, Some(2.0 / 3.0));
 let buckets = dataset.buckets(&BucketGrid::uniform(2, 1.0)?)?;
 assert_eq!(buckets.len(), 2);
 
+let covariance = dataset.covariance_matrix()?;
+assert_eq!(covariance.matrix.shape().rows, 2);
+
 let clusters = dataset.k_means(KMeansConfig::new(2)?)?;
 assert_eq!(clusters.clusters.len(), 2);
     Ok(())
@@ -38,6 +43,8 @@ assert_eq!(clusters.clusters.len(), 2);
 
 ## Related crates
 
+- `math-linear`
+- `math-statistics`
 - `numbers-core`
 - `vector-analysis-core`
 - `video-analysis-data`
