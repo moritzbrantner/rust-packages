@@ -220,14 +220,14 @@ function capabilitiesFor(
           ? `${name}/api (package ${name}-api)`
           : `/api/packages?name=${encodeURIComponent(name)}`,
     },
-  ];
-
-  if (kind === "frontend") {
-    capabilities.push({
+    {
       kind: "ui",
-      entrypoint: `Architecture page package detail for ${name}`,
-    });
-  }
+      entrypoint:
+        kind === "rust"
+          ? `${name}/ui (package ${name}-ui)`
+          : `Architecture page package detail for ${name}`,
+    },
+  ];
 
   return capabilities;
 }
