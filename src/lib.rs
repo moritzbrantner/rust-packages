@@ -101,6 +101,8 @@ pub use three_d_processing_core as three_d_core;
 pub use three_d_processing_io as three_d_io;
 /// Re-exports the three d mesh API.
 pub use three_d_processing_mesh as three_d_mesh;
+/// Re-exports the SVG-inspired 3D scene API.
+pub use three_d_scene_svg as three_d_scene;
 /// Re-exports the vector core API.
 pub use vector_analysis_core as vector_core;
 /// Re-exports the vector index API.
@@ -179,6 +181,21 @@ mod tests {
 
         let vector = vector_core::DenseVector::new([3.0, 4.0]).unwrap();
         assert_eq!(vector_core::l2_norm(vector.as_slice()).unwrap(), 5.0);
+
+        let scene = three_d_scene::SceneDocument::new(
+            three_d_scene::SceneViewport::new(120, 80).unwrap(),
+            three_d_scene::Camera::orthographic(
+                three_d_core::Point3::new(2.0, 2.0, 2.0),
+                three_d_core::Point3::new(0.0, 0.0, 0.0),
+                4.0,
+            )
+            .unwrap(),
+            three_d_scene::Node::point(three_d_core::Point3::new(0.0, 0.0, 0.0)),
+        )
+        .unwrap();
+        assert!(three_d_scene::render_svg(&scene)
+            .unwrap()
+            .contains("<circle"));
     }
 
     #[test]

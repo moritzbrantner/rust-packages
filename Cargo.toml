@@ -69,6 +69,7 @@ members = [
     "crates/three-d/three-d-processing-core",
     "crates/three-d/three-d-processing-io",
     "crates/three-d/three-d-processing-mesh",
+    "crates/three-d/three-d-scene-svg",
     "crates/vector/vector-analysis-core",
     "crates/vector/vector-analysis-index",
     "crates/video/video-analysis-core",
@@ -199,6 +200,7 @@ vector-analysis-index = { version = "0.1.0", path = "crates/vector/vector-analys
 three-d-processing-core = { version = "0.1.0", path = "crates/three-d/three-d-processing-core" }
 three-d-processing-io = { version = "0.1.0", path = "crates/three-d/three-d-processing-io" }
 three-d-processing-mesh = { version = "0.1.0", path = "crates/three-d/three-d-processing-mesh" }
+three-d-scene-svg = { version = "0.1.0", path = "crates/three-d/three-d-scene-svg" }
 video-analysis-core = { version = "0.1.0", path = "crates/video/video-analysis-core" }
 video-analysis-data = { version = "0.1.0", path = "crates/video/video-analysis-data" }
 video-analysis-dataset = { version = "0.1.0", path = "crates/video/video-analysis-dataset" }
@@ -319,6 +321,7 @@ vector-analysis-index.workspace = true
 three-d-processing-core.workspace = true
 three-d-processing-io.workspace = true
 three-d-processing-mesh.workspace = true
+three-d-scene-svg.workspace = true
 video-analysis-posture-io.workspace = true
 
 [dev-dependencies]

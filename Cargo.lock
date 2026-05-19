@@ -2954,6 +2954,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "three-d-scene-svg"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "three-d-processing-core",
+ "three-d-processing-mesh",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "time"
 version = "0.3.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3337,6 +3348,7 @@ dependencies = [
  "three-d-processing-core",
  "three-d-processing-io",
  "three-d-processing-mesh",
+ "three-d-scene-svg",
  "vector-analysis-core",
  "vector-analysis-index",
  "video-analysis-colmap-backend",
