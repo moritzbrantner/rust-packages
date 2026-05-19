@@ -449,6 +449,496 @@ impl TryFrom<RectU32> for BoundingBox {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Data type for a broad-phase collision pair.
+pub struct CollisionPair {
+    /// Index of the first item.
+    pub left_index: usize,
+    /// Index of the second item.
+    pub right_index: usize,
+}
+
+impl CollisionPair {
+    /// Creates a new ordered same-set pair.
+    pub fn ordered(left_index: usize, right_index: usize) -> Self {
+        if left_index <= right_index {
+            Self {
+                left_index,
+                right_index,
+            }
+        } else {
+            Self {
+                left_index: right_index,
+                right_index: left_index,
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Strategy used for broad-phase 2D collision detection.
+pub enum BroadPhase2Strategy {
+    /// Selects an implementation from the input shape.
+    Auto,
+    /// Checks every pair.
+    BruteForce,
+    /// Uses a spatial hash grid.
+    SpatialHashGrid,
+    /// Uses sweep and prune along the x axis.
+    SweepAndPrune,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Cell size selection for 2D spatial hashing.
+pub enum SpatialCellSize2 {
+    /// Uses median item dimensions.
+    Auto,
+    /// Uses a fixed cell size.
+    Fixed {
+        /// Cell width in pixels.
+        width: u32,
+        /// Cell height in pixels.
+        height: u32,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Options for 2D broad-phase collision detection.
+pub struct BroadPhase2Config {
+    /// Strategy to use.
+    pub strategy: BroadPhase2Strategy,
+    /// Maximum item count handled with brute force in auto mode.
+    pub brute_force_threshold: usize,
+    /// Maximum cells a single item may span before auto mode uses sweep and prune.
+    pub max_cells_per_item: usize,
+    /// Spatial hash grid cell size.
+    pub cell_size: SpatialCellSize2,
+}
+
+impl Default for BroadPhase2Config {
+    fn default() -> Self {
+        Self {
+            strategy: BroadPhase2Strategy::Auto,
+            brute_force_threshold: 128,
+            max_cells_per_item: 1024,
+            cell_size: SpatialCellSize2::Auto,
+        }
+    }
+}
+
+impl BroadPhase2Config {
+    /// Validates this value.
+    pub fn validate(self) -> Result<()> {
+        if self.max_cells_per_item == 0 {
+            return Err(invalid_argument(
+                "max_cells_per_item must be greater than zero",
+            ));
+        }
+        if let SpatialCellSize2::Fixed { width, height } = self.cell_size {
+            if width == 0 || height == 0 {
+                return Err(invalid_argument("fixed spatial cell size must be non-zero"));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Runtime statistics for broad-phase collision detection.
+pub struct BroadPhaseStats {
+    /// Number of objects indexed.
+    pub object_count: usize,
+    /// Number of occupied cells.
+    pub cell_count: usize,
+    /// Number of object-cell entries.
+    pub cell_entry_count: usize,
+    /// Number of candidate pairs emitted.
+    pub candidate_pair_count: usize,
+    /// Strategy selected after auto resolution.
+    pub selected_strategy: BroadPhase2Strategy,
+}
+
+impl Default for BroadPhaseStats {
+    fn default() -> Self {
+        Self {
+            object_count: 0,
+            cell_count: 0,
+            cell_entry_count: 0,
+            candidate_pair_count: 0,
+            selected_strategy: BroadPhase2Strategy::BruteForce,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct GridCell2 {
+    x: u32,
+    y: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct GridEntry2 {
+    cell: GridCell2,
+    set: u8,
+    index: usize,
+}
+
+#[derive(Debug, Clone)]
+/// Reusable spatial hash grid for 2D broad-phase collision detection.
+pub struct SpatialHashGrid2 {
+    config: BroadPhase2Config,
+    cell_width: u32,
+    cell_height: u32,
+    left_bounds: Vec<RectU32>,
+    right_bounds: Vec<RectU32>,
+    entries: Vec<GridEntry2>,
+    pairs: Vec<CollisionPair>,
+    stats: BroadPhaseStats,
+}
+
+impl SpatialHashGrid2 {
+    /// Creates a new value.
+    pub fn new(config: BroadPhase2Config) -> Result<Self> {
+        config.validate()?;
+        Ok(Self {
+            config,
+            cell_width: 1,
+            cell_height: 1,
+            left_bounds: Vec::new(),
+            right_bounds: Vec::new(),
+            entries: Vec::new(),
+            pairs: Vec::new(),
+            stats: BroadPhaseStats {
+                selected_strategy: config.strategy,
+                ..BroadPhaseStats::default()
+            },
+        })
+    }
+
+    /// Rebuilds this grid for a single set of bounds.
+    pub fn rebuild(&mut self, bounds: &[RectU32]) -> Result<()> {
+        validate_rects(bounds)?;
+        let (cell_width, cell_height) = resolve_cell_size_2d(bounds, self.config.cell_size)?;
+        self.cell_width = cell_width;
+        self.cell_height = cell_height;
+        self.left_bounds.clear();
+        self.left_bounds.extend_from_slice(bounds);
+        self.right_bounds.clear();
+        self.entries.clear();
+        self.pairs.clear();
+        self.push_entries(bounds, 0)?;
+        self.stats = BroadPhaseStats {
+            object_count: bounds.len(),
+            cell_count: 0,
+            cell_entry_count: self.entries.len(),
+            candidate_pair_count: 0,
+            selected_strategy: BroadPhase2Strategy::SpatialHashGrid,
+        };
+        Ok(())
+    }
+
+    /// Returns candidate pairs for the most recently rebuilt single set.
+    pub fn candidate_pairs(&mut self) -> Result<&[CollisionPair]> {
+        self.entries.sort_unstable();
+        self.pairs.clear();
+        let mut cell_count = 0;
+        let mut start = 0;
+        while start < self.entries.len() {
+            let cell = self.entries[start].cell;
+            let mut end = start + 1;
+            while end < self.entries.len() && self.entries[end].cell == cell {
+                end += 1;
+            }
+            cell_count += 1;
+            for left in start..end {
+                for right in (left + 1)..end {
+                    let left_index = self.entries[left].index;
+                    let right_index = self.entries[right].index;
+                    if self.left_bounds[left_index].intersects(self.left_bounds[right_index])? {
+                        self.pairs
+                            .push(CollisionPair::ordered(left_index, right_index));
+                    }
+                }
+            }
+            start = end;
+        }
+        finish_pairs(&mut self.pairs);
+        self.stats.cell_count = cell_count;
+        self.stats.candidate_pair_count = self.pairs.len();
+        Ok(&self.pairs)
+    }
+
+    /// Returns candidate pairs between two independent sets.
+    pub fn candidate_pairs_between(
+        &mut self,
+        left: &[RectU32],
+        right: &[RectU32],
+    ) -> Result<&[CollisionPair]> {
+        validate_rects(left)?;
+        validate_rects(right)?;
+        let (cell_width, cell_height) =
+            resolve_cell_size_2d_for_sets(left, right, self.config.cell_size)?;
+        self.cell_width = cell_width;
+        self.cell_height = cell_height;
+        self.left_bounds.clear();
+        self.left_bounds.extend_from_slice(left);
+        self.right_bounds.clear();
+        self.right_bounds.extend_from_slice(right);
+        self.entries.clear();
+        self.pairs.clear();
+        self.push_entries(left, 0)?;
+        self.push_entries(right, 1)?;
+        self.entries.sort_unstable();
+
+        let mut cell_count = 0;
+        let mut start = 0;
+        while start < self.entries.len() {
+            let cell = self.entries[start].cell;
+            let mut end = start + 1;
+            while end < self.entries.len() && self.entries[end].cell == cell {
+                end += 1;
+            }
+            cell_count += 1;
+            for left_entry in start..end {
+                if self.entries[left_entry].set != 0 {
+                    continue;
+                }
+                for right_entry in start..end {
+                    if self.entries[right_entry].set == 1
+                        && self.left_bounds[self.entries[left_entry].index]
+                            .intersects(self.right_bounds[self.entries[right_entry].index])?
+                    {
+                        self.pairs.push(CollisionPair {
+                            left_index: self.entries[left_entry].index,
+                            right_index: self.entries[right_entry].index,
+                        });
+                    }
+                }
+            }
+            start = end;
+        }
+        finish_pairs(&mut self.pairs);
+        self.stats = BroadPhaseStats {
+            object_count: left.len() + right.len(),
+            cell_count,
+            cell_entry_count: self.entries.len(),
+            candidate_pair_count: self.pairs.len(),
+            selected_strategy: BroadPhase2Strategy::SpatialHashGrid,
+        };
+        Ok(&self.pairs)
+    }
+
+    /// Returns stats.
+    pub fn stats(&self) -> BroadPhaseStats {
+        self.stats
+    }
+
+    fn push_entries(&mut self, bounds: &[RectU32], set: u8) -> Result<()> {
+        for (index, rect) in bounds.iter().copied().enumerate() {
+            let (min_cell, max_cell) = rect_cell_range_2d(rect, self.cell_width, self.cell_height)?;
+            for y in min_cell.y..=max_cell.y {
+                for x in min_cell.x..=max_cell.x {
+                    self.entries.push(GridEntry2 {
+                        cell: GridCell2 { x, y },
+                        set,
+                        index,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Returns broad-phase candidate pairs for 2D rectangles.
+pub fn broad_phase_pairs_2d(
+    bounds: &[RectU32],
+    config: BroadPhase2Config,
+) -> Result<Vec<CollisionPair>> {
+    config.validate()?;
+    validate_rects(bounds)?;
+    let (strategy, stats) = select_strategy_2d(bounds, config)?;
+    match strategy {
+        BroadPhase2Strategy::Auto => unreachable!("auto strategy must resolve before execution"),
+        BroadPhase2Strategy::BruteForce => Ok(brute_force_pairs_2d(bounds)),
+        BroadPhase2Strategy::SweepAndPrune => Ok(sweep_and_prune_pairs_2d(bounds)?),
+        BroadPhase2Strategy::SpatialHashGrid => {
+            let mut grid = SpatialHashGrid2::new(BroadPhase2Config { strategy, ..config })?;
+            grid.rebuild(bounds)?;
+            let pairs = grid.candidate_pairs()?.to_vec();
+            let _ = stats;
+            Ok(pairs)
+        }
+    }
+}
+
+fn select_strategy_2d(
+    bounds: &[RectU32],
+    config: BroadPhase2Config,
+) -> Result<(BroadPhase2Strategy, BroadPhaseStats)> {
+    let selected = match config.strategy {
+        BroadPhase2Strategy::Auto if bounds.len() <= config.brute_force_threshold => {
+            BroadPhase2Strategy::BruteForce
+        }
+        BroadPhase2Strategy::Auto => {
+            let (cell_width, cell_height) = resolve_cell_size_2d(bounds, config.cell_size)?;
+            if bounds.iter().copied().any(|rect| {
+                rect_cell_count_2d(rect, cell_width, cell_height)
+                    .map(|count| count > config.max_cells_per_item)
+                    .unwrap_or(true)
+            }) {
+                BroadPhase2Strategy::SweepAndPrune
+            } else {
+                BroadPhase2Strategy::SpatialHashGrid
+            }
+        }
+        strategy => strategy,
+    };
+    Ok((
+        selected,
+        BroadPhaseStats {
+            object_count: bounds.len(),
+            selected_strategy: selected,
+            ..BroadPhaseStats::default()
+        },
+    ))
+}
+
+fn brute_force_pairs_2d(bounds: &[RectU32]) -> Vec<CollisionPair> {
+    let mut pairs = Vec::new();
+    for left_index in 0..bounds.len() {
+        for right_index in (left_index + 1)..bounds.len() {
+            if bounds[left_index]
+                .intersects(bounds[right_index])
+                .unwrap_or(false)
+            {
+                pairs.push(CollisionPair {
+                    left_index,
+                    right_index,
+                });
+            }
+        }
+    }
+    pairs
+}
+
+fn sweep_and_prune_pairs_2d(bounds: &[RectU32]) -> Result<Vec<CollisionPair>> {
+    let mut ordered = bounds
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(index, rect)| Ok((index, rect.x, rect.max_x()?, rect)))
+        .collect::<Result<Vec<_>>>()?;
+    ordered.sort_unstable_by_key(|(index, min_x, _, _)| (*min_x, *index));
+
+    let mut pairs = Vec::new();
+    let mut active = Vec::<(usize, u32, RectU32)>::new();
+    for (index, min_x, max_x, rect) in ordered {
+        active.retain(|(_, active_max_x, _)| *active_max_x > min_x);
+        for (active_index, _, active_rect) in &active {
+            if active_rect.intersects(rect)? {
+                pairs.push(CollisionPair::ordered(*active_index, index));
+            }
+        }
+        active.push((index, max_x, rect));
+    }
+    finish_pairs(&mut pairs);
+    Ok(pairs)
+}
+
+fn resolve_cell_size_2d(bounds: &[RectU32], cell_size: SpatialCellSize2) -> Result<(u32, u32)> {
+    match cell_size {
+        SpatialCellSize2::Fixed { width, height } => {
+            if width == 0 || height == 0 {
+                return Err(invalid_argument("fixed spatial cell size must be non-zero"));
+            }
+            Ok((width, height))
+        }
+        SpatialCellSize2::Auto => {
+            if bounds.is_empty() {
+                return Ok((1, 1));
+            }
+            let mut widths = bounds.iter().map(|rect| rect.width).collect::<Vec<_>>();
+            let mut heights = bounds.iter().map(|rect| rect.height).collect::<Vec<_>>();
+            widths.sort_unstable();
+            heights.sort_unstable();
+            Ok((
+                widths[widths.len() / 2].max(1),
+                heights[heights.len() / 2].max(1),
+            ))
+        }
+    }
+}
+
+fn resolve_cell_size_2d_for_sets(
+    left: &[RectU32],
+    right: &[RectU32],
+    cell_size: SpatialCellSize2,
+) -> Result<(u32, u32)> {
+    match cell_size {
+        SpatialCellSize2::Fixed { .. } => resolve_cell_size_2d(left, cell_size),
+        SpatialCellSize2::Auto => {
+            let mut widths = left
+                .iter()
+                .chain(right.iter())
+                .map(|rect| rect.width)
+                .collect::<Vec<_>>();
+            let mut heights = left
+                .iter()
+                .chain(right.iter())
+                .map(|rect| rect.height)
+                .collect::<Vec<_>>();
+            if widths.is_empty() {
+                return Ok((1, 1));
+            }
+            widths.sort_unstable();
+            heights.sort_unstable();
+            Ok((
+                widths[widths.len() / 2].max(1),
+                heights[heights.len() / 2].max(1),
+            ))
+        }
+    }
+}
+
+fn rect_cell_range_2d(
+    rect: RectU32,
+    cell_width: u32,
+    cell_height: u32,
+) -> Result<(GridCell2, GridCell2)> {
+    let max_x = rect.max_x()?.saturating_sub(1);
+    let max_y = rect.max_y()?.saturating_sub(1);
+    Ok((
+        GridCell2 {
+            x: rect.x / cell_width,
+            y: rect.y / cell_height,
+        },
+        GridCell2 {
+            x: max_x / cell_width,
+            y: max_y / cell_height,
+        },
+    ))
+}
+
+fn rect_cell_count_2d(rect: RectU32, cell_width: u32, cell_height: u32) -> Result<usize> {
+    let (min, max) = rect_cell_range_2d(rect, cell_width, cell_height)?;
+    let width = (max.x - min.x + 1) as usize;
+    let height = (max.y - min.y + 1) as usize;
+    Ok(width.saturating_mul(height))
+}
+
+fn validate_rects(bounds: &[RectU32]) -> Result<()> {
+    for rect in bounds {
+        rect.validate()?;
+    }
+    Ok(())
+}
+
+fn finish_pairs(pairs: &mut Vec<CollisionPair>) {
+    pairs.sort_unstable();
+    pairs.dedup();
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for rect f32.
 pub struct RectF32 {
@@ -1089,5 +1579,141 @@ mod tests {
             .unwrap();
         assert!((normalized.x - 0.25).abs() < 1.0e-6);
         assert!((normalized.y - 0.5).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn broad_phase_strategies_match_for_mixed_rectangles() {
+        let rects = [
+            RectU32::new(0, 0, 10, 10).unwrap(),
+            RectU32::new(5, 5, 8, 8).unwrap(),
+            RectU32::new(30, 30, 4, 4).unwrap(),
+            RectU32::new(31, 31, 4, 4).unwrap(),
+            RectU32::new(100, 0, 10, 10).unwrap(),
+        ];
+        let brute = broad_phase_pairs_2d(
+            &rects,
+            BroadPhase2Config {
+                strategy: BroadPhase2Strategy::BruteForce,
+                ..BroadPhase2Config::default()
+            },
+        )
+        .unwrap();
+        let sweep = broad_phase_pairs_2d(
+            &rects,
+            BroadPhase2Config {
+                strategy: BroadPhase2Strategy::SweepAndPrune,
+                ..BroadPhase2Config::default()
+            },
+        )
+        .unwrap();
+        let grid = broad_phase_pairs_2d(
+            &rects,
+            BroadPhase2Config {
+                strategy: BroadPhase2Strategy::SpatialHashGrid,
+                cell_size: SpatialCellSize2::Fixed {
+                    width: 8,
+                    height: 8,
+                },
+                ..BroadPhase2Config::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(brute, sweep);
+        assert_eq!(brute, grid);
+        assert_eq!(
+            brute,
+            vec![
+                CollisionPair {
+                    left_index: 0,
+                    right_index: 1
+                },
+                CollisionPair {
+                    left_index: 2,
+                    right_index: 3
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn broad_phase_handles_touching_nested_and_spanning_rectangles() {
+        let touching = [
+            RectU32::new(0, 0, 10, 10).unwrap(),
+            RectU32::new(10, 0, 10, 10).unwrap(),
+        ];
+        assert!(
+            broad_phase_pairs_2d(&touching, BroadPhase2Config::default())
+                .unwrap()
+                .is_empty()
+        );
+
+        let nested = [
+            RectU32::new(0, 0, 20, 20).unwrap(),
+            RectU32::new(2, 2, 4, 4).unwrap(),
+        ];
+        assert_eq!(
+            broad_phase_pairs_2d(
+                &nested,
+                BroadPhase2Config {
+                    strategy: BroadPhase2Strategy::SpatialHashGrid,
+                    cell_size: SpatialCellSize2::Fixed {
+                        width: 2,
+                        height: 2,
+                    },
+                    ..BroadPhase2Config::default()
+                }
+            )
+            .unwrap(),
+            vec![CollisionPair {
+                left_index: 0,
+                right_index: 1
+            }]
+        );
+    }
+
+    #[test]
+    fn spatial_hash_grid_reports_cross_set_pairs_and_stats() {
+        let left = [
+            RectU32::new(0, 0, 10, 10).unwrap(),
+            RectU32::new(40, 40, 4, 4).unwrap(),
+        ];
+        let right = [
+            RectU32::new(4, 4, 10, 10).unwrap(),
+            RectU32::new(80, 80, 4, 4).unwrap(),
+        ];
+        let mut grid = SpatialHashGrid2::new(BroadPhase2Config {
+            strategy: BroadPhase2Strategy::SpatialHashGrid,
+            cell_size: SpatialCellSize2::Fixed {
+                width: 8,
+                height: 8,
+            },
+            ..BroadPhase2Config::default()
+        })
+        .unwrap();
+        let pairs = grid.candidate_pairs_between(&left, &right).unwrap();
+
+        assert_eq!(
+            pairs,
+            &[CollisionPair {
+                left_index: 0,
+                right_index: 0
+            }]
+        );
+        assert_eq!(grid.stats().object_count, 4);
+        assert_eq!(grid.stats().candidate_pair_count, 1);
+    }
+
+    #[test]
+    fn broad_phase_rejects_invalid_fixed_cell_sizes() {
+        assert!(BroadPhase2Config {
+            cell_size: SpatialCellSize2::Fixed {
+                width: 0,
+                height: 8,
+            },
+            ..BroadPhase2Config::default()
+        }
+        .validate()
+        .is_err());
     }
 }

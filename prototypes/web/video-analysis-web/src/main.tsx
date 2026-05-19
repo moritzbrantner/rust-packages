@@ -145,7 +145,7 @@ function App() {
     setRunOutput({});
 
     try {
-      const response = await fetch("/api/run-youtube-video", {
+      const response = await fetch(`${import.meta.env.BASE_URL}api/run-youtube-video`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -201,8 +201,8 @@ function App() {
         <aside className="border-b border-zinc-200 bg-white lg:border-b-0 lg:border-r">
           <div className="sticky top-0 flex flex-col gap-5 p-4">
             <div>
-              <div className="text-lg font-semibold tracking-normal">Video Analysis Studio</div>
-              <div className="mt-1 text-sm text-zinc-500">Use cases and reports</div>
+              <div className="text-lg font-semibold tracking-normal">Rust Packages</div>
+              <div className="mt-1 text-sm text-zinc-500">Crates and package surfaces</div>
             </div>
             <nav className="space-y-2">
               {useCases.map((useCase) => (
@@ -247,7 +247,7 @@ function App() {
                     {viewMode === "crates" ? "Crate Catalog" : currentUseCase(selectedUseCase).name}
                   </h1>
                   <p className="mt-1 text-sm text-zinc-500">
-                    {viewMode === "crates" ? "Workspace packages with interactive UI previews" : report.source.local_video}
+                    {viewMode === "crates" ? "Overview of every workspace crate and frontend package" : report.source.local_video}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -2464,7 +2464,7 @@ function initialViewMode(): ViewMode {
   const pathname = window.location.pathname.startsWith(base)
     ? window.location.pathname.slice(base.length)
     : window.location.pathname.replace(/^\//, "");
-  return pathname.startsWith("crates/") ? "crates" : "overview";
+  return pathname === "" || pathname.startsWith("crates/") ? "crates" : "overview";
 }
 
 function basename(path: string): string {

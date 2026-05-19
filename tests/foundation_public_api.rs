@@ -10,14 +10,19 @@ use graph_analysis_core::{minimum_spanning_tree, shortest_path, Graph};
 use image_analysis_core::{mean_rgb, ImagePixelFormat, OwnedImage};
 use image_analysis_processing::grayscale_image;
 use image_analysis_synthesis::{solid_image, ImageSynthesisConfig, RgbColor};
-use math_geometry_2d::{NormalizedPoint2, RectU32, Size2u};
+use math_geometry_2d::{
+    broad_phase_pairs_2d, BroadPhase2Config, BroadPhase2Strategy, NormalizedPoint2, RectU32, Size2u,
+};
 use math_linear::{F32Matrix, Kernel2d};
 use math_signal_core::{BiquadDesign, SampleRate, WindowFunction};
 use math_sparse_data::SparseVector;
 use math_statistics::{PrincipalComponents, RunningCovariance};
 use numbers_core::{quartiles, summarize_numbers};
 use tempfile::tempdir;
-use three_d_processing_core::{centroid, voxel_downsample, Point3};
+use three_d_processing_core::{
+    broad_phase_pairs_3d, centroid, voxel_downsample, Bounds3, BroadPhase3Config,
+    BroadPhase3Strategy, Point3, SpatialCellSize3,
+};
 use three_d_processing_io::{read_mesh, write_obj_mesh};
 use three_d_processing_mesh::{Mesh, Triangle};
 use vector_analysis_core::{cosine_similarity, DenseVector, VectorMetric};
@@ -89,6 +94,17 @@ fn foundation_crates_support_basic_consumer_workflows() -> Result<(), Box<dyn st
     assert_eq!(rect.area()?, 20);
     let center = rect.center_f32().to_normalized(Size2u::new(12, 16)?)?;
     assert!(center.x > 0.0 && center.y > 0.0);
+    assert_eq!(
+        broad_phase_pairs_2d(
+            &[rect, RectU32::new(3, 4, 4, 5)?],
+            BroadPhase2Config {
+                strategy: BroadPhase2Strategy::SweepAndPrune,
+                ..BroadPhase2Config::default()
+            }
+        )?
+        .len(),
+        1
+    );
     assert_eq!(
         NormalizedPoint2::new(0.5, 0.5)?
             .to_pixel_point(Size2u::new(10, 8)?)
@@ -163,6 +179,21 @@ fn foundation_crates_support_basic_consumer_workflows() -> Result<(), Box<dyn st
     assert!(mesh.surface_area()? > 0.0);
     assert!(centroid(&mesh.vertices)?.is_some());
     assert_eq!(voxel_downsample(&mesh.vertices, 1.0)?.len(), 3);
+    assert_eq!(
+        broad_phase_pairs_3d(
+            &[
+                Bounds3::new(Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 1.0, 1.0))?,
+                Bounds3::new(Point3::new(0.5, 0.5, 0.5), Point3::new(2.0, 2.0, 2.0))?,
+            ],
+            BroadPhase3Config {
+                strategy: BroadPhase3Strategy::SpatialHashGrid,
+                cell_size: SpatialCellSize3::Fixed { size: 1.0 },
+                ..BroadPhase3Config::default()
+            }
+        )?
+        .len(),
+        1
+    );
 
     let mesh_path = temp.path().join("triangle.obj");
     write_obj_mesh(&mesh_path, &mesh)?;

@@ -2,6 +2,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use math_geometry_2d::{
+    broad_phase_pairs_2d, BroadPhase2Config, BroadPhase2Strategy, RectU32, SpatialCellSize2,
+};
 use video_analysis_core::{
     BoundingBox, DetectError, FramePosition, Observation, ObservationKind, Result, VideoAnalyzer,
     VideoFrame,
@@ -90,6 +93,84 @@ impl CollisionOptions {
             ));
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Strategy used for broad-phase object collision detection.
+pub enum CollisionBroadPhaseStrategy {
+    /// Selects an implementation from the input shape.
+    Auto,
+    /// Checks every pair.
+    BruteForce,
+    /// Uses a spatial hash grid.
+    SpatialHashGrid,
+    /// Uses sweep and prune along the x axis.
+    SweepAndPrune,
+}
+
+impl From<CollisionBroadPhaseStrategy> for BroadPhase2Strategy {
+    fn from(value: CollisionBroadPhaseStrategy) -> Self {
+        match value {
+            CollisionBroadPhaseStrategy::Auto => Self::Auto,
+            CollisionBroadPhaseStrategy::BruteForce => Self::BruteForce,
+            CollisionBroadPhaseStrategy::SpatialHashGrid => Self::SpatialHashGrid,
+            CollisionBroadPhaseStrategy::SweepAndPrune => Self::SweepAndPrune,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Cell size selection for broad-phase object collision detection.
+pub enum CollisionCellSize {
+    /// Uses median region dimensions.
+    Auto,
+    /// Uses a fixed cell size.
+    Fixed {
+        /// Cell width in pixels.
+        width: u32,
+        /// Cell height in pixels.
+        height: u32,
+    },
+}
+
+impl From<CollisionCellSize> for SpatialCellSize2 {
+    fn from(value: CollisionCellSize) -> Self {
+        match value {
+            CollisionCellSize::Auto => Self::Auto,
+            CollisionCellSize::Fixed { width, height } => Self::Fixed { width, height },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Options for broad-phase object collision detection.
+pub struct CollisionBroadPhaseOptions {
+    /// Strategy to use.
+    pub strategy: CollisionBroadPhaseStrategy,
+    /// Maximum region count handled with brute force in auto mode.
+    pub brute_force_threshold: usize,
+    /// Maximum cells a single region may span before auto mode uses sweep and prune.
+    pub max_cells_per_region: usize,
+    /// Spatial hash grid cell size.
+    pub cell_size: CollisionCellSize,
+}
+
+impl Default for CollisionBroadPhaseOptions {
+    fn default() -> Self {
+        Self {
+            strategy: CollisionBroadPhaseStrategy::Auto,
+            brute_force_threshold: 128,
+            max_cells_per_region: 1024,
+            cell_size: CollisionCellSize::Auto,
+        }
+    }
+}
+
+impl CollisionBroadPhaseOptions {
+    /// Validates this value.
+    pub fn validate(self) -> Result<()> {
+        to_broad_phase_config(self).validate()
     }
 }
 
@@ -211,6 +292,15 @@ impl IouTracker {
     /// Returns collisions between active tracks.
     pub fn collisions(&self, options: CollisionOptions) -> Result<Vec<ObjectCollision>> {
         detect_track_collisions(self.tracks.values(), options)
+    }
+
+    /// Returns collisions between active tracks using explicit broad-phase options.
+    pub fn collisions_with_broad_phase(
+        &self,
+        options: CollisionOptions,
+        broad_phase: CollisionBroadPhaseOptions,
+    ) -> Result<Vec<ObjectCollision>> {
+        detect_track_collisions_with_broad_phase(self.tracks.values(), options, broad_phase)
     }
 
     /// Returns update.
@@ -437,7 +527,21 @@ pub fn detect_detection_collisions(
     detections: &[TrackedDetection],
     options: CollisionOptions,
 ) -> Result<Vec<ObjectCollision>> {
+    detect_detection_collisions_with_broad_phase(
+        detections,
+        options,
+        CollisionBroadPhaseOptions::default(),
+    )
+}
+
+/// Returns collisions between tracked detections using explicit broad-phase options.
+pub fn detect_detection_collisions_with_broad_phase(
+    detections: &[TrackedDetection],
+    options: CollisionOptions,
+    broad_phase: CollisionBroadPhaseOptions,
+) -> Result<Vec<ObjectCollision>> {
     options.validate()?;
+    broad_phase.validate()?;
     let regions = detections
         .iter()
         .map(|detection| CollisionRegion {
@@ -445,7 +549,7 @@ pub fn detect_detection_collisions(
             region: detection.region,
         })
         .collect::<Vec<_>>();
-    Ok(detect_collisions(&regions, options))
+    detect_collisions(&regions, options, broad_phase)
 }
 
 /// Returns collisions between object tracks.
@@ -453,7 +557,17 @@ pub fn detect_track_collisions<'a>(
     tracks: impl IntoIterator<Item = &'a ObjectTrack>,
     options: CollisionOptions,
 ) -> Result<Vec<ObjectCollision>> {
+    detect_track_collisions_with_broad_phase(tracks, options, CollisionBroadPhaseOptions::default())
+}
+
+/// Returns collisions between object tracks using explicit broad-phase options.
+pub fn detect_track_collisions_with_broad_phase<'a>(
+    tracks: impl IntoIterator<Item = &'a ObjectTrack>,
+    options: CollisionOptions,
+    broad_phase: CollisionBroadPhaseOptions,
+) -> Result<Vec<ObjectCollision>> {
     options.validate()?;
+    broad_phase.validate()?;
     let regions = tracks
         .into_iter()
         .map(|track| CollisionRegion {
@@ -461,7 +575,7 @@ pub fn detect_track_collisions<'a>(
             region: track.region,
         })
         .collect::<Vec<_>>();
-    Ok(detect_collisions(&regions, options))
+    detect_collisions(&regions, options, broad_phase)
 }
 
 fn compatible(track: &ObjectTrack, detection: &TrackedDetection) -> bool {
@@ -481,32 +595,87 @@ struct CollisionRegion<'a> {
 fn detect_collisions(
     regions: &[CollisionRegion<'_>],
     options: CollisionOptions,
-) -> Vec<ObjectCollision> {
+    broad_phase: CollisionBroadPhaseOptions,
+) -> Result<Vec<ObjectCollision>> {
+    let rects = regions
+        .iter()
+        .map(|region| rect_for_region(region.region))
+        .collect::<Option<Vec<_>>>();
+    let pairs = if let Some(rects) = rects {
+        broad_phase_pairs_2d(&rects, to_broad_phase_config(broad_phase))?
+    } else {
+        brute_force_collision_pairs(regions)
+    };
+
     let mut collisions = Vec::new();
+    for pair in pairs {
+        let left_index = pair.left_index;
+        let right_index = pair.right_index;
+        let left = regions[left_index];
+        let right = regions[right_index];
+        let Some(intersection) = bbox_intersection(left.region, right.region) else {
+            continue;
+        };
+        let iou = bbox_iou_with_intersection(left.region, right.region, intersection);
+        if iou < options.min_iou {
+            continue;
+        }
+        collisions.push(ObjectCollision {
+            left_index,
+            right_index,
+            left_id: left.id.map(str::to_string),
+            right_id: right.id.map(str::to_string),
+            left_region: left.region,
+            right_region: right.region,
+            intersection,
+            iou,
+        });
+    }
+    collisions.sort_by_key(|collision| (collision.left_index, collision.right_index));
+    Ok(collisions)
+}
+
+fn to_broad_phase_config(options: CollisionBroadPhaseOptions) -> BroadPhase2Config {
+    BroadPhase2Config {
+        strategy: options.strategy.into(),
+        brute_force_threshold: options.brute_force_threshold,
+        max_cells_per_item: options.max_cells_per_region,
+        cell_size: options.cell_size.into(),
+    }
+}
+
+fn rect_for_region(region: BoundingBox) -> Option<RectU32> {
+    let _ = region.x.checked_add(region.width)?;
+    let _ = region.y.checked_add(region.height)?;
+    RectU32::new(region.x, region.y, region.width, region.height).ok()
+}
+
+fn brute_force_collision_pairs(
+    regions: &[CollisionRegion<'_>],
+) -> Vec<math_geometry_2d::CollisionPair> {
+    let mut pairs = Vec::new();
     for left_index in 0..regions.len() {
         for right_index in (left_index + 1)..regions.len() {
-            let left = regions[left_index];
-            let right = regions[right_index];
-            let Some(intersection) = bbox_intersection(left.region, right.region) else {
-                continue;
-            };
-            let iou = bbox_iou(left.region, right.region);
-            if iou < options.min_iou {
-                continue;
+            if bbox_intersects(regions[left_index].region, regions[right_index].region) {
+                pairs.push(math_geometry_2d::CollisionPair {
+                    left_index,
+                    right_index,
+                });
             }
-            collisions.push(ObjectCollision {
-                left_index,
-                right_index,
-                left_id: left.id.map(str::to_string),
-                right_id: right.id.map(str::to_string),
-                left_region: left.region,
-                right_region: right.region,
-                intersection,
-                iou,
-            });
         }
     }
-    collisions
+    pairs
+}
+
+fn bbox_iou_with_intersection(
+    left: BoundingBox,
+    right: BoundingBox,
+    intersection: BoundingBox,
+) -> f32 {
+    let intersection = intersection.width as f32 * intersection.height as f32;
+    let left_area = left.width as f32 * left.height as f32;
+    let right_area = right.width as f32 * right.height as f32;
+    intersection / (left_area + right_area - intersection)
 }
 
 fn observation_for_track(analyzer: &str, track: ObjectTrack) -> Observation {
@@ -639,6 +808,74 @@ mod tests {
     }
 
     #[test]
+    fn broad_phase_collision_strategies_match_brute_force() {
+        let detections = (0..256)
+            .map(|index| {
+                let x = ((index % 32) * 8) as u32;
+                let y = ((index / 32) * 8) as u32;
+                TrackedDetection::new(BoundingBox::new(x, y, 6, 6).unwrap())
+            })
+            .chain([
+                TrackedDetection::new(BoundingBox::new(0, 0, 20, 20).unwrap()),
+                TrackedDetection::new(BoundingBox::new(3, 3, 5, 5).unwrap()),
+            ])
+            .collect::<Vec<_>>();
+        let brute = detect_detection_collisions_with_broad_phase(
+            &detections,
+            CollisionOptions { min_iou: 0.0 },
+            CollisionBroadPhaseOptions {
+                strategy: CollisionBroadPhaseStrategy::BruteForce,
+                ..CollisionBroadPhaseOptions::default()
+            },
+        )
+        .unwrap();
+        let grid = detect_detection_collisions_with_broad_phase(
+            &detections,
+            CollisionOptions { min_iou: 0.0 },
+            CollisionBroadPhaseOptions {
+                strategy: CollisionBroadPhaseStrategy::SpatialHashGrid,
+                cell_size: CollisionCellSize::Fixed {
+                    width: 8,
+                    height: 8,
+                },
+                ..CollisionBroadPhaseOptions::default()
+            },
+        )
+        .unwrap();
+        let sweep = detect_detection_collisions_with_broad_phase(
+            &detections,
+            CollisionOptions { min_iou: 0.0 },
+            CollisionBroadPhaseOptions {
+                strategy: CollisionBroadPhaseStrategy::SweepAndPrune,
+                ..CollisionBroadPhaseOptions::default()
+            },
+        )
+        .unwrap();
+        let auto =
+            detect_detection_collisions(&detections, CollisionOptions { min_iou: 0.0 }).unwrap();
+
+        assert_eq!(brute, grid);
+        assert_eq!(brute, sweep);
+        assert_eq!(brute, auto);
+    }
+
+    #[test]
+    fn broad_phase_handles_large_sparse_detection_sets() {
+        let detections = (0..1_000)
+            .map(|index| {
+                TrackedDetection::new(
+                    BoundingBox::new((index * 10) as u32, (index * 7) as u32, 2, 2).unwrap(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let collisions =
+            detect_detection_collisions(&detections, CollisionOptions::default()).unwrap();
+
+        assert!(collisions.is_empty());
+    }
+
+    #[test]
     fn tracker_reports_collisions_between_active_tracks() {
         let mut tracker = IouTracker::new(TrackingOptions::default()).unwrap();
         tracker
@@ -658,6 +895,21 @@ mod tests {
         assert_eq!(collisions.len(), 1);
         assert_eq!(collisions[0].left_id.as_deref(), Some("track-1"));
         assert_eq!(collisions[0].right_id.as_deref(), Some("track-2"));
+
+        let explicit = tracker
+            .collisions_with_broad_phase(
+                CollisionOptions::default(),
+                CollisionBroadPhaseOptions {
+                    strategy: CollisionBroadPhaseStrategy::SpatialHashGrid,
+                    cell_size: CollisionCellSize::Fixed {
+                        width: 4,
+                        height: 4,
+                    },
+                    ..CollisionBroadPhaseOptions::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(collisions, explicit);
     }
 
     #[test]

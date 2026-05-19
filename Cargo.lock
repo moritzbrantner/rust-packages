@@ -1726,6 +1726,7 @@ checksum = "670fdfda89751bc4a84ac13eaa63e205cf0fd22b4c9a5fbfa085b63c1f1d3a30"
 name = "math-geometry-2d"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "serde",
  "video-analysis-core",
 ]
@@ -2925,6 +2926,7 @@ dependencies = [
 name = "three-d-processing-core"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "serde",
  "video-analysis-core",
 ]
@@ -3698,6 +3700,8 @@ dependencies = [
 name = "video-analysis-tracking"
 version = "0.1.0"
 dependencies = [
+ "criterion",
+ "math-geometry-2d",
  "num-rational",
  "video-analysis-core",
 ]

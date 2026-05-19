@@ -29,7 +29,9 @@ use video_analysis_posture_io::{
 };
 use video_analysis_recognition::{Embedding, MatchOptions, ReferenceLibrary};
 use video_analysis_tracking::{
-    detect_detection_collisions, CollisionOptions, IouTracker, TrackedDetection, TrackingOptions,
+    detect_detection_collisions, detect_detection_collisions_with_broad_phase,
+    CollisionBroadPhaseOptions, CollisionBroadPhaseStrategy, CollisionCellSize, CollisionOptions,
+    IouTracker, TrackedDetection, TrackingOptions,
 };
 use video_analysis_transform::{group_by_scene, record_timestamp_seconds};
 
@@ -111,6 +113,25 @@ fn retained_video_crates_support_consumer_smoke_workflows() -> Result<(), Box<dy
                 TrackedDetection::new(BoundingBox::new(4, 4, 8, 8)?),
             ],
             CollisionOptions::default()
+        )?
+        .len(),
+        1
+    );
+    assert_eq!(
+        detect_detection_collisions_with_broad_phase(
+            &[
+                TrackedDetection::new(BoundingBox::new(0, 0, 8, 8)?),
+                TrackedDetection::new(BoundingBox::new(4, 4, 8, 8)?),
+            ],
+            CollisionOptions::default(),
+            CollisionBroadPhaseOptions {
+                strategy: CollisionBroadPhaseStrategy::SpatialHashGrid,
+                cell_size: CollisionCellSize::Fixed {
+                    width: 4,
+                    height: 4,
+                },
+                ..CollisionBroadPhaseOptions::default()
+            }
         )?
         .len(),
         1
