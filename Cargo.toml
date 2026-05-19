@@ -24,6 +24,7 @@ members = [
     "crates/audio/audio-analysis-recognition",
     "crates/audio/audio-analysis-rhythm",
     "crates/audio/audio-analysis-separation",
+    "crates/audio/audio-analysis-speakers",
     "crates/audio/audio-analysis-synthesis",
     "crates/audio/audio-analysis-test-support",
     "crates/test-support/video-analysis-test-support",
@@ -156,6 +157,7 @@ audio-analysis-processing = { version = "0.1.0", path = "crates/audio/audio-anal
 audio-analysis-recognition = { version = "0.1.0", path = "crates/audio/audio-analysis-recognition" }
 audio-analysis-rhythm = { version = "0.1.0", path = "crates/audio/audio-analysis-rhythm" }
 audio-analysis-separation = { version = "0.1.0", path = "crates/audio/audio-analysis-separation" }
+audio-analysis-speakers = { version = "0.1.0", path = "crates/audio/audio-analysis-speakers" }
 audio-analysis-synthesis = { version = "0.1.0", path = "crates/audio/audio-analysis-synthesis" }
 audio-analysis-test-support = { version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
 video-analysis-test-support = { version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
@@ -252,6 +254,7 @@ audio-analysis-processing.workspace = true
 audio-analysis-recognition.workspace = true
 audio-analysis-rhythm.workspace = true
 audio-analysis-separation.workspace = true
+audio-analysis-speakers.workspace = true
 audio-analysis-synthesis.workspace = true
 data-inversion-core.workspace = true
 graph-analysis-core.workspace = true

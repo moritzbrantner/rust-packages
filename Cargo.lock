@@ -192,6 +192,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio-analysis-speakers"
+version = "0.1.0"
+dependencies = [
+ "audio-analysis-core",
+ "audio-analysis-recognition",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "audio-analysis-synthesis"
 version = "0.1.0"
 dependencies = [
@@ -3252,6 +3263,7 @@ dependencies = [
  "audio-analysis-recognition",
  "audio-analysis-rhythm",
  "audio-analysis-separation",
+ "audio-analysis-speakers",
  "audio-analysis-synthesis",
  "comfyui-data",
  "comfyui-latents",

@@ -16,6 +16,8 @@ pub use audio_analysis_recognition as audio_recognition;
 pub use audio_analysis_rhythm as audio_rhythm;
 /// Re-exports the audio separation API.
 pub use audio_analysis_separation as audio_separation;
+/// Re-exports the audio speaker analysis API.
+pub use audio_analysis_speakers as audio_speakers;
 /// Re-exports the audio synthesis API.
 pub use audio_analysis_synthesis as audio_synthesis;
 /// Re-exports the ComfyUI data API.
