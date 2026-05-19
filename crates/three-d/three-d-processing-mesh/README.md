@@ -1,6 +1,6 @@
 # three-d-processing-mesh
 
-Triangle mesh validation and geometry helpers for `video-analysis`.
+Triangle mesh validation and geometry algorithms for `video-analysis`.
 
 ## Feature flags
 
@@ -13,6 +13,7 @@ use three_d_processing_mesh::Mesh;
 
 let mesh = Mesh::new(vec![], vec![])?;
 let _ = mesh.bounds()?;
+let _ = mesh.surface_centroid()?;
 ```
 
 ## Related crates

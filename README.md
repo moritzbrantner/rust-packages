@@ -148,11 +148,13 @@ Package README index:
 - `animation-core`: timeline, keyframe, track, transform track, skeleton, and
   clip contracts for reusable animation workflows.
 - `three-d-processing-core`: 3D points, vectors, quaternions, rigid transforms,
-  line segments, point clouds, voxel downsampling, and normalization helpers.
+  line segments, rays, planes, spheres, point clouds, intersections,
+  closest-point queries, voxel downsampling, and normalization helpers.
 - `three-d-processing-io`: `OBJ`, `PLY`, and minimal embedded `.gltf`
   round-tripping for triangle meshes and point clouds.
 - `three-d-processing-mesh`: triangle mesh validation, topology, normals,
-  surface area, volume, deterministic sampling, transforms, and smoothing.
+  surface area and centroid, volume, deterministic sampling, closest-point and
+  ray-intersection queries, transforms, and smoothing.
 - `video-analysis-core`: timecodes, video/audio/text sample types, metrics, analyzer traits, observations, and realtime pipelines.
 - `video-analysis-data`: stream record normalization plus online aggregation and
   bucketing for video, audio, text, numeric, and vector data.

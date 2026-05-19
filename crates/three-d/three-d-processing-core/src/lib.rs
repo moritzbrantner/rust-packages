@@ -538,6 +538,16 @@ impl LineSegment3 {
     pub fn direction(self) -> Result<Vector3> {
         (self.end - self.start).normalize()
     }
+
+    /// Returns closest point on this segment to a point.
+    pub fn closest_point(self, point: Point3) -> Result<Point3> {
+        closest_point_on_segment(self, point)
+    }
+
+    /// Returns distance from this segment to a point.
+    pub fn distance_to_point(self, point: Point3) -> Result<f32> {
+        Ok(self.closest_point(point)?.distance(point))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -566,6 +576,16 @@ impl Ray3 {
         }
         Ok(self.origin + self.direction * distance)
     }
+
+    /// Returns closest point on this ray to a point.
+    pub fn closest_point(self, point: Point3) -> Result<Point3> {
+        closest_point_on_ray(self, point)
+    }
+
+    /// Returns distance from this ray to a point.
+    pub fn distance_to_point(self, point: Point3) -> Result<f32> {
+        Ok(self.closest_point(point)?.distance(point))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -590,6 +610,16 @@ impl Plane3 {
     pub fn signed_distance(self, point: Point3) -> Result<f32> {
         validate_points(&[point])?;
         Ok(self.normal.dot(Vector3::new(point.x, point.y, point.z)) + self.d)
+    }
+
+    /// Returns the orthogonal projection of a point onto this plane.
+    pub fn project_point(self, point: Point3) -> Result<Point3> {
+        project_point_to_plane(point, self)
+    }
+
+    /// Returns the forward ray-plane intersection point, if any.
+    pub fn intersect_ray(self, ray: Ray3) -> Result<Option<Point3>> {
+        intersect_ray_plane(ray, self)
     }
 }
 
@@ -618,6 +648,32 @@ impl Sphere3 {
     pub fn contains_point(self, point: Point3) -> Result<bool> {
         validate_points(&[point])?;
         Ok(self.center.distance(point) <= self.radius)
+    }
+
+    /// Returns surface area.
+    pub fn surface_area(self) -> f32 {
+        sphere_surface_area(self)
+    }
+
+    /// Returns volume.
+    pub fn volume(self) -> f32 {
+        sphere_volume(self)
+    }
+
+    /// Returns signed distance to the sphere surface.
+    pub fn signed_distance(self, point: Point3) -> Result<f32> {
+        validate_points(&[point])?;
+        Ok(self.center.distance(point) - self.radius)
+    }
+
+    /// Returns closest point on the sphere surface.
+    pub fn closest_point(self, point: Point3) -> Result<Point3> {
+        closest_point_on_sphere(self, point)
+    }
+
+    /// Returns forward ray-sphere intersection points in distance order.
+    pub fn intersect_ray(self, ray: Ray3) -> Result<Vec<Point3>> {
+        intersect_ray_sphere(ray, self)
     }
 }
 
@@ -716,6 +772,129 @@ pub fn nearest_point(points: &[Point3], query: Point3) -> Result<Option<Point3>>
             .partial_cmp(&b.distance(query))
             .unwrap_or(std::cmp::Ordering::Equal)
     }))
+}
+
+/// Returns closest point on segment to a point.
+pub fn closest_point_on_segment(segment: LineSegment3, point: Point3) -> Result<Point3> {
+    validate_points(&[segment.start, segment.end, point])?;
+    let segment_vector = segment.end - segment.start;
+    let length_squared = segment_vector.length_squared();
+    if length_squared <= f32::EPSILON {
+        return Err(invalid_argument(
+            "line segment start and end must not be identical",
+        ));
+    }
+    let t = ((point - segment.start).dot(segment_vector) / length_squared).clamp(0.0, 1.0);
+    Ok(segment.start + segment_vector * t)
+}
+
+/// Returns closest point on ray to a point.
+pub fn closest_point_on_ray(ray: Ray3, point: Point3) -> Result<Point3> {
+    validate_points(&[ray.origin, point])?;
+    validate_finite_vector(ray.direction, "ray direction")?;
+    let direction = ray.direction.normalize()?;
+    let distance = (point - ray.origin).dot(direction).max(0.0);
+    Ok(ray.origin + direction * distance)
+}
+
+/// Returns point projected to plane.
+pub fn project_point_to_plane(point: Point3, plane: Plane3) -> Result<Point3> {
+    validate_points(&[point])?;
+    validate_finite_vector(plane.normal, "plane normal")?;
+    let normal = plane.normal.normalize()?;
+    if !plane.d.is_finite() {
+        return Err(invalid_argument("plane distance must be finite"));
+    }
+    let distance = normal.dot(Vector3::new(point.x, point.y, point.z)) + plane.d;
+    Ok(point - normal * distance)
+}
+
+/// Returns forward ray-plane intersection point, if any.
+pub fn intersect_ray_plane(ray: Ray3, plane: Plane3) -> Result<Option<Point3>> {
+    validate_points(&[ray.origin])?;
+    validate_finite_vector(ray.direction, "ray direction")?;
+    validate_finite_vector(plane.normal, "plane normal")?;
+    if !plane.d.is_finite() {
+        return Err(invalid_argument("plane distance must be finite"));
+    }
+    let direction = ray.direction.normalize()?;
+    let normal = plane.normal.normalize()?;
+    let denominator = normal.dot(direction);
+    if denominator.abs() <= f32::EPSILON {
+        return Ok(None);
+    }
+    let numerator = -(normal.dot(Vector3::new(ray.origin.x, ray.origin.y, ray.origin.z)) + plane.d);
+    let distance = numerator / denominator;
+    if distance < 0.0 {
+        return Ok(None);
+    }
+    Ok(Some(ray.origin + direction * distance))
+}
+
+/// Returns sphere surface area.
+pub fn sphere_surface_area(sphere: Sphere3) -> f32 {
+    4.0 * std::f32::consts::PI * sphere.radius * sphere.radius
+}
+
+/// Returns sphere volume.
+pub fn sphere_volume(sphere: Sphere3) -> f32 {
+    (4.0 / 3.0) * std::f32::consts::PI * sphere.radius * sphere.radius * sphere.radius
+}
+
+/// Returns closest point on sphere surface.
+pub fn closest_point_on_sphere(sphere: Sphere3, point: Point3) -> Result<Point3> {
+    validate_points(&[sphere.center, point])?;
+    if !sphere.radius.is_finite() || sphere.radius <= 0.0 {
+        return Err(invalid_argument(
+            "sphere radius must be finite and greater than zero",
+        ));
+    }
+    let offset = point - sphere.center;
+    let direction = if offset.length() <= f32::EPSILON {
+        Vector3::new(1.0, 0.0, 0.0)
+    } else {
+        offset.normalize()?
+    };
+    Ok(sphere.center + direction * sphere.radius)
+}
+
+/// Returns forward ray-sphere intersection points in distance order.
+pub fn intersect_ray_sphere(ray: Ray3, sphere: Sphere3) -> Result<Vec<Point3>> {
+    validate_points(&[ray.origin, sphere.center])?;
+    validate_finite_vector(ray.direction, "ray direction")?;
+    if !sphere.radius.is_finite() || sphere.radius <= 0.0 {
+        return Err(invalid_argument(
+            "sphere radius must be finite and greater than zero",
+        ));
+    }
+    let direction = ray.direction.normalize()?;
+    let origin_to_center = ray.origin - sphere.center;
+    let b = 2.0 * origin_to_center.dot(direction);
+    let c = origin_to_center.length_squared() - sphere.radius * sphere.radius;
+    let discriminant = b.mul_add(b, -4.0 * c);
+    if discriminant < 0.0 {
+        return Ok(Vec::new());
+    }
+    let sqrt_discriminant = discriminant.sqrt();
+    let mut distances = [
+        (-b - sqrt_discriminant) * 0.5,
+        (-b + sqrt_discriminant) * 0.5,
+    ];
+    distances.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+    let mut intersections = Vec::new();
+    for distance in distances {
+        if distance < 0.0 {
+            continue;
+        }
+        if intersections.last().is_some_and(|point: &Point3| {
+            point.distance(ray.origin + direction * distance) <= f32::EPSILON
+        }) {
+            continue;
+        }
+        intersections.push(ray.origin + direction * distance);
+    }
+    Ok(intersections)
 }
 
 /// Returns transform rigid.
@@ -909,6 +1088,62 @@ mod tests {
         assert_eq!(
             cloud.nearest_point(Point3::new(1.5, 0.0, 0.0)).unwrap(),
             Some(Point3::new(2.0, 0.0, 0.0))
+        );
+    }
+
+    #[test]
+    fn closest_point_helpers_clamp_to_segment_and_ray() {
+        let segment =
+            LineSegment3::new(Point3::new(0.0, 0.0, 0.0), Point3::new(2.0, 0.0, 0.0)).unwrap();
+        assert_eq!(
+            segment.closest_point(Point3::new(1.0, 2.0, 0.0)).unwrap(),
+            Point3::new(1.0, 0.0, 0.0)
+        );
+        assert_eq!(
+            segment.closest_point(Point3::new(4.0, 0.0, 0.0)).unwrap(),
+            Point3::new(2.0, 0.0, 0.0)
+        );
+
+        let ray = Ray3::new(Point3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0)).unwrap();
+        assert_eq!(
+            ray.closest_point(Point3::new(-1.0, 2.0, 0.0)).unwrap(),
+            Point3::new(0.0, 0.0, 0.0)
+        );
+    }
+
+    #[test]
+    fn plane_projection_and_ray_intersection_are_stable() {
+        let plane =
+            Plane3::from_point_normal(Point3::new(0.0, 2.0, 0.0), Vector3::new(0.0, 1.0, 0.0))
+                .unwrap();
+        assert_eq!(
+            plane.project_point(Point3::new(1.0, 5.0, 1.0)).unwrap(),
+            Point3::new(1.0, 2.0, 1.0)
+        );
+
+        let ray = Ray3::new(Point3::new(0.0, 5.0, 0.0), Vector3::new(0.0, -1.0, 0.0)).unwrap();
+        assert_eq!(
+            plane.intersect_ray(ray).unwrap(),
+            Some(Point3::new(0.0, 2.0, 0.0))
+        );
+    }
+
+    #[test]
+    fn sphere_algorithms_report_surface_volume_and_intersections() {
+        let sphere = Sphere3::new(Point3::new(0.0, 0.0, 0.0), 2.0).unwrap();
+        assert!((sphere.surface_area() - (16.0 * std::f32::consts::PI)).abs() < 0.001);
+        assert!((sphere.volume() - ((32.0 / 3.0) * std::f32::consts::PI)).abs() < 0.001);
+        assert!((sphere.signed_distance(Point3::new(3.0, 0.0, 0.0)).unwrap() - 1.0).abs() < 0.001);
+        assert_eq!(
+            sphere.closest_point(Point3::new(3.0, 0.0, 0.0)).unwrap(),
+            Point3::new(2.0, 0.0, 0.0)
+        );
+
+        let ray = Ray3::new(Point3::new(-3.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0)).unwrap();
+        let intersections = sphere.intersect_ray(ray).unwrap();
+        assert_eq!(
+            intersections,
+            vec![Point3::new(-2.0, 0.0, 0.0), Point3::new(2.0, 0.0, 0.0)]
         );
     }
 }

@@ -907,7 +907,8 @@ neural rendering and reconstruction crates continue to interoperate through
 - `RigidTransform3`
 - `LineSegment3`
 - `PointCloud`
-- Point distance, rigid-transform, voxel-downsampling, and center/scale helpers.
+- Point distance, closest-point, ray/surface intersection, rigid-transform,
+  voxel-downsampling, and center/scale helpers.
 
 `three-d-processing-io` exposes:
 
@@ -923,9 +924,11 @@ neural rendering and reconstruction crates continue to interoperate through
 - `Triangle`
 - `Mesh`
 - `MeshTopology`
-- Triangle normal, triangle area, surface area, face/vertex normal helpers.
+- Triangle normal, triangle area, triangle centroid, barycentric coordinates,
+  surface area/centroid, face/vertex normal helpers.
 - Connected-component, manifold/watertight, volume, transform, merge,
-  deterministic surface sampling, and Laplacian smoothing helpers.
+  deterministic surface sampling, closest-point/ray-intersection queries, and
+  Laplacian smoothing helpers.
 
 `video-analysis-radiance-fields` exposes:
 

@@ -3,7 +3,10 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use serde::{Deserialize, Serialize};
-use three_d_processing_core::{Bounds3, Point3, RigidTransform3, Transform3, Vector3};
+use three_d_processing_core::{
+    closest_point_on_segment, Bounds3, LineSegment3, Point3, Ray3, RigidTransform3, Transform3,
+    Vector3,
+};
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -78,6 +81,19 @@ pub struct MeshDiagnostics {
     pub boundary_edges: Vec<Edge>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for a ray-mesh intersection.
+pub struct MeshRayIntersection {
+    /// Triangle index hit by the ray.
+    pub triangle_index: usize,
+    /// Distance along the ray.
+    pub distance: f32,
+    /// Intersection point.
+    pub point: Point3,
+    /// Barycentric coordinates at the hit point.
+    pub barycentric: [f32; 3],
+}
+
 impl MeshDiagnostics {
     /// Returns whether any issue was found.
     pub fn has_issues(&self) -> bool {
@@ -142,6 +158,11 @@ impl Mesh {
     /// Returns surface area.
     pub fn surface_area(&self) -> Result<f32> {
         surface_area(self)
+    }
+
+    /// Returns area-weighted surface centroid.
+    pub fn surface_centroid(&self) -> Result<Option<Point3>> {
+        surface_centroid(self)
     }
 
     /// Returns face normals.
@@ -213,6 +234,21 @@ impl Mesh {
         sample_points_uniform(self, sample_count)
     }
 
+    /// Returns closest point on this mesh to a point.
+    pub fn closest_point(&self, point: Point3) -> Result<Option<Point3>> {
+        closest_point(self, point)
+    }
+
+    /// Returns forward ray intersections in distance order.
+    pub fn ray_intersections(&self, ray: Ray3) -> Result<Vec<MeshRayIntersection>> {
+        ray_intersections(self, ray)
+    }
+
+    /// Returns nearest forward ray intersection.
+    pub fn ray_intersection(&self, ray: Ray3) -> Result<Option<MeshRayIntersection>> {
+        Ok(self.ray_intersections(ray)?.into_iter().next())
+    }
+
     /// Returns laplacian smooth.
     pub fn laplacian_smooth(&self, iterations: usize, lambda: f32) -> Result<Self> {
         laplacian_smooth(self, iterations, lambda)
@@ -267,11 +303,80 @@ pub fn triangle_area(mesh: &Mesh, triangle: Triangle) -> Result<f32> {
     Ok((b - a).cross(c - a).length() * 0.5)
 }
 
+/// Returns triangle centroid.
+pub fn triangle_centroid(mesh: &Mesh, triangle: Triangle) -> Result<Point3> {
+    mesh.validate()?;
+    validate_triangle_indices(mesh, triangle)?;
+    let a = mesh.vertices[triangle.vertices[0]];
+    let b = mesh.vertices[triangle.vertices[1]];
+    let c = mesh.vertices[triangle.vertices[2]];
+    Ok(Point3::new(
+        (a.x + b.x + c.x) / 3.0,
+        (a.y + b.y + c.y) / 3.0,
+        (a.z + b.z + c.z) / 3.0,
+    ))
+}
+
+/// Returns barycentric coordinates for a point against a triangle.
+pub fn triangle_barycentric_coordinates(
+    mesh: &Mesh,
+    triangle: Triangle,
+    point: Point3,
+) -> Result<[f32; 3]> {
+    mesh.validate()?;
+    validate_triangle_indices(mesh, triangle)?;
+    if !point.is_finite() {
+        return Err(invalid_argument("point must be finite"));
+    }
+    let a = mesh.vertices[triangle.vertices[0]];
+    let b = mesh.vertices[triangle.vertices[1]];
+    let c = mesh.vertices[triangle.vertices[2]];
+    let v0 = b - a;
+    let v1 = c - a;
+    let v2 = point - a;
+    let d00 = v0.dot(v0);
+    let d01 = v0.dot(v1);
+    let d11 = v1.dot(v1);
+    let d20 = v2.dot(v0);
+    let d21 = v2.dot(v1);
+    let denominator = d00.mul_add(d11, -(d01 * d01));
+    if denominator.abs() <= f32::EPSILON {
+        return Err(invalid_argument("triangle area must be greater than zero"));
+    }
+    let v = d11.mul_add(d20, -(d01 * d21)) / denominator;
+    let w = d00.mul_add(d21, -(d01 * d20)) / denominator;
+    Ok([1.0 - v - w, v, w])
+}
+
 /// Returns surface area.
 pub fn surface_area(mesh: &Mesh) -> Result<f32> {
     mesh.triangles.iter().try_fold(0.0_f32, |area, triangle| {
         Ok(area + triangle_area(mesh, *triangle)?)
     })
+}
+
+/// Returns area-weighted surface centroid.
+pub fn surface_centroid(mesh: &Mesh) -> Result<Option<Point3>> {
+    mesh.validate()?;
+    let mut weighted = Vector3::ZERO;
+    let mut total_area = 0.0_f32;
+    for triangle in &mesh.triangles {
+        let area = triangle_area(mesh, *triangle)?;
+        if area <= f32::EPSILON {
+            continue;
+        }
+        let centroid = triangle_centroid(mesh, *triangle)?;
+        weighted += Vector3::new(centroid.x, centroid.y, centroid.z) * area;
+        total_area += area;
+    }
+    if total_area <= f32::EPSILON {
+        return Ok(None);
+    }
+    Ok(Some(Point3::new(
+        weighted.x / total_area,
+        weighted.y / total_area,
+        weighted.z / total_area,
+    )))
 }
 
 /// Returns face normals.
@@ -558,6 +663,100 @@ pub fn merge_meshes<'a>(meshes: impl IntoIterator<Item = &'a Mesh>) -> Result<Me
     Mesh::new(vertices, triangles)
 }
 
+/// Returns closest point on triangle to a point.
+pub fn triangle_closest_point(mesh: &Mesh, triangle: Triangle, point: Point3) -> Result<Point3> {
+    mesh.validate()?;
+    validate_triangle_indices(mesh, triangle)?;
+    if !point.is_finite() {
+        return Err(invalid_argument("point must be finite"));
+    }
+    let a = mesh.vertices[triangle.vertices[0]];
+    let b = mesh.vertices[triangle.vertices[1]];
+    let c = mesh.vertices[triangle.vertices[2]];
+    let normal = (b - a).cross(c - a);
+    if normal.length() > f32::EPSILON {
+        let unit_normal = normal.normalize()?;
+        let distance = (point - a).dot(unit_normal);
+        let projected = point - unit_normal * distance;
+        let barycentric = triangle_barycentric_coordinates(mesh, triangle, projected)?;
+        if barycentric
+            .iter()
+            .all(|coordinate| *coordinate >= -f32::EPSILON)
+        {
+            return Ok(projected);
+        }
+    }
+
+    let mut candidates = vec![a, b, c];
+    for (start, end) in [(a, b), (b, c), (c, a)] {
+        if start != end {
+            candidates.push(closest_point_on_segment(
+                LineSegment3::new(start, end)?,
+                point,
+            )?);
+        }
+    }
+    candidates
+        .into_iter()
+        .min_by(|left, right| {
+            left.distance(point)
+                .partial_cmp(&right.distance(point))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .ok_or_else(|| invalid_argument("triangle must have at least one vertex"))
+}
+
+/// Returns closest point on mesh triangles to a point.
+pub fn closest_point(mesh: &Mesh, point: Point3) -> Result<Option<Point3>> {
+    mesh.validate()?;
+    if !point.is_finite() {
+        return Err(invalid_argument("point must be finite"));
+    }
+    if mesh.triangles.is_empty() {
+        return Ok(mesh.vertices.iter().copied().min_by(|left, right| {
+            left.distance(point)
+                .partial_cmp(&right.distance(point))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }));
+    }
+    mesh.triangles
+        .iter()
+        .copied()
+        .map(|triangle| triangle_closest_point(mesh, triangle, point))
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .min_by(|left, right| {
+            left.distance(point)
+                .partial_cmp(&right.distance(point))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(Some)
+        .ok_or_else(|| invalid_argument("mesh must contain triangles or vertices"))
+}
+
+/// Returns forward ray intersections in distance order.
+pub fn ray_intersections(mesh: &Mesh, ray: Ray3) -> Result<Vec<MeshRayIntersection>> {
+    mesh.validate()?;
+    if !ray.origin.is_finite() || !ray.direction.is_finite() {
+        return Err(invalid_argument("ray components must be finite"));
+    }
+    let direction = ray.direction.normalize()?;
+    let mut intersections = Vec::new();
+    for (triangle_index, triangle) in mesh.triangles.iter().copied().enumerate() {
+        if let Some(hit) =
+            ray_triangle_intersection(mesh, triangle_index, triangle, ray.origin, direction)?
+        {
+            intersections.push(hit);
+        }
+    }
+    intersections.sort_by(|left, right| {
+        left.distance
+            .partial_cmp(&right.distance)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    Ok(intersections)
+}
+
 /// Returns sample points uniform.
 pub fn sample_points_uniform(mesh: &Mesh, sample_count: usize) -> Result<Vec<Point3>> {
     mesh.validate()?;
@@ -638,6 +837,56 @@ pub fn laplacian_smooth(mesh: &Mesh, iterations: usize, lambda: f32) -> Result<M
 
 fn fract(value: f32) -> f32 {
     value - value.floor()
+}
+
+fn validate_triangle_indices(mesh: &Mesh, triangle: Triangle) -> Result<()> {
+    for index in triangle.vertices {
+        if index >= mesh.vertices.len() {
+            return Err(invalid_argument("triangle vertex index is out of bounds"));
+        }
+    }
+    Ok(())
+}
+
+fn ray_triangle_intersection(
+    mesh: &Mesh,
+    triangle_index: usize,
+    triangle: Triangle,
+    origin: Point3,
+    direction: Vector3,
+) -> Result<Option<MeshRayIntersection>> {
+    let a = mesh.vertices[triangle.vertices[0]];
+    let b = mesh.vertices[triangle.vertices[1]];
+    let c = mesh.vertices[triangle.vertices[2]];
+    let edge1 = b - a;
+    let edge2 = c - a;
+    let p = direction.cross(edge2);
+    let determinant = edge1.dot(p);
+    if determinant.abs() <= f32::EPSILON {
+        return Ok(None);
+    }
+    let inverse_determinant = 1.0 / determinant;
+    let t = origin - a;
+    let u = t.dot(p) * inverse_determinant;
+    if !(-f32::EPSILON..=1.0 + f32::EPSILON).contains(&u) {
+        return Ok(None);
+    }
+    let q = t.cross(edge1);
+    let v = direction.dot(q) * inverse_determinant;
+    if v < -f32::EPSILON || u + v > 1.0 + f32::EPSILON {
+        return Ok(None);
+    }
+    let distance = edge2.dot(q) * inverse_determinant;
+    if distance < 0.0 {
+        return Ok(None);
+    }
+    let point = origin + direction * distance;
+    Ok(Some(MeshRayIntersection {
+        triangle_index,
+        distance,
+        point,
+        barycentric: [1.0 - u - v, u, v],
+    }))
 }
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
@@ -776,5 +1025,51 @@ mod tests {
 
         let flipped = single_triangle().flip_winding().unwrap();
         assert_eq!(flipped.triangles[0], Triangle::new(0, 2, 1));
+    }
+
+    #[test]
+    fn computes_triangle_centroid_barycentrics_and_surface_centroid() {
+        let mesh = single_triangle();
+        let triangle = Triangle::new(0, 1, 2);
+        assert_eq!(
+            triangle_centroid(&mesh, triangle).unwrap(),
+            Point3::new(1.0 / 3.0, 1.0 / 3.0, 0.0)
+        );
+        let barycentric =
+            triangle_barycentric_coordinates(&mesh, triangle, Point3::new(0.25, 0.25, 0.0))
+                .unwrap();
+        assert!((barycentric[0] - 0.5).abs() < 0.001);
+        assert!((barycentric[1] - 0.25).abs() < 0.001);
+        assert!((barycentric[2] - 0.25).abs() < 0.001);
+        assert_eq!(
+            mesh.surface_centroid().unwrap(),
+            Some(Point3::new(1.0 / 3.0, 1.0 / 3.0, 0.0))
+        );
+    }
+
+    #[test]
+    fn closest_point_projects_to_triangle_or_edges() {
+        let mesh = single_triangle();
+        assert_eq!(
+            triangle_closest_point(&mesh, Triangle::new(0, 1, 2), Point3::new(0.25, 0.25, 2.0))
+                .unwrap(),
+            Point3::new(0.25, 0.25, 0.0)
+        );
+        assert_eq!(
+            mesh.closest_point(Point3::new(2.0, 0.25, 0.0)).unwrap(),
+            Some(Point3::new(1.0, 0.0, 0.0))
+        );
+    }
+
+    #[test]
+    fn ray_intersections_are_sorted_and_include_barycentrics() {
+        let mesh = single_triangle();
+        let ray = Ray3::new(Point3::new(0.25, 0.25, 1.0), Vector3::new(0.0, 0.0, -1.0)).unwrap();
+        let hits = mesh.ray_intersections(ray).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].triangle_index, 0);
+        assert!((hits[0].distance - 1.0).abs() < 0.001);
+        assert_eq!(hits[0].point, Point3::new(0.25, 0.25, 0.0));
+        assert!((hits[0].barycentric[0] - 0.5).abs() < 0.001);
     }
 }
