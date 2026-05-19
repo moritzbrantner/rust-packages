@@ -76,6 +76,44 @@ pub struct AudioMetadata {
 }
 
 #[derive(Debug, Clone)]
+/// Runtime backend used by FFmpeg integration APIs.
+pub enum FfmpegRuntimeBackend {
+    /// Native `ffmpeg-next` backend.
+    Native,
+    /// External `ffmpeg`/`ffprobe` command backend.
+    Command,
+}
+
+impl Default for FfmpegRuntimeBackend {
+    fn default() -> Self {
+        Self::Command
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+/// Runtime options for FFmpeg integration APIs.
+pub struct FfmpegRuntimeOptions {
+    /// Backend selection.
+    pub backend: FfmpegRuntimeBackend,
+}
+
+impl FfmpegRuntimeOptions {
+    /// Returns command runtime options.
+    pub fn command() -> Self {
+        Self {
+            backend: FfmpegRuntimeBackend::Command,
+        }
+    }
+
+    /// Returns native runtime options.
+    pub fn native() -> Self {
+        Self {
+            backend: FfmpegRuntimeBackend::Native,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 /// Data type for FFmpeg source options.
 pub struct FfmpegSourceOptions {
     /// The mode value.
@@ -84,6 +122,8 @@ pub struct FfmpegSourceOptions {
     pub realtime: bool,
     /// The extra input args value.
     pub extra_input_args: Vec<String>,
+    /// Runtime options.
+    pub runtime: FfmpegRuntimeOptions,
 }
 
 impl FfmpegSourceOptions {
@@ -93,6 +133,7 @@ impl FfmpegSourceOptions {
             mode: SourceMode::Recorded,
             realtime: false,
             extra_input_args: Vec::new(),
+            runtime: FfmpegRuntimeOptions::command(),
         }
     }
 
@@ -102,12 +143,19 @@ impl FfmpegSourceOptions {
             mode: SourceMode::Live,
             realtime: true,
             extra_input_args: Vec::new(),
+            runtime: FfmpegRuntimeOptions::command(),
         }
     }
 
     /// Returns extra input arg.
     pub fn extra_input_arg(mut self, arg: impl Into<String>) -> Self {
         self.extra_input_args.push(arg.into());
+        self
+    }
+
+    /// Returns runtime.
+    pub fn runtime(mut self, runtime: FfmpegRuntimeOptions) -> Self {
+        self.runtime = runtime;
         self
     }
 }
@@ -123,6 +171,8 @@ pub struct FfmpegAudioSourceOptions {
     pub samples_per_chunk: usize,
     /// The extra input args value.
     pub extra_input_args: Vec<String>,
+    /// Runtime options.
+    pub runtime: FfmpegRuntimeOptions,
 }
 
 impl FfmpegAudioSourceOptions {
@@ -133,6 +183,7 @@ impl FfmpegAudioSourceOptions {
             realtime: false,
             samples_per_chunk: 1024,
             extra_input_args: Vec::new(),
+            runtime: FfmpegRuntimeOptions::command(),
         }
     }
 
@@ -143,6 +194,7 @@ impl FfmpegAudioSourceOptions {
             realtime: true,
             samples_per_chunk: 1024,
             extra_input_args: Vec::new(),
+            runtime: FfmpegRuntimeOptions::command(),
         }
     }
 
@@ -155,6 +207,12 @@ impl FfmpegAudioSourceOptions {
     /// Returns extra input arg.
     pub fn extra_input_arg(mut self, arg: impl Into<String>) -> Self {
         self.extra_input_args.push(arg.into());
+        self
+    }
+
+    /// Returns runtime.
+    pub fn runtime(mut self, runtime: FfmpegRuntimeOptions) -> Self {
+        self.runtime = runtime;
         self
     }
 }
@@ -182,7 +240,7 @@ impl FfmpegVideoSource {
     ) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         let input = path.to_string_lossy().into_owned();
-        let metadata = probe_path_with_mode(&path, options.mode)
+        let metadata = probe_path_with_runtime(&path, options.mode, &options.runtime)
             .map_err(|err| DetectError::Source(err.to_string()))?;
         Self::spawn(input, metadata, options)
     }
@@ -203,12 +261,13 @@ impl FfmpegVideoSource {
         options: FfmpegSourceOptions,
     ) -> Result<Self> {
         let input = input.into();
-        let metadata = probe_input_with_mode(&input, None, options.mode)
+        let metadata = probe_input_with_runtime(&input, None, options.mode, &options.runtime)
             .map_err(|err| DetectError::Source(err.to_string()))?;
         Self::spawn(input, metadata, options)
     }
 
     fn spawn(input: String, metadata: VideoMetadata, options: FfmpegSourceOptions) -> Result<Self> {
+        reject_native_runtime(&options.runtime)?;
         let source_info = MediaSourceInfo {
             input: metadata.input.clone(),
             mode: metadata.mode,
@@ -374,7 +433,7 @@ impl FfmpegAudioSource {
     ) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         let input = path.to_string_lossy().into_owned();
-        let metadata = probe_audio_path_with_mode(&path, options.mode)
+        let metadata = probe_audio_path_with_runtime(&path, options.mode, &options.runtime)
             .map_err(|err| DetectError::Source(err.to_string()))?;
         Self::spawn(input, metadata, options)
     }
@@ -395,7 +454,7 @@ impl FfmpegAudioSource {
         options: FfmpegAudioSourceOptions,
     ) -> Result<Self> {
         let input = input.into();
-        let metadata = probe_audio_input_with_mode(&input, None, options.mode)
+        let metadata = probe_audio_input_with_runtime(&input, None, options.mode, &options.runtime)
             .map_err(|err| DetectError::Source(err.to_string()))?;
         Self::spawn(input, metadata, options)
     }
@@ -405,6 +464,7 @@ impl FfmpegAudioSource {
         metadata: AudioMetadata,
         options: FfmpegAudioSourceOptions,
     ) -> Result<Self> {
+        reject_native_runtime(&options.runtime)?;
         let source_info = MediaSourceInfo {
             input: metadata.input.clone(),
             mode: metadata.mode,
@@ -548,6 +608,15 @@ pub fn probe(path: impl AsRef<Path>) -> std::result::Result<VideoMetadata, Ffmpe
     probe_path_with_mode(path, SourceMode::Recorded)
 }
 
+/// Returns probe using explicit runtime options.
+pub fn probe_with_runtime(
+    path: impl AsRef<Path>,
+    runtime: &FfmpegRuntimeOptions,
+) -> std::result::Result<VideoMetadata, FfmpegError> {
+    let path = path.as_ref().to_path_buf();
+    probe_path_with_runtime(path, SourceMode::Recorded, runtime)
+}
+
 /// Returns probe input.
 pub fn probe_input(input: impl AsRef<str>) -> std::result::Result<VideoMetadata, FfmpegError> {
     probe_input_with_mode(input.as_ref(), None, SourceMode::Recorded)
@@ -557,6 +626,15 @@ pub fn probe_input(input: impl AsRef<str>) -> std::result::Result<VideoMetadata,
 pub fn probe_audio(path: impl AsRef<Path>) -> std::result::Result<AudioMetadata, FfmpegError> {
     let path = path.as_ref().to_path_buf();
     probe_audio_path_with_mode(path, SourceMode::Recorded)
+}
+
+/// Returns audio probe using explicit runtime options.
+pub fn probe_audio_with_runtime(
+    path: impl AsRef<Path>,
+    runtime: &FfmpegRuntimeOptions,
+) -> std::result::Result<AudioMetadata, FfmpegError> {
+    let path = path.as_ref().to_path_buf();
+    probe_audio_path_with_runtime(path, SourceMode::Recorded, runtime)
 }
 
 /// Returns probe audio input.
@@ -570,18 +648,58 @@ fn probe_path_with_mode(
     path: impl AsRef<Path>,
     mode: SourceMode,
 ) -> std::result::Result<VideoMetadata, FfmpegError> {
+    probe_path_with_runtime(path, mode, &FfmpegRuntimeOptions::command())
+}
+
+fn probe_path_with_runtime(
+    path: impl AsRef<Path>,
+    mode: SourceMode,
+    runtime: &FfmpegRuntimeOptions,
+) -> std::result::Result<VideoMetadata, FfmpegError> {
     let path = path.as_ref().to_path_buf();
     let input = path.to_string_lossy().into_owned();
-    probe_input_with_mode(&input, Some(path), mode)
+    probe_input_with_runtime(&input, Some(path), mode, runtime)
 }
 
 fn probe_audio_path_with_mode(
     path: impl AsRef<Path>,
     mode: SourceMode,
 ) -> std::result::Result<AudioMetadata, FfmpegError> {
+    probe_audio_path_with_runtime(path, mode, &FfmpegRuntimeOptions::command())
+}
+
+fn probe_audio_path_with_runtime(
+    path: impl AsRef<Path>,
+    mode: SourceMode,
+    runtime: &FfmpegRuntimeOptions,
+) -> std::result::Result<AudioMetadata, FfmpegError> {
     let path = path.as_ref().to_path_buf();
     let input = path.to_string_lossy().into_owned();
-    probe_audio_input_with_mode(&input, Some(path), mode)
+    probe_audio_input_with_runtime(&input, Some(path), mode, runtime)
+}
+
+fn probe_audio_input_with_runtime(
+    input: &str,
+    path: Option<PathBuf>,
+    mode: SourceMode,
+    runtime: &FfmpegRuntimeOptions,
+) -> std::result::Result<AudioMetadata, FfmpegError> {
+    match runtime.backend {
+        FfmpegRuntimeBackend::Command => probe_audio_input_with_mode(input, path, mode),
+        FfmpegRuntimeBackend::Native => native_probe_audio_input(input, path, mode),
+    }
+}
+
+fn probe_input_with_runtime(
+    input: &str,
+    path: Option<PathBuf>,
+    mode: SourceMode,
+    runtime: &FfmpegRuntimeOptions,
+) -> std::result::Result<VideoMetadata, FfmpegError> {
+    match runtime.backend {
+        FfmpegRuntimeBackend::Command => probe_input_with_mode(input, path, mode),
+        FfmpegRuntimeBackend::Native => native_probe_input(input, path, mode),
+    }
 }
 
 fn probe_audio_input_with_mode(
@@ -701,6 +819,22 @@ pub fn extract_wav(
     output_path: impl AsRef<Path>,
     sample_rate: u32,
 ) -> Result<PathBuf> {
+    extract_wav_with_runtime(
+        media_path,
+        output_path,
+        sample_rate,
+        &FfmpegRuntimeOptions::command(),
+    )
+}
+
+/// Returns extract wav using explicit runtime options.
+pub fn extract_wav_with_runtime(
+    media_path: impl AsRef<Path>,
+    output_path: impl AsRef<Path>,
+    sample_rate: u32,
+    runtime: &FfmpegRuntimeOptions,
+) -> Result<PathBuf> {
+    reject_native_runtime(runtime)?;
     if sample_rate == 0 {
         return Err(DetectError::InvalidArgument(
             "sample_rate must be positive".to_string(),
@@ -732,6 +866,38 @@ pub fn extract_wav(
         )));
     }
     Ok(output_path.to_path_buf())
+}
+
+fn reject_native_runtime(runtime: &FfmpegRuntimeOptions) -> Result<()> {
+    if matches!(runtime.backend, FfmpegRuntimeBackend::Native) {
+        return Err(DetectError::InvalidArgument(
+            "ffmpeg-native runtime is available for probing in this build; decode/extract still uses the command backend"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn native_probe_input(
+    input: &str,
+    _path: Option<PathBuf>,
+    _mode: SourceMode,
+) -> std::result::Result<VideoMetadata, FfmpegError> {
+    Err(FfmpegError::ProbeFailed {
+        input: input.to_string(),
+        message: "ffmpeg-native feature is not enabled".to_string(),
+    })
+}
+
+fn native_probe_audio_input(
+    input: &str,
+    _path: Option<PathBuf>,
+    _mode: SourceMode,
+) -> std::result::Result<AudioMetadata, FfmpegError> {
+    Err(FfmpegError::ProbeFailed {
+        input: input.to_string(),
+        message: "ffmpeg-native feature is not enabled".to_string(),
+    })
 }
 
 #[cfg(feature = "test-utils")]

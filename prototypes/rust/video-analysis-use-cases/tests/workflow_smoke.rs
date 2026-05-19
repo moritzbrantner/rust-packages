@@ -10,8 +10,11 @@ use image_analysis_io::write_image;
 use video_analysis_use_cases::audio_voice_analysis::{
     run_audio_voice_analysis, AudioVoiceAnalysisRequest,
 };
-use video_analysis_use_cases::image_person_edit::{run_image_person_edit, ImagePersonEditRequest};
+use video_analysis_use_cases::image_person_edit::{
+    run_image_person_edit, ImagePersonEditRequest, PersonDetectionReport, PersonDetectorConfig,
+};
 use video_analysis_use_cases::video_red_cars::{run_video_red_cars, VideoRedCarsRequest};
+use video_analysis_use_cases::RegionReport;
 
 fn write_script(dir: &Path, name: &str, body: &str) -> PathBuf {
     let path = dir.join(name);
@@ -158,5 +161,47 @@ fn image_person_edit_workflow_uses_fake_detector_and_editor() {
     assert_eq!(report.detections.len(), 1);
     assert_eq!(report.editing.status, "completed");
     assert!(Path::new(&report.assets.person_mask).exists());
+    assert!(Path::new(&report.assets.workflow_json).exists());
+}
+
+#[test]
+fn image_person_edit_workflow_uses_stub_detector_and_planned_comfyui() {
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("input.png");
+    write_image(
+        &input,
+        &OwnedImage::new_rgb(32, 32, vec![220; 32 * 32 * 3]).unwrap(),
+    )
+    .unwrap();
+
+    let report = run_image_person_edit(ImagePersonEditRequest {
+        input,
+        work_dir: dir.path().join("work"),
+        prompt: "replace the person with a statue".to_string(),
+        model: "flux1-dev.safetensors".to_string(),
+        person_detector: PersonDetectorConfig::Stub {
+            detections: vec![PersonDetectionReport {
+                label: "person".to_string(),
+                score: Some(0.95),
+                region: RegionReport {
+                    x: 8,
+                    y: 8,
+                    width: 8,
+                    height: 12,
+                },
+                attributes: Default::default(),
+            }],
+        },
+        ..ImagePersonEditRequest::default()
+    })
+    .unwrap();
+
+    assert_eq!(report.detections.len(), 1);
+    assert_eq!(report.editing.status, "planned");
+    assert!(report
+        .capabilities
+        .skipped
+        .iter()
+        .any(|value| value.contains("COMFYUI_URL")));
     assert!(Path::new(&report.assets.workflow_json).exists());
 }

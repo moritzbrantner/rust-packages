@@ -13,7 +13,10 @@ keywords.workspace = true
 categories.workspace = true
 
 [features]
-default = []
+default = ["ffmpeg-command"]
+ffmpeg-command = []
+ffmpeg-native = []
+ffmpeg-next-bindings = ["ffmpeg-native"]
 ffmpeg-backend = []
 ffmpeg-tests = ["ffmpeg-backend", "test-utils"]
 external-tests = ["ffmpeg-tests"]

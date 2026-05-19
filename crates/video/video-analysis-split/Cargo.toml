@@ -17,6 +17,7 @@ video-analysis-core.workspace = true
 
 [features]
 default = []
+ffmpeg-native = []
 external-tests = ["video-analysis-ffmpeg/test-utils"]
 
 [dev-dependencies]

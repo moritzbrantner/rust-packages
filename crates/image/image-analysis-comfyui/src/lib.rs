@@ -1,12 +1,16 @@
 #![doc = include_str!("../README.md")]
 
 use std::collections::BTreeMap;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::Duration;
 
 use comfyui_data::{
     ComfySocketType, ComfyWorkflow, WorkflowInput, WorkflowLink, WorkflowNode, WorkflowOutput,
 };
 use comfyui_models::{ComfyModelRef, ComfyModelRole};
-use serde_json::Value;
+use serde_json::{json, Value};
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -31,6 +35,372 @@ pub enum ComfyWorkflowPreset {
     StandardStableDiffusion,
     /// The flux inpaint variant.
     FluxInpaint,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Options for a ComfyUI HTTP client.
+pub struct ComfyUiClientOptions {
+    /// Base URL such as `http://127.0.0.1:8188`.
+    pub base_url: Option<String>,
+    /// Request timeout.
+    pub timeout: Duration,
+    /// Poll interval used when waiting for output.
+    pub poll_interval: Duration,
+    /// Whether execution should wait for a completed prompt.
+    pub wait_for_output: bool,
+}
+
+impl Default for ComfyUiClientOptions {
+    fn default() -> Self {
+        Self {
+            base_url: std::env::var("COMFYUI_URL").ok(),
+            timeout: Duration::from_secs(30),
+            poll_interval: Duration::from_millis(500),
+            wait_for_output: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Result of submitting a workflow to ComfyUI.
+pub struct ComfyPromptSubmission {
+    /// Prompt identifier returned by ComfyUI.
+    pub prompt_id: String,
+    /// Raw response JSON from `/prompt`.
+    pub response: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Status of a ComfyUI image-edit execution.
+pub struct ComfyPromptStatus {
+    /// Status string such as `planned`, `submitted`, or `completed`.
+    pub status: String,
+    /// Output image path, when known.
+    pub output_image: Option<String>,
+    /// Human-readable message.
+    pub message: Option<String>,
+    /// Additional metadata.
+    pub metadata: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone)]
+/// Minimal ComfyUI HTTP client.
+pub struct ComfyUiClient {
+    options: ComfyUiClientOptions,
+}
+
+impl ComfyUiClient {
+    /// Creates a client.
+    pub fn new(options: ComfyUiClientOptions) -> Self {
+        Self { options }
+    }
+
+    /// Returns options.
+    pub fn options(&self) -> &ComfyUiClientOptions {
+        &self.options
+    }
+
+    /// Submits a workflow to `/prompt`.
+    pub fn submit_prompt(&self, workflow: &ComfyWorkflow) -> Result<Option<ComfyPromptSubmission>> {
+        let Some(base_url) = normalized_base_url(self.options.base_url.as_deref()) else {
+            return Ok(None);
+        };
+        let body = json!({ "prompt": workflow });
+        let response = http_json(
+            "POST",
+            &format!("{base_url}/prompt"),
+            Some(&serde_json::to_vec(&body).map_err(|err| {
+                DetectError::Source(format!("failed to encode ComfyUI prompt: {err}"))
+            })?),
+            self.options.timeout,
+        )?;
+        let prompt_id = response
+            .get("prompt_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                DetectError::Source(
+                    "ComfyUI /prompt response did not include prompt_id".to_string(),
+                )
+            })?
+            .to_string();
+        Ok(Some(ComfyPromptSubmission {
+            prompt_id,
+            response,
+        }))
+    }
+
+    /// Polls `/history/{prompt_id}` once and returns raw JSON.
+    pub fn prompt_history(&self, prompt_id: &str) -> Result<Option<Value>> {
+        let Some(base_url) = normalized_base_url(self.options.base_url.as_deref()) else {
+            return Ok(None);
+        };
+        http_json(
+            "GET",
+            &format!("{base_url}/history/{prompt_id}"),
+            None,
+            self.options.timeout,
+        )
+        .map(Some)
+    }
+}
+
+impl Default for ComfyUiClient {
+    fn default() -> Self {
+        Self::new(ComfyUiClientOptions::default())
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Native executor for ComfyUI image-edit workflows.
+pub struct ComfyImageEditExecutor {
+    client: ComfyUiClient,
+}
+
+impl ComfyImageEditExecutor {
+    /// Creates a new executor.
+    pub fn new(options: ComfyUiClientOptions) -> Self {
+        Self {
+            client: ComfyUiClient::new(options),
+        }
+    }
+
+    /// Returns the underlying client.
+    pub fn client(&self) -> &ComfyUiClient {
+        &self.client
+    }
+
+    /// Executes or plans an image-edit workflow.
+    pub fn execute(
+        &self,
+        workflow: &ComfyWorkflow,
+        output_image: impl AsRef<Path>,
+    ) -> Result<ComfyPromptStatus> {
+        let output_image = output_image.as_ref().to_string_lossy().into_owned();
+        let Some(submission) = self.client.submit_prompt(workflow)? else {
+            return Ok(ComfyPromptStatus {
+                status: "planned".to_string(),
+                output_image: Some(output_image),
+                message: Some("set COMFYUI_URL to execute the workflow".to_string()),
+                metadata: BTreeMap::new(),
+            });
+        };
+
+        let mut metadata = BTreeMap::new();
+        metadata.insert("prompt_id".to_string(), submission.prompt_id.clone());
+        if !self.client.options.wait_for_output {
+            return Ok(ComfyPromptStatus {
+                status: "submitted".to_string(),
+                output_image: Some(output_image),
+                message: Some("workflow submitted to ComfyUI".to_string()),
+                metadata,
+            });
+        }
+
+        let history = poll_history(&self.client, &submission.prompt_id)?;
+        if let Some(image_ref) = first_comfy_image_ref(&history) {
+            if let Some(base_url) = normalized_base_url(self.client.options.base_url.as_deref()) {
+                let bytes = http_bytes(
+                    "GET",
+                    &format!("{base_url}/view?{}", image_ref.query_string()),
+                    None,
+                    self.client.options.timeout,
+                )?;
+                let path = PathBuf::from(&output_image);
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::write(&path, bytes)?;
+            }
+        }
+        Ok(ComfyPromptStatus {
+            status: "completed".to_string(),
+            output_image: Some(output_image),
+            message: Some("workflow completed in ComfyUI".to_string()),
+            metadata,
+        })
+    }
+}
+
+fn poll_history(client: &ComfyUiClient, prompt_id: &str) -> Result<Value> {
+    let attempts = (client.options.timeout.as_millis()
+        / client.options.poll_interval.as_millis().max(1))
+    .max(1) as usize;
+    for _ in 0..attempts {
+        let history = client.prompt_history(prompt_id)?.unwrap_or(Value::Null);
+        if history.get(prompt_id).is_some() || non_empty_object(&history) {
+            return Ok(history);
+        }
+        thread::sleep(client.options.poll_interval);
+    }
+    Err(DetectError::Source(format!(
+        "timed out waiting for ComfyUI prompt `{prompt_id}`"
+    )))
+}
+
+fn non_empty_object(value: &Value) -> bool {
+    value.as_object().is_some_and(|object| !object.is_empty())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ComfyImageRef {
+    filename: String,
+    subfolder: String,
+    image_type: String,
+}
+
+impl ComfyImageRef {
+    fn query_string(&self) -> String {
+        format!(
+            "filename={}&subfolder={}&type={}",
+            url_query_escape(&self.filename),
+            url_query_escape(&self.subfolder),
+            url_query_escape(&self.image_type)
+        )
+    }
+}
+
+fn first_comfy_image_ref(history: &Value) -> Option<ComfyImageRef> {
+    find_comfy_image_ref(history)
+}
+
+fn find_comfy_image_ref(value: &Value) -> Option<ComfyImageRef> {
+    if let Some(object) = value.as_object() {
+        if let Some(filename) = object.get("filename").and_then(Value::as_str) {
+            return Some(ComfyImageRef {
+                filename: filename.to_string(),
+                subfolder: object
+                    .get("subfolder")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                image_type: object
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .unwrap_or("output")
+                    .to_string(),
+            });
+        }
+        for child in object.values() {
+            if let Some(found) = find_comfy_image_ref(child) {
+                return Some(found);
+            }
+        }
+    }
+    if let Some(array) = value.as_array() {
+        for child in array {
+            if let Some(found) = find_comfy_image_ref(child) {
+                return Some(found);
+            }
+        }
+    }
+    None
+}
+
+fn normalized_base_url(value: Option<&str>) -> Option<String> {
+    let value = value?.trim().trim_end_matches('/');
+    (!value.is_empty()).then(|| value.to_string())
+}
+
+fn http_json(method: &str, url: &str, body: Option<&[u8]>, timeout: Duration) -> Result<Value> {
+    let bytes = http_bytes(method, url, body, timeout)?;
+    serde_json::from_slice(&bytes)
+        .map_err(|err| DetectError::Source(format!("invalid HTTP JSON response: {err}")))
+}
+
+fn http_bytes(method: &str, url: &str, body: Option<&[u8]>, timeout: Duration) -> Result<Vec<u8>> {
+    let parsed = ParsedHttpUrl::parse(url)?;
+    let mut stream = std::net::TcpStream::connect((parsed.host.as_str(), parsed.port))?;
+    stream.set_read_timeout(Some(timeout))?;
+    stream.set_write_timeout(Some(timeout))?;
+    let body = body.unwrap_or_default();
+    write!(
+        stream,
+        "{method} {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nContent-Length: {}\r\nContent-Type: application/json\r\n\r\n",
+        parsed.path_and_query,
+        parsed.host,
+        body.len()
+    )?;
+    stream.write_all(body)?;
+    let mut response = Vec::new();
+    let mut chunk = [0_u8; 8192];
+    loop {
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => response.extend_from_slice(&chunk[..read]),
+            Err(err)
+                if err.kind() == std::io::ErrorKind::ConnectionReset && !response.is_empty() =>
+            {
+                break;
+            }
+            Err(err) => return Err(err.into()),
+        }
+    }
+    parse_http_response(url, &response)
+}
+
+fn parse_http_response(url: &str, response: &[u8]) -> Result<Vec<u8>> {
+    let Some(header_end) = response.windows(4).position(|window| window == b"\r\n\r\n") else {
+        return Err(DetectError::Source(format!(
+            "invalid HTTP response from `{url}`"
+        )));
+    };
+    let headers = String::from_utf8_lossy(&response[..header_end]);
+    let mut lines = headers.lines();
+    let status = lines.next().unwrap_or_default();
+    if !status.contains(" 200 ") {
+        return Err(DetectError::Source(format!(
+            "HTTP request to `{url}` failed: {status}"
+        )));
+    }
+    Ok(response[header_end + 4..].to_vec())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedHttpUrl {
+    host: String,
+    port: u16,
+    path_and_query: String,
+}
+
+impl ParsedHttpUrl {
+    fn parse(url: &str) -> Result<Self> {
+        let without_scheme = url.strip_prefix("http://").ok_or_else(|| {
+            DetectError::InvalidArgument(
+                "ComfyUI client currently supports http:// URLs".to_string(),
+            )
+        })?;
+        let (authority, path) = without_scheme
+            .split_once('/')
+            .map(|(authority, path)| (authority, format!("/{path}")))
+            .unwrap_or((without_scheme, "/".to_string()));
+        let (host, port) = authority
+            .rsplit_once(':')
+            .and_then(|(host, port)| port.parse::<u16>().ok().map(|port| (host, port)))
+            .unwrap_or((authority, 80));
+        if host.is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "ComfyUI URL host must not be empty".to_string(),
+            ));
+        }
+        Ok(Self {
+            host: host.to_string(),
+            port,
+            path_and_query: path,
+        })
+    }
+}
+
+fn url_query_escape(value: &str) -> String {
+    value
+        .bytes()
+        .flat_map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                vec![byte as char]
+            }
+            b' ' => vec!['+'],
+            _ => format!("%{byte:02X}").chars().collect(),
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -868,6 +1238,10 @@ fn sampler_widgets(request: &ImageGenerationRequest, denoise: f32) -> Vec<Value>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     #[test]
     fn typed_model_ref_builders_match_compatibility_builders() {
@@ -970,5 +1344,124 @@ mod tests {
             .nodes
             .iter()
             .any(|node| node.node_type == "ImageUpscaleWithModel"));
+    }
+
+    #[test]
+    fn comfy_executor_plans_without_base_url() {
+        let workflow = build_generation_workflow(&ImageGenerationRequest::new("fox")).unwrap();
+        let executor = ComfyImageEditExecutor::new(ComfyUiClientOptions {
+            base_url: None,
+            ..ComfyUiClientOptions::default()
+        });
+        let status = executor.execute(&workflow, "edited.png").unwrap();
+        assert_eq!(status.status, "planned");
+        assert_eq!(status.output_image.as_deref(), Some("edited.png"));
+    }
+
+    #[test]
+    fn comfy_client_posts_prompt_and_returns_prompt_id() {
+        let captured = Arc::new(Mutex::new(String::new()));
+        let captured_thread = Arc::clone(&captured);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let text = read_mock_request(&mut stream);
+            *captured_thread.lock().unwrap() = text;
+            let body = r#"{"prompt_id":"abc123"}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .unwrap();
+        });
+
+        let workflow = build_generation_workflow(&ImageGenerationRequest::new("fox")).unwrap();
+        let client = ComfyUiClient::new(ComfyUiClientOptions {
+            base_url: Some(format!("http://{addr}")),
+            timeout: Duration::from_secs(2),
+            poll_interval: Duration::from_millis(1),
+            wait_for_output: false,
+        });
+        let submission = client.submit_prompt(&workflow).unwrap().unwrap();
+        handle.join().unwrap();
+        assert_eq!(submission.prompt_id, "abc123");
+        let request = captured.lock().unwrap();
+        assert!(request.starts_with("POST /prompt HTTP/1.1"));
+        assert!(request.contains("\"prompt\""));
+        assert!(request.contains("KSampler"));
+    }
+
+    #[test]
+    fn comfy_executor_reports_submitted_status() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = read_mock_request(&mut stream);
+            let body = r#"{"prompt_id":"submitted-id"}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .unwrap();
+        });
+        let workflow = build_generation_workflow(&ImageGenerationRequest::new("fox")).unwrap();
+        let executor = ComfyImageEditExecutor::new(ComfyUiClientOptions {
+            base_url: Some(format!("http://{addr}")),
+            timeout: Duration::from_secs(2),
+            poll_interval: Duration::from_millis(1),
+            wait_for_output: false,
+        });
+        let status = executor.execute(&workflow, "edited.png").unwrap();
+        handle.join().unwrap();
+        assert_eq!(status.status, "submitted");
+        assert_eq!(status.metadata["prompt_id"], "submitted-id");
+    }
+
+    fn read_mock_request(stream: &mut std::net::TcpStream) -> String {
+        stream
+            .set_read_timeout(Some(Duration::from_millis(200)))
+            .unwrap();
+        let mut bytes = Vec::new();
+        let mut chunk = [0_u8; 4096];
+        loop {
+            match stream.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(read) => {
+                    bytes.extend_from_slice(&chunk[..read]);
+                    if request_is_complete(&bytes) {
+                        break;
+                    }
+                }
+                Err(err)
+                    if matches!(
+                        err.kind(),
+                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                    ) =>
+                {
+                    break;
+                }
+                Err(err) => panic!("failed to read mock request: {err}"),
+            }
+        }
+        String::from_utf8_lossy(&bytes).to_string()
+    }
+
+    fn request_is_complete(bytes: &[u8]) -> bool {
+        let Some(header_end) = bytes.windows(4).position(|window| window == b"\r\n\r\n") else {
+            return false;
+        };
+        let headers = String::from_utf8_lossy(&bytes[..header_end]);
+        let content_length = headers
+            .lines()
+            .find_map(|line| line.strip_prefix("Content-Length: "))
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(0);
+        bytes.len() >= header_end + 4 + content_length
     }
 }

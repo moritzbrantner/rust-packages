@@ -10,6 +10,7 @@ use video_analysis_use_cases::audio_voice_analysis::{
 };
 use video_analysis_use_cases::image_person_edit::{
     run_image_person_edit, write_image_person_edit_report, ImagePersonEditRequest,
+    PersonDetectorConfig,
 };
 use video_analysis_use_cases::video_red_cars::{
     run_video_red_cars, write_video_red_cars_report, VideoRedCarsRequest,
@@ -129,7 +130,7 @@ struct VideoRedCarsArgs {
     #[arg(long, default_value_t = 30)]
     visual_sample_every: u64,
     #[arg(long)]
-    vehicle_detector_command: PathBuf,
+    vehicle_detector_command: Option<PathBuf>,
     #[arg(long = "vehicle-detector-arg")]
     vehicle_detector_args: Vec<String>,
 }
@@ -144,7 +145,7 @@ impl From<VideoRedCarsArgs> for VideoRedCarsRequest {
             min_scene_len: args.min_scene_len,
             max_frames: args.max_frames,
             visual_sample_every: args.visual_sample_every,
-            vehicle_detector_command: args.vehicle_detector_command,
+            vehicle_detector_command: args.vehicle_detector_command.unwrap_or_default(),
             vehicle_detector_args: args.vehicle_detector_args,
         }
     }
@@ -210,7 +211,7 @@ struct ImagePersonEditArgs {
     #[arg(long)]
     model: String,
     #[arg(long)]
-    person_detector_command: PathBuf,
+    person_detector_command: Option<PathBuf>,
     #[arg(long = "person-detector-arg")]
     person_detector_args: Vec<String>,
     #[arg(long)]
@@ -221,6 +222,15 @@ struct ImagePersonEditArgs {
 
 impl From<ImagePersonEditArgs> for ImagePersonEditRequest {
     fn from(args: ImagePersonEditArgs) -> Self {
+        let person_detector_args = args.person_detector_args;
+        let person_detector = args
+            .person_detector_command
+            .clone()
+            .map(|command| PersonDetectorConfig::ExternalCommand {
+                command,
+                args: person_detector_args.clone(),
+            })
+            .unwrap_or_default();
         Self {
             input: args.input,
             work_dir: args.work_dir,
@@ -228,10 +238,12 @@ impl From<ImagePersonEditArgs> for ImagePersonEditRequest {
             prompt: args.prompt,
             negative_prompt: args.negative_prompt,
             model: args.model,
-            person_detector_command: args.person_detector_command,
-            person_detector_args: args.person_detector_args,
+            person_detector_command: args.person_detector_command.clone().unwrap_or_default(),
+            person_detector_args,
             editor_command: args.editor_command,
             editor_args: args.editor_args,
+            person_detector,
+            comfyui: image_analysis_comfyui::ComfyUiClientOptions::default(),
         }
     }
 }

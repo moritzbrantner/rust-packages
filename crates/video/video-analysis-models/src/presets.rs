@@ -21,6 +21,8 @@ pub enum ModelPreset {
     XenovaDistilbertSst2Onnx,
     /// The xenova mini lm l6 v2 ONNX variant.
     XenovaMiniLmL6V2Onnx,
+    /// The xenova DETR ResNet-50 ONNX variant.
+    XenovaDetrResnet50Onnx,
 }
 
 impl ModelPreset {
@@ -33,6 +35,7 @@ impl ModelPreset {
         Self::MiniLmL6V2,
         Self::XenovaDistilbertSst2Onnx,
         Self::XenovaMiniLmL6V2Onnx,
+        Self::XenovaDetrResnet50Onnx,
     ];
 
     /// Borrows this value as a str.
@@ -45,6 +48,7 @@ impl ModelPreset {
             Self::MiniLmL6V2 => "minilm-l6-v2",
             Self::XenovaDistilbertSst2Onnx => "xenova-distilbert-sst2-onnx",
             Self::XenovaMiniLmL6V2Onnx => "xenova-minilm-l6-v2-onnx",
+            Self::XenovaDetrResnet50Onnx => "xenova-detr-resnet-50-onnx",
         }
     }
 
@@ -115,6 +119,13 @@ impl ModelPreset {
                     .file("config.json")
                     .file("tokenizer.json")
                     .file("tokenizer_config.json")
+                    .first_available_file(["onnx/model.onnx", "onnx/model_quantized.onnx"])
+            }
+            Self::XenovaDetrResnet50Onnx => {
+                HuggingFaceModelSpec::new("Xenova/detr-resnet-50", ModelTask::ObjectDetection)
+                    .name(self.as_str())
+                    .file("config.json")
+                    .file("preprocessor_config.json")
                     .first_available_file(["onnx/model.onnx", "onnx/model_quantized.onnx"])
             }
         }

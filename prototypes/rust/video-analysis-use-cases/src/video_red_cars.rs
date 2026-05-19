@@ -3,6 +3,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use image_analysis_core::ImageView;
+use image_analysis_detection::ColorBlobDetector;
 use serde::{Deserialize, Serialize};
 use video_analysis_core::{
     BoundingBox, DetectError, ObservationKind, RealtimeVideoPipeline, Result,
@@ -59,7 +61,7 @@ impl Default for VideoRedCarsRequest {
             min_scene_len: DEFAULT_MIN_SCENE_LEN,
             max_frames: None,
             visual_sample_every: DEFAULT_VISUAL_SAMPLE_EVERY,
-            vehicle_detector_command: PathBuf::from("python3"),
+            vehicle_detector_command: PathBuf::new(),
             vehicle_detector_args: Vec::new(),
         }
     }
@@ -96,11 +98,6 @@ impl VideoRedCarsRunRequest {
             self.min_scene_len,
             self.visual_sample_every,
         )?;
-        if self.vehicle_detector.command.as_os_str().is_empty() {
-            return Err(DetectError::InvalidArgument(
-                "vehicle_detector.command is required".to_string(),
-            ));
-        }
         Ok(())
     }
 }
@@ -192,12 +189,6 @@ pub fn run_video_red_cars(args: VideoRedCarsRequest) -> Result<VideoRedCarsRepor
         args.min_scene_len,
         args.visual_sample_every,
     )?;
-    if args.vehicle_detector_command.as_os_str().is_empty() {
-        return Err(DetectError::InvalidArgument(
-            "vehicle_detector_command is required".to_string(),
-        ));
-    }
-
     std::fs::create_dir_all(&args.work_dir)?;
     let report_path = args
         .output
@@ -213,11 +204,17 @@ pub fn run_video_red_cars(args: VideoRedCarsRequest) -> Result<VideoRedCarsRepor
         ))
         .start_in_scene(true)
         .build()?;
-    let mut detector = ExternalCommandModel::new(
-        &args.vehicle_detector_command,
-        downloaded_external_model("vehicle-detector", ModelTask::ObjectDetection),
-    )
-    .args(args.vehicle_detector_args.clone());
+    let mut detector = if args.vehicle_detector_command.as_os_str().is_empty() {
+        RedCarDetector::Native(ColorBlobDetector::red_car())
+    } else {
+        RedCarDetector::External(
+            ExternalCommandModel::new(
+                &args.vehicle_detector_command,
+                downloaded_external_model("vehicle-detector", ModelTask::ObjectDetection),
+            )
+            .args(args.vehicle_detector_args.clone()),
+        )
+    };
     let accepted_labels = accepted_vehicle_labels();
     let mut red_samples = Vec::new();
     let mut sampled_frame_indices = Vec::new();
@@ -295,7 +292,12 @@ pub fn run_video_red_cars(args: VideoRedCarsRequest) -> Result<VideoRedCarsRepor
         capabilities: CapabilityReport {
             completed: vec![
                 "scene_detection".to_string(),
-                "vehicle_detection".to_string(),
+                if args.vehicle_detector_command.as_os_str().is_empty() {
+                    "native_vehicle_detection"
+                } else {
+                    "vehicle_detection"
+                }
+                .to_string(),
                 "red_car_counting".to_string(),
             ],
             skipped: Vec::new(),
@@ -391,12 +393,39 @@ fn accepted_vehicle_labels() -> BTreeSet<String> {
         .collect()
 }
 
+enum RedCarDetector {
+    Native(ColorBlobDetector),
+    External(ExternalCommandModel),
+}
+
 fn red_observations_for_frame(
-    detector: &mut ExternalCommandModel,
+    detector: &mut RedCarDetector,
     frame: &video_analysis_core::VideoFrame<'_>,
     accepted_labels: &BTreeSet<String>,
 ) -> Result<Vec<RedCarObservation>> {
-    let raw = detector.predict_frame(frame)?;
+    let raw = match detector {
+        RedCarDetector::Native(detector) => {
+            let image = ImageView::from_video_frame(frame)?;
+            detector
+                .detect_image(&image)?
+                .into_iter()
+                .map(|detection| video_analysis_models::RawPrediction {
+                    kind: Some("object".to_string()),
+                    label: Some(detection.label),
+                    text: None,
+                    score: detection.score,
+                    region: Some(video_analysis_models::RawBoundingBox::xywh(
+                        detection.region.x as f32,
+                        detection.region.y as f32,
+                        detection.region.width as f32,
+                        detection.region.height as f32,
+                    )),
+                    attributes: detection.attributes,
+                })
+                .collect()
+        }
+        RedCarDetector::External(detector) => detector.predict_frame(frame)?,
+    };
     Ok(normalize_predictions(
         raw,
         &ModelTask::ObjectDetection,

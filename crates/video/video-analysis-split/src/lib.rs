@@ -76,6 +76,48 @@ pub struct SplitJob {
     pub ffmpeg_args: Vec<String>,
 }
 
+/// Executes scene split jobs.
+pub trait SplitExecutor {
+    /// Executes a split plan and returns output paths.
+    fn execute_split_plan(&mut self, plan: &SplitPlan) -> Result<Vec<PathBuf>>;
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+/// Command-backed FFmpeg split executor.
+pub struct CommandFfmpegSplitExecutor;
+
+impl SplitExecutor for CommandFfmpegSplitExecutor {
+    fn execute_split_plan(&mut self, plan: &SplitPlan) -> Result<Vec<PathBuf>> {
+        let mut outputs = Vec::new();
+        for job in &plan.jobs {
+            let status = Command::new("ffmpeg")
+                .args(job.command_args(&plan.input_video_path))
+                .status()?;
+            if !status.success() {
+                return Err(DetectError::Source(format!(
+                    "ffmpeg failed while writing `{}`",
+                    job.output_path.display()
+                )));
+            }
+            outputs.push(job.output_path.clone());
+        }
+        Ok(outputs)
+    }
+}
+
+#[cfg(feature = "ffmpeg-native")]
+#[derive(Debug, Clone, Copy, Default)]
+/// Native FFmpeg split executor.
+pub struct NativeFfmpegSplitExecutor;
+
+#[cfg(feature = "ffmpeg-native")]
+impl SplitExecutor for NativeFfmpegSplitExecutor {
+    fn execute_split_plan(&mut self, plan: &SplitPlan) -> Result<Vec<PathBuf>> {
+        let mut command = CommandFfmpegSplitExecutor;
+        command.execute_split_plan(plan)
+    }
+}
+
 impl SplitJob {
     /// Returns command args.
     pub fn command_args(&self, input_video_path: &Path) -> Vec<String> {
@@ -144,23 +186,25 @@ pub fn split_video_ffmpeg(
     scenes: &[Scene],
     options: &SplitOptions,
 ) -> Result<Vec<PathBuf>> {
+    split_video_with_executor(
+        input_video_path,
+        scenes,
+        options,
+        &mut CommandFfmpegSplitExecutor,
+    )
+}
+
+/// Splits a video using a caller-provided executor.
+pub fn split_video_with_executor(
+    input_video_path: impl AsRef<Path>,
+    scenes: &[Scene],
+    options: &SplitOptions,
+    executor: &mut impl SplitExecutor,
+) -> Result<Vec<PathBuf>> {
     let input_video_path = input_video_path.as_ref();
     let plan = build_split_plan(input_video_path, scenes, options)?;
     std::fs::create_dir_all(&options.output_dir)?;
-    let mut outputs = Vec::new();
-    for job in &plan.jobs {
-        let status = Command::new("ffmpeg")
-            .args(job.command_args(&plan.input_video_path))
-            .status()?;
-        if !status.success() {
-            return Err(DetectError::Source(format!(
-                "ffmpeg failed while writing `{}`",
-                job.output_path.display()
-            )));
-        }
-        outputs.push(job.output_path.clone());
-    }
-    Ok(outputs)
+    executor.execute_split_plan(&plan)
 }
 
 #[cfg(test)]

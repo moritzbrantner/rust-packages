@@ -3707,6 +3707,7 @@ dependencies = [
  "comfyui-models",
  "image-analysis-comfyui",
  "image-analysis-core",
+ "image-analysis-detection",
  "image-analysis-io",
  "rusqlite",
  "serde",
@@ -3721,6 +3722,7 @@ dependencies = [
  "video-analysis-ffmpeg",
  "video-analysis-ingest",
  "video-analysis-models",
+ "video-analysis-onnx",
  "video-analysis-test-support",
 ]
 

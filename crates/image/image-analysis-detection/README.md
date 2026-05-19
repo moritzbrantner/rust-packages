@@ -1,6 +1,7 @@
 # image-analysis-detection
 
-Object detection built from image segmentation masks and SAM defaults for `video-analysis`.
+Object detection built from image segmentation masks, color blob detection, and
+SAM defaults for `video-analysis`.
 
 ## Feature flags
 
@@ -10,7 +11,7 @@ Object detection built from image segmentation masks and SAM defaults for `video
 
 ```rust
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use image_analysis_detection::{ImageDetectionRequest, MaskProposalDetector};
+use image_analysis_detection::{ColorBlobDetector, ImageDetectionRequest, MaskProposalDetector};
 use image_analysis_segmentation::ImageSegmentationBackend;
 use image_analysis_core::ImageView;
 use video_analysis_core::Result;
@@ -31,6 +32,7 @@ let mut detector = MaskProposalDetector::new(EmptyBackend)
     .request(ImageDetectionRequest::automatic_mask_proposals());
 let image = image_analysis_core::OwnedImage::new_rgb(1, 1, vec![0, 0, 0])?;
 let _ = detector.detect_image(&image.as_view())?;
+let _ = ColorBlobDetector::red_car().detect_image(&image.as_view())?;
 # Ok(())
 # }
 ```

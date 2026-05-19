@@ -8,7 +8,8 @@ use std::process::{Command, Stdio};
 use comfyui_latents::{LatentImageSize, LatentMask};
 use comfyui_models::{ComfyModelRef, ComfyModelRole};
 use image_analysis_comfyui::{
-    build_generation_workflow, ComfyWorkflowPreset, ImageGenerationMode, ImageGenerationRequest,
+    build_generation_workflow, ComfyImageEditExecutor, ComfyUiClientOptions, ComfyWorkflowPreset,
+    ImageGenerationMode, ImageGenerationRequest,
 };
 use image_analysis_core::{mask_tensor_from_luma, ImagePixelFormat, OwnedImage};
 use image_analysis_io::{read_image, write_image};
@@ -17,8 +18,8 @@ use video_analysis_core::{
     BoundingBox, DetectError, FramePosition, PixelFormat, Result, Timebase, Timestamp,
 };
 use video_analysis_models::{
-    normalize_predictions, DownloadedModel, ExternalCommandModel, HuggingFaceModelSpec, ModelTask,
-    PredictionRepairOptions, VisionModelBackend,
+    normalize_predictions, DownloadedModel, ExternalCommandModel, HuggingFaceModelSpec,
+    ModelBundle, ModelTask, PredictionRepairOptions, VisionModelBackend,
 };
 
 use crate::workflow_support::{display_path, validate_local_file, write_json_report};
@@ -47,6 +48,10 @@ pub struct ImagePersonEditRequest {
     pub editor_command: Option<PathBuf>,
     /// The editor args value.
     pub editor_args: Vec<String>,
+    /// Native or external person detector configuration.
+    pub person_detector: PersonDetectorConfig,
+    /// ComfyUI client options used when editor_command is not set.
+    pub comfyui: ComfyUiClientOptions,
 }
 
 impl Default for ImagePersonEditRequest {
@@ -62,6 +67,8 @@ impl Default for ImagePersonEditRequest {
             person_detector_args: Vec::new(),
             editor_command: None,
             editor_args: Vec::new(),
+            person_detector: PersonDetectorConfig::default(),
+            comfyui: ComfyUiClientOptions::default(),
         }
     }
 }
@@ -153,6 +160,37 @@ pub struct ImageEditExecutionReport {
     pub metadata: BTreeMap<String, String>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+/// Detector selection for image person edit.
+pub enum PersonDetectorConfig {
+    /// Use an ONNX object detector loaded from a model bundle directory.
+    Onnx {
+        /// Model bundle directory or manifest path.
+        bundle_dir: PathBuf,
+    },
+    /// Use the legacy external-command JSON protocol.
+    ExternalCommand {
+        /// Command path.
+        command: PathBuf,
+        /// Command arguments.
+        args: Vec<String>,
+    },
+    /// Test-only deterministic detections.
+    Stub {
+        /// Detections to return.
+        detections: Vec<PersonDetectionReport>,
+    },
+}
+
+impl Default for PersonDetectorConfig {
+    fn default() -> Self {
+        Self::ExternalCommand {
+            command: PathBuf::new(),
+            args: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 /// Data type for image person edit report.
 pub struct ImagePersonEditReport {
@@ -231,11 +269,8 @@ pub fn run_image_person_edit(args: ImagePersonEditRequest) -> Result<ImagePerson
 
     let image = read_image(&args.input)?;
     let frame = owned_image_to_video_frame(&image)?;
-    let detections = detect_people(
-        &frame,
-        &args.person_detector_command,
-        &args.person_detector_args,
-    )?;
+    let detector_config = resolve_person_detector_config(&args);
+    let detections = detect_people(&frame, &detector_config)?;
     if detections.is_empty() {
         return Err(DetectError::Source(
             "person detection did not return any persons".to_string(),
@@ -280,11 +315,13 @@ pub fn run_image_person_edit(args: ImagePersonEditRequest) -> Result<ImagePerson
             },
         )?
     } else {
+        let status = ComfyImageEditExecutor::new(args.comfyui.clone())
+            .execute(&workflow, &edited_image_path)?;
         ImageEditExecutionReport {
-            status: "planned".to_string(),
-            output_image: Some(display_path(&edited_image_path)),
-            message: Some("workflow generated; pass --editor-command to execute".to_string()),
-            metadata: BTreeMap::new(),
+            status: status.status,
+            output_image: status.output_image,
+            message: status.message,
+            metadata: status.metadata,
         }
     };
 
@@ -306,10 +343,10 @@ pub fn run_image_person_edit(args: ImagePersonEditRequest) -> Result<ImagePerson
                 "mask_generation".to_string(),
                 "workflow_generation".to_string(),
             ],
-            skipped: if args.editor_command.is_some() {
+            skipped: if args.editor_command.is_some() || args.comfyui.base_url.is_some() {
                 Vec::new()
             } else {
-                vec!["editor execution: pass --editor-command".to_string()]
+                vec!["editor execution: set COMFYUI_URL or pass --editor-command".to_string()]
             },
         },
         detections,
@@ -335,6 +372,8 @@ pub fn run_image_person_edit_workflow(
         person_detector_args: request.person_detector.args,
         editor_command: request.editor.as_ref().map(|config| config.command.clone()),
         editor_args: request.editor.map(|config| config.args).unwrap_or_default(),
+        person_detector: PersonDetectorConfig::default(),
+        comfyui: ComfyUiClientOptions::default(),
     })?;
     write_image_person_edit_report(&report_path, &report)?;
     Ok(report)
@@ -345,22 +384,55 @@ pub fn write_image_person_edit_report(path: &Path, report: &ImagePersonEditRepor
     write_json_report(path, report)
 }
 
+fn resolve_person_detector_config(args: &ImagePersonEditRequest) -> PersonDetectorConfig {
+    match &args.person_detector {
+        PersonDetectorConfig::ExternalCommand {
+            command,
+            args: command_args,
+        } if command.as_os_str().is_empty()
+            && !args.person_detector_command.as_os_str().is_empty() =>
+        {
+            PersonDetectorConfig::ExternalCommand {
+                command: args.person_detector_command.clone(),
+                args: args.person_detector_args.clone(),
+            }
+        }
+        other => other.clone(),
+    }
+}
+
 fn detect_people(
     frame: &video_analysis_core::OwnedVideoFrame,
-    command: &Path,
-    args: &[String],
+    config: &PersonDetectorConfig,
 ) -> Result<Vec<PersonDetectionReport>> {
-    let mut detector = ExternalCommandModel::new(
-        command,
-        DownloadedModel {
-            spec: HuggingFaceModelSpec::new("person-detector", ModelTask::ObjectDetection)
-                .name("person-detector"),
-            files: BTreeMap::new(),
-        },
-    )
-    .args(args.iter().cloned());
+    let raw = match config {
+        PersonDetectorConfig::Onnx { bundle_dir } => {
+            let bundle = ModelBundle::load(bundle_dir)?;
+            let mut detector = video_analysis_onnx::OnnxObjectDetector::from_bundle(bundle)?;
+            detector.predict_frame(&frame.as_frame())?
+        }
+        PersonDetectorConfig::ExternalCommand { command, args } => {
+            if command.as_os_str().is_empty() {
+                return Err(DetectError::InvalidArgument(
+                    "person detector requires an ONNX bundle, stub detections, or external command"
+                        .to_string(),
+                ));
+            }
+            let mut detector = ExternalCommandModel::new(
+                command,
+                DownloadedModel {
+                    spec: HuggingFaceModelSpec::new("person-detector", ModelTask::ObjectDetection)
+                        .name("person-detector"),
+                    files: BTreeMap::new(),
+                },
+            )
+            .args(args.iter().cloned());
+            detector.predict_frame(&frame.as_frame())?
+        }
+        PersonDetectorConfig::Stub { detections } => return Ok(detections.clone()),
+    };
     Ok(normalize_predictions(
-        detector.predict_frame(&frame.as_frame())?,
+        raw,
         &ModelTask::ObjectDetection,
         Some((frame.width, frame.height)),
         PredictionRepairOptions::default(),

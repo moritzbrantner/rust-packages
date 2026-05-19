@@ -31,6 +31,7 @@ comfyui-latents.workspace = true
 comfyui-models.workspace = true
 image-analysis-comfyui.workspace = true
 image-analysis-core.workspace = true
+image-analysis-detection.workspace = true
 image-analysis-io.workspace = true
 rusqlite.workspace = true
 serde.workspace = true
@@ -44,6 +45,7 @@ video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-ingest.workspace = true
 video-analysis-models.workspace = true
+video-analysis-onnx.workspace = true
 
 [dev-dependencies]
 audio-analysis-test-support.workspace = true

@@ -249,8 +249,9 @@ helpers without requiring video timeline semantics.
 - `image-analysis-segmentation` owns still-image prompts, binary masks,
   segments, and pure segmentation backend contracts with explicit opt-in
   automatic mask generation helpers.
-- `image-analysis-detection` owns canonical still-image detections plus
-  mask-proposal adapters over segmentation backends.
+- `image-analysis-detection` owns canonical still-image detections,
+  mask-proposal adapters over segmentation backends, and native color-blob
+  detection for simple object workflows such as red-car detection.
 - `image-analysis-synthesis` owns deterministic, non-AI image generation from
   colors, histograms, and regions.
 - `image-analysis-models` owns image model presets and model-backed backend
@@ -259,10 +260,11 @@ helpers without requiring video timeline semantics.
   runtime-backed image model adapters. It now exposes batch preprocessing as
   `OnnxImageBatchTensor`, `image_batch_to_tensor`, and
   `preprocess_image_batch`.
-- `image-analysis-comfyui` owns ComfyUI workflow builders for AI image
-  generation and manipulation. `ImageGenerationRequest` now prefers typed
-  `ComfyModelRef` values for checkpoint and upscale model selection while
-  keeping string builder shims for compatibility.
+- `image-analysis-comfyui` owns ComfyUI workflow builders and a lightweight
+  HTTP client/executor for AI image generation and manipulation.
+  `ImageGenerationRequest` now prefers typed `ComfyModelRef` values for
+  checkpoint and upscale model selection while keeping string builder shims for
+  compatibility.
 
 Image processing outputs are compact `OwnedImage` buffers. Image crates should
 not own scene timing, CLI branching, or report serialization. Pure image crates
@@ -469,16 +471,21 @@ It exposes:
   optional duration.
 - `AudioMetadata`, with input, optional path, mode, sample rate, channels, and
   optional duration.
-- `FfmpegSourceOptions`, including source mode, realtime behavior, and extra
-  input args.
-- `FfmpegAudioSourceOptions`, including audio chunk size and extra input args.
+- `FfmpegRuntimeBackend` and `FfmpegRuntimeOptions`, selecting command-backed
+  or native-backed runtime paths.
+- `FfmpegSourceOptions`, including source mode, realtime behavior, extra input
+  args, and runtime options.
+- `FfmpegAudioSourceOptions`, including audio chunk size, extra input args, and
+  runtime options.
 - `probe`, `probe_input`, `probe_audio`, and `probe_audio_input` helpers.
 - `is_ffmpeg_available` and `is_ffprobe_available` probes.
 
-FFmpeg is responsible for external process interaction, probing, decoding, and
-conversion. Downstream packages should consume only core and ingest contracts
-such as `OwnedVideoFrame`, `OwnedAudioFrame`, `VideoFrameSource`, and
-`AudioFrameSource`.
+FFmpeg is responsible for media probing, decoding, and conversion. The command
+runtime remains the compatibility default; `ffmpeg-native` exposes native
+runtime selection and `ffmpeg-next-bindings` is reserved for system FFmpeg
+probing when development packages are installed. Downstream packages should
+consume only core and ingest contracts such as `OwnedVideoFrame`,
+`OwnedAudioFrame`, `VideoFrameSource`, and `AudioFrameSource`.
 
 Generated media fixture helpers are behind the `test-utils` feature. Opt-in
 decode coverage is available with:

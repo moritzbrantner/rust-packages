@@ -50,14 +50,23 @@ The setup script publishes `.external-test-tools/bin` in GitHub Actions through
 `.external-test-tools/bin` and `.audio-tools/bin` to `PATH` if those directories
 exist.
 
-The multimodal workflow smoke tests also include optional command adapters under
-`scripts/`:
+The multimodal workflow smoke tests still include optional command adapters
+under `scripts/`, but image/video workflows now prefer Rust-side adapters when
+configured without commands:
+
+- red-car workflows use `image-analysis-detection::ColorBlobDetector` by
+  default.
+- image-person-edit can use `PersonDetectorConfig::Onnx` or test-only
+  `PersonDetectorConfig::Stub`.
+- ComfyUI submission is available through `image-analysis-comfyui` and no
+  longer requires `scripts/run_comfyui_image_edit.py`.
 
 - `scripts/opencv_red_car_detector.py`: external-model JSON protocol adapter for
-  red-car detection in sampled video frames. Requires Python with `cv2` and
+  compatibility with older red-car runs. Requires Python with `cv2` and
   `numpy`.
 - `scripts/run_comfyui_image_edit.py`: image-edit JSON protocol adapter that
-  submits generated workflows to a ComfyUI server when `COMFYUI_URL` is set.
+  submits generated workflows to a ComfyUI server when `COMFYUI_URL` is set;
+  kept for compatibility with older editor-command flows.
 
 Optional env vars used by the ignored external smoke tests:
 
