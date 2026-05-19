@@ -17,6 +17,9 @@ use video_analysis_core::{
 };
 use video_analysis_posture::{Keypoint, Keypoint3d, Pose3dEstimate, PoseEstimate};
 
+/// Documentation URL for the cuda-oxide compiler/runtime stack.
+pub const CUDA_OXIDE_BOOK_URL: &str = "https://nvlabs.github.io/cuda-oxide/index.html";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// Variants describing model task.
@@ -132,6 +135,166 @@ pub struct HuggingFaceModelSpec {
     pub files: Vec<ModelFileRequest>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+/// Variants describing model runtime backend.
+pub enum ModelRuntimeBackend {
+    /// The CPU variant.
+    Cpu,
+    /// The ONNX variant.
+    Onnx,
+    /// The candle variant.
+    Candle,
+    /// The cuda oxide variant.
+    CudaOxide,
+    /// The external variant.
+    External,
+    /// The heuristic variant.
+    Heuristic,
+    /// The custom variant.
+    Custom(String),
+}
+
+impl ModelRuntimeBackend {
+    /// Borrows this value as a str.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Cpu => "cpu",
+            Self::Onnx => "onnx",
+            Self::Candle => "candle",
+            Self::CudaOxide => "cuda_oxide",
+            Self::External => "external",
+            Self::Heuristic => "heuristic",
+            Self::Custom(value) => value.as_str(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for cuda-oxide runtime config.
+pub struct CudaOxideRuntimeConfig {
+    /// The CUDA device index value.
+    pub device_index: u32,
+    /// Optional target SM architecture, such as `sm_80`.
+    pub target_sm: Option<String>,
+    /// Cargo subcommand used to build and run cuda-oxide kernels.
+    pub cargo_oxide_command: String,
+    /// The cuda-oxide documentation URL used for operator setup.
+    pub documentation_url: String,
+}
+
+impl Default for CudaOxideRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            device_index: 0,
+            target_sm: None,
+            cargo_oxide_command: "cargo oxide".to_string(),
+            documentation_url: CUDA_OXIDE_BOOK_URL.to_string(),
+        }
+    }
+}
+
+impl CudaOxideRuntimeConfig {
+    /// Creates a new value.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns device index.
+    pub fn device_index(mut self, value: u32) -> Self {
+        self.device_index = value;
+        self
+    }
+
+    /// Returns target SM.
+    pub fn target_sm(mut self, value: impl Into<String>) -> Self {
+        self.target_sm = Some(value.into());
+        self
+    }
+
+    /// Returns cargo oxide command.
+    pub fn cargo_oxide_command(mut self, value: impl Into<String>) -> Self {
+        self.cargo_oxide_command = value.into();
+        self
+    }
+
+    /// Returns runtime attributes for prediction metadata and traces.
+    pub fn attributes(&self) -> BTreeMap<String, String> {
+        let mut attributes = BTreeMap::new();
+        attributes.insert(
+            "runtime.backend".to_string(),
+            ModelRuntimeBackend::CudaOxide.as_str().to_string(),
+        );
+        attributes.insert(
+            "runtime.cuda.device_index".to_string(),
+            self.device_index.to_string(),
+        );
+        attributes.insert(
+            "runtime.cuda_oxide.command".to_string(),
+            self.cargo_oxide_command.clone(),
+        );
+        attributes.insert(
+            "runtime.cuda_oxide.docs".to_string(),
+            self.documentation_url.clone(),
+        );
+        if let Some(target_sm) = &self.target_sm {
+            attributes.insert("runtime.cuda.target_sm".to_string(), target_sm.clone());
+        }
+        attributes
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for cuda-oxide model plan.
+pub struct CudaOxideModelPlan {
+    /// The model spec value.
+    pub spec: HuggingFaceModelSpec,
+    /// The runtime value.
+    pub runtime: CudaOxideRuntimeConfig,
+    /// The cuda-oxide module name value.
+    pub module_name: String,
+    /// The kernel names value.
+    pub kernel_names: Vec<String>,
+}
+
+impl CudaOxideModelPlan {
+    /// Creates a new value.
+    pub fn new(
+        spec: HuggingFaceModelSpec,
+        module_name: impl Into<String>,
+        kernel_names: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            spec,
+            runtime: CudaOxideRuntimeConfig::default(),
+            module_name: module_name.into(),
+            kernel_names: kernel_names.into_iter().map(Into::into).collect(),
+        }
+    }
+
+    /// Returns runtime.
+    pub fn runtime(mut self, runtime: CudaOxideRuntimeConfig) -> Self {
+        self.runtime = runtime;
+        self
+    }
+
+    /// Returns attributes for prediction metadata and traces.
+    pub fn attributes(&self) -> BTreeMap<String, String> {
+        let mut attributes = self.runtime.attributes();
+        attributes.insert(
+            "runtime.cuda_oxide.module".to_string(),
+            self.module_name.clone(),
+        );
+        if !self.kernel_names.is_empty() {
+            attributes.insert(
+                "runtime.cuda_oxide.kernels".to_string(),
+                self.kernel_names.join(","),
+            );
+        }
+        attributes
+    }
+}
+
 impl HuggingFaceModelSpec {
     /// Creates a new value.
     pub fn new(repo_id: impl Into<String>, task: ModelTask) -> Self {
@@ -182,6 +345,125 @@ impl HuggingFaceModelSpec {
         self.files.push(ModelFileRequest::first_available(paths));
         self
     }
+
+    /// Builds a cuda-oxide runtime plan for this model spec.
+    pub fn cuda_oxide_plan(
+        self,
+        module_name: impl Into<String>,
+        kernel_names: impl IntoIterator<Item = impl Into<String>>,
+    ) -> CudaOxideModelPlan {
+        CudaOxideModelPlan::new(self, module_name, kernel_names)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Data type for blue/green prediction test options.
+pub struct BlueGreenPredictionTestOptions {
+    /// Maximum allowed absolute score delta.
+    pub max_score_delta: f32,
+    /// Whether bounding boxes are compared.
+    pub compare_regions: bool,
+}
+
+impl Default for BlueGreenPredictionTestOptions {
+    fn default() -> Self {
+        Self {
+            max_score_delta: 1.0e-4,
+            compare_regions: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for blue/green prediction test report.
+pub struct BlueGreenPredictionTestReport {
+    /// Number of predictions compared.
+    pub compared_predictions: usize,
+    /// Maximum observed absolute score delta.
+    pub max_score_delta: f32,
+}
+
+/// Compares green and blue model predictions for runtime conformance tests.
+pub fn compare_blue_green_predictions(
+    green: &[RawPrediction],
+    blue: &[RawPrediction],
+    options: BlueGreenPredictionTestOptions,
+) -> Result<BlueGreenPredictionTestReport> {
+    if green.len() != blue.len() {
+        return Err(DetectError::InvalidArgument(format!(
+            "blue/green prediction counts differ: green={}, blue={}",
+            green.len(),
+            blue.len()
+        )));
+    }
+
+    let mut max_score_delta = 0.0_f32;
+    for (index, (green, blue)) in green.iter().zip(blue).enumerate() {
+        if green.kind != blue.kind {
+            return Err(blue_green_mismatch(index, "kind", &green.kind, &blue.kind));
+        }
+        if green.label != blue.label {
+            return Err(blue_green_mismatch(
+                index,
+                "label",
+                &green.label,
+                &blue.label,
+            ));
+        }
+        if green.text != blue.text {
+            return Err(blue_green_mismatch(index, "text", &green.text, &blue.text));
+        }
+        match (green.score, blue.score) {
+            (Some(green_score), Some(blue_score)) => {
+                if !green_score.is_finite() || !blue_score.is_finite() {
+                    return Err(DetectError::InvalidArgument(format!(
+                        "blue/green prediction {index} has a non-finite score"
+                    )));
+                }
+                let delta = (green_score - blue_score).abs();
+                max_score_delta = max_score_delta.max(delta);
+                if delta > options.max_score_delta {
+                    return Err(DetectError::InvalidArgument(format!(
+                        "blue/green prediction {index} score delta {delta} exceeds {}",
+                        options.max_score_delta
+                    )));
+                }
+            }
+            (None, None) => {}
+            _ => {
+                return Err(blue_green_mismatch(
+                    index,
+                    "score",
+                    &green.score,
+                    &blue.score,
+                ))
+            }
+        }
+        if options.compare_regions && green.region != blue.region {
+            return Err(blue_green_mismatch(
+                index,
+                "region",
+                &green.region,
+                &blue.region,
+            ));
+        }
+    }
+
+    Ok(BlueGreenPredictionTestReport {
+        compared_predictions: green.len(),
+        max_score_delta,
+    })
+}
+
+fn blue_green_mismatch<T: std::fmt::Debug>(
+    index: usize,
+    field: &str,
+    green: &T,
+    blue: &T,
+) -> DetectError {
+    DetectError::InvalidArgument(format!(
+        "blue/green prediction {index} {field} mismatch: green={green:?}, blue={blue:?}"
+    ))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1263,6 +1545,10 @@ fn bbox_iou(left: BoundingBox, right: BoundingBox) -> f32 {
 pub trait VisionModelBackend {
     /// Returns task.
     fn task(&self) -> ModelTask;
+    /// Returns runtime backend.
+    fn runtime_backend(&self) -> ModelRuntimeBackend {
+        ModelRuntimeBackend::Custom("vision".to_string())
+    }
     /// Returns predict frame.
     fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPrediction>>;
 }
@@ -1272,6 +1558,11 @@ pub trait PoseModelBackend {
     /// Returns task.
     fn task(&self) -> ModelTask {
         ModelTask::PoseEstimation2d
+    }
+
+    /// Returns runtime backend.
+    fn runtime_backend(&self) -> ModelRuntimeBackend {
+        ModelRuntimeBackend::Custom("pose".to_string())
     }
 
     /// Returns predict frame.
@@ -1285,6 +1576,11 @@ pub trait PoseLiftModelBackend {
         ModelTask::PoseLifting3d
     }
 
+    /// Returns runtime backend.
+    fn runtime_backend(&self) -> ModelRuntimeBackend {
+        ModelRuntimeBackend::Custom("pose_lift".to_string())
+    }
+
     /// Returns lift poses.
     fn lift_poses(&mut self, sequence: &[RawPose2dPrediction]) -> Result<Vec<RawPose3dPrediction>>;
 }
@@ -1293,6 +1589,10 @@ pub trait PoseLiftModelBackend {
 pub trait TextModelBackend {
     /// Returns task.
     fn task(&self) -> ModelTask;
+    /// Returns runtime backend.
+    fn runtime_backend(&self) -> ModelRuntimeBackend {
+        ModelRuntimeBackend::Custom("text".to_string())
+    }
     /// Returns predict text.
     fn predict_text(&mut self, segment: &TextSegment<'_>) -> Result<Vec<RawPrediction>>;
 }
@@ -1603,6 +1903,10 @@ impl VisionModelBackend for ExternalCommandModel {
         self.model.spec.task.clone()
     }
 
+    fn runtime_backend(&self) -> ModelRuntimeBackend {
+        ModelRuntimeBackend::External
+    }
+
     fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPrediction>> {
         self.run(ExternalModelInput::VideoFrame {
             width: frame.width,
@@ -1620,6 +1924,10 @@ impl VisionModelBackend for ExternalCommandModel {
 impl VisionModelBackend for PersistentExternalCommandModel {
     fn task(&self) -> ModelTask {
         self.model.spec.task.clone()
+    }
+
+    fn runtime_backend(&self) -> ModelRuntimeBackend {
+        ModelRuntimeBackend::External
     }
 
     fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPrediction>> {
@@ -1641,6 +1949,10 @@ impl TextModelBackend for ExternalCommandModel {
         self.model.spec.task.clone()
     }
 
+    fn runtime_backend(&self) -> ModelRuntimeBackend {
+        ModelRuntimeBackend::External
+    }
+
     fn predict_text(&mut self, segment: &TextSegment<'_>) -> Result<Vec<RawPrediction>> {
         self.run(ExternalModelInput::Text {
             text: segment.text,
@@ -1653,6 +1965,10 @@ impl TextModelBackend for ExternalCommandModel {
 impl TextModelBackend for PersistentExternalCommandModel {
     fn task(&self) -> ModelTask {
         self.model.spec.task.clone()
+    }
+
+    fn runtime_backend(&self) -> ModelRuntimeBackend {
+        ModelRuntimeBackend::External
     }
 
     fn predict_text(&mut self, segment: &TextSegment<'_>) -> Result<Vec<RawPrediction>> {
@@ -1800,6 +2116,93 @@ mod tests {
             ModelFileRequest::FirstAvailable(paths)
                 if paths.iter().any(|path| path == "onnx/model.onnx")
         )));
+    }
+
+    #[test]
+    fn cuda_oxide_plan_records_runtime_contract() {
+        let plan = ModelPreset::MiniLmL6V2
+            .spec()
+            .cuda_oxide_plan("text_embed_cuda", ["mean_pool_embeddings"])
+            .runtime(
+                CudaOxideRuntimeConfig::new()
+                    .device_index(1)
+                    .target_sm("sm_80"),
+            );
+        let attributes = plan.attributes();
+
+        assert_eq!(plan.spec.repo_id, "sentence-transformers/all-MiniLM-L6-v2");
+        assert_eq!(
+            attributes.get("runtime.backend").map(String::as_str),
+            Some("cuda_oxide")
+        );
+        assert_eq!(
+            attributes
+                .get("runtime.cuda.device_index")
+                .map(String::as_str),
+            Some("1")
+        );
+        assert_eq!(
+            attributes.get("runtime.cuda.target_sm").map(String::as_str),
+            Some("sm_80")
+        );
+        assert_eq!(
+            attributes
+                .get("runtime.cuda_oxide.module")
+                .map(String::as_str),
+            Some("text_embed_cuda")
+        );
+        assert_eq!(
+            attributes
+                .get("runtime.cuda_oxide.command")
+                .map(String::as_str),
+            Some("cargo oxide")
+        );
+        assert_eq!(
+            attributes
+                .get("runtime.cuda_oxide.docs")
+                .map(String::as_str),
+            Some(CUDA_OXIDE_BOOK_URL)
+        );
+    }
+
+    #[test]
+    fn blue_green_prediction_check_accepts_cuda_oxide_candidate() {
+        let green = vec![RawPrediction::label("POSITIVE", 0.875)];
+        let mut blue_prediction = RawPrediction::label("POSITIVE", 0.87502);
+        blue_prediction.attributes.extend(
+            CudaOxideRuntimeConfig::new()
+                .target_sm("sm_80")
+                .attributes(),
+        );
+        let blue = vec![blue_prediction];
+
+        let report = compare_blue_green_predictions(
+            &green,
+            &blue,
+            BlueGreenPredictionTestOptions {
+                max_score_delta: 0.001,
+                compare_regions: true,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(report.compared_predictions, 1);
+        assert!(report.max_score_delta > 0.0);
+    }
+
+    #[test]
+    fn blue_green_prediction_check_rejects_drift() {
+        let green = vec![RawPrediction::label("POSITIVE", 0.9)];
+        let blue = vec![RawPrediction::label("NEGATIVE", 0.9)];
+
+        let error = compare_blue_green_predictions(
+            &green,
+            &blue,
+            BlueGreenPredictionTestOptions::default(),
+        )
+        .unwrap_err();
+
+        assert!(matches!(error, DetectError::InvalidArgument(_)));
     }
 
     #[test]

@@ -47,6 +47,8 @@ pub enum TextEmbeddingBackendKind {
     Onnx,
     /// The candle variant.
     Candle,
+    /// The cuda oxide variant.
+    CudaOxide,
     /// The external variant.
     External,
     /// The custom variant.

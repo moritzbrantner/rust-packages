@@ -230,6 +230,8 @@ pub enum AnnotationProvenance {
     Onnx,
     /// The candle variant.
     Candle,
+    /// The cuda oxide variant.
+    CudaOxide,
     /// The external variant.
     External,
     /// The derived variant.

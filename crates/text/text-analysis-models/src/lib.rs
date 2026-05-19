@@ -25,8 +25,8 @@ use text_analysis_semantics::{
 };
 use video_analysis_core::{DetectError, Result, TextSegment};
 use video_analysis_models::{
-    HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelTask, RawPrediction,
-    TextModelBackend,
+    CudaOxideRuntimeConfig, HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelTask,
+    RawPrediction, TextModelBackend,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,6 +58,8 @@ pub enum TextRuntimeBackend {
     Onnx,
     /// The candle variant.
     Candle,
+    /// The cuda oxide variant.
+    CudaOxide,
     /// The external variant.
     External,
     /// The heuristic variant.
@@ -101,6 +103,37 @@ pub struct TextRuntimeCatalog {
     pub classifier_presets: Vec<TokenizerPreset>,
     /// The embedder presets value.
     pub embedder_presets: Vec<TokenizerPreset>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for cuda-oxide text runtime target.
+pub struct CudaOxideTextRuntimeTarget {
+    /// The runtime config value.
+    pub runtime: CudaOxideRuntimeConfig,
+    /// The module name value.
+    pub module_name: String,
+    /// The kernel names value.
+    pub kernel_names: Vec<String>,
+}
+
+impl CudaOxideTextRuntimeTarget {
+    /// Creates a new value.
+    pub fn new(
+        module_name: impl Into<String>,
+        kernel_names: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            runtime: CudaOxideRuntimeConfig::default(),
+            module_name: module_name.into(),
+            kernel_names: kernel_names.into_iter().map(Into::into).collect(),
+        }
+    }
+
+    /// Returns runtime.
+    pub fn runtime(mut self, runtime: CudaOxideRuntimeConfig) -> Self {
+        self.runtime = runtime;
+        self
+    }
 }
 
 impl Default for TextRuntimeCatalog {
@@ -198,6 +231,17 @@ pub trait TextClassifier {
 /// Returns default backend priority.
 pub fn default_backend_priority() -> Vec<TextRuntimeBackend> {
     vec![
+        TextRuntimeBackend::Onnx,
+        TextRuntimeBackend::Candle,
+        TextRuntimeBackend::Tokenizers,
+        TextRuntimeBackend::Heuristic,
+    ]
+}
+
+/// Returns backend priority with cuda-oxide ahead of CPU runtimes.
+pub fn cuda_oxide_backend_priority() -> Vec<TextRuntimeBackend> {
+    vec![
+        TextRuntimeBackend::CudaOxide,
         TextRuntimeBackend::Onnx,
         TextRuntimeBackend::Candle,
         TextRuntimeBackend::Tokenizers,
@@ -2110,6 +2154,21 @@ mod tests {
             select_text_runtime_backend(&[]),
             TextRuntimeBackend::Heuristic
         );
+    }
+
+    #[test]
+    fn cuda_oxide_priority_is_explicit_opt_in() {
+        let priority = cuda_oxide_backend_priority();
+        assert_eq!(priority[0], TextRuntimeBackend::CudaOxide);
+        assert_eq!(
+            select_text_runtime_backend(&priority),
+            TextRuntimeBackend::CudaOxide
+        );
+
+        let target = CudaOxideTextRuntimeTarget::new("text_embed_cuda", ["mean_pool_embeddings"])
+            .runtime(CudaOxideRuntimeConfig::new().target_sm("sm_80"));
+        assert_eq!(target.runtime.target_sm.as_deref(), Some("sm_80"));
+        assert_eq!(target.module_name, "text_embed_cuda");
     }
 
     #[test]

@@ -10,6 +10,11 @@ Optional model-backed text classification and embedding adapters for `video-anal
 - `external-tests`: ignored download/bundle validation tests plus cheap runtime-adjacent smoke checks
 - `slow-external-tests`: ignored ONNX runtime execution tests that are too slow for routine certification
 
+CUDA-Oxide is opt-in through `TextRuntimeBackend::CudaOxide`,
+`cuda_oxide_backend_priority`, and `CudaOxideTextRuntimeTarget`. The runtime
+target carries the cuda-oxide module/kernel names and CUDA device metadata while
+the kernel package itself is built with `cargo oxide`.
+
 ## Example
 
 ```rust,no_run
@@ -25,8 +30,10 @@ let bert_tokenizer = TokenizerBundle::from_cached_source(
 let runtime = TextRuntimeConfig::default();
 let catalog = TextRuntimeCatalog::default();
 let backend = select_text_runtime_backend(&runtime.backend_priority);
+let cuda_first = text_analysis_models::cuda_oxide_backend_priority();
 
 assert_eq!(backend, TextRuntimeBackend::Onnx);
+assert_eq!(cuda_first[0], TextRuntimeBackend::CudaOxide);
 let _ = (default_tokenizer, bert_tokenizer, catalog);
 ```
 
