@@ -402,7 +402,7 @@ impl<'a> SpeakerAudio<'a> {
                 "speaker audio samples must not be empty".to_string(),
             ));
         }
-        if self.samples.len() % self.channels as usize != 0 {
+        if !self.samples.len().is_multiple_of(self.channels as usize) {
             return Err(DetectError::InvalidArgument(
                 "speaker audio samples must contain complete interleaved frames".to_string(),
             ));
@@ -535,19 +535,14 @@ pub enum SpeakerConfidence {
     Low,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Policy for accepted unknown results.
 pub enum UnknownSpeakerPolicy {
     /// Return a result with `unknown` set when thresholds fail.
+    #[default]
     ReturnUnknown,
     /// Return no best match when thresholds fail.
     NoMatch,
-}
-
-impl Default for UnknownSpeakerPolicy {
-    fn default() -> Self {
-        Self::ReturnUnknown
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
