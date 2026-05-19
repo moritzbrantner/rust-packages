@@ -219,6 +219,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio-generation-midi"
+version = "0.1.0"
+dependencies = [
+ "audio-analysis-synthesis",
+ "data-inversion-core",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1447,6 +1456,7 @@ dependencies = [
  "comfyui-data",
  "comfyui-models",
  "serde_json",
+ "tempfile",
  "video-analysis-core",
 ]
 
@@ -3273,6 +3283,7 @@ dependencies = [
  "audio-analysis-separation",
  "audio-analysis-speakers",
  "audio-analysis-synthesis",
+ "audio-generation-midi",
  "comfyui-data",
  "comfyui-latents",
  "comfyui-models",

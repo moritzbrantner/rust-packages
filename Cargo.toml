@@ -17,6 +17,7 @@ members = [
     ".",
     "crates/bindings/text-core-wasm",
     "crates/audio/audio-analysis-core",
+    "crates/audio/audio-generation-midi",
     "crates/audio/audio-analysis-fourier",
     "crates/audio/audio-analysis-io",
     "crates/audio/audio-analysis-pitch",
@@ -157,6 +158,7 @@ math-signal-core = { version = "0.1.0", path = "crates/math/math-signal-core" }
 math-sparse-data = { version = "0.1.0", path = "crates/math/math-sparse-data" }
 math-statistics = { version = "0.1.0", path = "crates/math/math-statistics" }
 audio-analysis-core = { version = "0.1.0", path = "crates/audio/audio-analysis-core" }
+audio-generation-midi = { version = "0.1.0", path = "crates/audio/audio-generation-midi" }
 audio-analysis-fourier = { version = "0.1.0", path = "crates/audio/audio-analysis-fourier" }
 audio-analysis-io = { version = "0.1.0", path = "crates/audio/audio-analysis-io" }
 audio-analysis-pitch = { version = "0.1.0", path = "crates/audio/audio-analysis-pitch" }
@@ -264,6 +266,7 @@ video-analysis-segmentation.workspace = true
 video-analysis-tracking.workspace = true
 video-analysis-transform.workspace = true
 audio-analysis-core.workspace = true
+audio-generation-midi.workspace = true
 audio-analysis-fourier.workspace = true
 audio-analysis-io.workspace = true
 audio-analysis-pitch.workspace = true

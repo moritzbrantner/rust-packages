@@ -1423,6 +1423,106 @@ mod tests {
         assert_eq!(status.metadata["prompt_id"], "submitted-id");
     }
 
+    #[test]
+    fn comfy_executor_waits_for_history_and_downloads_output_image() {
+        let captured_view_request = Arc::new(Mutex::new(String::new()));
+        let captured_view_request_thread = Arc::clone(&captured_view_request);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = read_mock_request(&mut stream);
+            let body = r#"{"prompt_id":"wait-id"}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .unwrap();
+            let _ = stream.shutdown(std::net::Shutdown::Both);
+
+            let (mut stream, _) = listener.accept().unwrap();
+            let history_request = read_mock_request(&mut stream);
+            assert!(history_request.starts_with("GET /history/wait-id HTTP/1.1"));
+            let body = r#"{"wait-id":{"outputs":{"9":{"images":[{"filename":"edited image.png","subfolder":"nested output","type":"output"}]}}}}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .unwrap();
+            let _ = stream.shutdown(std::net::Shutdown::Both);
+
+            let (mut stream, _) = listener.accept().unwrap();
+            let view_request = read_mock_request(&mut stream);
+            *captured_view_request_thread.lock().unwrap() = view_request;
+            let body = b"png-bytes";
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
+                body.len()
+            )
+            .unwrap();
+            stream.write_all(body).unwrap();
+            let _ = stream.shutdown(std::net::Shutdown::Both);
+        });
+
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("downloads/edited.png");
+        let workflow = build_generation_workflow(&ImageGenerationRequest::new("fox")).unwrap();
+        let executor = ComfyImageEditExecutor::new(ComfyUiClientOptions {
+            base_url: Some(format!("http://{addr}/")),
+            timeout: Duration::from_secs(2),
+            poll_interval: Duration::from_millis(1),
+            wait_for_output: true,
+        });
+        let status = executor.execute(&workflow, &output).unwrap();
+        handle.join().unwrap();
+
+        assert_eq!(status.status, "completed");
+        assert_eq!(status.metadata["prompt_id"], "wait-id");
+        assert_eq!(std::fs::read(&output).unwrap(), b"png-bytes");
+        let view_request = captured_view_request.lock().unwrap();
+        assert!(view_request.starts_with(
+            "GET /view?filename=edited+image.png&subfolder=nested+output&type=output HTTP/1.1"
+        ));
+    }
+
+    #[test]
+    fn rejects_missing_mode_inputs_and_invalid_numeric_options() {
+        let missing_input = build_generation_workflow(
+            &ImageGenerationRequest::new("stylize").mode(ImageGenerationMode::ImageToImage),
+        )
+        .unwrap_err();
+        assert!(matches!(missing_input, DetectError::InvalidArgument(_)));
+
+        let missing_mask = build_generation_workflow(
+            &ImageGenerationRequest::new("repair")
+                .mode(ImageGenerationMode::Inpaint)
+                .input_image("input.png"),
+        )
+        .unwrap_err();
+        assert!(matches!(missing_mask, DetectError::InvalidArgument(_)));
+
+        let invalid_dimensions =
+            build_generation_workflow(&ImageGenerationRequest::new("fox").size(0, 1024))
+                .unwrap_err();
+        assert!(matches!(
+            invalid_dimensions,
+            DetectError::InvalidDimensions {
+                width: 0,
+                height: 1024
+            }
+        ));
+
+        let invalid_denoise =
+            build_generation_workflow(&ImageGenerationRequest::new("fox").denoise(1.1))
+                .unwrap_err();
+        assert!(matches!(invalid_denoise, DetectError::InvalidArgument(_)));
+    }
+
     fn read_mock_request(stream: &mut std::net::TcpStream) -> String {
         stream
             .set_read_timeout(Some(Duration::from_millis(200)))

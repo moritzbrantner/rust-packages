@@ -2,6 +2,8 @@
 
 /// Re-exports the audio core API.
 pub use audio_analysis_core as audio_core;
+/// Re-exports the MIDI-like audio generation API.
+pub use audio_generation_midi as audio_midi;
 /// Re-exports the audio fourier API.
 pub use audio_analysis_fourier as audio_fourier;
 /// Re-exports the audio I/O API.

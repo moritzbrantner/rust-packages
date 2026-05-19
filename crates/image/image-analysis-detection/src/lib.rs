@@ -569,4 +569,48 @@ mod tests {
         let gray = OwnedImage::new_gray(12, 12, vec![220; 12 * 12]).unwrap();
         assert!(detector.detect_image(&gray.as_view()).unwrap().is_empty());
     }
+
+    #[test]
+    fn color_blob_detector_validates_options() {
+        let invalid_ratio = ColorBlobDetector::new(ColorBlobDetectionOptions {
+            dominance_ratio: f32::NAN,
+            ..ColorBlobDetectionOptions::default()
+        })
+        .unwrap_err();
+        assert!(matches!(invalid_ratio, DetectError::InvalidArgument(_)));
+
+        let empty_label = ColorBlobDetector::new(ColorBlobDetectionOptions {
+            label: "  ".to_string(),
+            ..ColorBlobDetectionOptions::default()
+        })
+        .unwrap_err();
+        assert!(matches!(empty_label, DetectError::InvalidArgument(_)));
+    }
+
+    #[test]
+    fn color_blob_detector_supports_custom_options_and_video_frames() {
+        let mut data = vec![0_u8; 8 * 8 * 3];
+        for &(x, y) in &[(1_usize, 1_usize), (6, 2)] {
+            let offset = (y * 8 + x) * 3;
+            data[offset] = 180;
+            data[offset + 1] = 50;
+            data[offset + 2] = 50;
+        }
+        let mut detector = ColorBlobDetector::new(
+            ColorBlobDetectionOptions::red_car()
+                .min_area_pixels(1)
+                .label("marker"),
+        )
+        .unwrap();
+        detector.options.morph_open_3x3 = false;
+
+        let detections = detector.detect_frame(&frame(&data)).unwrap();
+        assert_eq!(detections.position.frame_index, 3);
+        assert_eq!(detections.detections.len(), 2);
+        assert!(detections
+            .detections
+            .iter()
+            .all(|detection| detection.label == "marker"));
+        assert_eq!(detections.detections[0].attributes["area"], "1");
+    }
 }

@@ -20,7 +20,7 @@ Rust crates are grouped under `crates/` by input or integration domain:
 Package README index:
 
 - Root facade: [`video-analysis`](src/lib.rs), [README](README.md)
-- Audio: [`audio-analysis-core`](crates/audio/audio-analysis-core/README.md), [`audio-analysis-fourier`](crates/audio/audio-analysis-fourier/README.md), [`audio-analysis-io`](crates/audio/audio-analysis-io/README.md), [`audio-analysis-pitch`](crates/audio/audio-analysis-pitch/README.md), [`audio-analysis-processing`](crates/audio/audio-analysis-processing/README.md), [`audio-analysis-recognition`](crates/audio/audio-analysis-recognition/README.md), [`audio-analysis-rhythm`](crates/audio/audio-analysis-rhythm/README.md), [`audio-analysis-separation`](crates/audio/audio-analysis-separation/README.md), [`audio-analysis-speakers`](crates/audio/audio-analysis-speakers/README.md), [`audio-analysis-synthesis`](crates/audio/audio-analysis-synthesis/README.md)
+- Audio: [`audio-analysis-core`](crates/audio/audio-analysis-core/README.md), [`audio-generation-midi`](crates/audio/audio-generation-midi/README.md), [`audio-analysis-fourier`](crates/audio/audio-analysis-fourier/README.md), [`audio-analysis-io`](crates/audio/audio-analysis-io/README.md), [`audio-analysis-pitch`](crates/audio/audio-analysis-pitch/README.md), [`audio-analysis-processing`](crates/audio/audio-analysis-processing/README.md), [`audio-analysis-recognition`](crates/audio/audio-analysis-recognition/README.md), [`audio-analysis-rhythm`](crates/audio/audio-analysis-rhythm/README.md), [`audio-analysis-separation`](crates/audio/audio-analysis-separation/README.md), [`audio-analysis-speakers`](crates/audio/audio-analysis-speakers/README.md), [`audio-analysis-synthesis`](crates/audio/audio-analysis-synthesis/README.md)
 - ComfyUI: [`comfyui-data`](crates/comfyui/comfyui-data/README.md), [`comfyui-latents`](crates/comfyui/comfyui-latents/README.md), [`comfyui-models`](crates/comfyui/comfyui-models/README.md)
 - Data: [`data-inversion-core`](crates/data/data-inversion-core/README.md), [`graph-analysis-core`](crates/data/graph-analysis-core/README.md), [`numbers-core`](crates/data/numbers-core/README.md), [`tensor-data`](crates/data/tensor-data/README.md), [`dense-data`](crates/data/dense-data/README.md)
 - Math: [`finance-statistics`](crates/math/finance-statistics/README.md), [`math-geometry-2d`](crates/math/math-geometry-2d/README.md), [`math-linear`](crates/math/math-linear/README.md), [`math-signal-core`](crates/math/math-signal-core/README.md), [`math-sparse-data`](crates/math/math-sparse-data/README.md), [`math-statistics`](crates/math/math-statistics/README.md)
@@ -63,6 +63,8 @@ Package README index:
 - `audio-analysis-core`: normalized audio sample conversion, mono mixing,
   windowing, frame iteration, streaming frame windows, waveform batches, and
   level helpers for audio analysis crates.
+- `audio-generation-midi`: MIDI-like note sequencing, Standard MIDI export,
+  and deterministic audio rendering through the audio synthesis crate.
 - `audio-analysis-fourier`: FFT, STFT/spectrogram, spectral features, and a
   dominant-frequency audio analyzer.
 - `audio-analysis-io`: audio-named input conveniences over the FFmpeg-backed

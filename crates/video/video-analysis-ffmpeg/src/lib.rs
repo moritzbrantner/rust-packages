@@ -1007,12 +1007,76 @@ pub fn touch_text(path: &Path, text: &str) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_option_builders_select_expected_backends() {
+        assert!(matches!(
+            FfmpegRuntimeOptions::default().backend,
+            FfmpegRuntimeBackend::Command
+        ));
+        assert!(matches!(
+            FfmpegSourceOptions::live()
+                .extra_input_arg("-nostdin")
+                .runtime(FfmpegRuntimeOptions::native())
+                .runtime
+                .backend,
+            FfmpegRuntimeBackend::Native
+        ));
+        assert!(matches!(
+            FfmpegAudioSourceOptions::recorded()
+                .samples_per_chunk(0)
+                .runtime(FfmpegRuntimeOptions::native())
+                .runtime
+                .backend,
+            FfmpegRuntimeBackend::Native
+        ));
+        assert_eq!(
+            FfmpegAudioSourceOptions::recorded()
+                .samples_per_chunk(0)
+                .samples_per_chunk,
+            1
+        );
+    }
+
+    #[test]
+    fn command_only_operations_reject_native_runtime_before_spawning() {
+        let native_extract = extract_wav_with_runtime(
+            "missing-input.mp4",
+            "missing-output.wav",
+            16_000,
+            &FfmpegRuntimeOptions::native(),
+        )
+        .unwrap_err();
+        assert!(matches!(native_extract, DetectError::InvalidArgument(_)));
+
+        let zero_sample_rate = extract_wav_with_runtime(
+            "missing-input.mp4",
+            "missing-output.wav",
+            0,
+            &FfmpegRuntimeOptions::command(),
+        )
+        .unwrap_err();
+        assert!(matches!(zero_sample_rate, DetectError::InvalidArgument(_)));
+    }
+
+    #[test]
+    fn native_probe_runtime_reports_unavailable_backend_without_ffprobe() {
+        let video = probe_with_runtime("missing-input.mp4", &FfmpegRuntimeOptions::native())
+            .unwrap_err()
+            .to_string();
+        assert!(video.contains("ffmpeg-native feature is not enabled"));
+
+        let audio = probe_audio_with_runtime("missing-input.wav", &FfmpegRuntimeOptions::native())
+            .unwrap_err()
+            .to_string();
+        assert!(audio.contains("ffmpeg-native feature is not enabled"));
+    }
+
     #[test]
     #[cfg(feature = "ffmpeg-tests")]
     fn decodes_generated_two_scene_video() {
         use video_analysis_core::VideoSource;
-
-        use super::*;
 
         if !(is_ffmpeg_available() && is_ffprobe_available()) {
             eprintln!("skipping FFmpeg test because ffmpeg/ffprobe is unavailable");
@@ -1038,8 +1102,6 @@ mod tests {
     #[cfg(feature = "ffmpeg-tests")]
     fn decodes_generated_audio() {
         use video_analysis_ingest::AudioFrameSource;
-
-        use super::*;
 
         if !(is_ffmpeg_available() && is_ffprobe_available()) {
             eprintln!("skipping FFmpeg test because ffmpeg/ffprobe is unavailable");
