@@ -1,0 +1,22 @@
+[package]
+name = "video-analysis-opencv-backend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Optional OpenCV backend contracts for COLMAP-like video-analysis pipelines."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = []
+opencv-backend = []
+
+[dependencies]
+video-analysis-core.workspace = true
+video-analysis-mvs.workspace = true
+video-analysis-sfm.workspace = true

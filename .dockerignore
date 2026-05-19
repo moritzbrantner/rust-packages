@@ -1,0 +1,8 @@
+.cargo-target/
+.external-test-tools/
+.git/
+.test-corpora/
+.video-analysis-models/
+node_modules/
+target/
+use-case-output/

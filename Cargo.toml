@@ -78,8 +78,11 @@ members = [
     "crates/video/video-analysis-ffmpeg",
     "crates/video/video-analysis-gaussian-splatting",
     "crates/video/video-analysis-ingest",
+    "crates/video/video-analysis-colmap-backend",
     "crates/video/video-analysis-models",
+    "crates/video/video-analysis-mvs",
     "crates/video/video-analysis-onnx",
+    "crates/video/video-analysis-opencv-backend",
     "crates/video/video-analysis-output",
     "crates/video/video-analysis-posture",
     "crates/video/video-analysis-posture-io",
@@ -88,6 +91,8 @@ members = [
     "crates/video/video-analysis-radiance-pipeline",
     "crates/video/video-analysis-recognition",
     "crates/video/video-analysis-reconstruction",
+    "crates/video/video-analysis-sfm",
+    "crates/video/video-analysis-sfm-rust-backend",
     "crates/video/video-analysis-split",
     "crates/video/video-analysis-storage",
     "crates/video/video-analysis-synthesis",
@@ -199,8 +204,11 @@ video-analysis-features = { version = "0.1.0", path = "crates/video/video-analys
 video-analysis-ffmpeg = { version = "0.1.0", path = "crates/video/video-analysis-ffmpeg" }
 video-analysis-gaussian-splatting = { version = "0.1.0", path = "crates/video/video-analysis-gaussian-splatting" }
 video-analysis-ingest = { version = "0.1.0", path = "crates/video/video-analysis-ingest" }
+video-analysis-colmap-backend = { version = "0.1.0", path = "crates/video/video-analysis-colmap-backend" }
 video-analysis-models = { version = "0.1.0", path = "crates/video/video-analysis-models" }
+video-analysis-mvs = { version = "0.1.0", path = "crates/video/video-analysis-mvs" }
 video-analysis-onnx = { version = "0.1.0", path = "crates/video/video-analysis-onnx" }
+video-analysis-opencv-backend = { version = "0.1.0", path = "crates/video/video-analysis-opencv-backend" }
 video-analysis-output = { version = "0.1.0", path = "crates/video/video-analysis-output" }
 video-analysis-posture = { version = "0.1.0", path = "crates/video/video-analysis-posture" }
 video-analysis-posture-io = { version = "0.1.0", path = "crates/video/video-analysis-posture-io" }
@@ -209,6 +217,8 @@ video-analysis-radiance-io = { version = "0.1.0", path = "crates/video/video-ana
 video-analysis-radiance-pipeline = { version = "0.1.0", path = "crates/video/video-analysis-radiance-pipeline" }
 video-analysis-recognition = { version = "0.1.0", path = "crates/video/video-analysis-recognition" }
 video-analysis-reconstruction = { version = "0.1.0", path = "crates/video/video-analysis-reconstruction" }
+video-analysis-sfm = { version = "0.1.0", path = "crates/video/video-analysis-sfm" }
+video-analysis-sfm-rust-backend = { version = "0.1.0", path = "crates/video/video-analysis-sfm-rust-backend" }
 video-analysis-split = { version = "0.1.0", path = "crates/video/video-analysis-split" }
 video-analysis-storage = { version = "0.1.0", path = "crates/video/video-analysis-storage" }
 video-analysis-synthesis = { version = "0.1.0", path = "crates/video/video-analysis-synthesis" }
@@ -234,14 +244,19 @@ video-analysis-features.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-gaussian-splatting.workspace = true
 video-analysis-ingest.workspace = true
+video-analysis-colmap-backend.workspace = true
 video-analysis-models.workspace = true
+video-analysis-mvs.workspace = true
 video-analysis-onnx = { workspace = true, optional = true }
+video-analysis-opencv-backend.workspace = true
 video-analysis-output.workspace = true
 video-analysis-posture.workspace = true
 video-analysis-radiance-fields.workspace = true
 video-analysis-radiance-io.workspace = true
 video-analysis-recognition.workspace = true
 video-analysis-reconstruction.workspace = true
+video-analysis-sfm.workspace = true
+video-analysis-sfm-rust-backend.workspace = true
 video-analysis-split.workspace = true
 video-analysis-storage.workspace = true
 video-analysis-synthesis.workspace = true

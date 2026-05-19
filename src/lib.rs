@@ -101,6 +101,8 @@ pub use three_d_processing_mesh as three_d_mesh;
 pub use vector_analysis_core as vector_core;
 /// Re-exports the vector index API.
 pub use vector_analysis_index as vector_index;
+/// Re-exports the COLMAP compatibility backend API.
+pub use video_analysis_colmap_backend as colmap_backend;
 /// Re-exports the * API.
 pub use video_analysis_core::*;
 /// Re-exports the data API.
@@ -121,9 +123,13 @@ pub use video_analysis_gaussian_splatting as gaussian_splatting;
 pub use video_analysis_ingest as ingest;
 /// Re-exports the models API.
 pub use video_analysis_models as models;
+/// Re-exports the MVS API.
+pub use video_analysis_mvs as mvs;
 #[cfg(feature = "onnx-backend")]
 /// Re-exports the ONNX API.
 pub use video_analysis_onnx as onnx;
+/// Re-exports the OpenCV backend API.
+pub use video_analysis_opencv_backend as opencv_backend;
 /// Re-exports the output API.
 pub use video_analysis_output as output;
 /// Re-exports the posture API.
@@ -140,6 +146,10 @@ pub use video_analysis_recognition as recognition;
 pub use video_analysis_reconstruction as reconstruction;
 /// Re-exports the video segmentation API.
 pub use video_analysis_segmentation as video_segmentation;
+/// Re-exports the SfM API.
+pub use video_analysis_sfm as sfm;
+/// Re-exports the Rust-native SfM backend API.
+pub use video_analysis_sfm_rust_backend as sfm_rust_backend;
 /// Re-exports the split API.
 pub use video_analysis_split as split;
 /// Re-exports the storage API.
