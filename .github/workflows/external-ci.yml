@@ -10,7 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        run: |
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -c http.extraHeader="AUTHORIZATION: Bearer $GITHUB_TOKEN" fetch --depth=1 origin "$GITHUB_SHA"
+          git checkout --force FETCH_HEAD
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
