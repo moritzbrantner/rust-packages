@@ -192,24 +192,13 @@ impl SpeakerEmbedding {
         model.validate()?;
         let mut values = values.into();
         normalize_values(&mut values)?;
-        if values.len() != model.dimensions {
-            return Err(DetectError::InvalidArgument(format!(
-                "speaker embedding dimensions differ from model: {} != {}",
-                values.len(),
-                model.dimensions
-            )));
-        }
-        if sample_rate == 0 {
-            return Err(DetectError::InvalidAudioFormat {
-                sample_rate,
-                channels: 1,
-            });
-        }
-        Ok(Self {
+        let embedding = Self {
             values,
             model,
             sample_rate,
-        })
+        };
+        embedding.validate_stored()?;
+        Ok(embedding)
     }
 
     /// Returns values.
@@ -234,6 +223,8 @@ impl SpeakerEmbedding {
 
     /// Returns cosine similarity.
     pub fn cosine_similarity(&self, other: &Self) -> Result<f32> {
+        self.validate_stored()?;
+        other.validate_stored()?;
         validate_model_compatible(&self.model, &other.model)?;
         if self.dimensions() != other.dimensions() {
             return Err(DetectError::InvalidArgument(format!(
@@ -248,6 +239,50 @@ impl SpeakerEmbedding {
             .zip(other.values.iter())
             .map(|(left, right)| left * right)
             .sum())
+    }
+
+    fn validate_stored(&self) -> Result<()> {
+        self.model.validate()?;
+        if self.values.len() != self.model.dimensions {
+            return Err(DetectError::InvalidArgument(format!(
+                "speaker embedding dimensions differ from model: {} != {}",
+                self.values.len(),
+                self.model.dimensions
+            )));
+        }
+        if self.sample_rate == 0 {
+            return Err(DetectError::InvalidAudioFormat {
+                sample_rate: self.sample_rate,
+                channels: 1,
+            });
+        }
+        if self.values.is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "speaker embedding must not be empty".to_string(),
+            ));
+        }
+        if self.values.iter().any(|value| !value.is_finite()) {
+            return Err(DetectError::InvalidArgument(
+                "speaker embedding values must be finite".to_string(),
+            ));
+        }
+        let norm = self
+            .values
+            .iter()
+            .map(|value| value * value)
+            .sum::<f32>()
+            .sqrt();
+        if norm <= f32::EPSILON || !norm.is_finite() {
+            return Err(DetectError::InvalidArgument(
+                "speaker embedding norm must be finite and non-zero".to_string(),
+            ));
+        }
+        if (norm - 1.0).abs() > 1.0e-3 {
+            return Err(DetectError::InvalidArgument(
+                "stored speaker embedding values must be normalized".to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -440,6 +475,7 @@ impl SpeakerProfile {
 
     /// Adds an embedding.
     pub fn add_embedding(&mut self, embedding: SpeakerEmbedding) -> Result<()> {
+        embedding.validate_stored()?;
         if let Some(model) = self.embedding_model() {
             validate_model_compatible(model, embedding.model())?;
         }
@@ -646,6 +682,10 @@ impl SpeakerLibrary {
         let model = profile.embedding_model().cloned().ok_or_else(|| {
             DetectError::InvalidArgument("speaker profile must contain a model".to_string())
         })?;
+        for embedding in profile.embeddings() {
+            embedding.validate_stored()?;
+            validate_model_compatible(&model, embedding.model())?;
+        }
         self.validate_model(&model)?;
         if self.profiles.contains_key(profile.id()) {
             return Err(DetectError::InvalidArgument(
@@ -1397,6 +1437,45 @@ fn filter_short_spans(spans: Vec<SpeechSpan>, min_speech_seconds: f64) -> Vec<Sp
 mod tests {
     use super::*;
 
+    #[derive(Debug, Clone)]
+    struct MeanSignSpeakerEmbedder {
+        model: SpeakerEmbeddingModel,
+    }
+
+    impl MeanSignSpeakerEmbedder {
+        fn new() -> Self {
+            Self {
+                model: test_model(),
+            }
+        }
+    }
+
+    impl SpeakerEmbeddingExtractor for MeanSignSpeakerEmbedder {
+        fn model_info(&self) -> SpeakerEmbeddingModel {
+            self.model.clone()
+        }
+
+        fn embed_speaker(&mut self, audio: &SpeakerAudio<'_>) -> Result<SpeakerEmbedding> {
+            let mean = audio.samples().iter().sum::<f32>() / audio.samples().len() as f32;
+            if mean >= 0.0 {
+                SpeakerEmbedding::new(vec![1.0, 0.0], self.model_info(), audio.sample_rate())
+            } else {
+                SpeakerEmbedding::new(vec![0.0, 1.0], self.model_info(), audio.sample_rate())
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct FixedVad {
+        spans: Vec<SpeechSpan>,
+    }
+
+    impl VoiceActivityDetector for FixedVad {
+        fn detect_speech(&mut self, _audio: &SpeakerAudio<'_>) -> Result<Vec<SpeechSpan>> {
+            Ok(self.spans.clone())
+        }
+    }
+
     fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
         let samples = (sample_rate as f32 * seconds) as usize;
         (0..samples)
@@ -1405,6 +1484,15 @@ mod tests {
                 (2.0 * std::f32::consts::PI * freq_hz * t).sin() * 0.5
             })
             .collect()
+    }
+
+    fn test_model() -> SpeakerEmbeddingModel {
+        SpeakerEmbeddingModel::new(SpeakerEmbeddingModelFamily::SpeechBrain, "spkrec", "1", 2)
+            .unwrap()
+    }
+
+    fn embedding(values: impl Into<Vec<f32>>) -> SpeakerEmbedding {
+        SpeakerEmbedding::new(values, test_model(), 16_000).unwrap()
     }
 
     fn id(value: &str) -> SpeakerId {
@@ -1428,6 +1516,52 @@ mod tests {
     }
 
     #[test]
+    fn speaker_audio_accepts_valid_speech_spans_and_frame_mono_conversion() {
+        let samples = [0.1, -0.1, 0.2, -0.2];
+        let audio = SpeakerAudio::interleaved(&samples, 16_000, 2)
+            .unwrap()
+            .with_speech_spans(vec![SpeechSpan::new(0.0, 0.0001, 0.9).unwrap()])
+            .unwrap();
+
+        assert_eq!(audio.channels(), 2);
+        assert_eq!(audio.speech_spans().len(), 1);
+        assert_eq!(audio.to_mono().unwrap(), vec![0.0, 0.0]);
+        assert!(SpeakerAudio::mono(&[0.0; 100], 1_000)
+            .unwrap()
+            .with_speech_spans(vec![SpeechSpan::new(0.0, 1.0, 0.5).unwrap()])
+            .is_err());
+    }
+
+    #[test]
+    fn ids_labels_models_spans_and_options_validate_inputs() {
+        assert!(SpeakerId::new(" ").is_err());
+        assert!(SpeakerLabel::new("").is_err());
+        assert!(SpeakerEmbeddingModel::new(
+            SpeakerEmbeddingModelFamily::Custom(" ".to_string()),
+            "custom",
+            "1",
+            2,
+        )
+        .is_err());
+        assert!(
+            SpeakerEmbeddingModel::new(SpeakerEmbeddingModelFamily::EcapaTdnn, "", "1", 2).is_err()
+        );
+        assert!(SpeechSpan::new(0.2, 0.1, 0.5).is_err());
+        assert!(SpeechSpan::new(0.0, 0.1, f32::NAN).is_err());
+        assert!(SpeakerIdentificationOptions::new(f32::NAN).is_err());
+        assert!(SpeakerIdentificationOptions::new(0.8)
+            .unwrap()
+            .min_margin(f32::NAN)
+            .is_err());
+        assert!(SpeakerIdentificationOptions {
+            max_results: 0,
+            ..SpeakerIdentificationOptions::default()
+        }
+        .validate()
+        .is_err());
+    }
+
+    #[test]
     fn speaker_embedding_carries_model_identity() {
         let model = SpeakerEmbeddingModel::new(
             SpeakerEmbeddingModelFamily::EcapaTdnn,
@@ -1444,10 +1578,28 @@ mod tests {
     }
 
     #[test]
-    fn library_identifies_with_score_and_margin_thresholds() {
-        let model =
-            SpeakerEmbeddingModel::new(SpeakerEmbeddingModelFamily::SpeechBrain, "spkrec", "1", 2)
+    fn speaker_embedding_rejects_model_mismatch_and_invalid_stored_values() {
+        let left = embedding([1.0, 0.0]);
+        let other_model =
+            SpeakerEmbeddingModel::new(SpeakerEmbeddingModelFamily::XVector, "xvector", "1", 2)
                 .unwrap();
+        let right = SpeakerEmbedding::new(vec![1.0, 0.0], other_model, 16_000).unwrap();
+
+        assert!(left.cosine_similarity(&right).is_err());
+
+        let mut stored = left.clone();
+        stored.values = vec![2.0, 0.0];
+        assert!(stored.validate_stored().is_err());
+        stored.values = vec![f32::NAN, 0.0];
+        assert!(stored.validate_stored().is_err());
+        stored.values = vec![1.0, 0.0];
+        stored.sample_rate = 0;
+        assert!(stored.validate_stored().is_err());
+    }
+
+    #[test]
+    fn library_identifies_with_score_and_margin_thresholds() {
+        let model = test_model();
         let alice = SpeakerEmbedding::new(vec![1.0, 0.0], model.clone(), 16_000).unwrap();
         let bob = SpeakerEmbedding::new(vec![0.0, 1.0], model.clone(), 16_000).unwrap();
         let query = SpeakerEmbedding::new(vec![0.99, 0.01], model, 16_000).unwrap();
@@ -1474,6 +1626,41 @@ mod tests {
         assert_eq!(result.best_match.unwrap().speaker_id.as_str(), "alice");
         assert!(!result.unknown);
         assert!(result.margin.unwrap() > 0.9);
+    }
+
+    #[test]
+    fn library_orders_matches_applies_max_results_and_confidence() {
+        let mut library = SpeakerLibrary::new();
+        for (speaker_id, values) in [
+            ("c", vec![0.0, 1.0]),
+            ("a", vec![1.0, 0.0]),
+            ("b", vec![1.0, 0.0]),
+        ] {
+            library
+                .add_profile(
+                    SpeakerProfile::new(id(speaker_id), label(speaker_id))
+                        .with_embedding(embedding(values))
+                        .unwrap(),
+                )
+                .unwrap();
+        }
+        let options = SpeakerIdentificationOptions {
+            min_score: -1.0,
+            min_margin: None,
+            max_results: 2,
+            unknown_policy: UnknownSpeakerPolicy::ReturnUnknown,
+        };
+
+        let result = library.identify(&embedding([1.0, 0.0]), &options).unwrap();
+
+        assert_eq!(result.ranked_matches.len(), 2);
+        assert_eq!(result.ranked_matches[0].speaker_id.as_str(), "a");
+        assert_eq!(result.ranked_matches[1].speaker_id.as_str(), "b");
+        assert_eq!(
+            result.ranked_matches[0].confidence,
+            SpeakerConfidence::Low
+        );
+        assert_eq!(result.margin, Some(0.0));
     }
 
     #[test]
@@ -1511,6 +1698,64 @@ mod tests {
     }
 
     #[test]
+    fn library_no_match_policy_suppresses_unknown_flag() {
+        let mut library = SpeakerLibrary::new();
+        library
+            .add_profile(
+                SpeakerProfile::new(id("alice"), label("Alice"))
+                    .with_embedding(embedding([1.0, 0.0]))
+                    .unwrap(),
+            )
+            .unwrap();
+        let options = SpeakerIdentificationOptions {
+            min_score: 1.0,
+            min_margin: Some(0.1),
+            max_results: 1,
+            unknown_policy: UnknownSpeakerPolicy::NoMatch,
+        };
+
+        let result = library.identify(&embedding([1.0, 0.0]), &options).unwrap();
+
+        assert!(result.best_match.is_none());
+        assert!(!result.unknown);
+    }
+
+    #[test]
+    fn library_rejects_duplicate_ids_unknown_ids_empty_profiles_and_mixed_models() {
+        let mut library = SpeakerLibrary::new();
+        library
+            .add_profile(
+                SpeakerProfile::new(id("alice"), label("Alice"))
+                    .with_embedding(embedding([1.0, 0.0]))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert!(library
+            .add_profile(
+                SpeakerProfile::new(id("alice"), label("Duplicate"))
+                    .with_embedding(embedding([0.0, 1.0]))
+                    .unwrap()
+            )
+            .is_err());
+        assert!(library
+            .add_profile(SpeakerProfile::new(id("empty"), label("Empty")))
+            .is_err());
+        assert!(library
+            .add_embedding(&id("missing"), embedding([1.0, 0.0]))
+            .is_err());
+
+        let other_model =
+            SpeakerEmbeddingModel::new(SpeakerEmbeddingModelFamily::Pyannote, "pyannote", "1", 2)
+                .unwrap();
+        assert!(library
+            .add_embedding(
+                &id("alice"),
+                SpeakerEmbedding::new(vec![1.0, 0.0], other_model, 16_000).unwrap(),
+            )
+            .is_err());
+    }
+
+    #[test]
     fn spectral_speaker_embedder_enrolls_and_round_trips_snapshot() {
         let sample_rate = 8_000;
         let audio = sine(220.0, sample_rate, 0.4);
@@ -1538,6 +1783,88 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_loading_rejects_bad_versions_duplicates_models_and_values() {
+        let mut library = SpeakerLibrary::new();
+        library
+            .add_profile(
+                SpeakerProfile::new(id("alice"), label("Alice"))
+                    .with_embedding(embedding([1.0, 0.0]))
+                    .unwrap(),
+            )
+            .unwrap();
+        let mut snapshot = library.to_snapshot().unwrap();
+        snapshot.version = 999;
+        assert!(SpeakerLibrary::from_snapshot(snapshot).is_err());
+
+        let mut duplicate = library.to_snapshot().unwrap();
+        duplicate.profiles.push(duplicate.profiles[0].clone());
+        assert!(SpeakerLibrary::from_snapshot(duplicate).is_err());
+
+        let bad_json = r#"{
+            "version": 1,
+            "embedding_model": {
+                "family": "SpeechBrain",
+                "name": "spkrec",
+                "version": "1",
+                "dimensions": 2
+            },
+            "profiles": [{
+                "id": "alice",
+                "label": "Alice",
+                "embeddings": [{
+                    "values": [2.0, 0.0],
+                    "model": {
+                        "family": "SpeechBrain",
+                        "name": "spkrec",
+                        "version": "1",
+                        "dimensions": 2
+                    },
+                    "sample_rate": 16000
+                }],
+                "metadata": {}
+            }]
+        }"#;
+        assert!(SpeakerLibrary::from_json_str(bad_json).is_err());
+
+        let model_mismatch_json = r#"{
+            "version": 1,
+            "embedding_model": {
+                "family": "SpeechBrain",
+                "name": "spkrec",
+                "version": "1",
+                "dimensions": 2
+            },
+            "profiles": [{
+                "id": "alice",
+                "label": "Alice",
+                "embeddings": [{
+                    "values": [1.0, 0.0],
+                    "model": {
+                        "family": "SpeechBrain",
+                        "name": "spkrec",
+                        "version": "2",
+                        "dimensions": 2
+                    },
+                    "sample_rate": 16000
+                }],
+                "metadata": {}
+            }]
+        }"#;
+        assert!(SpeakerLibrary::from_json_str(model_mismatch_json).is_err());
+    }
+
+    #[test]
+    fn onnx_embedder_exposes_model_metadata_and_fails_until_runtime_exists() {
+        let mut embedder = OnnxSpeakerEmbedder::new("speaker.onnx", test_model()).unwrap();
+        let samples = [0.1_f32; 160];
+        let audio = SpeakerAudio::mono(&samples, 16_000).unwrap();
+
+        assert_eq!(embedder.model_path(), Path::new("speaker.onnx"));
+        assert_eq!(embedder.model_info(), test_model());
+        assert!(embedder.embed_speaker(&audio).is_err());
+    }
+
+    #[test]
     fn energy_vad_detects_and_merges_speech_spans() {
         let sample_rate = 1_000;
         let mut samples = vec![0.0; 100];
@@ -1559,6 +1886,37 @@ mod tests {
 
         assert_eq!(spans.len(), 1);
         assert!(spans[0].duration_seconds() >= 0.25);
+    }
+
+    #[test]
+    fn energy_vad_rejects_invalid_config_and_filters_short_or_quiet_audio() {
+        assert!(EnergyVoiceActivityDetector::new(EnergyVadConfig {
+            rms_threshold: -1.0,
+            ..EnergyVadConfig::default()
+        })
+        .is_err());
+        assert!(EnergyVoiceActivityDetector::new(EnergyVadConfig {
+            frame_seconds: 0.0,
+            ..EnergyVadConfig::default()
+        })
+        .is_err());
+
+        let quiet = [0.0_f32; 200];
+        let audio = SpeakerAudio::mono(&quiet, 1_000).unwrap();
+        let mut vad = EnergyVoiceActivityDetector::default();
+        assert!(vad.detect_speech(&audio).unwrap().is_empty());
+
+        let short = [0.2_f32; 20];
+        let audio = SpeakerAudio::mono(&short, 1_000).unwrap();
+        let mut vad = EnergyVoiceActivityDetector::new(EnergyVadConfig {
+            rms_threshold: 0.05,
+            frame_seconds: 0.01,
+            hop_seconds: 0.01,
+            min_speech_seconds: 0.05,
+            merge_gap_seconds: 0.0,
+        })
+        .unwrap();
+        assert!(vad.detect_speech(&audio).unwrap().is_empty());
     }
 
     #[test]
@@ -1586,5 +1944,45 @@ mod tests {
             result.segments[0].speaker,
             DiarizedSpeaker::Unknown(_)
         ));
+    }
+
+    #[test]
+    fn diarizer_maps_known_speakers_and_clusters_unknown_segments() {
+        let mut samples = vec![0.4_f32; 100];
+        samples.extend(vec![-0.4_f32; 100]);
+        let audio = SpeakerAudio::mono(&samples, 1_000).unwrap();
+        let mut library = SpeakerLibrary::new();
+        library
+            .add_profile(
+                SpeakerProfile::new(id("known"), label("Known"))
+                    .with_embedding(embedding([1.0, 0.0]))
+                    .unwrap(),
+            )
+            .unwrap();
+        let vad = FixedVad {
+            spans: vec![
+                SpeechSpan::new(0.0, 0.1, 0.9).unwrap(),
+                SpeechSpan::new(0.1, 0.2, 0.9).unwrap(),
+            ],
+        };
+        let mut options = SpeakerIdentificationOptions::new(0.8).unwrap();
+        options.min_margin = None;
+        let mut diarizer = WindowedSpeakerDiarizer::new(MeanSignSpeakerEmbedder::new(), vad)
+            .library(library)
+            .cluster_threshold(0.8)
+            .unwrap();
+        diarizer.identification_options = options;
+
+        let result = diarizer.diarize(&audio).unwrap();
+
+        assert_eq!(result.segments.len(), 2);
+        assert_eq!(
+            result.segments[0].speaker,
+            DiarizedSpeaker::Known(id("known"))
+        );
+        assert_eq!(
+            result.segments[1].speaker,
+            DiarizedSpeaker::Unknown("speaker-1".to_string())
+        );
     }
 }
