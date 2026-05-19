@@ -9,10 +9,20 @@ IoU-based object tracking for `video-analysis`.
 ## Example
 
 ```rust,ignore
-use video_analysis_tracking::IouTracker;
+use video_analysis_core::BoundingBox;
+use video_analysis_tracking::{
+    detect_detection_collisions, CollisionOptions, IouTracker, TrackedDetection,
+};
 
-let tracker = IouTracker::default();
-let _ = tracker;
+let detections = [
+    TrackedDetection::new(BoundingBox::new(0, 0, 32, 32)?),
+    TrackedDetection::new(BoundingBox::new(16, 16, 32, 32)?),
+];
+
+let collisions = detect_detection_collisions(&detections, CollisionOptions::default())?;
+assert_eq!(collisions.len(), 1);
+
+let _tracker = IouTracker::new(Default::default())?;
 ```
 
 ## Related crates

@@ -68,6 +68,52 @@ impl TrackedDetection {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Options for object collision detection.
+pub struct CollisionOptions {
+    /// Minimum IoU required for two overlapping objects to count as a collision.
+    pub min_iou: f32,
+}
+
+impl Default for CollisionOptions {
+    fn default() -> Self {
+        Self { min_iou: 0.0 }
+    }
+}
+
+impl CollisionOptions {
+    /// Validates this value.
+    pub fn validate(self) -> Result<()> {
+        if !self.min_iou.is_finite() || !(0.0..=1.0).contains(&self.min_iou) {
+            return Err(DetectError::InvalidArgument(
+                "collision min_iou must be finite and between 0.0 and 1.0".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for a pair of colliding objects.
+pub struct ObjectCollision {
+    /// Index of the first object in the input collection.
+    pub left_index: usize,
+    /// Index of the second object in the input collection.
+    pub right_index: usize,
+    /// Track identifier for the first object, when available.
+    pub left_id: Option<String>,
+    /// Track identifier for the second object, when available.
+    pub right_id: Option<String>,
+    /// Region of the first object.
+    pub left_region: BoundingBox,
+    /// Region of the second object.
+    pub right_region: BoundingBox,
+    /// Overlapping region shared by both objects.
+    pub intersection: BoundingBox,
+    /// Intersection-over-union score for the two regions.
+    pub iou: f32,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for object track.
 pub struct ObjectTrack {
@@ -160,6 +206,11 @@ impl IouTracker {
     /// Returns tracks.
     pub fn tracks(&self) -> impl Iterator<Item = &ObjectTrack> {
         self.tracks.values()
+    }
+
+    /// Returns collisions between active tracks.
+    pub fn collisions(&self, options: CollisionOptions) -> Result<Vec<ObjectCollision>> {
+        detect_track_collisions(self.tracks.values(), options)
     }
 
     /// Returns update.
@@ -347,8 +398,8 @@ impl<B: ObjectDetectionBackend> VideoAnalyzer for ObjectTrackingAnalyzer<B> {
     }
 }
 
-/// Returns bbox IoU.
-pub fn bbox_iou(left: BoundingBox, right: BoundingBox) -> f32 {
+/// Returns bounding box intersection.
+pub fn bbox_intersection(left: BoundingBox, right: BoundingBox) -> Option<BoundingBox> {
     let left_x1 = left.x.saturating_add(left.width);
     let left_y1 = left.y.saturating_add(left.height);
     let right_x1 = right.x.saturating_add(right.width);
@@ -359,13 +410,58 @@ pub fn bbox_iou(left: BoundingBox, right: BoundingBox) -> f32 {
     let ix1 = left_x1.min(right_x1);
     let iy1 = left_y1.min(right_y1);
     if ix1 <= ix0 || iy1 <= iy0 {
-        return 0.0;
+        return None;
     }
 
-    let intersection = (ix1 - ix0) as f32 * (iy1 - iy0) as f32;
+    BoundingBox::new(ix0, iy0, ix1 - ix0, iy1 - iy0).ok()
+}
+
+/// Returns whether two bounding boxes overlap.
+pub fn bbox_intersects(left: BoundingBox, right: BoundingBox) -> bool {
+    bbox_intersection(left, right).is_some()
+}
+
+/// Returns bbox IoU.
+pub fn bbox_iou(left: BoundingBox, right: BoundingBox) -> f32 {
+    let Some(intersection) = bbox_intersection(left, right) else {
+        return 0.0;
+    };
+    let intersection = intersection.width as f32 * intersection.height as f32;
     let left_area = left.width as f32 * left.height as f32;
     let right_area = right.width as f32 * right.height as f32;
     intersection / (left_area + right_area - intersection)
+}
+
+/// Returns collisions between tracked detections.
+pub fn detect_detection_collisions(
+    detections: &[TrackedDetection],
+    options: CollisionOptions,
+) -> Result<Vec<ObjectCollision>> {
+    options.validate()?;
+    let regions = detections
+        .iter()
+        .map(|detection| CollisionRegion {
+            id: None,
+            region: detection.region,
+        })
+        .collect::<Vec<_>>();
+    Ok(detect_collisions(&regions, options))
+}
+
+/// Returns collisions between object tracks.
+pub fn detect_track_collisions<'a>(
+    tracks: impl IntoIterator<Item = &'a ObjectTrack>,
+    options: CollisionOptions,
+) -> Result<Vec<ObjectCollision>> {
+    options.validate()?;
+    let regions = tracks
+        .into_iter()
+        .map(|track| CollisionRegion {
+            id: Some(track.id.as_str()),
+            region: track.region,
+        })
+        .collect::<Vec<_>>();
+    Ok(detect_collisions(&regions, options))
 }
 
 fn compatible(track: &ObjectTrack, detection: &TrackedDetection) -> bool {
@@ -374,6 +470,43 @@ fn compatible(track: &ObjectTrack, detection: &TrackedDetection) -> bool {
             (Some(left), Some(right)) => left == right,
             _ => true,
         }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CollisionRegion<'a> {
+    id: Option<&'a str>,
+    region: BoundingBox,
+}
+
+fn detect_collisions(
+    regions: &[CollisionRegion<'_>],
+    options: CollisionOptions,
+) -> Vec<ObjectCollision> {
+    let mut collisions = Vec::new();
+    for left_index in 0..regions.len() {
+        for right_index in (left_index + 1)..regions.len() {
+            let left = regions[left_index];
+            let right = regions[right_index];
+            let Some(intersection) = bbox_intersection(left.region, right.region) else {
+                continue;
+            };
+            let iou = bbox_iou(left.region, right.region);
+            if iou < options.min_iou {
+                continue;
+            }
+            collisions.push(ObjectCollision {
+                left_index,
+                right_index,
+                left_id: left.id.map(str::to_string),
+                right_id: right.id.map(str::to_string),
+                left_region: left.region,
+                right_region: right.region,
+                intersection,
+                iou,
+            });
+        }
+    }
+    collisions
 }
 
 fn observation_for_track(analyzer: &str, track: ObjectTrack) -> Observation {
@@ -469,6 +602,62 @@ mod tests {
             .unwrap();
 
         assert_ne!(first[0].id, second[0].id);
+    }
+
+    #[test]
+    fn detects_collisions_between_overlapping_detections() {
+        let detections = [
+            TrackedDetection::new(BoundingBox::new(0, 0, 10, 10).unwrap()).label("person"),
+            TrackedDetection::new(BoundingBox::new(5, 4, 10, 10).unwrap()).label("bike"),
+            TrackedDetection::new(BoundingBox::new(30, 30, 4, 4).unwrap()).label("car"),
+        ];
+
+        let collisions =
+            detect_detection_collisions(&detections, CollisionOptions::default()).unwrap();
+
+        assert_eq!(collisions.len(), 1);
+        assert_eq!(collisions[0].left_index, 0);
+        assert_eq!(collisions[0].right_index, 1);
+        assert_eq!(
+            collisions[0].intersection,
+            BoundingBox::new(5, 4, 5, 6).unwrap()
+        );
+        assert!(collisions[0].iou > 0.0);
+    }
+
+    #[test]
+    fn filters_collisions_by_iou() {
+        let detections = [
+            TrackedDetection::new(BoundingBox::new(0, 0, 10, 10).unwrap()),
+            TrackedDetection::new(BoundingBox::new(9, 9, 10, 10).unwrap()),
+        ];
+
+        let collisions =
+            detect_detection_collisions(&detections, CollisionOptions { min_iou: 0.1 }).unwrap();
+
+        assert!(collisions.is_empty());
+    }
+
+    #[test]
+    fn tracker_reports_collisions_between_active_tracks() {
+        let mut tracker = IouTracker::new(TrackingOptions::default()).unwrap();
+        tracker
+            .update(
+                position(0),
+                [
+                    TrackedDetection::new(BoundingBox::new(0, 0, 12, 12).unwrap())
+                        .track_hint("left"),
+                    TrackedDetection::new(BoundingBox::new(6, 0, 12, 12).unwrap())
+                        .track_hint("right"),
+                ],
+            )
+            .unwrap();
+
+        let collisions = tracker.collisions(CollisionOptions::default()).unwrap();
+
+        assert_eq!(collisions.len(), 1);
+        assert_eq!(collisions[0].left_id.as_deref(), Some("track-1"));
+        assert_eq!(collisions[0].right_id.as_deref(), Some("track-2"));
     }
 
     #[test]

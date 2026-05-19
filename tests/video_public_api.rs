@@ -28,7 +28,9 @@ use video_analysis_posture_io::{
     write_stick_figure_ply,
 };
 use video_analysis_recognition::{Embedding, MatchOptions, ReferenceLibrary};
-use video_analysis_tracking::{IouTracker, TrackedDetection, TrackingOptions};
+use video_analysis_tracking::{
+    detect_detection_collisions, CollisionOptions, IouTracker, TrackedDetection, TrackingOptions,
+};
 use video_analysis_transform::{group_by_scene, record_timestamp_seconds};
 
 #[test]
@@ -96,9 +98,24 @@ fn retained_video_crates_support_consumer_smoke_workflows() -> Result<(), Box<dy
     let mut tracker = IouTracker::new(TrackingOptions::default())?;
     let visible = tracker.update(
         frame_position(0),
-        [TrackedDetection::new(BoundingBox::new(0, 0, 8, 8)?).label("person")],
+        [
+            TrackedDetection::new(BoundingBox::new(0, 0, 8, 8)?).label("person"),
+            TrackedDetection::new(BoundingBox::new(4, 4, 8, 8)?).label("bag"),
+        ],
     )?;
-    assert_eq!(visible.len(), 1);
+    assert_eq!(visible.len(), 2);
+    assert_eq!(
+        detect_detection_collisions(
+            &[
+                TrackedDetection::new(BoundingBox::new(0, 0, 8, 8)?),
+                TrackedDetection::new(BoundingBox::new(4, 4, 8, 8)?),
+            ],
+            CollisionOptions::default()
+        )?
+        .len(),
+        1
+    );
+    assert_eq!(tracker.collisions(CollisionOptions::default())?.len(), 1);
 
     let mut library = ReferenceLibrary::new();
     library.add_reference("alice", "Alice", ObservationKind::Face, [1.0, 0.0])?;
