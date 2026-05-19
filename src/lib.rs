@@ -2,8 +2,6 @@
 
 /// Re-exports the audio core API.
 pub use audio_analysis_core as audio_core;
-/// Re-exports the MIDI-like audio generation API.
-pub use audio_generation_midi as audio_midi;
 /// Re-exports the audio fourier API.
 pub use audio_analysis_fourier as audio_fourier;
 /// Re-exports the audio I/O API.
@@ -22,6 +20,8 @@ pub use audio_analysis_separation as audio_separation;
 pub use audio_analysis_speakers as audio_speakers;
 /// Re-exports the audio synthesis API.
 pub use audio_analysis_synthesis as audio_synthesis;
+/// Re-exports the MIDI-like audio generation API.
+pub use audio_generation_midi as audio_midi;
 /// Re-exports the ComfyUI data API.
 pub use comfyui_data;
 /// Re-exports the ComfyUI latents API.
