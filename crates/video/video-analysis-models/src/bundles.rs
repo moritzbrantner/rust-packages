@@ -1,0 +1,315 @@
+use std::collections::BTreeMap;
+use std::fs;
+use std::io::ErrorKind;
+use std::path::{Component, Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+use video_analysis_core::{DetectError, Result};
+
+use crate::{
+    DownloadedModel, HuggingFaceDownloader, HuggingFaceModelSpec, ModelFileRequest, ModelTask,
+};
+
+#[derive(Debug, Clone)]
+/// Data type for model bundle store.
+pub struct ModelBundleStore {
+    root: PathBuf,
+    downloader: HuggingFaceDownloader,
+    overwrite: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for model bundle manifest.
+pub struct ModelBundleManifest {
+    /// The schema version value.
+    pub schema_version: u32,
+    /// Human-readable name for this value.
+    pub name: String,
+    /// The repo identifier value.
+    pub repo_id: String,
+    /// The revision value.
+    pub revision: String,
+    /// The task value.
+    pub task: ModelTask,
+    /// The files value.
+    pub files: BTreeMap<String, ModelBundleFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for model bundle file.
+pub struct ModelBundleFile {
+    /// The remote path value.
+    pub remote_path: String,
+    /// The local path value.
+    pub local_path: String,
+    /// The size bytes value.
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone)]
+/// Data type for model bundle.
+pub struct ModelBundle {
+    /// The root value.
+    pub root: PathBuf,
+    /// The manifest value.
+    pub manifest: ModelBundleManifest,
+}
+
+impl ModelBundleStore {
+    /// Creates a new value.
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self {
+            root: root.into(),
+            downloader: HuggingFaceDownloader::new(),
+            overwrite: false,
+        }
+    }
+
+    /// Returns downloader.
+    pub fn downloader(mut self, downloader: HuggingFaceDownloader) -> Self {
+        self.downloader = downloader;
+        self
+    }
+
+    /// Returns overwrite.
+    pub fn overwrite(mut self, value: bool) -> Self {
+        self.overwrite = value;
+        self
+    }
+
+    /// Returns root.
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// Returns bundle dir.
+    pub fn bundle_dir(&self, spec: &HuggingFaceModelSpec) -> PathBuf {
+        self.root
+            .join(safe_bundle_segment(&spec.name))
+            .join(safe_bundle_segment(&spec.revision))
+    }
+
+    /// Returns download.
+    pub fn download(&self, spec: &HuggingFaceModelSpec) -> Result<ModelBundle> {
+        let downloaded = self.downloader.download(spec)?;
+        self.materialize(&downloaded)
+    }
+
+    /// Returns materialize.
+    pub fn materialize(&self, downloaded: &DownloadedModel) -> Result<ModelBundle> {
+        let bundle_root = self.bundle_dir(&downloaded.spec);
+        let manifest_path = bundle_root.join("manifest.json");
+        for remote_path in downloaded.files.keys() {
+            validate_remote_path(remote_path)?;
+        }
+        if manifest_path.exists() && !self.overwrite {
+            return ModelBundle::load(manifest_path);
+        }
+
+        let files_dir = bundle_root.join("files");
+        fs::create_dir_all(&files_dir)?;
+
+        let mut manifest_files = BTreeMap::new();
+        for (remote_path, source_path) in &downloaded.files {
+            let relative_file_path = Path::new("files").join(remote_path);
+            let destination_path = bundle_root.join(&relative_file_path);
+            if let Some(parent) = destination_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            if self.overwrite && fs::symlink_metadata(&destination_path).is_ok() {
+                fs::remove_file(&destination_path)?;
+            }
+            let mut should_materialize = match fs::symlink_metadata(&destination_path) {
+                Ok(_) => false,
+                Err(err) if err.kind() == ErrorKind::NotFound => true,
+                Err(err) => return Err(err.into()),
+            };
+            if !should_materialize && fs::metadata(&destination_path).is_err() {
+                // A stale/dangling symlink should be replaced with fresh materialized bytes.
+                fs::remove_file(&destination_path)?;
+                should_materialize = true;
+            }
+            if should_materialize {
+                let source_metadata = fs::symlink_metadata(source_path)?;
+                let linked = !source_metadata.file_type().is_symlink()
+                    && fs::hard_link(source_path, &destination_path).is_ok();
+                if !linked {
+                    let source_for_copy = if source_metadata.file_type().is_symlink() {
+                        fs::canonicalize(source_path)?
+                    } else {
+                        source_path.clone()
+                    };
+                    fs::copy(source_for_copy, &destination_path)?;
+                }
+            }
+
+            let size_bytes = fs::metadata(&destination_path)?.len();
+            manifest_files.insert(
+                remote_path.clone(),
+                ModelBundleFile {
+                    remote_path: remote_path.clone(),
+                    local_path: path_to_manifest_string(&relative_file_path),
+                    size_bytes,
+                },
+            );
+        }
+
+        let manifest = ModelBundleManifest {
+            schema_version: 1,
+            name: downloaded.spec.name.clone(),
+            repo_id: downloaded.spec.repo_id.clone(),
+            revision: downloaded.spec.revision.clone(),
+            task: downloaded.spec.task.clone(),
+            files: manifest_files,
+        };
+        let encoded = serde_json::to_vec_pretty(&manifest).map_err(|err| {
+            DetectError::Source(format!("failed to encode model manifest: {err}"))
+        })?;
+        fs::write(&manifest_path, encoded)?;
+
+        Ok(ModelBundle {
+            root: bundle_root,
+            manifest,
+        })
+    }
+
+    /// Returns load.
+    pub fn load(&self, name: impl AsRef<str>, revision: impl AsRef<str>) -> Result<ModelBundle> {
+        ModelBundle::load(
+            self.root
+                .join(safe_bundle_segment(name.as_ref()))
+                .join(safe_bundle_segment(revision.as_ref()))
+                .join("manifest.json"),
+        )
+    }
+}
+
+impl ModelBundle {
+    /// Returns manifest path.
+    pub fn manifest_path(&self) -> PathBuf {
+        self.root.join("manifest.json")
+    }
+
+    /// Returns file path.
+    pub fn file_path(&self, remote_path: &str) -> Option<PathBuf> {
+        self.manifest
+            .files
+            .get(remote_path)
+            .map(|file| self.root.join(&file.local_path))
+    }
+
+    /// Converts this value to downloaded model.
+    pub fn to_downloaded_model(&self) -> DownloadedModel {
+        let files = self
+            .manifest
+            .files
+            .iter()
+            .map(|(remote_path, file)| {
+                (
+                    remote_path.clone(),
+                    absolute_path(self.root.join(&file.local_path)),
+                )
+            })
+            .collect();
+        let spec = HuggingFaceModelSpec {
+            name: self.manifest.name.clone(),
+            repo_id: self.manifest.repo_id.clone(),
+            revision: self.manifest.revision.clone(),
+            task: self.manifest.task.clone(),
+            files: self
+                .manifest
+                .files
+                .keys()
+                .map(|remote_path| ModelFileRequest::required(remote_path.clone()))
+                .collect(),
+        };
+        DownloadedModel { spec, files }
+    }
+
+    /// Returns load.
+    pub fn load(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
+        let manifest_path = if path.is_dir() {
+            path.join("manifest.json")
+        } else {
+            path.to_path_buf()
+        };
+        let root = manifest_path.parent().ok_or_else(|| {
+            DetectError::InvalidArgument(format!(
+                "model bundle manifest `{}` has no parent directory",
+                manifest_path.display()
+            ))
+        })?;
+        let data = fs::read(&manifest_path)?;
+        let manifest = serde_json::from_slice(&data).map_err(|err| {
+            DetectError::Source(format!(
+                "failed to decode model bundle manifest `{}`: {err}",
+                manifest_path.display()
+            ))
+        })?;
+        Ok(Self {
+            root: root.to_path_buf(),
+            manifest,
+        })
+    }
+}
+
+fn safe_bundle_segment(value: &str) -> String {
+    let safe = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if safe.is_empty() {
+        "_".to_string()
+    } else {
+        safe
+    }
+}
+
+fn validate_remote_path(path: &str) -> Result<()> {
+    let remote_path = Path::new(path);
+    if path.is_empty() || remote_path.is_absolute() {
+        return Err(DetectError::InvalidArgument(format!(
+            "model file path `{path}` must be relative"
+        )));
+    }
+    for component in remote_path.components() {
+        match component {
+            Component::Normal(_) => {}
+            Component::ParentDir => {
+                return Err(DetectError::InvalidArgument(format!(
+                    "model file path `{path}` must not contain `..`"
+                )));
+            }
+            _ => {
+                return Err(DetectError::InvalidArgument(format!(
+                    "model file path `{path}` contains an invalid path component"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn path_to_manifest_string(path: &Path) -> String {
+    path.components()
+        .map(|component| component.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn absolute_path(path: PathBuf) -> PathBuf {
+    if path.is_absolute() {
+        path
+    } else if let Ok(current_dir) = std::env::current_dir() {
+        current_dir.join(path)
+    } else {
+        path
+    }
+}

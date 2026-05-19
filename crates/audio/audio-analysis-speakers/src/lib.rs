@@ -1656,10 +1656,7 @@ mod tests {
         assert_eq!(result.ranked_matches.len(), 2);
         assert_eq!(result.ranked_matches[0].speaker_id.as_str(), "a");
         assert_eq!(result.ranked_matches[1].speaker_id.as_str(), "b");
-        assert_eq!(
-            result.ranked_matches[0].confidence,
-            SpeakerConfidence::Low
-        );
+        assert_eq!(result.ranked_matches[0].confidence, SpeakerConfidence::Low);
         assert_eq!(result.margin, Some(0.0));
     }
 
