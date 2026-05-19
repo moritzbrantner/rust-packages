@@ -38,6 +38,7 @@ import "./index.css";
 import "@xyflow/react/dist/style.css";
 import { sampleReport } from "./sampleReport";
 import { ArchitectureOverview } from "./ArchitectureOverview";
+import { CrateCatalog } from "./CrateCatalog";
 import {
   ResultPageEditor,
   addDashboardWidgetForDataKind,
@@ -56,7 +57,17 @@ import {
 import { WorkflowExecutionEditor } from "./WorkflowExecutionEditor";
 
 type UseCaseId = "youtube-video";
-type ViewMode = "overview" | "architecture" | "run" | "workflow" | "flow" | "result" | "scenes" | "signals" | "data";
+type ViewMode =
+  | "overview"
+  | "crates"
+  | "architecture"
+  | "run"
+  | "workflow"
+  | "flow"
+  | "result"
+  | "scenes"
+  | "signals"
+  | "data";
 
 interface AnalysisApiResponse {
   report?: YoutubeVideoReport;
@@ -83,7 +94,7 @@ function App() {
   const [selectedUseCase, setSelectedUseCase] = useState<UseCaseId>("youtube-video");
   const [form, setForm] = useState<UseCaseForm>(initialForm);
   const [report, setReport] = useState<YoutubeVideoReport>(sampleReport);
-  const [viewMode, setViewMode] = useState<ViewMode>("overview");
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [runStatus, setRunStatus] = useState<CliRun["status"]>("pending");
   const [lastRun, setLastRun] = useState<CliRun | null>(null);
   const [runOutput, setRunOutput] = useState<{ stdout?: string; stderr?: string }>({});
@@ -215,7 +226,7 @@ function App() {
             </nav>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
               <img
-                src="/goldeneye-stats.png"
+                src={`${import.meta.env.BASE_URL}goldeneye-stats.png`}
                 alt="Scene metrics preview"
                 className="aspect-[16/9] w-full rounded-md object-cover"
               />
@@ -233,9 +244,11 @@ function App() {
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                   <h1 className="text-2xl font-semibold tracking-normal text-zinc-950">
-                    {currentUseCase(selectedUseCase).name}
+                    {viewMode === "crates" ? "Crate Catalog" : currentUseCase(selectedUseCase).name}
                   </h1>
-                  <p className="mt-1 text-sm text-zinc-500">{report.source.local_video}</p>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    {viewMode === "crates" ? "Workspace packages with interactive UI previews" : report.source.local_video}
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <IconButton
@@ -266,6 +279,7 @@ function App() {
                 value={viewMode}
                 options={[
                   ["overview", "Overview"],
+                  ["crates", "Crates"],
                   ["architecture", "Architecture"],
                   ["run", "Run"],
                   ["workflow", "Workflow"],
@@ -313,6 +327,7 @@ function App() {
             ) : (
               <section className="min-w-0 space-y-4">
               {viewMode === "overview" && <Overview report={report} />}
+              {viewMode === "crates" && <CrateCatalog />}
               {viewMode === "architecture" && <ArchitectureOverview />}
               {viewMode === "workflow" && (
                 <WorkflowExecutionEditor
@@ -2442,6 +2457,14 @@ function downloadReport(report: YoutubeVideoReport) {
 
 function currentUseCase(id: UseCaseId) {
   return useCases.find((useCase) => useCase.id === id) ?? useCases[0];
+}
+
+function initialViewMode(): ViewMode {
+  const base = new URL(import.meta.env.BASE_URL || "/", window.location.origin).pathname;
+  const pathname = window.location.pathname.startsWith(base)
+    ? window.location.pathname.slice(base.length)
+    : window.location.pathname.replace(/^\//, "");
+  return pathname.startsWith("crates/") ? "crates" : "overview";
 }
 
 function basename(path: string): string {

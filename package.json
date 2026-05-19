@@ -17,6 +17,7 @@
     "ui:test:e2e": "bun run --cwd packages/video-analysis-ui test:e2e",
     "web:dev": "bun run --cwd prototypes/web/video-analysis-web dev",
     "web:build": "bun run --cwd prototypes/web/video-analysis-web build",
+    "web:build:pages": "bun run --cwd prototypes/web/video-analysis-web build:pages",
     "web:typecheck": "bun run --cwd prototypes/web/video-analysis-web typecheck",
     "web:test": "bun run --cwd prototypes/web/video-analysis-web test",
     "web:test:unit": "bun run --cwd prototypes/web/video-analysis-web test:unit",

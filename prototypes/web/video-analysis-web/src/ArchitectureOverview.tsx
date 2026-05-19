@@ -11,6 +11,7 @@ import {
   type WorkspaceArchitecturePackage,
   type WorkspaceArchitectureResponse,
 } from "./workspaceArchitecture";
+import { fetchWorkspaceArchitecture } from "./workspaceArchitectureClient";
 
 const allDomains = new Set<PackageDomain>(packageDomainOrder);
 
@@ -24,13 +25,7 @@ export function ArchitectureOverview() {
   useEffect(() => {
     const controller = new AbortController();
     setError(null);
-    fetch("/api/workspace-architecture", { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error((await response.text()) || "Could not load workspace architecture");
-        }
-        return response.json() as Promise<WorkspaceArchitectureResponse>;
-      })
+    fetchWorkspaceArchitecture(controller.signal)
       .then((payload) => setData(payload))
       .catch((fetchError) => {
         if (controller.signal.aborted) {

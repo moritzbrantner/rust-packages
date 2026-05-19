@@ -57,8 +57,8 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
   const contractRows = parseWorkspaceContractMap(contractMarkdown);
   const contractByName = new Map(contractRows.map((row) => [row.name, row]));
   const workspaceMemberIds = new Set(metadata.workspace_members);
-  const cargoPackages: CargoMetadataPackage[] = metadata.packages.filter(
-    (pkg: CargoMetadataPackage) => workspaceMemberIds.has(pkg.id) && !pkg.name.includes("test-support"),
+  const cargoPackages: CargoMetadataPackage[] = metadata.packages.filter((pkg: CargoMetadataPackage) =>
+    workspaceMemberIds.has(pkg.id),
   );
   const includedNames = new Set<string>([
     ...cargoPackages.map((pkg: CargoMetadataPackage) => pkg.name),
@@ -201,7 +201,7 @@ function capabilitiesFor(
   path: string | null,
   hasLibraryTarget: boolean,
 ): WorkspaceArchitecturePackage["capabilities"] {
-  return [
+  const capabilities: WorkspaceArchitecturePackage["capabilities"] = [
     {
       kind: "library",
       entrypoint: libraryEntrypoint(name, kind, path, hasLibraryTarget),
@@ -220,14 +220,16 @@ function capabilitiesFor(
           ? `${name}/api (package ${name}-api)`
           : `/api/packages?name=${encodeURIComponent(name)}`,
     },
-    {
-      kind: "ui",
-      entrypoint:
-        kind === "rust"
-          ? `${name}/ui (package ${name}-ui)`
-          : `Architecture page package detail for ${name}`,
-    },
   ];
+
+  if (kind === "frontend") {
+    capabilities.push({
+      kind: "ui",
+      entrypoint: `Architecture page package detail for ${name}`,
+    });
+  }
+
+  return capabilities;
 }
 
 function libraryEntrypoint(

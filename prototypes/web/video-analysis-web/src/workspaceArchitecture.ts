@@ -258,6 +258,15 @@ export function packageShortName(name: string): string {
     .replace(/^comfyui-/, "comfyui:");
 }
 
+export function slugifyPackageName(name: string): string {
+  return name
+    .replace(/^@/, "")
+    .replace(/\//g, "-")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function contractTagLabel(tagId: string): string {
   return contractTagDefinitions.find((definition) => definition.id === tagId)?.label ?? tagId;
 }
