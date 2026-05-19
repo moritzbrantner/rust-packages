@@ -1,5 +1,5 @@
 import type { DataBucketReport, StreamBucketReport } from "../types";
-import { EmptyState, Panel, StatCard } from "../shared/primitives";
+import { DataTable, EmptyState, Panel, StatCard } from "../shared/primitives";
 import { formatBytes, formatNumber, ratioPercent } from "../shared/utils";
 
 export function DataBucketOverview({ buckets }: { buckets: DataBucketReport[] }) {
@@ -57,44 +57,58 @@ export function StreamSummaryTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-          <tr>
-            <th className="px-3 py-2 font-medium">Stream</th>
-            <th className="px-3 py-2 font-medium">Records</th>
-            <th className="px-3 py-2 font-medium">Bytes</th>
-            {!compact && <th className="px-3 py-2 font-medium">Payloads</th>}
-            <th className="px-3 py-2 font-medium">Video</th>
-            <th className="px-3 py-2 font-medium">Audio</th>
-            <th className="px-3 py-2 font-medium">Text</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {streams.map((stream) => (
-            <tr key={stream.stream_id}>
-              <td className="px-3 py-2 font-medium text-zinc-950">{stream.stream_id}</td>
-              <td className="px-3 py-2 tabular-nums text-zinc-700">{formatNumber(stream.records)}</td>
-              <td className="px-3 py-2 tabular-nums text-zinc-700">
-                {formatBytes(stream.estimated_bytes)}
-              </td>
-              {!compact && (
-                <td className="px-3 py-2 text-zinc-700">{payloadSummary(stream.payload_counts)}</td>
-              )}
-              <td className="px-3 py-2 tabular-nums text-zinc-700">
-                {formatNumber(stream.video_frames)}
-              </td>
-              <td className="px-3 py-2 tabular-nums text-zinc-700">
-                {formatNumber(stream.audio_frames)}
-              </td>
-              <td className="px-3 py-2 tabular-nums text-zinc-700">
-                {formatNumber(stream.text_segments)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      rows={streams}
+      getRowKey={(stream) => stream.stream_id}
+      columns={[
+        {
+          key: "stream",
+          header: "Stream",
+          className: "font-medium text-zinc-950",
+          cell: (stream) => stream.stream_id,
+        },
+        {
+          key: "records",
+          header: "Records",
+          className: "tabular-nums text-zinc-700",
+          cell: (stream) => formatNumber(stream.records),
+        },
+        {
+          key: "bytes",
+          header: "Bytes",
+          className: "tabular-nums text-zinc-700",
+          cell: (stream) => formatBytes(stream.estimated_bytes),
+        },
+        ...(!compact
+          ? [
+              {
+                key: "payloads",
+                header: "Payloads",
+                className: "text-zinc-700",
+                cell: (stream: StreamBucketReport) => payloadSummary(stream.payload_counts),
+              },
+            ]
+          : []),
+        {
+          key: "video",
+          header: "Video",
+          className: "tabular-nums text-zinc-700",
+          cell: (stream) => formatNumber(stream.video_frames),
+        },
+        {
+          key: "audio",
+          header: "Audio",
+          className: "tabular-nums text-zinc-700",
+          cell: (stream) => formatNumber(stream.audio_frames),
+        },
+        {
+          key: "text",
+          header: "Text",
+          className: "tabular-nums text-zinc-700",
+          cell: (stream) => formatNumber(stream.text_segments),
+        },
+      ]}
+    />
   );
 }
 

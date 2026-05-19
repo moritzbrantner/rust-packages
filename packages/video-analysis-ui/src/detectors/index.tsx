@@ -1,5 +1,5 @@
 import type { Cut, DetectionResult } from "../types";
-import { EmptyState, Panel, StatCard } from "../shared/primitives";
+import { DataTable, EmptyState, Panel, StatCard } from "../shared/primitives";
 import { formatNumber, formatScore, formatSeconds, timestampSeconds } from "../shared/utils";
 
 export function DetectionSummary({
@@ -31,31 +31,35 @@ export function CutTable({ cuts }: { cuts: Cut[] }) {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-          <tr>
-            <th className="px-3 py-2 font-medium">Frame</th>
-            <th className="px-3 py-2 font-medium">Time</th>
-            <th className="px-3 py-2 font-medium">Detector</th>
-            <th className="px-3 py-2 font-medium">Score</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {cuts.map((cut, index) => (
-            <tr key={`${cut.position.frame_index}-${cut.detector}-${index}`}>
-              <td className="px-3 py-2 tabular-nums text-zinc-700">
-                {formatNumber(cut.position.frame_index)}
-              </td>
-              <td className="px-3 py-2 tabular-nums text-zinc-700">
-                {formatSeconds(timestampSeconds(cut.position.timestamp))}
-              </td>
-              <td className="px-3 py-2 font-medium text-zinc-950">{cut.detector}</td>
-              <td className="px-3 py-2 text-zinc-700">{formatScore(cut.score)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      rows={cuts}
+      getRowKey={(cut, index) => `${cut.position.frame_index}-${cut.detector}-${index}`}
+      columns={[
+        {
+          key: "frame",
+          header: "Frame",
+          className: "tabular-nums text-zinc-700",
+          cell: (cut) => formatNumber(cut.position.frame_index),
+        },
+        {
+          key: "time",
+          header: "Time",
+          className: "tabular-nums text-zinc-700",
+          cell: (cut) => formatSeconds(timestampSeconds(cut.position.timestamp)),
+        },
+        {
+          key: "detector",
+          header: "Detector",
+          className: "font-medium text-zinc-950",
+          cell: (cut) => cut.detector,
+        },
+        {
+          key: "score",
+          header: "Score",
+          className: "text-zinc-700",
+          cell: (cut) => formatScore(cut.score),
+        },
+      ]}
+    />
   );
 }

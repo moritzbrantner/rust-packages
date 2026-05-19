@@ -3,6 +3,8 @@
 React components styled with TailwindCSS for the Rust `video-analysis-*` crates.
 The package exports one component pack per crate boundary plus a composed
 dashboard for `video-analysis-use-cases` JSON reports.
+Shared primitives compose `@moritzbrantner/ui`, so consumers need access to the
+`@moritzbrantner` package registry when installing dependencies.
 
 ```tsx
 import { YoutubeVideoReportView } from "@video-analysis/ui/use-cases";
@@ -14,7 +16,7 @@ export function ReportPage({ report }: { report: YoutubeVideoReport }) {
 ```
 
 Add the package output to your Tailwind `content` list so utility classes are
-generated:
+generated for this package and the `@moritzbrantner/ui` primitives it uses:
 
 ```js
 import videoAnalysisContent from "@video-analysis/ui/tailwind-content";

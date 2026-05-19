@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { EmptyState, Panel, StatCard } from "../shared/primitives";
+import { DataTable, EmptyState, Panel, StatCard } from "../shared/primitives";
 import { formatBytes, formatNumber, ratioPercent } from "../shared/utils";
 export function DataBucketOverview({ buckets }) {
     const totalRecords = buckets.reduce((sum, bucket) => sum + bucket.records, 0);
@@ -11,7 +11,54 @@ export function StreamSummaryTable({ streams, compact = false, }) {
     if (streams.length === 0) {
         return _jsx(EmptyState, { children: "No streams" });
     }
-    return (_jsx("div", { className: "overflow-x-auto", children: _jsxs("table", { className: "min-w-full text-left text-sm", children: [_jsx("thead", { className: "border-b border-zinc-200 text-xs uppercase text-zinc-500", children: _jsxs("tr", { children: [_jsx("th", { className: "px-3 py-2 font-medium", children: "Stream" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Records" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Bytes" }), !compact && _jsx("th", { className: "px-3 py-2 font-medium", children: "Payloads" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Video" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Audio" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Text" })] }) }), _jsx("tbody", { className: "divide-y divide-zinc-100", children: streams.map((stream) => (_jsxs("tr", { children: [_jsx("td", { className: "px-3 py-2 font-medium text-zinc-950", children: stream.stream_id }), _jsx("td", { className: "px-3 py-2 tabular-nums text-zinc-700", children: formatNumber(stream.records) }), _jsx("td", { className: "px-3 py-2 tabular-nums text-zinc-700", children: formatBytes(stream.estimated_bytes) }), !compact && (_jsx("td", { className: "px-3 py-2 text-zinc-700", children: payloadSummary(stream.payload_counts) })), _jsx("td", { className: "px-3 py-2 tabular-nums text-zinc-700", children: formatNumber(stream.video_frames) }), _jsx("td", { className: "px-3 py-2 tabular-nums text-zinc-700", children: formatNumber(stream.audio_frames) }), _jsx("td", { className: "px-3 py-2 tabular-nums text-zinc-700", children: formatNumber(stream.text_segments) })] }, stream.stream_id))) })] }) }));
+    return (_jsx(DataTable, { rows: streams, getRowKey: (stream) => stream.stream_id, columns: [
+            {
+                key: "stream",
+                header: "Stream",
+                className: "font-medium text-zinc-950",
+                cell: (stream) => stream.stream_id,
+            },
+            {
+                key: "records",
+                header: "Records",
+                className: "tabular-nums text-zinc-700",
+                cell: (stream) => formatNumber(stream.records),
+            },
+            {
+                key: "bytes",
+                header: "Bytes",
+                className: "tabular-nums text-zinc-700",
+                cell: (stream) => formatBytes(stream.estimated_bytes),
+            },
+            ...(!compact
+                ? [
+                    {
+                        key: "payloads",
+                        header: "Payloads",
+                        className: "text-zinc-700",
+                        cell: (stream) => payloadSummary(stream.payload_counts),
+                    },
+                ]
+                : []),
+            {
+                key: "video",
+                header: "Video",
+                className: "tabular-nums text-zinc-700",
+                cell: (stream) => formatNumber(stream.video_frames),
+            },
+            {
+                key: "audio",
+                header: "Audio",
+                className: "tabular-nums text-zinc-700",
+                cell: (stream) => formatNumber(stream.audio_frames),
+            },
+            {
+                key: "text",
+                header: "Text",
+                className: "tabular-nums text-zinc-700",
+                cell: (stream) => formatNumber(stream.text_segments),
+            },
+        ] }));
 }
 function payloadSummary(payloads) {
     const entries = Object.entries(payloads);

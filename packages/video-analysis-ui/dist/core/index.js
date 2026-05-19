@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { Badge, EmptyState, Panel, ScoreMeter, StatCard } from "../shared/primitives";
+import { Badge, DataTable, EmptyState, Panel, ScoreMeter, StatCard } from "../shared/primitives";
 import { cn, formatNumber, formatScore, formatSeconds, sceneEndFrame, sceneEndSeconds, sceneIndex, sceneStartFrame, sceneStartSeconds, } from "../shared/utils";
 export function VideoSummaryCards({ video }) {
     return (_jsxs("div", { className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-4", children: [_jsx(StatCard, { label: "Resolution", value: `${video.width}x${video.height}`, detail: video.frame_rate, tone: "sky" }), _jsx(StatCard, { label: "Duration", value: formatSeconds(video.duration_seconds), tone: "emerald" }), _jsx(StatCard, { label: "Frames", value: formatNumber(video.frames_processed), tone: "amber" }), _jsx(StatCard, { label: "Scenes", value: formatNumber(video.scenes.length), tone: "violet" })] }));
@@ -22,17 +22,69 @@ export function SceneTable({ scenes, onSelectScene, }) {
     if (scenes.length === 0) {
         return _jsx(EmptyState, { children: "No scene rows" });
     }
-    return (_jsx("div", { className: "overflow-x-auto", children: _jsxs("table", { className: "min-w-full text-left text-sm", children: [_jsx("thead", { className: "border-b border-zinc-200 text-xs uppercase text-zinc-500", children: _jsxs("tr", { children: [_jsx("th", { className: "px-3 py-2 font-medium", children: "Scene" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Start" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "End" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Frames" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Duration" })] }) }), _jsx("tbody", { className: "divide-y divide-zinc-100", children: scenes.map((scene, index) => {
-                        const start = sceneStartSeconds(scene);
-                        const end = sceneEndSeconds(scene);
-                        return (_jsxs("tr", { className: cn(onSelectScene && "cursor-pointer hover:bg-zinc-50"), onClick: () => onSelectScene?.(scene, index), children: [_jsx("td", { className: "px-3 py-2 font-medium text-zinc-950", children: sceneIndex(scene, index + 1) }), _jsx("td", { className: "px-3 py-2 tabular-nums text-zinc-700", children: formatSeconds(start) }), _jsx("td", { className: "px-3 py-2 tabular-nums text-zinc-700", children: formatSeconds(end) }), _jsxs("td", { className: "px-3 py-2 tabular-nums text-zinc-700", children: [formatNumber(sceneStartFrame(scene)), "-", formatNumber(sceneEndFrame(scene))] }), _jsx("td", { className: "px-3 py-2 tabular-nums text-zinc-700", children: formatSeconds(end - start) })] }, `${sceneStartFrame(scene)}-${sceneEndFrame(scene)}-${index}`));
-                    }) })] }) }));
+    return (_jsx(DataTable, { rows: scenes, getRowKey: (scene, index) => `${sceneStartFrame(scene)}-${sceneEndFrame(scene)}-${index}`, onRowClick: onSelectScene, columns: [
+            {
+                key: "scene",
+                header: "Scene",
+                className: "font-medium text-zinc-950",
+                cell: (scene, index) => sceneIndex(scene, index + 1),
+            },
+            {
+                key: "start",
+                header: "Start",
+                className: "tabular-nums text-zinc-700",
+                cell: (scene) => formatSeconds(sceneStartSeconds(scene)),
+            },
+            {
+                key: "end",
+                header: "End",
+                className: "tabular-nums text-zinc-700",
+                cell: (scene) => formatSeconds(sceneEndSeconds(scene)),
+            },
+            {
+                key: "frames",
+                header: "Frames",
+                className: "tabular-nums text-zinc-700",
+                cell: (scene) => `${formatNumber(sceneStartFrame(scene))}-${formatNumber(sceneEndFrame(scene))}`,
+            },
+            {
+                key: "duration",
+                header: "Duration",
+                className: "tabular-nums text-zinc-700",
+                cell: (scene) => formatSeconds(sceneEndSeconds(scene) - sceneStartSeconds(scene)),
+            },
+        ] }));
 }
 export function ObservationList({ observations, title = "Observations", }) {
     return (_jsx(Panel, { title: title, description: `${formatNumber(observations.length)} results`, children: observations.length === 0 ? (_jsx(EmptyState, { children: "No observations" })) : (_jsx("div", { className: "space-y-3", children: observations.map((observation, index) => (_jsxs("div", { className: "grid gap-3 rounded-lg border border-zinc-200 p-3 sm:grid-cols-[1fr_auto]", children: [_jsxs("div", { className: "min-w-0", children: [_jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [_jsx(Badge, { tone: toneForKind(observation.kind), children: observation.kind }), _jsx("span", { className: "text-sm font-medium text-zinc-950", children: observation.label ?? observation.text ?? "Unlabeled" }), _jsx("span", { className: "text-xs text-zinc-500", children: observation.analyzer })] }), observation.text && observation.text !== observation.label && (_jsx("p", { className: "mt-2 line-clamp-3 text-sm text-zinc-700", children: observation.text })), _jsxs("div", { className: "mt-2 flex flex-wrap gap-2 text-xs text-zinc-500", children: [_jsx("span", { children: formatSeconds(observation.timestamp_seconds) }), observation.frame_index != null && _jsxs("span", { children: ["frame ", formatNumber(observation.frame_index)] }), observation.scene_index != null && _jsxs("span", { children: ["scene ", formatNumber(observation.scene_index)] }), observation.region && (_jsxs("span", { children: ["box ", observation.region.x, ",", observation.region.y, " ", observation.region.width, "x", observation.region.height] }))] })] }), _jsx(ScoreMeter, { value: observation.score })] }, `${observation.analyzer}-${observation.kind}-${observation.frame_index ?? index}-${index}`))) })) }));
 }
 export function EventList({ events, title = "Events", empty = "No events", }) {
-    return (_jsx(Panel, { title: title, description: `${formatNumber(events.length)} results`, children: events.length === 0 ? (_jsx(EmptyState, { children: empty })) : (_jsx("div", { className: "overflow-x-auto", children: _jsxs("table", { className: "min-w-full text-left text-sm", children: [_jsx("thead", { className: "border-b border-zinc-200 text-xs uppercase text-zinc-500", children: _jsxs("tr", { children: [_jsx("th", { className: "px-3 py-2 font-medium", children: "Time" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Analyzer" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Label" }), _jsx("th", { className: "px-3 py-2 font-medium", children: "Score" })] }) }), _jsx("tbody", { className: "divide-y divide-zinc-100", children: events.map((event, index) => (_jsxs("tr", { children: [_jsx("td", { className: "px-3 py-2 tabular-nums text-zinc-700", children: formatSeconds(event.timestamp_seconds) }), _jsx("td", { className: "px-3 py-2 text-zinc-700", children: event.analyzer }), _jsx("td", { className: "px-3 py-2 font-medium text-zinc-950", children: event.label }), _jsx("td", { className: "px-3 py-2 text-zinc-700", children: formatScore(event.score) })] }, `${event.analyzer}-${event.label}-${event.timestamp_seconds ?? index}-${index}`))) })] }) })) }));
+    return (_jsx(Panel, { title: title, description: `${formatNumber(events.length)} results`, children: events.length === 0 ? (_jsx(EmptyState, { children: empty })) : (_jsx(DataTable, { rows: events, getRowKey: (event, index) => `${event.analyzer}-${event.label}-${event.timestamp_seconds ?? index}-${index}`, columns: [
+                {
+                    key: "time",
+                    header: "Time",
+                    className: "tabular-nums text-zinc-700",
+                    cell: (event) => formatSeconds(event.timestamp_seconds),
+                },
+                {
+                    key: "analyzer",
+                    header: "Analyzer",
+                    className: "text-zinc-700",
+                    cell: (event) => event.analyzer,
+                },
+                {
+                    key: "label",
+                    header: "Label",
+                    className: "font-medium text-zinc-950",
+                    cell: (event) => event.label,
+                },
+                {
+                    key: "score",
+                    header: "Score",
+                    className: "text-zinc-700",
+                    cell: (event) => formatScore(event.score),
+                },
+            ] })) }));
 }
 export function ScenePanel({ scenes }) {
     return (_jsxs(Panel, { title: "Scenes", description: `${formatNumber(scenes.length)} detected`, children: [_jsx(SceneTimeline, { scenes: scenes }), _jsx("div", { className: "mt-4", children: _jsx(SceneTable, { scenes: scenes }) })] }));

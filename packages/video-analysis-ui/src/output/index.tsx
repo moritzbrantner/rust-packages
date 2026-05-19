@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { Input } from "@moritzbrantner/ui";
 
 import { Panel } from "../shared/primitives";
 
@@ -40,7 +41,7 @@ export function JsonReportLoader<T>({
 
   return (
     <Panel title={label}>
-      <input
+      <Input
         className="block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 file:mr-4 file:rounded-md file:border-0 file:bg-zinc-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
         type="file"
         accept="application/json,.json"

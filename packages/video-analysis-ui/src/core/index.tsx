@@ -5,7 +5,7 @@ import type {
   TimelineScene,
   VideoReport,
 } from "../types";
-import { Badge, EmptyState, Panel, ScoreMeter, StatCard } from "../shared/primitives";
+import { Badge, DataTable, EmptyState, Panel, ScoreMeter, StatCard } from "../shared/primitives";
 import {
   cn,
   formatNumber,
@@ -97,44 +97,44 @@ export function SceneTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-          <tr>
-            <th className="px-3 py-2 font-medium">Scene</th>
-            <th className="px-3 py-2 font-medium">Start</th>
-            <th className="px-3 py-2 font-medium">End</th>
-            <th className="px-3 py-2 font-medium">Frames</th>
-            <th className="px-3 py-2 font-medium">Duration</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {scenes.map((scene, index) => {
-            const start = sceneStartSeconds(scene);
-            const end = sceneEndSeconds(scene);
-            return (
-              <tr
-                key={`${sceneStartFrame(scene)}-${sceneEndFrame(scene)}-${index}`}
-                className={cn(onSelectScene && "cursor-pointer hover:bg-zinc-50")}
-                onClick={() => onSelectScene?.(scene, index)}
-              >
-                <td className="px-3 py-2 font-medium text-zinc-950">
-                  {sceneIndex(scene, index + 1)}
-                </td>
-                <td className="px-3 py-2 tabular-nums text-zinc-700">{formatSeconds(start)}</td>
-                <td className="px-3 py-2 tabular-nums text-zinc-700">{formatSeconds(end)}</td>
-                <td className="px-3 py-2 tabular-nums text-zinc-700">
-                  {formatNumber(sceneStartFrame(scene))}-{formatNumber(sceneEndFrame(scene))}
-                </td>
-                <td className="px-3 py-2 tabular-nums text-zinc-700">
-                  {formatSeconds(end - start)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      rows={scenes}
+      getRowKey={(scene, index) => `${sceneStartFrame(scene)}-${sceneEndFrame(scene)}-${index}`}
+      onRowClick={onSelectScene}
+      columns={[
+        {
+          key: "scene",
+          header: "Scene",
+          className: "font-medium text-zinc-950",
+          cell: (scene, index) => sceneIndex(scene, index + 1),
+        },
+        {
+          key: "start",
+          header: "Start",
+          className: "tabular-nums text-zinc-700",
+          cell: (scene) => formatSeconds(sceneStartSeconds(scene)),
+        },
+        {
+          key: "end",
+          header: "End",
+          className: "tabular-nums text-zinc-700",
+          cell: (scene) => formatSeconds(sceneEndSeconds(scene)),
+        },
+        {
+          key: "frames",
+          header: "Frames",
+          className: "tabular-nums text-zinc-700",
+          cell: (scene) =>
+            `${formatNumber(sceneStartFrame(scene))}-${formatNumber(sceneEndFrame(scene))}`,
+        },
+        {
+          key: "duration",
+          header: "Duration",
+          className: "tabular-nums text-zinc-700",
+          cell: (scene) => formatSeconds(sceneEndSeconds(scene) - sceneStartSeconds(scene)),
+        },
+      ]}
+    />
   );
 }
 
@@ -201,30 +201,38 @@ export function EventList({
       {events.length === 0 ? (
         <EmptyState>{empty}</EmptyState>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <tr>
-                <th className="px-3 py-2 font-medium">Time</th>
-                <th className="px-3 py-2 font-medium">Analyzer</th>
-                <th className="px-3 py-2 font-medium">Label</th>
-                <th className="px-3 py-2 font-medium">Score</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {events.map((event, index) => (
-                <tr key={`${event.analyzer}-${event.label}-${event.timestamp_seconds ?? index}-${index}`}>
-                  <td className="px-3 py-2 tabular-nums text-zinc-700">
-                    {formatSeconds(event.timestamp_seconds)}
-                  </td>
-                  <td className="px-3 py-2 text-zinc-700">{event.analyzer}</td>
-                  <td className="px-3 py-2 font-medium text-zinc-950">{event.label}</td>
-                  <td className="px-3 py-2 text-zinc-700">{formatScore(event.score)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={events}
+          getRowKey={(event, index) =>
+            `${event.analyzer}-${event.label}-${event.timestamp_seconds ?? index}-${index}`
+          }
+          columns={[
+            {
+              key: "time",
+              header: "Time",
+              className: "tabular-nums text-zinc-700",
+              cell: (event) => formatSeconds(event.timestamp_seconds),
+            },
+            {
+              key: "analyzer",
+              header: "Analyzer",
+              className: "text-zinc-700",
+              cell: (event) => event.analyzer,
+            },
+            {
+              key: "label",
+              header: "Label",
+              className: "font-medium text-zinc-950",
+              cell: (event) => event.label,
+            },
+            {
+              key: "score",
+              header: "Score",
+              className: "text-zinc-700",
+              cell: (event) => formatScore(event.score),
+            },
+          ]}
+        />
       )}
     </Panel>
   );

@@ -1,5 +1,6 @@
+import { cn as mergeClassNames } from "@moritzbrantner/ui/lib/cn";
 export function cn(...classes) {
-    return classes.filter(Boolean).join(" ");
+    return mergeClassNames(classes);
 }
 export function timestampSeconds(timestamp) {
     if (!timestamp) {

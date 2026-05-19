@@ -1,5 +1,5 @@
 import type { TimelineScene } from "../types";
-import { EmptyState, Panel } from "../shared/primitives";
+import { DataTable, Panel } from "../shared/primitives";
 import {
   formatSeconds,
   sceneEndFrame,
@@ -20,43 +20,38 @@ export function SplitPlanTable({
 }) {
   return (
     <Panel title="Split Plan" description={`${scenes.length} output clips`}>
-      {scenes.length === 0 ? (
-        <EmptyState>No scene clips</EmptyState>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <tr>
-                <th className="px-3 py-2 font-medium">Output</th>
-                <th className="px-3 py-2 font-medium">Start</th>
-                <th className="px-3 py-2 font-medium">Duration</th>
-                <th className="px-3 py-2 font-medium">Frames</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {scenes.map((scene, index) => {
-                const number = sceneIndex(scene, index + 1);
-                const start = sceneStartSeconds(scene);
-                const end = sceneEndSeconds(scene);
-                return (
-                  <tr key={`${sceneStartFrame(scene)}-${sceneEndFrame(scene)}-${index}`}>
-                    <td className="px-3 py-2 font-medium text-zinc-950">
-                      {formatOutputName(template, videoName, number, scene)}
-                    </td>
-                    <td className="px-3 py-2 tabular-nums text-zinc-700">{formatSeconds(start)}</td>
-                    <td className="px-3 py-2 tabular-nums text-zinc-700">
-                      {formatSeconds(end - start)}
-                    </td>
-                    <td className="px-3 py-2 tabular-nums text-zinc-700">
-                      {sceneStartFrame(scene)}-{sceneEndFrame(scene)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        rows={scenes}
+        empty="No scene clips"
+        getRowKey={(scene, index) => `${sceneStartFrame(scene)}-${sceneEndFrame(scene)}-${index}`}
+        columns={[
+          {
+            key: "output",
+            header: "Output",
+            className: "font-medium text-zinc-950",
+            cell: (scene, index) =>
+              formatOutputName(template, videoName, sceneIndex(scene, index + 1), scene),
+          },
+          {
+            key: "start",
+            header: "Start",
+            className: "tabular-nums text-zinc-700",
+            cell: (scene) => formatSeconds(sceneStartSeconds(scene)),
+          },
+          {
+            key: "duration",
+            header: "Duration",
+            className: "tabular-nums text-zinc-700",
+            cell: (scene) => formatSeconds(sceneEndSeconds(scene) - sceneStartSeconds(scene)),
+          },
+          {
+            key: "frames",
+            header: "Frames",
+            className: "tabular-nums text-zinc-700",
+            cell: (scene) => `${sceneStartFrame(scene)}-${sceneEndFrame(scene)}`,
+          },
+        ]}
+      />
     </Panel>
   );
 }

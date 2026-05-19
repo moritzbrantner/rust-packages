@@ -21,6 +21,21 @@ export declare function StatCard({ label, value, detail, tone, }: {
 export declare function EmptyState({ children }: {
     children?: ReactNode;
 }): import("react/jsx-runtime").JSX.Element;
+export interface DataTableColumn<T> {
+    key: string;
+    header: ReactNode;
+    cell: (row: T, index: number) => ReactNode;
+    className?: string;
+    headerClassName?: string;
+}
+export declare function DataTable<T>({ rows, columns, getRowKey, empty, onRowClick, rowClassName, }: {
+    rows: T[];
+    columns: Array<DataTableColumn<T>>;
+    getRowKey: (row: T, index: number) => string;
+    empty?: ReactNode;
+    onRowClick?: (row: T, index: number) => void;
+    rowClassName?: (row: T, index: number) => string | false | null | undefined;
+}): import("react/jsx-runtime").JSX.Element;
 export declare function ScoreMeter({ value }: {
     value?: number | null;
 }): import("react/jsx-runtime").JSX.Element;
