@@ -165,6 +165,45 @@ fn image_person_edit_workflow_uses_fake_detector_and_editor() {
 }
 
 #[test]
+fn image_person_edit_workflow_accepts_editor_that_closes_stdin() {
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("input.png");
+    write_image(
+        &input,
+        &OwnedImage::new_rgb(32, 32, vec![220; 32 * 32 * 3]).unwrap(),
+    )
+    .unwrap();
+
+    let detector = write_script(
+        dir.path(),
+        "fake_detector.sh",
+        "#!/bin/sh\nprintf '{\"predictions\":[{\"kind\":\"object\",\"label\":\"person\",\"score\":0.95,\"region\":{\"x\":8,\"y\":8,\"width\":8,\"height\":12},\"attributes\":{}}]}'\n",
+    );
+    let editor = write_script(
+        dir.path(),
+        "fake_editor.sh",
+        "#!/bin/sh\nexec 0<&-\nprintf '{\"status\":\"completed\",\"output_image\":\"edited.png\",\"message\":\"ok\",\"metadata\":{\"backend\":\"fake\"}}'\n",
+    );
+
+    let report = run_image_person_edit(ImagePersonEditRequest {
+        input,
+        work_dir: dir.path().join("work"),
+        prompt: "replace the person with a statue ".repeat(20_000),
+        model: "flux1-dev.safetensors".to_string(),
+        person_detector_command: detector,
+        editor_command: Some(editor),
+        ..ImagePersonEditRequest::default()
+    })
+    .unwrap();
+
+    assert_eq!(report.editing.status, "completed");
+    assert_eq!(
+        report.editing.metadata.get("backend").map(String::as_str),
+        Some("fake")
+    );
+}
+
+#[test]
 fn image_person_edit_workflow_uses_stub_detector_and_planned_comfyui() {
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("input.png");

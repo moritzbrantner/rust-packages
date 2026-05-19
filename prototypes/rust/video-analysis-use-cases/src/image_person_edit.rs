@@ -1,7 +1,7 @@
 //! Internal module support for image person edit.
 
 use std::collections::BTreeMap;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -531,9 +531,14 @@ fn execute_editor(
         .stdin
         .take()
         .ok_or_else(|| DetectError::Source("editor stdin unavailable".to_string()))?;
-    stdin.write_all(&payload)?;
+    let write_result = stdin.write_all(&payload);
     drop(stdin);
     let output = child.wait_with_output()?;
+    if let Err(err) = write_result {
+        if err.kind() != io::ErrorKind::BrokenPipe {
+            return Err(err.into());
+        }
+    }
     if !output.status.success() {
         return Err(DetectError::Source(format!(
             "editor command `{}` failed: {}",
