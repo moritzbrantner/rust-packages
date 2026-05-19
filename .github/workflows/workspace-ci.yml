@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   rust-fast:
@@ -149,6 +150,8 @@ jobs:
         with:
           tool: wasm-pack@0.14.0
       - run: bun install --frozen-lockfile
+        env:
+          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
       - run: bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium
       - run: bun run ui:build
       - run: bun run web:typecheck

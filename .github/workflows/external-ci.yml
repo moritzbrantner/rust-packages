@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   e2e-external:
@@ -79,6 +80,8 @@ jobs:
         with:
           tool: wasm-pack@0.14.0
       - run: bun install --frozen-lockfile
+        env:
+          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
       - run: bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium
       - run: bash scripts/setup_e2e_external_tools.sh fast
       - run: bash scripts/check_e2e_external_tools.sh
