@@ -242,12 +242,48 @@ impl Transform3 {
         Ok(Self { translation, scale })
     }
 
+    /// Creates a translation transform.
+    pub fn translation(translation: Vector3) -> Self {
+        Self {
+            translation,
+            scale: 1.0,
+        }
+    }
+
+    /// Creates a uniform scaling transform.
+    pub fn scaling(scale: f32) -> Result<Self> {
+        Self::new(Vector3::ZERO, scale)
+    }
+
     /// Returns apply point.
     pub fn apply_point(self, point: Point3) -> Point3 {
         Point3::new(
             point.x * self.scale + self.translation.x,
             point.y * self.scale + self.translation.y,
             point.z * self.scale + self.translation.z,
+        )
+    }
+
+    /// Returns apply vector.
+    pub fn apply_vector(self, vector: Vector3) -> Vector3 {
+        vector * self.scale
+    }
+
+    /// Returns inverse.
+    pub fn inverse(self) -> Result<Self> {
+        if !self.translation.is_finite() || !self.scale.is_finite() || self.scale == 0.0 {
+            return Err(invalid_argument(
+                "transform translation must be finite and scale must be finite and non-zero",
+            ));
+        }
+        Self::new(self.translation * (-1.0 / self.scale), 1.0 / self.scale)
+    }
+
+    /// Returns compose.
+    pub fn compose(self, next: Self) -> Result<Self> {
+        Self::new(
+            next.apply_vector(self.translation) + next.translation,
+            self.scale * next.scale,
         )
     }
 }
@@ -358,6 +394,55 @@ impl Quaternion {
                 .mul_add(rhs.w, -(lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z)),
         ))
     }
+
+    /// Returns normalized linear interpolation.
+    pub fn nlerp(self, rhs: Self, t: f32) -> Result<Self> {
+        if !t.is_finite() {
+            return Err(invalid_argument("interpolation factor must be finite"));
+        }
+        let lhs = self.normalize()?;
+        let mut rhs = rhs.normalize()?;
+        if lhs.dot(rhs) < 0.0 {
+            rhs = Self::new(-rhs.x, -rhs.y, -rhs.z, -rhs.w);
+        }
+        Self::new(
+            lhs.x + (rhs.x - lhs.x) * t,
+            lhs.y + (rhs.y - lhs.y) * t,
+            lhs.z + (rhs.z - lhs.z) * t,
+            lhs.w + (rhs.w - lhs.w) * t,
+        )
+        .normalize()
+    }
+
+    /// Returns spherical linear interpolation.
+    pub fn slerp(self, rhs: Self, t: f32) -> Result<Self> {
+        if !t.is_finite() {
+            return Err(invalid_argument("interpolation factor must be finite"));
+        }
+        let lhs = self.normalize()?;
+        let mut rhs = rhs.normalize()?;
+        let mut dot = lhs.dot(rhs);
+        if dot < 0.0 {
+            rhs = Self::new(-rhs.x, -rhs.y, -rhs.z, -rhs.w);
+            dot = -dot;
+        }
+        if dot > 0.9995 {
+            return lhs.nlerp(rhs, t);
+        }
+        let theta_0 = dot.clamp(-1.0, 1.0).acos();
+        let theta = theta_0 * t;
+        let sin_theta = theta.sin();
+        let sin_theta_0 = theta_0.sin();
+        let s0 = theta.cos() - dot * sin_theta / sin_theta_0;
+        let s1 = sin_theta / sin_theta_0;
+        Self::new(
+            lhs.x * s0 + rhs.x * s1,
+            lhs.y * s0 + rhs.y * s1,
+            lhs.z * s0 + rhs.z * s1,
+            lhs.w * s0 + rhs.w * s1,
+        )
+        .normalize()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -455,6 +540,87 @@ impl LineSegment3 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for ray3.
+pub struct Ray3 {
+    /// The origin value.
+    pub origin: Point3,
+    /// Unit direction.
+    pub direction: Vector3,
+}
+
+impl Ray3 {
+    /// Creates a new value.
+    pub fn new(origin: Point3, direction: Vector3) -> Result<Self> {
+        validate_points(&[origin])?;
+        Ok(Self {
+            origin,
+            direction: direction.normalize()?,
+        })
+    }
+
+    /// Returns point at distance.
+    pub fn at(self, distance: f32) -> Result<Point3> {
+        if !distance.is_finite() {
+            return Err(invalid_argument("ray distance must be finite"));
+        }
+        Ok(self.origin + self.direction * distance)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for plane3.
+pub struct Plane3 {
+    /// Unit normal.
+    pub normal: Vector3,
+    /// Signed distance from origin.
+    pub d: f32,
+}
+
+impl Plane3 {
+    /// Creates a new value from a point and normal.
+    pub fn from_point_normal(point: Point3, normal: Vector3) -> Result<Self> {
+        validate_points(&[point])?;
+        let normal = normal.normalize()?;
+        let d = -normal.dot(Vector3::new(point.x, point.y, point.z));
+        Ok(Self { normal, d })
+    }
+
+    /// Returns signed distance to point.
+    pub fn signed_distance(self, point: Point3) -> Result<f32> {
+        validate_points(&[point])?;
+        Ok(self.normal.dot(Vector3::new(point.x, point.y, point.z)) + self.d)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for sphere3.
+pub struct Sphere3 {
+    /// The center value.
+    pub center: Point3,
+    /// The radius value.
+    pub radius: f32,
+}
+
+impl Sphere3 {
+    /// Creates a new value.
+    pub fn new(center: Point3, radius: f32) -> Result<Self> {
+        validate_points(&[center])?;
+        if !radius.is_finite() || radius <= 0.0 {
+            return Err(invalid_argument(
+                "sphere radius must be finite and greater than zero",
+            ));
+        }
+        Ok(Self { center, radius })
+    }
+
+    /// Returns contains point.
+    pub fn contains_point(self, point: Point3) -> Result<bool> {
+        validate_points(&[point])?;
+        Ok(self.center.distance(point) <= self.radius)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for point cloud.
 pub struct PointCloud {
@@ -510,6 +676,11 @@ impl PointCloud {
         center_and_scale(&self.points, target_extent)
             .map(|value| value.map(|points| Self { points }))
     }
+
+    /// Returns nearest point.
+    pub fn nearest_point(&self, query: Point3) -> Result<Option<Point3>> {
+        nearest_point(&self.points, query)
+    }
 }
 
 /// Returns centroid.
@@ -534,6 +705,17 @@ pub fn centroid(points: &[Point3]) -> Result<Option<Point3>> {
 pub fn point_distance(a: Point3, b: Point3) -> Result<f32> {
     validate_points(&[a, b])?;
     Ok(a.distance(b))
+}
+
+/// Returns nearest point.
+pub fn nearest_point(points: &[Point3], query: Point3) -> Result<Option<Point3>> {
+    validate_points(points)?;
+    validate_points(&[query])?;
+    Ok(points.iter().copied().min_by(|a, b| {
+        a.distance(query)
+            .partial_cmp(&b.distance(query))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    }))
 }
 
 /// Returns transform rigid.
@@ -685,5 +867,48 @@ mod tests {
         let extent = bounds.size();
         assert!((extent.y - 2.0).abs() < 0.001);
         assert_eq!(bounds.center(), Point3::new(0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn transform_helpers_round_trip_points() {
+        let transform = Transform3::translation(Vector3::new(2.0, 0.0, 0.0))
+            .compose(Transform3::scaling(3.0).unwrap())
+            .unwrap();
+        let point = Point3::new(1.0, 2.0, 3.0);
+        let transformed = transform.apply_point(point);
+        let recovered = transform.inverse().unwrap().apply_point(transformed);
+        assert!((recovered.x - point.x).abs() < 0.001);
+        assert!((recovered.y - point.y).abs() < 0.001);
+        assert!((recovered.z - point.z).abs() < 0.001);
+    }
+
+    #[test]
+    fn quaternion_slerp_and_spatial_primitives_are_stable() {
+        let identity = Quaternion::IDENTITY;
+        let half_turn =
+            Quaternion::from_axis_angle(Vector3::new(0.0, 0.0, 1.0), std::f32::consts::PI).unwrap();
+        let midpoint = identity.slerp(half_turn, 0.5).unwrap();
+        assert!((midpoint.norm() - 1.0).abs() < 0.001);
+
+        let ray = Ray3::new(Point3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 2.0, 0.0)).unwrap();
+        assert_eq!(ray.at(2.0).unwrap(), Point3::new(0.0, 2.0, 0.0));
+
+        let plane =
+            Plane3::from_point_normal(Point3::new(0.0, 1.0, 0.0), Vector3::new(0.0, 1.0, 0.0))
+                .unwrap();
+        assert!((plane.signed_distance(Point3::new(0.0, 3.0, 0.0)).unwrap() - 2.0).abs() < 0.001);
+
+        let sphere = Sphere3::new(Point3::new(0.0, 0.0, 0.0), 1.0).unwrap();
+        assert!(sphere.contains_point(Point3::new(0.5, 0.0, 0.0)).unwrap());
+    }
+
+    #[test]
+    fn point_cloud_reports_nearest_point() {
+        let cloud =
+            PointCloud::new([Point3::new(-1.0, 0.0, 0.0), Point3::new(2.0, 0.0, 0.0)]).unwrap();
+        assert_eq!(
+            cloud.nearest_point(Point3::new(1.5, 0.0, 0.0)).unwrap(),
+            Some(Point3::new(2.0, 0.0, 0.0))
+        );
     }
 }

@@ -1,12 +1,15 @@
 #![doc = include_str!("../README.md")]
 
+use std::ops::{Add, AddAssign, Div, Mul, Sub};
+
+use serde::{Deserialize, Serialize};
 use video_analysis_core::{BoundingBox, DetectError, Result};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for point2f.
 pub struct Point2f {
     /// The x value.
@@ -44,7 +47,40 @@ impl Point2f {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+impl Add<Vector2f> for Point2f {
+    type Output = Self;
+
+    fn add(self, rhs: Vector2f) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl Sub<Vector2f> for Point2f {
+    type Output = Self;
+
+    fn sub(self, rhs: Vector2f) -> Self::Output {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl Sub<Point2f> for Point2f {
+    type Output = Vector2f;
+
+    fn sub(self, rhs: Point2f) -> Self::Output {
+        Vector2f {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for point2i.
 pub struct Point2i {
     /// The x value.
@@ -60,7 +96,7 @@ impl Point2i {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for vector2f.
 pub struct Vector2f {
     /// The x value.
@@ -90,9 +126,93 @@ impl Vector2f {
         self.validate()?;
         Ok((self.x * self.x + self.y * self.y).sqrt())
     }
+
+    /// Returns dot.
+    pub fn dot(self, rhs: Self) -> Result<f32> {
+        self.validate()?;
+        rhs.validate()?;
+        Ok(self.x.mul_add(rhs.x, self.y * rhs.y))
+    }
+
+    /// Returns cross.
+    pub fn cross(self, rhs: Self) -> Result<f32> {
+        self.validate()?;
+        rhs.validate()?;
+        Ok(self.x.mul_add(rhs.y, -(self.y * rhs.x)))
+    }
+
+    /// Normalizes this value.
+    pub fn normalize(self) -> Result<Self> {
+        let length = self.length()?;
+        if length <= f32::EPSILON {
+            return Err(invalid_argument(
+                "2D vector length must be greater than zero",
+            ));
+        }
+        Self::new(self.x / length, self.y / length)
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+impl Add for Vector2f {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl AddAssign for Vector2f {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl Sub for Vector2f {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl Mul<f32> for Vector2f {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
+    }
+}
+
+impl Mul<Vector2f> for f32 {
+    type Output = Vector2f;
+
+    fn mul(self, rhs: Vector2f) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl Div<f32> for Vector2f {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for size2u.
 pub struct Size2u {
     /// Width in pixels.
@@ -127,7 +247,7 @@ impl Size2u {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for rect u32.
 pub struct RectU32 {
     /// The x value.
@@ -329,7 +449,7 @@ impl TryFrom<RectU32> for BoundingBox {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for rect f32.
 pub struct RectF32 {
     /// The x value.
@@ -476,7 +596,7 @@ impl RectF32 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for normalized point2.
 pub struct NormalizedPoint2 {
     /// The x value.
@@ -523,7 +643,7 @@ impl NormalizedPoint2 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for affine2.
 pub struct Affine2 {
     /// The m11 value.
@@ -638,7 +758,84 @@ impl Affine2 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for line segment2.
+pub struct LineSegment2 {
+    /// The start value.
+    pub start: Point2f,
+    /// The end value.
+    pub end: Point2f,
+}
+
+impl LineSegment2 {
+    /// Creates a new value.
+    pub fn new(start: Point2f, end: Point2f) -> Result<Self> {
+        start.validate()?;
+        end.validate()?;
+        if start == end {
+            return Err(invalid_argument(
+                "line segment start and end must not be identical",
+            ));
+        }
+        Ok(Self { start, end })
+    }
+
+    /// Returns length.
+    pub fn length(self) -> Result<f32> {
+        (self.end - self.start).length()
+    }
+
+    /// Returns midpoint.
+    pub fn midpoint(self) -> Point2f {
+        self.start + ((self.end - self.start) * 0.5)
+    }
+
+    /// Returns direction.
+    pub fn direction(self) -> Result<Vector2f> {
+        (self.end - self.start).normalize()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Data type for circle2.
+pub struct Circle2 {
+    /// The center value.
+    pub center: Point2f,
+    /// The radius value.
+    pub radius: f32,
+}
+
+impl Circle2 {
+    /// Creates a new value.
+    pub fn new(center: Point2f, radius: f32) -> Result<Self> {
+        center.validate()?;
+        if !radius.is_finite() || radius <= 0.0 {
+            return Err(invalid_argument(
+                "circle radius must be finite and greater than zero",
+            ));
+        }
+        Ok(Self { center, radius })
+    }
+
+    /// Returns area.
+    pub fn area(self) -> Result<f32> {
+        self.center.validate()?;
+        if !self.radius.is_finite() || self.radius <= 0.0 {
+            return Err(invalid_argument(
+                "circle radius must be finite and greater than zero",
+            ));
+        }
+        Ok(std::f32::consts::PI * self.radius * self.radius)
+    }
+
+    /// Returns contains point.
+    pub fn contains_point(self, point: Point2f) -> Result<bool> {
+        point.validate()?;
+        Ok((point - self.center).length()? <= self.radius)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for polygon2f.
 pub struct Polygon2f {
     points: Vec<Point2f>,
@@ -690,9 +887,82 @@ impl Polygon2f {
             Point2f { x: max_x, y: max_y },
         )
     }
+
+    /// Returns signed area.
+    pub fn signed_area(&self) -> Result<f32> {
+        self.validate()?;
+        let mut area = 0.0_f32;
+        for index in 0..self.points.len() {
+            let current = self.points[index];
+            let next = self.points[(index + 1) % self.points.len()];
+            area += current.x * next.y - next.x * current.y;
+        }
+        Ok(area * 0.5)
+    }
+
+    /// Returns area.
+    pub fn area(&self) -> Result<f32> {
+        Ok(self.signed_area()?.abs())
+    }
+
+    /// Returns whether this polygon is clockwise.
+    pub fn is_clockwise(&self) -> Result<bool> {
+        Ok(self.signed_area()? < 0.0)
+    }
+
+    /// Returns centroid.
+    pub fn centroid(&self) -> Result<Point2f> {
+        self.validate()?;
+        let signed_area = self.signed_area()?;
+        if signed_area.abs() <= f32::EPSILON {
+            let sum = self
+                .points
+                .iter()
+                .fold(Vector2f { x: 0.0, y: 0.0 }, |sum, point| {
+                    sum + Vector2f {
+                        x: point.x,
+                        y: point.y,
+                    }
+                });
+            return Point2f::new(
+                sum.x / self.points.len() as f32,
+                sum.y / self.points.len() as f32,
+            );
+        }
+        let mut cx = 0.0_f32;
+        let mut cy = 0.0_f32;
+        for index in 0..self.points.len() {
+            let current = self.points[index];
+            let next = self.points[(index + 1) % self.points.len()];
+            let cross = current.x * next.y - next.x * current.y;
+            cx += (current.x + next.x) * cross;
+            cy += (current.y + next.y) * cross;
+        }
+        let scale = 1.0 / (6.0 * signed_area);
+        Point2f::new(cx * scale, cy * scale)
+    }
+
+    /// Returns contains point.
+    pub fn contains_point(&self, point: Point2f) -> Result<bool> {
+        self.validate()?;
+        point.validate()?;
+        let mut inside = false;
+        let mut previous = self.points.len() - 1;
+        for current in 0..self.points.len() {
+            let a = self.points[current];
+            let b = self.points[previous];
+            if ((a.y > point.y) != (b.y > point.y))
+                && point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x
+            {
+                inside = !inside;
+            }
+            previous = current;
+        }
+        Ok(inside)
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for bounds2f.
 pub struct Bounds2f {
     /// The min value.
@@ -756,6 +1026,42 @@ mod tests {
             Some(RectU32::new(5, 5, 5, 5).unwrap())
         );
         assert_eq!(a.union(b).unwrap(), RectU32::new(0, 0, 15, 15).unwrap());
+    }
+
+    #[test]
+    fn vector_and_shape_helpers_cover_common_2d_operations() {
+        let a = Point2f::new(0.0, 0.0).unwrap();
+        let b = Point2f::new(3.0, 4.0).unwrap();
+        let segment = LineSegment2::new(a, b).unwrap();
+        assert_eq!(segment.length().unwrap(), 5.0);
+        assert_eq!(segment.midpoint(), Point2f::new(1.5, 2.0).unwrap());
+
+        let x = Vector2f::new(1.0, 0.0).unwrap();
+        let y = Vector2f::new(0.0, 1.0).unwrap();
+        assert_eq!(x.dot(y).unwrap(), 0.0);
+        assert_eq!(x.cross(y).unwrap(), 1.0);
+
+        let circle = Circle2::new(a, 2.0).unwrap();
+        assert!(circle
+            .contains_point(Point2f::new(1.0, 1.0).unwrap())
+            .unwrap());
+    }
+
+    #[test]
+    fn polygon_reports_area_centroid_winding_and_containment() {
+        let polygon = Polygon2f::new([
+            Point2f::new(0.0, 0.0).unwrap(),
+            Point2f::new(2.0, 0.0).unwrap(),
+            Point2f::new(2.0, 2.0).unwrap(),
+            Point2f::new(0.0, 2.0).unwrap(),
+        ])
+        .unwrap();
+        assert_eq!(polygon.area().unwrap(), 4.0);
+        assert!(!polygon.is_clockwise().unwrap());
+        assert_eq!(polygon.centroid().unwrap(), Point2f::new(1.0, 1.0).unwrap());
+        assert!(polygon
+            .contains_point(Point2f::new(1.0, 1.0).unwrap())
+            .unwrap());
     }
 
     #[test]

@@ -9,9 +9,9 @@ Triangle mesh validation and geometry helpers for `video-analysis`.
 ## Example
 
 ```rust,ignore
-use three_d_processing_mesh::TriangleMesh;
+use three_d_processing_mesh::Mesh;
 
-let mesh = TriangleMesh::new(vec![], vec![])?;
+let mesh = Mesh::new(vec![], vec![])?;
 let _ = mesh.bounds()?;
 ```
 

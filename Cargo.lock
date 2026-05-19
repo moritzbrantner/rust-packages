@@ -53,6 +53,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
+name = "animation-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "three-d-processing-core",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1717,6 +1726,7 @@ checksum = "670fdfda89751bc4a84ac13eaa63e205cf0fd22b4c9a5fbfa085b63c1f1d3a30"
 name = "math-geometry-2d"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "video-analysis-core",
 ]
 
@@ -3273,6 +3283,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "video-analysis"
 version = "0.1.0"
 dependencies = [
+ "animation-core",
  "audio-analysis-core",
  "audio-analysis-fourier",
  "audio-analysis-io",

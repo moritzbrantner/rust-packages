@@ -66,6 +66,29 @@ pub struct MeshTopology {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Data type for mesh diagnostics.
+pub struct MeshDiagnostics {
+    /// Triangle indices whose area is effectively zero.
+    pub degenerate_triangles: Vec<usize>,
+    /// Pairs of vertex indices with identical positions.
+    pub duplicate_vertices: Vec<[usize; 2]>,
+    /// Edges referenced by more than two triangles.
+    pub non_manifold_edges: Vec<Edge>,
+    /// Edges referenced by exactly one triangle.
+    pub boundary_edges: Vec<Edge>,
+}
+
+impl MeshDiagnostics {
+    /// Returns whether any issue was found.
+    pub fn has_issues(&self) -> bool {
+        !self.degenerate_triangles.is_empty()
+            || !self.duplicate_vertices.is_empty()
+            || !self.non_manifold_edges.is_empty()
+            || !self.boundary_edges.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for mesh.
 pub struct Mesh {
     /// The vertices value.
@@ -193,6 +216,26 @@ impl Mesh {
     /// Returns laplacian smooth.
     pub fn laplacian_smooth(&self, iterations: usize, lambda: f32) -> Result<Self> {
         laplacian_smooth(self, iterations, lambda)
+    }
+
+    /// Returns diagnostics.
+    pub fn diagnostics(&self) -> Result<MeshDiagnostics> {
+        mesh_diagnostics(self)
+    }
+
+    /// Returns without degenerate triangles.
+    pub fn remove_degenerate_triangles(&self) -> Result<Self> {
+        remove_degenerate_triangles(self)
+    }
+
+    /// Returns with duplicate vertices welded by distance.
+    pub fn weld_vertices(&self, epsilon: f32) -> Result<Self> {
+        weld_vertices(self, epsilon)
+    }
+
+    /// Returns with triangle winding reversed.
+    pub fn flip_winding(&self) -> Result<Self> {
+        flip_winding(self)
     }
 }
 
@@ -370,6 +413,114 @@ pub fn is_watertight(mesh: &Mesh) -> Result<bool> {
         }
     }
     Ok(edge_counts.values().all(|count| *count == 2))
+}
+
+/// Returns mesh diagnostics.
+pub fn mesh_diagnostics(mesh: &Mesh) -> Result<MeshDiagnostics> {
+    mesh.validate()?;
+    let mut edge_counts: BTreeMap<Edge, usize> = BTreeMap::new();
+    let mut degenerate_triangles = Vec::new();
+    for (triangle_index, triangle) in mesh.triangles.iter().copied().enumerate() {
+        if triangle_area(mesh, triangle)? <= f32::EPSILON {
+            degenerate_triangles.push(triangle_index);
+        }
+        for edge in triangle.edges()? {
+            *edge_counts.entry(edge).or_default() += 1;
+        }
+    }
+
+    let mut duplicate_vertices = Vec::new();
+    for left in 0..mesh.vertices.len() {
+        for right in (left + 1)..mesh.vertices.len() {
+            if mesh.vertices[left] == mesh.vertices[right] {
+                duplicate_vertices.push([left, right]);
+            }
+        }
+    }
+
+    let non_manifold_edges = edge_counts
+        .iter()
+        .filter_map(|(edge, count)| (*count > 2).then_some(*edge))
+        .collect();
+    let boundary_edges = edge_counts
+        .iter()
+        .filter_map(|(edge, count)| (*count == 1).then_some(*edge))
+        .collect();
+
+    Ok(MeshDiagnostics {
+        degenerate_triangles,
+        duplicate_vertices,
+        non_manifold_edges,
+        boundary_edges,
+    })
+}
+
+/// Returns without degenerate triangles.
+pub fn remove_degenerate_triangles(mesh: &Mesh) -> Result<Mesh> {
+    mesh.validate()?;
+    Mesh::new(
+        mesh.vertices.clone(),
+        mesh.triangles
+            .iter()
+            .copied()
+            .filter(|triangle| triangle_area(mesh, *triangle).unwrap_or(0.0) > f32::EPSILON)
+            .collect::<Vec<_>>(),
+    )
+}
+
+/// Returns with duplicate vertices welded by distance.
+pub fn weld_vertices(mesh: &Mesh, epsilon: f32) -> Result<Mesh> {
+    mesh.validate()?;
+    if !epsilon.is_finite() || epsilon < 0.0 {
+        return Err(invalid_argument(
+            "weld epsilon must be finite and non-negative",
+        ));
+    }
+    let mut vertices = Vec::new();
+    let mut remap = Vec::with_capacity(mesh.vertices.len());
+    for vertex in &mesh.vertices {
+        let existing = vertices
+            .iter()
+            .position(|candidate: &Point3| candidate.distance(*vertex) <= epsilon);
+        let index = existing.unwrap_or_else(|| {
+            let next = vertices.len();
+            vertices.push(*vertex);
+            next
+        });
+        remap.push(index);
+    }
+    let triangles = mesh
+        .triangles
+        .iter()
+        .filter_map(|triangle| {
+            let remapped = [
+                remap[triangle.vertices[0]],
+                remap[triangle.vertices[1]],
+                remap[triangle.vertices[2]],
+            ];
+            (remapped[0] != remapped[1] && remapped[1] != remapped[2] && remapped[0] != remapped[2])
+                .then_some(Triangle { vertices: remapped })
+        })
+        .collect::<Vec<_>>();
+    Mesh::new(vertices, triangles)
+}
+
+/// Returns with triangle winding reversed.
+pub fn flip_winding(mesh: &Mesh) -> Result<Mesh> {
+    mesh.validate()?;
+    Mesh::new(
+        mesh.vertices.clone(),
+        mesh.triangles
+            .iter()
+            .map(|triangle| Triangle {
+                vertices: [
+                    triangle.vertices[0],
+                    triangle.vertices[2],
+                    triangle.vertices[1],
+                ],
+            })
+            .collect::<Vec<_>>(),
+    )
 }
 
 /// Returns volume.
@@ -581,5 +732,49 @@ mod tests {
             .transformed_rigid(RigidTransform3::new(rotation, Vector3::new(1.0, 0.0, 0.0)).unwrap())
             .unwrap();
         assert_eq!(transformed.triangles.len(), mesh.triangles.len());
+    }
+
+    #[test]
+    fn diagnostics_report_degenerate_duplicates_and_boundaries() {
+        let mesh = Mesh::new(
+            [
+                Point3::new(0.0, 0.0, 0.0),
+                Point3::new(1.0, 0.0, 0.0),
+                Point3::new(2.0, 0.0, 0.0),
+                Point3::new(0.0, 0.0, 0.0),
+            ],
+            [Triangle::new(0, 1, 2)],
+        )
+        .unwrap();
+        let diagnostics = mesh.diagnostics().unwrap();
+        assert_eq!(diagnostics.degenerate_triangles, vec![0]);
+        assert_eq!(diagnostics.duplicate_vertices, vec![[0, 3]]);
+        assert_eq!(diagnostics.boundary_edges.len(), 3);
+        assert!(diagnostics.has_issues());
+    }
+
+    #[test]
+    fn repair_helpers_remove_degenerates_weld_vertices_and_flip_winding() {
+        let mesh = Mesh::new(
+            [
+                Point3::new(0.0, 0.0, 0.0),
+                Point3::new(1.0, 0.0, 0.0),
+                Point3::new(0.0, 1.0, 0.0),
+                Point3::new(0.0, 0.0, 0.0),
+                Point3::new(2.0, 0.0, 0.0),
+            ],
+            [Triangle::new(0, 1, 2), Triangle::new(0, 3, 4)],
+        )
+        .unwrap();
+        assert_eq!(
+            mesh.remove_degenerate_triangles().unwrap().triangles.len(),
+            1
+        );
+        let welded = mesh.weld_vertices(0.0).unwrap();
+        assert_eq!(welded.vertices.len(), 4);
+        assert_eq!(welded.triangles.len(), 1);
+
+        let flipped = single_triangle().flip_winding().unwrap();
+        assert_eq!(flipped.triangles[0], Triangle::new(0, 2, 1));
     }
 }

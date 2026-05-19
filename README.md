@@ -15,7 +15,7 @@ workspace licensing terms.
 
 Rust crates are grouped under `crates/` by input or integration domain:
 `audio/`, `video/`, `image/`, `text/`, `vector/`, `data/`, `math/`,
-`three-d/`, and `comfyui/`.
+`animation/`, `three-d/`, and `comfyui/`.
 
 Package README index:
 
@@ -23,6 +23,7 @@ Package README index:
 - Audio: [`audio-analysis-core`](crates/audio/audio-analysis-core/README.md), [`audio-generation-midi`](crates/audio/audio-generation-midi/README.md), [`audio-analysis-fourier`](crates/audio/audio-analysis-fourier/README.md), [`audio-analysis-io`](crates/audio/audio-analysis-io/README.md), [`audio-analysis-pitch`](crates/audio/audio-analysis-pitch/README.md), [`audio-analysis-processing`](crates/audio/audio-analysis-processing/README.md), [`audio-analysis-recognition`](crates/audio/audio-analysis-recognition/README.md), [`audio-analysis-rhythm`](crates/audio/audio-analysis-rhythm/README.md), [`audio-analysis-separation`](crates/audio/audio-analysis-separation/README.md), [`audio-analysis-speakers`](crates/audio/audio-analysis-speakers/README.md), [`audio-analysis-synthesis`](crates/audio/audio-analysis-synthesis/README.md)
 - ComfyUI: [`comfyui-data`](crates/comfyui/comfyui-data/README.md), [`comfyui-latents`](crates/comfyui/comfyui-latents/README.md), [`comfyui-models`](crates/comfyui/comfyui-models/README.md)
 - Data: [`data-inversion-core`](crates/data/data-inversion-core/README.md), [`graph-analysis-core`](crates/data/graph-analysis-core/README.md), [`numbers-core`](crates/data/numbers-core/README.md), [`tensor-data`](crates/data/tensor-data/README.md), [`dense-data`](crates/data/dense-data/README.md)
+- Animation: [`animation-core`](crates/animation/animation-core/README.md)
 - Math: [`finance-statistics`](crates/math/finance-statistics/README.md), [`math-geometry-2d`](crates/math/math-geometry-2d/README.md), [`math-linear`](crates/math/math-linear/README.md), [`math-signal-core`](crates/math/math-signal-core/README.md), [`math-sparse-data`](crates/math/math-sparse-data/README.md), [`math-statistics`](crates/math/math-statistics/README.md)
 - Image: [`image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-io`](crates/image/image-analysis-io/README.md), [`image-analysis-models`](crates/image/image-analysis-models/README.md), [`image-analysis-onnx`](crates/image/image-analysis-onnx/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
 - Text: [`text-analysis-core`](crates/text/text-analysis-core/README.md), [`text-analysis-corpus`](crates/text/text-analysis-corpus/README.md), [`text-analysis-features`](crates/text/text-analysis-features/README.md), [`text-analysis-linguistics`](crates/text/text-analysis-linguistics/README.md), [`text-analysis-models`](crates/text/text-analysis-models/README.md), [`text-analysis-prediction`](crates/text/text-analysis-prediction/README.md), [`text-analysis-retrieval`](crates/text/text-analysis-retrieval/README.md), [`text-analysis-retrieval-storage`](crates/text/text-analysis-retrieval-storage/README.md), [`text-analysis-search`](crates/text/text-analysis-search/README.md), [`text-analysis-semantics`](crates/text/text-analysis-semantics/README.md), [`text-analysis-synthesis`](crates/text/text-analysis-synthesis/README.md), [`text-analysis-transcription`](crates/text/text-analysis-transcription/README.md)
@@ -144,6 +145,8 @@ Package README index:
   per-dimension summaries, fixed-grid buckets, bounds, and deterministic
   k-means clustering for tables, graphs, charts, maps, and media-derived
   features.
+- `animation-core`: timeline, keyframe, track, transform track, skeleton, and
+  clip contracts for reusable animation workflows.
 - `three-d-processing-core`: 3D points, vectors, quaternions, rigid transforms,
   line segments, point clouds, voxel downsampling, and normalization helpers.
 - `three-d-processing-io`: `OBJ`, `PLY`, and minimal embedded `.gltf`

@@ -1,10 +1,10 @@
 [package]
-name = "math-geometry-2d"
+name = "animation-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Shared 2D geometry contracts for multimodal image, video, and layout processing."
+description = "Shared timeline, keyframe, track, clip, and skeleton contracts for animation workflows."
 readme = "README.md"
 repository.workspace = true
 homepage.workspace = true
@@ -14,4 +14,5 @@ categories.workspace = true
 
 [dependencies]
 serde.workspace = true
+three-d-processing-core.workspace = true
 video-analysis-core.workspace = true

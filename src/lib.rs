@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+/// Re-exports the animation core API.
+pub use animation_core as animation;
 /// Re-exports the audio core API.
 pub use audio_analysis_core as audio_core;
 /// Re-exports the audio fourier API.

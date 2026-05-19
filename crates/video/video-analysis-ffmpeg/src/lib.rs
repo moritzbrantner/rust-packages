@@ -75,19 +75,14 @@ pub struct AudioMetadata {
     pub duration_seconds: Option<f64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// Runtime backend used by FFmpeg integration APIs.
 pub enum FfmpegRuntimeBackend {
     /// Native `ffmpeg-next` backend.
     Native,
     /// External `ffmpeg`/`ffprobe` command backend.
+    #[default]
     Command,
-}
-
-impl Default for FfmpegRuntimeBackend {
-    fn default() -> Self {
-        Self::Command
-    }
 }
 
 #[derive(Debug, Clone, Default)]

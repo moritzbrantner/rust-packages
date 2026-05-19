@@ -15,6 +15,7 @@ categories = ["multimedia", "computer-vision", "science", "algorithms"]
 [workspace]
 members = [
     ".",
+    "crates/animation/animation-core",
     "crates/bindings/text-core-wasm",
     "crates/audio/audio-analysis-core",
     "crates/audio/audio-generation-midi",
@@ -143,6 +144,7 @@ candle-core = "0.10.2"
 candle-nn = "0.10.2"
 candle-transformers = "0.10.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+animation-core = { version = "0.1.0", path = "crates/animation/animation-core" }
 comfyui-data = { version = "0.1.0", path = "crates/comfyui/comfyui-data" }
 comfyui-latents = { version = "0.1.0", path = "crates/comfyui/comfyui-latents" }
 comfyui-models = { version = "0.1.0", path = "crates/comfyui/comfyui-models" }
@@ -237,6 +239,7 @@ ffmpeg-tests = ["ffmpeg-backend"]
 onnx-backend = ["onnx"]
 
 [dependencies]
+animation-core.workspace = true
 video-analysis-core.workspace = true
 video-analysis-data.workspace = true
 video-analysis-dataset.workspace = true
