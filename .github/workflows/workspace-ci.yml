@@ -149,7 +149,7 @@ jobs:
         with:
           tool: wasm-pack@0.14.0
       - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps chromium
+      - run: bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium
       - run: bun run ui:build
       - run: bun run web:typecheck
       - run: bun run web:build

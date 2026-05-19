@@ -9,7 +9,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "bunx vite --host 127.0.0.1 --port 4174 --config e2e/vite.config.ts",
+    command: "bun run vite --host 127.0.0.1 --port 4174 --config e2e/vite.config.ts",
     url: "http://127.0.0.1:4174/e2e/",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
