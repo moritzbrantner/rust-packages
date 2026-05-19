@@ -1,0 +1,275 @@
+#!/usr/bin/env python3
+"""Generate the workspace crate dependency chart from Cargo metadata."""
+
+from __future__ import annotations
+
+import argparse
+import difflib
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+
+SCRIPT_PATH = Path(__file__).resolve()
+ROOT_DIR = SCRIPT_PATH.parents[1]
+DEFAULT_OUTPUT = ROOT_DIR / "docs" / "DEPENDENCY_GRAPH.md"
+
+GROUP_ORDER = {
+    "Root": 0,
+    "Data": 10,
+    "Math": 20,
+    "Audio": 30,
+    "Image": 40,
+    "Text": 50,
+    "Vector": 60,
+    "Three-D": 70,
+    "Video": 80,
+    "ComfyUI": 90,
+    "Bindings": 100,
+    "Test Support": 110,
+    "Prototypes": 120,
+    "Other": 130,
+}
+
+GROUP_NAMES = {
+    "audio": "Audio",
+    "bindings": "Bindings",
+    "comfyui": "ComfyUI",
+    "data": "Data",
+    "image": "Image",
+    "math": "Math",
+    "test-support": "Test Support",
+    "text": "Text",
+    "three-d": "Three-D",
+    "vector": "Vector",
+    "video": "Video",
+}
+
+EDGE_RANK = {
+    "normal": 0,
+    "build": 1,
+    "optional": 2,
+    "build optional": 3,
+    "dev": 4,
+}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate docs/DEPENDENCY_GRAPH.md from cargo metadata."
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="fail if the generated output differs from the file on disk",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_OUTPUT,
+        help=f"output path, default: {DEFAULT_OUTPUT.relative_to(ROOT_DIR)}",
+    )
+    return parser.parse_args()
+
+
+def load_metadata(*, locked: bool) -> dict:
+    command = ["cargo", "metadata", "--format-version", "1", "--no-deps"]
+    if locked:
+        command.append("--locked")
+
+    result = subprocess.run(
+        command,
+        cwd=ROOT_DIR,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+    )
+    return json.loads(result.stdout)
+
+
+def node_id(name: str) -> str:
+    return "crate_" + re.sub(r"[^A-Za-z0-9_]", "_", name)
+
+
+def mermaid_label(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def package_group(package: dict, workspace_root: Path) -> str:
+    manifest_path = Path(package["manifest_path"])
+    relative = manifest_path.relative_to(workspace_root)
+    parts = relative.parts
+
+    if parts == ("Cargo.toml",):
+        return "Root"
+    if len(parts) >= 2 and parts[0] == "crates":
+        return GROUP_NAMES.get(parts[1], parts[1].replace("-", " ").title())
+    if parts and parts[0] == "prototypes":
+        return "Prototypes"
+    return "Other"
+
+
+def package_sort_key(package: dict, workspace_root: Path) -> Tuple[int, str, str]:
+    group = package_group(package, workspace_root)
+    return (GROUP_ORDER.get(group, GROUP_ORDER["Other"]), group, package["name"])
+
+
+def edge_kind(dependency: dict) -> str:
+    kind = dependency["kind"] or "normal"
+    optional = dependency.get("optional", False)
+
+    if kind == "dev":
+        return "dev"
+    if kind == "build":
+        return "build optional" if optional else "build"
+    return "optional" if optional else "normal"
+
+
+def merge_edge_kind(existing: Optional[str], candidate: str) -> str:
+    if existing is None:
+        return candidate
+    return existing if EDGE_RANK[existing] <= EDGE_RANK[candidate] else candidate
+
+
+def edge_line(source: str, target: str, kind: str) -> str:
+    if kind == "normal":
+        return f"  {source} --> {target}"
+    if kind == "build":
+        return f"  {source} ==> {target}"
+    if kind == "optional":
+        return f"  {source} -. optional .-> {target}"
+    if kind == "build optional":
+        return f"  {source} -. build-optional .-> {target}"
+    if kind == "dev":
+        return f"  {source} -. dev .-> {target}"
+    raise ValueError(f"unknown edge kind: {kind}")
+
+
+def render(metadata: dict) -> str:
+    workspace_root = Path(metadata["workspace_root"])
+    workspace_member_ids = set(metadata["workspace_members"])
+    packages = [
+        package
+        for package in metadata["packages"]
+        if package["id"] in workspace_member_ids
+    ]
+    packages.sort(key=lambda package: package_sort_key(package, workspace_root))
+
+    packages_by_name = {package["name"]: package for package in packages}
+    groups: Dict[str, List[dict]] = {}
+    for package in packages:
+        groups.setdefault(package_group(package, workspace_root), []).append(package)
+
+    edges: Dict[Tuple[str, str], str] = {}
+    for package in packages:
+        source_name = package["name"]
+        for dependency in package["dependencies"]:
+            target_name = dependency["name"]
+            if target_name not in packages_by_name:
+                continue
+            key = (source_name, target_name)
+            edges[key] = merge_edge_kind(edges.get(key), edge_kind(dependency))
+
+    lines = [
+        "# Workspace Crate Dependency Graph",
+        "",
+        "<!-- Generated by scripts/generate_dependency_chart.py; do not edit by hand. -->",
+        "",
+        "This Mermaid chart is generated from `cargo metadata --no-deps` and",
+        "includes every workspace crate as a node. Only internal workspace",
+        "dependency edges are shown, so third-party crates are intentionally",
+        "omitted.",
+        "",
+        "Regenerate it after changing workspace crates or internal dependencies:",
+        "",
+        "```bash",
+        "python3 scripts/generate_dependency_chart.py",
+        "```",
+        "",
+        "Check that the committed chart is current:",
+        "",
+        "```bash",
+        "python3 scripts/generate_dependency_chart.py --check",
+        "```",
+        "",
+        "Mermaid is rendered by standard Markdown viewers that support it, including GitHub.",
+        "",
+        "Legend:",
+        "",
+        "- `-->`: required normal dependency",
+        "- `-. optional .->`: optional normal dependency",
+        "- `==>`: build dependency",
+        "- `-. dev .->`: dev-only dependency",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        '  classDef root fill:#f7f7f7,stroke:#666,stroke-width:2px',
+        '  classDef crate fill:#fff,stroke:#777,stroke-width:1px',
+    ]
+
+    for group in sorted(
+        groups,
+        key=lambda name: (GROUP_ORDER.get(name, GROUP_ORDER["Other"]), name),
+    ):
+        group_id = "group_" + re.sub(r"[^A-Za-z0-9_]", "_", group.lower())
+        lines.append(f'  subgraph {group_id}["{mermaid_label(group)}"]')
+        lines.append("    direction TB")
+        for package in groups[group]:
+            class_name = "root" if group == "Root" else "crate"
+            package_node_id = node_id(package["name"])
+            package_label = mermaid_label(package["name"])
+            lines.append(f'    {package_node_id}["{package_label}"]:::{class_name}')
+        lines.append("  end")
+        lines.append("")
+
+    for (source_name, target_name), kind in sorted(
+        edges.items(),
+        key=lambda item: (
+            package_sort_key(packages_by_name[item[0][0]], workspace_root),
+            package_sort_key(packages_by_name[item[0][1]], workspace_root),
+            item[1],
+        ),
+    ):
+        lines.append(edge_line(node_id(source_name), node_id(target_name), kind))
+
+    lines.extend(
+        [
+            "```",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def main() -> int:
+    args = parse_args()
+    output_path = args.output if args.output.is_absolute() else ROOT_DIR / args.output
+    generated = render(load_metadata(locked=args.check))
+
+    if args.check:
+        existing = output_path.read_text() if output_path.exists() else ""
+        if existing == generated:
+            return 0
+        diff = difflib.unified_diff(
+            existing.splitlines(keepends=True),
+            generated.splitlines(keepends=True),
+            fromfile=str(output_path.relative_to(ROOT_DIR)),
+            tofile="generated",
+        )
+        sys.stderr.write(
+            f"{output_path.relative_to(ROOT_DIR)} is out of date; run "
+            "python3 scripts/generate_dependency_chart.py\n"
+        )
+        sys.stderr.writelines(diff)
+        return 1
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(generated)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

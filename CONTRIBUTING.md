@@ -11,6 +11,14 @@ Package surfaces use matching test layers: Rust libraries keep unit tests close
 to implementation code, CLI and API adapters use integration tests, and UI
 packages use browser e2e tests.
 
+The generated all-crate dependency chart lives in
+[docs/DEPENDENCY_GRAPH.md](docs/DEPENDENCY_GRAPH.md). Regenerate it after
+changing workspace crate membership or internal dependencies:
+
+```bash
+python3 scripts/generate_dependency_chart.py
+```
+
 Use the fast baseline for normal code changes. Use the full baseline before release-oriented changes or when you touch external-tool integrations.
 Before tagging or publishing crates, also require `cargo doc --workspace --no-deps`
 and the package dry-run checklist in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
