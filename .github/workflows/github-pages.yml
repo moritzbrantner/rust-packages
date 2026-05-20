@@ -140,6 +140,23 @@ jobs:
           console.log(`Configured GitHub Pages base path: ${pagesBasePath}`);
           BUN
           bun "$RUNNER_TEMP/configure-pages.ts"
+      - name: Verify GitHub Packages token
+        env:
+          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_PACKAGES_TOKEN:-}" ]; then
+            echo "::error::GH_PACKAGES_TOKEN is empty; configure a token with read access to @moritzbrantner/ui."
+            exit 1
+          fi
+          status="$(curl -sS -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${GH_PACKAGES_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://npm.pkg.github.com/@moritzbrantner%2Fui")"
+          if [ "${status}" != "200" ]; then
+            echo "::error::GH_PACKAGES_TOKEN cannot read @moritzbrantner/ui from GitHub Packages (HTTP ${status})."
+            exit 1
+          fi
       - run: bun install --frozen-lockfile --ignore-scripts
         env:
           GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN || github.token }}
