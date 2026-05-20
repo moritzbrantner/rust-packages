@@ -6,10 +6,11 @@ PySceneDetect-style video analysis implementation; the vendored
 `references/pyscenedetect` directory is used only as an upstream behavior
 reference.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for local verification and tool setup,
-[SECURITY.md](SECURITY.md) for vulnerability reporting, and the root
-[LICENSE-MIT](LICENSE-MIT) / [LICENSE-APACHE](LICENSE-APACHE) files for the
-workspace licensing terms.
+See [AGENTS.md](AGENTS.md) for Codex/T3 agent instructions,
+[docs/development.md](docs/development.md) and [CONTRIBUTING.md](CONTRIBUTING.md)
+for local verification and tool setup, [SECURITY.md](SECURITY.md) for
+vulnerability reporting, and the root [LICENSE-MIT](LICENSE-MIT) /
+[LICENSE-APACHE](LICENSE-APACHE) files for the workspace licensing terms.
 
 ## Crates
 

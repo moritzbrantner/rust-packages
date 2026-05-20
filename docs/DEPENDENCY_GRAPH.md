@@ -66,8 +66,10 @@ flowchart LR
     crate_audio_analysis_recognition["audio-analysis-recognition"]:::crate
     crate_audio_analysis_rhythm["audio-analysis-rhythm"]:::crate
     crate_audio_analysis_separation["audio-analysis-separation"]:::crate
+    crate_audio_analysis_speakers["audio-analysis-speakers"]:::crate
     crate_audio_analysis_synthesis["audio-analysis-synthesis"]:::crate
     crate_audio_analysis_test_support["audio-analysis-test-support"]:::crate
+    crate_audio_generation_midi["audio-generation-midi"]:::crate
   end
 
   subgraph group_image["Image"]
@@ -111,11 +113,13 @@ flowchart LR
     crate_three_d_processing_core["three-d-processing-core"]:::crate
     crate_three_d_processing_io["three-d-processing-io"]:::crate
     crate_three_d_processing_mesh["three-d-processing-mesh"]:::crate
+    crate_three_d_scene_svg["three-d-scene-svg"]:::crate
   end
 
   subgraph group_video["Video"]
     direction TB
     crate_video_analysis_cli["video-analysis-cli"]:::crate
+    crate_video_analysis_colmap_backend["video-analysis-colmap-backend"]:::crate
     crate_video_analysis_core["video-analysis-core"]:::crate
     crate_video_analysis_data["video-analysis-data"]:::crate
     crate_video_analysis_dataset["video-analysis-dataset"]:::crate
@@ -126,7 +130,9 @@ flowchart LR
     crate_video_analysis_gaussian_splatting["video-analysis-gaussian-splatting"]:::crate
     crate_video_analysis_ingest["video-analysis-ingest"]:::crate
     crate_video_analysis_models["video-analysis-models"]:::crate
+    crate_video_analysis_mvs["video-analysis-mvs"]:::crate
     crate_video_analysis_onnx["video-analysis-onnx"]:::crate
+    crate_video_analysis_opencv_backend["video-analysis-opencv-backend"]:::crate
     crate_video_analysis_output["video-analysis-output"]:::crate
     crate_video_analysis_posture["video-analysis-posture"]:::crate
     crate_video_analysis_posture_io["video-analysis-posture-io"]:::crate
@@ -136,6 +142,8 @@ flowchart LR
     crate_video_analysis_recognition["video-analysis-recognition"]:::crate
     crate_video_analysis_reconstruction["video-analysis-reconstruction"]:::crate
     crate_video_analysis_segmentation["video-analysis-segmentation"]:::crate
+    crate_video_analysis_sfm["video-analysis-sfm"]:::crate
+    crate_video_analysis_sfm_rust_backend["video-analysis-sfm-rust-backend"]:::crate
     crate_video_analysis_split["video-analysis-split"]:::crate
     crate_video_analysis_storage["video-analysis-storage"]:::crate
     crate_video_analysis_synthesis["video-analysis-synthesis"]:::crate
@@ -165,6 +173,11 @@ flowchart LR
     crate_video_analysis_use_cases["video-analysis-use-cases"]:::crate
   end
 
+  subgraph group_animation["Animation"]
+    direction TB
+    crate_animation_core["animation-core"]:::crate
+  end
+
   crate_video_analysis --> crate_data_inversion_core
   crate_video_analysis --> crate_dense_data
   crate_video_analysis --> crate_graph_analysis_core
@@ -184,7 +197,9 @@ flowchart LR
   crate_video_analysis --> crate_audio_analysis_recognition
   crate_video_analysis --> crate_audio_analysis_rhythm
   crate_video_analysis --> crate_audio_analysis_separation
+  crate_video_analysis --> crate_audio_analysis_speakers
   crate_video_analysis --> crate_audio_analysis_synthesis
+  crate_video_analysis --> crate_audio_generation_midi
   crate_video_analysis --> crate_image_analysis_comfyui
   crate_video_analysis --> crate_image_analysis_core
   crate_video_analysis --> crate_image_analysis_detection
@@ -211,6 +226,8 @@ flowchart LR
   crate_video_analysis --> crate_three_d_processing_core
   crate_video_analysis --> crate_three_d_processing_io
   crate_video_analysis --> crate_three_d_processing_mesh
+  crate_video_analysis --> crate_three_d_scene_svg
+  crate_video_analysis --> crate_video_analysis_colmap_backend
   crate_video_analysis --> crate_video_analysis_core
   crate_video_analysis --> crate_video_analysis_data
   crate_video_analysis --> crate_video_analysis_dataset
@@ -221,7 +238,9 @@ flowchart LR
   crate_video_analysis --> crate_video_analysis_gaussian_splatting
   crate_video_analysis --> crate_video_analysis_ingest
   crate_video_analysis --> crate_video_analysis_models
+  crate_video_analysis --> crate_video_analysis_mvs
   crate_video_analysis -. optional .-> crate_video_analysis_onnx
+  crate_video_analysis --> crate_video_analysis_opencv_backend
   crate_video_analysis --> crate_video_analysis_output
   crate_video_analysis --> crate_video_analysis_posture
   crate_video_analysis --> crate_video_analysis_posture_io
@@ -230,6 +249,8 @@ flowchart LR
   crate_video_analysis --> crate_video_analysis_recognition
   crate_video_analysis --> crate_video_analysis_reconstruction
   crate_video_analysis --> crate_video_analysis_segmentation
+  crate_video_analysis --> crate_video_analysis_sfm
+  crate_video_analysis --> crate_video_analysis_sfm_rust_backend
   crate_video_analysis --> crate_video_analysis_split
   crate_video_analysis --> crate_video_analysis_storage
   crate_video_analysis --> crate_video_analysis_synthesis
@@ -238,6 +259,7 @@ flowchart LR
   crate_video_analysis --> crate_comfyui_data
   crate_video_analysis --> crate_comfyui_latents
   crate_video_analysis --> crate_comfyui_models
+  crate_video_analysis --> crate_animation_core
   crate_data_inversion_core --> crate_video_analysis_core
   crate_dense_data --> crate_numbers_core
   crate_dense_data --> crate_math_linear
@@ -281,9 +303,15 @@ flowchart LR
   crate_audio_analysis_rhythm --> crate_audio_analysis_core
   crate_audio_analysis_rhythm --> crate_video_analysis_core
   crate_audio_analysis_separation --> crate_video_analysis_core
+  crate_audio_analysis_speakers --> crate_audio_analysis_core
+  crate_audio_analysis_speakers --> crate_audio_analysis_recognition
+  crate_audio_analysis_speakers --> crate_video_analysis_core
   crate_audio_analysis_synthesis --> crate_data_inversion_core
   crate_audio_analysis_synthesis --> crate_video_analysis_core
   crate_audio_analysis_test_support --> crate_video_analysis_core
+  crate_audio_generation_midi --> crate_data_inversion_core
+  crate_audio_generation_midi --> crate_audio_analysis_synthesis
+  crate_audio_generation_midi --> crate_video_analysis_core
   crate_image_analysis_comfyui --> crate_video_analysis_core
   crate_image_analysis_comfyui --> crate_comfyui_data
   crate_image_analysis_comfyui --> crate_comfyui_models
@@ -374,6 +402,9 @@ flowchart LR
   crate_three_d_processing_io --> crate_video_analysis_core
   crate_three_d_processing_mesh --> crate_three_d_processing_core
   crate_three_d_processing_mesh --> crate_video_analysis_core
+  crate_three_d_scene_svg --> crate_three_d_processing_core
+  crate_three_d_scene_svg --> crate_three_d_processing_mesh
+  crate_three_d_scene_svg --> crate_video_analysis_core
   crate_video_analysis_cli --> crate_three_d_processing_core
   crate_video_analysis_cli --> crate_three_d_processing_io
   crate_video_analysis_cli --> crate_video_analysis_core
@@ -385,6 +416,11 @@ flowchart LR
   crate_video_analysis_cli --> crate_video_analysis_posture
   crate_video_analysis_cli --> crate_video_analysis_posture_io
   crate_video_analysis_cli --> crate_video_analysis_split
+  crate_video_analysis_colmap_backend --> crate_video_analysis_core
+  crate_video_analysis_colmap_backend --> crate_video_analysis_radiance_fields
+  crate_video_analysis_colmap_backend --> crate_video_analysis_radiance_io
+  crate_video_analysis_colmap_backend --> crate_video_analysis_reconstruction
+  crate_video_analysis_colmap_backend --> crate_video_analysis_sfm
   crate_video_analysis_data --> crate_numbers_core
   crate_video_analysis_data --> crate_video_analysis_core
   crate_video_analysis_dataset -. dev .-> crate_three_d_processing_core
@@ -407,11 +443,19 @@ flowchart LR
   crate_video_analysis_models --> crate_three_d_processing_core
   crate_video_analysis_models --> crate_video_analysis_core
   crate_video_analysis_models --> crate_video_analysis_posture
+  crate_video_analysis_mvs --> crate_three_d_processing_core
+  crate_video_analysis_mvs --> crate_three_d_processing_mesh
+  crate_video_analysis_mvs --> crate_video_analysis_core
+  crate_video_analysis_mvs --> crate_video_analysis_radiance_fields
+  crate_video_analysis_mvs --> crate_video_analysis_reconstruction
   crate_video_analysis_onnx --> crate_image_analysis_core
   crate_video_analysis_onnx --> crate_image_analysis_onnx
   crate_video_analysis_onnx --> crate_video_analysis_core
   crate_video_analysis_onnx --> crate_video_analysis_models
   crate_video_analysis_onnx --> crate_video_analysis_posture
+  crate_video_analysis_opencv_backend --> crate_video_analysis_core
+  crate_video_analysis_opencv_backend --> crate_video_analysis_mvs
+  crate_video_analysis_opencv_backend --> crate_video_analysis_sfm
   crate_video_analysis_output --> crate_video_analysis_core
   crate_video_analysis_posture --> crate_math_geometry_2d
   crate_video_analysis_posture --> crate_three_d_processing_core
@@ -437,12 +481,20 @@ flowchart LR
   crate_video_analysis_segmentation -. dev .-> crate_video_analysis_ffmpeg
   crate_video_analysis_segmentation -. dev .-> crate_video_analysis_ingest
   crate_video_analysis_segmentation --> crate_video_analysis_models
+  crate_video_analysis_sfm --> crate_video_analysis_core
+  crate_video_analysis_sfm --> crate_video_analysis_radiance_fields
+  crate_video_analysis_sfm --> crate_video_analysis_reconstruction
+  crate_video_analysis_sfm_rust_backend --> crate_video_analysis_core
+  crate_video_analysis_sfm_rust_backend --> crate_video_analysis_radiance_fields
+  crate_video_analysis_sfm_rust_backend --> crate_video_analysis_reconstruction
+  crate_video_analysis_sfm_rust_backend --> crate_video_analysis_sfm
   crate_video_analysis_split --> crate_video_analysis_core
   crate_video_analysis_split -. dev .-> crate_video_analysis_ffmpeg
   crate_video_analysis_storage -. dev .-> crate_video_analysis_core
   crate_video_analysis_storage --> crate_video_analysis_dataset
   crate_video_analysis_synthesis --> crate_data_inversion_core
   crate_video_analysis_synthesis --> crate_video_analysis_core
+  crate_video_analysis_tracking --> crate_math_geometry_2d
   crate_video_analysis_tracking --> crate_video_analysis_core
   crate_video_analysis_transform -. dev .-> crate_video_analysis_core
   crate_video_analysis_transform --> crate_video_analysis_dataset
@@ -465,6 +517,7 @@ flowchart LR
   crate_video_analysis_use_cases -. dev .-> crate_audio_analysis_test_support
   crate_video_analysis_use_cases --> crate_image_analysis_comfyui
   crate_video_analysis_use_cases --> crate_image_analysis_core
+  crate_video_analysis_use_cases --> crate_image_analysis_detection
   crate_video_analysis_use_cases --> crate_image_analysis_io
   crate_video_analysis_use_cases --> crate_text_analysis_features
   crate_video_analysis_use_cases --> crate_text_analysis_transcription
@@ -474,7 +527,10 @@ flowchart LR
   crate_video_analysis_use_cases --> crate_video_analysis_ffmpeg
   crate_video_analysis_use_cases --> crate_video_analysis_ingest
   crate_video_analysis_use_cases --> crate_video_analysis_models
+  crate_video_analysis_use_cases --> crate_video_analysis_onnx
   crate_video_analysis_use_cases --> crate_comfyui_latents
   crate_video_analysis_use_cases --> crate_comfyui_models
   crate_video_analysis_use_cases -. dev .-> crate_video_analysis_test_support
+  crate_animation_core --> crate_three_d_processing_core
+  crate_animation_core --> crate_video_analysis_core
 ```
