@@ -16,3 +16,10 @@ categories.workspace = true
 tensor-data.workspace = true
 vector-analysis-core.workspace = true
 video-analysis-core.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "matrix"
+harness = false

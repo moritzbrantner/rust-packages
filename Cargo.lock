@@ -1526,6 +1526,7 @@ dependencies = [
 name = "image-analysis-processing"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "image-analysis-core",
  "math-geometry-2d",
  "math-linear",
@@ -1735,6 +1736,7 @@ dependencies = [
 name = "math-linear"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "tensor-data",
  "vector-analysis-core",
  "video-analysis-core",
@@ -1752,6 +1754,7 @@ dependencies = [
 name = "math-sparse-data"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "numbers-core",
  "vector-analysis-core",
  "video-analysis-core",
@@ -1761,6 +1764,7 @@ dependencies = [
 name = "math-statistics"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "math-linear",
  "numbers-core",
  "video-analysis-core",
@@ -3458,6 +3462,7 @@ dependencies = [
 name = "video-analysis-editing"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "math-geometry-2d",
  "math-linear",
  "num-rational",

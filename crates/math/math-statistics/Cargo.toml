@@ -16,3 +16,10 @@ categories.workspace = true
 math-linear.workspace = true
 numbers-core.workspace = true
 video-analysis-core.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "multivariate"
+harness = false

@@ -18,4 +18,9 @@ math-linear.workspace = true
 video-analysis-core.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 num-rational.workspace = true
+
+[[bench]]
+name = "editing"
+harness = false

@@ -81,7 +81,7 @@ jobs:
           tool: wasm-pack@0.14.0
       - run: bun install --frozen-lockfile
         env:
-          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN || github.token }}
       - run: bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium
       - run: bash scripts/setup_e2e_external_tools.sh fast
       - run: bash scripts/check_e2e_external_tools.sh
