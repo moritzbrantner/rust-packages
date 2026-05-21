@@ -21,6 +21,10 @@ text-transcripts.workspace = true
 video-analysis-core.workspace = true
 video-analysis-models.workspace = true
 
+[features]
+default = []
+external-tests = []
+
 [dev-dependencies]
 criterion.workspace = true
 tempfile.workspace = true

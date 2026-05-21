@@ -7,6 +7,10 @@ fn bench_pipeline(c: &mut Criterion) {
         and the migration guide explained the API changes in detail."
         .repeat(32);
 
+    pipeline
+        .analyze_text("Alice presented the roadmap in Berlin.")
+        .expect("model-backed text NLP pipeline warmup");
+
     c.bench_function("rich_text_nlp_pipeline", |b| {
         b.iter(|| pipeline.analyze_text(black_box(&text)).unwrap())
     });

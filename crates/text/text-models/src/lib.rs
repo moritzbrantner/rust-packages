@@ -1128,8 +1128,8 @@ impl CandleTextClassifier {
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let config_path = required_bundle_file(&bundle, "config.json")?;
-        let tokenizer = TokenizerBundle::from_bundle(&bundle)?;
         let config = read_json(&config_path)?;
+        let tokenizer = tokenizer_with_model_limit(TokenizerBundle::from_bundle(&bundle)?, &config);
         let model_paths = bundle_files_with_extension(&bundle, "safetensors");
         if model_paths.is_empty() {
             return Err(invalid_argument(
@@ -1242,8 +1242,8 @@ impl CandleTokenClassifier {
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let config_path = required_bundle_file(&bundle, "config.json")?;
-        let tokenizer = TokenizerBundle::from_bundle(&bundle)?;
         let config = read_json(&config_path)?;
+        let tokenizer = tokenizer_with_model_limit(TokenizerBundle::from_bundle(&bundle)?, &config);
         let model_paths = bundle_files_with_extension(&bundle, "safetensors");
         if model_paths.is_empty() {
             return Err(invalid_argument(
@@ -1363,7 +1363,7 @@ impl CandleTextEmbedder {
         let dimensions = embedding_dimensions_from_config(&config);
         let max_tokens = model_max_tokens_from_config(&config);
         Ok(Self {
-            tokenizer: TokenizerBundle::new(tokenizer_path),
+            tokenizer: tokenizer_with_model_limit(TokenizerBundle::new(tokenizer_path), &config),
             config,
             model_paths,
             architecture,
@@ -1649,6 +1649,13 @@ fn model_max_tokens_from_config(config: &Value) -> Option<usize> {
         .or_else(|| config.get("max_seq_len"))
         .and_then(Value::as_u64)
         .and_then(|value| usize::try_from(value).ok())
+}
+
+fn tokenizer_with_model_limit(tokenizer: TokenizerBundle, config: &Value) -> TokenizerBundle {
+    match model_max_tokens_from_config(config) {
+        Some(max_tokens) => tokenizer.max_length(max_tokens),
+        None => tokenizer,
+    }
 }
 
 fn required_bundle_file(bundle: &ModelBundle, remote_path: &str) -> Result<PathBuf> {
@@ -2401,6 +2408,52 @@ mod tests {
         assert!(CandleTextClassifier::from_bundle(bundle.clone()).is_err());
         assert!(CandleTokenClassifier::from_bundle(bundle.clone()).is_err());
         assert!(CandleTextEmbedder::from_bundle(bundle).is_err());
+    }
+
+    #[test]
+    fn candle_bundle_tokenizers_apply_model_position_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let classifier = CandleTextClassifier::from_bundle(fake_bundle(
+            &dir.path().join("classifier"),
+            [
+                (
+                    "config.json",
+                    r#"{"architectures":["BertForSequenceClassification"],"max_position_embeddings":16}"#,
+                ),
+                ("tokenizer.json", "{}"),
+                ("model.safetensors", "fake"),
+            ],
+        ))
+        .unwrap();
+        assert_eq!(classifier.tokenizer.max_length, Some(16));
+
+        let token_classifier = CandleTokenClassifier::from_bundle(fake_bundle(
+            &dir.path().join("token-classifier"),
+            [
+                (
+                    "config.json",
+                    r#"{"architectures":["BertForTokenClassification"],"max_position_embeddings":32}"#,
+                ),
+                ("vocab.txt", "fake"),
+                ("model.safetensors", "fake"),
+            ],
+        ))
+        .unwrap();
+        assert_eq!(token_classifier.tokenizer.max_length, Some(32));
+
+        let embedder = CandleTextEmbedder::from_bundle(fake_bundle(
+            &dir.path().join("embedder"),
+            [
+                (
+                    "config.json",
+                    r#"{"architectures":["BertModel"],"max_position_embeddings":64}"#,
+                ),
+                ("tokenizer.json", "{}"),
+                ("model.safetensors", "fake"),
+            ],
+        ))
+        .unwrap();
+        assert_eq!(embedder.tokenizer.max_length, Some(64));
     }
 
     fn fake_bundle<'a>(

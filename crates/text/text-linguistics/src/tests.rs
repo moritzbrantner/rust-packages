@@ -31,6 +31,54 @@ fn default_options_use_local_entity_model() {
     assert!(options.entity_recognition.auto_download);
 }
 
+#[cfg(feature = "external-tests")]
+#[test]
+#[ignore = "downloads and runs the default Hugging Face NER model"]
+fn downloads_default_ner_model_and_runs_local_entities() {
+    use std::path::{Path, PathBuf};
+
+    use video_analysis_models::ModelBundleStore;
+
+    fn assert_nonempty_file(path: impl AsRef<Path>) {
+        let path = path.as_ref();
+        let metadata = std::fs::metadata(path)
+            .unwrap_or_else(|err| panic!("expected `{}` metadata: {err}", path.display()));
+        assert!(
+            metadata.is_file() && metadata.len() > 0,
+            "expected `{}` to be a non-empty file",
+            path.display()
+        );
+    }
+
+    let bundle_dir = std::env::var_os("TEXT_LINGUISTICS_MODEL_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(".video-analysis-models"));
+    let mut options = LinguisticAnalysisOptions::default();
+    options.entity_recognition.bundle_dir = bundle_dir.clone();
+    options.entity_recognition.download_progress = false;
+    options.entity_recognition.max_retries = 1;
+
+    let analysis =
+        analyze_text("Alice works at OpenAI in Berlin.", &options).expect("model-backed analysis");
+    assert!(analysis.entities.iter().any(|entity| {
+        matches!(
+            entity.entity_type,
+            EntityType::Person | EntityType::Organization | EntityType::Location
+        )
+    }));
+
+    let spec = options.entity_recognition.preset.spec();
+    let bundle = ModelBundleStore::new(bundle_dir)
+        .load(&spec.name, &spec.revision)
+        .expect("materialized default NER bundle");
+    assert_nonempty_file(bundle.manifest_path());
+    assert_nonempty_file(
+        bundle
+            .file_path("model.safetensors")
+            .expect("default NER bundle should include safetensors weights"),
+    );
+}
+
 #[test]
 fn detects_mixed_script_text() {
     let detector = LanguageDetector::default();
