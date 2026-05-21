@@ -1,0 +1,22 @@
+[package]
+name = "text-retrieval-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the text-retrieval library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "text-retrieval-server"
+
+[[bin]]
+name = "text-retrieval-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+text-retrieval = { path = "../text-retrieval" }

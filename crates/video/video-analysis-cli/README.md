@@ -21,9 +21,11 @@ cargo run -p video-analysis-cli -- models inspect \
 
 ## Config files
 
-If `video-analysis-cli.conf` is present in the current directory, the CLI reads it
-automatically as shell-style arguments before the real command line. Direct CLI
-flags still win when the same option is set in both places.
+If `vanalyze.conf` or `video-analysis-cli.conf` is present in the current
+directory, the CLI reads it automatically as shell-style arguments before the
+real command line. Direct CLI flags still win when the same option is set in
+both places. Use `--config path/to/file.conf` to read a specific config file
+instead of the current directory default.
 
 ## Related crates
 

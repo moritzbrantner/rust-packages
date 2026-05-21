@@ -21,4 +21,4 @@ let _ = trace;
 
 - `audio-analysis-synthesis`
 - `image-analysis-synthesis`
-- `text-analysis-synthesis`
+- `text-generation`

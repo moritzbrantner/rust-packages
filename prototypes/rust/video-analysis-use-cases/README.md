@@ -36,6 +36,8 @@ cargo run -p video-analysis-use-cases -- image-person-edit \
 If `video-analysis-use-cases.conf` is present in the current directory, the
 binary reads it automatically as shell-style arguments before the real command
 line. Direct CLI flags still win when the same option is set in both places.
+Use `--config path/to/file.conf` to read a specific config file instead of the
+current directory default.
 
 ## Related crates
 

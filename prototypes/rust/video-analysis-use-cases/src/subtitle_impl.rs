@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use text_analysis_transcription::{TranscriptSegment, WhisperCppProgressEvent};
+use text_transcripts::{TranscriptSegment, WhisperCppProgressEvent};
 use video_analysis_core::{DetectError, Result};
 
 use crate::workflow_support::{
@@ -166,13 +166,12 @@ fn subtitle_path_for_video(video_path: &Path) -> PathBuf {
 
 fn write_srt_file(path: &Path, segments: &[TranscriptSegmentReport]) -> Result<()> {
     let segments = transcription_segments(segments);
-    text_analysis_transcription::write_srt(path, &segments)
-        .map_err(|err| DetectError::Source(err.to_string()))
+    text_transcripts::write_srt(path, &segments).map_err(|err| DetectError::Source(err.to_string()))
 }
 
 #[cfg(test)]
 fn srt_text(segments: &[TranscriptSegmentReport]) -> String {
-    text_analysis_transcription::format_srt(&transcription_segments(segments))
+    text_transcripts::format_srt(&transcription_segments(segments))
 }
 
 fn transcription_segments(segments: &[TranscriptSegmentReport]) -> Vec<TranscriptSegment> {

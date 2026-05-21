@@ -1,0 +1,22 @@
+[package]
+name = "comfyui-models-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the comfyui-models library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "comfyui-models-server"
+
+[[bin]]
+name = "comfyui-models-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+comfyui-models = { path = "../comfyui-models" }

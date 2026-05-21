@@ -38,5 +38,5 @@ assert_eq!(plan.attributes()["runtime.backend"], "cuda_oxide");
 ## Related crates
 
 - `video-analysis-onnx`
-- `text-analysis-models`
+- `text-models`
 - `video-analysis-cli`

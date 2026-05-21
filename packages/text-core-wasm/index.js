@@ -1,4 +1,5 @@
 import initGenerated, {
+  analyzeTextDocument,
   extractWordTexts,
   initSync,
   segmentTextDocument,
@@ -7,7 +8,7 @@ import initGenerated, {
 
 const wasmUrl = new URL("./pkg/index_bg.wasm", import.meta.url);
 
-export { extractWordTexts, initSync, segmentTextDocument, splitSentences };
+export { analyzeTextDocument, extractWordTexts, initSync, segmentTextDocument, splitSentences };
 
 export default async function init(moduleOrPath) {
   if (moduleOrPath) {

@@ -20,11 +20,9 @@ use math_signal_core::{BiquadDesign, SampleRate, WindowFunction};
 use num_rational::Rational64;
 use support::{click_track, owned_f32_frame, sine};
 use tempfile::tempdir;
-use text_analysis_linguistics::{analyze_text, LinguisticAnalysisOptions};
-use text_analysis_models::{pool_embedding_output, softmax, PoolingStrategy};
-use text_analysis_synthesis::{
-    synthesize_from_terms, terms_from_counts, TermPrompt, TextSynthesisOptions,
-};
+use text_generation::{synthesize_from_terms, terms_from_counts, TermPrompt, TextSynthesisOptions};
+use text_linguistics::{analyze_text, LinguisticAnalysisOptions};
+use text_models::{pool_embedding_output, softmax, PoolingStrategy};
 use video_analysis_core::{AnalysisEvent, Timestamp};
 
 #[test]
@@ -107,11 +105,10 @@ fn audio_and_text_packages_support_smoke_workflows() -> Result<(), Box<dyn std::
     ]));
     assert_eq!(counted_terms.len(), 2);
 
-    let event_terms = text_analysis_synthesis::terms_from_events(&[AnalysisEvent::new(
-        "fixture",
-        "text:keyword:rust",
-    )
-    .score(0.8)]);
+    let event_terms =
+        text_generation::terms_from_events(&[
+            AnalysisEvent::new("fixture", "text:keyword:rust").score(0.8)
+        ]);
     assert!(event_terms.iter().any(|term| term.term == "rust"));
 
     let linguistic = analyze_text(
@@ -137,9 +134,9 @@ fn audio_and_text_packages_support_smoke_workflows() -> Result<(), Box<dyn std::
     assert!(windowed[1] > 0.7);
     BiquadDesign::LowPass.design(SampleRate::new(sample_rate)?, 1_000.0, 0.707)?;
 
-    let corpus = text_analysis_corpus::TfIdfCorpus::from_texts(
+    let corpus = text_lexical::TfIdfCorpus::from_texts(
         ["rust cargo crates", "video scene reports"],
-        text_analysis_corpus::CorpusOptions::default(),
+        text_lexical::CorpusOptions::default(),
     )?;
     let sparse = corpus.sparse_term_matrix()?;
     assert_eq!(sparse.matrix.rows(), 2);

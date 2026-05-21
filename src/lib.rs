@@ -36,6 +36,8 @@ pub use data_inversion_core as inversion;
 pub use dense_data as dense;
 /// Re-exports the finance statistics API.
 pub use finance_statistics as finance;
+/// Re-exports the geo data API.
+pub use geo_data;
 /// Re-exports the graph core API.
 pub use graph_analysis_core as graph_core;
 /// Re-exports the image ComfyUI API.
@@ -48,6 +50,8 @@ pub use image_analysis_detection as image_detection;
 pub use image_analysis_io as image_io;
 /// Re-exports the image models API.
 pub use image_analysis_models as image_models;
+/// Re-exports the image OCR API.
+pub use image_analysis_ocr as image_ocr;
 #[cfg(feature = "onnx-backend")]
 /// Re-exports the image ONNX API.
 pub use image_analysis_onnx as image_onnx;
@@ -57,6 +61,10 @@ pub use image_analysis_processing as image_processing;
 pub use image_analysis_segmentation as image_segmentation;
 /// Re-exports the image synthesis API.
 pub use image_analysis_synthesis as image_synthesis;
+/// Re-exports the reusable jobs API.
+pub use jobs_core as jobs;
+/// Re-exports the map/kernel math API.
+pub use maps_kernels_core as maps_kernels;
 /// Re-exports the geometry2d API.
 pub use math_geometry_2d as geometry2d;
 /// Re-exports the linear API.
@@ -72,29 +80,23 @@ pub use numbers_core as numbers;
 /// Re-exports the tensor data API.
 pub use tensor_data;
 /// Re-exports the text core API.
-pub use text_analysis_core as text_core;
-/// Re-exports the text corpus API.
-pub use text_analysis_corpus as text_corpus;
-/// Re-exports the text features API.
-pub use text_analysis_features as text_features;
+pub use text_core;
+/// Re-exports the text embeddings API.
+pub use text_embeddings;
+/// Re-exports the text generation API.
+pub use text_generation;
+/// Re-exports the text lexical API.
+pub use text_lexical;
 /// Re-exports the text linguistics API.
-pub use text_analysis_linguistics as text_linguistics;
+pub use text_linguistics;
 /// Re-exports the text models API.
-pub use text_analysis_models as text_models;
-/// Re-exports the text prediction API.
-pub use text_analysis_prediction as text_prediction;
+pub use text_models;
 /// Re-exports the text retrieval API.
-pub use text_analysis_retrieval as text_retrieval;
-/// Re-exports the text retrieval storage API.
-pub use text_analysis_retrieval_storage as text_retrieval_storage;
-/// Re-exports the text search API.
-pub use text_analysis_search as text_search;
-/// Re-exports the text semantics API.
-pub use text_analysis_semantics as text_semantics;
-/// Re-exports the text synthesis API.
-pub use text_analysis_synthesis as text_synthesis;
-/// Re-exports the text transcription API.
-pub use text_analysis_transcription as text_transcription;
+pub use text_retrieval;
+/// Re-exports the text transcripts API.
+pub use text_transcripts;
+/// Re-exports the Whisper.cpp text transcription API.
+pub use text_whisper_cpp;
 /// Re-exports the three d core API.
 pub use three_d_processing_core as three_d_core;
 /// Re-exports the three d I/O API.
@@ -146,6 +148,8 @@ pub use video_analysis_posture_io as posture_io;
 pub use video_analysis_radiance_fields as radiance_fields;
 /// Re-exports the radiance I/O API.
 pub use video_analysis_radiance_io as radiance_io;
+/// Re-exports the radiance pipeline API.
+pub use video_analysis_radiance_pipeline as radiance_pipeline;
 /// Re-exports the recognition API.
 pub use video_analysis_recognition as recognition;
 /// Re-exports the reconstruction API.
@@ -182,6 +186,9 @@ mod tests {
         let vector = vector_core::DenseVector::new([3.0, 4.0]).unwrap();
         assert_eq!(vector_core::l2_norm(vector.as_slice()).unwrap(), 5.0);
 
+        let job = jobs::JobSpec::new("facade-job", "Facade job").unwrap();
+        assert_eq!(job.id.as_str(), "facade-job");
+
         let scene = three_d_scene::SceneDocument::new(
             three_d_scene::SceneViewport::new(120, 80).unwrap(),
             three_d_scene::Camera::orthographic(
@@ -211,7 +218,7 @@ mod tests {
         .unwrap();
         assert_eq!(image.value.width, 2);
 
-        let summary = text_features::summarize_text("facade unit tests cover package exports", 4);
+        let summary = text_lexical::summarize_text("facade unit tests cover package exports", 4);
         assert_eq!(summary.stats.words, 6);
 
         let graph = graph_core::Graph::directed();

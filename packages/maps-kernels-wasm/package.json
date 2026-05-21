@@ -1,0 +1,32 @@
+{
+  "name": "@mb-rust/maps-kernels-wasm",
+  "version": "0.1.0",
+  "description": "WASM bindings for maps-kernels-core.",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "private": false,
+  "files": [
+    "index.d.ts",
+    "index.js",
+    "pkg",
+    "README.md"
+  ],
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "scripts": {
+    "bench:browser": "bun run build && bun bench/browser.mjs",
+    "build": "bash scripts/build-wasm.sh",
+    "prepare": "bun run build",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}

@@ -1,9 +1,12 @@
-//! WASM bindings for text-analysis-core.
+//! WASM bindings for text-core.
 
-use serde::Serialize;
-use serde_wasm_bindgen::to_value;
-use text_analysis_core::{
-    split_paragraphs, split_sentence_spans, tokenize, TextProcessingOptions, TokenKind,
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+use serde_wasm_bindgen::{from_value, Serializer};
+use text_core::{
+    detailed_text_stats, detect_script_profile, split_paragraphs, split_sentence_spans, tokenize,
+    TextProcessingOptions, TokenKind,
 };
 use wasm_bindgen::prelude::*;
 
@@ -22,11 +25,67 @@ struct RawToken {
     kind: &'static str,
 }
 
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct RawTextProcessingOptions {
+    lowercase: Option<bool>,
+    normalize_unicode: Option<bool>,
+    keep_apostrophes: Option<bool>,
+    include_punctuation: Option<bool>,
+    include_tokens: Option<bool>,
+}
+
+#[derive(Serialize)]
+struct RawAnalyzedToken {
+    start: usize,
+    end: usize,
+    text: String,
+    normalized: String,
+    kind: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RawTextStats {
+    bytes: usize,
+    chars: usize,
+    words: usize,
+    lines: usize,
+    sentences: usize,
+    paragraphs: usize,
+    tokens: usize,
+    unique_tokens: usize,
+    average_words_per_sentence: f32,
+    average_chars_per_word: f32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RawScriptProfile {
+    scripts: BTreeMap<String, usize>,
+    digits: usize,
+    whitespace: usize,
+    punctuation: usize,
+    other: usize,
+    dominant_script: Option<String>,
+    is_mixed: bool,
+}
+
 #[derive(Serialize)]
 struct RawSegmentedDocument {
     paragraphs: Vec<RawSpan>,
     sentences: Vec<RawSpan>,
     tokens: Vec<RawToken>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RawAnalyzedDocument {
+    stats: RawTextStats,
+    script_profile: RawScriptProfile,
+    paragraphs: Vec<RawSpan>,
+    sentences: Vec<RawSpan>,
+    tokens: Vec<RawAnalyzedToken>,
 }
 
 #[wasm_bindgen(js_name = extractWordTexts)]
@@ -55,6 +114,21 @@ pub fn segment_text_document_binding(
         include_punctuation,
         include_tokens,
     ))
+}
+
+#[wasm_bindgen(js_name = analyzeTextDocument)]
+/// Returns analyze text document binding.
+pub fn analyze_text_document_binding(
+    text: &str,
+    options: Option<JsValue>,
+) -> Result<JsValue, JsValue> {
+    let raw_options = match options {
+        Some(value) if !value.is_null() && !value.is_undefined() => {
+            from_value(value).map_err(into_js_error)?
+        }
+        _ => RawTextProcessingOptions::default(),
+    };
+    to_js_value(&analyze_text_document_data(text, &raw_options))
 }
 
 fn extract_word_texts_data(text: &str) -> Vec<String> {
@@ -122,6 +196,79 @@ fn segment_text_document_data(
     }
 }
 
+fn analyze_text_document_data(
+    text: &str,
+    raw_options: &RawTextProcessingOptions,
+) -> RawAnalyzedDocument {
+    let default_options = TextProcessingOptions::default();
+    let options = TextProcessingOptions {
+        lowercase: raw_options.lowercase.unwrap_or(default_options.lowercase),
+        normalize_unicode: raw_options
+            .normalize_unicode
+            .unwrap_or(default_options.normalize_unicode),
+        keep_apostrophes: raw_options
+            .keep_apostrophes
+            .unwrap_or(default_options.keep_apostrophes),
+        include_punctuation: raw_options
+            .include_punctuation
+            .unwrap_or(default_options.include_punctuation),
+        ..default_options
+    };
+    let include_tokens = raw_options.include_tokens.unwrap_or(true);
+
+    let detailed = detailed_text_stats(text, &options);
+    let script_profile = detect_script_profile(text);
+    let paragraphs = split_paragraphs(text)
+        .into_iter()
+        .map(|paragraph| raw_span(text, paragraph.span.byte_start, paragraph.span.byte_end))
+        .collect::<Vec<_>>();
+    let sentences = split_sentence_spans(text, &options)
+        .into_iter()
+        .map(|sentence| raw_span(text, sentence.span.byte_start, sentence.span.byte_end))
+        .collect::<Vec<_>>();
+    let tokens = if include_tokens {
+        tokenize(text, &options)
+            .into_iter()
+            .map(|token| RawAnalyzedToken {
+                start: js_index_for_byte(text, token.span.byte_start),
+                end: js_index_for_byte(text, token.span.byte_end),
+                text: token.text,
+                normalized: token.normalized,
+                kind: token_kind_name(token.kind),
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+
+    RawAnalyzedDocument {
+        stats: RawTextStats {
+            bytes: detailed.basic.bytes,
+            chars: detailed.basic.chars,
+            words: detailed.basic.words,
+            lines: detailed.basic.lines,
+            sentences: detailed.basic.sentences,
+            paragraphs: detailed.paragraphs,
+            tokens: detailed.tokens,
+            unique_tokens: detailed.unique_tokens,
+            average_words_per_sentence: detailed.average_words_per_sentence,
+            average_chars_per_word: detailed.average_chars_per_word,
+        },
+        script_profile: RawScriptProfile {
+            scripts: script_profile.scripts,
+            digits: script_profile.digits,
+            whitespace: script_profile.whitespace,
+            punctuation: script_profile.punctuation,
+            other: script_profile.other,
+            dominant_script: script_profile.dominant_script,
+            is_mixed: script_profile.is_mixed,
+        },
+        paragraphs,
+        sentences,
+        tokens,
+    }
+}
+
 fn raw_span(text: &str, byte_start: usize, byte_end: usize) -> RawSpan {
     RawSpan {
         start: js_index_for_byte(text, byte_start),
@@ -148,7 +295,9 @@ fn token_kind_name(kind: TokenKind) -> &'static str {
 }
 
 fn to_js_value<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
-    to_value(value).map_err(into_js_error)
+    value
+        .serialize(&Serializer::json_compatible())
+        .map_err(into_js_error)
 }
 
 fn into_js_error(error: serde_wasm_bindgen::Error) -> JsValue {
@@ -293,6 +442,42 @@ mod tests {
         assert_eq!(value["paragraphs"][0]["text"], json!("Hello world."));
         assert_eq!(value["sentences"][0]["end"], json!(12));
         assert_eq!(value["tokens"][0]["kind"], json!("word"));
+    }
+
+    #[test]
+    fn analyze_text_document_data_reports_stats_scripts_and_normalized_tokens() {
+        let document = analyze_text_document_data(
+            "Hello 東京!\n\nCafe\u{301} time.",
+            &RawTextProcessingOptions {
+                include_punctuation: Some(true),
+                ..RawTextProcessingOptions::default()
+            },
+        );
+        let value = serde_json::to_value(&document).unwrap();
+
+        assert_eq!(value["stats"]["paragraphs"], json!(2));
+        assert_eq!(value["stats"]["sentences"], json!(2));
+        assert_eq!(value["scriptProfile"]["scripts"]["Latin"], json!(13));
+        assert_eq!(value["scriptProfile"]["scripts"]["Han"], json!(2));
+        assert_eq!(value["scriptProfile"]["isMixed"], json!(true));
+        assert_eq!(value["tokens"][0]["text"], json!("Hello"));
+        assert_eq!(value["tokens"][0]["normalized"], json!("hello"));
+        assert_eq!(value["tokens"][1]["text"], json!("東京"));
+        assert_eq!(value["tokens"][2]["kind"], json!("punctuation"));
+    }
+
+    #[test]
+    fn analyze_text_document_data_can_omit_tokens_without_changing_stats() {
+        let document = analyze_text_document_data(
+            "Hello, world.",
+            &RawTextProcessingOptions {
+                include_punctuation: Some(true),
+                include_tokens: Some(false),
+                ..RawTextProcessingOptions::default()
+            },
+        );
+        assert!(document.tokens.is_empty());
+        assert_eq!(document.stats.tokens, 4);
     }
 
     fn into_test_document(document: RawSegmentedDocument) -> TestRawSegmentedDocument {

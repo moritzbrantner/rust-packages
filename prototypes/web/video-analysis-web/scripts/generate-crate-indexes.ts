@@ -19,4 +19,12 @@ for (const pkg of architecture.packages) {
   await copyFile(indexPath, `${crateDir}/index.html`);
 }
 
-console.log(`generated ${architecture.packages.length} crate pages`);
+const servicePackages = architecture.packages.filter((pkg) => pkg.kind === "rust" && pkg.name.endsWith("-server"));
+
+for (const service of servicePackages) {
+  const serviceDir = `${distDir}/wrappers/${slugifyPackageName(service.name.replace(/-server$/, ""))}`;
+  await mkdir(serviceDir, { recursive: true });
+  await copyFile(indexPath, `${serviceDir}/index.html`);
+}
+
+console.log(`generated ${architecture.packages.length} crate pages and ${servicePackages.length} wrapper pages`);

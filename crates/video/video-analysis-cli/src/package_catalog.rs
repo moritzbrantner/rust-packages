@@ -123,7 +123,7 @@ fn ui_entrypoint(name: &str) -> String {
     if name.starts_with('@') {
         return format!("Architecture page package detail for {name}");
     }
-    format!("{name}/ui (package {name}-ui)")
+    format!("{name}/app (package {name}-app)")
 }
 
 fn percent_encode(value: &str) -> String {

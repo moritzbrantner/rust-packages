@@ -8,7 +8,7 @@ use audio_analysis_recognition::FingerprintRecord;
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use text_analysis_transcription::WhisperCppProgressEvent;
+use text_transcripts::WhisperCppProgressEvent;
 use video_analysis_core::{DetectError, Result};
 
 use crate::workflow_support::{

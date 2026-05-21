@@ -45,7 +45,7 @@ cargo package --allow-dirty -p <crate-name>
 Recommended publish order:
 
 1. Wave 1 foundations: `video-analysis-core`, `audio-analysis-core`,
-   `image-analysis-core`, `text-analysis-core`, `vector-analysis-core`,
+   `image-analysis-core`, `text-core`, `vector-analysis-core`,
    `three-d-processing-core`, `data-inversion-core`, `numbers-core`, `dense-data`,
    `video-analysis-ingest`
 2. Wave 2 pure-Rust leaf crates on top of the foundations

@@ -2,6 +2,7 @@ use tempfile::tempdir;
 
 use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
 use image_analysis_io::{read_image, write_image};
+use image_analysis_ocr::{OcrPreset, OcrRequest, OcrTechnique};
 use image_analysis_segmentation::ImageSegmentationRequest;
 
 #[test]
@@ -25,4 +26,20 @@ fn image_public_api_covers_core_defaults_and_io() -> Result<(), Box<dyn std::err
     assert_eq!(roundtrip, rgb);
 
     Ok(())
+}
+
+#[test]
+fn image_public_api_covers_ocr_model_presets_and_requests() {
+    let request = OcrRequest::new()
+        .model_preset(OcrPreset::TrOcrBaseHandwritten)
+        .languages(["en"])
+        .preserve_layout(true);
+
+    match request.technique {
+        Some(OcrTechnique::HuggingFaceModel(spec)) => {
+            assert_eq!(spec.repo_id, "microsoft/trocr-base-handwritten");
+        }
+        _ => panic!("expected a Hugging Face OCR model technique"),
+    }
+    assert_eq!(request.languages, ["en".to_string()]);
 }

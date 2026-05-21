@@ -1,0 +1,16 @@
+[package]
+name = "maps-kernels-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Numeric kernels for map and temporal GeoJSON processing."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+numbers-core.workspace = true
+video-analysis-core.workspace = true

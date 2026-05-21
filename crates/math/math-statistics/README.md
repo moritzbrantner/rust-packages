@@ -30,4 +30,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 - `dense-data`
 - `video-analysis-features`
-- `text-analysis-semantics`
+- `text-embeddings`

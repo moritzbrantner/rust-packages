@@ -13,7 +13,7 @@ Current state:
 - `video-analysis-cli` currently exposes scene detection/list/split plus model
   preset/download/inspect commands. It also parses `models run` for raw
   RGB/BGR frame inference, gated behind CLI ONNX features.
-- `text-analysis-models` now owns optional tokenizer, ONNX, and Candle-backed
+- `text-models` now owns optional tokenizer, ONNX, and Candle-backed
   text execution surfaces.
 - `video-analysis-onnx` now owns the first native vision backend surface:
   object-detection bundle validation, image preprocessing, fake-runner decoding

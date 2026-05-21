@@ -25,6 +25,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Related crates
 
-- `text-analysis-corpus`
-- `text-analysis-semantics`
+- `text-lexical`
+- `text-embeddings`
 - `vector-analysis-core`

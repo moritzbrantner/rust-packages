@@ -1,0 +1,22 @@
+[package]
+name = "video-analysis-gaussian-splatting-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the video-analysis-gaussian-splatting library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "video-analysis-gaussian-splatting-server"
+
+[[bin]]
+name = "video-analysis-gaussian-splatting-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+video-analysis-gaussian-splatting = { path = "../video-analysis-gaussian-splatting" }

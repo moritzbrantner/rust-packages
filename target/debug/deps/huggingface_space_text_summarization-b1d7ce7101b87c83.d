@@ -1,9 +1,0 @@
-/home/moenarch/moritzbrantner/rust-packages/target/debug/deps/huggingface_space_text_summarization-b1d7ce7101b87c83.d: crates/huggingface-space-text-summarization/src/lib.rs Cargo.toml
-
-/home/moenarch/moritzbrantner/rust-packages/target/debug/deps/libhuggingface_space_text_summarization-b1d7ce7101b87c83.rmeta: crates/huggingface-space-text-summarization/src/lib.rs Cargo.toml
-
-crates/huggingface-space-text-summarization/src/lib.rs:
-Cargo.toml:
-
-# env-dep:CLIPPY_ARGS=-D__CLIPPY_HACKERY__warnings__CLIPPY_HACKERY__
-# env-dep:CLIPPY_CONF_DIR

@@ -1,0 +1,22 @@
+[package]
+name = "audio-analysis-processing-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the audio-analysis-processing library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "audio-analysis-processing-server"
+
+[[bin]]
+name = "audio-analysis-processing-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+audio-analysis-processing = { path = "../audio-analysis-processing" }

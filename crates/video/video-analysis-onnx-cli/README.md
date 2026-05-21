@@ -1,0 +1,9 @@
+# video-analysis-onnx-cli
+
+Thin command-line adapter for `video-analysis-onnx`.
+
+Run:
+
+```bash
+cargo run -p video-analysis-onnx-cli -- info --json
+```

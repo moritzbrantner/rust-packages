@@ -17,6 +17,8 @@
     "build": "cargo build --workspace && bun run ui:build && bun run web:build",
     "hygiene": "scripts/check_repo_hygiene.sh",
     "check": "scripts/check.sh",
+    "maps-wasm:bench": "bun run --cwd packages/maps-kernels-wasm bench:browser",
+    "maps-wasm:test": "bun run --cwd packages/maps-kernels-wasm test",
     "text-wasm:bench": "bun run --cwd packages/text-core-wasm bench:browser",
     "text-wasm:test": "bun run --cwd packages/text-core-wasm test",
     "ui:build": "bun run --cwd packages/video-analysis-ui build",

@@ -40,126 +40,278 @@ flowchart LR
   subgraph group_data["Data"]
     direction TB
     crate_data_inversion_core["data-inversion-core"]:::crate
+    crate_data_inversion_core_cli["data-inversion-core-cli"]:::crate
+    crate_data_inversion_core_server["data-inversion-core-server"]:::crate
     crate_dense_data["dense-data"]:::crate
+    crate_dense_data_cli["dense-data-cli"]:::crate
+    crate_dense_data_server["dense-data-server"]:::crate
+    crate_geo_data["geo-data"]:::crate
     crate_graph_analysis_core["graph-analysis-core"]:::crate
+    crate_graph_analysis_core_cli["graph-analysis-core-cli"]:::crate
+    crate_graph_analysis_core_server["graph-analysis-core-server"]:::crate
     crate_numbers_core["numbers-core"]:::crate
+    crate_numbers_core_cli["numbers-core-cli"]:::crate
+    crate_numbers_core_server["numbers-core-server"]:::crate
     crate_tensor_data["tensor-data"]:::crate
+    crate_tensor_data_cli["tensor-data-cli"]:::crate
+    crate_tensor_data_server["tensor-data-server"]:::crate
   end
 
   subgraph group_math["Math"]
     direction TB
     crate_finance_statistics["finance-statistics"]:::crate
+    crate_finance_statistics_cli["finance-statistics-cli"]:::crate
+    crate_finance_statistics_server["finance-statistics-server"]:::crate
+    crate_maps_kernels_core["maps-kernels-core"]:::crate
+    crate_maps_kernels_core_cli["maps-kernels-core-cli"]:::crate
+    crate_maps_kernels_core_server["maps-kernels-core-server"]:::crate
     crate_math_geometry_2d["math-geometry-2d"]:::crate
+    crate_math_geometry_2d_cli["math-geometry-2d-cli"]:::crate
+    crate_math_geometry_2d_server["math-geometry-2d-server"]:::crate
     crate_math_linear["math-linear"]:::crate
+    crate_math_linear_cli["math-linear-cli"]:::crate
+    crate_math_linear_server["math-linear-server"]:::crate
     crate_math_signal_core["math-signal-core"]:::crate
+    crate_math_signal_core_cli["math-signal-core-cli"]:::crate
+    crate_math_signal_core_server["math-signal-core-server"]:::crate
     crate_math_sparse_data["math-sparse-data"]:::crate
+    crate_math_sparse_data_cli["math-sparse-data-cli"]:::crate
+    crate_math_sparse_data_server["math-sparse-data-server"]:::crate
     crate_math_statistics["math-statistics"]:::crate
+    crate_math_statistics_cli["math-statistics-cli"]:::crate
+    crate_math_statistics_server["math-statistics-server"]:::crate
   end
 
   subgraph group_audio["Audio"]
     direction TB
     crate_audio_analysis_core["audio-analysis-core"]:::crate
+    crate_audio_analysis_core_cli["audio-analysis-core-cli"]:::crate
+    crate_audio_analysis_core_server["audio-analysis-core-server"]:::crate
     crate_audio_analysis_fourier["audio-analysis-fourier"]:::crate
+    crate_audio_analysis_fourier_cli["audio-analysis-fourier-cli"]:::crate
+    crate_audio_analysis_fourier_server["audio-analysis-fourier-server"]:::crate
     crate_audio_analysis_io["audio-analysis-io"]:::crate
+    crate_audio_analysis_io_cli["audio-analysis-io-cli"]:::crate
+    crate_audio_analysis_io_server["audio-analysis-io-server"]:::crate
     crate_audio_analysis_pitch["audio-analysis-pitch"]:::crate
+    crate_audio_analysis_pitch_cli["audio-analysis-pitch-cli"]:::crate
+    crate_audio_analysis_pitch_server["audio-analysis-pitch-server"]:::crate
     crate_audio_analysis_processing["audio-analysis-processing"]:::crate
+    crate_audio_analysis_processing_cli["audio-analysis-processing-cli"]:::crate
+    crate_audio_analysis_processing_server["audio-analysis-processing-server"]:::crate
     crate_audio_analysis_recognition["audio-analysis-recognition"]:::crate
+    crate_audio_analysis_recognition_cli["audio-analysis-recognition-cli"]:::crate
+    crate_audio_analysis_recognition_server["audio-analysis-recognition-server"]:::crate
     crate_audio_analysis_rhythm["audio-analysis-rhythm"]:::crate
+    crate_audio_analysis_rhythm_cli["audio-analysis-rhythm-cli"]:::crate
+    crate_audio_analysis_rhythm_server["audio-analysis-rhythm-server"]:::crate
     crate_audio_analysis_separation["audio-analysis-separation"]:::crate
+    crate_audio_analysis_separation_cli["audio-analysis-separation-cli"]:::crate
+    crate_audio_analysis_separation_server["audio-analysis-separation-server"]:::crate
     crate_audio_analysis_speakers["audio-analysis-speakers"]:::crate
+    crate_audio_analysis_speakers_cli["audio-analysis-speakers-cli"]:::crate
+    crate_audio_analysis_speakers_server["audio-analysis-speakers-server"]:::crate
     crate_audio_analysis_synthesis["audio-analysis-synthesis"]:::crate
+    crate_audio_analysis_synthesis_cli["audio-analysis-synthesis-cli"]:::crate
+    crate_audio_analysis_synthesis_server["audio-analysis-synthesis-server"]:::crate
     crate_audio_analysis_test_support["audio-analysis-test-support"]:::crate
     crate_audio_generation_midi["audio-generation-midi"]:::crate
+    crate_audio_generation_midi_cli["audio-generation-midi-cli"]:::crate
+    crate_audio_generation_midi_server["audio-generation-midi-server"]:::crate
   end
 
   subgraph group_image["Image"]
     direction TB
     crate_image_analysis_comfyui["image-analysis-comfyui"]:::crate
+    crate_image_analysis_comfyui_cli["image-analysis-comfyui-cli"]:::crate
+    crate_image_analysis_comfyui_server["image-analysis-comfyui-server"]:::crate
     crate_image_analysis_core["image-analysis-core"]:::crate
+    crate_image_analysis_core_cli["image-analysis-core-cli"]:::crate
+    crate_image_analysis_core_server["image-analysis-core-server"]:::crate
     crate_image_analysis_detection["image-analysis-detection"]:::crate
+    crate_image_analysis_detection_cli["image-analysis-detection-cli"]:::crate
+    crate_image_analysis_detection_server["image-analysis-detection-server"]:::crate
     crate_image_analysis_io["image-analysis-io"]:::crate
+    crate_image_analysis_io_cli["image-analysis-io-cli"]:::crate
+    crate_image_analysis_io_server["image-analysis-io-server"]:::crate
     crate_image_analysis_models["image-analysis-models"]:::crate
+    crate_image_analysis_models_cli["image-analysis-models-cli"]:::crate
+    crate_image_analysis_models_server["image-analysis-models-server"]:::crate
+    crate_image_analysis_ocr["image-analysis-ocr"]:::crate
     crate_image_analysis_onnx["image-analysis-onnx"]:::crate
+    crate_image_analysis_onnx_cli["image-analysis-onnx-cli"]:::crate
+    crate_image_analysis_onnx_server["image-analysis-onnx-server"]:::crate
     crate_image_analysis_processing["image-analysis-processing"]:::crate
+    crate_image_analysis_processing_cli["image-analysis-processing-cli"]:::crate
+    crate_image_analysis_processing_server["image-analysis-processing-server"]:::crate
     crate_image_analysis_segmentation["image-analysis-segmentation"]:::crate
+    crate_image_analysis_segmentation_cli["image-analysis-segmentation-cli"]:::crate
+    crate_image_analysis_segmentation_server["image-analysis-segmentation-server"]:::crate
     crate_image_analysis_synthesis["image-analysis-synthesis"]:::crate
+    crate_image_analysis_synthesis_cli["image-analysis-synthesis-cli"]:::crate
+    crate_image_analysis_synthesis_server["image-analysis-synthesis-server"]:::crate
   end
 
   subgraph group_text["Text"]
     direction TB
-    crate_text_analysis_core["text-analysis-core"]:::crate
-    crate_text_analysis_corpus["text-analysis-corpus"]:::crate
-    crate_text_analysis_features["text-analysis-features"]:::crate
-    crate_text_analysis_linguistics["text-analysis-linguistics"]:::crate
-    crate_text_analysis_models["text-analysis-models"]:::crate
-    crate_text_analysis_prediction["text-analysis-prediction"]:::crate
-    crate_text_analysis_retrieval["text-analysis-retrieval"]:::crate
-    crate_text_analysis_retrieval_storage["text-analysis-retrieval-storage"]:::crate
-    crate_text_analysis_search["text-analysis-search"]:::crate
-    crate_text_analysis_semantics["text-analysis-semantics"]:::crate
-    crate_text_analysis_synthesis["text-analysis-synthesis"]:::crate
-    crate_text_analysis_transcription["text-analysis-transcription"]:::crate
-    crate_text_analysis_whisper_cpp["text-analysis-whisper-cpp"]:::crate
+    crate_text_core["text-core"]:::crate
+    crate_text_core_cli["text-core-cli"]:::crate
+    crate_text_core_server["text-core-server"]:::crate
+    crate_text_embeddings["text-embeddings"]:::crate
+    crate_text_generation["text-generation"]:::crate
+    crate_text_lexical["text-lexical"]:::crate
+    crate_text_linguistics["text-linguistics"]:::crate
+    crate_text_linguistics_cli["text-linguistics-cli"]:::crate
+    crate_text_linguistics_server["text-linguistics-server"]:::crate
+    crate_text_models["text-models"]:::crate
+    crate_text_models_cli["text-models-cli"]:::crate
+    crate_text_models_server["text-models-server"]:::crate
+    crate_text_retrieval["text-retrieval"]:::crate
+    crate_text_retrieval_cli["text-retrieval-cli"]:::crate
+    crate_text_retrieval_server["text-retrieval-server"]:::crate
+    crate_text_transcripts["text-transcripts"]:::crate
+    crate_text_transcripts_cli["text-transcripts-cli"]:::crate
+    crate_text_transcripts_server["text-transcripts-server"]:::crate
+    crate_text_whisper_cpp["text-whisper-cpp"]:::crate
   end
 
   subgraph group_vector["Vector"]
     direction TB
     crate_vector_analysis_core["vector-analysis-core"]:::crate
+    crate_vector_analysis_core_cli["vector-analysis-core-cli"]:::crate
+    crate_vector_analysis_core_server["vector-analysis-core-server"]:::crate
     crate_vector_analysis_index["vector-analysis-index"]:::crate
+    crate_vector_analysis_index_cli["vector-analysis-index-cli"]:::crate
+    crate_vector_analysis_index_server["vector-analysis-index-server"]:::crate
   end
 
   subgraph group_three_d["Three-D"]
     direction TB
     crate_three_d_processing_core["three-d-processing-core"]:::crate
+    crate_three_d_processing_core_cli["three-d-processing-core-cli"]:::crate
+    crate_three_d_processing_core_server["three-d-processing-core-server"]:::crate
     crate_three_d_processing_io["three-d-processing-io"]:::crate
+    crate_three_d_processing_io_cli["three-d-processing-io-cli"]:::crate
+    crate_three_d_processing_io_server["three-d-processing-io-server"]:::crate
     crate_three_d_processing_mesh["three-d-processing-mesh"]:::crate
+    crate_three_d_processing_mesh_cli["three-d-processing-mesh-cli"]:::crate
+    crate_three_d_processing_mesh_server["three-d-processing-mesh-server"]:::crate
     crate_three_d_scene_svg["three-d-scene-svg"]:::crate
+    crate_three_d_scene_svg_cli["three-d-scene-svg-cli"]:::crate
+    crate_three_d_scene_svg_server["three-d-scene-svg-server"]:::crate
   end
 
   subgraph group_video["Video"]
     direction TB
     crate_video_analysis_cli["video-analysis-cli"]:::crate
     crate_video_analysis_colmap_backend["video-analysis-colmap-backend"]:::crate
+    crate_video_analysis_colmap_backend_cli["video-analysis-colmap-backend-cli"]:::crate
+    crate_video_analysis_colmap_backend_server["video-analysis-colmap-backend-server"]:::crate
     crate_video_analysis_core["video-analysis-core"]:::crate
+    crate_video_analysis_core_cli["video-analysis-core-cli"]:::crate
+    crate_video_analysis_core_server["video-analysis-core-server"]:::crate
     crate_video_analysis_data["video-analysis-data"]:::crate
+    crate_video_analysis_data_cli["video-analysis-data-cli"]:::crate
+    crate_video_analysis_data_server["video-analysis-data-server"]:::crate
     crate_video_analysis_dataset["video-analysis-dataset"]:::crate
+    crate_video_analysis_dataset_cli["video-analysis-dataset-cli"]:::crate
+    crate_video_analysis_dataset_server["video-analysis-dataset-server"]:::crate
     crate_video_analysis_detectors["video-analysis-detectors"]:::crate
+    crate_video_analysis_detectors_cli["video-analysis-detectors-cli"]:::crate
+    crate_video_analysis_detectors_server["video-analysis-detectors-server"]:::crate
     crate_video_analysis_editing["video-analysis-editing"]:::crate
+    crate_video_analysis_editing_cli["video-analysis-editing-cli"]:::crate
+    crate_video_analysis_editing_server["video-analysis-editing-server"]:::crate
     crate_video_analysis_features["video-analysis-features"]:::crate
+    crate_video_analysis_features_cli["video-analysis-features-cli"]:::crate
+    crate_video_analysis_features_server["video-analysis-features-server"]:::crate
     crate_video_analysis_ffmpeg["video-analysis-ffmpeg"]:::crate
+    crate_video_analysis_ffmpeg_cli["video-analysis-ffmpeg-cli"]:::crate
+    crate_video_analysis_ffmpeg_server["video-analysis-ffmpeg-server"]:::crate
     crate_video_analysis_gaussian_splatting["video-analysis-gaussian-splatting"]:::crate
+    crate_video_analysis_gaussian_splatting_cli["video-analysis-gaussian-splatting-cli"]:::crate
+    crate_video_analysis_gaussian_splatting_server["video-analysis-gaussian-splatting-server"]:::crate
     crate_video_analysis_ingest["video-analysis-ingest"]:::crate
+    crate_video_analysis_ingest_cli["video-analysis-ingest-cli"]:::crate
+    crate_video_analysis_ingest_server["video-analysis-ingest-server"]:::crate
     crate_video_analysis_models["video-analysis-models"]:::crate
+    crate_video_analysis_models_cli["video-analysis-models-cli"]:::crate
+    crate_video_analysis_models_server["video-analysis-models-server"]:::crate
     crate_video_analysis_mvs["video-analysis-mvs"]:::crate
+    crate_video_analysis_mvs_cli["video-analysis-mvs-cli"]:::crate
+    crate_video_analysis_mvs_server["video-analysis-mvs-server"]:::crate
     crate_video_analysis_onnx["video-analysis-onnx"]:::crate
+    crate_video_analysis_onnx_cli["video-analysis-onnx-cli"]:::crate
+    crate_video_analysis_onnx_server["video-analysis-onnx-server"]:::crate
     crate_video_analysis_opencv_backend["video-analysis-opencv-backend"]:::crate
+    crate_video_analysis_opencv_backend_cli["video-analysis-opencv-backend-cli"]:::crate
+    crate_video_analysis_opencv_backend_server["video-analysis-opencv-backend-server"]:::crate
     crate_video_analysis_output["video-analysis-output"]:::crate
+    crate_video_analysis_output_cli["video-analysis-output-cli"]:::crate
+    crate_video_analysis_output_server["video-analysis-output-server"]:::crate
     crate_video_analysis_posture["video-analysis-posture"]:::crate
+    crate_video_analysis_posture_cli["video-analysis-posture-cli"]:::crate
     crate_video_analysis_posture_io["video-analysis-posture-io"]:::crate
+    crate_video_analysis_posture_io_cli["video-analysis-posture-io-cli"]:::crate
+    crate_video_analysis_posture_io_server["video-analysis-posture-io-server"]:::crate
+    crate_video_analysis_posture_server["video-analysis-posture-server"]:::crate
     crate_video_analysis_radiance_fields["video-analysis-radiance-fields"]:::crate
+    crate_video_analysis_radiance_fields_cli["video-analysis-radiance-fields-cli"]:::crate
+    crate_video_analysis_radiance_fields_server["video-analysis-radiance-fields-server"]:::crate
     crate_video_analysis_radiance_io["video-analysis-radiance-io"]:::crate
+    crate_video_analysis_radiance_io_cli["video-analysis-radiance-io-cli"]:::crate
+    crate_video_analysis_radiance_io_server["video-analysis-radiance-io-server"]:::crate
     crate_video_analysis_radiance_pipeline["video-analysis-radiance-pipeline"]:::crate
+    crate_video_analysis_radiance_pipeline_cli["video-analysis-radiance-pipeline-cli"]:::crate
+    crate_video_analysis_radiance_pipeline_server["video-analysis-radiance-pipeline-server"]:::crate
     crate_video_analysis_recognition["video-analysis-recognition"]:::crate
+    crate_video_analysis_recognition_cli["video-analysis-recognition-cli"]:::crate
+    crate_video_analysis_recognition_server["video-analysis-recognition-server"]:::crate
     crate_video_analysis_reconstruction["video-analysis-reconstruction"]:::crate
+    crate_video_analysis_reconstruction_cli["video-analysis-reconstruction-cli"]:::crate
+    crate_video_analysis_reconstruction_server["video-analysis-reconstruction-server"]:::crate
     crate_video_analysis_segmentation["video-analysis-segmentation"]:::crate
+    crate_video_analysis_segmentation_cli["video-analysis-segmentation-cli"]:::crate
+    crate_video_analysis_segmentation_server["video-analysis-segmentation-server"]:::crate
     crate_video_analysis_sfm["video-analysis-sfm"]:::crate
+    crate_video_analysis_sfm_cli["video-analysis-sfm-cli"]:::crate
     crate_video_analysis_sfm_rust_backend["video-analysis-sfm-rust-backend"]:::crate
+    crate_video_analysis_sfm_rust_backend_cli["video-analysis-sfm-rust-backend-cli"]:::crate
+    crate_video_analysis_sfm_rust_backend_server["video-analysis-sfm-rust-backend-server"]:::crate
+    crate_video_analysis_sfm_server["video-analysis-sfm-server"]:::crate
     crate_video_analysis_split["video-analysis-split"]:::crate
+    crate_video_analysis_split_cli["video-analysis-split-cli"]:::crate
+    crate_video_analysis_split_server["video-analysis-split-server"]:::crate
     crate_video_analysis_storage["video-analysis-storage"]:::crate
+    crate_video_analysis_storage_cli["video-analysis-storage-cli"]:::crate
+    crate_video_analysis_storage_server["video-analysis-storage-server"]:::crate
     crate_video_analysis_synthesis["video-analysis-synthesis"]:::crate
+    crate_video_analysis_synthesis_cli["video-analysis-synthesis-cli"]:::crate
+    crate_video_analysis_synthesis_server["video-analysis-synthesis-server"]:::crate
     crate_video_analysis_tracking["video-analysis-tracking"]:::crate
+    crate_video_analysis_tracking_cli["video-analysis-tracking-cli"]:::crate
+    crate_video_analysis_tracking_server["video-analysis-tracking-server"]:::crate
     crate_video_analysis_transform["video-analysis-transform"]:::crate
+    crate_video_analysis_transform_cli["video-analysis-transform-cli"]:::crate
+    crate_video_analysis_transform_server["video-analysis-transform-server"]:::crate
   end
 
   subgraph group_comfyui["ComfyUI"]
     direction TB
     crate_comfyui_data["comfyui-data"]:::crate
+    crate_comfyui_data_cli["comfyui-data-cli"]:::crate
+    crate_comfyui_data_server["comfyui-data-server"]:::crate
     crate_comfyui_latents["comfyui-latents"]:::crate
+    crate_comfyui_latents_cli["comfyui-latents-cli"]:::crate
+    crate_comfyui_latents_server["comfyui-latents-server"]:::crate
     crate_comfyui_models["comfyui-models"]:::crate
+    crate_comfyui_models_cli["comfyui-models-cli"]:::crate
+    crate_comfyui_models_server["comfyui-models-server"]:::crate
   end
 
   subgraph group_bindings["Bindings"]
     direction TB
+    crate_maps_kernels_wasm["maps-kernels-wasm"]:::crate
     crate_text_core_wasm["text-core-wasm"]:::crate
   end
 
@@ -176,14 +328,30 @@ flowchart LR
   subgraph group_animation["Animation"]
     direction TB
     crate_animation_core["animation-core"]:::crate
+    crate_animation_core_cli["animation-core-cli"]:::crate
+    crate_animation_core_server["animation-core-server"]:::crate
+  end
+
+  subgraph group_jobs["Jobs"]
+    direction TB
+    crate_jobs_core["jobs-core"]:::crate
+  end
+
+  subgraph group_runtime["Runtime"]
+    direction TB
+    crate_runtime_artifacts["runtime-artifacts"]:::crate
+    crate_runtime_contracts["runtime-contracts"]:::crate
+    crate_runtime_jobs["runtime-jobs"]:::crate
   end
 
   crate_video_analysis --> crate_data_inversion_core
   crate_video_analysis --> crate_dense_data
+  crate_video_analysis --> crate_geo_data
   crate_video_analysis --> crate_graph_analysis_core
   crate_video_analysis --> crate_numbers_core
   crate_video_analysis --> crate_tensor_data
   crate_video_analysis --> crate_finance_statistics
+  crate_video_analysis --> crate_maps_kernels_core
   crate_video_analysis --> crate_math_geometry_2d
   crate_video_analysis --> crate_math_linear
   crate_video_analysis --> crate_math_signal_core
@@ -205,22 +373,20 @@ flowchart LR
   crate_video_analysis --> crate_image_analysis_detection
   crate_video_analysis --> crate_image_analysis_io
   crate_video_analysis --> crate_image_analysis_models
+  crate_video_analysis --> crate_image_analysis_ocr
   crate_video_analysis -. optional .-> crate_image_analysis_onnx
   crate_video_analysis --> crate_image_analysis_processing
   crate_video_analysis --> crate_image_analysis_segmentation
   crate_video_analysis --> crate_image_analysis_synthesis
-  crate_video_analysis --> crate_text_analysis_core
-  crate_video_analysis --> crate_text_analysis_corpus
-  crate_video_analysis --> crate_text_analysis_features
-  crate_video_analysis --> crate_text_analysis_linguistics
-  crate_video_analysis --> crate_text_analysis_models
-  crate_video_analysis --> crate_text_analysis_prediction
-  crate_video_analysis --> crate_text_analysis_retrieval
-  crate_video_analysis --> crate_text_analysis_retrieval_storage
-  crate_video_analysis --> crate_text_analysis_search
-  crate_video_analysis --> crate_text_analysis_semantics
-  crate_video_analysis --> crate_text_analysis_synthesis
-  crate_video_analysis --> crate_text_analysis_transcription
+  crate_video_analysis --> crate_text_core
+  crate_video_analysis --> crate_text_embeddings
+  crate_video_analysis --> crate_text_generation
+  crate_video_analysis --> crate_text_lexical
+  crate_video_analysis --> crate_text_linguistics
+  crate_video_analysis --> crate_text_models
+  crate_video_analysis --> crate_text_retrieval
+  crate_video_analysis --> crate_text_transcripts
+  crate_video_analysis --> crate_text_whisper_cpp
   crate_video_analysis --> crate_vector_analysis_core
   crate_video_analysis --> crate_vector_analysis_index
   crate_video_analysis --> crate_three_d_processing_core
@@ -246,6 +412,7 @@ flowchart LR
   crate_video_analysis --> crate_video_analysis_posture_io
   crate_video_analysis --> crate_video_analysis_radiance_fields
   crate_video_analysis --> crate_video_analysis_radiance_io
+  crate_video_analysis --> crate_video_analysis_radiance_pipeline
   crate_video_analysis --> crate_video_analysis_recognition
   crate_video_analysis --> crate_video_analysis_reconstruction
   crate_video_analysis --> crate_video_analysis_segmentation
@@ -260,151 +427,232 @@ flowchart LR
   crate_video_analysis --> crate_comfyui_latents
   crate_video_analysis --> crate_comfyui_models
   crate_video_analysis --> crate_animation_core
+  crate_video_analysis --> crate_jobs_core
   crate_data_inversion_core --> crate_video_analysis_core
+  crate_data_inversion_core_cli --> crate_data_inversion_core
+  crate_data_inversion_core_server --> crate_data_inversion_core
   crate_dense_data --> crate_numbers_core
   crate_dense_data --> crate_math_linear
   crate_dense_data --> crate_math_statistics
   crate_dense_data --> crate_video_analysis_core
+  crate_dense_data_cli --> crate_dense_data
+  crate_dense_data_server --> crate_dense_data
+  crate_geo_data --> crate_video_analysis_core
   crate_graph_analysis_core --> crate_video_analysis_core
+  crate_graph_analysis_core_cli --> crate_graph_analysis_core
+  crate_graph_analysis_core_server --> crate_graph_analysis_core
   crate_numbers_core --> crate_video_analysis_core
+  crate_numbers_core_cli --> crate_numbers_core
+  crate_numbers_core_server --> crate_numbers_core
   crate_tensor_data --> crate_video_analysis_core
+  crate_tensor_data_cli --> crate_tensor_data
+  crate_tensor_data_server --> crate_tensor_data
   crate_finance_statistics --> crate_numbers_core
   crate_finance_statistics --> crate_video_analysis_core
+  crate_finance_statistics_cli --> crate_finance_statistics
+  crate_finance_statistics_server --> crate_finance_statistics
+  crate_maps_kernels_core --> crate_numbers_core
+  crate_maps_kernels_core --> crate_video_analysis_core
+  crate_maps_kernels_core_cli --> crate_maps_kernels_core
+  crate_maps_kernels_core_server --> crate_maps_kernels_core
   crate_math_geometry_2d --> crate_video_analysis_core
+  crate_math_geometry_2d_cli --> crate_math_geometry_2d
+  crate_math_geometry_2d_server --> crate_math_geometry_2d
   crate_math_linear --> crate_tensor_data
   crate_math_linear --> crate_vector_analysis_core
   crate_math_linear --> crate_video_analysis_core
+  crate_math_linear_cli --> crate_math_linear
+  crate_math_linear_server --> crate_math_linear
   crate_math_signal_core --> crate_numbers_core
   crate_math_signal_core --> crate_video_analysis_core
+  crate_math_signal_core_cli --> crate_math_signal_core
+  crate_math_signal_core_server --> crate_math_signal_core
   crate_math_sparse_data --> crate_numbers_core
   crate_math_sparse_data --> crate_vector_analysis_core
   crate_math_sparse_data --> crate_video_analysis_core
+  crate_math_sparse_data_cli --> crate_math_sparse_data
+  crate_math_sparse_data_server --> crate_math_sparse_data
   crate_math_statistics --> crate_numbers_core
   crate_math_statistics --> crate_math_linear
   crate_math_statistics --> crate_video_analysis_core
+  crate_math_statistics_cli --> crate_math_statistics
+  crate_math_statistics_server --> crate_math_statistics
   crate_audio_analysis_core --> crate_tensor_data
   crate_audio_analysis_core --> crate_math_signal_core
   crate_audio_analysis_core --> crate_video_analysis_core
+  crate_audio_analysis_core_cli --> crate_audio_analysis_core
+  crate_audio_analysis_core_server --> crate_audio_analysis_core
   crate_audio_analysis_fourier --> crate_audio_analysis_core
   crate_audio_analysis_fourier --> crate_video_analysis_core
+  crate_audio_analysis_fourier_cli --> crate_audio_analysis_fourier
+  crate_audio_analysis_fourier_server --> crate_audio_analysis_fourier
   crate_audio_analysis_io --> crate_audio_analysis_core
   crate_audio_analysis_io --> crate_video_analysis_core
   crate_audio_analysis_io --> crate_video_analysis_ffmpeg
   crate_audio_analysis_io --> crate_video_analysis_ingest
+  crate_audio_analysis_io_cli --> crate_audio_analysis_io
+  crate_audio_analysis_io_server --> crate_audio_analysis_io
   crate_audio_analysis_pitch --> crate_audio_analysis_core
   crate_audio_analysis_pitch --> crate_video_analysis_core
+  crate_audio_analysis_pitch_cli --> crate_audio_analysis_pitch
+  crate_audio_analysis_pitch_server --> crate_audio_analysis_pitch
   crate_audio_analysis_processing --> crate_math_signal_core
   crate_audio_analysis_processing --> crate_audio_analysis_core
   crate_audio_analysis_processing --> crate_video_analysis_core
   crate_audio_analysis_processing --> crate_video_analysis_ingest
+  crate_audio_analysis_processing_cli --> crate_audio_analysis_processing
+  crate_audio_analysis_processing_server --> crate_audio_analysis_processing
   crate_audio_analysis_recognition --> crate_audio_analysis_core
   crate_audio_analysis_recognition --> crate_audio_analysis_fourier
   crate_audio_analysis_recognition --> crate_video_analysis_core
+  crate_audio_analysis_recognition_cli --> crate_audio_analysis_recognition
+  crate_audio_analysis_recognition_server --> crate_audio_analysis_recognition
   crate_audio_analysis_rhythm --> crate_audio_analysis_core
   crate_audio_analysis_rhythm --> crate_video_analysis_core
+  crate_audio_analysis_rhythm_cli --> crate_audio_analysis_rhythm
+  crate_audio_analysis_rhythm_server --> crate_audio_analysis_rhythm
   crate_audio_analysis_separation --> crate_video_analysis_core
+  crate_audio_analysis_separation_cli --> crate_audio_analysis_separation
+  crate_audio_analysis_separation_server --> crate_audio_analysis_separation
   crate_audio_analysis_speakers --> crate_audio_analysis_core
   crate_audio_analysis_speakers --> crate_audio_analysis_recognition
   crate_audio_analysis_speakers --> crate_video_analysis_core
+  crate_audio_analysis_speakers_cli --> crate_audio_analysis_speakers
+  crate_audio_analysis_speakers_server --> crate_audio_analysis_speakers
   crate_audio_analysis_synthesis --> crate_data_inversion_core
   crate_audio_analysis_synthesis --> crate_video_analysis_core
+  crate_audio_analysis_synthesis_cli --> crate_audio_analysis_synthesis
+  crate_audio_analysis_synthesis_server --> crate_audio_analysis_synthesis
   crate_audio_analysis_test_support --> crate_video_analysis_core
   crate_audio_generation_midi --> crate_data_inversion_core
   crate_audio_generation_midi --> crate_audio_analysis_synthesis
   crate_audio_generation_midi --> crate_video_analysis_core
+  crate_audio_generation_midi_cli --> crate_audio_generation_midi
+  crate_audio_generation_midi_server --> crate_audio_generation_midi
   crate_image_analysis_comfyui --> crate_video_analysis_core
   crate_image_analysis_comfyui --> crate_comfyui_data
   crate_image_analysis_comfyui --> crate_comfyui_models
+  crate_image_analysis_comfyui_cli --> crate_image_analysis_comfyui
+  crate_image_analysis_comfyui_server --> crate_image_analysis_comfyui
   crate_image_analysis_core --> crate_tensor_data
   crate_image_analysis_core --> crate_video_analysis_core
+  crate_image_analysis_core_cli --> crate_image_analysis_core
+  crate_image_analysis_core_server --> crate_image_analysis_core
   crate_image_analysis_detection --> crate_image_analysis_core
   crate_image_analysis_detection --> crate_image_analysis_segmentation
   crate_image_analysis_detection --> crate_video_analysis_core
+  crate_image_analysis_detection_cli --> crate_image_analysis_detection
+  crate_image_analysis_detection_server --> crate_image_analysis_detection
   crate_image_analysis_io --> crate_image_analysis_core
   crate_image_analysis_io --> crate_video_analysis_core
+  crate_image_analysis_io_cli --> crate_image_analysis_io
+  crate_image_analysis_io_server --> crate_image_analysis_io
   crate_image_analysis_models --> crate_image_analysis_core
   crate_image_analysis_models --> crate_image_analysis_detection
   crate_image_analysis_models --> crate_image_analysis_segmentation
   crate_image_analysis_models --> crate_video_analysis_core
   crate_image_analysis_models --> crate_video_analysis_models
+  crate_image_analysis_models_cli --> crate_image_analysis_models
+  crate_image_analysis_models_server --> crate_image_analysis_models
+  crate_image_analysis_ocr --> crate_image_analysis_core
+  crate_image_analysis_ocr --> crate_video_analysis_core
+  crate_image_analysis_ocr --> crate_video_analysis_models
   crate_image_analysis_onnx --> crate_image_analysis_core
   crate_image_analysis_onnx --> crate_image_analysis_detection
   crate_image_analysis_onnx --> crate_image_analysis_models
   crate_image_analysis_onnx --> crate_image_analysis_processing
   crate_image_analysis_onnx --> crate_video_analysis_core
   crate_image_analysis_onnx --> crate_video_analysis_models
+  crate_image_analysis_onnx_cli --> crate_image_analysis_onnx
+  crate_image_analysis_onnx_server --> crate_image_analysis_onnx
   crate_image_analysis_processing --> crate_math_geometry_2d
   crate_image_analysis_processing --> crate_math_linear
   crate_image_analysis_processing --> crate_image_analysis_core
   crate_image_analysis_processing --> crate_video_analysis_core
+  crate_image_analysis_processing_cli --> crate_image_analysis_processing
+  crate_image_analysis_processing_server --> crate_image_analysis_processing
   crate_image_analysis_segmentation --> crate_image_analysis_core
   crate_image_analysis_segmentation --> crate_video_analysis_core
+  crate_image_analysis_segmentation_cli --> crate_image_analysis_segmentation
+  crate_image_analysis_segmentation_server --> crate_image_analysis_segmentation
   crate_image_analysis_synthesis --> crate_data_inversion_core
   crate_image_analysis_synthesis --> crate_image_analysis_core
   crate_image_analysis_synthesis --> crate_video_analysis_core
-  crate_text_analysis_core --> crate_video_analysis_core
-  crate_text_analysis_corpus --> crate_math_sparse_data
-  crate_text_analysis_corpus --> crate_text_analysis_core
-  crate_text_analysis_corpus --> crate_video_analysis_core
-  crate_text_analysis_features --> crate_text_analysis_core
-  crate_text_analysis_features --> crate_video_analysis_core
-  crate_text_analysis_linguistics --> crate_text_analysis_core
-  crate_text_analysis_linguistics --> crate_text_analysis_models
-  crate_text_analysis_linguistics --> crate_text_analysis_transcription
-  crate_text_analysis_linguistics --> crate_video_analysis_core
-  crate_text_analysis_models --> crate_text_analysis_core
-  crate_text_analysis_models --> crate_text_analysis_semantics
-  crate_text_analysis_models --> crate_vector_analysis_core
-  crate_text_analysis_models --> crate_video_analysis_core
-  crate_text_analysis_models --> crate_video_analysis_models
-  crate_text_analysis_prediction --> crate_text_analysis_core
-  crate_text_analysis_prediction --> crate_text_analysis_linguistics
-  crate_text_analysis_prediction --> crate_video_analysis_core
-  crate_text_analysis_retrieval --> crate_text_analysis_core
-  crate_text_analysis_retrieval --> crate_text_analysis_corpus
-  crate_text_analysis_retrieval --> crate_text_analysis_models
-  crate_text_analysis_retrieval -. dev .-> crate_text_analysis_semantics
-  crate_text_analysis_retrieval --> crate_text_analysis_transcription
-  crate_text_analysis_retrieval --> crate_vector_analysis_index
-  crate_text_analysis_retrieval --> crate_video_analysis_core
-  crate_text_analysis_retrieval_storage --> crate_text_analysis_corpus
-  crate_text_analysis_retrieval_storage --> crate_text_analysis_models
-  crate_text_analysis_retrieval_storage --> crate_text_analysis_retrieval
-  crate_text_analysis_retrieval_storage -. dev .-> crate_text_analysis_semantics
-  crate_text_analysis_retrieval_storage --> crate_vector_analysis_index
-  crate_text_analysis_retrieval_storage -. dev .-> crate_video_analysis_core
-  crate_text_analysis_search -. dev .-> crate_text_analysis_corpus
-  crate_text_analysis_search --> crate_text_analysis_models
-  crate_text_analysis_search --> crate_text_analysis_retrieval
-  crate_text_analysis_search -. dev .-> crate_text_analysis_semantics
-  crate_text_analysis_search --> crate_video_analysis_core
-  crate_text_analysis_semantics --> crate_math_sparse_data
-  crate_text_analysis_semantics --> crate_text_analysis_core
-  crate_text_analysis_semantics --> crate_text_analysis_corpus
-  crate_text_analysis_semantics --> crate_vector_analysis_core
-  crate_text_analysis_semantics --> crate_vector_analysis_index
-  crate_text_analysis_semantics --> crate_video_analysis_core
-  crate_text_analysis_synthesis --> crate_data_inversion_core
-  crate_text_analysis_synthesis --> crate_text_analysis_core
-  crate_text_analysis_synthesis --> crate_text_analysis_linguistics
-  crate_text_analysis_synthesis --> crate_video_analysis_core
-  crate_text_analysis_transcription --> crate_audio_analysis_core
-  crate_text_analysis_transcription --> crate_audio_analysis_io
-  crate_text_analysis_transcription --> crate_text_analysis_whisper_cpp
-  crate_text_analysis_transcription --> crate_video_analysis_core
-  crate_text_analysis_transcription --> crate_video_analysis_ingest
+  crate_image_analysis_synthesis_cli --> crate_image_analysis_synthesis
+  crate_image_analysis_synthesis_server --> crate_image_analysis_synthesis
+  crate_text_core --> crate_video_analysis_core
+  crate_text_core --> crate_runtime_contracts
+  crate_text_core --> crate_runtime_jobs
+  crate_text_core_cli --> crate_text_core
+  crate_text_core_server --> crate_text_core
+  crate_text_embeddings --> crate_math_sparse_data
+  crate_text_embeddings --> crate_text_core
+  crate_text_embeddings --> crate_text_lexical
+  crate_text_embeddings --> crate_vector_analysis_core
+  crate_text_embeddings --> crate_vector_analysis_index
+  crate_text_embeddings --> crate_video_analysis_core
+  crate_text_generation --> crate_data_inversion_core
+  crate_text_generation --> crate_text_core
+  crate_text_generation --> crate_text_linguistics
+  crate_text_generation --> crate_video_analysis_core
+  crate_text_lexical --> crate_math_sparse_data
+  crate_text_lexical --> crate_text_core
+  crate_text_lexical --> crate_video_analysis_core
+  crate_text_linguistics --> crate_text_core
+  crate_text_linguistics --> crate_text_lexical
+  crate_text_linguistics --> crate_text_models
+  crate_text_linguistics --> crate_text_transcripts
+  crate_text_linguistics --> crate_video_analysis_core
+  crate_text_linguistics_cli --> crate_text_linguistics
+  crate_text_linguistics_server --> crate_text_linguistics
+  crate_text_models --> crate_text_core
+  crate_text_models --> crate_text_embeddings
+  crate_text_models --> crate_vector_analysis_core
+  crate_text_models --> crate_video_analysis_core
+  crate_text_models --> crate_video_analysis_models
+  crate_text_models_cli --> crate_text_models
+  crate_text_models_server --> crate_text_models
+  crate_text_retrieval --> crate_text_core
+  crate_text_retrieval --> crate_text_embeddings
+  crate_text_retrieval --> crate_text_lexical
+  crate_text_retrieval --> crate_text_transcripts
+  crate_text_retrieval --> crate_vector_analysis_index
+  crate_text_retrieval --> crate_video_analysis_core
+  crate_text_retrieval_cli --> crate_text_embeddings
+  crate_text_retrieval_cli --> crate_text_lexical
+  crate_text_retrieval_cli --> crate_text_retrieval
+  crate_text_retrieval_server --> crate_text_retrieval
+  crate_text_transcripts --> crate_audio_analysis_core
+  crate_text_transcripts --> crate_audio_analysis_io
+  crate_text_transcripts --> crate_text_whisper_cpp
+  crate_text_transcripts --> crate_video_analysis_core
+  crate_text_transcripts --> crate_video_analysis_ingest
+  crate_text_transcripts_cli --> crate_text_transcripts
+  crate_text_transcripts_server --> crate_text_transcripts
   crate_vector_analysis_core --> crate_video_analysis_core
+  crate_vector_analysis_core_cli --> crate_vector_analysis_core
+  crate_vector_analysis_core_server --> crate_vector_analysis_core
   crate_vector_analysis_index --> crate_vector_analysis_core
   crate_vector_analysis_index --> crate_video_analysis_core
+  crate_vector_analysis_index_cli --> crate_vector_analysis_index
+  crate_vector_analysis_index_server --> crate_vector_analysis_index
   crate_three_d_processing_core --> crate_video_analysis_core
+  crate_three_d_processing_core_cli --> crate_three_d_processing_core
+  crate_three_d_processing_core_server --> crate_three_d_processing_core
   crate_three_d_processing_io --> crate_three_d_processing_core
   crate_three_d_processing_io --> crate_three_d_processing_mesh
   crate_three_d_processing_io --> crate_video_analysis_core
+  crate_three_d_processing_io_cli --> crate_three_d_processing_io
+  crate_three_d_processing_io_server --> crate_three_d_processing_io
   crate_three_d_processing_mesh --> crate_three_d_processing_core
   crate_three_d_processing_mesh --> crate_video_analysis_core
+  crate_three_d_processing_mesh_cli --> crate_three_d_processing_mesh
+  crate_three_d_processing_mesh_server --> crate_three_d_processing_mesh
   crate_three_d_scene_svg --> crate_three_d_processing_core
   crate_three_d_scene_svg --> crate_three_d_processing_mesh
   crate_three_d_scene_svg --> crate_video_analysis_core
+  crate_three_d_scene_svg_cli --> crate_three_d_scene_svg
+  crate_three_d_scene_svg_server --> crate_three_d_scene_svg
   crate_video_analysis_cli --> crate_three_d_processing_core
   crate_video_analysis_cli --> crate_three_d_processing_io
   crate_video_analysis_cli --> crate_video_analysis_core
@@ -421,88 +669,156 @@ flowchart LR
   crate_video_analysis_colmap_backend --> crate_video_analysis_radiance_io
   crate_video_analysis_colmap_backend --> crate_video_analysis_reconstruction
   crate_video_analysis_colmap_backend --> crate_video_analysis_sfm
+  crate_video_analysis_colmap_backend_cli --> crate_video_analysis_colmap_backend
+  crate_video_analysis_colmap_backend_server --> crate_video_analysis_colmap_backend
+  crate_video_analysis_core_cli --> crate_video_analysis_core
+  crate_video_analysis_core_server --> crate_video_analysis_core
   crate_video_analysis_data --> crate_numbers_core
   crate_video_analysis_data --> crate_video_analysis_core
+  crate_video_analysis_data_cli --> crate_video_analysis_data
+  crate_video_analysis_data_server --> crate_video_analysis_data
   crate_video_analysis_dataset -. dev .-> crate_three_d_processing_core
   crate_video_analysis_dataset --> crate_video_analysis_core
   crate_video_analysis_dataset --> crate_video_analysis_posture
+  crate_video_analysis_dataset_cli --> crate_video_analysis_dataset
+  crate_video_analysis_dataset_server --> crate_video_analysis_dataset
   crate_video_analysis_detectors --> crate_video_analysis_core
   crate_video_analysis_detectors -. dev .-> crate_video_analysis_ffmpeg
   crate_video_analysis_detectors -. dev .-> crate_video_analysis_ingest
+  crate_video_analysis_detectors_cli --> crate_video_analysis_detectors
+  crate_video_analysis_detectors_server --> crate_video_analysis_detectors
   crate_video_analysis_editing --> crate_math_geometry_2d
   crate_video_analysis_editing --> crate_math_linear
   crate_video_analysis_editing --> crate_video_analysis_core
+  crate_video_analysis_editing_cli --> crate_video_analysis_editing
+  crate_video_analysis_editing_server --> crate_video_analysis_editing
   crate_video_analysis_features --> crate_video_analysis_core
   crate_video_analysis_features --> crate_video_analysis_dataset
   crate_video_analysis_features --> crate_video_analysis_transform
+  crate_video_analysis_features_cli --> crate_video_analysis_features
+  crate_video_analysis_features_server --> crate_video_analysis_features
   crate_video_analysis_ffmpeg --> crate_video_analysis_core
   crate_video_analysis_ffmpeg --> crate_video_analysis_ingest
+  crate_video_analysis_ffmpeg_cli --> crate_video_analysis_ffmpeg
+  crate_video_analysis_ffmpeg_server --> crate_video_analysis_ffmpeg
   crate_video_analysis_gaussian_splatting --> crate_video_analysis_core
   crate_video_analysis_gaussian_splatting --> crate_video_analysis_radiance_fields
+  crate_video_analysis_gaussian_splatting_cli --> crate_video_analysis_gaussian_splatting
+  crate_video_analysis_gaussian_splatting_server --> crate_video_analysis_gaussian_splatting
   crate_video_analysis_ingest --> crate_video_analysis_core
+  crate_video_analysis_ingest_cli --> crate_video_analysis_ingest
+  crate_video_analysis_ingest_server --> crate_video_analysis_ingest
   crate_video_analysis_models --> crate_three_d_processing_core
   crate_video_analysis_models --> crate_video_analysis_core
   crate_video_analysis_models --> crate_video_analysis_posture
+  crate_video_analysis_models_cli --> crate_video_analysis_models
+  crate_video_analysis_models_server --> crate_video_analysis_models
   crate_video_analysis_mvs --> crate_three_d_processing_core
   crate_video_analysis_mvs --> crate_three_d_processing_mesh
   crate_video_analysis_mvs --> crate_video_analysis_core
   crate_video_analysis_mvs --> crate_video_analysis_radiance_fields
   crate_video_analysis_mvs --> crate_video_analysis_reconstruction
+  crate_video_analysis_mvs_cli --> crate_video_analysis_mvs
+  crate_video_analysis_mvs_server --> crate_video_analysis_mvs
   crate_video_analysis_onnx --> crate_image_analysis_core
   crate_video_analysis_onnx --> crate_image_analysis_onnx
   crate_video_analysis_onnx --> crate_video_analysis_core
   crate_video_analysis_onnx --> crate_video_analysis_models
   crate_video_analysis_onnx --> crate_video_analysis_posture
+  crate_video_analysis_onnx_cli --> crate_video_analysis_onnx
+  crate_video_analysis_onnx_server --> crate_video_analysis_onnx
   crate_video_analysis_opencv_backend --> crate_video_analysis_core
   crate_video_analysis_opencv_backend --> crate_video_analysis_mvs
   crate_video_analysis_opencv_backend --> crate_video_analysis_sfm
+  crate_video_analysis_opencv_backend_cli --> crate_video_analysis_opencv_backend
+  crate_video_analysis_opencv_backend_server --> crate_video_analysis_opencv_backend
   crate_video_analysis_output --> crate_video_analysis_core
+  crate_video_analysis_output_cli --> crate_video_analysis_output
+  crate_video_analysis_output_server --> crate_video_analysis_output
   crate_video_analysis_posture --> crate_math_geometry_2d
   crate_video_analysis_posture --> crate_three_d_processing_core
   crate_video_analysis_posture --> crate_video_analysis_core
+  crate_video_analysis_posture_cli --> crate_video_analysis_posture
   crate_video_analysis_posture_io --> crate_three_d_processing_core
   crate_video_analysis_posture_io --> crate_video_analysis_core
   crate_video_analysis_posture_io --> crate_video_analysis_posture
+  crate_video_analysis_posture_io_cli --> crate_video_analysis_posture_io
+  crate_video_analysis_posture_io_server --> crate_video_analysis_posture_io
+  crate_video_analysis_posture_server --> crate_video_analysis_posture
   crate_video_analysis_radiance_fields --> crate_video_analysis_core
+  crate_video_analysis_radiance_fields_cli --> crate_video_analysis_radiance_fields
+  crate_video_analysis_radiance_fields_server --> crate_video_analysis_radiance_fields
   crate_video_analysis_radiance_io --> crate_video_analysis_core
   crate_video_analysis_radiance_io --> crate_video_analysis_gaussian_splatting
   crate_video_analysis_radiance_io --> crate_video_analysis_radiance_fields
   crate_video_analysis_radiance_io --> crate_video_analysis_reconstruction
+  crate_video_analysis_radiance_io_cli --> crate_video_analysis_radiance_io
+  crate_video_analysis_radiance_io_server --> crate_video_analysis_radiance_io
   crate_video_analysis_radiance_pipeline --> crate_video_analysis_core
   crate_video_analysis_radiance_pipeline --> crate_video_analysis_gaussian_splatting
   crate_video_analysis_radiance_pipeline --> crate_video_analysis_radiance_fields
   crate_video_analysis_radiance_pipeline --> crate_video_analysis_radiance_io
   crate_video_analysis_radiance_pipeline --> crate_video_analysis_reconstruction
+  crate_video_analysis_radiance_pipeline_cli --> crate_video_analysis_radiance_pipeline
+  crate_video_analysis_radiance_pipeline_server --> crate_video_analysis_radiance_pipeline
   crate_video_analysis_recognition --> crate_video_analysis_core
+  crate_video_analysis_recognition_cli --> crate_video_analysis_recognition
+  crate_video_analysis_recognition_server --> crate_video_analysis_recognition
   crate_video_analysis_reconstruction --> crate_video_analysis_core
   crate_video_analysis_reconstruction --> crate_video_analysis_radiance_fields
+  crate_video_analysis_reconstruction_cli --> crate_video_analysis_reconstruction
+  crate_video_analysis_reconstruction_server --> crate_video_analysis_reconstruction
   crate_video_analysis_segmentation --> crate_image_analysis_segmentation
   crate_video_analysis_segmentation --> crate_video_analysis_core
   crate_video_analysis_segmentation -. dev .-> crate_video_analysis_ffmpeg
   crate_video_analysis_segmentation -. dev .-> crate_video_analysis_ingest
   crate_video_analysis_segmentation --> crate_video_analysis_models
+  crate_video_analysis_segmentation_cli --> crate_video_analysis_segmentation
+  crate_video_analysis_segmentation_server --> crate_video_analysis_segmentation
   crate_video_analysis_sfm --> crate_video_analysis_core
   crate_video_analysis_sfm --> crate_video_analysis_radiance_fields
   crate_video_analysis_sfm --> crate_video_analysis_reconstruction
+  crate_video_analysis_sfm_cli --> crate_video_analysis_sfm
   crate_video_analysis_sfm_rust_backend --> crate_video_analysis_core
   crate_video_analysis_sfm_rust_backend --> crate_video_analysis_radiance_fields
   crate_video_analysis_sfm_rust_backend --> crate_video_analysis_reconstruction
   crate_video_analysis_sfm_rust_backend --> crate_video_analysis_sfm
+  crate_video_analysis_sfm_rust_backend_cli --> crate_video_analysis_sfm_rust_backend
+  crate_video_analysis_sfm_rust_backend_server --> crate_video_analysis_sfm_rust_backend
+  crate_video_analysis_sfm_server --> crate_video_analysis_sfm
   crate_video_analysis_split --> crate_video_analysis_core
   crate_video_analysis_split -. dev .-> crate_video_analysis_ffmpeg
+  crate_video_analysis_split_cli --> crate_video_analysis_split
+  crate_video_analysis_split_server --> crate_video_analysis_split
   crate_video_analysis_storage -. dev .-> crate_video_analysis_core
   crate_video_analysis_storage --> crate_video_analysis_dataset
+  crate_video_analysis_storage_cli --> crate_video_analysis_storage
+  crate_video_analysis_storage_server --> crate_video_analysis_storage
   crate_video_analysis_synthesis --> crate_data_inversion_core
   crate_video_analysis_synthesis --> crate_video_analysis_core
+  crate_video_analysis_synthesis_cli --> crate_video_analysis_synthesis
+  crate_video_analysis_synthesis_server --> crate_video_analysis_synthesis
   crate_video_analysis_tracking --> crate_math_geometry_2d
   crate_video_analysis_tracking --> crate_video_analysis_core
+  crate_video_analysis_tracking_cli --> crate_video_analysis_tracking
+  crate_video_analysis_tracking_server --> crate_video_analysis_tracking
   crate_video_analysis_transform -. dev .-> crate_video_analysis_core
   crate_video_analysis_transform --> crate_video_analysis_dataset
+  crate_video_analysis_transform_cli --> crate_video_analysis_transform
+  crate_video_analysis_transform_server --> crate_video_analysis_transform
   crate_comfyui_data --> crate_tensor_data
   crate_comfyui_data -. dev .-> crate_image_analysis_comfyui
+  crate_comfyui_data_cli --> crate_comfyui_data
+  crate_comfyui_data_server --> crate_comfyui_data
   crate_comfyui_latents --> crate_tensor_data
   crate_comfyui_latents --> crate_video_analysis_core
-  crate_text_core_wasm --> crate_text_analysis_core
+  crate_comfyui_latents_cli --> crate_comfyui_latents
+  crate_comfyui_latents_server --> crate_comfyui_latents
+  crate_comfyui_models_cli --> crate_comfyui_models
+  crate_comfyui_models_server --> crate_comfyui_models
+  crate_maps_kernels_wasm --> crate_maps_kernels_core
+  crate_maps_kernels_wasm --> crate_video_analysis_core
+  crate_text_core_wasm --> crate_text_core
   crate_video_analysis_test_support --> crate_video_analysis_core
   crate_video_analysis_test_support --> crate_video_analysis_dataset
   crate_video_analysis_test_support --> crate_video_analysis_radiance_fields
@@ -519,8 +835,8 @@ flowchart LR
   crate_video_analysis_use_cases --> crate_image_analysis_core
   crate_video_analysis_use_cases --> crate_image_analysis_detection
   crate_video_analysis_use_cases --> crate_image_analysis_io
-  crate_video_analysis_use_cases --> crate_text_analysis_features
-  crate_video_analysis_use_cases --> crate_text_analysis_transcription
+  crate_video_analysis_use_cases --> crate_text_lexical
+  crate_video_analysis_use_cases --> crate_text_transcripts
   crate_video_analysis_use_cases --> crate_video_analysis_core
   crate_video_analysis_use_cases --> crate_video_analysis_data
   crate_video_analysis_use_cases --> crate_video_analysis_detectors
@@ -533,4 +849,9 @@ flowchart LR
   crate_video_analysis_use_cases -. dev .-> crate_video_analysis_test_support
   crate_animation_core --> crate_three_d_processing_core
   crate_animation_core --> crate_video_analysis_core
+  crate_animation_core_cli --> crate_animation_core
+  crate_animation_core_server --> crate_animation_core
+  crate_runtime_artifacts --> crate_runtime_contracts
+  crate_runtime_jobs --> crate_runtime_artifacts
+  crate_runtime_jobs --> crate_runtime_contracts
 ```

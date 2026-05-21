@@ -1,0 +1,22 @@
+[package]
+name = "video-analysis-data-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the video-analysis-data library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "video-analysis-data-server"
+
+[[bin]]
+name = "video-analysis-data-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+video-analysis-data = { path = "../video-analysis-data" }

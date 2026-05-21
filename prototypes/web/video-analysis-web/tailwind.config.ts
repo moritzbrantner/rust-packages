@@ -1,8 +1,14 @@
 import type { Config } from "tailwindcss";
-import videoAnalysisContent from "@video-analysis/ui/tailwind-content";
+import videoAnalysisPackageContent from "../../../packages/video-analysis-ui/src/tailwind-content";
 
 export default {
-  content: ["./index.html", "./src/**/*.{ts,tsx}", ...videoAnalysisContent],
+  content: [
+    "./index.html",
+    "./src/**/*.{ts,tsx}",
+    "../../../packages/video-analysis-ui/src/**/*.{ts,tsx}",
+    "../../../packages/*-app/src/**/*.{ts,tsx}",
+    ...videoAnalysisPackageContent,
+  ],
   theme: {
     extend: {},
   },

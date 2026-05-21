@@ -1,0 +1,9 @@
+# audio-generation-midi-cli
+
+Thin command-line adapter for `audio-generation-midi`.
+
+Run:
+
+```bash
+cargo run -p audio-generation-midi-cli -- info --json
+```

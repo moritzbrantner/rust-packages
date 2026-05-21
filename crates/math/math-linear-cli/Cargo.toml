@@ -1,0 +1,22 @@
+[package]
+name = "math-linear-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Command-line adapter for the math-linear library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "math-linear-cli"
+
+[[bin]]
+name = "math-linear-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+math-linear = { path = "../math-linear" }

@@ -24,9 +24,9 @@ fn shared_math_layer_connects_geometry_image_audio_text_and_statistics() {
     let windowed = va::signal::WindowFunction::Hann.apply(&[1.0, 1.0, 1.0, 1.0]);
     assert!(windowed[1] > 0.7);
 
-    let corpus = va::text_corpus::TfIdfCorpus::from_texts(
+    let corpus = va::text_lexical::TfIdfCorpus::from_texts(
         ["rust cargo crates", "scene audio report"],
-        va::text_corpus::CorpusOptions::default(),
+        va::text_lexical::CorpusOptions::default(),
     )
     .unwrap();
     let sparse = corpus.sparse_term_matrix().unwrap();

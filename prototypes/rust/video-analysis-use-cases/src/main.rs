@@ -27,6 +27,13 @@ use video_analysis_use_cases::youtube::{
     about = "Runnable video-analysis workspace use cases"
 )]
 struct Cli {
+    #[arg(
+        long,
+        global = true,
+        value_name = "PATH",
+        help = "Read shell-style CLI arguments from a config file"
+    )]
+    config: Option<PathBuf>,
     #[command(subcommand)]
     command: CommandKind,
 }
@@ -309,9 +316,11 @@ where
         .args_override_self(true)
         .try_get_matches_from(args)
         .unwrap_or_else(|err| err.exit());
-    Cli::from_arg_matches(&matches).map_err(|err| {
+    let cli = Cli::from_arg_matches(&matches).map_err(|err| {
         video_analysis_core::DetectError::Source(format!("failed to parse CLI arguments: {err}"))
-    })
+    })?;
+    let _ = cli.config.as_ref();
+    Ok(cli)
 }
 
 fn args_with_optional_conf<I, T>(
@@ -323,17 +332,71 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString>,
 {
-    let mut raw_args = raw_args.into_iter().map(Into::into);
-    let program = raw_args
-        .next()
-        .unwrap_or_else(|| OsString::from(package_name));
+    let mut raw_args = raw_args
+        .into_iter()
+        .map(Into::into)
+        .collect::<Vec<OsString>>();
+    let program = if raw_args.is_empty() {
+        OsString::from(package_name)
+    } else {
+        raw_args.remove(0)
+    };
+    let auto_conf_path = automatic_config_path(package_name, current_dir, &program);
     let mut args = vec![program];
-    let conf_path = current_dir.join(format!("{package_name}.conf"));
-    if conf_path.is_file() {
+    let explicit_conf_path = explicit_config_path(&raw_args)?.map(|path| {
+        if path.is_absolute() {
+            path
+        } else {
+            current_dir.join(path)
+        }
+    });
+    let conf_path = explicit_conf_path.or(auto_conf_path);
+    if let Some(conf_path) = conf_path {
         args.extend(read_conf_args(&conf_path)?);
     }
     args.extend(raw_args);
     Ok(args)
+}
+
+fn automatic_config_path(
+    package_name: &str,
+    current_dir: &Path,
+    program: &OsString,
+) -> Option<PathBuf> {
+    if let Some(stem) = Path::new(program)
+        .file_stem()
+        .filter(|stem| !stem.is_empty())
+    {
+        let mut path = current_dir.join(stem);
+        path.set_extension("conf");
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+
+    let package_conf_path = current_dir.join(format!("{package_name}.conf"));
+    package_conf_path.is_file().then_some(package_conf_path)
+}
+
+fn explicit_config_path(raw_args: &[OsString]) -> Result<Option<PathBuf>> {
+    let mut config_path = None;
+    let mut index = 0;
+    while index < raw_args.len() {
+        let arg = raw_args[index].as_os_str();
+        if arg == "--config" {
+            index += 1;
+            let Some(value) = raw_args.get(index) else {
+                return Err(video_analysis_core::DetectError::InvalidArgument(
+                    "`--config` requires a path".to_string(),
+                ));
+            };
+            config_path = Some(PathBuf::from(value));
+        } else if let Some(value) = arg.to_str().and_then(|arg| arg.strip_prefix("--config=")) {
+            config_path = Some(PathBuf::from(value));
+        }
+        index += 1;
+    }
+    Ok(config_path)
 }
 
 fn read_conf_args(path: &Path) -> Result<Vec<OsString>> {
@@ -369,6 +432,64 @@ mod tests {
         match cli.command {
             CommandKind::YoutubeVideo(args) => {
                 assert_eq!(args.input, Some(PathBuf::from("input.mp4")));
+            }
+            other => panic!("expected youtube-video command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn explicit_config_arguments_are_loaded() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("custom.conf"),
+            "youtube-video --input input.mp4",
+        )
+        .unwrap();
+
+        let cli = parse_cli_from(
+            dir.path().to_path_buf(),
+            [
+                OsString::from("video-analysis-use-cases"),
+                OsString::from("--config"),
+                OsString::from("custom.conf"),
+            ],
+        )
+        .unwrap();
+
+        match cli.command {
+            CommandKind::YoutubeVideo(args) => {
+                assert_eq!(args.input, Some(PathBuf::from("input.mp4")));
+            }
+            other => panic!("expected youtube-video command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn explicit_config_replaces_package_conf() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("video-analysis-use-cases.conf"),
+            "video-red-cars --input auto.mp4",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("custom.conf"),
+            "youtube-video --input explicit.mp4",
+        )
+        .unwrap();
+
+        let cli = parse_cli_from(
+            dir.path().to_path_buf(),
+            [
+                OsString::from("video-analysis-use-cases"),
+                OsString::from("--config=custom.conf"),
+            ],
+        )
+        .unwrap();
+
+        match cli.command {
+            CommandKind::YoutubeVideo(args) => {
+                assert_eq!(args.input, Some(PathBuf::from("explicit.mp4")));
             }
             other => panic!("expected youtube-video command, got {other:?}"),
         }

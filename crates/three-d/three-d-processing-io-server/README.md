@@ -1,0 +1,16 @@
+# three-d-processing-io-server
+
+Thin HTTP API adapter for `three-d-processing-io`.
+
+Run:
+
+```bash
+cargo run -p three-d-processing-io-server -- --addr 127.0.0.1:3000
+```
+
+Endpoints:
+
+- `GET /health`
+- `GET /api/package`
+- `GET /api/schema`
+- `POST /api/run`

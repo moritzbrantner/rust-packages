@@ -15,7 +15,12 @@
     "isolatedModules": true,
     "noEmit": true,
     "types": ["node", "vite/client"],
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "@video-analysis/ui": ["../../../packages/video-analysis-ui/src/index.ts"],
+      "@video-analysis/ui/tailwind-content": ["../../../packages/video-analysis-ui/src/tailwind-content.ts"],
+      "@video-analysis/ui/*": ["../../../packages/video-analysis-ui/src/*/index.tsx"]
+    }
   },
   "include": ["src"],
   "references": []

@@ -43,7 +43,7 @@ fn vanalyze_exposes_package_capabilities_from_binary() {
     assert!(stdout.contains("\"kind\": \"ui\""));
     assert!(stdout.contains("video-analysis-core/cli"));
     assert!(stdout.contains("video-analysis-core/api"));
-    assert!(stdout.contains("video-analysis-core/ui"));
+    assert!(stdout.contains("video-analysis-core/app"));
 }
 
 #[test]
@@ -53,6 +53,39 @@ fn vanalyze_reads_package_conf_from_current_dir() {
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_vanalyze"))
         .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("detr-resnet-50"));
+    assert!(stdout.contains("minilm-l6-v2"));
+}
+
+#[test]
+fn vanalyze_reads_binary_name_conf_from_current_dir() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("vanalyze.conf"), "models presets").unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_vanalyze"))
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("detr-resnet-50"));
+    assert!(stdout.contains("minilm-l6-v2"));
+}
+
+#[test]
+fn vanalyze_reads_explicit_config_file() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("custom.conf"), "models presets").unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_vanalyze"))
+        .current_dir(dir.path())
+        .args(["--config", "custom.conf"])
         .output()
         .unwrap();
 

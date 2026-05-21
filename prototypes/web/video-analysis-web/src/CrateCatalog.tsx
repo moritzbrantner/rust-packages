@@ -1,551 +1,628 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  CapabilityPanel,
-  DataBucketOverview,
-  DetectionSummary,
-  EventList,
-  ModelObservationGrid,
-  ScenePanel,
-  TranscriptPanel,
-  VideoSummaryCards,
-  type DetectionResult,
-} from "@video-analysis/ui";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 
-import { sampleReport } from "./sampleReport";
 import {
-  contractTagLabel,
   packageDomainLabels,
   packageDomainOrder,
-  packageShortName,
   slugifyPackageName,
   type PackageDomain,
-  type WorkspaceArchitectureDependency,
   type WorkspaceArchitecturePackage,
   type WorkspaceArchitectureResponse,
 } from "./workspaceArchitecture";
 import { fetchWorkspaceArchitecture } from "./workspaceArchitectureClient";
 
-const allDomains = new Set<PackageDomain>(packageDomainOrder);
+type CatalogRoute = { kind: "home" } | { kind: "wrapper"; slug: string };
+type AppModule = { App: ComponentType };
+type WrapperAppState =
+  | { kind: "loading" }
+  | { kind: "ready"; App: ComponentType }
+  | { kind: "fallback" }
+  | { kind: "error"; message: string };
 
-type PlaygroundMode = "summary" | "signals" | "data";
+const wrapperAppModules = import.meta.glob<AppModule>("../../../../packages/*-app/src/App.tsx");
 
 export function CrateCatalog() {
   const [data, setData] = useState<WorkspaceArchitectureResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [selectedDomains, setSelectedDomains] = useState<Set<PackageDomain>>(allDomains);
-  const [selectedPackageName, setSelectedPackageName] = useState<string | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState<PackageDomain | "all">("all");
+  const [route, setRoute] = useState<CatalogRoute>(() => catalogRouteFromLocation());
 
   useEffect(() => {
     const controller = new AbortController();
     setError(null);
     fetchWorkspaceArchitecture(controller.signal)
       .then((payload) => setData(payload))
-      .catch((fetchError) => {
-        if (controller.signal.aborted) {
-          return;
+      .catch((caught) => {
+        if (!controller.signal.aborted) {
+          setError(caught instanceof Error ? caught.message : String(caught));
         }
-        setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
       });
-
     return () => controller.abort();
   }, []);
 
   useEffect(() => {
     function syncFromLocation() {
-      const slug = crateSlugFromLocation();
-      if (!slug || !data) {
-        return;
-      }
-      const match = data.packages.find((pkg) => slugifyPackageName(pkg.name) === slug);
-      if (match) {
-        setSelectedPackageName(match.name);
-      }
+      setRoute(catalogRouteFromLocation());
     }
 
-    syncFromLocation();
     window.addEventListener("popstate", syncFromLocation);
     return () => window.removeEventListener("popstate", syncFromLocation);
-  }, [data]);
+  }, []);
 
-  const packageByName = useMemo(
-    () => new Map((data?.packages ?? []).map((pkg) => [pkg.name, pkg])),
+  const wrappers = useMemo(
+    () => (data?.packages ?? []).filter(isServerPackage).sort(comparePackages),
     [data],
   );
-
-  const visiblePackages = useMemo(() => {
-    if (!data) {
-      return [];
-    }
+  const domains = useMemo(
+    () => packageDomainOrder.filter((domain) => wrappers.some((wrapper) => wrapper.domain === domain)),
+    [wrappers],
+  );
+  const visibleWrappers = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return data.packages.filter((pkg) => {
-      if (!selectedDomains.has(pkg.domain)) {
+    return wrappers.filter((wrapper) => {
+      if (selectedDomain !== "all" && wrapper.domain !== selectedDomain) {
         return false;
       }
       if (!needle) {
         return true;
       }
-      const searchable = [
-        pkg.name,
-        pkg.path ?? "",
-        pkg.description,
-        pkg.role,
-        ...pkg.exposes,
-        ...pkg.consumedBy,
-        ...pkg.tags,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return searchable.includes(needle);
+      return packageSearchText(wrapper).includes(needle);
     });
-  }, [data, query, selectedDomains]);
+  }, [query, selectedDomain, wrappers]);
+  const groupedWrappers = useMemo(
+    () =>
+      domains
+        .map((domain) => ({
+          domain,
+          wrappers: visibleWrappers.filter((wrapper) => wrapper.domain === domain),
+        }))
+        .filter((group) => group.wrappers.length > 0),
+    [domains, visibleWrappers],
+  );
 
-  useEffect(() => {
-    if (!data || visiblePackages.length === 0) {
-      return;
-    }
-    const slug = crateSlugFromLocation();
-    const routedPackage = slug
-      ? data.packages.find((pkg) => slugifyPackageName(pkg.name) === slug)
+  const selectedWrapper =
+    route.kind === "wrapper"
+      ? wrappers.find((wrapper) => wrapperSlug(wrapper) === route.slug) ?? null
       : null;
-    if (routedPackage) {
-      setSelectedPackageName(routedPackage.name);
-      return;
-    }
-    if (!selectedPackageName || !visiblePackages.some((pkg) => pkg.name === selectedPackageName)) {
-      setSelectedPackageName(visiblePackages[0].name);
-    }
-  }, [data, selectedPackageName, visiblePackages]);
 
-  const selectedPackage =
-    (selectedPackageName ? packageByName.get(selectedPackageName) : null) ?? visiblePackages[0] ?? null;
-  const dependencies = data?.dependencies ?? [];
-
-  function selectPackage(pkg: WorkspaceArchitecturePackage) {
-    setSelectedPackageName(pkg.name);
-    window.history.pushState({}, "", crateHref(pkg.name));
-  }
-
-  if (error) {
-    return (
-      <section className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-        {error}
-      </section>
-    );
-  }
-
-  if (!data) {
-    return (
-      <section className="rounded-lg border border-zinc-200 bg-white p-4">
-        <div className="text-sm font-medium text-zinc-700">Loading crates...</div>
-      </section>
-    );
+  function navigate(nextRoute: CatalogRoute, hash?: string) {
+    const nextUrl =
+      nextRoute.kind === "wrapper"
+        ? wrapperHrefFromSlug(nextRoute.slug)
+        : `${rootHref()}${hash ?? ""}`;
+    window.history.pushState({}, "", nextUrl);
+    setRoute(nextRoute);
   }
 
   return (
-    <section className="grid min-w-0 gap-4 xl:grid-cols-[340px_1fr]">
-      <aside className="space-y-4">
-        <section className="rounded-lg border border-zinc-200 bg-white">
-          <div className="border-b border-zinc-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-zinc-950">Crates</h2>
-            <p className="mt-1 text-xs text-zinc-500">{visiblePackages.length} of {data.packages.length} shown</p>
-          </div>
-          <div className="space-y-4 p-4">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium uppercase text-zinc-500">Search</span>
-              <input
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
-                value={query}
-                placeholder="crate, contract, data type"
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
-            <div>
-              <div className="mb-2 text-xs font-medium uppercase text-zinc-500">Domains</div>
-              <div className="flex flex-wrap gap-2">
-                {packageDomainOrder.map((domain) => (
-                  <button
-                    key={domain}
-                    className={classNames(
-                      "rounded-md border px-2.5 py-1.5 text-xs font-medium",
-                      selectedDomains.has(domain)
-                        ? `${domainBorderClass(domain)} ${domainPanelClass(domain)} text-zinc-950`
-                        : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50",
-                    )}
-                    onClick={() =>
-                      setSelectedDomains((current) => {
-                        const next = new Set(current);
-                        if (next.has(domain)) {
-                          next.delete(domain);
-                        } else {
-                          next.add(domain);
-                        }
-                        return next.size === 0 ? new Set([domain]) : next;
-                      })
-                    }
-                  >
-                    {packageDomainLabels[domain]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+    <div className="min-h-screen">
+      <TopNavigation
+        domains={domains}
+        selectedDomain={selectedDomain}
+        selectedWrapper={selectedWrapper}
+        onHome={() => navigate({ kind: "home" })}
+        onDomain={(domain) => {
+          setSelectedDomain(domain);
+          navigate({ kind: "home" }, domain === "all" ? undefined : `#${domain}`);
+        }}
+      />
 
-        <section className="max-h-[980px] overflow-auto rounded-lg border border-zinc-200 bg-white p-3">
-          {packageDomainOrder
-            .map((domain) => ({
-              domain,
-              packages: visiblePackages.filter((pkg) => pkg.domain === domain),
-            }))
-            .filter((group) => group.packages.length > 0)
-            .map((group) => (
-              <div key={group.domain} className="mb-4 last:mb-0">
-                <div className="mb-2 px-1 text-[11px] font-semibold uppercase text-zinc-500">
-                  {packageDomainLabels[group.domain]}
-                </div>
-                <div className="space-y-2">
-                  {group.packages.map((pkg) => (
-                    <a
-                      key={pkg.name}
-                      href={crateHref(pkg.name)}
-                      className={classNames(
-                        "block rounded-lg border px-3 py-2 transition",
-                        selectedPackage?.name === pkg.name
-                          ? `${domainBorderClass(pkg.domain)} ${domainPanelClass(pkg.domain)}`
-                          : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50",
-                      )}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        selectPackage(pkg);
-                      }}
-                    >
-                      <div className="text-sm font-medium text-zinc-950">{pkg.name}</div>
-                      <div className="mt-1 truncate text-xs text-zinc-500">{pkg.path ?? "workspace package"}</div>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ))}
-        </section>
-      </aside>
-
-      <section className="min-w-0 space-y-4">
-        {selectedPackage ? (
-          <>
-            <CrateDetail pkg={selectedPackage} dependencies={dependencies} packageByName={packageByName} />
-            {hasFrontendPlayground(selectedPackage) ? (
-              <CratePlayground pkg={selectedPackage} />
-            ) : (
-              <RustCrateSurface pkg={selectedPackage} />
-            )}
-          </>
-        ) : (
-          <section className="rounded-lg border border-dashed border-zinc-300 bg-white p-6 text-sm text-zinc-500">
-            No crate matched the current filters.
-          </section>
-        )}
-      </section>
-    </section>
-  );
-}
-
-function CrateDetail({
-  pkg,
-  dependencies,
-  packageByName,
-}: {
-  pkg: WorkspaceArchitecturePackage;
-  dependencies: WorkspaceArchitectureDependency[];
-  packageByName: Map<string, WorkspaceArchitecturePackage>;
-}) {
-  const dependsOn = dependencies
-    .filter((dependency) => dependency.source === pkg.name)
-    .map((dependency) => packageByName.get(dependency.target))
-    .filter(Boolean) as WorkspaceArchitecturePackage[];
-  const usedBy = dependencies
-    .filter((dependency) => dependency.target === pkg.name)
-    .map((dependency) => packageByName.get(dependency.source))
-    .filter(Boolean) as WorkspaceArchitecturePackage[];
-
-  return (
-    <section className={classNames("rounded-lg border p-4", domainBorderClass(pkg.domain), domainPanelClass(pkg.domain))}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="text-xs font-semibold uppercase text-zinc-500">{packageDomainLabels[pkg.domain]}</div>
-          <h2 className="mt-1 break-words text-2xl font-semibold text-zinc-950">{pkg.name}</h2>
-          <p className="mt-2 text-sm leading-6 text-zinc-700">{pkg.role || pkg.description}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {pkg.tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-medium text-zinc-700">
-                {contractTagLabel(tag)}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="grid shrink-0 grid-cols-3 gap-2 text-center">
-          <MetricTile label="Depends" value={String(dependsOn.length)} />
-          <MetricTile label="Used By" value={String(usedBy.length)} />
-          <MetricTile label="Kind" value={pkg.kind === "frontend" ? "frontend" : "rust"} />
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 lg:grid-cols-4">
-        {pkg.capabilities.map((capability) => (
-          <div key={`${pkg.name}-${capability.kind}`} className="min-w-0 rounded-lg border border-white/70 bg-white/80 p-3">
-            <div className="text-[11px] font-semibold uppercase text-zinc-500">{capability.kind}</div>
-            <div className="mt-2 break-words text-sm font-medium text-zinc-800">{capability.entrypoint}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-4 grid gap-3 lg:grid-cols-3">
-        <RelationList title="Exposes" items={pkg.exposes} empty="No checked-in expose list." />
-        <RelationList title="Depends On" items={dependsOn.map((dependency) => dependency.name)} empty="No direct workspace dependencies." />
-        <RelationList title="Used By" items={usedBy.map((dependent) => dependent.name)} empty="No direct workspace dependents." />
-      </div>
-    </section>
-  );
-}
-
-function RustCrateSurface({ pkg }: { pkg: WorkspaceArchitecturePackage }) {
-  return (
-    <section className="rounded-lg border border-zinc-200 bg-white">
-      <div className="border-b border-zinc-200 px-4 py-3">
-        <h2 className="text-sm font-semibold text-zinc-950">Rust Crate Surface</h2>
-        <p className="mt-1 text-xs text-zinc-500">
-          This package is represented as a Rust crate, not as a frontend.
-        </p>
-      </div>
-      <div className="grid gap-3 p-4 lg:grid-cols-2">
-        <RelationList
-          title="Library Contract"
-          items={pkg.capabilities
-            .filter((capability) => capability.kind === "library")
-            .map((capability) => capability.entrypoint)}
-          empty="No library target declared."
-        />
-        <RelationList
-          title="Contract Tags"
-          items={pkg.tags.map(contractTagLabel)}
-          empty="No contract tags detected."
-        />
-        <RelationList title="Exposes" items={pkg.exposes} empty="No checked-in expose list." />
-        <RelationList title="Consumed By" items={pkg.consumedBy} empty="No checked-in consumer list." />
-      </div>
-    </section>
-  );
-}
-
-function CratePlayground({ pkg }: { pkg: WorkspaceArchitecturePackage }) {
-  const [mode, setMode] = useState<PlaygroundMode>(() => defaultPlaygroundMode(pkg));
-  const [sampleSize, setSampleSize] = useState(4);
-  const previewReport = useMemo(() => buildPreviewReport(pkg, sampleSize), [pkg, sampleSize]);
-
-  useEffect(() => {
-    setMode(defaultPlaygroundMode(pkg));
-  }, [pkg]);
-
-  return (
-    <section className="rounded-lg border border-zinc-200 bg-white">
-      <div className="flex flex-col gap-3 border-b border-zinc-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-zinc-950">Frontend Playground</h2>
-          <p className="mt-1 text-xs text-zinc-500">Interactive preview seeded from {pkg.name}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs font-medium uppercase text-zinc-500">
-            Rows
-            <input
-              className="w-24 accent-zinc-950"
-              type="range"
-              min="2"
-              max="8"
-              value={sampleSize}
-              onChange={(event) => setSampleSize(Number(event.target.value))}
-            />
-            <span className="w-4 text-right text-zinc-700">{sampleSize}</span>
-          </label>
-          <div className="inline-grid grid-flow-col rounded-lg border border-zinc-200 bg-zinc-100 p-1">
-            {(["summary", "signals", "data"] as const).map((option) => (
-              <button
-                key={option}
-                className={classNames(
-                  "rounded-md px-3 py-1.5 text-xs font-medium capitalize",
-                  mode === option ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-600 hover:bg-white/70",
-                )}
-                onClick={() => setMode(option)}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4 p-4">
-        {mode === "summary" && <SummaryPreview pkg={pkg} report={previewReport} />}
-        {mode === "signals" && <SignalsPreview pkg={pkg} report={previewReport} />}
-        {mode === "data" && <DataBucketOverview buckets={previewReport.data_buckets} />}
-      </div>
-    </section>
-  );
-}
-
-function hasFrontendPlayground(pkg: WorkspaceArchitecturePackage): boolean {
-  return pkg.kind === "frontend";
-}
-
-function SummaryPreview({ pkg, report }: { pkg: WorkspaceArchitecturePackage; report: typeof sampleReport }) {
-  if (pkg.name.includes("detector") || pkg.tags.includes("scenes")) {
-    return <DetectionSummary result={detectionResultFromReport(report)} detector={pkg.name} />;
-  }
-  if (pkg.domain === "video" || pkg.domain === "image" || pkg.domain === "three-d") {
-    return (
-      <>
-        <VideoSummaryCards video={report.video} />
-        <ScenePanel scenes={report.video.scenes} />
-      </>
-    );
-  }
-  return (
-    <CapabilityPanel
-      capabilities={{
-        completed: pkg.capabilities.map((capability) => `${capability.kind}: ${capability.entrypoint}`),
-        skipped: pkg.consumedBy.length > 0 ? [] : ["No downstream consumer declared in docs/API_CONTRACTS.md"],
-      }}
-    />
-  );
-}
-
-function SignalsPreview({ pkg, report }: { pkg: WorkspaceArchitecturePackage; report: typeof sampleReport }) {
-  if (pkg.domain === "text") {
-    return (
-      <>
-        <TranscriptPanel transcription={report.transcription} />
-        <EventList events={report.text.events} title={`${pkg.name} text events`} />
-      </>
-    );
-  }
-  if (pkg.domain === "audio") {
-    return <EventList events={report.audio.events} title={`${pkg.name} audio events`} />;
-  }
-  return (
-    <>
-      <ModelObservationGrid observations={report.video.observations} />
-      <EventList events={[...report.audio.events, ...report.text.events]} title={`${pkg.name} events`} />
-    </>
-  );
-}
-
-function RelationList({ title, items, empty }: { title: string; items: string[]; empty: string }) {
-  return (
-    <div className="rounded-lg border border-white/70 bg-white/80 p-3">
-      <div className="text-[11px] font-semibold uppercase text-zinc-500">{title}</div>
-      <div className="mt-2 space-y-1.5">
-        {items.length === 0 ? (
-          <div className="text-sm text-zinc-500">{empty}</div>
-        ) : (
-          items.slice(0, 8).map((item) => (
-            <div key={`${title}-${item}`} className="rounded-md bg-zinc-50 px-2.5 py-1.5 text-sm text-zinc-700">
-              {item}
-            </div>
-          ))
-        )}
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 xl:px-8">
+        {error ? <ErrorPanel message={error} /> : null}
+        {!error && !data ? <LoadingPanel /> : null}
+        {!error && data && selectedWrapper ? (
+          <WrapperPage
+            wrapper={selectedWrapper}
+            totalWrappers={wrappers.length}
+          />
+        ) : null}
+        {!error && data && !selectedWrapper ? (
+          <CatalogHome
+            domains={domains}
+            groupedWrappers={groupedWrappers}
+            query={query}
+            selectedDomain={selectedDomain}
+            totalPackages={data.packages.length}
+            totalWrappers={wrappers.length}
+            visibleWrappers={visibleWrappers}
+            onQueryChange={setQuery}
+            onSelectDomain={setSelectedDomain}
+            onSelectWrapper={(wrapper) => navigate({ kind: "wrapper", slug: wrapperSlug(wrapper) })}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
+function TopNavigation({
+  domains,
+  selectedDomain,
+  selectedWrapper,
+  onHome,
+  onDomain,
+}: {
+  domains: PackageDomain[];
+  selectedDomain: PackageDomain | "all";
+  selectedWrapper: WorkspaceArchitecturePackage | null;
+  onHome: () => void;
+  onDomain: (domain: PackageDomain | "all") => void;
+}) {
+  return (
+    <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 xl:px-8">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <a
+            href={rootHref()}
+            className="min-w-0 text-left"
+            onClick={(event) => {
+              event.preventDefault();
+              onHome();
+            }}
+          >
+            <div className="text-lg font-semibold tracking-normal text-zinc-950">Rust Packages</div>
+            <div className="mt-0.5 text-sm text-zinc-500">
+              {selectedWrapper ? serviceLibraryName(selectedWrapper) : "Wrapper catalog"}
+            </div>
+          </a>
+          <nav aria-label="Wrapper categories" className="flex min-w-0 gap-2 overflow-x-auto pb-1">
+            <NavButton active={selectedDomain === "all" && !selectedWrapper} href={rootHref()} onClick={() => onDomain("all")}>
+              All
+            </NavButton>
+            {domains.map((domain) => (
+              <NavButton
+                key={domain}
+                active={!selectedWrapper && selectedDomain === domain}
+                href={`${rootHref()}#${domain}`}
+                onClick={() => onDomain(domain)}
+              >
+                {packageDomainLabels[domain]}
+              </NavButton>
+            ))}
+          </nav>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function NavButton({
+  active,
+  children,
+  href,
+  onClick,
+}: {
+  active: boolean;
+  children: string;
+  href: string;
+  onClick: () => void;
+}) {
+  return (
+    <a
+      href={href}
+      className={classNames(
+        "inline-flex min-h-9 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+        active
+          ? "border-zinc-950 bg-zinc-950 text-white"
+          : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50",
+      )}
+      onClick={(event) => {
+        event.preventDefault();
+        onClick();
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
+function CatalogHome({
+  domains,
+  groupedWrappers,
+  query,
+  selectedDomain,
+  totalPackages,
+  totalWrappers,
+  visibleWrappers,
+  onQueryChange,
+  onSelectDomain,
+  onSelectWrapper,
+}: {
+  domains: PackageDomain[];
+  groupedWrappers: Array<{ domain: PackageDomain; wrappers: WorkspaceArchitecturePackage[] }>;
+  query: string;
+  selectedDomain: PackageDomain | "all";
+  totalPackages: number;
+  totalWrappers: number;
+  visibleWrappers: WorkspaceArchitecturePackage[];
+  onQueryChange: (query: string) => void;
+  onSelectDomain: (domain: PackageDomain | "all") => void;
+  onSelectWrapper: (wrapper: WorkspaceArchitecturePackage) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <section className="rounded-md border border-zinc-200 bg-white p-5">
+        <div className="grid gap-5 lg:grid-cols-[1fr_360px] lg:items-end">
+          <div>
+            <div className="text-xs font-semibold uppercase text-zinc-500">Overview</div>
+            <h1 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">
+              Wrapper frontends
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+              Each entry opens the companion React app for that crate inside this overview shell.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <MetricTile label="Wrappers" value={String(totalWrappers)} />
+            <MetricTile label="Shown" value={String(visibleWrappers.length)} />
+            <MetricTile label="Indexed" value={String(totalPackages)} />
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-md border border-zinc-200 bg-white p-4">
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase text-zinc-500">Search wrappers</span>
+            <input
+              className="min-h-10 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+              value={query}
+              placeholder="crate, wrapper, package path"
+              onChange={(event) => onQueryChange(event.target.value)}
+            />
+          </label>
+          <label className="block lg:w-60">
+            <span className="mb-1 block text-xs font-semibold uppercase text-zinc-500">Category</span>
+            <select
+              className="min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+              value={selectedDomain}
+              onChange={(event) => onSelectDomain(event.target.value as PackageDomain | "all")}
+            >
+              <option value="all">All categories</option>
+              {domains.map((domain) => (
+                <option key={domain} value={domain}>
+                  {packageDomainLabels[domain]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
+
+      {groupedWrappers.length > 0 ? (
+        groupedWrappers.map((group) => (
+          <WrapperGroup
+            key={group.domain}
+            domain={group.domain}
+            wrappers={group.wrappers}
+            onSelectWrapper={onSelectWrapper}
+          />
+        ))
+      ) : (
+        <section className="rounded-md border border-dashed border-zinc-300 bg-white p-6 text-sm text-zinc-500">
+          No wrappers match the current filters.
+        </section>
+      )}
+    </div>
+  );
+}
+
+function WrapperGroup({
+  domain,
+  wrappers,
+  onSelectWrapper,
+}: {
+  domain: PackageDomain;
+  wrappers: WorkspaceArchitecturePackage[];
+  onSelectWrapper: (wrapper: WorkspaceArchitecturePackage) => void;
+}) {
+  return (
+    <section id={domain} className="scroll-mt-28 rounded-md border border-zinc-200 bg-white">
+      <div className="flex items-center justify-between gap-4 border-b border-zinc-200 px-4 py-3">
+        <div>
+          <h2 className="text-base font-semibold text-zinc-950">{packageDomainLabels[domain]}</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">{wrappers.length} wrappers</p>
+        </div>
+      </div>
+      <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+        {wrappers.map((wrapper) => (
+          <WrapperCard key={wrapper.name} wrapper={wrapper} onSelect={() => onSelectWrapper(wrapper)} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function WrapperCard({ wrapper, onSelect }: { wrapper: WorkspaceArchitecturePackage; onSelect: () => void }) {
+  const library = serviceLibraryName(wrapper);
+
+  return (
+    <a
+      href={wrapperHref(wrapper)}
+      className={classNames(
+        "block min-w-0 rounded-md border p-4 transition hover:-translate-y-0.5 hover:shadow-sm",
+        domainBorderClass(wrapper.domain),
+        domainPanelClass(wrapper.domain),
+      )}
+      onClick={(event) => {
+        event.preventDefault();
+        onSelect();
+      }}
+    >
+      <div className="text-[11px] font-semibold uppercase text-zinc-500">{packageDomainLabels[wrapper.domain]}</div>
+      <div className="mt-1 break-words text-base font-semibold text-zinc-950">{library}</div>
+      <div className="mt-2 truncate text-xs text-zinc-600">{wrapper.name}</div>
+      <div className="mt-1 truncate text-xs text-zinc-500">{library}-app</div>
+    </a>
+  );
+}
+
+function WrapperPage({
+  wrapper,
+  totalWrappers,
+}: {
+  wrapper: WorkspaceArchitecturePackage;
+  totalWrappers: number;
+}) {
+  const library = serviceLibraryName(wrapper);
+
+  return (
+    <div className="space-y-5">
+      <section className={classNames("rounded-md border p-5", domainBorderClass(wrapper.domain), domainPanelClass(wrapper.domain))}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase text-zinc-500">{packageDomainLabels[wrapper.domain]}</div>
+            <h1 className="mt-1 break-words text-3xl font-semibold tracking-normal text-zinc-950">{library}</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-700">
+              {wrapper.role || wrapper.description || `${library} wrapper frontend`}
+            </p>
+          </div>
+          <div className="grid shrink-0 grid-cols-3 gap-2 text-center">
+            <MetricTile label="Wrapper" value="React" />
+            <MetricTile label="Category" value={packageDomainLabels[wrapper.domain]} />
+            <MetricTile label="Total" value={String(totalWrappers)} />
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-md border border-zinc-200 bg-white">
+        <div className="border-b border-zinc-200 px-4 py-3">
+          <h2 className="text-sm font-semibold text-zinc-950">Frontend</h2>
+        </div>
+        <WrapperAppMount wrapper={wrapper} />
+      </section>
+    </div>
+  );
+}
+
+function WrapperAppMount({ wrapper }: { wrapper: WorkspaceArchitecturePackage }) {
+  const [state, setState] = useState<WrapperAppState>({ kind: "loading" });
+  const library = serviceLibraryName(wrapper);
+
+  useEffect(() => {
+    const modulePath = wrapperAppModulePath(library);
+    const loadModule = wrapperAppModules[modulePath];
+    let cancelled = false;
+
+    if (!loadModule) {
+      setState({ kind: "fallback" });
+      return;
+    }
+
+    setState({ kind: "loading" });
+    loadModule()
+      .then((module) => {
+        if (!cancelled) {
+          setState({ kind: "ready", App: module.App });
+        }
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setState({ kind: "error", message: caught instanceof Error ? caught.message : String(caught) });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [library]);
+
+  if (state.kind === "loading") {
+    return <div className="p-5 text-sm text-zinc-500">Loading frontend...</div>;
+  }
+  if (state.kind === "fallback") {
+    return <WrapperMetadataApp wrapper={wrapper} library={library} />;
+  }
+  if (state.kind === "error") {
+    return <div className="p-5 text-sm text-rose-700">{state.message}</div>;
+  }
+
+  const App = state.App;
+  return (
+    <div className="wrapper-app-shell">
+      <App />
+    </div>
+  );
+}
+
+function WrapperMetadataApp({
+  wrapper,
+  library,
+}: {
+  wrapper: WorkspaceArchitecturePackage;
+  library: string;
+}) {
+  return (
+    <main className="min-h-screen bg-zinc-50 text-zinc-950">
+      <section className="border-b border-zinc-200 bg-white">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">Package app</p>
+            <h1 className="mt-1 text-2xl font-semibold">{titleFromPackageName(library)}</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+              {wrapper.description || wrapper.role || `${library} package surface`}
+            </p>
+          </div>
+          <span className="status-pill status-pending">Indexed</span>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-6xl gap-5 px-5 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="panel">
+          <div>
+            <h2 className="section-title">Package surface</h2>
+            <p className="section-copy">Workspace metadata for {wrapper.name}.</p>
+          </div>
+          {wrapper.exposes.length > 0 ? (
+            <ul className="mt-4 grid gap-2 text-sm text-zinc-700">
+              {wrapper.exposes.map((item) => (
+                <li key={item} className="rounded-md border border-zinc-200 bg-white px-3 py-2">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 text-sm text-zinc-500">{wrapper.role || "No exposed surfaces are indexed yet."}</p>
+          )}
+        </section>
+
+        <aside className="space-y-5">
+          <section className="panel">
+            <h2 className="section-title">Package</h2>
+            <dl className="detail-list">
+              <div>
+                <dt>Library</dt>
+                <dd>{library}</dd>
+              </div>
+              <div>
+                <dt>Server</dt>
+                <dd>{wrapper.name}</dd>
+              </div>
+              <div>
+                <dt>App</dt>
+                <dd>{library}-app</dd>
+              </div>
+              <div>
+                <dt>Path</dt>
+                <dd>{wrapper.path ?? "Workspace contract"}</dd>
+              </div>
+            </dl>
+          </section>
+
+          {wrapper.capabilities.length > 0 ? (
+            <section className="panel">
+              <h2 className="section-title">Capabilities</h2>
+              <ul className="endpoint-list">
+                {wrapper.capabilities.map((capability) => (
+                  <li key={`${capability.kind}:${capability.entrypoint}`}>
+                    {capability.kind}: {capability.entrypoint}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </aside>
+      </section>
+    </main>
+  );
+}
+
+function LoadingPanel() {
+  return (
+    <section className="rounded-md border border-zinc-200 bg-white p-5">
+      <div className="text-sm font-medium text-zinc-700">Loading wrappers...</div>
+    </section>
+  );
+}
+
+function ErrorPanel({ message }: { message: string }) {
+  return (
+    <section className="rounded-md border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+      {message}
+    </section>
+  );
+}
+
 function MetricTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/70 bg-white/80 px-3 py-2">
+    <div className="min-w-0 rounded-md border border-white/70 bg-white/80 px-3 py-2">
       <div className="text-[11px] uppercase text-zinc-500">{label}</div>
       <div className="mt-1 truncate text-lg font-semibold text-zinc-950">{value}</div>
     </div>
   );
 }
 
-function buildPreviewReport(pkg: WorkspaceArchitecturePackage, sampleSize: number): typeof sampleReport {
-  const scenes = sampleReport.video.scenes.slice(0, sampleSize).map((scene, index) => ({
-    ...scene,
-    index: index + 1,
-    observations: sampleReport.video.observations.slice(0, Math.max(1, Math.min(sampleSize, 3))),
-  }));
-  const observations = sampleReport.video.observations.slice(0, sampleSize).map((observation, index) => ({
-    ...observation,
-    analyzer: pkg.name,
-    label: observation.label ?? `${packageShortName(pkg.name)} ${index + 1}`,
-  }));
-
-  return {
-    ...sampleReport,
-    capabilities: {
-      completed: pkg.exposes.length > 0 ? pkg.exposes.slice(0, sampleSize) : pkg.capabilities.map((item) => item.entrypoint),
-      skipped: pkg.consumedBy.slice(0, Math.max(0, sampleSize - 2)),
-    },
-    video: {
-      ...sampleReport.video,
-      frames_processed: sampleReport.video.frames_processed + sampleSize * 17,
-      scenes,
-      observations,
-    },
-    audio: {
-      ...sampleReport.audio,
-      events: sampleReport.audio.events.slice(0, sampleSize).map((event) => ({ ...event, analyzer: pkg.name })),
-    },
-    text: {
-      ...sampleReport.text,
-      events: sampleReport.text.events.slice(0, sampleSize).map((event) => ({ ...event, analyzer: pkg.name })),
-    },
-    transcription: {
-      ...sampleReport.transcription,
-      segments: sampleReport.transcription.segments.slice(0, sampleSize),
-    },
-    data_buckets: sampleReport.data_buckets.slice(0, Math.max(1, Math.min(sampleSize, sampleReport.data_buckets.length))),
-  };
-}
-
-function detectionResultFromReport(report: typeof sampleReport): DetectionResult {
-  return {
-    frames_processed: report.video.frames_processed,
-    scenes: report.video.scenes.map((scene) => ({
-      start: { frame_index: scene.start_frame, timestamp: { pts: scene.start_frame, timebase: { num: 1, den: 30 }, seconds: scene.start_seconds } },
-      end: { frame_index: scene.end_frame, timestamp: { pts: scene.end_frame, timebase: { num: 1, den: 30 }, seconds: scene.end_seconds } },
-    })),
-    cuts: report.video.scenes.slice(1).map((scene, index) => ({
-      position: {
-        frame_index: scene.start_frame,
-        timestamp: { pts: scene.start_frame, timebase: { num: 1, den: 30 }, seconds: scene.start_seconds },
-      },
-      detector: "scene-delta",
-      score: 0.72 + index * 0.03,
-    })),
-  };
-}
-
-function defaultPlaygroundMode(pkg: WorkspaceArchitecturePackage): PlaygroundMode {
-  if (pkg.domain === "data" || pkg.domain === "vector" || pkg.tags.includes("data_buckets")) {
-    return "data";
-  }
-  if (pkg.domain === "audio" || pkg.domain === "text" || pkg.tags.includes("analysis_events")) {
-    return "signals";
-  }
-  return "summary";
-}
-
-function crateHref(packageName: string): string {
-  const base = import.meta.env.BASE_URL || "/";
-  return `${base.endsWith("/") ? base : `${base}/`}crates/${slugifyPackageName(packageName)}/`;
-}
-
-function crateSlugFromLocation(): string | null {
+function catalogRouteFromLocation(): CatalogRoute {
   const base = new URL(import.meta.env.BASE_URL || "/", window.location.origin).pathname;
   const pathname = window.location.pathname.startsWith(base)
     ? window.location.pathname.slice(base.length)
     : window.location.pathname.replace(/^\//, "");
-  const match = pathname.match(/^crates\/([^/]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  const wrapperMatch = pathname.match(/^(?:wrappers|services)\/([^/]+)/);
+  if (wrapperMatch) {
+    return { kind: "wrapper", slug: decodeURIComponent(wrapperMatch[1]) };
+  }
+  return { kind: "home" };
+}
+
+function isServerPackage(pkg: WorkspaceArchitecturePackage): boolean {
+  return pkg.kind === "rust" && pkg.name.endsWith("-server");
+}
+
+function wrapperAppModulePath(library: string): keyof typeof wrapperAppModules {
+  return `../../../../packages/${library}-app/src/App.tsx`;
+}
+
+function serviceLibraryName(wrapper: WorkspaceArchitecturePackage): string {
+  return wrapper.name.replace(/-server$/, "");
+}
+
+function titleFromPackageName(name: string): string {
+  return name
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function wrapperSlug(wrapper: WorkspaceArchitecturePackage): string {
+  return slugifyPackageName(serviceLibraryName(wrapper));
+}
+
+function wrapperHref(wrapper: WorkspaceArchitecturePackage): string {
+  return wrapperHrefFromSlug(wrapperSlug(wrapper));
+}
+
+function wrapperHrefFromSlug(slug: string): string {
+  const base = rootHref();
+  return `${base}wrappers/${slug}/`;
+}
+
+function rootHref(): string {
+  const base = import.meta.env.BASE_URL || "/";
+  return base.endsWith("/") ? base : `${base}/`;
+}
+
+function comparePackages(a: WorkspaceArchitecturePackage, b: WorkspaceArchitecturePackage): number {
+  const domainOrder = packageDomainOrder.indexOf(a.domain) - packageDomainOrder.indexOf(b.domain);
+  return domainOrder === 0 ? serviceLibraryName(a).localeCompare(serviceLibraryName(b)) : domainOrder;
+}
+
+function packageSearchText(wrapper: WorkspaceArchitecturePackage): string {
+  const library = serviceLibraryName(wrapper);
+  return [
+    wrapper.name,
+    library,
+    `${library}-app`,
+    wrapper.path ?? "",
+    wrapper.description,
+    wrapper.role,
+    packageDomainLabels[wrapper.domain],
+    ...wrapper.exposes,
+    ...wrapper.consumedBy,
+    ...wrapper.tags,
+  ]
+    .join(" ")
+    .toLowerCase();
 }
 
 function domainBorderClass(domain: PackageDomain): string {

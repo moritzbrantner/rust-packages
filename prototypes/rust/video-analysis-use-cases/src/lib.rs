@@ -10,13 +10,13 @@ use std::str::FromStr;
 use audio_analysis_processing::AudioEnergyAnalyzer;
 use audio_analysis_separation::{DemucsModel, HtdemucsOptions, HtdemucsSeparator, Stem};
 use serde::{Deserialize, Serialize};
-use text_analysis_features::TranscriptHeuristicAnalyzer;
-use text_analysis_transcription::{
+use text_lexical::TranscriptHeuristicAnalyzer;
+use text_transcripts::{
     segment_to_owned_text_segment, Transcriber, TranscriptSegment, WhisperCliTranscriber,
     WhisperCppProgressEvent, WhisperCppTranscriber,
 };
 /// Re-exports the text analysis transcription whisper cpp config API.
-pub use text_analysis_transcription::{WhisperCppConfig, WhisperCppModel};
+pub use text_transcripts::{WhisperCppConfig, WhisperCppModel};
 use video_analysis_core::{
     AnalysisEvent, BoundingBox, DetectError, Observation, ObservationKind, RealtimeVideoPipeline,
     Result, SampledVideoAnalyzer,
@@ -2773,7 +2773,7 @@ mod tests {
 
     #[test]
     fn parses_transcript_whisper_json_segments() {
-        let parsed = text_analysis_transcription::parse_whisper_json(
+        let parsed = text_transcripts::parse_whisper_json(
             br#"{"text":"hello world","segments":[{"start":0.0,"end":1.5,"text":" hello"}]}"#,
         )
         .unwrap();

@@ -54,10 +54,10 @@ describe("workspace architecture server helpers", () => {
         capabilities: [],
       },
       {
-        name: "text-analysis-core",
+        name: "text-core",
         kind: "rust",
         domain: "text",
-        path: "crates/text/text-analysis-core",
+        path: "crates/text/text-core",
         description: "",
         role: "",
         exposes: [],
@@ -78,6 +78,6 @@ describe("workspace architecture server helpers", () => {
     expect(detectorPair).toBeDefined();
     expect(detectorPair?.directDependency).toBe(true);
     expect(detectorPair?.sharedTags).toContain("video_frames");
-    expect(relations.some((relation) => relation.packages.includes("text-analysis-core"))).toBe(false);
+    expect(relations.some((relation) => relation.packages.includes("text-core"))).toBe(false);
   });
 });

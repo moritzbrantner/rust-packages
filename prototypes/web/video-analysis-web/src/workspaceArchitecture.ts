@@ -216,7 +216,7 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
   if (name.startsWith("image-analysis-")) {
     return "image";
   }
-  if (name.startsWith("text-analysis-")) {
+  if (name.startsWith("text-")) {
     return "text";
   }
   if (name.startsWith("vector-analysis-")) {
@@ -252,7 +252,7 @@ export function packageShortName(name: string): string {
     .replace(/^video-analysis-/, "")
     .replace(/^audio-analysis-/, "audio:")
     .replace(/^image-analysis-/, "image:")
-    .replace(/^text-analysis-/, "text:")
+    .replace(/^text-/, "text:")
     .replace(/^vector-analysis-/, "vector:")
     .replace(/^three-d-processing-/, "3d:")
     .replace(/^comfyui-/, "comfyui:");

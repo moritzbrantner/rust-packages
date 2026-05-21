@@ -20,5 +20,5 @@ let _ = cosine_similarity(a.as_slice(), b.as_slice())?;
 ## Related crates
 
 - `vector-analysis-index`
-- `text-analysis-semantics`
+- `text-embeddings`
 - `video-analysis-recognition`

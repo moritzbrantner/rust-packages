@@ -1,0 +1,22 @@
+[package]
+name = "video-analysis-tracking-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the video-analysis-tracking library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "video-analysis-tracking-server"
+
+[[bin]]
+name = "video-analysis-tracking-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+video-analysis-tracking = { path = "../video-analysis-tracking" }

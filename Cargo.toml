@@ -15,95 +15,8 @@ categories = ["multimedia", "computer-vision", "science", "algorithms"]
 [workspace]
 members = [
     ".",
-    "crates/animation/animation-core",
-    "crates/bindings/text-core-wasm",
-    "crates/audio/audio-analysis-core",
-    "crates/audio/audio-generation-midi",
-    "crates/audio/audio-analysis-fourier",
-    "crates/audio/audio-analysis-io",
-    "crates/audio/audio-analysis-pitch",
-    "crates/audio/audio-analysis-processing",
-    "crates/audio/audio-analysis-recognition",
-    "crates/audio/audio-analysis-rhythm",
-    "crates/audio/audio-analysis-separation",
-    "crates/audio/audio-analysis-speakers",
-    "crates/audio/audio-analysis-synthesis",
-    "crates/audio/audio-analysis-test-support",
-    "crates/test-support/video-analysis-test-support",
-    "crates/comfyui/comfyui-data",
-    "crates/comfyui/comfyui-latents",
-    "crates/comfyui/comfyui-models",
-    "crates/data/data-inversion-core",
-    "crates/data/graph-analysis-core",
-    "crates/data/dense-data",
-    "crates/data/numbers-core",
-    "crates/data/tensor-data",
-    "crates/math/finance-statistics",
-    "crates/math/math-geometry-2d",
-    "crates/math/math-linear",
-    "crates/math/math-signal-core",
-    "crates/math/math-sparse-data",
-    "crates/math/math-statistics",
-    "crates/image/image-analysis-core",
-    "crates/image/image-analysis-comfyui",
-    "crates/image/image-analysis-detection",
-    "crates/image/image-analysis-io",
-    "crates/image/image-analysis-models",
-    "crates/image/image-analysis-onnx",
-    "crates/image/image-analysis-processing",
-    "crates/image/image-analysis-segmentation",
-    "crates/image/image-analysis-synthesis",
-    "crates/text/text-analysis-corpus",
-    "crates/text/text-analysis-core",
-    "crates/text/text-analysis-features",
-    "crates/text/text-analysis-linguistics",
-    "crates/text/text-analysis-models",
-    "crates/text/text-analysis-prediction",
-    "crates/text/text-analysis-retrieval",
-    "crates/text/text-analysis-retrieval-storage",
-    "crates/text/text-analysis-search",
-    "crates/text/text-analysis-semantics",
-    "crates/text/text-analysis-synthesis",
-    "crates/text/text-analysis-transcription",
-    "crates/text/text-analysis-whisper-cpp",
-    "crates/three-d/three-d-processing-core",
-    "crates/three-d/three-d-processing-io",
-    "crates/three-d/three-d-processing-mesh",
-    "crates/three-d/three-d-scene-svg",
-    "crates/vector/vector-analysis-core",
-    "crates/vector/vector-analysis-index",
-    "crates/video/video-analysis-core",
-    "crates/video/video-analysis-data",
-    "crates/video/video-analysis-dataset",
-    "crates/video/video-analysis-detectors",
-    "crates/video/video-analysis-editing",
-    "crates/video/video-analysis-features",
-    "crates/video/video-analysis-ffmpeg",
-    "crates/video/video-analysis-gaussian-splatting",
-    "crates/video/video-analysis-ingest",
-    "crates/video/video-analysis-colmap-backend",
-    "crates/video/video-analysis-models",
-    "crates/video/video-analysis-mvs",
-    "crates/video/video-analysis-onnx",
-    "crates/video/video-analysis-opencv-backend",
-    "crates/video/video-analysis-output",
-    "crates/video/video-analysis-posture",
-    "crates/video/video-analysis-posture-io",
-    "crates/video/video-analysis-radiance-fields",
-    "crates/video/video-analysis-radiance-io",
-    "crates/video/video-analysis-radiance-pipeline",
-    "crates/video/video-analysis-recognition",
-    "crates/video/video-analysis-reconstruction",
-    "crates/video/video-analysis-sfm",
-    "crates/video/video-analysis-sfm-rust-backend",
-    "crates/video/video-analysis-split",
-    "crates/video/video-analysis-storage",
-    "crates/video/video-analysis-synthesis",
-    "crates/video/video-analysis-segmentation",
-    "crates/video/video-analysis-tracking",
-    "crates/video/video-analysis-transform",
+    "crates/*/*",
     "prototypes/rust/video-analysis-use-cases",
-    "crates/video/video-analysis-cli",
 ]
 resolver = "2"
 
@@ -129,6 +42,7 @@ num-traits = "0.2.19"
 rusqlite = "0.32.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+geojson = "1"
 shlex = "1.3.0"
 rustfft = "6.2.0"
 hound = "3.5.1"
@@ -151,10 +65,16 @@ comfyui-latents = { version = "0.1.0", path = "crates/comfyui/comfyui-latents" }
 comfyui-models = { version = "0.1.0", path = "crates/comfyui/comfyui-models" }
 data-inversion-core = { version = "0.1.0", path = "crates/data/data-inversion-core" }
 graph-analysis-core = { version = "0.1.0", path = "crates/data/graph-analysis-core" }
+geo-data = { version = "0.1.0", path = "crates/data/geo-data" }
 dense-data = { version = "0.1.0", path = "crates/data/dense-data" }
 numbers-core = { version = "0.1.0", path = "crates/data/numbers-core" }
 tensor-data = { version = "0.1.0", path = "crates/data/tensor-data" }
+jobs-core = { version = "0.1.0", path = "crates/jobs/jobs-core" }
+runtime-artifacts = { version = "0.1.0", path = "crates/runtime/runtime-artifacts" }
+runtime-contracts = { version = "0.1.0", path = "crates/runtime/runtime-contracts" }
+runtime-jobs = { version = "0.1.0", path = "crates/runtime/runtime-jobs" }
 finance-statistics = { version = "0.1.0", path = "crates/math/finance-statistics" }
+maps-kernels-core = { version = "0.1.0", path = "crates/math/maps-kernels-core" }
 math-geometry-2d = { version = "0.1.0", path = "crates/math/math-geometry-2d" }
 math-linear = { version = "0.1.0", path = "crates/math/math-linear" }
 math-signal-core = { version = "0.1.0", path = "crates/math/math-signal-core" }
@@ -179,22 +99,19 @@ image-analysis-detection = { version = "0.1.0", path = "crates/image/image-analy
 image-analysis-io = { version = "0.1.0", path = "crates/image/image-analysis-io" }
 image-analysis-models = { version = "0.1.0", path = "crates/image/image-analysis-models" }
 image-analysis-onnx = { version = "0.1.0", path = "crates/image/image-analysis-onnx" }
+image-analysis-ocr = { version = "0.1.0", path = "crates/image/image-analysis-ocr" }
 image-analysis-processing = { version = "0.1.0", path = "crates/image/image-analysis-processing" }
 image-analysis-segmentation = { version = "0.1.0", path = "crates/image/image-analysis-segmentation" }
 image-analysis-synthesis = { version = "0.1.0", path = "crates/image/image-analysis-synthesis" }
-text-analysis-core = { version = "0.1.0", path = "crates/text/text-analysis-core" }
-text-analysis-corpus = { version = "0.1.0", path = "crates/text/text-analysis-corpus" }
-text-analysis-features = { version = "0.1.0", path = "crates/text/text-analysis-features" }
-text-analysis-linguistics = { version = "0.1.0", path = "crates/text/text-analysis-linguistics" }
-text-analysis-models = { version = "0.1.0", path = "crates/text/text-analysis-models" }
-text-analysis-prediction = { version = "0.1.0", path = "crates/text/text-analysis-prediction" }
-text-analysis-retrieval = { version = "0.1.0", path = "crates/text/text-analysis-retrieval" }
-text-analysis-retrieval-storage = { version = "0.1.0", path = "crates/text/text-analysis-retrieval-storage" }
-text-analysis-search = { version = "0.1.0", path = "crates/text/text-analysis-search" }
-text-analysis-semantics = { version = "0.1.0", path = "crates/text/text-analysis-semantics" }
-text-analysis-synthesis = { version = "0.1.0", path = "crates/text/text-analysis-synthesis" }
-text-analysis-transcription = { version = "0.1.0", path = "crates/text/text-analysis-transcription" }
-text-analysis-whisper-cpp = { version = "0.1.0", path = "crates/text/text-analysis-whisper-cpp" }
+text-core = { version = "0.1.0", path = "crates/text/text-core" }
+text-lexical = { version = "0.1.0", path = "crates/text/text-lexical" }
+text-linguistics = { version = "0.1.0", path = "crates/text/text-linguistics" }
+text-models = { version = "0.1.0", path = "crates/text/text-models" }
+text-generation = { version = "0.1.0", path = "crates/text/text-generation" }
+text-retrieval = { version = "0.1.0", path = "crates/text/text-retrieval" }
+text-embeddings = { version = "0.1.0", path = "crates/text/text-embeddings" }
+text-transcripts = { version = "0.1.0", path = "crates/text/text-transcripts" }
+text-whisper-cpp = { version = "0.1.0", path = "crates/text/text-whisper-cpp" }
 vector-analysis-core = { version = "0.1.0", path = "crates/vector/vector-analysis-core" }
 vector-analysis-index = { version = "0.1.0", path = "crates/vector/vector-analysis-index" }
 three-d-processing-core = { version = "0.1.0", path = "crates/three-d/three-d-processing-core" }
@@ -242,6 +159,7 @@ onnx-backend = ["onnx"]
 
 [dependencies]
 animation-core.workspace = true
+clap.workspace = true
 video-analysis-core.workspace = true
 video-analysis-data.workspace = true
 video-analysis-dataset.workspace = true
@@ -260,6 +178,7 @@ video-analysis-output.workspace = true
 video-analysis-posture.workspace = true
 video-analysis-radiance-fields.workspace = true
 video-analysis-radiance-io.workspace = true
+video-analysis-radiance-pipeline.workspace = true
 video-analysis-recognition.workspace = true
 video-analysis-reconstruction.workspace = true
 video-analysis-sfm.workspace = true
@@ -283,10 +202,13 @@ audio-analysis-speakers.workspace = true
 audio-analysis-synthesis.workspace = true
 data-inversion-core.workspace = true
 graph-analysis-core.workspace = true
+geo-data.workspace = true
 dense-data.workspace = true
 numbers-core.workspace = true
 tensor-data.workspace = true
+jobs-core.workspace = true
 finance-statistics.workspace = true
+maps-kernels-core.workspace = true
 math-geometry-2d.workspace = true
 math-linear.workspace = true
 math-signal-core.workspace = true
@@ -301,21 +223,19 @@ image-analysis-detection.workspace = true
 image-analysis-io.workspace = true
 image-analysis-models.workspace = true
 image-analysis-onnx = { workspace = true, optional = true }
+image-analysis-ocr.workspace = true
 image-analysis-processing.workspace = true
 image-analysis-segmentation.workspace = true
 image-analysis-synthesis.workspace = true
-text-analysis-core.workspace = true
-text-analysis-corpus.workspace = true
-text-analysis-features.workspace = true
-text-analysis-linguistics.workspace = true
-text-analysis-models.workspace = true
-text-analysis-prediction.workspace = true
-text-analysis-retrieval.workspace = true
-text-analysis-retrieval-storage.workspace = true
-text-analysis-search.workspace = true
-text-analysis-semantics.workspace = true
-text-analysis-synthesis.workspace = true
-text-analysis-transcription.workspace = true
+text-core.workspace = true
+text-lexical.workspace = true
+text-linguistics.workspace = true
+text-models.workspace = true
+text-generation.workspace = true
+text-retrieval.workspace = true
+text-embeddings.workspace = true
+text-transcripts.workspace = true
+text-whisper-cpp.workspace = true
 vector-analysis-core.workspace = true
 vector-analysis-index.workspace = true
 three-d-processing-core.workspace = true
@@ -323,6 +243,7 @@ three-d-processing-io.workspace = true
 three-d-processing-mesh.workspace = true
 three-d-scene-svg.workspace = true
 video-analysis-posture-io.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

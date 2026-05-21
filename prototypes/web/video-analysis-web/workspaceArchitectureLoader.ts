@@ -224,7 +224,7 @@ function capabilitiesFor(
       kind: "ui",
       entrypoint:
         kind === "rust"
-          ? `${name}/ui (package ${name}-ui)`
+          ? `${name}/app (package ${name}-app)`
           : `Architecture page package detail for ${name}`,
     },
   ];

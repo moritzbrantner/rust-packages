@@ -18,6 +18,7 @@ packages/*/.vite/
 packages/*/coverage/
 packages/*/playwright-report/
 packages/*/test-results/
+packages/*-app/dist/
 packages/video-analysis-web/dist/
 prototypes/web/*/.vite/
 prototypes/web/*/coverage/

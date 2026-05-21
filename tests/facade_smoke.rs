@@ -12,6 +12,10 @@ fn root_facade_reexports_core_and_domain_packages() {
         va::image_models::default_sam_model_spec().repo_id,
         "facebook/sam-vit-base"
     );
+    assert_eq!(
+        va::image_ocr::default_ocr_model_spec().repo_id,
+        "microsoft/trocr-base-printed"
+    );
     let workflow = va::image_comfyui::build_generation_workflow(
         &va::image_comfyui::ImageGenerationRequest::new("red cube"),
     )
@@ -31,8 +35,7 @@ fn root_facade_reexports_core_and_domain_packages() {
         va::comfyui_models::ComfyModelKind::Vae
     );
 
-    let summary =
-        va::text_features::summarize_text("Rust tests keep package boundaries honest.", 3);
+    let summary = va::text_lexical::summarize_text("Rust tests keep package boundaries honest.", 3);
     assert_eq!(summary.stats.words, 6);
 
     let numeric_summary = va::numbers::summarize_numbers(&[1.0, 2.0, 3.0, f64::NAN]);

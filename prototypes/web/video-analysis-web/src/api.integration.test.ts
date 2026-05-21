@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type AddressInfo } from "node:net";
+import { createServer as createNetServer, type AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import { createServer, type ViteDevServer } from "vite";
 
@@ -7,12 +7,14 @@ let server: ViteDevServer;
 let baseUrl: string;
 
 beforeAll(async () => {
+  const port = await availablePort();
   server = await createServer({
     configFile: fileURLToPath(new URL("../vite.config.ts", import.meta.url)),
     logLevel: "silent",
     server: {
       host: "127.0.0.1",
-      port: 0,
+      port,
+      strictPort: true,
     },
   });
   await server.listen();
@@ -62,3 +64,25 @@ describe("workspace API integration", () => {
     expect(body.interop.length).toBeGreaterThan(0);
   });
 });
+
+function availablePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createNetServer();
+    probe.on("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address() as AddressInfo | null;
+      if (!address) {
+        probe.close(() => reject(new Error("Could not allocate a test port")));
+        return;
+      }
+      const port = address.port;
+      probe.close((error) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(port);
+        }
+      });
+    });
+  });
+}

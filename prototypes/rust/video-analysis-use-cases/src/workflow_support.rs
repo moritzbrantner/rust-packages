@@ -6,9 +6,7 @@ use std::process::{Command, Stdio};
 
 use serde::Serialize;
 use serde_json::Value;
-use text_analysis_transcription::{
-    WhisperCppPhase, WhisperCppProgressEvent, WhisperCppTranscriber,
-};
+use text_transcripts::{WhisperCppPhase, WhisperCppProgressEvent, WhisperCppTranscriber};
 use video_analysis_core::{DetectError, Result};
 use video_analysis_ffmpeg::extract_wav;
 

@@ -1,0 +1,29 @@
+[package]
+name = "text-embeddings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Lightweight semantic text embeddings and search for video-analysis."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+math-sparse-data.workspace = true
+serde.workspace = true
+text-core.workspace = true
+text-lexical.workspace = true
+vector-analysis-core.workspace = true
+vector-analysis-index.workspace = true
+video-analysis-core.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "semantic_index"
+harness = false

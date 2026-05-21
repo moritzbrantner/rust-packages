@@ -27,7 +27,7 @@ Package README index:
 - Animation: [`animation-core`](crates/animation/animation-core/README.md)
 - Math: [`finance-statistics`](crates/math/finance-statistics/README.md), [`math-geometry-2d`](crates/math/math-geometry-2d/README.md), [`math-linear`](crates/math/math-linear/README.md), [`math-signal-core`](crates/math/math-signal-core/README.md), [`math-sparse-data`](crates/math/math-sparse-data/README.md), [`math-statistics`](crates/math/math-statistics/README.md)
 - Image: [`image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-io`](crates/image/image-analysis-io/README.md), [`image-analysis-models`](crates/image/image-analysis-models/README.md), [`image-analysis-onnx`](crates/image/image-analysis-onnx/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
-- Text: [`text-analysis-core`](crates/text/text-analysis-core/README.md), [`text-analysis-corpus`](crates/text/text-analysis-corpus/README.md), [`text-analysis-features`](crates/text/text-analysis-features/README.md), [`text-analysis-linguistics`](crates/text/text-analysis-linguistics/README.md), [`text-analysis-models`](crates/text/text-analysis-models/README.md), [`text-analysis-prediction`](crates/text/text-analysis-prediction/README.md), [`text-analysis-retrieval`](crates/text/text-analysis-retrieval/README.md), [`text-analysis-retrieval-storage`](crates/text/text-analysis-retrieval-storage/README.md), [`text-analysis-search`](crates/text/text-analysis-search/README.md), [`text-analysis-semantics`](crates/text/text-analysis-semantics/README.md), [`text-analysis-synthesis`](crates/text/text-analysis-synthesis/README.md), [`text-analysis-transcription`](crates/text/text-analysis-transcription/README.md)
+- Text: [`text-core`](crates/text/text-core/README.md), [`text-lexical`](crates/text/text-lexical/README.md), [`text-linguistics`](crates/text/text-linguistics/README.md), [`text-embeddings`](crates/text/text-embeddings/README.md), [`text-retrieval`](crates/text/text-retrieval/README.md), [`text-models`](crates/text/text-models/README.md), [`text-transcripts`](crates/text/text-transcripts/README.md), [`text-whisper-cpp`](crates/text/text-whisper-cpp/README.md), [`text-generation`](crates/text/text-generation/README.md)
 - Vector and 3D: [`vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md), [`three-d-scene-svg`](crates/three-d/three-d-scene-svg/README.md)
 - Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
 - Prototypes: [`video-analysis-use-cases`](prototypes/rust/video-analysis-use-cases/README.md), `@video-analysis/web` in `prototypes/web/video-analysis-web`
@@ -105,39 +105,32 @@ Package README index:
   contracts with explicit opt-in automatic mask generation defaults.
 - `image-analysis-synthesis`: deterministic solid, gradient, histogram, and
   region-based image synthesis into owned image buffers.
-- `text-analysis-corpus`: corpus-scale term indexing, corpus statistics,
-  TF-IDF scoring, BM25 ranking, and corpus search without retaining source text.
-- `text-analysis-core`: text document contracts, text segment bridging,
+- `text-core`: text document contracts, text segment bridging,
   normalization, Unicode-safe tokens/graphemes/word segments with spans,
   sentence/paragraph splitting, script profiling, and text statistics.
-- `text-analysis-features`: stop words, keywords, stemming, extractive
-  summaries, lexicon sentiment, rule entities, readability, pattern events,
-  reusable text analyzers, term frequencies, and character/token n-grams.
-- `text-analysis-linguistics`: heuristic-first language detection, tokenizer
+- `text-lexical`: stop words, keywords, n-grams, shingles, readability,
+  stemming, sentiment, extractive summaries, reusable analyzers, corpus
+  statistics, sparse term matrices, TF-IDF scoring, and BM25 ranking.
+- `text-linguistics`: heuristic-first language detection, tokenizer
   routing, token/subword alignment, lemmatization, morphology, POS tagging,
   chunking, dependency parsing, typed entities, coreference, events, discourse,
   topics, style profiles, and a `TextAnalyzer` adapter.
-- `text-analysis-models`: optional tokenizer, ONNX, and Candle adapters for
+- `text-embeddings`: lightweight hashed text embeddings, embedding backend
+  traits, dense-vector similarity, and co-occurrence/related-term analysis.
+- `text-retrieval`: document chunking, full-text/semantic/hybrid search,
+  metadata filtering, related-content lookup, score normalization, facets,
+  sorting, and manifest/JSONL persistence for index round trips.
+- `text-models`: optional tokenizer, ONNX, and Candle adapters for
   model-backed text classification and embeddings. Default builds stay light;
   `onnx`, `candle`, `external-tests`, and `slow-external-tests` are opt-in
   features.
-- `text-analysis-prediction`: deterministic token Markov chains for next-token
-  prediction, generation, and perplexity scoring.
-- `text-analysis-retrieval`: library-first document chunking, semantic/vector
-  search, BM25 lexical search, hybrid ranking, metadata filtering, and
-  related-content lookup.
-- `text-analysis-retrieval-storage`: manifest, chunk, vector, and corpus
-  persistence helpers for saving and reloading retrieval indexes.
-- `text-analysis-search`: unified search API over text corpora, including
-  full-text, semantic, and hybrid modes plus filters, sorting, and facets.
-- `text-analysis-semantics`: lightweight hashed text embeddings, a
-  `TextEmbeddingBackend` trait, generic embedding search, text similarity, and
-  co-occurrence/related-term analysis.
-- `text-analysis-synthesis`: deterministic text generation from weighted terms
-  and analyzer events with explicit heuristic trace metadata.
-- `text-analysis-transcription`: transcript segment models, Whisper JSON,
+- `text-transcripts`: transcript segment models, Whisper JSON,
   SRT/WebVTT/plain text parsing, command transcribers, and text segment source
   adapters.
+- `text-whisper-cpp`: native whisper.cpp bindings, model catalog/cache status,
+  progress events, and offline transcription adapters.
+- `text-generation`: deterministic token Markov chains, next-token prediction,
+  perplexity scoring, prompt extraction, and weighted-term synthesis.
 - `vector-analysis-core`: dense vector validation, normalization, metrics,
   distances, means, and per-dimension summary statistics.
 - `vector-analysis-index`: exact in-memory vector search and nearest-centroid
@@ -288,8 +281,8 @@ adapter packages under the library directory:
 ```
 
 For example, a text-processing package should expose reusable text logic from
-`text-analysis-.../src/lib.rs`, while `text-analysis-.../cli`,
-`text-analysis-.../api`, and `text-analysis-.../ui` own the application code
+`text-.../src/lib.rs`, while `text-.../cli`, `text-.../api`, and
+`text-.../ui` own the application code
 for those surfaces. The library crate should not declare generic `[[bin]]`
 targets for CLI/API/UI adapters.
 
@@ -353,13 +346,13 @@ and stays outside the default contributor gate.
   `onnx-backend` kept as a compatibility alias.
 - `video-analysis-cli`: `onnx` enables the ONNX crate dependency and
   `onnxruntime` enables native runtime execution.
-- `text-analysis-models`: `onnx`, `candle`, `external-tests`, and
+- `text-models`: `onnx`, `candle`, `external-tests`, and
   `slow-external-tests`.
 - `image-analysis-onnx`: `onnxruntime` and `external-tests`.
 - `video-analysis-onnx`: `onnxruntime` and `external-tests`.
 - `video-analysis-ffmpeg`: `ffmpeg-backend`, `ffmpeg-tests`, and
   `external-tests`.
-- `audio-analysis-separation`, `text-analysis-transcription`, and
+- `audio-analysis-separation`, `text-transcripts`, and
   `video-analysis-split` keep `external-tests` for real integration coverage
   only.
 
@@ -379,7 +372,7 @@ scripts in `scripts/`:
 `video-analysis-core` is the foundational crate for shared contracts and pipeline
 orchestration. The domain-specific crate families are organized around small
 core packages: `audio-analysis-core`, `image-analysis-core`,
-`text-analysis-core`, `vector-analysis-core`, and `three-d-processing-core`.
+`text-core`, `vector-analysis-core`, and `three-d-processing-core`.
 Processing, feature, index, synthesis, scalar numeric, and generic dense-data
 crates build on those cores.
 Most functional video crates depend on `video-analysis-core`, while
@@ -427,7 +420,7 @@ cargo run -p video-analysis-use-cases -- youtube-video \
 ```
 
 Required local tools for the full URL workflow are `yt-dlp`, `ffmpeg`, and
-`ffprobe`. Transcription uses the reusable `text-analysis-transcription`
+`ffprobe`. Transcription uses the reusable `text-transcripts`
 Whisper CLI wrapper and is skipped unless the OpenAI Whisper CLI is available as
 `whisper`, or a command is supplied explicitly:
 
@@ -844,15 +837,15 @@ fn main() -> Result<()> {
 
 Text analyzers implement `video_analysis_core::TextAnalyzer`. For live text,
 wrap any blocking `BufRead` with `TextLineSource::live(...)`.
-`text-analysis-features` provides ready-made analyzers for stats, keywords,
-patterns, and transcript heuristics. `text-analysis-transcription` parses
+`text-lexical` provides ready-made analyzers for stats, keywords,
+patterns, and transcript heuristics. `text-transcripts` parses
 Whisper JSON, SRT, WebVTT, and plain line transcripts into reusable transcript
 segments or a `TextSegmentSource`. For larger document collections,
-`text-analysis-corpus` provides corpus statistics, TF-IDF terms, and TF-IDF
-search; `text-analysis-semantics` adds hashed semantic embeddings,
+`text-lexical` provides corpus statistics, TF-IDF terms, and TF-IDF
+search; `text-embeddings` adds hashed semantic embeddings,
 co-occurrence graphs, related terms, and semantic search; and
-`text-analysis-prediction` provides Markov next-token prediction and
-generation. `text-analysis-linguistics` adds heuristic-first language
+`text-generation` provides Markov next-token prediction and
+generation. `text-linguistics` adds heuristic-first language
 detection, tokenizer routing, token/subword alignment, lemma/POS/morphology
 annotation, dependency parsing, typed entities, coreference, event extraction,
 discourse segmentation, topic descriptors, and style profiles.

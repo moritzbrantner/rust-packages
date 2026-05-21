@@ -245,7 +245,7 @@
     {
       "id": "subtitle-workflow",
       "title": "Subtitle Workflow",
-      "package_name": "text-analysis-transcription",
+      "package_name": "text-transcripts",
       "category": "text",
       "inputs": [
         {
@@ -426,7 +426,7 @@
     {
       "id": "transcriber",
       "title": "Transcriber",
-      "package_name": "text-analysis-transcription",
+      "package_name": "text-transcripts",
       "category": "text",
       "inputs": [
         { "id": "audio", "label": "Audio", "kind": "audio_waveform" }
@@ -438,7 +438,7 @@
     {
       "id": "text-pipeline",
       "title": "Text Pipeline",
-      "package_name": "text-analysis-features",
+      "package_name": "text-lexical",
       "category": "text",
       "inputs": [
         { "id": "transcript", "label": "Transcript", "kind": "transcript" }
@@ -450,7 +450,7 @@
     {
       "id": "subtitle-writer",
       "title": "Subtitle Writer",
-      "package_name": "text-analysis-transcription",
+      "package_name": "text-transcripts",
       "category": "text",
       "inputs": [
         { "id": "transcript", "label": "Transcript", "kind": "transcript" }

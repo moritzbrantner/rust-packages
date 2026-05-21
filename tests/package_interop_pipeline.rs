@@ -58,9 +58,9 @@ fn transcript_to_features_dataset_pipeline_keeps_packages_compatible() {
         .collect::<Vec<_>>();
 
     let mut text_pipeline = va::TextPipeline::builder()
-        .analyzer(va::text_features::TextStatsAnalyzer)
-        .analyzer(va::text_features::KeywordAnalyzer::default())
-        .analyzer(va::text_features::PatternAnalyzer)
+        .analyzer(va::text_lexical::TextStatsAnalyzer)
+        .analyzer(va::text_lexical::KeywordAnalyzer::default())
+        .analyzer(va::text_lexical::PatternAnalyzer)
         .build()
         .unwrap();
 
@@ -74,9 +74,9 @@ fn transcript_to_features_dataset_pipeline_keeps_packages_compatible() {
         .iter()
         .any(|event| event.label == "text:keyword:rust"));
 
-    let corpus = va::text_corpus::TfIdfCorpus::from_texts(
+    let corpus = va::text_lexical::TfIdfCorpus::from_texts(
         documents.iter().map(|document| document.text.as_str()),
-        va::text_corpus::CorpusOptions::default(),
+        va::text_lexical::CorpusOptions::default(),
     )
     .unwrap();
     assert_eq!(corpus.documents()[0].id, "doc-0");
@@ -93,15 +93,15 @@ fn transcript_to_features_dataset_pipeline_keeps_packages_compatible() {
         "doc-2"
     );
 
-    let embedder = va::text_semantics::HashedTextEmbedder::new(
-        va::text_semantics::TextEmbeddingConfig {
+    let embedder = va::text_embeddings::HashedTextEmbedder::new(
+        va::text_embeddings::TextEmbeddingConfig {
             dimensions: 64,
             use_idf: true,
         },
-        va::text_corpus::CorpusOptions::default(),
+        va::text_lexical::CorpusOptions::default(),
     )
     .unwrap();
-    let mut semantic_index = va::text_semantics::SemanticTextIndex::new(embedder.clone());
+    let mut semantic_index = va::text_embeddings::SemanticTextIndex::new(embedder.clone());
     for document in &documents {
         semantic_index
             .add_text_document(&document.as_document())
@@ -294,7 +294,7 @@ fn transcript_to_features_dataset_pipeline_keeps_packages_compatible() {
 
 #[test]
 fn subtitles_flow_through_linguistics_and_incremental_indexes() {
-    let transcription = va::text_transcription::parse_srt(
+    let transcription = va::text_transcripts::parse_srt(
         "1\n00:00:00,000 --> 00:00:01,000\nRust cargo crates\n\n2\n00:00:01,000 --> 00:00:02,000\nBerlin roadmap launch\n\n3\n00:00:02,000 --> 00:00:03,000\nCargo build pipeline\n",
     )
     .unwrap();
@@ -314,21 +314,21 @@ fn subtitles_flow_through_linguistics_and_incremental_indexes() {
     let segments = transcription
         .segments
         .iter()
-        .map(va::text_transcription::segment_to_owned_text_segment)
+        .map(va::text_transcripts::segment_to_owned_text_segment)
         .collect::<Vec<_>>();
 
-    let mut tfidf = va::text_corpus::TfIdfCorpus::default();
-    let mut bm25 = va::text_corpus::Bm25Corpus::default();
-    let embedder = va::text_semantics::HashedTextEmbedder::new(
-        va::text_semantics::TextEmbeddingConfig {
+    let mut tfidf = va::text_lexical::TfIdfCorpus::default();
+    let mut bm25 = va::text_lexical::Bm25Corpus::default();
+    let embedder = va::text_embeddings::HashedTextEmbedder::new(
+        va::text_embeddings::TextEmbeddingConfig {
             dimensions: 64,
             use_idf: true,
         },
-        va::text_corpus::CorpusOptions::default(),
+        va::text_lexical::CorpusOptions::default(),
     )
     .unwrap();
-    let mut semantic = va::text_semantics::SemanticTextIndex::new(embedder.clone());
-    let mut embedding_index = va::text_semantics::EmbeddingSearchIndex::new(embedder);
+    let mut semantic = va::text_embeddings::SemanticTextIndex::new(embedder.clone());
+    let mut embedding_index = va::text_embeddings::EmbeddingSearchIndex::new(embedder);
 
     for segment in &segments {
         let segment = segment.as_segment();

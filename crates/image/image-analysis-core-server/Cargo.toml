@@ -1,0 +1,22 @@
+[package]
+name = "image-analysis-core-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the image-analysis-core library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "image-analysis-core-server"
+
+[[bin]]
+name = "image-analysis-core-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+image-analysis-core = { path = "../image-analysis-core" }

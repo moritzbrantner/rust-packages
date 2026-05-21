@@ -1,0 +1,22 @@
+[package]
+name = "image-analysis-io-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the image-analysis-io library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "image-analysis-io-server"
+
+[[bin]]
+name = "image-analysis-io-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+image-analysis-io = { path = "../image-analysis-io" }

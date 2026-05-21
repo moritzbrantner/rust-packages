@@ -1,0 +1,22 @@
+[package]
+name = "audio-analysis-synthesis-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the audio-analysis-synthesis library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "audio-analysis-synthesis-server"
+
+[[bin]]
+name = "audio-analysis-synthesis-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+audio-analysis-synthesis = { path = "../audio-analysis-synthesis" }

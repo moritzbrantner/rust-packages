@@ -21,4 +21,4 @@ let _ = index.search(DenseVector::new(vec![0.9, 0.1, 0.0])?.as_slice(), 5)?;
 ## Related crates
 
 - `vector-analysis-core`
-- `text-analysis-semantics`
+- `text-embeddings`

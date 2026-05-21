@@ -1,0 +1,22 @@
+[package]
+name = "video-analysis-radiance-pipeline-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Command-line adapter for the video-analysis-radiance-pipeline library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "video-analysis-radiance-pipeline-cli"
+
+[[bin]]
+name = "video-analysis-radiance-pipeline-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+video-analysis-radiance-pipeline = { path = "../video-analysis-radiance-pipeline" }
