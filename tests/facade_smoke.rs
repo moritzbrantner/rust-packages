@@ -52,7 +52,7 @@ fn root_facade_reexports_core_and_domain_packages() {
 
     let linguistic = va::text_linguistics::analyze_text(
         "Alice launched the API in Berlin.",
-        &va::text_linguistics::LinguisticAnalysisOptions::default(),
+        &va::text_linguistics::LinguisticAnalysisOptions::heuristic(),
     )
     .unwrap();
     assert_eq!(

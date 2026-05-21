@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Heuristic-first linguistic analysis pipeline for video-analysis."
+description = "Local model-backed linguistic analysis pipeline for video-analysis."
 readme = "README.md"
 repository.workspace = true
 homepage.workspace = true
@@ -15,9 +15,10 @@ categories.workspace = true
 [dependencies]
 text-core.workspace = true
 text-lexical.workspace = true
-text-models = { workspace = true, features = ["tokenizers"] }
+text-models = { workspace = true, features = ["candle"] }
 text-transcripts.workspace = true
 video-analysis-core.workspace = true
+video-analysis-models.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

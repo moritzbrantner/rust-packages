@@ -300,7 +300,7 @@ fn subtitles_flow_through_linguistics_and_incremental_indexes() {
     .unwrap();
     let linguistic = va::text_linguistics::analyze_transcription(
         &transcription,
-        &va::text_linguistics::LinguisticAnalysisOptions::default(),
+        &va::text_linguistics::LinguisticAnalysisOptions::heuristic(),
     )
     .unwrap();
 

@@ -18,6 +18,20 @@ fn detects_english_text() {
 }
 
 #[test]
+fn default_options_use_local_entity_model() {
+    let options = LinguisticAnalysisOptions::default();
+    assert_eq!(
+        options.entity_recognition.mode,
+        EntityRecognitionMode::LocalModel
+    );
+    assert_eq!(
+        options.entity_recognition.preset,
+        video_analysis_models::ModelPreset::BertBaseNer
+    );
+    assert!(options.entity_recognition.auto_download);
+}
+
+#[test]
 fn detects_mixed_script_text() {
     let detector = LanguageDetector::default();
     let profile = detector.detect_text("Hello 東京 and Berlin");
@@ -249,7 +263,7 @@ fn builds_dependency_tree_with_subject_and_object_like_relations() {
 #[test]
 fn extracts_entities_coreference_and_events() {
     let text = "Alice visited Berlin. She presented the roadmap.";
-    let analysis = analyze_text(text, &LinguisticAnalysisOptions::default()).unwrap();
+    let analysis = analyze_text(text, &LinguisticAnalysisOptions::heuristic()).unwrap();
     assert!(analysis
         .entities
         .iter()
@@ -278,9 +292,12 @@ fn model_labeler_entities_replace_capitalization_guesses() {
 
     let text = "OpenAI opened New York on January 2024.";
     let mut labeler = FakeNer;
-    let analysis =
-        analyze_text_with_entity_labeler(text, &LinguisticAnalysisOptions::default(), &mut labeler)
-            .unwrap();
+    let analysis = analyze_text_with_entity_labeler(
+        text,
+        &LinguisticAnalysisOptions::heuristic(),
+        &mut labeler,
+    )
+    .unwrap();
 
     assert!(analysis.entities.iter().any(|entity| {
         entity.entity_type == EntityType::Organization && entity.mention.text == "OpenAI"
@@ -319,7 +336,8 @@ fn analyzes_subtitle_segments_per_cue_and_in_aggregate() {
         },
     ];
 
-    let analysis = analyze_subtitle_segments(&cues, &LinguisticAnalysisOptions::default()).unwrap();
+    let analysis =
+        analyze_subtitle_segments(&cues, &LinguisticAnalysisOptions::heuristic()).unwrap();
 
     assert_eq!(analysis.cues.len(), 2);
     assert_eq!(analysis.cues[0].cue, cues[0]);
@@ -337,7 +355,7 @@ fn analyzes_transcription_using_explicit_transcript_text_when_present() {
     .unwrap();
 
     let analysis =
-        analyze_transcription(&transcription, &LinguisticAnalysisOptions::default()).unwrap();
+        analyze_transcription(&transcription, &LinguisticAnalysisOptions::heuristic()).unwrap();
 
     assert_eq!(analysis.cues.len(), 2);
     assert!(!analysis.aggregate.entities.is_empty());
@@ -357,7 +375,7 @@ fn analyzes_transcription_falling_back_to_joined_cue_text() {
     transcription.text = Some("   ".to_string());
 
     let analysis =
-        analyze_transcription(&transcription, &LinguisticAnalysisOptions::default()).unwrap();
+        analyze_transcription(&transcription, &LinguisticAnalysisOptions::heuristic()).unwrap();
 
     assert_eq!(analysis.cues.len(), 2);
     assert!(analysis
@@ -385,7 +403,7 @@ fn rule_entities_live_in_linguistics() {
 #[test]
 fn classifies_discourse_topics_and_style() {
     let text = "First, we introduce the API. However, the migration is tricky. Finally, the rollout is stable.";
-    let analysis = analyze_text(text, &LinguisticAnalysisOptions::default()).unwrap();
+    let analysis = analyze_text(text, &LinguisticAnalysisOptions::heuristic()).unwrap();
     assert!(!analysis.discourse.is_empty());
     assert!(!analysis.topics.descriptors.is_empty());
     assert!(analysis.style.complexity.average_sentence_tokens > 0.0);
@@ -393,7 +411,7 @@ fn classifies_discourse_topics_and_style() {
 
 #[test]
 fn analyzer_emits_segment_and_document_events() {
-    let mut analyzer = LinguisticAnalyzer::new(LinguisticAnalysisOptions::default());
+    let mut analyzer = LinguisticAnalyzer::new(LinguisticAnalysisOptions::heuristic());
     let segment = OwnedTextSegment::new(0, "Alice presented the roadmap");
     let events = analyzer.process_segment(&segment.as_segment()).unwrap();
     assert!(events
@@ -502,7 +520,10 @@ fn extracts_dates_and_amounts_without_pos_annotations() {
 
 #[test]
 fn text_nlp_pipeline_exposes_rich_graph_and_profile_metadata() {
-    let pipeline = TextNlpPipeline::default();
+    let pipeline = TextNlpPipeline::new(TextNlpConfig {
+        options: LinguisticAnalysisOptions::heuristic(),
+        ..TextNlpConfig::rich()
+    });
     let analysis = pipeline
         .analyze_text("Alice presented the roadmap in Berlin.")
         .unwrap();

@@ -113,7 +113,7 @@ fn audio_and_text_packages_support_smoke_workflows() -> Result<(), Box<dyn std::
 
     let linguistic = analyze_text(
         "Alice presented the tokenizer roadmap in Berlin.",
-        &LinguisticAnalysisOptions::default(),
+        &LinguisticAnalysisOptions::heuristic(),
     )?;
     assert_eq!(
         linguistic

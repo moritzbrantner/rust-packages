@@ -3762,6 +3762,7 @@ dependencies = [
  "text-models",
  "text-transcripts",
  "video-analysis-core",
+ "video-analysis-models",
 ]
 
 [[package]]

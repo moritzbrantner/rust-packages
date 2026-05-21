@@ -1,6 +1,6 @@
 # text-linguistics
 
-Heuristic-first linguistic analysis pipeline for `video-analysis`.
+Local model-backed linguistic analysis pipeline for `video-analysis`.
 
 ## Highlights
 
@@ -8,8 +8,9 @@ Heuristic-first linguistic analysis pipeline for `video-analysis`.
 - Tokenizer routing for word, subword, and mixed analysis modes
 - Surface-to-subword alignment
 - Lemmatization, morphology, POS tagging, chunking, and dependency parsing
-- Heuristic named entities, coreference, events, discourse, topics, and style
-- Opt-in model-backed named entities through `text_models::SequenceLabeler`
+- Local model-backed named entities through `text_models::CandleTokenClassifier`
+- Heuristic rule extraction remains available through `LinguisticAnalysisOptions::heuristic()`
+- Coreference, events, discourse, topics, and style analysis
 - `TextAnalyzer` adapter for text pipelines
 
 ## Example
@@ -29,10 +30,11 @@ assert!(!analysis.aggregate.entities.is_empty());
 assert_eq!(analysis.aggregate.graph.tokens.len(), analysis.aggregate.tokens.len());
 ```
 
-`analyze_text` is offline and heuristic by default. To use a Hugging Face
-token-classification model through Rust, construct a `text-models` labeler such
-as `CandleTokenClassifier` from a downloaded model bundle and pass it to
-`analyze_text_with_entity_labeler`.
+`analyze_text` uses a local `bert-base-ner` token-classification model by
+default. The public Hugging Face bundle is materialized into
+`.video-analysis-models` on first use and then runs locally through Candle; no
+OpenAI, Claude, or hosted LLM token is required. For deterministic offline tests
+or constrained environments, use `LinguisticAnalysisOptions::heuristic()`.
 
 ## Related crates
 

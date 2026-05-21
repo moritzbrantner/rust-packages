@@ -1,10 +1,16 @@
+use std::path::PathBuf;
+
 use text_core::{
     build_annotation_graph_from_parts, split_paragraphs, split_sentence_spans, tokenize,
     AnnotationConfidence, AnnotationProvenance, Sentence, TextAnnotationGraph, TextDocument,
     TextProcessingOptions, Token,
 };
+use text_models::{CandleTokenClassifier, SequenceLabeler};
 use text_transcripts::{TranscriptSegment, TranscriptionResult};
-use video_analysis_core::{AnalysisEvent, OwnedTextSegment, Result, TextAnalyzer, TextSegment};
+use video_analysis_core::{
+    AnalysisEvent, DetectError, OwnedTextSegment, Result, TextAnalyzer, TextSegment,
+};
+use video_analysis_models::{HuggingFaceDownloader, ModelBundleStore, ModelPreset};
 
 use crate::discourse::{
     build_style_profile, build_topic_model, DiscourseSegment, DocumentOutline, SectionClassifier,
@@ -24,7 +30,6 @@ use crate::syntax::{chunk_phrases, DependencyParser, DependencyTree, PhraseChunk
 use crate::tokenization::{
     TokenAlignmentMap, TokenizationMode, TokenizerPolicy, TokenizerRegistry, TokenizerSelection,
 };
-use text_models::SequenceLabeler;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Variants describing analysis profile.
@@ -36,6 +41,60 @@ pub enum AnalysisProfile {
     #[default]
     /// The rich variant.
     Rich,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing entity recognition mode.
+pub enum EntityRecognitionMode {
+    /// Uses a local model backend.
+    LocalModel,
+    /// Uses deterministic rules only.
+    Heuristic,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for entity recognition options.
+pub struct EntityRecognitionOptions {
+    /// The mode value.
+    pub mode: EntityRecognitionMode,
+    /// Local model bundle directory.
+    pub bundle_dir: PathBuf,
+    /// The model preset value.
+    pub preset: ModelPreset,
+    /// Downloads the public model bundle when it is not already materialized.
+    pub auto_download: bool,
+    /// Shows model download progress.
+    pub download_progress: bool,
+    /// The max retries value.
+    pub max_retries: usize,
+}
+
+impl Default for EntityRecognitionOptions {
+    fn default() -> Self {
+        Self::local_model()
+    }
+}
+
+impl EntityRecognitionOptions {
+    /// Returns local model.
+    pub fn local_model() -> Self {
+        Self {
+            mode: EntityRecognitionMode::LocalModel,
+            bundle_dir: PathBuf::from(".video-analysis-models"),
+            preset: ModelPreset::BertBaseNer,
+            auto_download: true,
+            download_progress: true,
+            max_retries: 1,
+        }
+    }
+
+    /// Returns heuristic.
+    pub fn heuristic() -> Self {
+        Self {
+            mode: EntityRecognitionMode::Heuristic,
+            ..Self::local_model()
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -53,6 +112,8 @@ pub struct LinguisticAnalysisOptions {
     pub pos: PosTaggingOptions,
     /// The entity linking value.
     pub entity_linking: EntityLinkingOptions,
+    /// The entity recognition value.
+    pub entity_recognition: EntityRecognitionOptions,
     /// The enable alignment value.
     pub enable_alignment: bool,
     /// The enable coreference value.
@@ -79,12 +140,23 @@ impl Default for LinguisticAnalysisOptions {
             lemma: LemmaOptions::default(),
             pos: PosTaggingOptions::default(),
             entity_linking: EntityLinkingOptions::default(),
+            entity_recognition: EntityRecognitionOptions::default(),
             enable_alignment: false,
             enable_coreference: true,
             enable_events: true,
             enable_discourse: true,
             enable_topics: true,
             enable_style: true,
+        }
+    }
+}
+
+impl LinguisticAnalysisOptions {
+    /// Returns heuristic.
+    pub fn heuristic() -> Self {
+        Self {
+            entity_recognition: EntityRecognitionOptions::heuristic(),
+            ..Self::default()
         }
     }
 }
@@ -304,6 +376,7 @@ fn options_for_profile(profile: AnalysisProfile) -> LinguisticAnalysisOptions {
     match profile {
         AnalysisProfile::Fast => {
             options.tokenizer_policy.mode = TokenizationMode::Word;
+            options.entity_recognition = EntityRecognitionOptions::heuristic();
             options.enable_alignment = false;
             options.enable_coreference = false;
             options.enable_events = false;
@@ -445,9 +518,22 @@ fn analyze_text_with_config_and_labeler(
     let dependencies = dependency_parser.parse_document(&sentences, &tokens, &pos);
     let heuristic_entities = extract_named_entities(text, &sentences, &tokens, &pos);
     let entities = if let Some(entity_labeler) = entity_labeler {
-        let model_entities =
-            extract_named_entities_with_labeler(text, &sentences, &tokens, entity_labeler)?;
-        merge_model_and_heuristic_entities(model_entities, heuristic_entities)
+        entities_with_model_labeler(
+            text,
+            &sentences,
+            &tokens,
+            heuristic_entities,
+            entity_labeler,
+        )?
+    } else if options.entity_recognition.mode == EntityRecognitionMode::LocalModel {
+        let mut entity_labeler = local_entity_labeler(&options.entity_recognition)?;
+        entities_with_model_labeler(
+            text,
+            &sentences,
+            &tokens,
+            heuristic_entities,
+            &mut entity_labeler,
+        )?
     } else {
         heuristic_entities
     };
@@ -530,6 +616,43 @@ fn analyze_text_with_config_and_labeler(
         topics,
         style,
     })
+}
+
+fn entities_with_model_labeler(
+    text: &str,
+    sentences: &[Sentence],
+    tokens: &[Token],
+    heuristic_entities: Vec<NamedEntity>,
+    entity_labeler: &mut dyn SequenceLabeler,
+) -> Result<Vec<NamedEntity>> {
+    let model_entities =
+        extract_named_entities_with_labeler(text, sentences, tokens, entity_labeler)?;
+    Ok(merge_model_and_heuristic_entities(
+        model_entities,
+        heuristic_entities,
+    ))
+}
+
+fn local_entity_labeler(options: &EntityRecognitionOptions) -> Result<CandleTokenClassifier> {
+    if options.preset != ModelPreset::BertBaseNer {
+        return Err(DetectError::InvalidArgument(format!(
+            "unsupported local entity model preset `{}`; expected `{}`",
+            options.preset.as_str(),
+            ModelPreset::BertBaseNer.as_str()
+        )));
+    }
+    let spec = options.preset.spec();
+    let store = ModelBundleStore::new(&options.bundle_dir).downloader(
+        HuggingFaceDownloader::new()
+            .progress(options.download_progress)
+            .max_retries(options.max_retries),
+    );
+    let bundle = if options.auto_download {
+        store.download(&spec)?
+    } else {
+        store.load(&spec.name, &spec.revision)?
+    };
+    CandleTokenClassifier::from_bundle(bundle)
 }
 
 fn join_subtitle_text(segments: &[TranscriptSegment], aggregate_text: Option<&str>) -> String {

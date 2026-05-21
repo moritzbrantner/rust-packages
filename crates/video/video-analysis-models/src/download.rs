@@ -88,9 +88,7 @@ impl HuggingFaceDownloader {
         if let Some(cache_dir) = &self.cache_dir {
             builder = builder.with_cache_dir(cache_dir.clone());
         }
-        if self.token.is_some() {
-            builder = builder.with_token(self.token.clone());
-        }
+        builder = builder.with_token(self.token.clone());
 
         let api = builder
             .build()

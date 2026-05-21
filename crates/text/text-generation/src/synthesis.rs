@@ -315,7 +315,7 @@ mod tests {
     fn synthesizes_document_from_linguistic_analysis() {
         let analysis = text_linguistics::analyze_text(
             "Alice presented the roadmap in Berlin.",
-            &text_linguistics::LinguisticAnalysisOptions::default(),
+            &text_linguistics::LinguisticAnalysisOptions::heuristic(),
         )
         .unwrap();
         let terms = terms_from_analysis(&analysis);

@@ -492,7 +492,7 @@ mod tests {
     fn trains_from_linguistic_analysis_using_shared_outputs() {
         let analysis = text_linguistics::analyze_text(
             "Alice launched the roadmap in Berlin.",
-            &text_linguistics::LinguisticAnalysisOptions::default(),
+            &text_linguistics::LinguisticAnalysisOptions::heuristic(),
         )
         .unwrap();
 
