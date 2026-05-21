@@ -32,9 +32,10 @@ assert_eq!(analysis.aggregate.graph.tokens.len(), analysis.aggregate.tokens.len(
 
 `analyze_text` uses a local `bert-base-ner` token-classification model by
 default. The public Hugging Face bundle is materialized into
-`.video-analysis-models` on first use and then runs locally through Candle; no
-OpenAI, Claude, or hosted LLM token is required. For deterministic offline tests
-or constrained environments, use `LinguisticAnalysisOptions::heuristic()`.
+`.video-analysis-models` on first use through a `jobs-core` download job and then
+runs locally through Candle; no OpenAI, Claude, or hosted LLM token is required.
+For deterministic offline tests or constrained environments, use
+`LinguisticAnalysisOptions::heuristic()`.
 
 ## Related crates
 

@@ -1,5 +1,7 @@
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
+use jobs_core::{BackgroundJobRunner, JobArtifact, JobError, JobProgress, JobSpec};
 use text_core::{
     build_annotation_graph_from_parts, split_paragraphs, split_sentence_spans, tokenize,
     AnnotationConfidence, AnnotationProvenance, Sentence, TextAnnotationGraph, TextDocument,
@@ -10,7 +12,7 @@ use text_transcripts::{TranscriptSegment, TranscriptionResult};
 use video_analysis_core::{
     AnalysisEvent, DetectError, OwnedTextSegment, Result, TextAnalyzer, TextSegment,
 };
-use video_analysis_models::{HuggingFaceDownloader, ModelBundleStore, ModelPreset};
+use video_analysis_models::{HuggingFaceDownloader, ModelBundle, ModelBundleStore, ModelPreset};
 
 use crate::discourse::{
     build_style_profile, build_topic_model, DiscourseSegment, DocumentOutline, SectionClassifier,
@@ -641,18 +643,101 @@ fn local_entity_labeler(options: &EntityRecognitionOptions) -> Result<CandleToke
             ModelPreset::BertBaseNer.as_str()
         )));
     }
+    let bundle = ensure_local_entity_bundle(options)?;
+    CandleTokenClassifier::from_bundle(bundle)
+}
+
+fn ensure_local_entity_bundle(options: &EntityRecognitionOptions) -> Result<ModelBundle> {
     let spec = options.preset.spec();
-    let store = ModelBundleStore::new(&options.bundle_dir).downloader(
+    let store = local_model_bundle_store(options);
+    if let Ok(bundle) = store.load(&spec.name, &spec.revision) {
+        return Ok(bundle);
+    }
+    if !options.auto_download {
+        return store.load(&spec.name, &spec.revision);
+    }
+
+    let runner = BackgroundJobRunner::default();
+    let job_id = format!(
+        "text-linguistics-model-download-{}-{}",
+        spec.name, spec.revision
+    );
+    let spec_for_job = spec.clone();
+    let options_for_job = options.clone();
+    let downloaded_bundle = Arc::new(Mutex::new(None));
+    let downloaded_bundle_for_job = Arc::clone(&downloaded_bundle);
+    let job_spec = JobSpec::new(job_id, format!("Download {}", spec.name))
+        .map_job_error()?
+        .with_kind("model-download")
+        .map_job_error()?
+        .with_metadata("repo_id", spec.repo_id.clone())
+        .map_job_error()?
+        .with_metadata("revision", spec.revision.clone())
+        .map_job_error()?;
+    let mut handle = runner
+        .spawn(job_spec, move |context| {
+            context.info(format!(
+                "materializing local model bundle `{}` from `{}`",
+                spec_for_job.name, spec_for_job.repo_id
+            ))?;
+            context.progress(
+                JobProgress::new(0, Some(2))?
+                    .unit("steps")?
+                    .message("starting model download"),
+            )?;
+            context.check_cancelled()?;
+            let store = local_model_bundle_store(&options_for_job);
+            let bundle = store
+                .download(&spec_for_job)
+                .map_err(|err| JobError::Failed(err.to_string()))?;
+            context.progress(
+                JobProgress::new(1, Some(2))?
+                    .unit("steps")?
+                    .message("model files materialized"),
+            )?;
+            context.artifact(
+                JobArtifact::new("manifest", "Model bundle manifest")
+                    .kind("model-bundle")
+                    .path(bundle.manifest_path()),
+            )?;
+            *downloaded_bundle_for_job.lock().map_err(|_| {
+                JobError::StateUnavailable("model bundle lock poisoned".to_string())
+            })? = Some(bundle);
+            context.progress(
+                JobProgress::new(2, Some(2))?
+                    .unit("steps")?
+                    .message("model bundle ready"),
+            )?;
+            Ok(())
+        })
+        .map_job_error()?;
+    handle.join().map_job_error()?;
+
+    let bundle = downloaded_bundle
+        .lock()
+        .map_err(|_| DetectError::Source("model bundle job lock poisoned".to_string()))?
+        .clone();
+    bundle.ok_or_else(|| {
+        DetectError::Source("model download job did not produce a bundle".to_string())
+    })
+}
+
+fn local_model_bundle_store(options: &EntityRecognitionOptions) -> ModelBundleStore {
+    ModelBundleStore::new(&options.bundle_dir).downloader(
         HuggingFaceDownloader::new()
             .progress(options.download_progress)
             .max_retries(options.max_retries),
-    );
-    let bundle = if options.auto_download {
-        store.download(&spec)?
-    } else {
-        store.load(&spec.name, &spec.revision)?
-    };
-    CandleTokenClassifier::from_bundle(bundle)
+    )
+}
+
+trait JobResultExt<T> {
+    fn map_job_error(self) -> Result<T>;
+}
+
+impl<T> JobResultExt<T> for jobs_core::Result<T> {
+    fn map_job_error(self) -> Result<T> {
+        self.map_err(|err| DetectError::Source(err.to_string()))
+    }
 }
 
 fn join_subtitle_text(segments: &[TranscriptSegment], aggregate_text: Option<&str>) -> String {

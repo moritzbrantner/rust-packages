@@ -13,6 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+jobs-core.workspace = true
 text-core.workspace = true
 text-lexical.workspace = true
 text-models = { workspace = true, features = ["candle"] }

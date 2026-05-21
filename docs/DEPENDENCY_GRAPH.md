@@ -604,6 +604,7 @@ flowchart LR
   crate_text_linguistics --> crate_text_transcripts
   crate_text_linguistics --> crate_video_analysis_core
   crate_text_linguistics --> crate_video_analysis_models
+  crate_text_linguistics --> crate_jobs_core
   crate_text_linguistics_cli --> crate_text_linguistics
   crate_text_linguistics_server --> crate_text_linguistics
   crate_text_models --> crate_text_core
