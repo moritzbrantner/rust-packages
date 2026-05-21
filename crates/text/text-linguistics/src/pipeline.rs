@@ -11,7 +11,8 @@ use crate::discourse::{
     StyleProfile, TopicModel,
 };
 use crate::entities::{
-    canonicalize_entities, extract_named_entities, CanonicalEntity, CorefCluster, CorefResolver,
+    canonicalize_entities, extract_named_entities, extract_named_entities_with_labeler,
+    merge_model_and_heuristic_entities, CanonicalEntity, CorefCluster, CorefResolver,
     EntityLinkingOptions, EventExtractor, ExtractedEvent, NamedEntity, RelationTriple,
 };
 use crate::language::{LanguageDetectionOptions, LanguageDetector, LanguageProfile, LexiconStore};
@@ -23,6 +24,7 @@ use crate::syntax::{chunk_phrases, DependencyParser, DependencyTree, PhraseChunk
 use crate::tokenization::{
     TokenAlignmentMap, TokenizationMode, TokenizerPolicy, TokenizerRegistry, TokenizerSelection,
 };
+use text_models::SequenceLabeler;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Variants describing analysis profile.
@@ -174,6 +176,15 @@ impl TextNlpPipeline {
     /// Returns analyze text.
     pub fn analyze_text(&self, text: &str) -> Result<LinguisticAnalysis> {
         analyze_text_with_config(text, &self.config)
+    }
+
+    /// Returns analyze text with a model-backed entity labeler.
+    pub fn analyze_text_with_entity_labeler(
+        &self,
+        text: &str,
+        entity_labeler: &mut dyn SequenceLabeler,
+    ) -> Result<LinguisticAnalysis> {
+        analyze_text_with_config_and_labeler(text, &self.config, Some(entity_labeler))
     }
 
     /// Returns analyze document.
@@ -369,7 +380,28 @@ pub fn analyze_text(text: &str, options: &LinguisticAnalysisOptions) -> Result<L
     analyze_text_with_config(text, &TextNlpConfig::from_options(options.clone()))
 }
 
+/// Returns analyze text with a model-backed entity labeler.
+pub fn analyze_text_with_entity_labeler(
+    text: &str,
+    options: &LinguisticAnalysisOptions,
+    entity_labeler: &mut dyn SequenceLabeler,
+) -> Result<LinguisticAnalysis> {
+    analyze_text_with_config_and_labeler(
+        text,
+        &TextNlpConfig::from_options(options.clone()),
+        Some(entity_labeler),
+    )
+}
+
 fn analyze_text_with_config(text: &str, config: &TextNlpConfig) -> Result<LinguisticAnalysis> {
+    analyze_text_with_config_and_labeler(text, config, None)
+}
+
+fn analyze_text_with_config_and_labeler(
+    text: &str,
+    config: &TextNlpConfig,
+    entity_labeler: Option<&mut dyn SequenceLabeler>,
+) -> Result<LinguisticAnalysis> {
     let options = &config.options;
     let language_detector = LanguageDetector {
         options: options.language_detection.clone(),
@@ -411,7 +443,14 @@ fn analyze_text_with_config(text: &str, config: &TextNlpConfig) -> Result<Lingui
     let chunks = chunk_phrases(text, &sentences, &tokens, &pos);
     let dependency_parser = DependencyParser;
     let dependencies = dependency_parser.parse_document(&sentences, &tokens, &pos);
-    let entities = extract_named_entities(text, &sentences, &tokens, &pos);
+    let heuristic_entities = extract_named_entities(text, &sentences, &tokens, &pos);
+    let entities = if let Some(entity_labeler) = entity_labeler {
+        let model_entities =
+            extract_named_entities_with_labeler(text, &sentences, &tokens, entity_labeler)?;
+        merge_model_and_heuristic_entities(model_entities, heuristic_entities)
+    } else {
+        heuristic_entities
+    };
     let canonical_entities = canonicalize_entities(&entities, &options.entity_linking);
     let coreference = if options.enable_coreference {
         CorefResolver::default().resolve(&tokens, &canonical_entities)

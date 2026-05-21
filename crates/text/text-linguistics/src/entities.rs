@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use text_core::{Sentence, TextSpan, Token, TokenKind};
+use text_models::{RawPrediction, SequenceLabeler};
+use video_analysis_core::Result;
 
 use crate::syntax::sentence_token_ranges;
 use crate::{DependencyRelation, DependencyTree, LemmatizationResult, PosAnnotation, PosTag};
@@ -171,6 +173,89 @@ pub fn extract_named_entities(
     }
 
     entities
+}
+
+/// Returns named entities from a model-backed BIO token labeler.
+pub fn extract_named_entities_with_labeler(
+    text: &str,
+    sentences: &[Sentence],
+    tokens: &[Token],
+    labeler: &mut dyn SequenceLabeler,
+) -> Result<Vec<NamedEntity>> {
+    let predictions = labeler.label_text(text)?;
+    Ok(named_entities_from_model_predictions(
+        text,
+        sentences,
+        tokens,
+        &predictions,
+    ))
+}
+
+/// Returns named entities from token classification predictions.
+pub fn named_entities_from_model_predictions(
+    text: &str,
+    sentences: &[Sentence],
+    tokens: &[Token],
+    predictions: &[RawPrediction],
+) -> Vec<NamedEntity> {
+    let mut model_tokens = predictions
+        .iter()
+        .filter_map(|prediction| model_entity_token(prediction))
+        .collect::<Vec<_>>();
+    model_tokens.sort_by_key(|token| (token.byte_start, token.byte_end));
+
+    let mut entities = Vec::new();
+    let mut current = Vec::<ModelEntityToken>::new();
+    for token in model_tokens {
+        let starts_new = token.prefix == ModelEntityPrefix::Begin
+            || current
+                .last()
+                .map(|last| last.entity_type != token.entity_type)
+                .unwrap_or(false);
+        if starts_new && !current.is_empty() {
+            if let Some(entity) =
+                build_model_entity(entities.len(), text, sentences, tokens, &current)
+            {
+                entities.push(entity);
+            }
+            current.clear();
+        }
+        current.push(token);
+    }
+    if !current.is_empty() {
+        if let Some(entity) = build_model_entity(entities.len(), text, sentences, tokens, &current)
+        {
+            entities.push(entity);
+        }
+    }
+
+    entities
+}
+
+/// Returns model entities plus deterministic rule entities not covered by the model.
+pub fn merge_model_and_heuristic_entities(
+    mut model_entities: Vec<NamedEntity>,
+    heuristic_entities: Vec<NamedEntity>,
+) -> Vec<NamedEntity> {
+    if model_entities.is_empty() {
+        return heuristic_entities;
+    }
+    for entity in heuristic_entities {
+        if !matches!(
+            entity.entity_type,
+            EntityType::Date | EntityType::Amount | EntityType::Law
+        ) {
+            continue;
+        }
+        if model_entities
+            .iter()
+            .any(|model_entity| spans_overlap(model_entity.mention.span, entity.mention.span))
+        {
+            continue;
+        }
+        model_entities.push(entity);
+    }
+    model_entities
 }
 
 /// Returns canonicalize entities.
@@ -454,6 +539,130 @@ impl EventExtractor {
         }
         (events, relations)
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ModelEntityPrefix {
+    Begin,
+    Inside,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ModelEntityToken {
+    entity_type: EntityType,
+    prefix: ModelEntityPrefix,
+    byte_start: usize,
+    byte_end: usize,
+    score: f32,
+}
+
+fn model_entity_token(prediction: &RawPrediction) -> Option<ModelEntityToken> {
+    let label = prediction.label.as_deref()?;
+    let (prefix, entity_type) = parse_model_entity_label(label)?;
+    let byte_start = prediction.attributes.get("byte_start")?.parse().ok()?;
+    let byte_end = prediction.attributes.get("byte_end")?.parse().ok()?;
+    if byte_start >= byte_end {
+        return None;
+    }
+    Some(ModelEntityToken {
+        entity_type,
+        prefix,
+        byte_start,
+        byte_end,
+        score: prediction.score.unwrap_or(0.5),
+    })
+}
+
+fn parse_model_entity_label(label: &str) -> Option<(ModelEntityPrefix, EntityType)> {
+    let normalized = label
+        .strip_prefix("LABEL_")
+        .unwrap_or(label)
+        .trim()
+        .to_ascii_uppercase()
+        .replace('_', "-");
+    if normalized == "O" || normalized == "OUTSIDE" {
+        return None;
+    }
+    let (prefix, kind) = if let Some(kind) = normalized.strip_prefix("B-") {
+        (ModelEntityPrefix::Begin, kind)
+    } else if let Some(kind) = normalized.strip_prefix("I-") {
+        (ModelEntityPrefix::Inside, kind)
+    } else {
+        (ModelEntityPrefix::Begin, normalized.as_str())
+    };
+    let entity_type = match kind {
+        "PER" | "PERSON" => EntityType::Person,
+        "ORG" | "ORGANIZATION" => EntityType::Organization,
+        "LOC" | "LOCATION" | "GPE" => EntityType::Location,
+        "PROD" | "PRODUCT" => EntityType::Product,
+        "DATE" | "TIME" => EntityType::Date,
+        "MONEY" | "PERCENT" | "QUANTITY" | "AMOUNT" => EntityType::Amount,
+        "LAW" => EntityType::Law,
+        "WORK" | "WORK-OF-ART" => EntityType::Work,
+        "EVENT" => EntityType::Event,
+        "MISC" | "MISCELLANEOUS" => EntityType::Misc,
+        _ => return None,
+    };
+    Some((prefix, entity_type))
+}
+
+fn build_model_entity(
+    index: usize,
+    text: &str,
+    sentences: &[Sentence],
+    tokens: &[Token],
+    parts: &[ModelEntityToken],
+) -> Option<NamedEntity> {
+    let first = parts.first()?;
+    let last = parts.last()?;
+    if last.byte_end > text.len()
+        || !text.is_char_boundary(first.byte_start)
+        || !text.is_char_boundary(last.byte_end)
+    {
+        return None;
+    }
+    let token_start = tokens
+        .iter()
+        .position(|token| byte_ranges_overlap(first.byte_start, last.byte_end, token.span))?;
+    let token_end = tokens
+        .iter()
+        .rposition(|token| byte_ranges_overlap(first.byte_start, last.byte_end, token.span))?
+        + 1;
+    let char_start = text[..first.byte_start].chars().count();
+    let char_end = text[..last.byte_end].chars().count();
+    let span = TextSpan {
+        byte_start: first.byte_start,
+        byte_end: last.byte_end,
+        char_start,
+        char_end,
+    };
+    let mention_text = text[span.byte_start..span.byte_end].to_string();
+    let sentence_index = sentences
+        .iter()
+        .position(|sentence| spans_overlap(sentence.span, span))
+        .unwrap_or(0);
+    let confidence = parts.iter().map(|part| part.score).sum::<f32>() / parts.len() as f32;
+    Some(NamedEntity {
+        id: format!("mention-model-{index}"),
+        entity_type: first.entity_type,
+        mention: EntityMentionSpan {
+            text: mention_text.clone(),
+            span,
+        },
+        normalized: mention_text.to_lowercase(),
+        sentence_index,
+        token_start,
+        token_end,
+        confidence,
+    })
+}
+
+fn byte_ranges_overlap(byte_start: usize, byte_end: usize, span: TextSpan) -> bool {
+    byte_start < span.byte_end && span.byte_start < byte_end
+}
+
+fn spans_overlap(left: TextSpan, right: TextSpan) -> bool {
+    left.byte_start < right.byte_end && right.byte_start < left.byte_end
 }
 
 fn is_date_token(token: &Token) -> bool {

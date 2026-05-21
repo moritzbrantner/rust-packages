@@ -4,9 +4,11 @@ use text_core::{
     split_sentence_spans, tokenize, AnnotationProvenance, Sentence, TextProcessingOptions,
     TextSpan, Token, TokenKind,
 };
-use text_models::{TokenizedText, TokenizerSource};
+use text_models::{
+    RawPrediction, SequenceLabeler, TextRuntimeBackend, TokenizedText, TokenizerSource,
+};
 use text_transcripts::{parse_srt, parse_webvtt, TranscriptSegment};
-use video_analysis_core::{OwnedTextSegment, TextAnalyzer};
+use video_analysis_core::{OwnedTextSegment, Result, TextAnalyzer};
 
 #[test]
 fn detects_english_text() {
@@ -257,6 +259,42 @@ fn extracts_entities_coreference_and_events() {
 }
 
 #[test]
+fn model_labeler_entities_replace_capitalization_guesses() {
+    struct FakeNer;
+
+    impl SequenceLabeler for FakeNer {
+        fn label_text(&mut self, _text: &str) -> Result<Vec<RawPrediction>> {
+            Ok(vec![
+                token_prediction("B-ORG", 0, 6, 0.96),
+                token_prediction("B-LOC", 14, 17, 0.94),
+                token_prediction("I-LOC", 18, 22, 0.93),
+            ])
+        }
+
+        fn runtime_backend(&self) -> TextRuntimeBackend {
+            TextRuntimeBackend::External
+        }
+    }
+
+    let text = "OpenAI opened New York on January 2024.";
+    let mut labeler = FakeNer;
+    let analysis =
+        analyze_text_with_entity_labeler(text, &LinguisticAnalysisOptions::default(), &mut labeler)
+            .unwrap();
+
+    assert!(analysis.entities.iter().any(|entity| {
+        entity.entity_type == EntityType::Organization && entity.mention.text == "OpenAI"
+    }));
+    assert!(analysis.entities.iter().any(|entity| {
+        entity.entity_type == EntityType::Location && entity.mention.text == "New York"
+    }));
+    assert!(analysis
+        .entities
+        .iter()
+        .any(|entity| entity.entity_type == EntityType::Date));
+}
+
+#[test]
 fn analyzes_subtitle_segments_per_cue_and_in_aggregate() {
     let cues = vec![
         TranscriptSegment {
@@ -488,4 +526,20 @@ fn fast_profile_disables_heavier_annotations() {
     assert!(analysis.events.is_empty());
     assert!(analysis.discourse.is_empty());
     assert!(analysis.topics.descriptors.is_empty());
+}
+
+fn token_prediction(label: &str, byte_start: usize, byte_end: usize, score: f32) -> RawPrediction {
+    let mut prediction = RawPrediction {
+        kind: Some("token".to_string()),
+        label: Some(label.to_string()),
+        score: Some(score),
+        ..RawPrediction::default()
+    };
+    prediction
+        .attributes
+        .insert("byte_start".to_string(), byte_start.to_string());
+    prediction
+        .attributes
+        .insert("byte_end".to_string(), byte_end.to_string());
+    prediction
 }

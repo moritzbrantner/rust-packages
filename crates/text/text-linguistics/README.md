@@ -9,6 +9,7 @@ Heuristic-first linguistic analysis pipeline for `video-analysis`.
 - Surface-to-subword alignment
 - Lemmatization, morphology, POS tagging, chunking, and dependency parsing
 - Heuristic named entities, coreference, events, discourse, topics, and style
+- Opt-in model-backed named entities through `text_models::SequenceLabeler`
 - `TextAnalyzer` adapter for text pipelines
 
 ## Example
@@ -27,6 +28,11 @@ assert_eq!(analysis.cues.len(), 2);
 assert!(!analysis.aggregate.entities.is_empty());
 assert_eq!(analysis.aggregate.graph.tokens.len(), analysis.aggregate.tokens.len());
 ```
+
+`analyze_text` is offline and heuristic by default. To use a Hugging Face
+token-classification model through Rust, construct a `text-models` labeler such
+as `CandleTokenClassifier` from a downloaded model bundle and pass it to
+`analyze_text_with_entity_labeler`.
 
 ## Related crates
 

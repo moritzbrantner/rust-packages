@@ -362,6 +362,10 @@ fn package_run_response(module: ModuleInfo, body: &str) -> HttpResponse {
         );
     }
 
+    if module.package == "text-linguistics" {
+        return text_linguistics_run_response(body);
+    }
+
     let operation = serde_json::from_str::<Value>(body).ok().and_then(|value| {
         value
             .get("operation")
@@ -382,6 +386,163 @@ fn package_run_response(module: ModuleInfo, body: &str) -> HttpResponse {
             "note": "The overview server resolved this request to the selected Rust package."
         }),
     )
+}
+
+fn text_linguistics_run_response(body: &str) -> HttpResponse {
+    let payload = match serde_json::from_str::<Value>(body) {
+        Ok(value) => value,
+        Err(error) => {
+            return json_response(
+                400,
+                "Bad Request",
+                json!({
+                    "package": "text-linguistics-server",
+                    "library": "text-linguistics",
+                    "accepted": false,
+                    "error": format!("invalid JSON: {error}")
+                }),
+            );
+        }
+    };
+    let text = payload
+        .get("text")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if text.trim().is_empty() {
+        return json_response(
+            400,
+            "Bad Request",
+            json!({
+                "package": "text-linguistics-server",
+                "library": "text-linguistics",
+                "accepted": false,
+                "error": "request body must include a non-empty `text` string"
+            }),
+        );
+    }
+
+    match text_linguistics::analyze_text(
+        text,
+        &text_linguistics::LinguisticAnalysisOptions::default(),
+    ) {
+        Ok(analysis) => json_response(200, "OK", text_linguistics_payload(text, &analysis)),
+        Err(error) => json_response(
+            500,
+            "Internal Server Error",
+            json!({
+                "package": "text-linguistics-server",
+                "library": "text-linguistics",
+                "accepted": false,
+                "error": error.to_string()
+            }),
+        ),
+    }
+}
+
+fn text_linguistics_payload(text: &str, analysis: &text_linguistics::LinguisticAnalysis) -> Value {
+    json!({
+        "package": "text-linguistics-server",
+        "library": "text-linguistics",
+        "accepted": true,
+        "operation": "analyze",
+        "text": text,
+        "profile": format!("{:?}", analysis.profile),
+        "provenance": format!("{:?}", analysis.provenance),
+        "confidence": analysis.confidence.get(),
+        "summary": {
+            "language": analysis.language.primary.as_ref().map(|prediction| prediction.language.as_str()),
+            "tokenCount": analysis.tokens.len(),
+            "sentenceCount": analysis.sentences.len(),
+            "lemmaCount": analysis.lemmas.len(),
+            "entityCount": analysis.entities.len(),
+            "eventCount": analysis.events.len(),
+            "relationCount": analysis.relations.len(),
+            "topicCount": analysis.topics.descriptors.len(),
+            "chunkCount": analysis.chunks.len()
+        },
+        "language": {
+            "primary": analysis.language.primary.as_ref().map(|prediction| json!({
+                "language": prediction.language,
+                "confidence": prediction.confidence,
+                "script": prediction.script,
+                "reason": prediction.reason
+            })),
+            "dominantScript": analysis.language.dominant_script,
+            "isMixed": analysis.language.is_mixed,
+            "tokenCount": analysis.language.token_count
+        },
+        "tokens": analysis.tokens.iter().enumerate().map(|(index, token)| json!({
+            "index": index,
+            "text": token.text,
+            "normalized": token.normalized,
+            "kind": format!("{:?}", token.kind),
+            "start": token.span.char_start,
+            "end": token.span.char_end
+        })).collect::<Vec<_>>(),
+        "sentences": analysis.sentences.iter().enumerate().map(|(index, sentence)| json!({
+            "index": index,
+            "text": sentence.text,
+            "start": sentence.span.char_start,
+            "end": sentence.span.char_end,
+            "tokenCount": sentence.token_count
+        })).collect::<Vec<_>>(),
+        "lemmas": analysis.lemmas.iter().map(|lemma| json!({
+            "tokenIndex": lemma.token_index,
+            "token": analysis.tokens.get(lemma.token_index).map(|token| token.text.as_str()),
+            "lemma": lemma.value,
+            "language": lemma.language,
+            "confidence": lemma.confidence
+        })).collect::<Vec<_>>(),
+        "pos": analysis.pos.iter().map(|pos| json!({
+            "tokenIndex": pos.token_index,
+            "token": analysis.tokens.get(pos.token_index).map(|token| token.text.as_str()),
+            "tag": format!("{:?}", pos.tag),
+            "confidence": pos.confidence,
+            "reason": pos.reason
+        })).collect::<Vec<_>>(),
+        "entities": analysis.entities.iter().map(|entity| json!({
+            "id": entity.id,
+            "text": entity.mention.text,
+            "normalized": entity.normalized,
+            "kind": format!("{:?}", entity.entity_type),
+            "sentenceIndex": entity.sentence_index,
+            "tokenStart": entity.token_start,
+            "tokenEnd": entity.token_end,
+            "confidence": entity.confidence
+        })).collect::<Vec<_>>(),
+        "events": analysis.events.iter().map(|event| json!({
+            "sentenceIndex": event.sentence_index,
+            "predicate": event.predicate,
+            "lemma": event.lemma,
+            "relationType": format!("{:?}", event.relation_type),
+            "confidence": event.confidence,
+            "arguments": event.arguments.iter().map(|argument| json!({
+                "role": argument.role,
+                "text": argument.text,
+                "confidence": argument.confidence
+            })).collect::<Vec<_>>()
+        })).collect::<Vec<_>>(),
+        "relations": analysis.relations.iter().map(|relation| json!({
+            "subject": relation.subject,
+            "relation": relation.relation,
+            "object": relation.object,
+            "relationType": format!("{:?}", relation.relation_type),
+            "confidence": relation.confidence
+        })).collect::<Vec<_>>(),
+        "topics": analysis.topics.descriptors.iter().map(|topic| json!({
+            "label": topic.label,
+            "terms": topic.terms,
+            "score": topic.score
+        })).collect::<Vec<_>>(),
+        "style": {
+            "register": format!("{:?}", analysis.style.register),
+            "averageSentenceTokens": analysis.style.complexity.average_sentence_tokens,
+            "typeTokenRatio": analysis.style.complexity.type_token_ratio,
+            "formalityScore": analysis.style.formality_score,
+            "questionCount": analysis.style.question_count,
+            "exclamationCount": analysis.style.exclamation_count
+        }
+    })
 }
 
 fn smoke_value() -> Value {
@@ -1126,5 +1287,21 @@ mod tests {
         let response = response_for(&request);
         assert_eq!(response.status_code, 200);
         assert!(response.body.contains("text-core-server"));
+    }
+
+    #[test]
+    fn serves_text_linguistics_analysis_from_package_route() {
+        let request = Request {
+            method: "POST".to_string(),
+            path: "/api/rust/packages/text-linguistics/api/run".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: r#"{"operation":"analyze","text":"Alice presented the roadmap in Berlin."}"#
+                .to_string(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("\"operation\":\"analyze\""));
+        assert!(response.body.contains("\"entityCount\""));
     }
 }

@@ -24,9 +24,10 @@ use text_embeddings::{
     TextEmbeddingMetadata,
 };
 use video_analysis_core::{DetectError, Result, TextSegment};
+pub use video_analysis_models::RawPrediction;
 use video_analysis_models::{
     CudaOxideRuntimeConfig, HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelTask,
-    RawPrediction, TextModelBackend,
+    TextModelBackend,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -451,7 +452,15 @@ impl TokenizerBundle {
 
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: &ModelBundle) -> Result<Self> {
-        let tokenizer_path = required_bundle_file(bundle, "tokenizer.json")?;
+        let tokenizer_path = bundle
+            .file_path("tokenizer.json")
+            .or_else(|| bundle.file_path("vocab.txt"))
+            .ok_or_else(|| {
+                invalid_argument(format!(
+                    "model bundle `{}` is missing required tokenizer file `tokenizer.json` or `vocab.txt`",
+                    bundle.manifest.name
+                ))
+            })?;
         Ok(Self::new(tokenizer_path))
     }
 
@@ -493,12 +502,7 @@ impl TokenizerBundle {
     #[cfg(feature = "tokenizers")]
     /// Returns tokenize.
     pub fn tokenize(&self, text: &str) -> Result<TokenizedText> {
-        let tokenizer = tokenizers::Tokenizer::from_file(&self.tokenizer_path).map_err(|err| {
-            DetectError::Source(format!(
-                "failed to load tokenizer `{}`: {err}",
-                self.tokenizer_path.display()
-            ))
-        })?;
+        let tokenizer = load_tokenizer(&self.tokenizer_path)?;
         let encoding = tokenizer
             .encode(text, true)
             .map_err(|err| DetectError::Source(format!("failed to tokenize text: {err}")))?;
@@ -557,6 +561,46 @@ impl TokenizedText {
         }
         self.offsets.truncate(max_length);
     }
+}
+
+#[cfg(feature = "tokenizers")]
+fn load_tokenizer(path: &Path) -> Result<tokenizers::Tokenizer> {
+    if path.file_name().and_then(|value| value.to_str()) == Some("vocab.txt") {
+        let vocab_path = path.to_str().ok_or_else(|| {
+            invalid_argument(format!(
+                "tokenizer vocab path is not valid UTF-8: {}",
+                path.display()
+            ))
+        })?;
+        let model = tokenizers::models::wordpiece::WordPiece::from_file(vocab_path)
+            .build()
+            .map_err(|err| {
+                DetectError::Source(format!(
+                    "failed to load WordPiece vocab `{}`: {err}",
+                    path.display()
+                ))
+            })?;
+        let vocab = tokenizers::Model::get_vocab(&model);
+        let cls_id = *vocab.get("[CLS]").unwrap_or(&101);
+        let sep_id = *vocab.get("[SEP]").unwrap_or(&102);
+        let mut tokenizer = tokenizers::Tokenizer::new(model);
+        tokenizer.with_normalizer(Some(
+            tokenizers::normalizers::bert::BertNormalizer::default(),
+        ));
+        tokenizer.with_pre_tokenizer(Some(tokenizers::pre_tokenizers::bert::BertPreTokenizer));
+        tokenizer.with_post_processor(Some(tokenizers::processors::bert::BertProcessing::new(
+            ("[SEP]".to_string(), sep_id),
+            ("[CLS]".to_string(), cls_id),
+        )));
+        return Ok(tokenizer);
+    }
+
+    tokenizers::Tokenizer::from_file(path).map_err(|err| {
+        DetectError::Source(format!(
+            "failed to load tokenizer `{}`: {err}",
+            path.display()
+        ))
+    })
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1059,6 +1103,12 @@ enum CandleClassifierArchitecture {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CandleTokenClassifierArchitecture {
+    Bert,
+    DistilBert,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CandleEmbeddingArchitecture {
     Bert,
     DistilBert,
@@ -1078,7 +1128,7 @@ impl CandleTextClassifier {
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let config_path = required_bundle_file(&bundle, "config.json")?;
-        let tokenizer_path = required_bundle_file(&bundle, "tokenizer.json")?;
+        let tokenizer = TokenizerBundle::from_bundle(&bundle)?;
         let config = read_json(&config_path)?;
         let model_paths = bundle_files_with_extension(&bundle, "safetensors");
         if model_paths.is_empty() {
@@ -1088,7 +1138,7 @@ impl CandleTextClassifier {
         }
         let architecture = classifier_architecture_from_config(&config)?;
         Ok(Self {
-            tokenizer: TokenizerBundle::new(tokenizer_path),
+            tokenizer,
             labels: labels_from_config(&config),
             config,
             model_paths,
@@ -1171,6 +1221,111 @@ impl TokenClassifier for CandleTextClassifier {
 impl TextClassifier for CandleTextClassifier {
     fn classify_text(&mut self, text: &str) -> Result<Vec<RawPrediction>> {
         self.classify(text)
+    }
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Candle
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Data type for candle token classifier.
+pub struct CandleTokenClassifier {
+    tokenizer: TokenizerBundle,
+    labels: Vec<String>,
+    config: Value,
+    model_paths: Vec<PathBuf>,
+    architecture: CandleTokenClassifierArchitecture,
+}
+
+impl CandleTokenClassifier {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        let config_path = required_bundle_file(&bundle, "config.json")?;
+        let tokenizer = TokenizerBundle::from_bundle(&bundle)?;
+        let config = read_json(&config_path)?;
+        let model_paths = bundle_files_with_extension(&bundle, "safetensors");
+        if model_paths.is_empty() {
+            return Err(invalid_argument(
+                "Candle token classification bundles must contain a `.safetensors` model file",
+            ));
+        }
+        let architecture = token_classifier_architecture_from_config(&config)?;
+        Ok(Self {
+            tokenizer,
+            labels: labels_from_config(&config),
+            config,
+            model_paths,
+            architecture,
+        })
+    }
+
+    /// Returns labels.
+    pub fn labels(&self) -> &[String] {
+        &self.labels
+    }
+
+    /// Returns classify.
+    pub fn classify(&mut self, text: &str) -> Result<Vec<RawPrediction>> {
+        let tokens = self.tokenizer.tokenize(text)?;
+        self.classify_tokenized(text, &tokens)
+    }
+
+    /// Returns classify tokenized.
+    pub fn classify_tokenized(
+        &self,
+        text: &str,
+        tokens: &TokenizedText,
+    ) -> Result<Vec<RawPrediction>> {
+        #[cfg(feature = "candle")]
+        {
+            let (logits, shape) = run_candle_token_classifier(
+                &self.config,
+                &self.model_paths,
+                self.architecture,
+                tokens,
+            )?;
+            token_predictions_from_logits(text, tokens, &logits, &shape, &self.labels)
+        }
+        #[cfg(not(feature = "candle"))]
+        {
+            let _ = (
+                text,
+                tokens,
+                &self.config,
+                &self.model_paths,
+                self.architecture,
+            );
+            Err(invalid_argument(
+                "native Candle token classification requires the `candle` feature",
+            ))
+        }
+    }
+}
+
+impl TextModelBackend for CandleTokenClassifier {
+    fn task(&self) -> ModelTask {
+        ModelTask::TokenClassification
+    }
+
+    fn predict_text(&mut self, segment: &TextSegment<'_>) -> Result<Vec<RawPrediction>> {
+        self.classify(segment.text)
+    }
+}
+
+impl SequenceLabeler for CandleTokenClassifier {
+    fn label_text(&mut self, text: &str) -> Result<Vec<RawPrediction>> {
+        self.classify(text)
+    }
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Candle
+    }
+}
+
+impl TokenClassifier for CandleTokenClassifier {
+    fn classify_tokenized_text(&mut self, tokens: &TokenizedText) -> Result<Vec<RawPrediction>> {
+        self.classify_tokenized("", tokens)
     }
 
     fn runtime_backend(&self) -> TextRuntimeBackend {
@@ -1421,6 +1576,26 @@ fn classifier_architecture_from_config(config: &Value) -> Result<CandleClassifie
     )))
 }
 
+fn token_classifier_architecture_from_config(
+    config: &Value,
+) -> Result<CandleTokenClassifierArchitecture> {
+    let architectures = architectures_from_config(config);
+    if architectures.contains(&"DistilBertForTokenClassification") {
+        return Ok(CandleTokenClassifierArchitecture::DistilBert);
+    }
+    if architectures.contains(&"BertForTokenClassification") {
+        return Ok(CandleTokenClassifierArchitecture::Bert);
+    }
+    Err(invalid_argument(format!(
+        "unsupported Candle token classification architecture {}; supported: DistilBertForTokenClassification, BertForTokenClassification",
+        if architectures.is_empty() {
+            "<missing>".to_string()
+        } else {
+            architectures.join(", ")
+        },
+    )))
+}
+
 fn embedding_architecture_from_config(config: &Value) -> Result<CandleEmbeddingArchitecture> {
     let architectures = architectures_from_config(config);
     if architectures.contains(&"DistilBertModel") {
@@ -1586,6 +1761,134 @@ fn run_candle_classifier(
             candle_logits_from_tensor(logits)
         }
     }
+}
+
+#[cfg(feature = "candle")]
+fn run_candle_token_classifier(
+    config: &Value,
+    model_paths: &[PathBuf],
+    architecture: CandleTokenClassifierArchitecture,
+    tokens: &TokenizedText,
+) -> Result<(Vec<f32>, Vec<usize>)> {
+    let device = CandleDevice::Cpu;
+    let vb = candle_var_builder(model_paths, &device)?;
+    let prefixes = model_prefix_candidates(config);
+
+    let (sequence_output, used_prefix) = match architecture {
+        CandleTokenClassifierArchitecture::Bert => {
+            let config: candle_bert::Config =
+                serde_json::from_value(config.clone()).map_err(|err| {
+                    invalid_argument(format!("failed to parse BERT config for Candle: {err}"))
+                })?;
+            let (model, used_prefix) = load_candle_bert_model(&vb, &config, &prefixes)?;
+            let input_ids = candle_input_ids(tokens, &device)?;
+            let token_type_ids = candle_token_type_ids(tokens, &device)?;
+            let attention_mask = candle_attention_mask_keep(tokens, &device)?;
+            (
+                model
+                    .forward(&input_ids, &token_type_ids, Some(&attention_mask))
+                    .map_err(candle_error)?,
+                used_prefix,
+            )
+        }
+        CandleTokenClassifierArchitecture::DistilBert => {
+            let config: candle_distilbert::Config = serde_json::from_value(config.clone())
+                .map_err(|err| {
+                    invalid_argument(format!(
+                        "failed to parse DistilBERT config for Candle: {err}"
+                    ))
+                })?;
+            let (model, used_prefix) = load_candle_distilbert_model(&vb, &config, &prefixes)?;
+            let input_ids = candle_input_ids(tokens, &device)?;
+            let attention_mask = candle_attention_mask_distil(tokens, &device)?;
+            (
+                model
+                    .forward(&input_ids, &attention_mask)
+                    .map_err(candle_error)?,
+                used_prefix,
+            )
+        }
+    };
+
+    let classifier_candidates = prioritized_layer_candidates(&used_prefix, "classifier");
+    let classifier = load_required_candle_linear(&vb, &classifier_candidates, "classifier")?;
+    let logits = classifier.forward(&sequence_output).map_err(candle_error)?;
+    let shape = logits.dims().to_vec();
+    let values = logits
+        .flatten_all()
+        .map_err(candle_error)?
+        .to_vec1::<f32>()
+        .map_err(candle_error)?;
+    Ok((values, shape))
+}
+
+/// Converts token-classification logits into token predictions.
+pub fn token_predictions_from_logits(
+    text: &str,
+    tokens: &TokenizedText,
+    logits: &[f32],
+    shape: &[usize],
+    labels: &[String],
+) -> Result<Vec<RawPrediction>> {
+    let (sequence, label_count) = match shape {
+        [sequence, labels] => (*sequence, *labels),
+        [batch, sequence, labels] if *batch == 1 => (*sequence, *labels),
+        _ => {
+            return Err(invalid_argument(format!(
+                "unsupported token classification output shape `{shape:?}`"
+            )));
+        }
+    };
+    if label_count == 0 || logits.len() != sequence * label_count {
+        return Err(invalid_argument(
+            "token classification output shape does not match logits",
+        ));
+    }
+
+    let mut predictions = Vec::new();
+    for token_index in 0..sequence {
+        if tokens.attention_mask.get(token_index).copied().unwrap_or(0) == 0 {
+            continue;
+        }
+        let Some((start, end)) = tokens.offsets.get(token_index).copied().flatten() else {
+            continue;
+        };
+        if start >= end || (!text.is_empty() && end > text.len()) {
+            continue;
+        }
+        let offset = token_index * label_count;
+        let scores = softmax(&logits[offset..offset + label_count]);
+        let Some((label_index, score)) = scores
+            .iter()
+            .copied()
+            .enumerate()
+            .max_by(|left, right| left.1.total_cmp(&right.1))
+        else {
+            continue;
+        };
+        let label = labels
+            .get(label_index)
+            .cloned()
+            .unwrap_or_else(|| format!("LABEL_{label_index}"));
+        let mut prediction = RawPrediction {
+            kind: Some("token".to_string()),
+            label: Some(label),
+            text: (end <= text.len()).then(|| text[start..end].to_string()),
+            score: Some(score),
+            ..RawPrediction::default()
+        };
+        prediction
+            .attributes
+            .insert("byte_start".to_string(), start.to_string());
+        prediction
+            .attributes
+            .insert("byte_end".to_string(), end.to_string());
+        prediction
+            .attributes
+            .insert("token_index".to_string(), token_index.to_string());
+        predictions.push(prediction);
+    }
+    Ok(predictions)
 }
 
 #[cfg(feature = "candle")]
@@ -2050,6 +2353,41 @@ mod tests {
     }
 
     #[test]
+    fn maps_token_classifier_logits_to_offset_predictions() {
+        let predictions = token_predictions_from_logits(
+            "Alice met Bob",
+            &TokenizedText {
+                input_ids: vec![101, 200, 201, 102],
+                attention_mask: vec![1, 1, 1, 1],
+                token_type_ids: None,
+                offsets: vec![Some((0, 0)), Some((0, 5)), Some((10, 13)), Some((0, 0))],
+            },
+            &[
+                3.0, 0.0, 0.0, //
+                0.0, 4.0, 0.0, //
+                0.0, 0.0, 5.0, //
+                3.0, 0.0, 0.0,
+            ],
+            &[1, 4, 3],
+            &["O".to_string(), "B-PER".to_string(), "I-PER".to_string()],
+        )
+        .unwrap();
+
+        assert_eq!(predictions.len(), 2);
+        assert_eq!(predictions[0].label.as_deref(), Some("B-PER"));
+        assert_eq!(predictions[0].text.as_deref(), Some("Alice"));
+        assert_eq!(
+            predictions[0]
+                .attributes
+                .get("byte_start")
+                .map(String::as_str),
+            Some("0")
+        );
+        assert_eq!(predictions[1].label.as_deref(), Some("I-PER"));
+        assert_eq!(predictions[1].text.as_deref(), Some("Bob"));
+    }
+
+    #[test]
     fn candle_reports_unsupported_architectures() {
         let dir = tempfile::tempdir().unwrap();
         let bundle = fake_bundle(
@@ -2061,6 +2399,7 @@ mod tests {
             ],
         );
         assert!(CandleTextClassifier::from_bundle(bundle.clone()).is_err());
+        assert!(CandleTokenClassifier::from_bundle(bundle.clone()).is_err());
         assert!(CandleTextEmbedder::from_bundle(bundle).is_err());
     }
 
