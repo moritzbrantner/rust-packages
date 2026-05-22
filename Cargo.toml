@@ -109,7 +109,9 @@ text-lexical = { version = "0.1.0", path = "crates/text/text-lexical" }
 text-linguistics = { version = "0.1.0", path = "crates/text/text-linguistics" }
 text-model-runtime = { version = "0.1.0", path = "crates/text/text-model-runtime" }
 text-nlp-models = { version = "0.1.0", path = "crates/text/text-nlp-models" }
+text-nlp-tasks = { version = "0.1.0", path = "crates/text/text-nlp-tasks" }
 text-generation = { version = "0.1.0", path = "crates/text/text-generation" }
+text-generation-linguistics = { version = "0.1.0", path = "crates/text/text-generation-linguistics" }
 text-retrieval = { version = "0.1.0", path = "crates/text/text-retrieval" }
 text-embeddings = { version = "0.1.0", path = "crates/text/text-embeddings" }
 text-transcripts = { version = "0.1.0", path = "crates/text/text-transcripts" }
@@ -231,9 +233,10 @@ image-analysis-segmentation.workspace = true
 image-analysis-synthesis.workspace = true
 text-core.workspace = true
 text-lexical.workspace = true
-text-linguistics = { workspace = true, features = ["candle"] }
-text-nlp-models.workspace = true
+text-linguistics = { workspace = true, features = ["candle", "transcripts"] }
+text-nlp-tasks.workspace = true
 text-generation.workspace = true
+text-generation-linguistics.workspace = true
 text-retrieval.workspace = true
 text-embeddings.workspace = true
 text-transcripts.workspace = true

@@ -22,11 +22,12 @@ serde.workspace = true
 serde_json.workspace = true
 tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
-video-analysis-models.workspace = true
+video-analysis-models = { workspace = true, optional = true }
 
 [features]
 default = []
-tokenizers = ["dep:tokenizers"]
+model-bundles = ["dep:video-analysis-models"]
+tokenizers = ["dep:tokenizers", "model-bundles"]
 onnx = ["tokenizers", "dep:ort", "dep:ndarray"]
 candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers"]
 external-tests = ["onnx", "candle"]

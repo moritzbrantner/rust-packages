@@ -1,10 +1,10 @@
 [package]
-name = "text-generation"
+name = "text-generation-linguistics"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Deterministic Markov-chain prediction and text synthesis for video-analysis."
+description = "Adapters from text-linguistics analysis outputs into text-generation."
 readme = "README.md"
 repository.workspace = true
 homepage.workspace = true
@@ -15,4 +15,6 @@ categories.workspace = true
 [dependencies]
 data-inversion-core.workspace = true
 text-core.workspace = true
+text-generation.workspace = true
+text-linguistics.workspace = true
 video-analysis-core.workspace = true

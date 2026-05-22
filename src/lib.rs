@@ -87,10 +87,14 @@ pub use text_core;
 pub use text_embeddings;
 /// Re-exports the text generation API.
 pub use text_generation;
+/// Re-exports the text generation linguistics adapter API.
+pub use text_generation_linguistics;
 /// Re-exports the text lexical API.
 pub use text_lexical;
 /// Re-exports the text linguistics API.
 pub use text_linguistics;
+/// Re-exports the text NLP task API.
+pub use text_nlp_tasks;
 /// Re-exports the text retrieval API.
 pub use text_retrieval;
 /// Re-exports the text transcripts API.

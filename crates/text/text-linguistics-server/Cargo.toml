@@ -21,5 +21,5 @@ clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 text-linguistics = { path = "../text-linguistics", features = ["candle"] }
-text-nlp-models.workspace = true
+text-nlp-tasks.workspace = true
 video-analysis-core.workspace = true

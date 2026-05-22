@@ -3775,6 +3775,16 @@ version = "0.1.0"
 dependencies = [
  "data-inversion-core",
  "text-core",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "text-generation-linguistics"
+version = "0.1.0"
+dependencies = [
+ "data-inversion-core",
+ "text-core",
+ "text-generation",
  "text-linguistics",
  "video-analysis-core",
 ]
@@ -3826,7 +3836,7 @@ dependencies = [
  "serde",
  "serde_json",
  "text-linguistics",
- "text-nlp-models",
+ "text-nlp-tasks",
  "video-analysis-core",
 ]
 
@@ -3864,7 +3874,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "serde_json",
- "text-nlp-models",
+ "text-nlp-tasks",
 ]
 
 [[package]]
@@ -3878,7 +3888,36 @@ dependencies = [
  "text-lexical",
  "text-model-runtime",
  "video-analysis-core",
- "video-analysis-models",
+]
+
+[[package]]
+name = "text-nlp-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde",
+ "serde_json",
+ "text-nlp-tasks",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "text-nlp-tasks"
+version = "0.1.0"
+dependencies = [
+ "text-nlp-models",
+]
+
+[[package]]
+name = "text-nlp-wasm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "text-nlp-tasks",
+ "video-analysis-core",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -4525,9 +4564,10 @@ dependencies = [
  "text-core",
  "text-embeddings",
  "text-generation",
+ "text-generation-linguistics",
  "text-lexical",
  "text-linguistics",
- "text-nlp-models",
+ "text-nlp-tasks",
  "text-retrieval",
  "text-transcripts",
  "three-d-processing-core",

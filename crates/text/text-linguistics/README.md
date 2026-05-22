@@ -16,26 +16,27 @@ Local model-backed linguistic analysis pipeline for `video-analysis`.
 ## Example
 
 ```rust,no_run
-use text_linguistics::{TextNlpPipeline, TextNlpConfig};
-use text_transcripts::parse_srt;
+use text_linguistics::{TextNlpPipeline, TextNlpConfig, LinguisticAnalysisOptions};
 
-let subtitles = parse_srt(
-    "1\n00:00:00,000 --> 00:00:01,000\nAlice visited Berlin\n\n2\n00:00:01,000 --> 00:00:02,000\nShe presented the roadmap\n",
-) .unwrap();
-let pipeline = TextNlpPipeline::new(TextNlpConfig::rich());
-let analysis = pipeline.analyze_transcription(&subtitles).unwrap();
+let pipeline = TextNlpPipeline::new(TextNlpConfig {
+    options: LinguisticAnalysisOptions::heuristic(),
+    ..TextNlpConfig::fast()
+});
+let analysis = pipeline
+    .analyze_text("Alice visited Berlin and presented the roadmap.")
+    .unwrap();
 
-assert_eq!(analysis.cues.len(), 2);
-assert!(!analysis.aggregate.entities.is_empty());
-assert_eq!(analysis.aggregate.graph.tokens.len(), analysis.aggregate.tokens.len());
+assert!(!analysis.entities.is_empty());
+assert_eq!(analysis.graph.tokens.len(), analysis.tokens.len());
 ```
 
-`analyze_text` uses a local `bert-base-ner` token-classification model by
-default. The public Hugging Face bundle is materialized into
-`.video-analysis-models` on first use through a `jobs-core` download job and then
-runs locally through Candle; no OpenAI, Claude, or hosted LLM token is required.
-For deterministic offline tests or constrained environments, use
-`LinguisticAnalysisOptions::heuristic()`.
+When the `candle` feature is enabled, rich profiles can use a local
+`bert-base-ner` token-classification model. The public Hugging Face bundle is
+materialized into `.video-analysis-models` on first use through a `jobs-core`
+download job and then runs locally through Candle; no OpenAI, Claude, or hosted
+LLM token is required. Transcript-specific analysis is available behind the
+`transcripts` feature. For deterministic offline tests or constrained
+environments, use `LinguisticAnalysisOptions::heuristic()`.
 
 ## Related crates
 

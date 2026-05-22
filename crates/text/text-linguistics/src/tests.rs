@@ -4,6 +4,7 @@ use text_core::{
     split_sentence_spans, tokenize, AnnotationProvenance, Sentence, TextProcessingOptions,
     TextSpan, Token, TokenKind,
 };
+#[cfg(feature = "transcripts")]
 use text_transcripts::{parse_srt, parse_webvtt, TranscriptSegment};
 use video_analysis_core::{OwnedTextSegment, Result, TextAnalyzer};
 
@@ -21,10 +22,7 @@ fn default_options_use_local_entity_model() {
         options.entity_recognition.mode,
         EntityRecognitionMode::LocalModel
     );
-    assert_eq!(
-        options.entity_recognition.preset,
-        video_analysis_models::ModelPreset::BertBaseNer
-    );
+    assert_eq!(options.entity_recognition.preset, ModelPreset::BertBaseNer);
     assert!(options.entity_recognition.auto_download);
 }
 
@@ -377,6 +375,7 @@ fn model_labeler_entities_replace_capitalization_guesses() {
 }
 
 #[test]
+#[cfg(feature = "transcripts")]
 fn analyzes_subtitle_segments_per_cue_and_in_aggregate() {
     let cues = vec![
         TranscriptSegment {
@@ -413,6 +412,7 @@ fn analyzes_subtitle_segments_per_cue_and_in_aggregate() {
 }
 
 #[test]
+#[cfg(feature = "transcripts")]
 fn analyzes_transcription_using_explicit_transcript_text_when_present() {
     let transcription = parse_srt(
         "1\n00:00:00,000 --> 00:00:01,000\nAlice visited Berlin\n\n2\n00:00:01,000 --> 00:00:02,000\nShe presented the roadmap\n",
@@ -432,6 +432,7 @@ fn analyzes_transcription_using_explicit_transcript_text_when_present() {
 }
 
 #[test]
+#[cfg(feature = "transcripts")]
 fn analyzes_transcription_falling_back_to_joined_cue_text() {
     let mut transcription = parse_webvtt(
         "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHello Berlin\n\n00:00:01.000 --> 00:00:02.000\nHola Madrid\n",

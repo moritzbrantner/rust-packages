@@ -15,8 +15,9 @@ use video_analysis::{
     output, posture, posture_io, radiance_fields, radiance_io, radiance_pipeline, recognition,
     reconstruction, sfm, sfm_rust_backend, signal, sparse, split, stats, storage, synthesis,
     tensor_data, text_core, text_embeddings, text_generation, text_lexical, text_linguistics,
-    text_retrieval, text_transcripts, three_d_core, three_d_io, three_d_mesh, three_d_scene,
-    tracking, transform, vector_core, vector_index, video_segmentation, Timebase, Timestamp,
+    text_nlp_tasks, text_retrieval, text_transcripts, three_d_core, three_d_io, three_d_mesh,
+    three_d_scene, tracking, transform, vector_core, vector_index, video_segmentation, Timebase,
+    Timestamp,
 };
 
 #[cfg(feature = "onnx-backend")]
@@ -161,7 +162,7 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
         ("GET", "/api/package") => package_metadata_response(module),
         ("GET", "/api/schema") => package_schema_response(module),
         ("GET", "/api/models") if module.package == "text-linguistics" => {
-            json_response(200, "OK", json!(text_nlp_models::model_catalog(None)))
+            json_response(200, "OK", json!(text_nlp_tasks::model_catalog(None)))
         }
         ("GET", "/api/models") if module.package == "audio-analysis-recognition" => {
             json_response(200, "OK", json!(audio_analysis_models::model_catalog(None)))
@@ -170,9 +171,9 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
             if module.package == "text-linguistics" && path.starts_with("/api/models/") =>
         {
             let task = path.trim_start_matches("/api/models/");
-            match text_nlp_models::parse_task(task) {
+            match text_nlp_tasks::parse_task(task) {
                 Some(task) => {
-                    json_response(200, "OK", json!(text_nlp_models::model_catalog(Some(task))))
+                    json_response(200, "OK", json!(text_nlp_tasks::model_catalog(Some(task))))
                 }
                 None => json_response(
                     400,
@@ -431,7 +432,7 @@ fn package_schema_response(module: ModuleInfo) -> HttpResponse {
                 },
                 "components": {
                     "schemas": {
-                        "textNlp": text_nlp_models::schema_summary()
+                        "textNlp": text_nlp_tasks::schema_summary()
                     }
                 }
             }),
@@ -621,8 +622,8 @@ fn text_linguistics_run_response(body: &str) -> HttpResponse {
 fn text_nlp_task_response(path: &str, body: &str) -> HttpResponse {
     match path {
         "/api/classify" => {
-            match serde_json::from_str::<text_nlp_models::TextClassificationRequest>(body) {
-                Ok(request) => nlp_result_response(text_nlp_models::classify_text(request)),
+            match serde_json::from_str::<text_nlp_tasks::TextClassificationRequest>(body) {
+                Ok(request) => nlp_result_response(text_nlp_tasks::classify_text(request)),
                 Err(error) => text_nlp_error_response(
                     400,
                     "Bad Request",
@@ -631,44 +632,44 @@ fn text_nlp_task_response(path: &str, body: &str) -> HttpResponse {
                 ),
             }
         }
-        "/api/sentiment" => match serde_json::from_str::<text_nlp_models::SentimentRequest>(body) {
-            Ok(request) => nlp_result_response(text_nlp_models::analyze_sentiment(request)),
+        "/api/sentiment" => match serde_json::from_str::<text_nlp_tasks::SentimentRequest>(body) {
+            Ok(request) => nlp_result_response(text_nlp_tasks::analyze_sentiment(request)),
             Err(error) => {
                 text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
             }
         },
-        "/api/embed" => match serde_json::from_str::<text_nlp_models::EmbeddingRequest>(body) {
-            Ok(request) => nlp_result_response(text_nlp_models::embed_texts(request)),
+        "/api/embed" => match serde_json::from_str::<text_nlp_tasks::EmbeddingRequest>(body) {
+            Ok(request) => nlp_result_response(text_nlp_tasks::embed_texts(request)),
             Err(error) => {
                 text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
             }
         },
         "/api/zero-shot" => match serde_json::from_str::<
-            text_nlp_models::ZeroShotClassificationRequest,
+            text_nlp_tasks::ZeroShotClassificationRequest,
         >(body)
         {
-            Ok(request) => nlp_result_response(text_nlp_models::zero_shot_classify(request)),
+            Ok(request) => nlp_result_response(text_nlp_tasks::zero_shot_classify(request)),
             Err(error) => {
                 text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
             }
         },
-        "/api/summarize" => match serde_json::from_str::<text_nlp_models::SummaryRequest>(body) {
-            Ok(request) => nlp_result_response(text_nlp_models::summarize(request)),
+        "/api/summarize" => match serde_json::from_str::<text_nlp_tasks::SummaryRequest>(body) {
+            Ok(request) => nlp_result_response(text_nlp_tasks::summarize(request)),
             Err(error) => {
                 text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
             }
         },
-        "/api/rerank" => match serde_json::from_str::<text_nlp_models::RerankRequest>(body) {
-            Ok(request) => nlp_result_response(text_nlp_models::rerank(request)),
+        "/api/rerank" => match serde_json::from_str::<text_nlp_tasks::RerankRequest>(body) {
+            Ok(request) => nlp_result_response(text_nlp_tasks::rerank(request)),
             Err(error) => {
                 text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
             }
         },
         "/api/question-answer" => match serde_json::from_str::<
-            text_nlp_models::QuestionAnsweringRequest,
+            text_nlp_tasks::QuestionAnsweringRequest,
         >(body)
         {
-            Ok(request) => nlp_result_response(text_nlp_models::answer_question(request)),
+            Ok(request) => nlp_result_response(text_nlp_tasks::answer_question(request)),
             Err(error) => {
                 text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
             }

@@ -13,11 +13,25 @@ use candle_nn::{Linear as CandleLinear, Module as CandleModule, VarBuilder as Ca
 use candle_transformers::models::{bert as candle_bert, distilbert as candle_distilbert};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use video_analysis_core::{DetectError, Result, TextSegment};
-pub use video_analysis_models::RawPrediction;
-use video_analysis_models::{
-    HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelTask, TextModelBackend,
-};
+use video_analysis_core::{DetectError, Result};
+#[cfg(feature = "model-bundles")]
+use video_analysis_models::{HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelTask};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+/// Text-oriented raw prediction shared by local and imported NLP runtimes.
+pub struct RawPrediction {
+    /// Raw prediction kind.
+    pub kind: Option<String>,
+    /// Label assigned by the model.
+    pub label: Option<String>,
+    /// Optional text span or document text.
+    pub text: Option<String>,
+    /// Confidence score.
+    pub score: Option<f32>,
+    #[serde(default)]
+    /// Arbitrary runtime attributes, including offsets.
+    pub attributes: BTreeMap<String, String>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Variants describing truncation strategy.
@@ -144,24 +158,34 @@ impl TokenizerSource {
                 revision,
                 tokenizer_file,
             } => {
-                let downloaded = options.downloader().download(
-                    &HuggingFaceModelSpec::new(
-                        repo_id.clone(),
-                        ModelTask::Custom("tokenizer".to_string()),
-                    )
-                    .name(format!("{repo_id}-tokenizer"))
-                    .revision(revision.clone())
-                    .file(tokenizer_file.clone()),
-                )?;
-                downloaded
-                    .files
-                    .get(tokenizer_file)
-                    .cloned()
-                    .ok_or_else(|| {
-                        DetectError::Source(format!(
+                #[cfg(feature = "model-bundles")]
+                {
+                    let downloaded = options.downloader().download(
+                        &HuggingFaceModelSpec::new(
+                            repo_id.clone(),
+                            ModelTask::Custom("tokenizer".to_string()),
+                        )
+                        .name(format!("{repo_id}-tokenizer"))
+                        .revision(revision.clone())
+                        .file(tokenizer_file.clone()),
+                    )?;
+                    downloaded
+                        .files
+                        .get(tokenizer_file)
+                        .cloned()
+                        .ok_or_else(|| {
+                            DetectError::Source(format!(
                             "downloaded tokenizer `{repo_id}` did not contain `{tokenizer_file}`"
                         ))
-                    })
+                        })
+                }
+                #[cfg(not(feature = "model-bundles"))]
+                {
+                    let _ = (repo_id, revision, tokenizer_file, options);
+                    Err(invalid_argument(
+                        "Hugging Face tokenizer downloads require the `model-bundles` feature",
+                    ))
+                }
             }
         }
     }
@@ -188,6 +212,7 @@ pub struct TokenizerDownloadOptions {
 
 impl TokenizerDownloadOptions {
     /// Builds the configured downloader.
+    #[cfg(feature = "model-bundles")]
     pub fn downloader(&self) -> HuggingFaceDownloader {
         let mut downloader = HuggingFaceDownloader::new()
             .progress(self.progress)
@@ -234,6 +259,7 @@ impl TokenizerBundle {
     }
 
     /// Builds from a model bundle containing `tokenizer.json` or `vocab.txt`.
+    #[cfg(feature = "model-bundles")]
     pub fn from_bundle(bundle: &ModelBundle) -> Result<Self> {
         let tokenizer_path = bundle
             .file_path("tokenizer.json")
@@ -449,6 +475,7 @@ pub trait TokenClassifier {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 enum CandleTokenClassifierArchitecture {
     Bert,
     DistilBert,
@@ -466,6 +493,7 @@ pub struct CandleTokenClassifier {
 
 impl CandleTokenClassifier {
     /// Builds from a model bundle.
+    #[cfg(feature = "model-bundles")]
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
         let config_path = required_bundle_file(&bundle, "config.json")?;
         let config = read_json(&config_path)?;
@@ -531,16 +559,6 @@ impl CandleTokenClassifier {
                 "native Candle token classification requires the `candle` feature",
             ))
         }
-    }
-}
-
-impl TextModelBackend for CandleTokenClassifier {
-    fn task(&self) -> ModelTask {
-        ModelTask::TokenClassification
-    }
-
-    fn predict_text(&mut self, segment: &TextSegment<'_>) -> Result<Vec<RawPrediction>> {
-        self.classify(segment.text)
     }
 }
 
@@ -653,6 +671,7 @@ pub fn softmax(logits: &[f32]) -> Vec<f32> {
     values
 }
 
+#[allow(dead_code)]
 fn tokenizer_with_model_limit(tokenizer: TokenizerBundle, config: &Value) -> TokenizerBundle {
     match model_max_tokens_from_config(config) {
         Some(max_tokens) => tokenizer.max_length(max_tokens),
@@ -660,6 +679,7 @@ fn tokenizer_with_model_limit(tokenizer: TokenizerBundle, config: &Value) -> Tok
     }
 }
 
+#[allow(dead_code)]
 fn model_max_tokens_from_config(config: &Value) -> Option<usize> {
     config
         .get("max_position_embeddings")
@@ -668,6 +688,7 @@ fn model_max_tokens_from_config(config: &Value) -> Option<usize> {
         .and_then(|value| usize::try_from(value).ok())
 }
 
+#[allow(dead_code)]
 fn token_classifier_architecture_from_config(
     config: &Value,
 ) -> Result<CandleTokenClassifierArchitecture> {
@@ -688,6 +709,7 @@ fn token_classifier_architecture_from_config(
     )))
 }
 
+#[allow(dead_code)]
 fn architectures_from_config(config: &Value) -> Vec<&str> {
     config
         .get("architectures")
@@ -698,6 +720,7 @@ fn architectures_from_config(config: &Value) -> Vec<&str> {
         .collect::<Vec<_>>()
 }
 
+#[cfg(feature = "model-bundles")]
 fn required_bundle_file(bundle: &ModelBundle, remote_path: &str) -> Result<PathBuf> {
     bundle.file_path(remote_path).ok_or_else(|| {
         invalid_argument(format!(
@@ -707,6 +730,7 @@ fn required_bundle_file(bundle: &ModelBundle, remote_path: &str) -> Result<PathB
     })
 }
 
+#[cfg(feature = "model-bundles")]
 fn bundle_files_with_extension(bundle: &ModelBundle, extension: &str) -> Vec<PathBuf> {
     bundle
         .manifest
@@ -719,6 +743,7 @@ fn bundle_files_with_extension(bundle: &ModelBundle, extension: &str) -> Vec<Pat
         .collect::<Vec<_>>()
 }
 
+#[allow(dead_code)]
 fn read_json(path: &Path) -> Result<Value> {
     let data = std::fs::read(path)?;
     serde_json::from_slice(&data).map_err(|err| {
@@ -726,6 +751,7 @@ fn read_json(path: &Path) -> Result<Value> {
     })
 }
 
+#[allow(dead_code)]
 fn labels_from_config(config: &Value) -> Vec<String> {
     let Some(id2label) = config.get("id2label") else {
         return Vec::new();

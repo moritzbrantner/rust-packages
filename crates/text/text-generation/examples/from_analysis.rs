@@ -1,14 +1,13 @@
-use text_generation::{synthesize_from_analysis, TextSynthesisOptions};
-use text_linguistics::{analyze_text, LinguisticAnalysisOptions};
+use text_generation::{synthesize_from_terms, TermPrompt, TextSynthesisOptions};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let analysis = analyze_text(
-        "Alice presented the roadmap in Berlin.",
-        &LinguisticAnalysisOptions::default(),
-    )?;
-    let generated = synthesize_from_analysis(
+    let generated = synthesize_from_terms(
         "doc-1",
-        &analysis,
+        &[
+            TermPrompt::new("alice", 2.0),
+            TermPrompt::new("roadmap", 1.5),
+            TermPrompt::new("berlin", 1.0),
+        ],
         TextSynthesisOptions {
             sentence_count: 1,
             ..TextSynthesisOptions::default()

@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use std::fs;
 use std::path::PathBuf;
-use text_nlp_models::{
+use text_nlp_tasks::{
     analyze_sentiment, answer_question, classify_text, embed_texts, model_catalog, rerank,
     summarize, zero_shot_classify, EmbeddingRequest, FallbackPolicy, ImportedPrediction,
     ModelSelection, QuestionAnsweringRequest, RerankRequest, SentimentRequest, SummaryRequest,
@@ -144,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let payload = match cli.command.unwrap_or(Command::Models { task: None }) {
         Command::Models { task } => {
-            let task = task.as_deref().and_then(text_nlp_models::parse_task);
+            let task = task.as_deref().and_then(text_nlp_tasks::parse_task);
             serde_json::to_value(model_catalog(task))?
         }
         Command::Classify {

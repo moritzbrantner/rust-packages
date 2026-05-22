@@ -16,20 +16,21 @@ categories.workspace = true
 candle-core = { workspace = true, optional = true }
 candle-nn = { workspace = true, optional = true }
 candle-transformers = { workspace = true, optional = true }
-jobs-core.workspace = true
+jobs-core = { workspace = true, optional = true }
 serde_json.workspace = true
 text-core.workspace = true
 text-lexical.workspace = true
 text-model-runtime.workspace = true
-text-transcripts.workspace = true
+text-transcripts = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
-video-analysis-models.workspace = true
+video-analysis-models = { workspace = true, optional = true }
 
 [features]
 default = []
 tokenizers = ["dep:tokenizers", "text-model-runtime/tokenizers"]
-candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "text-model-runtime/candle"]
+transcripts = ["dep:text-transcripts"]
+candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:jobs-core", "dep:video-analysis-models", "text-model-runtime/candle"]
 external-tests = ["candle"]
 
 [dev-dependencies]

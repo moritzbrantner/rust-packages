@@ -4,7 +4,6 @@ use std::collections::BTreeMap;
 
 use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};
 use text_core::{normalize_whitespace, OwnedTextDocument};
-use text_linguistics::LinguisticAnalysis;
 use video_analysis_core::{AnalysisEvent, DetectError, OwnedTextSegment, Result};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -169,25 +168,6 @@ pub fn synthesize_segment_from_terms(
     Ok(Generated::new(segment, generated.trace))
 }
 
-/// Returns synthesize from analysis.
-pub fn synthesize_from_analysis(
-    id: impl Into<String>,
-    analysis: &LinguisticAnalysis,
-    options: TextSynthesisOptions,
-) -> Result<Generated<OwnedTextDocument>> {
-    let terms = terms_from_analysis(analysis);
-    let mut generated = synthesize_from_terms(id, &terms, options)?;
-    generated.trace = generated
-        .trace
-        .assumption("analysis terms include entities, relations, topics, and salient lemmas")
-        .note(
-            "analysis",
-            InversionMethod::Inferred,
-            "linguistic annotations are condensed into weighted prompts before generation",
-        );
-    Ok(generated)
-}
-
 /// Returns terms from counts.
 pub fn terms_from_counts(counts: &BTreeMap<String, usize>) -> Vec<TermPrompt> {
     counts
@@ -206,41 +186,6 @@ pub fn terms_from_events(events: &[AnalysisEvent]) -> Vec<TermPrompt> {
             *weights.entry(term).or_default() += weight;
         }
     }
-    weights
-        .into_iter()
-        .filter_map(|(term, weight)| (weight > 0.0).then(|| TermPrompt::new(term, weight)))
-        .collect()
-}
-
-/// Returns terms from analysis.
-pub fn terms_from_analysis(analysis: &LinguisticAnalysis) -> Vec<TermPrompt> {
-    let mut weights = BTreeMap::<String, f32>::new();
-
-    for lemma in &analysis.lemmas {
-        if lemma.value.len() > 2 {
-            *weights.entry(lemma.value.to_lowercase()).or_default() += lemma.confidence.max(0.1);
-        }
-    }
-    for entity in &analysis.entities {
-        *weights.entry(entity.normalized.to_lowercase()).or_default() += entity.confidence + 0.5;
-    }
-    for relation in &analysis.relations {
-        *weights.entry(relation.relation.to_lowercase()).or_default() += relation.confidence;
-        *weights.entry(relation.subject.to_lowercase()).or_default() += relation.confidence * 0.5;
-        *weights.entry(relation.object.to_lowercase()).or_default() += relation.confidence * 0.5;
-    }
-    for descriptor in &analysis.topics.descriptors {
-        *weights.entry(descriptor.label.to_lowercase()).or_default() += descriptor.score.max(0.1);
-        for term in &descriptor.terms {
-            *weights.entry(term.to_lowercase()).or_default() += descriptor.score * 0.5;
-        }
-    }
-    for segment in &analysis.discourse {
-        for cue in &segment.cues {
-            *weights.entry(cue.to_lowercase()).or_default() += segment.confidence * 0.25;
-        }
-    }
-
     weights
         .into_iter()
         .filter_map(|(term, weight)| (weight > 0.0).then(|| TermPrompt::new(term, weight)))
@@ -335,27 +280,5 @@ mod tests {
     fn extracts_terms_from_events() {
         let terms = terms_from_events(&[AnalysisEvent::new("audio_pitch", "audio:pitch:440.00hz")]);
         assert!(terms.iter().any(|term| term.term == "pitch"));
-    }
-
-    #[test]
-    fn synthesizes_document_from_linguistic_analysis() {
-        let analysis = text_linguistics::analyze_text(
-            "Alice presented the roadmap in Berlin.",
-            &text_linguistics::LinguisticAnalysisOptions::heuristic(),
-        )
-        .unwrap();
-        let terms = terms_from_analysis(&analysis);
-        assert!(terms.iter().any(|term| term.term.contains("alice")));
-
-        let generated = synthesize_from_analysis(
-            "analysis-doc",
-            &analysis,
-            TextSynthesisOptions {
-                sentence_count: 1,
-                ..TextSynthesisOptions::default()
-            },
-        )
-        .unwrap();
-        assert!(!generated.value.text.trim().is_empty());
     }
 }

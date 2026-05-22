@@ -23,6 +23,57 @@ fn text_core_stays_independent_of_specialized_text_and_audio_crates() {
 }
 
 #[test]
+fn text_generation_core_stays_independent_of_linguistics() {
+    let manifest = read_manifest("crates/text/text-generation/Cargo.toml");
+    assert!(
+        !manifest.contains("text-linguistics"),
+        "text-generation must keep linguistic adapters in text-generation-linguistics"
+    );
+}
+
+#[test]
+fn text_retrieval_transcript_ingestion_is_feature_gated() {
+    let manifest = read_manifest("crates/text/text-retrieval/Cargo.toml");
+    assert!(
+        manifest.contains("text-transcripts = { workspace = true, optional = true }"),
+        "text-retrieval must only depend on text-transcripts as an optional adapter"
+    );
+    assert!(
+        manifest.contains("transcripts = [\"dep:text-transcripts\"]"),
+        "text-retrieval must expose transcript ingestion through an explicit feature"
+    );
+}
+
+#[test]
+fn native_text_model_runtime_dependencies_are_feature_gated() {
+    let linguistics_manifest = read_manifest("crates/text/text-linguistics/Cargo.toml");
+    assert!(
+        linguistics_manifest.contains("jobs-core = { workspace = true, optional = true }"),
+        "text-linguistics must not require jobs-core in default builds"
+    );
+    assert!(
+        linguistics_manifest.contains("text-transcripts = { workspace = true, optional = true }"),
+        "text-linguistics transcript adapters must be feature-gated"
+    );
+    assert!(
+        linguistics_manifest
+            .contains("video-analysis-models = { workspace = true, optional = true }"),
+        "text-linguistics must not require video-analysis-models in default builds"
+    );
+
+    let runtime_manifest = read_manifest("crates/text/text-model-runtime/Cargo.toml");
+    assert!(
+        runtime_manifest.contains("video-analysis-models = { workspace = true, optional = true }"),
+        "text-model-runtime default builds must not require video-analysis-models"
+    );
+}
+
+fn read_manifest(path: &str) -> String {
+    fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join(path))
+        .unwrap_or_else(|err| panic!("read manifest `{path}`: {err}"))
+}
+
+#[test]
 fn audio_asr_contract_uses_text_transcript_contracts() {
     let source = fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/audio/audio-analysis-models/src/lib.rs"),

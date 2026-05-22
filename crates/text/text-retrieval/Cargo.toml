@@ -18,10 +18,14 @@ serde_json.workspace = true
 text-core.workspace = true
 text-embeddings.workspace = true
 text-lexical.workspace = true
-text-transcripts.workspace = true
+text-transcripts = { workspace = true, optional = true }
 thiserror.workspace = true
 vector-analysis-index.workspace = true
 video-analysis-core.workspace = true
+
+[features]
+default = []
+transcripts = ["dep:text-transcripts"]
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -6,11 +6,12 @@ mod storage;
 
 use serde::{Deserialize, Serialize};
 use text_core::{
-    split_paragraphs, split_sentence_spans, tokenize, TextDocument, TextProcessingOptions,
-    TextSpan, TokenKind,
+    split_paragraphs, split_sentence_spans, tokenize, TextDocument, TextDocumentContract,
+    TextProcessingOptions, TextSegmentContract, TextSpan, TokenKind,
 };
 use text_embeddings::{EmbeddingModelInfo, TextEmbedderBackend};
 use text_lexical::{Bm25Corpus, Bm25Options, CorpusOptions};
+#[cfg(feature = "transcripts")]
 use text_transcripts::TranscriptSegment;
 use vector_analysis_index::{
     SerializableVectorRecord, VectorRecord, VectorRecordMetadata, VectorSearchFilter,
@@ -66,12 +67,65 @@ impl SearchDocument {
         }
     }
 
+    /// Builds this value from a portable text document contract.
+    pub fn from_text_document_contract(document: &TextDocumentContract) -> Self {
+        let mut metadata = document.attributes.clone();
+        if let Some(language) = &document.language {
+            metadata.insert("language".to_string(), language.clone());
+        }
+        if let Some(timestamp) = document.timestamp {
+            metadata.insert(
+                "timestamp_seconds".to_string(),
+                timestamp.seconds().to_string(),
+            );
+        }
+        Self {
+            id: document.id.clone(),
+            title: None,
+            body: document.text.clone(),
+            metadata,
+        }
+    }
+
+    /// Builds this value from a portable text segment contract.
+    pub fn from_text_segment_contract(segment: &TextSegmentContract) -> Self {
+        let mut metadata = segment.attributes.clone();
+        if let Some(language) = &segment.language {
+            metadata.insert("language".to_string(), language.clone());
+        }
+        if let Some(timestamp) = segment.timestamp {
+            metadata.insert(
+                "timestamp_seconds".to_string(),
+                timestamp.seconds().to_string(),
+            );
+        }
+        if let Some(duration_seconds) = segment.duration_seconds {
+            metadata.insert("duration_seconds".to_string(), duration_seconds.to_string());
+        }
+        Self {
+            id: segment
+                .document_id()
+                .unwrap_or_else(|| segment.segment_index.to_string()),
+            title: None,
+            body: segment.text.clone(),
+            metadata,
+        }
+    }
+
     /// Builds this value from transcript segment.
+    #[cfg(feature = "transcripts")]
+    #[deprecated(
+        note = "use text-retrieval with TextSegmentContract or enable the transcript adapter"
+    )]
     pub fn from_transcript_segment(stream_id: &str, segment: &TranscriptSegment) -> Self {
         Self::from_transcript_segment_with_source(stream_id, segment, None)
     }
 
     /// Builds this value from transcript segment with source.
+    #[cfg(feature = "transcripts")]
+    #[deprecated(
+        note = "use text-retrieval with TextSegmentContract or enable the transcript adapter"
+    )]
     pub fn from_transcript_segment_with_source(
         stream_id: &str,
         segment: &TranscriptSegment,
@@ -92,6 +146,46 @@ impl SearchDocument {
             body: segment.text.clone(),
             metadata,
         }
+    }
+}
+
+pub trait IntoSearchDocument {
+    fn into_search_document(self) -> SearchDocument;
+}
+
+impl IntoSearchDocument for TextDocument<'_> {
+    fn into_search_document(self) -> SearchDocument {
+        SearchDocument::from_text_document(&self)
+    }
+}
+
+impl IntoSearchDocument for &TextDocument<'_> {
+    fn into_search_document(self) -> SearchDocument {
+        SearchDocument::from_text_document(self)
+    }
+}
+
+impl IntoSearchDocument for TextDocumentContract {
+    fn into_search_document(self) -> SearchDocument {
+        SearchDocument::from_text_document_contract(&self)
+    }
+}
+
+impl IntoSearchDocument for &TextDocumentContract {
+    fn into_search_document(self) -> SearchDocument {
+        SearchDocument::from_text_document_contract(self)
+    }
+}
+
+impl IntoSearchDocument for TextSegmentContract {
+    fn into_search_document(self) -> SearchDocument {
+        SearchDocument::from_text_segment_contract(&self)
+    }
+}
+
+impl IntoSearchDocument for &TextSegmentContract {
+    fn into_search_document(self) -> SearchDocument {
+        SearchDocument::from_text_segment_contract(self)
     }
 }
 
@@ -1140,6 +1234,8 @@ mod tests {
         assert!(matches!(err, DetectError::InvalidArgument(message) if message.contains("query")));
     }
 
+    #[cfg(feature = "transcripts")]
+    #[allow(deprecated)]
     #[test]
     fn search_document_from_transcript_segment_preserves_metadata() {
         let segment = TranscriptSegment {

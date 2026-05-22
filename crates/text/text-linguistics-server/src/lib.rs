@@ -4,7 +4,8 @@ use text_linguistics as _;
 use text_linguistics::{
     analyze_text, LinguisticAnalysis, LinguisticAnalysisOptions, TextNlpConfig, TextNlpPipeline,
 };
-use text_nlp_models::{
+#[deprecated(note = "general NLP task endpoints moved to text-nlp-server/text_nlp_tasks")]
+use text_nlp_tasks::{
     analyze_sentiment, answer_question, classify_text, embed_texts, model_catalog, parse_task,
     rerank, schema_summary, summarize, zero_shot_classify, EmbeddingRequest,
     QuestionAnsweringRequest, RerankRequest, SentimentRequest, SummaryRequest,

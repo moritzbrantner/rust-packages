@@ -1,17 +1,21 @@
 use std::path::PathBuf;
+#[cfg(feature = "candle")]
 use std::sync::{Arc, Mutex};
 
+#[cfg(feature = "candle")]
 use jobs_core::{BackgroundJobRunner, JobArtifact, JobError, JobProgress, JobSpec};
 use text_core::{
     build_annotation_graph_from_parts, split_paragraphs, split_sentence_spans, tokenize,
     AnnotationConfidence, AnnotationProvenance, Sentence, TextAnnotationGraph, TextDocument,
     TextProcessingOptions, Token,
 };
+#[cfg(feature = "transcripts")]
 use text_transcripts::{TranscriptSegment, TranscriptionResult};
 use video_analysis_core::{
     AnalysisEvent, DetectError, OwnedTextSegment, Result, TextAnalyzer, TextSegment,
 };
-use video_analysis_models::{HuggingFaceDownloader, ModelBundle, ModelBundleStore, ModelPreset};
+#[cfg(feature = "candle")]
+use video_analysis_models::{HuggingFaceDownloader, ModelBundle, ModelBundleStore};
 
 use crate::discourse::{
     build_style_profile, build_topic_model, DiscourseSegment, DocumentOutline, SectionClassifier,
@@ -52,6 +56,29 @@ pub enum EntityRecognitionMode {
     LocalModel,
     /// Uses deterministic rules only.
     Heuristic,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Local entity model presets understood by text-linguistics.
+pub enum ModelPreset {
+    /// BERT base NER token-classification model.
+    BertBaseNer,
+}
+
+impl ModelPreset {
+    /// Stable preset id.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::BertBaseNer => "bert-base-ner",
+        }
+    }
+
+    #[cfg(feature = "candle")]
+    fn spec(self) -> video_analysis_models::HuggingFaceModelSpec {
+        match self {
+            Self::BertBaseNer => video_analysis_models::ModelPreset::BertBaseNer.spec(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -272,6 +299,7 @@ impl TextNlpPipeline {
     }
 
     /// Returns analyze subtitle segments.
+    #[cfg(feature = "transcripts")]
     pub fn analyze_subtitle_segments(
         &self,
         segments: &[TranscriptSegment],
@@ -289,6 +317,7 @@ impl TextNlpPipeline {
     }
 
     /// Returns analyze transcription.
+    #[cfg(feature = "transcripts")]
     pub fn analyze_transcription(
         &self,
         result: &TranscriptionResult,
@@ -401,6 +430,7 @@ fn options_for_profile(profile: AnalysisProfile) -> LinguisticAnalysisOptions {
 
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for subtitle cue linguistic analysis.
+#[cfg(feature = "transcripts")]
 pub struct SubtitleCueLinguisticAnalysis {
     /// The cue value.
     pub cue: TranscriptSegment,
@@ -410,6 +440,7 @@ pub struct SubtitleCueLinguisticAnalysis {
 
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for subtitle linguistic analysis.
+#[cfg(feature = "transcripts")]
 pub struct SubtitleLinguisticAnalysis {
     /// The cues value.
     pub cues: Vec<SubtitleCueLinguisticAnalysis>,
@@ -434,6 +465,7 @@ pub fn analyze_segment(
 }
 
 /// Returns analyze subtitle segments.
+#[cfg(feature = "transcripts")]
 pub fn analyze_subtitle_segments(
     segments: &[TranscriptSegment],
     options: &LinguisticAnalysisOptions,
@@ -443,6 +475,7 @@ pub fn analyze_subtitle_segments(
 }
 
 /// Returns analyze transcription.
+#[cfg(feature = "transcripts")]
 pub fn analyze_transcription(
     result: &TranscriptionResult,
     options: &LinguisticAnalysisOptions,
@@ -635,6 +668,7 @@ fn entities_with_model_labeler(
     ))
 }
 
+#[cfg(feature = "candle")]
 fn local_entity_labeler(options: &EntityRecognitionOptions) -> Result<CandleTokenClassifier> {
     if options.preset != ModelPreset::BertBaseNer {
         return Err(DetectError::InvalidArgument(format!(
@@ -647,6 +681,15 @@ fn local_entity_labeler(options: &EntityRecognitionOptions) -> Result<CandleToke
     CandleTokenClassifier::from_bundle(bundle)
 }
 
+#[cfg(not(feature = "candle"))]
+fn local_entity_labeler(options: &EntityRecognitionOptions) -> Result<CandleTokenClassifier> {
+    let _ = options;
+    Err(DetectError::InvalidArgument(
+        "local entity recognition requires the `candle` feature".to_string(),
+    ))
+}
+
+#[cfg(feature = "candle")]
 fn ensure_local_entity_bundle(options: &EntityRecognitionOptions) -> Result<ModelBundle> {
     let spec = options.preset.spec();
     let store = local_model_bundle_store(options);
@@ -722,6 +765,7 @@ fn ensure_local_entity_bundle(options: &EntityRecognitionOptions) -> Result<Mode
     })
 }
 
+#[cfg(feature = "candle")]
 fn local_model_bundle_store(options: &EntityRecognitionOptions) -> ModelBundleStore {
     ModelBundleStore::new(&options.bundle_dir).downloader(
         HuggingFaceDownloader::new()
@@ -730,16 +774,19 @@ fn local_model_bundle_store(options: &EntityRecognitionOptions) -> ModelBundleSt
     )
 }
 
+#[cfg(feature = "candle")]
 trait JobResultExt<T> {
     fn map_job_error(self) -> Result<T>;
 }
 
+#[cfg(feature = "candle")]
 impl<T> JobResultExt<T> for jobs_core::Result<T> {
     fn map_job_error(self) -> Result<T> {
         self.map_err(|err| DetectError::Source(err.to_string()))
     }
 }
 
+#[cfg(feature = "transcripts")]
 fn join_subtitle_text(segments: &[TranscriptSegment], aggregate_text: Option<&str>) -> String {
     if let Some(text) = aggregate_text.filter(|text| !text.trim().is_empty()) {
         return text.to_string();

@@ -13,7 +13,6 @@ use text_model_runtime::{
     QuestionAnsweringBackend, SequenceClassifier, SequenceLabeler, TextReranker, TextRuntimeBackend,
 };
 use video_analysis_core::{DetectError, Result};
-use video_analysis_models::ModelPreset;
 
 /// NLP task families exposed by the shared model layer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1251,18 +1250,9 @@ pub fn answer_question(request: QuestionAnsweringRequest) -> Result<QuestionAnsw
 
 /// Returns preset ids registered in video-analysis-models for NLP tasks.
 pub fn registered_nlp_presets() -> Vec<String> {
-    ModelPreset::ALL
-        .iter()
-        .map(|preset| preset.as_str().to_string())
-        .filter(|preset| {
-            preset.contains("bert")
-                || preset.contains("ner")
-                || preset.contains("minilm")
-                || preset.contains("mpnet")
-                || preset.contains("bart")
-                || preset.contains("roberta")
-                || preset.contains("marco")
-        })
+    model_catalog(None)
+        .into_iter()
+        .map(|model| model.id)
         .collect()
 }
 
