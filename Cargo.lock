@@ -3792,8 +3792,11 @@ name = "text-linguistics-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "serde",
  "serde_json",
  "text-linguistics",
+ "text-nlp-models",
+ "video-analysis-core",
 ]
 
 [[package]]
@@ -3804,7 +3807,29 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "text-core",
+ "text-lexical",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "text-nlp-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde_json",
+ "text-nlp-models",
+]
+
+[[package]]
+name = "text-nlp-models"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "text-core",
+ "text-lexical",
+ "video-analysis-core",
+ "video-analysis-models",
 ]
 
 [[package]]
@@ -4452,6 +4477,7 @@ dependencies = [
  "math-statistics",
  "num-rational",
  "numbers-core",
+ "serde",
  "serde_json",
  "tempfile",
  "tensor-data",
@@ -4460,6 +4486,7 @@ dependencies = [
  "text-generation",
  "text-lexical",
  "text-linguistics",
+ "text-nlp-models",
  "text-retrieval",
  "text-transcripts",
  "text-whisper-cpp",

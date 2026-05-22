@@ -1,8 +1,30 @@
-import initGenerated, { analyzeTextLinguistics, initSync } from "./pkg/index.js";
+import initGenerated, {
+  analyzeTextLinguistics,
+  initSync,
+  postprocessClassification,
+  postprocessEmbeddings,
+  postprocessEntities,
+  postprocessSentiment,
+  postprocessZeroShot,
+  rerankFromImportedScores,
+  summarizeEmbeddingExtractiveFromImportedEmbeddings,
+  summarizeLexical,
+} from "./pkg/index.js";
 
 const wasmUrl = new URL("./pkg/index_bg.wasm", import.meta.url);
 
-export { analyzeTextLinguistics, initSync };
+export {
+  analyzeTextLinguistics,
+  initSync,
+  postprocessClassification,
+  postprocessEmbeddings,
+  postprocessEntities,
+  postprocessSentiment,
+  postprocessZeroShot,
+  rerankFromImportedScores,
+  summarizeEmbeddingExtractiveFromImportedEmbeddings,
+  summarizeLexical,
+};
 
 export default async function init(moduleOrPath) {
   if (moduleOrPath) {

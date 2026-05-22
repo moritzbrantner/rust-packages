@@ -163,6 +163,8 @@ flowchart LR
     crate_text_linguistics["text-linguistics"]:::crate
     crate_text_linguistics_cli["text-linguistics-cli"]:::crate
     crate_text_linguistics_server["text-linguistics-server"]:::crate
+    crate_text_nlp_cli["text-nlp-cli"]:::crate
+    crate_text_nlp_models["text-nlp-models"]:::crate
     crate_text_retrieval["text-retrieval"]:::crate
     crate_text_retrieval_cli["text-retrieval-cli"]:::crate
     crate_text_retrieval_server["text-retrieval-server"]:::crate
@@ -310,6 +312,7 @@ flowchart LR
     direction TB
     crate_maps_kernels_wasm["maps-kernels-wasm"]:::crate
     crate_text_core_wasm["text-core-wasm"]:::crate
+    crate_text_linguistics_wasm["text-linguistics-wasm"]:::crate
   end
 
   subgraph group_test_support["Test Support"]
@@ -603,6 +606,13 @@ flowchart LR
   crate_text_linguistics --> crate_jobs_core
   crate_text_linguistics_cli --> crate_text_linguistics
   crate_text_linguistics_server --> crate_text_linguistics
+  crate_text_linguistics_server --> crate_text_nlp_models
+  crate_text_linguistics_server --> crate_video_analysis_core
+  crate_text_nlp_cli --> crate_text_nlp_models
+  crate_text_nlp_models --> crate_text_core
+  crate_text_nlp_models --> crate_text_lexical
+  crate_text_nlp_models --> crate_video_analysis_core
+  crate_text_nlp_models --> crate_video_analysis_models
   crate_text_retrieval --> crate_text_core
   crate_text_retrieval --> crate_text_embeddings
   crate_text_retrieval --> crate_text_lexical
@@ -810,6 +820,8 @@ flowchart LR
   crate_maps_kernels_wasm --> crate_maps_kernels_core
   crate_maps_kernels_wasm --> crate_video_analysis_core
   crate_text_core_wasm --> crate_text_core
+  crate_text_linguistics_wasm --> crate_text_core
+  crate_text_linguistics_wasm --> crate_text_lexical
   crate_video_analysis_test_support --> crate_video_analysis_core
   crate_video_analysis_test_support --> crate_video_analysis_dataset
   crate_video_analysis_test_support --> crate_video_analysis_radiance_fields

@@ -28,6 +28,12 @@ pub enum ModelTask {
     ZeroShotClassification,
     /// The text embedding variant.
     TextEmbedding,
+    /// The summarization variant.
+    Summarization,
+    /// The reranking variant.
+    Reranking,
+    /// The question answering variant.
+    QuestionAnswering,
     /// The custom variant.
     Custom(String),
 }
@@ -45,6 +51,9 @@ impl ModelTask {
                 ObservationKind::Text
             }
             Self::TextEmbedding => ObservationKind::Custom("embedding".to_string()),
+            Self::Summarization => ObservationKind::Custom("summary".to_string()),
+            Self::Reranking => ObservationKind::Custom("reranking".to_string()),
+            Self::QuestionAnswering => ObservationKind::Custom("question_answering".to_string()),
             Self::Custom(kind) => ObservationKind::Custom(kind.clone()),
         }
     }
@@ -60,6 +69,9 @@ impl ModelTask {
             Self::TokenClassification => "token",
             Self::ZeroShotClassification => "zero_shot",
             Self::TextEmbedding => "embedding",
+            Self::Summarization => "summary",
+            Self::Reranking => "reranking",
+            Self::QuestionAnswering => "question_answering",
             Self::Custom(_) => "custom",
         }
     }
@@ -74,6 +86,9 @@ impl ModelTask {
             Self::TokenClassification => "token_classification",
             Self::ZeroShotClassification => "zero_shot_classification",
             Self::TextEmbedding => "text_embedding",
+            Self::Summarization => "summarization",
+            Self::Reranking => "reranking",
+            Self::QuestionAnswering => "question_answering",
             Self::Custom(kind) => kind.as_str(),
         }
     }

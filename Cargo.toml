@@ -106,6 +106,7 @@ image-analysis-synthesis = { version = "0.1.0", path = "crates/image/image-analy
 text-core = { version = "0.1.0", path = "crates/text/text-core" }
 text-lexical = { version = "0.1.0", path = "crates/text/text-lexical" }
 text-linguistics = { version = "0.1.0", path = "crates/text/text-linguistics" }
+text-nlp-models = { version = "0.1.0", path = "crates/text/text-nlp-models" }
 text-generation = { version = "0.1.0", path = "crates/text/text-generation" }
 text-retrieval = { version = "0.1.0", path = "crates/text/text-retrieval" }
 text-embeddings = { version = "0.1.0", path = "crates/text/text-embeddings" }
@@ -229,6 +230,7 @@ image-analysis-synthesis.workspace = true
 text-core.workspace = true
 text-lexical.workspace = true
 text-linguistics = { workspace = true, features = ["candle"] }
+text-nlp-models.workspace = true
 text-generation.workspace = true
 text-retrieval.workspace = true
 text-embeddings.workspace = true
@@ -241,6 +243,7 @@ three-d-processing-io.workspace = true
 three-d-processing-mesh.workspace = true
 three-d-scene-svg.workspace = true
 video-analysis-posture-io.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]

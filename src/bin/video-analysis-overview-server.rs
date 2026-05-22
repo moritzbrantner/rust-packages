@@ -161,6 +161,38 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
         ("GET", "/health") => package_health(module),
         ("GET", "/api/package") => package_metadata_response(module),
         ("GET", "/api/schema") => package_schema_response(module),
+        ("GET", "/api/models") if module.package == "text-linguistics" => {
+            json_response(200, "OK", json!(text_nlp_models::model_catalog(None)))
+        }
+        ("GET", path)
+            if module.package == "text-linguistics" && path.starts_with("/api/models/") =>
+        {
+            let task = path.trim_start_matches("/api/models/");
+            match text_nlp_models::parse_task(task) {
+                Some(task) => {
+                    json_response(200, "OK", json!(text_nlp_models::model_catalog(Some(task))))
+                }
+                None => json_response(
+                    400,
+                    "Bad Request",
+                    json!({
+                        "package": "text-linguistics-server",
+                        "library": "text-linguistics",
+                        "accepted": false,
+                        "error": {
+                            "code": "invalid_request",
+                            "message": format!("unknown NLP task `{task}`")
+                        }
+                    }),
+                ),
+            }
+        }
+        ("POST", "/api/entities") if module.package == "text-linguistics" => {
+            text_linguistics_run_response(body)
+        }
+        ("POST", path) if module.package == "text-linguistics" && is_text_nlp_task_path(path) => {
+            text_nlp_task_response(path, body)
+        }
         ("POST", "/api/run") => package_run_response(module, body),
         _ => json_response(
             404,
@@ -282,6 +314,31 @@ fn package_metadata_response(module: ModuleInfo) -> HttpResponse {
 }
 
 fn package_metadata_value(module: &ModuleInfo) -> Value {
+    let endpoints = if module.package == "text-linguistics" {
+        vec![
+            "GET /health",
+            "GET /api/package",
+            "GET /api/schema",
+            "GET /api/models",
+            "GET /api/models/:task",
+            "POST /api/entities",
+            "POST /api/classify",
+            "POST /api/sentiment",
+            "POST /api/embed",
+            "POST /api/zero-shot",
+            "POST /api/summarize",
+            "POST /api/rerank",
+            "POST /api/question-answer",
+            "POST /api/run",
+        ]
+    } else {
+        vec![
+            "GET /health",
+            "GET /api/package",
+            "GET /api/schema",
+            "POST /api/run",
+        ]
+    };
     json!({
         "package": format!("{}-server", module.package),
         "surface": "api",
@@ -292,12 +349,7 @@ fn package_metadata_value(module: &ModuleInfo) -> Value {
         "domain": module.domain,
         "linked": module.linked,
         "requiredFeature": module.required_feature,
-        "endpoints": [
-            "GET /health",
-            "GET /api/package",
-            "GET /api/schema",
-            "POST /api/run"
-        ]
+        "endpoints": endpoints
     })
 }
 
@@ -318,6 +370,40 @@ fn overview_schema_value() -> Value {
 }
 
 fn package_schema_response(module: ModuleInfo) -> HttpResponse {
+    if module.package == "text-linguistics" {
+        return json_response(
+            200,
+            "OK",
+            json!({
+                "openapi": "3.1.0",
+                "info": {
+                    "title": "text-linguistics API",
+                    "version": env!("CARGO_PKG_VERSION")
+                },
+                "paths": {
+                    "/health": { "get": { "summary": "Health check" } },
+                    "/api/package": { "get": { "summary": "Package metadata" } },
+                    "/api/schema": { "get": { "summary": "API schema" } },
+                    "/api/models": { "get": { "summary": "List NLP model presets" } },
+                    "/api/models/{task}": { "get": { "summary": "List NLP model presets for a task" } },
+                    "/api/entities": { "post": { "summary": "Named entity and linguistic analysis" } },
+                    "/api/classify": { "post": { "summary": "Text classification" } },
+                    "/api/sentiment": { "post": { "summary": "Sentiment analysis" } },
+                    "/api/embed": { "post": { "summary": "Text embeddings" } },
+                    "/api/zero-shot": { "post": { "summary": "Zero-shot classification" } },
+                    "/api/summarize": { "post": { "summary": "Extractive summarization" } },
+                    "/api/rerank": { "post": { "summary": "Document reranking" } },
+                    "/api/question-answer": { "post": { "summary": "Question answering" } },
+                    "/api/run": { "post": { "summary": "Legacy generic operation entrypoint" } }
+                },
+                "components": {
+                    "schemas": {
+                        "textNlp": text_nlp_models::schema_summary()
+                    }
+                }
+            }),
+        );
+    }
     json_response(
         200,
         "OK",
@@ -334,6 +420,19 @@ fn package_schema_response(module: ModuleInfo) -> HttpResponse {
                 "/api/run": { "post": { "summary": "Generic operation entrypoint" } }
             }
         }),
+    )
+}
+
+fn is_text_nlp_task_path(path: &str) -> bool {
+    matches!(
+        path,
+        "/api/classify"
+            | "/api/sentiment"
+            | "/api/embed"
+            | "/api/zero-shot"
+            | "/api/summarize"
+            | "/api/rerank"
+            | "/api/question-answer"
     )
 }
 
@@ -438,6 +537,114 @@ fn text_linguistics_run_response(body: &str) -> HttpResponse {
             }),
         ),
     }
+}
+
+fn text_nlp_task_response(path: &str, body: &str) -> HttpResponse {
+    match path {
+        "/api/classify" => {
+            match serde_json::from_str::<text_nlp_models::TextClassificationRequest>(body) {
+                Ok(request) => nlp_result_response(text_nlp_models::classify_text(request)),
+                Err(error) => text_nlp_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &error.to_string(),
+                ),
+            }
+        }
+        "/api/sentiment" => match serde_json::from_str::<text_nlp_models::SentimentRequest>(body) {
+            Ok(request) => nlp_result_response(text_nlp_models::analyze_sentiment(request)),
+            Err(error) => {
+                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
+            }
+        },
+        "/api/embed" => match serde_json::from_str::<text_nlp_models::EmbeddingRequest>(body) {
+            Ok(request) => nlp_result_response(text_nlp_models::embed_texts(request)),
+            Err(error) => {
+                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
+            }
+        },
+        "/api/zero-shot" => match serde_json::from_str::<
+            text_nlp_models::ZeroShotClassificationRequest,
+        >(body)
+        {
+            Ok(request) => nlp_result_response(text_nlp_models::zero_shot_classify(request)),
+            Err(error) => {
+                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
+            }
+        },
+        "/api/summarize" => match serde_json::from_str::<text_nlp_models::SummaryRequest>(body) {
+            Ok(request) => nlp_result_response(text_nlp_models::summarize(request)),
+            Err(error) => {
+                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
+            }
+        },
+        "/api/rerank" => match serde_json::from_str::<text_nlp_models::RerankRequest>(body) {
+            Ok(request) => nlp_result_response(text_nlp_models::rerank(request)),
+            Err(error) => {
+                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
+            }
+        },
+        "/api/question-answer" => match serde_json::from_str::<
+            text_nlp_models::QuestionAnsweringRequest,
+        >(body)
+        {
+            Ok(request) => nlp_result_response(text_nlp_models::answer_question(request)),
+            Err(error) => {
+                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
+            }
+        },
+        _ => text_nlp_error_response(404, "Not Found", "not_found", "unknown NLP task endpoint"),
+    }
+}
+
+fn nlp_result_response<T: serde::Serialize>(
+    result: video_analysis_core::Result<T>,
+) -> HttpResponse {
+    match result {
+        Ok(value) => json_response(200, "OK", json!(value)),
+        Err(error) => {
+            let message = error.to_string();
+            if message.contains("unsupported_runtime") {
+                text_nlp_error_response(
+                    422,
+                    "Unprocessable Entity",
+                    "unsupported_runtime",
+                    &message,
+                )
+            } else if message.contains("non-empty") || message.contains("must include") {
+                text_nlp_error_response(400, "Bad Request", "empty_input", &message)
+            } else {
+                text_nlp_error_response(
+                    500,
+                    "Internal Server Error",
+                    "model_output_mismatch",
+                    &message,
+                )
+            }
+        }
+    }
+}
+
+fn text_nlp_error_response(
+    status_code: u16,
+    reason: &'static str,
+    code: &str,
+    message: &str,
+) -> HttpResponse {
+    json_response(
+        status_code,
+        reason,
+        json!({
+            "package": "text-linguistics-server",
+            "library": "text-linguistics",
+            "accepted": false,
+            "error": {
+                "code": code,
+                "message": message
+            }
+        }),
+    )
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1384,6 +1591,22 @@ mod tests {
         assert!(response
             .body
             .contains("\"entityRecognition\":\"heuristic\""));
+    }
+
+    #[test]
+    fn serves_text_nlp_task_endpoint_from_package_route() {
+        let request = Request {
+            method: "POST".to_string(),
+            path: "/api/rust/packages/text-linguistics/api/sentiment".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: r#"{"text":"excellent reliable work","model":{"fallbackPolicy":"lexical_fallback"}}"#
+                .to_string(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("\"operation\":\"sentiment\""));
+        assert!(response.body.contains("\"runtime\":\"lexical\""));
     }
 
     #[test]

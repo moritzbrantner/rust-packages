@@ -4,6 +4,12 @@ use text_linguistics as _;
 use text_linguistics::{
     analyze_text, LinguisticAnalysis, LinguisticAnalysisOptions, TextNlpConfig, TextNlpPipeline,
 };
+use text_nlp_models::{
+    analyze_sentiment, answer_question, classify_text, embed_texts, model_catalog, parse_task,
+    rerank, schema_summary, summarize, zero_shot_classify, EmbeddingRequest,
+    QuestionAnsweringRequest, RerankRequest, SentimentRequest, SummaryRequest,
+    TextClassificationRequest, ZeroShotClassificationRequest,
+};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "text-linguistics";
@@ -54,6 +60,29 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         ),
         ("GET", "/api/package") => json_response(200, "OK", package_metadata_value()),
         ("GET", "/api/schema") => json_response(200, "OK", schema_value()),
+        ("GET", "/api/models") => json_response(200, "OK", serde_json::json!(model_catalog(None))),
+        ("GET", path) if path.starts_with("/api/models/") => {
+            let task = path.trim_start_matches("/api/models/");
+            match parse_task(task) {
+                Some(task) => {
+                    json_response(200, "OK", serde_json::json!(model_catalog(Some(task))))
+                }
+                None => typed_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &format!("unknown NLP task `{task}`"),
+                ),
+            }
+        }
+        ("POST", "/api/entities") => run_response(body),
+        ("POST", "/api/classify") => classify_response(body),
+        ("POST", "/api/sentiment") => sentiment_response(body),
+        ("POST", "/api/embed") => embed_response(body),
+        ("POST", "/api/zero-shot") => zero_shot_response(body),
+        ("POST", "/api/summarize") => summarize_response(body),
+        ("POST", "/api/rerank") => rerank_response(body),
+        ("POST", "/api/question-answer") => question_answer_response(body),
         ("POST", "/api/run") => run_response(body),
         _ => json_response(
             404,
@@ -82,6 +111,32 @@ fn run_response(body: &str) -> HttpResponse {
             );
         }
     };
+
+    match payload
+        .get("operation")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("analyze")
+    {
+        "entities" | "analyze" => {}
+        "classify" => return classify_response(body),
+        "sentiment" => return sentiment_response(body),
+        "embed" => return embed_response(body),
+        "zero-shot" | "zeroShot" | "zero_shot" => return zero_shot_response(body),
+        "summarize" => return summarize_response(body),
+        "rerank" => return rerank_response(body),
+        "question-answer" | "questionAnswer" | "question_answer" => {
+            return question_answer_response(body)
+        }
+        operation => {
+            return typed_error_response(
+                400,
+                "Bad Request",
+                "invalid_request",
+                &format!("unsupported operation `{operation}`"),
+            )
+        }
+    }
+
     let text = payload
         .get("text")
         .and_then(serde_json::Value::as_str)
@@ -116,6 +171,118 @@ fn run_response(body: &str) -> HttpResponse {
             }),
         ),
     }
+}
+
+fn classify_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<TextClassificationRequest>(body) {
+        Ok(request) => result_response(classify_text(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid classify request: {error}"),
+        ),
+    }
+}
+
+fn sentiment_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<SentimentRequest>(body) {
+        Ok(request) => result_response(analyze_sentiment(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid sentiment request: {error}"),
+        ),
+    }
+}
+
+fn embed_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<EmbeddingRequest>(body) {
+        Ok(request) => result_response(embed_texts(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid embed request: {error}"),
+        ),
+    }
+}
+
+fn zero_shot_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<ZeroShotClassificationRequest>(body) {
+        Ok(request) => result_response(zero_shot_classify(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid zero-shot request: {error}"),
+        ),
+    }
+}
+
+fn summarize_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<SummaryRequest>(body) {
+        Ok(request) => result_response(summarize(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid summarize request: {error}"),
+        ),
+    }
+}
+
+fn rerank_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<RerankRequest>(body) {
+        Ok(request) => result_response(rerank(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid rerank request: {error}"),
+        ),
+    }
+}
+
+fn question_answer_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<QuestionAnsweringRequest>(body) {
+        Ok(request) => result_response(answer_question(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid question-answer request: {error}"),
+        ),
+    }
+}
+
+fn result_response<T: serde::Serialize>(
+    result: Result<T, video_analysis_core::DetectError>,
+) -> HttpResponse {
+    match result {
+        Ok(value) => json_response(200, "OK", serde_json::json!(value)),
+        Err(error) => error_response(error),
+    }
+}
+
+fn error_response(error: video_analysis_core::DetectError) -> HttpResponse {
+    let message = error.to_string();
+    if message.contains("unsupported_runtime")
+        || message.contains("Unsupported")
+        || message.contains("unsupported")
+    {
+        return typed_error_response(422, "Unprocessable Entity", "unsupported_runtime", &message);
+    }
+    if message.contains("non-empty") || message.contains("must include") {
+        return typed_error_response(400, "Bad Request", "empty_input", &message);
+    }
+    typed_error_response(
+        500,
+        "Internal Server Error",
+        "model_output_mismatch",
+        &message,
+    )
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -321,6 +488,16 @@ fn package_metadata_value() -> serde_json::Value {
             "GET /health",
             "GET /api/package",
             "GET /api/schema",
+            "GET /api/models",
+            "GET /api/models/:task",
+            "POST /api/entities",
+            "POST /api/classify",
+            "POST /api/sentiment",
+            "POST /api/embed",
+            "POST /api/zero-shot",
+            "POST /api/summarize",
+            "POST /api/rerank",
+            "POST /api/question-answer",
             "POST /api/run"
         ]
     })
@@ -337,12 +514,23 @@ fn schema_value() -> serde_json::Value {
             "/health": { "get": { "summary": "Health check" } },
             "/api/package": { "get": { "summary": "Package metadata" } },
             "/api/schema": { "get": { "summary": "API schema" } },
+            "/api/models": { "get": { "summary": "List NLP model presets" } },
+            "/api/models/{task}": { "get": { "summary": "List NLP model presets for a task" } },
+            "/api/entities": { "post": { "summary": "Named entity and linguistic analysis" } },
+            "/api/classify": { "post": { "summary": "Text classification" } },
+            "/api/sentiment": { "post": { "summary": "Sentiment analysis" } },
+            "/api/embed": { "post": { "summary": "Text embeddings" } },
+            "/api/zero-shot": { "post": { "summary": "Zero-shot classification" } },
+            "/api/summarize": { "post": { "summary": "Extractive summarization" } },
+            "/api/rerank": { "post": { "summary": "Document reranking" } },
+            "/api/question-answer": { "post": { "summary": "Question answering with imported spans or native runtime" } },
             "/api/run": {
                 "post": {
-                    "summary": "Generic operation entrypoint",
+                    "summary": "Legacy generic operation entrypoint",
                     "description": "Runs text-linguistics analysis. Rich and balanced profiles use local bert-base-ner entity recognition unless entityRecognition/modelMode is heuristic."
                 }
-            }
+            },
+            "/components/schemas/textNlp": schema_summary()
         }
     })
 }
@@ -389,6 +577,27 @@ fn json_response(status_code: u16, reason: &'static str, value: serde_json::Valu
     }
 }
 
+fn typed_error_response(
+    status_code: u16,
+    reason: &'static str,
+    code: &str,
+    message: &str,
+) -> HttpResponse {
+    json_response(
+        status_code,
+        reason,
+        serde_json::json!({
+            "package": format!("{}-server", LIBRARY_CRATE),
+            "library": LIBRARY_CRATE,
+            "accepted": false,
+            "error": {
+                "code": code,
+                "message": message
+            }
+        }),
+    )
+}
+
 fn write_response(stream: &mut TcpStream, response: HttpResponse) -> io::Result<()> {
     write!(
         stream,
@@ -422,5 +631,28 @@ mod tests {
         assert_eq!(response.status_code, 200);
         assert!(response.body.contains("\"operation\":\"analyze\""));
         assert!(response.body.contains("\"entityCount\""));
+    }
+
+    #[test]
+    fn sentiment_endpoint_supports_explicit_lexical_fallback() {
+        let response = response_for(
+            "POST",
+            "/api/sentiment",
+            r#"{"text":"excellent reliable work","model":{"fallbackPolicy":"lexical_fallback"}}"#,
+        );
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("\"operation\":\"sentiment\""));
+        assert!(response.body.contains("\"runtime\":\"lexical\""));
+    }
+
+    #[test]
+    fn unsupported_native_endpoint_returns_typed_error() {
+        let response = response_for(
+            "POST",
+            "/api/rerank",
+            r#"{"query":"rust","documents":["rust api"]}"#,
+        );
+        assert_eq!(response.status_code, 422);
+        assert!(response.body.contains("unsupported_runtime"));
     }
 }

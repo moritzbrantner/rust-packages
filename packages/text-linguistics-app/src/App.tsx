@@ -1,9 +1,15 @@
 import { FormEvent, useMemo, useState, type ReactNode } from "react";
 
 import {
+  analyzeSentiment,
+  answerQuestion,
   analyzeLinguistics,
   analyzeLinguisticsClient,
+  classifyText,
+  embedText,
+  rerankDocuments,
   serverBaseUrl,
+  summarizeText,
   type LinguisticAnalysisPayload,
   type LinguisticEntity,
   type LinguisticEvent,
@@ -13,12 +19,25 @@ import {
   type LinguisticSentence,
   type LinguisticToken,
   type LinguisticTopic,
+  zeroShotClassify,
 } from "./api";
 import { sampleText } from "./sampleText";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 type RuntimeMode = "server" | "client-wasm";
+type NlpTask = "entities" | "sentiment" | "classify" | "embed" | "zero-shot" | "summarize" | "rerank" | "qa";
 type ActiveTab = "overview" | "tokens" | "syntax" | "entities" | "events" | "topics" | "json";
+
+const nlpTasks: Array<{ id: NlpTask; label: string }> = [
+  { id: "entities", label: "Entities" },
+  { id: "sentiment", label: "Sentiment" },
+  { id: "classify", label: "Classify" },
+  { id: "embed", label: "Embed" },
+  { id: "zero-shot", label: "Zero-shot" },
+  { id: "summarize", label: "Summarize" },
+  { id: "rerank", label: "Rerank" },
+  { id: "qa", label: "QA" },
+];
 
 const tabs: Array<{ id: ActiveTab; label: string }> = [
   { id: "overview", label: "Overview" },
@@ -48,12 +67,17 @@ const detailGridClass =
 export function App() {
   const [text, setText] = useState(sampleText);
   const [analysis, setAnalysis] = useState<LinguisticAnalysisPayload | null>(null);
+  const [taskResult, setTaskResult] = useState<unknown | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("server");
+  const [nlpTask, setNlpTask] = useState<NlpTask>("entities");
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [error, setError] = useState<string | null>(null);
 
-  const json = useMemo(() => (analysis ? JSON.stringify(analysis, null, 2) : ""), [analysis]);
+  const json = useMemo(
+    () => (analysis ? JSON.stringify(analysis, null, 2) : taskResult ? JSON.stringify(taskResult, null, 2) : ""),
+    [analysis, taskResult],
+  );
   const statusLabel =
     loadState === "ready" ? "Ready" : loadState === "loading" ? "Analyzing" : loadState === "error" ? "Error" : "Idle";
 
@@ -67,11 +91,19 @@ export function App() {
     setLoadState("loading");
     setError(null);
     try {
-      const payload =
-        runtimeMode === "server" ? await analyzeLinguistics(text) : await analyzeLinguisticsClient(text);
-      setAnalysis(payload);
+      if (nlpTask === "entities") {
+        const payload =
+          runtimeMode === "server" ? await analyzeLinguistics(text) : await analyzeLinguisticsClient(text);
+        setAnalysis(payload);
+        setTaskResult(null);
+        setActiveTab("overview");
+      } else {
+        const payload = await runNlpTask(nlpTask, text);
+        setAnalysis(null);
+        setTaskResult(payload);
+        setActiveTab("json");
+      }
       setLoadState("ready");
-      setActiveTab("overview");
     } catch (caught) {
       setLoadState("error");
       setError(caught instanceof Error ? caught.message : "Analysis failed");
@@ -135,6 +167,13 @@ export function App() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {nlpTasks.map((task) => (
+                <RuntimeButton key={task.id} active={nlpTask === task.id} onClick={() => setNlpTask(task.id)}>
+                  {task.label}
+                </RuntimeButton>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <RuntimeButton active={runtimeMode === "server"} onClick={() => setRuntimeMode("server")}>
                 Server
               </RuntimeButton>
@@ -142,7 +181,7 @@ export function App() {
                 Client WASM
               </RuntimeButton>
               <button className={buttonPrimaryClass} type="submit" disabled={loadState === "loading"}>
-                Analyze
+                {nlpTask === "entities" ? "Analyze" : "Run"}
               </button>
             </div>
           </div>
@@ -180,9 +219,11 @@ export function App() {
                 json={json}
                 onCopyJson={copyJson}
               />
+            ) : taskResult ? (
+              <JsonPanel json={json} onCopy={copyJson} />
             ) : (
               <div className="flex min-h-80 items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-sm font-medium text-zinc-500">
-                Run analysis to populate linguistic annotations.
+                Run an NLP task to populate results.
               </div>
             )}
           </div>
@@ -190,6 +231,30 @@ export function App() {
       </section>
     </main>
   );
+}
+
+async function runNlpTask(task: NlpTask, text: string): Promise<unknown> {
+  if (task === "sentiment") {
+    return analyzeSentiment(text);
+  }
+  if (task === "classify") {
+    return classifyText(text, ["technology", "business", "science"]);
+  }
+  if (task === "embed") {
+    return embedText([text]);
+  }
+  if (task === "zero-shot") {
+    return zeroShotClassify(text, ["technology", "business", "science", "culture"]);
+  }
+  if (task === "summarize") {
+    return summarizeText(text);
+  }
+  if (task === "rerank") {
+    const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    return rerankDocuments(lines[0] ?? text, lines.slice(1).length ? lines.slice(1) : [text]);
+  }
+  const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  return answerQuestion(lines[0] ?? "What is this text about?", lines.slice(1).join("\n") || text);
 }
 
 function AnalysisPanel({

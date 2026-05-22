@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, Serializer};
 use text_core::{split_sentence_spans, tokenize, TextProcessingOptions, Token};
+use text_lexical::{english_stop_words, extractive_summary, ExtractiveSummaryOptions};
 use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Deserialize, Default)]
@@ -84,6 +85,184 @@ pub fn analyze_text_linguistics_binding(
     }
 
     to_js_value(&analysis_payload(text, &raw_options))
+}
+
+#[wasm_bindgen(js_name = postprocessEntities)]
+/// Converts imported BERT-NER token predictions into text-linguistics entities.
+pub fn postprocess_entities_binding(
+    text: &str,
+    predictions: JsValue,
+) -> std::result::Result<JsValue, JsValue> {
+    let predictions = from_value::<Vec<RawPrediction>>(predictions).map_err(into_js_error)?;
+    let options = TextProcessingOptions {
+        include_punctuation: true,
+        ..TextProcessingOptions::default()
+    };
+    let tokens = tokenize(text, &options);
+    to_js_value(&serde_json::json!({
+        "accepted": true,
+        "operation": "entities",
+        "runtime": "imported_predictions",
+        "modelId": "bert-base-ner",
+        "entities": entities_from_predictions(text, &tokens, &predictions)
+    }))
+}
+
+#[wasm_bindgen(js_name = postprocessClassification)]
+/// Normalizes imported classification predictions.
+pub fn postprocess_classification_binding(
+    text: &str,
+    predictions: JsValue,
+) -> std::result::Result<JsValue, JsValue> {
+    let predictions = normalize_raw_predictions(from_value(predictions).map_err(into_js_error)?, 3);
+    to_js_value(&serde_json::json!({
+        "accepted": true,
+        "operation": "classify",
+        "text": text,
+        "modelId": "imported-classifier",
+        "runtime": "imported_predictions",
+        "predictions": predictions
+    }))
+}
+
+#[wasm_bindgen(js_name = postprocessSentiment)]
+/// Normalizes imported sentiment predictions.
+pub fn postprocess_sentiment_binding(
+    text: &str,
+    predictions: JsValue,
+) -> std::result::Result<JsValue, JsValue> {
+    let predictions = normalize_raw_predictions(from_value(predictions).map_err(into_js_error)?, 3);
+    let label = predictions
+        .first()
+        .and_then(|prediction| prediction.get("label"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("neutral");
+    let positive_score = score_for_label(&predictions, &["positive", "label_2"]);
+    let negative_score = score_for_label(&predictions, &["negative", "label_0"]);
+    to_js_value(&serde_json::json!({
+        "accepted": true,
+        "operation": "sentiment",
+        "text": text,
+        "modelId": "imported-sentiment",
+        "runtime": "imported_predictions",
+        "label": label,
+        "positiveScore": positive_score,
+        "negativeScore": negative_score,
+        "compound": positive_score - negative_score,
+        "predictions": predictions
+    }))
+}
+
+#[wasm_bindgen(js_name = postprocessEmbeddings)]
+/// Wraps imported embedding vectors in the shared response schema.
+pub fn postprocess_embeddings_binding(
+    embeddings: JsValue,
+) -> std::result::Result<JsValue, JsValue> {
+    let embeddings = from_value::<Vec<Vec<f32>>>(embeddings).map_err(into_js_error)?;
+    let dimensions = embeddings.first().map(Vec::len).unwrap_or_default();
+    to_js_value(&serde_json::json!({
+        "accepted": true,
+        "operation": "embed",
+        "modelId": "imported-embeddings",
+        "runtime": "imported_predictions",
+        "dimensions": dimensions,
+        "embeddings": embeddings
+    }))
+}
+
+#[wasm_bindgen(js_name = postprocessZeroShot)]
+/// Normalizes imported zero-shot predictions and hypotheses.
+pub fn postprocess_zero_shot_binding(
+    text: &str,
+    labels: JsValue,
+    predictions: JsValue,
+) -> std::result::Result<JsValue, JsValue> {
+    let labels = from_value::<Vec<String>>(labels).map_err(into_js_error)?;
+    let predictions = normalize_raw_predictions(
+        from_value(predictions).map_err(into_js_error)?,
+        labels.len(),
+    );
+    let hypotheses = labels
+        .iter()
+        .map(|label| format!("This example is about {label}."))
+        .collect::<Vec<_>>();
+    to_js_value(&serde_json::json!({
+        "accepted": true,
+        "operation": "zero-shot",
+        "text": text,
+        "modelId": "imported-zero-shot",
+        "runtime": "imported_predictions",
+        "predictions": predictions,
+        "hypotheses": hypotheses
+    }))
+}
+
+#[wasm_bindgen(js_name = summarizeLexical)]
+/// Runs browser-safe lexical extractive summarization.
+pub fn summarize_lexical_binding(
+    text: &str,
+    max_sentences: usize,
+) -> std::result::Result<JsValue, JsValue> {
+    let response = lexical_summary_value(text, max_sentences, "lexical_extractive", None)?;
+    to_js_value(&response)
+}
+
+#[wasm_bindgen(js_name = summarizeEmbeddingExtractiveFromImportedEmbeddings)]
+/// Scores extractive summary sentences using imported sentence embeddings.
+pub fn summarize_embedding_extractive_from_imported_embeddings_binding(
+    text: &str,
+    max_sentences: usize,
+    sentence_embeddings: JsValue,
+) -> std::result::Result<JsValue, JsValue> {
+    let embeddings = from_value::<Vec<Vec<f32>>>(sentence_embeddings).map_err(into_js_error)?;
+    let response = lexical_summary_value(
+        text,
+        max_sentences,
+        "embedding_extractive",
+        Some(embeddings),
+    )?;
+    to_js_value(&response)
+}
+
+#[wasm_bindgen(js_name = rerankFromImportedScores)]
+/// Reranks documents using imported document scores.
+pub fn rerank_from_imported_scores_binding(
+    query: &str,
+    documents: JsValue,
+    scores: JsValue,
+) -> std::result::Result<JsValue, JsValue> {
+    let documents = from_value::<Vec<String>>(documents).map_err(into_js_error)?;
+    let scores = from_value::<Vec<f32>>(scores).map_err(into_js_error)?;
+    let mut results = documents
+        .into_iter()
+        .enumerate()
+        .map(|(index, document)| {
+            serde_json::json!({
+                "index": index,
+                "document": document,
+                "score": scores.get(index).copied().unwrap_or(0.0)
+            })
+        })
+        .collect::<Vec<_>>();
+    results.sort_by(|left, right| {
+        let left_score = left
+            .get("score")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0);
+        let right_score = right
+            .get("score")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0);
+        right_score.total_cmp(&left_score)
+    });
+    to_js_value(&serde_json::json!({
+        "accepted": true,
+        "operation": "rerank",
+        "query": query,
+        "modelId": "imported-reranker",
+        "runtime": "imported_predictions",
+        "results": results
+    }))
 }
 
 fn analysis_payload(text: &str, raw_options: &RawLinguisticOptions) -> serde_json::Value {
@@ -383,6 +562,151 @@ fn format_entity_type(entity_type: EntityType) -> &'static str {
     }
 }
 
+fn normalize_raw_predictions(
+    mut predictions: Vec<RawPrediction>,
+    top_k: usize,
+) -> Vec<serde_json::Value> {
+    predictions.sort_by(|left, right| {
+        right
+            .score
+            .unwrap_or(0.0)
+            .total_cmp(&left.score.unwrap_or(0.0))
+    });
+    predictions
+        .into_iter()
+        .take(top_k.max(1))
+        .map(|prediction| {
+            serde_json::json!({
+                "label": prediction.label.unwrap_or_else(|| "unknown".to_string()),
+                "score": prediction.score.unwrap_or(0.0)
+            })
+        })
+        .collect()
+}
+
+fn score_for_label(predictions: &[serde_json::Value], labels: &[&str]) -> f32 {
+    predictions
+        .iter()
+        .find(|prediction| {
+            let Some(label) = prediction.get("label").and_then(serde_json::Value::as_str) else {
+                return false;
+            };
+            labels
+                .iter()
+                .any(|expected| label.eq_ignore_ascii_case(expected))
+        })
+        .and_then(|prediction| prediction.get("score"))
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0) as f32
+}
+
+fn lexical_summary_value(
+    text: &str,
+    max_sentences: usize,
+    strategy: &str,
+    embeddings: Option<Vec<Vec<f32>>>,
+) -> std::result::Result<serde_json::Value, JsValue> {
+    let options = ExtractiveSummaryOptions {
+        max_sentences: max_sentences.max(1),
+        min_sentence_words: 3,
+        stop_words: english_stop_words(),
+    };
+    let mut sentences = extractive_summary(text, &options)
+        .map_err(|error| JsValue::from_str(&error.to_string()))?
+        .into_iter()
+        .map(|sentence| {
+            serde_json::json!({
+                "index": sentence.index,
+                "text": sentence.text,
+                "span": {
+                    "byteStart": sentence.span.byte_start,
+                    "byteEnd": sentence.span.byte_end,
+                    "charStart": sentence.span.char_start,
+                    "charEnd": sentence.span.char_end
+                },
+                "score": sentence.score
+            })
+        })
+        .collect::<Vec<_>>();
+
+    if let Some(embeddings) = embeddings {
+        let centroid = centroid(&embeddings);
+        for (sentence, embedding) in sentences.iter_mut().zip(embeddings.iter()) {
+            if let Some(score) = sentence.get_mut("score") {
+                let current = score.as_f64().unwrap_or(0.0) as f32;
+                *score = serde_json::json!(current + cosine(embedding, &centroid));
+            }
+        }
+        sentences.sort_by(|left, right| {
+            let left_score = left
+                .get("score")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
+            let right_score = right
+                .get("score")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
+            right_score.total_cmp(&left_score)
+        });
+        sentences.truncate(max_sentences.max(1));
+        sentences.sort_by_key(|sentence| {
+            sentence
+                .get("index")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0)
+        });
+    }
+
+    let summary = sentences
+        .iter()
+        .filter_map(|sentence| sentence.get("text").and_then(serde_json::Value::as_str))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    Ok(serde_json::json!({
+        "accepted": true,
+        "operation": "summarize",
+        "modelId": "embedding-extractive-summary",
+        "runtime": "lexical",
+        "strategy": strategy,
+        "summary": summary,
+        "sentences": sentences
+    }))
+}
+
+fn centroid(vectors: &[Vec<f32>]) -> Vec<f32> {
+    let dimensions = vectors.first().map(Vec::len).unwrap_or_default();
+    let mut centroid = vec![0.0; dimensions];
+    if dimensions == 0 {
+        return centroid;
+    }
+    for vector in vectors {
+        for (index, value) in vector.iter().take(dimensions).enumerate() {
+            centroid[index] += *value;
+        }
+    }
+    for value in &mut centroid {
+        *value /= vectors.len().max(1) as f32;
+    }
+    centroid
+}
+
+fn cosine(left: &[f32], right: &[f32]) -> f32 {
+    let mut dot = 0.0;
+    let mut left_norm = 0.0;
+    let mut right_norm = 0.0;
+    for (left, right) in left.iter().zip(right.iter()) {
+        dot += left * right;
+        left_norm += left * left;
+        right_norm += right * right;
+    }
+    if left_norm <= f32::EPSILON || right_norm <= f32::EPSILON {
+        0.0
+    } else {
+        dot / (left_norm.sqrt() * right_norm.sqrt())
+    }
+}
+
 fn to_js_value(value: &serde_json::Value) -> std::result::Result<JsValue, JsValue> {
     let serializer = Serializer::json_compatible();
     value.serialize(&serializer).map_err(into_js_error)
@@ -390,4 +714,29 @@ fn to_js_value(value: &serde_json::Value) -> std::result::Result<JsValue, JsValu
 
 fn into_js_error(error: serde_wasm_bindgen::Error) -> JsValue {
     JsValue::from_str(&error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn raw_predictions_are_ranked() {
+        let predictions = normalize_raw_predictions(
+            vec![
+                RawPrediction {
+                    label: Some("low".to_string()),
+                    score: Some(0.1),
+                    ..RawPrediction::default()
+                },
+                RawPrediction {
+                    label: Some("high".to_string()),
+                    score: Some(0.9),
+                    ..RawPrediction::default()
+                },
+            ],
+            1,
+        );
+        assert_eq!(predictions[0]["label"], "high");
+    }
 }

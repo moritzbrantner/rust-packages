@@ -125,6 +125,98 @@ export interface LinguisticAnalysisPayload {
   style: LinguisticStyle;
 }
 
+export type NlpFallbackPolicy = "error" | "fast_fallback" | "lexical_fallback";
+
+export interface NlpModelSelection {
+  modelId?: string;
+  runtime?: string;
+  fallbackPolicy?: NlpFallbackPolicy;
+}
+
+export interface TextClassPrediction {
+  label: string;
+  score: number;
+}
+
+export interface NlpModelMetadata {
+  id: string;
+  modelId: string;
+  task: string;
+  runtime: string;
+  supported: boolean;
+  fallback?: string | null;
+  note?: string | null;
+}
+
+export interface TextClassificationPayload {
+  accepted: true;
+  operation: "classify";
+  text: string;
+  modelId: string;
+  runtime: string;
+  predictions: TextClassPrediction[];
+}
+
+export interface SentimentPayload {
+  accepted: true;
+  operation: "sentiment";
+  text: string;
+  modelId: string;
+  runtime: string;
+  label: string;
+  positiveScore: number;
+  negativeScore: number;
+  compound: number;
+  predictions: TextClassPrediction[];
+}
+
+export interface EmbeddingPayload {
+  accepted: true;
+  operation: "embed";
+  modelId: string;
+  runtime: string;
+  dimensions: number;
+  embeddings: number[][];
+}
+
+export interface ZeroShotPayload {
+  accepted: true;
+  operation: "zero-shot";
+  text: string;
+  modelId: string;
+  runtime: string;
+  predictions: TextClassPrediction[];
+  hypotheses: string[];
+}
+
+export interface SummaryPayload {
+  accepted: true;
+  operation: "summarize";
+  modelId: string;
+  runtime: string;
+  strategy: string;
+  summary: string;
+  sentences: Array<{ index: number; text: string; score: number }>;
+}
+
+export interface RerankPayload {
+  accepted: true;
+  operation: "rerank";
+  query: string;
+  modelId: string;
+  runtime: string;
+  results: Array<{ index: number; document: string; score: number }>;
+}
+
+export interface QuestionAnswerPayload {
+  accepted: true;
+  operation: "question-answer";
+  question: string;
+  modelId: string;
+  runtime: string;
+  answers: Array<{ answer: string; score: number }>;
+}
+
 const configuredServerUrl = import.meta.env.VITE_SERVER_URL as string | undefined;
 let wasmInit: Promise<unknown> | null = null;
 
@@ -144,6 +236,67 @@ export async function analyzeLinguistics(text: string): Promise<LinguisticAnalys
     }
     return postJson<LinguisticAnalysisPayload>(rootPath, body);
   }
+}
+
+export async function listNlpModels(task?: string): Promise<NlpModelMetadata[]> {
+  return getJson<NlpModelMetadata[]>(task ? `/api/models/${task}` : "/api/models");
+}
+
+export async function classifyText(text: string, labels: string[] = []): Promise<TextClassificationPayload> {
+  return postTaskJson<TextClassificationPayload>("classify", {
+    text,
+    labels,
+    model: { fallbackPolicy: "lexical_fallback" },
+  });
+}
+
+export async function analyzeSentiment(text: string): Promise<SentimentPayload> {
+  return postTaskJson<SentimentPayload>("sentiment", {
+    text,
+    model: { fallbackPolicy: "lexical_fallback" },
+  });
+}
+
+export async function embedText(texts: string[]): Promise<EmbeddingPayload> {
+  return postTaskJson<EmbeddingPayload>("embed", {
+    texts,
+    model: { fallbackPolicy: "fast_fallback" },
+    dimensions: 64,
+    normalize: true,
+  });
+}
+
+export async function zeroShotClassify(text: string, labels: string[]): Promise<ZeroShotPayload> {
+  return postTaskJson<ZeroShotPayload>("zero-shot", {
+    text,
+    labels,
+    model: { fallbackPolicy: "lexical_fallback" },
+  });
+}
+
+export async function summarizeText(text: string): Promise<SummaryPayload> {
+  return postTaskJson<SummaryPayload>("summarize", {
+    text,
+    maxSentences: 3,
+    strategy: "embedding_extractive",
+  });
+}
+
+export async function rerankDocuments(query: string, documents: string[]): Promise<RerankPayload> {
+  return postTaskJson<RerankPayload>("rerank", {
+    query,
+    documents,
+    topK: 5,
+    model: { fallbackPolicy: "lexical_fallback" },
+  });
+}
+
+export async function answerQuestion(question: string, context: string): Promise<QuestionAnswerPayload> {
+  return postTaskJson<QuestionAnswerPayload>("question-answer", {
+    question,
+    context,
+    importedPredictions: [],
+  });
 }
 
 export async function analyzeLinguisticsClient(text: string): Promise<LinguisticAnalysisPayload> {
@@ -168,9 +321,61 @@ async function postJson<T>(path: string, body: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function postTaskJson<T>(taskPath: string, payload: unknown): Promise<T> {
+  const body = JSON.stringify(payload);
+  const packagePath = `/api/rust/packages/${wrappedLibrary}/api/${taskPath}`;
+  const rootPath = `/api/${taskPath}`;
+
+  try {
+    return await postJson<T>(packagePath, body);
+  } catch (error) {
+    if (!isNotFound(error)) {
+      throw error;
+    }
+    return postJson<T>(rootPath, body);
+  }
+}
+
+async function getJson<T>(path: string): Promise<T> {
+  const packagePath = `/api/rust/packages/${wrappedLibrary}${path}`;
+
+  try {
+    return await fetchJson<T>(packagePath);
+  } catch (error) {
+    if (!isNotFound(error)) {
+      throw error;
+    }
+    return fetchJson<T>(path);
+  }
+}
+
+async function fetchJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${serverBaseUrl}${path}`);
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Server returned ${response.status}: ${message}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 function isNotFound(error: unknown): boolean {
   return error instanceof Error && error.message.includes("Server returned 404");
 }
 import initTextLinguisticsWasm, {
   analyzeTextLinguistics,
+  postprocessClassification,
+  postprocessEmbeddings,
+  postprocessSentiment,
+  postprocessZeroShot,
+  rerankFromImportedScores,
+  summarizeLexical,
 } from "@mb-rust/text-linguistics-wasm";
+
+export const clientPostprocessors = {
+  postprocessClassification,
+  postprocessEmbeddings,
+  postprocessSentiment,
+  postprocessZeroShot,
+  rerankFromImportedScores,
+  summarizeLexical,
+};
