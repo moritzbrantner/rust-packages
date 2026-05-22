@@ -17,4 +17,4 @@ image-analysis-core.workspace = true
 image-analysis-detection.workspace = true
 image-analysis-segmentation.workspace = true
 video-analysis-core.workspace = true
-video-analysis-models.workspace = true
+model-runtime.workspace = true

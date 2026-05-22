@@ -2,11 +2,17 @@ use video_analysis as va;
 
 #[test]
 fn facade_reexports_sam_defaults_for_detection_and_segmentation() {
-    let image_spec = va::image_models::default_sam_model_spec();
-    assert_eq!(image_spec.repo_id, "facebook/sam-vit-base");
+    let image_spec = va::model_runtime::ModelSpec::new(
+        "facebook/sam-vit-base",
+        va::model_runtime::ModelTask::ImageSegmentation,
+    );
+    assert_eq!(image_spec.repo_id_value(), Some("facebook/sam-vit-base"));
 
     let video_spec = va::video_segmentation::default_sam2_model_spec();
-    assert_eq!(video_spec.repo_id, "facebook/sam2.1-hiera-large");
+    assert_eq!(
+        video_spec.repo_id_value(),
+        Some("facebook/sam2.1-hiera-large")
+    );
 }
 
 #[test]

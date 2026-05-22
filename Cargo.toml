@@ -73,6 +73,7 @@ jobs-core = { version = "0.1.0", path = "crates/jobs/jobs-core" }
 runtime-artifacts = { version = "0.1.0", path = "crates/runtime/runtime-artifacts" }
 runtime-contracts = { version = "0.1.0", path = "crates/runtime/runtime-contracts" }
 runtime-jobs = { version = "0.1.0", path = "crates/runtime/runtime-jobs" }
+model-runtime = { version = "0.1.0", path = "crates/runtime/model-runtime" }
 finance-statistics = { version = "0.1.0", path = "crates/math/finance-statistics" }
 maps-kernels-core = { version = "0.1.0", path = "crates/math/maps-kernels-core" }
 math-geometry-2d = { version = "0.1.0", path = "crates/math/math-geometry-2d" }
@@ -211,6 +212,7 @@ dense-data.workspace = true
 numbers-core.workspace = true
 tensor-data.workspace = true
 jobs-core.workspace = true
+model-runtime.workspace = true
 finance-statistics.workspace = true
 maps-kernels-core.workspace = true
 math-geometry-2d.workspace = true

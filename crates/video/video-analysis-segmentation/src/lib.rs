@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 
 use image_analysis_segmentation::{ImageSegment, ImageSegmentationPrompt};
+use model_runtime::{HuggingFaceModelSpec, ModelTask};
 use video_analysis_core::{FramePosition, Result, VideoFrame};
-use video_analysis_models::{HuggingFaceModelSpec, ModelTask};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Variants describing SAM video preset.
@@ -257,8 +257,8 @@ mod tests {
     #[test]
     fn default_video_spec_uses_sam2_1() {
         assert_eq!(
-            default_sam2_model_spec().repo_id,
-            "facebook/sam2.1-hiera-large"
+            default_sam2_model_spec().repo_id_value(),
+            Some("facebook/sam2.1-hiera-large")
         );
     }
 

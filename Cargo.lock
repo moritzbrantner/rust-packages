@@ -270,11 +270,11 @@ dependencies = [
 name = "audio-analysis-models"
 version = "0.1.0"
 dependencies = [
+ "model-runtime",
  "serde",
  "serde_json",
  "text-transcripts",
  "video-analysis-core",
- "video-analysis-models",
 ]
 
 [[package]]
@@ -2102,8 +2102,8 @@ dependencies = [
  "image-analysis-core",
  "image-analysis-detection",
  "image-analysis-segmentation",
+ "model-runtime",
  "video-analysis-core",
- "video-analysis-models",
 ]
 
 [[package]]
@@ -2129,8 +2129,8 @@ name = "image-analysis-ocr"
 version = "0.1.0"
 dependencies = [
  "image-analysis-core",
+ "model-runtime",
  "video-analysis-core",
- "video-analysis-models",
 ]
 
 [[package]]
@@ -2141,11 +2141,11 @@ dependencies = [
  "image-analysis-detection",
  "image-analysis-models",
  "image-analysis-processing",
+ "model-runtime",
  "ort",
  "serde_json",
  "tempfile",
  "video-analysis-core",
- "video-analysis-models",
 ]
 
 [[package]]
@@ -2650,6 +2650,17 @@ checksum = "1fa76a2c86f704bdb222d66965fb3d63269ce38518b83cb0575fca855ebb6316"
 dependencies = [
  "adler2",
  "simd-adler32",
+]
+
+[[package]]
+name = "model-runtime"
+version = "0.1.0"
+dependencies = [
+ "hf-hub",
+ "jobs-core",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -3755,6 +3766,7 @@ dependencies = [
  "candle-transformers",
  "criterion",
  "math-sparse-data",
+ "model-runtime",
  "ndarray",
  "ort",
  "serde",
@@ -3766,7 +3778,6 @@ dependencies = [
  "vector-analysis-core",
  "vector-analysis-index",
  "video-analysis-core",
- "video-analysis-models",
 ]
 
 [[package]]
@@ -3808,6 +3819,7 @@ dependencies = [
  "candle-transformers",
  "criterion",
  "jobs-core",
+ "model-runtime",
  "serde_json",
  "tempfile",
  "text-core",
@@ -3816,7 +3828,6 @@ dependencies = [
  "text-transcripts",
  "tokenizers",
  "video-analysis-core",
- "video-analysis-models",
 ]
 
 [[package]]
@@ -3859,13 +3870,13 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "model-runtime",
  "ndarray",
  "ort",
  "serde",
  "serde_json",
  "tokenizers",
  "video-analysis-core",
- "video-analysis-models",
 ]
 
 [[package]]
@@ -4555,6 +4566,7 @@ dependencies = [
  "math-signal-core",
  "math-sparse-data",
  "math-statistics",
+ "model-runtime",
  "num-rational",
  "numbers-core",
  "serde",
@@ -4613,6 +4625,7 @@ name = "video-analysis-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "model-runtime",
  "serde_json",
  "shlex",
  "tempfile",
@@ -4926,6 +4939,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "hf-hub",
+ "model-runtime",
  "num-rational",
  "serde",
  "serde_json",
@@ -4988,6 +5002,7 @@ version = "0.1.0"
 dependencies = [
  "image-analysis-core",
  "image-analysis-onnx",
+ "model-runtime",
  "num-rational",
  "ort",
  "serde_json",
@@ -5275,6 +5290,7 @@ name = "video-analysis-segmentation"
 version = "0.1.0"
 dependencies = [
  "image-analysis-segmentation",
+ "model-runtime",
  "video-analysis-core",
  "video-analysis-ffmpeg",
  "video-analysis-ingest",
@@ -5526,6 +5542,7 @@ dependencies = [
  "image-analysis-core",
  "image-analysis-detection",
  "image-analysis-io",
+ "model-runtime",
  "rusqlite",
  "serde",
  "serde_json",

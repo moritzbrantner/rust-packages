@@ -40,7 +40,10 @@ fn image_public_api_covers_ocr_model_presets_and_requests() {
 
     match request.technique {
         Some(OcrTechnique::HuggingFaceModel(spec)) => {
-            assert_eq!(spec.repo_id, "microsoft/trocr-base-handwritten");
+            assert_eq!(
+                spec.repo_id_value(),
+                Some("microsoft/trocr-base-handwritten")
+            );
         }
         _ => panic!("expected a Hugging Face OCR model technique"),
     }
@@ -50,13 +53,19 @@ fn image_public_api_covers_ocr_model_presets_and_requests() {
 #[test]
 fn image_public_api_covers_embedding_and_face_model_presets() {
     let clip = ImageEmbeddingPreset::XenovaClipVitBasePatch32Onnx.model_spec();
-    assert_eq!(clip.repo_id, "Xenova/clip-vit-base-patch32");
+    assert_eq!(clip.repo_id_value(), Some("Xenova/clip-vit-base-patch32"));
 
     let detector = FaceDetectionPreset::OpenCvYuNet.model_spec();
-    assert_eq!(detector.repo_id, "opencv/face_detection_yunet");
+    assert_eq!(
+        detector.repo_id_value(),
+        Some("opencv/face_detection_yunet")
+    );
 
     let embedder = FaceEmbeddingPreset::OpenCvSFace.model_spec();
-    assert_eq!(embedder.repo_id, "opencv/face_recognition_sface");
+    assert_eq!(
+        embedder.repo_id_value(),
+        Some("opencv/face_recognition_sface")
+    );
 
     assert!(FaceBox::new(0.1, 0.2, 0.3, 0.4).is_ok());
 }

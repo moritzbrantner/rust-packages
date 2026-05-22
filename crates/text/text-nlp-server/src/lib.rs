@@ -332,3 +332,15 @@ fn write_response(stream: &mut TcpStream, response: HttpResponse) -> io::Result<
         response.body
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn package_metadata_mentions_wrapped_library() {
+        let response = response_for("GET", "/api/package", "");
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("text-nlp-tasks"));
+    }
+}

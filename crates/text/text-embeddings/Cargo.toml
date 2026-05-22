@@ -28,11 +28,11 @@ tokenizers = { workspace = true, optional = true }
 vector-analysis-core.workspace = true
 vector-analysis-index.workspace = true
 video-analysis-core.workspace = true
-video-analysis-models = { workspace = true, optional = true }
+model-runtime = { workspace = true, optional = true }
 
 [features]
 default = []
-tokenizers = ["dep:tokenizers", "dep:video-analysis-models", "text-model-runtime/tokenizers"]
+tokenizers = ["dep:tokenizers", "dep:model-runtime", "text-model-runtime/tokenizers"]
 onnx = ["tokenizers", "dep:ort", "dep:ndarray", "text-model-runtime/onnx"]
 candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "text-model-runtime/candle"]
 external-tests = ["onnx", "candle"]

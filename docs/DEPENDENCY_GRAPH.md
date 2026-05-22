@@ -160,6 +160,7 @@ flowchart LR
     crate_text_core_server["text-core-server"]:::crate
     crate_text_embeddings["text-embeddings"]:::crate
     crate_text_generation["text-generation"]:::crate
+    crate_text_generation_linguistics["text-generation-linguistics"]:::crate
     crate_text_lexical["text-lexical"]:::crate
     crate_text_linguistics["text-linguistics"]:::crate
     crate_text_linguistics_cli["text-linguistics-cli"]:::crate
@@ -167,6 +168,8 @@ flowchart LR
     crate_text_model_runtime["text-model-runtime"]:::crate
     crate_text_nlp_cli["text-nlp-cli"]:::crate
     crate_text_nlp_models["text-nlp-models"]:::crate
+    crate_text_nlp_server["text-nlp-server"]:::crate
+    crate_text_nlp_tasks["text-nlp-tasks"]:::crate
     crate_text_retrieval["text-retrieval"]:::crate
     crate_text_retrieval_cli["text-retrieval-cli"]:::crate
     crate_text_retrieval_server["text-retrieval-server"]:::crate
@@ -315,6 +318,7 @@ flowchart LR
     crate_maps_kernels_wasm["maps-kernels-wasm"]:::crate
     crate_text_core_wasm["text-core-wasm"]:::crate
     crate_text_linguistics_wasm["text-linguistics-wasm"]:::crate
+    crate_text_nlp_wasm["text-nlp-wasm"]:::crate
     crate_video_analysis_core_wasm["video-analysis-core-wasm"]:::crate
   end
 
@@ -342,6 +346,7 @@ flowchart LR
 
   subgraph group_runtime["Runtime"]
     direction TB
+    crate_model_runtime["model-runtime"]:::crate
     crate_runtime_artifacts["runtime-artifacts"]:::crate
     crate_runtime_contracts["runtime-contracts"]:::crate
     crate_runtime_jobs["runtime-jobs"]:::crate
@@ -385,9 +390,10 @@ flowchart LR
   crate_video_analysis --> crate_text_core
   crate_video_analysis --> crate_text_embeddings
   crate_video_analysis --> crate_text_generation
+  crate_video_analysis --> crate_text_generation_linguistics
   crate_video_analysis --> crate_text_lexical
   crate_video_analysis --> crate_text_linguistics
-  crate_video_analysis --> crate_text_nlp_models
+  crate_video_analysis --> crate_text_nlp_tasks
   crate_video_analysis --> crate_text_retrieval
   crate_video_analysis --> crate_text_transcripts
   crate_video_analysis --> crate_vector_analysis_core
@@ -431,6 +437,7 @@ flowchart LR
   crate_video_analysis --> crate_comfyui_models
   crate_video_analysis --> crate_animation_core
   crate_video_analysis --> crate_jobs_core
+  crate_video_analysis --> crate_model_runtime
   crate_data_inversion_core --> crate_video_analysis_core
   crate_data_inversion_core_cli --> crate_data_inversion_core
   crate_data_inversion_core_server --> crate_data_inversion_core
@@ -495,8 +502,9 @@ flowchart LR
   crate_audio_analysis_io --> crate_video_analysis_ingest
   crate_audio_analysis_io_cli --> crate_audio_analysis_io
   crate_audio_analysis_io_server --> crate_audio_analysis_io
+  crate_audio_analysis_models --> crate_text_transcripts
   crate_audio_analysis_models --> crate_video_analysis_core
-  crate_audio_analysis_models --> crate_video_analysis_models
+  crate_audio_analysis_models --> crate_model_runtime
   crate_audio_analysis_pitch --> crate_audio_analysis_core
   crate_audio_analysis_pitch --> crate_video_analysis_core
   crate_audio_analysis_pitch_cli --> crate_audio_analysis_pitch
@@ -559,18 +567,18 @@ flowchart LR
   crate_image_analysis_models --> crate_image_analysis_detection
   crate_image_analysis_models --> crate_image_analysis_segmentation
   crate_image_analysis_models --> crate_video_analysis_core
-  crate_image_analysis_models --> crate_video_analysis_models
+  crate_image_analysis_models --> crate_model_runtime
   crate_image_analysis_models_cli --> crate_image_analysis_models
   crate_image_analysis_models_server --> crate_image_analysis_models
   crate_image_analysis_ocr --> crate_image_analysis_core
   crate_image_analysis_ocr --> crate_video_analysis_core
-  crate_image_analysis_ocr --> crate_video_analysis_models
+  crate_image_analysis_ocr --> crate_model_runtime
   crate_image_analysis_onnx --> crate_image_analysis_core
   crate_image_analysis_onnx --> crate_image_analysis_detection
   crate_image_analysis_onnx --> crate_image_analysis_models
   crate_image_analysis_onnx --> crate_image_analysis_processing
   crate_image_analysis_onnx --> crate_video_analysis_core
-  crate_image_analysis_onnx --> crate_video_analysis_models
+  crate_image_analysis_onnx --> crate_model_runtime
   crate_image_analysis_onnx_cli --> crate_image_analysis_onnx
   crate_image_analysis_onnx_server --> crate_image_analysis_onnx
   crate_image_analysis_processing --> crate_math_geometry_2d
@@ -600,38 +608,44 @@ flowchart LR
   crate_text_embeddings --> crate_vector_analysis_core
   crate_text_embeddings --> crate_vector_analysis_index
   crate_text_embeddings --> crate_video_analysis_core
-  crate_text_embeddings -. optional .-> crate_video_analysis_models
+  crate_text_embeddings -. optional .-> crate_model_runtime
   crate_text_generation --> crate_data_inversion_core
   crate_text_generation --> crate_text_core
-  crate_text_generation --> crate_text_linguistics
   crate_text_generation --> crate_video_analysis_core
+  crate_text_generation_linguistics --> crate_data_inversion_core
+  crate_text_generation_linguistics --> crate_text_core
+  crate_text_generation_linguistics --> crate_text_generation
+  crate_text_generation_linguistics --> crate_text_linguistics
+  crate_text_generation_linguistics --> crate_video_analysis_core
   crate_text_lexical --> crate_math_sparse_data
   crate_text_lexical --> crate_text_core
   crate_text_lexical --> crate_video_analysis_core
   crate_text_linguistics --> crate_text_core
   crate_text_linguistics --> crate_text_lexical
   crate_text_linguistics --> crate_text_model_runtime
-  crate_text_linguistics --> crate_text_transcripts
+  crate_text_linguistics -. optional .-> crate_text_transcripts
   crate_text_linguistics --> crate_video_analysis_core
-  crate_text_linguistics --> crate_video_analysis_models
-  crate_text_linguistics --> crate_jobs_core
+  crate_text_linguistics -. optional .-> crate_jobs_core
+  crate_text_linguistics -. optional .-> crate_model_runtime
   crate_text_linguistics_cli --> crate_text_linguistics
   crate_text_linguistics_server --> crate_text_linguistics
-  crate_text_linguistics_server --> crate_text_nlp_models
+  crate_text_linguistics_server --> crate_text_nlp_tasks
   crate_text_linguistics_server --> crate_video_analysis_core
   crate_text_model_runtime --> crate_video_analysis_core
-  crate_text_model_runtime --> crate_video_analysis_models
-  crate_text_nlp_cli --> crate_text_nlp_models
+  crate_text_model_runtime -. optional .-> crate_model_runtime
+  crate_text_nlp_cli --> crate_text_nlp_tasks
   crate_text_nlp_models --> crate_text_core
   crate_text_nlp_models --> crate_text_embeddings
   crate_text_nlp_models --> crate_text_lexical
   crate_text_nlp_models --> crate_text_model_runtime
   crate_text_nlp_models --> crate_video_analysis_core
-  crate_text_nlp_models --> crate_video_analysis_models
+  crate_text_nlp_server --> crate_text_nlp_tasks
+  crate_text_nlp_server --> crate_video_analysis_core
+  crate_text_nlp_tasks --> crate_text_nlp_models
   crate_text_retrieval --> crate_text_core
   crate_text_retrieval --> crate_text_embeddings
   crate_text_retrieval --> crate_text_lexical
-  crate_text_retrieval --> crate_text_transcripts
+  crate_text_retrieval -. optional .-> crate_text_transcripts
   crate_text_retrieval --> crate_vector_analysis_index
   crate_text_retrieval --> crate_video_analysis_core
   crate_text_retrieval_cli --> crate_text_embeddings
@@ -680,6 +694,7 @@ flowchart LR
   crate_video_analysis_cli --> crate_video_analysis_posture
   crate_video_analysis_cli --> crate_video_analysis_posture_io
   crate_video_analysis_cli --> crate_video_analysis_split
+  crate_video_analysis_cli --> crate_model_runtime
   crate_video_analysis_colmap_backend --> crate_video_analysis_core
   crate_video_analysis_colmap_backend --> crate_video_analysis_radiance_fields
   crate_video_analysis_colmap_backend --> crate_video_analysis_radiance_io
@@ -727,6 +742,7 @@ flowchart LR
   crate_video_analysis_models --> crate_three_d_processing_core
   crate_video_analysis_models --> crate_video_analysis_core
   crate_video_analysis_models --> crate_video_analysis_posture
+  crate_video_analysis_models --> crate_model_runtime
   crate_video_analysis_models_cli --> crate_video_analysis_models
   crate_video_analysis_models_server --> crate_video_analysis_models
   crate_video_analysis_mvs --> crate_three_d_processing_core
@@ -741,6 +757,7 @@ flowchart LR
   crate_video_analysis_onnx --> crate_video_analysis_core
   crate_video_analysis_onnx --> crate_video_analysis_models
   crate_video_analysis_onnx --> crate_video_analysis_posture
+  crate_video_analysis_onnx --> crate_model_runtime
   crate_video_analysis_onnx_cli --> crate_video_analysis_onnx
   crate_video_analysis_onnx_server --> crate_video_analysis_onnx
   crate_video_analysis_opencv_backend --> crate_video_analysis_core
@@ -788,7 +805,8 @@ flowchart LR
   crate_video_analysis_segmentation --> crate_video_analysis_core
   crate_video_analysis_segmentation -. dev .-> crate_video_analysis_ffmpeg
   crate_video_analysis_segmentation -. dev .-> crate_video_analysis_ingest
-  crate_video_analysis_segmentation --> crate_video_analysis_models
+  crate_video_analysis_segmentation -. dev .-> crate_video_analysis_models
+  crate_video_analysis_segmentation --> crate_model_runtime
   crate_video_analysis_segmentation_cli --> crate_video_analysis_segmentation
   crate_video_analysis_segmentation_server --> crate_video_analysis_segmentation
   crate_video_analysis_sfm --> crate_video_analysis_core
@@ -841,6 +859,8 @@ flowchart LR
   crate_text_core_wasm --> crate_text_core
   crate_text_linguistics_wasm --> crate_text_core
   crate_text_linguistics_wasm --> crate_text_lexical
+  crate_text_nlp_wasm --> crate_text_nlp_tasks
+  crate_text_nlp_wasm --> crate_video_analysis_core
   crate_video_analysis_core_wasm --> crate_video_analysis_core
   crate_video_analysis_test_support --> crate_video_analysis_core
   crate_video_analysis_test_support --> crate_video_analysis_dataset
@@ -870,10 +890,12 @@ flowchart LR
   crate_video_analysis_use_cases --> crate_comfyui_latents
   crate_video_analysis_use_cases --> crate_comfyui_models
   crate_video_analysis_use_cases -. dev .-> crate_video_analysis_test_support
+  crate_video_analysis_use_cases --> crate_model_runtime
   crate_animation_core --> crate_three_d_processing_core
   crate_animation_core --> crate_video_analysis_core
   crate_animation_core_cli --> crate_animation_core
   crate_animation_core_server --> crate_animation_core
+  crate_model_runtime -. optional .-> crate_jobs_core
   crate_runtime_artifacts --> crate_runtime_contracts
   crate_runtime_jobs --> crate_runtime_artifacts
   crate_runtime_jobs --> crate_runtime_contracts

@@ -19,6 +19,8 @@ use candle_nn::VarBuilder as CandleVarBuilder;
 #[cfg(feature = "candle")]
 use candle_transformers::models::{bert as candle_bert, distilbert as candle_distilbert};
 use math_sparse_data::SparseVector;
+#[cfg(feature = "tokenizers")]
+use model_runtime::ModelBundle;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "tokenizers")]
 use serde_json::Value;
@@ -32,8 +34,6 @@ use vector_analysis_core::cosine_similarity;
 pub use vector_analysis_core::DenseVector;
 use vector_analysis_index::{SearchConfig, VectorRecord, VectorSearchIndex};
 use video_analysis_core::{DetectError, Result, TextSegment};
-#[cfg(feature = "tokenizers")]
-use video_analysis_models::ModelBundle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Data type for text embedding config.

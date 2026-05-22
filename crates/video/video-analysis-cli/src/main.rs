@@ -6,6 +6,10 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use clap::{ArgGroup, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
+use model_runtime::{
+    HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelBundleStore, ModelPreset,
+    ModelTask,
+};
 use three_d_processing_core::Point3;
 use three_d_processing_io::{read_mesh, write_mesh};
 use video_analysis_cli::package_catalog::{package_by_name, package_catalog, PackageInfo};
@@ -16,10 +20,9 @@ use video_analysis_detectors::{
     WeightedComponent, WeightedCompositeDetector,
 };
 use video_analysis_ffmpeg::FfmpegVideoSource;
-use video_analysis_models::{
-    HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelBundleStore, ModelPreset,
-    ModelTask, RawPose2dPrediction,
-};
+#[cfg(feature = "onnx")]
+use video_analysis_models::PoseModelBackend;
+use video_analysis_models::RawPose2dPrediction;
 use video_analysis_output::{write_scene_list_csv, write_stats_csv};
 use video_analysis_posture::{Keypoint3d, Pose3dEstimate, Skeleton};
 use video_analysis_posture_io::{
@@ -604,7 +607,7 @@ fn list_model_presets() {
         println!(
             "{:<18} {:<48} {:?}",
             preset.as_str(),
-            spec.repo_id,
+            spec.repo_id_value().unwrap_or(""),
             spec.task
         );
     }
@@ -698,7 +701,8 @@ fn download_model(args: ModelDownloadArgs) -> Result<()> {
     let bundle = ModelBundleStore::new(args.bundle_dir)
         .downloader(downloader)
         .overwrite(args.overwrite)
-        .download(&spec)?;
+        .download(&spec)
+        .map_err(model_runtime_error)?;
     println!(
         "downloaded {} from {}",
         bundle.manifest.name, bundle.manifest.repo_id
@@ -712,12 +716,14 @@ fn download_model(args: ModelDownloadArgs) -> Result<()> {
 
 fn inspect_model_bundle(args: ModelInspectArgs) -> Result<()> {
     let bundle = if let Some(manifest) = args.manifest {
-        ModelBundle::load(manifest)?
+        ModelBundle::load(manifest).map_err(model_runtime_error)?
     } else {
         let name = args
             .name
             .expect("clap validates model bundle source arguments");
-        ModelBundleStore::new(args.bundle_dir).load(name, args.revision)?
+        ModelBundleStore::new(args.bundle_dir)
+            .load(name, args.revision)
+            .map_err(model_runtime_error)?
     };
     print!("{}", format_model_bundle(&bundle));
     Ok(())
@@ -826,7 +832,7 @@ fn export_posture(args: PostureExportArgs) -> Result<()> {
 
 #[cfg(feature = "onnx")]
 fn run_onnx_model(args: ModelRunArgs) -> Result<()> {
-    let bundle = ModelBundle::load(args.manifest)?;
+    let bundle = ModelBundle::load(args.manifest).map_err(model_runtime_error)?;
     let data = std::fs::read(&args.input)?;
     let frame = video_analysis_core::VideoFrame::packed(
         video_analysis_core::FramePosition {
@@ -879,7 +885,7 @@ fn run_onnx_posture_estimate(
     let height = args
         .height
         .expect("clap validates posture estimate manifest arguments");
-    let bundle = ModelBundle::load(manifest)?;
+    let bundle = ModelBundle::load(manifest).map_err(model_runtime_error)?;
     let data = std::fs::read(input)?;
     let frame = video_analysis_core::VideoFrame::packed(
         video_analysis_core::FramePosition {
@@ -934,6 +940,16 @@ fn format_model_bundle(bundle: &ModelBundle) -> String {
         ));
     }
     output
+}
+
+fn model_runtime_error(error: model_runtime::ModelRuntimeError) -> DetectError {
+    match error {
+        model_runtime::ModelRuntimeError::InvalidArgument(message) => {
+            DetectError::InvalidArgument(message)
+        }
+        model_runtime::ModelRuntimeError::Source(message) => DetectError::Source(message),
+        model_runtime::ModelRuntimeError::Io(error) => DetectError::Io(error),
+    }
 }
 
 fn run_detection(
@@ -1387,7 +1403,7 @@ mod tests {
     fn model_bundle_format_includes_manifest_and_files() {
         let bundle = ModelBundle {
             root: PathBuf::from("models/yolos-tiny/main"),
-            manifest: video_analysis_models::ModelBundleManifest {
+            manifest: model_runtime::ModelBundleManifest {
                 schema_version: 1,
                 name: "yolos-tiny".to_string(),
                 repo_id: "hustvl/yolos-tiny".to_string(),
@@ -1395,7 +1411,7 @@ mod tests {
                 task: ModelTask::ObjectDetection,
                 files: BTreeMap::from([(
                     "config.json".to_string(),
-                    video_analysis_models::ModelBundleFile {
+                    model_runtime::ModelBundleFile {
                         remote_path: "config.json".to_string(),
                         local_path: "files/config.json".to_string(),
                         size_bytes: 42,

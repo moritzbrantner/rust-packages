@@ -3,20 +3,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 #[cfg(feature = "candle")]
-use jobs_core::{BackgroundJobRunner, JobArtifact, JobError, JobProgress, JobSpec};
-use text_core::{
-    build_annotation_graph_from_parts, split_paragraphs, split_sentence_spans, tokenize,
-    AnnotationConfidence, AnnotationProvenance, Sentence, TextAnnotationGraph, TextDocument,
-    TextProcessingOptions, Token,
-};
-#[cfg(feature = "transcripts")]
-use text_transcripts::{TranscriptSegment, TranscriptionResult};
-use video_analysis_core::{
-    AnalysisEvent, DetectError, OwnedTextSegment, Result, TextAnalyzer, TextSegment,
-};
-#[cfg(feature = "candle")]
-use video_analysis_models::{HuggingFaceDownloader, ModelBundle, ModelBundleStore};
-
 use crate::discourse::{
     build_style_profile, build_topic_model, DiscourseSegment, DocumentOutline, SectionClassifier,
     StyleProfile, TopicModel,
@@ -35,6 +21,20 @@ use crate::morphology::{
 use crate::syntax::{chunk_phrases, DependencyParser, DependencyTree, PhraseChunk};
 use crate::tokenization::{
     TokenAlignmentMap, TokenizationMode, TokenizerPolicy, TokenizerRegistry, TokenizerSelection,
+};
+#[cfg(feature = "candle")]
+use jobs_core::{BackgroundJobRunner, JobArtifact, JobError, JobProgress, JobSpec};
+#[cfg(feature = "candle")]
+use model_runtime::{HuggingFaceDownloader, ModelBundle, ModelBundleStore};
+use text_core::{
+    build_annotation_graph_from_parts, split_paragraphs, split_sentence_spans, tokenize,
+    AnnotationConfidence, AnnotationProvenance, Sentence, TextAnnotationGraph, TextDocument,
+    TextProcessingOptions, Token,
+};
+#[cfg(feature = "transcripts")]
+use text_transcripts::{TranscriptSegment, TranscriptionResult};
+use video_analysis_core::{
+    AnalysisEvent, DetectError, OwnedTextSegment, Result, TextAnalyzer, TextSegment,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -74,9 +74,9 @@ impl ModelPreset {
     }
 
     #[cfg(feature = "candle")]
-    fn spec(self) -> video_analysis_models::HuggingFaceModelSpec {
+    fn spec(self) -> model_runtime::HuggingFaceModelSpec {
         match self {
-            Self::BertBaseNer => video_analysis_models::ModelPreset::BertBaseNer.spec(),
+            Self::BertBaseNer => model_runtime::ModelPreset::BertBaseNer.spec(),
         }
     }
 }
@@ -693,19 +693,21 @@ fn local_entity_labeler(options: &EntityRecognitionOptions) -> Result<CandleToke
 fn ensure_local_entity_bundle(options: &EntityRecognitionOptions) -> Result<ModelBundle> {
     let spec = options.preset.spec();
     let store = local_model_bundle_store(options);
-    if let Ok(bundle) = store.load(&spec.name, &spec.revision) {
+    let revision = spec.revision_value().unwrap_or("main").to_string();
+    let repo_id = spec.repo_id_value().unwrap_or("").to_string();
+    if let Ok(bundle) = store.load(&spec.name, &revision) {
         return Ok(bundle);
     }
     if !options.auto_download {
-        return store.load(&spec.name, &spec.revision);
+        return store
+            .load(&spec.name, &revision)
+            .map_err(model_runtime_error);
     }
 
     let runner = BackgroundJobRunner::default();
-    let job_id = format!(
-        "text-linguistics-model-download-{}-{}",
-        spec.name, spec.revision
-    );
+    let job_id = format!("text-linguistics-model-download-{}-{}", spec.name, revision);
     let spec_for_job = spec.clone();
+    let repo_id_for_job = repo_id.clone();
     let options_for_job = options.clone();
     let downloaded_bundle = Arc::new(Mutex::new(None));
     let downloaded_bundle_for_job = Arc::clone(&downloaded_bundle);
@@ -713,15 +715,15 @@ fn ensure_local_entity_bundle(options: &EntityRecognitionOptions) -> Result<Mode
         .map_job_error()?
         .with_kind("model-download")
         .map_job_error()?
-        .with_metadata("repo_id", spec.repo_id.clone())
+        .with_metadata("repo_id", repo_id)
         .map_job_error()?
-        .with_metadata("revision", spec.revision.clone())
+        .with_metadata("revision", revision)
         .map_job_error()?;
     let mut handle = runner
         .spawn(job_spec, move |context| {
             context.info(format!(
                 "materializing local model bundle `{}` from `{}`",
-                spec_for_job.name, spec_for_job.repo_id
+                spec_for_job.name, repo_id_for_job
             ))?;
             context.progress(
                 JobProgress::new(0, Some(2))?
@@ -772,6 +774,17 @@ fn local_model_bundle_store(options: &EntityRecognitionOptions) -> ModelBundleSt
             .progress(options.download_progress)
             .max_retries(options.max_retries),
     )
+}
+
+#[cfg(feature = "candle")]
+fn model_runtime_error(error: model_runtime::ModelRuntimeError) -> DetectError {
+    match error {
+        model_runtime::ModelRuntimeError::InvalidArgument(message) => {
+            DetectError::InvalidArgument(message)
+        }
+        model_runtime::ModelRuntimeError::Source(message) => DetectError::Source(message),
+        model_runtime::ModelRuntimeError::Io(error) => DetectError::Io(error),
+    }
 }
 
 #[cfg(feature = "candle")]

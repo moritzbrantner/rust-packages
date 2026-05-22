@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+/// Re-exports the generic model runtime infrastructure for compatibility.
+pub use model_runtime as runtime;
+
 mod analyzers;
 mod bundles;
 mod conformance;

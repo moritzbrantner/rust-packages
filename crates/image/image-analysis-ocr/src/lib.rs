@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use image_analysis_core::ImageView;
+use model_runtime::{HuggingFaceModelSpec, ModelRuntimeBackend, ModelTask};
 use video_analysis_core::{BoundingBox, DetectError, FramePosition, Result, VideoFrame};
-use video_analysis_models::{HuggingFaceModelSpec, ModelRuntimeBackend, ModelTask};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Variants describing OCR model presets.
@@ -672,15 +672,15 @@ mod tests {
     #[test]
     fn default_preset_uses_trocr_printed() {
         assert_eq!(
-            default_ocr_model_spec().repo_id,
-            "microsoft/trocr-base-printed"
+            default_ocr_model_spec().repo_id_value(),
+            Some("microsoft/trocr-base-printed")
         );
         assert_eq!(
             OcrPreset::from_str("trocr-base-handwritten")
                 .unwrap()
                 .model_spec()
-                .repo_id,
-            "microsoft/trocr-base-handwritten"
+                .repo_id_value(),
+            Some("microsoft/trocr-base-handwritten")
         );
     }
 

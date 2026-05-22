@@ -1,17 +1,18 @@
 use std::collections::BTreeMap;
 use std::fs;
 
+use model_runtime::{
+    DownloadedModel, HuggingFaceModelSpec, ModelBundle, ModelBundleStore, ModelTask,
+};
 use num_rational::Rational64;
 use tempfile::{tempdir, TempDir};
 use video_analysis_core::{FramePosition, PixelFormat, VideoFrame};
-use video_analysis_models::{DownloadedModel, HuggingFaceModelSpec, ModelBundleStore, ModelTask};
 use video_analysis_onnx::{
     options_from_bundle, preprocess_frame, validate_onnx_vision_bundle, ChannelOrder,
     OnnxImagePreprocessing,
 };
 
-fn materialized_bundle(
-) -> Result<(TempDir, video_analysis_models::ModelBundle), Box<dyn std::error::Error>> {
+fn materialized_bundle() -> Result<(TempDir, ModelBundle), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
     let source_dir = temp.path().join("download");
     fs::create_dir_all(&source_dir)?;

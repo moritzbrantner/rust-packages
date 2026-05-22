@@ -32,7 +32,7 @@ fn default_options_use_local_entity_model() {
 fn downloads_default_ner_model_and_runs_local_entities() {
     use std::path::{Path, PathBuf};
 
-    use video_analysis_models::ModelBundleStore;
+    use model_runtime::ModelBundleStore;
 
     fn assert_nonempty_file(path: impl AsRef<Path>) {
         let path = path.as_ref();

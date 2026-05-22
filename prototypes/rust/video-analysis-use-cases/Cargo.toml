@@ -33,6 +33,7 @@ image-analysis-comfyui.workspace = true
 image-analysis-core.workspace = true
 image-analysis-detection.workspace = true
 image-analysis-io.workspace = true
+model-runtime.workspace = true
 rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true

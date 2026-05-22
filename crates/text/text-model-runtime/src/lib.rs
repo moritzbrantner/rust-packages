@@ -11,11 +11,11 @@ use candle_core::{DType as CandleDType, Device as CandleDevice, Tensor as Candle
 use candle_nn::{Linear as CandleLinear, Module as CandleModule, VarBuilder as CandleVarBuilder};
 #[cfg(feature = "candle")]
 use candle_transformers::models::{bert as candle_bert, distilbert as candle_distilbert};
+#[cfg(feature = "model-bundles")]
+use model_runtime::{HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelTask};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use video_analysis_core::{DetectError, Result};
-#[cfg(feature = "model-bundles")]
-use video_analysis_models::{HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelTask};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 /// Text-oriented raw prediction shared by local and imported NLP runtimes.
@@ -160,15 +160,18 @@ impl TokenizerSource {
             } => {
                 #[cfg(feature = "model-bundles")]
                 {
-                    let downloaded = options.downloader().download(
-                        &HuggingFaceModelSpec::new(
-                            repo_id.clone(),
-                            ModelTask::Custom("tokenizer".to_string()),
+                    let downloaded = options
+                        .downloader()
+                        .download(
+                            &HuggingFaceModelSpec::new(
+                                repo_id.clone(),
+                                ModelTask::Custom("tokenizer".to_string()),
+                            )
+                            .name(format!("{repo_id}-tokenizer"))
+                            .revision(revision.clone())
+                            .file(tokenizer_file.clone()),
                         )
-                        .name(format!("{repo_id}-tokenizer"))
-                        .revision(revision.clone())
-                        .file(tokenizer_file.clone()),
-                    )?;
+                        .map_err(model_runtime_error)?;
                     downloaded
                         .files
                         .get(tokenizer_file)
@@ -1053,6 +1056,17 @@ fn candle_error(error: candle_core::Error) -> DetectError {
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
+}
+
+#[cfg(feature = "model-bundles")]
+fn model_runtime_error(error: model_runtime::ModelRuntimeError) -> DetectError {
+    match error {
+        model_runtime::ModelRuntimeError::InvalidArgument(message) => {
+            DetectError::InvalidArgument(message)
+        }
+        model_runtime::ModelRuntimeError::Source(message) => DetectError::Source(message),
+        model_runtime::ModelRuntimeError::Io(error) => DetectError::Io(error),
+    }
 }
 
 #[cfg(test)]

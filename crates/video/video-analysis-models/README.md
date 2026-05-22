@@ -1,5 +1,9 @@
 # video-analysis-models
 
+> Deprecated compatibility crate: generic model infrastructure now belongs in
+> `model-runtime`. New domain APIs should hide model usage behind capability
+> crates such as detection, recognition, OCR, segmentation, and embeddings.
+
 Model bundle, download, and adapter contracts for `video-analysis`.
 
 ## Feature flags

@@ -2,6 +2,7 @@ mod support;
 
 use std::f32::consts::FRAC_PI_3;
 
+use model_runtime::ModelTask as RuntimeModelTask;
 use support::scene;
 use tempfile::tempdir;
 use video_analysis_core::BoundingBox;
@@ -56,7 +57,7 @@ fn runtime_and_projection_crates_expose_hermetic_public_surfaces(
     assert_eq!(request.min_mask_pixels, 16);
     assert_eq!(
         default_sam2_model_spec().task,
-        video_analysis_models::ModelTask::Custom("video_segmentation".to_string())
+        RuntimeModelTask::Custom("video_segmentation".to_string())
     );
 
     let split_plan = build_split_plan("demo.mp4", &[scene(0, 15)], &SplitOptions::default())?;

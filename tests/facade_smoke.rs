@@ -9,13 +9,14 @@ fn root_facade_reexports_core_and_domain_packages() {
     let image = va::image_core::ImageView::from_video_frame(&frame.as_frame()).unwrap();
     assert_eq!(image.width, 8);
     assert_eq!(
-        va::image_models::default_sam_model_spec().repo_id,
-        "facebook/sam-vit-base"
+        va::image_ocr::default_ocr_model_spec().repo_id_value(),
+        Some("microsoft/trocr-base-printed")
     );
-    assert_eq!(
-        va::image_ocr::default_ocr_model_spec().repo_id,
-        "microsoft/trocr-base-printed"
+    let runtime_spec = va::model_runtime::ModelSpec::new(
+        "facebook/sam-vit-base",
+        va::model_runtime::ModelTask::ImageSegmentation,
     );
+    assert_eq!(runtime_spec.repo_id_value(), Some("facebook/sam-vit-base"));
     let workflow = va::image_comfyui::build_generation_workflow(
         &va::image_comfyui::ImageGenerationRequest::new("red cube"),
     )

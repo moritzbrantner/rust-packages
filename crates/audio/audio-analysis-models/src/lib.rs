@@ -2,10 +2,10 @@
 
 use std::collections::BTreeMap;
 
+use model_runtime::ModelPreset;
 use serde::{Deserialize, Serialize};
 pub use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
 use video_analysis_core::{DetectError, Result};
-use video_analysis_models::ModelPreset;
 
 /// Audio task families exposed by the shared model layer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -13,13 +13,14 @@ use image_analysis_comfyui::{
 };
 use image_analysis_core::{mask_tensor_from_luma, ImagePixelFormat, OwnedImage};
 use image_analysis_io::{read_image, write_image};
+use model_runtime::ModelBundle;
 use serde::{Deserialize, Serialize};
 use video_analysis_core::{
     BoundingBox, DetectError, FramePosition, PixelFormat, Result, Timebase, Timestamp,
 };
 use video_analysis_models::{
-    normalize_predictions, DownloadedModel, ExternalCommandModel, HuggingFaceModelSpec,
-    ModelBundle, ModelTask, PredictionRepairOptions, VisionModelBackend,
+    normalize_predictions, DownloadedModel, ExternalCommandModel, HuggingFaceModelSpec, ModelTask,
+    PredictionRepairOptions, VisionModelBackend,
 };
 
 use crate::workflow_support::{display_path, validate_local_file, write_json_report};
@@ -407,7 +408,7 @@ fn detect_people(
 ) -> Result<Vec<PersonDetectionReport>> {
     let raw = match config {
         PersonDetectorConfig::Onnx { bundle_dir } => {
-            let bundle = ModelBundle::load(bundle_dir)?;
+            let bundle = ModelBundle::load(bundle_dir).map_err(model_runtime_error)?;
             let mut detector = video_analysis_onnx::OnnxObjectDetector::from_bundle(bundle)?;
             detector.predict_frame(&frame.as_frame())?
         }
@@ -451,6 +452,16 @@ fn detect_people(
         })
     })
     .collect())
+}
+
+fn model_runtime_error(error: model_runtime::ModelRuntimeError) -> DetectError {
+    match error {
+        model_runtime::ModelRuntimeError::InvalidArgument(message) => {
+            DetectError::InvalidArgument(message)
+        }
+        model_runtime::ModelRuntimeError::Source(message) => DetectError::Source(message),
+        model_runtime::ModelRuntimeError::Io(error) => DetectError::Io(error),
+    }
 }
 
 fn owned_image_to_video_frame(image: &OwnedImage) -> Result<video_analysis_core::OwnedVideoFrame> {

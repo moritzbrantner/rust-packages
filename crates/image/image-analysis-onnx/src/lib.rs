@@ -14,9 +14,9 @@ use image_analysis_models::{
     ImageClassification, ImageClassifierBackend, ImageEmbedderBackend, ImageEmbedding,
 };
 use image_analysis_processing::resize_nearest;
+use model_runtime::{ModelBundle, ModelTask};
 use serde_json::Value;
 use video_analysis_core::{BoundingBox, DetectError, Result};
-use video_analysis_models::{ModelBundle, ModelTask};
 
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for ONNX vision bundle info.
@@ -1835,8 +1835,8 @@ mod tests {
     use image_analysis_models::{
         FaceDetectorBackend, FaceEmbedderBackend, ImageClassifierBackend, ImageEmbedderBackend,
     };
+    use model_runtime::{ModelBundleFile, ModelBundleManifest};
     use tempfile::tempdir;
-    use video_analysis_models::{ModelBundleFile, ModelBundleManifest};
 
     #[derive(Debug, Clone)]
     struct FakeDetectionRunner {

@@ -56,15 +56,67 @@ fn native_text_model_runtime_dependencies_are_feature_gated() {
         "text-linguistics transcript adapters must be feature-gated"
     );
     assert!(
-        linguistics_manifest
-            .contains("video-analysis-models = { workspace = true, optional = true }"),
-        "text-linguistics must not require video-analysis-models in default builds"
+        linguistics_manifest.contains("model-runtime = { workspace = true, optional = true }"),
+        "text-linguistics must use model-runtime for optional model bundle support"
     );
 
     let runtime_manifest = read_manifest("crates/text/text-model-runtime/Cargo.toml");
     assert!(
-        runtime_manifest.contains("video-analysis-models = { workspace = true, optional = true }"),
-        "text-model-runtime default builds must not require video-analysis-models"
+        runtime_manifest.contains("model-runtime = { workspace = true, optional = true }"),
+        "text-model-runtime must use model-runtime for optional model bundle support"
+    );
+}
+
+#[test]
+fn generic_model_runtime_stays_domain_independent() {
+    let manifest = read_manifest("crates/runtime/model-runtime/Cargo.toml");
+    for forbidden in [
+        "video-analysis-core",
+        "audio-analysis",
+        "image-analysis",
+        "text-",
+        "comfyui-",
+    ] {
+        assert!(
+            !manifest.contains(forbidden),
+            "model-runtime must stay domain-independent and not depend on `{forbidden}`"
+        );
+    }
+    assert!(
+        manifest.contains("jobs-core = { workspace = true, optional = true }"),
+        "model-runtime job helpers must keep jobs-core behind the jobs feature"
+    );
+}
+
+#[test]
+fn root_facade_does_not_promote_domain_model_crates() {
+    let source = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs"))
+        .expect("read root facade");
+    for forbidden in [
+        "pub use video_analysis_models as models;",
+        "pub use audio_analysis_models as audio_models;",
+        "pub use image_analysis_models as image_models;",
+    ] {
+        assert!(
+            !source.contains(forbidden),
+            "root facade must expose capabilities and model_runtime, not `{forbidden}`"
+        );
+    }
+    assert!(
+        source.contains("pub use model_runtime;"),
+        "root facade should expose the generic model infrastructure under model_runtime"
+    );
+}
+
+#[test]
+fn video_analysis_models_is_marked_compatibility_only() {
+    let readme = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/video/video-analysis-models/README.md"),
+    )
+    .expect("read video-analysis-models README");
+    assert!(
+        readme.contains("Deprecated compatibility crate"),
+        "video-analysis-models must be documented as a temporary compatibility crate"
     );
 }
 

@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 
 use image_analysis_core::ImageView;
 use image_analysis_segmentation::ImageSegmentationBackend;
+use model_runtime::{HuggingFaceModelSpec, ModelTask};
 use video_analysis_core::{DetectError, Result};
-use video_analysis_models::{HuggingFaceModelSpec, ModelTask};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Variants describing SAM image preset.
@@ -475,7 +475,10 @@ mod tests {
 
     #[test]
     fn default_sam_model_spec_uses_vit_base() {
-        assert_eq!(default_sam_model_spec().repo_id, "facebook/sam-vit-base");
+        assert_eq!(
+            default_sam_model_spec().repo_id_value(),
+            Some("facebook/sam-vit-base")
+        );
     }
 
     #[test]
@@ -494,19 +497,23 @@ mod tests {
     #[test]
     fn onnx_embedding_preset_uses_xenova_files() {
         let spec = ImageEmbeddingPreset::XenovaClipVitBasePatch32Onnx.model_spec();
-        assert_eq!(spec.repo_id, "Xenova/clip-vit-base-patch32");
+        assert_eq!(spec.repo_id_value(), Some("Xenova/clip-vit-base-patch32"));
         assert_eq!(spec.files.len(), 3);
     }
 
     #[test]
     fn face_presets_use_opencv_models() {
         assert_eq!(
-            FaceDetectionPreset::OpenCvYuNet.model_spec().repo_id,
-            "opencv/face_detection_yunet"
+            FaceDetectionPreset::OpenCvYuNet
+                .model_spec()
+                .repo_id_value(),
+            Some("opencv/face_detection_yunet")
         );
         assert_eq!(
-            FaceEmbeddingPreset::OpenCvSFace.model_spec().repo_id,
-            "opencv/face_recognition_sface"
+            FaceEmbeddingPreset::OpenCvSFace
+                .model_spec()
+                .repo_id_value(),
+            Some("opencv/face_recognition_sface")
         );
     }
 

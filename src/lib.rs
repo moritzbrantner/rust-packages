@@ -8,8 +8,6 @@ pub use audio_analysis_core as audio_core;
 pub use audio_analysis_fourier as audio_fourier;
 /// Re-exports the audio I/O API.
 pub use audio_analysis_io as audio_io;
-/// Re-exports the audio model API.
-pub use audio_analysis_models as audio_models;
 /// Re-exports the audio pitch API.
 pub use audio_analysis_pitch as audio_pitch;
 /// Re-exports the audio processing API.
@@ -50,8 +48,6 @@ pub use image_analysis_core as image_core;
 pub use image_analysis_detection as image_detection;
 /// Re-exports the image I/O API.
 pub use image_analysis_io as image_io;
-/// Re-exports the image models API.
-pub use image_analysis_models as image_models;
 /// Re-exports the image OCR API.
 pub use image_analysis_ocr as image_ocr;
 #[cfg(feature = "onnx-backend")]
@@ -77,6 +73,8 @@ pub use math_signal_core as signal;
 pub use math_sparse_data as sparse;
 /// Re-exports the stats API.
 pub use math_statistics as stats;
+/// Re-exports the generic model runtime infrastructure API.
+pub use model_runtime;
 /// Re-exports the numbers API.
 pub use numbers_core as numbers;
 /// Re-exports the tensor data API.
@@ -131,8 +129,6 @@ pub use video_analysis_ffmpeg as ffmpeg;
 pub use video_analysis_gaussian_splatting as gaussian_splatting;
 /// Re-exports the ingest API.
 pub use video_analysis_ingest as ingest;
-/// Re-exports the models API.
-pub use video_analysis_models as models;
 /// Re-exports the MVS API.
 pub use video_analysis_mvs as mvs;
 #[cfg(feature = "onnx-backend")]

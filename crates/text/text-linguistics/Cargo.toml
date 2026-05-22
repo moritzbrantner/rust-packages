@@ -24,13 +24,13 @@ text-model-runtime.workspace = true
 text-transcripts = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
-video-analysis-models = { workspace = true, optional = true }
+model-runtime = { workspace = true, optional = true }
 
 [features]
 default = []
 tokenizers = ["dep:tokenizers", "text-model-runtime/tokenizers"]
 transcripts = ["dep:text-transcripts"]
-candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:jobs-core", "dep:video-analysis-models", "text-model-runtime/candle"]
+candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:jobs-core", "dep:model-runtime", "text-model-runtime/candle"]
 external-tests = ["candle"]
 
 [dev-dependencies]
