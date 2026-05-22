@@ -4,9 +4,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use text_core::tokenize_words;
+use text_embeddings::TextEmbeddingBackend;
 use text_lexical::{
     english_stop_words, extractive_summary, sentiment as lexical_sentiment,
     ExtractiveSummaryOptions, SentimentLexicon,
+};
+use text_model_runtime::{
+    QuestionAnsweringBackend, SequenceClassifier, SequenceLabeler, TextReranker, TextRuntimeBackend,
 };
 use video_analysis_core::{DetectError, Result};
 use video_analysis_models::ModelPreset;
@@ -108,6 +112,21 @@ pub struct ModelSelection {
     /// Fallback policy for unsupported native paths.
     #[serde(default)]
     pub fallback_policy: FallbackPolicy,
+}
+
+/// Caller-supplied native or external runtime backends for NLP task execution.
+#[derive(Default)]
+pub struct NlpExecutionContext<'a> {
+    /// Optional token/sequence labeler.
+    pub sequence_labeler: Option<&'a mut dyn SequenceLabeler>,
+    /// Optional text classifier.
+    pub classifier: Option<&'a mut dyn SequenceClassifier>,
+    /// Optional query-document reranker.
+    pub reranker: Option<&'a mut dyn TextReranker>,
+    /// Optional question-answering backend.
+    pub qa: Option<&'a mut dyn QuestionAnsweringBackend>,
+    /// Optional embedding backend.
+    pub embedder: Option<&'a dyn TextEmbeddingBackend>,
 }
 
 /// Shared model metadata for UI and CLI discovery.
@@ -601,6 +620,271 @@ pub fn model_catalog(task: Option<NlpTask>) -> Vec<NlpModelMetadata> {
 }
 
 /// Runs classification from imported predictions or an explicit fallback.
+pub fn classify_text_with_context(
+    request: TextClassificationRequest,
+    context: &mut NlpExecutionContext<'_>,
+) -> Result<TextClassificationResponse> {
+    ensure_non_empty(&request.text, "text")?;
+    if !request.imported_predictions.is_empty() {
+        return classify_text(request);
+    }
+    let model_id = request
+        .model
+        .model_id
+        .clone()
+        .unwrap_or_else(|| "distilbert-sst2".to_string());
+    if let Some(classifier) = context.classifier.as_deref_mut() {
+        let runtime = runtime_from_backend(classifier.runtime_backend());
+        let raw = classifier.classify_text(&request.text, &request.labels)?;
+        return Ok(TextClassificationResponse {
+            accepted: true,
+            operation: "classify".to_string(),
+            text: request.text,
+            model_id,
+            runtime,
+            predictions: class_predictions_from_raw(raw, request.top_k),
+        });
+    }
+    if request.model.fallback_policy != FallbackPolicy::Error {
+        return classify_text(request);
+    }
+    missing_model("classification requires a classifier backend, imported predictions, or an explicit fallback policy")
+}
+
+/// Runs sentiment with an optional classifier backend.
+pub fn analyze_sentiment_with_context(
+    request: SentimentRequest,
+    context: &mut NlpExecutionContext<'_>,
+) -> Result<SentimentResponse> {
+    ensure_non_empty(&request.text, "text")?;
+    if !request.imported_predictions.is_empty() {
+        return analyze_sentiment(request);
+    }
+    let model_id = request
+        .model
+        .model_id
+        .clone()
+        .unwrap_or_else(|| "twitter-roberta-sentiment-latest".to_string());
+    if let Some(classifier) = context.classifier.as_deref_mut() {
+        let labels = ["negative", "neutral", "positive"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        let runtime = runtime_from_backend(classifier.runtime_backend());
+        let predictions = class_predictions_from_raw(
+            classifier.classify_text(&request.text, &labels)?,
+            labels.len(),
+        );
+        let label = predictions
+            .first()
+            .map(|prediction| prediction.label.clone())
+            .unwrap_or_else(|| "neutral".to_string());
+        let positive_score = score_for_label(&predictions, &["positive", "label_2"]);
+        let negative_score = score_for_label(&predictions, &["negative", "label_0"]);
+        return Ok(SentimentResponse {
+            accepted: true,
+            operation: "sentiment".to_string(),
+            text: request.text,
+            model_id,
+            runtime,
+            label,
+            positive_score,
+            negative_score,
+            compound: positive_score - negative_score,
+            predictions,
+        });
+    }
+    if request.model.fallback_policy != FallbackPolicy::Error {
+        return analyze_sentiment(request);
+    }
+    missing_model("sentiment requires a classifier backend, imported predictions, or an explicit fallback policy")
+}
+
+/// Embeds texts with an optional embedding backend.
+pub fn embed_texts_with_context(
+    request: EmbeddingRequest,
+    context: &mut NlpExecutionContext<'_>,
+) -> Result<EmbeddingResponse> {
+    if request.texts.is_empty() || request.texts.iter().all(|text| text.trim().is_empty()) {
+        return Err(DetectError::InvalidArgument(
+            "request body must include at least one non-empty text".to_string(),
+        ));
+    }
+    if !request.imported_embeddings.is_empty() {
+        return embed_texts(request);
+    }
+    if let Some(embedder) = context.embedder {
+        let refs = request.texts.iter().map(String::as_str).collect::<Vec<_>>();
+        let vectors = embedder.embed_batch(&refs)?;
+        let info = embedder.model_info();
+        let dimensions = vectors
+            .first()
+            .map(|vector| vector.dimensions())
+            .unwrap_or(info.dimensions);
+        return Ok(EmbeddingResponse {
+            accepted: true,
+            operation: "embed".to_string(),
+            model_id: request.model.model_id.clone().unwrap_or(info.model_name),
+            runtime: runtime_from_embedding_backend(info.backend),
+            dimensions,
+            embeddings: vectors
+                .into_iter()
+                .map(|vector| vector.into_values())
+                .collect(),
+        });
+    }
+    if request.model.fallback_policy != FallbackPolicy::Error {
+        return embed_texts(request);
+    }
+    missing_model("embedding requires an embedding backend, imported embeddings, or an explicit fallback policy")
+}
+
+/// Runs zero-shot classification with an optional classifier backend.
+pub fn zero_shot_classify_with_context(
+    request: ZeroShotClassificationRequest,
+    context: &mut NlpExecutionContext<'_>,
+) -> Result<ZeroShotClassificationResponse> {
+    ensure_non_empty(&request.text, "text")?;
+    if request.labels.is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "zero-shot request must include at least one label".to_string(),
+        ));
+    }
+    if !request.imported_predictions.is_empty() {
+        return zero_shot_classify(request);
+    }
+    let model_id = request
+        .model
+        .model_id
+        .clone()
+        .unwrap_or_else(|| "bart-large-mnli".to_string());
+    let hypotheses = request
+        .labels
+        .iter()
+        .map(|label| request.hypothesis_template.replace("{}", label))
+        .collect::<Vec<_>>();
+    if let Some(classifier) = context.classifier.as_deref_mut() {
+        let runtime = runtime_from_backend(classifier.runtime_backend());
+        let mut predictions = class_predictions_from_raw(
+            classifier.classify_text(&request.text, &request.labels)?,
+            request.labels.len(),
+        );
+        normalize_prediction_scores(&mut predictions);
+        return Ok(ZeroShotClassificationResponse {
+            accepted: true,
+            operation: "zero-shot".to_string(),
+            text: request.text,
+            model_id,
+            runtime,
+            predictions,
+            hypotheses,
+        });
+    }
+    if request.model.fallback_policy != FallbackPolicy::Error {
+        return zero_shot_classify(request);
+    }
+    missing_model("zero-shot classification requires a classifier backend, imported predictions, or an explicit fallback policy")
+}
+
+/// Reranks documents with an optional reranker backend.
+pub fn rerank_with_context(
+    request: RerankRequest,
+    context: &mut NlpExecutionContext<'_>,
+) -> Result<RerankResponse> {
+    ensure_non_empty(&request.query, "query")?;
+    if request.documents.is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "rerank request must include at least one document".to_string(),
+        ));
+    }
+    if !request.imported_scores.is_empty() {
+        return rerank(request);
+    }
+    let model_id = request
+        .model
+        .model_id
+        .clone()
+        .unwrap_or_else(|| "ms-marco-minilm-l6-v2".to_string());
+    if let Some(reranker) = context.reranker.as_deref_mut() {
+        let runtime = runtime_from_backend(reranker.runtime_backend());
+        let scores = reranker.rerank(&request.query, &request.documents)?;
+        let mut results = request
+            .documents
+            .into_iter()
+            .enumerate()
+            .map(|(index, document)| RerankResult {
+                index,
+                document,
+                score: scores.get(index).copied().unwrap_or(0.0),
+            })
+            .collect::<Vec<_>>();
+        results.sort_by(|left, right| {
+            right
+                .score
+                .total_cmp(&left.score)
+                .then_with(|| left.index.cmp(&right.index))
+        });
+        results.truncate(request.top_k.max(1));
+        return Ok(RerankResponse {
+            accepted: true,
+            operation: "rerank".to_string(),
+            query: request.query,
+            model_id,
+            runtime,
+            results,
+        });
+    }
+    if request.model.fallback_policy != FallbackPolicy::Error {
+        return rerank(request);
+    }
+    missing_model(
+        "reranking requires a reranker backend, imported scores, or an explicit fallback policy",
+    )
+}
+
+/// Answers questions with an optional QA backend.
+pub fn answer_question_with_context(
+    request: QuestionAnsweringRequest,
+    context: &mut NlpExecutionContext<'_>,
+) -> Result<QuestionAnsweringResponse> {
+    ensure_non_empty(&request.question, "question")?;
+    ensure_non_empty(&request.context, "context")?;
+    if !request.imported_predictions.is_empty() {
+        return answer_question(request);
+    }
+    let model_id = request
+        .model
+        .model_id
+        .clone()
+        .unwrap_or_else(|| "roberta-base-squad2".to_string());
+    if let Some(qa) = context.qa.as_deref_mut() {
+        let runtime = runtime_from_backend(qa.runtime_backend());
+        let mut answers = qa
+            .answer(&request.question, &request.context)?
+            .into_iter()
+            .filter_map(|prediction| {
+                let answer = prediction.text?;
+                Some(AnswerPrediction {
+                    answer,
+                    score: prediction.score.unwrap_or(0.0),
+                    span: span_from_attributes(&prediction.attributes),
+                })
+            })
+            .collect::<Vec<_>>();
+        answers.sort_by(|left, right| right.score.total_cmp(&left.score));
+        answers.truncate(request.top_k.max(1));
+        return Ok(QuestionAnsweringResponse {
+            accepted: true,
+            operation: "question-answer".to_string(),
+            question: request.question,
+            model_id,
+            runtime,
+            answers,
+        });
+    }
+    missing_model("question answering requires a QA backend or imported span predictions")
+}
+
 pub fn classify_text(request: TextClassificationRequest) -> Result<TextClassificationResponse> {
     ensure_non_empty(&request.text, "text")?;
     let model_id = request
@@ -1037,6 +1321,55 @@ fn unsupported_runtime<T>(message: &str) -> Result<T> {
     )))
 }
 
+fn missing_model<T>(message: &str) -> Result<T> {
+    Err(DetectError::InvalidArgument(format!(
+        "missing_model: {message}"
+    )))
+}
+
+fn runtime_from_backend(backend: TextRuntimeBackend) -> NlpRuntime {
+    match backend {
+        TextRuntimeBackend::Candle => NlpRuntime::Candle,
+        TextRuntimeBackend::Onnx => NlpRuntime::Onnx,
+        TextRuntimeBackend::External => NlpRuntime::ImportedPredictions,
+        TextRuntimeBackend::Tokenizers
+        | TextRuntimeBackend::CudaOxide
+        | TextRuntimeBackend::Heuristic => NlpRuntime::Lexical,
+    }
+}
+
+fn runtime_from_embedding_backend(
+    backend: text_embeddings::TextEmbeddingBackendKind,
+) -> NlpRuntime {
+    match backend {
+        text_embeddings::TextEmbeddingBackendKind::Candle => NlpRuntime::Candle,
+        text_embeddings::TextEmbeddingBackendKind::Onnx => NlpRuntime::Onnx,
+        text_embeddings::TextEmbeddingBackendKind::External => NlpRuntime::ImportedPredictions,
+        text_embeddings::TextEmbeddingBackendKind::Hashed
+        | text_embeddings::TextEmbeddingBackendKind::CudaOxide
+        | text_embeddings::TextEmbeddingBackendKind::Custom => NlpRuntime::Lexical,
+    }
+}
+
+fn class_predictions_from_raw(
+    predictions: Vec<text_model_runtime::RawPrediction>,
+    top_k: usize,
+) -> Vec<TextClassPrediction> {
+    let imported = predictions
+        .into_iter()
+        .filter_map(|prediction| {
+            Some(ImportedPrediction {
+                kind: prediction.kind,
+                label: prediction.label?,
+                text: prediction.text,
+                score: prediction.score.unwrap_or(0.0),
+                attributes: prediction.attributes,
+            })
+        })
+        .collect::<Vec<_>>();
+    normalize_predictions(imported, top_k)
+}
+
 fn normalize_predictions(
     predictions: Vec<ImportedPrediction>,
     top_k: usize,
@@ -1273,6 +1606,81 @@ pub fn schema_summary() -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use text_embeddings::{
+        DenseVector, TextEmbeddingBackend, TextEmbeddingBackendKind, TextEmbeddingMetadata,
+    };
+    use text_model_runtime::{RawPrediction, TextRuntimeBackend};
+
+    struct FakeClassifier;
+
+    impl SequenceClassifier for FakeClassifier {
+        fn classify_text(&mut self, _text: &str, labels: &[String]) -> Result<Vec<RawPrediction>> {
+            Ok(labels
+                .iter()
+                .enumerate()
+                .map(|(index, label)| RawPrediction {
+                    label: Some(label.clone()),
+                    score: Some(1.0 / (index + 1) as f32),
+                    ..RawPrediction::default()
+                })
+                .collect())
+        }
+
+        fn runtime_backend(&self) -> TextRuntimeBackend {
+            TextRuntimeBackend::External
+        }
+    }
+
+    struct FakeReranker;
+
+    impl TextReranker for FakeReranker {
+        fn rerank(&mut self, _query: &str, documents: &[String]) -> Result<Vec<f32>> {
+            Ok((0..documents.len())
+                .map(|index| (documents.len() - index) as f32)
+                .collect())
+        }
+
+        fn runtime_backend(&self) -> TextRuntimeBackend {
+            TextRuntimeBackend::External
+        }
+    }
+
+    struct FakeQa;
+
+    impl QuestionAnsweringBackend for FakeQa {
+        fn answer(&mut self, _question: &str, _context: &str) -> Result<Vec<RawPrediction>> {
+            let mut attributes = BTreeMap::new();
+            attributes.insert("byte_start".to_string(), "0".to_string());
+            attributes.insert("byte_end".to_string(), "5".to_string());
+            Ok(vec![RawPrediction {
+                text: Some("Alice".to_string()),
+                score: Some(0.8),
+                attributes,
+                ..RawPrediction::default()
+            }])
+        }
+
+        fn runtime_backend(&self) -> TextRuntimeBackend {
+            TextRuntimeBackend::External
+        }
+    }
+
+    struct FakeEmbedder;
+
+    impl TextEmbeddingBackend for FakeEmbedder {
+        fn embed_text(&self, _text: &str) -> Result<DenseVector> {
+            DenseVector::new(vec![1.0, 0.0])
+        }
+
+        fn metadata(&self) -> TextEmbeddingMetadata {
+            TextEmbeddingMetadata {
+                backend: TextEmbeddingBackendKind::External,
+                model_name: Some("fake-embedder".to_string()),
+                dimensions: Some(2),
+                ..TextEmbeddingMetadata::default()
+            }
+        }
+    }
 
     #[test]
     fn catalog_includes_core_tasks() {
@@ -1338,6 +1746,70 @@ mod tests {
     }
 
     #[test]
+    fn context_embeddings_use_supplied_backend() {
+        let embedder = FakeEmbedder;
+        let mut context = NlpExecutionContext {
+            embedder: Some(&embedder),
+            ..NlpExecutionContext::default()
+        };
+        let response = embed_texts_with_context(
+            EmbeddingRequest {
+                texts: vec!["rust text models".to_string()],
+                model: ModelSelection::default(),
+                dimensions: 8,
+                normalize: true,
+                imported_embeddings: Vec::new(),
+            },
+            &mut context,
+        )
+        .unwrap();
+
+        assert_eq!(response.runtime, NlpRuntime::ImportedPredictions);
+        assert_eq!(response.model_id, "fake-embedder");
+        assert_eq!(response.embeddings[0], vec![1.0, 0.0]);
+    }
+
+    #[test]
+    fn context_classification_and_reranking_use_supplied_backends() {
+        let mut classifier = FakeClassifier;
+        let mut context = NlpExecutionContext {
+            classifier: Some(&mut classifier),
+            ..NlpExecutionContext::default()
+        };
+        let classified = classify_text_with_context(
+            TextClassificationRequest {
+                text: "rust".to_string(),
+                labels: vec!["rust".to_string(), "music".to_string()],
+                top_k: 2,
+                multi_label: false,
+                model: ModelSelection::default(),
+                imported_predictions: Vec::new(),
+            },
+            &mut context,
+        )
+        .unwrap();
+        assert_eq!(classified.predictions[0].label, "rust");
+
+        let mut reranker = FakeReranker;
+        let mut context = NlpExecutionContext {
+            reranker: Some(&mut reranker),
+            ..NlpExecutionContext::default()
+        };
+        let reranked = rerank_with_context(
+            RerankRequest {
+                query: "rust".to_string(),
+                documents: vec!["first".to_string(), "second".to_string()],
+                top_k: 1,
+                model: ModelSelection::default(),
+                imported_scores: Vec::new(),
+            },
+            &mut context,
+        )
+        .unwrap();
+        assert_eq!(reranked.results[0].document, "first");
+    }
+
+    #[test]
     fn qa_uses_imported_spans() {
         let mut attributes = BTreeMap::new();
         attributes.insert("byte_start".to_string(), "0".to_string());
@@ -1357,6 +1829,27 @@ mod tests {
         })
         .unwrap();
         assert_eq!(response.runtime, NlpRuntime::ImportedPredictions);
+        assert_eq!(response.answers[0].answer, "Alice");
+    }
+
+    #[test]
+    fn context_qa_uses_supplied_backend() {
+        let mut qa = FakeQa;
+        let mut context = NlpExecutionContext {
+            qa: Some(&mut qa),
+            ..NlpExecutionContext::default()
+        };
+        let response = answer_question_with_context(
+            QuestionAnsweringRequest {
+                question: "Who?".to_string(),
+                context: "Alice wrote it.".to_string(),
+                top_k: 1,
+                model: ModelSelection::default(),
+                imported_predictions: Vec::new(),
+            },
+            &mut context,
+        )
+        .unwrap();
         assert_eq!(response.answers[0].answer, "Alice");
     }
 }

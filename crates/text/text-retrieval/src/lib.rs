@@ -5,7 +5,10 @@ use std::collections::{BTreeMap, BTreeSet};
 mod storage;
 
 use serde::{Deserialize, Serialize};
-use text_core::{tokenize, TextDocument, TextProcessingOptions, TokenKind};
+use text_core::{
+    split_paragraphs, split_sentence_spans, tokenize, TextDocument, TextProcessingOptions,
+    TextSpan, TokenKind,
+};
 use text_embeddings::{EmbeddingModelInfo, TextEmbedderBackend};
 use text_lexical::{Bm25Corpus, Bm25Options, CorpusOptions};
 use text_transcripts::TranscriptSegment;
@@ -118,6 +121,35 @@ pub struct IngestionOptions {
     pub store_raw_text: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Strategy for constructing retrieval chunks.
+pub enum ChunkingStrategy {
+    /// Fixed token windows with overlap.
+    TokenWindow,
+    /// One sentence per chunk.
+    Sentence,
+    /// One paragraph per chunk.
+    Paragraph,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Options for explicit chunk construction.
+pub struct ChunkingOptions {
+    /// Chunking strategy.
+    pub strategy: ChunkingStrategy,
+    /// Token-window options used when `strategy` is `TokenWindow`.
+    pub ingestion: IngestionOptions,
+}
+
+impl Default for ChunkingOptions {
+    fn default() -> Self {
+        Self {
+            strategy: ChunkingStrategy::TokenWindow,
+            ingestion: IngestionOptions::default(),
+        }
+    }
+}
+
 impl Default for IngestionOptions {
     fn default() -> Self {
         Self {
@@ -125,6 +157,30 @@ impl Default for IngestionOptions {
             chunk_overlap_tokens: 32,
             store_raw_text: true,
         }
+    }
+}
+
+/// Chunks one search document with explicit strategy options.
+pub fn chunk_search_document(
+    document: &SearchDocument,
+    options: &ChunkingOptions,
+    processing: &TextProcessingOptions,
+) -> CoreResult<Vec<DocumentChunk>> {
+    validate_document(document)?;
+    match options.strategy {
+        ChunkingStrategy::TokenWindow => chunk_document(document, &options.ingestion, processing),
+        ChunkingStrategy::Sentence => chunk_spans(
+            document,
+            split_sentence_spans(&document.body, processing)
+                .into_iter()
+                .map(|sentence| sentence.span),
+        ),
+        ChunkingStrategy::Paragraph => chunk_spans(
+            document,
+            split_paragraphs(&document.body)
+                .into_iter()
+                .map(|paragraph| paragraph.span),
+        ),
     }
 }
 
@@ -823,6 +879,33 @@ fn chunk_document(
     Ok(chunks)
 }
 
+fn chunk_spans(
+    document: &SearchDocument,
+    spans: impl IntoIterator<Item = TextSpan>,
+) -> CoreResult<Vec<DocumentChunk>> {
+    let metadata = document_metadata(document);
+    let mut chunks = Vec::new();
+    for (ordinal, span) in spans.into_iter().enumerate() {
+        let text = document
+            .body
+            .get(span.byte_start..span.byte_end)
+            .ok_or_else(|| invalid_argument("chunk span did not align to valid UTF-8 boundaries"))?
+            .trim()
+            .to_string();
+        if text.is_empty() {
+            continue;
+        }
+        chunks.push(DocumentChunk {
+            chunk_id: format!("{}:{ordinal}", document.id),
+            document_id: document.id.clone(),
+            text,
+            ordinal,
+            metadata: metadata.clone(),
+        });
+    }
+    Ok(chunks)
+}
+
 fn document_metadata(document: &SearchDocument) -> BTreeMap<String, String> {
     let mut metadata = document.metadata.clone();
     if let Some(title) = &document.title {
@@ -1030,6 +1113,24 @@ mod tests {
         assert_eq!(chunks[1].chunk_id, "doc-1:1");
         assert_eq!(chunks[0].ordinal, 0);
         assert_eq!(chunks[1].ordinal, 1);
+    }
+
+    #[test]
+    fn explicit_chunking_can_use_sentences() {
+        let document = SearchDocument::new("doc-1", "First sentence. Second sentence.");
+        let chunks = chunk_search_document(
+            &document,
+            &ChunkingOptions {
+                strategy: ChunkingStrategy::Sentence,
+                ..ChunkingOptions::default()
+            },
+            &TextProcessingOptions::default(),
+        )
+        .unwrap();
+
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].text, "First sentence.");
+        assert_eq!(chunks[1].text, "Second sentence.");
     }
 
     #[test]

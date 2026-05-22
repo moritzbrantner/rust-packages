@@ -1,6 +1,8 @@
 # text-generation
 
-Deterministic Markov-chain text prediction for `video-analysis`.
+Deterministic Markov-chain text prediction and template synthesis for
+`video-analysis`. This crate does not include hosted LLM clients or native
+open-ended generative model inference.
 
 ## Feature flags
 

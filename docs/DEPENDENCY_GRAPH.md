@@ -164,6 +164,7 @@ flowchart LR
     crate_text_linguistics["text-linguistics"]:::crate
     crate_text_linguistics_cli["text-linguistics-cli"]:::crate
     crate_text_linguistics_server["text-linguistics-server"]:::crate
+    crate_text_model_runtime["text-model-runtime"]:::crate
     crate_text_nlp_cli["text-nlp-cli"]:::crate
     crate_text_nlp_models["text-nlp-models"]:::crate
     crate_text_retrieval["text-retrieval"]:::crate
@@ -593,6 +594,7 @@ flowchart LR
   crate_text_embeddings --> crate_math_sparse_data
   crate_text_embeddings --> crate_text_core
   crate_text_embeddings --> crate_text_lexical
+  crate_text_embeddings --> crate_text_model_runtime
   crate_text_embeddings --> crate_vector_analysis_core
   crate_text_embeddings --> crate_vector_analysis_index
   crate_text_embeddings --> crate_video_analysis_core
@@ -606,6 +608,7 @@ flowchart LR
   crate_text_lexical --> crate_video_analysis_core
   crate_text_linguistics --> crate_text_core
   crate_text_linguistics --> crate_text_lexical
+  crate_text_linguistics --> crate_text_model_runtime
   crate_text_linguistics --> crate_text_transcripts
   crate_text_linguistics --> crate_video_analysis_core
   crate_text_linguistics --> crate_video_analysis_models
@@ -614,9 +617,13 @@ flowchart LR
   crate_text_linguistics_server --> crate_text_linguistics
   crate_text_linguistics_server --> crate_text_nlp_models
   crate_text_linguistics_server --> crate_video_analysis_core
+  crate_text_model_runtime --> crate_video_analysis_core
+  crate_text_model_runtime --> crate_video_analysis_models
   crate_text_nlp_cli --> crate_text_nlp_models
   crate_text_nlp_models --> crate_text_core
+  crate_text_nlp_models --> crate_text_embeddings
   crate_text_nlp_models --> crate_text_lexical
+  crate_text_nlp_models --> crate_text_model_runtime
   crate_text_nlp_models --> crate_video_analysis_core
   crate_text_nlp_models --> crate_video_analysis_models
   crate_text_retrieval --> crate_text_core
@@ -631,6 +638,7 @@ flowchart LR
   crate_text_retrieval_server --> crate_text_retrieval
   crate_text_transcripts --> crate_audio_analysis_core
   crate_text_transcripts --> crate_audio_analysis_io
+  crate_text_transcripts --> crate_text_core
   crate_text_transcripts --> crate_video_analysis_core
   crate_text_transcripts --> crate_video_analysis_ingest
   crate_text_transcripts_cli --> crate_text_transcripts

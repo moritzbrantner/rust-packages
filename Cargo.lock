@@ -3746,6 +3746,7 @@ dependencies = [
  "serde_json",
  "text-core",
  "text-lexical",
+ "text-model-runtime",
  "tokenizers",
  "vector-analysis-core",
  "vector-analysis-index",
@@ -3786,6 +3787,7 @@ dependencies = [
  "tempfile",
  "text-core",
  "text-lexical",
+ "text-model-runtime",
  "text-transcripts",
  "tokenizers",
  "video-analysis-core",
@@ -3826,6 +3828,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "text-model-runtime"
+version = "0.1.0"
+dependencies = [
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
+ "ndarray",
+ "ort",
+ "serde",
+ "serde_json",
+ "tokenizers",
+ "video-analysis-core",
+ "video-analysis-models",
+]
+
+[[package]]
 name = "text-nlp-cli"
 version = "0.1.0"
 dependencies = [
@@ -3841,7 +3859,9 @@ dependencies = [
  "serde",
  "serde_json",
  "text-core",
+ "text-embeddings",
  "text-lexical",
+ "text-model-runtime",
  "video-analysis-core",
  "video-analysis-models",
 ]
@@ -3894,6 +3914,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+ "text-core",
  "thiserror 2.0.18",
  "ureq 2.12.1",
  "video-analysis-core",

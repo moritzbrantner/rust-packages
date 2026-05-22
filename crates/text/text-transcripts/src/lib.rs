@@ -9,11 +9,14 @@ use std::process::{Command, Stdio};
 use audio_analysis_core::OwnedAudioWaveformBatch;
 use audio_analysis_io::write_waveform_batch_as_wav;
 use serde::Deserialize;
+use text_core::{tokenize, tokenize_words, TextProcessingOptions, TokenKind};
 
 mod whisper_cpp;
 
 use thiserror::Error;
-use video_analysis_core::{OwnedTextSegment, Timebase, Timestamp};
+use video_analysis_core::{
+    AnalysisEvent, OwnedTextSegment, TextAnalyzer, TextSegment, Timebase, Timestamp,
+};
 use video_analysis_ingest::{
     MediaSourceInfo, SourceMode, TextFormat as IngestTextFormat, TextSegmentSource, TextStreamInfo,
 };
@@ -123,10 +126,58 @@ pub struct TranscriptionResult {
     pub source: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+/// Optional word-level transcript timing.
+pub struct TranscriptWord {
+    /// Word text.
+    pub text: String,
+    /// Optional start time in seconds.
+    pub start_seconds: Option<f64>,
+    /// Optional end time in seconds.
+    pub end_seconds: Option<f64>,
+    /// Optional confidence.
+    pub confidence: Option<f32>,
+}
+
 /// Trait for transcriber implementations.
 pub trait Transcriber {
     /// Returns transcribe.
     fn transcribe(&mut self, input: &Path) -> Result<TranscriptionResult>;
+}
+
+#[derive(Debug, Default, Clone)]
+/// Transcript-specific deterministic analyzer.
+pub struct TranscriptHeuristicAnalyzer;
+
+impl TextAnalyzer for TranscriptHeuristicAnalyzer {
+    fn name(&self) -> &str {
+        "transcript_heuristics"
+    }
+
+    fn process_segment(
+        &mut self,
+        segment: &TextSegment<'_>,
+    ) -> video_analysis_core::Result<Vec<AnalysisEvent>> {
+        let mut events = Vec::new();
+        let text = segment.text.trim();
+        if text.ends_with(['?', '؟', '？']) {
+            events.push(event_at(self.name(), "speech:question", segment.timestamp));
+        }
+        if has_token_kind(text, TokenKind::Url) {
+            events.push(event_at(self.name(), "speech:url", segment.timestamp));
+        }
+        if has_token_kind(text, TokenKind::Number) {
+            events.push(event_at(self.name(), "speech:number", segment.timestamp));
+        }
+        if tokenize_words(text).len() >= 30 {
+            events.push(event_at(
+                self.name(),
+                "speech:long_segment",
+                segment.timestamp,
+            ));
+        }
+        Ok(events)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -651,6 +702,21 @@ fn insert_optional_display<T: fmt::Display>(
     }
 }
 
+fn has_token_kind(text: &str, kind: TokenKind) -> bool {
+    tokenize(text, &TextProcessingOptions::default())
+        .into_iter()
+        .any(|token| token.kind == kind)
+}
+
+fn event_at(analyzer: &str, label: &str, timestamp: Option<Timestamp>) -> AnalysisEvent {
+    let event = AnalysisEvent::new(analyzer, label);
+    if let Some(timestamp) = timestamp {
+        event.at_timestamp(timestamp)
+    } else {
+        event
+    }
+}
+
 fn find_transcript_json(output_dir: &Path) -> Option<PathBuf> {
     let mut candidates = fs::read_dir(output_dir)
         .ok()?
@@ -803,6 +869,29 @@ mod tests {
         );
         assert_eq!(source.next_text_segment().unwrap().unwrap().text, "hello");
         assert!(source.next_text_segment().unwrap().is_none());
+    }
+
+    #[test]
+    fn transcript_heuristic_analyzer_emits_speech_events() {
+        let segment = TextSegment {
+            segment_index: 0,
+            timestamp: None,
+            text: "Visit https://example.com at 3?",
+            language: None,
+            is_final: true,
+        };
+        let mut analyzer = TranscriptHeuristicAnalyzer;
+
+        let labels = analyzer
+            .process_segment(&segment)
+            .unwrap()
+            .into_iter()
+            .map(|event| event.label)
+            .collect::<Vec<_>>();
+
+        assert!(labels.iter().any(|label| label == "speech:question"));
+        assert!(labels.iter().any(|label| label == "speech:url"));
+        assert!(labels.iter().any(|label| label == "speech:number"));
     }
 
     #[test]

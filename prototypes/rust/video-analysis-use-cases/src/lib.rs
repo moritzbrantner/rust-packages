@@ -10,7 +10,7 @@ use std::str::FromStr;
 use audio_analysis_processing::AudioEnergyAnalyzer;
 use audio_analysis_separation::{DemucsModel, HtdemucsOptions, HtdemucsSeparator, Stem};
 use serde::{Deserialize, Serialize};
-use text_lexical::TranscriptHeuristicAnalyzer;
+use text_transcripts::TranscriptHeuristicAnalyzer;
 use text_transcripts::{
     segment_to_owned_text_segment, Transcriber, TranscriptSegment, WhisperCliTranscriber,
     WhisperCppProgressEvent, WhisperCppTranscriber,

@@ -173,6 +173,30 @@ pub struct SummarySentence {
     pub score: f32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for phrase keyword options.
+pub struct PhraseKeywordOptions {
+    /// Maximum phrases to return.
+    pub max_phrases: usize,
+    /// Minimum token count per phrase.
+    pub min_phrase_terms: usize,
+    /// Minimum term length.
+    pub min_term_len: usize,
+    /// Stop words.
+    pub stop_words: StopWords,
+}
+
+impl Default for PhraseKeywordOptions {
+    fn default() -> Self {
+        Self {
+            max_phrases: 10,
+            min_phrase_terms: 1,
+            min_term_len: 3,
+            stop_words: english_stop_words(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for sentiment lexicon.
 pub struct SentimentLexicon {
@@ -371,6 +395,51 @@ pub fn english_stop_words() -> StopWords {
     }
 }
 
+/// Returns stop words for a supported language tag.
+pub fn stop_words_for_language(language: &str) -> StopWords {
+    match language
+        .split(['-', '_'])
+        .next()
+        .unwrap_or(language)
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "de" => stop_words_from_terms(
+            "de",
+            [
+                "aber", "als", "am", "an", "auch", "auf", "aus", "bei", "das", "dem", "den", "der",
+                "des", "die", "ein", "eine", "einem", "einen", "einer", "es", "für", "hat", "ich",
+                "im", "in", "ist", "mit", "nicht", "oder", "sich", "sie", "und", "von", "war",
+                "wie", "wir", "zu",
+            ],
+        ),
+        "fr" => stop_words_from_terms(
+            "fr",
+            [
+                "au", "aux", "avec", "ce", "ces", "dans", "de", "des", "du", "elle", "en", "est",
+                "et", "eux", "il", "ils", "je", "la", "le", "les", "leur", "mais", "nous", "ou",
+                "par", "pas", "pour", "que", "qui", "sur", "un", "une", "vous",
+            ],
+        ),
+        "es" => stop_words_from_terms(
+            "es",
+            [
+                "a", "al", "como", "con", "de", "del", "el", "ella", "en", "es", "esa", "ese",
+                "esta", "este", "la", "las", "lo", "los", "mas", "no", "nos", "o", "para", "pero",
+                "por", "que", "se", "sin", "su", "sus", "un", "una", "y", "yo",
+            ],
+        ),
+        _ => english_stop_words(),
+    }
+}
+
+fn stop_words_from_terms<const N: usize>(language: &str, terms: [&str; N]) -> StopWords {
+    StopWords {
+        language: Some(language.to_string()),
+        terms: terms.into_iter().map(String::from).collect(),
+    }
+}
+
 /// Returns keywords.
 pub fn keywords(text: &str, options: &KeywordOptions) -> Vec<Keyword> {
     let processing = TextProcessingOptions::default();
@@ -409,6 +478,73 @@ pub fn keywords(text: &str, options: &KeywordOptions) -> Vec<Keyword> {
     });
     terms.truncate(options.max_terms);
     terms
+}
+
+/// Extracts RAKE-like phrase keywords from contiguous non-stop-word terms.
+pub fn phrase_keywords(text: &str, options: &PhraseKeywordOptions) -> Vec<Keyword> {
+    let mut phrases = Vec::<Vec<String>>::new();
+    let mut current = Vec::<String>::new();
+    for token in tokenize(text, &TextProcessingOptions::default()) {
+        if !matches!(token.kind, TokenKind::Word | TokenKind::Number) {
+            if !current.is_empty() {
+                phrases.push(std::mem::take(&mut current));
+            }
+            continue;
+        }
+        if token.normalized.chars().count() < options.min_term_len
+            || options.stop_words.terms.contains(&token.normalized)
+        {
+            if !current.is_empty() {
+                phrases.push(std::mem::take(&mut current));
+            }
+            continue;
+        }
+        current.push(token.normalized);
+    }
+    if !current.is_empty() {
+        phrases.push(current);
+    }
+
+    let mut term_frequency = BTreeMap::<String, usize>::new();
+    let mut term_degree = BTreeMap::<String, usize>::new();
+    for phrase in &phrases {
+        let degree = phrase.len().saturating_sub(1);
+        for term in phrase {
+            *term_frequency.entry(term.clone()).or_insert(0) += 1;
+            *term_degree.entry(term.clone()).or_insert(0) += degree;
+        }
+    }
+    let term_scores = term_frequency
+        .iter()
+        .map(|(term, frequency)| {
+            let degree = term_degree.get(term).copied().unwrap_or(0) + frequency;
+            (term.clone(), degree as f32 / (*frequency).max(1) as f32)
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    let mut scored = phrases
+        .into_iter()
+        .filter(|phrase| phrase.len() >= options.min_phrase_terms)
+        .map(|phrase| {
+            let score = phrase
+                .iter()
+                .map(|term| term_scores.get(term).copied().unwrap_or(0.0))
+                .sum::<f32>();
+            Keyword {
+                text: phrase.join(" "),
+                count: phrase.len(),
+                score,
+            }
+        })
+        .collect::<Vec<_>>();
+    scored.sort_by(|left, right| {
+        right
+            .score
+            .total_cmp(&left.score)
+            .then_with(|| left.text.cmp(&right.text))
+    });
+    scored.truncate(options.max_phrases);
+    scored
 }
 
 /// Returns character ngrams.
@@ -633,19 +769,84 @@ pub fn extractive_summary(
     Ok(ranked)
 }
 
+/// Returns an extractive summary with a simple MMR diversity penalty.
+pub fn diverse_extractive_summary(
+    text: &str,
+    options: &ExtractiveSummaryOptions,
+    diversity_weight: f32,
+) -> Result<Vec<SummarySentence>> {
+    let mut candidates = extractive_summary(
+        text,
+        &ExtractiveSummaryOptions {
+            max_sentences: options
+                .max_sentences
+                .saturating_mul(4)
+                .max(options.max_sentences),
+            ..options.clone()
+        },
+    )?;
+    if candidates.len() <= options.max_sentences {
+        return Ok(candidates);
+    }
+    let diversity_weight = diversity_weight.clamp(0.0, 1.0);
+    let mut selected = Vec::<SummarySentence>::new();
+    while selected.len() < options.max_sentences && !candidates.is_empty() {
+        let best_index = candidates
+            .iter()
+            .enumerate()
+            .max_by(|(_, left), (_, right)| {
+                let left_score = mmr_score(
+                    left,
+                    &selected,
+                    diversity_weight,
+                    &TextProcessingOptions::default(),
+                );
+                let right_score = mmr_score(
+                    right,
+                    &selected,
+                    diversity_weight,
+                    &TextProcessingOptions::default(),
+                );
+                left_score
+                    .total_cmp(&right_score)
+                    .then_with(|| right.index.cmp(&left.index))
+            })
+            .map(|(index, _)| index)
+            .unwrap_or(0);
+        selected.push(candidates.remove(best_index));
+    }
+    selected.sort_by_key(|sentence| sentence.index);
+    Ok(selected)
+}
+
 /// Returns sentiment.
 pub fn sentiment(text: &str, lexicon: &SentimentLexicon) -> SentimentSummary {
     let mut positive_score = 0.0_f32;
     let mut negative_score = 0.0_f32;
     let mut matched_terms = 0;
     let tokens = tokenize_words(text);
-    for token in &tokens {
+    for (index, token) in tokens.iter().enumerate() {
         if let Some(score) = lexicon.terms.get(token) {
             matched_terms += 1;
-            if *score >= 0.0 {
-                positive_score += *score;
+            let previous = index
+                .checked_sub(1)
+                .and_then(|index| tokens.get(index))
+                .map(String::as_str);
+            let before_previous = index
+                .checked_sub(2)
+                .and_then(|index| tokens.get(index))
+                .map(String::as_str);
+            let mut adjusted = *score;
+            if previous.is_some_and(is_intensifier) || before_previous.is_some_and(is_intensifier) {
+                adjusted *= 1.5;
+            }
+            if previous.is_some_and(is_negation) || before_previous.is_some_and(is_negation) {
+                adjusted *= -0.75;
+            }
+            if adjusted >= 0.0 {
+                positive_score += adjusted;
             } else {
-                negative_score += score.abs();
+                negative_score += adjusted.abs();
             }
         }
     }
@@ -784,9 +985,11 @@ impl TextAnalyzer for PatternAnalyzer {
 }
 
 #[derive(Debug, Default, Clone)]
+#[deprecated(note = "use text_transcripts::TranscriptHeuristicAnalyzer")]
 /// Data type for transcript heuristic analyzer.
 pub struct TranscriptHeuristicAnalyzer;
 
+#[allow(deprecated)]
 impl TextAnalyzer for TranscriptHeuristicAnalyzer {
     fn name(&self) -> &str {
         "transcript_heuristics"
@@ -933,6 +1136,37 @@ fn ngram_frequencies(ngrams: Vec<Vec<String>>) -> Vec<NgramFrequency> {
             .then_with(|| left.terms.cmp(&right.terms))
     });
     frequencies
+}
+
+fn mmr_score(
+    candidate: &SummarySentence,
+    selected: &[SummarySentence],
+    diversity_weight: f32,
+    options: &TextProcessingOptions,
+) -> f32 {
+    let redundancy = selected
+        .iter()
+        .map(|sentence| {
+            token_shingle_similarity(&candidate.text, &sentence.text, 2, options)
+                .map(|similarity| similarity.jaccard)
+                .unwrap_or(0.0)
+        })
+        .fold(0.0_f32, f32::max);
+    (1.0 - diversity_weight) * candidate.score - diversity_weight * redundancy
+}
+
+fn is_negation(term: &str) -> bool {
+    matches!(
+        term,
+        "not" | "no" | "never" | "none" | "nicht" | "kein" | "pas"
+    )
+}
+
+fn is_intensifier(term: &str) -> bool {
+    matches!(
+        term,
+        "very" | "really" | "extremely" | "so" | "too" | "sehr" | "tres" | "très" | "muy"
+    )
 }
 
 fn pattern_events(analyzer: &str, text: &str, timestamp: Option<Timestamp>) -> Vec<AnalysisEvent> {
@@ -1093,6 +1327,24 @@ mod tests {
     }
 
     #[test]
+    fn selects_language_stop_words() {
+        let german = stop_words_for_language("de-DE");
+        assert_eq!(german.language.as_deref(), Some("de"));
+        assert!(german.terms.contains("und"));
+    }
+
+    #[test]
+    fn extracts_phrase_keywords() {
+        let phrases = phrase_keywords(
+            "Fast video analysis, reliable transcript analysis, and semantic search.",
+            &PhraseKeywordOptions::default(),
+        );
+        assert!(phrases
+            .iter()
+            .any(|phrase| phrase.text.contains("video analysis")));
+    }
+
+    #[test]
     fn counts_token_ngram_frequencies() {
         let ngrams =
             token_ngram_frequencies("red blue red blue green", 2, &Default::default()).unwrap();
@@ -1180,6 +1432,21 @@ mod tests {
     }
 
     #[test]
+    fn diversity_summary_limits_redundant_sentences() {
+        let summary = diverse_extractive_summary(
+            "Rust video analysis finds scenes. Rust video analysis finds motion. Audio cues help reports.",
+            &ExtractiveSummaryOptions {
+                max_sentences: 2,
+                min_sentence_words: 3,
+                ..ExtractiveSummaryOptions::default()
+            },
+            0.7,
+        )
+        .unwrap();
+        assert_eq!(summary.len(), 2);
+    }
+
+    #[test]
     fn scores_sentiment_polarity_and_neutral_text() {
         let lexicon = SentimentLexicon::default();
         assert_eq!(
@@ -1191,6 +1458,7 @@ mod tests {
             "negative"
         );
         assert_eq!(sentiment("table chair window", &lexicon).label, "neutral");
+        assert_eq!(sentiment("not good", &lexicon).label, "negative");
     }
 
     #[test]
@@ -1238,6 +1506,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn analyzers_run_inside_text_pipeline() {
         let mut pipeline = TextPipeline::builder()
             .analyzer(TextStatsAnalyzer)

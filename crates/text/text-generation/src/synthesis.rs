@@ -52,6 +52,32 @@ pub struct TextSynthesisOptions {
     pub language: Option<String>,
 }
 
+/// Trait for deterministic or model-backed text synthesis backends.
+pub trait TextSynthesisBackend {
+    /// Synthesizes a text document from weighted term prompts.
+    fn synthesize_from_terms(
+        &mut self,
+        id: &str,
+        terms: &[TermPrompt],
+        options: TextSynthesisOptions,
+    ) -> Result<Generated<OwnedTextDocument>>;
+}
+
+#[derive(Debug, Default, Clone)]
+/// Deterministic template-based synthesis backend.
+pub struct TemplateTextSynthesisBackend;
+
+impl TextSynthesisBackend for TemplateTextSynthesisBackend {
+    fn synthesize_from_terms(
+        &mut self,
+        id: &str,
+        terms: &[TermPrompt],
+        options: TextSynthesisOptions,
+    ) -> Result<Generated<OwnedTextDocument>> {
+        synthesize_from_terms(id, terms, options)
+    }
+}
+
 impl Default for TextSynthesisOptions {
     fn default() -> Self {
         Self {

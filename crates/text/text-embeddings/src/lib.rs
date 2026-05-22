@@ -24,6 +24,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use text_core::{segment_document_id, tokenize_words, AnnotationProvenance, TextDocument};
 use text_lexical::{term_counts, CorpusOptions, TfIdfCorpus};
+pub use text_model_runtime::TokenizedText;
+#[cfg(feature = "tokenizers")]
+use text_model_runtime::TokenizerBundle;
 use vector_analysis_core::cosine_similarity;
 /// Re-exports the dense vector API.
 pub use vector_analysis_core::DenseVector;
@@ -201,145 +204,6 @@ pub enum PoolingStrategy {
     Cls,
     /// Mean-pool unmasked tokens.
     Mean,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// Data type for tokenized text used by native embedding runtimes.
-pub struct TokenizedText {
-    /// The input identifiers value.
-    pub input_ids: Vec<i64>,
-    /// The attention mask value.
-    pub attention_mask: Vec<i64>,
-    /// The token type identifiers value.
-    pub token_type_ids: Option<Vec<i64>>,
-    /// The offsets value.
-    pub offsets: Vec<Option<(usize, usize)>>,
-}
-
-#[cfg(feature = "tokenizers")]
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// Data type for tokenizer bundle.
-pub struct TokenizerBundle {
-    tokenizer_path: PathBuf,
-    /// The max length value.
-    pub max_length: Option<usize>,
-}
-
-#[cfg(feature = "tokenizers")]
-impl TokenizerBundle {
-    /// Creates a new value.
-    pub fn new(tokenizer_path: impl Into<PathBuf>) -> Self {
-        Self {
-            tokenizer_path: tokenizer_path.into(),
-            max_length: None,
-        }
-    }
-
-    /// Builds this value from bundle.
-    pub fn from_bundle(bundle: &ModelBundle) -> Result<Self> {
-        let tokenizer_path = bundle
-            .file_path("tokenizer.json")
-            .or_else(|| bundle.file_path("vocab.txt"))
-            .ok_or_else(|| {
-                invalid_argument(format!(
-                    "model bundle `{}` is missing required tokenizer file `tokenizer.json` or `vocab.txt`",
-                    bundle.manifest.name
-                ))
-            })?;
-        Ok(Self::new(tokenizer_path))
-    }
-
-    /// Returns max length.
-    pub fn max_length(mut self, max_length: usize) -> Self {
-        self.max_length = Some(max_length);
-        self
-    }
-
-    /// Returns tokenizer path.
-    pub fn tokenizer_path(&self) -> &Path {
-        &self.tokenizer_path
-    }
-
-    /// Returns tokenize.
-    pub fn tokenize(&self, text: &str) -> Result<TokenizedText> {
-        let tokenizer = load_tokenizer(&self.tokenizer_path)?;
-        let encoding = tokenizer
-            .encode(text, true)
-            .map_err(|err| DetectError::Source(format!("failed to tokenize text: {err}")))?;
-        let mut tokenized = TokenizedText {
-            input_ids: encoding
-                .get_ids()
-                .iter()
-                .map(|value| i64::from(*value))
-                .collect(),
-            attention_mask: encoding
-                .get_attention_mask()
-                .iter()
-                .map(|value| i64::from(*value))
-                .collect(),
-            token_type_ids: Some(
-                encoding
-                    .get_type_ids()
-                    .iter()
-                    .map(|value| i64::from(*value))
-                    .collect(),
-            ),
-            offsets: encoding
-                .get_offsets()
-                .iter()
-                .map(|(start, end)| Some((*start, *end)))
-                .collect(),
-        };
-        if let Some(max_length) = self.max_length {
-            tokenized.input_ids.truncate(max_length);
-            tokenized.attention_mask.truncate(max_length);
-            if let Some(token_type_ids) = &mut tokenized.token_type_ids {
-                token_type_ids.truncate(max_length);
-            }
-            tokenized.offsets.truncate(max_length);
-        }
-        Ok(tokenized)
-    }
-}
-
-#[cfg(feature = "tokenizers")]
-fn load_tokenizer(path: &Path) -> Result<tokenizers::Tokenizer> {
-    if path.file_name().and_then(|value| value.to_str()) == Some("vocab.txt") {
-        let vocab_path = path.to_str().ok_or_else(|| {
-            invalid_argument(format!(
-                "tokenizer vocab path is not valid UTF-8: {}",
-                path.display()
-            ))
-        })?;
-        let model = tokenizers::models::wordpiece::WordPiece::from_file(vocab_path)
-            .build()
-            .map_err(|err| {
-                DetectError::Source(format!(
-                    "failed to load WordPiece vocab `{}`: {err}",
-                    path.display()
-                ))
-            })?;
-        let vocab = tokenizers::Model::get_vocab(&model);
-        let cls_id = *vocab.get("[CLS]").unwrap_or(&101);
-        let sep_id = *vocab.get("[SEP]").unwrap_or(&102);
-        let mut tokenizer = tokenizers::Tokenizer::new(model);
-        tokenizer.with_normalizer(Some(
-            tokenizers::normalizers::bert::BertNormalizer::default(),
-        ));
-        tokenizer.with_pre_tokenizer(Some(tokenizers::pre_tokenizers::bert::BertPreTokenizer));
-        tokenizer.with_post_processor(Some(tokenizers::processors::bert::BertProcessing::new(
-            ("[SEP]".to_string(), sep_id),
-            ("[CLS]".to_string(), cls_id),
-        )));
-        return Ok(tokenizer);
-    }
-
-    tokenizers::Tokenizer::from_file(path).map_err(|err| {
-        DetectError::Source(format!(
-            "failed to load tokenizer `{}`: {err}",
-            path.display()
-        ))
-    })
 }
 
 #[cfg(feature = "onnx")]
