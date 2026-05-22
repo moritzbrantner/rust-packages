@@ -95,8 +95,6 @@ pub use text_linguistics;
 pub use text_retrieval;
 /// Re-exports the text transcripts API.
 pub use text_transcripts;
-/// Re-exports the Whisper.cpp text transcription API.
-pub use text_whisper_cpp;
 /// Re-exports the three d core API.
 pub use three_d_processing_core as three_d_core;
 /// Re-exports the three d I/O API.

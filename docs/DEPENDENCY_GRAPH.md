@@ -172,7 +172,6 @@ flowchart LR
     crate_text_transcripts["text-transcripts"]:::crate
     crate_text_transcripts_cli["text-transcripts-cli"]:::crate
     crate_text_transcripts_server["text-transcripts-server"]:::crate
-    crate_text_whisper_cpp["text-whisper-cpp"]:::crate
   end
 
   subgraph group_vector["Vector"]
@@ -388,7 +387,6 @@ flowchart LR
   crate_video_analysis --> crate_text_nlp_models
   crate_video_analysis --> crate_text_retrieval
   crate_video_analysis --> crate_text_transcripts
-  crate_video_analysis --> crate_text_whisper_cpp
   crate_video_analysis --> crate_vector_analysis_core
   crate_video_analysis --> crate_vector_analysis_index
   crate_video_analysis --> crate_three_d_processing_core
@@ -633,7 +631,6 @@ flowchart LR
   crate_text_retrieval_server --> crate_text_retrieval
   crate_text_transcripts --> crate_audio_analysis_core
   crate_text_transcripts --> crate_audio_analysis_io
-  crate_text_transcripts --> crate_text_whisper_cpp
   crate_text_transcripts --> crate_video_analysis_core
   crate_text_transcripts --> crate_video_analysis_ingest
   crate_text_transcripts_cli --> crate_text_transcripts

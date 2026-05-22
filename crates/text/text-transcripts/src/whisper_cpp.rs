@@ -1,6 +1,7 @@
-//! Native whisper.cpp transcription bindings and model management.
+//! Native whisper.cpp transcription support for text transcripts.
 
 #[cfg(feature = "native")]
+#[path = "ffi.rs"]
 mod ffi;
 
 #[cfg(feature = "native")]
@@ -613,7 +614,7 @@ fn transcribe_impl(
     _progress: &mut ProgressSink<'_>,
 ) -> Result<WhisperCppTranscription> {
     Err(WhisperCppError::Initialization(
-        "text-whisper-cpp was built without the `native` feature".to_string(),
+        "text-transcripts was built without the `native` feature".to_string(),
     ))
 }
 

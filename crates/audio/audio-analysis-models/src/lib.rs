@@ -582,7 +582,7 @@ pub fn model_catalog(task: Option<AudioTask>) -> Vec<AudioModelMetadata> {
             AudioRuntime::WhisperCpp,
             false,
             None,
-            Some("Use text-transcripts/text-whisper-cpp or imported segments for execution."),
+            Some("Use text-transcripts native whisper.cpp support or imported segments for execution."),
         ),
         metadata(
             "wav2vec2-base-960h",
@@ -820,7 +820,7 @@ pub fn transcribe_audio(request: SpeechRecognitionRequest) -> Result<SpeechRecog
     }
 
     unsupported_runtime(
-        "native speech recognition requires text-transcripts/text-whisper-cpp execution or imported segments",
+        "native speech recognition requires text-transcripts native whisper.cpp execution or imported segments",
     )
 }
 

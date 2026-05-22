@@ -112,7 +112,6 @@ text-generation = { version = "0.1.0", path = "crates/text/text-generation" }
 text-retrieval = { version = "0.1.0", path = "crates/text/text-retrieval" }
 text-embeddings = { version = "0.1.0", path = "crates/text/text-embeddings" }
 text-transcripts = { version = "0.1.0", path = "crates/text/text-transcripts" }
-text-whisper-cpp = { version = "0.1.0", path = "crates/text/text-whisper-cpp" }
 vector-analysis-core = { version = "0.1.0", path = "crates/vector/vector-analysis-core" }
 vector-analysis-index = { version = "0.1.0", path = "crates/vector/vector-analysis-index" }
 three-d-processing-core = { version = "0.1.0", path = "crates/three-d/three-d-processing-core" }
@@ -237,7 +236,6 @@ text-generation.workspace = true
 text-retrieval.workspace = true
 text-embeddings.workspace = true
 text-transcripts.workspace = true
-text-whisper-cpp.workspace = true
 vector-analysis-core.workspace = true
 vector-analysis-index.workspace = true
 three-d-processing-core.workspace = true

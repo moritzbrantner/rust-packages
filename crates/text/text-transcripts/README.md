@@ -1,10 +1,11 @@
 # text-transcripts
 
-Transcript parsing and ASR command adapters for `video-analysis`.
+Transcript parsing, ASR command adapters, and native whisper.cpp support for `video-analysis`.
 
 ## Feature flags
 
 - `external-tests`: enables ignored CLI-backed smoke tests
+- `native`: builds bundled whisper.cpp support for offline transcription
 
 ## Example
 

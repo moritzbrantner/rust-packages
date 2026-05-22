@@ -9,17 +9,20 @@ use std::process::{Command, Stdio};
 use audio_analysis_core::OwnedAudioWaveformBatch;
 use audio_analysis_io::write_waveform_batch_as_wav;
 use serde::Deserialize;
-/// Re-exports the text analysis whisper cpp API.
-pub use text_whisper_cpp::{
-    transcription_catalog as whisper_cpp_catalog, whisper_cpp_system_info,
-    ModelStore as WhisperCppModelStore, WhisperCppCatalog, WhisperCppConfig, WhisperCppModel,
-    WhisperCppModelStatus, WhisperCppPhase, WhisperCppProgressEvent, WhisperCppSegment,
-    WhisperCppTranscriber as NativeWhisperCppTranscriber,
-};
+
+mod whisper_cpp;
+
 use thiserror::Error;
 use video_analysis_core::{OwnedTextSegment, Timebase, Timestamp};
 use video_analysis_ingest::{
     MediaSourceInfo, SourceMode, TextFormat as IngestTextFormat, TextSegmentSource, TextStreamInfo,
+};
+/// Re-exports the text transcript native whisper.cpp API.
+pub use whisper_cpp::{
+    transcription_catalog as whisper_cpp_catalog, whisper_cpp_system_info,
+    ModelStore as WhisperCppModelStore, WhisperCppCatalog, WhisperCppConfig, WhisperCppError,
+    WhisperCppModel, WhisperCppModelStatus, WhisperCppPhase, WhisperCppProgressEvent,
+    WhisperCppSegment, WhisperCppTranscriber as NativeWhisperCppTranscriber,
 };
 
 #[derive(Debug, Error)]
@@ -42,7 +45,7 @@ pub enum TranscriptionError {
     Detect(#[from] video_analysis_core::DetectError),
     #[error("{0}")]
     /// The whisper cpp variant.
-    WhisperCpp(#[from] text_whisper_cpp::WhisperCppError),
+    WhisperCpp(#[from] WhisperCppError),
 }
 
 /// Type alias for result.
@@ -282,7 +285,7 @@ impl Transcriber for WhisperCppTranscriber {
 }
 
 fn whisper_cpp_result_to_transcription_result(
-    transcript: text_whisper_cpp::WhisperCppTranscription,
+    transcript: whisper_cpp::WhisperCppTranscription,
 ) -> TranscriptionResult {
     TranscriptionResult {
         text: transcript.text,

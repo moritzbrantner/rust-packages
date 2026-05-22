@@ -15,16 +15,22 @@ categories.workspace = true
 [dependencies]
 audio-analysis-core.workspace = true
 audio-analysis-io.workspace = true
+hound.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2 = "0.10.9"
 thiserror.workspace = true
-text-whisper-cpp.workspace = true
+ureq = { version = "2.12.1", default-features = true }
 video-analysis-core.workspace = true
 video-analysis-ingest.workspace = true
 
 [features]
 default = []
 external-tests = []
+native = []
+
+[build-dependencies]
+cmake = "0.1.54"
 
 [dev-dependencies]
 tempfile.workspace = true

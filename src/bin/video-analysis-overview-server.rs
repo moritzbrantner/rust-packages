@@ -15,9 +15,8 @@ use video_analysis::{
     output, posture, posture_io, radiance_fields, radiance_io, radiance_pipeline, recognition,
     reconstruction, sfm, sfm_rust_backend, signal, sparse, split, stats, storage, synthesis,
     tensor_data, text_core, text_embeddings, text_generation, text_lexical, text_linguistics,
-    text_retrieval, text_transcripts, text_whisper_cpp, three_d_core, three_d_io, three_d_mesh,
-    three_d_scene, tracking, transform, vector_core, vector_index, video_segmentation, Timebase,
-    Timestamp,
+    text_retrieval, text_transcripts, three_d_core, three_d_io, three_d_mesh, three_d_scene,
+    tracking, transform, vector_core, vector_index, video_segmentation, Timebase, Timestamp,
 };
 
 #[cfg(feature = "onnx-backend")]
@@ -1514,13 +1513,6 @@ const MODULES: &[ModuleInfo] = &[
     ModuleInfo {
         package: "text-transcripts",
         import_path: "video_analysis::text_transcripts",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-whisper-cpp",
-        import_path: "video_analysis::text_whisper_cpp",
         domain: "text",
         linked: true,
         required_feature: None,
