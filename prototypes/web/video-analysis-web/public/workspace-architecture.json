@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-22T19:57:50.549Z",
+  "generatedAt": "2026-05-22T22:36:02.145Z",
   "packages": [
     {
       "name": "video-analysis",
@@ -4378,54 +4378,6 @@
       ]
     },
     {
-      "name": "audio-analysis-models",
-      "kind": "rust",
-      "domain": "audio",
-      "path": "crates/audio/audio-analysis-models",
-      "description": "Shared schemas and fallback runners for model-backed audio tasks.",
-      "role": "Shared audio model task schemas and fallbacks",
-      "exposes": [
-        "Hugging Face audio model catalog",
-        "task/runtime metadata",
-        "imported prediction schemas",
-        "deterministic fallback runners for classification",
-        "events",
-        "embeddings",
-        "ASR",
-        "diarization",
-        "separation",
-        "and generation planning"
-      ],
-      "consumedBy": [
-        "CLI",
-        "server",
-        "UI model task surfaces"
-      ],
-      "tags": [
-        "analysis_events",
-        "vectors_and_embeddings",
-        "model_predictions"
-      ],
-      "capabilities": [
-        {
-          "kind": "library",
-          "entrypoint": "use audio_analysis_models"
-        },
-        {
-          "kind": "cli",
-          "entrypoint": "audio-analysis-models/cli (package audio-analysis-models-cli)"
-        },
-        {
-          "kind": "api",
-          "entrypoint": "audio-analysis-models/api (package audio-analysis-models-server)"
-        },
-        {
-          "kind": "ui",
-          "entrypoint": "audio-analysis-models/app (package audio-analysis-models-app)"
-        }
-      ]
-    },
-    {
       "name": "audio-analysis-pitch",
       "kind": "rust",
       "domain": "audio",
@@ -5261,6 +5213,43 @@
         {
           "kind": "ui",
           "entrypoint": "audio-analysis-synthesis-server/app (package audio-analysis-synthesis-server-app)"
+        }
+      ]
+    },
+    {
+      "name": "audio-analysis-tasks",
+      "kind": "rust",
+      "domain": "audio",
+      "path": "crates/audio/audio-analysis-tasks",
+      "description": "Aggregate audio task DTOs, catalog metadata, and routing helpers.",
+      "role": "Aggregate audio task schemas and routing helpers",
+      "exposes": [
+        "Audio task/runtime catalog",
+        "compatibility /api/models helpers",
+        "and re-exported capability request/response DTOs"
+      ],
+      "consumedBy": [
+        "CLI",
+        "server",
+        "UI broad audio task surfaces"
+      ],
+      "tags": [],
+      "capabilities": [
+        {
+          "kind": "library",
+          "entrypoint": "use audio_analysis_tasks"
+        },
+        {
+          "kind": "cli",
+          "entrypoint": "audio-analysis-tasks/cli (package audio-analysis-tasks-cli)"
+        },
+        {
+          "kind": "api",
+          "entrypoint": "audio-analysis-tasks/api (package audio-analysis-tasks-server)"
+        },
+        {
+          "kind": "ui",
+          "entrypoint": "audio-analysis-tasks/app (package audio-analysis-tasks-app)"
         }
       ]
     },
@@ -6848,6 +6837,37 @@
       ]
     },
     {
+      "name": "text-generation-linguistics",
+      "kind": "rust",
+      "domain": "text",
+      "path": "crates/text/text-generation-linguistics",
+      "description": "Adapters from text-linguistics analysis outputs into text-generation.",
+      "role": "Adapters from text-linguistics analysis outputs into text-generation.",
+      "exposes": [],
+      "consumedBy": [],
+      "tags": [
+        "reports_and_outputs"
+      ],
+      "capabilities": [
+        {
+          "kind": "library",
+          "entrypoint": "use text_generation_linguistics"
+        },
+        {
+          "kind": "cli",
+          "entrypoint": "text-generation-linguistics/cli (package text-generation-linguistics-cli)"
+        },
+        {
+          "kind": "api",
+          "entrypoint": "text-generation-linguistics/api (package text-generation-linguistics-server)"
+        },
+        {
+          "kind": "ui",
+          "entrypoint": "text-generation-linguistics/app (package text-generation-linguistics-app)"
+        }
+      ]
+    },
+    {
       "name": "text-lexical",
       "kind": "rust",
       "domain": "text",
@@ -7115,8 +7135,8 @@
       "kind": "rust",
       "domain": "text",
       "path": "crates/text/text-nlp-models",
-      "description": "Shared schemas and fallback runners for model-backed NLP tasks.",
-      "role": "Shared schemas and fallback runners for model-backed NLP tasks.",
+      "description": "Compatibility crate for text-nlp-tasks.",
+      "role": "Compatibility crate for text-nlp-tasks.",
       "exposes": [],
       "consumedBy": [],
       "tags": [],
@@ -7136,6 +7156,85 @@
         {
           "kind": "ui",
           "entrypoint": "text-nlp-models/app (package text-nlp-models-app)"
+        }
+      ]
+    },
+    {
+      "name": "text-nlp-server",
+      "kind": "rust",
+      "domain": "text",
+      "path": "crates/text/text-nlp-server",
+      "description": "HTTP API adapter for text-nlp-tasks.",
+      "role": "HTTP API adapter for text-nlp-tasks.",
+      "exposes": [],
+      "consumedBy": [],
+      "tags": [],
+      "capabilities": [
+        {
+          "kind": "library",
+          "entrypoint": "use text_nlp_server"
+        },
+        {
+          "kind": "cli",
+          "entrypoint": "text-nlp-server/cli (package text-nlp-server-cli)"
+        },
+        {
+          "kind": "api",
+          "entrypoint": "text-nlp-server/api (package text-nlp-server-server)"
+        },
+        {
+          "kind": "ui",
+          "entrypoint": "text-nlp-server/app (package text-nlp-server-app)"
+        }
+      ]
+    },
+    {
+      "name": "text-nlp-tasks",
+      "kind": "rust",
+      "domain": "text",
+      "path": "crates/text/text-nlp-tasks",
+      "description": "Shared request/response schemas, catalogs, and fallback runners for text NLP tasks.",
+      "role": "Shared request/response schemas, catalogs, and fallback runners for text NLP tasks.",
+      "exposes": [],
+      "consumedBy": [],
+      "tags": [],
+      "capabilities": [
+        {
+          "kind": "library",
+          "entrypoint": "use text_nlp_tasks"
+        },
+        {
+          "kind": "cli",
+          "entrypoint": "text-nlp-tasks/cli (package text-nlp-tasks-cli)"
+        },
+        {
+          "kind": "api",
+          "entrypoint": "text-nlp-tasks/api (package text-nlp-tasks-server)"
+        },
+        {
+          "kind": "ui",
+          "entrypoint": "text-nlp-tasks/app (package text-nlp-tasks-app)"
+        }
+      ]
+    },
+    {
+      "name": "text-nlp-wasm",
+      "kind": "rust",
+      "domain": "text",
+      "path": "crates/bindings/text-nlp-wasm",
+      "description": "WASM bindings for text-nlp-tasks.",
+      "role": "WASM bindings for text-nlp-tasks.",
+      "exposes": [],
+      "consumedBy": [],
+      "tags": [],
+      "capabilities": [
+        {
+          "kind": "library",
+          "entrypoint": "add src/lib.rs before publishing new library APIs"
+        },
+        {
+          "kind": "wasm",
+          "entrypoint": "wasm-pack build crates/bindings/text-nlp-wasm"
         }
       ]
     },
@@ -9939,6 +10038,35 @@
       ]
     },
     {
+      "name": "model-runtime",
+      "kind": "rust",
+      "domain": "data",
+      "path": "crates/runtime/model-runtime",
+      "description": "Generic model specs, bundles, downloads, and job helpers for multimodal runtimes.",
+      "role": "Generic model specs, bundles, downloads, and job helpers for multimodal runtimes.",
+      "exposes": [],
+      "consumedBy": [],
+      "tags": [],
+      "capabilities": [
+        {
+          "kind": "library",
+          "entrypoint": "use model_runtime"
+        },
+        {
+          "kind": "cli",
+          "entrypoint": "model-runtime/cli (package model-runtime-cli)"
+        },
+        {
+          "kind": "api",
+          "entrypoint": "model-runtime/api (package model-runtime-server)"
+        },
+        {
+          "kind": "ui",
+          "entrypoint": "model-runtime/app (package model-runtime-app)"
+        }
+      ]
+    },
+    {
       "name": "numbers-core",
       "kind": "rust",
       "domain": "data",
@@ -10418,16 +10546,6 @@
       "optional": false
     },
     {
-      "source": "audio-analysis-models",
-      "target": "video-analysis-core",
-      "optional": false
-    },
-    {
-      "source": "audio-analysis-models",
-      "target": "video-analysis-models",
-      "optional": false
-    },
-    {
       "source": "audio-analysis-pitch",
       "target": "audio-analysis-core",
       "optional": false
@@ -10489,27 +10607,37 @@
     },
     {
       "source": "audio-analysis-recognition",
+      "target": "model-runtime",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-recognition",
+      "target": "text-transcripts",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-recognition",
       "target": "video-analysis-core",
       "optional": false
     },
     {
       "source": "audio-analysis-recognition-cli",
-      "target": "audio-analysis-models",
+      "target": "audio-analysis-recognition",
       "optional": false
     },
     {
       "source": "audio-analysis-recognition-cli",
-      "target": "audio-analysis-recognition",
-      "optional": false
-    },
-    {
-      "source": "audio-analysis-recognition-server",
-      "target": "audio-analysis-models",
+      "target": "audio-analysis-tasks",
       "optional": false
     },
     {
       "source": "audio-analysis-recognition-server",
       "target": "audio-analysis-recognition",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-recognition-server",
+      "target": "audio-analysis-tasks",
       "optional": false
     },
     {
@@ -10536,6 +10664,16 @@
       "source": "audio-analysis-rhythm-server",
       "target": "audio-analysis-rhythm",
       "optional": false
+    },
+    {
+      "source": "audio-analysis-separation",
+      "target": "audio-analysis-recognition",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-separation",
+      "target": "jobs-core",
+      "optional": true
     },
     {
       "source": "audio-analysis-separation",
@@ -10579,6 +10717,11 @@
     },
     {
       "source": "audio-analysis-synthesis",
+      "target": "audio-analysis-recognition",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-synthesis",
       "target": "data-inversion-core",
       "optional": false
     },
@@ -10595,6 +10738,41 @@
     {
       "source": "audio-analysis-synthesis-server",
       "target": "audio-analysis-synthesis",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-tasks",
+      "target": "audio-analysis-recognition",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-tasks",
+      "target": "audio-analysis-separation",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-tasks",
+      "target": "audio-analysis-speakers",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-tasks",
+      "target": "audio-analysis-synthesis",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-tasks",
+      "target": "model-runtime",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-tasks",
+      "target": "text-transcripts",
+      "optional": false
+    },
+    {
+      "source": "audio-analysis-tasks",
+      "target": "video-analysis-core",
       "optional": false
     },
     {
@@ -10864,12 +11042,12 @@
     },
     {
       "source": "image-analysis-models",
-      "target": "video-analysis-core",
+      "target": "model-runtime",
       "optional": false
     },
     {
       "source": "image-analysis-models",
-      "target": "video-analysis-models",
+      "target": "video-analysis-core",
       "optional": false
     },
     {
@@ -10889,12 +11067,12 @@
     },
     {
       "source": "image-analysis-ocr",
-      "target": "video-analysis-core",
+      "target": "model-runtime",
       "optional": false
     },
     {
       "source": "image-analysis-ocr",
-      "target": "video-analysis-models",
+      "target": "video-analysis-core",
       "optional": false
     },
     {
@@ -10919,12 +11097,12 @@
     },
     {
       "source": "image-analysis-onnx",
-      "target": "video-analysis-core",
+      "target": "model-runtime",
       "optional": false
     },
     {
       "source": "image-analysis-onnx",
-      "target": "video-analysis-models",
+      "target": "video-analysis-core",
       "optional": false
     },
     {
@@ -11153,6 +11331,11 @@
       "optional": false
     },
     {
+      "source": "model-runtime",
+      "target": "jobs-core",
+      "optional": true
+    },
+    {
       "source": "numbers-core",
       "target": "video-analysis-core",
       "optional": false
@@ -11234,6 +11417,11 @@
     },
     {
       "source": "text-embeddings",
+      "target": "model-runtime",
+      "optional": true
+    },
+    {
+      "source": "text-embeddings",
       "target": "text-core",
       "optional": false
     },
@@ -11263,11 +11451,6 @@
       "optional": false
     },
     {
-      "source": "text-embeddings",
-      "target": "video-analysis-models",
-      "optional": true
-    },
-    {
       "source": "text-generation",
       "target": "data-inversion-core",
       "optional": false
@@ -11279,11 +11462,31 @@
     },
     {
       "source": "text-generation",
+      "target": "video-analysis-core",
+      "optional": false
+    },
+    {
+      "source": "text-generation-linguistics",
+      "target": "data-inversion-core",
+      "optional": false
+    },
+    {
+      "source": "text-generation-linguistics",
+      "target": "text-core",
+      "optional": false
+    },
+    {
+      "source": "text-generation-linguistics",
+      "target": "text-generation",
+      "optional": false
+    },
+    {
+      "source": "text-generation-linguistics",
       "target": "text-linguistics",
       "optional": false
     },
     {
-      "source": "text-generation",
+      "source": "text-generation-linguistics",
       "target": "video-analysis-core",
       "optional": false
     },
@@ -11305,7 +11508,12 @@
     {
       "source": "text-linguistics",
       "target": "jobs-core",
-      "optional": false
+      "optional": true
+    },
+    {
+      "source": "text-linguistics",
+      "target": "model-runtime",
+      "optional": true
     },
     {
       "source": "text-linguistics",
@@ -11325,16 +11533,11 @@
     {
       "source": "text-linguistics",
       "target": "text-transcripts",
-      "optional": false
+      "optional": true
     },
     {
       "source": "text-linguistics",
       "target": "video-analysis-core",
-      "optional": false
-    },
-    {
-      "source": "text-linguistics",
-      "target": "video-analysis-models",
       "optional": false
     },
     {
@@ -11349,7 +11552,7 @@
     },
     {
       "source": "text-linguistics-server",
-      "target": "text-nlp-models",
+      "target": "text-nlp-tasks",
       "optional": false
     },
     {
@@ -11369,17 +11572,17 @@
     },
     {
       "source": "text-model-runtime",
+      "target": "model-runtime",
+      "optional": true
+    },
+    {
+      "source": "text-model-runtime",
       "target": "video-analysis-core",
       "optional": false
     },
     {
-      "source": "text-model-runtime",
-      "target": "video-analysis-models",
-      "optional": false
-    },
-    {
       "source": "text-nlp-cli",
-      "target": "text-nlp-models",
+      "target": "text-nlp-tasks",
       "optional": false
     },
     {
@@ -11408,8 +11611,28 @@
       "optional": false
     },
     {
-      "source": "text-nlp-models",
-      "target": "video-analysis-models",
+      "source": "text-nlp-server",
+      "target": "text-nlp-tasks",
+      "optional": false
+    },
+    {
+      "source": "text-nlp-server",
+      "target": "video-analysis-core",
+      "optional": false
+    },
+    {
+      "source": "text-nlp-tasks",
+      "target": "text-nlp-models",
+      "optional": false
+    },
+    {
+      "source": "text-nlp-wasm",
+      "target": "text-nlp-tasks",
+      "optional": false
+    },
+    {
+      "source": "text-nlp-wasm",
+      "target": "video-analysis-core",
       "optional": false
     },
     {
@@ -11430,7 +11653,7 @@
     {
       "source": "text-retrieval",
       "target": "text-transcripts",
-      "optional": false
+      "optional": true
     },
     {
       "source": "text-retrieval",
@@ -11639,11 +11862,6 @@
     },
     {
       "source": "video-analysis",
-      "target": "audio-analysis-models",
-      "optional": false
-    },
-    {
-      "source": "video-analysis",
       "target": "audio-analysis-pitch",
       "optional": false
     },
@@ -11675,6 +11893,11 @@
     {
       "source": "video-analysis",
       "target": "audio-analysis-synthesis",
+      "optional": false
+    },
+    {
+      "source": "video-analysis",
+      "target": "audio-analysis-tasks",
       "optional": false
     },
     {
@@ -11809,6 +12032,11 @@
     },
     {
       "source": "video-analysis",
+      "target": "model-runtime",
+      "optional": false
+    },
+    {
+      "source": "video-analysis",
       "target": "numbers-core",
       "optional": false
     },
@@ -11834,6 +12062,11 @@
     },
     {
       "source": "video-analysis",
+      "target": "text-generation-linguistics",
+      "optional": false
+    },
+    {
+      "source": "video-analysis",
       "target": "text-lexical",
       "optional": false
     },
@@ -11844,7 +12077,7 @@
     },
     {
       "source": "video-analysis",
-      "target": "text-nlp-models",
+      "target": "text-nlp-tasks",
       "optional": false
     },
     {
@@ -12035,6 +12268,11 @@
     {
       "source": "video-analysis",
       "target": "video-analysis-transform",
+      "optional": false
+    },
+    {
+      "source": "video-analysis-cli",
+      "target": "model-runtime",
       "optional": false
     },
     {
@@ -12304,6 +12542,11 @@
     },
     {
       "source": "video-analysis-models",
+      "target": "model-runtime",
+      "optional": false
+    },
+    {
+      "source": "video-analysis-models",
       "target": "three-d-processing-core",
       "optional": false
     },
@@ -12370,6 +12613,11 @@
     {
       "source": "video-analysis-onnx",
       "target": "image-analysis-onnx",
+      "optional": false
+    },
+    {
+      "source": "video-analysis-onnx",
+      "target": "model-runtime",
       "optional": false
     },
     {
@@ -12609,12 +12857,12 @@
     },
     {
       "source": "video-analysis-segmentation",
-      "target": "video-analysis-core",
+      "target": "model-runtime",
       "optional": false
     },
     {
       "source": "video-analysis-segmentation",
-      "target": "video-analysis-models",
+      "target": "video-analysis-core",
       "optional": false
     },
     {
@@ -12850,6 +13098,11 @@
     {
       "source": "video-analysis-use-cases",
       "target": "image-analysis-io",
+      "optional": false
+    },
+    {
+      "source": "video-analysis-use-cases",
+      "target": "model-runtime",
       "optional": false
     },
     {
@@ -13301,6 +13554,23 @@
     {
       "packages": [
         "video-analysis-dataset",
+        "video-analysis-posture"
+      ],
+      "directDependency": true,
+      "sharedTags": [
+        "poses_and_keypoints",
+        "three_d_geometry"
+      ],
+      "reasons": [
+        "video-analysis-dataset depends on video-analysis-posture",
+        "poses and keypoints",
+        "3D geometry"
+      ],
+      "strength": 4
+    },
+    {
+      "packages": [
+        "video-analysis-dataset",
         "video-analysis-transform"
       ],
       "directDependency": true,
@@ -13329,23 +13599,6 @@
         "video-analysis-features depends on video-analysis-transform",
         "scenes and cuts",
         "datasets"
-      ],
-      "strength": 4
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
-        "video-analysis-dataset"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "poses_and_keypoints",
-        "three_d_geometry"
-      ],
-      "reasons": [
-        "video-analysis-dataset depends on video-analysis-posture",
-        "poses and keypoints",
-        "3D geometry"
       ],
       "strength": 4
     },
@@ -13504,21 +13757,6 @@
     },
     {
       "packages": [
-        "audio-analysis-models",
-        "video-analysis-models"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "audio-analysis-models depends on video-analysis-models",
-        "model predictions"
-      ],
-      "strength": 3
-    },
-    {
-      "packages": [
         "audio-analysis-recognition",
         "audio-analysis-speakers"
       ],
@@ -13529,6 +13767,21 @@
       "reasons": [
         "audio-analysis-speakers depends on audio-analysis-recognition",
         "vectors and embeddings"
+      ],
+      "strength": 3
+    },
+    {
+      "packages": [
+        "audio-analysis-recognition",
+        "audio-analysis-synthesis"
+      ],
+      "directDependency": true,
+      "sharedTags": [
+        "analysis_events"
+      ],
+      "reasons": [
+        "audio-analysis-synthesis depends on audio-analysis-recognition",
+        "analysis events"
       ],
       "strength": 3
     },
@@ -13637,6 +13890,21 @@
       "reasons": [
         "comfyui-models-server depends on comfyui-models",
         "ComfyUI workflows"
+      ],
+      "strength": 3
+    },
+    {
+      "packages": [
+        "data-inversion-core",
+        "text-generation-linguistics"
+      ],
+      "directDependency": true,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "text-generation-linguistics depends on data-inversion-core",
+        "reports and outputs"
       ],
       "strength": 3
     },
@@ -13957,6 +14225,21 @@
     },
     {
       "packages": [
+        "image-analysis-processing",
+        "math-geometry-2d"
+      ],
+      "directDependency": true,
+      "sharedTags": [
+        "images"
+      ],
+      "reasons": [
+        "image-analysis-processing depends on math-geometry-2d",
+        "images"
+      ],
+      "strength": 3
+    },
+    {
+      "packages": [
         "image-analysis-segmentation",
         "image-analysis-models"
       ],
@@ -14011,21 +14294,6 @@
       ],
       "reasons": [
         "image-analysis-synthesis-server depends on image-analysis-synthesis",
-        "images"
-      ],
-      "strength": 3
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
-        "image-analysis-processing"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "images"
-      ],
-      "reasons": [
-        "image-analysis-processing depends on math-geometry-2d",
         "images"
       ],
       "strength": 3
@@ -14182,21 +14450,6 @@
     },
     {
       "packages": [
-        "text-core",
-        "text-transcripts"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "text_segments"
-      ],
-      "reasons": [
-        "text-transcripts depends on text-core",
-        "text segments"
-      ],
-      "strength": 3
-    },
-    {
-      "packages": [
         "text-embeddings",
         "text-lexical"
       ],
@@ -14242,21 +14495,6 @@
     },
     {
       "packages": [
-        "text-generation",
-        "text-linguistics"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "analysis_events"
-      ],
-      "reasons": [
-        "text-generation depends on text-linguistics",
-        "analysis events"
-      ],
-      "strength": 3
-    },
-    {
-      "packages": [
         "text-lexical",
         "text-retrieval"
       ],
@@ -14267,6 +14505,21 @@
       "reasons": [
         "text-retrieval depends on text-lexical",
         "vectors and embeddings"
+      ],
+      "strength": 3
+    },
+    {
+      "packages": [
+        "text-transcripts",
+        "text-core"
+      ],
+      "directDependency": true,
+      "sharedTags": [
+        "text_segments"
+      ],
+      "reasons": [
+        "text-transcripts depends on text-core",
+        "text segments"
       ],
       "strength": 3
     },
@@ -14939,66 +15192,6 @@
     {
       "packages": [
         "video-analysis-models",
-        "image-analysis-models"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "image-analysis-models depends on video-analysis-models",
-        "model predictions"
-      ],
-      "strength": 3
-    },
-    {
-      "packages": [
-        "video-analysis-models",
-        "image-analysis-ocr"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "image-analysis-ocr depends on video-analysis-models",
-        "model predictions"
-      ],
-      "strength": 3
-    },
-    {
-      "packages": [
-        "video-analysis-models",
-        "image-analysis-onnx"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "image-analysis-onnx depends on video-analysis-models",
-        "model predictions"
-      ],
-      "strength": 3
-    },
-    {
-      "packages": [
-        "video-analysis-models",
-        "text-embeddings"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "text-embeddings depends on video-analysis-models",
-        "model predictions"
-      ],
-      "strength": 3
-    },
-    {
-      "packages": [
-        "video-analysis-models",
         "video-analysis-onnx"
       ],
       "directDependency": true,
@@ -15007,21 +15200,6 @@
       ],
       "reasons": [
         "video-analysis-onnx depends on video-analysis-models",
-        "model predictions"
-      ],
-      "strength": 3
-    },
-    {
-      "packages": [
-        "video-analysis-models",
-        "video-analysis-posture"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "video-analysis-models depends on video-analysis-posture",
         "model predictions"
       ],
       "strength": 3
@@ -15206,6 +15384,21 @@
       "reasons": [
         "video-analysis-posture-io-server depends on video-analysis-posture-io",
         "poses and keypoints"
+      ],
+      "strength": 3
+    },
+    {
+      "packages": [
+        "video-analysis-posture",
+        "video-analysis-models"
+      ],
+      "directDependency": true,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "video-analysis-models depends on video-analysis-posture",
+        "model predictions"
       ],
       "strength": 3
     },
@@ -15446,21 +15639,6 @@
       "reasons": [
         "video-analysis-sfm-rust-backend depends on video-analysis-sfm",
         "model predictions"
-      ],
-      "strength": 3
-    },
-    {
-      "packages": [
-        "video-analysis",
-        "audio-analysis-models"
-      ],
-      "directDependency": true,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "video-analysis depends on audio-analysis-models",
-        "vectors and embeddings"
       ],
       "strength": 3
     },
@@ -16267,94 +16445,6 @@
     },
     {
       "packages": [
-        "audio-analysis-models",
-        "audio-analysis-recognition"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "analysis_events",
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "analysis events",
-        "vectors and embeddings"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "audio-analysis-recognition-cli"
-      ],
-      "directDependency": true,
-      "sharedTags": [],
-      "reasons": [
-        "audio-analysis-recognition-cli depends on audio-analysis-models"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "audio-analysis-recognition-server"
-      ],
-      "directDependency": true,
-      "sharedTags": [],
-      "reasons": [
-        "audio-analysis-recognition-server depends on audio-analysis-models"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "text-embeddings"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings",
-        "model_predictions"
-      ],
-      "reasons": [
-        "vectors and embeddings",
-        "model predictions"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "text-generation"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "analysis_events",
-        "model_predictions"
-      ],
-      "reasons": [
-        "analysis events",
-        "model predictions"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-features"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "analysis_events",
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "analysis events",
-        "vectors and embeddings"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
         "audio-analysis-pitch",
         "audio-analysis-core-wasm"
       ],
@@ -16496,6 +16586,54 @@
     {
       "packages": [
         "audio-analysis-recognition",
+        "audio-analysis-separation"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-separation depends on audio-analysis-recognition"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "audio-analysis-recognition",
+        "audio-analysis-tasks"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-tasks depends on audio-analysis-recognition"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "audio-analysis-recognition",
+        "model-runtime"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-recognition depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "audio-analysis-recognition",
+        "text-transcripts"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-recognition depends on text-transcripts"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "audio-analysis-recognition",
         "video-analysis-features"
       ],
       "directDependency": false,
@@ -16600,6 +16738,18 @@
     {
       "packages": [
         "audio-analysis-separation",
+        "audio-analysis-tasks"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-tasks depends on audio-analysis-separation"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "audio-analysis-separation",
         "video-analysis-use-cases"
       ],
       "directDependency": true,
@@ -16635,6 +16785,18 @@
     },
     {
       "packages": [
+        "audio-analysis-speakers",
+        "audio-analysis-tasks"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-tasks depends on audio-analysis-speakers"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
         "audio-analysis-synthesis",
         "audio-analysis-synthesis-cli"
       ],
@@ -16660,6 +16822,18 @@
     {
       "packages": [
         "audio-analysis-synthesis",
+        "audio-analysis-tasks"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-tasks depends on audio-analysis-synthesis"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "audio-analysis-synthesis",
         "audio-generation-midi"
       ],
       "directDependency": true,
@@ -16678,6 +16852,30 @@
       "sharedTags": [],
       "reasons": [
         "audio-analysis-synthesis depends on data-inversion-core"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "audio-analysis-tasks",
+        "audio-analysis-recognition-cli"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-recognition-cli depends on audio-analysis-tasks"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "audio-analysis-tasks",
+        "audio-analysis-recognition-server"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-recognition-server depends on audio-analysis-tasks"
       ],
       "strength": 2
     },
@@ -18280,6 +18478,18 @@
     {
       "packages": [
         "jobs-core",
+        "audio-analysis-separation"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-separation depends on jobs-core"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "jobs-core",
         "text-linguistics"
       ],
       "directDependency": true,
@@ -18358,6 +18568,18 @@
       "sharedTags": [],
       "reasons": [
         "video-analysis-editing depends on math-geometry-2d"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "math-geometry-2d",
+        "video-analysis-posture"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "video-analysis-posture depends on math-geometry-2d"
       ],
       "strength": 2
     },
@@ -18558,6 +18780,162 @@
       "sharedTags": [],
       "reasons": [
         "math-statistics-server depends on math-statistics"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "audio-analysis-tasks"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-tasks depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "image-analysis-models"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "image-analysis-models depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "image-analysis-ocr"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "image-analysis-ocr depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "image-analysis-onnx"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "image-analysis-onnx depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "jobs-core"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "model-runtime depends on jobs-core"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "text-embeddings"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-embeddings depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "text-linguistics"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-linguistics depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "text-model-runtime"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-model-runtime depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "video-analysis-cli"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "video-analysis-cli depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "video-analysis-models"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "video-analysis-models depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "video-analysis-onnx"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "video-analysis-onnx depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "video-analysis-segmentation"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "video-analysis-segmentation depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "model-runtime",
+        "video-analysis-use-cases"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "video-analysis-use-cases depends on model-runtime"
       ],
       "strength": 2
     },
@@ -18768,6 +19146,18 @@
     {
       "packages": [
         "text-core",
+        "text-generation-linguistics"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-generation-linguistics depends on text-core"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "text-core",
         "text-lexical"
       ],
       "directDependency": true,
@@ -18863,6 +19253,30 @@
     },
     {
       "packages": [
+        "text-generation-linguistics",
+        "text-linguistics"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-generation-linguistics depends on text-linguistics"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "text-generation",
+        "text-generation-linguistics"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-generation-linguistics depends on text-generation"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
         "text-lexical",
         "text-linguistics"
       ],
@@ -18947,18 +19361,6 @@
     },
     {
       "packages": [
-        "text-linguistics",
-        "text-transcripts"
-      ],
-      "directDependency": true,
-      "sharedTags": [],
-      "reasons": [
-        "text-linguistics depends on text-transcripts"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
         "text-model-runtime",
         "text-linguistics"
       ],
@@ -18983,25 +19385,61 @@
     },
     {
       "packages": [
-        "text-nlp-models",
+        "text-nlp-tasks",
         "text-linguistics-server"
       ],
       "directDependency": true,
       "sharedTags": [],
       "reasons": [
-        "text-linguistics-server depends on text-nlp-models"
+        "text-linguistics-server depends on text-nlp-tasks"
       ],
       "strength": 2
     },
     {
       "packages": [
-        "text-nlp-models",
+        "text-nlp-tasks",
         "text-nlp-cli"
       ],
       "directDependency": true,
       "sharedTags": [],
       "reasons": [
-        "text-nlp-cli depends on text-nlp-models"
+        "text-nlp-cli depends on text-nlp-tasks"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "text-nlp-tasks",
+        "text-nlp-models"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-nlp-tasks depends on text-nlp-models"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "text-nlp-tasks",
+        "text-nlp-server"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-nlp-server depends on text-nlp-tasks"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "text-nlp-tasks",
+        "text-nlp-wasm"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-nlp-wasm depends on text-nlp-tasks"
       ],
       "strength": 2
     },
@@ -19042,6 +19480,30 @@
       "reasons": [
         "datasets",
         "vectors and embeddings"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "text-transcripts",
+        "audio-analysis-tasks"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-tasks depends on text-transcripts"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "text-transcripts",
+        "text-linguistics"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-linguistics depends on text-transcripts"
       ],
       "strength": 2
     },
@@ -19532,18 +19994,6 @@
     {
       "packages": [
         "video-analysis-core",
-        "audio-analysis-models"
-      ],
-      "directDependency": true,
-      "sharedTags": [],
-      "reasons": [
-        "audio-analysis-models depends on video-analysis-core"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "video-analysis-core",
         "audio-analysis-processing"
       ],
       "directDependency": true,
@@ -19610,6 +20060,18 @@
       "sharedTags": [],
       "reasons": [
         "audio-analysis-synthesis depends on video-analysis-core"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "video-analysis-core",
+        "audio-analysis-tasks"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "audio-analysis-tasks depends on video-analysis-core"
       ],
       "strength": 2
     },
@@ -19916,6 +20378,18 @@
     {
       "packages": [
         "video-analysis-core",
+        "text-generation-linguistics"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-generation-linguistics depends on video-analysis-core"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "video-analysis-core",
         "text-lexical"
       ],
       "directDependency": true,
@@ -19958,6 +20432,30 @@
       "sharedTags": [],
       "reasons": [
         "text-nlp-models depends on video-analysis-core"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "video-analysis-core",
+        "text-nlp-server"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-nlp-server depends on video-analysis-core"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "video-analysis-core",
+        "text-nlp-wasm"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-nlp-wasm depends on video-analysis-core"
       ],
       "strength": 2
     },
@@ -20784,42 +21282,6 @@
     {
       "packages": [
         "video-analysis-models",
-        "text-linguistics"
-      ],
-      "directDependency": true,
-      "sharedTags": [],
-      "reasons": [
-        "text-linguistics depends on video-analysis-models"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "video-analysis-models",
-        "text-model-runtime"
-      ],
-      "directDependency": true,
-      "sharedTags": [],
-      "reasons": [
-        "text-model-runtime depends on video-analysis-models"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "video-analysis-models",
-        "text-nlp-models"
-      ],
-      "directDependency": true,
-      "sharedTags": [],
-      "reasons": [
-        "text-nlp-models depends on video-analysis-models"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "video-analysis-models",
         "video-analysis-cli"
       ],
       "directDependency": true,
@@ -20850,18 +21312,6 @@
       "sharedTags": [],
       "reasons": [
         "video-analysis-models-server depends on video-analysis-models"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "video-analysis-models",
-        "video-analysis-segmentation"
-      ],
-      "directDependency": true,
-      "sharedTags": [],
-      "reasons": [
-        "video-analysis-segmentation depends on video-analysis-models"
       ],
       "strength": 2
     },
@@ -21344,18 +21794,6 @@
     {
       "packages": [
         "video-analysis-posture",
-        "math-geometry-2d"
-      ],
-      "directDependency": true,
-      "sharedTags": [],
-      "reasons": [
-        "video-analysis-posture depends on math-geometry-2d"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
         "video-analysis-cli"
       ],
       "directDependency": true,
@@ -21369,22 +21807,6 @@
       "packages": [
         "video-analysis-posture",
         "video-analysis-posture-io-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "poses_and_keypoints",
-        "three_d_geometry"
-      ],
-      "reasons": [
-        "poses and keypoints",
-        "3D geometry"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
-        "video-analysis-radiance-fields"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -21445,6 +21867,22 @@
       "packages": [
         "video-analysis-radiance-fields",
         "video-analysis-onnx"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "poses_and_keypoints",
+        "three_d_geometry"
+      ],
+      "reasons": [
+        "poses and keypoints",
+        "3D geometry"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "video-analysis-radiance-fields",
+        "video-analysis-posture"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -21956,6 +22394,18 @@
     {
       "packages": [
         "video-analysis",
+        "audio-analysis-tasks"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "video-analysis depends on audio-analysis-tasks"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "video-analysis",
         "audio-generation-midi"
       ],
       "directDependency": true,
@@ -22100,6 +22550,18 @@
     {
       "packages": [
         "video-analysis",
+        "model-runtime"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "video-analysis depends on model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "video-analysis",
         "numbers-core"
       ],
       "directDependency": true,
@@ -22148,6 +22610,18 @@
     {
       "packages": [
         "video-analysis",
+        "text-generation-linguistics"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "video-analysis depends on text-generation-linguistics"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "video-analysis",
         "text-linguistics"
       ],
       "directDependency": true,
@@ -22160,12 +22634,12 @@
     {
       "packages": [
         "video-analysis",
-        "text-nlp-models"
+        "text-nlp-tasks"
       ],
       "directDependency": true,
       "sharedTags": [],
       "reasons": [
-        "video-analysis depends on text-nlp-models"
+        "video-analysis depends on text-nlp-tasks"
       ],
       "strength": 2
     },
@@ -22929,804 +23403,6 @@
     },
     {
       "packages": [
-        "audio-analysis-models",
-        "audio-analysis-pitch"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "analysis_events"
-      ],
-      "reasons": [
-        "analysis events"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "audio-analysis-recognition-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "audio-analysis-rhythm"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "analysis_events"
-      ],
-      "reasons": [
-        "analysis events"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "audio-analysis-speakers"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "audio-analysis-speakers-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "audio-analysis-synthesis"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "analysis_events"
-      ],
-      "reasons": [
-        "analysis events"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "audio-analysis-synthesis-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "analysis_events"
-      ],
-      "reasons": [
-        "analysis events"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "image-analysis-models"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "image-analysis-models-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "image-analysis-ocr"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "image-analysis-onnx"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "image-analysis-onnx-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "image-analysis-onnx-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "image-analysis-onnx-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "math-geometry-2d"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "math-linear"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "math-linear-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "math-sparse-data"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "math-sparse-data-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "text-lexical"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "text-linguistics"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "analysis_events"
-      ],
-      "reasons": [
-        "analysis events"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "text-linguistics-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "analysis_events"
-      ],
-      "reasons": [
-        "analysis events"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "text-retrieval"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "vector-analysis-core"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "vector-analysis-core-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "vector-analysis-core-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "vector-analysis-core-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "vector-analysis-index"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "vector-analysis-index-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "vector-analysis-index-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "vector-analysis-index-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-colmap-backend"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-colmap-backend-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-colmap-backend-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-colmap-backend-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-dataset"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "analysis_events"
-      ],
-      "reasons": [
-        "analysis events"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-mvs"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-mvs-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-onnx"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-onnx-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-onnx-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-onnx-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-opencv-backend"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-opencv-backend-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-opencv-backend-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-opencv-backend-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-posture"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-radiance-fields"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-recognition"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-recognition-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-sfm"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-sfm-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-sfm-rust-backend"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-sfm-rust-backend-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-sfm-rust-backend-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-sfm-rust-backend-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "audio-analysis-models",
-        "video-analysis-tracking"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
         "audio-analysis-pitch-app",
         "image-analysis-detection-app"
       ],
@@ -24204,7 +23880,7 @@
     {
       "packages": [
         "audio-analysis-recognition",
-        "audio-analysis-synthesis"
+        "audio-analysis-synthesis-app"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -24218,14 +23894,14 @@
     {
       "packages": [
         "audio-analysis-recognition",
-        "audio-analysis-synthesis-app"
+        "math-geometry-2d"
       ],
       "directDependency": false,
       "sharedTags": [
-        "analysis_events"
+        "vectors_and_embeddings"
       ],
       "reasons": [
-        "analysis events"
+        "vectors and embeddings"
       ],
       "strength": 1
     },
@@ -25227,6 +24903,20 @@
       "packages": [
         "audio-analysis-speakers",
         "audio-analysis-speakers-app"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "audio-analysis-speakers",
+        "math-geometry-2d"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -26949,6 +26639,20 @@
       "packages": [
         "comfyui-latents",
         "image-analysis-synthesis-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "images"
+      ],
+      "reasons": [
+        "images"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "comfyui-latents",
+        "math-geometry-2d"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -29664,6 +29368,20 @@
     {
       "packages": [
         "image-analysis-comfyui",
+        "math-geometry-2d"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "images"
+      ],
+      "reasons": [
+        "images"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-comfyui",
         "math-geometry-2d-app"
       ],
       "directDependency": false,
@@ -30757,6 +30475,20 @@
       "packages": [
         "image-analysis-core",
         "image-analysis-synthesis-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "images"
+      ],
+      "reasons": [
+        "images"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-core",
+        "math-geometry-2d"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -32142,6 +31874,20 @@
     {
       "packages": [
         "image-analysis-detection",
+        "math-geometry-2d"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "images"
+      ],
+      "reasons": [
+        "images"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-detection",
         "math-geometry-2d-app"
       ],
       "directDependency": false,
@@ -33416,6 +33162,20 @@
     {
       "packages": [
         "image-analysis-io",
+        "math-geometry-2d"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "images"
+      ],
+      "reasons": [
+        "images"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-io",
         "math-geometry-2d-app"
       ],
       "directDependency": false,
@@ -34466,6 +34226,20 @@
     {
       "packages": [
         "image-analysis-models",
+        "math-geometry-2d"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "images"
+      ],
+      "reasons": [
+        "images"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-models",
         "math-geometry-2d-app"
       ],
       "directDependency": false,
@@ -34551,6 +34325,20 @@
       "packages": [
         "image-analysis-models",
         "video-analysis-colmap-backend-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-models",
+        "video-analysis-models"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -34677,6 +34465,20 @@
       "packages": [
         "image-analysis-models",
         "video-analysis-opencv-backend-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-models",
+        "video-analysis-posture"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -35194,7 +34996,7 @@
     {
       "packages": [
         "image-analysis-ocr",
-        "math-geometry-2d-app"
+        "math-geometry-2d"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -35208,14 +35010,14 @@
     {
       "packages": [
         "image-analysis-ocr",
-        "text-core"
+        "math-geometry-2d-app"
       ],
       "directDependency": false,
       "sharedTags": [
-        "text_segments"
+        "images"
       ],
       "reasons": [
-        "text segments"
+        "images"
       ],
       "strength": 1
     },
@@ -35250,14 +35052,14 @@
     {
       "packages": [
         "image-analysis-ocr",
-        "text-transcripts"
+        "text-generation-linguistics"
       ],
       "directDependency": false,
       "sharedTags": [
-        "text_segments"
+        "reports_and_outputs"
       ],
       "reasons": [
-        "text segments"
+        "reports and outputs"
       ],
       "strength": 1
     },
@@ -35328,6 +35130,20 @@
       ],
       "reasons": [
         "video frames"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-ocr",
+        "video-analysis-models"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
       ],
       "strength": 1
     },
@@ -35482,6 +35298,20 @@
       ],
       "reasons": [
         "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-ocr",
+        "video-analysis-posture"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
       ],
       "strength": 1
     },
@@ -36958,6 +36788,20 @@
     {
       "packages": [
         "image-analysis-onnx",
+        "math-geometry-2d"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "images"
+      ],
+      "reasons": [
+        "images"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-onnx",
         "math-geometry-2d-app"
       ],
       "directDependency": false,
@@ -37043,6 +36887,20 @@
       "packages": [
         "image-analysis-onnx",
         "video-analysis-colmap-backend-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-onnx",
+        "video-analysis-models"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -37169,6 +37027,20 @@
       "packages": [
         "image-analysis-onnx",
         "video-analysis-opencv-backend-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-onnx",
+        "video-analysis-posture"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -39100,6 +38972,20 @@
     {
       "packages": [
         "image-analysis-segmentation",
+        "math-geometry-2d"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "images"
+      ],
+      "reasons": [
+        "images"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "image-analysis-segmentation",
         "math-geometry-2d-app"
       ],
       "directDependency": false,
@@ -40164,35 +40050,7 @@
     {
       "packages": [
         "math-geometry-2d",
-        "audio-analysis-recognition"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
         "audio-analysis-recognition-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
-        "audio-analysis-speakers"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -40214,34 +40072,6 @@
       ],
       "reasons": [
         "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
-        "comfyui-latents"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "images"
-      ],
-      "reasons": [
-        "images"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
-        "image-analysis-comfyui"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "images"
-      ],
-      "reasons": [
-        "images"
       ],
       "strength": 1
     },
@@ -40277,20 +40107,6 @@
       "packages": [
         "math-geometry-2d",
         "image-analysis-comfyui-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "images"
-      ],
-      "reasons": [
-        "images"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
-        "image-analysis-core"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -40346,20 +40162,6 @@
     {
       "packages": [
         "math-geometry-2d",
-        "image-analysis-detection"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "images"
-      ],
-      "reasons": [
-        "images"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
         "image-analysis-detection-app"
       ],
       "directDependency": false,
@@ -40389,20 +40191,6 @@
       "packages": [
         "math-geometry-2d",
         "image-analysis-detection-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "images"
-      ],
-      "reasons": [
-        "images"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
-        "image-analysis-io"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -40458,20 +40246,6 @@
     {
       "packages": [
         "math-geometry-2d",
-        "image-analysis-models"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "images"
-      ],
-      "reasons": [
-        "images"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
         "image-analysis-models-app"
       ],
       "directDependency": false,
@@ -40501,34 +40275,6 @@
       "packages": [
         "math-geometry-2d",
         "image-analysis-models-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "images"
-      ],
-      "reasons": [
-        "images"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
-        "image-analysis-ocr"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "images"
-      ],
-      "reasons": [
-        "images"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
-        "image-analysis-onnx"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -40613,20 +40359,6 @@
       "packages": [
         "math-geometry-2d",
         "image-analysis-processing-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "images"
-      ],
-      "reasons": [
-        "images"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
-        "image-analysis-segmentation"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -40752,20 +40484,6 @@
     {
       "packages": [
         "math-geometry-2d",
-        "math-linear"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
         "math-linear-app"
       ],
       "directDependency": false,
@@ -40837,20 +40555,6 @@
       "packages": [
         "math-geometry-2d",
         "text-retrieval"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "math-geometry-2d",
-        "vector-analysis-core"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -41152,6 +40856,20 @@
       ],
       "reasons": [
         "tensors and latents"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "math-linear",
+        "math-geometry-2d"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
       ],
       "strength": 1
     },
@@ -41537,6 +41255,20 @@
       "packages": [
         "math-linear",
         "video-analysis-onnx"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "three_d_geometry"
+      ],
+      "reasons": [
+        "3D geometry"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "math-linear",
+        "video-analysis-posture"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -42250,6 +41982,20 @@
     {
       "packages": [
         "text-core",
+        "image-analysis-ocr"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "text_segments"
+      ],
+      "reasons": [
+        "text segments"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-core",
         "text-core-app"
       ],
       "directDependency": false,
@@ -42544,6 +42290,20 @@
     {
       "packages": [
         "text-embeddings",
+        "video-analysis-models"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings",
         "video-analysis-mvs"
       ],
       "directDependency": false,
@@ -42671,6 +42431,20 @@
       "packages": [
         "text-embeddings",
         "video-analysis-opencv-backend-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings",
+        "video-analysis-posture"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -42823,6 +42597,202 @@
     },
     {
       "packages": [
+        "text-generation-linguistics",
+        "@video-analysis/ui"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "@video-analysis/web"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "data-inversion-core-app"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-cli"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-colmap-backend"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-colmap-backend-app"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-mvs"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-mvs-app"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-output"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-output-app"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-output-cli"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-output-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-storage"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation-linguistics",
+        "video-analysis-use-cases"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "reports_and_outputs"
+      ],
+      "reasons": [
+        "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
         "text-generation",
         "audio-analysis-synthesis-app"
       ],
@@ -42908,7 +42878,7 @@
     {
       "packages": [
         "text-generation",
-        "text-linguistics-app"
+        "text-linguistics"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -42922,14 +42892,14 @@
     {
       "packages": [
         "text-generation",
-        "text-transcripts"
+        "text-linguistics-app"
       ],
       "directDependency": false,
       "sharedTags": [
-        "text_segments"
+        "analysis_events"
       ],
       "reasons": [
-        "text segments"
+        "analysis events"
       ],
       "strength": 1
     },
@@ -43014,6 +42984,20 @@
       ],
       "reasons": [
         "analysis events"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation",
+        "video-analysis-models"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
       ],
       "strength": 1
     },
@@ -43147,6 +43131,20 @@
       "packages": [
         "text-generation",
         "video-analysis-opencv-backend-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-generation",
+        "video-analysis-posture"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -44140,7 +44138,35 @@
     {
       "packages": [
         "text-transcripts",
+        "image-analysis-ocr"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "text_segments"
+      ],
+      "reasons": [
+        "text segments"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-transcripts",
         "text-core-app"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "text_segments"
+      ],
+      "reasons": [
+        "text segments"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-transcripts",
+        "text-generation"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -44162,20 +44188,6 @@
       ],
       "reasons": [
         "3D geometry"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "three-d-processing-core",
-        "audio-analysis-models"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
       ],
       "strength": 1
     },
@@ -44882,6 +44894,20 @@
     {
       "packages": [
         "three-d-processing-io",
+        "video-analysis-posture"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "three_d_geometry"
+      ],
+      "reasons": [
+        "3D geometry"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "three-d-processing-io",
         "video-analysis-posture-io"
       ],
       "directDependency": false,
@@ -45303,6 +45329,20 @@
       "packages": [
         "three-d-processing-mesh",
         "video-analysis-onnx"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "three_d_geometry"
+      ],
+      "reasons": [
+        "3D geometry"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "three-d-processing-mesh",
+        "video-analysis-posture"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -45820,6 +45860,20 @@
     {
       "packages": [
         "three-d-scene-svg",
+        "video-analysis-posture"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "three_d_geometry"
+      ],
+      "reasons": [
+        "3D geometry"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "three-d-scene-svg",
         "video-analysis-posture-io"
       ],
       "directDependency": false,
@@ -46325,6 +46379,20 @@
       "packages": [
         "vector-analysis-core",
         "audio-analysis-speakers-app"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "vector-analysis-core",
+        "math-geometry-2d"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -48158,6 +48226,20 @@
     {
       "packages": [
         "video-analysis-colmap-backend",
+        "video-analysis-models"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "video-analysis-colmap-backend",
         "video-analysis-onnx"
       ],
       "directDependency": false,
@@ -48292,6 +48374,20 @@
       ],
       "reasons": [
         "reports and outputs"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "video-analysis-colmap-backend",
+        "video-analysis-posture"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
       ],
       "strength": 1
     },
@@ -51378,6 +51474,20 @@
     {
       "packages": [
         "video-analysis-gaussian-splatting",
+        "video-analysis-posture"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "three_d_geometry"
+      ],
+      "reasons": [
+        "3D geometry"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "video-analysis-gaussian-splatting",
         "video-analysis-posture-io"
       ],
       "directDependency": false,
@@ -51602,34 +51712,6 @@
     {
       "packages": [
         "video-analysis-models",
-        "text-generation"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-models",
-        "video-analysis-colmap-backend"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-models",
         "video-analysis-colmap-backend-app"
       ],
       "directDependency": false,
@@ -51785,20 +51867,6 @@
       "packages": [
         "video-analysis-models",
         "video-analysis-opencv-backend-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-models",
-        "video-analysis-sfm"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -55354,49 +55422,7 @@
     {
       "packages": [
         "video-analysis-posture",
-        "image-analysis-models"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
         "image-analysis-models-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
-        "image-analysis-ocr"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
-        "image-analysis-onnx"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -55452,48 +55478,6 @@
     {
       "packages": [
         "video-analysis-posture",
-        "math-linear"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "three_d_geometry"
-      ],
-      "reasons": [
-        "3D geometry"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
-        "text-embeddings"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
-        "text-generation"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
         "three-d-processing-core-app"
       ],
       "directDependency": false,
@@ -55508,35 +55492,7 @@
     {
       "packages": [
         "video-analysis-posture",
-        "three-d-processing-io"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "three_d_geometry"
-      ],
-      "reasons": [
-        "3D geometry"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
         "three-d-processing-io-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "three_d_geometry"
-      ],
-      "reasons": [
-        "3D geometry"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
-        "three-d-processing-mesh"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -55592,20 +55548,6 @@
     {
       "packages": [
         "video-analysis-posture",
-        "three-d-scene-svg"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "three_d_geometry"
-      ],
-      "reasons": [
-        "3D geometry"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
         "three-d-scene-svg-app"
       ],
       "directDependency": false,
@@ -55614,20 +55556,6 @@
       ],
       "reasons": [
         "3D geometry"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
-        "video-analysis-colmap-backend"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
       ],
       "strength": 1
     },
@@ -55670,20 +55598,6 @@
       ],
       "reasons": [
         "model predictions"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
-        "video-analysis-gaussian-splatting"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "three_d_geometry"
-      ],
-      "reasons": [
-        "3D geometry"
       ],
       "strength": 1
     },
@@ -55858,20 +55772,6 @@
     {
       "packages": [
         "video-analysis-posture",
-        "video-analysis-radiance-io"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "three_d_geometry"
-      ],
-      "reasons": [
-        "3D geometry"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
         "video-analysis-radiance-io-app"
       ],
       "directDependency": false,
@@ -55880,20 +55780,6 @@
       ],
       "reasons": [
         "3D geometry"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "video-analysis-posture",
-        "video-analysis-sfm"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "model_predictions"
-      ],
-      "reasons": [
-        "model predictions"
       ],
       "strength": 1
     },
@@ -57448,6 +57334,20 @@
       ],
       "reasons": [
         "radiance assets"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "video-analysis-radiance-io",
+        "video-analysis-posture"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "three_d_geometry"
+      ],
+      "reasons": [
+        "3D geometry"
       ],
       "strength": 1
     },
@@ -59638,6 +59538,20 @@
     {
       "packages": [
         "video-analysis-sfm",
+        "video-analysis-models"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "video-analysis-sfm",
         "video-analysis-mvs"
       ],
       "directDependency": false,
@@ -59751,6 +59665,20 @@
       "packages": [
         "video-analysis-sfm",
         "video-analysis-opencv-backend-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "model_predictions"
+      ],
+      "reasons": [
+        "model predictions"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "video-analysis-sfm",
+        "video-analysis-posture"
       ],
       "directDependency": false,
       "sharedTags": [

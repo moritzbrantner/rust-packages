@@ -164,9 +164,11 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
         ("GET", "/api/models") if module.package == "text-linguistics" => {
             json_response(200, "OK", json!(text_nlp_tasks::model_catalog(None)))
         }
-        ("GET", "/api/models") if module.package == "audio-analysis-recognition" => {
-            json_response(200, "OK", json!(audio_analysis_models::model_catalog(None)))
-        }
+        ("GET", "/api/models") if module.package == "audio-analysis-recognition" => json_response(
+            200,
+            "OK",
+            json!(audio_analysis_tasks::audio_task_catalog(None)),
+        ),
         ("GET", path)
             if module.package == "text-linguistics" && path.starts_with("/api/models/") =>
         {
@@ -195,11 +197,11 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
                 && path.starts_with("/api/models/") =>
         {
             let task = path.trim_start_matches("/api/models/");
-            match audio_analysis_models::parse_task(task) {
+            match audio_analysis_tasks::parse_task(task) {
                 Some(task) => json_response(
                     200,
                     "OK",
-                    json!(audio_analysis_models::model_catalog(Some(task))),
+                    json!(audio_analysis_tasks::audio_task_catalog(Some(task))),
                 ),
                 None => json_response(
                     400,
@@ -452,8 +454,8 @@ fn package_schema_response(module: ModuleInfo) -> HttpResponse {
                     "/health": { "get": { "summary": "Health check" } },
                     "/api/package": { "get": { "summary": "Package metadata" } },
                     "/api/schema": { "get": { "summary": "API schema" } },
-                    "/api/models": { "get": { "summary": "List audio model presets" } },
-                    "/api/models/{task}": { "get": { "summary": "List audio model presets for a task" } },
+                    "/api/models": { "get": { "summary": "List audio task runtimes" } },
+                    "/api/models/{task}": { "get": { "summary": "List audio task runtimes for a task" } },
                     "/api/classify": { "post": { "summary": "Audio classification" } },
                     "/api/events": { "post": { "summary": "Audio event detection" } },
                     "/api/embed": { "post": { "summary": "Audio embeddings" } },
@@ -465,7 +467,7 @@ fn package_schema_response(module: ModuleInfo) -> HttpResponse {
                 },
                 "components": {
                     "schemas": {
-                        "audioModels": audio_analysis_models::schema_summary()
+                        "audioRuntimes": audio_analysis_tasks::schema_summary()
                     }
                 }
             }),
@@ -730,9 +732,9 @@ fn text_nlp_error_response(
 fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
     match path {
         "/api/classify" => {
-            match serde_json::from_str::<audio_analysis_models::AudioClassificationRequest>(body) {
+            match serde_json::from_str::<audio_analysis_tasks::AudioClassificationRequest>(body) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_models::classify_audio(request))
+                    audio_model_result_response(audio_analysis_tasks::classify_audio(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,
@@ -743,9 +745,9 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/events" => {
-            match serde_json::from_str::<audio_analysis_models::AudioEventDetectionRequest>(body) {
+            match serde_json::from_str::<audio_analysis_tasks::AudioEventDetectionRequest>(body) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_models::detect_audio_events(request))
+                    audio_model_result_response(audio_analysis_tasks::detect_audio_events(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,
@@ -756,9 +758,9 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/embed" => {
-            match serde_json::from_str::<audio_analysis_models::AudioEmbeddingRequest>(body) {
+            match serde_json::from_str::<audio_analysis_tasks::AudioEmbeddingRequest>(body) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_models::embed_audio(request))
+                    audio_model_result_response(audio_analysis_tasks::embed_audio(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,
@@ -769,9 +771,9 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/transcribe" => {
-            match serde_json::from_str::<audio_analysis_models::SpeechRecognitionRequest>(body) {
+            match serde_json::from_str::<audio_analysis_tasks::SpeechRecognitionRequest>(body) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_models::transcribe_audio(request))
+                    audio_model_result_response(audio_analysis_tasks::transcribe_audio(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,
@@ -782,9 +784,9 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/diarize" => {
-            match serde_json::from_str::<audio_analysis_models::SpeakerDiarizationRequest>(body) {
+            match serde_json::from_str::<audio_analysis_tasks::SpeakerDiarizationRequest>(body) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_models::diarize_speakers(request))
+                    audio_model_result_response(audio_analysis_tasks::diarize_speakers(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,
@@ -795,9 +797,9 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/separate" => {
-            match serde_json::from_str::<audio_analysis_models::SourceSeparationRequest>(body) {
+            match serde_json::from_str::<audio_analysis_tasks::SourceSeparationRequest>(body) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_models::separate_sources(request))
+                    audio_model_result_response(audio_analysis_tasks::separate_sources(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,
@@ -808,9 +810,9 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/generate" => {
-            match serde_json::from_str::<audio_analysis_models::AudioGenerationRequest>(body) {
+            match serde_json::from_str::<audio_analysis_tasks::AudioGenerationRequest>(body) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_models::generate_audio(request))
+                    audio_model_result_response(audio_analysis_tasks::generate_audio(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,

@@ -36,8 +36,8 @@ For the first enforced boundary, `text-core` owns generic text contracts such as
 `TextDocumentContract` and `TextSegmentContract`. `text-transcripts` owns
 `TranscriptSegmentContract` and `TranscriptionContract` as timed/speaker-aware
 text specializations. Audio ASR surfaces consume and return those transcript
-contracts; `audio-analysis-models::TranscriptSegmentPrediction` is retained only
-as a deprecated compatibility shim.
+contracts through `audio-analysis-recognition` and the aggregate
+`audio-analysis-tasks` API.
 
 UI and report types are projections of these contracts. A `*Report` type may
 drop fields that are not needed for presentation, but shared fields should be
@@ -85,13 +85,13 @@ Runtime and external integration crates use a shared feature policy:
 | `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core`, `tensor-data`, `math-signal-core` | Normalized sample conversion, mono mixing, shared window functions, frame iteration, streaming frame windows, level helpers, waveform batch contracts | Audio analysis crates and applications |
 | `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
 | `audio-analysis-io` | Audio input convenience facade | `audio-analysis-core`, `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, WAV export for single-item waveform batches | Applications that want audio-specific input APIs |
-| `audio-analysis-models` | Shared audio model task schemas and fallbacks | `video-analysis-core`, `video-analysis-models`, `serde`, `serde_json` | Hugging Face audio model catalog, task/runtime metadata, imported prediction schemas, deterministic fallback runners for classification, events, embeddings, ASR, diarization, separation, and generation planning | CLI, server, and UI model task surfaces |
 | `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
 | `audio-analysis-processing` | Realtime-safe audio processing | `audio-analysis-core`, `math-signal-core`, `video-analysis-core`, `video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources | Applications, preprocessing workflows, audio pipelines |
 | `audio-analysis-recognition` | Audio similarity and recognition | `audio-analysis-core`, `audio-analysis-fourier`, `video-analysis-core` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events | Applications, audio pipelines, reference matching workflows |
 | `audio-analysis-rhythm` | Rhythm and tempo analysis | `audio-analysis-core`, `video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
 | `audio-analysis-synthesis` | Deterministic inverse audio generation | `data-inversion-core`, `video-analysis-core` | Tone specs, tone timelines, pitch/onset event to tone conversion, synthesized `OwnedAudioFrame` values | Applications prototyping audio from symbolic or analyzed events |
+| `audio-analysis-tasks` | Aggregate audio task schemas and routing helpers | `audio-analysis-recognition`, `audio-analysis-speakers`, `audio-analysis-separation`, `audio-analysis-synthesis`, `model-runtime`, `serde`, `serde_json` | Audio task/runtime catalog, compatibility `/api/models` helpers, and re-exported capability request/response DTOs | CLI, server, and UI broad audio task surfaces |
 | `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core`, `tensor-data` | Borrowed/owned image views, image batches, pixel formats, compacting, mean color, luma histograms, mask tensor bridge helpers | Image processing crates, applications, video frame preprocessing |
 | `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `math-geometry-2d`, `math-linear`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains, shared `RectU32`/`Kernel2d` bridges | Applications, preprocessing workflows |
 | `image-analysis-ocr` | OCR presets and rich text extraction contracts | `image-analysis-core`, `video-analysis-core`, `video-analysis-models` | Hugging Face OCR presets, OCR technique metadata, rich text documents/blocks/lines/tokens, image and video-frame OCR backend traits | Applications extracting text from images or sampled video frames |
@@ -1187,8 +1187,8 @@ Allowed internal dependencies:
   `video-analysis-core`.
 - `audio-analysis-io` -> `audio-analysis-core`, `video-analysis-core`,
   `video-analysis-ingest`, `video-analysis-ffmpeg`, `hound`.
-- `audio-analysis-models` -> `video-analysis-core`,
-  `video-analysis-models`.
+- `audio-analysis-tasks` -> audio capability crates, `model-runtime`,
+  `video-analysis-core`.
 - `audio-analysis-pitch` -> `audio-analysis-core`,
   `video-analysis-core`.
 - `audio-analysis-processing` -> `audio-analysis-core`,

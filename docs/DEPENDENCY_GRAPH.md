@@ -93,7 +93,6 @@ flowchart LR
     crate_audio_analysis_io["audio-analysis-io"]:::crate
     crate_audio_analysis_io_cli["audio-analysis-io-cli"]:::crate
     crate_audio_analysis_io_server["audio-analysis-io-server"]:::crate
-    crate_audio_analysis_models["audio-analysis-models"]:::crate
     crate_audio_analysis_pitch["audio-analysis-pitch"]:::crate
     crate_audio_analysis_pitch_cli["audio-analysis-pitch-cli"]:::crate
     crate_audio_analysis_pitch_server["audio-analysis-pitch-server"]:::crate
@@ -115,6 +114,7 @@ flowchart LR
     crate_audio_analysis_synthesis["audio-analysis-synthesis"]:::crate
     crate_audio_analysis_synthesis_cli["audio-analysis-synthesis-cli"]:::crate
     crate_audio_analysis_synthesis_server["audio-analysis-synthesis-server"]:::crate
+    crate_audio_analysis_tasks["audio-analysis-tasks"]:::crate
     crate_audio_analysis_test_support["audio-analysis-test-support"]:::crate
     crate_audio_generation_midi["audio-generation-midi"]:::crate
     crate_audio_generation_midi_cli["audio-generation-midi-cli"]:::crate
@@ -368,7 +368,6 @@ flowchart LR
   crate_video_analysis --> crate_audio_analysis_core
   crate_video_analysis --> crate_audio_analysis_fourier
   crate_video_analysis --> crate_audio_analysis_io
-  crate_video_analysis --> crate_audio_analysis_models
   crate_video_analysis --> crate_audio_analysis_pitch
   crate_video_analysis --> crate_audio_analysis_processing
   crate_video_analysis --> crate_audio_analysis_recognition
@@ -376,6 +375,7 @@ flowchart LR
   crate_video_analysis --> crate_audio_analysis_separation
   crate_video_analysis --> crate_audio_analysis_speakers
   crate_video_analysis --> crate_audio_analysis_synthesis
+  crate_video_analysis --> crate_audio_analysis_tasks
   crate_video_analysis --> crate_audio_generation_midi
   crate_video_analysis --> crate_image_analysis_comfyui
   crate_video_analysis --> crate_image_analysis_core
@@ -502,9 +502,6 @@ flowchart LR
   crate_audio_analysis_io --> crate_video_analysis_ingest
   crate_audio_analysis_io_cli --> crate_audio_analysis_io
   crate_audio_analysis_io_server --> crate_audio_analysis_io
-  crate_audio_analysis_models --> crate_text_transcripts
-  crate_audio_analysis_models --> crate_video_analysis_core
-  crate_audio_analysis_models --> crate_model_runtime
   crate_audio_analysis_pitch --> crate_audio_analysis_core
   crate_audio_analysis_pitch --> crate_video_analysis_core
   crate_audio_analysis_pitch_cli --> crate_audio_analysis_pitch
@@ -517,17 +514,21 @@ flowchart LR
   crate_audio_analysis_processing_server --> crate_audio_analysis_processing
   crate_audio_analysis_recognition --> crate_audio_analysis_core
   crate_audio_analysis_recognition --> crate_audio_analysis_fourier
+  crate_audio_analysis_recognition --> crate_text_transcripts
   crate_audio_analysis_recognition --> crate_video_analysis_core
-  crate_audio_analysis_recognition_cli --> crate_audio_analysis_models
+  crate_audio_analysis_recognition --> crate_model_runtime
   crate_audio_analysis_recognition_cli --> crate_audio_analysis_recognition
-  crate_audio_analysis_recognition_server --> crate_audio_analysis_models
+  crate_audio_analysis_recognition_cli --> crate_audio_analysis_tasks
   crate_audio_analysis_recognition_server --> crate_audio_analysis_recognition
+  crate_audio_analysis_recognition_server --> crate_audio_analysis_tasks
   crate_audio_analysis_recognition_server --> crate_video_analysis_core
   crate_audio_analysis_rhythm --> crate_audio_analysis_core
   crate_audio_analysis_rhythm --> crate_video_analysis_core
   crate_audio_analysis_rhythm_cli --> crate_audio_analysis_rhythm
   crate_audio_analysis_rhythm_server --> crate_audio_analysis_rhythm
+  crate_audio_analysis_separation --> crate_audio_analysis_recognition
   crate_audio_analysis_separation --> crate_video_analysis_core
+  crate_audio_analysis_separation -. optional .-> crate_jobs_core
   crate_audio_analysis_separation_cli --> crate_audio_analysis_separation
   crate_audio_analysis_separation_server --> crate_audio_analysis_separation
   crate_audio_analysis_speakers --> crate_audio_analysis_core
@@ -536,9 +537,17 @@ flowchart LR
   crate_audio_analysis_speakers_cli --> crate_audio_analysis_speakers
   crate_audio_analysis_speakers_server --> crate_audio_analysis_speakers
   crate_audio_analysis_synthesis --> crate_data_inversion_core
+  crate_audio_analysis_synthesis --> crate_audio_analysis_recognition
   crate_audio_analysis_synthesis --> crate_video_analysis_core
   crate_audio_analysis_synthesis_cli --> crate_audio_analysis_synthesis
   crate_audio_analysis_synthesis_server --> crate_audio_analysis_synthesis
+  crate_audio_analysis_tasks --> crate_audio_analysis_recognition
+  crate_audio_analysis_tasks --> crate_audio_analysis_separation
+  crate_audio_analysis_tasks --> crate_audio_analysis_speakers
+  crate_audio_analysis_tasks --> crate_audio_analysis_synthesis
+  crate_audio_analysis_tasks --> crate_text_transcripts
+  crate_audio_analysis_tasks --> crate_video_analysis_core
+  crate_audio_analysis_tasks --> crate_model_runtime
   crate_audio_analysis_test_support --> crate_video_analysis_core
   crate_audio_generation_midi --> crate_data_inversion_core
   crate_audio_generation_midi --> crate_audio_analysis_synthesis

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use audio_analysis_models::{
-    transcribe_audio, AudioModelSelection, AudioRuntime, SpeechRecognitionRequest,
+use audio_analysis_tasks::{
+    transcribe_audio, AudioRuntime, AudioRuntimeSelection, SpeechRecognitionRequest,
 };
 use text_transcripts::TranscriptSegmentContract;
 
@@ -11,7 +11,7 @@ fn audio_asr_returns_transcription_contract_from_imported_segments(
     let response = transcribe_audio(SpeechRecognitionRequest {
         source: Some("fixture.wav".to_string()),
         language: Some("en".to_string()),
-        model: AudioModelSelection::default(),
+        model: AudioRuntimeSelection::default(),
         imported_segments: vec![
             TranscriptSegmentContract {
                 index: 0,
@@ -42,7 +42,7 @@ fn audio_asr_returns_transcription_contract_from_imported_segments(
 
     assert!(response.accepted);
     assert_eq!(response.operation, "transcribe");
-    assert_eq!(response.runtime, AudioRuntime::ImportedPredictions);
+    assert_eq!(response.runtime, AudioRuntime::Imported);
     assert_eq!(response.text(), "hello world");
     assert_eq!(response.transcript.source.as_deref(), Some("fixture.wav"));
     assert_eq!(response.transcript.language.as_deref(), Some("en"));

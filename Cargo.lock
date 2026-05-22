@@ -267,17 +267,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "audio-analysis-models"
-version = "0.1.0"
-dependencies = [
- "model-runtime",
- "serde",
- "serde_json",
- "text-transcripts",
- "video-analysis-core",
-]
-
-[[package]]
 name = "audio-analysis-pitch"
 version = "0.1.0"
 dependencies = [
@@ -341,8 +330,10 @@ dependencies = [
  "audio-analysis-core",
  "audio-analysis-fourier",
  "criterion",
+ "model-runtime",
  "serde",
  "serde_json",
+ "text-transcripts",
  "video-analysis-core",
 ]
 
@@ -350,8 +341,8 @@ dependencies = [
 name = "audio-analysis-recognition-cli"
 version = "0.1.0"
 dependencies = [
- "audio-analysis-models",
  "audio-analysis-recognition",
+ "audio-analysis-tasks",
  "clap",
  "serde_json",
 ]
@@ -360,8 +351,8 @@ dependencies = [
 name = "audio-analysis-recognition-server"
 version = "0.1.0"
 dependencies = [
- "audio-analysis-models",
  "audio-analysis-recognition",
+ "audio-analysis-tasks",
  "clap",
  "serde",
  "serde_json",
@@ -399,6 +390,9 @@ dependencies = [
 name = "audio-analysis-separation"
 version = "0.1.0"
 dependencies = [
+ "audio-analysis-recognition",
+ "jobs-core",
+ "serde",
  "tempfile",
  "video-analysis-core",
 ]
@@ -454,7 +448,9 @@ dependencies = [
 name = "audio-analysis-synthesis"
 version = "0.1.0"
 dependencies = [
+ "audio-analysis-recognition",
  "data-inversion-core",
+ "serde",
  "video-analysis-core",
 ]
 
@@ -474,6 +470,21 @@ dependencies = [
  "audio-analysis-synthesis",
  "clap",
  "serde_json",
+]
+
+[[package]]
+name = "audio-analysis-tasks"
+version = "0.1.0"
+dependencies = [
+ "audio-analysis-recognition",
+ "audio-analysis-separation",
+ "audio-analysis-speakers",
+ "audio-analysis-synthesis",
+ "model-runtime",
+ "serde",
+ "serde_json",
+ "text-transcripts",
+ "video-analysis-core",
 ]
 
 [[package]]
@@ -4531,7 +4542,6 @@ dependencies = [
  "audio-analysis-core",
  "audio-analysis-fourier",
  "audio-analysis-io",
- "audio-analysis-models",
  "audio-analysis-pitch",
  "audio-analysis-processing",
  "audio-analysis-recognition",
@@ -4539,6 +4549,7 @@ dependencies = [
  "audio-analysis-separation",
  "audio-analysis-speakers",
  "audio-analysis-synthesis",
+ "audio-analysis-tasks",
  "audio-generation-midi",
  "clap",
  "comfyui-data",

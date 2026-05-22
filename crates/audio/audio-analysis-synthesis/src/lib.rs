@@ -1,9 +1,44 @@
 #![doc = include_str!("../README.md")]
 
+use audio_analysis_recognition::{AudioRuntime, AudioRuntimeSelection};
 use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};
 use video_analysis_core::{
     AnalysisEvent, AudioBuffer, DetectError, OwnedAudioFrame, Result, Timebase, Timestamp,
 };
+
+/// Request for prompt-based external audio generation.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioGenerationRequest {
+    /// Text prompt.
+    pub prompt: String,
+    /// Requested duration in seconds.
+    #[serde(default = "default_generation_duration")]
+    pub duration_seconds: f32,
+    /// Runtime selection.
+    #[serde(default)]
+    pub model: AudioRuntimeSelection,
+}
+
+/// Response for prompt-based external audio generation planning.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioGenerationResponse {
+    /// Accepted flag for generated package surfaces.
+    pub accepted: bool,
+    /// Operation name.
+    pub operation: String,
+    /// Selected model id.
+    pub model_id: String,
+    /// Runtime used.
+    pub runtime: AudioRuntime,
+    /// Prompt accepted by the model layer.
+    pub prompt: String,
+    /// Planned duration in seconds.
+    pub duration_seconds: f32,
+    /// Human-readable generation plan.
+    pub plan: String,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Variants describing waveform.
@@ -494,9 +529,60 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
 }
 
+/// Validates an audio generation request and returns a generation plan.
+pub fn generate_audio(request: AudioGenerationRequest) -> Result<AudioGenerationResponse> {
+    if request.prompt.trim().is_empty() {
+        return Err(invalid_argument(
+            "request body must include a non-empty `prompt` string",
+        ));
+    }
+    let model_id = request
+        .model
+        .model_id
+        .clone()
+        .or_else(|| request.model.model.as_ref().map(|model| model.name.clone()))
+        .unwrap_or_else(|| "musicgen-small".to_string());
+    let duration_seconds = request.duration_seconds.max(0.1);
+    Ok(AudioGenerationResponse {
+        accepted: true,
+        operation: "generate".to_string(),
+        model_id,
+        runtime: AudioRuntime::External,
+        prompt: request.prompt.clone(),
+        duration_seconds,
+        plan: format!(
+            "Queue `{}` for external audio generation; requested duration {:.1}s.",
+            request.prompt, duration_seconds
+        ),
+    })
+}
+
+fn default_generation_duration() -> f32 {
+    8.0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn prompt_generation_validates_non_empty_prompt_and_clamps_duration() {
+        assert!(generate_audio(AudioGenerationRequest {
+            prompt: " ".to_string(),
+            duration_seconds: 1.0,
+            model: AudioRuntimeSelection::default(),
+        })
+        .is_err());
+
+        let response = generate_audio(AudioGenerationRequest {
+            prompt: "soft piano".to_string(),
+            duration_seconds: 0.0,
+            model: AudioRuntimeSelection::default(),
+        })
+        .unwrap();
+        assert_eq!(response.runtime, AudioRuntime::External);
+        assert_eq!(response.duration_seconds, 0.1);
+    }
 
     #[test]
     fn synthesizes_tone_as_audio_frame() {

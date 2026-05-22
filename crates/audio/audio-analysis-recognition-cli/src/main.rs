@@ -1,10 +1,11 @@
-use audio_analysis_models::{
-    classify_audio, detect_audio_events, diarize_speakers, embed_audio, generate_audio,
-    model_catalog, separate_sources, AudioClassificationRequest, AudioEmbeddingRequest,
-    AudioEventDetectionRequest, AudioFeatureFrame, AudioFeatureSummary, AudioGenerationRequest,
-    AudioModelSelection, FallbackPolicy, SourceSeparationRequest, SpeakerDiarizationRequest,
-};
 use audio_analysis_recognition as _;
+use audio_analysis_tasks::{
+    audio_task_catalog as model_catalog, classify_audio, detect_audio_events, diarize_speakers,
+    embed_audio, generate_audio, parse_task, separate_sources, AudioClassificationRequest,
+    AudioEmbeddingRequest, AudioEventDetectionRequest, AudioFeatureFrame, AudioFeatureSummary,
+    AudioGenerationRequest, AudioRuntimeSelection, FallbackPolicy, SourceSeparationBackend,
+    SourceSeparationRequest, SpeakerDiarizationRequest,
+};
 use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Debug, Parser)]
@@ -124,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &audio_analysis_recognition_cli::command_schema_json(),
         ),
         Command::Models { task } => {
-            let task = task.as_deref().and_then(audio_analysis_models::parse_task);
+            let task = task.as_deref().and_then(parse_task);
             println!("{}", serde_json::to_string(&model_catalog(task))?);
         }
         Command::Classify {
@@ -203,7 +204,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Separate { stems } => {
             let payload = separate_sources(SourceSeparationRequest {
                 source: None,
+                input: None,
+                output_dir: None,
                 stems: split_csv(Some(&stems)),
+                backend: SourceSeparationBackend::HeuristicPlan,
                 model: selection(None, FallbackArg::Heuristic),
                 imported_stems: Vec::new(),
             })?;
@@ -216,7 +220,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let payload = generate_audio(AudioGenerationRequest {
                 prompt,
                 duration_seconds,
-                model: AudioModelSelection::default(),
+                model: AudioRuntimeSelection::default(),
             })?;
             println!("{}", serde_json::to_string(&payload)?);
         }
@@ -233,10 +237,11 @@ fn print_payload(json: bool, title: &str, payload: &str) {
     }
 }
 
-fn selection(model_id: Option<String>, fallback: FallbackArg) -> AudioModelSelection {
-    AudioModelSelection {
+fn selection(model_id: Option<String>, fallback: FallbackArg) -> AudioRuntimeSelection {
+    AudioRuntimeSelection {
         model_id,
-        runtime: None,
+        model: None,
+        backend: None,
         fallback_policy: match fallback {
             FallbackArg::Error => FallbackPolicy::Error,
             FallbackArg::Fast => FallbackPolicy::FastFallback,

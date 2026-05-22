@@ -9,10 +9,345 @@ use audio_analysis_core::{
     StreamingFrameConfig, WindowFunction,
 };
 use audio_analysis_fourier::{FourierTransform, Spectrum};
+use model_runtime::ModelSpec;
 use serde::Deserialize;
+pub use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
 use video_analysis_core::{
     AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result, Timestamp,
 };
+
+/// Runtime families for audio execution and postprocessing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AudioRuntime {
+    /// ONNX Runtime-backed native inference.
+    Onnx,
+    /// Candle-backed native inference.
+    Candle,
+    /// Whisper.cpp-backed ASR.
+    WhisperCpp,
+    /// Demucs-backed source separation.
+    Demucs,
+    /// External command-backed execution.
+    External,
+    /// Deterministic spectral fallback.
+    Spectral,
+    /// Deterministic heuristic fallback.
+    Heuristic,
+    /// Caller-supplied predictions or outputs.
+    Imported,
+}
+
+/// Fallback behavior when the selected native runtime cannot run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FallbackPolicy {
+    /// Return a typed error.
+    Error,
+    /// Use a fast deterministic fallback.
+    FastFallback,
+    /// Use a spectral or heuristic fallback.
+    HeuristicFallback,
+}
+
+impl Default for FallbackPolicy {
+    fn default() -> Self {
+        Self::Error
+    }
+}
+
+/// Runtime selection supplied by API, CLI, or UI callers.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioRuntimeSelection {
+    /// Optional preset or compatibility model identifier.
+    #[serde(default)]
+    pub model_id: Option<String>,
+    /// Optional generic model spec.
+    #[serde(default)]
+    pub model: Option<ModelSpec>,
+    /// Optional preferred runtime.
+    #[serde(default, rename = "runtime")]
+    pub backend: Option<AudioRuntime>,
+    /// Fallback policy for unsupported native paths.
+    #[serde(default)]
+    pub fallback_policy: FallbackPolicy,
+}
+
+/// Compatibility alias for callers migrating from model-shaped audio APIs.
+#[deprecated(note = "use AudioRuntimeSelection")]
+pub type AudioModelSelection = AudioRuntimeSelection;
+
+/// Feature summary for deterministic fallback paths.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioFeatureSummary {
+    /// Clip duration in seconds.
+    #[serde(default)]
+    pub duration_seconds: f32,
+    /// Sample rate in Hz.
+    #[serde(default)]
+    pub sample_rate: u32,
+    /// Root mean square energy.
+    #[serde(default)]
+    pub rms: f32,
+    /// Peak absolute amplitude.
+    #[serde(default)]
+    pub peak: f32,
+    /// Zero crossing rate.
+    #[serde(default)]
+    pub zero_crossing_rate: f32,
+    /// Dominant frequency in Hz.
+    #[serde(default)]
+    pub dominant_frequency_hz: f32,
+    /// Spectral centroid in Hz.
+    #[serde(default)]
+    pub spectral_centroid_hz: f32,
+}
+
+impl Default for AudioFeatureSummary {
+    fn default() -> Self {
+        Self {
+            duration_seconds: 0.0,
+            sample_rate: 0,
+            rms: 0.0,
+            peak: 0.0,
+            zero_crossing_rate: 0.0,
+            dominant_frequency_hz: 0.0,
+            spectral_centroid_hz: 0.0,
+        }
+    }
+}
+
+/// Window-level feature frame for event fallback.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioFeatureFrame {
+    /// Start time in seconds.
+    pub start_seconds: f32,
+    /// End time in seconds.
+    pub end_seconds: f32,
+    /// Root mean square energy.
+    pub rms: f32,
+    /// Peak absolute amplitude.
+    #[serde(default)]
+    pub peak: f32,
+}
+
+/// Imported prediction used by server, CLI, and UI postprocessing.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportedAudioPrediction {
+    /// Optional raw prediction kind.
+    #[serde(default)]
+    pub kind: Option<String>,
+    /// Label emitted by the model.
+    pub label: String,
+    /// Confidence score.
+    pub score: f32,
+    /// Optional start time in seconds.
+    #[serde(default)]
+    pub start_seconds: Option<f32>,
+    /// Optional end time in seconds.
+    #[serde(default)]
+    pub end_seconds: Option<f32>,
+    /// Optional text payload.
+    #[serde(default)]
+    pub text: Option<String>,
+    /// Arbitrary model attributes.
+    #[serde(default)]
+    pub attributes: BTreeMap<String, String>,
+}
+
+/// One label prediction.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioClassPrediction {
+    /// Label name.
+    pub label: String,
+    /// Confidence score.
+    pub score: f32,
+}
+
+/// Request for audio classification.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioClassificationRequest {
+    /// Optional source identifier.
+    #[serde(default)]
+    pub source: Option<String>,
+    /// Optional fixed labels for fallback classification.
+    #[serde(default)]
+    pub labels: Vec<String>,
+    /// Maximum prediction count.
+    #[serde(default = "default_top_k")]
+    pub top_k: usize,
+    /// Audio feature summary for deterministic fallback.
+    #[serde(default)]
+    pub features: Option<AudioFeatureSummary>,
+    /// Runtime selection.
+    #[serde(default)]
+    pub model: AudioRuntimeSelection,
+    /// Caller-supplied model predictions.
+    #[serde(default)]
+    pub imported_predictions: Vec<ImportedAudioPrediction>,
+}
+
+/// Response for audio classification.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioClassificationResponse {
+    /// Accepted flag for generated package surfaces.
+    pub accepted: bool,
+    /// Operation name.
+    pub operation: String,
+    /// Selected model id.
+    pub model_id: String,
+    /// Runtime used.
+    pub runtime: AudioRuntime,
+    /// Ranked label predictions.
+    pub predictions: Vec<AudioClassPrediction>,
+}
+
+/// Request for acoustic event detection.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioEventDetectionRequest {
+    /// Optional source identifier.
+    #[serde(default)]
+    pub source: Option<String>,
+    /// Frame summaries for deterministic fallback.
+    #[serde(default)]
+    pub frames: Vec<AudioFeatureFrame>,
+    /// RMS threshold for fallback event detection.
+    #[serde(default = "default_event_threshold")]
+    pub threshold: f32,
+    /// Runtime selection.
+    #[serde(default)]
+    pub model: AudioRuntimeSelection,
+    /// Caller-supplied model predictions.
+    #[serde(default)]
+    pub imported_predictions: Vec<ImportedAudioPrediction>,
+}
+
+/// One timestamped audio event.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioEventPrediction {
+    /// Event label.
+    pub label: String,
+    /// Confidence score.
+    pub score: f32,
+    /// Start time in seconds.
+    pub start_seconds: f32,
+    /// End time in seconds.
+    pub end_seconds: f32,
+}
+
+/// Response for acoustic event detection.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioEventDetectionResponse {
+    /// Accepted flag for generated package surfaces.
+    pub accepted: bool,
+    /// Operation name.
+    pub operation: String,
+    /// Selected model id.
+    pub model_id: String,
+    /// Runtime used.
+    pub runtime: AudioRuntime,
+    /// Timestamped events.
+    pub events: Vec<AudioEventPrediction>,
+}
+
+/// Request for audio embeddings.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioEmbeddingRequest {
+    /// Feature summaries to embed.
+    #[serde(default)]
+    pub features: Vec<AudioFeatureSummary>,
+    /// Fallback vector dimensions.
+    #[serde(default = "default_embedding_dimensions")]
+    pub dimensions: usize,
+    /// Whether to L2-normalize fallback embeddings.
+    #[serde(default = "default_true")]
+    pub normalize: bool,
+    /// Runtime selection.
+    #[serde(default)]
+    pub model: AudioRuntimeSelection,
+    /// Caller-supplied embeddings.
+    #[serde(default)]
+    pub imported_embeddings: Vec<Vec<f32>>,
+}
+
+/// Response for audio embeddings.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioEmbeddingResponse {
+    /// Accepted flag for generated package surfaces.
+    pub accepted: bool,
+    /// Operation name.
+    pub operation: String,
+    /// Selected model id.
+    pub model_id: String,
+    /// Runtime used.
+    pub runtime: AudioRuntime,
+    /// Embedding dimensions.
+    pub dimensions: usize,
+    /// Dense embeddings.
+    pub embeddings: Vec<Vec<f32>>,
+}
+
+/// Request for speech recognition.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechRecognitionRequest {
+    /// Optional source identifier.
+    #[serde(default)]
+    pub source: Option<String>,
+    /// Optional language hint.
+    #[serde(default)]
+    pub language: Option<String>,
+    /// Runtime selection.
+    #[serde(default)]
+    pub model: AudioRuntimeSelection,
+    /// Caller-supplied transcript segments.
+    #[serde(default)]
+    pub imported_segments: Vec<TranscriptSegmentContract>,
+}
+
+/// Response for speech recognition.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechRecognitionResponse {
+    /// Accepted flag for generated package surfaces.
+    pub accepted: bool,
+    /// Operation name.
+    pub operation: String,
+    /// Selected model id.
+    pub model_id: String,
+    /// Runtime used.
+    pub runtime: AudioRuntime,
+    /// Transcript contract returned by ASR.
+    pub transcript: TranscriptionContract,
+}
+
+impl SpeechRecognitionResponse {
+    /// Returns the full transcript text, synthesizing it from segments when the
+    /// transcript does not carry a separate aggregate text field.
+    pub fn text(&self) -> String {
+        self.transcript
+            .text
+            .clone()
+            .unwrap_or_else(|| self.transcript.joined_text())
+    }
+
+    /// Returns transcript segments for compatibility with older callers.
+    pub fn segments(&self) -> &[TranscriptSegmentContract] {
+        &self.transcript.segments
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 /// Data type for audio embedding.
@@ -1033,10 +1368,398 @@ fn band_energies(spectrum: &Spectrum, bands: usize) -> Vec<f32> {
     energies
 }
 
+/// Runs audio classification from imported predictions or an explicit fallback.
+pub fn classify_audio(request: AudioClassificationRequest) -> Result<AudioClassificationResponse> {
+    let model_id = selected_model_id(&request.model, "ast-audioset");
+
+    if !request.imported_predictions.is_empty() {
+        return Ok(AudioClassificationResponse {
+            accepted: true,
+            operation: "classify".to_string(),
+            model_id,
+            runtime: AudioRuntime::Imported,
+            predictions: normalize_imported_predictions(
+                request.imported_predictions,
+                request.top_k,
+            ),
+        });
+    }
+
+    match request.model.fallback_policy {
+        FallbackPolicy::FastFallback | FallbackPolicy::HeuristicFallback => {
+            let features = request.features.unwrap_or_default();
+            Ok(AudioClassificationResponse {
+                accepted: true,
+                operation: "classify".to_string(),
+                model_id,
+                runtime: AudioRuntime::Spectral,
+                predictions: spectral_label_scores(&features, &request.labels, request.top_k),
+            })
+        }
+        FallbackPolicy::Error => unsupported_runtime(
+            "native audio classification requires imported predictions or an explicit fallback policy",
+        ),
+    }
+}
+
+/// Runs event detection from imported predictions or energy threshold fallback.
+pub fn detect_audio_events(
+    request: AudioEventDetectionRequest,
+) -> Result<AudioEventDetectionResponse> {
+    let model_id = selected_model_id(&request.model, "audioset-event-detector");
+
+    if !request.imported_predictions.is_empty() {
+        let events = request
+            .imported_predictions
+            .into_iter()
+            .filter_map(|prediction| {
+                Some(AudioEventPrediction {
+                    label: prediction.label,
+                    score: prediction.score,
+                    start_seconds: prediction.start_seconds?,
+                    end_seconds: prediction.end_seconds?,
+                })
+            })
+            .collect::<Vec<_>>();
+        return Ok(AudioEventDetectionResponse {
+            accepted: true,
+            operation: "events".to_string(),
+            model_id,
+            runtime: AudioRuntime::Imported,
+            events,
+        });
+    }
+
+    match request.model.fallback_policy {
+        FallbackPolicy::FastFallback | FallbackPolicy::HeuristicFallback => {
+            let events = request
+                .frames
+                .into_iter()
+                .filter(|frame| frame.rms >= request.threshold || frame.peak >= request.threshold)
+                .map(|frame| AudioEventPrediction {
+                    label: "high_energy".to_string(),
+                    score: frame.rms.max(frame.peak).clamp(0.0, 1.0),
+                    start_seconds: frame.start_seconds,
+                    end_seconds: frame.end_seconds,
+                })
+                .collect::<Vec<_>>();
+            Ok(AudioEventDetectionResponse {
+                accepted: true,
+                operation: "events".to_string(),
+                model_id,
+                runtime: AudioRuntime::Heuristic,
+                events,
+            })
+        }
+        FallbackPolicy::Error => unsupported_runtime(
+            "native audio event detection requires imported predictions or an explicit fallback policy",
+        ),
+    }
+}
+
+/// Creates imported or deterministic fallback audio embeddings.
+pub fn embed_audio(request: AudioEmbeddingRequest) -> Result<AudioEmbeddingResponse> {
+    let model_id = selected_model_id(&request.model, "clap-htsat-unfused");
+
+    if !request.imported_embeddings.is_empty() {
+        let dimensions = request
+            .imported_embeddings
+            .first()
+            .map(Vec::len)
+            .unwrap_or_default();
+        return Ok(AudioEmbeddingResponse {
+            accepted: true,
+            operation: "embed".to_string(),
+            model_id,
+            runtime: AudioRuntime::Imported,
+            dimensions,
+            embeddings: request.imported_embeddings,
+        });
+    }
+
+    match request.model.fallback_policy {
+        FallbackPolicy::FastFallback | FallbackPolicy::HeuristicFallback => {
+            if request.features.is_empty() {
+                return Err(DetectError::InvalidArgument(
+                    "audio embedding request must include features or imported embeddings"
+                        .to_string(),
+                ));
+            }
+            let dimensions = request.dimensions.max(1);
+            let embeddings = request
+                .features
+                .iter()
+                .map(|features| spectral_summary_embedding(features, dimensions, request.normalize))
+                .collect::<Vec<_>>();
+            Ok(AudioEmbeddingResponse {
+                accepted: true,
+                operation: "embed".to_string(),
+                model_id,
+                runtime: AudioRuntime::Spectral,
+                dimensions,
+                embeddings,
+            })
+        }
+        FallbackPolicy::Error => unsupported_runtime(
+            "native audio embedding requires imported embeddings or an explicit fallback policy",
+        ),
+    }
+}
+
+/// Handles ASR from imported transcript segments.
+pub fn transcribe_audio(request: SpeechRecognitionRequest) -> Result<SpeechRecognitionResponse> {
+    let model_id = selected_model_id(&request.model, "whisper-tiny-en");
+
+    if !request.imported_segments.is_empty() {
+        let text = request
+            .imported_segments
+            .iter()
+            .map(|segment| segment.text.trim())
+            .filter(|text| !text.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let transcript = TranscriptionContract {
+            text: Some(text),
+            language: request.language,
+            segments: request.imported_segments,
+            source: request.source,
+            attributes: BTreeMap::new(),
+        };
+        transcript
+            .validate()
+            .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+        return Ok(SpeechRecognitionResponse {
+            accepted: true,
+            operation: "transcribe".to_string(),
+            model_id,
+            runtime: AudioRuntime::Imported,
+            transcript,
+        });
+    }
+
+    unsupported_runtime(
+        "native speech recognition requires text-transcripts native whisper.cpp execution or imported segments",
+    )
+}
+
+fn selected_model_id(selection: &AudioRuntimeSelection, default: &str) -> String {
+    selection
+        .model_id
+        .clone()
+        .or_else(|| selection.model.as_ref().map(|model| model.name.clone()))
+        .unwrap_or_else(|| default.to_string())
+}
+
+fn default_top_k() -> usize {
+    3
+}
+
+fn default_event_threshold() -> f32 {
+    0.2
+}
+
+fn default_embedding_dimensions() -> usize {
+    128
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn unsupported_runtime<T>(message: &str) -> Result<T> {
+    Err(DetectError::InvalidArgument(format!(
+        "unsupported_runtime: {message}"
+    )))
+}
+
+fn normalize_imported_predictions(
+    predictions: Vec<ImportedAudioPrediction>,
+    top_k: usize,
+) -> Vec<AudioClassPrediction> {
+    let mut predictions = predictions
+        .into_iter()
+        .map(|prediction| AudioClassPrediction {
+            label: normalize_prediction_label(&prediction.label),
+            score: prediction.score.clamp(0.0, 1.0),
+        })
+        .collect::<Vec<_>>();
+    predictions.sort_by(|left, right| {
+        right
+            .score
+            .total_cmp(&left.score)
+            .then_with(|| left.label.cmp(&right.label))
+    });
+    predictions.truncate(top_k.max(1));
+    predictions
+}
+
+fn spectral_label_scores(
+    features: &AudioFeatureSummary,
+    labels: &[String],
+    top_k: usize,
+) -> Vec<AudioClassPrediction> {
+    let defaults = if features.rms < 0.02 && features.peak < 0.05 {
+        vec![
+            ("silence".to_string(), 0.92),
+            ("background".to_string(), 0.35),
+        ]
+    } else if features.dominant_frequency_hz > 180.0 && features.spectral_centroid_hz > 1_200.0 {
+        vec![
+            ("speech".to_string(), 0.72),
+            ("foreground".to_string(), 0.58),
+        ]
+    } else if features.rms > 0.25 || features.peak > 0.6 {
+        vec![
+            ("music".to_string(), 0.68),
+            ("loud_event".to_string(), 0.62),
+        ]
+    } else {
+        vec![
+            ("ambient".to_string(), 0.57),
+            ("background".to_string(), 0.42),
+        ]
+    };
+
+    let mut predictions = if labels.is_empty() {
+        defaults
+            .into_iter()
+            .map(|(label, score)| AudioClassPrediction { label, score })
+            .collect::<Vec<_>>()
+    } else {
+        labels
+            .iter()
+            .map(|label| {
+                let normalized = normalize_prediction_label(label);
+                let score = match normalized.as_str() {
+                    "silence" => 1.0 - features.rms.clamp(0.0, 1.0),
+                    "speech" | "voice" => {
+                        (features.spectral_centroid_hz / 3_000.0).clamp(0.0, 1.0) * 0.75
+                    }
+                    "music" => (features.peak + features.rms)
+                        .mul_add(0.5, 0.1)
+                        .clamp(0.0, 1.0),
+                    "noise" | "background" => (features.zero_crossing_rate + 0.25).clamp(0.0, 1.0),
+                    _ => 0.35,
+                };
+                AudioClassPrediction {
+                    label: normalized,
+                    score,
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+    predictions.sort_by(|left, right| right.score.total_cmp(&left.score));
+    predictions.truncate(top_k.max(1));
+    predictions
+}
+
+fn spectral_summary_embedding(
+    features: &AudioFeatureSummary,
+    dimensions: usize,
+    normalize: bool,
+) -> Vec<f32> {
+    let base = [
+        features.duration_seconds / 60.0,
+        features.sample_rate as f32 / 48_000.0,
+        features.rms,
+        features.peak,
+        features.zero_crossing_rate,
+        features.dominant_frequency_hz / 8_000.0,
+        features.spectral_centroid_hz / 8_000.0,
+    ];
+    let mut values = (0..dimensions)
+        .map(|index| {
+            let seed = base[index % base.len()];
+            let phase = (index as f32 + 1.0) * 0.173;
+            (seed + phase.sin() * 0.05).clamp(-1.0, 1.0)
+        })
+        .collect::<Vec<_>>();
+    if normalize {
+        let _ = normalize_values(&mut values);
+    }
+    values
+}
+
+fn normalize_prediction_label(label: &str) -> String {
+    label.trim().to_ascii_lowercase().replace(' ', "_")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase};
+
+    #[test]
+    fn task_classification_uses_imported_predictions() {
+        let response = classify_audio(AudioClassificationRequest {
+            source: None,
+            labels: Vec::new(),
+            top_k: 1,
+            features: None,
+            model: AudioRuntimeSelection::default(),
+            imported_predictions: vec![ImportedAudioPrediction {
+                kind: None,
+                label: "Door Knock".to_string(),
+                score: 0.82,
+                start_seconds: None,
+                end_seconds: None,
+                text: None,
+                attributes: BTreeMap::new(),
+            }],
+        })
+        .unwrap();
+
+        assert_eq!(response.runtime, AudioRuntime::Imported);
+        assert_eq!(response.predictions[0].label, "door_knock");
+    }
+
+    #[test]
+    fn task_event_detection_uses_energy_fallback() {
+        let response = detect_audio_events(AudioEventDetectionRequest {
+            source: None,
+            frames: vec![AudioFeatureFrame {
+                start_seconds: 1.0,
+                end_seconds: 2.0,
+                rms: 0.5,
+                peak: 0.6,
+            }],
+            threshold: 0.2,
+            model: AudioRuntimeSelection {
+                fallback_policy: FallbackPolicy::HeuristicFallback,
+                ..AudioRuntimeSelection::default()
+            },
+            imported_predictions: Vec::new(),
+        })
+        .unwrap();
+
+        assert_eq!(response.runtime, AudioRuntime::Heuristic);
+        assert_eq!(response.events[0].label, "high_energy");
+    }
+
+    #[test]
+    fn task_transcription_imports_segments() {
+        let response = transcribe_audio(SpeechRecognitionRequest {
+            source: Some("clip.wav".to_string()),
+            language: Some("en".to_string()),
+            model: AudioRuntimeSelection::default(),
+            imported_segments: vec![TranscriptSegmentContract {
+                index: 0,
+                start_seconds: Some(0.0),
+                end_seconds: Some(1.0),
+                text: "hello".to_string(),
+                language: Some("en".to_string()),
+                speaker: None,
+                confidence: Some(0.9),
+                is_final: true,
+                words: Vec::new(),
+                attributes: BTreeMap::new(),
+            }],
+        })
+        .unwrap();
+
+        assert_eq!(response.runtime, AudioRuntime::Imported);
+        assert_eq!(response.text(), "hello");
+    }
 
     fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {
         assert!(

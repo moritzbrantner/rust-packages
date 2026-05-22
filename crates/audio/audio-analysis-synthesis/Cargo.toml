@@ -13,5 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+audio-analysis-recognition.workspace = true
 data-inversion-core.workspace = true
+serde.workspace = true
 video-analysis-core.workspace = true

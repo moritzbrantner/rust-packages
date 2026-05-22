@@ -15,8 +15,10 @@ categories.workspace = true
 [dependencies]
 audio-analysis-core.workspace = true
 audio-analysis-fourier.workspace = true
+model-runtime.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+text-transcripts.workspace = true
 video-analysis-core.workspace = true
 
 [dev-dependencies]

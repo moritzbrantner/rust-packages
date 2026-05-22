@@ -7,9 +7,133 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::str::FromStr;
 
+use audio_analysis_recognition::{AudioRuntime, AudioRuntimeSelection, FallbackPolicy};
 use video_analysis_core::{DetectError, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Request for source separation.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceSeparationRequest {
+    /// Optional source identifier.
+    #[serde(default)]
+    pub source: Option<String>,
+    /// Input audio path for command-backed separation.
+    #[serde(default)]
+    pub input: Option<PathBuf>,
+    /// Output directory for command-backed separation.
+    #[serde(default)]
+    pub output_dir: Option<PathBuf>,
+    /// Requested stems.
+    #[serde(default)]
+    pub stems: Vec<String>,
+    /// Separation backend.
+    #[serde(default)]
+    pub backend: SourceSeparationBackend,
+    /// Compatibility runtime selection.
+    #[serde(default)]
+    pub model: AudioRuntimeSelection,
+    /// Caller-supplied stem descriptors.
+    #[serde(default)]
+    pub imported_stems: Vec<SeparatedStemPrediction>,
+}
+
+/// Source separation backend selection.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SourceSeparationBackend {
+    /// Select an implementation from request context.
+    Auto,
+    /// Run Demucs through the existing command wrapper.
+    Demucs(HtdemucsOptions),
+    /// Return planned stem descriptors without running external tools.
+    HeuristicPlan,
+    /// Use caller-provided stem descriptors.
+    ImportedStems,
+}
+
+impl Default for SourceSeparationBackend {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
+/// One separated stem descriptor.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SeparatedStemPrediction {
+    /// Stem name.
+    pub stem: String,
+    /// Optional URI or path.
+    #[serde(default)]
+    pub uri: Option<String>,
+    /// Confidence or quality score.
+    #[serde(default)]
+    pub score: Option<f32>,
+}
+
+/// Response for source separation.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceSeparationResponse {
+    /// Accepted flag for generated package surfaces.
+    pub accepted: bool,
+    /// Operation name.
+    pub operation: String,
+    /// Selected model id.
+    pub model_id: String,
+    /// Runtime used.
+    pub runtime: AudioRuntime,
+    /// Stem descriptors.
+    pub stems: Vec<SeparatedStemPrediction>,
+}
+
+/// Join handle for a source separation background job.
+#[cfg(feature = "jobs")]
+#[derive(Debug)]
+pub struct SourceSeparationJobHandle {
+    inner: jobs_core::JobJoinHandle,
+    value: std::sync::Arc<std::sync::Mutex<Option<SourceSeparationResponse>>>,
+}
+
+#[cfg(feature = "jobs")]
+impl SourceSeparationJobHandle {
+    /// Returns the underlying tracked job.
+    pub fn job(&self) -> &jobs_core::JobHandle {
+        self.inner.job()
+    }
+
+    /// Returns the job id.
+    pub fn id(&self) -> &jobs_core::JobId {
+        self.inner.id()
+    }
+
+    /// Requests cancellation.
+    pub fn request_cancel(&self) -> jobs_core::Result<()> {
+        self.inner.request_cancel()
+    }
+
+    /// Waits for completion and returns the produced response.
+    pub fn join_result(&mut self) -> jobs_core::Result<SourceSeparationResponse> {
+        self.inner.join()?;
+        self.value
+            .lock()
+            .map_err(|_| {
+                jobs_core::JobError::StateUnavailable(
+                    "source separation job result lock poisoned".to_string(),
+                )
+            })?
+            .clone()
+            .ok_or_else(|| {
+                jobs_core::JobError::Failed(
+                    "source separation job did not produce a result".to_string(),
+                )
+            })
+    }
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 /// Variants describing stem.
 pub enum Stem {
     /// The vocals variant.
@@ -88,7 +212,7 @@ impl FromStr for Stem {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
 /// Variants describing demucs model.
 pub enum DemucsModel {
     #[default]
@@ -185,7 +309,7 @@ impl From<&str> for DemucsModel {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 /// Variants describing stem layout.
 pub enum StemLayout {
     /// The four stem variant.
@@ -233,7 +357,7 @@ impl StemLayout {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 /// Variants describing separation output format.
 pub enum SeparationOutputFormat {
     #[default]
@@ -327,7 +451,7 @@ pub struct SeparationExecution {
     pub result: SeparationResult,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 /// Data type for htdemucs options.
 pub struct HtdemucsOptions {
     /// The command value.
@@ -779,6 +903,146 @@ pub fn is_demucs_available() -> bool {
         .unwrap_or(false)
 }
 
+/// Handles source separation from imported stems, dry plans, or Demucs execution.
+pub fn separate_sources(request: SourceSeparationRequest) -> Result<SourceSeparationResponse> {
+    let model_id = selected_model_id(&request);
+
+    if !request.imported_stems.is_empty()
+        || matches!(request.backend, SourceSeparationBackend::ImportedStems)
+    {
+        return Ok(SourceSeparationResponse {
+            accepted: true,
+            operation: "separate".to_string(),
+            model_id,
+            runtime: AudioRuntime::Imported,
+            stems: request.imported_stems,
+        });
+    }
+
+    match request.backend {
+        SourceSeparationBackend::Demucs(mut options) => {
+            let input = request.input.ok_or_else(|| {
+                DetectError::InvalidArgument(
+                    "demucs source separation requires an input path".to_string(),
+                )
+            })?;
+            if let Some(output_dir) = request.output_dir {
+                options.output_dir = output_dir;
+            }
+            let separator = HtdemucsSeparator::new(options)?;
+            let result = separator.separate(input)?;
+            Ok(SourceSeparationResponse {
+                accepted: true,
+                operation: "separate".to_string(),
+                model_id,
+                runtime: AudioRuntime::Demucs,
+                stems: result
+                    .stems
+                    .into_iter()
+                    .map(|stem| SeparatedStemPrediction {
+                        stem: stem.stem.to_string(),
+                        uri: Some(stem.path.display().to_string()),
+                        score: None,
+                    })
+                    .collect(),
+            })
+        }
+        SourceSeparationBackend::HeuristicPlan => plan_source_separation(model_id, request.stems),
+        SourceSeparationBackend::Auto => match request.model.fallback_policy {
+            FallbackPolicy::FastFallback | FallbackPolicy::HeuristicFallback => {
+                plan_source_separation(model_id, request.stems)
+            }
+            FallbackPolicy::Error => Err(DetectError::InvalidArgument(
+                "unsupported_runtime: native source separation requires audio-analysis-separation execution or an explicit fallback policy"
+                    .to_string(),
+            )),
+        },
+        SourceSeparationBackend::ImportedStems => unreachable!("handled before backend match"),
+    }
+}
+
+/// Spawns source separation on a background job runner.
+#[cfg(feature = "jobs")]
+pub fn spawn_source_separation_job(
+    runner: &jobs_core::BackgroundJobRunner,
+    request: SourceSeparationRequest,
+) -> jobs_core::Result<SourceSeparationJobHandle> {
+    use std::sync::{Arc, Mutex};
+
+    let model_name = selected_model_id(&request);
+    let value = Arc::new(Mutex::new(None));
+    let value_for_job = Arc::clone(&value);
+    let job_spec = jobs_core::JobSpec::new(
+        format!("source-separation-{model_name}"),
+        format!("Source separation {model_name}"),
+    )?
+    .with_kind("source-separation")?
+    .with_metadata("operation.id", "source_separation")?
+    .with_metadata("domain", "audio")?
+    .with_metadata("model.runtime", "demucs")?
+    .with_metadata("model.name", model_name)?
+    .with_metadata("model.task", "source_separation")?;
+
+    let inner = runner.spawn(job_spec, move |context| {
+        context.info("starting source separation")?;
+        context.check_cancelled()?;
+        let response = separate_sources(request)
+            .map_err(|error| jobs_core::JobError::Failed(error.to_string()))?;
+        context.check_cancelled()?;
+        *value_for_job.lock().map_err(|_| {
+            jobs_core::JobError::StateUnavailable(
+                "source separation job result lock poisoned".to_string(),
+            )
+        })? = Some(response);
+        context.progress(
+            jobs_core::JobProgress::new(1, Some(1))?
+                .unit("steps")?
+                .message("source separation complete"),
+        )?;
+        Ok(())
+    })?;
+    Ok(SourceSeparationJobHandle { inner, value })
+}
+
+fn selected_model_id(request: &SourceSeparationRequest) -> String {
+    request
+        .model
+        .model_id
+        .clone()
+        .or_else(|| request.model.model.as_ref().map(|model| model.name.clone()))
+        .unwrap_or_else(|| "demucs-music-separation".to_string())
+}
+
+fn plan_source_separation(
+    model_id: String,
+    stems: Vec<String>,
+) -> Result<SourceSeparationResponse> {
+    let stem_names = if stems.is_empty() {
+        vec![
+            "vocals".to_string(),
+            "drums".to_string(),
+            "bass".to_string(),
+            "other".to_string(),
+        ]
+    } else {
+        stems
+    };
+    Ok(SourceSeparationResponse {
+        accepted: true,
+        operation: "separate".to_string(),
+        model_id,
+        runtime: AudioRuntime::Heuristic,
+        stems: stem_names
+            .into_iter()
+            .map(|stem| SeparatedStemPrediction {
+                stem,
+                uri: None,
+                score: None,
+            })
+            .collect(),
+    })
+}
+
 fn render_filename_template(
     template: &str,
     track: &str,
@@ -805,6 +1069,113 @@ fn file_size_if_nonempty(path: &Path) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn task_separation_returns_imported_stems() {
+        let response = separate_sources(SourceSeparationRequest {
+            source: None,
+            input: None,
+            output_dir: None,
+            stems: Vec::new(),
+            backend: SourceSeparationBackend::Auto,
+            model: AudioRuntimeSelection::default(),
+            imported_stems: vec![SeparatedStemPrediction {
+                stem: "vocals".to_string(),
+                uri: Some("vocals.wav".to_string()),
+                score: Some(1.0),
+            }],
+        })
+        .unwrap();
+
+        assert_eq!(response.runtime, AudioRuntime::Imported);
+        assert_eq!(response.stems[0].stem, "vocals");
+    }
+
+    #[test]
+    fn task_separation_heuristic_plan_returns_requested_or_default_stems() {
+        let response = separate_sources(SourceSeparationRequest {
+            source: None,
+            input: None,
+            output_dir: None,
+            stems: vec!["dialogue".to_string()],
+            backend: SourceSeparationBackend::HeuristicPlan,
+            model: AudioRuntimeSelection::default(),
+            imported_stems: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(response.runtime, AudioRuntime::Heuristic);
+        assert_eq!(response.stems[0].stem, "dialogue");
+
+        let default_response = separate_sources(SourceSeparationRequest {
+            stems: Vec::new(),
+            backend: SourceSeparationBackend::HeuristicPlan,
+            source: None,
+            input: None,
+            output_dir: None,
+            model: AudioRuntimeSelection::default(),
+            imported_stems: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(default_response.stems.len(), 4);
+    }
+
+    #[test]
+    fn task_separation_demucs_requires_input_path() {
+        let error = separate_sources(SourceSeparationRequest {
+            source: None,
+            input: None,
+            output_dir: None,
+            stems: Vec::new(),
+            backend: SourceSeparationBackend::Demucs(HtdemucsOptions::default()),
+            model: AudioRuntimeSelection::default(),
+            imported_stems: Vec::new(),
+        })
+        .unwrap_err();
+
+        assert!(error.to_string().contains("input path"));
+    }
+
+    #[cfg(feature = "jobs")]
+    #[test]
+    fn task_separation_job_records_metadata_and_cancellation() {
+        let runner = jobs_core::BackgroundJobRunner::default();
+        let mut handle = spawn_source_separation_job(
+            &runner,
+            SourceSeparationRequest {
+                source: None,
+                input: None,
+                output_dir: None,
+                stems: Vec::new(),
+                backend: SourceSeparationBackend::HeuristicPlan,
+                model: AudioRuntimeSelection::default(),
+                imported_stems: Vec::new(),
+            },
+        )
+        .unwrap();
+
+        let snapshot = runner
+            .tracker()
+            .snapshot(handle.id())
+            .unwrap()
+            .expect("job snapshot");
+        assert_eq!(snapshot.metadata["operation.id"], "source_separation");
+        assert_eq!(snapshot.metadata["domain"], "audio");
+        assert_eq!(snapshot.metadata["model.runtime"], "demucs");
+        handle.request_cancel().unwrap();
+        let snapshot = runner
+            .tracker()
+            .snapshot(handle.id())
+            .unwrap()
+            .expect("job snapshot after cancel");
+        assert!(matches!(
+            snapshot.status,
+            jobs_core::JobStatus::Queued
+                | jobs_core::JobStatus::Running
+                | jobs_core::JobStatus::Cancelling
+                | jobs_core::JobStatus::Succeeded
+        ));
+        let _ = handle.join_result();
+    }
 
     #[test]
     fn stem_parsing_normalizes_known_and_custom_values() {

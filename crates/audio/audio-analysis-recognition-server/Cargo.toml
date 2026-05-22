@@ -22,4 +22,4 @@ serde.workspace = true
 serde_json.workspace = true
 video-analysis-core.workspace = true
 audio-analysis-recognition = { path = "../audio-analysis-recognition" }
-audio-analysis-models.workspace = true
+audio-analysis-tasks.workspace = true

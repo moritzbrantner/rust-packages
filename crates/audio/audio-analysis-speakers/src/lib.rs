@@ -5,11 +5,61 @@ use std::path::{Path, PathBuf};
 
 use audio_analysis_core::{interleaved_to_mono, rms, zero_pad_to, ChannelMix, FrameSpec};
 use audio_analysis_recognition::{
-    AudioEmbeddingExtractor, SpectralAudioEmbedder, SpectralEmbeddingConfig,
+    AudioEmbeddingExtractor, AudioRuntime, AudioRuntimeSelection, FallbackPolicy,
+    SpectralAudioEmbedder, SpectralEmbeddingConfig,
 };
 use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result};
 
 const SNAPSHOT_VERSION: u32 = 1;
+
+/// Request for speaker diarization.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeakerDiarizationRequest {
+    /// Optional source identifier.
+    #[serde(default)]
+    pub source: Option<String>,
+    /// Optional duration for heuristic fallback.
+    #[serde(default)]
+    pub duration_seconds: Option<f32>,
+    /// Runtime selection.
+    #[serde(default)]
+    pub model: AudioRuntimeSelection,
+    /// Caller-supplied speaker segments.
+    #[serde(default)]
+    pub imported_segments: Vec<SpeakerSegmentPrediction>,
+}
+
+/// One speaker segment.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeakerSegmentPrediction {
+    /// Speaker label.
+    pub speaker: String,
+    /// Start time in seconds.
+    pub start_seconds: f32,
+    /// End time in seconds.
+    pub end_seconds: f32,
+    /// Confidence score.
+    #[serde(default)]
+    pub score: Option<f32>,
+}
+
+/// Response for speaker diarization.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeakerDiarizationResponse {
+    /// Accepted flag for generated package surfaces.
+    pub accepted: bool,
+    /// Operation name.
+    pub operation: String,
+    /// Selected model id.
+    pub model_id: String,
+    /// Runtime used.
+    pub runtime: AudioRuntime,
+    /// Speaker segments.
+    pub segments: Vec<SpeakerSegmentPrediction>,
+}
 
 #[derive(
     Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
@@ -1428,9 +1478,88 @@ fn filter_short_spans(spans: Vec<SpeechSpan>, min_speech_seconds: f64) -> Vec<Sp
         .collect()
 }
 
+/// Handles speaker diarization from imported segments or one-speaker fallback.
+pub fn diarize_speakers(request: SpeakerDiarizationRequest) -> Result<SpeakerDiarizationResponse> {
+    let model_id = request
+        .model
+        .model_id
+        .clone()
+        .or_else(|| request.model.model.as_ref().map(|model| model.name.clone()))
+        .unwrap_or_else(|| "pyannote-speaker-diarization-3.1".to_string());
+
+    if !request.imported_segments.is_empty() {
+        return Ok(SpeakerDiarizationResponse {
+            accepted: true,
+            operation: "diarize".to_string(),
+            model_id,
+            runtime: AudioRuntime::Imported,
+            segments: request.imported_segments,
+        });
+    }
+
+    match request.model.fallback_policy {
+        FallbackPolicy::FastFallback | FallbackPolicy::HeuristicFallback => {
+            let duration = request.duration_seconds.unwrap_or(0.0).max(0.0);
+            Ok(SpeakerDiarizationResponse {
+                accepted: true,
+                operation: "diarize".to_string(),
+                model_id,
+                runtime: AudioRuntime::Heuristic,
+                segments: vec![SpeakerSegmentPrediction {
+                    speaker: "speaker_0".to_string(),
+                    start_seconds: 0.0,
+                    end_seconds: duration,
+                    score: Some(1.0),
+                }],
+            })
+        }
+        FallbackPolicy::Error => Err(DetectError::InvalidArgument(
+            "unsupported_runtime: native speaker diarization requires imported segments or an explicit fallback policy"
+                .to_string(),
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn task_diarization_returns_imported_segments() {
+        let response = diarize_speakers(SpeakerDiarizationRequest {
+            source: None,
+            duration_seconds: None,
+            model: AudioRuntimeSelection::default(),
+            imported_segments: vec![SpeakerSegmentPrediction {
+                speaker: "speaker_a".to_string(),
+                start_seconds: 0.0,
+                end_seconds: 1.5,
+                score: Some(0.8),
+            }],
+        })
+        .unwrap();
+
+        assert_eq!(response.runtime, AudioRuntime::Imported);
+        assert_eq!(response.segments[0].speaker, "speaker_a");
+    }
+
+    #[test]
+    fn task_diarization_heuristic_returns_single_segment() {
+        let response = diarize_speakers(SpeakerDiarizationRequest {
+            source: None,
+            duration_seconds: Some(2.5),
+            model: AudioRuntimeSelection {
+                fallback_policy: FallbackPolicy::HeuristicFallback,
+                ..AudioRuntimeSelection::default()
+            },
+            imported_segments: Vec::new(),
+        })
+        .unwrap();
+
+        assert_eq!(response.runtime, AudioRuntime::Heuristic);
+        assert_eq!(response.segments[0].speaker, "speaker_0");
+        assert_eq!(response.segments[0].end_seconds, 2.5);
+    }
 
     #[derive(Debug, Clone)]
     struct MeanSignSpeakerEmbedder {

@@ -1,11 +1,11 @@
-use audio_analysis_models::{
-    classify_audio, detect_audio_events, diarize_speakers, embed_audio, generate_audio,
-    model_catalog, parse_task, schema_summary, separate_sources, transcribe_audio,
+use audio_analysis_recognition as _;
+use audio_analysis_tasks::{
+    audio_task_catalog, classify_audio, detect_audio_events, diarize_speakers, embed_audio,
+    generate_audio, parse_task, schema_summary, separate_sources, transcribe_audio,
     AudioClassificationRequest, AudioEmbeddingRequest, AudioEventDetectionRequest,
     AudioGenerationRequest, SourceSeparationRequest, SpeakerDiarizationRequest,
     SpeechRecognitionRequest,
 };
-use audio_analysis_recognition as _;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 
@@ -58,12 +58,14 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         ),
         ("GET", "/api/package") => json_response(200, "OK", package_metadata_value()),
         ("GET", "/api/schema") => json_response(200, "OK", schema_value()),
-        ("GET", "/api/models") => json_response(200, "OK", serde_json::json!(model_catalog(None))),
+        ("GET", "/api/models") => {
+            json_response(200, "OK", serde_json::json!(audio_task_catalog(None)))
+        }
         ("GET", path) if path.starts_with("/api/models/") => {
             let task = path.trim_start_matches("/api/models/");
             match parse_task(task) {
                 Some(task) => {
-                    json_response(200, "OK", serde_json::json!(model_catalog(Some(task))))
+                    json_response(200, "OK", serde_json::json!(audio_task_catalog(Some(task))))
                 }
                 None => typed_error_response(
                     400,
@@ -129,7 +131,7 @@ fn run_response(body: &str) -> HttpResponse {
                 "package": format!("{}-server", LIBRARY_CRATE),
                 "library": LIBRARY_CRATE,
                 "accepted": true,
-                "models": model_catalog(None)
+                "models": audio_task_catalog(None)
             }),
         ),
         operation => typed_error_response(
@@ -304,8 +306,8 @@ fn schema_value() -> serde_json::Value {
             "/health": { "get": { "summary": "Health check" } },
             "/api/package": { "get": { "summary": "Package metadata" } },
             "/api/schema": { "get": { "summary": "API schema" } },
-            "/api/models": { "get": { "summary": "List audio model presets" } },
-            "/api/models/{task}": { "get": { "summary": "List audio model presets for a task" } },
+            "/api/models": { "get": { "summary": "List audio task runtimes" } },
+            "/api/models/{task}": { "get": { "summary": "List audio task runtimes for a task" } },
             "/api/classify": { "post": { "summary": "Audio classification" } },
             "/api/events": { "post": { "summary": "Audio event detection" } },
             "/api/embed": { "post": { "summary": "Audio embeddings" } },

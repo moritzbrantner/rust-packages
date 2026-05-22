@@ -85,7 +85,6 @@ audio-analysis-core = { version = "0.1.0", path = "crates/audio/audio-analysis-c
 audio-generation-midi = { version = "0.1.0", path = "crates/audio/audio-generation-midi" }
 audio-analysis-fourier = { version = "0.1.0", path = "crates/audio/audio-analysis-fourier" }
 audio-analysis-io = { version = "0.1.0", path = "crates/audio/audio-analysis-io" }
-audio-analysis-models = { version = "0.1.0", path = "crates/audio/audio-analysis-models" }
 audio-analysis-pitch = { version = "0.1.0", path = "crates/audio/audio-analysis-pitch" }
 audio-analysis-processing = { version = "0.1.0", path = "crates/audio/audio-analysis-processing" }
 audio-analysis-recognition = { version = "0.1.0", path = "crates/audio/audio-analysis-recognition" }
@@ -93,6 +92,7 @@ audio-analysis-rhythm = { version = "0.1.0", path = "crates/audio/audio-analysis
 audio-analysis-separation = { version = "0.1.0", path = "crates/audio/audio-analysis-separation" }
 audio-analysis-speakers = { version = "0.1.0", path = "crates/audio/audio-analysis-speakers" }
 audio-analysis-synthesis = { version = "0.1.0", path = "crates/audio/audio-analysis-synthesis" }
+audio-analysis-tasks = { version = "0.1.0", path = "crates/audio/audio-analysis-tasks" }
 audio-analysis-test-support = { version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
 video-analysis-test-support = { version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
 image-analysis-core = { version = "0.1.0", path = "crates/image/image-analysis-core" }
@@ -197,7 +197,6 @@ audio-analysis-core.workspace = true
 audio-generation-midi.workspace = true
 audio-analysis-fourier.workspace = true
 audio-analysis-io.workspace = true
-audio-analysis-models.workspace = true
 audio-analysis-pitch.workspace = true
 audio-analysis-processing.workspace = true
 audio-analysis-recognition.workspace = true
@@ -205,6 +204,7 @@ audio-analysis-rhythm.workspace = true
 audio-analysis-separation.workspace = true
 audio-analysis-speakers.workspace = true
 audio-analysis-synthesis.workspace = true
+audio-analysis-tasks.workspace = true
 data-inversion-core.workspace = true
 graph-analysis-core.workspace = true
 geo-data.workspace = true
