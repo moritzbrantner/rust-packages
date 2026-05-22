@@ -12,6 +12,6 @@ Library-first semantic and hybrid retrieval for `video-analysis`.
 
 ## Related crates
 
-- `text-models`
+- `text-embeddings`
 - `text-lexical`
 - `vector-analysis-index`

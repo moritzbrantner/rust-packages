@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
-use text_models::TextEmbedderBackend;
+use text_embeddings::TextEmbedderBackend;
 /// Re-exports the text analysis retrieval API.
 pub use text_retrieval::{
     DocumentChunk, IngestReport, IngestionOptions, RetrievalIndex, SearchDocument,

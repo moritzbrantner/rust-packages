@@ -97,7 +97,7 @@ fn run_response(body: &str) -> HttpResponse {
         );
     }
 
-    match analyze_text(text, &LinguisticAnalysisOptions::default()) {
+    match analyze_text(text, &LinguisticAnalysisOptions::heuristic()) {
         Ok(analysis) => json_response(200, "OK", analysis_payload(text, &analysis)),
         Err(error) => json_response(
             500,

@@ -20,9 +20,9 @@ use math_signal_core::{BiquadDesign, SampleRate, WindowFunction};
 use num_rational::Rational64;
 use support::{click_track, owned_f32_frame, sine};
 use tempfile::tempdir;
+use text_embeddings::{pool_embedding_output, softmax, PoolingStrategy};
 use text_generation::{synthesize_from_terms, terms_from_counts, TermPrompt, TextSynthesisOptions};
 use text_linguistics::{analyze_text, LinguisticAnalysisOptions};
-use text_models::{pool_embedding_output, softmax, PoolingStrategy};
 use video_analysis_core::{AnalysisEvent, Timestamp};
 
 #[test]

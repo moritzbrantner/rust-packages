@@ -3721,14 +3721,22 @@ dependencies = [
 name = "text-embeddings"
 version = "0.1.0"
 dependencies = [
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
  "criterion",
  "math-sparse-data",
+ "ndarray",
+ "ort",
  "serde",
+ "serde_json",
  "text-core",
  "text-lexical",
+ "tokenizers",
  "vector-analysis-core",
  "vector-analysis-index",
  "video-analysis-core",
+ "video-analysis-models",
 ]
 
 [[package]]
@@ -3755,13 +3763,17 @@ dependencies = [
 name = "text-linguistics"
 version = "0.1.0"
 dependencies = [
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
  "criterion",
  "jobs-core",
+ "serde_json",
  "tempfile",
  "text-core",
  "text-lexical",
- "text-models",
  "text-transcripts",
+ "tokenizers",
  "video-analysis-core",
  "video-analysis-models",
 ]
@@ -3782,45 +3794,6 @@ dependencies = [
  "clap",
  "serde_json",
  "text-linguistics",
-]
-
-[[package]]
-name = "text-models"
-version = "0.1.0"
-dependencies = [
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "criterion",
- "ndarray",
- "ort",
- "serde",
- "serde_json",
- "tempfile",
- "text-core",
- "text-embeddings",
- "tokenizers",
- "vector-analysis-core",
- "video-analysis-core",
- "video-analysis-models",
-]
-
-[[package]]
-name = "text-models-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-models",
-]
-
-[[package]]
-name = "text-models-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-models",
 ]
 
 [[package]]
@@ -4476,7 +4449,6 @@ dependencies = [
  "text-generation",
  "text-lexical",
  "text-linguistics",
- "text-models",
  "text-retrieval",
  "text-transcripts",
  "text-whisper-cpp",

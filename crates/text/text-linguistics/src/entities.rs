@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use text_core::{Sentence, TextSpan, Token, TokenKind};
-use text_models::{RawPrediction, SequenceLabeler};
 use video_analysis_core::Result;
 
+use crate::local_models::{RawPrediction, SequenceLabeler};
 use crate::syntax::sentence_token_ranges;
 use crate::{DependencyRelation, DependencyTree, LemmatizationResult, PosAnnotation, PosTag};
 
@@ -200,7 +200,7 @@ pub fn named_entities_from_model_predictions(
 ) -> Vec<NamedEntity> {
     let mut model_tokens = predictions
         .iter()
-        .filter_map(|prediction| model_entity_token(prediction))
+        .filter_map(model_entity_token)
         .collect::<Vec<_>>();
     model_tokens.sort_by_key(|token| (token.byte_start, token.byte_end));
 

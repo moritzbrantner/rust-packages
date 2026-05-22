@@ -13,17 +13,23 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+candle-core = { workspace = true, optional = true }
+candle-nn = { workspace = true, optional = true }
+candle-transformers = { workspace = true, optional = true }
 jobs-core.workspace = true
+serde_json.workspace = true
 text-core.workspace = true
 text-lexical.workspace = true
-text-models = { workspace = true, features = ["candle"] }
 text-transcripts.workspace = true
+tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
 video-analysis-models.workspace = true
 
 [features]
 default = []
-external-tests = []
+tokenizers = ["dep:tokenizers"]
+candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers"]
+external-tests = ["candle"]
 
 [dev-dependencies]
 criterion.workspace = true

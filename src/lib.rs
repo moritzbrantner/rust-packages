@@ -89,8 +89,6 @@ pub use text_generation;
 pub use text_lexical;
 /// Re-exports the text linguistics API.
 pub use text_linguistics;
-/// Re-exports the text models API.
-pub use text_models;
 /// Re-exports the text retrieval API.
 pub use text_retrieval;
 /// Re-exports the text transcripts API.

@@ -80,10 +80,9 @@ Runtime and external integration crates use a shared feature policy:
 | `image-analysis-synthesis` | Deterministic inverse image generation | `data-inversion-core`, `image-analysis-core`, `video-analysis-core` | Solid images, gradients, luma-histogram expansion, region painting | Applications reconstructing approximate image buffers from summaries or regions |
 | `text-core` | Shared text analysis utilities | `video-analysis-core`, `unicode-normalization`, `unicode-segmentation` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, Unicode word/grapheme spans, script profiles, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
 | `text-lexical` | Lexical features and classical corpus statistics | `text-core`, `math-sparse-data`, `video-analysis-core`, `serde` | Stop words, keywords, n-grams, shingles, readability, stemming, extractive summaries, sentiment, reusable text analyzers, TF-IDF, BM25, sparse term matrices/vectors | Applications, text analytics, semantic indexing |
-| `text-linguistics` | Local model-backed linguistic interpretation | `jobs-core`, `text-core`, `text-lexical`, `text-models`, `text-transcripts`, `video-analysis-core`, `video-analysis-models` | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
-| `text-embeddings` | Embedding traits and lightweight semantic text analysis | `text-core`, `text-lexical`, `math-sparse-data`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core` | `TextEmbeddingBackend`, `TextEmbedderBackend`, `EmbeddingModelInfo`, hashed dense/sparse embeddings, semantic indexes, text similarity, co-occurrence graphs, related-term scoring | Retrieval, applications, semantic analysis prototypes |
+| `text-linguistics` | Local model-backed linguistic interpretation | `jobs-core`, `text-core`, `text-lexical`, `text-transcripts`, `video-analysis-core`, `video-analysis-models`, optional `tokenizers`/Candle crates | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
+| `text-embeddings` | Embedding traits and lightweight semantic text analysis | `text-core`, `text-lexical`, `math-sparse-data`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core`, optional `tokenizers`/`ort`/Candle crates | `TextEmbeddingBackend`, `TextEmbedderBackend`, `EmbeddingModelInfo`, hashed dense/sparse embeddings, optional ONNX/Candle text embedders, semantic indexes, text similarity, co-occurrence graphs, related-term scoring | Retrieval, applications, semantic analysis prototypes |
 | `text-retrieval` | Text ingestion, search, and persisted retrieval indexes | `text-core`, `text-lexical`, `text-embeddings`, `vector-analysis-index`, `serde`, `serde_json`, `thiserror`, `video-analysis-core` | Search documents/chunks, chunking options, full-text/semantic/hybrid query/ranking, metadata filters, search results, related-chunk lookup, manifests, chunk/vector JSONL snapshots, corpus metadata, rehydration helpers | Applications, search prototypes, local retrieval snapshots |
-| `text-models` | Optional heavyweight model-backed text analysis | `text-core`, `text-embeddings`, `vector-analysis-core`, `video-analysis-core`, `video-analysis-models`, optional `tokenizers`/`ort`/Candle crates | Tokenizer bundles, ONNX text classifiers/embedders with fake-runner seams, Candle classifiers/token classifiers/embedders and architecture validation | Applications that need native text model execution |
 | `text-generation` | Deterministic text prediction and synthesis | `data-inversion-core`, `text-core`, `text-linguistics`, `video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring, weighted term prompts, term/event/analysis to document generation, generated text segments | Applications, text pipelines, prototyping |
 | `text-transcripts` | Reusable transcript parsing and ASR command wrappers | `audio-analysis-core`, `audio-analysis-io`, `video-analysis-core`, `video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, waveform-batch transcription bridge, text segment source adapter | Use cases, applications, text pipelines |
 | `dense-data` | Generic dense point aggregation and clustering | `numbers-core`, `math-linear`, `math-statistics`, `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, per-dimension summaries, bounds, fixed-grid buckets, deterministic k-means clusters, covariance, and PCA helpers | Tables, graphs, charts, maps, media features, and analytics workflows |
@@ -300,22 +299,17 @@ cases and model adapters.
   It now also exposes optional sparse term matrices and vectors backed by
   `math-sparse-data`.
 - `text-linguistics` owns language detection, tokenization policy/alignment,
-  lemmatization, POS/morphology, phrase chunks, dependency trees, named
-  entities, rule entities, coreference, relations, events, discourse, topics,
-  style, and `TextNlpPipeline`.
+  local tokenizer loading, local BERT NER execution, lemmatization,
+  POS/morphology, phrase chunks, dependency trees, named entities, rule
+  entities, coreference, relations, events, discourse, topics, style, and
+  `TextNlpPipeline`.
 - `text-embeddings` keeps `HashedTextEmbedder` and `SemanticTextIndex`
   while adding `TextEmbeddingBackend` and `EmbeddingSearchIndex<E>`. Embedding
   APIs return `DenseVector` directly instead of encoding vectors into
   `AnalysisEvent` values, and can optionally emit sparse hashed embeddings
-  backed by `math-sparse-data`.
-- `text-models` owns optional model-backed text execution surfaces:
-  `TokenizerBundle`, `TokenizedText`, `OnnxTextClassifier`,
-  `OnnxTextEmbedder`, `CandleTextClassifier`, and `CandleTextEmbedder`.
-  The default feature set is empty. `tokenizers` enables Hugging Face tokenizer
-  loading, `onnx` enables ONNX dependencies and bundle validation, `candle`
-  enables Candle dependencies and architecture checks, `external-tests` opts
-  into network/model tests, and `slow-external-tests` gates slow ONNX runtime
-  execution checks.
+  backed by `math-sparse-data`. Optional native embedding runtimes now live
+  here through `OnnxTextEmbedder` and `CandleTextEmbedder`; model acquisition
+  still uses `video-analysis-models`.
 - `text-retrieval` owns `SearchDocument`, `DocumentChunk`, `RetrievalIndex`,
   `SearchQuery`, `SearchFilter`, `HybridConfig`, `SearchResult`, retrieval
   manifests, persisted chunk/vector JSONL snapshots, and index rehydration.
@@ -1192,15 +1186,13 @@ Allowed internal dependencies:
 - `text-lexical` -> `text-core`,
   `math-sparse-data`, `video-analysis-core`.
 - `text-linguistics` -> `text-core`, `text-lexical`,
-  `text-models`, `text-transcripts`, `video-analysis-core`.
+  `text-transcripts`, `video-analysis-core`, `video-analysis-models`.
 - `text-embeddings` -> `text-core`, `text-lexical`,
   `math-sparse-data`, `vector-analysis-core`, `vector-analysis-index`,
   `video-analysis-core`.
 - `text-retrieval` -> `text-core`, `text-lexical`,
   `text-embeddings`, `vector-analysis-index`, `video-analysis-core`,
   `serde`, `serde_json`, `thiserror`.
-- `text-models` -> `text-core`, `text-embeddings`,
-  `vector-analysis-core`, `video-analysis-core`, `video-analysis-models`.
 - `text-generation` -> `data-inversion-core`, `text-core`,
   `text-linguistics`, `video-analysis-core`.
 - `text-transcripts` -> `audio-analysis-core`,

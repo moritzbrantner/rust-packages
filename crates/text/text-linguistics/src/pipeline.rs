@@ -7,7 +7,6 @@ use text_core::{
     AnnotationConfidence, AnnotationProvenance, Sentence, TextAnnotationGraph, TextDocument,
     TextProcessingOptions, Token,
 };
-use text_models::{CandleTokenClassifier, SequenceLabeler};
 use text_transcripts::{TranscriptSegment, TranscriptionResult};
 use video_analysis_core::{
     AnalysisEvent, DetectError, OwnedTextSegment, Result, TextAnalyzer, TextSegment,
@@ -24,6 +23,7 @@ use crate::entities::{
     EntityLinkingOptions, EventExtractor, ExtractedEvent, NamedEntity, RelationTriple,
 };
 use crate::language::{LanguageDetectionOptions, LanguageDetector, LanguageProfile, LexiconStore};
+use crate::local_models::{CandleTokenClassifier, SequenceLabeler};
 use crate::morphology::{
     annotate_morphology, lemmatize_tokens, Lemma, LemmaOptions, MorphAnnotation, PosAnnotation,
     PosTagger, PosTaggingOptions,

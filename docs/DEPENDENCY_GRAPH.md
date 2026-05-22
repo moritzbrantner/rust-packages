@@ -163,9 +163,6 @@ flowchart LR
     crate_text_linguistics["text-linguistics"]:::crate
     crate_text_linguistics_cli["text-linguistics-cli"]:::crate
     crate_text_linguistics_server["text-linguistics-server"]:::crate
-    crate_text_models["text-models"]:::crate
-    crate_text_models_cli["text-models-cli"]:::crate
-    crate_text_models_server["text-models-server"]:::crate
     crate_text_retrieval["text-retrieval"]:::crate
     crate_text_retrieval_cli["text-retrieval-cli"]:::crate
     crate_text_retrieval_server["text-retrieval-server"]:::crate
@@ -383,7 +380,6 @@ flowchart LR
   crate_video_analysis --> crate_text_generation
   crate_video_analysis --> crate_text_lexical
   crate_video_analysis --> crate_text_linguistics
-  crate_video_analysis --> crate_text_models
   crate_video_analysis --> crate_text_retrieval
   crate_video_analysis --> crate_text_transcripts
   crate_video_analysis --> crate_text_whisper_cpp
@@ -591,6 +587,7 @@ flowchart LR
   crate_text_embeddings --> crate_vector_analysis_core
   crate_text_embeddings --> crate_vector_analysis_index
   crate_text_embeddings --> crate_video_analysis_core
+  crate_text_embeddings -. optional .-> crate_video_analysis_models
   crate_text_generation --> crate_data_inversion_core
   crate_text_generation --> crate_text_core
   crate_text_generation --> crate_text_linguistics
@@ -600,20 +597,12 @@ flowchart LR
   crate_text_lexical --> crate_video_analysis_core
   crate_text_linguistics --> crate_text_core
   crate_text_linguistics --> crate_text_lexical
-  crate_text_linguistics --> crate_text_models
   crate_text_linguistics --> crate_text_transcripts
   crate_text_linguistics --> crate_video_analysis_core
   crate_text_linguistics --> crate_video_analysis_models
   crate_text_linguistics --> crate_jobs_core
   crate_text_linguistics_cli --> crate_text_linguistics
   crate_text_linguistics_server --> crate_text_linguistics
-  crate_text_models --> crate_text_core
-  crate_text_models --> crate_text_embeddings
-  crate_text_models --> crate_vector_analysis_core
-  crate_text_models --> crate_video_analysis_core
-  crate_text_models --> crate_video_analysis_models
-  crate_text_models_cli --> crate_text_models
-  crate_text_models_server --> crate_text_models
   crate_text_retrieval --> crate_text_core
   crate_text_retrieval --> crate_text_embeddings
   crate_text_retrieval --> crate_text_lexical

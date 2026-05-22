@@ -8,7 +8,7 @@ Local model-backed linguistic analysis pipeline for `video-analysis`.
 - Tokenizer routing for word, subword, and mixed analysis modes
 - Surface-to-subword alignment
 - Lemmatization, morphology, POS tagging, chunking, and dependency parsing
-- Local model-backed named entities through `text_models::CandleTokenClassifier`
+- Local model-backed named entities through `CandleTokenClassifier`
 - Heuristic rule extraction remains available through `LinguisticAnalysisOptions::heuristic()`
 - Coreference, events, discourse, topics, and style analysis
 - `TextAnalyzer` adapter for text pipelines
@@ -40,7 +40,6 @@ For deterministic offline tests or constrained environments, use
 ## Related crates
 
 - `text-core`
-- `text-models`
 - `text-transcripts` for SRT, WebVTT, Whisper JSON, and plain transcript parsing
 - `text-lexical` for TF-IDF and BM25 corpus indexing from text inputs
 - `video-analysis-core`

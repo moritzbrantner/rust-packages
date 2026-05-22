@@ -84,7 +84,7 @@ fn print_payload(json: bool, title: &str, payload: &str) {
 }
 
 fn analysis_json(text: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let analysis = analyze_text(text, &LinguisticAnalysisOptions::default())?;
+    let analysis = analyze_text(text, &LinguisticAnalysisOptions::heuristic())?;
     Ok(serde_json::json!({
         "language": analysis.language.primary.as_ref().map(|prediction| prediction.language.as_str()),
         "tokenCount": analysis.tokens.len(),

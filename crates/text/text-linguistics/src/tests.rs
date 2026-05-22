@@ -4,9 +4,6 @@ use text_core::{
     split_sentence_spans, tokenize, AnnotationProvenance, Sentence, TextProcessingOptions,
     TextSpan, Token, TokenKind,
 };
-use text_models::{
-    RawPrediction, SequenceLabeler, TextRuntimeBackend, TokenizedText, TokenizerSource,
-};
 use text_transcripts::{parse_srt, parse_webvtt, TranscriptSegment};
 use video_analysis_core::{OwnedTextSegment, Result, TextAnalyzer};
 

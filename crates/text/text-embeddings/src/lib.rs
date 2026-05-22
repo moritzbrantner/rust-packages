@@ -1,9 +1,27 @@
 #![doc = include_str!("../README.md")]
 
 use std::collections::{BTreeMap, BTreeSet};
+#[cfg(feature = "tokenizers")]
+use std::fs;
+#[cfg(feature = "tokenizers")]
+use std::path::{Path, PathBuf};
+#[cfg(feature = "onnx")]
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(feature = "onnx")]
+use std::sync::{Mutex, OnceLock};
+#[cfg(feature = "onnx")]
+use std::time::Instant;
 
+#[cfg(feature = "candle")]
+use candle_core::{DType as CandleDType, Device as CandleDevice, Tensor as CandleTensor};
+#[cfg(feature = "candle")]
+use candle_nn::VarBuilder as CandleVarBuilder;
+#[cfg(feature = "candle")]
+use candle_transformers::models::{bert as candle_bert, distilbert as candle_distilbert};
 use math_sparse_data::SparseVector;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "tokenizers")]
+use serde_json::Value;
 use text_core::{segment_document_id, tokenize_words, AnnotationProvenance, TextDocument};
 use text_lexical::{term_counts, CorpusOptions, TfIdfCorpus};
 use vector_analysis_core::cosine_similarity;
@@ -11,6 +29,8 @@ use vector_analysis_core::cosine_similarity;
 pub use vector_analysis_core::DenseVector;
 use vector_analysis_index::{SearchConfig, VectorRecord, VectorSearchIndex};
 use video_analysis_core::{DetectError, Result, TextSegment};
+#[cfg(feature = "tokenizers")]
+use video_analysis_models::ModelBundle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Data type for text embedding config.
@@ -90,6 +110,12 @@ pub struct EmbeddingModelInfo {
     pub backend: TextEmbeddingBackendKind,
     /// The dimensions value.
     pub dimensions: usize,
+    /// Whether vectors are normalized.
+    #[serde(default = "default_normalized")]
+    pub normalized: bool,
+    /// Maximum supported token count when known.
+    #[serde(default)]
+    pub max_tokens: Option<usize>,
 }
 
 impl Default for EmbeddingModelInfo {
@@ -98,8 +124,14 @@ impl Default for EmbeddingModelInfo {
             model_name: "custom".to_string(),
             backend: TextEmbeddingBackendKind::Custom,
             dimensions: 0,
+            normalized: true,
+            max_tokens: None,
         }
     }
+}
+
+fn default_normalized() -> bool {
+    true
 }
 
 /// Trait for embedding cache hooks.
@@ -135,6 +167,8 @@ pub trait TextEmbeddingBackend {
             model_name: metadata.model_name.unwrap_or_else(|| "custom".to_string()),
             backend: metadata.backend,
             dimensions: metadata.dimensions.unwrap_or(0),
+            normalized: true,
+            max_tokens: None,
         }
     }
 
@@ -159,6 +193,555 @@ pub trait SentenceEmbedder: TextEmbedderBackend {
             .collect()
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing pooling strategy.
+pub enum PoolingStrategy {
+    /// Use the first token.
+    Cls,
+    /// Mean-pool unmasked tokens.
+    Mean,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for tokenized text used by native embedding runtimes.
+pub struct TokenizedText {
+    /// The input identifiers value.
+    pub input_ids: Vec<i64>,
+    /// The attention mask value.
+    pub attention_mask: Vec<i64>,
+    /// The token type identifiers value.
+    pub token_type_ids: Option<Vec<i64>>,
+    /// The offsets value.
+    pub offsets: Vec<Option<(usize, usize)>>,
+}
+
+#[cfg(feature = "tokenizers")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Data type for tokenizer bundle.
+pub struct TokenizerBundle {
+    tokenizer_path: PathBuf,
+    /// The max length value.
+    pub max_length: Option<usize>,
+}
+
+#[cfg(feature = "tokenizers")]
+impl TokenizerBundle {
+    /// Creates a new value.
+    pub fn new(tokenizer_path: impl Into<PathBuf>) -> Self {
+        Self {
+            tokenizer_path: tokenizer_path.into(),
+            max_length: None,
+        }
+    }
+
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: &ModelBundle) -> Result<Self> {
+        let tokenizer_path = bundle
+            .file_path("tokenizer.json")
+            .or_else(|| bundle.file_path("vocab.txt"))
+            .ok_or_else(|| {
+                invalid_argument(format!(
+                    "model bundle `{}` is missing required tokenizer file `tokenizer.json` or `vocab.txt`",
+                    bundle.manifest.name
+                ))
+            })?;
+        Ok(Self::new(tokenizer_path))
+    }
+
+    /// Returns max length.
+    pub fn max_length(mut self, max_length: usize) -> Self {
+        self.max_length = Some(max_length);
+        self
+    }
+
+    /// Returns tokenizer path.
+    pub fn tokenizer_path(&self) -> &Path {
+        &self.tokenizer_path
+    }
+
+    /// Returns tokenize.
+    pub fn tokenize(&self, text: &str) -> Result<TokenizedText> {
+        let tokenizer = load_tokenizer(&self.tokenizer_path)?;
+        let encoding = tokenizer
+            .encode(text, true)
+            .map_err(|err| DetectError::Source(format!("failed to tokenize text: {err}")))?;
+        let mut tokenized = TokenizedText {
+            input_ids: encoding
+                .get_ids()
+                .iter()
+                .map(|value| i64::from(*value))
+                .collect(),
+            attention_mask: encoding
+                .get_attention_mask()
+                .iter()
+                .map(|value| i64::from(*value))
+                .collect(),
+            token_type_ids: Some(
+                encoding
+                    .get_type_ids()
+                    .iter()
+                    .map(|value| i64::from(*value))
+                    .collect(),
+            ),
+            offsets: encoding
+                .get_offsets()
+                .iter()
+                .map(|(start, end)| Some((*start, *end)))
+                .collect(),
+        };
+        if let Some(max_length) = self.max_length {
+            tokenized.input_ids.truncate(max_length);
+            tokenized.attention_mask.truncate(max_length);
+            if let Some(token_type_ids) = &mut tokenized.token_type_ids {
+                token_type_ids.truncate(max_length);
+            }
+            tokenized.offsets.truncate(max_length);
+        }
+        Ok(tokenized)
+    }
+}
+
+#[cfg(feature = "tokenizers")]
+fn load_tokenizer(path: &Path) -> Result<tokenizers::Tokenizer> {
+    if path.file_name().and_then(|value| value.to_str()) == Some("vocab.txt") {
+        let vocab_path = path.to_str().ok_or_else(|| {
+            invalid_argument(format!(
+                "tokenizer vocab path is not valid UTF-8: {}",
+                path.display()
+            ))
+        })?;
+        let model = tokenizers::models::wordpiece::WordPiece::from_file(vocab_path)
+            .build()
+            .map_err(|err| {
+                DetectError::Source(format!(
+                    "failed to load WordPiece vocab `{}`: {err}",
+                    path.display()
+                ))
+            })?;
+        let vocab = tokenizers::Model::get_vocab(&model);
+        let cls_id = *vocab.get("[CLS]").unwrap_or(&101);
+        let sep_id = *vocab.get("[SEP]").unwrap_or(&102);
+        let mut tokenizer = tokenizers::Tokenizer::new(model);
+        tokenizer.with_normalizer(Some(
+            tokenizers::normalizers::bert::BertNormalizer::default(),
+        ));
+        tokenizer.with_pre_tokenizer(Some(tokenizers::pre_tokenizers::bert::BertPreTokenizer));
+        tokenizer.with_post_processor(Some(tokenizers::processors::bert::BertProcessing::new(
+            ("[SEP]".to_string(), sep_id),
+            ("[CLS]".to_string(), cls_id),
+        )));
+        return Ok(tokenizer);
+    }
+
+    tokenizers::Tokenizer::from_file(path).map_err(|err| {
+        DetectError::Source(format!(
+            "failed to load tokenizer `{}`: {err}",
+            path.display()
+        ))
+    })
+}
+
+#[cfg(feature = "onnx")]
+#[derive(Debug)]
+/// Data type for native ONNX runner.
+pub struct NativeOnnxRunner {
+    session: Mutex<ort::session::Session>,
+    model_path: PathBuf,
+    first_run_observed: AtomicBool,
+}
+
+#[cfg(feature = "onnx")]
+impl NativeOnnxRunner {
+    /// Creates a new value.
+    pub fn new(model_path: impl AsRef<Path>) -> Result<Self> {
+        let model_path = model_path.as_ref().to_path_buf();
+        let timing_enabled = onnx_timing_enabled();
+        let started = timing_enabled.then(Instant::now);
+        let builder = ort::session::Session::builder().map_err(ort_error)?;
+        let mut builder = builder
+            .with_no_environment_execution_providers()
+            .and_then(|builder| {
+                builder.with_execution_providers([ort::ep::CPUExecutionProvider::default().build()])
+            })
+            .and_then(|builder| {
+                builder
+                    .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Disable)
+            })
+            .and_then(|builder| builder.with_parallel_execution(false))
+            .and_then(|builder| builder.with_intra_threads(1))
+            .and_then(|builder| builder.with_inter_threads(1))
+            .map_err(ort_error)?;
+        let session = builder.commit_from_file(&model_path);
+        if let Some(started) = started {
+            log_onnx_stage_timing(
+                "NativeOnnxRunner::new",
+                &model_path,
+                started.elapsed(),
+                session.is_ok(),
+            );
+        }
+        Ok(Self {
+            session: Mutex::new(session.map_err(ort_error)?),
+            model_path,
+            first_run_observed: AtomicBool::new(false),
+        })
+    }
+
+    fn run_first_f32_output(&self, tokens: &TokenizedText) -> Result<(Vec<f32>, Vec<usize>)> {
+        use std::borrow::Cow;
+
+        use ort::session::SessionInputValue;
+        use ort::value::Tensor;
+
+        let mut session = self
+            .session
+            .lock()
+            .map_err(|_| DetectError::Source("ONNX session mutex was poisoned".to_string()))?;
+        let input_names = session
+            .inputs()
+            .iter()
+            .map(|input| input.name().to_string())
+            .collect::<Vec<_>>();
+        let shape = vec![1_i64, tokens.input_ids.len() as i64];
+        let mut inputs = Vec::<(Cow<'_, str>, SessionInputValue<'_>)>::new();
+        if input_names.iter().any(|name| name == "input_ids") {
+            inputs.push((
+                Cow::from("input_ids"),
+                Tensor::<i64>::from_array((shape.clone(), tokens.input_ids.clone()))
+                    .map_err(ort_error)?
+                    .into(),
+            ));
+        }
+        if input_names.iter().any(|name| name == "attention_mask") {
+            inputs.push((
+                Cow::from("attention_mask"),
+                Tensor::<i64>::from_array((shape.clone(), tokens.attention_mask.clone()))
+                    .map_err(ort_error)?
+                    .into(),
+            ));
+        }
+        if input_names.iter().any(|name| name == "token_type_ids") {
+            if let Some(token_type_ids) = &tokens.token_type_ids {
+                inputs.push((
+                    Cow::from("token_type_ids"),
+                    Tensor::<i64>::from_array((shape, token_type_ids.clone()))
+                        .map_err(ort_error)?
+                        .into(),
+                ));
+            }
+        }
+        if inputs.is_empty() {
+            return Err(invalid_argument(
+                "ONNX text model does not expose a supported text input",
+            ));
+        }
+        let log_first_run =
+            onnx_timing_enabled() && !self.first_run_observed.swap(true, Ordering::Relaxed);
+        if log_first_run {
+            log_onnx_stage_event("NativeOnnxRunner::session.run", &self.model_path, "start");
+        }
+        let outputs = session.run(inputs).map_err(ort_error)?;
+        let (shape, values) = outputs[0].try_extract_tensor::<f32>().map_err(ort_error)?;
+        let shape = shape
+            .iter()
+            .map(|dim| {
+                usize::try_from(*dim).map_err(|_| {
+                    invalid_argument("ONNX output shape contains a negative dimension")
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok((values.to_vec(), shape))
+    }
+}
+
+/// Trait for ONNX text embedding runner implementations.
+pub trait OnnxTextEmbeddingRunner {
+    /// Runs embeddings.
+    fn run_embeddings(&self, tokens: &TokenizedText) -> Result<(Vec<f32>, Vec<usize>)>;
+}
+
+#[derive(Debug, Clone, Default)]
+/// Data type for unavailable ONNX runner.
+pub struct UnavailableOnnxRunner;
+
+impl OnnxTextEmbeddingRunner for UnavailableOnnxRunner {
+    fn run_embeddings(&self, _tokens: &TokenizedText) -> Result<(Vec<f32>, Vec<usize>)> {
+        Err(DetectError::Source(
+            "native ONNX execution is unavailable; construct with a runner or enable an executor"
+                .to_string(),
+        ))
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl OnnxTextEmbeddingRunner for NativeOnnxRunner {
+    fn run_embeddings(&self, tokens: &TokenizedText) -> Result<(Vec<f32>, Vec<usize>)> {
+        self.run_first_f32_output(tokens)
+    }
+}
+
+#[cfg(feature = "tokenizers")]
+#[derive(Debug, Clone)]
+/// Data type for ONNX text embedder.
+pub struct OnnxTextEmbedder<R = UnavailableOnnxRunner> {
+    tokenizer: TokenizerBundle,
+    runner: R,
+    pooling: PoolingStrategy,
+    normalize: bool,
+    model_name: String,
+    dimensions: Option<usize>,
+    max_tokens: Option<usize>,
+}
+
+#[cfg(all(feature = "tokenizers", not(feature = "onnx")))]
+impl OnnxTextEmbedder<UnavailableOnnxRunner> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        let info = validate_onnx_bundle(&bundle)?;
+        Ok(Self {
+            tokenizer: TokenizerBundle::new(info.tokenizer_path),
+            runner: UnavailableOnnxRunner,
+            pooling: PoolingStrategy::Mean,
+            normalize: true,
+            model_name: bundle.manifest.name,
+            dimensions: embedding_dimensions_from_config_path(&info.config_path)?,
+            max_tokens: model_max_tokens_from_config_path(&info.config_path)?,
+        })
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl OnnxTextEmbedder<NativeOnnxRunner> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        let info = validate_onnx_bundle(&bundle)?;
+        Ok(Self {
+            tokenizer: TokenizerBundle::new(info.tokenizer_path),
+            runner: NativeOnnxRunner::new(info.model_path)?,
+            pooling: PoolingStrategy::Mean,
+            normalize: true,
+            model_name: bundle.manifest.name,
+            dimensions: embedding_dimensions_from_config_path(&info.config_path)?,
+            max_tokens: model_max_tokens_from_config_path(&info.config_path)?,
+        })
+    }
+}
+
+#[cfg(feature = "tokenizers")]
+impl<R: OnnxTextEmbeddingRunner> OnnxTextEmbedder<R> {
+    /// Builds this value from runner.
+    pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
+        let info = validate_onnx_bundle(&bundle)?;
+        Ok(Self {
+            tokenizer: TokenizerBundle::new(info.tokenizer_path),
+            runner,
+            pooling: PoolingStrategy::Mean,
+            normalize: true,
+            model_name: bundle.manifest.name,
+            dimensions: embedding_dimensions_from_config_path(&info.config_path)?,
+            max_tokens: model_max_tokens_from_config_path(&info.config_path)?,
+        })
+    }
+
+    /// Returns pooling.
+    pub fn pooling(mut self, pooling: PoolingStrategy) -> Self {
+        self.pooling = pooling;
+        self
+    }
+
+    /// Normalizes this value.
+    pub fn normalize(mut self, normalize: bool) -> Self {
+        self.normalize = normalize;
+        self
+    }
+
+    /// Returns embed tokenized.
+    pub fn embed_tokenized(&self, tokens: &TokenizedText) -> Result<DenseVector> {
+        let (values, shape) = self.runner.run_embeddings(tokens)?;
+        pool_embedding_output(
+            &values,
+            &shape,
+            &tokens.attention_mask,
+            self.pooling,
+            self.normalize,
+        )
+    }
+}
+
+#[cfg(feature = "tokenizers")]
+impl<R: OnnxTextEmbeddingRunner> TextEmbeddingBackend for OnnxTextEmbedder<R> {
+    fn embed_text(&self, text: &str) -> Result<DenseVector> {
+        let tokens = self.tokenizer.tokenize(text)?;
+        self.embed_tokenized(&tokens)
+    }
+
+    fn metadata(&self) -> TextEmbeddingMetadata {
+        TextEmbeddingMetadata {
+            backend: TextEmbeddingBackendKind::Onnx,
+            provenance: AnnotationProvenance::Onnx,
+            model_name: Some(self.model_name.clone()),
+            dimensions: self.dimensions,
+        }
+    }
+
+    fn model_info(&self) -> EmbeddingModelInfo {
+        EmbeddingModelInfo {
+            model_name: self.model_name.clone(),
+            backend: TextEmbeddingBackendKind::Onnx,
+            dimensions: self.dimensions.unwrap_or(0),
+            normalized: self.normalize,
+            max_tokens: self.max_tokens.or(self.tokenizer.max_length),
+        }
+    }
+}
+
+#[cfg(feature = "tokenizers")]
+impl<R: OnnxTextEmbeddingRunner> SentenceEmbedder for OnnxTextEmbedder<R> {}
+
+#[cfg(feature = "tokenizers")]
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX bundle info.
+pub struct OnnxBundleInfo {
+    /// The config path value.
+    pub config_path: PathBuf,
+    /// The tokenizer path value.
+    pub tokenizer_path: PathBuf,
+    /// The model path value.
+    pub model_path: PathBuf,
+}
+
+#[cfg(feature = "tokenizers")]
+/// Validates ONNX bundle.
+pub fn validate_onnx_bundle(bundle: &ModelBundle) -> Result<OnnxBundleInfo> {
+    let config_path = required_bundle_file(bundle, "config.json")?;
+    let tokenizer_path = required_bundle_file(bundle, "tokenizer.json")?;
+    let model_path = first_bundle_file_with_extension(bundle, "onnx").ok_or_else(|| {
+        invalid_argument("ONNX text bundle must contain at least one `.onnx` model file")
+    })?;
+    Ok(OnnxBundleInfo {
+        config_path,
+        tokenizer_path,
+        model_path,
+    })
+}
+
+#[cfg(feature = "tokenizers")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CandleEmbeddingArchitecture {
+    Bert,
+    DistilBert,
+}
+
+#[cfg(feature = "tokenizers")]
+#[derive(Debug, Clone)]
+/// Data type for candle text embedder.
+pub struct CandleTextEmbedder {
+    tokenizer: TokenizerBundle,
+    config: Value,
+    model_paths: Vec<PathBuf>,
+    architecture: CandleEmbeddingArchitecture,
+    pooling: PoolingStrategy,
+    normalize: bool,
+    model_name: String,
+    dimensions: Option<usize>,
+    max_tokens: Option<usize>,
+}
+
+#[cfg(feature = "tokenizers")]
+impl CandleTextEmbedder {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        let config_path = required_bundle_file(&bundle, "config.json")?;
+        let tokenizer_path = required_bundle_file(&bundle, "tokenizer.json")?;
+        let config = read_json(&config_path)?;
+        let model_paths = bundle_files_with_extension(&bundle, "safetensors");
+        if model_paths.is_empty() {
+            return Err(invalid_argument(
+                "Candle text bundles must contain a `.safetensors` model file",
+            ));
+        }
+        let architecture = embedding_architecture_from_config(&config)?;
+        let dimensions = embedding_dimensions_from_config(&config);
+        let max_tokens = model_max_tokens_from_config(&config);
+        Ok(Self {
+            tokenizer: tokenizer_with_model_limit(TokenizerBundle::new(tokenizer_path), &config),
+            config,
+            model_paths,
+            architecture,
+            pooling: PoolingStrategy::Mean,
+            normalize: true,
+            model_name: bundle.manifest.name,
+            dimensions,
+            max_tokens,
+        })
+    }
+
+    /// Returns pooling.
+    pub fn pooling(mut self, pooling: PoolingStrategy) -> Self {
+        self.pooling = pooling;
+        self
+    }
+
+    /// Normalizes this value.
+    pub fn normalize(mut self, normalize: bool) -> Self {
+        self.normalize = normalize;
+        self
+    }
+
+    /// Returns embed tokenized.
+    pub fn embed_tokenized(&self, tokens: &TokenizedText) -> Result<DenseVector> {
+        #[cfg(feature = "candle")]
+        {
+            let (values, shape) =
+                run_candle_embedder(&self.config, &self.model_paths, self.architecture, tokens)?;
+            pool_embedding_output(
+                &values,
+                &shape,
+                &tokens.attention_mask,
+                self.pooling,
+                self.normalize,
+            )
+        }
+        #[cfg(not(feature = "candle"))]
+        {
+            let _ = (&self.config, &self.model_paths, self.architecture, tokens);
+            Err(invalid_argument(
+                "native Candle execution requires the `candle` feature",
+            ))
+        }
+    }
+}
+
+#[cfg(feature = "tokenizers")]
+impl TextEmbeddingBackend for CandleTextEmbedder {
+    fn embed_text(&self, text: &str) -> Result<DenseVector> {
+        let tokens = self.tokenizer.tokenize(text)?;
+        self.embed_tokenized(&tokens)
+    }
+
+    fn metadata(&self) -> TextEmbeddingMetadata {
+        TextEmbeddingMetadata {
+            backend: TextEmbeddingBackendKind::Candle,
+            provenance: AnnotationProvenance::Candle,
+            model_name: Some(self.model_name.clone()),
+            dimensions: self.dimensions,
+        }
+    }
+
+    fn model_info(&self) -> EmbeddingModelInfo {
+        EmbeddingModelInfo {
+            model_name: self.model_name.clone(),
+            backend: TextEmbeddingBackendKind::Candle,
+            dimensions: self.dimensions.unwrap_or(0),
+            normalized: self.normalize,
+            max_tokens: self.max_tokens.or(self.tokenizer.max_length),
+        }
+    }
+}
+
+#[cfg(feature = "tokenizers")]
+impl SentenceEmbedder for CandleTextEmbedder {}
 
 impl HashedTextEmbedder {
     /// Creates a new value.
@@ -701,6 +1284,439 @@ fn stable_hash(bytes: &[u8]) -> u64 {
         hash = hash.wrapping_mul(0x100000001b3);
     }
     hash
+}
+
+/// Returns pool embedding output.
+pub fn pool_embedding_output(
+    values: &[f32],
+    shape: &[usize],
+    attention_mask: &[i64],
+    pooling: PoolingStrategy,
+    normalize: bool,
+) -> Result<DenseVector> {
+    let (sequence, hidden) = match shape {
+        [_hidden] => {
+            let vector = DenseVector::new(values.to_vec())?;
+            return if normalize {
+                vector.l2_normalized()
+            } else {
+                Ok(vector)
+            };
+        }
+        [sequence, hidden] => (*sequence, *hidden),
+        [batch, sequence, hidden] if *batch == 1 => (*sequence, *hidden),
+        _ => {
+            return Err(invalid_argument(format!(
+                "unsupported embedding output shape `{shape:?}`"
+            )));
+        }
+    };
+    if sequence == 0 || hidden == 0 || values.len() != sequence * hidden {
+        return Err(invalid_argument(
+            "embedding output shape does not match values",
+        ));
+    }
+
+    let pooled = match pooling {
+        PoolingStrategy::Cls => values[..hidden].to_vec(),
+        PoolingStrategy::Mean => {
+            let mut pooled = vec![0.0_f32; hidden];
+            let mut count = 0.0_f32;
+            for token_index in 0..sequence {
+                if attention_mask.get(token_index).copied().unwrap_or(1) == 0 {
+                    continue;
+                }
+                count += 1.0;
+                let offset = token_index * hidden;
+                for dimension in 0..hidden {
+                    pooled[dimension] += values[offset + dimension];
+                }
+            }
+            if count <= f32::EPSILON {
+                return Err(invalid_argument(
+                    "mean pooling requires at least one unmasked token",
+                ));
+            }
+            for value in &mut pooled {
+                *value /= count;
+            }
+            pooled
+        }
+    };
+    let vector = DenseVector::new(pooled)?;
+    if normalize {
+        vector.l2_normalized()
+    } else {
+        Ok(vector)
+    }
+}
+
+/// Returns softmax.
+pub fn softmax(logits: &[f32]) -> Vec<f32> {
+    if logits.is_empty() {
+        return Vec::new();
+    }
+    let max = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let mut values = logits
+        .iter()
+        .map(|value| (value - max).exp())
+        .collect::<Vec<_>>();
+    let total = values.iter().sum::<f32>();
+    if total <= f32::EPSILON || !total.is_finite() {
+        return vec![0.0; logits.len()];
+    }
+    for value in &mut values {
+        *value /= total;
+    }
+    values
+}
+
+#[cfg(feature = "tokenizers")]
+fn required_bundle_file(bundle: &ModelBundle, remote_path: &str) -> Result<PathBuf> {
+    bundle.file_path(remote_path).ok_or_else(|| {
+        invalid_argument(format!(
+            "model bundle `{}` is missing required file `{remote_path}`",
+            bundle.manifest.name
+        ))
+    })
+}
+
+#[cfg(feature = "tokenizers")]
+fn first_bundle_file_with_extension(bundle: &ModelBundle, extension: &str) -> Option<PathBuf> {
+    bundle
+        .manifest
+        .files
+        .keys()
+        .find(|path| {
+            Path::new(path).extension().and_then(|value| value.to_str()) == Some(extension)
+        })
+        .and_then(|path| bundle.file_path(path))
+}
+
+#[cfg(feature = "tokenizers")]
+fn bundle_files_with_extension(bundle: &ModelBundle, extension: &str) -> Vec<PathBuf> {
+    bundle
+        .manifest
+        .files
+        .keys()
+        .filter(|path| {
+            Path::new(path).extension().and_then(|value| value.to_str()) == Some(extension)
+        })
+        .filter_map(|path| bundle.file_path(path))
+        .collect::<Vec<_>>()
+}
+
+#[cfg(feature = "tokenizers")]
+fn embedding_architecture_from_config(config: &Value) -> Result<CandleEmbeddingArchitecture> {
+    let architectures = architectures_from_config(config);
+    if architectures.contains(&"DistilBertModel") {
+        return Ok(CandleEmbeddingArchitecture::DistilBert);
+    }
+    if architectures
+        .iter()
+        .any(|architecture| matches!(*architecture, "BertModel" | "SentenceTransformer"))
+    {
+        return Ok(CandleEmbeddingArchitecture::Bert);
+    }
+    Err(invalid_argument(format!(
+        "unsupported Candle text architecture {}; supported: BertModel, DistilBertModel, SentenceTransformer",
+        if architectures.is_empty() {
+            "<missing>".to_string()
+        } else {
+            architectures.join(", ")
+        },
+    )))
+}
+
+#[cfg(feature = "tokenizers")]
+fn architectures_from_config(config: &Value) -> Vec<&str> {
+    config
+        .get("architectures")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>()
+}
+
+#[cfg(feature = "tokenizers")]
+fn embedding_dimensions_from_config_path(config_path: &Path) -> Result<Option<usize>> {
+    Ok(embedding_dimensions_from_config(&read_json(config_path)?))
+}
+
+#[cfg(feature = "tokenizers")]
+fn embedding_dimensions_from_config(config: &Value) -> Option<usize> {
+    config
+        .get("hidden_size")
+        .or_else(|| config.get("dim"))
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+}
+
+#[cfg(feature = "tokenizers")]
+fn model_max_tokens_from_config_path(config_path: &Path) -> Result<Option<usize>> {
+    Ok(model_max_tokens_from_config(&read_json(config_path)?))
+}
+
+#[cfg(feature = "tokenizers")]
+fn model_max_tokens_from_config(config: &Value) -> Option<usize> {
+    config
+        .get("max_position_embeddings")
+        .or_else(|| config.get("max_seq_len"))
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+}
+
+#[cfg(feature = "tokenizers")]
+fn tokenizer_with_model_limit(tokenizer: TokenizerBundle, config: &Value) -> TokenizerBundle {
+    match model_max_tokens_from_config(config) {
+        Some(max_tokens) => tokenizer.max_length(max_tokens),
+        None => tokenizer,
+    }
+}
+
+#[cfg(feature = "tokenizers")]
+fn read_json(path: &Path) -> Result<Value> {
+    let data = fs::read(path)?;
+    serde_json::from_slice(&data).map_err(|err| {
+        DetectError::Source(format!("failed to parse JSON `{}`: {err}", path.display()))
+    })
+}
+
+#[cfg(feature = "candle")]
+fn run_candle_embedder(
+    config: &Value,
+    model_paths: &[PathBuf],
+    architecture: CandleEmbeddingArchitecture,
+    tokens: &TokenizedText,
+) -> Result<(Vec<f32>, Vec<usize>)> {
+    let device = CandleDevice::Cpu;
+    let vb = candle_var_builder(model_paths, &device)?;
+    let prefixes = model_prefix_candidates(config);
+
+    let sequence_output = match architecture {
+        CandleEmbeddingArchitecture::Bert => {
+            let config: candle_bert::Config =
+                serde_json::from_value(config.clone()).map_err(|err| {
+                    invalid_argument(format!("failed to parse BERT config for Candle: {err}"))
+                })?;
+            let model = load_candle_bert_model(&vb, &config, &prefixes)?;
+            let input_ids = candle_input_ids(tokens, &device)?;
+            let token_type_ids = candle_token_type_ids(tokens, &device)?;
+            let attention_mask = candle_attention_mask_keep(tokens, &device)?;
+            model
+                .forward(&input_ids, &token_type_ids, Some(&attention_mask))
+                .map_err(candle_error)?
+        }
+        CandleEmbeddingArchitecture::DistilBert => {
+            let config: candle_distilbert::Config = serde_json::from_value(config.clone())
+                .map_err(|err| {
+                    invalid_argument(format!(
+                        "failed to parse DistilBERT config for Candle: {err}"
+                    ))
+                })?;
+            let model = load_candle_distilbert_model(&vb, &config, &prefixes)?;
+            let input_ids = candle_input_ids(tokens, &device)?;
+            let attention_mask = candle_attention_mask_distil(tokens, &device)?;
+            model
+                .forward(&input_ids, &attention_mask)
+                .map_err(candle_error)?
+        }
+    };
+
+    let shape = sequence_output.dims().to_vec();
+    let values = sequence_output
+        .flatten_all()
+        .map_err(candle_error)?
+        .to_vec1::<f32>()
+        .map_err(candle_error)?;
+    Ok((values, shape))
+}
+
+#[cfg(feature = "candle")]
+fn candle_var_builder<'a>(
+    model_paths: &'a [PathBuf],
+    device: &CandleDevice,
+) -> Result<CandleVarBuilder<'a>> {
+    let paths = model_paths
+        .iter()
+        .map(|path| path.as_path())
+        .collect::<Vec<_>>();
+    unsafe { CandleVarBuilder::from_mmaped_safetensors(&paths, CandleDType::F32, device) }
+        .map_err(candle_error)
+}
+
+#[cfg(feature = "candle")]
+fn load_candle_bert_model(
+    vb: &CandleVarBuilder<'_>,
+    config: &candle_bert::Config,
+    prefixes: &[String],
+) -> Result<candle_bert::BertModel> {
+    let mut last_error = None;
+    for prefix in prefixes {
+        let model_vb = if prefix.is_empty() {
+            vb.clone()
+        } else {
+            vb.pp(prefix)
+        };
+        match candle_bert::BertModel::load(model_vb, config) {
+            Ok(model) => return Ok(model),
+            Err(err) => last_error = Some(err.to_string()),
+        }
+    }
+    Err(DetectError::Source(format!(
+        "failed to load Candle BERT model for prefixes [{}]{}",
+        prefixes.join(", "),
+        last_error.map(|err| format!(": {err}")).unwrap_or_default()
+    )))
+}
+
+#[cfg(feature = "candle")]
+fn load_candle_distilbert_model(
+    vb: &CandleVarBuilder<'_>,
+    config: &candle_distilbert::Config,
+    prefixes: &[String],
+) -> Result<candle_distilbert::DistilBertModel> {
+    let mut last_error = None;
+    for prefix in prefixes {
+        let model_vb = if prefix.is_empty() {
+            vb.clone()
+        } else {
+            vb.pp(prefix)
+        };
+        match candle_distilbert::DistilBertModel::load(model_vb, config) {
+            Ok(model) => return Ok(model),
+            Err(err) => last_error = Some(err.to_string()),
+        }
+    }
+    Err(DetectError::Source(format!(
+        "failed to load Candle DistilBERT model for prefixes [{}]{}",
+        prefixes.join(", "),
+        last_error.map(|err| format!(": {err}")).unwrap_or_default()
+    )))
+}
+
+#[cfg(feature = "candle")]
+fn model_prefix_candidates(config: &Value) -> Vec<String> {
+    let mut prefixes = Vec::new();
+    push_unique_string(&mut prefixes, String::new());
+    if let Some(model_type) = config.get("model_type").and_then(Value::as_str) {
+        push_unique_string(&mut prefixes, model_type.to_string());
+    }
+    push_unique_string(&mut prefixes, "bert".to_string());
+    push_unique_string(&mut prefixes, "distilbert".to_string());
+    push_unique_string(&mut prefixes, "0.auto_model".to_string());
+    push_unique_string(&mut prefixes, "auto_model".to_string());
+    push_unique_string(&mut prefixes, "model".to_string());
+    prefixes
+}
+
+#[cfg(feature = "candle")]
+fn push_unique_string(values: &mut Vec<String>, value: String) {
+    if !values.iter().any(|existing| existing == &value) {
+        values.push(value);
+    }
+}
+
+#[cfg(feature = "candle")]
+fn candle_input_ids(tokens: &TokenizedText, device: &CandleDevice) -> Result<CandleTensor> {
+    let values = tokens
+        .input_ids
+        .iter()
+        .map(|value| {
+            u32::try_from(*value).map_err(|_| {
+                invalid_argument(format!(
+                    "tokenizer produced an out-of-range input id for Candle: {value}"
+                ))
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    CandleTensor::from_vec(values, (1, tokens.input_ids.len()), device).map_err(candle_error)
+}
+
+#[cfg(feature = "candle")]
+fn candle_token_type_ids(tokens: &TokenizedText, device: &CandleDevice) -> Result<CandleTensor> {
+    let values = match &tokens.token_type_ids {
+        Some(values) => values
+            .iter()
+            .map(|value| {
+                u32::try_from(*value).map_err(|_| {
+                    invalid_argument(format!(
+                        "tokenizer produced an out-of-range token type id for Candle: {value}"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>>>()?,
+        None => vec![0_u32; tokens.input_ids.len()],
+    };
+    CandleTensor::from_vec(values, (1, tokens.input_ids.len()), device).map_err(candle_error)
+}
+
+#[cfg(feature = "candle")]
+fn candle_attention_mask_keep(
+    tokens: &TokenizedText,
+    device: &CandleDevice,
+) -> Result<CandleTensor> {
+    let values = tokens
+        .attention_mask
+        .iter()
+        .map(|value| if *value == 0 { 0_u32 } else { 1_u32 })
+        .collect::<Vec<_>>();
+    CandleTensor::from_vec(values, (1, tokens.attention_mask.len()), device).map_err(candle_error)
+}
+
+#[cfg(feature = "candle")]
+fn candle_attention_mask_distil(
+    tokens: &TokenizedText,
+    device: &CandleDevice,
+) -> Result<CandleTensor> {
+    let values = tokens
+        .attention_mask
+        .iter()
+        .map(|value| if *value == 0 { 1_u8 } else { 0_u8 })
+        .collect::<Vec<_>>();
+    CandleTensor::from_vec(values, (1, tokens.attention_mask.len()), device).map_err(candle_error)
+}
+
+#[cfg(feature = "onnx")]
+fn ort_error<T>(error: ort::Error<T>) -> DetectError {
+    DetectError::Source(format!("ONNX runtime error: {error}"))
+}
+
+#[cfg(feature = "onnx")]
+fn onnx_timing_enabled() -> bool {
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        std::env::var_os("VIDEO_ANALYSIS_ONNX_TIMING")
+            .map(|value| {
+                let value = value.to_string_lossy();
+                !value.is_empty() && value != "0" && !value.eq_ignore_ascii_case("false")
+            })
+            .unwrap_or(false)
+    })
+}
+
+#[cfg(feature = "onnx")]
+fn log_onnx_stage_timing(stage: &str, model_path: &Path, elapsed: std::time::Duration, ok: bool) {
+    eprintln!(
+        "text-embeddings onnx timing: stage={stage} model={} elapsed_ms={} status={}",
+        model_path.display(),
+        elapsed.as_millis(),
+        if ok { "ok" } else { "err" }
+    );
+}
+
+#[cfg(feature = "onnx")]
+fn log_onnx_stage_event(stage: &str, model_path: &Path, event: &str) {
+    eprintln!(
+        "text-embeddings onnx timing: stage={stage} model={} event={event}",
+        model_path.display()
+    );
+}
+
+#[cfg(feature = "candle")]
+fn candle_error(error: candle_core::Error) -> DetectError {
+    DetectError::Source(format!("Candle runtime error: {error}"))
 }
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {

@@ -15,9 +15,9 @@ use video_analysis::{
     output, posture, posture_io, radiance_fields, radiance_io, radiance_pipeline, recognition,
     reconstruction, sfm, sfm_rust_backend, signal, sparse, split, stats, storage, synthesis,
     tensor_data, text_core, text_embeddings, text_generation, text_lexical, text_linguistics,
-    text_models, text_retrieval, text_transcripts, text_whisper_cpp, three_d_core, three_d_io,
-    three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
-    video_segmentation, Timebase, Timestamp,
+    text_retrieval, text_transcripts, text_whisper_cpp, three_d_core, three_d_io, three_d_mesh,
+    three_d_scene, tracking, transform, vector_core, vector_index, video_segmentation, Timebase,
+    Timestamp,
 };
 
 #[cfg(feature = "onnx-backend")]
@@ -423,7 +423,7 @@ fn text_linguistics_run_response(body: &str) -> HttpResponse {
 
     match text_linguistics::analyze_text(
         text,
-        &text_linguistics::LinguisticAnalysisOptions::default(),
+        &text_linguistics::LinguisticAnalysisOptions::heuristic(),
     ) {
         Ok(analysis) => json_response(200, "OK", text_linguistics_payload(text, &analysis)),
         Err(error) => json_response(
@@ -962,13 +962,6 @@ const MODULES: &[ModuleInfo] = &[
     ModuleInfo {
         package: "text-linguistics",
         import_path: "video_analysis::text_linguistics",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-models",
-        import_path: "video_analysis::text_models",
         domain: "text",
         linked: true,
         required_feature: None,

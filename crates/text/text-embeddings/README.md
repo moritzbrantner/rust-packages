@@ -4,7 +4,10 @@ Lightweight semantic text embeddings and search for `video-analysis`.
 
 ## Feature flags
 
-- No optional feature flags today.
+- `tokenizers`: tokenizer loading and model bundle tokenizer support
+- `onnx`: ONNX-backed text embedding runtime support
+- `candle`: Candle-backed text embedding runtime support
+- `external-tests`: opt-in model/runtime checks
 
 ## Example
 
