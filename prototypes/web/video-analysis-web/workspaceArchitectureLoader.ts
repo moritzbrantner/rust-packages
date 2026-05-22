@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { dirname, relative } from "node:path";
 
 import {
@@ -42,6 +42,11 @@ interface CargoMetadataTarget {
 interface CargoMetadataResponse {
   packages: CargoMetadataPackage[];
   workspace_members: string[];
+}
+
+interface FrontendPackageJson {
+  name?: string;
+  description?: string;
 }
 
 const architectureDocPath = "docs/API_CONTRACTS.md";
@@ -116,6 +121,27 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
         "prototypes/web/video-analysis-web",
         true,
       ),
+    });
+  }
+
+  for (const frontendPackage of await loadFrontendPackages(workspaceRoot)) {
+    if (packages.some((pkg) => pkg.name === frontendPackage.name)) {
+      continue;
+    }
+    const contract = contractByName.get(frontendPackage.name);
+    const description = frontendPackage.description || frontendRole(frontendPackage.name);
+    const exposes = splitExposes(contract?.exposesText);
+    packages.push({
+      name: frontendPackage.name,
+      kind: "frontend",
+      domain: packageDomainFor(frontendPackage.name, frontendPackage.path),
+      path: frontendPackage.path,
+      description,
+      role: contract?.role ?? description,
+      exposes: exposes.length > 0 ? exposes : frontendExposes(frontendPackage.name),
+      consumedBy: splitConsumedBy(contract?.consumedByText),
+      tags: extractContractTags([contract?.role, contract?.exposesText, description, frontendPackage.name].filter(Boolean).join(" ")),
+      capabilities: capabilitiesFor(frontendPackage.name, "frontend", frontendPackage.path, true),
     });
   }
 
@@ -201,6 +227,40 @@ function capabilitiesFor(
   path: string | null,
   hasLibraryTarget: boolean,
 ): WorkspaceArchitecturePackage["capabilities"] {
+  if (kind === "frontend") {
+    const capabilities: WorkspaceArchitecturePackage["capabilities"] = [
+      {
+        kind: "library",
+        entrypoint: libraryEntrypoint(name, kind, path, hasLibraryTarget),
+      },
+    ];
+    if (name.endsWith("-wasm")) {
+      capabilities.push({
+        kind: "wasm",
+        entrypoint: `import from ${name}`,
+      });
+    }
+    if (name.endsWith("-app") || name === "@video-analysis/web" || name === "@video-analysis/ui") {
+      capabilities.push({
+        kind: "ui",
+        entrypoint: path ?? name,
+      });
+    }
+    return capabilities;
+  }
+  if (name.endsWith("-wasm") || path?.includes("/bindings/")) {
+    return [
+      {
+        kind: "library",
+        entrypoint: libraryEntrypoint(name, kind, path, hasLibraryTarget),
+      },
+      {
+        kind: "wasm",
+        entrypoint: `wasm-pack build ${path}`,
+      },
+    ];
+  }
+
   const capabilities: WorkspaceArchitecturePackage["capabilities"] = [
     {
       kind: "library",
@@ -215,17 +275,11 @@ function capabilitiesFor(
     },
     {
       kind: "api",
-      entrypoint:
-        kind === "rust"
-          ? `${name}/api (package ${name}-api)`
-          : `/api/packages?name=${encodeURIComponent(name)}`,
+      entrypoint: `${name}/api (package ${name}-server)`,
     },
     {
       kind: "ui",
-      entrypoint:
-        kind === "rust"
-          ? `${name}/app (package ${name}-app)`
-          : `Architecture page package detail for ${name}`,
+      entrypoint: `${name}/app (package ${name}-app)`,
     },
   ];
 
@@ -245,6 +299,57 @@ function libraryEntrypoint(
     return `use ${name.replaceAll("-", "_")}`;
   }
   return "add src/lib.rs before publishing new library APIs";
+}
+
+async function loadFrontendPackages(
+  workspaceRoot: string,
+): Promise<Array<{ name: string; path: string; description: string }>> {
+  const packageRoot = `${workspaceRoot}/packages`;
+  const entries = await readdir(packageRoot, { withFileTypes: true });
+  const packages = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory())
+      .map(async (entry) => {
+        const path = `packages/${entry.name}`;
+        try {
+          const parsed = JSON.parse(
+            await readFile(`${packageRoot}/${entry.name}/package.json`, "utf8"),
+          ) as FrontendPackageJson;
+          return {
+            name: parsed.name ?? entry.name,
+            path,
+            description: parsed.description ?? frontendRole(parsed.name ?? entry.name),
+          };
+        } catch {
+          return null;
+        }
+      }),
+  );
+  return packages.filter((pkg): pkg is { name: string; path: string; description: string } => Boolean(pkg));
+}
+
+function frontendRole(name: string): string {
+  if (name.endsWith("-wasm")) {
+    return `WASM bindings for ${frontendLibraryName(name)}.`;
+  }
+  if (name.endsWith("-app")) {
+    return `React package app for ${frontendLibraryName(name)}.`;
+  }
+  return `Frontend package for ${name}.`;
+}
+
+function frontendExposes(name: string): string[] {
+  if (name.endsWith("-wasm")) {
+    return ["Browser import surface for Rust package functions"];
+  }
+  if (name.endsWith("-app")) {
+    return ["Interactive React package surface"];
+  }
+  return ["Frontend package exports"];
+}
+
+function frontendLibraryName(name: string): string {
+  return name.replace(/^@mb-rust\//, "").replace(/-(app|wasm)$/, "");
 }
 
 function cargoMetadata(workspaceRoot: string): Promise<CargoMetadataResponse> {

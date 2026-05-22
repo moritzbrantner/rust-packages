@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "bun run web:dev",
-    "test": "cargo test --workspace --lib --tests && bun run text-wasm:test && bun run text-linguistics-wasm:test && bun run ui:test:unit && bun run web:test:unit && bun run web:test:api",
+    "test": "cargo test --workspace --lib --tests && bun run text-wasm:test && bun run text-linguistics-wasm:test && bun run audio-wasm:test && bun run video-wasm:test && bun run ui:test:unit && bun run web:test:unit && bun run web:test:api",
     "verify": "scripts/check.sh",
     "lint": "cargo clippy --workspace --all-targets -- -D warnings && bun run ui:typecheck && bun run web:typecheck",
     "format": "cargo fmt --all",
@@ -22,6 +22,8 @@
     "text-wasm:bench": "bun run --cwd packages/text-core-wasm bench:browser",
     "text-wasm:test": "bun run --cwd packages/text-core-wasm test",
     "text-linguistics-wasm:test": "bun run --cwd packages/text-linguistics-wasm test",
+    "audio-wasm:test": "bun run --cwd packages/audio-analysis-core-wasm test",
+    "video-wasm:test": "bun run --cwd packages/video-analysis-core-wasm test",
     "ui:build": "bun run --cwd packages/video-analysis-ui build",
     "ui:typecheck": "bun run --cwd packages/video-analysis-ui typecheck",
     "ui:test": "bun run --cwd packages/video-analysis-ui test",

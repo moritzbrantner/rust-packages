@@ -112,6 +112,7 @@ export function CrateCatalog() {
         {!error && !data ? <LoadingPanel /> : null}
         {!error && data && selectedWrapper ? (
           <WrapperPage
+            packages={data.packages}
             wrapper={selectedWrapper}
             totalWrappers={wrappers.length}
           />
@@ -120,6 +121,7 @@ export function CrateCatalog() {
           <CatalogHome
             domains={domains}
             groupedWrappers={groupedWrappers}
+            packages={data.packages}
             query={query}
             selectedDomain={selectedDomain}
             totalPackages={data.packages.length}
@@ -219,6 +221,7 @@ function NavButton({
 function CatalogHome({
   domains,
   groupedWrappers,
+  packages,
   query,
   selectedDomain,
   totalPackages,
@@ -230,6 +233,7 @@ function CatalogHome({
 }: {
   domains: PackageDomain[];
   groupedWrappers: Array<{ domain: PackageDomain; wrappers: WorkspaceArchitecturePackage[] }>;
+  packages: WorkspaceArchitecturePackage[];
   query: string;
   selectedDomain: PackageDomain | "all";
   totalPackages: number;
@@ -294,6 +298,7 @@ function CatalogHome({
           <WrapperGroup
             key={group.domain}
             domain={group.domain}
+            packages={packages}
             wrappers={group.wrappers}
             onSelectWrapper={onSelectWrapper}
           />
@@ -309,10 +314,12 @@ function CatalogHome({
 
 function WrapperGroup({
   domain,
+  packages,
   wrappers,
   onSelectWrapper,
 }: {
   domain: PackageDomain;
+  packages: WorkspaceArchitecturePackage[];
   wrappers: WorkspaceArchitecturePackage[];
   onSelectWrapper: (wrapper: WorkspaceArchitecturePackage) => void;
 }) {
@@ -326,15 +333,29 @@ function WrapperGroup({
       </div>
       <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
         {wrappers.map((wrapper) => (
-          <WrapperCard key={wrapper.name} wrapper={wrapper} onSelect={() => onSelectWrapper(wrapper)} />
+          <WrapperCard
+            key={wrapper.name}
+            packages={packages}
+            wrapper={wrapper}
+            onSelect={() => onSelectWrapper(wrapper)}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function WrapperCard({ wrapper, onSelect }: { wrapper: WorkspaceArchitecturePackage; onSelect: () => void }) {
+function WrapperCard({
+  packages,
+  wrapper,
+  onSelect,
+}: {
+  packages: WorkspaceArchitecturePackage[];
+  wrapper: WorkspaceArchitecturePackage;
+  onSelect: () => void;
+}) {
   const library = serviceLibraryName(wrapper);
+  const surfaces = relatedSurfaces(library, packages);
 
   return (
     <a
@@ -352,19 +373,26 @@ function WrapperCard({ wrapper, onSelect }: { wrapper: WorkspaceArchitecturePack
       <div className="text-[11px] font-semibold uppercase text-zinc-500">{packageDomainLabels[wrapper.domain]}</div>
       <div className="mt-1 break-words text-base font-semibold text-zinc-950">{library}</div>
       <div className="mt-2 truncate text-xs text-zinc-600">{wrapper.name}</div>
-      <div className="mt-1 truncate text-xs text-zinc-500">{library}-app</div>
+      <div className="mt-3 flex flex-wrap gap-1">
+        <SurfacePill active={Boolean(surfaces.app)} label="App" />
+        <SurfacePill active={Boolean(surfaces.server)} label="API" />
+        <SurfacePill active={Boolean(surfaces.wasm)} label="WASM" />
+      </div>
     </a>
   );
 }
 
 function WrapperPage({
+  packages,
   wrapper,
   totalWrappers,
 }: {
+  packages: WorkspaceArchitecturePackage[];
   wrapper: WorkspaceArchitecturePackage;
   totalWrappers: number;
 }) {
   const library = serviceLibraryName(wrapper);
+  const surfaces = relatedSurfaces(library, packages);
 
   return (
     <div className="space-y-5">
@@ -378,10 +406,15 @@ function WrapperPage({
             </p>
           </div>
           <div className="grid shrink-0 grid-cols-3 gap-2 text-center">
-            <MetricTile label="Wrapper" value="React" />
-            <MetricTile label="Category" value={packageDomainLabels[wrapper.domain]} />
+            <MetricTile label="App" value={surfaces.app ? "Ready" : "Missing"} />
+            <MetricTile label="WASM" value={surfaces.wasm ? "Ready" : "N/A"} />
             <MetricTile label="Total" value={String(totalWrappers)} />
           </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <SurfacePill active={Boolean(surfaces.app)} label={surfaces.app?.name ?? `${library}-app`} />
+          <SurfacePill active={Boolean(surfaces.server)} label={surfaces.server?.name ?? `${library}-server`} />
+          <SurfacePill active={Boolean(surfaces.wasm)} label={surfaces.wasm?.name ?? `${library}-wasm`} />
         </div>
       </section>
 
@@ -552,6 +585,21 @@ function MetricTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+function SurfacePill({ active, label }: { active: boolean; label: string }) {
+  return (
+    <span
+      className={classNames(
+        "inline-flex min-h-6 max-w-full items-center truncate rounded-md border px-2 text-[11px] font-semibold",
+        active
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-zinc-200 bg-zinc-50 text-zinc-500",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
 function catalogRouteFromLocation(): CatalogRoute {
   const base = new URL(import.meta.env.BASE_URL || "/", window.location.origin).pathname;
   const pathname = window.location.pathname.startsWith(base)
@@ -574,6 +622,15 @@ function wrapperAppModulePath(library: string): keyof typeof wrapperAppModules {
 
 function serviceLibraryName(wrapper: WorkspaceArchitecturePackage): string {
   return wrapper.name.replace(/-server$/, "");
+}
+
+function relatedSurfaces(library: string, packages: WorkspaceArchitecturePackage[]) {
+  const wasmNames = new Set([`${library}-wasm`, `@mb-rust/${library}-wasm`]);
+  return {
+    app: packages.find((pkg) => pkg.name === `${library}-app`),
+    server: packages.find((pkg) => pkg.name === `${library}-server`),
+    wasm: packages.find((pkg) => wasmNames.has(pkg.name)),
+  };
 }
 
 function titleFromPackageName(name: string): string {

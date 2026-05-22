@@ -311,9 +311,11 @@ flowchart LR
 
   subgraph group_bindings["Bindings"]
     direction TB
+    crate_audio_analysis_core_wasm["audio-analysis-core-wasm"]:::crate
     crate_maps_kernels_wasm["maps-kernels-wasm"]:::crate
     crate_text_core_wasm["text-core-wasm"]:::crate
     crate_text_linguistics_wasm["text-linguistics-wasm"]:::crate
+    crate_video_analysis_core_wasm["video-analysis-core-wasm"]:::crate
   end
 
   subgraph group_test_support["Test Support"]
@@ -830,11 +832,16 @@ flowchart LR
   crate_comfyui_latents_server --> crate_comfyui_latents
   crate_comfyui_models_cli --> crate_comfyui_models
   crate_comfyui_models_server --> crate_comfyui_models
+  crate_audio_analysis_core_wasm --> crate_audio_analysis_core
+  crate_audio_analysis_core_wasm --> crate_audio_analysis_fourier
+  crate_audio_analysis_core_wasm --> crate_audio_analysis_pitch
+  crate_audio_analysis_core_wasm --> crate_video_analysis_core
   crate_maps_kernels_wasm --> crate_maps_kernels_core
   crate_maps_kernels_wasm --> crate_video_analysis_core
   crate_text_core_wasm --> crate_text_core
   crate_text_linguistics_wasm --> crate_text_core
   crate_text_linguistics_wasm --> crate_text_lexical
+  crate_video_analysis_core_wasm --> crate_video_analysis_core
   crate_video_analysis_test_support --> crate_video_analysis_core
   crate_video_analysis_test_support --> crate_video_analysis_dataset
   crate_video_analysis_test_support --> crate_video_analysis_radiance_fields

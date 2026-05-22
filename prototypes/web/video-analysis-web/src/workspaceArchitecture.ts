@@ -1,6 +1,6 @@
 export type PackageKind = "rust" | "frontend";
 
-export type PackageCapabilityKind = "library" | "cli" | "api" | "ui";
+export type PackageCapabilityKind = "library" | "cli" | "api" | "ui" | "wasm";
 
 export type PackageDomain =
   | "facade"
@@ -198,6 +198,7 @@ export const packageDomainLabels: Record<PackageDomain, string> = {
 };
 
 export function packageDomainFor(name: string, path?: string | null): PackageDomain {
+  const packageName = name.replace(/^@mb-rust\//, "").replace(/^@video-analysis\//, "");
   if (name === "video-analysis") {
     return "facade";
   }
@@ -207,33 +208,33 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
   if (name === "@video-analysis/web") {
     return "apps";
   }
-  if (name.startsWith("video-analysis-")) {
+  if (packageName.startsWith("video-analysis-")) {
     return "video";
   }
-  if (name.startsWith("audio-analysis-")) {
+  if (packageName.startsWith("audio-analysis-") || packageName.startsWith("audio-generation-")) {
     return "audio";
   }
-  if (name.startsWith("image-analysis-")) {
+  if (packageName.startsWith("image-analysis-")) {
     return "image";
   }
-  if (name.startsWith("text-")) {
+  if (packageName.startsWith("text-")) {
     return "text";
   }
-  if (name.startsWith("vector-analysis-")) {
+  if (packageName.startsWith("vector-analysis-")) {
     return "vector";
   }
-  if (name.startsWith("three-d-")) {
+  if (packageName.startsWith("three-d-")) {
     return "three-d";
   }
-  if (name.startsWith("comfyui-")) {
+  if (packageName.startsWith("comfyui-")) {
     return "comfyui";
   }
   if (
-    name === "data-inversion-core" ||
-    name === "graph-analysis-core" ||
-    name === "dense-data" ||
-    name === "numbers-core" ||
-    name === "tensor-data"
+    packageName === "data-inversion-core" ||
+    packageName === "graph-analysis-core" ||
+    packageName === "dense-data" ||
+    packageName === "numbers-core" ||
+    packageName === "tensor-data"
   ) {
     return "data";
   }

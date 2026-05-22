@@ -195,6 +195,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio-analysis-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "audio-analysis-core",
+ "audio-analysis-fourier",
+ "audio-analysis-pitch",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "video-analysis-core",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "audio-analysis-fourier"
 version = "0.1.0"
 dependencies = [
@@ -4629,6 +4643,18 @@ dependencies = [
  "clap",
  "serde_json",
  "video-analysis-core",
+]
+
+[[package]]
+name = "video-analysis-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "num-rational",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "video-analysis-core",
+ "wasm-bindgen",
 ]
 
 [[package]]
