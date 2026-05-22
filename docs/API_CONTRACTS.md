@@ -96,8 +96,9 @@ Runtime and external integration crates use a shared feature policy:
 | `audio-analysis-tasks` | Aggregate audio task schemas and routing helpers | `audio-analysis-recognition`, `audio-analysis-speakers`, `audio-analysis-separation`, `audio-analysis-synthesis`, `model-runtime`, `serde`, `serde_json` | Audio task/runtime catalog, compatibility `/api/models` helpers, and re-exported capability request/response DTOs | CLI, server, and UI broad audio task surfaces |
 | `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core`, `tensor-data` | Borrowed/owned image views, image batches, pixel formats, compacting, mean color, luma histograms, mask tensor bridge helpers | Image processing crates, applications, video frame preprocessing |
 | `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `math-geometry-2d`, `math-linear`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains, shared `RectU32`/`Kernel2d` bridges | Applications, preprocessing workflows |
-| `image-analysis-ocr` | OCR presets and rich text extraction contracts | `image-analysis-core`, `video-analysis-core`, `video-analysis-models` | Hugging Face OCR presets, OCR technique metadata, rich text documents/blocks/lines/tokens, image and video-frame OCR backend traits | Applications extracting text from images or sampled video frames |
+| `image-analysis-ocr` | OCR presets and rich text extraction contracts | `image-analysis-core`, `video-analysis-core`, `model-runtime` | Hugging Face OCR presets, OCR technique metadata, rich text documents/blocks/lines/tokens, image and video-frame OCR backend traits | Applications extracting text from images or sampled video frames |
 | `image-analysis-synthesis` | Deterministic inverse image generation | `data-inversion-core`, `image-analysis-core`, `video-analysis-core` | Solid images, gradients, luma-histogram expansion, region painting | Applications reconstructing approximate image buffers from summaries or regions |
+| `image-analysis-tasks` | Aggregate image task schemas and routing helpers | `image-analysis-core`, `image-analysis-detection`, `image-analysis-ocr`, `image-analysis-segmentation`, `image-analysis-synthesis`, `model-runtime`, `serde`, `serde_json` | Image task/runtime catalog, compatibility `/api/models` helpers, and classification, embedding, captioning, face-embedding, segmentation, detection, OCR, and synthesis re-exports | CLI, server, and UI broad image task surfaces |
 | `text-core` | Shared text analysis utilities | `video-analysis-core`, `unicode-normalization`, `unicode-segmentation` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, Unicode word/grapheme spans, script profiles, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
 | `text-lexical` | Lexical features and classical corpus statistics | `text-core`, `math-sparse-data`, `video-analysis-core`, `serde` | Stop words, keywords, n-grams, shingles, readability, stemming, extractive summaries, sentiment, reusable text analyzers, TF-IDF, BM25, sparse term matrices/vectors | Applications, text analytics, semantic indexing |
 | `text-linguistics` | Local model-backed linguistic interpretation | `jobs-core`, `text-core`, `text-lexical`, `text-transcripts`, `video-analysis-core`, `video-analysis-models`, optional `tokenizers`/Candle crates | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
@@ -266,15 +267,18 @@ helpers without requiring video timeline semantics.
   prefer `math-geometry-2d::RectU32` and `math-linear::Kernel2d` while keeping
   `ImageRegion` and `[f32; 9]` compatibility shims.
 - `image-analysis-segmentation` owns still-image prompts, binary masks,
-  segments, and pure segmentation backend contracts with explicit opt-in
-  automatic mask generation helpers.
+  segments, SAM presets, and segmentation backend contracts with explicit
+  opt-in automatic mask generation helpers.
 - `image-analysis-detection` owns canonical still-image detections,
-  mask-proposal adapters over segmentation backends, and native color-blob
-  detection for simple object workflows such as red-car detection.
+  mask-proposal adapters over segmentation backends, native color-blob
+  detection for simple object workflows such as red-car detection, face
+  detection DTOs, face detection presets, and face detector backend traits.
 - `image-analysis-synthesis` owns deterministic, non-AI image generation from
   colors, histograms, and regions.
-- `image-analysis-models` owns image model presets and model-backed backend
-  traits for segmentation, classification, embeddings, and captioning.
+- `image-analysis-tasks` owns aggregate task catalogs and the broad
+  classification, embedding, captioning, and face-embedding contracts.
+- `image-analysis-models` is a deprecated compatibility re-export crate; new
+  code should use the owning capability crates or `image-analysis-tasks`.
 - `image-analysis-ocr` owns OCR model presets, rich text layout contracts, and
   image/video-frame backend traits for model, command, or heuristic recognizers.
 - `image-analysis-onnx` owns still-image ONNX preprocessing and optional

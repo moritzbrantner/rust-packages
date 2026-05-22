@@ -11,7 +11,8 @@ import {
 } from "./api";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
-const packageDescription = "Image model presets and backend traits for video-analysis.";
+const packageDescription =
+  "Compatibility surface for aggregate image task contracts and focused capability crates.";
 
 export function App() {
   const [loadState, setLoadState] = useState<LoadState>("idle");

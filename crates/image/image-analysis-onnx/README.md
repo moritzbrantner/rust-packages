@@ -23,5 +23,6 @@ assert_eq!(tensor.channels, 3);
 
 ## Related crates
 
-- `image-analysis-models`
+- `image-analysis-tasks`
+- `image-analysis-detection`
 - `video-analysis-onnx`

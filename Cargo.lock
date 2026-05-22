@@ -2057,6 +2057,7 @@ version = "0.1.0"
 dependencies = [
  "image-analysis-core",
  "image-analysis-segmentation",
+ "model-runtime",
  "video-analysis-core",
 ]
 
@@ -2110,11 +2111,9 @@ dependencies = [
 name = "image-analysis-models"
 version = "0.1.0"
 dependencies = [
- "image-analysis-core",
  "image-analysis-detection",
  "image-analysis-segmentation",
- "model-runtime",
- "video-analysis-core",
+ "image-analysis-tasks",
 ]
 
 [[package]]
@@ -2150,8 +2149,8 @@ version = "0.1.0"
 dependencies = [
  "image-analysis-core",
  "image-analysis-detection",
- "image-analysis-models",
  "image-analysis-processing",
+ "image-analysis-tasks",
  "model-runtime",
  "ort",
  "serde_json",
@@ -2211,6 +2210,7 @@ name = "image-analysis-segmentation"
 version = "0.1.0"
 dependencies = [
  "image-analysis-core",
+ "model-runtime",
  "video-analysis-core",
 ]
 
@@ -2257,6 +2257,21 @@ dependencies = [
  "clap",
  "image-analysis-synthesis",
  "serde_json",
+]
+
+[[package]]
+name = "image-analysis-tasks"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-core",
+ "image-analysis-detection",
+ "image-analysis-ocr",
+ "image-analysis-segmentation",
+ "image-analysis-synthesis",
+ "model-runtime",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
 ]
 
 [[package]]
@@ -4564,12 +4579,12 @@ dependencies = [
  "image-analysis-core",
  "image-analysis-detection",
  "image-analysis-io",
- "image-analysis-models",
  "image-analysis-ocr",
  "image-analysis-onnx",
  "image-analysis-processing",
  "image-analysis-segmentation",
  "image-analysis-synthesis",
+ "image-analysis-tasks",
  "jobs-core",
  "maps-kernels-core",
  "math-geometry-2d",

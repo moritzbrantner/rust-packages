@@ -1,7 +1,7 @@
 {
   "name": "image-analysis-models-app",
   "version": "0.1.0",
-  "description": "React app for image-analysis-models: Image model presets and backend traits for video-analysis.",
+  "description": "React app for image-analysis-models: compatibility surface for aggregate image task contracts.",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.3.14",

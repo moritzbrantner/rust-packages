@@ -3,7 +3,57 @@
 use std::collections::BTreeMap;
 
 use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
+use model_runtime::{HuggingFaceModelSpec, ModelTask};
 use video_analysis_core::{BoundingBox, DetectError, Result};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Variants describing SAM image preset.
+pub enum SamImagePreset {
+    #[default]
+    /// The ViT base variant.
+    VitBase,
+    /// The ViT large variant.
+    VitLarge,
+    /// The ViT huge variant.
+    VitHuge,
+}
+
+impl SamImagePreset {
+    /// Constant for all.
+    pub const ALL: &'static [Self] = &[Self::VitBase, Self::VitLarge, Self::VitHuge];
+
+    /// Borrows this value as a str.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::VitBase => "sam-vit-base",
+            Self::VitLarge => "sam-vit-large",
+            Self::VitHuge => "sam-vit-huge",
+        }
+    }
+
+    /// Returns repo identifier.
+    pub fn repo_id(self) -> &'static str {
+        match self {
+            Self::VitBase => "facebook/sam-vit-base",
+            Self::VitLarge => "facebook/sam-vit-large",
+            Self::VitHuge => "facebook/sam-vit-huge",
+        }
+    }
+
+    /// Returns model spec.
+    pub fn model_spec(self) -> HuggingFaceModelSpec {
+        HuggingFaceModelSpec::new(self.repo_id(), ModelTask::ImageSegmentation)
+            .name(self.as_str())
+            .file("config.json")
+            .file("preprocessor_config.json")
+            .first_available_file(["model.safetensors", "pytorch_model.bin"])
+    }
+}
+
+/// Returns default SAM model spec.
+pub fn default_sam_model_spec() -> HuggingFaceModelSpec {
+    SamImagePreset::default().model_spec()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Variants describing point label.
@@ -299,6 +349,12 @@ pub trait ImageSegmentationBackend {
     ) -> Result<Vec<ImageSegment>>;
 }
 
+/// Trait for model-backed image segmentation backend implementations.
+pub trait ModelBackedImageSegmentationBackend: ImageSegmentationBackend {
+    /// Returns model spec.
+    fn model_spec(&self) -> HuggingFaceModelSpec;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,5 +388,12 @@ mod tests {
         let request = ImageSegmentationRequest::automatic_mask_generation();
         assert!(request.prompt.automatic_mask_generation);
         assert!(request.prompt.multimask_output);
+    }
+
+    #[test]
+    fn default_sam_model_spec_uses_image_segmentation_task() {
+        let spec = default_sam_model_spec();
+        assert_eq!(spec.repo_id_value(), Some("facebook/sam-vit-base"));
+        assert_eq!(spec.task, ModelTask::ImageSegmentation);
     }
 }

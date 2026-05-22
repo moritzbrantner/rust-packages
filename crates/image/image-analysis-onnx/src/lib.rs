@@ -8,12 +8,14 @@ use std::sync::Mutex;
 use image_analysis_core::{
     compact_image, ImageBatchView, ImagePixelFormat, ImageView, OwnedImage, OwnedImageBatch,
 };
-use image_analysis_detection::ImageDetection;
-use image_analysis_models::{
-    FaceBox, FaceDetection, FaceDetectorBackend, FaceEmbedderBackend, FaceEmbedding, FaceLandmarks,
-    ImageClassification, ImageClassifierBackend, ImageEmbedderBackend, ImageEmbedding,
+use image_analysis_detection::{
+    FaceBox, FaceDetection, FaceDetectorBackend, FaceLandmarks, ImageDetection,
 };
 use image_analysis_processing::resize_nearest;
+use image_analysis_tasks::{
+    FaceEmbedderBackend, FaceEmbedding, ImageClassification, ImageClassifierBackend,
+    ImageEmbedderBackend, ImageEmbedding,
+};
 use model_runtime::{ModelBundle, ModelTask};
 use serde_json::Value;
 use video_analysis_core::{BoundingBox, DetectError, Result};
@@ -1832,9 +1834,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use image_analysis_core::{OwnedImage, OwnedImageBatch};
-    use image_analysis_models::{
-        FaceDetectorBackend, FaceEmbedderBackend, ImageClassifierBackend, ImageEmbedderBackend,
-    };
+    use image_analysis_detection::FaceDetectorBackend;
+    use image_analysis_tasks::{FaceEmbedderBackend, ImageClassifierBackend, ImageEmbedderBackend};
     use model_runtime::{ModelBundleFile, ModelBundleManifest};
     use tempfile::tempdir;
 

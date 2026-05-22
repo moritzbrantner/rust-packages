@@ -26,5 +26,5 @@ assert!(request.preserve_layout);
 ## Related crates
 
 - `image-analysis-core`
-- `image-analysis-models`
+- `image-analysis-tasks`
 - `video-analysis-models`

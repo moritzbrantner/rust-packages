@@ -1,6 +1,14 @@
 # image-analysis-models
 
-Image model presets and backend traits for `video-analysis`.
+Deprecated compatibility crate for `image-analysis-tasks`.
+
+New code should import the owning capability crates directly:
+
+- `image-analysis-segmentation` owns SAM presets and segmentation backends.
+- `image-analysis-detection` owns detections, face detections, and detector backends.
+- `image-analysis-ocr` owns OCR presets, rich text outputs, and OCR backends.
+- `image-analysis-tasks` owns aggregate task catalogs plus classification,
+  embedding, captioning, and face-embedding contracts.
 
 ## Feature flags
 
@@ -11,7 +19,7 @@ Image model presets and backend traits for `video-analysis`.
 ```rust
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 use image_analysis_core::{ImageView, OwnedImage};
-use image_analysis_models::{ImageClassification, ImageClassifierBackend};
+use image_analysis_tasks::{ImageClassification, ImageClassifierBackend};
 use video_analysis_core::Result;
 
 struct StubClassifier;
@@ -31,6 +39,7 @@ assert_eq!(labels[0].label, "demo");
 
 ## Related crates
 
+- `image-analysis-tasks`
 - `image-analysis-detection`
 - `image-analysis-onnx`
 - `video-analysis-models`

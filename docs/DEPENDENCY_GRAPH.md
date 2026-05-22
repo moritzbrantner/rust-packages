@@ -151,6 +151,7 @@ flowchart LR
     crate_image_analysis_synthesis["image-analysis-synthesis"]:::crate
     crate_image_analysis_synthesis_cli["image-analysis-synthesis-cli"]:::crate
     crate_image_analysis_synthesis_server["image-analysis-synthesis-server"]:::crate
+    crate_image_analysis_tasks["image-analysis-tasks"]:::crate
   end
 
   subgraph group_text["Text"]
@@ -381,12 +382,12 @@ flowchart LR
   crate_video_analysis --> crate_image_analysis_core
   crate_video_analysis --> crate_image_analysis_detection
   crate_video_analysis --> crate_image_analysis_io
-  crate_video_analysis --> crate_image_analysis_models
   crate_video_analysis --> crate_image_analysis_ocr
   crate_video_analysis -. optional .-> crate_image_analysis_onnx
   crate_video_analysis --> crate_image_analysis_processing
   crate_video_analysis --> crate_image_analysis_segmentation
   crate_video_analysis --> crate_image_analysis_synthesis
+  crate_video_analysis --> crate_image_analysis_tasks
   crate_video_analysis --> crate_text_core
   crate_video_analysis --> crate_text_embeddings
   crate_video_analysis --> crate_text_generation
@@ -566,17 +567,16 @@ flowchart LR
   crate_image_analysis_detection --> crate_image_analysis_core
   crate_image_analysis_detection --> crate_image_analysis_segmentation
   crate_image_analysis_detection --> crate_video_analysis_core
+  crate_image_analysis_detection --> crate_model_runtime
   crate_image_analysis_detection_cli --> crate_image_analysis_detection
   crate_image_analysis_detection_server --> crate_image_analysis_detection
   crate_image_analysis_io --> crate_image_analysis_core
   crate_image_analysis_io --> crate_video_analysis_core
   crate_image_analysis_io_cli --> crate_image_analysis_io
   crate_image_analysis_io_server --> crate_image_analysis_io
-  crate_image_analysis_models --> crate_image_analysis_core
   crate_image_analysis_models --> crate_image_analysis_detection
   crate_image_analysis_models --> crate_image_analysis_segmentation
-  crate_image_analysis_models --> crate_video_analysis_core
-  crate_image_analysis_models --> crate_model_runtime
+  crate_image_analysis_models --> crate_image_analysis_tasks
   crate_image_analysis_models_cli --> crate_image_analysis_models
   crate_image_analysis_models_server --> crate_image_analysis_models
   crate_image_analysis_ocr --> crate_image_analysis_core
@@ -584,8 +584,8 @@ flowchart LR
   crate_image_analysis_ocr --> crate_model_runtime
   crate_image_analysis_onnx --> crate_image_analysis_core
   crate_image_analysis_onnx --> crate_image_analysis_detection
-  crate_image_analysis_onnx --> crate_image_analysis_models
   crate_image_analysis_onnx --> crate_image_analysis_processing
+  crate_image_analysis_onnx --> crate_image_analysis_tasks
   crate_image_analysis_onnx --> crate_video_analysis_core
   crate_image_analysis_onnx --> crate_model_runtime
   crate_image_analysis_onnx_cli --> crate_image_analysis_onnx
@@ -598,6 +598,7 @@ flowchart LR
   crate_image_analysis_processing_server --> crate_image_analysis_processing
   crate_image_analysis_segmentation --> crate_image_analysis_core
   crate_image_analysis_segmentation --> crate_video_analysis_core
+  crate_image_analysis_segmentation --> crate_model_runtime
   crate_image_analysis_segmentation_cli --> crate_image_analysis_segmentation
   crate_image_analysis_segmentation_server --> crate_image_analysis_segmentation
   crate_image_analysis_synthesis --> crate_data_inversion_core
@@ -605,6 +606,13 @@ flowchart LR
   crate_image_analysis_synthesis --> crate_video_analysis_core
   crate_image_analysis_synthesis_cli --> crate_image_analysis_synthesis
   crate_image_analysis_synthesis_server --> crate_image_analysis_synthesis
+  crate_image_analysis_tasks --> crate_image_analysis_core
+  crate_image_analysis_tasks --> crate_image_analysis_detection
+  crate_image_analysis_tasks --> crate_image_analysis_ocr
+  crate_image_analysis_tasks --> crate_image_analysis_segmentation
+  crate_image_analysis_tasks --> crate_image_analysis_synthesis
+  crate_image_analysis_tasks --> crate_video_analysis_core
+  crate_image_analysis_tasks --> crate_model_runtime
   crate_text_core --> crate_video_analysis_core
   crate_text_core --> crate_runtime_contracts
   crate_text_core --> crate_runtime_jobs

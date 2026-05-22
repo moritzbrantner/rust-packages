@@ -1,12 +1,13 @@
 use tempfile::tempdir;
 
 use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
+use image_analysis_detection::{FaceBox, FaceDetectionPreset};
 use image_analysis_io::{read_image, write_image};
-use image_analysis_models::{
-    FaceBox, FaceDetectionPreset, FaceEmbeddingPreset, ImageEmbeddingPreset,
-};
 use image_analysis_ocr::{OcrPreset, OcrRequest, OcrTechnique};
 use image_analysis_segmentation::ImageSegmentationRequest;
+use image_analysis_tasks::{
+    image_task_catalog, FaceEmbeddingPreset, ImageEmbeddingPreset, ImageTask,
+};
 
 #[test]
 fn image_public_api_covers_core_defaults_and_io() -> Result<(), Box<dyn std::error::Error>> {
@@ -68,4 +69,12 @@ fn image_public_api_covers_embedding_and_face_model_presets() {
     );
 
     assert!(FaceBox::new(0.1, 0.2, 0.3, 0.4).is_ok());
+}
+
+#[test]
+fn image_public_api_covers_aggregate_task_catalog() {
+    let catalog = image_task_catalog(Some(ImageTask::ImageEmbedding));
+    assert!(catalog.iter().any(|entry| {
+        entry.id == "xenova-clip-vit-base-patch32-onnx" && entry.task == ImageTask::ImageEmbedding
+    }));
 }

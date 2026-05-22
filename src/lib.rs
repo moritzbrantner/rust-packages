@@ -61,6 +61,8 @@ pub use image_analysis_processing as image_processing;
 pub use image_analysis_segmentation as image_segmentation;
 /// Re-exports the image synthesis API.
 pub use image_analysis_synthesis as image_synthesis;
+/// Re-exports the aggregate image task API.
+pub use image_analysis_tasks as image_tasks;
 /// Re-exports the reusable jobs API.
 pub use jobs_core as jobs;
 /// Re-exports the map/kernel math API.

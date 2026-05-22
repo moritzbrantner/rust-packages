@@ -110,6 +110,10 @@ fn root_facade_does_not_promote_domain_model_crates() {
         source.contains("pub use audio_analysis_tasks as audio_tasks;"),
         "root facade should expose aggregate audio task APIs as audio_tasks"
     );
+    assert!(
+        source.contains("pub use image_analysis_tasks as image_tasks;"),
+        "root facade should expose aggregate image task APIs as image_tasks"
+    );
 }
 
 #[test]
@@ -121,6 +125,31 @@ fn video_analysis_models_is_marked_compatibility_only() {
     assert!(
         readme.contains("Deprecated compatibility crate"),
         "video-analysis-models must be documented as a temporary compatibility crate"
+    );
+}
+
+#[test]
+fn image_analysis_models_is_marked_compatibility_only() {
+    let readme = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/image/image-analysis-models/README.md"),
+    )
+    .expect("read image-analysis-models README");
+    assert!(
+        readme.contains("Deprecated compatibility crate"),
+        "image-analysis-models must be documented as a temporary compatibility crate"
+    );
+}
+
+#[test]
+fn image_onnx_uses_task_and_capability_contracts_directly() {
+    let manifest = read_manifest("crates/image/image-analysis-onnx/Cargo.toml");
+    assert!(
+        manifest.contains("image-analysis-tasks.workspace = true"),
+        "image-analysis-onnx must consume aggregate image task contracts directly"
+    );
+    assert!(
+        !manifest.contains("image-analysis-models.workspace = true"),
+        "image-analysis-onnx must not depend on the compatibility image-analysis-models crate"
     );
 }
 
