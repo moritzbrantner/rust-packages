@@ -1,7 +1,9 @@
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use text_linguistics as _;
-use text_linguistics::{analyze_text, LinguisticAnalysis, LinguisticAnalysisOptions};
+use text_linguistics::{
+    analyze_text, LinguisticAnalysis, LinguisticAnalysisOptions, TextNlpConfig, TextNlpPipeline,
+};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "text-linguistics";
@@ -97,8 +99,12 @@ fn run_response(body: &str) -> HttpResponse {
         );
     }
 
-    match analyze_text(text, &LinguisticAnalysisOptions::heuristic()) {
-        Ok(analysis) => json_response(200, "OK", analysis_payload(text, &analysis)),
+    match analyze_text_for_payload(text, &payload) {
+        Ok(analysis) => json_response(
+            200,
+            "OK",
+            analysis_payload(text, &analysis.analysis, analysis.model_metadata),
+        ),
         Err(error) => json_response(
             500,
             "Internal Server Error",
@@ -112,7 +118,80 @@ fn run_response(body: &str) -> HttpResponse {
     }
 }
 
-fn analysis_payload(text: &str, analysis: &LinguisticAnalysis) -> serde_json::Value {
+#[derive(Debug, Clone, Copy)]
+struct ModelMetadata {
+    entity_recognition: &'static str,
+    entity_model: Option<&'static str>,
+}
+
+#[derive(Debug)]
+struct RunAnalysis {
+    analysis: LinguisticAnalysis,
+    model_metadata: ModelMetadata,
+}
+
+fn analyze_text_for_payload(
+    text: &str,
+    payload: &serde_json::Value,
+) -> Result<RunAnalysis, String> {
+    match payload
+        .get("entityRecognition")
+        .or_else(|| payload.get("modelMode"))
+        .or_else(|| payload.get("mode"))
+        .and_then(serde_json::Value::as_str)
+    {
+        Some("heuristic") | Some("rules") => {
+            let analysis = analyze_text(text, &LinguisticAnalysisOptions::heuristic())
+                .map_err(|error| error.to_string())?;
+            Ok(RunAnalysis {
+                analysis,
+                model_metadata: ModelMetadata {
+                    entity_recognition: "heuristic",
+                    entity_model: None,
+                },
+            })
+        }
+        _ => {
+            let config = config_from_payload(payload);
+            let model_metadata = model_metadata_for_config(&config);
+            let analysis = TextNlpPipeline::new(config)
+                .analyze_text(text)
+                .map_err(|error| error.to_string())?;
+            Ok(RunAnalysis {
+                analysis,
+                model_metadata,
+            })
+        }
+    }
+}
+
+fn config_from_payload(payload: &serde_json::Value) -> TextNlpConfig {
+    match payload.get("profile").and_then(serde_json::Value::as_str) {
+        Some("fast") => TextNlpConfig::fast(),
+        Some("balanced") => TextNlpConfig::balanced(),
+        _ => TextNlpConfig::rich(),
+    }
+}
+
+fn model_metadata_for_config(config: &TextNlpConfig) -> ModelMetadata {
+    if matches!(config.profile, text_linguistics::AnalysisProfile::Fast) {
+        ModelMetadata {
+            entity_recognition: "heuristic",
+            entity_model: None,
+        }
+    } else {
+        ModelMetadata {
+            entity_recognition: "local-model",
+            entity_model: Some("bert-base-ner"),
+        }
+    }
+}
+
+fn analysis_payload(
+    text: &str,
+    analysis: &LinguisticAnalysis,
+    model_metadata: ModelMetadata,
+) -> serde_json::Value {
     serde_json::json!({
         "package": format!("{}-server", LIBRARY_CRATE),
         "library": LIBRARY_CRATE,
@@ -122,6 +201,13 @@ fn analysis_payload(text: &str, analysis: &LinguisticAnalysis) -> serde_json::Va
         "profile": format!("{:?}", analysis.profile),
         "provenance": format!("{:?}", analysis.provenance),
         "confidence": analysis.confidence.get(),
+        "model": {
+            "entityRecognition": model_metadata.entity_recognition,
+            "entityModel": model_metadata.entity_model,
+            "tokenizerMode": format!("{:?}", analysis.tokenizer.mode),
+            "tokenizerSource": analysis.tokenizer.source.as_ref().map(|source| format!("{source:?}")),
+            "alignmentCount": analysis.alignments.as_ref().map(|alignment| alignment.aligned_tokens.len()).unwrap_or(0)
+        },
         "summary": {
             "language": analysis.language.primary.as_ref().map(|prediction| prediction.language.as_str()),
             "tokenCount": analysis.tokens.len(),

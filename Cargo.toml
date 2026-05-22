@@ -228,7 +228,7 @@ image-analysis-segmentation.workspace = true
 image-analysis-synthesis.workspace = true
 text-core.workspace = true
 text-lexical.workspace = true
-text-linguistics.workspace = true
+text-linguistics = { workspace = true, features = ["candle"] }
 text-generation.workspace = true
 text-retrieval.workspace = true
 text-embeddings.workspace = true

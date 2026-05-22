@@ -95,6 +95,13 @@ export interface LinguisticAnalysisPayload {
   profile: string;
   provenance: string;
   confidence: number;
+  model?: {
+    entityRecognition: string;
+    entityModel: string | null;
+    tokenizerMode: string;
+    tokenizerSource: string | null;
+    alignmentCount: number;
+  };
   summary: LinguisticAnalysisSummary;
   language: {
     primary: null | {
@@ -124,7 +131,7 @@ export const serverBaseUrl = configuredServerUrl ?? "http://127.0.0.1:3000";
 export const wrappedLibrary = "text-linguistics";
 
 export async function analyzeLinguistics(text: string): Promise<LinguisticAnalysisPayload> {
-  const body = JSON.stringify({ operation: "analyze", text });
+  const body = JSON.stringify({ operation: "analyze", profile: "rich", modelMode: "local-model", text });
   const packagePath = `/api/rust/packages/${wrappedLibrary}/api/run`;
   const rootPath = "/api/run";
 

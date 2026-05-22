@@ -220,6 +220,7 @@ function Overview({ analysis }: { analysis: LinguisticAnalysisPayload }) {
     ["Relations", analysis.summary.relationCount],
     ["Topics", analysis.summary.topicCount],
     ["Confidence", formatNumber(analysis.confidence)],
+    ["NER", analysis.model?.entityModel ?? analysis.model?.entityRecognition ?? "Unknown"],
   ];
 
   return (
@@ -240,6 +241,18 @@ function Overview({ analysis }: { analysis: LinguisticAnalysisPayload }) {
         <div>
           <dt>Provenance</dt>
           <dd>{analysis.provenance}</dd>
+        </div>
+        <div>
+          <dt>Entity backend</dt>
+          <dd>{analysis.model?.entityRecognition ?? "Unknown"}</dd>
+        </div>
+        <div>
+          <dt>Tokenizer</dt>
+          <dd>{analysis.model?.tokenizerMode ?? "Unknown"}</dd>
+        </div>
+        <div>
+          <dt>Aligned tokens</dt>
+          <dd>{analysis.model?.alignmentCount ?? 0}</dd>
         </div>
         <div>
           <dt>Script</dt>

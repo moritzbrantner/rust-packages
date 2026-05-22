@@ -421,11 +421,12 @@ fn text_linguistics_run_response(body: &str) -> HttpResponse {
         );
     }
 
-    match text_linguistics::analyze_text(
-        text,
-        &text_linguistics::LinguisticAnalysisOptions::heuristic(),
-    ) {
-        Ok(analysis) => json_response(200, "OK", text_linguistics_payload(text, &analysis)),
+    match analyze_text_linguistics_for_payload(text, &payload) {
+        Ok(analysis) => json_response(
+            200,
+            "OK",
+            text_linguistics_payload(text, &analysis.analysis, analysis.model_metadata),
+        ),
         Err(error) => json_response(
             500,
             "Internal Server Error",
@@ -439,7 +440,85 @@ fn text_linguistics_run_response(body: &str) -> HttpResponse {
     }
 }
 
-fn text_linguistics_payload(text: &str, analysis: &text_linguistics::LinguisticAnalysis) -> Value {
+#[derive(Debug, Clone, Copy)]
+struct TextLinguisticsModelMetadata {
+    entity_recognition: &'static str,
+    entity_model: Option<&'static str>,
+}
+
+#[derive(Debug)]
+struct TextLinguisticsRunAnalysis {
+    analysis: text_linguistics::LinguisticAnalysis,
+    model_metadata: TextLinguisticsModelMetadata,
+}
+
+fn analyze_text_linguistics_for_payload(
+    text: &str,
+    payload: &Value,
+) -> Result<TextLinguisticsRunAnalysis, String> {
+    match payload
+        .get("entityRecognition")
+        .or_else(|| payload.get("modelMode"))
+        .or_else(|| payload.get("mode"))
+        .and_then(Value::as_str)
+    {
+        Some("heuristic") | Some("rules") => {
+            let analysis = text_linguistics::analyze_text(
+                text,
+                &text_linguistics::LinguisticAnalysisOptions::heuristic(),
+            )
+            .map_err(|error| error.to_string())?;
+            Ok(TextLinguisticsRunAnalysis {
+                analysis,
+                model_metadata: TextLinguisticsModelMetadata {
+                    entity_recognition: "heuristic",
+                    entity_model: None,
+                },
+            })
+        }
+        _ => {
+            let config = text_linguistics_config_from_payload(payload);
+            let model_metadata = text_linguistics_model_metadata_for_config(&config);
+            let analysis = text_linguistics::TextNlpPipeline::new(config)
+                .analyze_text(text)
+                .map_err(|error| error.to_string())?;
+            Ok(TextLinguisticsRunAnalysis {
+                analysis,
+                model_metadata,
+            })
+        }
+    }
+}
+
+fn text_linguistics_config_from_payload(payload: &Value) -> text_linguistics::TextNlpConfig {
+    match payload.get("profile").and_then(Value::as_str) {
+        Some("fast") => text_linguistics::TextNlpConfig::fast(),
+        Some("balanced") => text_linguistics::TextNlpConfig::balanced(),
+        _ => text_linguistics::TextNlpConfig::rich(),
+    }
+}
+
+fn text_linguistics_model_metadata_for_config(
+    config: &text_linguistics::TextNlpConfig,
+) -> TextLinguisticsModelMetadata {
+    if matches!(config.profile, text_linguistics::AnalysisProfile::Fast) {
+        TextLinguisticsModelMetadata {
+            entity_recognition: "heuristic",
+            entity_model: None,
+        }
+    } else {
+        TextLinguisticsModelMetadata {
+            entity_recognition: "local-model",
+            entity_model: Some("bert-base-ner"),
+        }
+    }
+}
+
+fn text_linguistics_payload(
+    text: &str,
+    analysis: &text_linguistics::LinguisticAnalysis,
+    model_metadata: TextLinguisticsModelMetadata,
+) -> Value {
     json!({
         "package": "text-linguistics-server",
         "library": "text-linguistics",
@@ -449,6 +528,13 @@ fn text_linguistics_payload(text: &str, analysis: &text_linguistics::LinguisticA
         "profile": format!("{:?}", analysis.profile),
         "provenance": format!("{:?}", analysis.provenance),
         "confidence": analysis.confidence.get(),
+        "model": {
+            "entityRecognition": model_metadata.entity_recognition,
+            "entityModel": model_metadata.entity_model,
+            "tokenizerMode": format!("{:?}", analysis.tokenizer.mode),
+            "tokenizerSource": analysis.tokenizer.source.as_ref().map(|source| format!("{source:?}")),
+            "alignmentCount": analysis.alignments.as_ref().map(|alignment| alignment.aligned_tokens.len()).unwrap_or(0)
+        },
         "summary": {
             "language": analysis.language.primary.as_ref().map(|prediction| prediction.language.as_str()),
             "tokenCount": analysis.tokens.len(),
@@ -1289,12 +1375,23 @@ mod tests {
             path: "/api/rust/packages/text-linguistics/api/run".to_string(),
             query: HashMap::new(),
             headers: HashMap::new(),
-            body: r#"{"operation":"analyze","text":"Alice presented the roadmap in Berlin."}"#
-                .to_string(),
+            body: r#"{"operation":"analyze","modelMode":"heuristic","text":"Alice presented the roadmap in Berlin."}"#.to_string(),
         };
         let response = response_for(&request);
         assert_eq!(response.status_code, 200);
         assert!(response.body.contains("\"operation\":\"analyze\""));
         assert!(response.body.contains("\"entityCount\""));
+        assert!(response
+            .body
+            .contains("\"entityRecognition\":\"heuristic\""));
+    }
+
+    #[test]
+    fn text_linguistics_default_config_uses_rich_local_model() {
+        let config = text_linguistics_config_from_payload(&json!({}));
+        assert_eq!(config.profile, text_linguistics::AnalysisProfile::Rich);
+        let metadata = text_linguistics_model_metadata_for_config(&config);
+        assert_eq!(metadata.entity_recognition, "local-model");
+        assert_eq!(metadata.entity_model, Some("bert-base-ner"));
     }
 }

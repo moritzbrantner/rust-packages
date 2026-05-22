@@ -208,6 +208,26 @@ fn ignores_invalid_subword_offsets_during_alignment() {
     assert_eq!(alignment.aligned_tokens[1].subword_indices, vec![2]);
 }
 
+#[cfg(feature = "tokenizers")]
+#[test]
+fn vocab_tokenizer_honors_cased_tokenizer_config() {
+    let dir = tempfile::tempdir().unwrap();
+    let vocab_path = dir.path().join("vocab.txt");
+    std::fs::write(
+        &vocab_path,
+        "[PAD]\n[UNK]\n[CLS]\n[SEP]\n[MASK]\nAlice\nalice\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("tokenizer_config.json"),
+        r#"{"do_lower_case": false}"#,
+    )
+    .unwrap();
+
+    let tokenized = TokenizerBundle::new(vocab_path).tokenize("Alice").unwrap();
+    assert_eq!(tokenized.input_ids, vec![2, 5, 3]);
+}
+
 #[test]
 fn lemmatizes_plural_and_inflected_tokens() {
     let tokens = tokenize(

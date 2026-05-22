@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use text_core::{TextSpan, Token};
@@ -335,9 +336,7 @@ fn load_tokenizer(path: &Path) -> Result<tokenizers::Tokenizer> {
         let cls_id = *vocab.get("[CLS]").unwrap_or(&101);
         let sep_id = *vocab.get("[SEP]").unwrap_or(&102);
         let mut tokenizer = tokenizers::Tokenizer::new(model);
-        tokenizer.with_normalizer(Some(
-            tokenizers::normalizers::bert::BertNormalizer::default(),
-        ));
+        tokenizer.with_normalizer(Some(bert_normalizer_for_vocab(path)));
         tokenizer.with_pre_tokenizer(Some(tokenizers::pre_tokenizers::bert::BertPreTokenizer));
         tokenizer.with_post_processor(Some(tokenizers::processors::bert::BertProcessing::new(
             ("[SEP]".to_string(), sep_id),
@@ -352,6 +351,25 @@ fn load_tokenizer(path: &Path) -> Result<tokenizers::Tokenizer> {
             path.display()
         ))
     })
+}
+
+#[cfg(feature = "tokenizers")]
+fn bert_normalizer_for_vocab(path: &Path) -> tokenizers::normalizers::bert::BertNormalizer {
+    let config = path
+        .parent()
+        .map(|parent| parent.join("tokenizer_config.json"))
+        .and_then(|path| fs::read_to_string(path).ok())
+        .and_then(|contents| serde_json::from_str::<serde_json::Value>(&contents).ok());
+    let do_lower_case = config
+        .as_ref()
+        .and_then(|value| value.get("do_lower_case"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(true);
+    let strip_accents = config
+        .as_ref()
+        .and_then(|value| value.get("strip_accents"))
+        .and_then(serde_json::Value::as_bool);
+    tokenizers::normalizers::bert::BertNormalizer::new(true, true, strip_accents, do_lower_case)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
