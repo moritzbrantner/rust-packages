@@ -35,6 +35,22 @@ pub enum ModelPreset {
     XenovaRobertaBaseSquad2Onnx,
     /// The xenova DETR ResNet-50 ONNX variant.
     XenovaDetrResnet50Onnx,
+    /// The AST AudioSet classification variant.
+    AstAudioset,
+    /// The Xenova AST AudioSet ONNX variant.
+    XenovaAstAudiosetOnnx,
+    /// The CLAP audio embedding variant.
+    ClapHtsatUnfused,
+    /// The Whisper tiny English ASR variant.
+    WhisperTinyEn,
+    /// The wav2vec2 base ASR variant.
+    Wav2Vec2Base960h,
+    /// The pyannote speaker diarization variant.
+    PyannoteSpeakerDiarization31,
+    /// The Demucs music separation variant.
+    DemucsMusicSeparation,
+    /// The MusicGen small generation variant.
+    MusicgenSmall,
 }
 
 impl ModelPreset {
@@ -54,6 +70,14 @@ impl ModelPreset {
         Self::XenovaMsMarcoMiniLmL6V2Onnx,
         Self::XenovaRobertaBaseSquad2Onnx,
         Self::XenovaDetrResnet50Onnx,
+        Self::AstAudioset,
+        Self::XenovaAstAudiosetOnnx,
+        Self::ClapHtsatUnfused,
+        Self::WhisperTinyEn,
+        Self::Wav2Vec2Base960h,
+        Self::PyannoteSpeakerDiarization31,
+        Self::DemucsMusicSeparation,
+        Self::MusicgenSmall,
     ];
 
     /// Borrows this value as a str.
@@ -75,6 +99,14 @@ impl ModelPreset {
             Self::XenovaMsMarcoMiniLmL6V2Onnx => "xenova-ms-marco-minilm-l6-v2-onnx",
             Self::XenovaRobertaBaseSquad2Onnx => "xenova-roberta-base-squad2-onnx",
             Self::XenovaDetrResnet50Onnx => "xenova-detr-resnet-50-onnx",
+            Self::AstAudioset => "ast-audioset",
+            Self::XenovaAstAudiosetOnnx => "xenova-ast-audioset-onnx",
+            Self::ClapHtsatUnfused => "clap-htsat-unfused",
+            Self::WhisperTinyEn => "whisper-tiny-en",
+            Self::Wav2Vec2Base960h => "wav2vec2-base-960h",
+            Self::PyannoteSpeakerDiarization31 => "pyannote-speaker-diarization-3-1",
+            Self::DemucsMusicSeparation => "demucs-music-separation",
+            Self::MusicgenSmall => "musicgen-small",
         }
     }
 
@@ -213,6 +245,68 @@ impl ModelPreset {
                     .file("config.json")
                     .file("preprocessor_config.json")
                     .first_available_file(["onnx/model.onnx", "onnx/model_quantized.onnx"])
+            }
+            Self::AstAudioset => HuggingFaceModelSpec::new(
+                "MIT/ast-finetuned-audioset-10-10-0.4593",
+                ModelTask::AudioClassification,
+            )
+            .name(self.as_str())
+            .file("config.json")
+            .file("preprocessor_config.json")
+            .first_available_file(["model.safetensors", "pytorch_model.bin"]),
+            Self::XenovaAstAudiosetOnnx => HuggingFaceModelSpec::new(
+                "Xenova/ast-finetuned-audioset-10-10-0.4593",
+                ModelTask::AudioClassification,
+            )
+            .name(self.as_str())
+            .file("config.json")
+            .file("preprocessor_config.json")
+            .first_available_file(["onnx/model.onnx", "onnx/model_quantized.onnx"]),
+            Self::ClapHtsatUnfused => {
+                HuggingFaceModelSpec::new("laion/clap-htsat-unfused", ModelTask::AudioEmbedding)
+                    .name(self.as_str())
+                    .file("config.json")
+                    .file("preprocessor_config.json")
+                    .optional_file("tokenizer.json")
+                    .first_available_file(["model.safetensors", "pytorch_model.bin"])
+            }
+            Self::WhisperTinyEn => {
+                HuggingFaceModelSpec::new("openai/whisper-tiny.en", ModelTask::SpeechRecognition)
+                    .name(self.as_str())
+                    .file("config.json")
+                    .file("preprocessor_config.json")
+                    .file("tokenizer.json")
+                    .first_available_file(["model.safetensors", "pytorch_model.bin"])
+            }
+            Self::Wav2Vec2Base960h => HuggingFaceModelSpec::new(
+                "facebook/wav2vec2-base-960h",
+                ModelTask::SpeechRecognition,
+            )
+            .name(self.as_str())
+            .file("config.json")
+            .file("preprocessor_config.json")
+            .file("tokenizer.json")
+            .first_available_file(["model.safetensors", "pytorch_model.bin"]),
+            Self::PyannoteSpeakerDiarization31 => HuggingFaceModelSpec::new(
+                "pyannote/speaker-diarization-3.1",
+                ModelTask::SpeakerDiarization,
+            )
+            .name(self.as_str())
+            .file("config.yaml")
+            .optional_file("pytorch_model.bin"),
+            Self::DemucsMusicSeparation => {
+                HuggingFaceModelSpec::new("facebook/demucs", ModelTask::SourceSeparation)
+                    .name(self.as_str())
+                    .file("config.json")
+                    .first_available_file(["pytorch_model.bin", "model.safetensors"])
+            }
+            Self::MusicgenSmall => {
+                HuggingFaceModelSpec::new("facebook/musicgen-small", ModelTask::AudioGeneration)
+                    .name(self.as_str())
+                    .file("config.json")
+                    .file("preprocessor_config.json")
+                    .file("tokenizer.json")
+                    .first_available_file(["model.safetensors", "pytorch_model.bin"])
             }
         }
     }

@@ -253,6 +253,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio-analysis-models"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+ "video-analysis-models",
+]
+
+[[package]]
 name = "audio-analysis-pitch"
 version = "0.1.0"
 dependencies = [
@@ -325,6 +335,7 @@ dependencies = [
 name = "audio-analysis-recognition-cli"
 version = "0.1.0"
 dependencies = [
+ "audio-analysis-models",
  "audio-analysis-recognition",
  "clap",
  "serde_json",
@@ -334,9 +345,12 @@ dependencies = [
 name = "audio-analysis-recognition-server"
 version = "0.1.0"
 dependencies = [
+ "audio-analysis-models",
  "audio-analysis-recognition",
  "clap",
+ "serde",
  "serde_json",
+ "video-analysis-core",
 ]
 
 [[package]]
@@ -4441,6 +4455,7 @@ dependencies = [
  "audio-analysis-core",
  "audio-analysis-fourier",
  "audio-analysis-io",
+ "audio-analysis-models",
  "audio-analysis-pitch",
  "audio-analysis-processing",
  "audio-analysis-recognition",

@@ -164,6 +164,9 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
         ("GET", "/api/models") if module.package == "text-linguistics" => {
             json_response(200, "OK", json!(text_nlp_models::model_catalog(None)))
         }
+        ("GET", "/api/models") if module.package == "audio-analysis-recognition" => {
+            json_response(200, "OK", json!(audio_analysis_models::model_catalog(None)))
+        }
         ("GET", path)
             if module.package == "text-linguistics" && path.starts_with("/api/models/") =>
         {
@@ -187,11 +190,42 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
                 ),
             }
         }
+        ("GET", path)
+            if module.package == "audio-analysis-recognition"
+                && path.starts_with("/api/models/") =>
+        {
+            let task = path.trim_start_matches("/api/models/");
+            match audio_analysis_models::parse_task(task) {
+                Some(task) => json_response(
+                    200,
+                    "OK",
+                    json!(audio_analysis_models::model_catalog(Some(task))),
+                ),
+                None => json_response(
+                    400,
+                    "Bad Request",
+                    json!({
+                        "package": "audio-analysis-recognition-server",
+                        "library": "audio-analysis-recognition",
+                        "accepted": false,
+                        "error": {
+                            "code": "invalid_request",
+                            "message": format!("unknown audio task `{task}`")
+                        }
+                    }),
+                ),
+            }
+        }
         ("POST", "/api/entities") if module.package == "text-linguistics" => {
             text_linguistics_run_response(body)
         }
         ("POST", path) if module.package == "text-linguistics" && is_text_nlp_task_path(path) => {
             text_nlp_task_response(path, body)
+        }
+        ("POST", path)
+            if module.package == "audio-analysis-recognition" && is_audio_model_task_path(path) =>
+        {
+            audio_model_task_response(path, body)
         }
         ("POST", "/api/run") => package_run_response(module, body),
         _ => json_response(
@@ -404,6 +438,39 @@ fn package_schema_response(module: ModuleInfo) -> HttpResponse {
             }),
         );
     }
+    if module.package == "audio-analysis-recognition" {
+        return json_response(
+            200,
+            "OK",
+            json!({
+                "openapi": "3.1.0",
+                "info": {
+                    "title": "audio-analysis-recognition API",
+                    "version": env!("CARGO_PKG_VERSION")
+                },
+                "paths": {
+                    "/health": { "get": { "summary": "Health check" } },
+                    "/api/package": { "get": { "summary": "Package metadata" } },
+                    "/api/schema": { "get": { "summary": "API schema" } },
+                    "/api/models": { "get": { "summary": "List audio model presets" } },
+                    "/api/models/{task}": { "get": { "summary": "List audio model presets for a task" } },
+                    "/api/classify": { "post": { "summary": "Audio classification" } },
+                    "/api/events": { "post": { "summary": "Audio event detection" } },
+                    "/api/embed": { "post": { "summary": "Audio embeddings" } },
+                    "/api/transcribe": { "post": { "summary": "Speech recognition" } },
+                    "/api/diarize": { "post": { "summary": "Speaker diarization" } },
+                    "/api/separate": { "post": { "summary": "Source separation" } },
+                    "/api/generate": { "post": { "summary": "Audio generation" } },
+                    "/api/run": { "post": { "summary": "Legacy generic operation entrypoint" } }
+                },
+                "components": {
+                    "schemas": {
+                        "audioModels": audio_analysis_models::schema_summary()
+                    }
+                }
+            }),
+        );
+    }
     json_response(
         200,
         "OK",
@@ -433,6 +500,19 @@ fn is_text_nlp_task_path(path: &str) -> bool {
             | "/api/summarize"
             | "/api/rerank"
             | "/api/question-answer"
+    )
+}
+
+fn is_audio_model_task_path(path: &str) -> bool {
+    matches!(
+        path,
+        "/api/classify"
+            | "/api/events"
+            | "/api/embed"
+            | "/api/transcribe"
+            | "/api/diarize"
+            | "/api/separate"
+            | "/api/generate"
     )
 }
 
@@ -638,6 +718,157 @@ fn text_nlp_error_response(
         json!({
             "package": "text-linguistics-server",
             "library": "text-linguistics",
+            "accepted": false,
+            "error": {
+                "code": code,
+                "message": message
+            }
+        }),
+    )
+}
+
+fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
+    match path {
+        "/api/classify" => {
+            match serde_json::from_str::<audio_analysis_models::AudioClassificationRequest>(body) {
+                Ok(request) => {
+                    audio_model_result_response(audio_analysis_models::classify_audio(request))
+                }
+                Err(error) => audio_model_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &error.to_string(),
+                ),
+            }
+        }
+        "/api/events" => {
+            match serde_json::from_str::<audio_analysis_models::AudioEventDetectionRequest>(body) {
+                Ok(request) => {
+                    audio_model_result_response(audio_analysis_models::detect_audio_events(request))
+                }
+                Err(error) => audio_model_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &error.to_string(),
+                ),
+            }
+        }
+        "/api/embed" => {
+            match serde_json::from_str::<audio_analysis_models::AudioEmbeddingRequest>(body) {
+                Ok(request) => {
+                    audio_model_result_response(audio_analysis_models::embed_audio(request))
+                }
+                Err(error) => audio_model_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &error.to_string(),
+                ),
+            }
+        }
+        "/api/transcribe" => {
+            match serde_json::from_str::<audio_analysis_models::SpeechRecognitionRequest>(body) {
+                Ok(request) => {
+                    audio_model_result_response(audio_analysis_models::transcribe_audio(request))
+                }
+                Err(error) => audio_model_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &error.to_string(),
+                ),
+            }
+        }
+        "/api/diarize" => {
+            match serde_json::from_str::<audio_analysis_models::SpeakerDiarizationRequest>(body) {
+                Ok(request) => {
+                    audio_model_result_response(audio_analysis_models::diarize_speakers(request))
+                }
+                Err(error) => audio_model_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &error.to_string(),
+                ),
+            }
+        }
+        "/api/separate" => {
+            match serde_json::from_str::<audio_analysis_models::SourceSeparationRequest>(body) {
+                Ok(request) => {
+                    audio_model_result_response(audio_analysis_models::separate_sources(request))
+                }
+                Err(error) => audio_model_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &error.to_string(),
+                ),
+            }
+        }
+        "/api/generate" => {
+            match serde_json::from_str::<audio_analysis_models::AudioGenerationRequest>(body) {
+                Ok(request) => {
+                    audio_model_result_response(audio_analysis_models::generate_audio(request))
+                }
+                Err(error) => audio_model_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &error.to_string(),
+                ),
+            }
+        }
+        _ => audio_model_error_response(
+            404,
+            "Not Found",
+            "not_found",
+            "unknown audio model task endpoint",
+        ),
+    }
+}
+
+fn audio_model_result_response<T: serde::Serialize>(
+    result: video_analysis_core::Result<T>,
+) -> HttpResponse {
+    match result {
+        Ok(value) => json_response(200, "OK", json!(value)),
+        Err(error) => {
+            let message = error.to_string();
+            if message.contains("unsupported_runtime") {
+                audio_model_error_response(
+                    422,
+                    "Unprocessable Entity",
+                    "unsupported_runtime",
+                    &message,
+                )
+            } else if message.contains("non-empty") || message.contains("must include") {
+                audio_model_error_response(400, "Bad Request", "empty_input", &message)
+            } else {
+                audio_model_error_response(
+                    500,
+                    "Internal Server Error",
+                    "model_output_mismatch",
+                    &message,
+                )
+            }
+        }
+    }
+}
+
+fn audio_model_error_response(
+    status_code: u16,
+    reason: &'static str,
+    code: &str,
+    message: &str,
+) -> HttpResponse {
+    json_response(
+        status_code,
+        reason,
+        json!({
+            "package": "audio-analysis-recognition-server",
+            "library": "audio-analysis-recognition",
             "accepted": false,
             "error": {
                 "code": code,
@@ -1607,6 +1838,22 @@ mod tests {
         assert_eq!(response.status_code, 200);
         assert!(response.body.contains("\"operation\":\"sentiment\""));
         assert!(response.body.contains("\"runtime\":\"lexical\""));
+    }
+
+    #[test]
+    fn serves_audio_model_task_endpoint_from_package_route() {
+        let request = Request {
+            method: "POST".to_string(),
+            path: "/api/rust/packages/audio-analysis-recognition/api/classify".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: r#"{"features":{"rms":0.1,"peak":0.2,"spectralCentroidHz":1800},"labels":["speech","music"],"model":{"fallbackPolicy":"heuristic_fallback"}}"#
+                .to_string(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("\"operation\":\"classify\""));
+        assert!(response.body.contains("\"runtime\":\"spectral\""));
     }
 
     #[test]

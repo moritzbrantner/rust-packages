@@ -93,6 +93,7 @@ flowchart LR
     crate_audio_analysis_io["audio-analysis-io"]:::crate
     crate_audio_analysis_io_cli["audio-analysis-io-cli"]:::crate
     crate_audio_analysis_io_server["audio-analysis-io-server"]:::crate
+    crate_audio_analysis_models["audio-analysis-models"]:::crate
     crate_audio_analysis_pitch["audio-analysis-pitch"]:::crate
     crate_audio_analysis_pitch_cli["audio-analysis-pitch-cli"]:::crate
     crate_audio_analysis_pitch_server["audio-analysis-pitch-server"]:::crate
@@ -360,6 +361,7 @@ flowchart LR
   crate_video_analysis --> crate_audio_analysis_core
   crate_video_analysis --> crate_audio_analysis_fourier
   crate_video_analysis --> crate_audio_analysis_io
+  crate_video_analysis --> crate_audio_analysis_models
   crate_video_analysis --> crate_audio_analysis_pitch
   crate_video_analysis --> crate_audio_analysis_processing
   crate_video_analysis --> crate_audio_analysis_recognition
@@ -383,6 +385,7 @@ flowchart LR
   crate_video_analysis --> crate_text_generation
   crate_video_analysis --> crate_text_lexical
   crate_video_analysis --> crate_text_linguistics
+  crate_video_analysis --> crate_text_nlp_models
   crate_video_analysis --> crate_text_retrieval
   crate_video_analysis --> crate_text_transcripts
   crate_video_analysis --> crate_text_whisper_cpp
@@ -491,6 +494,8 @@ flowchart LR
   crate_audio_analysis_io --> crate_video_analysis_ingest
   crate_audio_analysis_io_cli --> crate_audio_analysis_io
   crate_audio_analysis_io_server --> crate_audio_analysis_io
+  crate_audio_analysis_models --> crate_video_analysis_core
+  crate_audio_analysis_models --> crate_video_analysis_models
   crate_audio_analysis_pitch --> crate_audio_analysis_core
   crate_audio_analysis_pitch --> crate_video_analysis_core
   crate_audio_analysis_pitch_cli --> crate_audio_analysis_pitch
@@ -504,8 +509,11 @@ flowchart LR
   crate_audio_analysis_recognition --> crate_audio_analysis_core
   crate_audio_analysis_recognition --> crate_audio_analysis_fourier
   crate_audio_analysis_recognition --> crate_video_analysis_core
+  crate_audio_analysis_recognition_cli --> crate_audio_analysis_models
   crate_audio_analysis_recognition_cli --> crate_audio_analysis_recognition
+  crate_audio_analysis_recognition_server --> crate_audio_analysis_models
   crate_audio_analysis_recognition_server --> crate_audio_analysis_recognition
+  crate_audio_analysis_recognition_server --> crate_video_analysis_core
   crate_audio_analysis_rhythm --> crate_audio_analysis_core
   crate_audio_analysis_rhythm --> crate_video_analysis_core
   crate_audio_analysis_rhythm_cli --> crate_audio_analysis_rhythm

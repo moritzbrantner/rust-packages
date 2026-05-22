@@ -8,6 +8,8 @@ pub use audio_analysis_core as audio_core;
 pub use audio_analysis_fourier as audio_fourier;
 /// Re-exports the audio I/O API.
 pub use audio_analysis_io as audio_io;
+/// Re-exports the audio model API.
+pub use audio_analysis_models as audio_models;
 /// Re-exports the audio pitch API.
 pub use audio_analysis_pitch as audio_pitch;
 /// Re-exports the audio processing API.

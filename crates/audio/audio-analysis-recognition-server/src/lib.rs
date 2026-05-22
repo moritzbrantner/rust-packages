@@ -1,3 +1,10 @@
+use audio_analysis_models::{
+    classify_audio, detect_audio_events, diarize_speakers, embed_audio, generate_audio,
+    model_catalog, parse_task, schema_summary, separate_sources, transcribe_audio,
+    AudioClassificationRequest, AudioEmbeddingRequest, AudioEventDetectionRequest,
+    AudioGenerationRequest, SourceSeparationRequest, SpeakerDiarizationRequest,
+    SpeechRecognitionRequest,
+};
 use audio_analysis_recognition as _;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -51,17 +58,29 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         ),
         ("GET", "/api/package") => json_response(200, "OK", package_metadata_value()),
         ("GET", "/api/schema") => json_response(200, "OK", schema_value()),
-        ("POST", "/api/run") => json_response(
-            200,
-            "OK",
-            serde_json::json!({
-                "package": format!("{}-server", LIBRARY_CRATE),
-                "library": LIBRARY_CRATE,
-                "accepted": true,
-                "input": body,
-                "note": "This generic adapter is ready for crate-specific operations."
-            }),
-        ),
+        ("GET", "/api/models") => json_response(200, "OK", serde_json::json!(model_catalog(None))),
+        ("GET", path) if path.starts_with("/api/models/") => {
+            let task = path.trim_start_matches("/api/models/");
+            match parse_task(task) {
+                Some(task) => {
+                    json_response(200, "OK", serde_json::json!(model_catalog(Some(task))))
+                }
+                None => typed_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &format!("unknown audio task `{task}`"),
+                ),
+            }
+        }
+        ("POST", "/api/classify") => classify_response(body),
+        ("POST", "/api/events") => events_response(body),
+        ("POST", "/api/embed") => embed_response(body),
+        ("POST", "/api/transcribe") => transcribe_response(body),
+        ("POST", "/api/diarize") => diarize_response(body),
+        ("POST", "/api/separate") => separate_response(body),
+        ("POST", "/api/generate") => generate_response(body),
+        ("POST", "/api/run") => run_response(body),
         _ => json_response(
             404,
             "Not Found",
@@ -78,6 +97,176 @@ pub fn package_metadata_json() -> String {
     package_metadata_value().to_string()
 }
 
+fn run_response(body: &str) -> HttpResponse {
+    let payload = match serde_json::from_str::<serde_json::Value>(body) {
+        Ok(value) => value,
+        Err(error) => {
+            return typed_error_response(
+                400,
+                "Bad Request",
+                "invalid_request",
+                &format!("invalid JSON: {error}"),
+            );
+        }
+    };
+
+    match payload
+        .get("operation")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("classify")
+    {
+        "classify" => classify_response(body),
+        "events" | "detect-events" | "detect_events" => events_response(body),
+        "embed" => embed_response(body),
+        "transcribe" | "asr" => transcribe_response(body),
+        "diarize" | "speakers" => diarize_response(body),
+        "separate" | "separation" => separate_response(body),
+        "generate" | "synthesis" => generate_response(body),
+        "introspect" => json_response(
+            200,
+            "OK",
+            serde_json::json!({
+                "package": format!("{}-server", LIBRARY_CRATE),
+                "library": LIBRARY_CRATE,
+                "accepted": true,
+                "models": model_catalog(None)
+            }),
+        ),
+        operation => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("unsupported operation `{operation}`"),
+        ),
+    }
+}
+
+fn classify_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<AudioClassificationRequest>(body) {
+        Ok(request) => result_response(classify_audio(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid classify request: {error}"),
+        ),
+    }
+}
+
+fn events_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<AudioEventDetectionRequest>(body) {
+        Ok(request) => result_response(detect_audio_events(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid events request: {error}"),
+        ),
+    }
+}
+
+fn embed_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<AudioEmbeddingRequest>(body) {
+        Ok(request) => result_response(embed_audio(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid embed request: {error}"),
+        ),
+    }
+}
+
+fn transcribe_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<SpeechRecognitionRequest>(body) {
+        Ok(request) => result_response(transcribe_audio(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid transcribe request: {error}"),
+        ),
+    }
+}
+
+fn diarize_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<SpeakerDiarizationRequest>(body) {
+        Ok(request) => result_response(diarize_speakers(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid diarize request: {error}"),
+        ),
+    }
+}
+
+fn separate_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<SourceSeparationRequest>(body) {
+        Ok(request) => result_response(separate_sources(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid separate request: {error}"),
+        ),
+    }
+}
+
+fn generate_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<AudioGenerationRequest>(body) {
+        Ok(request) => result_response(generate_audio(request)),
+        Err(error) => typed_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!("invalid generate request: {error}"),
+        ),
+    }
+}
+
+fn result_response<T: serde::Serialize>(result: video_analysis_core::Result<T>) -> HttpResponse {
+    match result {
+        Ok(value) => json_response(200, "OK", serde_json::json!(value)),
+        Err(error) => {
+            let message = error.to_string();
+            if message.contains("unsupported_runtime") {
+                typed_error_response(422, "Unprocessable Entity", "unsupported_runtime", &message)
+            } else if message.contains("non-empty") || message.contains("must include") {
+                typed_error_response(400, "Bad Request", "empty_input", &message)
+            } else {
+                typed_error_response(
+                    500,
+                    "Internal Server Error",
+                    "model_output_mismatch",
+                    &message,
+                )
+            }
+        }
+    }
+}
+
+fn typed_error_response(
+    status_code: u16,
+    reason: &'static str,
+    code: &str,
+    message: &str,
+) -> HttpResponse {
+    json_response(
+        status_code,
+        reason,
+        serde_json::json!({
+            "package": format!("{}-server", LIBRARY_CRATE),
+            "library": LIBRARY_CRATE,
+            "accepted": false,
+            "error": {
+                "code": code,
+                "message": message
+            }
+        }),
+    )
+}
+
 fn package_metadata_value() -> serde_json::Value {
     serde_json::json!({
         "package": format!("{}-server", LIBRARY_CRATE),
@@ -90,6 +279,15 @@ fn package_metadata_value() -> serde_json::Value {
             "GET /health",
             "GET /api/package",
             "GET /api/schema",
+            "GET /api/models",
+            "GET /api/models/{task}",
+            "POST /api/classify",
+            "POST /api/events",
+            "POST /api/embed",
+            "POST /api/transcribe",
+            "POST /api/diarize",
+            "POST /api/separate",
+            "POST /api/generate",
             "POST /api/run"
         ]
     })
@@ -106,7 +304,21 @@ fn schema_value() -> serde_json::Value {
             "/health": { "get": { "summary": "Health check" } },
             "/api/package": { "get": { "summary": "Package metadata" } },
             "/api/schema": { "get": { "summary": "API schema" } },
-            "/api/run": { "post": { "summary": "Generic operation entrypoint" } }
+            "/api/models": { "get": { "summary": "List audio model presets" } },
+            "/api/models/{task}": { "get": { "summary": "List audio model presets for a task" } },
+            "/api/classify": { "post": { "summary": "Audio classification" } },
+            "/api/events": { "post": { "summary": "Audio event detection" } },
+            "/api/embed": { "post": { "summary": "Audio embeddings" } },
+            "/api/transcribe": { "post": { "summary": "Speech recognition" } },
+            "/api/diarize": { "post": { "summary": "Speaker diarization" } },
+            "/api/separate": { "post": { "summary": "Source separation" } },
+            "/api/generate": { "post": { "summary": "Audio generation" } },
+            "/api/run": { "post": { "summary": "Legacy generic operation entrypoint" } }
+        },
+        "components": {
+            "schemas": {
+                "audioModels": schema_summary()
+            }
         }
     })
 }
@@ -174,5 +386,24 @@ mod tests {
         let response = response_for("GET", "/health", "");
         assert_eq!(response.status_code, 200);
         assert!(response.body.contains(LIBRARY_CRATE));
+    }
+
+    #[test]
+    fn model_endpoint_lists_audio_presets() {
+        let response = response_for("GET", "/api/models", "");
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("ast-audioset"));
+    }
+
+    #[test]
+    fn classify_endpoint_runs_fallback() {
+        let response = response_for(
+            "POST",
+            "/api/classify",
+            r#"{"features":{"rms":0.1,"peak":0.2,"spectralCentroidHz":1800},"labels":["speech","music"],"model":{"fallbackPolicy":"heuristic_fallback"}}"#,
+        );
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("\"operation\":\"classify\""));
+        assert!(response.body.contains("\"runtime\":\"spectral\""));
     }
 }

@@ -84,6 +84,7 @@ audio-analysis-core = { version = "0.1.0", path = "crates/audio/audio-analysis-c
 audio-generation-midi = { version = "0.1.0", path = "crates/audio/audio-generation-midi" }
 audio-analysis-fourier = { version = "0.1.0", path = "crates/audio/audio-analysis-fourier" }
 audio-analysis-io = { version = "0.1.0", path = "crates/audio/audio-analysis-io" }
+audio-analysis-models = { version = "0.1.0", path = "crates/audio/audio-analysis-models" }
 audio-analysis-pitch = { version = "0.1.0", path = "crates/audio/audio-analysis-pitch" }
 audio-analysis-processing = { version = "0.1.0", path = "crates/audio/audio-analysis-processing" }
 audio-analysis-recognition = { version = "0.1.0", path = "crates/audio/audio-analysis-recognition" }
@@ -193,6 +194,7 @@ audio-analysis-core.workspace = true
 audio-generation-midi.workspace = true
 audio-analysis-fourier.workspace = true
 audio-analysis-io.workspace = true
+audio-analysis-models.workspace = true
 audio-analysis-pitch.workspace = true
 audio-analysis-processing.workspace = true
 audio-analysis-recognition.workspace = true

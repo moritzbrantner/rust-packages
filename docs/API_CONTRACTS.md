@@ -68,6 +68,7 @@ Runtime and external integration crates use a shared feature policy:
 | `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core`, `tensor-data`, `math-signal-core` | Normalized sample conversion, mono mixing, shared window functions, frame iteration, streaming frame windows, level helpers, waveform batch contracts | Audio analysis crates and applications |
 | `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
 | `audio-analysis-io` | Audio input convenience facade | `audio-analysis-core`, `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, WAV export for single-item waveform batches | Applications that want audio-specific input APIs |
+| `audio-analysis-models` | Shared audio model task schemas and fallbacks | `video-analysis-core`, `video-analysis-models`, `serde`, `serde_json` | Hugging Face audio model catalog, task/runtime metadata, imported prediction schemas, deterministic fallback runners for classification, events, embeddings, ASR, diarization, separation, and generation planning | CLI, server, and UI model task surfaces |
 | `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
 | `audio-analysis-processing` | Realtime-safe audio processing | `audio-analysis-core`, `math-signal-core`, `video-analysis-core`, `video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources | Applications, preprocessing workflows, audio pipelines |
 | `audio-analysis-recognition` | Audio similarity and recognition | `audio-analysis-core`, `audio-analysis-fourier`, `video-analysis-core` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events | Applications, audio pipelines, reference matching workflows |
@@ -1169,6 +1170,8 @@ Allowed internal dependencies:
   `video-analysis-core`.
 - `audio-analysis-io` -> `audio-analysis-core`, `video-analysis-core`,
   `video-analysis-ingest`, `video-analysis-ffmpeg`, `hound`.
+- `audio-analysis-models` -> `video-analysis-core`,
+  `video-analysis-models`.
 - `audio-analysis-pitch` -> `audio-analysis-core`,
   `video-analysis-core`.
 - `audio-analysis-processing` -> `audio-analysis-core`,

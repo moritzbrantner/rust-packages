@@ -33,6 +33,22 @@ pub fn command_schema_json() -> String {
             {
                 "name": "schema",
                 "description": "Print the generic CLI command schema."
+            },
+            {
+                "name": "models",
+                "description": "List known audio model presets."
+            },
+            {
+                "name": "classify",
+                "description": "Classify an audio feature summary."
+            },
+            {
+                "name": "events",
+                "description": "Detect high-energy events from RMS frames."
+            },
+            {
+                "name": "embed",
+                "description": "Embed an audio feature summary."
             }
         ]
     })

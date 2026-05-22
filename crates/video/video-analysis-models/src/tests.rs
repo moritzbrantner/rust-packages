@@ -81,6 +81,31 @@ fn onnx_text_presets_request_xenova_files() {
 }
 
 #[test]
+fn audio_presets_register_huggingface_specs() {
+    let classifier = ModelPreset::XenovaAstAudiosetOnnx.spec();
+    assert_eq!(
+        classifier.repo_id,
+        "Xenova/ast-finetuned-audioset-10-10-0.4593"
+    );
+    assert_eq!(classifier.task, ModelTask::AudioClassification);
+    assert!(classifier.files.iter().any(|file| matches!(
+        file,
+        ModelFileRequest::FirstAvailable(paths)
+            if paths.iter().any(|path| path == "onnx/model_quantized.onnx")
+    )));
+
+    let asr = ModelPreset::WhisperTinyEn.spec();
+    assert_eq!(asr.repo_id, "openai/whisper-tiny.en");
+    assert_eq!(asr.task, ModelTask::SpeechRecognition);
+    assert!(asr
+        .files
+        .contains(&ModelFileRequest::required("tokenizer.json")));
+
+    let embedding = ModelPreset::ClapHtsatUnfused.spec();
+    assert_eq!(embedding.task, ModelTask::AudioEmbedding);
+}
+
+#[test]
 fn cuda_oxide_plan_records_runtime_contract() {
     let plan = ModelPreset::MiniLmL6V2
         .spec()

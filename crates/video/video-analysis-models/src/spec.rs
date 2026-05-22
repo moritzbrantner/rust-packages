@@ -20,6 +20,20 @@ pub enum ModelTask {
     PoseLifting3d,
     /// The image classification variant.
     ImageClassification,
+    /// The audio classification variant.
+    AudioClassification,
+    /// The audio event detection variant.
+    AudioEventDetection,
+    /// The audio embedding variant.
+    AudioEmbedding,
+    /// The speech recognition variant.
+    SpeechRecognition,
+    /// The speaker diarization variant.
+    SpeakerDiarization,
+    /// The source separation variant.
+    SourceSeparation,
+    /// The audio generation variant.
+    AudioGeneration,
     /// The text classification variant.
     TextClassification,
     /// The token classification variant.
@@ -47,6 +61,14 @@ impl ModelTask {
                 ObservationKind::Custom("posture".to_string())
             }
             Self::ImageClassification => ObservationKind::Scene,
+            Self::AudioClassification | Self::AudioEventDetection => {
+                ObservationKind::Custom("audio".to_string())
+            }
+            Self::AudioEmbedding => ObservationKind::Custom("audio_embedding".to_string()),
+            Self::SpeechRecognition => ObservationKind::Custom("speech_recognition".to_string()),
+            Self::SpeakerDiarization => ObservationKind::Custom("speaker".to_string()),
+            Self::SourceSeparation => ObservationKind::Custom("source_separation".to_string()),
+            Self::AudioGeneration => ObservationKind::Custom("audio_generation".to_string()),
             Self::TextClassification | Self::TokenClassification | Self::ZeroShotClassification => {
                 ObservationKind::Text
             }
@@ -65,6 +87,13 @@ impl ModelTask {
             Self::PoseEstimation2d => "pose_2d",
             Self::PoseLifting3d => "pose_3d",
             Self::ImageClassification => "scene",
+            Self::AudioClassification => "audio_class",
+            Self::AudioEventDetection => "audio_event",
+            Self::AudioEmbedding => "audio_embedding",
+            Self::SpeechRecognition => "speech",
+            Self::SpeakerDiarization => "speaker",
+            Self::SourceSeparation => "stem",
+            Self::AudioGeneration => "audio_generation",
             Self::TextClassification => "semantic",
             Self::TokenClassification => "token",
             Self::ZeroShotClassification => "zero_shot",
@@ -82,6 +111,13 @@ impl ModelTask {
             Self::PoseEstimation2d => "pose_estimation_2d",
             Self::PoseLifting3d => "pose_lifting_3d",
             Self::ImageClassification => "image_classification",
+            Self::AudioClassification => "audio_classification",
+            Self::AudioEventDetection => "audio_event_detection",
+            Self::AudioEmbedding => "audio_embedding",
+            Self::SpeechRecognition => "speech_recognition",
+            Self::SpeakerDiarization => "speaker_diarization",
+            Self::SourceSeparation => "source_separation",
+            Self::AudioGeneration => "audio_generation",
             Self::TextClassification => "text_classification",
             Self::TokenClassification => "token_classification",
             Self::ZeroShotClassification => "zero_shot_classification",
