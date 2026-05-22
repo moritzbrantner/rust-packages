@@ -222,6 +222,26 @@ fn transcript_dtos_are_owned_by_text_transcripts() {
     );
 }
 
+#[test]
+fn audio_crates_do_not_define_transcript_dtos() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/audio");
+    let mut violations = Vec::new();
+    collect_rust_sources(&root, &mut |path| {
+        let source = fs::read_to_string(path).expect("read Rust source");
+        for (line_index, line) in source.lines().enumerate() {
+            if line.contains("pub struct Transcript") || line.contains("pub enum Transcript") {
+                violations.push(format!("{}:{}", path.display(), line_index + 1));
+            }
+        }
+    });
+
+    assert!(
+        violations.is_empty(),
+        "audio crates must consume/re-export text-transcripts contracts instead of defining transcript DTOs: {}",
+        violations.join(", ")
+    );
+}
+
 fn collect_text_sources(dir: &Path, visit: &mut impl FnMut(&Path)) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;

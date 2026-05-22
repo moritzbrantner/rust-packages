@@ -10,13 +10,12 @@ Transcript parsing, ASR command adapters, and native whisper.cpp support for `vi
 ## Example
 
 ```rust,ignore
-use text_transcripts::{parse_whisper_json, WhisperCommandTranscriber};
+use text_transcripts::{parse_whisper_json, TranscriptionContract};
 
-let segments = parse_whisper_json(include_str!("../../../../tests/fixtures/whisper-sample.json"))?;
-let transcriber = WhisperCommandTranscriber::default();
+let parsed = parse_whisper_json(include_bytes!("../../../../tests/fixtures/whisper-sample.json"))?;
+let transcript = TranscriptionContract::from(parsed).normalized()?;
 
-let _ = segments;
-let _ = transcriber;
+assert!(!transcript.text_or_joined().is_empty());
 ```
 
 ## Related crates

@@ -1,7 +1,7 @@
 use text_core::{AsTextSegmentContract, TextSegmentContract};
 use text_transcripts::{
     parse_plain_lines, parse_srt, parse_webvtt, parse_whisper_json, segment_to_owned_text_segment,
-    TranscriptSegmentContract, TranscriptionContract,
+    TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract,
 };
 
 #[test]
@@ -61,4 +61,77 @@ fn transcript_contract_validation_rejects_invalid_ranges() {
     segment.end_seconds = Some(2.0);
 
     assert!(segment.validate().is_err());
+}
+
+#[test]
+fn transcript_contract_normalizes_segments_words_and_confidence(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut segment = TranscriptSegmentContract::new(0, " hello ");
+    segment.confidence = Some(3.0);
+    segment.words = vec![
+        TranscriptWordContract {
+            text: " hello ".to_string(),
+            start_seconds: Some(0.0),
+            end_seconds: Some(0.5),
+            confidence: Some(-1.0),
+        },
+        TranscriptWordContract {
+            text: "   ".to_string(),
+            start_seconds: None,
+            end_seconds: None,
+            confidence: Some(0.5),
+        },
+    ];
+
+    let normalized = TranscriptionContract::new(vec![segment]).normalized()?;
+
+    assert_eq!(normalized.text.as_deref(), Some("hello"));
+    assert_eq!(normalized.segments[0].text, "hello");
+    assert_eq!(normalized.segments[0].confidence, Some(1.0));
+    assert_eq!(normalized.segments[0].words.len(), 1);
+    assert_eq!(normalized.segments[0].words[0].text, "hello");
+    assert_eq!(normalized.segments[0].words[0].confidence, Some(0.0));
+
+    Ok(())
+}
+
+#[test]
+fn transcript_contract_strict_validation_rejects_empty_segments() {
+    let contract = TranscriptionContract::new(vec![TranscriptSegmentContract::new(0, "   ")]);
+
+    assert!(contract.validate().is_ok());
+    assert!(contract.validate_strict().is_err());
+}
+
+#[test]
+fn transcript_contract_strict_validation_rejects_non_monotonic_starts() {
+    let mut first = TranscriptSegmentContract::new(0, "first");
+    first.start_seconds = Some(2.0);
+    first.end_seconds = Some(3.0);
+    let mut second = TranscriptSegmentContract::new(1, "second");
+    second.start_seconds = Some(1.0);
+    second.end_seconds = Some(4.0);
+
+    let contract = TranscriptionContract::new(vec![first, second]);
+
+    assert!(contract.validate().is_ok());
+    assert!(contract.validate_strict().is_err());
+}
+
+#[test]
+fn transcript_contract_strict_validation_rejects_word_timings_outside_parent_segment() {
+    let mut segment = TranscriptSegmentContract::new(0, "hello world");
+    segment.start_seconds = Some(1.0);
+    segment.end_seconds = Some(2.0);
+    segment.words = vec![TranscriptWordContract {
+        text: "world".to_string(),
+        start_seconds: Some(1.5),
+        end_seconds: Some(2.5),
+        confidence: Some(0.8),
+    }];
+
+    let contract = TranscriptionContract::new(vec![segment]);
+
+    assert!(contract.validate().is_ok());
+    assert!(contract.validate_strict().is_err());
 }

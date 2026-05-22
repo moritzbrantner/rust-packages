@@ -111,8 +111,27 @@ impl TranscriptSegmentContract {
         Ok(self)
     }
 
+    pub fn normalized(mut self) -> Self {
+        self.text = self.text.trim().to_string();
+        self.confidence = sanitize_confidence(self.confidence);
+        self.words = self
+            .words
+            .into_iter()
+            .filter_map(|mut word| {
+                word.text = word.text.trim().to_string();
+                word.confidence = sanitize_confidence(word.confidence);
+                (!word.text.is_empty()).then_some(word)
+            })
+            .collect();
+        self
+    }
+
     pub fn duration_seconds(&self) -> Option<f64> {
         Some((self.end_seconds? - self.start_seconds?).max(0.0))
+    }
+
+    pub fn midpoint_seconds(&self) -> Option<f64> {
+        Some((self.start_seconds? + self.end_seconds?) * 0.5)
     }
 }
 
@@ -211,9 +230,59 @@ impl TranscriptionContract {
         }
     }
 
+    pub fn from_segments(
+        source: Option<String>,
+        language: Option<String>,
+        segments: Vec<TranscriptSegmentContract>,
+    ) -> crate::Result<Self> {
+        let segments = segments
+            .into_iter()
+            .map(|mut segment| {
+                if segment.language.is_none() {
+                    segment.language = language.clone();
+                }
+                segment
+            })
+            .collect();
+        Self {
+            text: None,
+            language,
+            segments,
+            source,
+            attributes: BTreeMap::new(),
+        }
+        .normalized()
+    }
+
     pub fn validate(&self) -> crate::Result<()> {
         for segment in &self.segments {
             segment.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn validate_strict(&self) -> crate::Result<()> {
+        self.validate()?;
+        let mut last_start_seconds = None;
+        for segment in &self.segments {
+            if segment.text.trim().is_empty() {
+                return Err(TranscriptionError::InvalidTranscript(
+                    "transcript segment text must not be empty".to_string(),
+                ));
+            }
+            if let (Some(previous), Some(current)) = (last_start_seconds, segment.start_seconds) {
+                if current < previous {
+                    return Err(TranscriptionError::InvalidTranscript(
+                        "transcript segment start_seconds must not move backward".to_string(),
+                    ));
+                }
+            }
+            if segment.start_seconds.is_some() {
+                last_start_seconds = segment.start_seconds;
+            }
+            for word in &segment.words {
+                validate_word_inside_segment(segment, word)?;
+            }
         }
         Ok(())
     }
@@ -225,6 +294,35 @@ impl TranscriptionContract {
             .filter(|text| !text.is_empty())
             .collect::<Vec<_>>()
             .join(" ")
+    }
+
+    pub fn text_or_joined(&self) -> String {
+        self.text
+            .as_deref()
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| self.joined_text())
+    }
+
+    pub fn normalized(mut self) -> crate::Result<Self> {
+        self.text = self
+            .text
+            .map(|text| text.trim().to_string())
+            .filter(|text| !text.is_empty());
+        self.segments = self
+            .segments
+            .into_iter()
+            .map(TranscriptSegmentContract::normalized)
+            .collect();
+        if self.text.is_none() {
+            let joined = self.joined_text();
+            if !joined.is_empty() {
+                self.text = Some(joined);
+            }
+        }
+        self.validate()?;
+        Ok(self)
     }
 }
 
@@ -271,6 +369,27 @@ fn validate_seconds_range(start: Option<f64>, end: Option<f64>) -> crate::Result
             return Err(TranscriptionError::InvalidTranscript(
                 "transcript segment end_seconds must be greater than or equal to start_seconds"
                     .to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_word_inside_segment(
+    segment: &TranscriptSegmentContract,
+    word: &TranscriptWordContract,
+) -> crate::Result<()> {
+    if let (Some(segment_start), Some(word_start)) = (segment.start_seconds, word.start_seconds) {
+        if word_start < segment_start {
+            return Err(TranscriptionError::InvalidTranscript(
+                "transcript word start_seconds must be within its segment".to_string(),
+            ));
+        }
+    }
+    if let (Some(segment_end), Some(word_end)) = (segment.end_seconds, word.end_seconds) {
+        if word_end > segment_end {
+            return Err(TranscriptionError::InvalidTranscript(
+                "transcript word end_seconds must be within its segment".to_string(),
             ));
         }
     }

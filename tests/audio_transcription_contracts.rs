@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use audio_analysis_tasks::{
     transcribe_audio, AudioRuntime, AudioRuntimeSelection, SpeechRecognitionRequest,
 };
-use text_transcripts::TranscriptSegmentContract;
+use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
 
 #[test]
 fn audio_asr_returns_transcription_contract_from_imported_segments(
@@ -17,10 +17,10 @@ fn audio_asr_returns_transcription_contract_from_imported_segments(
                 index: 0,
                 start_seconds: Some(0.0),
                 end_seconds: Some(1.25),
-                text: "hello".to_string(),
-                language: Some("en".to_string()),
+                text: " hello ".to_string(),
+                language: None,
                 speaker: Some("speaker_0".to_string()),
-                confidence: Some(0.95),
+                confidence: Some(2.0),
                 is_final: true,
                 words: Vec::new(),
                 attributes: BTreeMap::from([("channel".to_string(), "left".to_string())]),
@@ -48,7 +48,9 @@ fn audio_asr_returns_transcription_contract_from_imported_segments(
     assert_eq!(response.transcript.language.as_deref(), Some("en"));
     assert_eq!(response.segments().len(), 2);
     assert_eq!(response.segments()[0].index, 0);
-    assert_eq!(response.segments()[0].confidence, Some(0.95));
+    assert_eq!(response.segments()[0].text, "hello");
+    assert_eq!(response.segments()[0].language.as_deref(), Some("en"));
+    assert_eq!(response.segments()[0].confidence, Some(1.0));
     assert_eq!(
         response.segments()[0]
             .attributes
@@ -58,4 +60,37 @@ fn audio_asr_returns_transcription_contract_from_imported_segments(
     );
 
     Ok(())
+}
+
+#[test]
+fn speech_response_text_falls_back_to_joined_segments() -> Result<(), Box<dyn std::error::Error>> {
+    let transcript = TranscriptionContract::new(vec![
+        TranscriptSegmentContract::new(0, "hello"),
+        TranscriptSegmentContract::new(1, "world"),
+    ]);
+    let response = audio_analysis_recognition::speech_recognition_response_from_transcription(
+        &AudioRuntimeSelection::default(),
+        transcript,
+    )?;
+
+    assert_eq!(response.text(), "hello world");
+    assert_eq!(response.transcript.text.as_deref(), Some("hello world"));
+
+    Ok(())
+}
+
+#[test]
+fn audio_asr_rejects_invalid_imported_segment_ranges() {
+    let mut segment = TranscriptSegmentContract::new(0, "invalid");
+    segment.start_seconds = Some(2.0);
+    segment.end_seconds = Some(1.0);
+
+    let result = transcribe_audio(SpeechRecognitionRequest {
+        source: None,
+        language: None,
+        model: AudioRuntimeSelection::default(),
+        imported_segments: vec![segment],
+    });
+
+    assert!(result.is_err());
 }

@@ -52,6 +52,16 @@ pipeline consumers.
 Audio ASR/model crates should return `TranscriptionContract` rather than
 defining their own transcript DTO. Compatibility structs may remain temporarily
 when deprecated and converted into the transcript contract at the boundary.
+Audio callers should use `TranscriptionContract::from_segments` for imported
+ASR segments and `text_or_joined` when they need display text, so transcript
+normalization, language propagation, confidence clamping, and validation stay
+centralized in `text-transcripts`.
+
+Speaker diarization and other audio post-processing crates may enrich
+`TranscriptionContract` values with speaker metadata at the audio boundary, but
+they must not define transcript DTOs of their own. Linguistic analysis accepts
+the transcript contract directly behind the `transcripts` feature and converts
+through the existing transcript analysis path.
 
 `text-model-runtime` is the only text crate that should define reusable tokenizer
 runtime inputs and backend traits. Crates may implement or consume those traits,

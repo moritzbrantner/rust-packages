@@ -6,7 +6,8 @@ use std::path::{Path, PathBuf};
 use audio_analysis_core::{interleaved_to_mono, rms, zero_pad_to, ChannelMix, FrameSpec};
 use audio_analysis_recognition::{
     AudioEmbeddingExtractor, AudioRuntime, AudioRuntimeSelection, FallbackPolicy,
-    SpectralAudioEmbedder, SpectralEmbeddingConfig,
+    SpectralAudioEmbedder, SpectralEmbeddingConfig, TranscriptSegmentContract,
+    TranscriptionContract,
 };
 use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result};
 
@@ -1488,12 +1489,17 @@ pub fn diarize_speakers(request: SpeakerDiarizationRequest) -> Result<SpeakerDia
         .unwrap_or_else(|| "pyannote-speaker-diarization-3.1".to_string());
 
     if !request.imported_segments.is_empty() {
+        let segments = request
+            .imported_segments
+            .into_iter()
+            .map(normalize_speaker_segment)
+            .collect::<Result<Vec<_>>>()?;
         return Ok(SpeakerDiarizationResponse {
             accepted: true,
             operation: "diarize".to_string(),
             model_id,
             runtime: AudioRuntime::Imported,
-            segments: request.imported_segments,
+            segments,
         });
     }
 
@@ -1518,6 +1524,124 @@ pub fn diarize_speakers(request: SpeakerDiarizationRequest) -> Result<SpeakerDia
                 .to_string(),
         )),
     }
+}
+
+/// Assigns speaker diarization output onto transcript segments by time overlap.
+pub fn assign_speakers_to_transcript(
+    transcript: &TranscriptionContract,
+    diarization: &SpeakerDiarizationResponse,
+) -> Result<TranscriptionContract> {
+    let mut transcript = transcript
+        .clone()
+        .normalized()
+        .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+    let diarization_segments = diarization
+        .segments
+        .iter()
+        .cloned()
+        .map(normalize_speaker_segment)
+        .collect::<Result<Vec<_>>>()?;
+
+    for segment in &mut transcript.segments {
+        let Some(best) = best_speaker_match(segment, &diarization_segments) else {
+            continue;
+        };
+        segment.speaker = Some(best.speaker.clone());
+        if let Some(score) = best.score {
+            segment
+                .attributes
+                .insert("speakerScore".to_string(), score.to_string());
+        }
+    }
+
+    transcript
+        .validate_strict()
+        .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+    Ok(transcript)
+}
+
+fn normalize_speaker_segment(
+    mut segment: SpeakerSegmentPrediction,
+) -> Result<SpeakerSegmentPrediction> {
+    segment.speaker = segment.speaker.trim().to_string();
+    if segment.speaker.is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "speaker label must not be empty".to_string(),
+        ));
+    }
+    if !segment.start_seconds.is_finite() || !segment.end_seconds.is_finite() {
+        return Err(DetectError::InvalidArgument(
+            "speaker segment timestamps must be finite".to_string(),
+        ));
+    }
+    if segment.end_seconds < segment.start_seconds {
+        return Err(DetectError::InvalidArgument(
+            "speaker segment end_seconds must be greater than or equal to start_seconds"
+                .to_string(),
+        ));
+    }
+    segment.score = segment
+        .score
+        .and_then(|score| score.is_finite().then(|| score.clamp(0.0, 1.0)));
+    Ok(segment)
+}
+
+fn best_speaker_match<'a>(
+    transcript_segment: &TranscriptSegmentContract,
+    diarization_segments: &'a [SpeakerSegmentPrediction],
+) -> Option<&'a SpeakerSegmentPrediction> {
+    let positive_overlap = diarization_segments
+        .iter()
+        .filter_map(|candidate| {
+            let overlap = speaker_overlap_seconds(transcript_segment, candidate);
+            (overlap > 0.0).then_some((candidate, overlap))
+        })
+        .max_by(compare_speaker_candidates);
+    if let Some((candidate, _)) = positive_overlap {
+        return Some(candidate);
+    }
+
+    let midpoint = transcript_segment.midpoint_seconds()?;
+    diarization_segments
+        .iter()
+        .filter(|candidate| {
+            let start = candidate.start_seconds as f64;
+            let end = candidate.end_seconds as f64;
+            start <= midpoint && midpoint <= end
+        })
+        .map(|candidate| (candidate, 0.0))
+        .max_by(compare_speaker_candidates)
+        .map(|(candidate, _)| candidate)
+}
+
+fn speaker_overlap_seconds(
+    transcript_segment: &TranscriptSegmentContract,
+    speaker_segment: &SpeakerSegmentPrediction,
+) -> f64 {
+    let Some(transcript_start) = transcript_segment.start_seconds else {
+        return 0.0;
+    };
+    let Some(transcript_end) = transcript_segment.end_seconds else {
+        return 0.0;
+    };
+    let start = transcript_start.max(speaker_segment.start_seconds as f64);
+    let end = transcript_end.min(speaker_segment.end_seconds as f64);
+    (end - start).max(0.0)
+}
+
+fn compare_speaker_candidates(
+    left: &(&SpeakerSegmentPrediction, f64),
+    right: &(&SpeakerSegmentPrediction, f64),
+) -> std::cmp::Ordering {
+    left.1
+        .total_cmp(&right.1)
+        .then_with(|| speaker_score(left.0).total_cmp(&speaker_score(right.0)))
+        .then_with(|| right.0.start_seconds.total_cmp(&left.0.start_seconds))
+        .then_with(|| right.0.speaker.cmp(&left.0.speaker))
+}
+
+fn speaker_score(segment: &SpeakerSegmentPrediction) -> f32 {
+    segment.score.unwrap_or(f32::NEG_INFINITY)
 }
 
 #[cfg(test)]
@@ -1559,6 +1683,123 @@ mod tests {
         assert_eq!(response.runtime, AudioRuntime::Heuristic);
         assert_eq!(response.segments[0].speaker, "speaker_0");
         assert_eq!(response.segments[0].end_seconds, 2.5);
+    }
+
+    #[test]
+    fn task_diarization_rejects_invalid_imported_segments() {
+        let empty_speaker = diarize_speakers(SpeakerDiarizationRequest {
+            source: None,
+            duration_seconds: None,
+            model: AudioRuntimeSelection::default(),
+            imported_segments: vec![SpeakerSegmentPrediction {
+                speaker: "   ".to_string(),
+                start_seconds: 0.0,
+                end_seconds: 1.0,
+                score: Some(0.8),
+            }],
+        });
+        assert!(empty_speaker.is_err());
+
+        let reversed = diarize_speakers(SpeakerDiarizationRequest {
+            source: None,
+            duration_seconds: None,
+            model: AudioRuntimeSelection::default(),
+            imported_segments: vec![SpeakerSegmentPrediction {
+                speaker: "speaker_a".to_string(),
+                start_seconds: 2.0,
+                end_seconds: 1.0,
+                score: Some(0.8),
+            }],
+        });
+        assert!(reversed.is_err());
+    }
+
+    #[test]
+    fn task_diarization_clamps_imported_scores() {
+        let response = diarize_speakers(SpeakerDiarizationRequest {
+            source: None,
+            duration_seconds: None,
+            model: AudioRuntimeSelection::default(),
+            imported_segments: vec![SpeakerSegmentPrediction {
+                speaker: " speaker_a ".to_string(),
+                start_seconds: 0.0,
+                end_seconds: 1.0,
+                score: Some(2.0),
+            }],
+        })
+        .unwrap();
+
+        assert_eq!(response.segments[0].speaker, "speaker_a");
+        assert_eq!(response.segments[0].score, Some(1.0));
+    }
+
+    #[test]
+    fn assigns_speakers_to_transcript_by_overlap() {
+        let mut first = TranscriptSegmentContract::new(0, "hello");
+        first.start_seconds = Some(0.0);
+        first.end_seconds = Some(1.0);
+        let mut second = TranscriptSegmentContract::new(1, "world");
+        second.start_seconds = Some(1.0);
+        second.end_seconds = Some(2.0);
+        let transcript = TranscriptionContract::new(vec![first, second]);
+        let diarization = SpeakerDiarizationResponse {
+            accepted: true,
+            operation: "diarize".to_string(),
+            model_id: "fixture".to_string(),
+            runtime: AudioRuntime::Imported,
+            segments: vec![
+                SpeakerSegmentPrediction {
+                    speaker: "speaker_b".to_string(),
+                    start_seconds: 0.5,
+                    end_seconds: 2.0,
+                    score: Some(0.7),
+                },
+                SpeakerSegmentPrediction {
+                    speaker: "speaker_a".to_string(),
+                    start_seconds: 0.0,
+                    end_seconds: 1.1,
+                    score: Some(0.9),
+                },
+            ],
+        };
+
+        let assigned = assign_speakers_to_transcript(&transcript, &diarization).unwrap();
+
+        assert_eq!(assigned.segments[0].speaker.as_deref(), Some("speaker_a"));
+        assert_eq!(assigned.segments[1].speaker.as_deref(), Some("speaker_b"));
+        assert_eq!(
+            assigned.segments[0]
+                .attributes
+                .get("speakerScore")
+                .map(String::as_str),
+            Some("0.9")
+        );
+    }
+
+    #[test]
+    fn speaker_assignment_preserves_existing_speaker_without_match() {
+        let mut segment = TranscriptSegmentContract::new(0, "hello");
+        segment.start_seconds = Some(0.0);
+        segment.end_seconds = Some(1.0);
+        segment.speaker = Some("original".to_string());
+        let transcript = TranscriptionContract::new(vec![segment]);
+        let diarization = SpeakerDiarizationResponse {
+            accepted: true,
+            operation: "diarize".to_string(),
+            model_id: "fixture".to_string(),
+            runtime: AudioRuntime::Imported,
+            segments: vec![SpeakerSegmentPrediction {
+                speaker: "other".to_string(),
+                start_seconds: 3.0,
+                end_seconds: 4.0,
+                score: Some(1.0),
+            }],
+        };
+
+        let assigned = assign_speakers_to_transcript(&transcript, &diarization).unwrap();
+
+        assert_eq!(assigned.segments[0].speaker.as_deref(), Some("original"));
+        assert!(!assigned.segments[0].attributes.contains_key("speakerScore"));
     }
 
     #[derive(Debug, Clone)]

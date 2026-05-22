@@ -39,21 +39,16 @@ pub enum AudioRuntime {
 }
 
 /// Fallback behavior when the selected native runtime cannot run.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum FallbackPolicy {
     /// Return a typed error.
+    #[default]
     Error,
     /// Use a fast deterministic fallback.
     FastFallback,
     /// Use a spectral or heuristic fallback.
     HeuristicFallback,
-}
-
-impl Default for FallbackPolicy {
-    fn default() -> Self {
-        Self::Error
-    }
 }
 
 /// Runtime selection supplied by API, CLI, or UI callers.
@@ -337,10 +332,7 @@ impl SpeechRecognitionResponse {
     /// Returns the full transcript text, synthesizing it from segments when the
     /// transcript does not carry a separate aggregate text field.
     pub fn text(&self) -> String {
-        self.transcript
-            .text
-            .clone()
-            .unwrap_or_else(|| self.transcript.joined_text())
+        self.transcript.text_or_joined()
     }
 
     /// Returns transcript segments for compatibility with older callers.
@@ -1511,23 +1503,12 @@ pub fn transcribe_audio(request: SpeechRecognitionRequest) -> Result<SpeechRecog
     let model_id = selected_model_id(&request.model, "whisper-tiny-en");
 
     if !request.imported_segments.is_empty() {
-        let text = request
-            .imported_segments
-            .iter()
-            .map(|segment| segment.text.trim())
-            .filter(|text| !text.is_empty())
-            .collect::<Vec<_>>()
-            .join(" ");
-        let transcript = TranscriptionContract {
-            text: Some(text),
-            language: request.language,
-            segments: request.imported_segments,
-            source: request.source,
-            attributes: BTreeMap::new(),
-        };
-        transcript
-            .validate()
-            .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+        let transcript = TranscriptionContract::from_segments(
+            request.source,
+            request.language,
+            request.imported_segments,
+        )
+        .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
         return Ok(SpeechRecognitionResponse {
             accepted: true,
             operation: "transcribe".to_string(),
@@ -1540,6 +1521,26 @@ pub fn transcribe_audio(request: SpeechRecognitionRequest) -> Result<SpeechRecog
     unsupported_runtime(
         "native speech recognition requires text-transcripts native whisper.cpp execution or imported segments",
     )
+}
+
+/// Builds a speech recognition response from a full transcript contract.
+pub fn speech_recognition_response_from_transcription(
+    model: &AudioRuntimeSelection,
+    transcript: TranscriptionContract,
+) -> Result<SpeechRecognitionResponse> {
+    let transcript = transcript
+        .normalized()
+        .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+    transcript
+        .validate_strict()
+        .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+    Ok(SpeechRecognitionResponse {
+        accepted: true,
+        operation: "transcribe".to_string(),
+        model_id: selected_model_id(model, "whisper-tiny-en"),
+        runtime: AudioRuntime::Imported,
+        transcript,
+    })
 }
 
 fn selected_model_id(selection: &AudioRuntimeSelection, default: &str) -> String {

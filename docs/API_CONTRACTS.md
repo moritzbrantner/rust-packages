@@ -37,7 +37,9 @@ For the first enforced boundary, `text-core` owns generic text contracts such as
 `TranscriptSegmentContract` and `TranscriptionContract` as timed/speaker-aware
 text specializations. Audio ASR surfaces consume and return those transcript
 contracts through `audio-analysis-recognition` and the aggregate
-`audio-analysis-tasks` API.
+`audio-analysis-tasks` API. Speaker diarization may enrich an existing
+`TranscriptionContract` with speaker labels and scores, but transcript DTOs
+remain owned by `text-transcripts`.
 
 UI and report types are projections of these contracts. A `*Report` type may
 drop fields that are not needed for presentation, but shared fields should be
@@ -337,7 +339,9 @@ cases and model adapters.
   `transcribe_waveform_batch`, and `TranscriptSegmentSource`. It parses Whisper
   JSON, SRT, WebVTT, and plain line transcripts, converts transcript segments
   into `TextSegmentContract` and `OwnedTextSegment` values, and bridges waveform
-  batches into the existing file-based transcription path.
+  batches into the existing file-based transcription path. It also owns
+  transcript contract normalization, strict validation, and aggregate text
+  fallback helpers used by audio ASR and transcript-aware text analysis.
 - `text-generation` owns deterministic Markov prediction and deterministic
   synthesis from weighted terms, events, and linguistic analyses.
 

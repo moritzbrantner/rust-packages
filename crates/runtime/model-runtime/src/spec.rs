@@ -279,22 +279,17 @@ pub enum RuntimePreference {
     Imported,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 /// General fallback behavior for model-backed operations.
 pub enum FallbackPolicy {
     /// Return a typed error.
+    #[default]
     Error,
     /// Use a fast deterministic fallback.
     FastFallback,
     /// Use a heuristic fallback.
     HeuristicFallback,
-}
-
-impl Default for FallbackPolicy {
-    fn default() -> Self {
-        Self::Error
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]

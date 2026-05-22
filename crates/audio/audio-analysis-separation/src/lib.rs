@@ -38,10 +38,12 @@ pub struct SourceSeparationRequest {
 }
 
 /// Source separation backend selection.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[allow(clippy::large_enum_variant)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum SourceSeparationBackend {
     /// Select an implementation from request context.
+    #[default]
     Auto,
     /// Run Demucs through the existing command wrapper.
     Demucs(HtdemucsOptions),
@@ -49,12 +51,6 @@ pub enum SourceSeparationBackend {
     HeuristicPlan,
     /// Use caller-provided stem descriptors.
     ImportedStems,
-}
-
-impl Default for SourceSeparationBackend {
-    fn default() -> Self {
-        Self::Auto
-    }
 }
 
 /// One separated stem descriptor.

@@ -1,6 +1,7 @@
 # audio-analysis-recognition
 
-Deterministic audio embeddings and similarity search for `video-analysis`.
+Deterministic audio embeddings, similarity search, and contract-first speech
+recognition surfaces for `video-analysis`.
 
 ## Feature flags
 
@@ -9,17 +10,23 @@ Deterministic audio embeddings and similarity search for `video-analysis`.
 ## Example
 
 ```rust,ignore
-use audio_analysis_recognition::{ReferenceLibrary, SpectralEmbeddingConfig};
+use audio_analysis_recognition::{
+    transcribe_audio, AudioRuntimeSelection, SpeechRecognitionRequest,
+    TranscriptSegmentContract,
+};
 
-let config = SpectralEmbeddingConfig::default();
-let mut library = ReferenceLibrary::new(config.embedding_dimensions())?;
+let response = transcribe_audio(SpeechRecognitionRequest {
+    source: Some("fixture.wav".to_string()),
+    language: Some("en".to_string()),
+    model: AudioRuntimeSelection::default(),
+    imported_segments: vec![TranscriptSegmentContract::new(0, "hello world")],
+})?;
 
-library.add_reference("intro", "opening music", vec![0.0; config.embedding_dimensions()])?;
-let _ = library;
+assert_eq!(response.text(), "hello world");
 ```
 
 ## Related crates
 
 - `audio-analysis-core`
 - `audio-analysis-fourier`
-- `vector-analysis-core`
+- `text-transcripts`

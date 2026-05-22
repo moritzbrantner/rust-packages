@@ -238,7 +238,7 @@ pub fn parse_task(input: &str) -> Option<AudioTask> {
         .find(|task| {
             task.path_segment() == input || format!("{task:?}").eq_ignore_ascii_case(input)
         })
-        .or_else(|| match input {
+        .or(match input {
             "audio_classification" | "classification" => Some(AudioTask::AudioClassification),
             "audio_event_detection" | "event_detection" => Some(AudioTask::AudioEventDetection),
             "audio_embedding" | "embedding" => Some(AudioTask::AudioEmbedding),

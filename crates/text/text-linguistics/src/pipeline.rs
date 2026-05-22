@@ -2,7 +2,6 @@ use std::path::PathBuf;
 #[cfg(feature = "candle")]
 use std::sync::{Arc, Mutex};
 
-#[cfg(feature = "candle")]
 use crate::discourse::{
     build_style_profile, build_topic_model, DiscourseSegment, DocumentOutline, SectionClassifier,
     StyleProfile, TopicModel,
@@ -32,7 +31,7 @@ use text_core::{
     TextProcessingOptions, Token,
 };
 #[cfg(feature = "transcripts")]
-use text_transcripts::{TranscriptSegment, TranscriptionResult};
+use text_transcripts::{TranscriptSegment, TranscriptionContract, TranscriptionResult};
 use video_analysis_core::{
     AnalysisEvent, DetectError, OwnedTextSegment, Result, TextAnalyzer, TextSegment,
 };
@@ -337,6 +336,23 @@ impl TextNlpPipeline {
         ))?;
         Ok(SubtitleLinguisticAnalysis { cues, aggregate })
     }
+
+    /// Returns analyze transcription contract.
+    #[cfg(feature = "transcripts")]
+    pub fn analyze_transcription_contract(
+        &self,
+        contract: &TranscriptionContract,
+    ) -> Result<SubtitleLinguisticAnalysis> {
+        let contract = contract
+            .clone()
+            .normalized()
+            .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+        contract
+            .validate_strict()
+            .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+        let result = TranscriptionResult::from(contract);
+        self.analyze_transcription(&result)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -481,6 +497,16 @@ pub fn analyze_transcription(
     options: &LinguisticAnalysisOptions,
 ) -> Result<SubtitleLinguisticAnalysis> {
     TextNlpPipeline::new(TextNlpConfig::from_options(options.clone())).analyze_transcription(result)
+}
+
+/// Returns analyze transcription contract.
+#[cfg(feature = "transcripts")]
+pub fn analyze_transcription_contract(
+    contract: &TranscriptionContract,
+    options: &LinguisticAnalysisOptions,
+) -> Result<SubtitleLinguisticAnalysis> {
+    TextNlpPipeline::new(TextNlpConfig::from_options(options.clone()))
+        .analyze_transcription_contract(contract)
 }
 
 /// Returns analyze text.

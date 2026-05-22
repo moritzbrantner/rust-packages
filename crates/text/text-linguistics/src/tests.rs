@@ -5,7 +5,9 @@ use text_core::{
     TextSpan, Token, TokenKind,
 };
 #[cfg(feature = "transcripts")]
-use text_transcripts::{parse_srt, parse_webvtt, TranscriptSegment};
+use text_transcripts::{
+    parse_srt, parse_webvtt, TranscriptSegment, TranscriptSegmentContract, TranscriptionContract,
+};
 use video_analysis_core::{OwnedTextSegment, Result, TextAnalyzer};
 
 #[test]
@@ -454,6 +456,38 @@ fn analyzes_transcription_falling_back_to_joined_cue_text() {
         .tokens
         .iter()
         .any(|token| token.normalized == "hola"));
+}
+
+#[test]
+#[cfg(feature = "transcripts")]
+fn analyzes_transcription_contracts_directly() {
+    let mut first = TranscriptSegmentContract::new(0, "Alice visited Berlin");
+    first.start_seconds = Some(0.0);
+    first.end_seconds = Some(1.0);
+    first.speaker = Some("speaker_a".to_string());
+    let mut second = TranscriptSegmentContract::new(1, "Roadmap review");
+    second.start_seconds = Some(1.0);
+    second.end_seconds = Some(2.0);
+    second.speaker = Some("speaker_b".to_string());
+    let mut contract = TranscriptionContract::from_segments(
+        Some("fixture.srt".to_string()),
+        Some("en".to_string()),
+        vec![first, second],
+    )
+    .unwrap();
+    contract.text = Some("Alice visited Berlin. Roadmap review.".to_string());
+
+    let analysis =
+        analyze_transcription_contract(&contract, &LinguisticAnalysisOptions::heuristic()).unwrap();
+
+    assert_eq!(analysis.cues.len(), 2);
+    assert_eq!(analysis.cues[0].cue.speaker.as_deref(), Some("speaker_a"));
+    assert_eq!(analysis.cues[0].cue.start_seconds, Some(0.0));
+    assert!(analysis
+        .aggregate
+        .tokens
+        .iter()
+        .any(|token| token.normalized == "roadmap"));
 }
 
 #[test]
