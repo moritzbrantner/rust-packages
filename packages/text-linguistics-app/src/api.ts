@@ -224,7 +224,12 @@ export const serverBaseUrl = configuredServerUrl ?? "http://127.0.0.1:3000";
 export const wrappedLibrary = "text-linguistics";
 
 export async function analyzeLinguistics(text: string): Promise<LinguisticAnalysisPayload> {
-  const body = JSON.stringify({ operation: "analyze", profile: "rich", modelMode: "local-model", text });
+  const body = JSON.stringify({
+    operation: "analyze",
+    profile: "rich",
+    modelMode: "local-model",
+    text,
+  });
   const packagePath = `/api/rust/packages/${wrappedLibrary}/api/run`;
   const rootPath = "/api/run";
 
@@ -242,59 +247,86 @@ export async function listNlpModels(task?: string): Promise<NlpModelMetadata[]> 
   return getJson<NlpModelMetadata[]>(task ? `/api/models/${task}` : "/api/models");
 }
 
-export async function classifyText(text: string, labels: string[] = []): Promise<TextClassificationPayload> {
+export async function classifyText(
+  text: string,
+  labels: string[] = [],
+  model?: NlpModelSelection,
+): Promise<TextClassificationPayload> {
   return postTaskJson<TextClassificationPayload>("classify", {
     text,
     labels,
-    model: { fallbackPolicy: "lexical_fallback" },
+    model: { ...model, fallbackPolicy: model?.fallbackPolicy ?? "lexical_fallback" },
   });
 }
 
-export async function analyzeSentiment(text: string): Promise<SentimentPayload> {
+export async function analyzeSentiment(
+  text: string,
+  model?: NlpModelSelection,
+): Promise<SentimentPayload> {
   return postTaskJson<SentimentPayload>("sentiment", {
     text,
-    model: { fallbackPolicy: "lexical_fallback" },
+    model: { ...model, fallbackPolicy: model?.fallbackPolicy ?? "lexical_fallback" },
   });
 }
 
-export async function embedText(texts: string[]): Promise<EmbeddingPayload> {
+export async function embedText(
+  texts: string[],
+  model?: NlpModelSelection,
+): Promise<EmbeddingPayload> {
   return postTaskJson<EmbeddingPayload>("embed", {
     texts,
-    model: { fallbackPolicy: "fast_fallback" },
+    model: { ...model, fallbackPolicy: model?.fallbackPolicy ?? "fast_fallback" },
     dimensions: 64,
     normalize: true,
   });
 }
 
-export async function zeroShotClassify(text: string, labels: string[]): Promise<ZeroShotPayload> {
+export async function zeroShotClassify(
+  text: string,
+  labels: string[],
+  model?: NlpModelSelection,
+): Promise<ZeroShotPayload> {
   return postTaskJson<ZeroShotPayload>("zero-shot", {
     text,
     labels,
-    model: { fallbackPolicy: "lexical_fallback" },
+    model: { ...model, fallbackPolicy: model?.fallbackPolicy ?? "lexical_fallback" },
   });
 }
 
-export async function summarizeText(text: string): Promise<SummaryPayload> {
+export async function summarizeText(
+  text: string,
+  model?: NlpModelSelection,
+): Promise<SummaryPayload> {
   return postTaskJson<SummaryPayload>("summarize", {
     text,
     maxSentences: 3,
+    model,
     strategy: "embedding_extractive",
   });
 }
 
-export async function rerankDocuments(query: string, documents: string[]): Promise<RerankPayload> {
+export async function rerankDocuments(
+  query: string,
+  documents: string[],
+  model?: NlpModelSelection,
+): Promise<RerankPayload> {
   return postTaskJson<RerankPayload>("rerank", {
     query,
     documents,
     topK: 5,
-    model: { fallbackPolicy: "lexical_fallback" },
+    model: { ...model, fallbackPolicy: model?.fallbackPolicy ?? "lexical_fallback" },
   });
 }
 
-export async function answerQuestion(question: string, context: string): Promise<QuestionAnswerPayload> {
+export async function answerQuestion(
+  question: string,
+  context: string,
+  model?: NlpModelSelection,
+): Promise<QuestionAnswerPayload> {
   return postTaskJson<QuestionAnswerPayload>("question-answer", {
     question,
     context,
+    model,
     importedPredictions: [],
   });
 }

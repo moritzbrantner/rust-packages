@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState, type ReactNode } from "react";
+import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
   analyzeSentiment,
@@ -7,6 +7,7 @@ import {
   analyzeLinguisticsClient,
   classifyText,
   embedText,
+  listNlpModels,
   rerankDocuments,
   serverBaseUrl,
   summarizeText,
@@ -19,13 +20,22 @@ import {
   type LinguisticSentence,
   type LinguisticToken,
   type LinguisticTopic,
+  type NlpModelMetadata,
   zeroShotClassify,
 } from "./api";
 import { sampleText } from "./sampleText";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 type RuntimeMode = "server" | "client-wasm";
-type NlpTask = "entities" | "sentiment" | "classify" | "embed" | "zero-shot" | "summarize" | "rerank" | "qa";
+type NlpTask =
+  | "entities"
+  | "sentiment"
+  | "classify"
+  | "embed"
+  | "zero-shot"
+  | "summarize"
+  | "rerank"
+  | "qa";
 type ActiveTab = "overview" | "tokens" | "syntax" | "entities" | "events" | "topics" | "json";
 
 const nlpTasks: Array<{ id: NlpTask; label: string }> = [
@@ -38,6 +48,28 @@ const nlpTasks: Array<{ id: NlpTask; label: string }> = [
   { id: "rerank", label: "Rerank" },
   { id: "qa", label: "QA" },
 ];
+
+const taskCatalogKeys: Record<NlpTask, string> = {
+  entities: "token_classification",
+  sentiment: "sentiment",
+  classify: "text_classification",
+  embed: "embedding",
+  "zero-shot": "zero_shot_classification",
+  summarize: "summarization",
+  rerank: "reranking",
+  qa: "question_answering",
+};
+
+const fallbackModelIds: Record<NlpTask, string> = {
+  entities: "bert-base-ner",
+  sentiment: "twitter-roberta-sentiment-latest",
+  classify: "distilbert-sst2",
+  embed: "all-mpnet-base-v2",
+  "zero-shot": "bart-large-mnli",
+  summarize: "embedding-extractive-summary",
+  rerank: "ms-marco-minilm-l6-v2",
+  qa: "roberta-base-squad2",
+};
 
 const tabs: Array<{ id: ActiveTab; label: string }> = [
   { id: "overview", label: "Overview" },
@@ -71,15 +103,71 @@ export function App() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("server");
   const [nlpTask, setNlpTask] = useState<NlpTask>("entities");
+  const [modelCatalog, setModelCatalog] = useState<NlpModelMetadata[]>([]);
+  const [selectedModelIds, setSelectedModelIds] = useState<Partial<Record<NlpTask, string>>>({});
+  const [modelCatalogError, setModelCatalogError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadModels() {
+      try {
+        const models = await listNlpModels();
+        if (!cancelled) {
+          setModelCatalog(models);
+          setModelCatalogError(null);
+        }
+      } catch (caught) {
+        if (!cancelled) {
+          setModelCatalog([]);
+          setModelCatalogError(
+            caught instanceof Error ? caught.message : "Unable to load model catalog",
+          );
+        }
+      }
+    }
+
+    loadModels();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const modelOptions = useMemo(
+    () => modelCatalog.filter((model) => model.task === taskCatalogKeys[nlpTask]),
+    [modelCatalog, nlpTask],
+  );
+  const selectedModelId =
+    selectedModelIds[nlpTask] ?? modelOptions[0]?.id ?? fallbackModelIds[nlpTask];
+  const selectedModel = modelOptions.find((model) => model.id === selectedModelId);
+  const currentModel = describeCurrentModel({
+    analysis,
+    fallbackModelId: selectedModelId,
+    model: selectedModel,
+    nlpTask,
+    runtimeMode,
+    taskResult,
+  });
+
   const json = useMemo(
-    () => (analysis ? JSON.stringify(analysis, null, 2) : taskResult ? JSON.stringify(taskResult, null, 2) : ""),
+    () =>
+      analysis
+        ? JSON.stringify(analysis, null, 2)
+        : taskResult
+          ? JSON.stringify(taskResult, null, 2)
+          : "",
     [analysis, taskResult],
   );
   const statusLabel =
-    loadState === "ready" ? "Ready" : loadState === "loading" ? "Analyzing" : loadState === "error" ? "Error" : "Idle";
+    loadState === "ready"
+      ? "Ready"
+      : loadState === "loading"
+        ? "Analyzing"
+        : loadState === "error"
+          ? "Error"
+          : "Idle";
 
   async function submit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -93,12 +181,14 @@ export function App() {
     try {
       if (nlpTask === "entities") {
         const payload =
-          runtimeMode === "server" ? await analyzeLinguistics(text) : await analyzeLinguisticsClient(text);
+          runtimeMode === "server"
+            ? await analyzeLinguistics(text)
+            : await analyzeLinguisticsClient(text);
         setAnalysis(payload);
         setTaskResult(null);
         setActiveTab("overview");
       } else {
-        const payload = await runNlpTask(nlpTask, text);
+        const payload = await runNlpTask(nlpTask, text, selectedModelId);
         setAnalysis(null);
         setTaskResult(payload);
         setActiveTab("json");
@@ -144,13 +234,22 @@ export function App() {
             >
               {statusLabel}
             </span>
-            <button className={buttonSecondaryClass} type="button" onClick={() => setText(sampleText)}>
+            <button
+              className={buttonSecondaryClass}
+              type="button"
+              onClick={() => setText(sampleText)}
+            >
               Reset sample
             </button>
             <button className={buttonSecondaryClass} type="button" onClick={() => setText("")}>
               Clear
             </button>
-            <button className={buttonSecondaryClass} type="button" disabled={!json} onClick={copyJson}>
+            <button
+              className={buttonSecondaryClass}
+              type="button"
+              disabled={!json}
+              onClick={copyJson}
+            >
               Copy JSON
             </button>
           </div>
@@ -168,21 +267,77 @@ export function App() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {nlpTasks.map((task) => (
-                <RuntimeButton key={task.id} active={nlpTask === task.id} onClick={() => setNlpTask(task.id)}>
+                <RuntimeButton
+                  key={task.id}
+                  active={nlpTask === task.id}
+                  onClick={() => setNlpTask(task.id)}
+                >
                   {task.label}
                 </RuntimeButton>
               ))}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <RuntimeButton active={runtimeMode === "server"} onClick={() => setRuntimeMode("server")}>
+              <RuntimeButton
+                active={runtimeMode === "server"}
+                onClick={() => setRuntimeMode("server")}
+              >
                 Server
               </RuntimeButton>
-              <RuntimeButton active={runtimeMode === "client-wasm"} onClick={() => setRuntimeMode("client-wasm")}>
+              <RuntimeButton
+                active={runtimeMode === "client-wasm"}
+                onClick={() => setRuntimeMode("client-wasm")}
+              >
                 Client WASM
               </RuntimeButton>
-              <button className={buttonPrimaryClass} type="submit" disabled={loadState === "loading"}>
+              <button
+                className={buttonPrimaryClass}
+                type="submit"
+                disabled={loadState === "loading"}
+              >
                 {nlpTask === "entities" ? "Analyze" : "Run"}
               </button>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase text-zinc-500">Current model</div>
+              <div className="mt-1 truncate font-mono text-base font-semibold text-zinc-950">
+                {currentModel.label}
+              </div>
+              <div className="mt-1 truncate text-xs text-zinc-500">{currentModel.detail}</div>
+            </div>
+            <div className="min-w-0">
+              <label
+                className="text-xs font-semibold uppercase text-zinc-500"
+                htmlFor="model-select"
+              >
+                Model preset
+              </label>
+              {modelOptions.length > 1 ? (
+                <select
+                  id="model-select"
+                  className="mt-1 h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
+                  value={selectedModelId}
+                  onChange={(event) =>
+                    setSelectedModelIds((values) => ({ ...values, [nlpTask]: event.target.value }))
+                  }
+                >
+                  {modelOptions.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.id} ({formatRuntime(model.runtime)})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="mt-1 flex min-h-10 items-center rounded-md border border-zinc-200 bg-white px-3 font-mono text-sm text-zinc-900">
+                  {currentModel.label}
+                </div>
+              )}
+              {modelCatalogError ? (
+                <div className="mt-1 text-xs text-amber-700">
+                  Catalog unavailable; using defaults.
+                </div>
+              ) : null}
             </div>
           </div>
           <textarea
@@ -233,28 +388,43 @@ export function App() {
   );
 }
 
-async function runNlpTask(task: NlpTask, text: string): Promise<unknown> {
+async function runNlpTask(task: NlpTask, text: string, modelId: string): Promise<unknown> {
+  const model = { modelId };
   if (task === "sentiment") {
-    return analyzeSentiment(text);
+    return analyzeSentiment(text, model);
   }
   if (task === "classify") {
-    return classifyText(text, ["technology", "business", "science"]);
+    return classifyText(text, ["technology", "business", "science"], model);
   }
   if (task === "embed") {
-    return embedText([text]);
+    return embedText([text], model);
   }
   if (task === "zero-shot") {
-    return zeroShotClassify(text, ["technology", "business", "science", "culture"]);
+    return zeroShotClassify(text, ["technology", "business", "science", "culture"], model);
   }
   if (task === "summarize") {
-    return summarizeText(text);
+    return summarizeText(text, model);
   }
   if (task === "rerank") {
-    const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-    return rerankDocuments(lines[0] ?? text, lines.slice(1).length ? lines.slice(1) : [text]);
+    const lines = text
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    return rerankDocuments(
+      lines[0] ?? text,
+      lines.slice(1).length ? lines.slice(1) : [text],
+      model,
+    );
   }
-  const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-  return answerQuestion(lines[0] ?? "What is this text about?", lines.slice(1).join("\n") || text);
+  const lines = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return answerQuestion(
+    lines[0] ?? "What is this text about?",
+    lines.slice(1).join("\n") || text,
+    model,
+  );
 }
 
 function AnalysisPanel({
@@ -275,7 +445,9 @@ function AnalysisPanel({
     return <TokensTable tokens={analysis.tokens} />;
   }
   if (activeTab === "syntax") {
-    return <SyntaxTables lemmas={analysis.lemmas} pos={analysis.pos} sentences={analysis.sentences} />;
+    return (
+      <SyntaxTables lemmas={analysis.lemmas} pos={analysis.pos} sentences={analysis.sentences} />
+    );
   }
   if (activeTab === "entities") {
     return <EntitiesTable entities={analysis.entities} />;
@@ -524,7 +696,9 @@ function EventsTable({
               <td>{event.lemma}</td>
               <td>{event.relationType}</td>
               <td>{event.sentenceIndex}</td>
-              <td>{event.arguments.map((argument) => `${argument.role}: ${argument.text}`).join(", ")}</td>
+              <td>
+                {event.arguments.map((argument) => `${argument.role}: ${argument.text}`).join(", ")}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -632,6 +806,90 @@ function Table({ children, empty }: { children: ReactNode; empty?: string }) {
       <table className={dataTableClass}>{children}</table>
     </div>
   );
+}
+
+function describeCurrentModel({
+  analysis,
+  fallbackModelId,
+  model,
+  nlpTask,
+  runtimeMode,
+  taskResult,
+}: {
+  analysis: LinguisticAnalysisPayload | null;
+  fallbackModelId: string;
+  model?: NlpModelMetadata;
+  nlpTask: NlpTask;
+  runtimeMode: RuntimeMode;
+  taskResult: unknown | null;
+}): { label: string; detail: string } {
+  if (nlpTask === "entities" && analysis?.model) {
+    const entityModel = analysis.model.entityModel ?? analysis.model.entityRecognition;
+    return {
+      label: entityModel,
+      detail: `${formatRuntime(analysis.model.entityRecognition)} entity recognition, ${formatRuntime(
+        analysis.model.tokenizerMode,
+      )} tokenizer`,
+    };
+  }
+
+  const taskModel = taskResultModel(taskResult, nlpTask);
+  if (taskModel) {
+    return taskModel;
+  }
+
+  if (nlpTask === "entities" && runtimeMode === "client-wasm") {
+    return {
+      label: "heuristic",
+      detail: "Client WASM rule-based entity recognition",
+    };
+  }
+
+  return {
+    label: model?.id ?? fallbackModelId,
+    detail: model
+      ? `${formatRuntime(model.runtime)} runtime, ${model.supported ? "available" : "fallback-gated"}`
+      : "Default preset",
+  };
+}
+
+function taskResultModel(
+  value: unknown,
+  nlpTask: NlpTask,
+): { label: string; detail: string } | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const result = value as { modelId?: unknown; operation?: unknown; runtime?: unknown };
+  if (typeof result.modelId !== "string" || !taskMatchesResult(nlpTask, result.operation)) {
+    return null;
+  }
+  const runtime = typeof result.runtime === "string" ? result.runtime : "unknown";
+  return {
+    label: result.modelId,
+    detail: `${formatRuntime(runtime)} runtime from the last result`,
+  };
+}
+
+function taskMatchesResult(nlpTask: NlpTask, operation: unknown): boolean {
+  if (typeof operation !== "string") {
+    return false;
+  }
+  const operationByTask: Record<NlpTask, string> = {
+    entities: "analyze",
+    sentiment: "sentiment",
+    classify: "classify",
+    embed: "embed",
+    "zero-shot": "zero-shot",
+    summarize: "summarize",
+    rerank: "rerank",
+    qa: "question-answer",
+  };
+  return operationByTask[nlpTask] === operation;
+}
+
+function formatRuntime(value: string): string {
+  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatNumber(value: number): string {
