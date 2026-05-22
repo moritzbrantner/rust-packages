@@ -36,6 +36,23 @@ execution is opt-in through feature flags and explicit runtime configuration.
 on `text-core`, but `text-core` must not depend on NLP, model, transcript, or
 retrieval crates.
 
+`text-core` also owns the generic text contract interfaces:
+`TextDocumentContract`, `TextSegmentContract`, `IntoTextDocumentContract`, and
+`AsTextSegmentContract`. These are the stable DTOs and conversion traits that
+non-text packages should consume when they need to hand text into the text
+stack.
+
+`text-transcripts` owns transcript extensions such as
+`TranscriptSegmentContract`, `TranscriptWordContract`, and
+`TranscriptionContract`. A transcript is treated as timed text with optional
+speaker, confidence, and word-level metadata, and it must convert into the
+generic `text-core` segment contract for lexical, linguistic, retrieval, and
+pipeline consumers.
+
+Audio ASR/model crates should return `TranscriptionContract` rather than
+defining their own transcript DTO. Compatibility structs may remain temporarily
+when deprecated and converted into the transcript contract at the boundary.
+
 `text-model-runtime` is the only text crate that should define reusable tokenizer
 runtime inputs and backend traits. Crates may implement or consume those traits,
 but should not duplicate `TokenizedText`, `TokenizerBundle`, or runtime backend

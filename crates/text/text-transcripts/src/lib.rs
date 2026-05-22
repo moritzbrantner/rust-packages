@@ -14,12 +14,12 @@ use text_core::{tokenize, tokenize_words, TextProcessingOptions, TokenKind};
 mod whisper_cpp;
 
 use thiserror::Error;
-use video_analysis_core::{
-    AnalysisEvent, OwnedTextSegment, TextAnalyzer, TextSegment, Timebase, Timestamp,
-};
+use video_analysis_core::{AnalysisEvent, OwnedTextSegment, TextAnalyzer, TextSegment, Timestamp};
 use video_analysis_ingest::{
     MediaSourceInfo, SourceMode, TextFormat as IngestTextFormat, TextSegmentSource, TextStreamInfo,
 };
+pub mod contracts;
+pub use contracts::{TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract};
 /// Re-exports the text transcript native whisper.cpp API.
 pub use whisper_cpp::{
     transcription_catalog as whisper_cpp_catalog, whisper_cpp_system_info,
@@ -554,15 +554,8 @@ pub fn format_srt_timestamp(seconds: f64) -> String {
 
 /// Returns segment to owned text segment.
 pub fn segment_to_owned_text_segment(segment: &TranscriptSegment) -> OwnedTextSegment {
-    let mut owned =
-        OwnedTextSegment::new(segment.index, segment.text.clone()).finality(segment.is_final);
-    if let Some(language) = &segment.language {
-        owned = owned.language(language.clone());
-    }
-    if let Some(seconds) = segment.start_seconds {
-        owned = owned.timestamp(seconds_to_timestamp(seconds));
-    }
-    owned
+    text_core::TextSegmentContract::from(TranscriptSegmentContract::from(segment))
+        .to_owned_text_segment()
 }
 
 fn parse_transcript_bytes(bytes: &[u8], format: TranscriptFormat) -> Result<TranscriptionResult> {
@@ -672,10 +665,6 @@ fn parse_timestamp_component(value: &str) -> Result<f64> {
     value.parse::<f64>().map_err(|_| {
         TranscriptionError::InvalidTranscript(format!("invalid timestamp component `{value}`"))
     })
-}
-
-fn seconds_to_timestamp(seconds: f64) -> Timestamp {
-    Timestamp::new((seconds * 1_000.0).round() as i64, Timebase::new(1, 1_000))
 }
 
 fn whisper_confidence(avg_logprob: Option<f32>, no_speech_prob: Option<f32>) -> Option<f32> {

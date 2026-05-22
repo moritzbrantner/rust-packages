@@ -15,6 +15,6 @@ categories.workspace = true
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+text-transcripts.workspace = true
 video-analysis-core.workspace = true
 video-analysis-models.workspace = true
-

@@ -43,6 +43,20 @@ contracts/examples/*.json
 DTOs. `src/operations.rs` contains thin pure-Rust functions over those DTOs.
 Examples are checked in when they clarify compatibility or frontend behavior.
 
+## Naming Conventions
+
+- `*Contract` names stable, serializable DTOs that cross crate, process, or
+  frontend boundaries.
+- Borrowed runtime views such as `VideoFrame<'_>`, `AudioFrame<'_>`,
+  `TextSegment<'_>`, and `TextDocument<'_>` remain Rust-native library types.
+- `*Request` and `*Result` names are operation-specific DTOs and should be
+  returned through `OperationResult<T>` when exposed through runtime surfaces.
+- `*Report` names UI/report projections. Reports may omit fields from the
+  underlying contract, but shared fields should be generated from or tested
+  against the owning Rust contract.
+- Compatibility shims for renamed or moved contracts should be marked
+  deprecated and route into the owning `*Contract` type.
+
 ## Generated Clients
 
 Packages that need generated clients should use committed or reproducible output

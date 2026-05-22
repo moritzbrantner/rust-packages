@@ -26,6 +26,23 @@ Library crates should not declare generic CLI/API/UI `[[bin]]` targets. Adapter
 packages depend on the library and own their runtime, transport, and webpage
 code.
 
+## Contract Ownership Rule
+
+The crate that owns the most general semantic form owns the stable contract.
+Specialized crates may add domain fields, but they must expose conversion back
+to the general contract instead of creating unrelated parallel DTOs.
+
+For the first enforced boundary, `text-core` owns generic text contracts such as
+`TextDocumentContract` and `TextSegmentContract`. `text-transcripts` owns
+`TranscriptSegmentContract` and `TranscriptionContract` as timed/speaker-aware
+text specializations. Audio ASR surfaces consume and return those transcript
+contracts; `audio-analysis-models::TranscriptSegmentPrediction` is retained only
+as a deprecated compatibility shim.
+
+UI and report types are projections of these contracts. A `*Report` type may
+drop fields that are not needed for presentation, but shared fields should be
+generated from or tested against the owning Rust contract.
+
 ## Test Surface Policy
 
 Each package surface has a matching test layer:
@@ -315,12 +332,12 @@ cases and model adapters.
   `SearchQuery`, `SearchFilter`, `HybridConfig`, `SearchResult`, retrieval
   manifests, persisted chunk/vector JSONL snapshots, and index rehydration.
 - `text-transcripts` owns `TranscriptFormat`, `TranscriptSegment`,
-  `TranscriptionResult`, `Transcriber`, `CommandTranscriber`,
-  `WhisperCliTranscriber`, `transcribe_waveform_batch`, and
-  `TranscriptSegmentSource`. It parses Whisper JSON, SRT, WebVTT, and plain
-  line transcripts, converts transcript segments into `OwnedTextSegment`
-  values, and bridges waveform batches into the existing file-based
-  transcription path.
+  `TranscriptSegmentContract`, `TranscriptionResult`, `TranscriptionContract`,
+  `Transcriber`, `CommandTranscriber`, `WhisperCliTranscriber`,
+  `transcribe_waveform_batch`, and `TranscriptSegmentSource`. It parses Whisper
+  JSON, SRT, WebVTT, and plain line transcripts, converts transcript segments
+  into `TextSegmentContract` and `OwnedTextSegment` values, and bridges waveform
+  batches into the existing file-based transcription path.
 - `text-generation` owns deterministic Markov prediction and deterministic
   synthesis from weighted terms, events, and linguistic analyses.
 

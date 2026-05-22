@@ -3,6 +3,11 @@
 pub mod contracts;
 pub mod operations;
 
+pub use contracts::{
+    AsTextSegmentContract, IntoTextDocumentContract, TextDocumentContract, TextSegmentContract,
+    TimebaseContract, TimestampContract,
+};
+
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};

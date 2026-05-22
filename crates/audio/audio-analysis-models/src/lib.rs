@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+pub use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
 use video_analysis_core::{DetectError, Result};
 use video_analysis_models::ModelPreset;
 
@@ -347,12 +348,14 @@ pub struct SpeechRecognitionRequest {
     pub model: AudioModelSelection,
     /// Caller-supplied transcript segments.
     #[serde(default)]
-    pub imported_segments: Vec<TranscriptSegmentPrediction>,
+    pub imported_segments: Vec<TranscriptSegmentContract>,
 }
 
-/// One transcript segment.
+/// Deprecated compatibility DTO for callers that still submit ASR predictions
+/// through the audio model crate instead of `text-transcripts`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[deprecated(note = "use text_transcripts::TranscriptSegmentContract")]
 pub struct TranscriptSegmentPrediction {
     /// Segment index.
     pub index: usize,
@@ -369,6 +372,24 @@ pub struct TranscriptSegmentPrediction {
     pub score: Option<f32>,
 }
 
+#[allow(deprecated)]
+impl From<TranscriptSegmentPrediction> for TranscriptSegmentContract {
+    fn from(value: TranscriptSegmentPrediction) -> Self {
+        TranscriptSegmentContract {
+            index: value.index as u64,
+            start_seconds: value.start_seconds.map(f64::from),
+            end_seconds: value.end_seconds.map(f64::from),
+            text: value.text,
+            language: None,
+            speaker: None,
+            confidence: value.score,
+            is_final: true,
+            words: Vec::new(),
+            attributes: BTreeMap::new(),
+        }
+    }
+}
+
 /// Response for speech recognition.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -381,10 +402,24 @@ pub struct SpeechRecognitionResponse {
     pub model_id: String,
     /// Runtime used.
     pub runtime: AudioRuntime,
-    /// Full transcript text.
-    pub text: String,
-    /// Transcript segments.
-    pub segments: Vec<TranscriptSegmentPrediction>,
+    /// Transcript contract returned by ASR.
+    pub transcript: TranscriptionContract,
+}
+
+impl SpeechRecognitionResponse {
+    /// Returns the full transcript text, synthesizing it from segments when the
+    /// transcript does not carry a separate aggregate text field.
+    pub fn text(&self) -> String {
+        self.transcript
+            .text
+            .clone()
+            .unwrap_or_else(|| self.transcript.joined_text())
+    }
+
+    /// Returns transcript segments for compatibility with older callers.
+    pub fn segments(&self) -> &[TranscriptSegmentContract] {
+        &self.transcript.segments
+    }
 }
 
 /// Request for speaker diarization.
@@ -809,13 +844,22 @@ pub fn transcribe_audio(request: SpeechRecognitionRequest) -> Result<SpeechRecog
             .filter(|text| !text.is_empty())
             .collect::<Vec<_>>()
             .join(" ");
+        let transcript = TranscriptionContract {
+            text: Some(text),
+            language: request.language,
+            segments: request.imported_segments,
+            source: request.source,
+            attributes: BTreeMap::new(),
+        };
+        transcript
+            .validate()
+            .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
         return Ok(SpeechRecognitionResponse {
             accepted: true,
             operation: "transcribe".to_string(),
             model_id,
             runtime: AudioRuntime::ImportedPredictions,
-            text,
-            segments: request.imported_segments,
+            transcript,
         });
     }
 
@@ -1246,25 +1290,36 @@ mod tests {
             language: Some("en".to_string()),
             model: AudioModelSelection::default(),
             imported_segments: vec![
-                TranscriptSegmentPrediction {
+                TranscriptSegmentContract {
                     index: 0,
                     start_seconds: Some(0.0),
                     end_seconds: Some(1.0),
                     text: "hello".to_string(),
-                    score: Some(0.9),
+                    language: Some("en".to_string()),
+                    speaker: None,
+                    confidence: Some(0.9),
+                    is_final: true,
+                    words: Vec::new(),
+                    attributes: BTreeMap::new(),
                 },
-                TranscriptSegmentPrediction {
+                TranscriptSegmentContract {
                     index: 1,
                     start_seconds: Some(1.0),
                     end_seconds: Some(2.0),
                     text: "audio".to_string(),
-                    score: Some(0.8),
+                    language: Some("en".to_string()),
+                    speaker: None,
+                    confidence: Some(0.8),
+                    is_final: true,
+                    words: Vec::new(),
+                    attributes: BTreeMap::new(),
                 },
             ],
         })
         .unwrap();
 
-        assert_eq!(response.text, "hello audio");
+        assert_eq!(response.text(), "hello audio");
+        assert_eq!(response.transcript.language.as_deref(), Some("en"));
         assert_eq!(response.runtime, AudioRuntime::ImportedPredictions);
     }
 }
