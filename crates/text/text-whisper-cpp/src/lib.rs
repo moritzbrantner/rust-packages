@@ -1,16 +1,29 @@
 //! Native whisper.cpp transcription bindings and model management.
 
+#[cfg(feature = "native")]
 mod ffi;
 
-use std::ffi::{CStr, CString};
+#[cfg(feature = "native")]
+use std::ffi::CStr;
+#[cfg(any(feature = "native", test))]
+use std::ffi::CString;
 use std::fmt::{Display, Formatter};
-use std::fs::{self, File, OpenOptions};
-use std::io::{BufWriter, Read, Write};
+#[cfg(feature = "native")]
+use std::fs::File;
+#[cfg(any(feature = "native", test))]
+use std::fs::{self, OpenOptions};
+#[cfg(any(feature = "native", test))]
+use std::io::Write;
+#[cfg(feature = "native")]
+use std::io::{BufWriter, Read};
 use std::path::{Path, PathBuf};
+#[cfg(any(feature = "native", test))]
 use std::thread;
+#[cfg(any(feature = "native", test))]
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "native")]
 use sha2::{Digest, Sha256};
 
 #[derive(
@@ -328,6 +341,7 @@ impl ModelStore {
         }
     }
 
+    #[cfg(feature = "native")]
     fn ensure_model(
         &self,
         model: WhisperCppModel,
@@ -462,16 +476,25 @@ pub fn transcription_catalog() -> WhisperCppCatalog {
 
 /// Returns whisper cpp system info.
 pub fn whisper_cpp_system_info() -> Option<String> {
-    let value = unsafe { ffi::whisper_print_system_info() };
-    if value.is_null() {
-        return None;
+    #[cfg(not(feature = "native"))]
+    {
+        None
     }
-    unsafe { CStr::from_ptr(value) }
-        .to_str()
-        .ok()
-        .map(|value| value.to_string())
+
+    #[cfg(feature = "native")]
+    {
+        let value = unsafe { ffi::whisper_print_system_info() };
+        if value.is_null() {
+            return None;
+        }
+        unsafe { CStr::from_ptr(value) }
+            .to_str()
+            .ok()
+            .map(|value| value.to_string())
+    }
 }
 
+#[cfg(feature = "native")]
 fn transcribe_impl(
     store: &ModelStore,
     config: &WhisperCppConfig,
@@ -582,6 +605,19 @@ fn transcribe_impl(
     })
 }
 
+#[cfg(not(feature = "native"))]
+fn transcribe_impl(
+    _store: &ModelStore,
+    _config: &WhisperCppConfig,
+    _input: &Path,
+    _progress: &mut ProgressSink<'_>,
+) -> Result<WhisperCppTranscription> {
+    Err(WhisperCppError::Initialization(
+        "text-whisper-cpp was built without the `native` feature".to_string(),
+    ))
+}
+
+#[cfg(any(feature = "native", test))]
 fn resolve_language(config: &WhisperCppConfig) -> Result<Option<CString>> {
     match config.language.as_deref().map(str::trim) {
         Some("") => resolve_default_language(config.model),
@@ -593,6 +629,7 @@ fn resolve_language(config: &WhisperCppConfig) -> Result<Option<CString>> {
     }
 }
 
+#[cfg(any(feature = "native", test))]
 fn resolve_default_language(model: WhisperCppModel) -> Result<Option<CString>> {
     if model.multilingual() {
         Ok(None)
@@ -603,6 +640,7 @@ fn resolve_default_language(model: WhisperCppModel) -> Result<Option<CString>> {
     }
 }
 
+#[cfg_attr(not(feature = "native"), allow(dead_code))]
 struct ProgressSink<'a> {
     callback: Option<&'a mut dyn FnMut(WhisperCppProgressEvent)>,
 }
@@ -612,6 +650,7 @@ impl<'a> ProgressSink<'a> {
         Self { callback }
     }
 
+    #[cfg(feature = "native")]
     fn emit(&mut self, phase: WhisperCppPhase, message: String, progress: Option<f32>) {
         if let Some(callback) = self.callback.as_mut() {
             callback(WhisperCppProgressEvent {
@@ -623,6 +662,7 @@ impl<'a> ProgressSink<'a> {
     }
 }
 
+#[cfg(feature = "native")]
 fn read_wav_mono_f32(path: &Path) -> Result<AudioSamples> {
     let mut reader = hound::WavReader::open(path)?;
     let spec = reader.spec();
@@ -658,6 +698,7 @@ fn read_wav_mono_f32(path: &Path) -> Result<AudioSamples> {
     Ok(AudioSamples { samples })
 }
 
+#[cfg(feature = "native")]
 fn read_int_samples(
     reader: &mut hound::WavReader<std::io::BufReader<File>>,
     bits_per_sample: u16,
@@ -676,6 +717,7 @@ fn read_int_samples(
     }
 }
 
+#[cfg(feature = "native")]
 fn resolve_threads(value: Option<usize>) -> i32 {
     value
         .or_else(|| thread::available_parallelism().ok().map(usize::from))
@@ -683,10 +725,12 @@ fn resolve_threads(value: Option<usize>) -> i32 {
         .min(i32::MAX as usize) as i32
 }
 
+#[cfg(feature = "native")]
 fn timestamp_to_seconds(value: i64) -> f64 {
     value as f64 / 100.0
 }
 
+#[cfg(feature = "native")]
 fn join_segments(segments: &[WhisperCppSegment]) -> Option<String> {
     let text = segments
         .iter()
@@ -697,6 +741,7 @@ fn join_segments(segments: &[WhisperCppSegment]) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
+#[cfg(feature = "native")]
 fn c_string(value: *const std::ffi::c_char) -> Result<String> {
     if value.is_null() {
         return Ok(String::new());
@@ -727,14 +772,17 @@ fn cache_root() -> PathBuf {
     PathBuf::from(".cache/video-analysis-studio")
 }
 
+#[cfg(feature = "native")]
 struct AudioSamples {
     samples: Vec<f32>,
 }
 
+#[cfg(feature = "native")]
 struct WhisperContext {
     raw: *mut ffi::whisper_context,
 }
 
+#[cfg(feature = "native")]
 impl WhisperContext {
     fn from_model(path: &Path) -> Result<Self> {
         let model_path = CString::new(path.to_string_lossy().into_owned())
@@ -750,6 +798,7 @@ impl WhisperContext {
     }
 }
 
+#[cfg(feature = "native")]
 impl Drop for WhisperContext {
     fn drop(&mut self) {
         if !self.raw.is_null() {
@@ -758,10 +807,12 @@ impl Drop for WhisperContext {
     }
 }
 
+#[cfg(any(feature = "native", test))]
 struct FileLock {
     path: PathBuf,
 }
 
+#[cfg(any(feature = "native", test))]
 impl FileLock {
     fn acquire(path: PathBuf) -> Result<Self> {
         let deadline = Instant::now() + Duration::from_secs(120);
@@ -783,6 +834,7 @@ impl FileLock {
     }
 }
 
+#[cfg(any(feature = "native", test))]
 impl Drop for FileLock {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.path);

@@ -5,6 +5,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
+    if env::var_os("CARGO_FEATURE_NATIVE").is_none() {
+        return;
+    }
+
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let vendor_dir = manifest_dir
         .ancestors()
