@@ -11,6 +11,12 @@ import {
   rerankDocuments,
   serverBaseUrl,
   summarizeText,
+  type EmbeddingPayload,
+  type QuestionAnswerPayload,
+  type RerankPayload,
+  type SentimentPayload,
+  type SummaryPayload,
+  type TextClassificationPayload,
   type LinguisticAnalysisPayload,
   type LinguisticEntity,
   type LinguisticEvent,
@@ -21,6 +27,7 @@ import {
   type LinguisticToken,
   type LinguisticTopic,
   type NlpModelMetadata,
+  type ZeroShotPayload,
   zeroShotClassify,
 } from "./api";
 import { sampleText } from "./sampleText";
@@ -36,17 +43,57 @@ type NlpTask =
   | "summarize"
   | "rerank"
   | "qa";
-type ActiveTab = "overview" | "tokens" | "syntax" | "entities" | "events" | "topics" | "json";
+type TaskResultPayload =
+  | SentimentPayload
+  | TextClassificationPayload
+  | EmbeddingPayload
+  | ZeroShotPayload
+  | SummaryPayload
+  | RerankPayload
+  | QuestionAnswerPayload;
 
-const nlpTasks: Array<{ id: NlpTask; label: string }> = [
-  { id: "entities", label: "Entities" },
-  { id: "sentiment", label: "Sentiment" },
-  { id: "classify", label: "Classify" },
-  { id: "embed", label: "Embed" },
-  { id: "zero-shot", label: "Zero-shot" },
-  { id: "summarize", label: "Summarize" },
-  { id: "rerank", label: "Rerank" },
-  { id: "qa", label: "QA" },
+const nlpTasks: Array<{ id: NlpTask; label: string; purpose: string }> = [
+  {
+    id: "entities",
+    label: "Linguistics",
+    purpose:
+      "Runs the full local analysis pipeline: language, tokens, syntax, entities, events, topics, and style.",
+  },
+  {
+    id: "sentiment",
+    label: "Sentiment",
+    purpose: "Scores whether the text reads positive, negative, or neutral.",
+  },
+  {
+    id: "classify",
+    label: "Classify",
+    purpose: "Assigns the text to the configured labels.",
+  },
+  {
+    id: "embed",
+    label: "Embed",
+    purpose: "Creates numeric vectors for similarity search and retrieval.",
+  },
+  {
+    id: "zero-shot",
+    label: "Zero-shot",
+    purpose: "Ranks labels without task-specific training examples.",
+  },
+  {
+    id: "summarize",
+    label: "Summarize",
+    purpose: "Extracts the highest-value sentences into a shorter summary.",
+  },
+  {
+    id: "rerank",
+    label: "Rerank",
+    purpose: "Sorts candidate documents against the first line as the query.",
+  },
+  {
+    id: "qa",
+    label: "QA",
+    purpose: "Answers the first line as a question against the remaining text.",
+  },
 ];
 
 const taskCatalogKeys: Record<NlpTask, string> = {
@@ -71,16 +118,6 @@ const fallbackModelIds: Record<NlpTask, string> = {
   qa: "roberta-base-squad2",
 };
 
-const tabs: Array<{ id: ActiveTab; label: string }> = [
-  { id: "overview", label: "Overview" },
-  { id: "tokens", label: "Tokens" },
-  { id: "syntax", label: "Syntax" },
-  { id: "entities", label: "Entities" },
-  { id: "events", label: "Events" },
-  { id: "topics", label: "Topics" },
-  { id: "json", label: "JSON" },
-];
-
 const panelClass = "min-w-0 rounded-md border border-zinc-200 bg-white p-5 shadow-sm";
 const buttonPrimaryClass =
   "rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300";
@@ -99,14 +136,13 @@ const detailGridClass =
 export function App() {
   const [text, setText] = useState(sampleText);
   const [analysis, setAnalysis] = useState<LinguisticAnalysisPayload | null>(null);
-  const [taskResult, setTaskResult] = useState<unknown | null>(null);
+  const [taskResult, setTaskResult] = useState<TaskResultPayload | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("server");
   const [nlpTask, setNlpTask] = useState<NlpTask>("entities");
   const [modelCatalog, setModelCatalog] = useState<NlpModelMetadata[]>([]);
   const [selectedModelIds, setSelectedModelIds] = useState<Partial<Record<NlpTask, string>>>({});
   const [modelCatalogError, setModelCatalogError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -139,6 +175,7 @@ export function App() {
     () => modelCatalog.filter((model) => model.task === taskCatalogKeys[nlpTask]),
     [modelCatalog, nlpTask],
   );
+  const selectedTask = nlpTasks.find((task) => task.id === nlpTask) ?? nlpTasks[0];
   const selectedModelId =
     selectedModelIds[nlpTask] ?? modelOptions[0]?.id ?? fallbackModelIds[nlpTask];
   const selectedModel = modelOptions.find((model) => model.id === selectedModelId);
@@ -186,12 +223,10 @@ export function App() {
             : await analyzeLinguisticsClient(text);
         setAnalysis(payload);
         setTaskResult(null);
-        setActiveTab("overview");
       } else {
         const payload = await runNlpTask(nlpTask, text, selectedModelId);
         setAnalysis(null);
         setTaskResult(payload);
-        setActiveTab("json");
       }
       setLoadState("ready");
     } catch (caught) {
@@ -262,7 +297,11 @@ export function App() {
             <div>
               <h2 className="text-base font-semibold text-zinc-950">Input</h2>
               <p className="mt-1 text-sm text-zinc-500">
-                {runtimeMode === "server" ? serverBaseUrl : "Client WASM"}
+                {nlpTask === "entities"
+                  ? runtimeMode === "server"
+                    ? serverBaseUrl
+                    : "Client WASM"
+                  : serverBaseUrl}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -277,18 +316,22 @@ export function App() {
               ))}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <RuntimeButton
-                active={runtimeMode === "server"}
-                onClick={() => setRuntimeMode("server")}
-              >
-                Server
-              </RuntimeButton>
-              <RuntimeButton
-                active={runtimeMode === "client-wasm"}
-                onClick={() => setRuntimeMode("client-wasm")}
-              >
-                Client WASM
-              </RuntimeButton>
+              {nlpTask === "entities" ? (
+                <>
+                  <RuntimeButton
+                    active={runtimeMode === "server"}
+                    onClick={() => setRuntimeMode("server")}
+                  >
+                    Server
+                  </RuntimeButton>
+                  <RuntimeButton
+                    active={runtimeMode === "client-wasm"}
+                    onClick={() => setRuntimeMode("client-wasm")}
+                  >
+                    Client WASM
+                  </RuntimeButton>
+                </>
+              ) : null}
               <button
                 className={buttonPrimaryClass}
                 type="submit"
@@ -298,6 +341,9 @@ export function App() {
               </button>
             </div>
           </div>
+          <p className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+            {selectedTask.purpose}
+          </p>
           <div className="mt-4 grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]">
             <div className="min-w-0">
               <div className="text-xs font-semibold uppercase text-zinc-500">Current model</div>
@@ -354,31 +400,28 @@ export function App() {
         </form>
 
         <section className={panelClass}>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap gap-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  className={classNames(tabButtonClass, activeTab === tab.id ? tabActiveClass : "")}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              ))}
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-zinc-950">Results</h2>
+                <p className="mt-1 text-sm text-zinc-500">{selectedTask.purpose}</p>
+              </div>
+              <button
+                className={buttonSecondaryClass}
+                type="button"
+                disabled={!json}
+                onClick={copyJson}
+              >
+                Copy JSON
+              </button>
             </div>
             {analysis ? (
-              <AnalysisPanel
-                activeTab={activeTab}
-                analysis={analysis}
-                json={json}
-                onCopyJson={copyJson}
-              />
+              <LinguisticResults analysis={analysis} json={json} onCopyJson={copyJson} />
             ) : taskResult ? (
-              <JsonPanel json={json} onCopy={copyJson} />
+              <TaskResultPanel result={taskResult} json={json} onCopyJson={copyJson} />
             ) : (
               <div className="flex min-h-80 items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-sm font-medium text-zinc-500">
-                Run an NLP task to populate results.
+                Run {selectedTask.label} to populate results.
               </div>
             )}
           </div>
@@ -388,7 +431,11 @@ export function App() {
   );
 }
 
-async function runNlpTask(task: NlpTask, text: string, modelId: string): Promise<unknown> {
+async function runNlpTask(
+  task: Exclude<NlpTask, "entities">,
+  text: string,
+  modelId: string,
+): Promise<TaskResultPayload> {
   const model = { modelId };
   if (task === "sentiment") {
     return analyzeSentiment(text, model);
@@ -427,38 +474,68 @@ async function runNlpTask(task: NlpTask, text: string, modelId: string): Promise
   );
 }
 
-function AnalysisPanel({
-  activeTab,
+function LinguisticResults({
   analysis,
   json,
   onCopyJson,
 }: {
-  activeTab: ActiveTab;
   analysis: LinguisticAnalysisPayload;
   json: string;
   onCopyJson: () => void;
 }) {
-  if (activeTab === "overview") {
-    return <Overview analysis={analysis} />;
-  }
-  if (activeTab === "tokens") {
-    return <TokensTable tokens={analysis.tokens} />;
-  }
-  if (activeTab === "syntax") {
-    return (
-      <SyntaxTables lemmas={analysis.lemmas} pos={analysis.pos} sentences={analysis.sentences} />
-    );
-  }
-  if (activeTab === "entities") {
-    return <EntitiesTable entities={analysis.entities} />;
-  }
-  if (activeTab === "events") {
-    return <EventsTable events={analysis.events} relations={analysis.relations} />;
-  }
-  if (activeTab === "topics") {
-    return <TopicsPanel topics={analysis.topics} analysis={analysis} />;
-  }
-  return <JsonPanel json={json} onCopy={onCopyJson} />;
+  return (
+    <div className="grid gap-5">
+      <ResultSection
+        title="Overview"
+        task="Language and quality"
+        description="Top-level counts, confidence, runtime provenance, language, and style signals."
+      >
+        <Overview analysis={analysis} />
+      </ResultSection>
+      <ResultSection
+        title="Tokens"
+        task="Segmentation"
+        description="The normalized word and punctuation units that later tasks consume."
+      >
+        <TokensTable tokens={analysis.tokens} />
+      </ResultSection>
+      <ResultSection
+        title="Syntax"
+        task="Sentence, lemma, and POS analysis"
+        description="Sentence boundaries, base word forms, and part-of-speech tags for grammar-aware processing."
+      >
+        <SyntaxTables lemmas={analysis.lemmas} pos={analysis.pos} sentences={analysis.sentences} />
+      </ResultSection>
+      <ResultSection
+        title="Entities"
+        task="Named entity recognition"
+        description="People, organizations, places, and other named spans for linking or filtering."
+      >
+        <EntitiesTable entities={analysis.entities} />
+      </ResultSection>
+      <ResultSection
+        title="Events"
+        task="Predicate and relation extraction"
+        description="Actions or changes found in sentences, with arguments such as who did what to whom. This is useful for timelines, summaries, and downstream event prompts."
+      >
+        <EventsTable events={analysis.events} relations={analysis.relations} />
+      </ResultSection>
+      <ResultSection
+        title="Topics"
+        task="Topic and keyword extraction"
+        description="Weighted subject labels from recurring terms. This is useful for overview tags, search facets, routing, and clustering."
+      >
+        <TopicsPanel topics={analysis.topics} analysis={analysis} />
+      </ResultSection>
+      <ResultSection
+        title="JSON"
+        task="Raw response"
+        description="Complete payload for debugging, tests, or API integration."
+      >
+        <JsonPanel json={json} onCopy={onCopyJson} />
+      </ResultSection>
+    </div>
+  );
 }
 
 function RuntimeButton({
@@ -478,6 +555,262 @@ function RuntimeButton({
     >
       {children}
     </button>
+  );
+}
+
+function ResultSection({
+  children,
+  description,
+  task,
+  title,
+}: {
+  children: ReactNode;
+  description: string;
+  task: string;
+  title: string;
+}) {
+  return (
+    <section className="border-t border-zinc-200 pt-5 first:border-t-0 first:pt-0">
+      <div className="mb-3">
+        <div className="text-xs font-semibold uppercase text-teal-700">{task}</div>
+        <h3 className="mt-1 text-base font-semibold text-zinc-950">{title}</h3>
+        <p className="mt-1 text-sm text-zinc-500">{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function TaskResultPanel({
+  json,
+  onCopyJson,
+  result,
+}: {
+  json: string;
+  onCopyJson: () => void;
+  result: TaskResultPayload;
+}) {
+  return (
+    <div className="grid gap-5">
+      {renderTaskResult(result)}
+      <ResultSection
+        title="JSON"
+        task="Raw response"
+        description="Complete payload for debugging, tests, or API integration."
+      >
+        <JsonPanel json={json} onCopy={onCopyJson} />
+      </ResultSection>
+    </div>
+  );
+}
+
+function renderTaskResult(result: TaskResultPayload): ReactNode {
+  if (result.operation === "sentiment") {
+    return (
+      <ResultSection
+        title="Sentiment"
+        task="Sentiment analysis"
+        description="Overall polarity and class scores for tone-sensitive routing or review queues."
+      >
+        <div className="grid gap-4">
+          <dl className={detailGridClass}>
+            <div>
+              <dt>Label</dt>
+              <dd>{result.label}</dd>
+            </div>
+            <div>
+              <dt>Positive</dt>
+              <dd>{formatNumber(result.positiveScore)}</dd>
+            </div>
+            <div>
+              <dt>Negative</dt>
+              <dd>{formatNumber(result.negativeScore)}</dd>
+            </div>
+            <div>
+              <dt>Compound</dt>
+              <dd>{formatNumber(result.compound)}</dd>
+            </div>
+          </dl>
+          <PredictionsTable predictions={result.predictions} />
+        </div>
+      </ResultSection>
+    );
+  }
+
+  if (result.operation === "classify") {
+    return (
+      <ResultSection
+        title="Classification"
+        task="Text classification"
+        description="Scores the text against the configured label set."
+      >
+        <PredictionsTable predictions={result.predictions} />
+      </ResultSection>
+    );
+  }
+
+  if (result.operation === "zero-shot") {
+    return (
+      <ResultSection
+        title="Zero-shot labels"
+        task="Zero-shot classification"
+        description="Ranks candidate labels without training a classifier for this app."
+      >
+        <div className="grid gap-4">
+          <PredictionsTable predictions={result.predictions} />
+          <dl className={detailGridClass}>
+            <div>
+              <dt>Hypotheses</dt>
+              <dd>{result.hypotheses.join(", ")}</dd>
+            </div>
+          </dl>
+        </div>
+      </ResultSection>
+    );
+  }
+
+  if (result.operation === "embed") {
+    return (
+      <ResultSection
+        title="Embeddings"
+        task="Vector embedding"
+        description="Numeric vectors for semantic search, clustering, and retrieval pipelines."
+      >
+        <Table empty={result.embeddings.length === 0 ? "No embeddings returned." : undefined}>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Dimensions</th>
+              <th>Preview</th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.embeddings.map((embedding, index) => (
+              <tr key={index}>
+                <td>{index}</td>
+                <td>{embedding.length}</td>
+                <td>{embedding.slice(0, 12).map(formatNumber).join(", ")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </ResultSection>
+    );
+  }
+
+  if (result.operation === "summarize") {
+    return (
+      <ResultSection
+        title="Summary"
+        task="Extractive summarization"
+        description="A compact version of the input plus the source sentences that contributed to it."
+      >
+        <div className="grid gap-4">
+          <p className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm leading-6 text-zinc-900">
+            {result.summary}
+          </p>
+          <Table
+            empty={result.sentences.length === 0 ? "No source sentences returned." : undefined}
+          >
+            <thead>
+              <tr>
+                <th>Sentence</th>
+                <th>Score</th>
+                <th>Text</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.sentences.map((sentence) => (
+                <tr key={sentence.index}>
+                  <td>{sentence.index}</td>
+                  <td>{formatNumber(sentence.score)}</td>
+                  <td>{sentence.text}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </div>
+      </ResultSection>
+    );
+  }
+
+  if (result.operation === "rerank") {
+    return (
+      <ResultSection
+        title="Ranked documents"
+        task="Reranking"
+        description="Candidate document order for retrieval systems, using the first input line as the query."
+      >
+        <Table empty={result.results.length === 0 ? "No ranked documents returned." : undefined}>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Document</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.results.map((item, rank) => (
+              <tr key={`${item.index}-${rank}`}>
+                <td>{rank + 1}</td>
+                <td>{item.document}</td>
+                <td>{formatNumber(item.score)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </ResultSection>
+    );
+  }
+
+  return (
+    <ResultSection
+      title="Answers"
+      task="Question answering"
+      description="Answer spans scored against the supplied context."
+    >
+      <Table empty={result.answers.length === 0 ? "No answers returned." : undefined}>
+        <thead>
+          <tr>
+            <th>Answer</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.answers.map((answer, index) => (
+            <tr key={`${answer.answer}-${index}`}>
+              <td>{answer.answer}</td>
+              <td>{formatNumber(answer.score)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </ResultSection>
+  );
+}
+
+function PredictionsTable({
+  predictions,
+}: {
+  predictions: Array<{ label: string; score: number }>;
+}) {
+  return (
+    <Table empty={predictions.length === 0 ? "No predictions returned." : undefined}>
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {predictions.map((prediction) => (
+          <tr key={prediction.label}>
+            <td>{prediction.label}</td>
+            <td>{formatNumber(prediction.score)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </Table>
   );
 }
 
