@@ -337,7 +337,12 @@ fn schema_value() -> serde_json::Value {
             "/health": { "get": { "summary": "Health check" } },
             "/api/package": { "get": { "summary": "Package metadata" } },
             "/api/schema": { "get": { "summary": "API schema" } },
-            "/api/run": { "post": { "summary": "Generic operation entrypoint" } }
+            "/api/run": {
+                "post": {
+                    "summary": "Generic operation entrypoint",
+                    "description": "Runs text-linguistics analysis. Rich and balanced profiles use local bert-base-ner entity recognition unless entityRecognition/modelMode is heuristic."
+                }
+            }
         }
     })
 }

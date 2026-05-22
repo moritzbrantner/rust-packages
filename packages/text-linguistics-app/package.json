@@ -13,6 +13,7 @@
     "preview": "node ../../node_modules/.bun/node_modules/vite/bin/vite.js preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@mb-rust/text-linguistics-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

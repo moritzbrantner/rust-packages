@@ -126,6 +126,7 @@ export interface LinguisticAnalysisPayload {
 }
 
 const configuredServerUrl = import.meta.env.VITE_SERVER_URL as string | undefined;
+let wasmInit: Promise<unknown> | null = null;
 
 export const serverBaseUrl = configuredServerUrl ?? "http://127.0.0.1:3000";
 export const wrappedLibrary = "text-linguistics";
@@ -145,6 +146,15 @@ export async function analyzeLinguistics(text: string): Promise<LinguisticAnalys
   }
 }
 
+export async function analyzeLinguisticsClient(text: string): Promise<LinguisticAnalysisPayload> {
+  wasmInit ??= initTextLinguisticsWasm();
+  await wasmInit;
+  return analyzeTextLinguistics(text, {
+    profile: "balanced",
+    entityRecognition: "heuristic",
+  }) as LinguisticAnalysisPayload;
+}
+
 async function postJson<T>(path: string, body: string): Promise<T> {
   const response = await fetch(`${serverBaseUrl}${path}`, {
     method: "POST",
@@ -161,3 +171,6 @@ async function postJson<T>(path: string, body: string): Promise<T> {
 function isNotFound(error: unknown): boolean {
   return error instanceof Error && error.message.includes("Server returned 404");
 }
+import initTextLinguisticsWasm, {
+  analyzeTextLinguistics,
+} from "@mb-rust/text-linguistics-wasm";

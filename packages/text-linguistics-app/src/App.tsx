@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState, type ReactNode } from "react";
 
 import {
   analyzeLinguistics,
+  analyzeLinguisticsClient,
   serverBaseUrl,
   type LinguisticAnalysisPayload,
   type LinguisticEntity,
@@ -16,6 +17,7 @@ import {
 import { sampleText } from "./sampleText";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
+type RuntimeMode = "server" | "client-wasm";
 type ActiveTab = "overview" | "tokens" | "syntax" | "entities" | "events" | "topics" | "json";
 
 const tabs: Array<{ id: ActiveTab; label: string }> = [
@@ -47,6 +49,7 @@ export function App() {
   const [text, setText] = useState(sampleText);
   const [analysis, setAnalysis] = useState<LinguisticAnalysisPayload | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("server");
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +67,8 @@ export function App() {
     setLoadState("loading");
     setError(null);
     try {
-      const payload = await analyzeLinguistics(text);
+      const payload =
+        runtimeMode === "server" ? await analyzeLinguistics(text) : await analyzeLinguisticsClient(text);
       setAnalysis(payload);
       setLoadState("ready");
       setActiveTab("overview");
@@ -126,11 +130,21 @@ export function App() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-zinc-950">Input</h2>
-              <p className="mt-1 text-sm text-zinc-500">{serverBaseUrl}</p>
+              <p className="mt-1 text-sm text-zinc-500">
+                {runtimeMode === "server" ? serverBaseUrl : "Client WASM"}
+              </p>
             </div>
-            <button className={buttonPrimaryClass} type="submit" disabled={loadState === "loading"}>
-              Analyze
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <RuntimeButton active={runtimeMode === "server"} onClick={() => setRuntimeMode("server")}>
+                Server
+              </RuntimeButton>
+              <RuntimeButton active={runtimeMode === "client-wasm"} onClick={() => setRuntimeMode("client-wasm")}>
+                Client WASM
+              </RuntimeButton>
+              <button className={buttonPrimaryClass} type="submit" disabled={loadState === "loading"}>
+                Analyze
+              </button>
+            </div>
           </div>
           <textarea
             className="mt-4 min-h-64 w-full resize-y rounded-md border border-zinc-300 bg-zinc-950 p-4 font-mono text-sm leading-6 text-zinc-50 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
@@ -208,6 +222,26 @@ function AnalysisPanel({
     return <TopicsPanel topics={analysis.topics} analysis={analysis} />;
   }
   return <JsonPanel json={json} onCopy={onCopyJson} />;
+}
+
+function RuntimeButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={classNames(tabButtonClass, active ? tabActiveClass : "")}
+      type="button"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
 }
 
 function Overview({ analysis }: { analysis: LinguisticAnalysisPayload }) {

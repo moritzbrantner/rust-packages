@@ -3797,6 +3797,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "text-linguistics-wasm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "text-core",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "text-retrieval"
 version = "0.1.0"
 dependencies = [

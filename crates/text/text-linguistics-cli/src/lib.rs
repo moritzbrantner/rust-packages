@@ -36,11 +36,25 @@ pub fn command_schema_json() -> String {
             },
             {
                 "name": "analyze",
-                "description": "Analyze supplied text and emit JSON."
+                "description": "Analyze supplied text and emit JSON.",
+                "options": [
+                    "--profile <fast|balanced|rich>",
+                    "--entity-recognition <local-model|heuristic>",
+                    "--model-dir <path>",
+                    "--no-auto-download"
+                ],
+                "defaultModel": "bert-base-ner"
             },
             {
                 "name": "analyze-file",
-                "description": "Analyze a UTF-8 text file and emit JSON."
+                "description": "Analyze a UTF-8 text file and emit JSON.",
+                "options": [
+                    "--profile <fast|balanced|rich>",
+                    "--entity-recognition <local-model|heuristic>",
+                    "--model-dir <path>",
+                    "--no-auto-download"
+                ],
+                "defaultModel": "bert-base-ner"
             }
         ]
     })

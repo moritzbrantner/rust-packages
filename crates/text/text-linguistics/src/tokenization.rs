@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+#[cfg(feature = "tokenizers")]
 use std::fs;
 use std::path::{Path, PathBuf};
 

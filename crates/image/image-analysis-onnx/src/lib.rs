@@ -5,9 +5,14 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "onnxruntime")]
 use std::sync::Mutex;
 
-use image_analysis_core::{compact_image, ImageBatchView, ImageView, OwnedImageBatch};
+use image_analysis_core::{
+    compact_image, ImageBatchView, ImagePixelFormat, ImageView, OwnedImage, OwnedImageBatch,
+};
 use image_analysis_detection::ImageDetection;
-use image_analysis_models::{ImageClassification, ImageClassifierBackend};
+use image_analysis_models::{
+    FaceBox, FaceDetection, FaceDetectorBackend, FaceEmbedderBackend, FaceEmbedding, FaceLandmarks,
+    ImageClassification, ImageClassifierBackend, ImageEmbedderBackend, ImageEmbedding,
+};
 use image_analysis_processing::resize_nearest;
 use serde_json::Value;
 use video_analysis_core::{BoundingBox, DetectError, Result};
@@ -91,6 +96,34 @@ pub struct OnnxImageBatchTensor {
     pub height: u32,
     /// The values value.
     pub values: Vec<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for f32 ONNX tensor output.
+pub struct OnnxF32Tensor {
+    /// Tensor shape.
+    pub shape: Vec<usize>,
+    /// Tensor values.
+    pub values: Vec<f32>,
+}
+
+impl OnnxF32Tensor {
+    /// Creates a new value.
+    pub fn new(shape: Vec<usize>, values: Vec<f32>) -> Result<Self> {
+        if values.iter().any(|value| !value.is_finite()) {
+            return Err(DetectError::InvalidArgument(
+                "ONNX f32 tensor values must be finite".to_string(),
+            ));
+        }
+        let expected = shape.iter().product::<usize>();
+        if expected != values.len() {
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX f32 tensor shape {shape:?} does not match {} value(s)",
+                values.len()
+            )));
+        }
+        Ok(Self { shape, values })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -239,6 +272,41 @@ impl OnnxObjectDetectionRunner for NativeOnnxRunner {
         let first = extract_f32_output(&outputs[0])?;
         let second = extract_f32_output(&outputs[1])?;
         decode_detr_like_outputs(first, second)
+    }
+}
+
+#[cfg(feature = "onnxruntime")]
+impl OnnxImageEmbeddingRunner for NativeOnnxRunner {
+    fn run_image_embedding(&mut self, input: &OnnxImageTensor) -> Result<Vec<OnnxF32Tensor>> {
+        run_native_f32_outputs(&self.session, input).map(|outputs| {
+            outputs
+                .into_iter()
+                .map(|(_, tensor)| tensor)
+                .collect::<Vec<_>>()
+        })
+    }
+}
+
+#[cfg(feature = "onnxruntime")]
+impl OnnxFaceDetectionRunner for NativeOnnxRunner {
+    fn run_face_detection(&mut self, input: &OnnxImageTensor) -> Result<OnnxFaceDetectionOutput> {
+        Ok(OnnxFaceDetectionOutput {
+            tensors: run_native_f32_outputs(&self.session, input)?
+                .into_iter()
+                .collect(),
+        })
+    }
+}
+
+#[cfg(feature = "onnxruntime")]
+impl OnnxFaceEmbeddingRunner for NativeOnnxRunner {
+    fn run_face_embedding(&mut self, input: &OnnxImageTensor) -> Result<Vec<OnnxF32Tensor>> {
+        run_native_f32_outputs(&self.session, input).map(|outputs| {
+            outputs
+                .into_iter()
+                .map(|(_, tensor)| tensor)
+                .collect::<Vec<_>>()
+        })
     }
 }
 
@@ -467,13 +535,418 @@ impl<R: OnnxImageClassificationRunner> ImageClassifierBackend for OnnxImageClass
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX image embedding options.
+pub struct OnnxImageEmbeddingOptions {
+    /// The preprocessing value.
+    pub preprocessing: OnnxImagePreprocessing,
+    /// Expected vector size.
+    pub expected_vector_size: Option<usize>,
+    /// Whether to L2 normalize output.
+    pub normalize: bool,
+}
+
+impl Default for OnnxImageEmbeddingOptions {
+    fn default() -> Self {
+        Self {
+            preprocessing: OnnxImagePreprocessing {
+                input_width: 224,
+                input_height: 224,
+                rescale_factor: 1.0 / 255.0,
+                mean: [0.48145466, 0.4578275, 0.40821073],
+                std: [0.26862954, 0.26130258, 0.27577711],
+                channel_order: ChannelOrder::Rgb,
+            },
+            expected_vector_size: None,
+            normalize: true,
+        }
+    }
+}
+
+/// Trait for ONNX image embedding runner implementations.
+pub trait OnnxImageEmbeddingRunner {
+    /// Runs image embedding.
+    fn run_image_embedding(&mut self, input: &OnnxImageTensor) -> Result<Vec<OnnxF32Tensor>>;
+}
+
+#[derive(Debug, Clone, Default)]
+/// Data type for unavailable ONNX image embedding runner.
+pub struct UnavailableOnnxImageEmbeddingRunner;
+
+impl OnnxImageEmbeddingRunner for UnavailableOnnxImageEmbeddingRunner {
+    fn run_image_embedding(&mut self, _input: &OnnxImageTensor) -> Result<Vec<OnnxF32Tensor>> {
+        Err(DetectError::Source(
+            "native ONNX image embedding execution is unavailable; construct with a runner"
+                .to_string(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Data type for ONNX image embedder.
+pub struct OnnxImageEmbedder<R = UnavailableOnnxImageEmbeddingRunner> {
+    options: OnnxImageEmbeddingOptions,
+    runner: R,
+}
+
+impl OnnxImageEmbedder<UnavailableOnnxImageEmbeddingRunner> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        Ok(Self {
+            options: image_embedding_options_from_bundle(&bundle)?,
+            runner: UnavailableOnnxImageEmbeddingRunner,
+        })
+    }
+}
+
+#[cfg(feature = "onnxruntime")]
+impl OnnxImageEmbedder<NativeOnnxRunner> {
+    /// Builds this value from model and preprocessor paths.
+    pub fn from_paths(
+        model_path: impl Into<PathBuf>,
+        preprocessor_path: impl AsRef<Path>,
+        expected_vector_size: Option<usize>,
+    ) -> Result<Self> {
+        let preprocessing = preprocessing_from_config(&read_json(preprocessor_path.as_ref())?)?;
+        let options = OnnxImageEmbeddingOptions {
+            preprocessing,
+            expected_vector_size,
+            normalize: true,
+        };
+        Self::with_options(options, NativeOnnxRunner::new(model_path)?)
+    }
+
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        let info = validate_onnx_vision_bundle(&bundle)?;
+        Self::with_options(
+            image_embedding_options_from_bundle(&bundle)?,
+            NativeOnnxRunner::new(info.model_path)?,
+        )
+    }
+}
+
+impl<R: OnnxImageEmbeddingRunner> OnnxImageEmbedder<R> {
+    /// Builds this value from runner.
+    pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
+        Ok(Self {
+            options: image_embedding_options_from_bundle(&bundle)?,
+            runner,
+        })
+    }
+
+    /// Returns this value with options.
+    pub fn with_options(options: OnnxImageEmbeddingOptions, runner: R) -> Result<Self> {
+        validate_preprocessing(&options.preprocessing)?;
+        if let Some(size) = options.expected_vector_size {
+            if size == 0 {
+                return Err(DetectError::InvalidArgument(
+                    "ONNX image embedding expected vector size must be greater than zero"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(Self { options, runner })
+    }
+
+    /// Returns options.
+    pub fn options(&self) -> &OnnxImageEmbeddingOptions {
+        &self.options
+    }
+}
+
+impl<R: OnnxImageEmbeddingRunner> ImageEmbedderBackend for OnnxImageEmbedder<R> {
+    fn embed_image(&mut self, image: &ImageView<'_>) -> Result<ImageEmbedding> {
+        let input = preprocess_image(image, &self.options.preprocessing)?;
+        let output = self.runner.run_image_embedding(&input)?;
+        let mut vector = select_embedding_vector(&output, self.options.expected_vector_size)?;
+        if self.options.normalize {
+            normalize_vector(&mut vector);
+        }
+        ImageEmbedding::new(vector)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX face detection output.
+pub struct OnnxFaceDetectionOutput {
+    /// Named output tensors.
+    pub tensors: BTreeMap<String, OnnxF32Tensor>,
+}
+
+/// Trait for ONNX face detection runner implementations.
+pub trait OnnxFaceDetectionRunner {
+    /// Runs face detection.
+    fn run_face_detection(&mut self, input: &OnnxImageTensor) -> Result<OnnxFaceDetectionOutput>;
+}
+
+#[derive(Debug, Clone, Default)]
+/// Data type for unavailable ONNX face detection runner.
+pub struct UnavailableOnnxFaceDetectionRunner;
+
+impl OnnxFaceDetectionRunner for UnavailableOnnxFaceDetectionRunner {
+    fn run_face_detection(&mut self, _input: &OnnxImageTensor) -> Result<OnnxFaceDetectionOutput> {
+        Err(DetectError::Source(
+            "native ONNX face detection execution is unavailable; construct with a runner"
+                .to_string(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX face detection options.
+pub struct OnnxFaceDetectionOptions {
+    /// The preprocessing value.
+    pub preprocessing: OnnxImagePreprocessing,
+    /// The score threshold value.
+    pub score_threshold: f32,
+    /// The NMS threshold value.
+    pub nms_threshold: f32,
+    /// The top k value.
+    pub top_k: usize,
+}
+
+impl Default for OnnxFaceDetectionOptions {
+    fn default() -> Self {
+        Self {
+            preprocessing: OnnxImagePreprocessing {
+                input_width: 320,
+                input_height: 320,
+                rescale_factor: 1.0,
+                mean: [0.0, 0.0, 0.0],
+                std: [1.0, 1.0, 1.0],
+                channel_order: ChannelOrder::Rgb,
+            },
+            score_threshold: 0.9,
+            nms_threshold: 0.3,
+            top_k: 5000,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Data type for ONNX face detector.
+pub struct OnnxFaceDetector<R = UnavailableOnnxFaceDetectionRunner> {
+    options: OnnxFaceDetectionOptions,
+    runner: R,
+}
+
+impl OnnxFaceDetector<UnavailableOnnxFaceDetectionRunner> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        let _ = face_detection_options_from_bundle(&bundle)?;
+        Ok(Self {
+            options: OnnxFaceDetectionOptions::default(),
+            runner: UnavailableOnnxFaceDetectionRunner,
+        })
+    }
+}
+
+#[cfg(feature = "onnxruntime")]
+impl OnnxFaceDetector<NativeOnnxRunner> {
+    /// Builds this value from model path.
+    pub fn from_model_path(model_path: impl Into<PathBuf>, score_threshold: f32) -> Result<Self> {
+        let options = OnnxFaceDetectionOptions {
+            score_threshold,
+            ..OnnxFaceDetectionOptions::default()
+        };
+        Self::with_options(options, NativeOnnxRunner::new(model_path)?)
+    }
+
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        let info = validate_onnx_vision_bundle(&bundle)?;
+        Self::with_options(
+            face_detection_options_from_bundle(&bundle)?,
+            NativeOnnxRunner::new(info.model_path)?,
+        )
+    }
+}
+
+impl<R: OnnxFaceDetectionRunner> OnnxFaceDetector<R> {
+    /// Builds this value from runner.
+    pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
+        Ok(Self {
+            options: face_detection_options_from_bundle(&bundle)?,
+            runner,
+        })
+    }
+
+    /// Returns this value with options.
+    pub fn with_options(options: OnnxFaceDetectionOptions, runner: R) -> Result<Self> {
+        validate_preprocessing(&options.preprocessing)?;
+        validate_threshold(options.score_threshold)?;
+        validate_threshold(options.nms_threshold)?;
+        if options.top_k == 0 {
+            return Err(DetectError::InvalidArgument(
+                "ONNX face detection top_k must be greater than zero".to_string(),
+            ));
+        }
+        Ok(Self { options, runner })
+    }
+
+    /// Returns options.
+    pub fn options(&self) -> &OnnxFaceDetectionOptions {
+        &self.options
+    }
+}
+
+impl<R: OnnxFaceDetectionRunner> FaceDetectorBackend for OnnxFaceDetector<R> {
+    fn detect_faces(&mut self, image: &ImageView<'_>) -> Result<Vec<FaceDetection>> {
+        let input = preprocess_image(image, &self.options.preprocessing)?;
+        let output = self.runner.run_face_detection(&input)?;
+        decode_yunet_faces(
+            &output.tensors,
+            &self.options,
+            (image.width as f32, image.height as f32),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX face embedding options.
+pub struct OnnxFaceEmbeddingOptions {
+    /// The preprocessing value.
+    pub preprocessing: OnnxImagePreprocessing,
+    /// Expected vector size.
+    pub expected_vector_size: Option<usize>,
+    /// Whether to L2 normalize output.
+    pub normalize: bool,
+}
+
+impl Default for OnnxFaceEmbeddingOptions {
+    fn default() -> Self {
+        Self {
+            preprocessing: OnnxImagePreprocessing {
+                input_width: 112,
+                input_height: 112,
+                rescale_factor: 1.0,
+                mean: [0.0, 0.0, 0.0],
+                std: [1.0, 1.0, 1.0],
+                channel_order: ChannelOrder::Rgb,
+            },
+            expected_vector_size: None,
+            normalize: true,
+        }
+    }
+}
+
+/// Trait for ONNX face embedding runner implementations.
+pub trait OnnxFaceEmbeddingRunner {
+    /// Runs face embedding.
+    fn run_face_embedding(&mut self, input: &OnnxImageTensor) -> Result<Vec<OnnxF32Tensor>>;
+}
+
+#[derive(Debug, Clone, Default)]
+/// Data type for unavailable ONNX face embedding runner.
+pub struct UnavailableOnnxFaceEmbeddingRunner;
+
+impl OnnxFaceEmbeddingRunner for UnavailableOnnxFaceEmbeddingRunner {
+    fn run_face_embedding(&mut self, _input: &OnnxImageTensor) -> Result<Vec<OnnxF32Tensor>> {
+        Err(DetectError::Source(
+            "native ONNX face embedding execution is unavailable; construct with a runner"
+                .to_string(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Data type for ONNX face embedder.
+pub struct OnnxFaceEmbedder<R = UnavailableOnnxFaceEmbeddingRunner> {
+    options: OnnxFaceEmbeddingOptions,
+    runner: R,
+}
+
+impl OnnxFaceEmbedder<UnavailableOnnxFaceEmbeddingRunner> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        let _ = face_embedding_options_from_bundle(&bundle)?;
+        Ok(Self {
+            options: OnnxFaceEmbeddingOptions::default(),
+            runner: UnavailableOnnxFaceEmbeddingRunner,
+        })
+    }
+}
+
+#[cfg(feature = "onnxruntime")]
+impl OnnxFaceEmbedder<NativeOnnxRunner> {
+    /// Builds this value from model path.
+    pub fn from_model_path(
+        model_path: impl Into<PathBuf>,
+        expected_vector_size: Option<usize>,
+    ) -> Result<Self> {
+        let options = OnnxFaceEmbeddingOptions {
+            expected_vector_size,
+            ..OnnxFaceEmbeddingOptions::default()
+        };
+        Self::with_options(options, NativeOnnxRunner::new(model_path)?)
+    }
+
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        let info = validate_onnx_vision_bundle(&bundle)?;
+        Self::with_options(
+            face_embedding_options_from_bundle(&bundle)?,
+            NativeOnnxRunner::new(info.model_path)?,
+        )
+    }
+}
+
+impl<R: OnnxFaceEmbeddingRunner> OnnxFaceEmbedder<R> {
+    /// Builds this value from runner.
+    pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
+        Ok(Self {
+            options: face_embedding_options_from_bundle(&bundle)?,
+            runner,
+        })
+    }
+
+    /// Returns this value with options.
+    pub fn with_options(options: OnnxFaceEmbeddingOptions, runner: R) -> Result<Self> {
+        validate_preprocessing(&options.preprocessing)?;
+        if let Some(size) = options.expected_vector_size {
+            if size == 0 {
+                return Err(DetectError::InvalidArgument(
+                    "ONNX face embedding expected vector size must be greater than zero"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(Self { options, runner })
+    }
+
+    /// Returns options.
+    pub fn options(&self) -> &OnnxFaceEmbeddingOptions {
+        &self.options
+    }
+}
+
+impl<R: OnnxFaceEmbeddingRunner> FaceEmbedderBackend for OnnxFaceEmbedder<R> {
+    fn embed_face(
+        &mut self,
+        image: &ImageView<'_>,
+        detection: Option<&FaceDetection>,
+    ) -> Result<FaceEmbedding> {
+        let aligned = face_chip(image, detection, self.options.preprocessing.input_width)?;
+        let input = preprocess_image(&aligned.as_view(), &self.options.preprocessing)?;
+        let output = self.runner.run_face_embedding(&input)?;
+        let mut vector = select_embedding_vector(&output, self.options.expected_vector_size)?;
+        if self.options.normalize {
+            normalize_vector(&mut vector);
+        }
+        FaceEmbedding::new(vector)
+    }
+}
+
 /// Validates ONNX vision bundle.
 pub fn validate_onnx_vision_bundle(bundle: &ModelBundle) -> Result<OnnxVisionBundleInfo> {
     match bundle.manifest.task {
         ModelTask::ObjectDetection | ModelTask::ImageClassification => {}
+        ModelTask::Custom(ref task)
+            if task == "image_embedding" || task == "face_detection" || task == "face_embedding" => {}
         ref task => {
             return Err(DetectError::InvalidArgument(format!(
-                "ONNX image bundle task must be object_detection or image_classification, got {:?}",
+                "ONNX image bundle task must be object_detection, image_classification, image_embedding, face_detection, or face_embedding, got {:?}",
                 task
             )))
         }
@@ -551,6 +1024,58 @@ pub fn classification_options_from_bundle(
         labels: info.labels,
         top_k: 5,
     })
+}
+
+/// Returns image embedding options from bundle.
+pub fn image_embedding_options_from_bundle(
+    bundle: &ModelBundle,
+) -> Result<OnnxImageEmbeddingOptions> {
+    if bundle.manifest.task != ModelTask::Custom("image_embedding".to_string()) {
+        return Err(DetectError::InvalidArgument(format!(
+            "ONNX image embedding bundle task must be image_embedding, got {:?}",
+            bundle.manifest.task
+        )));
+    }
+    let info = validate_onnx_vision_bundle(bundle)?;
+    let preprocessing = if let Some(path) = &info.preprocessor_config_path {
+        preprocessing_from_config(&read_json(path)?)?
+    } else {
+        OnnxImageEmbeddingOptions::default().preprocessing
+    };
+    validate_preprocessing(&preprocessing)?;
+    Ok(OnnxImageEmbeddingOptions {
+        preprocessing,
+        expected_vector_size: None,
+        normalize: true,
+    })
+}
+
+/// Returns face detection options from bundle.
+pub fn face_detection_options_from_bundle(
+    bundle: &ModelBundle,
+) -> Result<OnnxFaceDetectionOptions> {
+    if bundle.manifest.task != ModelTask::Custom("face_detection".to_string()) {
+        return Err(DetectError::InvalidArgument(format!(
+            "ONNX face detection bundle task must be face_detection, got {:?}",
+            bundle.manifest.task
+        )));
+    }
+    validate_onnx_vision_bundle(bundle)?;
+    Ok(OnnxFaceDetectionOptions::default())
+}
+
+/// Returns face embedding options from bundle.
+pub fn face_embedding_options_from_bundle(
+    bundle: &ModelBundle,
+) -> Result<OnnxFaceEmbeddingOptions> {
+    if bundle.manifest.task != ModelTask::Custom("face_embedding".to_string()) {
+        return Err(DetectError::InvalidArgument(format!(
+            "ONNX face embedding bundle task must be face_embedding, got {:?}",
+            bundle.manifest.task
+        )));
+    }
+    validate_onnx_vision_bundle(bundle)?;
+    Ok(OnnxFaceEmbeddingOptions::default())
 }
 
 /// Returns preprocess image.
@@ -824,6 +1349,54 @@ fn extract_f32_output(value: &ort::value::DynValue) -> Result<F32Output> {
 }
 
 #[cfg(feature = "onnxruntime")]
+fn run_native_f32_outputs(
+    session: &Mutex<ort::session::Session>,
+    input: &OnnxImageTensor,
+) -> Result<Vec<(String, OnnxF32Tensor)>> {
+    use std::borrow::Cow;
+
+    use ort::session::SessionInputValue;
+    use ort::value::Tensor;
+
+    let mut session = session
+        .lock()
+        .map_err(|_| DetectError::Source("ONNX session mutex was poisoned".to_string()))?;
+    let input_name = session
+        .inputs()
+        .first()
+        .map(|input| input.name().to_string())
+        .ok_or_else(|| {
+            DetectError::InvalidArgument("ONNX image model exposes no inputs".to_string())
+        })?;
+    let shape = vec![
+        1_i64,
+        input.channels as i64,
+        input.height as i64,
+        input.width as i64,
+    ];
+    let inputs = vec![(
+        Cow::from(input_name),
+        Tensor::<f32>::from_array((shape, input.values.clone()))
+            .map_err(ort_error)?
+            .into(),
+    ) as (Cow<'_, str>, SessionInputValue<'_>)];
+    let outputs = session.run(inputs).map_err(ort_error)?;
+    let names = outputs
+        .keys()
+        .map(ToOwned::to_owned)
+        .collect::<Vec<String>>();
+    let mut tensors = Vec::with_capacity(names.len());
+    for name in names {
+        let output = outputs.get(&name).ok_or_else(|| {
+            DetectError::Source(format!("ONNX output `{name}` disappeared during decode"))
+        })?;
+        let extracted = extract_f32_output(output)?;
+        tensors.push((name, OnnxF32Tensor::new(extracted.shape, extracted.values)?));
+    }
+    Ok(tensors)
+}
+
+#[cfg(feature = "onnxruntime")]
 fn decode_detr_like_outputs(
     first: F32Output,
     second: F32Output,
@@ -1032,6 +1605,226 @@ fn get_f32_array(config: &Value, key: &str) -> Option<[f32; 3]> {
     ])
 }
 
+fn select_embedding_vector(
+    outputs: &[OnnxF32Tensor],
+    expected_vector_size: Option<usize>,
+) -> Result<Vec<f32>> {
+    let mut candidates = Vec::new();
+    for output in outputs {
+        if output.shape.is_empty()
+            || output.values.is_empty()
+            || output.values.iter().any(|value| !value.is_finite())
+        {
+            continue;
+        }
+        let accepted_shape = match output.shape.as_slice() {
+            [dimensions] => Some(*dimensions),
+            [1, dimensions] => Some(*dimensions),
+            _ if output.shape.first() == Some(&1) => output.shape.last().copied(),
+            _ => None,
+        };
+        let Some(dimensions) = accepted_shape else {
+            continue;
+        };
+        if dimensions != output.values.len() {
+            continue;
+        }
+        if expected_vector_size.is_some_and(|expected| expected != dimensions) {
+            continue;
+        }
+        candidates.push(output.values.clone());
+    }
+    match candidates.as_slice() {
+        [vector] => Ok(vector.clone()),
+        [] => Err(DetectError::InvalidArgument(
+            "ONNX embedding model returned no compatible f32 vector output".to_string(),
+        )),
+        _ => Err(DetectError::InvalidArgument(
+            "ONNX embedding model returned multiple compatible f32 vector outputs".to_string(),
+        )),
+    }
+}
+
+fn normalize_vector(vector: &mut [f32]) {
+    let norm = vector.iter().map(|value| value * value).sum::<f32>().sqrt();
+    if norm > 0.0 && norm.is_finite() {
+        for value in vector {
+            *value /= norm;
+        }
+    }
+}
+
+fn decode_yunet_faces(
+    outputs: &BTreeMap<String, OnnxF32Tensor>,
+    options: &OnnxFaceDetectionOptions,
+    original_size: (f32, f32),
+) -> Result<Vec<FaceDetection>> {
+    let mut decoded = Vec::new();
+    for stride in [8_usize, 16, 32] {
+        let cls = required_output(outputs, &format!("cls_{stride}"))?;
+        let obj = required_output(outputs, &format!("obj_{stride}"))?;
+        let bbox = required_output(outputs, &format!("bbox_{stride}"))?;
+        let kps = required_output(outputs, &format!("kps_{stride}"))?;
+        let count = cls.values.len().min(obj.values.len());
+        if bbox.values.len() < count * 4 || kps.values.len() < count * 10 {
+            return Err(DetectError::InvalidArgument(format!(
+                "YuNet stride {stride} output tensors have inconsistent lengths"
+            )));
+        }
+        let grid_width = (options.preprocessing.input_width as usize).div_ceil(stride);
+        for index in 0..count {
+            let score = cls.values[index] * obj.values[index];
+            if !score.is_finite() || score < options.score_threshold {
+                continue;
+            }
+            let grid_x = index % grid_width;
+            let grid_y = index / grid_width.max(1);
+            let center_x = (grid_x as f32 + 0.5) * stride as f32;
+            let center_y = (grid_y as f32 + 0.5) * stride as f32;
+            let box_offset = index * 4;
+            let face_width = (bbox.values[box_offset + 2] * 0.2).exp() * stride as f32;
+            let face_height = (bbox.values[box_offset + 3] * 0.2).exp() * stride as f32;
+            let face_center_x = center_x + bbox.values[box_offset] * 0.1 * stride as f32;
+            let face_center_y = center_y + bbox.values[box_offset + 1] * 0.1 * stride as f32;
+            let x = (face_center_x - face_width / 2.0) / options.preprocessing.input_width as f32;
+            let y = (face_center_y - face_height / 2.0) / options.preprocessing.input_height as f32;
+            let width = face_width / options.preprocessing.input_width as f32;
+            let height = face_height / options.preprocessing.input_height as f32;
+            let bbox = FaceBox::new(
+                x.clamp(0.0, 1.0),
+                y.clamp(0.0, 1.0),
+                width.clamp(0.0, 1.0),
+                height.clamp(0.0, 1.0),
+            )?;
+            let mut points = Vec::with_capacity(5);
+            let kps_offset = index * 10;
+            for point in 0..5 {
+                let point_x = (center_x + kps.values[kps_offset + point * 2] * 0.1 * stride as f32)
+                    / options.preprocessing.input_width as f32;
+                let point_y = (center_y
+                    + kps.values[kps_offset + point * 2 + 1] * 0.1 * stride as f32)
+                    / options.preprocessing.input_height as f32;
+                points.push([point_x.clamp(0.0, 1.0), point_y.clamp(0.0, 1.0)]);
+            }
+            let detection = FaceDetection::new(bbox, score)?
+                .landmarks(FaceLandmarks::new(points)?)
+                .attribute("model", "yunet");
+            decoded.push(detection);
+        }
+    }
+    decoded.sort_by(|left, right| right.confidence.total_cmp(&left.confidence));
+    decoded.truncate(options.top_k);
+    Ok(non_max_suppression(
+        decoded,
+        options.nms_threshold,
+        original_size,
+    ))
+}
+
+fn required_output<'a>(
+    outputs: &'a BTreeMap<String, OnnxF32Tensor>,
+    name: &str,
+) -> Result<&'a OnnxF32Tensor> {
+    outputs
+        .get(name)
+        .ok_or_else(|| DetectError::InvalidArgument(format!("YuNet output `{name}` is missing")))
+}
+
+fn non_max_suppression(
+    detections: Vec<FaceDetection>,
+    threshold: f32,
+    original_size: (f32, f32),
+) -> Vec<FaceDetection> {
+    let mut kept: Vec<FaceDetection> = Vec::new();
+    for detection in detections {
+        if kept
+            .iter()
+            .all(|existing| face_iou(&existing.bbox, &detection.bbox, original_size) < threshold)
+        {
+            kept.push(detection);
+        }
+    }
+    kept
+}
+
+fn face_iou(left: &FaceBox, right: &FaceBox, original_size: (f32, f32)) -> f32 {
+    let width = original_size.0.max(1.0);
+    let height = original_size.1.max(1.0);
+    let left_x1 = left.x * width;
+    let left_y1 = left.y * height;
+    let left_x2 = (left.x + left.width) * width;
+    let left_y2 = (left.y + left.height) * height;
+    let right_x1 = right.x * width;
+    let right_y1 = right.y * height;
+    let right_x2 = (right.x + right.width) * width;
+    let right_y2 = (right.y + right.height) * height;
+    let intersection_width = (left_x2.min(right_x2) - left_x1.max(right_x1)).max(0.0);
+    let intersection_height = (left_y2.min(right_y2) - left_y1.max(right_y1)).max(0.0);
+    let intersection = intersection_width * intersection_height;
+    let left_area = (left_x2 - left_x1).max(0.0) * (left_y2 - left_y1).max(0.0);
+    let right_area = (right_x2 - right_x1).max(0.0) * (right_y2 - right_y1).max(0.0);
+    let union = left_area + right_area - intersection;
+    if union <= f32::EPSILON {
+        0.0
+    } else {
+        intersection / union
+    }
+}
+
+fn face_chip(
+    image: &ImageView<'_>,
+    detection: Option<&FaceDetection>,
+    output_size: u32,
+) -> Result<OwnedImage> {
+    image.validate()?;
+    let output_size = output_size.max(1);
+    let (x, y, size) = face_crop_rect(image, detection);
+    let mut data = Vec::with_capacity(output_size as usize * output_size as usize * 3);
+    for out_y in 0..output_size {
+        for out_x in 0..output_size {
+            let src_x = x + (out_x as f32 + 0.5) * size / output_size as f32;
+            let src_y = y + (out_y as f32 + 0.5) * size / output_size as f32;
+            let src_x = src_x.floor().clamp(0.0, (image.width - 1) as f32) as u32;
+            let src_y = src_y.floor().clamp(0.0, (image.height - 1) as f32) as u32;
+            data.extend_from_slice(&image.pixel_rgb(src_x, src_y));
+        }
+    }
+    OwnedImage::new(
+        output_size,
+        output_size,
+        ImagePixelFormat::Rgb24,
+        data,
+        output_size as usize * 3,
+    )
+}
+
+fn face_crop_rect(image: &ImageView<'_>, detection: Option<&FaceDetection>) -> (f32, f32, f32) {
+    let Some(detection) = detection else {
+        let size = image.width.min(image.height).max(1) as f32;
+        return (0.0, 0.0, size);
+    };
+    let image_width = image.width as f32;
+    let image_height = image.height as f32;
+    let mut x1 = detection.bbox.x * image_width;
+    let mut y1 = detection.bbox.y * image_height;
+    let mut x2 = (detection.bbox.x + detection.bbox.width) * image_width;
+    let mut y2 = (detection.bbox.y + detection.bbox.height) * image_height;
+    if let Some(landmarks) = &detection.landmarks {
+        for [x, y] in &landmarks.points {
+            x1 = x1.min(x * image_width);
+            y1 = y1.min(y * image_height);
+            x2 = x2.max(x * image_width);
+            y2 = y2.max(y * image_height);
+        }
+    }
+    let center_x = (x1 + x2) / 2.0;
+    let center_y = (y1 + y2) / 2.0;
+    let size = ((x2 - x1).max(y2 - y1) * 1.35).max(1.0);
+    let x = (center_x - size / 2.0).clamp(0.0, (image_width - size).max(0.0));
+    let y = (center_y - size / 2.0).clamp(0.0, (image_height - size).max(0.0));
+    (x, y, size.min(image_width).min(image_height).max(1.0))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1039,7 +1832,9 @@ mod tests {
     use std::collections::BTreeMap;
 
     use image_analysis_core::{OwnedImage, OwnedImageBatch};
-    use image_analysis_models::ImageClassifierBackend;
+    use image_analysis_models::{
+        FaceDetectorBackend, FaceEmbedderBackend, ImageClassifierBackend, ImageEmbedderBackend,
+    };
     use tempfile::tempdir;
     use video_analysis_models::{ModelBundleFile, ModelBundleManifest};
 
@@ -1070,6 +1865,42 @@ mod tests {
             _input: &OnnxImageTensor,
         ) -> Result<OnnxImageClassificationOutput> {
             Ok(self.output.clone())
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct FakeEmbeddingRunner {
+        outputs: Vec<OnnxF32Tensor>,
+    }
+
+    impl OnnxImageEmbeddingRunner for FakeEmbeddingRunner {
+        fn run_image_embedding(&mut self, _input: &OnnxImageTensor) -> Result<Vec<OnnxF32Tensor>> {
+            Ok(self.outputs.clone())
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct FakeFaceDetectionRunner {
+        output: OnnxFaceDetectionOutput,
+    }
+
+    impl OnnxFaceDetectionRunner for FakeFaceDetectionRunner {
+        fn run_face_detection(
+            &mut self,
+            _input: &OnnxImageTensor,
+        ) -> Result<OnnxFaceDetectionOutput> {
+            Ok(self.output.clone())
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct FakeFaceEmbeddingRunner {
+        outputs: Vec<OnnxF32Tensor>,
+    }
+
+    impl OnnxFaceEmbeddingRunner for FakeFaceEmbeddingRunner {
+        fn run_face_embedding(&mut self, _input: &OnnxImageTensor) -> Result<Vec<OnnxF32Tensor>> {
+            Ok(self.outputs.clone())
         }
     }
 
@@ -1183,5 +2014,110 @@ mod tests {
         let labels = classifier.classify_image(&image.as_view()).unwrap();
         assert_eq!(labels[0].label, "dog");
         assert_eq!(labels.len(), 2);
+    }
+
+    #[test]
+    fn image_embedder_uses_fake_runner_and_normalizes_output() {
+        let options = OnnxImageEmbeddingOptions {
+            preprocessing: OnnxImageEmbeddingOptions::default().preprocessing,
+            expected_vector_size: Some(2),
+            normalize: true,
+        };
+        let mut embedder = OnnxImageEmbedder::with_options(
+            options,
+            FakeEmbeddingRunner {
+                outputs: vec![OnnxF32Tensor::new(vec![1, 2], vec![3.0, 4.0]).unwrap()],
+            },
+        )
+        .unwrap();
+        let image = OwnedImage::new_rgb(2, 2, vec![255; 12]).unwrap();
+
+        let embedding = embedder.embed_image(&image.as_view()).unwrap();
+
+        assert_eq!(embedding.vector.len(), 2);
+        assert!((embedding.vector[0] - 0.6).abs() < 0.0001);
+        assert!((embedding.vector[1] - 0.8).abs() < 0.0001);
+    }
+
+    #[test]
+    fn embedding_vector_selection_rejects_ambiguous_outputs() {
+        let outputs = vec![
+            OnnxF32Tensor::new(vec![2], vec![1.0, 0.0]).unwrap(),
+            OnnxF32Tensor::new(vec![1, 2], vec![0.0, 1.0]).unwrap(),
+        ];
+
+        assert!(select_embedding_vector(&outputs, Some(2)).is_err());
+    }
+
+    #[test]
+    fn face_detector_decodes_yunet_outputs_and_applies_nms() {
+        let mut tensors = BTreeMap::new();
+        for stride in [8_usize, 16, 32] {
+            let count = (320_usize.div_ceil(stride)) * (320_usize.div_ceil(stride));
+            let mut cls = vec![0.0; count];
+            let mut obj = vec![0.0; count];
+            let bbox = vec![0.0; count * 4];
+            let kps = vec![0.0; count * 10];
+            if stride == 8 {
+                cls[0] = 0.95;
+                obj[0] = 1.0;
+                cls[1] = 0.94;
+                obj[1] = 1.0;
+            }
+            tensors.insert(
+                format!("cls_{stride}"),
+                OnnxF32Tensor::new(vec![count], cls).unwrap(),
+            );
+            tensors.insert(
+                format!("obj_{stride}"),
+                OnnxF32Tensor::new(vec![count], obj).unwrap(),
+            );
+            tensors.insert(
+                format!("bbox_{stride}"),
+                OnnxF32Tensor::new(vec![count, 4], bbox).unwrap(),
+            );
+            tensors.insert(
+                format!("kps_{stride}"),
+                OnnxF32Tensor::new(vec![count, 10], kps).unwrap(),
+            );
+        }
+        let options = OnnxFaceDetectionOptions {
+            score_threshold: 0.9,
+            top_k: 10,
+            ..OnnxFaceDetectionOptions::default()
+        };
+        let mut detector = OnnxFaceDetector::with_options(
+            options,
+            FakeFaceDetectionRunner {
+                output: OnnxFaceDetectionOutput { tensors },
+            },
+        )
+        .unwrap();
+        let image = OwnedImage::new_rgb(320, 320, vec![255; 320 * 320 * 3]).unwrap();
+
+        let faces = detector.detect_faces(&image.as_view()).unwrap();
+
+        assert_eq!(faces.len(), 2);
+        assert!(faces[0].bbox.width > 0.0);
+        assert_eq!(faces[0].landmarks.as_ref().unwrap().points.len(), 5);
+    }
+
+    #[test]
+    fn face_embedder_uses_fake_runner_and_normalizes_output() {
+        let mut embedder = OnnxFaceEmbedder::with_options(
+            OnnxFaceEmbeddingOptions {
+                expected_vector_size: Some(2),
+                ..OnnxFaceEmbeddingOptions::default()
+            },
+            FakeFaceEmbeddingRunner {
+                outputs: vec![OnnxF32Tensor::new(vec![1, 2], vec![5.0, 0.0]).unwrap()],
+            },
+        )
+        .unwrap();
+        let image = OwnedImage::new_rgb(24, 24, vec![255; 24 * 24 * 3]).unwrap();
+
+        let embedding = embedder.embed_face(&image.as_view(), None).unwrap();
+
+        assert_eq!(embedding.vector, vec![1.0, 0.0]);
     }
 }

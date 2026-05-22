@@ -9,17 +9,21 @@ const uiSourceRoot = fileURLToPath(new URL("../../../packages/video-analysis-ui/
 const textCoreWasmEntry = fileURLToPath(
   new URL("../../../packages/text-core-wasm/index.js", import.meta.url),
 );
+const textLinguisticsWasmEntry = fileURLToPath(
+  new URL("../../../packages/text-linguistics-wasm/index.js", import.meta.url),
+);
 const rootNodeModules = fileURLToPath(new URL("../../../node_modules/.bun/node_modules/", import.meta.url));
 
 export default defineConfig({
   base: process.env.PAGES_BASE_PATH ?? "/",
   plugins: [react(), workspaceArchitectureApi()],
   optimizeDeps: {
-    exclude: ["@mb-rust/text-core-wasm"],
+    exclude: ["@mb-rust/text-core-wasm", "@mb-rust/text-linguistics-wasm"],
   },
   resolve: {
     alias: [
       { find: /^@mb-rust\/text-core-wasm$/, replacement: textCoreWasmEntry },
+      { find: /^@mb-rust\/text-linguistics-wasm$/, replacement: textLinguisticsWasmEntry },
       { find: /^@video-analysis\/ui$/, replacement: `${uiSourceRoot}/index.ts` },
       { find: /^@video-analysis\/ui\/tailwind-content$/, replacement: `${uiSourceRoot}/tailwind-content.ts` },
       { find: /^@video-analysis\/ui\/([^/]+)$/, replacement: `${uiSourceRoot}/$1/index.tsx` },

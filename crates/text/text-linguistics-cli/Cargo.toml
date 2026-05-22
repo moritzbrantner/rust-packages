@@ -19,4 +19,4 @@ path = "src/main.rs"
 [dependencies]
 clap.workspace = true
 serde_json.workspace = true
-text-linguistics = { path = "../text-linguistics" }
+text-linguistics = { path = "../text-linguistics", features = ["candle"] }

@@ -2,6 +2,9 @@ use tempfile::tempdir;
 
 use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
 use image_analysis_io::{read_image, write_image};
+use image_analysis_models::{
+    FaceBox, FaceDetectionPreset, FaceEmbeddingPreset, ImageEmbeddingPreset,
+};
 use image_analysis_ocr::{OcrPreset, OcrRequest, OcrTechnique};
 use image_analysis_segmentation::ImageSegmentationRequest;
 
@@ -42,4 +45,18 @@ fn image_public_api_covers_ocr_model_presets_and_requests() {
         _ => panic!("expected a Hugging Face OCR model technique"),
     }
     assert_eq!(request.languages, ["en".to_string()]);
+}
+
+#[test]
+fn image_public_api_covers_embedding_and_face_model_presets() {
+    let clip = ImageEmbeddingPreset::XenovaClipVitBasePatch32Onnx.model_spec();
+    assert_eq!(clip.repo_id, "Xenova/clip-vit-base-patch32");
+
+    let detector = FaceDetectionPreset::OpenCvYuNet.model_spec();
+    assert_eq!(detector.repo_id, "opencv/face_detection_yunet");
+
+    let embedder = FaceEmbeddingPreset::OpenCvSFace.model_spec();
+    assert_eq!(embedder.repo_id, "opencv/face_recognition_sface");
+
+    assert!(FaceBox::new(0.1, 0.2, 0.3, 0.4).is_ok());
 }
