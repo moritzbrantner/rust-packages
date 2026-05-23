@@ -76,6 +76,10 @@ scripts/check_e2e_external_tools.sh # verify optional external tools
 cargo doc --workspace --no-deps     # release-readiness docs pass
 ```
 
+For big changes, run the relevant GitHub Actions workflow locally with `act`
+before handoff. Prefer the workflow that matches the changed surface, for
+example `act -W .github/workflows/workspace-ci.yml`.
+
 Release and publish work is manual. Use `docs/RELEASE_CHECKLIST.md`; do not add
 release automation or publish crates unless the task explicitly asks for that.
 
