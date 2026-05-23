@@ -2721,6 +2721,7 @@ name = "image-analysis-processing"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "image",
  "image-analysis-core",
  "math-geometry-2d",
  "math-linear",

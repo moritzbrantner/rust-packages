@@ -29,7 +29,10 @@ jobs:
           curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_target}.zip" -o "$RUNNER_TEMP/bun.zip"
           unzip -q "$RUNNER_TEMP/bun.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/${bun_target}" >> "$GITHUB_PATH"
+      - uses: actions/checkout@v4
+        if: ${{ env.ACT == 'true' }}
       - name: Checkout repository with Bun
+        if: ${{ env.ACT != 'true' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -76,6 +79,7 @@ jobs:
           bun "$RUNNER_TEMP/bun-checkout.ts"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        if: ${{ env.ACT != 'true' }}
       - run: cargo fmt --all --check
       - run: cargo test --workspace --all-targets
       - run: cargo clippy --workspace --all-targets -- -D warnings
@@ -98,7 +102,10 @@ jobs:
           curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_target}.zip" -o "$RUNNER_TEMP/bun.zip"
           unzip -q "$RUNNER_TEMP/bun.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/${bun_target}" >> "$GITHUB_PATH"
+      - uses: actions/checkout@v4
+        if: ${{ env.ACT == 'true' }}
       - name: Checkout repository with Bun
+        if: ${{ env.ACT != 'true' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -147,6 +154,7 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+        if: ${{ env.ACT != 'true' }}
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-pack@0.14.0

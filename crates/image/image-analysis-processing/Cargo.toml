@@ -16,6 +16,7 @@ categories.workspace = true
 serde_json.workspace = true
 runtime-contracts.workspace = true
 image-analysis-core.workspace = true
+image.workspace = true
 math-geometry-2d.workspace = true
 math-linear.workspace = true
 video-analysis-core.workspace = true

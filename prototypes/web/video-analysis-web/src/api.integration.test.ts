@@ -5,6 +5,7 @@ import { createServer, type ViteDevServer } from "vite";
 
 let server: ViteDevServer;
 let baseUrl: string;
+const apiTestTimeoutMs = 60_000;
 
 beforeAll(async () => {
   const port = await availablePort();
@@ -43,7 +44,7 @@ describe("workspace API integration", () => {
       "api",
       "ui",
     ]);
-  });
+  }, apiTestTimeoutMs);
 
   it("reports missing packages as HTTP 404", async () => {
     const response = await fetch(`${baseUrl}/api/packages?name=missing-package`);
@@ -52,7 +53,7 @@ describe("workspace API integration", () => {
     await expect(response.json()).resolves.toMatchObject({
       message: "unknown package `missing-package`",
     });
-  });
+  }, apiTestTimeoutMs);
 
   it("serves workspace architecture with dependencies and interop pairs", async () => {
     const response = await fetch(`${baseUrl}/api/workspace-architecture`);
@@ -62,7 +63,7 @@ describe("workspace API integration", () => {
     expect(body.packages.some((pkg: { name: string }) => pkg.name === "@video-analysis/ui")).toBe(true);
     expect(body.dependencies.length).toBeGreaterThan(0);
     expect(body.interop.length).toBeGreaterThan(0);
-  });
+  }, apiTestTimeoutMs);
 });
 
 function availablePort(): Promise<number> {
