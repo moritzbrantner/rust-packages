@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 #[cfg(feature = "onnxruntime")]
@@ -556,7 +557,7 @@ impl Default for OnnxImageEmbeddingOptions {
                 input_height: 224,
                 rescale_factor: 1.0 / 255.0,
                 mean: [0.48145466, 0.4578275, 0.40821073],
-                std: [0.26862954, 0.26130258, 0.27577711],
+                std: [0.26862954, 0.261_302_6, 0.275_777_1],
                 channel_order: ChannelOrder::Rgb,
             },
             expected_vector_size: None,

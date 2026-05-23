@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use tensor_data::F32Tensor;
 use video_analysis_core::{DetectError, PixelFormat, Result, VideoFrame};
 

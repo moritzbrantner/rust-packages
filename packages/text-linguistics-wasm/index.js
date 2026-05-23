@@ -1,58 +1,22 @@
-import initGenerated, {
-  analyzeTextLinguistics,
-  initSync,
-  postprocessClassification,
-  postprocessEmbeddings,
-  postprocessEntities,
-  postprocessSentiment,
-  postprocessZeroShot,
-  rerankFromImportedScores,
-  summarizeEmbeddingExtractiveFromImportedEmbeddings,
-  summarizeLexical,
-} from "./pkg/index.js";
+let wasmModulePromise;
 
-const wasmUrl = new URL("./pkg/index_bg.wasm", import.meta.url);
-
-export {
-  analyzeTextLinguistics,
-  initSync,
-  postprocessClassification,
-  postprocessEmbeddings,
-  postprocessEntities,
-  postprocessSentiment,
-  postprocessZeroShot,
-  rerankFromImportedScores,
-  summarizeEmbeddingExtractiveFromImportedEmbeddings,
-  summarizeLexical,
-};
-
-export default async function init(moduleOrPath) {
-  if (moduleOrPath) {
-    return initGenerated(moduleOrPath);
-  }
-
-  if (typeof process !== "undefined" && process.versions?.node) {
-    const { readFile } = await import("node:fs/promises");
-    const wasmPath = resolveNodeWasmPath(wasmUrl);
-
-    if (wasmPath) {
-      return initGenerated(await readFile(wasmPath));
+export async function init() {
+  const wasmEntry = "./pkg/text_linguistics_wasm.js";
+  wasmModulePromise ??= import(/* @vite-ignore */ wasmEntry).then(async (module) => {
+    if (typeof module.default === "function") {
+      await module.default();
     }
-
-    return initGenerated(wasmUrl);
-  }
-
-  return initGenerated(wasmUrl);
+    return module;
+  });
+  return wasmModulePromise;
 }
 
-function resolveNodeWasmPath(url) {
-  if (url.protocol === "file:") {
-    return url;
-  }
+export async function packageSurface() {
+  const module = await init();
+  return module.packageSurface();
+}
 
-  if ((url.protocol === "http:" || url.protocol === "https:") && url.pathname.startsWith("/@fs/")) {
-    return decodeURIComponent(url.pathname.slice(4));
-  }
-
-  return null;
+export async function runOperation(request) {
+  const module = await init();
+  return module.runOperation(request);
 }

@@ -1,5 +1,7 @@
 #[test]
 fn cli_adapter_reports_wrapped_library() {
     assert_eq!(finance_statistics_cli::LIBRARY_CRATE, "finance-statistics");
-    assert_eq!(finance_statistics_cli::SURFACE_KIND, "cli");
+    let surface = finance_statistics_cli::package_surface();
+    assert_eq!(surface.library, "finance-statistics");
+    assert!(!surface.operations.is_empty());
 }

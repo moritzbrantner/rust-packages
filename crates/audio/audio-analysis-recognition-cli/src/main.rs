@@ -1,12 +1,7 @@
-use audio_analysis_recognition as _;
-use audio_analysis_tasks::{
-    audio_task_catalog as model_catalog, classify_audio, detect_audio_events, diarize_speakers,
-    embed_audio, generate_audio, parse_task, separate_sources, AudioClassificationRequest,
-    AudioEmbeddingRequest, AudioEventDetectionRequest, AudioFeatureFrame, AudioFeatureSummary,
-    AudioGenerationRequest, AudioRuntimeSelection, FallbackPolicy, SourceSeparationBackend,
-    SourceSeparationRequest, SpeakerDiarizationRequest,
-};
-use clap::{Parser, Subcommand, ValueEnum};
+use std::fs;
+use std::io::Read;
+
+use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -27,88 +22,30 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Print the generic command schema.
+    /// Print the command schema.
     Schema {
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
     },
-    /// List known audio model presets.
-    Models {
-        /// Emit only models for a task path segment, for example classify or transcribe.
+    /// Print library operations.
+    Operations {
+        /// Emit machine-readable JSON.
         #[arg(long)]
-        task: Option<String>,
+        json: bool,
     },
-    /// Classify an audio feature summary.
-    Classify {
-        /// Comma-separated labels for fallback classification.
+    /// Run one library-owned operation.
+    Run {
+        /// Operation id.
+        #[arg(long, default_value = "describe")]
+        operation: String,
+        /// JSON request payload.
         #[arg(long)]
-        labels: Option<String>,
-        /// RMS energy.
-        #[arg(long, default_value_t = 0.1)]
-        rms: f32,
-        /// Peak amplitude.
-        #[arg(long, default_value_t = 0.2)]
-        peak: f32,
-        /// Spectral centroid in Hz.
-        #[arg(long, default_value_t = 1_500.0)]
-        spectral_centroid_hz: f32,
-        /// Model id or preset id.
+        json: Option<String>,
+        /// Read JSON request payload from a file.
         #[arg(long)]
-        model: Option<String>,
-        /// Fallback policy.
-        #[arg(long, value_enum, default_value_t = FallbackArg::Heuristic)]
-        fallback: FallbackArg,
+        file: Option<String>,
     },
-    /// Detect high-energy events from RMS frames.
-    Events {
-        /// Comma-separated RMS values, one per synthetic one-second frame.
-        #[arg(long)]
-        rms: String,
-        /// RMS/peak event threshold.
-        #[arg(long, default_value_t = 0.2)]
-        threshold: f32,
-    },
-    /// Embed an audio feature summary.
-    Embed {
-        /// Fallback vector dimensions.
-        #[arg(long, default_value_t = 128)]
-        dimensions: usize,
-        /// RMS energy.
-        #[arg(long, default_value_t = 0.1)]
-        rms: f32,
-        /// Peak amplitude.
-        #[arg(long, default_value_t = 0.2)]
-        peak: f32,
-    },
-    /// Create a one-speaker diarization fallback.
-    Diarize {
-        /// Duration in seconds.
-        #[arg(long, default_value_t = 10.0)]
-        duration_seconds: f32,
-    },
-    /// Plan source separation stems.
-    Separate {
-        /// Comma-separated stem names.
-        #[arg(long, default_value = "vocals,drums,bass,other")]
-        stems: String,
-    },
-    /// Validate an audio generation prompt.
-    Generate {
-        /// Text prompt.
-        #[arg(long)]
-        prompt: String,
-        /// Duration in seconds.
-        #[arg(long, default_value_t = 8.0)]
-        duration_seconds: f32,
-    },
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-enum FallbackArg {
-    Error,
-    Fast,
-    Heuristic,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -124,108 +61,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "audio-analysis-recognition command schema",
             &audio_analysis_recognition_cli::command_schema_json(),
         ),
-        Command::Models { task } => {
-            let task = task.as_deref().and_then(parse_task);
-            println!("{}", serde_json::to_string(&model_catalog(task))?);
+        Command::Operations { json } => {
+            let payload = serde_json::to_string(
+                &audio_analysis_recognition_cli::package_surface().operations,
+            )?;
+            print_payload(json, "audio-analysis-recognition operations", &payload);
         }
-        Command::Classify {
-            labels,
-            rms,
-            peak,
-            spectral_centroid_hz,
-            model,
-            fallback,
+        Command::Run {
+            operation,
+            json,
+            file,
         } => {
-            let payload = classify_audio(AudioClassificationRequest {
-                source: None,
-                labels: split_csv(labels.as_deref()),
-                top_k: 3,
-                features: Some(AudioFeatureSummary {
-                    rms,
-                    peak,
-                    spectral_centroid_hz,
-                    ..AudioFeatureSummary::default()
-                }),
-                model: selection(model, fallback),
-                imported_predictions: Vec::new(),
-            })?;
-            println!("{}", serde_json::to_string(&payload)?);
-        }
-        Command::Events { rms, threshold } => {
-            let frames = split_csv(Some(&rms))
-                .into_iter()
-                .enumerate()
-                .filter_map(|(index, value)| {
-                    let rms = value.parse::<f32>().ok()?;
-                    Some(AudioFeatureFrame {
-                        start_seconds: index as f32,
-                        end_seconds: index as f32 + 1.0,
-                        rms,
-                        peak: rms,
-                    })
-                })
-                .collect::<Vec<_>>();
-            let payload = detect_audio_events(AudioEventDetectionRequest {
-                source: None,
-                frames,
-                threshold,
-                model: selection(None, FallbackArg::Heuristic),
-                imported_predictions: Vec::new(),
-            })?;
-            println!("{}", serde_json::to_string(&payload)?);
-        }
-        Command::Embed {
-            dimensions,
-            rms,
-            peak,
-        } => {
-            let payload = embed_audio(AudioEmbeddingRequest {
-                features: vec![AudioFeatureSummary {
-                    rms,
-                    peak,
-                    ..AudioFeatureSummary::default()
-                }],
-                dimensions,
-                normalize: true,
-                model: selection(None, FallbackArg::Fast),
-                imported_embeddings: Vec::new(),
-            })?;
-            println!("{}", serde_json::to_string(&payload)?);
-        }
-        Command::Diarize { duration_seconds } => {
-            let payload = diarize_speakers(SpeakerDiarizationRequest {
-                source: None,
-                duration_seconds: Some(duration_seconds),
-                model: selection(None, FallbackArg::Heuristic),
-                imported_segments: Vec::new(),
-            })?;
-            println!("{}", serde_json::to_string(&payload)?);
-        }
-        Command::Separate { stems } => {
-            let payload = separate_sources(SourceSeparationRequest {
-                source: None,
-                input: None,
-                output_dir: None,
-                stems: split_csv(Some(&stems)),
-                backend: SourceSeparationBackend::HeuristicPlan,
-                model: selection(None, FallbackArg::Heuristic),
-                imported_stems: Vec::new(),
-            })?;
-            println!("{}", serde_json::to_string(&payload)?);
-        }
-        Command::Generate {
-            prompt,
-            duration_seconds,
-        } => {
-            let payload = generate_audio(AudioGenerationRequest {
-                prompt,
-                duration_seconds,
-                model: AudioRuntimeSelection::default(),
-            })?;
-            println!("{}", serde_json::to_string(&payload)?);
+            let input = read_input(json, file)?;
+            let response = audio_analysis_recognition_cli::run_operation(&operation, input)
+                .map_err(std::io::Error::other)?;
+            println!("{}", serde_json::to_string(&response)?);
         }
     }
     Ok(())
+}
+
+fn read_input(
+    json: Option<String>,
+    file: Option<String>,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let input = if let Some(json) = json {
+        json
+    } else if let Some(file) = file {
+        fs::read_to_string(file)?
+    } else {
+        let mut buffer = String::new();
+        std::io::stdin().read_to_string(&mut buffer)?;
+        if buffer.trim().is_empty() {
+            "{}".to_string()
+        } else {
+            buffer
+        }
+    };
+    Ok(serde_json::from_str(&input)?)
 }
 
 fn print_payload(json: bool, title: &str, payload: &str) {
@@ -235,27 +108,4 @@ fn print_payload(json: bool, title: &str, payload: &str) {
         println!("{title}");
         println!("{payload}");
     }
-}
-
-fn selection(model_id: Option<String>, fallback: FallbackArg) -> AudioRuntimeSelection {
-    AudioRuntimeSelection {
-        model_id,
-        model: None,
-        backend: None,
-        fallback_policy: match fallback {
-            FallbackArg::Error => FallbackPolicy::Error,
-            FallbackArg::Fast => FallbackPolicy::FastFallback,
-            FallbackArg::Heuristic => FallbackPolicy::HeuristicFallback,
-        },
-    }
-}
-
-fn split_csv(value: Option<&str>) -> Vec<String> {
-    value
-        .unwrap_or_default()
-        .split(',')
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .collect()
 }

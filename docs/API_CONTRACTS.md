@@ -11,20 +11,30 @@ crates should compose around those contracts instead of defining parallel types.
 
 ## Package Surface Policy
 
-Runtime packages use the same four-surface shape, but the adapters stay outside
-the reusable library crate:
+Runtime packages use the same generated surface shape, but the adapters stay
+outside the reusable library crate:
 
-- Library: a Rust `lib` target or an importable frontend package.
-- CLI: an adjacent `<package>/cli` package, published or named as
-  `<package>-cli`.
-- API: an adjacent `<package>/api` package exposing HTTP endpoints, published or
-  named as `<package>-api`.
-- UI/App: an adjacent `<package>/app` package serving a webpage or frontend
-  bundle, published or named as `<package>-app`.
+- Library: a Rust `lib` target under `crates/*/*`.
+- CLI: an adjacent `<crate>-cli` package.
+- API: an adjacent `<crate>-server` package exposing HTTP endpoints.
+- Rust WASM: a binding crate under `crates/bindings/<crate>-wasm`.
+- Frontend WASM: a Bun package under `packages/<crate>-wasm`.
+- UI/App: a Vite package under `packages/<crate>-app`.
 
 Library crates should not declare generic CLI/API/UI `[[bin]]` targets. Adapter
 packages depend on the library and own their runtime, transport, and webpage
 code.
+
+Every non-wrapper library crate owns its operation metadata and execution in
+`src/surface.rs`. Thin CLI, server, WASM, and app packages must call that
+library-owned surface instead of implementing package behavior in wrapper code.
+The shared `PackageSurface`, `SurfaceOperation`, `SurfaceRequest`, and
+`SurfaceResponse` DTOs live in `runtime-contracts`.
+
+The current workspace-wide baseline operation is `describe`; crates should add
+richer representative operations in their own surface module as library
+functionality matures. See `docs/PACKAGE_SURFACE_MATRIX.md` for the generated
+crate-by-crate audit.
 
 ## Contract Ownership Rule
 

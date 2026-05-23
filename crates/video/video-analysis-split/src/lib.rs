@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 

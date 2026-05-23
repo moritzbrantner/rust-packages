@@ -13,6 +13,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+serde_json.workspace = true
+runtime-contracts.workspace = true
 math-sparse-data.workspace = true
 serde.workspace = true
 text-core.workspace = true

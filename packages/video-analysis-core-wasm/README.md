@@ -1,10 +1,7 @@
 # @mb-rust/video-analysis-core-wasm
 
-WASM bindings for browser-friendly video analysis core helpers.
+WASM package for `video-analysis-core`.
 
-```js
-import init, { analyzeVideoFrame } from "@mb-rust/video-analysis-core-wasm";
-
-await init();
-const result = analyzeVideoFrame(new Uint8Array([255, 0, 0]), 1, 1, "rgb24", 0, 24, 1, 3);
+```bash
+bun run --cwd packages/video-analysis-core-wasm build
 ```

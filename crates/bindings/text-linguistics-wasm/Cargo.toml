@@ -15,9 +15,10 @@ categories.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+js-sys = "0.3.82"
+runtime-contracts.workspace = true
 serde.workspace = true
-serde-wasm-bindgen = "0.6.5"
 serde_json.workspace = true
-text-core.workspace = true
-text-lexical.workspace = true
+serde-wasm-bindgen = "0.6.5"
 wasm-bindgen = "0.2.105"
+text-linguistics.workspace = true

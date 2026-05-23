@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use audio_analysis_synthesis::{
     synthesize_timeline, AudioSynthesisConfig, ToneSegment, ToneSpec, Waveform,
 };

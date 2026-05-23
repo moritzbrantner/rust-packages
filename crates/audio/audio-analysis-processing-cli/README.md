@@ -5,5 +5,6 @@ Thin command-line adapter for `audio-analysis-processing`.
 Run:
 
 ```bash
-cargo run -p audio-analysis-processing-cli -- info --json
+cargo run -p audio-analysis-processing-cli -- operations --json
+cargo run -p audio-analysis-processing-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

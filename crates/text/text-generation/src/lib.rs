@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 mod synthesis;
 
 use std::collections::BTreeMap;

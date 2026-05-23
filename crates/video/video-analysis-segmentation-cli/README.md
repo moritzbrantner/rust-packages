@@ -5,5 +5,6 @@ Thin command-line adapter for `video-analysis-segmentation`.
 Run:
 
 ```bash
-cargo run -p video-analysis-segmentation-cli -- info --json
+cargo run -p video-analysis-segmentation-cli -- operations --json
+cargo run -p video-analysis-segmentation-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

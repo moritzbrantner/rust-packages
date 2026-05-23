@@ -5,5 +5,6 @@ Thin command-line adapter for `video-analysis-features`.
 Run:
 
 ```bash
-cargo run -p video-analysis-features-cli -- info --json
+cargo run -p video-analysis-features-cli -- operations --json
+cargo run -p video-analysis-features-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

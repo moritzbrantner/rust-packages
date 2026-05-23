@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use vector_analysis_core::DenseVector;
 use video_analysis_core::{DetectError, Result};
 

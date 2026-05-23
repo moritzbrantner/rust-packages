@@ -1,14 +1,14 @@
 # audio-analysis-io-app
 
-React, TypeScript, TailwindCSS, Bun, and oxfmt frontend for `audio-analysis-io-server`.
+React, TypeScript, TailwindCSS, Bun, and oxfmt frontend for `audio-analysis-io`.
 
-Run the server first:
+Run the server:
 
 ```bash
 cargo run -p audio-analysis-io-server -- --addr 127.0.0.1:3000
 ```
 
-Then run the app:
+Run the app:
 
 ```bash
 bun run --cwd packages/audio-analysis-io-app dev

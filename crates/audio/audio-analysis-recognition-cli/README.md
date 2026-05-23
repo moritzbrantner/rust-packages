@@ -5,5 +5,6 @@ Thin command-line adapter for `audio-analysis-recognition`.
 Run:
 
 ```bash
-cargo run -p audio-analysis-recognition-cli -- info --json
+cargo run -p audio-analysis-recognition-cli -- operations --json
+cargo run -p audio-analysis-recognition-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

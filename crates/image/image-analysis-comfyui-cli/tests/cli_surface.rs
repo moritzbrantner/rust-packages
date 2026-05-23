@@ -4,5 +4,7 @@ fn cli_adapter_reports_wrapped_library() {
         image_analysis_comfyui_cli::LIBRARY_CRATE,
         "image-analysis-comfyui"
     );
-    assert_eq!(image_analysis_comfyui_cli::SURFACE_KIND, "cli");
+    let surface = image_analysis_comfyui_cli::package_surface();
+    assert_eq!(surface.library, "image-analysis-comfyui");
+    assert!(!surface.operations.is_empty());
 }

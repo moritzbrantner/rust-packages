@@ -1,5 +1,6 @@
 //! Public API for the video-analysis-test-support crate.
 
+pub mod surface;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};

@@ -4,5 +4,7 @@ fn cli_adapter_reports_wrapped_library() {
         audio_analysis_rhythm_cli::LIBRARY_CRATE,
         "audio-analysis-rhythm"
     );
-    assert_eq!(audio_analysis_rhythm_cli::SURFACE_KIND, "cli");
+    let surface = audio_analysis_rhythm_cli::package_surface();
+    assert_eq!(surface.library, "audio-analysis-rhythm");
+    assert!(!surface.operations.is_empty());
 }

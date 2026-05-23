@@ -1,7 +1,7 @@
 {
   "name": "@mb-rust/text-linguistics-wasm",
   "version": "0.1.0",
-  "description": "WASM bindings for text-linguistics.",
+  "description": "WASM package for text-linguistics.",
   "license": "MIT OR Apache-2.0",
   "type": "module",
   "private": false,
@@ -22,7 +22,6 @@
   },
   "scripts": {
     "build": "bash scripts/build-wasm.sh",
-    "prepare": "bun run build",
-    "test": "bun test"
+    "test": "bun test tests"
   }
 }

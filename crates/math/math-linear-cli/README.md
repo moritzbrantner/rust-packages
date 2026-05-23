@@ -5,5 +5,6 @@ Thin command-line adapter for `math-linear`.
 Run:
 
 ```bash
-cargo run -p math-linear-cli -- info --json
+cargo run -p math-linear-cli -- operations --json
+cargo run -p math-linear-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

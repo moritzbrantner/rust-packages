@@ -5,5 +5,6 @@ Thin command-line adapter for `video-analysis-data`.
 Run:
 
 ```bash
-cargo run -p video-analysis-data-cli -- info --json
+cargo run -p video-analysis-data-cli -- operations --json
+cargo run -p video-analysis-data-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

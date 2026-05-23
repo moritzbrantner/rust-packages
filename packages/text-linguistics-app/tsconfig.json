@@ -14,23 +14,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
-    "typeRoots": ["../../node_modules/.bun/node_modules/@types"],
-    "paths": {
-      "react": ["../../node_modules/.bun/node_modules/@types/react/index.d.ts"],
-      "react/jsx-runtime": [
-        "../../node_modules/.bun/node_modules/@types/react/jsx-runtime.d.ts"
-      ],
-      "react/jsx-dev-runtime": [
-        "../../node_modules/.bun/node_modules/@types/react/jsx-dev-runtime.d.ts"
-      ],
-      "react-dom/client": [
-        "../../node_modules/.bun/node_modules/@types/react-dom/client.d.ts"
-      ],
-      "vite/client": ["../../node_modules/.bun/node_modules/vite/client.d.ts"]
-    }
+    "jsx": "react-jsx"
   },
   "include": ["src"],
   "references": []

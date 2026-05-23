@@ -1,14 +1,14 @@
 # graph-analysis-core-app
 
-React, TypeScript, TailwindCSS, Bun, and oxfmt frontend for `graph-analysis-core-server`.
+React, TypeScript, TailwindCSS, Bun, and oxfmt frontend for `graph-analysis-core`.
 
-Run the server first:
+Run the server:
 
 ```bash
 cargo run -p graph-analysis-core-server -- --addr 127.0.0.1:3000
 ```
 
-Then run the app:
+Run the app:
 
 ```bash
 bun run --cwd packages/graph-analysis-core-app dev

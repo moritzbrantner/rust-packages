@@ -5,5 +5,6 @@ Thin command-line adapter for `vector-analysis-core`.
 Run:
 
 ```bash
-cargo run -p vector-analysis-core-cli -- info --json
+cargo run -p vector-analysis-core-cli -- operations --json
+cargo run -p vector-analysis-core-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

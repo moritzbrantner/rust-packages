@@ -4,5 +4,7 @@ fn cli_adapter_reports_wrapped_library() {
         video_analysis_ingest_cli::LIBRARY_CRATE,
         "video-analysis-ingest"
     );
-    assert_eq!(video_analysis_ingest_cli::SURFACE_KIND, "cli");
+    let surface = video_analysis_ingest_cli::package_surface();
+    assert_eq!(surface.library, "video-analysis-ingest");
+    assert!(!surface.operations.is_empty());
 }

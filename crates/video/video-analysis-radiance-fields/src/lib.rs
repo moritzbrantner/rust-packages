@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 use video_analysis_core::{DetectError, Result};

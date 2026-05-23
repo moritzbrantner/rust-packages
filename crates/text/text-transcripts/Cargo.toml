@@ -13,6 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+runtime-contracts.workspace = true
 audio-analysis-core.workspace = true
 audio-analysis-io.workspace = true
 hound.workspace = true

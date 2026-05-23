@@ -5,5 +5,6 @@ Thin command-line adapter for `audio-analysis-synthesis`.
 Run:
 
 ```bash
-cargo run -p audio-analysis-synthesis-cli -- info --json
+cargo run -p audio-analysis-synthesis-cli -- operations --json
+cargo run -p audio-analysis-synthesis-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

@@ -5,5 +5,6 @@ Thin command-line adapter for `video-analysis-split`.
 Run:
 
 ```bash
-cargo run -p video-analysis-split-cli -- info --json
+cargo run -p video-analysis-split-cli -- operations --json
+cargo run -p video-analysis-split-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

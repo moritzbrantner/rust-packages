@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use std::collections::BTreeMap;
 
 use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};

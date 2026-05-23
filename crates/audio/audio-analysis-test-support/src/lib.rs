@@ -1,5 +1,6 @@
 //! Public API for the audio-analysis-test-support crate.
 
+pub mod surface;
 use std::f32::consts::PI;
 use std::fs::File;
 use std::io::{self, Write};

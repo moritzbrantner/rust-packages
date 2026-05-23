@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use audio_analysis_recognition::{AudioRuntime, AudioRuntimeSelection};
 use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};
 use video_analysis_core::{

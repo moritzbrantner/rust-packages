@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use std::collections::VecDeque;
 
 use audio_analysis_core::mono_samples;

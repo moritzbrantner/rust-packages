@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use std::path::{Path, PathBuf};
 
 use audio_analysis_core::{interleaved_to_mono, ChannelMix, OwnedAudioWaveformBatch};

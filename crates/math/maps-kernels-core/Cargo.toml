@@ -12,5 +12,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+serde_json.workspace = true
+runtime-contracts.workspace = true
 numbers-core.workspace = true
 video-analysis-core.workspace = true

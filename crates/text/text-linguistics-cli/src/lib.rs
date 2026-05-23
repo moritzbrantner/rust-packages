@@ -1,3 +1,5 @@
+use runtime_contracts::{OperationId, PackageSurface, SurfaceRequest, SurfaceResponse};
+
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "text-linguistics";
 /// Adapter surface kind.
@@ -8,8 +10,13 @@ pub const LIBRARY_IMPORT: &str = "use text_linguistics";
 pub const SERVER_PACKAGE: &str = "text-linguistics-server";
 /// Companion React app package name.
 pub const APP_PACKAGE: &str = "text-linguistics-app";
+/// Companion WASM package name.
+pub const WASM_PACKAGE: &str = "text-linguistics-wasm";
 
-/// Returns JSON metadata for this CLI adapter.
+pub fn package_surface() -> PackageSurface {
+    text_linguistics::surface::package_surface()
+}
+
 pub fn package_metadata_json() -> String {
     serde_json::json!({
         "package": format!("{}-cli", LIBRARY_CRATE),
@@ -17,48 +24,30 @@ pub fn package_metadata_json() -> String {
         "library": LIBRARY_CRATE,
         "libraryImport": LIBRARY_IMPORT,
         "serverPackage": SERVER_PACKAGE,
-        "appPackage": APP_PACKAGE
+        "appPackage": APP_PACKAGE,
+        "wasmPackage": WASM_PACKAGE,
+        "operations": package_surface().operations
     })
     .to_string()
 }
 
-/// Returns a compact command schema for this generic CLI adapter.
 pub fn command_schema_json() -> String {
     serde_json::json!({
         "commands": [
-            {
-                "name": "info",
-                "description": "Print package and adapter metadata."
-            },
-            {
-                "name": "schema",
-                "description": "Print the generic CLI command schema."
-            },
-            {
-                "name": "analyze",
-                "description": "Analyze supplied text and emit JSON.",
-                "options": [
-                    "--profile <fast|balanced|rich>",
-                    "--entity-recognition <local-model|heuristic>",
-                    "--model-dir <path>",
-                    "--no-auto-download"
-                ],
-                "defaultModel": "bert-base-ner"
-            },
-            {
-                "name": "analyze-file",
-                "description": "Analyze a UTF-8 text file and emit JSON.",
-                "options": [
-                    "--profile <fast|balanced|rich>",
-                    "--entity-recognition <local-model|heuristic>",
-                    "--model-dir <path>",
-                    "--no-auto-download"
-                ],
-                "defaultModel": "bert-base-ner"
-            }
+            {"name": "info", "description": "Print package and adapter metadata."},
+            {"name": "schema", "description": "Print the CLI command schema."},
+            {"name": "operations", "description": "Print library operations."},
+            {"name": "run", "description": "Run one library-owned operation."}
         ]
     })
     .to_string()
+}
+
+pub fn run_operation(operation: &str, input: serde_json::Value) -> Result<SurfaceResponse, String> {
+    text_linguistics::surface::run_surface_operation(SurfaceRequest {
+        operation: OperationId::new(operation),
+        input,
+    })
 }
 
 #[cfg(test)]

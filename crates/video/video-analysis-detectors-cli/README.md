@@ -5,5 +5,6 @@ Thin command-line adapter for `video-analysis-detectors`.
 Run:
 
 ```bash
-cargo run -p video-analysis-detectors-cli -- info --json
+cargo run -p video-analysis-detectors-cli -- operations --json
+cargo run -p video-analysis-detectors-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

@@ -1,0 +1,23 @@
+[package]
+name = "text-embeddings-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the text-embeddings library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "text-embeddings-server"
+
+[[bin]]
+name = "text-embeddings-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+runtime-contracts.workspace = true
+serde_json.workspace = true
+text-embeddings = { path = "../text-embeddings" }

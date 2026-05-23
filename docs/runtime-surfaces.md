@@ -45,6 +45,40 @@ successful operation response should keep `OperationResult<T>` intact:
 }
 ```
 
+## Required Package Surface
+
+Every non-wrapper Rust library crate under `crates/*/*` owns a `surface` module
+and every transport delegates to it:
+
+```text
+<crate>::surface::package_surface()
+<crate>::surface::run_surface_operation(request)
+```
+
+The required companion surfaces are:
+
+- `<crate>-cli`
+- `<crate>-server`
+- `crates/bindings/<crate>-wasm`
+- `packages/<crate>-wasm`
+- `packages/<crate>-app`
+
+CLI, HTTP, WASM, and Vite app packages may translate transport concerns, but
+they must not own operation behavior. Library crates own operation metadata,
+example requests, validation, and execution.
+
+The shared DTOs live in `runtime-contracts`:
+
+- `PackageSurface`
+- `SurfaceOperation`
+- `SurfaceRequest`
+- `SurfaceResponse`
+
+The generated baseline operation for every crate is `describe`, which returns a
+serializable summary of the library surface. Crates can add richer
+representative operations in their own `surface` module without changing the
+transport wrappers.
+
 ## Runtime Tiers
 
 Tier 1: pure Rust core

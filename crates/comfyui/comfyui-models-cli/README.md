@@ -5,5 +5,6 @@ Thin command-line adapter for `comfyui-models`.
 Run:
 
 ```bash
-cargo run -p comfyui-models-cli -- info --json
+cargo run -p comfyui-models-cli -- operations --json
+cargo run -p comfyui-models-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

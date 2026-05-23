@@ -13,4 +13,6 @@ Endpoints:
 - `GET /health`
 - `GET /api/package`
 - `GET /api/schema`
+- `GET /api/operations`
 - `POST /api/run`
+- `POST /api/<operation-id>`

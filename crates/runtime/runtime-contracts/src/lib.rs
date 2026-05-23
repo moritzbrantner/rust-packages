@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -139,6 +140,44 @@ pub struct OperationMetadata {
     pub capabilities: RuntimeCapabilities,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageSurface {
+    pub library: String,
+    pub version: String,
+    pub operations: Vec<SurfaceOperation>,
+    pub capabilities: RuntimeCapabilities,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceOperation {
+    pub id: OperationId,
+    pub name: String,
+    pub description: Option<String>,
+    pub input_schema: serde_json::Value,
+    pub output_schema: serde_json::Value,
+    pub example_request: serde_json::Value,
+    pub wasm_supported: bool,
+    pub server_supported: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceRequest {
+    pub operation: OperationId,
+    pub input: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceResponse {
+    pub operation: OperationId,
+    pub value: serde_json::Value,
+    pub diagnostics: Vec<Diagnostic>,
+    pub artifacts: Vec<serde_json::Value>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 pub struct JobId(pub String);
@@ -212,5 +251,30 @@ mod tests {
         assert!(capabilities.server);
         assert!(capabilities.wasm);
         assert_eq!(capabilities.mobile, MobileCapability::Wasm);
+    }
+
+    #[test]
+    fn package_surface_uses_camel_case_json() {
+        let surface = PackageSurface {
+            library: "demo-core".to_string(),
+            version: "0.1.0".to_string(),
+            capabilities: RuntimeCapabilities::pure_rust(),
+            operations: vec![SurfaceOperation {
+                id: OperationId::new("describe"),
+                name: "Describe".to_string(),
+                description: Some("Describe package surface".to_string()),
+                input_schema: serde_json::json!({"type": "object"}),
+                output_schema: serde_json::json!({"type": "object"}),
+                example_request: serde_json::json!({}),
+                wasm_supported: true,
+                server_supported: true,
+            }],
+        };
+
+        let json = serde_json::to_string(&surface).expect("serialize surface");
+
+        assert!(json.contains("\"inputSchema\""));
+        assert!(json.contains("\"exampleRequest\""));
+        assert!(json.contains("\"wasmSupported\":true"));
     }
 }

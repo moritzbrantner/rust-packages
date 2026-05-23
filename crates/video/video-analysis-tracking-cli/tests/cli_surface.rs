@@ -4,5 +4,7 @@ fn cli_adapter_reports_wrapped_library() {
         video_analysis_tracking_cli::LIBRARY_CRATE,
         "video-analysis-tracking"
     );
-    assert_eq!(video_analysis_tracking_cli::SURFACE_KIND, "cli");
+    let surface = video_analysis_tracking_cli::package_surface();
+    assert_eq!(surface.library, "video-analysis-tracking");
+    assert!(!surface.operations.is_empty());
 }

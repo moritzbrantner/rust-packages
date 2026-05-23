@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod corpus;
+pub mod surface;
 
 use std::collections::{BTreeMap, BTreeSet};
 

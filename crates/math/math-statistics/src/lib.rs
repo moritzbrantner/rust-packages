@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use math_linear::{F32Matrix, F32MatrixView, MatrixShape};
 use numbers_core::{NumberRange, RunningStats};
 use video_analysis_core::{DetectError, Result};

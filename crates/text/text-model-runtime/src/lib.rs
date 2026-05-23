@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use std::collections::BTreeMap;
 #[cfg(feature = "tokenizers")]
 use std::fs;

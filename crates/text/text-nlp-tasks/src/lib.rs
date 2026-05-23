@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 pub use text_nlp_models::*;
 
 #[cfg(test)]

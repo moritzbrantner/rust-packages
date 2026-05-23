@@ -5,5 +5,6 @@ Thin command-line adapter for `text-retrieval`.
 Run:
 
 ```bash
-cargo run -p text-retrieval-cli -- info --json
+cargo run -p text-retrieval-cli -- operations --json
+cargo run -p text-retrieval-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

@@ -9,6 +9,7 @@
       "name": "animation-core-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/animation-core-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -23,10 +24,15 @@
         "typescript": "^6.0.2",
       },
     },
+    "packages/animation-core-wasm": {
+      "name": "@mb-rust/animation-core-wasm",
+      "version": "0.1.0",
+    },
     "packages/audio-analysis-core-app": {
       "name": "audio-analysis-core-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-analysis-core-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -49,6 +55,7 @@
       "name": "audio-analysis-fourier-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-analysis-fourier-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -62,11 +69,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/audio-analysis-fourier-wasm": {
+      "name": "@mb-rust/audio-analysis-fourier-wasm",
+      "version": "0.1.0",
     },
     "packages/audio-analysis-io-app": {
       "name": "audio-analysis-io-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-analysis-io-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -80,11 +92,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/audio-analysis-io-wasm": {
+      "name": "@mb-rust/audio-analysis-io-wasm",
+      "version": "0.1.0",
     },
     "packages/audio-analysis-pitch-app": {
       "name": "audio-analysis-pitch-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-analysis-pitch-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -98,11 +115,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/audio-analysis-pitch-wasm": {
+      "name": "@mb-rust/audio-analysis-pitch-wasm",
+      "version": "0.1.0",
     },
     "packages/audio-analysis-processing-app": {
       "name": "audio-analysis-processing-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-analysis-processing-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -116,11 +138,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/audio-analysis-processing-wasm": {
+      "name": "@mb-rust/audio-analysis-processing-wasm",
+      "version": "0.1.0",
     },
     "packages/audio-analysis-recognition-app": {
       "name": "audio-analysis-recognition-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-analysis-recognition-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -134,11 +161,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/audio-analysis-recognition-wasm": {
+      "name": "@mb-rust/audio-analysis-recognition-wasm",
+      "version": "0.1.0",
     },
     "packages/audio-analysis-rhythm-app": {
       "name": "audio-analysis-rhythm-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-analysis-rhythm-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -152,11 +184,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/audio-analysis-rhythm-wasm": {
+      "name": "@mb-rust/audio-analysis-rhythm-wasm",
+      "version": "0.1.0",
     },
     "packages/audio-analysis-separation-app": {
       "name": "audio-analysis-separation-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-analysis-separation-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -170,11 +207,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/audio-analysis-separation-wasm": {
+      "name": "@mb-rust/audio-analysis-separation-wasm",
+      "version": "0.1.0",
     },
     "packages/audio-analysis-speakers-app": {
       "name": "audio-analysis-speakers-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-analysis-speakers-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -188,11 +230,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/audio-analysis-speakers-wasm": {
+      "name": "@mb-rust/audio-analysis-speakers-wasm",
+      "version": "0.1.0",
     },
     "packages/audio-analysis-synthesis-app": {
       "name": "audio-analysis-synthesis-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-analysis-synthesis-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -206,11 +253,62 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/audio-analysis-synthesis-wasm": {
+      "name": "@mb-rust/audio-analysis-synthesis-wasm",
+      "version": "0.1.0",
+    },
+    "packages/audio-analysis-tasks-app": {
+      "name": "audio-analysis-tasks-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/audio-analysis-tasks-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/audio-analysis-tasks-wasm": {
+      "name": "@mb-rust/audio-analysis-tasks-wasm",
+      "version": "0.1.0",
+    },
+    "packages/audio-analysis-test-support-app": {
+      "name": "audio-analysis-test-support-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/audio-analysis-test-support-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/audio-analysis-test-support-wasm": {
+      "name": "@mb-rust/audio-analysis-test-support-wasm",
+      "version": "0.1.0",
     },
     "packages/audio-generation-midi-app": {
       "name": "audio-generation-midi-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/audio-generation-midi-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -224,11 +322,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/audio-generation-midi-wasm": {
+      "name": "@mb-rust/audio-generation-midi-wasm",
+      "version": "0.1.0",
     },
     "packages/comfyui-data-app": {
       "name": "comfyui-data-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/comfyui-data-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -242,11 +345,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/comfyui-data-wasm": {
+      "name": "@mb-rust/comfyui-data-wasm",
+      "version": "0.1.0",
     },
     "packages/comfyui-latents-app": {
       "name": "comfyui-latents-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/comfyui-latents-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -260,11 +368,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/comfyui-latents-wasm": {
+      "name": "@mb-rust/comfyui-latents-wasm",
+      "version": "0.1.0",
     },
     "packages/comfyui-models-app": {
       "name": "comfyui-models-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/comfyui-models-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -278,11 +391,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/comfyui-models-wasm": {
+      "name": "@mb-rust/comfyui-models-wasm",
+      "version": "0.1.0",
     },
     "packages/data-inversion-core-app": {
       "name": "data-inversion-core-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/data-inversion-core-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -296,11 +414,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/data-inversion-core-wasm": {
+      "name": "@mb-rust/data-inversion-core-wasm",
+      "version": "0.1.0",
     },
     "packages/dense-data-app": {
       "name": "dense-data-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/dense-data-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -314,11 +437,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/dense-data-wasm": {
+      "name": "@mb-rust/dense-data-wasm",
+      "version": "0.1.0",
     },
     "packages/finance-statistics-app": {
       "name": "finance-statistics-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/finance-statistics-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -332,11 +460,39 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/finance-statistics-wasm": {
+      "name": "@mb-rust/finance-statistics-wasm",
+      "version": "0.1.0",
+    },
+    "packages/geo-data-app": {
+      "name": "geo-data-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/geo-data-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/geo-data-wasm": {
+      "name": "@mb-rust/geo-data-wasm",
+      "version": "0.1.0",
     },
     "packages/graph-analysis-core-app": {
       "name": "graph-analysis-core-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/graph-analysis-core-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -350,11 +506,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/graph-analysis-core-wasm": {
+      "name": "@mb-rust/graph-analysis-core-wasm",
+      "version": "0.1.0",
     },
     "packages/image-analysis-comfyui-app": {
       "name": "image-analysis-comfyui-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/image-analysis-comfyui-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -368,11 +529,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/image-analysis-comfyui-wasm": {
+      "name": "@mb-rust/image-analysis-comfyui-wasm",
+      "version": "0.1.0",
     },
     "packages/image-analysis-core-app": {
       "name": "image-analysis-core-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/image-analysis-core-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -386,11 +552,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/image-analysis-core-wasm": {
+      "name": "@mb-rust/image-analysis-core-wasm",
+      "version": "0.1.0",
     },
     "packages/image-analysis-detection-app": {
       "name": "image-analysis-detection-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/image-analysis-detection-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -404,11 +575,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/image-analysis-detection-wasm": {
+      "name": "@mb-rust/image-analysis-detection-wasm",
+      "version": "0.1.0",
     },
     "packages/image-analysis-io-app": {
       "name": "image-analysis-io-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/image-analysis-io-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -422,11 +598,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/image-analysis-io-wasm": {
+      "name": "@mb-rust/image-analysis-io-wasm",
+      "version": "0.1.0",
     },
     "packages/image-analysis-models-app": {
       "name": "image-analysis-models-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/image-analysis-models-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -440,11 +621,39 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/image-analysis-models-wasm": {
+      "name": "@mb-rust/image-analysis-models-wasm",
+      "version": "0.1.0",
+    },
+    "packages/image-analysis-ocr-app": {
+      "name": "image-analysis-ocr-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/image-analysis-ocr-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/image-analysis-ocr-wasm": {
+      "name": "@mb-rust/image-analysis-ocr-wasm",
+      "version": "0.1.0",
     },
     "packages/image-analysis-onnx-app": {
       "name": "image-analysis-onnx-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/image-analysis-onnx-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -458,11 +667,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/image-analysis-onnx-wasm": {
+      "name": "@mb-rust/image-analysis-onnx-wasm",
+      "version": "0.1.0",
     },
     "packages/image-analysis-processing-app": {
       "name": "image-analysis-processing-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/image-analysis-processing-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -476,11 +690,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/image-analysis-processing-wasm": {
+      "name": "@mb-rust/image-analysis-processing-wasm",
+      "version": "0.1.0",
     },
     "packages/image-analysis-segmentation-app": {
       "name": "image-analysis-segmentation-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/image-analysis-segmentation-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -494,11 +713,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/image-analysis-segmentation-wasm": {
+      "name": "@mb-rust/image-analysis-segmentation-wasm",
+      "version": "0.1.0",
     },
     "packages/image-analysis-synthesis-app": {
       "name": "image-analysis-synthesis-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/image-analysis-synthesis-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -512,11 +736,62 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/image-analysis-synthesis-wasm": {
+      "name": "@mb-rust/image-analysis-synthesis-wasm",
+      "version": "0.1.0",
+    },
+    "packages/image-analysis-tasks-app": {
+      "name": "image-analysis-tasks-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/image-analysis-tasks-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/image-analysis-tasks-wasm": {
+      "name": "@mb-rust/image-analysis-tasks-wasm",
+      "version": "0.1.0",
+    },
+    "packages/jobs-core-app": {
+      "name": "jobs-core-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/jobs-core-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/jobs-core-wasm": {
+      "name": "@mb-rust/jobs-core-wasm",
+      "version": "0.1.0",
     },
     "packages/maps-kernels-core-app": {
       "name": "maps-kernels-core-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/maps-kernels-core-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -531,17 +806,15 @@
         "typescript": "^6.0.2",
       },
     },
-    "packages/maps-kernels-wasm": {
-      "name": "@mb-rust/maps-kernels-wasm",
+    "packages/maps-kernels-core-wasm": {
+      "name": "@mb-rust/maps-kernels-core-wasm",
       "version": "0.1.0",
-      "devDependencies": {
-        "@playwright/test": "^1.57.0",
-      },
     },
     "packages/math-geometry-2d-app": {
       "name": "math-geometry-2d-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/math-geometry-2d-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -555,11 +828,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/math-geometry-2d-wasm": {
+      "name": "@mb-rust/math-geometry-2d-wasm",
+      "version": "0.1.0",
     },
     "packages/math-linear-app": {
       "name": "math-linear-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/math-linear-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -573,11 +851,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/math-linear-wasm": {
+      "name": "@mb-rust/math-linear-wasm",
+      "version": "0.1.0",
     },
     "packages/math-signal-core-app": {
       "name": "math-signal-core-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/math-signal-core-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -591,11 +874,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/math-signal-core-wasm": {
+      "name": "@mb-rust/math-signal-core-wasm",
+      "version": "0.1.0",
     },
     "packages/math-sparse-data-app": {
       "name": "math-sparse-data-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/math-sparse-data-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -609,11 +897,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/math-sparse-data-wasm": {
+      "name": "@mb-rust/math-sparse-data-wasm",
+      "version": "0.1.0",
     },
     "packages/math-statistics-app": {
       "name": "math-statistics-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/math-statistics-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -627,11 +920,39 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/math-statistics-wasm": {
+      "name": "@mb-rust/math-statistics-wasm",
+      "version": "0.1.0",
+    },
+    "packages/model-runtime-app": {
+      "name": "model-runtime-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/model-runtime-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/model-runtime-wasm": {
+      "name": "@mb-rust/model-runtime-wasm",
+      "version": "0.1.0",
     },
     "packages/numbers-core-app": {
       "name": "numbers-core-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/numbers-core-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -646,10 +967,15 @@
         "typescript": "^6.0.2",
       },
     },
-    "packages/tensor-data-app": {
-      "name": "tensor-data-app",
+    "packages/numbers-core-wasm": {
+      "name": "@mb-rust/numbers-core-wasm",
+      "version": "0.1.0",
+    },
+    "packages/runtime-artifacts-app": {
+      "name": "runtime-artifacts-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/runtime-artifacts-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -663,6 +989,79 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/runtime-artifacts-wasm": {
+      "name": "@mb-rust/runtime-artifacts-wasm",
+      "version": "0.1.0",
+    },
+    "packages/runtime-contracts-app": {
+      "name": "runtime-contracts-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/runtime-contracts-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/runtime-contracts-wasm": {
+      "name": "@mb-rust/runtime-contracts-wasm",
+      "version": "0.1.0",
+    },
+    "packages/runtime-jobs-app": {
+      "name": "runtime-jobs-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/runtime-jobs-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/runtime-jobs-wasm": {
+      "name": "@mb-rust/runtime-jobs-wasm",
+      "version": "0.1.0",
+    },
+    "packages/tensor-data-app": {
+      "name": "tensor-data-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/tensor-data-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/tensor-data-wasm": {
+      "name": "@mb-rust/tensor-data-wasm",
+      "version": "0.1.0",
     },
     "packages/text-core-app": {
       "name": "text-core-app",
@@ -686,9 +1085,98 @@
     "packages/text-core-wasm": {
       "name": "@mb-rust/text-core-wasm",
       "version": "0.1.0",
-      "devDependencies": {
-        "playwright": "^1.60.0",
+    },
+    "packages/text-embeddings-app": {
+      "name": "text-embeddings-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/text-embeddings-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
       },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/text-embeddings-wasm": {
+      "name": "@mb-rust/text-embeddings-wasm",
+      "version": "0.1.0",
+    },
+    "packages/text-generation-app": {
+      "name": "text-generation-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/text-generation-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/text-generation-linguistics-app": {
+      "name": "text-generation-linguistics-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/text-generation-linguistics-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/text-generation-linguistics-wasm": {
+      "name": "@mb-rust/text-generation-linguistics-wasm",
+      "version": "0.1.0",
+    },
+    "packages/text-generation-wasm": {
+      "name": "@mb-rust/text-generation-wasm",
+      "version": "0.1.0",
+    },
+    "packages/text-lexical-app": {
+      "name": "text-lexical-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/text-lexical-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/text-lexical-wasm": {
+      "name": "@mb-rust/text-lexical-wasm",
+      "version": "0.1.0",
     },
     "packages/text-linguistics-app": {
       "name": "text-linguistics-app",
@@ -713,10 +1201,11 @@
       "name": "@mb-rust/text-linguistics-wasm",
       "version": "0.1.0",
     },
-    "packages/three-d-processing-core-app": {
-      "name": "three-d-processing-core-app",
+    "packages/text-model-runtime-app": {
+      "name": "text-model-runtime-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/text-model-runtime-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -730,11 +1219,131 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/text-model-runtime-wasm": {
+      "name": "@mb-rust/text-model-runtime-wasm",
+      "version": "0.1.0",
+    },
+    "packages/text-nlp-models-app": {
+      "name": "text-nlp-models-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/text-nlp-models-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/text-nlp-models-wasm": {
+      "name": "@mb-rust/text-nlp-models-wasm",
+      "version": "0.1.0",
+    },
+    "packages/text-nlp-tasks-app": {
+      "name": "text-nlp-tasks-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/text-nlp-tasks-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/text-nlp-tasks-wasm": {
+      "name": "@mb-rust/text-nlp-tasks-wasm",
+      "version": "0.1.0",
+    },
+    "packages/text-retrieval-app": {
+      "name": "text-retrieval-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/text-retrieval-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/text-retrieval-wasm": {
+      "name": "@mb-rust/text-retrieval-wasm",
+      "version": "0.1.0",
+    },
+    "packages/text-transcripts-app": {
+      "name": "text-transcripts-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/text-transcripts-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/text-transcripts-wasm": {
+      "name": "@mb-rust/text-transcripts-wasm",
+      "version": "0.1.0",
+    },
+    "packages/three-d-processing-core-app": {
+      "name": "three-d-processing-core-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/three-d-processing-core-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/three-d-processing-core-wasm": {
+      "name": "@mb-rust/three-d-processing-core-wasm",
+      "version": "0.1.0",
     },
     "packages/three-d-processing-io-app": {
       "name": "three-d-processing-io-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/three-d-processing-io-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -748,11 +1357,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/three-d-processing-io-wasm": {
+      "name": "@mb-rust/three-d-processing-io-wasm",
+      "version": "0.1.0",
     },
     "packages/three-d-processing-mesh-app": {
       "name": "three-d-processing-mesh-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/three-d-processing-mesh-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -766,11 +1380,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/three-d-processing-mesh-wasm": {
+      "name": "@mb-rust/three-d-processing-mesh-wasm",
+      "version": "0.1.0",
     },
     "packages/three-d-scene-svg-app": {
       "name": "three-d-scene-svg-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/three-d-scene-svg-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -784,11 +1403,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/three-d-scene-svg-wasm": {
+      "name": "@mb-rust/three-d-scene-svg-wasm",
+      "version": "0.1.0",
     },
     "packages/vector-analysis-core-app": {
       "name": "vector-analysis-core-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/vector-analysis-core-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -802,11 +1426,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/vector-analysis-core-wasm": {
+      "name": "@mb-rust/vector-analysis-core-wasm",
+      "version": "0.1.0",
     },
     "packages/vector-analysis-index-app": {
       "name": "vector-analysis-index-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/vector-analysis-index-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -820,11 +1449,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/vector-analysis-index-wasm": {
+      "name": "@mb-rust/vector-analysis-index-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-colmap-backend-app": {
       "name": "video-analysis-colmap-backend-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-colmap-backend-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -839,10 +1473,15 @@
         "typescript": "^6.0.2",
       },
     },
+    "packages/video-analysis-colmap-backend-wasm": {
+      "name": "@mb-rust/video-analysis-colmap-backend-wasm",
+      "version": "0.1.0",
+    },
     "packages/video-analysis-core-app": {
       "name": "video-analysis-core-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-core-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -865,6 +1504,7 @@
       "name": "video-analysis-data-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-data-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -878,11 +1518,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-data-wasm": {
+      "name": "@mb-rust/video-analysis-data-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-dataset-app": {
       "name": "video-analysis-dataset-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-dataset-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -896,11 +1541,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-dataset-wasm": {
+      "name": "@mb-rust/video-analysis-dataset-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-detectors-app": {
       "name": "video-analysis-detectors-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-detectors-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -914,11 +1564,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-detectors-wasm": {
+      "name": "@mb-rust/video-analysis-detectors-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-editing-app": {
       "name": "video-analysis-editing-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-editing-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -932,11 +1587,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-editing-wasm": {
+      "name": "@mb-rust/video-analysis-editing-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-features-app": {
       "name": "video-analysis-features-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-features-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -950,11 +1610,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-features-wasm": {
+      "name": "@mb-rust/video-analysis-features-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-ffmpeg-app": {
       "name": "video-analysis-ffmpeg-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-ffmpeg-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -968,11 +1633,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-ffmpeg-wasm": {
+      "name": "@mb-rust/video-analysis-ffmpeg-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-gaussian-splatting-app": {
       "name": "video-analysis-gaussian-splatting-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-gaussian-splatting-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -986,11 +1656,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-gaussian-splatting-wasm": {
+      "name": "@mb-rust/video-analysis-gaussian-splatting-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-ingest-app": {
       "name": "video-analysis-ingest-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-ingest-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1004,11 +1679,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-ingest-wasm": {
+      "name": "@mb-rust/video-analysis-ingest-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-models-app": {
       "name": "video-analysis-models-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-models-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1022,11 +1702,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-models-wasm": {
+      "name": "@mb-rust/video-analysis-models-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-mvs-app": {
       "name": "video-analysis-mvs-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-mvs-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1040,11 +1725,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-mvs-wasm": {
+      "name": "@mb-rust/video-analysis-mvs-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-onnx-app": {
       "name": "video-analysis-onnx-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-onnx-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1058,11 +1748,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-onnx-wasm": {
+      "name": "@mb-rust/video-analysis-onnx-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-opencv-backend-app": {
       "name": "video-analysis-opencv-backend-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-opencv-backend-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1076,11 +1771,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-opencv-backend-wasm": {
+      "name": "@mb-rust/video-analysis-opencv-backend-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-output-app": {
       "name": "video-analysis-output-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-output-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1095,10 +1795,15 @@
         "typescript": "^6.0.2",
       },
     },
+    "packages/video-analysis-output-wasm": {
+      "name": "@mb-rust/video-analysis-output-wasm",
+      "version": "0.1.0",
+    },
     "packages/video-analysis-posture-app": {
       "name": "video-analysis-posture-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-posture-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1117,6 +1822,7 @@
       "name": "video-analysis-posture-io-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-posture-io-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1130,11 +1836,20 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-posture-io-wasm": {
+      "name": "@mb-rust/video-analysis-posture-io-wasm",
+      "version": "0.1.0",
+    },
+    "packages/video-analysis-posture-wasm": {
+      "name": "@mb-rust/video-analysis-posture-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-radiance-fields-app": {
       "name": "video-analysis-radiance-fields-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-radiance-fields-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1148,11 +1863,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-radiance-fields-wasm": {
+      "name": "@mb-rust/video-analysis-radiance-fields-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-radiance-io-app": {
       "name": "video-analysis-radiance-io-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-radiance-io-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1166,11 +1886,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-radiance-io-wasm": {
+      "name": "@mb-rust/video-analysis-radiance-io-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-radiance-pipeline-app": {
       "name": "video-analysis-radiance-pipeline-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-radiance-pipeline-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1184,11 +1909,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-radiance-pipeline-wasm": {
+      "name": "@mb-rust/video-analysis-radiance-pipeline-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-recognition-app": {
       "name": "video-analysis-recognition-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-recognition-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1202,11 +1932,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-recognition-wasm": {
+      "name": "@mb-rust/video-analysis-recognition-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-reconstruction-app": {
       "name": "video-analysis-reconstruction-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-reconstruction-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1220,11 +1955,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-reconstruction-wasm": {
+      "name": "@mb-rust/video-analysis-reconstruction-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-segmentation-app": {
       "name": "video-analysis-segmentation-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-segmentation-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1239,10 +1979,15 @@
         "typescript": "^6.0.2",
       },
     },
+    "packages/video-analysis-segmentation-wasm": {
+      "name": "@mb-rust/video-analysis-segmentation-wasm",
+      "version": "0.1.0",
+    },
     "packages/video-analysis-sfm-app": {
       "name": "video-analysis-sfm-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-sfm-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1261,6 +2006,7 @@
       "name": "video-analysis-sfm-rust-backend-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-sfm-rust-backend-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1274,11 +2020,20 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-sfm-rust-backend-wasm": {
+      "name": "@mb-rust/video-analysis-sfm-rust-backend-wasm",
+      "version": "0.1.0",
+    },
+    "packages/video-analysis-sfm-wasm": {
+      "name": "@mb-rust/video-analysis-sfm-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-split-app": {
       "name": "video-analysis-split-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-split-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1292,11 +2047,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-split-wasm": {
+      "name": "@mb-rust/video-analysis-split-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-storage-app": {
       "name": "video-analysis-storage-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-storage-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1310,11 +2070,16 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-storage-wasm": {
+      "name": "@mb-rust/video-analysis-storage-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-synthesis-app": {
       "name": "video-analysis-synthesis-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-synthesis-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1328,11 +2093,39 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-synthesis-wasm": {
+      "name": "@mb-rust/video-analysis-synthesis-wasm",
+      "version": "0.1.0",
+    },
+    "packages/video-analysis-test-support-app": {
+      "name": "video-analysis-test-support-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mb-rust/video-analysis-test-support-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/video-analysis-test-support-wasm": {
+      "name": "@mb-rust/video-analysis-test-support-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-tracking-app": {
       "name": "video-analysis-tracking-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-tracking-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1347,10 +2140,15 @@
         "typescript": "^6.0.2",
       },
     },
+    "packages/video-analysis-tracking-wasm": {
+      "name": "@mb-rust/video-analysis-tracking-wasm",
+      "version": "0.1.0",
+    },
     "packages/video-analysis-transform-app": {
       "name": "video-analysis-transform-app",
       "version": "0.1.0",
       "dependencies": {
+        "@mb-rust/video-analysis-transform-wasm": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1364,6 +2162,10 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
+    },
+    "packages/video-analysis-transform-wasm": {
+      "name": "@mb-rust/video-analysis-transform-wasm",
+      "version": "0.1.0",
     },
     "packages/video-analysis-ui": {
       "name": "@video-analysis/ui",
@@ -1594,15 +2396,193 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
+    "@mb-rust/animation-core-wasm": ["@mb-rust/animation-core-wasm@workspace:packages/animation-core-wasm"],
+
     "@mb-rust/audio-analysis-core-wasm": ["@mb-rust/audio-analysis-core-wasm@workspace:packages/audio-analysis-core-wasm"],
 
-    "@mb-rust/maps-kernels-wasm": ["@mb-rust/maps-kernels-wasm@workspace:packages/maps-kernels-wasm"],
+    "@mb-rust/audio-analysis-fourier-wasm": ["@mb-rust/audio-analysis-fourier-wasm@workspace:packages/audio-analysis-fourier-wasm"],
+
+    "@mb-rust/audio-analysis-io-wasm": ["@mb-rust/audio-analysis-io-wasm@workspace:packages/audio-analysis-io-wasm"],
+
+    "@mb-rust/audio-analysis-pitch-wasm": ["@mb-rust/audio-analysis-pitch-wasm@workspace:packages/audio-analysis-pitch-wasm"],
+
+    "@mb-rust/audio-analysis-processing-wasm": ["@mb-rust/audio-analysis-processing-wasm@workspace:packages/audio-analysis-processing-wasm"],
+
+    "@mb-rust/audio-analysis-recognition-wasm": ["@mb-rust/audio-analysis-recognition-wasm@workspace:packages/audio-analysis-recognition-wasm"],
+
+    "@mb-rust/audio-analysis-rhythm-wasm": ["@mb-rust/audio-analysis-rhythm-wasm@workspace:packages/audio-analysis-rhythm-wasm"],
+
+    "@mb-rust/audio-analysis-separation-wasm": ["@mb-rust/audio-analysis-separation-wasm@workspace:packages/audio-analysis-separation-wasm"],
+
+    "@mb-rust/audio-analysis-speakers-wasm": ["@mb-rust/audio-analysis-speakers-wasm@workspace:packages/audio-analysis-speakers-wasm"],
+
+    "@mb-rust/audio-analysis-synthesis-wasm": ["@mb-rust/audio-analysis-synthesis-wasm@workspace:packages/audio-analysis-synthesis-wasm"],
+
+    "@mb-rust/audio-analysis-tasks-wasm": ["@mb-rust/audio-analysis-tasks-wasm@workspace:packages/audio-analysis-tasks-wasm"],
+
+    "@mb-rust/audio-analysis-test-support-wasm": ["@mb-rust/audio-analysis-test-support-wasm@workspace:packages/audio-analysis-test-support-wasm"],
+
+    "@mb-rust/audio-generation-midi-wasm": ["@mb-rust/audio-generation-midi-wasm@workspace:packages/audio-generation-midi-wasm"],
+
+    "@mb-rust/comfyui-data-wasm": ["@mb-rust/comfyui-data-wasm@workspace:packages/comfyui-data-wasm"],
+
+    "@mb-rust/comfyui-latents-wasm": ["@mb-rust/comfyui-latents-wasm@workspace:packages/comfyui-latents-wasm"],
+
+    "@mb-rust/comfyui-models-wasm": ["@mb-rust/comfyui-models-wasm@workspace:packages/comfyui-models-wasm"],
+
+    "@mb-rust/data-inversion-core-wasm": ["@mb-rust/data-inversion-core-wasm@workspace:packages/data-inversion-core-wasm"],
+
+    "@mb-rust/dense-data-wasm": ["@mb-rust/dense-data-wasm@workspace:packages/dense-data-wasm"],
+
+    "@mb-rust/finance-statistics-wasm": ["@mb-rust/finance-statistics-wasm@workspace:packages/finance-statistics-wasm"],
+
+    "@mb-rust/geo-data-wasm": ["@mb-rust/geo-data-wasm@workspace:packages/geo-data-wasm"],
+
+    "@mb-rust/graph-analysis-core-wasm": ["@mb-rust/graph-analysis-core-wasm@workspace:packages/graph-analysis-core-wasm"],
+
+    "@mb-rust/image-analysis-comfyui-wasm": ["@mb-rust/image-analysis-comfyui-wasm@workspace:packages/image-analysis-comfyui-wasm"],
+
+    "@mb-rust/image-analysis-core-wasm": ["@mb-rust/image-analysis-core-wasm@workspace:packages/image-analysis-core-wasm"],
+
+    "@mb-rust/image-analysis-detection-wasm": ["@mb-rust/image-analysis-detection-wasm@workspace:packages/image-analysis-detection-wasm"],
+
+    "@mb-rust/image-analysis-io-wasm": ["@mb-rust/image-analysis-io-wasm@workspace:packages/image-analysis-io-wasm"],
+
+    "@mb-rust/image-analysis-models-wasm": ["@mb-rust/image-analysis-models-wasm@workspace:packages/image-analysis-models-wasm"],
+
+    "@mb-rust/image-analysis-ocr-wasm": ["@mb-rust/image-analysis-ocr-wasm@workspace:packages/image-analysis-ocr-wasm"],
+
+    "@mb-rust/image-analysis-onnx-wasm": ["@mb-rust/image-analysis-onnx-wasm@workspace:packages/image-analysis-onnx-wasm"],
+
+    "@mb-rust/image-analysis-processing-wasm": ["@mb-rust/image-analysis-processing-wasm@workspace:packages/image-analysis-processing-wasm"],
+
+    "@mb-rust/image-analysis-segmentation-wasm": ["@mb-rust/image-analysis-segmentation-wasm@workspace:packages/image-analysis-segmentation-wasm"],
+
+    "@mb-rust/image-analysis-synthesis-wasm": ["@mb-rust/image-analysis-synthesis-wasm@workspace:packages/image-analysis-synthesis-wasm"],
+
+    "@mb-rust/image-analysis-tasks-wasm": ["@mb-rust/image-analysis-tasks-wasm@workspace:packages/image-analysis-tasks-wasm"],
+
+    "@mb-rust/jobs-core-wasm": ["@mb-rust/jobs-core-wasm@workspace:packages/jobs-core-wasm"],
+
+    "@mb-rust/maps-kernels-core-wasm": ["@mb-rust/maps-kernels-core-wasm@workspace:packages/maps-kernels-core-wasm"],
+
+    "@mb-rust/math-geometry-2d-wasm": ["@mb-rust/math-geometry-2d-wasm@workspace:packages/math-geometry-2d-wasm"],
+
+    "@mb-rust/math-linear-wasm": ["@mb-rust/math-linear-wasm@workspace:packages/math-linear-wasm"],
+
+    "@mb-rust/math-signal-core-wasm": ["@mb-rust/math-signal-core-wasm@workspace:packages/math-signal-core-wasm"],
+
+    "@mb-rust/math-sparse-data-wasm": ["@mb-rust/math-sparse-data-wasm@workspace:packages/math-sparse-data-wasm"],
+
+    "@mb-rust/math-statistics-wasm": ["@mb-rust/math-statistics-wasm@workspace:packages/math-statistics-wasm"],
+
+    "@mb-rust/model-runtime-wasm": ["@mb-rust/model-runtime-wasm@workspace:packages/model-runtime-wasm"],
+
+    "@mb-rust/numbers-core-wasm": ["@mb-rust/numbers-core-wasm@workspace:packages/numbers-core-wasm"],
+
+    "@mb-rust/runtime-artifacts-wasm": ["@mb-rust/runtime-artifacts-wasm@workspace:packages/runtime-artifacts-wasm"],
+
+    "@mb-rust/runtime-contracts-wasm": ["@mb-rust/runtime-contracts-wasm@workspace:packages/runtime-contracts-wasm"],
+
+    "@mb-rust/runtime-jobs-wasm": ["@mb-rust/runtime-jobs-wasm@workspace:packages/runtime-jobs-wasm"],
+
+    "@mb-rust/tensor-data-wasm": ["@mb-rust/tensor-data-wasm@workspace:packages/tensor-data-wasm"],
 
     "@mb-rust/text-core-wasm": ["@mb-rust/text-core-wasm@workspace:packages/text-core-wasm"],
 
+    "@mb-rust/text-embeddings-wasm": ["@mb-rust/text-embeddings-wasm@workspace:packages/text-embeddings-wasm"],
+
+    "@mb-rust/text-generation-linguistics-wasm": ["@mb-rust/text-generation-linguistics-wasm@workspace:packages/text-generation-linguistics-wasm"],
+
+    "@mb-rust/text-generation-wasm": ["@mb-rust/text-generation-wasm@workspace:packages/text-generation-wasm"],
+
+    "@mb-rust/text-lexical-wasm": ["@mb-rust/text-lexical-wasm@workspace:packages/text-lexical-wasm"],
+
     "@mb-rust/text-linguistics-wasm": ["@mb-rust/text-linguistics-wasm@workspace:packages/text-linguistics-wasm"],
 
+    "@mb-rust/text-model-runtime-wasm": ["@mb-rust/text-model-runtime-wasm@workspace:packages/text-model-runtime-wasm"],
+
+    "@mb-rust/text-nlp-models-wasm": ["@mb-rust/text-nlp-models-wasm@workspace:packages/text-nlp-models-wasm"],
+
+    "@mb-rust/text-nlp-tasks-wasm": ["@mb-rust/text-nlp-tasks-wasm@workspace:packages/text-nlp-tasks-wasm"],
+
+    "@mb-rust/text-retrieval-wasm": ["@mb-rust/text-retrieval-wasm@workspace:packages/text-retrieval-wasm"],
+
+    "@mb-rust/text-transcripts-wasm": ["@mb-rust/text-transcripts-wasm@workspace:packages/text-transcripts-wasm"],
+
+    "@mb-rust/three-d-processing-core-wasm": ["@mb-rust/three-d-processing-core-wasm@workspace:packages/three-d-processing-core-wasm"],
+
+    "@mb-rust/three-d-processing-io-wasm": ["@mb-rust/three-d-processing-io-wasm@workspace:packages/three-d-processing-io-wasm"],
+
+    "@mb-rust/three-d-processing-mesh-wasm": ["@mb-rust/three-d-processing-mesh-wasm@workspace:packages/three-d-processing-mesh-wasm"],
+
+    "@mb-rust/three-d-scene-svg-wasm": ["@mb-rust/three-d-scene-svg-wasm@workspace:packages/three-d-scene-svg-wasm"],
+
+    "@mb-rust/vector-analysis-core-wasm": ["@mb-rust/vector-analysis-core-wasm@workspace:packages/vector-analysis-core-wasm"],
+
+    "@mb-rust/vector-analysis-index-wasm": ["@mb-rust/vector-analysis-index-wasm@workspace:packages/vector-analysis-index-wasm"],
+
+    "@mb-rust/video-analysis-colmap-backend-wasm": ["@mb-rust/video-analysis-colmap-backend-wasm@workspace:packages/video-analysis-colmap-backend-wasm"],
+
     "@mb-rust/video-analysis-core-wasm": ["@mb-rust/video-analysis-core-wasm@workspace:packages/video-analysis-core-wasm"],
+
+    "@mb-rust/video-analysis-data-wasm": ["@mb-rust/video-analysis-data-wasm@workspace:packages/video-analysis-data-wasm"],
+
+    "@mb-rust/video-analysis-dataset-wasm": ["@mb-rust/video-analysis-dataset-wasm@workspace:packages/video-analysis-dataset-wasm"],
+
+    "@mb-rust/video-analysis-detectors-wasm": ["@mb-rust/video-analysis-detectors-wasm@workspace:packages/video-analysis-detectors-wasm"],
+
+    "@mb-rust/video-analysis-editing-wasm": ["@mb-rust/video-analysis-editing-wasm@workspace:packages/video-analysis-editing-wasm"],
+
+    "@mb-rust/video-analysis-features-wasm": ["@mb-rust/video-analysis-features-wasm@workspace:packages/video-analysis-features-wasm"],
+
+    "@mb-rust/video-analysis-ffmpeg-wasm": ["@mb-rust/video-analysis-ffmpeg-wasm@workspace:packages/video-analysis-ffmpeg-wasm"],
+
+    "@mb-rust/video-analysis-gaussian-splatting-wasm": ["@mb-rust/video-analysis-gaussian-splatting-wasm@workspace:packages/video-analysis-gaussian-splatting-wasm"],
+
+    "@mb-rust/video-analysis-ingest-wasm": ["@mb-rust/video-analysis-ingest-wasm@workspace:packages/video-analysis-ingest-wasm"],
+
+    "@mb-rust/video-analysis-models-wasm": ["@mb-rust/video-analysis-models-wasm@workspace:packages/video-analysis-models-wasm"],
+
+    "@mb-rust/video-analysis-mvs-wasm": ["@mb-rust/video-analysis-mvs-wasm@workspace:packages/video-analysis-mvs-wasm"],
+
+    "@mb-rust/video-analysis-onnx-wasm": ["@mb-rust/video-analysis-onnx-wasm@workspace:packages/video-analysis-onnx-wasm"],
+
+    "@mb-rust/video-analysis-opencv-backend-wasm": ["@mb-rust/video-analysis-opencv-backend-wasm@workspace:packages/video-analysis-opencv-backend-wasm"],
+
+    "@mb-rust/video-analysis-output-wasm": ["@mb-rust/video-analysis-output-wasm@workspace:packages/video-analysis-output-wasm"],
+
+    "@mb-rust/video-analysis-posture-io-wasm": ["@mb-rust/video-analysis-posture-io-wasm@workspace:packages/video-analysis-posture-io-wasm"],
+
+    "@mb-rust/video-analysis-posture-wasm": ["@mb-rust/video-analysis-posture-wasm@workspace:packages/video-analysis-posture-wasm"],
+
+    "@mb-rust/video-analysis-radiance-fields-wasm": ["@mb-rust/video-analysis-radiance-fields-wasm@workspace:packages/video-analysis-radiance-fields-wasm"],
+
+    "@mb-rust/video-analysis-radiance-io-wasm": ["@mb-rust/video-analysis-radiance-io-wasm@workspace:packages/video-analysis-radiance-io-wasm"],
+
+    "@mb-rust/video-analysis-radiance-pipeline-wasm": ["@mb-rust/video-analysis-radiance-pipeline-wasm@workspace:packages/video-analysis-radiance-pipeline-wasm"],
+
+    "@mb-rust/video-analysis-recognition-wasm": ["@mb-rust/video-analysis-recognition-wasm@workspace:packages/video-analysis-recognition-wasm"],
+
+    "@mb-rust/video-analysis-reconstruction-wasm": ["@mb-rust/video-analysis-reconstruction-wasm@workspace:packages/video-analysis-reconstruction-wasm"],
+
+    "@mb-rust/video-analysis-segmentation-wasm": ["@mb-rust/video-analysis-segmentation-wasm@workspace:packages/video-analysis-segmentation-wasm"],
+
+    "@mb-rust/video-analysis-sfm-rust-backend-wasm": ["@mb-rust/video-analysis-sfm-rust-backend-wasm@workspace:packages/video-analysis-sfm-rust-backend-wasm"],
+
+    "@mb-rust/video-analysis-sfm-wasm": ["@mb-rust/video-analysis-sfm-wasm@workspace:packages/video-analysis-sfm-wasm"],
+
+    "@mb-rust/video-analysis-split-wasm": ["@mb-rust/video-analysis-split-wasm@workspace:packages/video-analysis-split-wasm"],
+
+    "@mb-rust/video-analysis-storage-wasm": ["@mb-rust/video-analysis-storage-wasm@workspace:packages/video-analysis-storage-wasm"],
+
+    "@mb-rust/video-analysis-synthesis-wasm": ["@mb-rust/video-analysis-synthesis-wasm@workspace:packages/video-analysis-synthesis-wasm"],
+
+    "@mb-rust/video-analysis-test-support-wasm": ["@mb-rust/video-analysis-test-support-wasm@workspace:packages/video-analysis-test-support-wasm"],
+
+    "@mb-rust/video-analysis-tracking-wasm": ["@mb-rust/video-analysis-tracking-wasm@workspace:packages/video-analysis-tracking-wasm"],
+
+    "@mb-rust/video-analysis-transform-wasm": ["@mb-rust/video-analysis-transform-wasm@workspace:packages/video-analysis-transform-wasm"],
 
     "@modelcontextprotocol/sdk": ["@modelcontextprotocol/sdk@1.29.0", "", { "dependencies": { "@hono/node-server": "^1.19.9", "ajv": "^8.17.1", "ajv-formats": "^3.0.1", "content-type": "^1.0.5", "cors": "^2.8.5", "cross-spawn": "^7.0.5", "eventsource": "^3.0.2", "eventsource-parser": "^3.0.0", "express": "^5.2.1", "express-rate-limit": "^8.2.1", "hono": "^4.11.4", "jose": "^6.1.3", "json-schema-typed": "^8.0.2", "pkce-challenge": "^5.0.0", "raw-body": "^3.0.0", "zod": "^3.25 || ^4.0", "zod-to-json-schema": "^3.25.1" }, "peerDependencies": { "@cfworker/json-schema": "^4.1.1" }, "optionalPeers": ["@cfworker/json-schema"] }, "sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ=="],
 
@@ -1954,6 +2934,10 @@
 
     "audio-analysis-synthesis-app": ["audio-analysis-synthesis-app@workspace:packages/audio-analysis-synthesis-app"],
 
+    "audio-analysis-tasks-app": ["audio-analysis-tasks-app@workspace:packages/audio-analysis-tasks-app"],
+
+    "audio-analysis-test-support-app": ["audio-analysis-test-support-app@workspace:packages/audio-analysis-test-support-app"],
+
     "audio-generation-midi-app": ["audio-generation-midi-app@workspace:packages/audio-generation-midi-app"],
 
     "autoprefixer": ["autoprefixer@10.5.0", "", { "dependencies": { "browserslist": "^4.28.2", "caniuse-lite": "^1.0.30001787", "fraction.js": "^5.3.4", "picocolors": "^1.1.1", "postcss-value-parser": "^4.2.0" }, "peerDependencies": { "postcss": "^8.1.0" }, "bin": { "autoprefixer": "bin/autoprefixer" } }, "sha512-FMhOoZV4+qR6aTUALKX2rEqGG+oyATvwBt9IIzVR5rMa2HRWPkxf+P+PAJLD1I/H5/II+HuZcBJYEFBpq39ong=="],
@@ -2228,13 +3212,15 @@
 
     "fs-extra": ["fs-extra@11.3.5", "", { "dependencies": { "graceful-fs": "^4.2.0", "jsonfile": "^6.0.1", "universalify": "^2.0.0" } }, "sha512-eKpRKAovdpZtR1WopLHxlBWvAgPny3c4gX1G5Jhwmmw4XJj0ifSD5qB5TOo8hmA0wlRKDAOAhEE1yVPgs6Fgcg=="],
 
-    "fsevents": ["fsevents@2.3.2", "", { "os": "darwin" }, "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA=="],
+    "fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
 
     "function-bind": ["function-bind@1.1.2", "", {}, "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA=="],
 
     "fuzzysort": ["fuzzysort@3.1.0", "", {}, "sha512-sR9BNCjBg6LNgwvxlBd0sBABvQitkLzoVY9MYYROQVX/FvfJ4Mai9LsGhDgd8qYdds0bY77VzYd5iuB+v5rwQQ=="],
 
     "gensync": ["gensync@1.0.0-beta.2", "", {}, "sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg=="],
+
+    "geo-data-app": ["geo-data-app@workspace:packages/geo-data-app"],
 
     "get-caller-file": ["get-caller-file@2.0.5", "", {}, "sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg=="],
 
@@ -2292,6 +3278,8 @@
 
     "image-analysis-models-app": ["image-analysis-models-app@workspace:packages/image-analysis-models-app"],
 
+    "image-analysis-ocr-app": ["image-analysis-ocr-app@workspace:packages/image-analysis-ocr-app"],
+
     "image-analysis-onnx-app": ["image-analysis-onnx-app@workspace:packages/image-analysis-onnx-app"],
 
     "image-analysis-processing-app": ["image-analysis-processing-app@workspace:packages/image-analysis-processing-app"],
@@ -2299,6 +3287,8 @@
     "image-analysis-segmentation-app": ["image-analysis-segmentation-app@workspace:packages/image-analysis-segmentation-app"],
 
     "image-analysis-synthesis-app": ["image-analysis-synthesis-app@workspace:packages/image-analysis-synthesis-app"],
+
+    "image-analysis-tasks-app": ["image-analysis-tasks-app@workspace:packages/image-analysis-tasks-app"],
 
     "immer": ["immer@10.2.0", "", {}, "sha512-d/+XTN3zfODyjr89gM3mPq1WNX2B8pYsu7eORitdwyA2sBubnTl3laYlBk4sXY5FUa5qTZGBDPJICVbvqzjlbw=="],
 
@@ -2357,6 +3347,8 @@
     "isexe": ["isexe@3.1.5", "", {}, "sha512-6B3tLtFqtQS4ekarvLVMZ+X+VlvQekbe4taUkf/rhVO3d/h0M2rfARm/pXLcPEsjjMsFgrFgSrhQIxcSVrBz8w=="],
 
     "jiti": ["jiti@1.21.7", "", { "bin": { "jiti": "bin/jiti.js" } }, "sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A=="],
+
+    "jobs-core-app": ["jobs-core-app@workspace:packages/jobs-core-app"],
 
     "jose": ["jose@6.2.3", "", {}, "sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw=="],
 
@@ -2433,6 +3425,8 @@
     "minimatch": ["minimatch@10.2.5", "", { "dependencies": { "brace-expansion": "^5.0.5" } }, "sha512-MULkVLfKGYDFYejP07QOurDLLQpcjk7Fw+7jXS2R2czRQzR56yHRveU5NDJEOviH+hETZKSkIk5c+T23GjFUMg=="],
 
     "minimist": ["minimist@1.2.8", "", {}, "sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA=="],
+
+    "model-runtime-app": ["model-runtime-app@workspace:packages/model-runtime-app"],
 
     "motion": ["motion@12.39.0", "", { "dependencies": { "framer-motion": "^12.39.0", "tslib": "^2.4.0" }, "peerDependencies": { "@emotion/is-prop-valid": "*", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/is-prop-valid", "react", "react-dom"] }, "sha512-H4a+Ze+a9j+/NTla5ezfb/g9vmIOxC+viDj++NGDZyTZkdRKjiOz3kSv6TalRWM8ZmD2y/CfC6TkQc97ybyqSA=="],
 
@@ -2614,6 +3608,12 @@
 
     "run-parallel": ["run-parallel@1.2.0", "", { "dependencies": { "queue-microtask": "^1.2.2" } }, "sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA=="],
 
+    "runtime-artifacts-app": ["runtime-artifacts-app@workspace:packages/runtime-artifacts-app"],
+
+    "runtime-contracts-app": ["runtime-contracts-app@workspace:packages/runtime-contracts-app"],
+
+    "runtime-jobs-app": ["runtime-jobs-app@workspace:packages/runtime-jobs-app"],
+
     "safer-buffer": ["safer-buffer@2.1.2", "", {}, "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg=="],
 
     "saxes": ["saxes@6.0.0", "", { "dependencies": { "xmlchars": "^2.2.0" } }, "sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA=="],
@@ -2696,7 +3696,25 @@
 
     "text-core-app": ["text-core-app@workspace:packages/text-core-app"],
 
+    "text-embeddings-app": ["text-embeddings-app@workspace:packages/text-embeddings-app"],
+
+    "text-generation-app": ["text-generation-app@workspace:packages/text-generation-app"],
+
+    "text-generation-linguistics-app": ["text-generation-linguistics-app@workspace:packages/text-generation-linguistics-app"],
+
+    "text-lexical-app": ["text-lexical-app@workspace:packages/text-lexical-app"],
+
     "text-linguistics-app": ["text-linguistics-app@workspace:packages/text-linguistics-app"],
+
+    "text-model-runtime-app": ["text-model-runtime-app@workspace:packages/text-model-runtime-app"],
+
+    "text-nlp-models-app": ["text-nlp-models-app@workspace:packages/text-nlp-models-app"],
+
+    "text-nlp-tasks-app": ["text-nlp-tasks-app@workspace:packages/text-nlp-tasks-app"],
+
+    "text-retrieval-app": ["text-retrieval-app@workspace:packages/text-retrieval-app"],
+
+    "text-transcripts-app": ["text-transcripts-app@workspace:packages/text-transcripts-app"],
 
     "thenify": ["thenify@3.3.1", "", { "dependencies": { "any-promise": "^1.0.0" } }, "sha512-RVZSIV5IG10Hk3enotrhvz0T9em6cyHBLkH/YAZuKqd8hRkKhSfCGIcP2KUY0EPxndzANBmNllzWPwak+bheSw=="],
 
@@ -2840,6 +3858,8 @@
 
     "video-analysis-synthesis-app": ["video-analysis-synthesis-app@workspace:packages/video-analysis-synthesis-app"],
 
+    "video-analysis-test-support-app": ["video-analysis-test-support-app@workspace:packages/video-analysis-test-support-app"],
+
     "video-analysis-tracking-app": ["video-analysis-tracking-app@workspace:packages/video-analysis-tracking-app"],
 
     "video-analysis-transform-app": ["video-analysis-transform-app@workspace:packages/video-analysis-transform-app"],
@@ -2930,9 +3950,11 @@
 
     "audio-analysis-synthesis-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
-    "audio-generation-midi-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+    "audio-analysis-tasks-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
-    "chokidar/fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
+    "audio-analysis-test-support-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "audio-generation-midi-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
     "chokidar/glob-parent": ["glob-parent@5.1.2", "", { "dependencies": { "is-glob": "^4.0.1" } }, "sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow=="],
 
@@ -2960,6 +3982,8 @@
 
     "finance-statistics-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
+    "geo-data-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
     "graph-analysis-core-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
     "image-analysis-comfyui-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
@@ -2972,6 +3996,8 @@
 
     "image-analysis-models-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
+    "image-analysis-ocr-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
     "image-analysis-onnx-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
     "image-analysis-processing-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
@@ -2979,6 +4005,10 @@
     "image-analysis-segmentation-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
     "image-analysis-synthesis-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "image-analysis-tasks-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "jobs-core-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
     "log-symbols/is-unicode-supported": ["is-unicode-supported@1.3.0", "", {}, "sha512-43r2mRvz+8JRIKnWJ+3j8JtjRKZ6GmjzfaE/qiBJnikNnYv/6bagRJ1kUhNk8R5EX/GkobD+r+sfxCPJsiKBLQ=="],
 
@@ -2996,9 +4026,13 @@
 
     "micromatch/picomatch": ["picomatch@2.3.2", "", {}, "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA=="],
 
+    "model-runtime-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
     "npm-run-path/path-key": ["path-key@4.0.0", "", {}, "sha512-haREypq7xkM7ErfgIyA0z+Bj4AGKlMSdlQE2jvJo6huWD1EdkKYV+G/T4nq0YEF2vgTT8kqMFKo1uHn950r4SQ=="],
 
     "numbers-core-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "playwright/fsevents": ["fsevents@2.3.2", "", { "os": "darwin" }, "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA=="],
 
     "prompts/kleur": ["kleur@3.0.3", "", {}, "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w=="],
 
@@ -3006,9 +4040,13 @@
 
     "restore-cursor/onetime": ["onetime@7.0.0", "", { "dependencies": { "mimic-function": "^5.0.0" } }, "sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ=="],
 
-    "rollup/fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
-
     "router/path-to-regexp": ["path-to-regexp@8.4.2", "", {}, "sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA=="],
+
+    "runtime-artifacts-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "runtime-contracts-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "runtime-jobs-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
     "shadcn/postcss-selector-parser": ["postcss-selector-parser@7.1.1", "", { "dependencies": { "cssesc": "^3.0.0", "util-deprecate": "^1.0.2" } }, "sha512-orRsuYpJVw8LdAwqqLykBj9ecS5/cRHlI5+nvTo8LcCKmzDmqVORXtOIYEEQuL9D4BxtA1lm5isAqzQZCoQ6Eg=="],
 
@@ -3022,7 +4060,25 @@
 
     "text-core-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
+    "text-embeddings-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "text-generation-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "text-generation-linguistics-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "text-lexical-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
     "text-linguistics-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "text-model-runtime-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "text-nlp-models-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "text-nlp-tasks-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "text-retrieval-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
+    "text-transcripts-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
     "three-d-processing-core-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
@@ -3094,11 +4150,11 @@
 
     "video-analysis-synthesis-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
+    "video-analysis-test-support-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
+
     "video-analysis-tracking-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
 
     "video-analysis-transform-app/tailwindcss": ["tailwindcss@3.4.19", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.7", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2 || ^5.0 || ^6.0", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ=="],
-
-    "vite/fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
 
     "wrap-ansi/ansi-styles": ["ansi-styles@4.3.0", "", { "dependencies": { "color-convert": "^2.0.1" } }, "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg=="],
 

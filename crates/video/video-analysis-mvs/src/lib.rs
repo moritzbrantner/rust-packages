@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use three_d_processing_core::{Point3, PointCloud, Vector3};
 use three_d_processing_mesh::Mesh;
 use video_analysis_core::{DetectError, Result};

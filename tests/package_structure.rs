@@ -106,10 +106,121 @@ fn frontend_libraries_and_ui_packages_have_expected_test_layers() {
     );
 }
 
+#[test]
+fn library_crates_have_complete_runtime_surfaces() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut missing = Vec::new();
+
+    for manifest in library_manifests(root) {
+        let crate_dir = manifest.parent().expect("crate dir");
+        let name = package_name(&manifest);
+        let parent = crate_dir.parent().expect("crate parent");
+
+        let cli_dir = parent.join(format!("{name}-cli"));
+        let server_dir = parent.join(format!("{name}-server"));
+        let rust_wasm_dir = root
+            .join("crates")
+            .join("bindings")
+            .join(format!("{name}-wasm"));
+        let package_wasm_dir = root.join("packages").join(format!("{name}-wasm"));
+        let app_dir = root.join("packages").join(format!("{name}-app"));
+
+        if !cli_dir.join("Cargo.toml").is_file() {
+            missing.push(format!("{name}: missing {name}-cli"));
+        } else {
+            let cargo = fs::read_to_string(cli_dir.join("Cargo.toml")).unwrap();
+            if !cargo.contains(&format!("{name} = {{ path = \"../{name}\" }}")) {
+                missing.push(format!("{name}: cli does not depend on exact base crate"));
+            }
+        }
+
+        if !server_dir.join("Cargo.toml").is_file() {
+            missing.push(format!("{name}: missing {name}-server"));
+        } else {
+            let cargo = fs::read_to_string(server_dir.join("Cargo.toml")).unwrap();
+            if !cargo.contains(&format!("{name} = {{ path = \"../{name}\" }}")) {
+                missing.push(format!(
+                    "{name}: server does not depend on exact base crate"
+                ));
+            }
+            let server_lib = fs::read_to_string(server_dir.join("src/lib.rs")).unwrap();
+            if server_lib.contains("This generic adapter is ready for crate-specific operations") {
+                missing.push(format!("{name}: server still contains generic placeholder"));
+            }
+        }
+
+        if !rust_wasm_dir.join("Cargo.toml").is_file() {
+            missing.push(format!("{name}: missing Rust wasm crate"));
+        }
+        if !package_wasm_dir.join("package.json").is_file() {
+            missing.push(format!("{name}: missing Bun wasm package"));
+        }
+        if !app_dir.join("package.json").is_file() {
+            missing.push(format!("{name}: missing Vite app package"));
+        } else {
+            let package_json = fs::read_to_string(app_dir.join("package.json")).unwrap();
+            if !package_json.contains(&format!("@mb-rust/{name}-wasm")) {
+                missing.push(format!(
+                    "{name}: app does not depend on matching wasm package"
+                ));
+            }
+            let api_ts = fs::read_to_string(app_dir.join("src/api.ts")).unwrap();
+            if !api_ts.contains("runWasmOperation") || !api_ts.contains("serverBaseUrl") {
+                missing.push(format!(
+                    "{name}: app does not expose both wasm and server runtimes"
+                ));
+            }
+        }
+    }
+
+    assert!(
+        missing.is_empty(),
+        "Library crates need complete runtime surfaces: {}",
+        missing.join(", ")
+    );
+}
+
 fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     let mut manifests = Vec::new();
     collect_manifests(root, &mut manifests);
     manifests
+}
+
+fn library_manifests(root: &Path) -> Vec<PathBuf> {
+    workspace_manifests(root)
+        .into_iter()
+        .filter(|manifest| {
+            let relative = manifest.strip_prefix(root).unwrap_or(manifest);
+            let parts = relative.components().collect::<Vec<_>>();
+            if parts.len() < 4 {
+                return false;
+            }
+            let path = relative.to_string_lossy();
+            path.starts_with("crates/")
+                && !path.starts_with("crates/bindings/")
+                && manifest
+                    .parent()
+                    .and_then(|parent| parent.file_name())
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| {
+                        !name.ends_with("-cli")
+                            && !name.ends_with("-server")
+                            && !name.ends_with("-wasm")
+                    })
+        })
+        .collect()
+}
+
+fn package_name(manifest: &Path) -> String {
+    fs::read_to_string(manifest)
+        .unwrap()
+        .lines()
+        .find_map(|line| {
+            let line = line.trim();
+            line.strip_prefix("name = ")
+                .map(|name| name.trim_matches('"').to_string())
+        })
+        .expect("package name")
 }
 
 fn has_rust_test_marker(src_dir: &Path) -> bool {

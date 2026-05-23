@@ -17,8 +17,8 @@
     "build": "cargo build --workspace && bun run ui:build && bun run web:build",
     "hygiene": "scripts/check_repo_hygiene.sh",
     "check": "scripts/check.sh",
-    "maps-wasm:bench": "bun run --cwd packages/maps-kernels-wasm bench:browser",
-    "maps-wasm:test": "bun run --cwd packages/maps-kernels-wasm test",
+    "maps-wasm:bench": "bun run --cwd packages/maps-kernels-core-wasm bench:browser",
+    "maps-wasm:test": "bun run --cwd packages/maps-kernels-core-wasm test",
     "text-wasm:bench": "bun run --cwd packages/text-core-wasm bench:browser",
     "text-wasm:test": "bun run --cwd packages/text-core-wasm test",
     "text-linguistics-wasm:test": "bun run --cwd packages/text-linguistics-wasm test",
@@ -36,6 +36,7 @@
     "web:test": "bun run --cwd prototypes/web/video-analysis-web test",
     "web:test:unit": "bun run --cwd prototypes/web/video-analysis-web test:unit",
     "web:test:api": "bun run --cwd prototypes/web/video-analysis-web test:api",
-    "web:test:e2e": "bun run --cwd prototypes/web/video-analysis-web test:e2e"
+    "web:test:e2e": "bun run --cwd prototypes/web/video-analysis-web test:e2e",
+    "text-nlp-wasm:test": "bun run --cwd packages/text-nlp-tasks-wasm test"
   }
 }

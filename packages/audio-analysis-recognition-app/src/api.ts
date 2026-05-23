@@ -1,11 +1,30 @@
-export interface PackageMetadata {
-  package: string;
-  surface: string;
+import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/audio-analysis-recognition-wasm";
+
+export type RuntimeMode = "client-wasm" | "server";
+
+export interface SurfaceOperation {
+  id: string;
+  name: string;
+  description?: string;
+  inputSchema: unknown;
+  outputSchema: unknown;
+  exampleRequest: unknown;
+  wasmSupported: boolean;
+  serverSupported: boolean;
+}
+
+export interface PackageSurface {
   library: string;
-  libraryImport: string;
-  cliPackage: string;
-  appPackage: string;
-  endpoints: string[];
+  version: string;
+  operations: SurfaceOperation[];
+  capabilities: unknown;
+}
+
+export interface SurfaceResponse {
+  operation: string;
+  value: unknown;
+  diagnostics: unknown[];
+  artifacts: unknown[];
 }
 
 export interface HealthPayload {
@@ -14,135 +33,43 @@ export interface HealthPayload {
   library: string;
 }
 
-export type AudioTask =
-  | "classify"
-  | "events"
-  | "embed"
-  | "transcribe"
-  | "diarize"
-  | "separate"
-  | "generate";
-
-export type AudioFallbackPolicy = "error" | "fast_fallback" | "heuristic_fallback";
-
-export interface AudioModelMetadata {
-  id: string;
-  modelId: string;
-  task: string;
-  runtime: string;
-  supported: boolean;
-  fallback?: string | null;
-  note?: string | null;
-}
-
-export interface AudioFeatureSummary {
-  durationSeconds?: number;
-  sampleRate?: number;
-  rms?: number;
-  peak?: number;
-  zeroCrossingRate?: number;
-  dominantFrequencyHz?: number;
-  spectralCentroidHz?: number;
-}
-
-export interface AudioModelSelection {
-  modelId?: string;
-  fallbackPolicy?: AudioFallbackPolicy;
-}
-
-export interface AudioClassPrediction {
-  label: string;
-  score: number;
-}
-
-export interface AudioClassificationPayload {
-  accepted: true;
-  operation: "classify";
-  modelId: string;
-  runtime: string;
-  predictions: AudioClassPrediction[];
-}
-
-export interface AudioEventPayload {
-  accepted: true;
-  operation: "events";
-  modelId: string;
-  runtime: string;
-  events: Array<{ label: string; score: number; startSeconds: number; endSeconds: number }>;
-}
-
-export interface AudioEmbeddingPayload {
-  accepted: true;
-  operation: "embed";
-  modelId: string;
-  runtime: string;
-  dimensions: number;
-  embeddings: number[][];
-}
-
-export interface SpeechRecognitionPayload {
-  accepted: true;
-  operation: "transcribe";
-  modelId: string;
-  runtime: string;
-  text: string;
-  segments: Array<{ index: number; startSeconds?: number; endSeconds?: number; text: string }>;
-}
-
-export interface SpeakerDiarizationPayload {
-  accepted: true;
-  operation: "diarize";
-  modelId: string;
-  runtime: string;
-  segments: Array<{ speaker: string; startSeconds: number; endSeconds: number; score?: number }>;
-}
-
-export interface SourceSeparationPayload {
-  accepted: true;
-  operation: "separate";
-  modelId: string;
-  runtime: string;
-  stems: Array<{ stem: string; uri?: string | null; score?: number | null }>;
-}
-
-export interface AudioGenerationPayload {
-  accepted: true;
-  operation: "generate";
-  modelId: string;
-  runtime: string;
-  prompt: string;
-  durationSeconds: number;
-  plan: string;
-}
-
 const configuredServerUrl = import.meta.env.VITE_SERVER_URL as string | undefined;
 
 export const serverBaseUrl = configuredServerUrl ?? "http://127.0.0.1:3000";
 export const wrappedLibrary = "audio-analysis-recognition";
 
+export async function initializeWasm(): Promise<PackageSurface> {
+  await init();
+  return packageSurface();
+}
+
 export async function fetchHealth(): Promise<HealthPayload> {
   return fetchJson<HealthPayload>("/health");
 }
 
-export async function fetchPackageMetadata(): Promise<PackageMetadata> {
-  return fetchJson<PackageMetadata>("/api/package");
+export async function fetchServerSurface(): Promise<PackageSurface> {
+  const metadata = await fetchJson<{ operations: SurfaceOperation[]; library: string }>("/api/package");
+  return {
+    library: metadata.library,
+    version: "0.1.0",
+    operations: metadata.operations ?? [],
+    capabilities: {},
+  };
 }
 
-export async function listAudioModels(task?: AudioTask): Promise<AudioModelMetadata[]> {
-  return fetchJson<AudioModelMetadata[]>(task ? `/api/models/${task}` : "/api/models");
-}
-
-export async function runAudioTask(task: AudioTask, body: unknown): Promise<unknown> {
-  const response = await fetch(`${serverBaseUrl}/api/${task}`, {
+export async function runOperation(mode: RuntimeMode, operation: string, input: unknown): Promise<SurfaceResponse> {
+  if (mode === "client-wasm") {
+    return runWasmOperation({ operation, input });
+  }
+  const response = await fetch(`${serverBaseUrl}/api/run`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ operation, input }),
   });
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Server returned ${response.status}`);
+    throw new Error(`Server returned ${response.status}`);
   }
-  return response.json() as Promise<unknown>;
+  return response.json() as Promise<SurfaceResponse>;
 }
 
 async function fetchJson<T>(path: string): Promise<T> {
@@ -152,4 +79,3 @@ async function fetchJson<T>(path: string): Promise<T> {
   }
   return response.json() as Promise<T>;
 }
-

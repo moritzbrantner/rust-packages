@@ -9,6 +9,7 @@ pub mod jobs;
 mod predictions;
 mod presets;
 mod spec;
+pub mod surface;
 
 pub use bundles::*;
 pub use conformance::*;

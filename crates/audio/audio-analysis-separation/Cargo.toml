@@ -13,6 +13,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+serde_json.workspace = true
+runtime-contracts.workspace = true
 audio-analysis-recognition.workspace = true
 jobs-core = { workspace = true, optional = true }
 serde.workspace = true

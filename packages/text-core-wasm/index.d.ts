@@ -1,87 +1,33 @@
-import init, { initSync } from "./pkg/index";
-
-export type TokenKind =
-  | "word"
-  | "number"
-  | "url"
-  | "email"
-  | "mention"
-  | "hashtag"
-  | "punctuation"
-  | "other";
-
-export interface TextProcessingOptions {
-  lowercase?: boolean;
-  normalizeUnicode?: boolean;
-  keepApostrophes?: boolean;
-  includePunctuation?: boolean;
-  includeTokens?: boolean;
+export interface SurfaceRequest {
+  operation: string;
+  input: unknown;
 }
 
-export interface TextSpan {
-  start: number;
-  end: number;
-  text: string;
+export interface SurfaceOperation {
+  id: string;
+  name: string;
+  description?: string;
+  inputSchema: unknown;
+  outputSchema: unknown;
+  exampleRequest: unknown;
+  wasmSupported: boolean;
+  serverSupported: boolean;
 }
 
-export interface TextToken {
-  start: number;
-  end: number;
-  text: string;
-  normalized: string;
-  kind: TokenKind;
+export interface PackageSurface {
+  library: string;
+  version: string;
+  operations: SurfaceOperation[];
+  capabilities: unknown;
 }
 
-export interface TextStats {
-  bytes: number;
-  chars: number;
-  words: number;
-  lines: number;
-  sentences: number;
-  paragraphs: number;
-  tokens: number;
-  uniqueTokens: number;
-  averageWordsPerSentence: number;
-  averageCharsPerWord: number;
+export interface SurfaceResponse {
+  operation: string;
+  value: unknown;
+  diagnostics: unknown[];
+  artifacts: unknown[];
 }
 
-export interface ScriptProfile {
-  scripts: Record<string, number>;
-  digits: number;
-  whitespace: number;
-  punctuation: number;
-  other: number;
-  dominantScript: string | null;
-  isMixed: boolean;
-}
-
-export interface TextDocumentAnalysis {
-  stats: TextStats;
-  scriptProfile: ScriptProfile;
-  paragraphs: TextSpan[];
-  sentences: TextSpan[];
-  tokens: TextToken[];
-}
-
-export function analyzeTextDocument(
-  text: string,
-  options?: TextProcessingOptions,
-): TextDocumentAnalysis;
-
-export function extractWordTexts(text: string): string[];
-
-export function splitSentences(text: string): string[];
-
-export function segmentTextDocument(
-  text: string,
-  keepApostrophes: boolean,
-  includePunctuation: boolean,
-  includeTokens: boolean,
-): {
-  paragraphs: TextSpan[];
-  sentences: TextSpan[];
-  tokens: Array<Omit<TextToken, "normalized">>;
-};
-
-export { initSync };
-export default init;
+export function init(): Promise<unknown>;
+export function packageSurface(): Promise<PackageSurface>;
+export function runOperation(request: SurfaceRequest): Promise<SurfaceResponse>;

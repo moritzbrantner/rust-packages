@@ -5,5 +5,6 @@ Thin command-line adapter for `video-analysis-gaussian-splatting`.
 Run:
 
 ```bash
-cargo run -p video-analysis-gaussian-splatting-cli -- info --json
+cargo run -p video-analysis-gaussian-splatting-cli -- operations --json
+cargo run -p video-analysis-gaussian-splatting-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

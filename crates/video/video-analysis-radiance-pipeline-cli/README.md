@@ -5,5 +5,6 @@ Thin command-line adapter for `video-analysis-radiance-pipeline`.
 Run:
 
 ```bash
-cargo run -p video-analysis-radiance-pipeline-cli -- info --json
+cargo run -p video-analysis-radiance-pipeline-cli -- operations --json
+cargo run -p video-analysis-radiance-pipeline-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

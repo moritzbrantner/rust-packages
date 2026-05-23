@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
@@ -81,21 +82,16 @@ pub enum NlpRuntime {
 }
 
 /// Fallback behavior when the selected native model cannot run.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum FallbackPolicy {
     /// Return a typed error.
+    #[default]
     Error,
     /// Use a fast deterministic fallback.
     FastFallback,
     /// Use a lexical fallback.
     LexicalFallback,
-}
-
-impl Default for FallbackPolicy {
-    fn default() -> Self {
-        Self::Error
-    }
 }
 
 /// Model selection supplied by API, CLI, or UI callers.
@@ -350,19 +346,14 @@ pub struct ZeroShotClassificationResponse {
 }
 
 /// Summary strategy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum SummaryStrategy {
     /// Lexical extractive summary.
     LexicalExtractive,
     /// Embedding-assisted extractive summary.
+    #[default]
     EmbeddingExtractive,
-}
-
-impl Default for SummaryStrategy {
-    fn default() -> Self {
-        Self::EmbeddingExtractive
-    }
 }
 
 /// Request for summarization.
@@ -1441,8 +1432,8 @@ fn lexical_label_scores(text: &str, labels: &[String], top_k: usize) -> Vec<Text
 }
 
 fn sentiment_predictions(label: &str, compound: f32) -> Vec<TextClassPrediction> {
-    let positive = compound.max(0.0).min(1.0);
-    let negative = (-compound).max(0.0).min(1.0);
+    let positive = compound.clamp(0.0, 1.0);
+    let negative = (-compound).clamp(0.0, 1.0);
     let neutral = (1.0 - compound.abs()).max(0.0);
     let mut predictions = vec![
         TextClassPrediction {

@@ -5,5 +5,6 @@ Thin command-line adapter for `image-analysis-io`.
 Run:
 
 ```bash
-cargo run -p image-analysis-io-cli -- info --json
+cargo run -p image-analysis-io-cli -- operations --json
+cargo run -p image-analysis-io-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

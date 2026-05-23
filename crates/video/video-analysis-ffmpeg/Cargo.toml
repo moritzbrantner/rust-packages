@@ -23,6 +23,8 @@ external-tests = ["ffmpeg-tests"]
 test-utils = []
 
 [dependencies]
+serde_json.workspace = true
+runtime-contracts.workspace = true
 num-rational.workspace = true
 thiserror.workspace = true
 video-analysis-core.workspace = true

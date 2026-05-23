@@ -1,11 +1,30 @@
-export interface PackageMetadata {
-  package: string;
-  surface: string;
+import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/video-analysis-features-wasm";
+
+export type RuntimeMode = "client-wasm" | "server";
+
+export interface SurfaceOperation {
+  id: string;
+  name: string;
+  description?: string;
+  inputSchema: unknown;
+  outputSchema: unknown;
+  exampleRequest: unknown;
+  wasmSupported: boolean;
+  serverSupported: boolean;
+}
+
+export interface PackageSurface {
   library: string;
-  libraryImport: string;
-  cliPackage: string;
-  appPackage: string;
-  endpoints: string[];
+  version: string;
+  operations: SurfaceOperation[];
+  capabilities: unknown;
+}
+
+export interface SurfaceResponse {
+  operation: string;
+  value: unknown;
+  diagnostics: unknown[];
+  artifacts: unknown[];
 }
 
 export interface HealthPayload {
@@ -19,24 +38,38 @@ const configuredServerUrl = import.meta.env.VITE_SERVER_URL as string | undefine
 export const serverBaseUrl = configuredServerUrl ?? "http://127.0.0.1:3000";
 export const wrappedLibrary = "video-analysis-features";
 
+export async function initializeWasm(): Promise<PackageSurface> {
+  await init();
+  return packageSurface();
+}
+
 export async function fetchHealth(): Promise<HealthPayload> {
   return fetchJson<HealthPayload>("/health");
 }
 
-export async function fetchPackageMetadata(): Promise<PackageMetadata> {
-  return fetchJson<PackageMetadata>("/api/package");
+export async function fetchServerSurface(): Promise<PackageSurface> {
+  const metadata = await fetchJson<{ operations: SurfaceOperation[]; library: string }>("/api/package");
+  return {
+    library: metadata.library,
+    version: "0.1.0",
+    operations: metadata.operations ?? [],
+    capabilities: {},
+  };
 }
 
-export async function runOperation(input: string): Promise<unknown> {
+export async function runOperation(mode: RuntimeMode, operation: string, input: unknown): Promise<SurfaceResponse> {
+  if (mode === "client-wasm") {
+    return runWasmOperation({ operation, input });
+  }
   const response = await fetch(`${serverBaseUrl}/api/run`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: input,
+    body: JSON.stringify({ operation, input }),
   });
   if (!response.ok) {
     throw new Error(`Server returned ${response.status}`);
   }
-  return response.json() as Promise<unknown>;
+  return response.json() as Promise<SurfaceResponse>;
 }
 
 async function fetchJson<T>(path: string): Promise<T> {

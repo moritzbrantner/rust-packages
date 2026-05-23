@@ -5,5 +5,6 @@ Thin command-line adapter for `tensor-data`.
 Run:
 
 ```bash
-cargo run -p tensor-data-cli -- info --json
+cargo run -p tensor-data-cli -- operations --json
+cargo run -p tensor-data-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

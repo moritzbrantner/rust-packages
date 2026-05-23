@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use serde::{Deserialize, Serialize};
 use three_d_processing_core::{Quaternion, Transform3, Vector3};
 use video_analysis_core::{DetectError, Result};

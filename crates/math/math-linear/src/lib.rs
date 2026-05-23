@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use tensor_data::{F32Tensor, F32TensorView, TensorShape};
 use vector_analysis_core::{cosine_similarity, dot, DenseVector};
 use video_analysis_core::{DetectError, Result};

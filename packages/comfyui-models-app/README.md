@@ -1,14 +1,14 @@
 # comfyui-models-app
 
-React, TypeScript, TailwindCSS, Bun, and oxfmt frontend for `comfyui-models-server`.
+React, TypeScript, TailwindCSS, Bun, and oxfmt frontend for `comfyui-models`.
 
-Run the server first:
+Run the server:
 
 ```bash
 cargo run -p comfyui-models-server -- --addr 127.0.0.1:3000
 ```
 
-Then run the app:
+Run the app:
 
 ```bash
 bun run --cwd packages/comfyui-models-app dev

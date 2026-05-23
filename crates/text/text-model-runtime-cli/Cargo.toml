@@ -1,0 +1,23 @@
+[package]
+name = "text-model-runtime-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Command-line adapter for the text-model-runtime library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "text-model-runtime-cli"
+
+[[bin]]
+name = "text-model-runtime-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+runtime-contracts.workspace = true
+serde_json.workspace = true
+text-model-runtime = { path = "../text-model-runtime" }

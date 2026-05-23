@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use image_analysis_segmentation::{ImageSegment, ImageSegmentationPrompt};
 use model_runtime::{HuggingFaceModelSpec, ModelTask};
 use video_analysis_core::{FramePosition, Result, VideoFrame};

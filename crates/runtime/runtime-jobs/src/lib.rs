@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use runtime_artifacts::ArtifactRef;
 use runtime_contracts::{Diagnostic, JobId, OperationId};
 use serde::{Deserialize, Serialize};

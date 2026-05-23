@@ -2,6 +2,7 @@
 
 pub mod contracts;
 pub mod operations;
+pub mod surface;
 
 pub use contracts::{
     AsTextSegmentContract, IntoTextDocumentContract, TextDocumentContract, TextSegmentContract,

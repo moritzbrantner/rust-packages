@@ -5,5 +5,6 @@ Thin command-line adapter for `video-analysis-tracking`.
 Run:
 
 ```bash
-cargo run -p video-analysis-tracking-cli -- info --json
+cargo run -p video-analysis-tracking-cli -- operations --json
+cargo run -p video-analysis-tracking-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

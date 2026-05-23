@@ -1,14 +1,14 @@
 # vector-analysis-core-app
 
-React, TypeScript, TailwindCSS, Bun, and oxfmt frontend for `vector-analysis-core-server`.
+React, TypeScript, TailwindCSS, Bun, and oxfmt frontend for `vector-analysis-core`.
 
-Run the server first:
+Run the server:
 
 ```bash
 cargo run -p vector-analysis-core-server -- --addr 127.0.0.1:3000
 ```
 
-Then run the app:
+Run the app:
 
 ```bash
 bun run --cwd packages/vector-analysis-core-app dev

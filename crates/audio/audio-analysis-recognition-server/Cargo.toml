@@ -18,8 +18,6 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
-serde.workspace = true
+runtime-contracts.workspace = true
 serde_json.workspace = true
-video-analysis-core.workspace = true
 audio-analysis-recognition = { path = "../audio-analysis-recognition" }
-audio-analysis-tasks.workspace = true

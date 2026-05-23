@@ -13,6 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+runtime-contracts.workspace = true
 image-analysis-core.workspace = true
 image-analysis-onnx.workspace = true
 ort = { workspace = true, optional = true }

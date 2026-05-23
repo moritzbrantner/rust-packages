@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 pub use image_analysis_detection::{
     FaceBox, FaceDetection, FaceDetectionPreset, FaceDetectorBackend, FaceLandmarks,
 };

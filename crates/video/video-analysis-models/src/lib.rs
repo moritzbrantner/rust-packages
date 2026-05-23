@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 /// Re-exports the generic model runtime infrastructure for compatibility.
 pub use model_runtime as runtime;
 

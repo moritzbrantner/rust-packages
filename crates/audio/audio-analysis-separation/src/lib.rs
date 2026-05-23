@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use std::ffi::OsString;
 use std::fmt::{Display, Formatter};
 use std::fs;

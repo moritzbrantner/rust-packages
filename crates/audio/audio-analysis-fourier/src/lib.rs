@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use audio_analysis_core::{mono_samples, zero_pad_to, FrameSpec, WindowFunction};
 use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;

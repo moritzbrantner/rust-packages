@@ -5,5 +5,6 @@ Thin command-line adapter for `three-d-processing-mesh`.
 Run:
 
 ```bash
-cargo run -p three-d-processing-mesh-cli -- info --json
+cargo run -p three-d-processing-mesh-cli -- operations --json
+cargo run -p three-d-processing-mesh-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

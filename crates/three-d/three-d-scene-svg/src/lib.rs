@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 

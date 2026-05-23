@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use video_analysis_core::{DetectError, Result};
 use video_analysis_mvs::{DenseReconstructor, MvsOutput, MvsRequest};
 use video_analysis_sfm::{SfmBackend, SfmPipelineOutput, SfmRequest};

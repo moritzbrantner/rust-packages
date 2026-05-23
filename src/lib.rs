@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![allow(ambiguous_glob_reexports)]
 
 /// Re-exports the animation core API.
 pub use animation_core as animation;

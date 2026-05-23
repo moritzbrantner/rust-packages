@@ -1,3 +1,5 @@
+use runtime_contracts::{OperationId, PackageSurface, SurfaceRequest, SurfaceResponse};
+
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "video-analysis-segmentation";
 /// Adapter surface kind.
@@ -8,8 +10,13 @@ pub const LIBRARY_IMPORT: &str = "use video_analysis_segmentation";
 pub const SERVER_PACKAGE: &str = "video-analysis-segmentation-server";
 /// Companion React app package name.
 pub const APP_PACKAGE: &str = "video-analysis-segmentation-app";
+/// Companion WASM package name.
+pub const WASM_PACKAGE: &str = "video-analysis-segmentation-wasm";
 
-/// Returns JSON metadata for this CLI adapter.
+pub fn package_surface() -> PackageSurface {
+    video_analysis_segmentation::surface::package_surface()
+}
+
 pub fn package_metadata_json() -> String {
     serde_json::json!({
         "package": format!("{}-cli", LIBRARY_CRATE),
@@ -17,26 +24,30 @@ pub fn package_metadata_json() -> String {
         "library": LIBRARY_CRATE,
         "libraryImport": LIBRARY_IMPORT,
         "serverPackage": SERVER_PACKAGE,
-        "appPackage": APP_PACKAGE
+        "appPackage": APP_PACKAGE,
+        "wasmPackage": WASM_PACKAGE,
+        "operations": package_surface().operations
     })
     .to_string()
 }
 
-/// Returns a compact command schema for this generic CLI adapter.
 pub fn command_schema_json() -> String {
     serde_json::json!({
         "commands": [
-            {
-                "name": "info",
-                "description": "Print package and adapter metadata."
-            },
-            {
-                "name": "schema",
-                "description": "Print the generic CLI command schema."
-            }
+            {"name": "info", "description": "Print package and adapter metadata."},
+            {"name": "schema", "description": "Print the CLI command schema."},
+            {"name": "operations", "description": "Print library operations."},
+            {"name": "run", "description": "Run one library-owned operation."}
         ]
     })
     .to_string()
+}
+
+pub fn run_operation(operation: &str, input: serde_json::Value) -> Result<SurfaceResponse, String> {
+    video_analysis_segmentation::surface::run_surface_operation(SurfaceRequest {
+        operation: OperationId::new(operation),
+        input,
+    })
 }
 
 #[cfg(test)]

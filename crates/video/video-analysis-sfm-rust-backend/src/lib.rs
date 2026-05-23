@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use video_analysis_core::Result;
 use video_analysis_reconstruction::{match_binary_features, ImagePairMatches, MatchConfig};
 use video_analysis_sfm::{

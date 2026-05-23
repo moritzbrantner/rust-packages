@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 /// Re-exports the math signal core API.
 pub use math_signal_core::{
     BiquadCoefficients, BiquadDesign, FirKernel1d, FrameStride, InterpolationMode, ResampleRatio,

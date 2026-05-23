@@ -13,6 +13,7 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@mb-rust/video-analysis-dataset-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

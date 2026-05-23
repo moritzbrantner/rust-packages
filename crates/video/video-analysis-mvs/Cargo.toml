@@ -13,6 +13,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+serde_json.workspace = true
+runtime-contracts.workspace = true
 three-d-processing-core.workspace = true
 three-d-processing-mesh.workspace = true
 video-analysis-core.workspace = true

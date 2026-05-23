@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use numbers_core::quantile;
 use video_analysis_core::{DetectError, Result};
 

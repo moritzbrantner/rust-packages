@@ -13,6 +13,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+serde_json.workspace = true
+runtime-contracts.workspace = true
 data-inversion-core.workspace = true
 text-core.workspace = true
 text-generation.workspace = true

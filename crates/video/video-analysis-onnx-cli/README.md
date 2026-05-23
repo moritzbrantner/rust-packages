@@ -5,5 +5,6 @@ Thin command-line adapter for `video-analysis-onnx`.
 Run:
 
 ```bash
-cargo run -p video-analysis-onnx-cli -- info --json
+cargo run -p video-analysis-onnx-cli -- operations --json
+cargo run -p video-analysis-onnx-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

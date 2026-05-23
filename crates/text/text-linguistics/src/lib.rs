@@ -6,6 +6,7 @@ mod language;
 mod local_models;
 mod morphology;
 mod pipeline;
+pub mod surface;
 mod syntax;
 mod tokenization;
 

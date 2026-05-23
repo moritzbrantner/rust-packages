@@ -4,3 +4,14 @@ fn package_endpoint_reports_wrapped_library() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains("math-sparse-data"));
 }
+
+#[test]
+fn run_endpoint_calls_library_surface() {
+    let response = math_sparse_data_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"describe","input":{"includeOperations":true}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains(r#""operation""#));
+}

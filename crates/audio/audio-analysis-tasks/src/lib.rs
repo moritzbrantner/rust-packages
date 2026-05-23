@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use model_runtime::ModelPreset;
 use serde::{Deserialize, Serialize};
 

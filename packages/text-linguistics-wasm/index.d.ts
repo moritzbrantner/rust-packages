@@ -1,29 +1,33 @@
-export interface BertNerPrediction {
-  kind?: string | null;
-  label?: string | null;
-  text?: string | null;
-  score?: number | null;
-  attributes?: Record<string, string>;
+export interface SurfaceRequest {
+  operation: string;
+  input: unknown;
 }
 
-export interface TextLinguisticsWasmOptions {
-  profile?: "fast" | "balanced" | "rich";
-  entityRecognition?: "heuristic" | "local-model" | "bert-base-ner" | "bert-ner";
-  bertNerPredictions?: BertNerPrediction[];
+export interface SurfaceOperation {
+  id: string;
+  name: string;
+  description?: string;
+  inputSchema: unknown;
+  outputSchema: unknown;
+  exampleRequest: unknown;
+  wasmSupported: boolean;
+  serverSupported: boolean;
 }
 
-export function analyzeTextLinguistics(text: string, options?: TextLinguisticsWasmOptions): unknown;
-export function postprocessEntities(text: string, predictions: BertNerPrediction[]): unknown;
-export function postprocessClassification(text: string, predictions: BertNerPrediction[]): unknown;
-export function postprocessSentiment(text: string, predictions: BertNerPrediction[]): unknown;
-export function postprocessEmbeddings(embeddings: number[][]): unknown;
-export function postprocessZeroShot(text: string, labels: string[], predictions: BertNerPrediction[]): unknown;
-export function summarizeLexical(text: string, maxSentences: number): unknown;
-export function summarizeEmbeddingExtractiveFromImportedEmbeddings(
-  text: string,
-  maxSentences: number,
-  sentenceEmbeddings: number[][],
-): unknown;
-export function rerankFromImportedScores(query: string, documents: string[], scores: number[]): unknown;
-export function initSync(module: WebAssembly.Module | BufferSource): unknown;
-export default function init(moduleOrPath?: WebAssembly.Module | BufferSource | string | URL | Request): Promise<unknown>;
+export interface PackageSurface {
+  library: string;
+  version: string;
+  operations: SurfaceOperation[];
+  capabilities: unknown;
+}
+
+export interface SurfaceResponse {
+  operation: string;
+  value: unknown;
+  diagnostics: unknown[];
+  artifacts: unknown[];
+}
+
+export function init(): Promise<unknown>;
+export function packageSurface(): Promise<PackageSurface>;
+export function runOperation(request: SurfaceRequest): Promise<SurfaceResponse>;

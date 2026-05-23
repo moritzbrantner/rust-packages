@@ -1,7 +1,7 @@
 {
   "name": "@mb-rust/video-analysis-core-wasm",
   "version": "0.1.0",
-  "description": "WASM bindings for browser-friendly video analysis core helpers.",
+  "description": "WASM package for video-analysis-core.",
   "license": "MIT OR Apache-2.0",
   "type": "module",
   "private": false,
@@ -22,7 +22,6 @@
   },
   "scripts": {
     "build": "bash scripts/build-wasm.sh",
-    "prepare": "bun run build",
-    "test": "bun test"
+    "test": "bun test tests"
   }
 }

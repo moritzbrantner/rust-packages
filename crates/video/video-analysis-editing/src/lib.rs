@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
 use math_geometry_2d::RectU32;
 use math_linear::Kernel2d;
 use video_analysis_core::{

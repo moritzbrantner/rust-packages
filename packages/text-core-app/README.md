@@ -1,10 +1,14 @@
 # text-core-app
 
-Browser-local React workbench for `text-core` segmentation, tokenization, span
-inspection, script profiling, and text statistics.
+React, TypeScript, TailwindCSS, Bun, and oxfmt frontend for `text-core`.
 
-The app runs through `@mb-rust/text-core-wasm` and does not require
-`text-core-server`.
+Run the server:
+
+```bash
+cargo run -p text-core-server -- --addr 127.0.0.1:3000
+```
+
+Run the app:
 
 ```bash
 bun run --cwd packages/text-core-app dev

@@ -4,5 +4,7 @@ fn cli_adapter_reports_wrapped_library() {
         graph_analysis_core_cli::LIBRARY_CRATE,
         "graph-analysis-core"
     );
-    assert_eq!(graph_analysis_core_cli::SURFACE_KIND, "cli");
+    let surface = graph_analysis_core_cli::package_surface();
+    assert_eq!(surface.library, "graph-analysis-core");
+    assert!(!surface.operations.is_empty());
 }

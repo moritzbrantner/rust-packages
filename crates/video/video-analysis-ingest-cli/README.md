@@ -5,5 +5,6 @@ Thin command-line adapter for `video-analysis-ingest`.
 Run:
 
 ```bash
-cargo run -p video-analysis-ingest-cli -- info --json
+cargo run -p video-analysis-ingest-cli -- operations --json
+cargo run -p video-analysis-ingest-cli -- run --operation describe --json '{"includeOperations":true}'
 ```

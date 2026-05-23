@@ -1,0 +1,109 @@
+use std::fs;
+use std::io::Read;
+
+use clap::{Parser, Subcommand};
+
+#[derive(Debug, Parser)]
+#[command(
+    name = "runtime-jobs-cli",
+    version,
+    about = "Thin CLI adapter for runtime-jobs"
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    /// Print package and adapter metadata.
+    Info {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Print the command schema.
+    Schema {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Print library operations.
+    Operations {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Run one library-owned operation.
+    Run {
+        /// Operation id.
+        #[arg(long, default_value = "describe")]
+        operation: String,
+        /// JSON request payload.
+        #[arg(long)]
+        json: Option<String>,
+        /// Read JSON request payload from a file.
+        #[arg(long)]
+        file: Option<String>,
+    },
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cli = Cli::parse();
+    match cli.command.unwrap_or(Command::Info { json: false }) {
+        Command::Info { json } => print_payload(
+            json,
+            "runtime-jobs",
+            &runtime_jobs_cli::package_metadata_json(),
+        ),
+        Command::Schema { json } => print_payload(
+            json,
+            "runtime-jobs command schema",
+            &runtime_jobs_cli::command_schema_json(),
+        ),
+        Command::Operations { json } => {
+            let payload = serde_json::to_string(&runtime_jobs_cli::package_surface().operations)?;
+            print_payload(json, "runtime-jobs operations", &payload);
+        }
+        Command::Run {
+            operation,
+            json,
+            file,
+        } => {
+            let input = read_input(json, file)?;
+            let response = runtime_jobs_cli::run_operation(&operation, input)
+                .map_err(std::io::Error::other)?;
+            println!("{}", serde_json::to_string(&response)?);
+        }
+    }
+    Ok(())
+}
+
+fn read_input(
+    json: Option<String>,
+    file: Option<String>,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let input = if let Some(json) = json {
+        json
+    } else if let Some(file) = file {
+        fs::read_to_string(file)?
+    } else {
+        let mut buffer = String::new();
+        std::io::stdin().read_to_string(&mut buffer)?;
+        if buffer.trim().is_empty() {
+            "{}".to_string()
+        } else {
+            buffer
+        }
+    };
+    Ok(serde_json::from_str(&input)?)
+}
+
+fn print_payload(json: bool, title: &str, payload: &str) {
+    if json {
+        println!("{payload}");
+    } else {
+        println!("{title}");
+        println!("{payload}");
+    }
+}

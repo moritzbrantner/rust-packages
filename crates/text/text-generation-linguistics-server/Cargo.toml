@@ -1,0 +1,23 @@
+[package]
+name = "text-generation-linguistics-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the text-generation-linguistics library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "text-generation-linguistics-server"
+
+[[bin]]
+name = "text-generation-linguistics-server"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+runtime-contracts.workspace = true
+serde_json.workspace = true
+text-generation-linguistics = { path = "../text-generation-linguistics" }

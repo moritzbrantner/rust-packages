@@ -1,6 +1,7 @@
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use three_d_scene_svg as _;
+
+use runtime_contracts::{Diagnostic, DiagnosticSeverity, OperationId, SurfaceRequest};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "three-d-scene-svg";
@@ -12,8 +13,9 @@ pub const LIBRARY_IMPORT: &str = "use three_d_scene_svg";
 pub const CLI_PACKAGE: &str = "three-d-scene-svg-cli";
 /// Companion React app package name.
 pub const APP_PACKAGE: &str = "three-d-scene-svg-app";
+/// Companion WASM package name.
+pub const WASM_PACKAGE: &str = "three-d-scene-svg-wasm";
 
-/// Minimal HTTP response used by the generated API adapter.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpResponse {
     pub status_code: u16,
@@ -22,7 +24,6 @@ pub struct HttpResponse {
     pub body: String,
 }
 
-/// Serves the package API on the provided socket address.
 pub fn serve(addr: &str) -> io::Result<()> {
     let listener = TcpListener::bind(addr)?;
     for stream in listener.incoming() {
@@ -31,7 +32,6 @@ pub fn serve(addr: &str) -> io::Result<()> {
     Ok(())
 }
 
-/// Returns a response for one generated API request.
 pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
     match (method, path) {
         ("OPTIONS", _) => HttpResponse {
@@ -51,17 +51,19 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         ),
         ("GET", "/api/package") => json_response(200, "OK", package_metadata_value()),
         ("GET", "/api/schema") => json_response(200, "OK", schema_value()),
-        ("POST", "/api/run") => json_response(
+        ("GET", "/api/operations") => json_response(
             200,
             "OK",
-            serde_json::json!({
-                "package": format!("{}-server", LIBRARY_CRATE),
-                "library": LIBRARY_CRATE,
-                "accepted": true,
-                "input": body,
-                "note": "This generic adapter is ready for crate-specific operations."
-            }),
+            serde_json::json!(three_d_scene_svg::surface::package_surface().operations),
         ),
+        ("POST", "/api/run") => run_response(body),
+        ("POST", path) if path.starts_with("/api/") => {
+            let operation = path.trim_start_matches("/api/");
+            run_request(SurfaceRequest {
+                operation: OperationId::new(operation),
+                input: parse_json_or_empty(body),
+            })
+        }
         _ => json_response(
             404,
             "Not Found",
@@ -73,12 +75,12 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
     }
 }
 
-/// Returns JSON metadata for this server adapter.
 pub fn package_metadata_json() -> String {
     package_metadata_value().to_string()
 }
 
 fn package_metadata_value() -> serde_json::Value {
+    let surface = three_d_scene_svg::surface::package_surface();
     serde_json::json!({
         "package": format!("{}-server", LIBRARY_CRATE),
         "surface": SURFACE_KIND,
@@ -86,29 +88,110 @@ fn package_metadata_value() -> serde_json::Value {
         "libraryImport": LIBRARY_IMPORT,
         "cliPackage": CLI_PACKAGE,
         "appPackage": APP_PACKAGE,
+        "wasmPackage": WASM_PACKAGE,
         "endpoints": [
             "GET /health",
             "GET /api/package",
             "GET /api/schema",
-            "POST /api/run"
-        ]
+            "GET /api/operations",
+            "POST /api/run",
+            "POST /api/<operation-id>"
+        ],
+        "operations": surface.operations
     })
 }
 
 fn schema_value() -> serde_json::Value {
+    let operations = three_d_scene_svg::surface::package_surface()
+        .operations
+        .into_iter()
+        .map(|operation| {
+            let path = format!("/api/{}", operation.id.as_str());
+            (
+                path,
+                serde_json::json!({
+                    "post": {
+                        "summary": operation.name,
+                        "description": operation.description,
+                        "requestBody": operation.input_schema,
+                        "responses": {"200": operation.output_schema}
+                    }
+                }),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
+
     serde_json::json!({
         "openapi": "3.1.0",
         "info": {
             "title": format!("{} API", LIBRARY_CRATE),
             "version": env!("CARGO_PKG_VERSION")
         },
-        "paths": {
-            "/health": { "get": { "summary": "Health check" } },
-            "/api/package": { "get": { "summary": "Package metadata" } },
-            "/api/schema": { "get": { "summary": "API schema" } },
-            "/api/run": { "post": { "summary": "Generic operation entrypoint" } }
-        }
+        "paths": operations
     })
+}
+
+fn run_response(body: &str) -> HttpResponse {
+    let payload = match serde_json::from_str::<serde_json::Value>(body) {
+        Ok(value) => value,
+        Err(error) => {
+            return diagnostic_response(
+                400,
+                "Bad Request",
+                "invalid_request",
+                &format!("invalid JSON: {error}"),
+            );
+        }
+    };
+    let operation = payload
+        .get("operation")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("describe")
+        .to_string();
+    let input = payload
+        .get("input")
+        .cloned()
+        .unwrap_or_else(|| payload.clone());
+    run_request(SurfaceRequest {
+        operation: OperationId::new(operation),
+        input,
+    })
+}
+
+fn run_request(request: SurfaceRequest) -> HttpResponse {
+    match three_d_scene_svg::surface::run_surface_operation(request) {
+        Ok(response) => json_response(200, "OK", serde_json::json!(response)),
+        Err(error) => diagnostic_response(400, "Bad Request", "operation_failed", &error),
+    }
+}
+
+fn diagnostic_response(
+    status_code: u16,
+    reason: &'static str,
+    code: &str,
+    message: &str,
+) -> HttpResponse {
+    json_response(
+        status_code,
+        reason,
+        serde_json::json!({
+            "diagnostics": [Diagnostic {
+                severity: DiagnosticSeverity::Error,
+                code: code.into(),
+                message: message.to_string(),
+                source: Some(format!("{}-server", LIBRARY_CRATE)),
+                help: None,
+            }]
+        }),
+    )
+}
+
+fn parse_json_or_empty(body: &str) -> serde_json::Value {
+    if body.trim().is_empty() {
+        serde_json::json!({})
+    } else {
+        serde_json::from_str(body).unwrap_or_else(|_| serde_json::json!({"raw": body}))
+    }
 }
 
 fn handle_stream(mut stream: TcpStream) -> io::Result<()> {

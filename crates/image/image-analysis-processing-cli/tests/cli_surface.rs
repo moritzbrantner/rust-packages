@@ -4,5 +4,7 @@ fn cli_adapter_reports_wrapped_library() {
         image_analysis_processing_cli::LIBRARY_CRATE,
         "image-analysis-processing"
     );
-    assert_eq!(image_analysis_processing_cli::SURFACE_KIND, "cli");
+    let surface = image_analysis_processing_cli::package_surface();
+    assert_eq!(surface.library, "image-analysis-processing");
+    assert!(!surface.operations.is_empty());
 }
