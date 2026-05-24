@@ -5,12 +5,13 @@ mod synthesis;
 
 use std::collections::BTreeMap;
 
+use serde::{Deserialize, Serialize};
 use text_core::tokenize_words;
 use video_analysis_core::{DetectError, Result};
 
 pub use synthesis::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for markov prediction.
 pub struct MarkovPrediction {
     /// The token value.
@@ -21,7 +22,7 @@ pub struct MarkovPrediction {
     pub probability: f32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for markov generation.
 pub struct MarkovGeneration {
     /// The tokens value.
@@ -38,7 +39,7 @@ pub struct MarkovChain {
     starts: BTreeMap<Vec<String>, usize>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 /// Variants describing markov input mode.
 pub enum MarkovInputMode {
     /// The surface variant.

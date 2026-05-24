@@ -36,6 +36,16 @@ richer representative operations in their own surface module as library
 functionality matures. See `docs/PACKAGE_SURFACE_MATRIX.md` for the generated
 crate-by-crate audit.
 
+The text crate surfaces now expose deterministic, local-first operations for
+core statistics/tokenization/boundaries, lexical analysis and corpus search,
+linguistic analysis/entity projection, hashed embeddings and transient search,
+in-memory retrieval, transcript parsing/formatting, fallback/imported NLP
+tasks, Markov/template generation, generation-from-linguistics adapters, and
+non-executing runtime helpers. These operations must continue to return
+`SurfaceResponse` values with JSON payloads and typed error strings, and they
+must not silently download models, run native inference, invoke ASR commands, or
+write retrieval persistence files through default surface calls.
+
 ## Contract Ownership Rule
 
 The crate that owns the most general semantic form owns the stable contract.
@@ -114,7 +124,8 @@ Runtime and external integration crates use a shared feature policy:
 | `text-linguistics` | Local model-backed linguistic interpretation | `jobs-core`, `text-core`, `text-lexical`, `text-transcripts`, `video-analysis-core`, `video-analysis-models`, optional `tokenizers`/Candle crates | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
 | `text-embeddings` | Embedding traits and lightweight semantic text analysis | `text-core`, `text-lexical`, `math-sparse-data`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core`, optional `tokenizers`/`ort`/Candle crates | `TextEmbeddingBackend`, `TextEmbedderBackend`, `EmbeddingModelInfo`, hashed dense/sparse embeddings, optional ONNX/Candle text embedders, semantic indexes, text similarity, co-occurrence graphs, related-term scoring | Retrieval, applications, semantic analysis prototypes |
 | `text-retrieval` | Text ingestion, search, and persisted retrieval indexes | `text-core`, `text-lexical`, `text-embeddings`, `vector-analysis-index`, `serde`, `serde_json`, `thiserror`, `video-analysis-core` | Search documents/chunks, chunking options, full-text/semantic/hybrid query/ranking, metadata filters, search results, related-chunk lookup, manifests, chunk/vector JSONL snapshots, corpus metadata, rehydration helpers | Applications, search prototypes, local retrieval snapshots |
-| `text-generation` | Deterministic text prediction and synthesis | `data-inversion-core`, `text-core`, `text-linguistics`, `video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring, weighted term prompts, term/event/analysis to document generation, generated text segments | Applications, text pipelines, prototyping |
+| `text-generation` | Deterministic text prediction and synthesis | `data-inversion-core`, `text-core`, `video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring, weighted term prompts, generated text segments | Applications, text pipelines, prototyping |
+| `text-generation-linguistics` | Linguistic adapters for deterministic generation | `data-inversion-core`, `text-core`, `text-generation`, `text-linguistics`, `video-analysis-core` | Linguistic-analysis term prompts, analysis-to-document synthesis, and Markov training modes for surface, normalized, lemma, and entity-aware tokens | Applications, text pipelines, prototyping |
 | `text-transcripts` | Reusable transcript parsing and ASR command wrappers | `audio-analysis-core`, `audio-analysis-io`, `video-analysis-core`, `video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, waveform-batch transcription bridge, text segment source adapter | Use cases, applications, text pipelines |
 | `dense-data` | Generic dense point aggregation and clustering | `numbers-core`, `math-linear`, `math-statistics`, `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, per-dimension summaries, bounds, fixed-grid buckets, deterministic k-means clusters, covariance, and PCA helpers | Tables, graphs, charts, maps, media features, and analytics workflows |
 | `vector-analysis-core` | Dense vector contracts and metrics | `video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
@@ -357,7 +368,9 @@ cases and model adapters.
   transcript contract normalization, strict validation, and aggregate text
   fallback helpers used by audio ASR and transcript-aware text analysis.
 - `text-generation` owns deterministic Markov prediction and deterministic
-  synthesis from weighted terms, events, and linguistic analyses.
+  synthesis from weighted terms and text events. `text-generation-linguistics`
+  owns the adapters that turn linguistic analyses into term prompts, generated
+  documents, or Markov training inputs.
 
 Deterministic text crates should emit deterministic features and label-based
 `AnalysisEvent` values. Model-backed classification and embeddings are
@@ -1232,7 +1245,9 @@ Allowed internal dependencies:
   `text-embeddings`, `vector-analysis-index`, `video-analysis-core`,
   `serde`, `serde_json`, `thiserror`.
 - `text-generation` -> `data-inversion-core`, `text-core`,
-  `text-linguistics`, `video-analysis-core`.
+  `video-analysis-core`.
+- `text-generation-linguistics` -> `data-inversion-core`, `text-core`,
+  `text-generation`, `text-linguistics`, `video-analysis-core`.
 - `text-transcripts` -> `audio-analysis-core`,
   `audio-analysis-io`, `video-analysis-core`, `video-analysis-ingest`,
   `serde`, `serde_json`, `thiserror`.

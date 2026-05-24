@@ -11,15 +11,10 @@ open-ended generative model inference.
 ## Example
 
 ```rust,no_run
-use text_linguistics::{analyze_text, LinguisticAnalysisOptions};
-use text_generation::{MarkovChain, MarkovInputMode};
+use text_generation::MarkovChain;
 
-let analysis = analyze_text(
-    "Scene transitions follow strong visual changes.",
-    &LinguisticAnalysisOptions::default(),
-) .unwrap();
 let mut model = MarkovChain::new(2).unwrap();
-model.train_analysis(&analysis, MarkovInputMode::Lemma);
+model.train_text("Scene transitions follow strong visual changes.");
 
 let _next = model.predict_next(["scene", "transitions"], 3).unwrap();
 ```
@@ -27,4 +22,4 @@ let _next = model.predict_next(["scene", "transitions"], 3).unwrap();
 ## Related crates
 
 - `text-core`
-- `text-generation`
+- `text-generation-linguistics`

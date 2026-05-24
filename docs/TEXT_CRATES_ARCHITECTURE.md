@@ -17,6 +17,7 @@ execution is opt-in through feature flags and explicit runtime configuration.
 | `text-transcripts` | Transcript formats, ASR command adapters, whisper.cpp integration, transcript-specific analyzers. | Generic lexical features, retrieval ranking. |
 | `text-nlp-models` | Shared NLP task schemas, model catalog, imported-prediction handling, deterministic fallbacks, runtime broker APIs. | Tokenizer implementation details, direct download policy, high-level linguistics graph construction. |
 | `text-generation` | Deterministic Markov prediction and template/text synthesis from known signals. | Hosted LLM clients or claims of open-ended generative model inference. |
+| `text-generation-linguistics` | Adapters from linguistic analyses into deterministic generation prompts, synthesis, and Markov training. | Core Markov/synthesis ownership, hosted LLM clients, native model inference. |
 
 ## Classical And Model-Backed Coverage
 
@@ -28,7 +29,7 @@ execution is opt-in through feature flags and explicit runtime configuration.
 | Linguistic analysis | Heuristic pipeline in `text-linguistics` | Optional local sequence labeler for NER |
 | Transcription | Transcript parsers | Whisper CLI/native whisper.cpp adapters |
 | Classification/sentiment/rerank/QA | `text-nlp-models` lexical/imported fallbacks | Runtime-broker traits supplied by callers |
-| Generation | Markov/template synthesis | No hosted or native LLM path today |
+| Generation | `text-generation` Markov/template synthesis; `text-generation-linguistics` analysis adapters | No hosted or native LLM path today |
 
 ## Dependency Direction
 

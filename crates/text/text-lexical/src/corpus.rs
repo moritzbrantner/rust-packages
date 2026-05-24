@@ -92,7 +92,7 @@ pub struct TfIdfTerm {
     pub document_count: usize,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for document search result.
 pub struct DocumentSearchResult {
     /// Identifier for this value.
@@ -127,7 +127,7 @@ impl Default for Bm25Options {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for bm25 search result.
 pub struct Bm25SearchResult {
     /// Identifier for this value.

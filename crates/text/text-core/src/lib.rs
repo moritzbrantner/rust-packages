@@ -163,7 +163,7 @@ pub fn segment_document_id(stream_id: &str, segment_index: u64) -> String {
     format!("{stream_id}:{segment_index}")
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for text stats.
 pub struct TextStats {
     /// The bytes value.
@@ -178,7 +178,7 @@ pub struct TextStats {
     pub sentences: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for text span.
 pub struct TextSpan {
     /// The byte start value.
@@ -191,11 +191,11 @@ pub struct TextSpan {
     pub char_end: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 /// Data type for annotation identifier.
 pub struct AnnotationId(pub usize);
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for annotation confidence.
 pub struct AnnotationConfidence(f32);
 
@@ -228,7 +228,7 @@ impl From<f32> for AnnotationConfidence {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Variants describing annotation provenance.
 pub enum AnnotationProvenance {
     /// The heuristic variant.
@@ -247,7 +247,7 @@ pub enum AnnotationProvenance {
     Derived,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for text span ref.
 pub struct TextSpanRef {
     /// Identifier for this value.
@@ -256,7 +256,7 @@ pub struct TextSpanRef {
     pub span: TextSpan,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for text boundary options.
 pub struct TextBoundaryOptions {
     /// The lowercase value.
@@ -283,7 +283,7 @@ impl Default for TextBoundaryOptions {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for word segment.
 pub struct WordSegment {
     /// Text content for this value.
@@ -296,7 +296,7 @@ pub struct WordSegment {
     pub kind: TokenKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for grapheme span.
 pub struct GraphemeSpan {
     /// Text content for this value.
@@ -305,7 +305,7 @@ pub struct GraphemeSpan {
     pub span: TextSpan,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for script profile.
 pub struct ScriptProfile {
     /// The scripts value.
@@ -324,7 +324,7 @@ pub struct ScriptProfile {
     pub is_mixed: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for token.
 pub struct Token {
     /// Text content for this value.
@@ -337,7 +337,7 @@ pub struct Token {
     pub kind: TokenKind,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Variants describing token kind.
 pub enum TokenKind {
     /// The word variant.
@@ -358,7 +358,7 @@ pub enum TokenKind {
     Other,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for sentence.
 pub struct Sentence {
     /// Text content for this value.
@@ -369,7 +369,7 @@ pub struct Sentence {
     pub token_count: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for paragraph.
 pub struct Paragraph {
     /// Text content for this value.
@@ -380,7 +380,7 @@ pub struct Paragraph {
     pub sentence_count: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for canonical token.
 pub struct CanonicalToken {
     /// Identifier for this value.
@@ -399,7 +399,7 @@ pub struct CanonicalToken {
     pub paragraph_id: Option<AnnotationId>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for annotated sentence.
 pub struct AnnotatedSentence {
     /// Identifier for this value.
@@ -418,7 +418,7 @@ pub struct AnnotatedSentence {
     pub paragraph_id: Option<AnnotationId>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for annotated paragraph.
 pub struct AnnotatedParagraph {
     /// Identifier for this value.
@@ -435,7 +435,7 @@ pub struct AnnotatedParagraph {
     pub sentence_ids: Vec<AnnotationId>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for text annotation graph.
 pub struct TextAnnotationGraph {
     /// Text content for this value.
@@ -496,7 +496,7 @@ impl Default for TextProcessingOptions {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for detailed text stats.
 pub struct DetailedTextStats {
     /// The basic value.

@@ -30,10 +30,12 @@ pub struct SearchDocument {
     /// Identifier for this value.
     pub id: String,
     /// The title value.
+    #[serde(default)]
     pub title: Option<String>,
     /// The body value.
     pub body: String,
     /// Metadata associated with this value.
+    #[serde(default)]
     pub metadata: BTreeMap<String, String>,
 }
 

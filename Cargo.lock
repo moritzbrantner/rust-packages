@@ -4768,6 +4768,7 @@ version = "0.1.0"
 dependencies = [
  "data-inversion-core",
  "runtime-contracts",
+ "serde",
  "serde_json",
  "text-core",
  "video-analysis-core",
@@ -4789,6 +4790,7 @@ version = "0.1.0"
 dependencies = [
  "data-inversion-core",
  "runtime-contracts",
+ "serde",
  "serde_json",
  "text-core",
  "text-generation",
@@ -4908,6 +4910,7 @@ dependencies = [
  "jobs-core",
  "model-runtime",
  "runtime-contracts",
+ "serde",
  "serde_json",
  "tempfile",
  "text-core",

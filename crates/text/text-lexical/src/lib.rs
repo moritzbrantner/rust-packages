@@ -5,6 +5,7 @@ pub mod surface;
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use serde::{Deserialize, Serialize};
 use text_core::{
     detailed_text_stats, split_sentence_spans, text_stats, tokenize, tokenize_words, word_counts,
     TextProcessingOptions, TextSpan, TextStats, TokenKind,
@@ -15,7 +16,7 @@ use video_analysis_core::{
 
 pub use corpus::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for term frequency.
 pub struct TermFrequency {
     /// The term value.
@@ -26,7 +27,7 @@ pub struct TermFrequency {
     pub frequency: f32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for text feature summary.
 pub struct TextFeatureSummary {
     /// The stats value.
@@ -39,7 +40,7 @@ pub struct TextFeatureSummary {
     pub top_terms: Vec<TermFrequency>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for stop words.
 pub struct StopWords {
     /// Language tag for this value.
@@ -48,7 +49,7 @@ pub struct StopWords {
     pub terms: BTreeSet<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for keyword options.
 pub struct KeywordOptions {
     /// The max terms value.
@@ -69,7 +70,7 @@ impl Default for KeywordOptions {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for keyword.
 pub struct Keyword {
     /// Text content for this value.
@@ -106,7 +107,7 @@ pub struct ShingleSimilarity {
     pub jaccard: f32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for readability summary.
 pub struct ReadabilitySummary {
     /// The sentence count value.
@@ -140,7 +141,7 @@ impl Default for StemOptions {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for extractive summary options.
 pub struct ExtractiveSummaryOptions {
     /// The max sentences value.
@@ -161,7 +162,7 @@ impl Default for ExtractiveSummaryOptions {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for summary sentence.
 pub struct SummarySentence {
     /// The index value.
@@ -174,7 +175,7 @@ pub struct SummarySentence {
     pub score: f32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for phrase keyword options.
 pub struct PhraseKeywordOptions {
     /// Maximum phrases to return.
@@ -244,7 +245,7 @@ impl Default for SentimentLexicon {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for sentiment summary.
 pub struct SentimentSummary {
     /// The positive score value.
@@ -291,7 +292,7 @@ impl Default for EntityRuleSet {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for entity mention.
 pub struct EntityMention {
     /// The kind value.

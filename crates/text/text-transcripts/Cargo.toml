@@ -19,17 +19,17 @@ audio-analysis-io.workspace = true
 hound.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sha2 = "0.10.9"
+sha2 = { version = "0.10.9", optional = true }
 text-core.workspace = true
 thiserror.workspace = true
-ureq = { version = "2.12.1", default-features = true }
+ureq = { version = "2.12.1", default-features = true, optional = true }
 video-analysis-core.workspace = true
 video-analysis-ingest.workspace = true
 
 [features]
 default = []
 external-tests = []
-native = []
+native = ["dep:sha2", "dep:ureq"]
 
 [build-dependencies]
 cmake = "0.1.54"

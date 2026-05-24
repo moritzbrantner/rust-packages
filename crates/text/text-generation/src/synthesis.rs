@@ -3,10 +3,11 @@
 use std::collections::BTreeMap;
 
 use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};
+use serde::{Deserialize, Serialize};
 use text_core::{normalize_whitespace, OwnedTextDocument};
 use video_analysis_core::{AnalysisEvent, DetectError, OwnedTextSegment, Result};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for term prompt.
 pub struct TermPrompt {
     /// The term value.
@@ -38,7 +39,7 @@ impl TermPrompt {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for text synthesis options.
 pub struct TextSynthesisOptions {
     /// The sentence count value.

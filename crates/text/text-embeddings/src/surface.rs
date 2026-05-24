@@ -4,6 +4,13 @@ use runtime_contracts::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
+use text_core::TextDocument;
+
+use crate::{
+    text_similarity, CooccurrenceConfig, CooccurrenceGraph, HashedTextEmbedder, SemanticTextIndex,
+    TextEmbeddingBackend, TextEmbeddingConfig,
+};
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -11,56 +18,265 @@ pub fn package_surface() -> PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
-        operations: vec![SurfaceOperation {
-            id: OperationId::new("describe"),
-            name: "Describe package".to_string(),
-            description: Some(
-                "Lightweight semantic text embeddings and search for video-analysis.".to_string(),
+        operations: vec![
+            operation(
+                "describe",
+                "Describe package",
+                "Lightweight semantic text embeddings and search for video-analysis.",
+                serde_json::json!({"includeOperations": true}),
             ),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "additionalProperties": true
-            }),
-            output_schema: serde_json::json!({
-                "type": "object",
-                "required": ["library", "version", "operationCount"]
-            }),
-            example_request: serde_json::json!({
-                "includeOperations": true
-            }),
-            wasm_supported: true,
-            server_supported: true,
-        }],
+            operation(
+                "embeddings.embed",
+                "Embed text",
+                "Builds deterministic hashed text embeddings.",
+                serde_json::json!({"texts": ["rust text analysis"], "dimensions": 64}),
+            ),
+            operation(
+                "embeddings.similarity",
+                "Text similarity",
+                "Computes deterministic hashed-vector text similarity.",
+                serde_json::json!({"left": "rust text", "right": "text crates"}),
+            ),
+            operation(
+                "embeddings.semanticSearch",
+                "Semantic search",
+                "Builds a transient hashed semantic index and searches it.",
+                serde_json::json!({"documents": [{"id": "doc-1", "text": "rust text analysis"}, {"id": "doc-2", "text": "video scenes"}], "query": "text"}),
+            ),
+            operation(
+                "embeddings.relatedTerms",
+                "Related terms",
+                "Scores co-occurring related terms from local text.",
+                serde_json::json!({"text": "rust text crates make text analysis reliable", "term": "text"}),
+            ),
+        ],
+    }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    SurfaceOperation {
+        id: OperationId::new(id),
+        name: name.to_string(),
+        description: Some(description.to_string()),
+        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
+        output_schema: serde_json::json!({"type": "object"}),
+        example_request,
+        wasm_supported: true,
+        server_supported: true,
     }
 }
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
-    match request.operation.as_str() {
-        "describe" => {
-            let surface = package_surface();
-            Ok(SurfaceResponse {
-                operation: request.operation,
-                value: serde_json::json!({
-                    "library": surface.library,
-                    "version": surface.version,
-                    "operationCount": surface.operations.len(),
-                    "operations": surface
-                        .operations
-                        .iter()
-                        .map(|operation| operation.id.as_str())
-                        .collect::<Vec<_>>(),
-                    "input": request.input
-                }),
-                diagnostics: Vec::new(),
-                artifacts: Vec::new(),
-            })
+    let operation = request.operation.clone();
+    let value = match request.operation.as_str() {
+        "describe" => describe_value(request.input),
+        "embeddings.embed" => embed_value(parse_input(request.input)?)?,
+        "embeddings.similarity" => similarity_value(parse_input(request.input)?)?,
+        "embeddings.semanticSearch" => semantic_search_value(parse_input(request.input)?)?,
+        "embeddings.relatedTerms" => related_terms_value(parse_input(request.input)?)?,
+        operation => {
+            return Err(format!(
+                "unsupported operation `{operation}` for {}",
+                env!("CARGO_PKG_NAME")
+            ))
         }
-        operation => Err(format!(
-            "unsupported operation `{operation}` for {}",
-            env!("CARGO_PKG_NAME")
-        )),
+    };
+    Ok(SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    })
+}
+
+fn describe_value(input: serde_json::Value) -> serde_json::Value {
+    let surface = package_surface();
+    serde_json::json!({
+        "library": surface.library,
+        "version": surface.version,
+        "operationCount": surface.operations.len(),
+        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
+        "input": input
+    })
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EmbedRequest {
+    texts: Vec<String>,
+    #[serde(default = "default_dimensions")]
+    dimensions: usize,
+    #[serde(default = "default_true")]
+    normalize: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SimilarityRequest {
+    left: String,
+    right: String,
+    #[serde(default = "default_dimensions")]
+    dimensions: usize,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SemanticSearchRequest {
+    documents: Vec<SemanticDocument>,
+    query: String,
+    #[serde(default = "default_top_k")]
+    top_k: usize,
+    #[serde(default = "default_dimensions")]
+    dimensions: usize,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SemanticDocument {
+    id: Option<String>,
+    text: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RelatedTermsRequest {
+    text: String,
+    term: Option<String>,
+    #[serde(default = "default_window")]
+    window_size: usize,
+    #[serde(default = "default_top_k")]
+    limit: usize,
+}
+
+fn embed_value(request: EmbedRequest) -> Result<serde_json::Value, String> {
+    if request.texts.is_empty() {
+        return Err("invalid request: texts must not be empty".to_string());
     }
+    let embedder = embedder(request.dimensions);
+    let refs = request.texts.iter().map(String::as_str).collect::<Vec<_>>();
+    let mut vectors = embedder
+        .embed_batch(&refs)
+        .map_err(|error| error.to_string())?;
+    if !request.normalize {
+        // HashedTextEmbedder returns normalized vectors; expose the requested flag
+        // as metadata without changing deterministic backend behavior.
+    }
+    Ok(serde_json::json!({
+        "model": embedder.model_info(),
+        "normalizeRequested": request.normalize,
+        "embeddings": vectors.drain(..).map(|vector| vector.as_slice().to_vec()).collect::<Vec<_>>()
+    }))
+}
+
+fn similarity_value(request: SimilarityRequest) -> Result<serde_json::Value, String> {
+    let embedder = embedder(request.dimensions);
+    Ok(serde_json::json!({
+        "model": embedder.model_info(),
+        "similarity": text_similarity(&request.left, &request.right, &embedder).map_err(|error| error.to_string())?
+    }))
+}
+
+fn semantic_search_value(request: SemanticSearchRequest) -> Result<serde_json::Value, String> {
+    let embedder = embedder(request.dimensions);
+    let mut index = SemanticTextIndex::new(embedder);
+    let ids = request
+        .documents
+        .iter()
+        .enumerate()
+        .map(|(index, document)| {
+            document
+                .id
+                .clone()
+                .unwrap_or_else(|| format!("doc-{index}"))
+        })
+        .collect::<Vec<_>>();
+    let docs = request
+        .documents
+        .iter()
+        .enumerate()
+        .map(|(index, document)| TextDocument::new(ids[index].as_str(), &document.text))
+        .collect::<Vec<_>>();
+    index
+        .add_documents(docs)
+        .map_err(|error| error.to_string())?;
+    let results = index
+        .search(&request.query, request.top_k)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "model": index.embedder().model_info(),
+        "results": results.into_iter().map(|result| serde_json::json!({
+            "id": result.id,
+            "score": result.score,
+            "distance": result.distance,
+            "metadata": {
+                "backend": result.metadata.backend,
+                "provenance": result.metadata.provenance,
+                "modelName": result.metadata.model_name,
+                "dimensions": result.metadata.dimensions
+            }
+        })).collect::<Vec<_>>()
+    }))
+}
+
+fn related_terms_value(request: RelatedTermsRequest) -> Result<serde_json::Value, String> {
+    let mut graph = CooccurrenceGraph::new(CooccurrenceConfig {
+        window_size: request.window_size,
+        ..CooccurrenceConfig::default()
+    })
+    .map_err(|error| error.to_string())?;
+    graph.train_text(&request.text);
+    let term = request
+        .term
+        .or_else(|| {
+            graph
+                .term_counts()
+                .iter()
+                .max_by_key(|(_, count)| *count)
+                .map(|(term, _)| term.clone())
+        })
+        .unwrap_or_default();
+    let related = graph.related_terms(&term, request.limit);
+    Ok(serde_json::json!({
+        "term": term,
+        "relatedTerms": related.into_iter().map(|term| serde_json::json!({
+            "term": term.term,
+            "count": term.count,
+            "score": term.score
+        })).collect::<Vec<_>>()
+    }))
+}
+
+fn embedder(dimensions: usize) -> HashedTextEmbedder {
+    HashedTextEmbedder {
+        config: TextEmbeddingConfig {
+            dimensions: dimensions.max(1),
+            use_idf: false,
+        },
+        ..HashedTextEmbedder::default()
+    }
+}
+
+fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
+    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+}
+
+fn default_dimensions() -> usize {
+    128
+}
+fn default_top_k() -> usize {
+    10
+}
+fn default_window() -> usize {
+    4
+}
+fn default_true() -> bool {
+    true
 }
 
 #[cfg(test)]
@@ -68,21 +284,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn package_surface_has_describe_operation() {
-        let surface = package_surface();
-        assert_eq!(surface.library, env!("CARGO_PKG_NAME"));
-        assert!(!surface.operations.is_empty());
+    fn package_surface_lists_embedding_operations() {
+        let ids = package_surface()
+            .operations
+            .into_iter()
+            .map(|operation| operation.id.0)
+            .collect::<Vec<_>>();
+        assert!(ids.contains(&"embeddings.embed".to_string()));
+        assert!(ids.contains(&"embeddings.semanticSearch".to_string()));
     }
 
     #[test]
-    fn describe_operation_returns_surface_summary() {
+    fn embed_operation_returns_requested_dimensions() {
         let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("describe"),
-            input: serde_json::json!({"includeOperations": true}),
+            operation: OperationId::new("embeddings.embed"),
+            input: serde_json::json!({"texts": ["rust text"], "dimensions": 16}),
         })
-        .expect("describe operation");
+        .expect("embed");
+        assert_eq!(response.value["model"]["dimensions"], 16);
+        assert_eq!(
+            response.value["embeddings"][0].as_array().unwrap().len(),
+            16
+        );
+    }
 
-        assert_eq!(response.operation.as_str(), "describe");
-        assert_eq!(response.value["library"], env!("CARGO_PKG_NAME"));
+    #[test]
+    fn malformed_input_returns_typed_error_string() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("embeddings.embed"),
+            input: serde_json::json!({"texts": "not-array"}),
+        })
+        .expect_err("invalid request");
+        assert!(error.contains("invalid request"));
     }
 }
