@@ -27,7 +27,7 @@ Package README index:
 - Animation: [`animation-core`](crates/animation/animation-core/README.md)
 - Math: [`finance-statistics`](crates/math/finance-statistics/README.md), [`math-geometry-2d`](crates/math/math-geometry-2d/README.md), [`math-linear`](crates/math/math-linear/README.md), [`math-signal-core`](crates/math/math-signal-core/README.md), [`math-sparse-data`](crates/math/math-sparse-data/README.md), [`math-statistics`](crates/math/math-statistics/README.md)
 - Image: [`image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-io`](crates/image/image-analysis-io/README.md), [`image-analysis-tasks`](crates/image/image-analysis-tasks/README.md), [`image-analysis-ocr`](crates/image/image-analysis-ocr/README.md), [`image-analysis-onnx`](crates/image/image-analysis-onnx/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
-- Text: [`text-core`](crates/text/text-core/README.md), [`text-lexical`](crates/text/text-lexical/README.md), [`text-linguistics`](crates/text/text-linguistics/README.md), [`text-embeddings`](crates/text/text-embeddings/README.md), [`text-retrieval`](crates/text/text-retrieval/README.md), [`text-models`](crates/text/text-models/README.md), [`text-transcripts`](crates/text/text-transcripts/README.md), [`text-whisper-cpp`](crates/text/text-whisper-cpp/README.md), [`text-generation`](crates/text/text-generation/README.md)
+- Text: [`text-core`](crates/text/text-core/README.md), [`text-lexical`](crates/text/text-lexical/README.md), [`text-linguistics`](crates/text/text-linguistics/README.md), [`text-embeddings`](crates/text/text-embeddings/README.md), [`text-retrieval`](crates/text/text-retrieval/README.md), [`text-model-runtime`](crates/text/text-model-runtime/README.md), [`text-nlp-tasks`](crates/text/text-nlp-tasks/README.md), [`text-nlp-models`](crates/text/text-nlp-models/README.md), [`text-transcripts`](crates/text/text-transcripts/README.md), [`text-generation`](crates/text/text-generation/README.md), [`text-generation-linguistics`](crates/text/text-generation-linguistics/README.md)
 - Vector and 3D: [`vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md), [`three-d-scene-svg`](crates/three-d/three-d-scene-svg/README.md)
 - Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
 - Prototypes: [`video-analysis-use-cases`](prototypes/rust/video-analysis-use-cases/README.md), `@video-analysis/web` in `prototypes/web/video-analysis-web`
@@ -122,17 +122,22 @@ Package README index:
 - `text-retrieval`: document chunking, full-text/semantic/hybrid search,
   metadata filtering, related-content lookup, score normalization, facets,
   sorting, and manifest/JSONL persistence for index round trips.
-- `text-models`: optional tokenizer, ONNX, and Candle adapters for
-  model-backed text classification and embeddings. Default builds stay light;
-  `onnx`, `candle`, `external-tests`, and `slow-external-tests` are opt-in
-  features.
+- `text-model-runtime`: shared tokenizer bundle contracts, tokenized model
+  inputs, and optional ONNX/Candle runtime traits. Default builds stay
+  deterministic; `tokenizers`, `onnx`, `candle`, and `external-tests` are
+  opt-in features.
+- `text-nlp-tasks`: shared NLP task schemas, task catalogs, deterministic
+  fallback runners, imported-prediction postprocessing, and runtime broker
+  APIs.
+- `text-nlp-models`: compatibility crate for the previous NLP task package
+  name; new code should depend on `text-nlp-tasks`.
 - `text-transcripts`: transcript segment models, Whisper JSON,
   SRT/WebVTT/plain text parsing, command transcribers, and text segment source
   adapters.
-- `text-whisper-cpp`: native whisper.cpp bindings, model catalog/cache status,
-  progress events, and offline transcription adapters.
 - `text-generation`: deterministic token Markov chains, next-token prediction,
   perplexity scoring, prompt extraction, and weighted-term synthesis.
+- `text-generation-linguistics`: linguistic-analysis adapters for deterministic
+  term prompts, document synthesis, and Markov training over analyzed text.
 - `vector-analysis-core`: dense vector validation, normalization, metrics,
   distances, means, and per-dimension summary statistics.
 - `vector-analysis-index`: exact in-memory vector search and nearest-centroid
@@ -348,8 +353,9 @@ and stays outside the default contributor gate.
   `onnx-backend` kept as a compatibility alias.
 - `video-analysis-cli`: `onnx` enables the ONNX crate dependency and
   `onnxruntime` enables native runtime execution.
-- `text-models`: `onnx`, `candle`, `external-tests`, and
-  `slow-external-tests`.
+- `text-model-runtime` and `text-embeddings`: `onnx`, `candle`, and
+  `external-tests`.
+- `text-linguistics`: `candle` and `external-tests`.
 - `image-analysis-onnx`: `onnxruntime` and `external-tests`.
 - `video-analysis-onnx`: `onnxruntime` and `external-tests`.
 - `video-analysis-ffmpeg`: `ffmpeg-backend`, `ffmpeg-tests`, and

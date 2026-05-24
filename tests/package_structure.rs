@@ -19,6 +19,22 @@ fn library_manifests_do_not_embed_generic_runtime_surfaces() {
 }
 
 #[test]
+fn readme_local_markdown_links_resolve() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let readme = fs::read_to_string(root.join("README.md")).unwrap();
+    let missing = local_markdown_link_targets(&readme)
+        .into_iter()
+        .filter(|target| !root.join(target).exists())
+        .collect::<Vec<_>>();
+
+    assert!(
+        missing.is_empty(),
+        "README local links must resolve: {}",
+        missing.join(", ")
+    );
+}
+
+#[test]
 fn rust_library_crates_have_unit_tests() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let missing = workspace_manifests(root)
@@ -221,6 +237,32 @@ fn package_name(manifest: &Path) -> String {
                 .map(|name| name.trim_matches('"').to_string())
         })
         .expect("package name")
+}
+
+fn local_markdown_link_targets(markdown: &str) -> Vec<String> {
+    let mut targets = Vec::new();
+    let mut rest = markdown;
+
+    while let Some(link_start) = rest.find("](") {
+        rest = &rest[link_start + 2..];
+        let Some(link_end) = rest.find(')') else {
+            break;
+        };
+        let target = &rest[..link_end];
+        rest = &rest[link_end + 1..];
+
+        let target = target.split('#').next().unwrap_or_default().trim();
+        if target.is_empty()
+            || target.contains("://")
+            || target.starts_with("mailto:")
+            || target.starts_with('/')
+        {
+            continue;
+        }
+        targets.push(target.to_string());
+    }
+
+    targets
 }
 
 fn has_rust_test_marker(src_dir: &Path) -> bool {

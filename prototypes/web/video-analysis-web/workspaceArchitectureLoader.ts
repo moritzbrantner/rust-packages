@@ -260,6 +260,30 @@ function capabilitiesFor(
       },
     ];
   }
+  if (isRustCliAdapter(name, path)) {
+    return [
+      {
+        kind: "library",
+        entrypoint: libraryEntrypoint(name, kind, path, hasLibraryTarget),
+      },
+      {
+        kind: "cli",
+        entrypoint: `cargo run -p ${name}`,
+      },
+    ];
+  }
+  if (isRustServerAdapter(name, path)) {
+    return [
+      {
+        kind: "library",
+        entrypoint: libraryEntrypoint(name, kind, path, hasLibraryTarget),
+      },
+      {
+        kind: "api",
+        entrypoint: `cargo run -p ${name} -- --addr 127.0.0.1:3000`,
+      },
+    ];
+  }
 
   const capabilities: WorkspaceArchitecturePackage["capabilities"] = [
     {
@@ -284,6 +308,14 @@ function capabilitiesFor(
   ];
 
   return capabilities;
+}
+
+function isRustCliAdapter(name: string, path: string | null): boolean {
+  return name.endsWith("-cli") || Boolean(path?.endsWith("-cli"));
+}
+
+function isRustServerAdapter(name: string, path: string | null): boolean {
+  return name.endsWith("-server") || Boolean(path?.endsWith("-server"));
 }
 
 function libraryEntrypoint(

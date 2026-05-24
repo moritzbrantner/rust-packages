@@ -46,6 +46,22 @@ describe("workspace API integration", () => {
     ]);
   }, apiTestTimeoutMs);
 
+  it("reports adapter packages without fabricated nested companion surfaces", async () => {
+    const response = await fetch(`${baseUrl}/api/packages?name=maps-kernels-core-cli`);
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.capabilities.map((capability: { kind: string }) => capability.kind)).toEqual([
+      "library",
+      "cli",
+    ]);
+    expect(
+      body.capabilities.some((capability: { entrypoint: string }) =>
+        capability.entrypoint.includes("maps-kernels-core-cli-cli"),
+      ),
+    ).toBe(false);
+  }, apiTestTimeoutMs);
+
   it("reports missing packages as HTTP 404", async () => {
     const response = await fetch(`${baseUrl}/api/packages?name=missing-package`);
 
