@@ -1,0 +1,20 @@
+[package]
+name = "text-question-answering"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Concrete extractive question-answering contracts and fallback postprocessing."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+runtime-contracts.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+text-model-runtime.workspace = true
+video-analysis-core.workspace = true

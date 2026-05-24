@@ -1,6 +1,7 @@
 # video-analysis-recognition
 
-Reference-embedding recognition helpers for `video-analysis`.
+Reference-embedding recognition helpers plus video model prediction contracts
+for `video-analysis`.
 
 ## Feature flags
 
@@ -18,4 +19,5 @@ let _ = library;
 ## Related crates
 
 - `video-analysis-tracking`
-- `video-analysis-models`
+- `model-runtime`
+- `video-analysis-onnx`

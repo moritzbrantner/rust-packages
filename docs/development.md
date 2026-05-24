@@ -58,7 +58,7 @@ scripts/setup_e2e_external_tools.sh fast
 ```
 
 The ignored local roots are `.external-test-tools/`, `.audio-tools/`,
-`.video-analysis-models/`, and `.test-corpora/`.
+`.model-runtime/`, and `.test-corpora/`.
 
 ## Release Notes
 

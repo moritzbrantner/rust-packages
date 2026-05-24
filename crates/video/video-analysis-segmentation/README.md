@@ -18,4 +18,4 @@ let _ = VideoSegmentationRequest::default();
 ## Related crates
 
 - `image-analysis-segmentation`
-- `video-analysis-models`
+- `model-runtime`

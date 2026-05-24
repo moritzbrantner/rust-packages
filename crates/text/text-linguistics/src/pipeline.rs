@@ -108,7 +108,7 @@ impl EntityRecognitionOptions {
     pub fn local_model() -> Self {
         Self {
             mode: EntityRecognitionMode::LocalModel,
-            bundle_dir: PathBuf::from(".video-analysis-models"),
+            bundle_dir: PathBuf::from(".model-runtime"),
             preset: ModelPreset::BertBaseNer,
             auto_download: true,
             download_progress: true,

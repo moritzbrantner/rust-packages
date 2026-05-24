@@ -28,4 +28,4 @@ let _ = request.min_mask_pixels(32);
 
 - `image-analysis-core`
 - `image-analysis-detection`
-- `image-analysis-tasks`
+- `image-analysis-classification, image-analysis-embeddings, image-analysis-captioning, image-analysis-ocr, image-analysis-segmentation, or image-analysis-detection`

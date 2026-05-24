@@ -160,7 +160,7 @@ const executionTemplates: ExecutionNodeTemplate[] = [
     x: 790,
     y: 310,
     title: "Visual Models",
-    packageName: "video-analysis-models",
+    packageName: "video-analysis-recognition",
     description: "Samples frames and normalizes optional object/OCR model responses.",
     tone: "violet",
     inputs: [

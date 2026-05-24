@@ -26,10 +26,10 @@ Package README index:
 - Data: [`data-inversion-core`](crates/data/data-inversion-core/README.md), [`graph-analysis-core`](crates/data/graph-analysis-core/README.md), [`numbers-core`](crates/data/numbers-core/README.md), [`tensor-data`](crates/data/tensor-data/README.md), [`dense-data`](crates/data/dense-data/README.md)
 - Animation: [`animation-core`](crates/animation/animation-core/README.md)
 - Math: [`finance-statistics`](crates/math/finance-statistics/README.md), [`math-geometry-2d`](crates/math/math-geometry-2d/README.md), [`math-linear`](crates/math/math-linear/README.md), [`math-signal-core`](crates/math/math-signal-core/README.md), [`math-sparse-data`](crates/math/math-sparse-data/README.md), [`math-statistics`](crates/math/math-statistics/README.md)
-- Image: [`image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-io`](crates/image/image-analysis-io/README.md), [`image-analysis-tasks`](crates/image/image-analysis-tasks/README.md), [`image-analysis-ocr`](crates/image/image-analysis-ocr/README.md), [`image-analysis-onnx`](crates/image/image-analysis-onnx/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
-- Text: [`text-core`](crates/text/text-core/README.md), [`text-lexical`](crates/text/text-lexical/README.md), [`text-linguistics`](crates/text/text-linguistics/README.md), [`text-embeddings`](crates/text/text-embeddings/README.md), [`text-retrieval`](crates/text/text-retrieval/README.md), [`text-model-runtime`](crates/text/text-model-runtime/README.md), [`text-nlp-tasks`](crates/text/text-nlp-tasks/README.md), [`text-nlp-models`](crates/text/text-nlp-models/README.md), [`text-transcripts`](crates/text/text-transcripts/README.md), [`text-generation`](crates/text/text-generation/README.md), [`text-generation-linguistics`](crates/text/text-generation-linguistics/README.md)
+- Image: [`image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`image-analysis-core`](crates/image/image-analysis-core/README.md), [`image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`image-analysis-classification`](crates/image/image-analysis-classification/README.md), [`image-analysis-embeddings`](crates/image/image-analysis-embeddings/README.md), [`image-analysis-captioning`](crates/image/image-analysis-captioning/README.md), [`image-analysis-io`](crates/image/image-analysis-io/README.md), [`image-analysis-ocr`](crates/image/image-analysis-ocr/README.md), [`image-analysis-onnx`](crates/image/image-analysis-onnx/README.md), [`image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
+- Text: [`text-core`](crates/text/text-core/README.md), [`text-lexical`](crates/text/text-lexical/README.md), [`text-linguistics`](crates/text/text-linguistics/README.md), [`text-classification`](crates/text/text-classification/README.md), [`text-question-answering`](crates/text/text-question-answering/README.md), [`text-embeddings`](crates/text/text-embeddings/README.md), [`text-retrieval`](crates/text/text-retrieval/README.md), [`text-model-runtime`](crates/text/text-model-runtime/README.md), [`text-transcripts`](crates/text/text-transcripts/README.md), [`text-generation`](crates/text/text-generation/README.md), [`text-generation-linguistics`](crates/text/text-generation-linguistics/README.md)
 - Vector and 3D: [`vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md), [`three-d-scene-svg`](crates/three-d/three-d-scene-svg/README.md)
-- Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-models`](crates/video/video-analysis-models/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
+- Video: [`video-analysis-core`](crates/video/video-analysis-core/README.md), [`video-analysis-data`](crates/video/video-analysis-data/README.md), [`video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`video-analysis-features`](crates/video/video-analysis-features/README.md), [`video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`video-analysis-output`](crates/video/video-analysis-output/README.md), [`video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`video-analysis-split`](crates/video/video-analysis-split/README.md), [`video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`video-analysis-cli`](crates/video/video-analysis-cli/README.md)
 - Prototypes: [`video-analysis-use-cases`](prototypes/rust/video-analysis-use-cases/README.md), `@video-analysis/web` in `prototypes/web/video-analysis-web`
 
 - `video-analysis`: umbrella re-export crate.
@@ -95,10 +95,12 @@ Package README index:
   bridges.
 - `image-analysis-io`: PNG/JPEG/WebP loading and saving for compact
   `OwnedImage` buffers.
-- `image-analysis-tasks`: aggregate image task catalog plus classification,
-  embedding, captioning, face-embedding, and broad image task backend traits.
-- `image-analysis-models`: deprecated compatibility re-export of the image task
-  and focused capability contracts.
+- `image-analysis-classification`: image classification request/response
+  contracts, catalog metadata, and backend traits.
+- `image-analysis-embeddings`: image and face embedding request/response
+  contracts, catalog metadata, and backend traits.
+- `image-analysis-captioning`: image captioning request/response contracts,
+  catalog metadata, and backend traits.
 - `image-analysis-onnx`: still-image ONNX preprocessing, bundle validation,
   fake-runner seams, and optional native object-detection execution.
 - `image-analysis-processing`: deterministic CPU image crop, resize, grayscale,
@@ -126,11 +128,10 @@ Package README index:
   inputs, and optional ONNX/Candle runtime traits. Default builds stay
   deterministic; `tokenizers`, `onnx`, `candle`, and `external-tests` are
   opt-in features.
-- `text-nlp-tasks`: shared NLP task schemas, task catalogs, deterministic
-  fallback runners, imported-prediction postprocessing, and runtime broker
-  APIs.
-- `text-nlp-models`: compatibility crate for the previous NLP task package
-  name; new code should depend on `text-nlp-tasks`.
+- `text-classification`: text classification, zero-shot classification, and
+  sentiment request/response contracts with deterministic fallbacks.
+- `text-question-answering`: extractive question answering request/response
+  contracts and imported span postprocessing.
 - `text-transcripts`: transcript segment models, Whisper JSON,
   SRT/WebVTT/plain text parsing, command transcribers, and text segment source
   adapters.
@@ -179,9 +180,8 @@ Package README index:
   blurring, grayscale, inversion, brightness/contrast, and 3x3 filters.
 - `video-analysis-ingest`: media ingest traits plus live/file text sources.
 - `video-analysis-ffmpeg`: FFmpeg-backed video and audio ingest implementations.
-- `video-analysis-models`: Hugging Face model downloads plus normalized model
-  adapter contracts for object, scene, and text/semantic analyzers, including
-  ONNX-friendly Xenova text presets.
+- `model-runtime`: generic model specs, Hugging Face downloads, bundle
+  manifests, preset metadata, and runtime conformance helpers.
 - `video-analysis-onnx`: ONNX object-detection and posture bundle validation,
   preprocessing, fake-runner seams, and optional native runtime adapters.
 - `video-analysis-tracking`: IoU-based object tracking contracts and a
@@ -444,9 +444,10 @@ cargo run -p video-analysis-use-cases -- youtube-video \
   --transcriber-arg base
 ```
 
-Vision and text model integrations use the `video-analysis-models`
-`ExternalCommandModel` JSON protocol. Each command receives one JSON request on
-stdin and returns `{"predictions":[...]}` on stdout.
+External vision model integrations use the `video-analysis-recognition`
+`ExternalCommandModel` JSON protocol with bundles supplied by `model-runtime`.
+Each command receives one JSON request on stdin and returns
+`{"predictions":[...]}` on stdout.
 
 ```bash
 cargo run -p video-analysis-use-cases -- youtube-video \
@@ -650,11 +651,11 @@ cargo run -p video-analysis-cli -- models presets
 
 cargo run -p video-analysis-cli -- models download \
   --preset yolos-tiny \
-  --bundle-dir .video-analysis-models
+  --bundle-dir .model-runtime
 
 cargo run -p video-analysis-cli -- models inspect \
   --name yolos-tiny \
-  --bundle-dir .video-analysis-models
+  --bundle-dir .model-runtime
 ```
 
 Raw RGB/BGR frame model inference is exposed behind the CLI `onnxruntime`
@@ -662,7 +663,7 @@ feature:
 
 ```bash
 cargo run -p video-analysis-cli --features onnxruntime -- models run \
-  --manifest .video-analysis-models/yolos-tiny/main/manifest.json \
+  --manifest .model-runtime/yolos-tiny/main/manifest.json \
   --backend onnx \
   --input frame.rgb \
   --width 640 \
@@ -676,7 +677,7 @@ Custom repositories are also supported when the files are known:
 vanalyze models download \
   --repo-id hf-internal-testing/tiny-random-distilbert \
   --task text-classification \
-  --bundle-dir .video-analysis-models \
+  --bundle-dir .model-runtime \
   --file config.json \
   --file tokenizer.json
 ```
@@ -693,31 +694,30 @@ cargo run -p video-analysis-cli -- posture export --input poses.coco.json --outp
 ```
 
 ```rust
-use video_analysis_models::{ModelBundleStore, ModelPreset};
+use model_runtime::{ModelBundleStore, ModelPreset};
 
 # fn main() -> video_analysis_core::Result<()> {
 let spec = ModelPreset::YolosTiny.spec();
-let bundle = ModelBundleStore::new(".video-analysis-models").download(&spec)?;
+let bundle = ModelBundleStore::new(".model-runtime").download(&spec)?;
 let downloaded = bundle.to_downloaded_model();
 # let _ = downloaded;
 # Ok(())
 # }
 ```
 
-The `video-analysis-models` crate keeps model-specific inference behind small
-backend traits:
+`model-runtime` owns model acquisition. `video-analysis-recognition` keeps
+video-specific inference behind small backend traits:
 
 ```rust
 use std::env;
 
+use model_runtime::{HuggingFaceModelSpec, ModelBundleStore, ModelPreset};
 use video_analysis_core::{Result, VideoAnalysisPipeline};
-use video_analysis_models::{
-    ExternalCommandModel, HuggingFaceModelSpec, ModelBundleStore, ModelPreset, ModelVideoAnalyzer,
-};
+use video_analysis_recognition::{ExternalCommandModel, ModelVideoAnalyzer};
 
 fn main() -> Result<()> {
     let spec = HuggingFaceModelSpec::from_preset(ModelPreset::DetrResnet50);
-    let downloaded = ModelBundleStore::new(".video-analysis-models")
+    let downloaded = ModelBundleStore::new(".model-runtime")
         .download(&spec)?
         .to_downloaded_model();
 
@@ -736,9 +736,9 @@ Running this example requires `VISION_MODEL_COMMAND` or `scripts/detect-objects`
 to point at an executable implementing the
 [`ExternalCommandModel` JSON protocol](docs/API_CONTRACTS.md#external-command-json-protocol).
 
-Backends return `RawPrediction` values and the models crate repairs and
-normalizes common API differences: `xywh` or `xyxy` boxes, normalized or pixel
-coordinates, missing labels, minimum score filtering, and same-label
+Backends return `RawPrediction` values and `video-analysis-recognition` repairs
+and normalizes common API differences: `xywh` or `xyxy` boxes, normalized or
+pixel coordinates, missing labels, minimum score filtering, and same-label
 non-maximum suppression. `ModelVideoAnalyzer` emits core `Observation` values;
 `ModelTextAnalyzer` emits core `AnalysisEvent` values with dynamic semantic
 labels.
@@ -762,7 +762,7 @@ bash scripts/setup_model_external_tools.sh onnx
 bash scripts/check_model_external_tools.sh onnx
 ```
 
-Model artifacts are intentionally kept out of git under `.video-analysis-models`.
+Model artifacts are intentionally kept out of git under `.model-runtime`.
 Use the lock-driven idempotent sync script to verify checksums and re-download
 missing/corrupted files when needed:
 

@@ -640,55 +640,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "audio-analysis-tasks"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-recognition",
- "audio-analysis-separation",
- "audio-analysis-speakers",
- "audio-analysis-synthesis",
- "model-runtime",
- "runtime-contracts",
- "serde",
- "serde_json",
- "text-transcripts",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-tasks-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-tasks",
- "clap",
- "runtime-contracts",
- "serde_json",
-]
-
-[[package]]
-name = "audio-analysis-tasks-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-tasks",
- "clap",
- "runtime-contracts",
- "serde_json",
-]
-
-[[package]]
-name = "audio-analysis-tasks-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-tasks",
- "js-sys",
- "runtime-contracts",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "audio-analysis-test-support"
 version = "0.1.0"
 dependencies = [
@@ -2402,6 +2353,104 @@ dependencies = [
 ]
 
 [[package]]
+name = "image-analysis-captioning"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-core",
+ "image-analysis-detection",
+ "image-analysis-ocr",
+ "image-analysis-segmentation",
+ "image-analysis-synthesis",
+ "model-runtime",
+ "runtime-contracts",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "image-analysis-captioning-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "image-analysis-captioning",
+ "runtime-contracts",
+ "serde_json",
+]
+
+[[package]]
+name = "image-analysis-captioning-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "image-analysis-captioning",
+ "runtime-contracts",
+ "serde_json",
+]
+
+[[package]]
+name = "image-analysis-captioning-wasm"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-captioning",
+ "js-sys",
+ "runtime-contracts",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "image-analysis-classification"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-core",
+ "image-analysis-detection",
+ "image-analysis-ocr",
+ "image-analysis-segmentation",
+ "image-analysis-synthesis",
+ "model-runtime",
+ "runtime-contracts",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "image-analysis-classification-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "image-analysis-classification",
+ "runtime-contracts",
+ "serde_json",
+]
+
+[[package]]
+name = "image-analysis-classification-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "image-analysis-classification",
+ "runtime-contracts",
+ "serde_json",
+]
+
+[[package]]
+name = "image-analysis-classification-wasm"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-classification",
+ "js-sys",
+ "runtime-contracts",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "image-analysis-comfyui"
 version = "0.1.0"
 dependencies = [
@@ -2535,6 +2584,55 @@ dependencies = [
 ]
 
 [[package]]
+name = "image-analysis-embeddings"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-core",
+ "image-analysis-detection",
+ "image-analysis-ocr",
+ "image-analysis-segmentation",
+ "image-analysis-synthesis",
+ "model-runtime",
+ "runtime-contracts",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "image-analysis-embeddings-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "image-analysis-embeddings",
+ "runtime-contracts",
+ "serde_json",
+]
+
+[[package]]
+name = "image-analysis-embeddings-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "image-analysis-embeddings",
+ "runtime-contracts",
+ "serde_json",
+]
+
+[[package]]
+name = "image-analysis-embeddings-wasm"
+version = "0.1.0"
+dependencies = [
+ "image-analysis-embeddings",
+ "js-sys",
+ "runtime-contracts",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "image-analysis-io"
 version = "0.1.0"
 dependencies = [
@@ -2571,50 +2669,6 @@ name = "image-analysis-io-wasm"
 version = "0.1.0"
 dependencies = [
  "image-analysis-io",
- "js-sys",
- "runtime-contracts",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-models"
-version = "0.1.0"
-dependencies = [
- "image-analysis-detection",
- "image-analysis-segmentation",
- "image-analysis-tasks",
- "runtime-contracts",
- "serde_json",
-]
-
-[[package]]
-name = "image-analysis-models-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-models",
- "runtime-contracts",
- "serde_json",
-]
-
-[[package]]
-name = "image-analysis-models-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-models",
- "runtime-contracts",
- "serde_json",
-]
-
-[[package]]
-name = "image-analysis-models-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-models",
  "js-sys",
  "runtime-contracts",
  "serde",
@@ -2671,10 +2725,11 @@ dependencies = [
 name = "image-analysis-onnx"
 version = "0.1.0"
 dependencies = [
+ "image-analysis-classification",
  "image-analysis-core",
  "image-analysis-detection",
+ "image-analysis-embeddings",
  "image-analysis-processing",
- "image-analysis-tasks",
  "model-runtime",
  "ort",
  "runtime-contracts",
@@ -2843,55 +2898,6 @@ name = "image-analysis-synthesis-wasm"
 version = "0.1.0"
 dependencies = [
  "image-analysis-synthesis",
- "js-sys",
- "runtime-contracts",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-tasks"
-version = "0.1.0"
-dependencies = [
- "image-analysis-core",
- "image-analysis-detection",
- "image-analysis-ocr",
- "image-analysis-segmentation",
- "image-analysis-synthesis",
- "model-runtime",
- "runtime-contracts",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-tasks-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-tasks",
- "runtime-contracts",
- "serde_json",
-]
-
-[[package]]
-name = "image-analysis-tasks-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-tasks",
- "runtime-contracts",
- "serde_json",
-]
-
-[[package]]
-name = "image-analysis-tasks-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-tasks",
  "js-sys",
  "runtime-contracts",
  "serde",
@@ -4659,6 +4665,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "text-classification"
+version = "0.1.0"
+dependencies = [
+ "runtime-contracts",
+ "serde",
+ "serde_json",
+ "text-core",
+ "text-lexical",
+ "text-model-runtime",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "text-classification-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "runtime-contracts",
+ "serde_json",
+ "text-classification",
+]
+
+[[package]]
+name = "text-classification-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "runtime-contracts",
+ "serde_json",
+ "text-classification",
+]
+
+[[package]]
+name = "text-classification-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "runtime-contracts",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "text-classification",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "text-core"
 version = "0.1.0"
 dependencies = [
@@ -5005,50 +5057,38 @@ dependencies = [
 ]
 
 [[package]]
-name = "text-nlp-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-nlp-tasks",
-]
-
-[[package]]
-name = "text-nlp-models"
+name = "text-question-answering"
 version = "0.1.0"
 dependencies = [
  "runtime-contracts",
  "serde",
  "serde_json",
- "text-core",
- "text-embeddings",
- "text-lexical",
  "text-model-runtime",
  "video-analysis-core",
 ]
 
 [[package]]
-name = "text-nlp-models-cli"
+name = "text-question-answering-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
  "runtime-contracts",
  "serde_json",
- "text-nlp-models",
+ "text-question-answering",
 ]
 
 [[package]]
-name = "text-nlp-models-server"
+name = "text-question-answering-server"
 version = "0.1.0"
 dependencies = [
  "clap",
  "runtime-contracts",
  "serde_json",
- "text-nlp-models",
+ "text-question-answering",
 ]
 
 [[package]]
-name = "text-nlp-models-wasm"
+name = "text-question-answering-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
@@ -5056,60 +5096,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "text-nlp-models",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-nlp-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde",
- "serde_json",
- "text-nlp-tasks",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-nlp-tasks"
-version = "0.1.0"
-dependencies = [
- "runtime-contracts",
- "serde_json",
- "text-nlp-models",
-]
-
-[[package]]
-name = "text-nlp-tasks-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "runtime-contracts",
- "serde_json",
- "text-nlp-tasks",
-]
-
-[[package]]
-name = "text-nlp-tasks-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "runtime-contracts",
- "serde_json",
- "text-nlp-tasks",
-]
-
-[[package]]
-name = "text-nlp-tasks-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "runtime-contracts",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-nlp-tasks",
+ "text-question-answering",
  "wasm-bindgen",
 ]
 
@@ -5850,7 +5837,6 @@ dependencies = [
  "audio-analysis-separation",
  "audio-analysis-speakers",
  "audio-analysis-synthesis",
- "audio-analysis-tasks",
  "audio-generation-midi",
  "clap",
  "comfyui-data",
@@ -5861,16 +5847,18 @@ dependencies = [
  "finance-statistics",
  "geo-data",
  "graph-analysis-core",
+ "image-analysis-captioning",
+ "image-analysis-classification",
  "image-analysis-comfyui",
  "image-analysis-core",
  "image-analysis-detection",
+ "image-analysis-embeddings",
  "image-analysis-io",
  "image-analysis-ocr",
  "image-analysis-onnx",
  "image-analysis-processing",
  "image-analysis-segmentation",
  "image-analysis-synthesis",
- "image-analysis-tasks",
  "jobs-core",
  "maps-kernels-core",
  "math-geometry-2d",
@@ -5881,17 +5869,19 @@ dependencies = [
  "model-runtime",
  "num-rational",
  "numbers-core",
+ "runtime-contracts",
  "serde",
  "serde_json",
  "tempfile",
  "tensor-data",
+ "text-classification",
  "text-core",
  "text-embeddings",
  "text-generation",
  "text-generation-linguistics",
  "text-lexical",
  "text-linguistics",
- "text-nlp-tasks",
+ "text-question-answering",
  "text-retrieval",
  "text-transcripts",
  "three-d-processing-core",
@@ -5910,7 +5900,6 @@ dependencies = [
  "video-analysis-ffmpeg",
  "video-analysis-gaussian-splatting",
  "video-analysis-ingest",
- "video-analysis-models",
  "video-analysis-mvs",
  "video-analysis-onnx",
  "video-analysis-opencv-backend",
@@ -5946,11 +5935,11 @@ dependencies = [
  "video-analysis-core",
  "video-analysis-detectors",
  "video-analysis-ffmpeg",
- "video-analysis-models",
  "video-analysis-onnx",
  "video-analysis-output",
  "video-analysis-posture",
  "video-analysis-posture-io",
+ "video-analysis-recognition",
  "video-analysis-split",
 ]
 
@@ -6403,56 +6392,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "video-analysis-models"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "hf-hub",
- "model-runtime",
- "num-rational",
- "runtime-contracts",
- "serde",
- "serde_json",
- "tempfile",
- "three-d-processing-core",
- "video-analysis-core",
- "video-analysis-posture",
-]
-
-[[package]]
-name = "video-analysis-models-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "runtime-contracts",
- "serde_json",
- "video-analysis-models",
-]
-
-[[package]]
-name = "video-analysis-models-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "runtime-contracts",
- "serde_json",
- "video-analysis-models",
-]
-
-[[package]]
-name = "video-analysis-models-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "runtime-contracts",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-models",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "video-analysis-mvs"
 version = "0.1.0"
 dependencies = [
@@ -6511,8 +6450,8 @@ dependencies = [
  "serde_json",
  "tempfile",
  "video-analysis-core",
- "video-analysis-models",
  "video-analysis-posture",
+ "video-analysis-recognition",
 ]
 
 [[package]]
@@ -6871,10 +6810,15 @@ dependencies = [
 name = "video-analysis-recognition"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "model-runtime",
  "num-rational",
  "runtime-contracts",
+ "serde",
  "serde_json",
+ "three-d-processing-core",
  "video-analysis-core",
+ "video-analysis-posture",
 ]
 
 [[package]]
@@ -6964,7 +6908,7 @@ dependencies = [
  "video-analysis-core",
  "video-analysis-ffmpeg",
  "video-analysis-ingest",
- "video-analysis-models",
+ "video-analysis-recognition",
 ]
 
 [[package]]
@@ -7393,8 +7337,8 @@ dependencies = [
  "video-analysis-detectors",
  "video-analysis-ffmpeg",
  "video-analysis-ingest",
- "video-analysis-models",
  "video-analysis-onnx",
+ "video-analysis-recognition",
  "video-analysis-test-support",
 ]
 

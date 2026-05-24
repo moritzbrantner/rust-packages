@@ -107,50 +107,134 @@ fn root_facade_does_not_promote_domain_model_crates() {
         "root facade should expose the generic model infrastructure under model_runtime"
     );
     assert!(
-        source.contains("pub use audio_analysis_tasks as audio_tasks;"),
-        "root facade should expose aggregate audio task APIs as audio_tasks"
+        !source.contains("pub use audio_analysis_tasks"),
+        "root facade must not promote aggregate audio task crates"
     );
     assert!(
-        source.contains("pub use image_analysis_tasks as image_tasks;"),
-        "root facade should expose aggregate image task APIs as image_tasks"
+        source.contains("pub use audio_analysis_recognition as audio_recognition;"),
+        "root facade should expose concrete audio recognition APIs"
+    );
+    assert!(
+        !source.contains("pub use image_analysis_tasks"),
+        "root facade must not promote aggregate image task crates"
+    );
+    assert!(
+        source.contains("pub use image_analysis_classification as image_classification;"),
+        "root facade should expose concrete image classification APIs"
+    );
+    assert!(
+        source.contains("pub use text_classification;"),
+        "root facade should expose concrete text classification APIs"
     );
 }
 
 #[test]
-fn video_analysis_models_is_marked_compatibility_only() {
-    let readme = fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/video/video-analysis-models/README.md"),
+fn concrete_text_crates_do_not_expose_aggregate_nlp_surfaces() {
+    let classification = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/text/text-classification/src/lib.rs"),
     )
-    .expect("read video-analysis-models README");
-    assert!(
-        readme.contains("Deprecated compatibility crate"),
-        "video-analysis-models must be documented as a temporary compatibility crate"
-    );
-}
+    .expect("read text-classification source");
+    for forbidden in [
+        "pub struct EmbeddingRequest",
+        "pub struct SummaryRequest",
+        "pub struct RerankRequest",
+        "pub struct QuestionAnsweringRequest",
+        "pub fn embed_texts",
+        "pub fn summarize",
+        "pub fn rerank",
+        "pub fn answer_question",
+    ] {
+        assert!(
+            !classification.contains(forbidden),
+            "text-classification must not expose unrelated aggregate NLP API `{forbidden}`"
+        );
+    }
 
-#[test]
-fn image_analysis_models_is_marked_compatibility_only() {
-    let readme = fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/image/image-analysis-models/README.md"),
+    let qa = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("crates/text/text-question-answering/src/lib.rs"),
     )
-    .expect("read image-analysis-models README");
-    assert!(
-        readme.contains("Deprecated compatibility crate"),
-        "image-analysis-models must be documented as a temporary compatibility crate"
-    );
+    .expect("read text-question-answering source");
+    for forbidden in [
+        "pub struct TextClassificationRequest",
+        "pub struct SentimentRequest",
+        "pub struct EmbeddingRequest",
+        "pub struct ZeroShotClassificationRequest",
+        "pub struct SummaryRequest",
+        "pub struct RerankRequest",
+        "pub fn classify_text",
+        "pub fn analyze_sentiment",
+        "pub fn embed_texts",
+        "pub fn summarize",
+        "pub fn rerank",
+    ] {
+        assert!(
+            !qa.contains(forbidden),
+            "text-question-answering must not expose unrelated aggregate NLP API `{forbidden}`"
+        );
+    }
 }
 
 #[test]
-fn image_onnx_uses_task_and_capability_contracts_directly() {
+fn image_onnx_uses_concrete_capability_contracts_directly() {
     let manifest = read_manifest("crates/image/image-analysis-onnx/Cargo.toml");
     assert!(
-        manifest.contains("image-analysis-tasks.workspace = true"),
-        "image-analysis-onnx must consume aggregate image task contracts directly"
+        manifest.contains("image-analysis-classification.workspace = true"),
+        "image-analysis-onnx must consume image classification contracts directly"
+    );
+    assert!(
+        manifest.contains("image-analysis-embeddings.workspace = true"),
+        "image-analysis-onnx must consume image embedding contracts directly"
+    );
+    assert!(
+        !manifest.contains("image-analysis-tasks.workspace = true"),
+        "image-analysis-onnx must not depend on aggregate image-analysis-tasks"
     );
     assert!(
         !manifest.contains("image-analysis-models.workspace = true"),
         "image-analysis-onnx must not depend on the compatibility image-analysis-models crate"
     );
+}
+
+#[test]
+fn compatibility_task_and_model_crates_are_removed() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for path in [
+        "crates/audio/audio-analysis-tasks",
+        "crates/bindings/audio-analysis-tasks-wasm",
+        "crates/image/image-analysis-tasks",
+        "crates/image/image-analysis-models",
+        "crates/bindings/image-analysis-tasks-wasm",
+        "crates/bindings/image-analysis-models-wasm",
+        "crates/text/text-nlp-tasks",
+        "crates/text/text-nlp-models",
+        "crates/text/text-nlp-cli",
+        "crates/text/text-nlp-server",
+        "crates/bindings/text-nlp-tasks-wasm",
+        "crates/bindings/text-nlp-models-wasm",
+        "crates/video/video-analysis-models",
+        "crates/bindings/video-analysis-models-wasm",
+    ] {
+        assert!(
+            !root.join(path).exists(),
+            "compatibility crate `{path}` must be removed"
+        );
+    }
+
+    let manifest = read_manifest("Cargo.toml");
+    for forbidden in [
+        "audio-analysis-tasks",
+        "image-analysis-tasks",
+        "image-analysis-models",
+        "text-nlp-tasks",
+        "text-nlp-models",
+        "video-analysis-models",
+    ] {
+        assert!(
+            !manifest.contains(forbidden),
+            "workspace manifest must not keep removed compatibility crate `{forbidden}`"
+        );
+    }
 }
 
 fn read_manifest(path: &str) -> String {
@@ -193,12 +277,6 @@ fn no_audio_analysis_models_imports_remain() {
 
 #[test]
 fn audio_tasks_crate_is_execution_free_and_jobs_are_feature_gated() {
-    let tasks_source = read_manifest("crates/audio/audio-analysis-tasks/src/lib.rs");
-    assert!(
-        !tasks_source.contains("Command::new"),
-        "audio-analysis-tasks must not perform external command execution directly"
-    );
-
     let separation_manifest = read_manifest("crates/audio/audio-analysis-separation/Cargo.toml");
     assert!(
         separation_manifest.contains("jobs-core = { workspace = true, optional = true }"),

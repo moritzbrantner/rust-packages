@@ -26,5 +26,5 @@ assert!(request.preserve_layout);
 ## Related crates
 
 - `image-analysis-core`
-- `image-analysis-tasks`
-- `video-analysis-models`
+- `image-analysis-classification, image-analysis-embeddings, image-analysis-captioning, image-analysis-ocr, image-analysis-segmentation, or image-analysis-detection`
+- `model-runtime`

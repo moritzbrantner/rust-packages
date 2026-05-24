@@ -20,6 +20,6 @@ video-analysis-core.workspace = true
 model-runtime.workspace = true
 
 [dev-dependencies]
-video-analysis-models.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-ingest.workspace = true
+video-analysis-recognition.workspace = true

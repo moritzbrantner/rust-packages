@@ -2,7 +2,7 @@ mod support;
 
 use std::f32::consts::FRAC_PI_3;
 
-use model_runtime::ModelTask as RuntimeModelTask;
+use model_runtime::{ModelPreset, ModelTask};
 use support::scene;
 use tempfile::tempdir;
 use video_analysis_core::BoundingBox;
@@ -11,11 +11,10 @@ use video_analysis_gaussian_splatting::{
     project_scene, render_projected_splats, Gaussian3d, GaussianScene, ProjectionConfig,
     SplatRenderConfig,
 };
-use video_analysis_models::{
-    normalize_predictions, ModelPreset, ModelTask, PredictionRepairOptions, RawBoundingBox,
-    RawPrediction,
-};
 use video_analysis_radiance_fields::{CameraIntrinsics, CameraPose, ColorRgb, Vec2, Vec3};
+use video_analysis_recognition::{
+    normalize_predictions, PredictionRepairOptions, RawBoundingBox, RawPrediction,
+};
 use video_analysis_reconstruction::{match_binary_features, BinaryFeature, Feature2d, MatchConfig};
 use video_analysis_segmentation::{
     default_sam2_model_spec, VideoSegmentationPrompt, VideoSegmentationRequest,
@@ -35,10 +34,7 @@ fn runtime_and_projection_crates_expose_hermetic_public_surfaces(
     let _ = is_ffmpeg_available();
 
     let preset = ModelPreset::YolosTiny.spec();
-    assert_eq!(
-        preset.task,
-        video_analysis_models::ModelTask::ObjectDetection
-    );
+    assert_eq!(preset.task, ModelTask::ObjectDetection);
     let normalized = normalize_predictions(
         vec![RawPrediction::object(
             "person",
@@ -57,7 +53,7 @@ fn runtime_and_projection_crates_expose_hermetic_public_surfaces(
     assert_eq!(request.min_mask_pixels, 16);
     assert_eq!(
         default_sam2_model_spec().task,
-        RuntimeModelTask::Custom("video_segmentation".to_string())
+        ModelTask::Custom("video_segmentation".to_string())
     );
 
     let split_plan = build_split_plan("demo.mp4", &[scene(0, 15)], &SplitOptions::default())?;

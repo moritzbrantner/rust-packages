@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK_FILE="${MODEL_BUNDLE_LOCK_FILE:-"$ROOT_DIR/scripts/model_bundles.lock.sh"}"
-BUNDLE_DIR="${MODEL_BUNDLE_DIR:-"$ROOT_DIR/.video-analysis-models"}"
+BUNDLE_DIR="${MODEL_BUNDLE_DIR:-"$ROOT_DIR/.model-runtime"}"
 
 MODE="ensure"
 WRITE_LOCK=0
@@ -22,7 +22,7 @@ Options:
   --ensure          verify and repair bundles (default)
   --write-lock      regenerate SHA-256 lines in the lock file from local bundles
   --refresh         force re-download before lock regeneration
-  --bundle-dir DIR  model bundle directory (default: .video-analysis-models)
+  --bundle-dir DIR  model bundle directory (default: .model-runtime)
   --lock-file FILE  lock file path (default: scripts/model_bundles.lock.sh)
   -h, --help        show this help
 

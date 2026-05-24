@@ -15,9 +15,10 @@ categories.workspace = true
 [dependencies]
 runtime-contracts.workspace = true
 image-analysis-core.workspace = true
+image-analysis-classification.workspace = true
 image-analysis-detection.workspace = true
+image-analysis-embeddings.workspace = true
 image-analysis-processing.workspace = true
-image-analysis-tasks.workspace = true
 ort = { workspace = true, optional = true }
 serde_json.workspace = true
 video-analysis-core.workspace = true

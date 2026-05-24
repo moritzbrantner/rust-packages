@@ -1,4 +1,5 @@
 use clap::Parser;
+use runtime_contracts::{OperationId, SurfaceRequest, SurfaceResponse};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Read, Write};
@@ -14,8 +15,8 @@ use video_analysis::{
     ingest, inversion, linear, maps_kernels, model_runtime, mvs, numbers, opencv_backend, output,
     posture, posture_io, radiance_fields, radiance_io, radiance_pipeline, recognition,
     reconstruction, sfm, sfm_rust_backend, signal, sparse, split, stats, storage, synthesis,
-    tensor_data, text_core, text_embeddings, text_generation, text_lexical, text_linguistics,
-    text_nlp_tasks, text_retrieval, text_transcripts, three_d_core, three_d_io, three_d_mesh,
+    tensor_data, text_classification, text_core, text_embeddings, text_generation, text_lexical,
+    text_linguistics, text_retrieval, text_transcripts, three_d_core, three_d_io, three_d_mesh,
     three_d_scene, tracking, transform, vector_core, vector_index, video_segmentation, Timebase,
     Timestamp,
 };
@@ -162,21 +163,17 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
         ("GET", "/api/package") => package_metadata_response(module),
         ("GET", "/api/schema") => package_schema_response(module),
         ("GET", "/api/models") if module.package == "text-linguistics" => {
-            json_response(200, "OK", json!(text_nlp_tasks::model_catalog(None)))
+            json_response(200, "OK", json!(text_model_catalog(None)))
         }
-        ("GET", "/api/models") if module.package == "audio-analysis-recognition" => json_response(
-            200,
-            "OK",
-            json!(audio_analysis_tasks::audio_task_catalog(None)),
-        ),
+        ("GET", "/api/models") if module.package == "audio-analysis-recognition" => {
+            json_response(200, "OK", json!(audio_model_catalog(None)))
+        }
         ("GET", path)
             if module.package == "text-linguistics" && path.starts_with("/api/models/") =>
         {
             let task = path.trim_start_matches("/api/models/");
-            match text_nlp_tasks::parse_task(task) {
-                Some(task) => {
-                    json_response(200, "OK", json!(text_nlp_tasks::model_catalog(Some(task))))
-                }
+            match parse_text_model_task(task) {
+                Some(task) => json_response(200, "OK", json!(text_model_catalog(Some(task)))),
                 None => json_response(
                     400,
                     "Bad Request",
@@ -197,12 +194,8 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
                 && path.starts_with("/api/models/") =>
         {
             let task = path.trim_start_matches("/api/models/");
-            match audio_analysis_tasks::parse_task(task) {
-                Some(task) => json_response(
-                    200,
-                    "OK",
-                    json!(audio_analysis_tasks::audio_task_catalog(Some(task))),
-                ),
+            match parse_audio_model_task(task) {
+                Some(task) => json_response(200, "OK", json!(audio_model_catalog(Some(task)))),
                 None => json_response(
                     400,
                     "Bad Request",
@@ -434,7 +427,7 @@ fn package_schema_response(module: ModuleInfo) -> HttpResponse {
                 },
                 "components": {
                     "schemas": {
-                        "textNlp": text_nlp_tasks::schema_summary()
+                        "textNlp": text_schema_summary()
                     }
                 }
             }),
@@ -467,7 +460,7 @@ fn package_schema_response(module: ModuleInfo) -> HttpResponse {
                 },
                 "components": {
                     "schemas": {
-                        "audioRuntimes": audio_analysis_tasks::schema_summary()
+                        "audioRuntimes": audio_schema_summary()
                     }
                 }
             }),
@@ -624,8 +617,8 @@ fn text_linguistics_run_response(body: &str) -> HttpResponse {
 fn text_nlp_task_response(path: &str, body: &str) -> HttpResponse {
     match path {
         "/api/classify" => {
-            match serde_json::from_str::<text_nlp_tasks::TextClassificationRequest>(body) {
-                Ok(request) => nlp_result_response(text_nlp_tasks::classify_text(request)),
+            match serde_json::from_str::<text_classification::TextClassificationRequest>(body) {
+                Ok(request) => nlp_result_response(text_classification::classify_text(request)),
                 Err(error) => text_nlp_error_response(
                     400,
                     "Bad Request",
@@ -634,49 +627,79 @@ fn text_nlp_task_response(path: &str, body: &str) -> HttpResponse {
                 ),
             }
         }
-        "/api/sentiment" => match serde_json::from_str::<text_nlp_tasks::SentimentRequest>(body) {
-            Ok(request) => nlp_result_response(text_nlp_tasks::analyze_sentiment(request)),
-            Err(error) => {
-                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
+        "/api/sentiment" => {
+            match serde_json::from_str::<text_classification::SentimentRequest>(body) {
+                Ok(request) => nlp_result_response(text_classification::analyze_sentiment(request)),
+                Err(error) => text_nlp_error_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &error.to_string(),
+                ),
             }
-        },
-        "/api/embed" => match serde_json::from_str::<text_nlp_tasks::EmbeddingRequest>(body) {
-            Ok(request) => nlp_result_response(text_nlp_tasks::embed_texts(request)),
-            Err(error) => {
-                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
-            }
-        },
+        }
+        "/api/embed" => text_surface_operation(
+            text_embeddings::surface::run_surface_operation,
+            "embeddings.embed",
+            body,
+        ),
         "/api/zero-shot" => match serde_json::from_str::<
-            text_nlp_tasks::ZeroShotClassificationRequest,
+            text_classification::ZeroShotClassificationRequest,
         >(body)
         {
-            Ok(request) => nlp_result_response(text_nlp_tasks::zero_shot_classify(request)),
+            Ok(request) => nlp_result_response(text_classification::zero_shot_classify(request)),
             Err(error) => {
                 text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
             }
         },
-        "/api/summarize" => match serde_json::from_str::<text_nlp_tasks::SummaryRequest>(body) {
-            Ok(request) => nlp_result_response(text_nlp_tasks::summarize(request)),
-            Err(error) => {
-                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
-            }
-        },
-        "/api/rerank" => match serde_json::from_str::<text_nlp_tasks::RerankRequest>(body) {
-            Ok(request) => nlp_result_response(text_nlp_tasks::rerank(request)),
+        "/api/summarize" => text_surface_operation(
+            text_lexical::surface::run_surface_operation,
+            "lexical.analyze",
+            body,
+        ),
+        "/api/rerank" => match serde_json::from_str::<text_retrieval::RerankRequest>(body) {
+            Ok(request) => nlp_result_response(text_retrieval::rerank_documents(request)),
             Err(error) => {
                 text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
             }
         },
         "/api/question-answer" => match serde_json::from_str::<
-            text_nlp_tasks::QuestionAnsweringRequest,
+            text_question_answering::QuestionAnsweringRequest,
         >(body)
         {
-            Ok(request) => nlp_result_response(text_nlp_tasks::answer_question(request)),
+            Ok(request) => nlp_result_response(text_question_answering::answer_question(request)),
             Err(error) => {
                 text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
             }
         },
         _ => text_nlp_error_response(404, "Not Found", "not_found", "unknown NLP task endpoint"),
+    }
+}
+
+fn text_surface_operation(
+    runner: fn(SurfaceRequest) -> Result<SurfaceResponse, String>,
+    operation: &str,
+    body: &str,
+) -> HttpResponse {
+    let input = match serde_json::from_str::<Value>(body) {
+        Ok(input) => input,
+        Err(error) => {
+            return text_nlp_error_response(
+                400,
+                "Bad Request",
+                "invalid_request",
+                &error.to_string(),
+            )
+        }
+    };
+    match runner(SurfaceRequest {
+        operation: OperationId::new(operation),
+        input,
+    }) {
+        Ok(response) => json_response(200, "OK", json!(response.value)),
+        Err(error) => {
+            text_nlp_error_response(422, "Unprocessable Entity", "operation_error", &error)
+        }
     }
 }
 
@@ -729,12 +752,259 @@ fn text_nlp_error_response(
     )
 }
 
+fn parse_text_model_task(input: &str) -> Option<&'static str> {
+    match input {
+        "classify" | "text_classification" | "classification" | "TextClassification" => {
+            Some("classify")
+        }
+        "sentiment" | "Sentiment" => Some("sentiment"),
+        "zero-shot" | "zero_shot" | "zero_shot_classification" | "ZeroShotClassification" => {
+            Some("zero-shot")
+        }
+        "embed" | "embedding" | "text_embedding" | "TextEmbedding" => Some("embed"),
+        "summarize" | "summary" | "summarization" | "Summarization" => Some("summarize"),
+        "rerank" | "reranking" | "Reranking" => Some("rerank"),
+        "question-answer" | "question_answer" | "question_answering" | "QuestionAnswering" => {
+            Some("question-answer")
+        }
+        _ => None,
+    }
+}
+
+fn text_model_catalog(task: Option<&str>) -> Vec<Value> {
+    let mut entries = Vec::new();
+    if task.is_none() || matches!(task, Some("classify" | "sentiment" | "zero-shot")) {
+        let classification_task = task.and_then(text_classification::parse_task);
+        entries.extend(
+            text_classification::model_catalog(classification_task)
+                .into_iter()
+                .filter_map(|model| serde_json::to_value(model).ok()),
+        );
+    }
+    if task.is_none() || task == Some("question-answer") {
+        entries.extend(
+            text_question_answering::model_catalog()
+                .into_iter()
+                .filter_map(|model| serde_json::to_value(model).ok()),
+        );
+    }
+    entries
+}
+
+fn text_schema_summary() -> Value {
+    json!({
+        "tasks": [
+            "classify",
+            "sentiment",
+            "embed",
+            "zero-shot",
+            "summarize",
+            "rerank",
+            "question-answer"
+        ],
+        "classification": text_classification::schema_summary(),
+        "questionAnswering": text_question_answering::schema_summary(),
+        "models": text_model_catalog(None)
+    })
+}
+
+fn parse_audio_model_task(input: &str) -> Option<&'static str> {
+    match input {
+        "classify" | "audio_classification" | "classification" | "AudioClassification" => {
+            Some("classify")
+        }
+        "events" | "audio_event_detection" | "event_detection" | "AudioEventDetection" => {
+            Some("events")
+        }
+        "embed" | "audio_embedding" | "embedding" | "AudioEmbedding" => Some("embed"),
+        "transcribe" | "speech_recognition" | "asr" | "SpeechRecognition" => Some("transcribe"),
+        "diarize" | "speaker_diarization" | "speakers" | "SpeakerDiarization" => Some("diarize"),
+        "separate" | "source_separation" | "separation" | "SourceSeparation" => Some("separate"),
+        "generate" | "audio_generation" | "synthesis" | "AudioGeneration" => Some("generate"),
+        _ => None,
+    }
+}
+
+fn audio_model_catalog(task: Option<&str>) -> Vec<Value> {
+    let entries = vec![
+        audio_model_entry(
+            "ast-audioset",
+            "MIT/ast-finetuned-audioset-10-10-0.4593",
+            "classify",
+            "onnx",
+            false,
+            Some("spectral-audio-classifier"),
+            Some("Hugging Face preset metadata is registered; native AST execution is explicit/fallback-gated."),
+        ),
+        audio_model_entry(
+            "spectral-audio-classifier",
+            "spectral_heuristic",
+            "classify",
+            "spectral",
+            true,
+            None,
+            Some("Uses feature summaries for deterministic local classification."),
+        ),
+        audio_model_entry(
+            "audioset-event-detector",
+            "MIT/ast-finetuned-audioset-10-10-0.4593",
+            "events",
+            "onnx",
+            false,
+            Some("energy-event-detector"),
+            Some("Windowed event schema is available; native model execution is not bundled."),
+        ),
+        audio_model_entry(
+            "energy-event-detector",
+            "energy_threshold",
+            "events",
+            "heuristic",
+            true,
+            None,
+            Some("Detects high-energy windows from supplied frame summaries."),
+        ),
+        audio_model_entry(
+            "clap-htsat-unfused",
+            "laion/clap-htsat-unfused",
+            "embed",
+            "onnx",
+            false,
+            Some("spectral-audio-embedding"),
+            Some("Use imported embeddings or explicit fallback until CLAP execution is wired."),
+        ),
+        audio_model_entry(
+            "spectral-audio-embedding",
+            "spectral_embedding",
+            "embed",
+            "spectral",
+            true,
+            None,
+            Some("Builds deterministic vectors from feature summaries."),
+        ),
+        audio_model_entry(
+            "whisper-tiny-en",
+            "openai/whisper-tiny.en",
+            "transcribe",
+            "whisper_cpp",
+            false,
+            None,
+            Some("Use text-transcripts native whisper.cpp support or imported segments for execution."),
+        ),
+        audio_model_entry(
+            "wav2vec2-base-960h",
+            "facebook/wav2vec2-base-960h",
+            "transcribe",
+            "onnx",
+            false,
+            Some("whisper-tiny-en"),
+            Some("ASR schema and imported transcript support are available; native ONNX decoding is not wired."),
+        ),
+        audio_model_entry(
+            "pyannote-speaker-diarization-3.1",
+            "pyannote/speaker-diarization-3.1",
+            "diarize",
+            "external",
+            false,
+            Some("single-speaker-heuristic"),
+            Some("Gated external model; use imported segments or heuristic fallback."),
+        ),
+        audio_model_entry(
+            "single-speaker-heuristic",
+            "single_speaker",
+            "diarize",
+            "heuristic",
+            true,
+            None,
+            Some("Creates one speaker segment over the provided duration."),
+        ),
+        audio_model_entry(
+            "demucs-music-separation",
+            "facebook/demucs",
+            "separate",
+            "demucs",
+            false,
+            Some("demucs-stem-plan"),
+            Some("Use audio-analysis-separation for command-backed Demucs execution."),
+        ),
+        audio_model_entry(
+            "demucs-stem-plan",
+            "stem_plan",
+            "separate",
+            "heuristic",
+            true,
+            None,
+            Some("Returns requested stem descriptors without writing audio files."),
+        ),
+        audio_model_entry(
+            "musicgen-small",
+            "facebook/musicgen-small",
+            "generate",
+            "external",
+            false,
+            None,
+            Some("Prompt schema is available; waveform generation is outside the default package app."),
+        ),
+    ];
+
+    entries
+        .into_iter()
+        .filter(|entry| {
+            task.map(|task| entry.get("task").and_then(Value::as_str) == Some(task))
+                .unwrap_or(true)
+        })
+        .collect()
+}
+
+fn audio_model_entry(
+    id: &str,
+    model_id: &str,
+    task: &str,
+    runtime: &str,
+    supported: bool,
+    fallback: Option<&str>,
+    note: Option<&str>,
+) -> Value {
+    json!({
+        "id": id,
+        "modelId": model_id,
+        "task": task,
+        "runtime": runtime,
+        "supported": supported,
+        "fallback": fallback,
+        "note": note,
+    })
+}
+
+fn audio_schema_summary() -> Value {
+    json!({
+        "tasks": ["classify", "events", "embed", "transcribe", "diarize", "separate", "generate"],
+        "runtimes": audio_model_catalog(None),
+        "models": audio_model_catalog(None),
+        "registeredPresets": model_runtime::ModelPreset::ALL
+            .iter()
+            .map(|preset| preset.as_str().to_string())
+            .filter(|preset| {
+                preset.contains("audio")
+                    || preset.contains("ast")
+                    || preset.contains("clap")
+                    || preset.contains("whisper")
+                    || preset.contains("wav2vec")
+                    || preset.contains("pyannote")
+                    || preset.contains("demucs")
+                    || preset.contains("musicgen")
+            })
+            .collect::<Vec<_>>()
+    })
+}
+
 fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
     match path {
         "/api/classify" => {
-            match serde_json::from_str::<audio_analysis_tasks::AudioClassificationRequest>(body) {
+            match serde_json::from_str::<audio_analysis_recognition::AudioClassificationRequest>(
+                body,
+            ) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_tasks::classify_audio(request))
+                    audio_model_result_response(audio_analysis_recognition::classify_audio(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,
@@ -745,10 +1015,12 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/events" => {
-            match serde_json::from_str::<audio_analysis_tasks::AudioEventDetectionRequest>(body) {
-                Ok(request) => {
-                    audio_model_result_response(audio_analysis_tasks::detect_audio_events(request))
-                }
+            match serde_json::from_str::<audio_analysis_recognition::AudioEventDetectionRequest>(
+                body,
+            ) {
+                Ok(request) => audio_model_result_response(
+                    audio_analysis_recognition::detect_audio_events(request),
+                ),
                 Err(error) => audio_model_error_response(
                     400,
                     "Bad Request",
@@ -758,9 +1030,9 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/embed" => {
-            match serde_json::from_str::<audio_analysis_tasks::AudioEmbeddingRequest>(body) {
+            match serde_json::from_str::<audio_analysis_recognition::AudioEmbeddingRequest>(body) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_tasks::embed_audio(request))
+                    audio_model_result_response(audio_analysis_recognition::embed_audio(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,
@@ -771,10 +1043,11 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/transcribe" => {
-            match serde_json::from_str::<audio_analysis_tasks::SpeechRecognitionRequest>(body) {
-                Ok(request) => {
-                    audio_model_result_response(audio_analysis_tasks::transcribe_audio(request))
-                }
+            match serde_json::from_str::<audio_analysis_recognition::SpeechRecognitionRequest>(body)
+            {
+                Ok(request) => audio_model_result_response(
+                    audio_analysis_recognition::transcribe_audio(request),
+                ),
                 Err(error) => audio_model_error_response(
                     400,
                     "Bad Request",
@@ -784,9 +1057,9 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/diarize" => {
-            match serde_json::from_str::<audio_analysis_tasks::SpeakerDiarizationRequest>(body) {
+            match serde_json::from_str::<audio_analysis_speakers::SpeakerDiarizationRequest>(body) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_tasks::diarize_speakers(request))
+                    audio_model_result_response(audio_analysis_speakers::diarize_speakers(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,
@@ -797,10 +1070,10 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/separate" => {
-            match serde_json::from_str::<audio_analysis_tasks::SourceSeparationRequest>(body) {
-                Ok(request) => {
-                    audio_model_result_response(audio_analysis_tasks::separate_sources(request))
-                }
+            match serde_json::from_str::<audio_analysis_separation::SourceSeparationRequest>(body) {
+                Ok(request) => audio_model_result_response(
+                    audio_analysis_separation::separate_sources(request),
+                ),
                 Err(error) => audio_model_error_response(
                     400,
                     "Bad Request",
@@ -810,9 +1083,9 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/generate" => {
-            match serde_json::from_str::<audio_analysis_tasks::AudioGenerationRequest>(body) {
+            match serde_json::from_str::<audio_analysis_synthesis::AudioGenerationRequest>(body) {
                 Ok(request) => {
-                    audio_model_result_response(audio_analysis_tasks::generate_audio(request))
+                    audio_model_result_response(audio_analysis_synthesis::generate_audio(request))
                 }
                 Err(error) => audio_model_error_response(
                     400,

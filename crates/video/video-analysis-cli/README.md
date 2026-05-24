@@ -16,7 +16,7 @@ cargo run -p video-analysis-cli -- detect \
   --output scenes.csv
 
 cargo run -p video-analysis-cli -- models inspect \
-  --manifest .video-analysis-models/yolos-tiny/main/manifest.json
+  --manifest .model-runtime/yolos-tiny/main/manifest.json
 ```
 
 ## Config files

@@ -32,7 +32,7 @@ assert_eq!(analysis.graph.tokens.len(), analysis.tokens.len());
 
 When the `candle` feature is enabled, rich profiles can use a local
 `bert-base-ner` token-classification model. The public Hugging Face bundle is
-materialized into `.video-analysis-models` on first use through a `jobs-core`
+materialized into `.model-runtime` on first use through a `jobs-core`
 download job and then runs locally through Candle; no OpenAI, Claude, or hosted
 LLM token is required. Transcript-specific analysis is available behind the
 `transcripts` feature. For deterministic offline tests or constrained

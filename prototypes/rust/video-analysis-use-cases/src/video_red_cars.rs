@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use image_analysis_core::ImageView;
 use image_analysis_detection::ColorBlobDetector;
+use model_runtime::{DownloadedModel, HuggingFaceModelSpec, ModelTask};
 use serde::{Deserialize, Serialize};
 use video_analysis_core::{
     BoundingBox, DetectError, ObservationKind, RealtimeVideoPipeline, Result,
@@ -12,9 +13,9 @@ use video_analysis_core::{
 use video_analysis_detectors::ContentDetector;
 use video_analysis_ffmpeg::FfmpegVideoSource;
 use video_analysis_ingest::VideoFrameSource;
-use video_analysis_models::{
-    normalize_predictions, DownloadedModel, ExternalCommandModel, HuggingFaceModelSpec, ModelTask,
-    PredictionRepairOptions, VisionModelBackend,
+use video_analysis_recognition::{
+    normalize_predictions, ExternalCommandModel, PredictionRepairOptions, RawBoundingBox,
+    RawPrediction, VisionModelBackend,
 };
 
 use crate::workflow_support::{display_path, validate_local_file, write_json_report};
@@ -409,12 +410,12 @@ fn red_observations_for_frame(
             detector
                 .detect_image(&image)?
                 .into_iter()
-                .map(|detection| video_analysis_models::RawPrediction {
+                .map(|detection| RawPrediction {
                     kind: Some("object".to_string()),
                     label: Some(detection.label),
                     text: None,
                     score: detection.score,
-                    region: Some(video_analysis_models::RawBoundingBox::xywh(
+                    region: Some(RawBoundingBox::xywh(
                         detection.region.x as f32,
                         detection.region.y as f32,
                         detection.region.width as f32,

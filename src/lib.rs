@@ -23,8 +23,6 @@ pub use audio_analysis_separation as audio_separation;
 pub use audio_analysis_speakers as audio_speakers;
 /// Re-exports the audio synthesis API.
 pub use audio_analysis_synthesis as audio_synthesis;
-/// Re-exports the aggregate audio task API.
-pub use audio_analysis_tasks as audio_tasks;
 /// Re-exports the MIDI-like audio generation API.
 pub use audio_generation_midi as audio_midi;
 /// Re-exports the ComfyUI data API.
@@ -43,12 +41,18 @@ pub use finance_statistics as finance;
 pub use geo_data;
 /// Re-exports the graph core API.
 pub use graph_analysis_core as graph_core;
+/// Re-exports the image captioning API.
+pub use image_analysis_captioning as image_captioning;
+/// Re-exports the image classification API.
+pub use image_analysis_classification as image_classification;
 /// Re-exports the image ComfyUI API.
 pub use image_analysis_comfyui as image_comfyui;
 /// Re-exports the image core API.
 pub use image_analysis_core as image_core;
 /// Re-exports the image detection API.
 pub use image_analysis_detection as image_detection;
+/// Re-exports the image embedding API.
+pub use image_analysis_embeddings as image_embeddings;
 /// Re-exports the image I/O API.
 pub use image_analysis_io as image_io;
 /// Re-exports the image OCR API.
@@ -62,8 +66,6 @@ pub use image_analysis_processing as image_processing;
 pub use image_analysis_segmentation as image_segmentation;
 /// Re-exports the image synthesis API.
 pub use image_analysis_synthesis as image_synthesis;
-/// Re-exports the aggregate image task API.
-pub use image_analysis_tasks as image_tasks;
 /// Re-exports the reusable jobs API.
 pub use jobs_core as jobs;
 /// Re-exports the map/kernel math API.
@@ -84,6 +86,8 @@ pub use model_runtime;
 pub use numbers_core as numbers;
 /// Re-exports the tensor data API.
 pub use tensor_data;
+/// Re-exports the text classification API.
+pub use text_classification;
 /// Re-exports the text core API.
 pub use text_core;
 /// Re-exports the text embeddings API.
@@ -96,8 +100,8 @@ pub use text_generation_linguistics;
 pub use text_lexical;
 /// Re-exports the text linguistics API.
 pub use text_linguistics;
-/// Re-exports the text NLP task API.
-pub use text_nlp_tasks;
+/// Re-exports the text question answering API.
+pub use text_question_answering;
 /// Re-exports the text retrieval API.
 pub use text_retrieval;
 /// Re-exports the text transcripts API.

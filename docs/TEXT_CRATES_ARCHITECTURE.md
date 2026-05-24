@@ -15,7 +15,8 @@ execution is opt-in through feature flags and explicit runtime configuration.
 | `text-embeddings` | Embedding backends, pooling, hashed fallback vectors, semantic search indexes. | General text classification, transcript parsing, linguistic annotations. |
 | `text-retrieval` | Chunking, metadata filters, BM25/vector/hybrid retrieval, persistence helpers. | Embedding model internals, ASR, linguistic parsing. |
 | `text-transcripts` | Transcript formats, ASR command adapters, whisper.cpp integration, transcript-specific analyzers. | Generic lexical features, retrieval ranking. |
-| `text-nlp-models` | Shared NLP task schemas, model catalog, imported-prediction handling, deterministic fallbacks, runtime broker APIs. | Tokenizer implementation details, direct download policy, high-level linguistics graph construction. |
+| `text-classification` | Text classification, zero-shot classification, sentiment request/response contracts, imported-prediction handling, deterministic fallbacks, runtime broker APIs. | Tokenizer implementation details, direct download policy, retrieval indexes, transcript parsing. |
+| `text-question-answering` | Extractive QA request/response contracts and imported span postprocessing. | Text classification, retrieval indexes, transcript parsing. |
 | `text-generation` | Deterministic Markov prediction and template/text synthesis from known signals. | Hosted LLM clients or claims of open-ended generative model inference. |
 | `text-generation-linguistics` | Adapters from linguistic analyses into deterministic generation prompts, synthesis, and Markov training. | Core Markov/synthesis ownership, hosted LLM clients, native model inference. |
 
@@ -28,7 +29,9 @@ execution is opt-in through feature flags and explicit runtime configuration.
 | Embeddings | `HashedTextEmbedder` | Optional ONNX/Candle embedders in `text-embeddings` |
 | Linguistic analysis | Heuristic pipeline in `text-linguistics` | Optional local sequence labeler for NER |
 | Transcription | Transcript parsers | Whisper CLI/native whisper.cpp adapters |
-| Classification/sentiment/rerank/QA | `text-nlp-models` lexical/imported fallbacks | Runtime-broker traits supplied by callers |
+| Classification/sentiment | `text-classification` lexical/imported fallbacks | Runtime-broker traits supplied by callers |
+| Question answering | `text-question-answering` imported span postprocessing | Runtime-broker traits supplied by callers |
+| Reranking | `text-retrieval` ranking APIs | Runtime-broker traits supplied by callers |
 | Generation | `text-generation` Markov/template synthesis; `text-generation-linguistics` analysis adapters | No hosted or native LLM path today |
 
 ## Dependency Direction
@@ -69,9 +72,10 @@ runtime inputs and backend traits. Crates may implement or consume those traits,
 but should not duplicate `TokenizedText`, `TokenizerBundle`, or runtime backend
 enums.
 
-`text-nlp-models` brokers task-level behavior. It may accept caller-supplied
-runtime backends, imported predictions, or explicit fallback policies. It should
-not silently download models or make native inference mandatory.
+Concrete capability crates broker task-level behavior. They may accept
+caller-supplied runtime backends, imported predictions, or explicit fallback
+policies. They should not silently download models or make native inference
+mandatory; reusable model acquisition belongs in `model-runtime`.
 
 ## Feature Policy
 

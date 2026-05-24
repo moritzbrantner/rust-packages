@@ -46,7 +46,7 @@ unexpected_tracked=(
   "node_modules/"
   ".external-test-tools/"
   ".audio-tools/"
-  ".video-analysis-models/"
+  ".model-runtime/"
   "coverage/"
   ".nyc_output/"
 )
@@ -88,7 +88,7 @@ local_only=(
   ".external-test-tools/"
   ".audio-tools/"
   ".test-corpora/"
-  ".video-analysis-models/"
+  ".model-runtime/"
   ".env"
   ".env.local"
   "coverage/"

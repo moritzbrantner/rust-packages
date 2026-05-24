@@ -1507,7 +1507,6 @@ def rewrite_root_package_scripts() -> None:
     scripts = data.setdefault("scripts", {})
     scripts["maps-wasm:bench"] = "bun run --cwd packages/maps-kernels-core-wasm bench:browser"
     scripts["maps-wasm:test"] = "bun run --cwd packages/maps-kernels-core-wasm test"
-    scripts["text-nlp-wasm:test"] = "bun run --cwd packages/text-nlp-tasks-wasm test"
     path.write_text(json.dumps(data, indent=2) + "\n")
 
 

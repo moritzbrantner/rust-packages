@@ -56,8 +56,7 @@ For the first enforced boundary, `text-core` owns generic text contracts such as
 `TextDocumentContract` and `TextSegmentContract`. `text-transcripts` owns
 `TranscriptSegmentContract` and `TranscriptionContract` as timed/speaker-aware
 text specializations. Audio ASR surfaces consume and return those transcript
-contracts through `audio-analysis-recognition` and the aggregate
-`audio-analysis-tasks` API. Speaker diarization may enrich an existing
+contracts through `audio-analysis-recognition`. Speaker diarization may enrich an existing
 `TranscriptionContract` with speaker labels and scores, but transcript DTOs
 remain owned by `text-transcripts`.
 
@@ -113,15 +112,13 @@ Runtime and external integration crates use a shared feature policy:
 | `audio-analysis-rhythm` | Rhythm and tempo analysis | `audio-analysis-core`, `video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
 | `audio-analysis-synthesis` | Deterministic inverse audio generation | `data-inversion-core`, `video-analysis-core` | Tone specs, tone timelines, pitch/onset event to tone conversion, synthesized `OwnedAudioFrame` values | Applications prototyping audio from symbolic or analyzed events |
-| `audio-analysis-tasks` | Aggregate audio task schemas and routing helpers | `audio-analysis-recognition`, `audio-analysis-speakers`, `audio-analysis-separation`, `audio-analysis-synthesis`, `model-runtime`, `serde`, `serde_json` | Audio task/runtime catalog, compatibility `/api/models` helpers, and re-exported capability request/response DTOs | CLI, server, and UI broad audio task surfaces |
 | `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core`, `tensor-data` | Borrowed/owned image views, image batches, pixel formats, compacting, mean color, luma histograms, mask tensor bridge helpers | Image processing crates, applications, video frame preprocessing |
 | `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `math-geometry-2d`, `math-linear`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains, shared `RectU32`/`Kernel2d` bridges | Applications, preprocessing workflows |
 | `image-analysis-ocr` | OCR presets and rich text extraction contracts | `image-analysis-core`, `video-analysis-core`, `model-runtime` | Hugging Face OCR presets, OCR technique metadata, rich text documents/blocks/lines/tokens, image and video-frame OCR backend traits | Applications extracting text from images or sampled video frames |
 | `image-analysis-synthesis` | Deterministic inverse image generation | `data-inversion-core`, `image-analysis-core`, `video-analysis-core` | Solid images, gradients, luma-histogram expansion, region painting | Applications reconstructing approximate image buffers from summaries or regions |
-| `image-analysis-tasks` | Aggregate image task schemas and routing helpers | `image-analysis-core`, `image-analysis-detection`, `image-analysis-ocr`, `image-analysis-segmentation`, `image-analysis-synthesis`, `model-runtime`, `serde`, `serde_json` | Image task/runtime catalog, compatibility `/api/models` helpers, and classification, embedding, captioning, face-embedding, segmentation, detection, OCR, and synthesis re-exports | CLI, server, and UI broad image task surfaces |
 | `text-core` | Shared text analysis utilities | `video-analysis-core`, `unicode-normalization`, `unicode-segmentation` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, Unicode word/grapheme spans, script profiles, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
 | `text-lexical` | Lexical features and classical corpus statistics | `text-core`, `math-sparse-data`, `video-analysis-core`, `serde` | Stop words, keywords, n-grams, shingles, readability, stemming, extractive summaries, sentiment, reusable text analyzers, TF-IDF, BM25, sparse term matrices/vectors | Applications, text analytics, semantic indexing |
-| `text-linguistics` | Local model-backed linguistic interpretation | `jobs-core`, `text-core`, `text-lexical`, `text-transcripts`, `video-analysis-core`, `video-analysis-models`, optional `tokenizers`/Candle crates | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
+| `text-linguistics` | Local model-backed linguistic interpretation | `jobs-core`, `model-runtime`, `text-core`, `text-lexical`, `text-transcripts`, `video-analysis-core`, optional `tokenizers`/Candle crates | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
 | `text-embeddings` | Embedding traits and lightweight semantic text analysis | `text-core`, `text-lexical`, `math-sparse-data`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core`, optional `tokenizers`/`ort`/Candle crates | `TextEmbeddingBackend`, `TextEmbedderBackend`, `EmbeddingModelInfo`, hashed dense/sparse embeddings, optional ONNX/Candle text embedders, semantic indexes, text similarity, co-occurrence graphs, related-term scoring | Retrieval, applications, semantic analysis prototypes |
 | `text-retrieval` | Text ingestion, search, and persisted retrieval indexes | `text-core`, `text-lexical`, `text-embeddings`, `vector-analysis-index`, `serde`, `serde_json`, `thiserror`, `video-analysis-core` | Search documents/chunks, chunking options, full-text/semantic/hybrid query/ranking, metadata filters, search results, related-chunk lookup, manifests, chunk/vector JSONL snapshots, corpus metadata, rehydration helpers | Applications, search prototypes, local retrieval snapshots |
 | `text-generation` | Deterministic text prediction and synthesis | `data-inversion-core`, `text-core`, `video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring, weighted term prompts, generated text segments | Applications, text pipelines, prototyping |
@@ -144,8 +141,8 @@ Runtime and external integration crates use a shared feature policy:
 | `video-analysis-editing` | Classic CPU media editing primitives | `video-analysis-core` | Frame crop, blur, grayscale, inversion, brightness/contrast, 3x3 filters, and `FrameEditor` chains | Applications, preprocessing workflows, future media export flows |
 | `video-analysis-ingest` | Source abstraction layer | `video-analysis-core` | Media/source metadata, source traits, source-to-pipeline adapter helpers, text line source | FFmpeg crate, use cases, applications |
 | `video-analysis-ffmpeg` | FFmpeg-backed media probing and decoding | `video-analysis-core`, `video-analysis-ingest` | FFmpeg video/audio sources, metadata, probe helpers, source options | CLI, use cases, applications |
-| `video-analysis-models` | Model download, backend, normalization, and external command contracts | `video-analysis-core` | Hugging Face specs/downloads, raw and normalized predictions, model analyzer adapters, external command protocol | CLI model commands, use cases, applications |
-| `video-analysis-onnx` | Optional ONNX vision model backend adapters | `video-analysis-core`, `video-analysis-models`, `video-analysis-posture`, image crates, optional `ort` | Object-detection plus posture bundle validation, image preprocessing, fake-runner seams, optional runtime execution | Native vision inference experiments and CLI feature builds |
+| `model-runtime` | Generic model specs, bundles, downloads, and job helpers | `runtime-contracts`, `hf-hub`, optional `jobs-core` | Model specs, sources, tasks, presets, bundle manifests, download/cache/store helpers, and generic conformance helpers | Model-backed capability crates and CLI model commands |
+| `video-analysis-onnx` | Optional ONNX vision model backend adapters | `model-runtime`, `video-analysis-core`, `video-analysis-posture`, `video-analysis-recognition`, image crates, optional `ort` | Object-detection plus posture bundle validation, image preprocessing, fake-runner seams, optional runtime execution | Native vision inference experiments and CLI feature builds |
 | `video-analysis-tracking` | Object tracking over frame detections | `video-analysis-core` | `TrackedDetection`, `IouTracker`, tracking options, object-detection backend trait, analyzer adapter | Applications, use cases, model-backed detection pipelines |
 | `video-analysis-posture` | Pose and posture estimation contracts | `video-analysis-core`, `three-d-processing-core` | 2D/3D keypoints, skeletons, pose estimates, stick figures, posture backend traits, analyzer adapter, joint angle helpers, smoothing/interpolation | Applications, use cases, model-backed posture workflows |
 | `video-analysis-posture-io` | Posture interchange and preview export | `video-analysis-core`, `video-analysis-posture`, `three-d-processing-core`, `serde_json`, `base64` | COCO-style keypoint JSON, 3D stick-figure `.ply`, 3D stick-figure `.gltf` | CLI workflows, applications, dataset export |
@@ -296,10 +293,10 @@ helpers without requiring video timeline semantics.
   detection DTOs, face detection presets, and face detector backend traits.
 - `image-analysis-synthesis` owns deterministic, non-AI image generation from
   colors, histograms, and regions.
-- `image-analysis-tasks` owns aggregate task catalogs and the broad
-  classification, embedding, captioning, and face-embedding contracts.
-- `image-analysis-models` is a deprecated compatibility re-export crate; new
-  code should use the owning capability crates or `image-analysis-tasks`.
+- Image classification, embeddings, and captioning are owned by
+  `image-analysis-classification`, `image-analysis-embeddings`, and
+  `image-analysis-captioning`; aggregate image task/model crates have been
+  removed.
 - `image-analysis-ocr` owns OCR model presets, rich text layout contracts, and
   image/video-frame backend traits for model, command, or heuristic recognizers.
 - `image-analysis-onnx` owns still-image ONNX preprocessing and optional
@@ -354,7 +351,7 @@ cases and model adapters.
   `AnalysisEvent` values, and can optionally emit sparse hashed embeddings
   backed by `math-sparse-data`. Optional native embedding runtimes now live
   here through `OnnxTextEmbedder` and `CandleTextEmbedder`; model acquisition
-  still uses `video-analysis-models`.
+  uses `model-runtime`.
 - `text-retrieval` owns `SearchDocument`, `DocumentChunk`, `RetrievalIndex`,
   `SearchQuery`, `SearchFilter`, `HybridConfig`, `SearchResult`, retrieval
   manifests, persisted chunk/vector JSONL snapshots, and index rehydration.
@@ -652,8 +649,10 @@ transcript counts, audio event summaries, track summaries, and vector means.
 
 ## Model Contracts
 
-`video-analysis-models` separates model acquisition, model-specific backend
-execution, prediction normalization, and analyzer integration.
+`model-runtime` separates generic model acquisition, bundle manifests, preset
+metadata, and runtime conformance helpers from capability-specific execution.
+Video prediction normalization and external command backend contracts live in
+`video-analysis-recognition`.
 
 Model acquisition and identity:
 
@@ -1218,8 +1217,6 @@ Allowed internal dependencies:
   `video-analysis-core`.
 - `audio-analysis-io` -> `audio-analysis-core`, `video-analysis-core`,
   `video-analysis-ingest`, `video-analysis-ffmpeg`, `hound`.
-- `audio-analysis-tasks` -> audio capability crates, `model-runtime`,
-  `video-analysis-core`.
 - `audio-analysis-pitch` -> `audio-analysis-core`,
   `video-analysis-core`.
 - `audio-analysis-processing` -> `audio-analysis-core`,
@@ -1237,7 +1234,7 @@ Allowed internal dependencies:
 - `text-lexical` -> `text-core`,
   `math-sparse-data`, `video-analysis-core`.
 - `text-linguistics` -> `text-core`, `text-lexical`,
-  `text-transcripts`, `video-analysis-core`, `video-analysis-models`.
+  `text-transcripts`, `video-analysis-core`, `model-runtime`.
 - `text-embeddings` -> `text-core`, `text-lexical`,
   `math-sparse-data`, `vector-analysis-core`, `vector-analysis-index`,
   `video-analysis-core`.
@@ -1268,7 +1265,8 @@ Allowed internal dependencies:
 - `video-analysis-ingest` -> `video-analysis-core`.
 - `video-analysis-ffmpeg` -> `video-analysis-core`,
   `video-analysis-ingest`.
-- `video-analysis-models` -> `video-analysis-core`.
+- `video-analysis-recognition` -> `video-analysis-core`, `model-runtime`,
+  `video-analysis-posture`.
 - `video-analysis-output` -> `video-analysis-core`.
 - `video-analysis-split` -> `video-analysis-core`.
 - `video-analysis-radiance-fields` -> `video-analysis-core`.

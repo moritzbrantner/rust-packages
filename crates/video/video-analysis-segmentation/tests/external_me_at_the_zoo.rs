@@ -4,13 +4,11 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use image_analysis_segmentation::{BinaryMask, ImageSegment};
+use model_runtime::{DownloadedModel, HuggingFaceModelSpec, ModelTask};
 use video_analysis_core::{BoundingBox, Result, VideoFrame};
 use video_analysis_ffmpeg::{is_ffmpeg_available, is_ffprobe_available, FfmpegVideoSource};
 use video_analysis_ingest::VideoFrameSource;
-use video_analysis_models::{
-    DownloadedModel, ExternalCommandModel, HuggingFaceModelSpec, ModelTask, RawPrediction,
-    VisionModelBackend,
-};
+use video_analysis_recognition::{ExternalCommandModel, RawPrediction, VisionModelBackend};
 use video_analysis_segmentation::{
     TrackedSegment, VideoSegmentationBackend, VideoSegmentationRequest, VideoSegmenter,
 };

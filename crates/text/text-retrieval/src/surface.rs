@@ -9,8 +9,8 @@ use text_core::TextProcessingOptions;
 use text_embeddings::{HashedTextEmbedder, TextEmbeddingConfig};
 
 use crate::{
-    chunk_search_document, ChunkingOptions, IngestReport, IngestionOptions, RetrievalIndex,
-    RetrievalMode, SearchDocument, SearchFilter, SearchQuery,
+    chunk_search_document, rerank_documents, ChunkingOptions, IngestReport, IngestionOptions,
+    RerankRequest, RetrievalIndex, RetrievalMode, SearchDocument, SearchFilter, SearchQuery,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -37,6 +37,12 @@ pub fn package_surface() -> PackageSurface {
                 "Search documents",
                 "Builds a transient in-memory retrieval index and searches it.",
                 serde_json::json!({"documents": [{"id": "doc-1", "body": "Rust text retrieval"}, {"id": "doc-2", "body": "Video scene reports"}], "query": "text", "mode": "hybrid"}),
+            ),
+            operation(
+                "retrieval.rerank",
+                "Rerank documents",
+                "Reranks query/document pairs using imported scores or deterministic lexical overlap.",
+                serde_json::json!({"query": "rust", "documents": ["rust text", "video scenes"]}),
             ),
         ],
     }
@@ -67,6 +73,11 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "describe" => describe_value(request.input),
         "retrieval.chunk" => chunk_value(parse_input(request.input)?)?,
         "retrieval.search" => search_value(parse_input(request.input)?)?,
+        "retrieval.rerank" => serde_json::to_value(
+            rerank_documents(parse_input::<RerankRequest>(request.input)?)
+                .map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| error.to_string())?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -197,6 +208,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"retrieval.chunk".to_string()));
         assert!(ids.contains(&"retrieval.search".to_string()));
+        assert!(ids.contains(&"retrieval.rerank".to_string()));
     }
 
     #[test]

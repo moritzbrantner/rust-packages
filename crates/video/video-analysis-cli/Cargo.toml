@@ -33,11 +33,11 @@ three-d-processing-io.workspace = true
 video-analysis-core.workspace = true
 video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
-video-analysis-models.workspace = true
 video-analysis-onnx = { workspace = true, optional = true }
 video-analysis-output.workspace = true
 video-analysis-posture.workspace = true
 video-analysis-posture-io.workspace = true
+video-analysis-recognition.workspace = true
 video-analysis-split.workspace = true
 
 [dev-dependencies]

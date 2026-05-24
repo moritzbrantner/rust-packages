@@ -9,6 +9,7 @@ use std::str::FromStr;
 
 use audio_analysis_processing::AudioEnergyAnalyzer;
 use audio_analysis_separation::{DemucsModel, HtdemucsOptions, HtdemucsSeparator, Stem};
+use model_runtime::{DownloadedModel, HuggingFaceModelSpec, ModelTask};
 use serde::{Deserialize, Serialize};
 use text_transcripts::TranscriptHeuristicAnalyzer;
 use text_transcripts::{
@@ -29,10 +30,7 @@ use video_analysis_ffmpeg::{
     extract_wav, FfmpegAudioSource, FfmpegAudioSourceOptions, FfmpegVideoSource,
 };
 use video_analysis_ingest::{AudioFrameSource, VideoFrameSource};
-use video_analysis_models::{
-    DownloadedModel, ExternalCommandModel, HuggingFaceModelSpec, ModelTask, ModelTextAnalyzer,
-    ModelVideoAnalyzer,
-};
+use video_analysis_recognition::{ExternalCommandModel, ModelTextAnalyzer, ModelVideoAnalyzer};
 
 /// Constant for youtube video use case.
 pub const YOUTUBE_VIDEO_USE_CASE: &str = "youtube-video";

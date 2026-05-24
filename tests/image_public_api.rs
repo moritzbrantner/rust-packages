@@ -1,13 +1,14 @@
 use tempfile::tempdir;
 
+use image_analysis_classification::{image_classification_catalog, ImageClassificationTask};
 use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
 use image_analysis_detection::{FaceBox, FaceDetectionPreset};
+use image_analysis_embeddings::{
+    image_embedding_catalog, FaceEmbeddingPreset, ImageEmbeddingPreset, ImageEmbeddingTask,
+};
 use image_analysis_io::{read_image, write_image};
 use image_analysis_ocr::{OcrPreset, OcrRequest, OcrTechnique};
 use image_analysis_segmentation::ImageSegmentationRequest;
-use image_analysis_tasks::{
-    image_task_catalog, FaceEmbeddingPreset, ImageEmbeddingPreset, ImageTask,
-};
 
 #[test]
 fn image_public_api_covers_core_defaults_and_io() -> Result<(), Box<dyn std::error::Error>> {
@@ -72,9 +73,16 @@ fn image_public_api_covers_embedding_and_face_model_presets() {
 }
 
 #[test]
-fn image_public_api_covers_aggregate_task_catalog() {
-    let catalog = image_task_catalog(Some(ImageTask::ImageEmbedding));
+fn image_public_api_covers_classification_catalog_compatibility() {
+    let classifications =
+        image_classification_catalog(Some(ImageClassificationTask::ImageClassification));
+    assert!(classifications
+        .iter()
+        .any(|entry| entry.id == "vit-base-patch16-224"));
+
+    let catalog = image_embedding_catalog(Some(ImageEmbeddingTask::ImageEmbedding));
     assert!(catalog.iter().any(|entry| {
-        entry.id == "xenova-clip-vit-base-patch32-onnx" && entry.task == ImageTask::ImageEmbedding
+        entry.id == "xenova-clip-vit-base-patch32-onnx"
+            && entry.task == ImageEmbeddingTask::ImageEmbedding
     }));
 }

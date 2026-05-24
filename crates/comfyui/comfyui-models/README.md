@@ -18,4 +18,4 @@ write_extra_model_paths_yaml("extra_model_paths.yaml", &inventory)?;
 ## Related crates
 
 - `comfyui-data`
-- `video-analysis-models`
+- `model-runtime`

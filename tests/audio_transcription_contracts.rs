@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use audio_analysis_tasks::{
+use audio_analysis_recognition::{
     transcribe_audio, AudioRuntime, AudioRuntimeSelection, SpeechRecognitionRequest,
 };
 use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};

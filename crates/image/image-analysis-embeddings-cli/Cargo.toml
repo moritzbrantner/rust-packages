@@ -1,0 +1,23 @@
+[package]
+name = "image-analysis-embeddings-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Command-line adapter for the image-analysis-embeddings library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "image-analysis-embeddings-cli"
+
+[[bin]]
+name = "image-analysis-embeddings-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+runtime-contracts.workspace = true
+serde_json.workspace = true
+image-analysis-embeddings = { path = "../image-analysis-embeddings" }

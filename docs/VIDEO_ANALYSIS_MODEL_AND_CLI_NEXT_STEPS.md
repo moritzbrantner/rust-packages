@@ -5,7 +5,7 @@ threads can pick up implementation without redoing discovery.
 
 Current state:
 
-- `video-analysis-models` owns model specs, Hugging Face downloads, bundle
+- `model-runtime` owns model specs, Hugging Face downloads, bundle
   materialization, prediction normalization, analyzer adapters, and external
   command backends.
 - `video-analysis-use-cases` can already attach external object, OCR, and text
@@ -59,7 +59,7 @@ Workspace updates:
 Suggested dependencies:
 
 - `video-analysis-core`
-- `video-analysis-models`
+- `model-runtime`
 - `serde`
 - `serde_json`
 - Runtime dependency behind a feature:
@@ -183,8 +183,8 @@ Add:
 
 ```bash
 vanalyze models inspect --name yolos-tiny --revision main
-vanalyze models inspect --bundle-dir .video-analysis-models --name yolos-tiny
-vanalyze models inspect --manifest .video-analysis-models/yolos-tiny/main/manifest.json
+vanalyze models inspect --bundle-dir .model-runtime --name yolos-tiny
+vanalyze models inspect --manifest .model-runtime/yolos-tiny/main/manifest.json
 ```
 
 Purpose:
@@ -216,7 +216,7 @@ is sampled video/report integration through `vanalyze analyze`.
 
 ```bash
 vanalyze models run \
-  --manifest .video-analysis-models/yolos-tiny/main/manifest.json \
+  --manifest .model-runtime/yolos-tiny/main/manifest.json \
   --backend onnx \
   --input frame.rgb \
   --width 640 \
@@ -229,7 +229,7 @@ For video input:
 ```bash
 vanalyze analyze \
   --input video.mp4 \
-  --model-manifest .video-analysis-models/yolos-tiny/main/manifest.json \
+  --model-manifest .model-runtime/yolos-tiny/main/manifest.json \
   --model-backend onnx \
   --visual-sample-every 30 \
   --output analysis.json

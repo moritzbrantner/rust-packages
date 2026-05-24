@@ -13,14 +13,13 @@ use image_analysis_comfyui::{
 };
 use image_analysis_core::{mask_tensor_from_luma, ImagePixelFormat, OwnedImage};
 use image_analysis_io::{read_image, write_image};
-use model_runtime::ModelBundle;
+use model_runtime::{DownloadedModel, HuggingFaceModelSpec, ModelBundle, ModelTask};
 use serde::{Deserialize, Serialize};
 use video_analysis_core::{
     BoundingBox, DetectError, FramePosition, PixelFormat, Result, Timebase, Timestamp,
 };
-use video_analysis_models::{
-    normalize_predictions, DownloadedModel, ExternalCommandModel, HuggingFaceModelSpec, ModelTask,
-    PredictionRepairOptions, VisionModelBackend,
+use video_analysis_recognition::{
+    normalize_predictions, ExternalCommandModel, PredictionRepairOptions, VisionModelBackend,
 };
 
 use crate::workflow_support::{display_path, validate_local_file, write_json_report};

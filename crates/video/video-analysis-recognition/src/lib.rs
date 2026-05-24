@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+mod external_command;
+mod model_analyzers;
+mod model_predictions;
 pub mod surface;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -7,6 +10,10 @@ use video_analysis_core::{
     BoundingBox, DetectError, FramePosition, Observation, ObservationKind, Result, VideoAnalyzer,
     VideoFrame,
 };
+
+pub use external_command::*;
+pub use model_analyzers::*;
+pub use model_predictions::*;
 
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for embedding.

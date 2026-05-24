@@ -41,4 +41,4 @@ let _ = ColorBlobDetector::red_car().detect_image(&image.as_view())?;
 
 - `image-analysis-core`
 - `image-analysis-segmentation`
-- `image-analysis-tasks`
+- `image-analysis-classification, image-analysis-embeddings, image-analysis-captioning, image-analysis-ocr, image-analysis-segmentation, or image-analysis-detection`

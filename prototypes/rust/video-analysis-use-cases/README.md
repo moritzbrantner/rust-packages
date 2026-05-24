@@ -42,5 +42,5 @@ current directory default.
 ## Related crates
 
 - `video-analysis-cli`
-- `video-analysis-models`
+- `model-runtime`
 - `@video-analysis/ui`

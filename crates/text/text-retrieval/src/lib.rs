@@ -411,6 +411,122 @@ impl SearchQuery {
     }
 }
 
+/// Request for query/document reranking.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RerankRequest {
+    /// Query text.
+    pub query: String,
+    /// Documents to rerank.
+    pub documents: Vec<String>,
+    /// Maximum output count.
+    #[serde(default = "default_rerank_top_k")]
+    pub top_k: usize,
+    /// Optional caller-supplied document scores.
+    #[serde(default)]
+    pub imported_scores: Vec<f32>,
+}
+
+/// One reranked document.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RerankResult {
+    /// Original document index.
+    pub index: usize,
+    /// Document text.
+    pub document: String,
+    /// Relevance score.
+    pub score: f32,
+}
+
+/// Response for query/document reranking.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RerankResponse {
+    /// Accepted flag for generated package surfaces.
+    pub accepted: bool,
+    /// Operation name.
+    pub operation: String,
+    /// Query text.
+    pub query: String,
+    /// Ranked documents.
+    pub results: Vec<RerankResult>,
+}
+
+/// Reranks documents from imported scores or deterministic lexical overlap.
+pub fn rerank_documents(request: RerankRequest) -> CoreResult<RerankResponse> {
+    if request.query.trim().is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "rerank request must include a non-empty query".to_string(),
+        ));
+    }
+    if request.documents.is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "rerank request must include at least one document".to_string(),
+        ));
+    }
+    let mut results = request
+        .documents
+        .iter()
+        .enumerate()
+        .map(|(index, document)| {
+            let score = request
+                .imported_scores
+                .get(index)
+                .copied()
+                .unwrap_or_else(|| lexical_overlap_score(&request.query, document));
+            RerankResult {
+                index,
+                document: document.clone(),
+                score,
+            }
+        })
+        .collect::<Vec<_>>();
+    results.sort_by(|left, right| {
+        right
+            .score
+            .total_cmp(&left.score)
+            .then_with(|| left.index.cmp(&right.index))
+    });
+    results.truncate(request.top_k.max(1));
+    Ok(RerankResponse {
+        accepted: true,
+        operation: "rerank".to_string(),
+        query: request.query,
+        results,
+    })
+}
+
+fn lexical_overlap_score(query: &str, document: &str) -> f32 {
+    let processing = TextProcessingOptions::default();
+    let query_terms = tokenize(query, &processing)
+        .into_iter()
+        .filter_map(|token| match token.kind {
+            TokenKind::Word => Some(token.normalized),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    if query_terms.is_empty() {
+        return 0.0;
+    }
+    let document_terms = tokenize(document, &processing)
+        .into_iter()
+        .filter_map(|token| match token.kind {
+            TokenKind::Word => Some(token.normalized),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    let overlap = query_terms
+        .iter()
+        .filter(|term| document_terms.contains(term.as_str()))
+        .count();
+    overlap as f32 / query_terms.len() as f32
+}
+
+fn default_rerank_top_k() -> usize {
+    3
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for search result.
 pub struct SearchResult {

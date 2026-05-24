@@ -36,7 +36,6 @@
     "web:test": "bun run --cwd prototypes/web/video-analysis-web test",
     "web:test:unit": "bun run --cwd prototypes/web/video-analysis-web test:unit",
     "web:test:api": "bun run --cwd prototypes/web/video-analysis-web test:api",
-    "web:test:e2e": "bun run --cwd prototypes/web/video-analysis-web test:e2e",
-    "text-nlp-wasm:test": "bun run --cwd packages/text-nlp-tasks-wasm test"
+    "web:test:e2e": "bun run --cwd prototypes/web/video-analysis-web test:e2e"
   }
 }

@@ -402,7 +402,7 @@
     {
       "id": "external-models",
       "title": "External Models",
-      "package_name": "video-analysis-models",
+      "package_name": "video-analysis-recognition",
       "category": "video",
       "inputs": [
         { "id": "video", "label": "Frames", "kind": "video_file", "stream": true }

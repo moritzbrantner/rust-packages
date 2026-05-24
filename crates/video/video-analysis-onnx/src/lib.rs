@@ -18,13 +18,13 @@ pub use image_analysis_onnx::{
     OnnxObjectDetectionRunner, OnnxVisionBundleInfo, UnavailableOnnxImageClassificationRunner,
     UnavailableOnnxRunner,
 };
-use model_runtime::{ModelBundle, ModelTask as RuntimeModelTask};
+use model_runtime::{ModelBundle, ModelTask};
 use video_analysis_core::{DetectError, Result, VideoFrame};
-use video_analysis_models::{
-    ModelTask as VideoModelTask, PoseLiftModelBackend, PoseModelBackend, RawBoundingBox,
-    RawPose2dPrediction, RawPose3dPrediction, RawPrediction, VisionModelBackend,
-};
 use video_analysis_posture::{KeypointSpace, Skeleton};
+use video_analysis_recognition::{
+    PoseLiftModelBackend, PoseModelBackend, RawBoundingBox, RawPose2dPrediction,
+    RawPose3dPrediction, RawPrediction, VisionModelBackend,
+};
 
 #[derive(Debug, Clone)]
 /// Data type for ONNX object detector.
@@ -104,8 +104,8 @@ impl<R: OnnxObjectDetectionRunner> OnnxObjectDetector<R> {
 }
 
 impl<R: OnnxObjectDetectionRunner> VisionModelBackend for OnnxObjectDetector<R> {
-    fn task(&self) -> VideoModelTask {
-        VideoModelTask::ObjectDetection
+    fn task(&self) -> ModelTask {
+        ModelTask::ObjectDetection
     }
 
     fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPrediction>> {
@@ -268,7 +268,7 @@ pub struct OnnxPoseLifter<R = UnavailablePoseLiftRunner> {
 impl OnnxPoseLifter<UnavailablePoseLiftRunner> {
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
-        validate_onnx_pose_bundle(&bundle, RuntimeModelTask::PoseLifting3d)?;
+        validate_onnx_pose_bundle(&bundle, ModelTask::PoseLifting3d)?;
         Ok(Self {
             options: OnnxPoseLifterOptions::default(),
             runner: UnavailablePoseLiftRunner,
@@ -279,7 +279,7 @@ impl OnnxPoseLifter<UnavailablePoseLiftRunner> {
 impl<R: OnnxPoseLiftRunner> OnnxPoseLifter<R> {
     /// Builds this value from runner.
     pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
-        validate_onnx_pose_bundle(&bundle, RuntimeModelTask::PoseLifting3d)?;
+        validate_onnx_pose_bundle(&bundle, ModelTask::PoseLifting3d)?;
         Ok(Self {
             options: OnnxPoseLifterOptions::default(),
             runner,
@@ -315,7 +315,7 @@ pub fn preprocess_frame(
 /// Validates ONNX pose bundle.
 pub fn validate_onnx_pose_bundle(
     bundle: &ModelBundle,
-    task: RuntimeModelTask,
+    task: ModelTask,
 ) -> Result<OnnxVisionBundleInfo> {
     if bundle.manifest.task != task {
         return Err(DetectError::InvalidArgument(format!(
@@ -351,7 +351,7 @@ pub fn validate_onnx_pose_bundle(
 
 /// Returns pose 2d options from bundle.
 pub fn pose_2d_options_from_bundle(bundle: &ModelBundle) -> Result<OnnxPose2dOptions> {
-    let info = validate_onnx_pose_bundle(bundle, RuntimeModelTask::PoseEstimation2d)?;
+    let info = validate_onnx_pose_bundle(bundle, ModelTask::PoseEstimation2d)?;
     let config = read_json(&info.config_path)?;
     let preprocessing = if let Some(path) = &info.preprocessor_config_path {
         preprocessing_from_config(&read_json(path)?)?
@@ -514,11 +514,7 @@ mod tests {
         }
     }
 
-    fn fake_bundle_with_task(
-        root: &Path,
-        task: RuntimeModelTask,
-        files: &[(&str, &str)],
-    ) -> ModelBundle {
+    fn fake_bundle_with_task(root: &Path, task: ModelTask, files: &[(&str, &str)]) -> ModelBundle {
         let files_root = root.join("files");
         std::fs::create_dir_all(&files_root).unwrap();
         let mut manifest_files = BTreeMap::new();
@@ -569,7 +565,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let bundle = fake_bundle_with_task(
             dir.path(),
-            RuntimeModelTask::ObjectDetection,
+            ModelTask::ObjectDetection,
             &[
                 ("config.json", r#"{"id2label":{"0":"person"}}"#),
                 ("onnx/model.onnx", "fake"),
@@ -596,7 +592,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let bundle = fake_bundle_with_task(
             dir.path(),
-            RuntimeModelTask::PoseEstimation2d,
+            ModelTask::PoseEstimation2d,
             &[
                 ("config.json", r#"{"keypoint_names":["nose"]}"#),
                 ("onnx/model.onnx", "fake"),

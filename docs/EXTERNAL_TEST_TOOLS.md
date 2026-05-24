@@ -19,7 +19,7 @@ Required pattern:
   installs/repairs what is missing or invalid.
 - A check script that verifies availability/integrity but does not install.
 - A default local install root that is gitignored (for example
-  `.external-test-tools/`, `.audio-tools/`, `.video-analysis-models/`).
+  `.external-test-tools/`, `.audio-tools/`, `.model-runtime/`).
 - Usage documentation in `README.md` and/or this document.
 
 The setup scripts are idempotent: each tool is verified first, and existing

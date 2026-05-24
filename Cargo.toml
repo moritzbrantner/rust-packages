@@ -92,26 +92,26 @@ audio-analysis-rhythm = { version = "0.1.0", path = "crates/audio/audio-analysis
 audio-analysis-separation = { version = "0.1.0", path = "crates/audio/audio-analysis-separation" }
 audio-analysis-speakers = { version = "0.1.0", path = "crates/audio/audio-analysis-speakers" }
 audio-analysis-synthesis = { version = "0.1.0", path = "crates/audio/audio-analysis-synthesis" }
-audio-analysis-tasks = { version = "0.1.0", path = "crates/audio/audio-analysis-tasks" }
 audio-analysis-test-support = { version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
 video-analysis-test-support = { version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
 image-analysis-core = { version = "0.1.0", path = "crates/image/image-analysis-core" }
+image-analysis-captioning = { version = "0.1.0", path = "crates/image/image-analysis-captioning" }
+image-analysis-classification = { version = "0.1.0", path = "crates/image/image-analysis-classification" }
 image-analysis-comfyui = { version = "0.1.0", path = "crates/image/image-analysis-comfyui" }
 image-analysis-detection = { version = "0.1.0", path = "crates/image/image-analysis-detection" }
+image-analysis-embeddings = { version = "0.1.0", path = "crates/image/image-analysis-embeddings" }
 image-analysis-io = { version = "0.1.0", path = "crates/image/image-analysis-io" }
-image-analysis-models = { version = "0.1.0", path = "crates/image/image-analysis-models" }
 image-analysis-onnx = { version = "0.1.0", path = "crates/image/image-analysis-onnx" }
 image-analysis-ocr = { version = "0.1.0", path = "crates/image/image-analysis-ocr" }
 image-analysis-processing = { version = "0.1.0", path = "crates/image/image-analysis-processing" }
 image-analysis-segmentation = { version = "0.1.0", path = "crates/image/image-analysis-segmentation" }
 image-analysis-synthesis = { version = "0.1.0", path = "crates/image/image-analysis-synthesis" }
-image-analysis-tasks = { version = "0.1.0", path = "crates/image/image-analysis-tasks" }
 text-core = { version = "0.1.0", path = "crates/text/text-core" }
+text-classification = { version = "0.1.0", path = "crates/text/text-classification" }
 text-lexical = { version = "0.1.0", path = "crates/text/text-lexical" }
 text-linguistics = { version = "0.1.0", path = "crates/text/text-linguistics" }
 text-model-runtime = { version = "0.1.0", path = "crates/text/text-model-runtime" }
-text-nlp-models = { version = "0.1.0", path = "crates/text/text-nlp-models" }
-text-nlp-tasks = { version = "0.1.0", path = "crates/text/text-nlp-tasks" }
+text-question-answering = { version = "0.1.0", path = "crates/text/text-question-answering" }
 text-generation = { version = "0.1.0", path = "crates/text/text-generation" }
 text-generation-linguistics = { version = "0.1.0", path = "crates/text/text-generation-linguistics" }
 text-retrieval = { version = "0.1.0", path = "crates/text/text-retrieval" }
@@ -133,7 +133,6 @@ video-analysis-ffmpeg = { version = "0.1.0", path = "crates/video/video-analysis
 video-analysis-gaussian-splatting = { version = "0.1.0", path = "crates/video/video-analysis-gaussian-splatting" }
 video-analysis-ingest = { version = "0.1.0", path = "crates/video/video-analysis-ingest" }
 video-analysis-colmap-backend = { version = "0.1.0", path = "crates/video/video-analysis-colmap-backend" }
-video-analysis-models = { version = "0.1.0", path = "crates/video/video-analysis-models" }
 video-analysis-mvs = { version = "0.1.0", path = "crates/video/video-analysis-mvs" }
 video-analysis-onnx = { version = "0.1.0", path = "crates/video/video-analysis-onnx" }
 video-analysis-opencv-backend = { version = "0.1.0", path = "crates/video/video-analysis-opencv-backend" }
@@ -175,7 +174,6 @@ video-analysis-ffmpeg.workspace = true
 video-analysis-gaussian-splatting.workspace = true
 video-analysis-ingest.workspace = true
 video-analysis-colmap-backend.workspace = true
-video-analysis-models.workspace = true
 video-analysis-mvs.workspace = true
 video-analysis-onnx = { workspace = true, optional = true }
 video-analysis-opencv-backend.workspace = true
@@ -205,7 +203,6 @@ audio-analysis-rhythm.workspace = true
 audio-analysis-separation.workspace = true
 audio-analysis-speakers.workspace = true
 audio-analysis-synthesis.workspace = true
-audio-analysis-tasks.workspace = true
 data-inversion-core.workspace = true
 graph-analysis-core.workspace = true
 geo-data.workspace = true
@@ -225,19 +222,22 @@ comfyui-data.workspace = true
 comfyui-latents.workspace = true
 comfyui-models.workspace = true
 image-analysis-comfyui.workspace = true
+image-analysis-captioning.workspace = true
+image-analysis-classification.workspace = true
 image-analysis-core.workspace = true
 image-analysis-detection.workspace = true
+image-analysis-embeddings.workspace = true
 image-analysis-io.workspace = true
 image-analysis-onnx = { workspace = true, optional = true }
 image-analysis-ocr.workspace = true
 image-analysis-processing.workspace = true
 image-analysis-segmentation.workspace = true
 image-analysis-synthesis.workspace = true
-image-analysis-tasks.workspace = true
 text-core.workspace = true
+text-classification.workspace = true
 text-lexical.workspace = true
 text-linguistics = { workspace = true, features = ["candle", "transcripts"] }
-text-nlp-tasks.workspace = true
+text-question-answering.workspace = true
 text-generation.workspace = true
 text-generation-linguistics.workspace = true
 text-retrieval.workspace = true
@@ -250,6 +250,7 @@ three-d-processing-io.workspace = true
 three-d-processing-mesh.workspace = true
 three-d-scene-svg.workspace = true
 video-analysis-posture-io.workspace = true
+runtime-contracts.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

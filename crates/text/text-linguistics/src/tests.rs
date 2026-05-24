@@ -49,7 +49,7 @@ fn downloads_default_ner_model_and_runs_local_entities() {
 
     let bundle_dir = std::env::var_os("TEXT_LINGUISTICS_MODEL_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(".video-analysis-models"));
+        .unwrap_or_else(|| PathBuf::from(".model-runtime"));
     let mut options = LinguisticAnalysisOptions::default();
     options.entity_recognition.bundle_dir = bundle_dir.clone();
     options.entity_recognition.download_progress = false;

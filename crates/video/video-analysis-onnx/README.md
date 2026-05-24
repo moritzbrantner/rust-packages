@@ -33,6 +33,6 @@ assert_eq!(tensor.channels, 3);
 
 ## Related crates
 
-- `video-analysis-models`
+- `model-runtime`
 - `image-analysis-onnx`
 - `video-analysis-cli`

@@ -20,15 +20,17 @@ use video_analysis_detectors::{
     WeightedComponent, WeightedCompositeDetector,
 };
 use video_analysis_ffmpeg::FfmpegVideoSource;
-#[cfg(feature = "onnx")]
-use video_analysis_models::PoseModelBackend;
-use video_analysis_models::RawPose2dPrediction;
 use video_analysis_output::{write_scene_list_csv, write_stats_csv};
 use video_analysis_posture::{Keypoint3d, Pose3dEstimate, Skeleton};
 use video_analysis_posture_io::{
     read_coco_keypoints_json, write_coco_keypoints_json, write_stick_figure_gltf,
     write_stick_figure_ply,
 };
+#[cfg(feature = "onnx")]
+use video_analysis_recognition::PoseModelBackend;
+use video_analysis_recognition::RawPose2dPrediction;
+#[cfg(feature = "onnx")]
+use video_analysis_recognition::VisionModelBackend;
 use video_analysis_split::{split_video_ffmpeg, SplitOptions};
 
 #[derive(Debug, Parser)]
@@ -209,7 +211,7 @@ struct ModelDownloadArgs {
     task: Option<ModelTaskKind>,
     #[arg(long = "file")]
     files: Vec<String>,
-    #[arg(long, default_value = ".video-analysis-models")]
+    #[arg(long, default_value = ".model-runtime")]
     bundle_dir: PathBuf,
     #[arg(long, default_value_t = false)]
     overwrite: bool,
@@ -234,7 +236,7 @@ struct ModelInspectArgs {
     name: Option<String>,
     #[arg(long, default_value = "main", requires = "name")]
     revision: String,
-    #[arg(long, default_value = ".video-analysis-models", requires = "name")]
+    #[arg(long, default_value = ".model-runtime", requires = "name")]
     bundle_dir: PathBuf,
 }
 
@@ -849,8 +851,7 @@ fn run_onnx_model(args: ModelRunArgs) -> Result<()> {
         args.width as usize * 3,
     )?;
     let mut backend = video_analysis_onnx::OnnxObjectDetector::from_bundle(bundle)?;
-    let predictions =
-        video_analysis_models::VisionModelBackend::predict_frame(&mut backend, &frame)?;
+    let predictions = VisionModelBackend::predict_frame(&mut backend, &frame)?;
     if let Some(path) = args.output {
         if let Some(parent) = path.parent().filter(|path| !path.as_os_str().is_empty()) {
             std::fs::create_dir_all(parent)?;
@@ -1592,7 +1593,7 @@ mod tests {
                     .keypoints
                     .iter()
                     .enumerate()
-                    .map(|(index, name)| video_analysis_models::RawKeypoint2d {
+                    .map(|(index, name)| video_analysis_recognition::RawKeypoint2d {
                         name: name.clone(),
                         x: index as f32,
                         y: index as f32,

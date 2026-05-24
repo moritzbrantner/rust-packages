@@ -86,7 +86,7 @@ release automation or publish crates unless the task explicitly asks for that.
 ## Generated And Local Files
 
 - Do not manually edit `target/`, `.cargo-target/`, `node_modules/`,
-  `.external-test-tools/`, `.audio-tools/`, `.video-analysis-models/`,
+  `.external-test-tools/`, `.audio-tools/`, `.model-runtime/`,
   `.test-corpora/`, `coverage/`, Playwright reports, or test-result folders.
 - Do not manually edit generated package outputs in
   `packages/video-analysis-ui/dist/`, `packages/text-core-wasm/pkg/`, or
