@@ -648,6 +648,8 @@ function domainChipClass(domain: PackageDomain): string {
       return "bg-cyan-600 text-white";
     case "ui":
       return "bg-sky-600 text-white";
+    case "animation":
+      return "bg-lime-500 text-zinc-950";
     case "video":
       return "bg-emerald-600 text-white";
     case "audio":
@@ -664,6 +666,12 @@ function domainChipClass(domain: PackageDomain): string {
       return "bg-orange-500 text-zinc-950";
     case "data":
       return "bg-slate-600 text-white";
+    case "math":
+      return "bg-blue-600 text-white";
+    case "runtime":
+      return "bg-purple-600 text-white";
+    case "jobs":
+      return "bg-stone-600 text-white";
     case "bindings":
       return "bg-teal-600 text-white";
     case "support":
@@ -679,6 +687,8 @@ function domainBorderClass(domain: PackageDomain): string {
       return "border-cyan-300";
     case "ui":
       return "border-sky-300";
+    case "animation":
+      return "border-lime-300";
     case "video":
       return "border-emerald-300";
     case "audio":
@@ -695,6 +705,12 @@ function domainBorderClass(domain: PackageDomain): string {
       return "border-orange-300";
     case "data":
       return "border-slate-300";
+    case "math":
+      return "border-blue-300";
+    case "runtime":
+      return "border-purple-300";
+    case "jobs":
+      return "border-stone-300";
     case "bindings":
       return "border-teal-300";
     case "support":
@@ -710,6 +726,8 @@ function domainPanelClass(domain: PackageDomain): string {
       return "bg-cyan-50";
     case "ui":
       return "bg-sky-50";
+    case "animation":
+      return "bg-lime-50";
     case "video":
       return "bg-emerald-50";
     case "audio":
@@ -726,6 +744,12 @@ function domainPanelClass(domain: PackageDomain): string {
       return "bg-orange-50";
     case "data":
       return "bg-slate-50";
+    case "math":
+      return "bg-blue-50";
+    case "runtime":
+      return "bg-purple-50";
+    case "jobs":
+      return "bg-stone-50";
     case "bindings":
       return "bg-teal-50";
     case "support":

@@ -23,6 +23,8 @@ pub use audio_analysis_separation as audio_separation;
 pub use audio_analysis_speakers as audio_speakers;
 /// Re-exports the audio synthesis API.
 pub use audio_analysis_synthesis as audio_synthesis;
+/// Re-exports the audio test support API.
+pub use audio_analysis_test_support as audio_test_support;
 /// Re-exports the MIDI-like audio generation API.
 pub use audio_generation_midi as audio_midi;
 /// Re-exports the ComfyUI data API.
@@ -84,6 +86,10 @@ pub use math_statistics as stats;
 pub use model_runtime;
 /// Re-exports the numbers API.
 pub use numbers_core as numbers;
+/// Re-exports the runtime artifacts API.
+pub use runtime_artifacts;
+/// Re-exports the runtime job API.
+pub use runtime_jobs;
 /// Re-exports the tensor data API.
 pub use tensor_data;
 /// Re-exports the text classification API.
@@ -100,6 +106,8 @@ pub use text_generation_linguistics;
 pub use text_lexical;
 /// Re-exports the text linguistics API.
 pub use text_linguistics;
+/// Re-exports the text model runtime API.
+pub use text_model_runtime;
 /// Re-exports the text question answering API.
 pub use text_question_answering;
 /// Re-exports the text retrieval API.
@@ -173,6 +181,8 @@ pub use video_analysis_split as split;
 pub use video_analysis_storage as storage;
 /// Re-exports the synthesis API.
 pub use video_analysis_synthesis as synthesis;
+/// Re-exports the video-analysis test support API.
+pub use video_analysis_test_support as test_support;
 /// Re-exports the tracking API.
 pub use video_analysis_tracking as tracking;
 /// Re-exports the transform API.

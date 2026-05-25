@@ -1,5 +1,7 @@
 use clap::Parser;
-use runtime_contracts::{OperationId, SurfaceRequest, SurfaceResponse};
+use runtime_contracts::{
+    Diagnostic, DiagnosticSeverity, OperationId, PackageSurface, SurfaceRequest, SurfaceResponse,
+};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Read, Write};
@@ -9,16 +11,18 @@ use std::net::{TcpListener, TcpStream};
 use video_analysis::{
     animation, audio_core, audio_fourier, audio_io, audio_midi, audio_pitch, audio_processing,
     audio_recognition, audio_rhythm, audio_separation, audio_speakers, audio_synthesis,
-    colmap_backend, comfyui_data, comfyui_latents, comfyui_models, data, dataset_records, dense,
-    editing, features, ffmpeg, finance, gaussian_splatting, geometry2d, graph_core, image_comfyui,
-    image_core, image_detection, image_io, image_processing, image_segmentation, image_synthesis,
-    ingest, inversion, linear, maps_kernels, model_runtime, mvs, numbers, opencv_backend, output,
-    posture, posture_io, radiance_fields, radiance_io, radiance_pipeline, recognition,
-    reconstruction, sfm, sfm_rust_backend, signal, sparse, split, stats, storage, synthesis,
-    tensor_data, text_classification, text_core, text_embeddings, text_generation, text_lexical,
-    text_linguistics, text_retrieval, text_transcripts, three_d_core, three_d_io, three_d_mesh,
-    three_d_scene, tracking, transform, vector_core, vector_index, video_segmentation, Timebase,
-    Timestamp,
+    audio_test_support, colmap_backend, comfyui_data, comfyui_latents, comfyui_models, data,
+    dataset_records, dense, editing, features, ffmpeg, finance, gaussian_splatting, geo_data,
+    geometry2d, graph_core, image_captioning, image_classification, image_comfyui, image_core,
+    image_detection, image_embeddings, image_io, image_ocr, image_processing, image_segmentation,
+    image_synthesis, ingest, inversion, jobs, linear, maps_kernels, model_runtime, mvs, numbers,
+    opencv_backend, output, posture, posture_io, radiance_fields, radiance_io, radiance_pipeline,
+    recognition, reconstruction, runtime_artifacts, runtime_jobs, sfm, sfm_rust_backend, signal,
+    sparse, split, stats, storage, synthesis, tensor_data, test_support, text_classification,
+    text_core, text_embeddings, text_generation, text_generation_linguistics, text_lexical,
+    text_linguistics, text_model_runtime, text_question_answering, text_retrieval,
+    text_transcripts, three_d_core, three_d_io, three_d_mesh, three_d_scene, tracking, transform,
+    vector_core, vector_index, video_segmentation, Timebase, Timestamp,
 };
 
 #[cfg(feature = "onnx-backend")]
@@ -105,6 +109,9 @@ fn response_for(request: &Request) -> HttpResponse {
         ("GET", "/api/package") => selected_module(request)
             .map(package_metadata_response)
             .unwrap_or_else(|| json_response(200, "OK", overview_metadata_value())),
+        ("GET", "/api/operations") => selected_module(request)
+            .map(package_operations_response)
+            .unwrap_or_else(|| json_response(200, "OK", json!([]))),
         ("GET", "/api/schema") => selected_module(request)
             .map(package_schema_response)
             .unwrap_or_else(|| json_response(200, "OK", overview_schema_value())),
@@ -162,6 +169,7 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
         ("GET", "/health") => package_health(module),
         ("GET", "/api/package") => package_metadata_response(module),
         ("GET", "/api/schema") => package_schema_response(module),
+        ("GET", "/api/operations") => package_operations_response(module),
         ("GET", "/api/models") if module.package == "text-linguistics" => {
             json_response(200, "OK", json!(text_model_catalog(None)))
         }
@@ -223,6 +231,16 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
             audio_model_task_response(path, body)
         }
         ("POST", "/api/run") => package_run_response(module, body),
+        ("POST", path) if path.starts_with("/api/") => {
+            let operation = path.trim_start_matches("/api/");
+            package_run_request_response(
+                module,
+                SurfaceRequest {
+                    operation: OperationId::new(operation),
+                    input: parse_json_or_empty(body),
+                },
+            )
+        }
         _ => json_response(
             404,
             "Not Found",
@@ -342,12 +360,44 @@ fn package_metadata_response(module: ModuleInfo) -> HttpResponse {
     json_response(200, "OK", package_metadata_value(&module))
 }
 
+fn package_operations_response(module: ModuleInfo) -> HttpResponse {
+    match package_surface_for(module) {
+        Some(surface) => json_response(200, "OK", json!(surface.operations)),
+        None if module.linked => json_response(200, "OK", json!([])),
+        None => json_response(
+            503,
+            "Service Unavailable",
+            json!({
+                "package": format!("{}-server", module.package),
+                "library": module.package,
+                "accepted": false,
+                "requiredFeature": module.required_feature,
+                "note": "This optional package is not linked into the running overview server."
+            }),
+        ),
+    }
+}
+
 fn package_metadata_value(module: &ModuleInfo) -> Value {
+    let surface = package_surface_for(*module);
+    let operations = surface
+        .as_ref()
+        .map(|surface| json!(surface.operations))
+        .unwrap_or_else(|| json!([]));
+    let capabilities = surface
+        .as_ref()
+        .map(|surface| json!(surface.capabilities))
+        .unwrap_or_else(|| json!({}));
+    let version = surface
+        .as_ref()
+        .map(|surface| surface.version.as_str())
+        .unwrap_or(env!("CARGO_PKG_VERSION"));
     let endpoints = if module.package == "text-linguistics" {
         vec![
             "GET /health",
             "GET /api/package",
             "GET /api/schema",
+            "GET /api/operations",
             "GET /api/models",
             "GET /api/models/:task",
             "POST /api/entities",
@@ -365,20 +415,26 @@ fn package_metadata_value(module: &ModuleInfo) -> Value {
             "GET /health",
             "GET /api/package",
             "GET /api/schema",
+            "GET /api/operations",
             "POST /api/run",
+            "POST /api/<operation-id>",
         ]
     };
     json!({
         "package": format!("{}-server", module.package),
         "surface": "api",
         "library": module.package,
+        "version": version,
         "libraryImport": format!("use {}", module.import_path),
         "cliPackage": format!("{}-cli", module.package),
         "appPackage": format!("{}-app", module.package),
+        "wasmPackage": format!("{}-wasm", module.package),
         "domain": module.domain,
         "linked": module.linked,
         "requiredFeature": module.required_feature,
-        "endpoints": endpoints
+        "endpoints": endpoints,
+        "operations": operations,
+        "capabilities": capabilities
     })
 }
 
@@ -466,23 +522,43 @@ fn package_schema_response(module: ModuleInfo) -> HttpResponse {
             }),
         );
     }
-    json_response(
-        200,
-        "OK",
+    json_response(200, "OK", {
+        let operation_paths = package_surface_for(module)
+            .map(|surface| {
+                surface
+                    .operations
+                    .into_iter()
+                    .map(|operation| {
+                        let path = format!("/api/{}", operation.id.as_str());
+                        (
+                            path,
+                            json!({
+                                "post": {
+                                    "summary": operation.name,
+                                    "description": operation.description,
+                                    "requestBody": operation.input_schema,
+                                    "responses": { "200": operation.output_schema }
+                                }
+                            }),
+                        )
+                    })
+                    .collect::<serde_json::Map<_, _>>()
+            })
+            .unwrap_or_else(|| {
+                serde_json::Map::from_iter([(
+                    "/api/run".to_string(),
+                    json!({ "post": { "summary": "Generic operation entrypoint" } }),
+                )])
+            });
         json!({
-            "openapi": "3.1.0",
-            "info": {
-                "title": format!("{} API", module.package),
-                "version": env!("CARGO_PKG_VERSION")
-            },
-            "paths": {
-                "/health": { "get": { "summary": "Health check" } },
-                "/api/package": { "get": { "summary": "Package metadata" } },
-                "/api/schema": { "get": { "summary": "API schema" } },
-                "/api/run": { "post": { "summary": "Generic operation entrypoint" } }
-            }
-        }),
-    )
+        "openapi": "3.1.0",
+        "info": {
+            "title": format!("{} API", module.package),
+            "version": env!("CARGO_PKG_VERSION")
+        },
+        "paths": operation_paths
+        })
+    })
 }
 
 fn is_text_nlp_task_path(path: &str) -> bool {
@@ -536,30 +612,69 @@ fn package_run_response(module: ModuleInfo, body: &str) -> HttpResponse {
         );
     }
 
-    if module.package == "text-linguistics" {
-        return text_linguistics_run_response(body);
+    let payload = match serde_json::from_str::<Value>(body) {
+        Ok(value) => value,
+        Err(error) => {
+            return diagnostic_response(
+                400,
+                "Bad Request",
+                &format!("{}-server", module.package),
+                "invalid_request",
+                &format!("invalid JSON: {error}"),
+            );
+        }
+    };
+    let operation = payload
+        .get("operation")
+        .and_then(Value::as_str)
+        .unwrap_or("describe")
+        .to_string();
+    let input = payload
+        .get("input")
+        .cloned()
+        .unwrap_or_else(|| payload.clone());
+
+    package_run_request_response(
+        module,
+        SurfaceRequest {
+            operation: OperationId::new(operation),
+            input,
+        },
+    )
+}
+
+fn package_run_request_response(module: ModuleInfo, request: SurfaceRequest) -> HttpResponse {
+    if !module.linked {
+        return json_response(
+            503,
+            "Service Unavailable",
+            json!({
+                "package": format!("{}-server", module.package),
+                "library": module.package,
+                "accepted": false,
+                "requiredFeature": module.required_feature,
+                "note": "This optional package is not linked into the running overview server."
+            }),
+        );
     }
 
-    let operation = serde_json::from_str::<Value>(body).ok().and_then(|value| {
-        value
-            .get("operation")
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-    });
-
-    json_response(
-        200,
-        "OK",
-        json!({
-            "package": format!("{}-server", module.package),
-            "library": module.package,
-            "accepted": true,
-            "operation": operation.unwrap_or_else(|| "raw".to_string()),
-            "input": body,
-            "module": package_metadata_value(&module),
-            "note": "The overview server resolved this request to the selected Rust package."
-        }),
-    )
+    match run_surface_operation_for(module, request) {
+        Some(Ok(response)) => json_response(200, "OK", json!(response)),
+        Some(Err(error)) => diagnostic_response(
+            400,
+            "Bad Request",
+            &format!("{}-server", module.package),
+            "operation_failed",
+            &error,
+        ),
+        None => diagnostic_response(
+            404,
+            "Not Found",
+            &format!("{}-server", module.package),
+            "surface_not_found",
+            &format!("no runtime surface is registered for `{}`", module.package),
+        ),
+    }
 }
 
 fn text_linguistics_run_response(body: &str) -> HttpResponse {
@@ -1464,6 +1579,36 @@ fn json_response(status_code: u16, reason: &'static str, value: Value) -> HttpRe
     }
 }
 
+fn diagnostic_response(
+    status_code: u16,
+    reason: &'static str,
+    source: &str,
+    code: &str,
+    message: &str,
+) -> HttpResponse {
+    json_response(
+        status_code,
+        reason,
+        json!({
+            "diagnostics": [Diagnostic {
+                severity: DiagnosticSeverity::Error,
+                code: code.into(),
+                message: message.to_string(),
+                source: Some(source.to_string()),
+                help: None,
+            }]
+        }),
+    )
+}
+
+fn parse_json_or_empty(body: &str) -> Value {
+    if body.trim().is_empty() {
+        json!({})
+    } else {
+        serde_json::from_str(body).unwrap_or_else(|_| json!({ "raw": body }))
+    }
+}
+
 fn write_response(stream: &mut TcpStream, response: HttpResponse) -> io::Result<()> {
     write!(
         stream,
@@ -1489,6 +1634,351 @@ fn slugify(value: &str) -> String {
         }
     }
     slug.trim_matches('-').to_string()
+}
+
+fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
+    if !module.linked {
+        return None;
+    }
+
+    match module.package {
+        "animation-core" => Some(animation_core::surface::package_surface()),
+        "audio-analysis-core" => Some(audio_analysis_core::surface::package_surface()),
+        "audio-analysis-fourier" => Some(audio_analysis_fourier::surface::package_surface()),
+        "audio-analysis-io" => Some(audio_analysis_io::surface::package_surface()),
+        "audio-analysis-pitch" => Some(audio_analysis_pitch::surface::package_surface()),
+        "audio-analysis-processing" => Some(audio_analysis_processing::surface::package_surface()),
+        "audio-analysis-recognition" => {
+            Some(audio_analysis_recognition::surface::package_surface())
+        }
+        "audio-analysis-rhythm" => Some(audio_analysis_rhythm::surface::package_surface()),
+        "audio-analysis-separation" => Some(audio_analysis_separation::surface::package_surface()),
+        "audio-analysis-speakers" => Some(audio_analysis_speakers::surface::package_surface()),
+        "audio-analysis-synthesis" => Some(audio_analysis_synthesis::surface::package_surface()),
+        "audio-analysis-test-support" => {
+            Some(audio_analysis_test_support::surface::package_surface())
+        }
+        "audio-generation-midi" => Some(audio_generation_midi::surface::package_surface()),
+        "comfyui-data" => Some(comfyui_data::surface::package_surface()),
+        "comfyui-latents" => Some(comfyui_latents::surface::package_surface()),
+        "comfyui-models" => Some(comfyui_models::surface::package_surface()),
+        "data-inversion-core" => Some(data_inversion_core::surface::package_surface()),
+        "dense-data" => Some(dense_data::surface::package_surface()),
+        "finance-statistics" => Some(finance_statistics::surface::package_surface()),
+        "geo-data" => Some(geo_data::surface::package_surface()),
+        "graph-analysis-core" => Some(graph_analysis_core::surface::package_surface()),
+        "image-analysis-captioning" => Some(image_analysis_captioning::surface::package_surface()),
+        "image-analysis-classification" => {
+            Some(image_analysis_classification::surface::package_surface())
+        }
+        "image-analysis-comfyui" => Some(image_analysis_comfyui::surface::package_surface()),
+        "image-analysis-core" => Some(image_analysis_core::surface::package_surface()),
+        "image-analysis-detection" => Some(image_analysis_detection::surface::package_surface()),
+        "image-analysis-embeddings" => Some(image_analysis_embeddings::surface::package_surface()),
+        "image-analysis-io" => Some(image_analysis_io::surface::package_surface()),
+        "image-analysis-ocr" => Some(image_analysis_ocr::surface::package_surface()),
+        #[cfg(feature = "onnx-backend")]
+        "image-analysis-onnx" => Some(image_analysis_onnx::surface::package_surface()),
+        "image-analysis-processing" => Some(image_analysis_processing::surface::package_surface()),
+        "image-analysis-segmentation" => {
+            Some(image_analysis_segmentation::surface::package_surface())
+        }
+        "image-analysis-synthesis" => Some(image_analysis_synthesis::surface::package_surface()),
+        "jobs-core" => Some(jobs_core::surface::package_surface()),
+        "maps-kernels-core" => Some(maps_kernels_core::surface::package_surface()),
+        "math-geometry-2d" => Some(math_geometry_2d::surface::package_surface()),
+        "math-linear" => Some(math_linear::surface::package_surface()),
+        "math-signal-core" => Some(math_signal_core::surface::package_surface()),
+        "math-sparse-data" => Some(math_sparse_data::surface::package_surface()),
+        "math-statistics" => Some(math_statistics::surface::package_surface()),
+        "model-runtime" => Some(model_runtime::surface::package_surface()),
+        "numbers-core" => Some(numbers_core::surface::package_surface()),
+        "runtime-artifacts" => Some(runtime_artifacts::surface::package_surface()),
+        "runtime-contracts" => Some(runtime_contracts::surface::package_surface()),
+        "runtime-jobs" => Some(runtime_jobs::surface::package_surface()),
+        "tensor-data" => Some(tensor_data::surface::package_surface()),
+        "text-classification" => Some(text_classification::surface::package_surface()),
+        "text-core" => Some(text_core::surface::package_surface()),
+        "text-embeddings" => Some(text_embeddings::surface::package_surface()),
+        "text-generation" => Some(text_generation::surface::package_surface()),
+        "text-generation-linguistics" => {
+            Some(text_generation_linguistics::surface::package_surface())
+        }
+        "text-lexical" => Some(text_lexical::surface::package_surface()),
+        "text-linguistics" => Some(text_linguistics::surface::package_surface()),
+        "text-model-runtime" => Some(text_model_runtime::surface::package_surface()),
+        "text-question-answering" => Some(text_question_answering::surface::package_surface()),
+        "text-retrieval" => Some(text_retrieval::surface::package_surface()),
+        "text-transcripts" => Some(text_transcripts::surface::package_surface()),
+        "three-d-processing-core" => Some(three_d_processing_core::surface::package_surface()),
+        "three-d-processing-io" => Some(three_d_processing_io::surface::package_surface()),
+        "three-d-processing-mesh" => Some(three_d_processing_mesh::surface::package_surface()),
+        "three-d-scene-svg" => Some(three_d_scene_svg::surface::package_surface()),
+        "vector-analysis-core" => Some(vector_analysis_core::surface::package_surface()),
+        "vector-analysis-index" => Some(vector_analysis_index::surface::package_surface()),
+        "video-analysis-colmap-backend" => {
+            Some(video_analysis_colmap_backend::surface::package_surface())
+        }
+        "video-analysis-core" => Some(video_analysis_core::surface::package_surface()),
+        "video-analysis-data" => Some(video_analysis_data::surface::package_surface()),
+        "video-analysis-dataset" => Some(video_analysis_dataset::surface::package_surface()),
+        "video-analysis-detectors" => Some(video_analysis_detectors::surface::package_surface()),
+        "video-analysis-editing" => Some(video_analysis_editing::surface::package_surface()),
+        "video-analysis-features" => Some(video_analysis_features::surface::package_surface()),
+        "video-analysis-ffmpeg" => Some(video_analysis_ffmpeg::surface::package_surface()),
+        "video-analysis-gaussian-splatting" => {
+            Some(video_analysis_gaussian_splatting::surface::package_surface())
+        }
+        "video-analysis-ingest" => Some(video_analysis_ingest::surface::package_surface()),
+        "video-analysis-mvs" => Some(video_analysis_mvs::surface::package_surface()),
+        #[cfg(feature = "onnx-backend")]
+        "video-analysis-onnx" => Some(video_analysis_onnx::surface::package_surface()),
+        "video-analysis-opencv-backend" => {
+            Some(video_analysis_opencv_backend::surface::package_surface())
+        }
+        "video-analysis-output" => Some(video_analysis_output::surface::package_surface()),
+        "video-analysis-posture" => Some(video_analysis_posture::surface::package_surface()),
+        "video-analysis-posture-io" => Some(video_analysis_posture_io::surface::package_surface()),
+        "video-analysis-radiance-fields" => {
+            Some(video_analysis_radiance_fields::surface::package_surface())
+        }
+        "video-analysis-radiance-io" => {
+            Some(video_analysis_radiance_io::surface::package_surface())
+        }
+        "video-analysis-radiance-pipeline" => {
+            Some(video_analysis_radiance_pipeline::surface::package_surface())
+        }
+        "video-analysis-recognition" => {
+            Some(video_analysis_recognition::surface::package_surface())
+        }
+        "video-analysis-reconstruction" => {
+            Some(video_analysis_reconstruction::surface::package_surface())
+        }
+        "video-analysis-segmentation" => {
+            Some(video_analysis_segmentation::surface::package_surface())
+        }
+        "video-analysis-sfm" => Some(video_analysis_sfm::surface::package_surface()),
+        "video-analysis-sfm-rust-backend" => {
+            Some(video_analysis_sfm_rust_backend::surface::package_surface())
+        }
+        "video-analysis-split" => Some(video_analysis_split::surface::package_surface()),
+        "video-analysis-storage" => Some(video_analysis_storage::surface::package_surface()),
+        "video-analysis-synthesis" => Some(video_analysis_synthesis::surface::package_surface()),
+        "video-analysis-test-support" => {
+            Some(video_analysis_test_support::surface::package_surface())
+        }
+        "video-analysis-tracking" => Some(video_analysis_tracking::surface::package_surface()),
+        "video-analysis-transform" => Some(video_analysis_transform::surface::package_surface()),
+        _ => None,
+    }
+}
+
+fn run_surface_operation_for(
+    module: ModuleInfo,
+    request: SurfaceRequest,
+) -> Option<Result<SurfaceResponse, String>> {
+    if !module.linked {
+        return None;
+    }
+
+    match module.package {
+        "animation-core" => Some(animation_core::surface::run_surface_operation(request)),
+        "audio-analysis-core" => Some(audio_analysis_core::surface::run_surface_operation(request)),
+        "audio-analysis-fourier" => Some(audio_analysis_fourier::surface::run_surface_operation(
+            request,
+        )),
+        "audio-analysis-io" => Some(audio_analysis_io::surface::run_surface_operation(request)),
+        "audio-analysis-pitch" => Some(audio_analysis_pitch::surface::run_surface_operation(
+            request,
+        )),
+        "audio-analysis-processing" => Some(
+            audio_analysis_processing::surface::run_surface_operation(request),
+        ),
+        "audio-analysis-recognition" => Some(
+            audio_analysis_recognition::surface::run_surface_operation(request),
+        ),
+        "audio-analysis-rhythm" => Some(audio_analysis_rhythm::surface::run_surface_operation(
+            request,
+        )),
+        "audio-analysis-separation" => Some(
+            audio_analysis_separation::surface::run_surface_operation(request),
+        ),
+        "audio-analysis-speakers" => Some(audio_analysis_speakers::surface::run_surface_operation(
+            request,
+        )),
+        "audio-analysis-synthesis" => Some(
+            audio_analysis_synthesis::surface::run_surface_operation(request),
+        ),
+        "audio-analysis-test-support" => Some(
+            audio_analysis_test_support::surface::run_surface_operation(request),
+        ),
+        "audio-generation-midi" => Some(audio_generation_midi::surface::run_surface_operation(
+            request,
+        )),
+        "comfyui-data" => Some(comfyui_data::surface::run_surface_operation(request)),
+        "comfyui-latents" => Some(comfyui_latents::surface::run_surface_operation(request)),
+        "comfyui-models" => Some(comfyui_models::surface::run_surface_operation(request)),
+        "data-inversion-core" => Some(data_inversion_core::surface::run_surface_operation(request)),
+        "dense-data" => Some(dense_data::surface::run_surface_operation(request)),
+        "finance-statistics" => Some(finance_statistics::surface::run_surface_operation(request)),
+        "geo-data" => Some(geo_data::surface::run_surface_operation(request)),
+        "graph-analysis-core" => Some(graph_analysis_core::surface::run_surface_operation(request)),
+        "image-analysis-captioning" => Some(
+            image_analysis_captioning::surface::run_surface_operation(request),
+        ),
+        "image-analysis-classification" => {
+            Some(image_analysis_classification::surface::run_surface_operation(request))
+        }
+        "image-analysis-comfyui" => Some(image_analysis_comfyui::surface::run_surface_operation(
+            request,
+        )),
+        "image-analysis-core" => Some(image_analysis_core::surface::run_surface_operation(request)),
+        "image-analysis-detection" => Some(
+            image_analysis_detection::surface::run_surface_operation(request),
+        ),
+        "image-analysis-embeddings" => Some(
+            image_analysis_embeddings::surface::run_surface_operation(request),
+        ),
+        "image-analysis-io" => Some(image_analysis_io::surface::run_surface_operation(request)),
+        "image-analysis-ocr" => Some(image_analysis_ocr::surface::run_surface_operation(request)),
+        #[cfg(feature = "onnx-backend")]
+        "image-analysis-onnx" => Some(image_analysis_onnx::surface::run_surface_operation(request)),
+        "image-analysis-processing" => Some(
+            image_analysis_processing::surface::run_surface_operation(request),
+        ),
+        "image-analysis-segmentation" => Some(
+            image_analysis_segmentation::surface::run_surface_operation(request),
+        ),
+        "image-analysis-synthesis" => Some(
+            image_analysis_synthesis::surface::run_surface_operation(request),
+        ),
+        "jobs-core" => Some(jobs_core::surface::run_surface_operation(request)),
+        "maps-kernels-core" => Some(maps_kernels_core::surface::run_surface_operation(request)),
+        "math-geometry-2d" => Some(math_geometry_2d::surface::run_surface_operation(request)),
+        "math-linear" => Some(math_linear::surface::run_surface_operation(request)),
+        "math-signal-core" => Some(math_signal_core::surface::run_surface_operation(request)),
+        "math-sparse-data" => Some(math_sparse_data::surface::run_surface_operation(request)),
+        "math-statistics" => Some(math_statistics::surface::run_surface_operation(request)),
+        "model-runtime" => Some(model_runtime::surface::run_surface_operation(request)),
+        "numbers-core" => Some(numbers_core::surface::run_surface_operation(request)),
+        "runtime-artifacts" => Some(runtime_artifacts::surface::run_surface_operation(request)),
+        "runtime-contracts" => Some(runtime_contracts::surface::run_surface_operation(request)),
+        "runtime-jobs" => Some(runtime_jobs::surface::run_surface_operation(request)),
+        "tensor-data" => Some(tensor_data::surface::run_surface_operation(request)),
+        "text-classification" => Some(text_classification::surface::run_surface_operation(request)),
+        "text-core" => Some(text_core::surface::run_surface_operation(request)),
+        "text-embeddings" => Some(text_embeddings::surface::run_surface_operation(request)),
+        "text-generation" => Some(text_generation::surface::run_surface_operation(request)),
+        "text-generation-linguistics" => Some(
+            text_generation_linguistics::surface::run_surface_operation(request),
+        ),
+        "text-lexical" => Some(text_lexical::surface::run_surface_operation(request)),
+        "text-linguistics" => Some(text_linguistics::surface::run_surface_operation(request)),
+        "text-model-runtime" => Some(text_model_runtime::surface::run_surface_operation(request)),
+        "text-question-answering" => Some(text_question_answering::surface::run_surface_operation(
+            request,
+        )),
+        "text-retrieval" => Some(text_retrieval::surface::run_surface_operation(request)),
+        "text-transcripts" => Some(text_transcripts::surface::run_surface_operation(request)),
+        "three-d-processing-core" => Some(three_d_processing_core::surface::run_surface_operation(
+            request,
+        )),
+        "three-d-processing-io" => Some(three_d_processing_io::surface::run_surface_operation(
+            request,
+        )),
+        "three-d-processing-mesh" => Some(three_d_processing_mesh::surface::run_surface_operation(
+            request,
+        )),
+        "three-d-scene-svg" => Some(three_d_scene_svg::surface::run_surface_operation(request)),
+        "vector-analysis-core" => Some(vector_analysis_core::surface::run_surface_operation(
+            request,
+        )),
+        "vector-analysis-index" => Some(vector_analysis_index::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-colmap-backend" => {
+            Some(video_analysis_colmap_backend::surface::run_surface_operation(request))
+        }
+        "video-analysis-core" => Some(video_analysis_core::surface::run_surface_operation(request)),
+        "video-analysis-data" => Some(video_analysis_data::surface::run_surface_operation(request)),
+        "video-analysis-dataset" => Some(video_analysis_dataset::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-detectors" => Some(
+            video_analysis_detectors::surface::run_surface_operation(request),
+        ),
+        "video-analysis-editing" => Some(video_analysis_editing::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-features" => Some(video_analysis_features::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-ffmpeg" => Some(video_analysis_ffmpeg::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-gaussian-splatting" => {
+            Some(video_analysis_gaussian_splatting::surface::run_surface_operation(request))
+        }
+        "video-analysis-ingest" => Some(video_analysis_ingest::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-mvs" => Some(video_analysis_mvs::surface::run_surface_operation(request)),
+        #[cfg(feature = "onnx-backend")]
+        "video-analysis-onnx" => Some(video_analysis_onnx::surface::run_surface_operation(request)),
+        "video-analysis-opencv-backend" => {
+            Some(video_analysis_opencv_backend::surface::run_surface_operation(request))
+        }
+        "video-analysis-output" => Some(video_analysis_output::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-posture" => Some(video_analysis_posture::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-posture-io" => Some(
+            video_analysis_posture_io::surface::run_surface_operation(request),
+        ),
+        "video-analysis-radiance-fields" => {
+            Some(video_analysis_radiance_fields::surface::run_surface_operation(request))
+        }
+        "video-analysis-radiance-io" => Some(
+            video_analysis_radiance_io::surface::run_surface_operation(request),
+        ),
+        "video-analysis-radiance-pipeline" => {
+            Some(video_analysis_radiance_pipeline::surface::run_surface_operation(request))
+        }
+        "video-analysis-recognition" => Some(
+            video_analysis_recognition::surface::run_surface_operation(request),
+        ),
+        "video-analysis-reconstruction" => {
+            Some(video_analysis_reconstruction::surface::run_surface_operation(request))
+        }
+        "video-analysis-segmentation" => Some(
+            video_analysis_segmentation::surface::run_surface_operation(request),
+        ),
+        "video-analysis-sfm" => Some(video_analysis_sfm::surface::run_surface_operation(request)),
+        "video-analysis-sfm-rust-backend" => {
+            Some(video_analysis_sfm_rust_backend::surface::run_surface_operation(request))
+        }
+        "video-analysis-split" => Some(video_analysis_split::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-storage" => Some(video_analysis_storage::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-synthesis" => Some(
+            video_analysis_synthesis::surface::run_surface_operation(request),
+        ),
+        "video-analysis-test-support" => Some(
+            video_analysis_test_support::surface::run_surface_operation(request),
+        ),
+        "video-analysis-tracking" => Some(video_analysis_tracking::surface::run_surface_operation(
+            request,
+        )),
+        "video-analysis-transform" => Some(
+            video_analysis_transform::surface::run_surface_operation(request),
+        ),
+        _ => None,
+    }
 }
 
 const MODULES: &[ModuleInfo] = &[
@@ -1570,6 +2060,13 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
+        package: "audio-analysis-test-support",
+        import_path: "video_analysis::audio_test_support",
+        domain: "support",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
         package: "audio-generation-midi",
         import_path: "video_analysis::audio_midi",
         domain: "audio",
@@ -1619,9 +2116,30 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
+        package: "geo-data",
+        import_path: "video_analysis::geo_data",
+        domain: "data",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
         package: "graph-analysis-core",
         import_path: "video_analysis::graph_core",
         domain: "data",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
+        package: "image-analysis-captioning",
+        import_path: "video_analysis::image_captioning",
+        domain: "image",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
+        package: "image-analysis-classification",
+        import_path: "video_analysis::image_classification",
+        domain: "image",
         linked: true,
         required_feature: None,
     },
@@ -1647,8 +2165,22 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
+        package: "image-analysis-embeddings",
+        import_path: "video_analysis::image_embeddings",
+        domain: "image",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
         package: "image-analysis-io",
         import_path: "video_analysis::image_io",
+        domain: "image",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
+        package: "image-analysis-ocr",
+        import_path: "video_analysis::image_ocr",
         domain: "image",
         linked: true,
         required_feature: None,
@@ -1678,6 +2210,13 @@ const MODULES: &[ModuleInfo] = &[
         package: "image-analysis-synthesis",
         import_path: "video_analysis::image_synthesis",
         domain: "image",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
+        package: "jobs-core",
+        import_path: "video_analysis::jobs",
+        domain: "jobs",
         linked: true,
         required_feature: None,
     },
@@ -1738,9 +2277,37 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
+        package: "runtime-artifacts",
+        import_path: "video_analysis::runtime_artifacts",
+        domain: "runtime",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
+        package: "runtime-contracts",
+        import_path: "runtime_contracts",
+        domain: "runtime",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
+        package: "runtime-jobs",
+        import_path: "video_analysis::runtime_jobs",
+        domain: "runtime",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
         package: "tensor-data",
         import_path: "video_analysis::tensor_data",
         domain: "data",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
+        package: "text-classification",
+        import_path: "video_analysis::text_classification",
+        domain: "text",
         linked: true,
         required_feature: None,
     },
@@ -1766,8 +2333,29 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
+        package: "text-model-runtime",
+        import_path: "video_analysis::text_model_runtime",
+        domain: "text",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
+        package: "text-question-answering",
+        import_path: "video_analysis::text_question_answering",
+        domain: "text",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
         package: "text-generation",
         import_path: "video_analysis::text_generation",
+        domain: "text",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
+        package: "text-generation-linguistics",
+        import_path: "video_analysis::text_generation_linguistics",
         domain: "text",
         linked: true,
         required_feature: None,
@@ -2025,6 +2613,13 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
+        package: "video-analysis-test-support",
+        import_path: "video_analysis::test_support",
+        domain: "support",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
         package: "video-analysis-tracking",
         import_path: "video_analysis::tracking",
         domain: "video",
@@ -2065,6 +2660,20 @@ mod tests {
         let response = response_for(&request);
         assert_eq!(response.status_code, 200);
         assert!(response.body.contains("text-core-server"));
+        assert!(response.body.contains("text.statistics"));
+    }
+
+    #[test]
+    fn linked_modules_expose_package_operations() {
+        for module in MODULES.iter().copied().filter(|module| module.linked) {
+            let surface = package_surface_for(module)
+                .unwrap_or_else(|| panic!("missing package surface for {}", module.package));
+            assert!(
+                !surface.operations.is_empty(),
+                "missing operations for {}",
+                module.package
+            );
+        }
     }
 
     #[test]
@@ -2074,15 +2683,14 @@ mod tests {
             path: "/api/rust/packages/text-linguistics/api/run".to_string(),
             query: HashMap::new(),
             headers: HashMap::new(),
-            body: r#"{"operation":"analyze","modelMode":"heuristic","text":"Alice presented the roadmap in Berlin."}"#.to_string(),
+            body: r#"{"operation":"linguistics.analyze","input":{"profile":"fast","text":"Alice presented the roadmap in Berlin."}}"#.to_string(),
         };
         let response = response_for(&request);
         assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("\"operation\":\"analyze\""));
-        assert!(response.body.contains("\"entityCount\""));
         assert!(response
             .body
-            .contains("\"entityRecognition\":\"heuristic\""));
+            .contains("\"operation\":\"linguistics.analyze\""));
+        assert!(response.body.contains("\"tokens\""));
     }
 
     #[test]

@@ -1,10 +1,12 @@
 import react from "@vitejs/plugin-react";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
 import { loadWorkspaceArchitecture } from "./workspaceArchitectureLoader";
 
 const workspaceRoot = fileURLToPath(new URL("../../..", import.meta.url));
+const packagesRoot = fileURLToPath(new URL("../../../packages", import.meta.url));
 const uiSourceRoot = fileURLToPath(new URL("../../../packages/video-analysis-ui/src", import.meta.url));
 const textCoreWasmEntry = fileURLToPath(
   new URL("../../../packages/text-core-wasm/index.js", import.meta.url),
@@ -24,6 +26,7 @@ export default defineConfig({
     alias: [
       { find: /^@mb-rust\/text-core-wasm$/, replacement: textCoreWasmEntry },
       { find: /^@mb-rust\/text-linguistics-wasm$/, replacement: textLinguisticsWasmEntry },
+      ...workspaceWasmAliases(),
       { find: /^@video-analysis\/ui$/, replacement: `${uiSourceRoot}/index.ts` },
       { find: /^@video-analysis\/ui\/tailwind-content$/, replacement: `${uiSourceRoot}/tailwind-content.ts` },
       { find: /^@video-analysis\/ui\/([^/]+)$/, replacement: `${uiSourceRoot}/$1/index.tsx` },
@@ -34,6 +37,28 @@ export default defineConfig({
     ],
   },
 });
+
+function workspaceWasmAliases() {
+  return readdirSync(packagesRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.endsWith("-wasm"))
+    .flatMap((entry) => {
+      const packageJsonPath = `${packagesRoot}/${entry.name}/package.json`;
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as { name?: string };
+      if (!packageJson.name) {
+        return [];
+      }
+      return [
+        {
+          find: new RegExp(`^${escapeRegExp(packageJson.name)}$`),
+          replacement: `${packagesRoot}/${entry.name}/index.js`,
+        },
+      ];
+    });
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 function workspaceArchitectureApi(): Plugin {
   return {

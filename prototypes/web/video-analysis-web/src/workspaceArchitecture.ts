@@ -6,6 +6,7 @@ export type PackageDomain =
   | "facade"
   | "apps"
   | "ui"
+  | "animation"
   | "video"
   | "audio"
   | "image"
@@ -14,6 +15,9 @@ export type PackageDomain =
   | "three-d"
   | "comfyui"
   | "data"
+  | "math"
+  | "runtime"
+  | "jobs"
   | "bindings"
   | "support";
 
@@ -169,6 +173,7 @@ export const packageDomainOrder: PackageDomain[] = [
   "facade",
   "apps",
   "ui",
+  "animation",
   "video",
   "audio",
   "image",
@@ -177,6 +182,9 @@ export const packageDomainOrder: PackageDomain[] = [
   "three-d",
   "comfyui",
   "data",
+  "math",
+  "runtime",
+  "jobs",
   "bindings",
   "support",
 ];
@@ -185,6 +193,7 @@ export const packageDomainLabels: Record<PackageDomain, string> = {
   facade: "Facade",
   apps: "Apps",
   ui: "UI",
+  animation: "Animation",
   video: "Video",
   audio: "Audio",
   image: "Image",
@@ -193,6 +202,9 @@ export const packageDomainLabels: Record<PackageDomain, string> = {
   "three-d": "3D",
   comfyui: "ComfyUI",
   data: "Data",
+  math: "Math",
+  runtime: "Runtime",
+  jobs: "Jobs",
   bindings: "Bindings",
   support: "Support",
 };
@@ -207,6 +219,15 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
   }
   if (name === "@video-analysis/web") {
     return "apps";
+  }
+  if (path?.includes("/bindings/")) {
+    return "bindings";
+  }
+  if (name.includes("test-support") || path?.includes("/test-support/")) {
+    return "support";
+  }
+  if (packageName.startsWith("animation-")) {
+    return "animation";
   }
   if (packageName.startsWith("video-analysis-")) {
     return "video";
@@ -230,19 +251,27 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
     return "comfyui";
   }
   if (
+    packageName.startsWith("math-") ||
+    packageName === "maps-kernels-core" ||
+    packageName === "finance-statistics"
+  ) {
+    return "math";
+  }
+  if (packageName.startsWith("runtime-") || packageName === "model-runtime") {
+    return "runtime";
+  }
+  if (packageName.startsWith("jobs-")) {
+    return "jobs";
+  }
+  if (
     packageName === "data-inversion-core" ||
     packageName === "graph-analysis-core" ||
     packageName === "dense-data" ||
+    packageName === "geo-data" ||
     packageName === "numbers-core" ||
     packageName === "tensor-data"
   ) {
     return "data";
-  }
-  if (path?.includes("/bindings/")) {
-    return "bindings";
-  }
-  if (name.includes("test-support") || path?.includes("/test-support/")) {
-    return "support";
   }
   return "data";
 }
