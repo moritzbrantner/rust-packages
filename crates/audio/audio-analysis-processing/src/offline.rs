@@ -388,9 +388,8 @@ fn overlap_add_time_scale(clip: &AudioClip, scale: f32) -> Result<Vec<f32>> {
     let mut analysis = 0usize;
     let mut synthesis = 0usize;
     while analysis + frame_size <= input_frames {
-        for index in 0..frame_size {
+        for (index, weight) in window.iter().copied().enumerate() {
             let out_frame = synthesis + index;
-            let weight = window[index];
             weights[out_frame] += weight;
             for channel in 0..channels {
                 output[out_frame * channels + channel] +=

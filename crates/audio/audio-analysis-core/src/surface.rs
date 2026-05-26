@@ -229,7 +229,7 @@ fn channels(input: &serde_json::Value) -> Result<u16, String> {
 
 fn samples_per_channel(sample_count: usize, channels: u16) -> Result<usize, String> {
     let channels = usize::from(channels);
-    if sample_count % channels != 0 {
+    if !sample_count.is_multiple_of(channels) {
         return Err("sample count must be divisible by channels".to_string());
     }
     Ok(sample_count / channels)
