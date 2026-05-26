@@ -33,7 +33,7 @@ tokenizers = ["dep:tokenizers", "text-model-runtime/tokenizers"]
 transcripts = ["dep:text-transcripts"]
 model-bundles = ["dep:jobs-core", "dep:model-runtime", "text-model-runtime/model-bundles"]
 candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "text-model-runtime/candle"]
-cuda = ["candle", "text-model-runtime/cuda"]
+cuda = ["candle", "text-model-runtime/cuda", "candle-core/cuda"]
 external-tests = ["candle", "model-bundles"]
 
 [dev-dependencies]

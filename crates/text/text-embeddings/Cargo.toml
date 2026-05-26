@@ -36,7 +36,7 @@ model-bundles = ["dep:model-runtime", "tokenizers", "text-model-runtime/model-bu
 tokenizers = ["dep:tokenizers", "text-model-runtime/tokenizers"]
 onnx = ["tokenizers", "model-bundles", "dep:ort", "dep:ndarray", "text-model-runtime/onnx"]
 candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "text-model-runtime/candle"]
-cuda = ["candle", "text-model-runtime/cuda"]
+cuda = ["candle", "text-model-runtime/cuda", "candle-core/cuda"]
 external-tests = ["onnx", "candle", "model-bundles"]
 
 [dev-dependencies]
