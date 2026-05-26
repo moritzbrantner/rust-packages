@@ -4504,6 +4504,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "text-analysis"
+version = "0.1.0"
+dependencies = [
+ "model-runtime",
+ "serde",
+ "serde_json",
+ "text-core",
+ "text-embeddings",
+ "text-lexical",
+ "text-linguistics",
+ "text-retrieval",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "text-analysis-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde_json",
+ "text-analysis",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "text-analysis-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde_json",
+ "text-analysis",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "text-analysis-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "text-analysis",
+ "video-analysis-core",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "text-classification"
 version = "0.1.0"
 dependencies = [
@@ -5696,6 +5744,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tensor-data",
+ "text-analysis",
  "text-classification",
  "text-core",
  "text-embeddings",

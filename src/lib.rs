@@ -88,6 +88,8 @@ pub use model_runtime;
 pub use numbers_core as numbers;
 /// Re-exports the tensor data API.
 pub use tensor_data;
+/// Re-exports the unified text analysis API.
+pub use text_analysis;
 /// Re-exports the text classification API.
 pub use text_classification;
 /// Re-exports the text core API.

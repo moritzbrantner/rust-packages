@@ -49,7 +49,7 @@ impl IndexedDocument {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Data type for corpus stats.
 pub struct CorpusStats {
     /// The documents value.
@@ -62,7 +62,7 @@ pub struct CorpusStats {
     pub average_terms_per_document: f32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for corpus term stats.
 pub struct CorpusTermStats {
     /// The term value.
@@ -75,7 +75,7 @@ pub struct CorpusTermStats {
     pub collection_frequency: f32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for tf idf term.
 pub struct TfIdfTerm {
     /// The term value.

@@ -81,7 +81,7 @@ pub struct Keyword {
     pub count: usize,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for ngram frequency.
 pub struct NgramFrequency {
     /// The terms value.
@@ -92,7 +92,7 @@ pub struct NgramFrequency {
     pub frequency: f32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for shingle similarity.
 pub struct ShingleSimilarity {
     /// The left count value.

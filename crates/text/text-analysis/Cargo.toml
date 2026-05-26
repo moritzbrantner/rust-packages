@@ -1,0 +1,31 @@
+[package]
+name = "text-analysis"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Unified text analysis orchestration for video-analysis."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+text-core.workspace = true
+text-lexical.workspace = true
+text-linguistics.workspace = true
+text-embeddings.workspace = true
+text-retrieval.workspace = true
+video-analysis-core.workspace = true
+model-runtime = { workspace = true, optional = true }
+
+[features]
+default = []
+candle = ["text-linguistics/candle", "text-embeddings/candle", "dep:model-runtime", "model-runtime/jobs"]
+onnx = ["text-embeddings/onnx", "dep:model-runtime"]
+tokenizers = ["text-embeddings/tokenizers", "text-linguistics/tokenizers"]
+external-tests = ["candle", "onnx"]

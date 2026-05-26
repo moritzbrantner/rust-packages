@@ -131,6 +131,7 @@ image-analysis-processing = { version = "0.1.0", path = "crates/image/image-anal
 image-analysis-segmentation = { version = "0.1.0", path = "crates/image/image-analysis-segmentation" }
 image-analysis-synthesis = { version = "0.1.0", path = "crates/image/image-analysis-synthesis" }
 text-core = { version = "0.1.0", path = "crates/text/text-core" }
+text-analysis = { version = "0.1.0", path = "crates/text/text-analysis" }
 text-classification = { version = "0.1.0", path = "crates/text/text-classification" }
 text-lexical = { version = "0.1.0", path = "crates/text/text-lexical" }
 text-linguistics = { version = "0.1.0", path = "crates/text/text-linguistics" }
@@ -259,6 +260,7 @@ image-analysis-processing.workspace = true
 image-analysis-segmentation.workspace = true
 image-analysis-synthesis.workspace = true
 text-core.workspace = true
+text-analysis.workspace = true
 text-classification.workspace = true
 text-lexical.workspace = true
 text-linguistics = { workspace = true, features = ["candle", "transcripts"] }

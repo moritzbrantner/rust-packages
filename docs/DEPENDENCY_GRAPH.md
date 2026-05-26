@@ -166,6 +166,9 @@ flowchart LR
 
   subgraph group_text["Text"]
     direction TB
+    crate_text_analysis["text-analysis"]:::crate
+    crate_text_analysis_cli["text-analysis-cli"]:::crate
+    crate_text_analysis_server["text-analysis-server"]:::crate
     crate_text_classification["text-classification"]:::crate
     crate_text_classification_cli["text-classification-cli"]:::crate
     crate_text_classification_server["text-classification-server"]:::crate
@@ -377,6 +380,7 @@ flowchart LR
     crate_model_runtime_wasm["model-runtime-wasm"]:::crate
     crate_numbers_core_wasm["numbers-core-wasm"]:::crate
     crate_tensor_data_wasm["tensor-data-wasm"]:::crate
+    crate_text_analysis_wasm["text-analysis-wasm"]:::crate
     crate_text_classification_wasm["text-classification-wasm"]:::crate
     crate_text_core_wasm["text-core-wasm"]:::crate
     crate_text_embeddings_wasm["text-embeddings-wasm"]:::crate
@@ -496,6 +500,7 @@ flowchart LR
   crate_video_analysis --> crate_image_analysis_processing
   crate_video_analysis --> crate_image_analysis_segmentation
   crate_video_analysis --> crate_image_analysis_synthesis
+  crate_video_analysis --> crate_text_analysis
   crate_video_analysis --> crate_text_classification
   crate_video_analysis --> crate_text_core
   crate_video_analysis --> crate_text_embeddings
@@ -809,6 +814,17 @@ flowchart LR
   crate_image_analysis_synthesis_cli --> crate_video_analysis_core
   crate_image_analysis_synthesis_server --> crate_image_analysis_synthesis
   crate_image_analysis_synthesis_server --> crate_video_analysis_core
+  crate_text_analysis --> crate_text_core
+  crate_text_analysis --> crate_text_embeddings
+  crate_text_analysis --> crate_text_lexical
+  crate_text_analysis --> crate_text_linguistics
+  crate_text_analysis --> crate_text_retrieval
+  crate_text_analysis --> crate_video_analysis_core
+  crate_text_analysis --> crate_model_runtime
+  crate_text_analysis_cli --> crate_text_analysis
+  crate_text_analysis_cli --> crate_video_analysis_core
+  crate_text_analysis_server --> crate_text_analysis
+  crate_text_analysis_server --> crate_video_analysis_core
   crate_text_classification --> crate_text_core
   crate_text_classification --> crate_text_lexical
   crate_text_classification --> crate_text_model_runtime
@@ -1250,6 +1266,8 @@ flowchart LR
   crate_numbers_core_wasm --> crate_video_analysis_core
   crate_tensor_data_wasm --> crate_tensor_data
   crate_tensor_data_wasm --> crate_video_analysis_core
+  crate_text_analysis_wasm --> crate_text_analysis
+  crate_text_analysis_wasm --> crate_video_analysis_core
   crate_text_classification_wasm --> crate_text_classification
   crate_text_classification_wasm --> crate_video_analysis_core
   crate_text_core_wasm --> crate_text_core
