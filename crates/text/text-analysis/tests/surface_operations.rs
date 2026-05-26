@@ -1,0 +1,112 @@
+use text_analysis::surface::{package_surface, run_surface_operation};
+use video_analysis_core::runtime::{OperationId, SurfaceRequest};
+
+fn run(operation: &str, input: serde_json::Value) -> Result<serde_json::Value, String> {
+    run_surface_operation(SurfaceRequest {
+        operation: OperationId::new(operation),
+        input,
+    })
+    .map(|response| response.value)
+}
+
+#[test]
+fn describe_alias_reports_operation_inventory() {
+    let value = run("describe", serde_json::json!({"includeOperations": true})).unwrap();
+
+    assert_eq!(value["library"], "text-analysis");
+    assert_eq!(value["operationCount"], package_surface().operations.len());
+    assert!(value["operations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|operation| operation == "analysis.corpus"));
+}
+
+#[test]
+fn document_surface_parses_modes_and_option_overrides() {
+    let value = run(
+        "analysis.document",
+        serde_json::json!({
+            "id": "doc-surface",
+            "text": "Rust packages expose text APIs.",
+            "languageHint": "en",
+            "keywordLimit": 2,
+            "summarySentences": 1,
+            "ngramSizes": [2],
+            "shingleSizes": [2],
+            "includeAnnotationGraph": false,
+            "linguistics": {"mode": "off"},
+            "embedding": {"mode": "off"}
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(value["id"], "doc-surface");
+    assert_eq!(value["language"], "en");
+    assert!(value["core"]["annotationGraph"].is_null());
+    assert!(value["linguistic"].is_null());
+    assert!(value["embedding"].is_null());
+    assert_eq!(value["similarity"]["tokenShingleCounts"][0]["n"], 2);
+}
+
+#[test]
+fn corpus_surface_generates_missing_ids_and_honors_toggles() {
+    let value = run(
+        "analysis.corpus",
+        serde_json::json!({
+            "documents": [
+                {"text": "rust text analysis"},
+                {"id": "provided", "text": "video scene analysis"}
+            ],
+            "includeNearDuplicates": false,
+            "includeSemanticNeighbors": false,
+            "embedding": {"mode": "off"}
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(value["documents"][0]["id"], "doc-0");
+    assert_eq!(value["documents"][1]["id"], "provided");
+    assert!(value["tfidfSearch"].is_null());
+    assert!(value["bm25Search"].is_null());
+    assert_eq!(value["nearDuplicates"].as_array().unwrap().len(), 0);
+    assert_eq!(value["semanticNeighbors"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn similarity_surface_supports_character_alias_and_clamps_n() {
+    let value = run(
+        "analysis.similarity",
+        serde_json::json!({
+            "left": "scene",
+            "right": "scene cut",
+            "n": 0,
+            "mode": "char"
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(value["mode"], "character");
+    assert_eq!(value["n"], 1);
+    assert!(value["similarity"]["jaccard"].as_f64().unwrap() > 0.0);
+}
+
+#[test]
+fn surface_errors_are_actionable() {
+    let invalid_request = run("analysis.document", serde_json::json!({})).unwrap_err();
+    assert!(invalid_request.contains("invalid request"));
+
+    let unsupported_operation = run("analysis.missing", serde_json::json!({})).unwrap_err();
+    assert!(unsupported_operation.contains("unsupported operation"));
+
+    let unsupported_mode = run(
+        "analysis.similarity",
+        serde_json::json!({
+            "left": "a",
+            "right": "b",
+            "mode": "unsupported"
+        }),
+    )
+    .unwrap_err();
+    assert!(unsupported_mode.contains("unsupported similarity mode"));
+}
