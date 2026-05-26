@@ -1,22 +1,26 @@
-let wasmModulePromise;
+import initWasm, { initSync } from "./pkg/dense_data_wasm.js";
+import * as wasmModule from "./pkg/dense_data_wasm.js";
 
 export async function init() {
-  const wasmEntry = "./pkg/dense_data_wasm.js";
-  wasmModulePromise ??= import(/* @vite-ignore */ wasmEntry).then(async (module) => {
-    if (typeof module.default === "function") {
-      await module.default();
-    }
-    return module;
-  });
-  return wasmModulePromise;
+  return wasmModule;
 }
 
-export async function packageSurface() {
-  const module = await init();
-  return module.packageSurface();
+if (typeof process !== "undefined" && process.versions?.node) {
+  const { readFileSync } = await import("node:fs");
+  const wasmUrl = new URL("./pkg/dense_data_wasm_bg.wasm", import.meta.url);
+  const wasmPath =
+    wasmUrl.protocol === "file:"
+      ? wasmUrl
+      : decodeURIComponent(wasmUrl.pathname.replace(/^\/@fs/, ""));
+  initSync({ module: readFileSync(wasmPath) });
+} else {
+  await initWasm();
 }
 
-export async function runOperation(request) {
-  const module = await init();
-  return module.runOperation(request);
+export function packageSurface() {
+  return wasmModule.packageSurface();
+}
+
+export function runOperation(request) {
+  return wasmModule.runOperation(request);
 }

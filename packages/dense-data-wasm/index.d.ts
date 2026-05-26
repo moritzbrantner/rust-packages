@@ -29,5 +29,5 @@ export interface SurfaceResponse {
 }
 
 export function init(): Promise<unknown>;
-export function packageSurface(): Promise<PackageSurface>;
-export function runOperation(request: SurfaceRequest): Promise<SurfaceResponse>;
+export function packageSurface(): PackageSurface;
+export function runOperation(request: SurfaceRequest): SurfaceResponse;

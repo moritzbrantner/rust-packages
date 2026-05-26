@@ -1377,6 +1377,7 @@ dependencies = [
  "math-linear",
  "math-statistics",
  "numbers-core",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
