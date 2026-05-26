@@ -1,6 +1,7 @@
 # audio-analysis-processing
 
-Realtime-safe audio transforms and processed sources for `video-analysis`.
+Realtime-safe audio transforms, named effect presets, and deterministic
+whole-clip offline edits for `video-analysis`.
 
 ## Feature flags
 
@@ -9,14 +10,52 @@ Realtime-safe audio transforms and processed sources for `video-analysis`.
 ## Example
 
 ```rust,ignore
-use audio_analysis_processing::{AudioProcessorChain, GainProcessor, MonoProcessor};
+use audio_analysis_core::{AudioClip, FadeCurve};
+use audio_analysis_processing::{
+    AudioProcessor, DelaySpec, DistortionMode, DistortionSpec, FadeSpec, NormalizeSpec,
+    OfflineAudioProcessor,
+};
 
-let mut chain = AudioProcessorChain::default();
-chain.push(GainProcessor::linear(0.75)?);
-chain.push(MonoProcessor::default());
+let mut realtime = AudioProcessor::new()
+    .gain(0.75)
+    .distortion(DistortionSpec {
+        mode: DistortionMode::Tanh,
+        drive_db: 6.0,
+        mix: 0.4,
+        output_gain_db: -1.0,
+    })
+    .delay(DelaySpec {
+        delay_seconds: 0.2,
+        feedback: 0.25,
+        wet: 0.3,
+        dry: 1.0,
+    });
 
-let _ = chain;
+let clip = AudioClip::new(48_000, 1, vec![0.0; 48_000])?;
+let mut offline = OfflineAudioProcessor::new()
+    .fade(FadeSpec {
+        fade_in_seconds: 0.01,
+        fade_out_seconds: 0.05,
+        curve: FadeCurve::EqualPower,
+    })
+    .normalize(NormalizeSpec {
+        target_peak: Some(0.95),
+        target_rms: None,
+    });
+let _processed = offline.process_clip(clip)?;
+let _ = realtime;
 ```
+
+## Processing Layers
+
+- `AudioProcessor` keeps the streaming frame API and now includes distortion,
+  delay/echo, reverb, compressor, limiter, EQ, chorus, flanger, tremolo, pan,
+  and stereo width.
+- `OfflineAudioProcessor` handles duration/order-changing operations on
+  `AudioClip`: trim, reverse, fade, normalize, resample, speed, and pitch shift.
+- Pure Rust pitch/time operations are deterministic baseline implementations;
+  FFmpeg-backed file output should be preferred when production pitch/time
+  quality is required.
 
 ## Related crates
 

@@ -1,6 +1,10 @@
 #![doc = include_str!("../README.md")]
 
+mod effects;
+mod offline;
 pub mod surface;
+pub use effects::*;
+pub use offline::*;
 use std::collections::VecDeque;
 
 use audio_analysis_core::{interleaved_to_mono, normalized_samples, ChannelMix};

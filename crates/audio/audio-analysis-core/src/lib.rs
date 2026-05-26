@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+mod clip;
 pub mod surface;
+pub use clip::{AudioClip, ConcatPolicy, FadeCurve, MixPolicy};
 /// Re-exports the math signal core API.
 pub use math_signal_core::{
     BiquadCoefficients, BiquadDesign, FirKernel1d, FrameStride, InterpolationMode, ResampleRatio,

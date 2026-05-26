@@ -1,9 +1,11 @@
 #![doc = include_str!("../README.md")]
 
+mod editing;
 pub mod surface;
+pub use editing::*;
 use std::path::{Path, PathBuf};
 
-use audio_analysis_core::{interleaved_to_mono, ChannelMix, OwnedAudioWaveformBatch};
+use audio_analysis_core::{interleaved_to_mono, AudioClip, ChannelMix, OwnedAudioWaveformBatch};
 use video_analysis_core::{OwnedAudioFrame, Result};
 /// Re-exports the video analysis FFmpeg API.
 pub use video_analysis_ffmpeg::{
@@ -181,6 +183,16 @@ pub fn decode_audio_to_mono_f32(
     Ok((metadata, mono))
 }
 
+/// Returns decode audio to a whole-buffer clip.
+pub fn decode_audio_to_clip(
+    input: AudioInput,
+    options: AudioInputOptions,
+) -> Result<(AudioMetadata, AudioClip)> {
+    let (metadata, frames) = decode_audio_to_f32(input, options)?;
+    let clip = AudioClip::from_frames(&frames)?;
+    Ok((metadata, clip))
+}
+
 /// Writes waveform batch as wav.
 pub fn write_waveform_batch_as_wav(
     path: impl AsRef<Path>,
@@ -218,6 +230,41 @@ pub fn write_waveform_batch_as_wav(
                 ))
             })?;
         }
+    }
+    writer.finalize().map_err(|err| {
+        video_analysis_core::DetectError::Source(format!(
+            "failed to finalize WAV `{}`: {err}",
+            path.display()
+        ))
+    })?;
+    Ok(())
+}
+
+/// Writes an audio clip as a 32-bit float WAV file.
+pub fn write_clip_as_wav(path: impl AsRef<Path>, clip: &AudioClip) -> Result<()> {
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let spec = hound::WavSpec {
+        channels: clip.channels,
+        sample_rate: clip.sample_rate,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(path, spec).map_err(|err| {
+        video_analysis_core::DetectError::Source(format!(
+            "failed to create WAV `{}`: {err}",
+            path.display()
+        ))
+    })?;
+    for sample in &clip.samples {
+        writer.write_sample(*sample).map_err(|err| {
+            video_analysis_core::DetectError::Source(format!(
+                "failed to write WAV sample `{}`: {err}",
+                path.display()
+            ))
+        })?;
     }
     writer.finalize().map_err(|err| {
         video_analysis_core::DetectError::Source(format!(

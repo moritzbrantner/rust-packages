@@ -5,6 +5,8 @@ use video_analysis_core::runtime::{
     SurfaceResponse,
 };
 
+use crate::{build_ffmpeg_audio_filter_chain, FfmpegAudioEditSpec, FfmpegAudioEffect};
+
 const MAX_SAMPLES: usize = 192_000;
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -38,6 +40,30 @@ pub fn package_surface() -> PackageSurface {
                 "Returns deterministic decode settings and backend requirements without decoding.",
                 serde_json::json!({"source": "clip.wav", "target": "mono-f32", "sampleRate": 48000}),
             ),
+            operation(
+                "audio.io.editPlan",
+                "Edit plan",
+                "Returns a deterministic file edit plan without executing FFmpeg.",
+                serde_json::json!({"input": "clip.wav", "output": "out.wav", "edit": {"speedFactor": 1.25, "effects": [{"type": "normalize"}]}}),
+            ),
+            operation(
+                "audio.io.splitPlan",
+                "Split plan",
+                "Returns deterministic split output paths without touching the filesystem.",
+                serde_json::json!({"input": "clip.wav", "outputDir": "segments", "segments": [{"startSeconds": 0.0, "endSeconds": 1.0}], "outputFormat": "wav"}),
+            ),
+            operation(
+                "audio.io.joinPlan",
+                "Join plan",
+                "Returns deterministic join settings without touching the filesystem.",
+                serde_json::json!({"inputs": ["a.wav", "b.wav"], "output": "joined.wav", "crossfadeSeconds": 0.05}),
+            ),
+            operation(
+                "audio.io.ffmpegFilterPlan",
+                "FFmpeg filter plan",
+                "Builds the FFmpeg audio filter chain for an edit spec without executing it.",
+                serde_json::json!({"speedFactor": 1.25, "pitchShiftSemitones": 2.0, "effects": [{"type": "compressor", "thresholdDb": -18.0, "ratio": 3.0}]}),
+            ),
         ],
     }
 }
@@ -68,6 +94,10 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.io.inputPlan" => input_plan_value(request.input)?,
         "audio.io.waveformBatchSummary" => waveform_batch_summary_value(request.input)?,
         "audio.io.decodePlan" => decode_plan_value(request.input)?,
+        "audio.io.editPlan" => edit_plan_value(request.input)?,
+        "audio.io.splitPlan" => split_plan_value(request.input)?,
+        "audio.io.joinPlan" => join_plan_value(request.input)?,
+        "audio.io.ffmpegFilterPlan" => ffmpeg_filter_plan_value(request.input)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -164,6 +194,190 @@ fn decode_plan_value(input: serde_json::Value) -> Result<serde_json::Value, Stri
     }))
 }
 
+fn edit_plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let source = string_field(&input, "input", "input.wav")?;
+    let output = string_field(&input, "output", "output.wav")?;
+    let edit_input = input.get("edit").unwrap_or(&input);
+    let spec = ffmpeg_edit_spec(edit_input)?;
+    let filter_chain = build_ffmpeg_audio_filter_chain(&spec).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "input": source,
+        "output": output,
+        "backend": "ffmpeg",
+        "requiresExternalTool": true,
+        "executed": false,
+        "filterChain": filter_chain,
+        "outputSampleRate": spec.output_sample_rate,
+        "outputChannels": spec.output_channels
+    }))
+}
+
+fn split_plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let source = string_field(&input, "input", "input.wav")?;
+    let output_dir = string_field(&input, "outputDir", "segments")?;
+    let output_format = string_field(&input, "outputFormat", "wav")?;
+    let extension = audio_extension(&output_format)?;
+    let segments = input
+        .get("segments")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "segments must be an array".to_string())?;
+    let mut outputs = Vec::new();
+    for (index, segment) in segments.iter().enumerate() {
+        let start = finite_f64(segment, "startSeconds")?.unwrap_or(0.0);
+        let end = finite_f64(segment, "endSeconds")?
+            .ok_or_else(|| "segment endSeconds is required".to_string())?;
+        if start < 0.0 || end <= start {
+            return Err("segment start/end must be non-negative and ordered".to_string());
+        }
+        outputs.push(serde_json::json!({
+            "index": index,
+            "input": source,
+            "startSeconds": start,
+            "endSeconds": end,
+            "output": format!("{output_dir}/segment_{index:03}.{extension}")
+        }));
+    }
+    Ok(serde_json::json!({
+        "backend": "ffmpeg",
+        "requiresExternalTool": true,
+        "executed": false,
+        "outputFormat": output_format,
+        "segments": outputs
+    }))
+}
+
+fn join_plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let inputs = input
+        .get("inputs")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "inputs must be an array".to_string())?
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_string)
+                .ok_or_else(|| "join inputs must be strings".to_string())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if inputs.is_empty() {
+        return Err("join requires at least one input".to_string());
+    }
+    let output = string_field(&input, "output", "joined.wav")?;
+    let crossfade = finite_f64(&input, "crossfadeSeconds")?;
+    Ok(serde_json::json!({
+        "inputs": inputs,
+        "output": output,
+        "crossfadeSeconds": crossfade,
+        "backend": "ffmpeg",
+        "requiresExternalTool": true,
+        "executed": false,
+        "filter": if crossfade.unwrap_or(0.0) > 0.0 { "acrossfade" } else { "concat" }
+    }))
+}
+
+fn ffmpeg_filter_plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let spec = ffmpeg_edit_spec(&input)?;
+    let filter_chain = build_ffmpeg_audio_filter_chain(&spec).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "filterChain": filter_chain,
+        "backend": "ffmpeg",
+        "requiresExternalTool": true,
+        "executed": false
+    }))
+}
+
+fn ffmpeg_edit_spec(input: &serde_json::Value) -> Result<FfmpegAudioEditSpec, String> {
+    let speed_factor = finite_f32(input, "speedFactor")?;
+    let pitch_shift_semitones = finite_f32(input, "pitchShiftSemitones")?;
+    let output_sample_rate = input
+        .get("outputSampleRate")
+        .and_then(serde_json::Value::as_u64)
+        .map(|value| u32::try_from(value).map_err(|_| "outputSampleRate must fit u32".to_string()))
+        .transpose()?;
+    let output_channels = input
+        .get("outputChannels")
+        .and_then(serde_json::Value::as_u64)
+        .map(|value| u16::try_from(value).map_err(|_| "outputChannels must fit u16".to_string()))
+        .transpose()?;
+    let effects = input
+        .get("effects")
+        .and_then(serde_json::Value::as_array)
+        .map(|effects| {
+            effects
+                .iter()
+                .map(ffmpeg_effect)
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()?
+        .unwrap_or_default();
+    Ok(FfmpegAudioEditSpec {
+        speed_factor,
+        pitch_shift_semitones,
+        effects,
+        output_sample_rate,
+        output_channels,
+    })
+}
+
+fn ffmpeg_effect(input: &serde_json::Value) -> Result<FfmpegAudioEffect, String> {
+    let effect_type = string_field(input, "type", "")?;
+    Ok(match effect_type.as_str() {
+        "reverse" => FfmpegAudioEffect::Reverse,
+        "trim" => FfmpegAudioEffect::Trim {
+            start_seconds: finite_f64(input, "startSeconds")?.unwrap_or(0.0),
+            end_seconds: finite_f64(input, "endSeconds")?
+                .ok_or_else(|| "trim effect requires endSeconds".to_string())?,
+        },
+        "fade" => FfmpegAudioEffect::Fade {
+            fade_in_seconds: finite_f64(input, "fadeInSeconds")?.unwrap_or(0.0),
+            fade_out_seconds: finite_f64(input, "fadeOutSeconds")?.unwrap_or(0.0),
+            duration_seconds: finite_f64(input, "durationSeconds")?,
+        },
+        "delay" | "echo" => FfmpegAudioEffect::Echo {
+            in_gain: finite_f32(input, "inGain")?.unwrap_or(0.8),
+            out_gain: finite_f32(input, "outGain")?.unwrap_or(0.9),
+            delay_seconds: finite_f64(input, "delaySeconds")?.unwrap_or(0.25),
+            decay: finite_f32(input, "decay")?
+                .or_else(|| finite_f32(input, "feedback").ok().flatten())
+                .unwrap_or(0.35),
+        },
+        "reverb" => FfmpegAudioEffect::Reverb {
+            room_size: finite_f32(input, "roomSize")?.unwrap_or(0.5),
+            wet: finite_f32(input, "wet")?.unwrap_or(0.3),
+        },
+        "compressor" => FfmpegAudioEffect::Compressor {
+            threshold_db: finite_f32(input, "thresholdDb")?.unwrap_or(-18.0),
+            ratio: finite_f32(input, "ratio")?.unwrap_or(3.0),
+            attack_ms: finite_f32(input, "attackMs")?.unwrap_or(20.0),
+            release_ms: finite_f32(input, "releaseMs")?.unwrap_or(250.0),
+        },
+        "limiter" => FfmpegAudioEffect::Limiter {
+            ceiling_db: finite_f32(input, "ceilingDb")?.unwrap_or(-1.0),
+        },
+        "eq" => FfmpegAudioEffect::Eq {
+            frequency_hz: finite_f32(input, "frequencyHz")?.unwrap_or(1_000.0),
+            width_q: finite_f32(input, "q")?.unwrap_or(1.0),
+            gain_db: finite_f32(input, "gainDb")?.unwrap_or(0.0),
+        },
+        "lowpass" | "lowPass" => FfmpegAudioEffect::LowPass {
+            frequency_hz: finite_f32(input, "frequencyHz")?.unwrap_or(8_000.0),
+        },
+        "highpass" | "highPass" => FfmpegAudioEffect::HighPass {
+            frequency_hz: finite_f32(input, "frequencyHz")?.unwrap_or(80.0),
+        },
+        "chorus" => FfmpegAudioEffect::Chorus,
+        "flanger" => FfmpegAudioEffect::Flanger,
+        "tremolo" => FfmpegAudioEffect::Tremolo {
+            frequency_hz: finite_f32(input, "frequencyHz")?
+                .or_else(|| finite_f32(input, "rateHz").ok().flatten())
+                .unwrap_or(5.0),
+            depth: finite_f32(input, "depth")?.unwrap_or(0.5),
+        },
+        "normalize" => FfmpegAudioEffect::Normalize,
+        other => return Err(format!("unsupported FFmpeg audio effect `{other}`")),
+    })
+}
+
 fn sample_array(value: &serde_json::Value) -> Result<Vec<f32>, String> {
     value
         .as_array()
@@ -181,6 +395,45 @@ fn sample_array(value: &serde_json::Value) -> Result<Vec<f32>, String> {
             }
         })
         .collect()
+}
+
+fn finite_f32(input: &serde_json::Value, field: &str) -> Result<Option<f32>, String> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    let value = value
+        .as_f64()
+        .ok_or_else(|| format!("{field} must be a number"))? as f32;
+    if value.is_finite() {
+        Ok(Some(value))
+    } else {
+        Err(format!("{field} must be finite"))
+    }
+}
+
+fn finite_f64(input: &serde_json::Value, field: &str) -> Result<Option<f64>, String> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    let value = value
+        .as_f64()
+        .ok_or_else(|| format!("{field} must be a number"))?;
+    if value.is_finite() {
+        Ok(Some(value))
+    } else {
+        Err(format!("{field} must be finite"))
+    }
+}
+
+fn audio_extension(format: &str) -> Result<&'static str, String> {
+    match format {
+        "wav" => Ok("wav"),
+        "mp3" => Ok("mp3"),
+        "flac" => Ok("flac"),
+        "m4a" | "aac" => Ok("m4a"),
+        "ogg" => Ok("ogg"),
+        other => Err(format!("unsupported audio output format `{other}`")),
+    }
 }
 
 fn string_field(
@@ -219,6 +472,9 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"audio.io.inputPlan"));
         assert!(ids.contains(&"audio.io.waveformBatchSummary"));
+        assert!(ids.contains(&"audio.io.ffmpegFilterPlan"));
+        assert!(ids.contains(&"audio.io.splitPlan"));
+        assert!(ids.contains(&"audio.io.joinPlan"));
     }
 
     #[test]
@@ -240,5 +496,76 @@ mod tests {
         })
         .unwrap_err();
         assert!(error.contains("waveforms"));
+    }
+
+    #[test]
+    fn ffmpeg_filter_plan_lists_expected_filters() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.io.ffmpegFilterPlan"),
+            input: serde_json::json!({
+                "speedFactor": 2.5,
+                "pitchShiftSemitones": 2.0,
+                "effects": [
+                    {"type": "eq", "frequencyHz": 1000.0, "q": 1.0, "gainDb": 3.0},
+                    {"type": "compressor", "thresholdDb": -18.0, "ratio": 3.0},
+                    {"type": "limiter", "ceilingDb": -1.0},
+                    {"type": "echo", "delaySeconds": 0.25, "feedback": 0.3},
+                    {"type": "chorus"},
+                    {"type": "flanger"},
+                    {"type": "tremolo", "rateHz": 5.0, "depth": 0.5}
+                ]
+            }),
+        })
+        .expect("filter plan");
+        let filter = response.value["filterChain"].as_str().unwrap();
+        for expected in [
+            "atempo",
+            "equalizer",
+            "acompressor",
+            "alimiter",
+            "aecho",
+            "chorus",
+            "flanger",
+            "tremolo",
+        ] {
+            assert!(filter.contains(expected), "missing {expected} in {filter}");
+        }
+    }
+
+    #[test]
+    fn split_join_and_edit_plans_are_preview_safe() {
+        let split = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.io.splitPlan"),
+            input: serde_json::json!({
+                "input": "clip.wav",
+                "outputDir": "segments",
+                "segments": [{"startSeconds": 0.0, "endSeconds": 1.0}],
+                "outputFormat": "wav"
+            }),
+        })
+        .expect("split plan");
+        assert_eq!(split.value["executed"], false);
+        assert_eq!(
+            split.value["segments"][0]["output"],
+            "segments/segment_000.wav"
+        );
+
+        let join = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.io.joinPlan"),
+            input: serde_json::json!({"inputs": ["a.wav", "b.wav"], "output": "joined.wav"}),
+        })
+        .expect("join plan");
+        assert_eq!(join.value["filter"], "concat");
+
+        let edit = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.io.editPlan"),
+            input: serde_json::json!({"input": "a.wav", "output": "b.wav", "edit": {"effects": [{"type": "normalize"}]}}),
+        })
+        .expect("edit plan");
+        assert_eq!(edit.value["executed"], false);
+        assert!(edit.value["filterChain"]
+            .as_str()
+            .unwrap()
+            .contains("loudnorm"));
     }
 }

@@ -235,6 +235,27 @@ pub enum BiquadDesign {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Variants describing parametric biquad design.
+pub enum ParametricBiquadDesign {
+    /// The low pass variant.
+    LowPass,
+    /// The high pass variant.
+    HighPass,
+    /// The band pass variant.
+    BandPass,
+    /// The notch variant.
+    Notch,
+    /// Peaking equalizer with gain in dB.
+    PeakingEq { gain_db: f32 },
+    /// Low shelf with gain in dB.
+    LowShelf { gain_db: f32 },
+    /// High shelf with gain in dB.
+    HighShelf { gain_db: f32 },
+    /// The all pass variant.
+    AllPass,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 /// Data type for biquad coefficients.
 pub struct BiquadCoefficients {
     /// The b0 value.
@@ -322,6 +343,110 @@ impl BiquadDesign {
     }
 }
 
+/// Designs a parametric biquad filter.
+pub fn design_parametric_biquad(
+    design: ParametricBiquadDesign,
+    sample_rate: SampleRate,
+    frequency_hz: f32,
+    q: f32,
+) -> Result<BiquadCoefficients> {
+    if !frequency_hz.is_finite() || frequency_hz <= 0.0 || !q.is_finite() || q <= 0.0 {
+        return Err(invalid_argument(
+            "biquad frequency must be finite and positive, and q must be finite and positive",
+        ));
+    }
+    let nyquist = sample_rate.get() as f32 / 2.0;
+    if frequency_hz >= nyquist {
+        return Err(invalid_argument("biquad frequency must be below Nyquist"));
+    }
+    match design {
+        ParametricBiquadDesign::LowPass => {
+            return BiquadDesign::LowPass.design(sample_rate, frequency_hz, q);
+        }
+        ParametricBiquadDesign::HighPass => {
+            return BiquadDesign::HighPass.design(sample_rate, frequency_hz, q);
+        }
+        ParametricBiquadDesign::BandPass => {
+            return BiquadDesign::BandPass.design(sample_rate, frequency_hz, q);
+        }
+        ParametricBiquadDesign::Notch => {
+            return BiquadDesign::Notch.design(sample_rate, frequency_hz, q);
+        }
+        _ => {}
+    }
+
+    let omega = 2.0 * std::f32::consts::PI * frequency_hz / sample_rate.get() as f32;
+    let cos = omega.cos();
+    let sin = omega.sin();
+    let alpha = sin / (2.0 * q);
+    let (b0, b1, b2, a0, a1, a2) = match design {
+        ParametricBiquadDesign::PeakingEq { gain_db } => {
+            let a = 10.0_f32.powf(gain_db / 40.0);
+            (
+                1.0 + alpha * a,
+                -2.0 * cos,
+                1.0 - alpha * a,
+                1.0 + alpha / a,
+                -2.0 * cos,
+                1.0 - alpha / a,
+            )
+        }
+        ParametricBiquadDesign::LowShelf { gain_db } => {
+            let a = 10.0_f32.powf(gain_db / 40.0);
+            let sqrt_a = a.sqrt();
+            let shelf_alpha = sin / 2.0 * ((a + 1.0 / a) * (1.0 / q - 1.0) + 2.0).sqrt();
+            (
+                a * ((a + 1.0) - (a - 1.0) * cos + 2.0 * sqrt_a * shelf_alpha),
+                2.0 * a * ((a - 1.0) - (a + 1.0) * cos),
+                a * ((a + 1.0) - (a - 1.0) * cos - 2.0 * sqrt_a * shelf_alpha),
+                (a + 1.0) + (a - 1.0) * cos + 2.0 * sqrt_a * shelf_alpha,
+                -2.0 * ((a - 1.0) + (a + 1.0) * cos),
+                (a + 1.0) + (a - 1.0) * cos - 2.0 * sqrt_a * shelf_alpha,
+            )
+        }
+        ParametricBiquadDesign::HighShelf { gain_db } => {
+            let a = 10.0_f32.powf(gain_db / 40.0);
+            let sqrt_a = a.sqrt();
+            let shelf_alpha = sin / 2.0 * ((a + 1.0 / a) * (1.0 / q - 1.0) + 2.0).sqrt();
+            (
+                a * ((a + 1.0) + (a - 1.0) * cos + 2.0 * sqrt_a * shelf_alpha),
+                -2.0 * a * ((a - 1.0) + (a + 1.0) * cos),
+                a * ((a + 1.0) + (a - 1.0) * cos - 2.0 * sqrt_a * shelf_alpha),
+                (a + 1.0) - (a - 1.0) * cos + 2.0 * sqrt_a * shelf_alpha,
+                2.0 * ((a - 1.0) - (a + 1.0) * cos),
+                (a + 1.0) - (a - 1.0) * cos - 2.0 * sqrt_a * shelf_alpha,
+            )
+        }
+        ParametricBiquadDesign::AllPass => (
+            1.0 - alpha,
+            -2.0 * cos,
+            1.0 + alpha,
+            1.0 + alpha,
+            -2.0 * cos,
+            1.0 - alpha,
+        ),
+        ParametricBiquadDesign::LowPass
+        | ParametricBiquadDesign::HighPass
+        | ParametricBiquadDesign::BandPass
+        | ParametricBiquadDesign::Notch => unreachable!(),
+    };
+    BiquadCoefficients {
+        b0: b0 / a0,
+        b1: b1 / a0,
+        b2: b2 / a0,
+        a1: a1 / a0,
+        a2: a2 / a0,
+    }
+    .validate()?;
+    Ok(BiquadCoefficients {
+        b0: b0 / a0,
+        b1: b1 / a0,
+        b2: b2 / a0,
+        a1: a1 / a0,
+        a2: a2 / a0,
+    })
+}
+
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for fir kernel1d.
 pub struct FirKernel1d {
@@ -380,6 +505,133 @@ pub fn interpolate_at(samples: &[f32], position: f64, mode: InterpolationMode) -
             }
         }
     })
+}
+
+/// Resamples a mono buffer with the requested interpolation mode.
+pub fn resample_mono(
+    samples: &[f32],
+    input_rate: SampleRate,
+    output_rate: SampleRate,
+    mode: InterpolationMode,
+) -> Result<Vec<f32>> {
+    ResampleRatio::new(input_rate, output_rate)?;
+    if samples.is_empty() {
+        return Ok(Vec::new());
+    }
+    if samples.iter().any(|sample| !sample.is_finite()) {
+        return Err(invalid_argument("samples must be finite"));
+    }
+    if input_rate == output_rate {
+        return Ok(samples.to_vec());
+    }
+    let ratio = output_rate.get() as f64 / input_rate.get() as f64;
+    let output_len = ((samples.len() as f64) * ratio).round().max(1.0) as usize;
+    let spec = ResampleSpec::new(input_rate, output_rate, mode)?;
+    (0..output_len)
+        .map(|index| {
+            interpolate_at(
+                samples,
+                spec.ratio().source_position_for_output(index),
+                mode,
+            )
+        })
+        .collect()
+}
+
+/// Resamples interleaved audio with independent per-channel interpolation.
+pub fn resample_interleaved(
+    samples: &[f32],
+    channels: u16,
+    input_rate: SampleRate,
+    output_rate: SampleRate,
+    mode: InterpolationMode,
+) -> Result<Vec<f32>> {
+    if channels == 0 {
+        return Err(DetectError::InvalidAudioFormat {
+            sample_rate: input_rate.get(),
+            channels,
+        });
+    }
+    if !samples.len().is_multiple_of(channels as usize) {
+        return Err(invalid_argument(
+            "interleaved sample length must be divisible by channel count",
+        ));
+    }
+    if samples.is_empty() {
+        return Ok(Vec::new());
+    }
+    if input_rate == output_rate {
+        return Ok(samples.to_vec());
+    }
+    let channels_usize = channels as usize;
+    let frames = samples.len() / channels_usize;
+    let ratio = output_rate.get() as f64 / input_rate.get() as f64;
+    let output_frames = ((frames as f64) * ratio).round().max(1.0) as usize;
+    let spec = ResampleSpec::new(input_rate, output_rate, mode)?;
+    let mut output = Vec::with_capacity(output_frames * channels_usize);
+    for output_frame in 0..output_frames {
+        let position = spec.ratio().source_position_for_output(output_frame);
+        for channel in 0..channels_usize {
+            output.push(interpolate_interleaved_channel(
+                samples,
+                channels_usize,
+                channel,
+                position,
+                mode,
+            )?);
+        }
+    }
+    Ok(output)
+}
+
+fn interpolate_interleaved_channel(
+    samples: &[f32],
+    channels: usize,
+    channel: usize,
+    position: f64,
+    mode: InterpolationMode,
+) -> Result<f32> {
+    if !position.is_finite() || position < 0.0 {
+        return Err(invalid_argument(
+            "interpolation position must be finite and non-negative",
+        ));
+    }
+    let frames = samples.len() / channels;
+    let max_index = frames.saturating_sub(1) as f64;
+    let clamped = position.min(max_index);
+    Ok(match mode {
+        InterpolationMode::Nearest => samples[clamped.round() as usize * channels + channel],
+        InterpolationMode::Linear => {
+            let left = clamped.floor() as usize;
+            let right = clamped.ceil() as usize;
+            if left == right {
+                samples[left * channels + channel]
+            } else {
+                let fraction = (clamped - left as f64) as f32;
+                let left_sample = samples[left * channels + channel];
+                let right_sample = samples[right * channels + channel];
+                left_sample * (1.0 - fraction) + right_sample * fraction
+            }
+        }
+    })
+}
+
+/// Converts decibels to a linear amplitude ratio.
+pub fn db_to_linear(db: f32) -> Result<f32> {
+    if !db.is_finite() {
+        return Err(invalid_argument("dB value must be finite"));
+    }
+    Ok(10.0_f32.powf(db / 20.0))
+}
+
+/// Converts a linear amplitude ratio to decibels.
+pub fn linear_to_db(linear: f32) -> Result<f32> {
+    if !linear.is_finite() || linear <= 0.0 {
+        return Err(invalid_argument(
+            "linear amplitude must be finite and greater than zero",
+        ));
+    }
+    Ok(20.0 * linear.log10())
 }
 
 /// Returns resample indices.
@@ -457,6 +709,47 @@ mod tests {
             .design(SampleRate::new(48_000).unwrap(), 1_000.0, 0.707)
             .is_ok());
         assert!(FirKernel1d::new([0.25, 0.5, 0.25]).is_ok());
+    }
+
+    #[test]
+    fn resampling_and_db_helpers_work() {
+        let input = SampleRate::new(4).unwrap();
+        let output = SampleRate::new(8).unwrap();
+        let resampled =
+            resample_mono(&[0.0, 1.0, 0.0], input, output, InterpolationMode::Linear).unwrap();
+        assert_eq!(resampled.len(), 6);
+        assert_eq!(resampled[0], 0.0);
+        assert_eq!(*resampled.last().unwrap(), 0.0);
+
+        let interleaved = resample_interleaved(
+            &[0.0, 1.0, 1.0, 0.0],
+            2,
+            SampleRate::new(2).unwrap(),
+            SampleRate::new(4).unwrap(),
+            InterpolationMode::Linear,
+        )
+        .unwrap();
+        assert_eq!(interleaved.len(), 8);
+        assert!((db_to_linear(6.020_600_3).unwrap() - 2.0).abs() < 1.0e-5);
+        assert!(linear_to_db(2.0).unwrap() > 6.0);
+    }
+
+    #[test]
+    fn parametric_design_supports_eq_variants() {
+        for design in [
+            ParametricBiquadDesign::PeakingEq { gain_db: 3.0 },
+            ParametricBiquadDesign::LowShelf { gain_db: -3.0 },
+            ParametricBiquadDesign::HighShelf { gain_db: 3.0 },
+            ParametricBiquadDesign::AllPass,
+        ] {
+            assert!(design_parametric_biquad(
+                design,
+                SampleRate::new(48_000).unwrap(),
+                1_000.0,
+                0.707
+            )
+            .is_ok());
+        }
     }
 
     #[test]
