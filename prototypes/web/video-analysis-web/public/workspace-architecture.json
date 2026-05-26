@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-26T11:55:40.577Z",
+  "generatedAt": "2026-05-26T18:55:58.051Z",
   "packages": [
     {
       "name": "video-analysis",
@@ -16818,11 +16818,6 @@
     },
     {
       "source": "text-transcripts",
-      "target": "audio-analysis-io",
-      "optional": false
-    },
-    {
-      "source": "text-transcripts",
       "target": "text-core",
       "optional": false
     },
@@ -23785,18 +23780,6 @@
       "sharedTags": [],
       "reasons": [
         "audio-analysis-io-wasm depends on audio-analysis-io"
-      ],
-      "strength": 2
-    },
-    {
-      "packages": [
-        "audio-analysis-io",
-        "text-transcripts"
-      ],
-      "directDependency": true,
-      "sharedTags": [],
-      "reasons": [
-        "text-transcripts depends on audio-analysis-io"
       ],
       "strength": 2
     },

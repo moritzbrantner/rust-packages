@@ -10,7 +10,10 @@ import {
 } from "./workspaceArchitecture";
 import { fetchWorkspaceArchitecture } from "./workspaceArchitectureClient";
 
-type CatalogRoute = { kind: "home" } | { kind: "wrapper"; slug: string };
+type CatalogRoute =
+  | { kind: "home" }
+  | { kind: "category"; domain: PackageDomain }
+  | { kind: "wrapper"; slug: string };
 type AppModule = { App: ComponentType };
 type WrapperAppState =
   | { kind: "loading" }
@@ -84,12 +87,10 @@ export function CrateCatalog() {
     route.kind === "wrapper"
       ? wrappers.find((wrapper) => wrapperSlug(wrapper) === route.slug) ?? null
       : null;
+  const selectedCategory = route.kind === "category" ? route.domain : null;
 
   function navigate(nextRoute: CatalogRoute, hash?: string) {
-    const nextUrl =
-      nextRoute.kind === "wrapper"
-        ? wrapperHrefFromSlug(nextRoute.slug)
-        : `${rootHref()}${hash ?? ""}`;
+    const nextUrl = hrefForRoute(nextRoute, hash);
     window.history.pushState({}, "", nextUrl);
     setRoute(nextRoute);
   }
@@ -99,11 +100,17 @@ export function CrateCatalog() {
       <TopNavigation
         domains={domains}
         selectedDomain={selectedDomain}
+        selectedCategory={selectedCategory}
         selectedWrapper={selectedWrapper}
         onHome={() => navigate({ kind: "home" })}
         onDomain={(domain) => {
+          if (domain === "all") {
+            setSelectedDomain("all");
+            navigate({ kind: "home" });
+            return;
+          }
           setSelectedDomain(domain);
-          navigate({ kind: "home" }, domain === "all" ? undefined : `#${domain}`);
+          navigate({ kind: "category", domain });
         }}
       />
 
@@ -117,7 +124,15 @@ export function CrateCatalog() {
             totalWrappers={wrappers.length}
           />
         ) : null}
-        {!error && data && !selectedWrapper ? (
+        {!error && data && selectedCategory && !selectedWrapper ? (
+          <CategoryPage
+            domain={selectedCategory}
+            packages={data.packages}
+            wrappers={wrappers.filter((wrapper) => wrapper.domain === selectedCategory)}
+            onSelectWrapper={(wrapper) => navigate({ kind: "wrapper", slug: wrapperSlug(wrapper) })}
+          />
+        ) : null}
+        {!error && data && !selectedWrapper && !selectedCategory ? (
           <CatalogHome
             domains={domains}
             groupedWrappers={groupedWrappers}
@@ -128,7 +143,14 @@ export function CrateCatalog() {
             totalWrappers={wrappers.length}
             visibleWrappers={visibleWrappers}
             onQueryChange={setQuery}
-            onSelectDomain={setSelectedDomain}
+            onSelectDomain={(domain) => {
+              if (domain === "all") {
+                setSelectedDomain("all");
+                return;
+              }
+              setSelectedDomain(domain);
+              navigate({ kind: "category", domain });
+            }}
             onSelectWrapper={(wrapper) => navigate({ kind: "wrapper", slug: wrapperSlug(wrapper) })}
           />
         ) : null}
@@ -139,12 +161,14 @@ export function CrateCatalog() {
 
 function TopNavigation({
   domains,
+  selectedCategory,
   selectedDomain,
   selectedWrapper,
   onHome,
   onDomain,
 }: {
   domains: PackageDomain[];
+  selectedCategory: PackageDomain | null;
   selectedDomain: PackageDomain | "all";
   selectedWrapper: WorkspaceArchitecturePackage | null;
   onHome: () => void;
@@ -168,14 +192,18 @@ function TopNavigation({
             </div>
           </a>
           <nav aria-label="Wrapper categories" className="flex min-w-0 gap-2 overflow-x-auto pb-1">
-            <NavButton active={selectedDomain === "all" && !selectedWrapper} href={rootHref()} onClick={() => onDomain("all")}>
+            <NavButton
+              active={selectedDomain === "all" && !selectedCategory && !selectedWrapper}
+              href={rootHref()}
+              onClick={() => onDomain("all")}
+            >
               All
             </NavButton>
             {domains.map((domain) => (
               <NavButton
                 key={domain}
-                active={!selectedWrapper && selectedDomain === domain}
-                href={`${rootHref()}#${domain}`}
+                active={!selectedWrapper && (selectedCategory ?? selectedDomain) === domain}
+                href={categoryHref(domain)}
                 onClick={() => onDomain(domain)}
               >
                 {packageDomainLabels[domain]}
@@ -308,6 +336,123 @@ function CatalogHome({
           No wrappers match the current filters.
         </section>
       )}
+    </div>
+  );
+}
+
+function CategoryPage({
+  domain,
+  packages,
+  wrappers,
+  onSelectWrapper,
+}: {
+  domain: PackageDomain;
+  packages: WorkspaceArchitecturePackage[];
+  wrappers: WorkspaceArchitecturePackage[];
+  onSelectWrapper: (wrapper: WorkspaceArchitecturePackage) => void;
+}) {
+  const domainPackages = packages.filter((pkg) => pkg.domain === domain);
+  const libraries = wrappers.map(serviceLibraryName);
+  const appCount = wrappers.filter((wrapper) => Boolean(relatedSurfaces(serviceLibraryName(wrapper), packages).app)).length;
+  const wasmCount = wrappers.filter((wrapper) => Boolean(relatedSurfaces(serviceLibraryName(wrapper), packages).wasm)).length;
+  const exposedSurfaces = Array.from(new Set(domainPackages.flatMap((pkg) => pkg.exposes))).slice(0, 12);
+
+  return (
+    <div className="space-y-5">
+      <section className={classNames("rounded-md border p-5", domainBorderClass(domain), domainPanelClass(domain))}>
+        <div className="grid gap-5 lg:grid-cols-[1fr_420px] lg:items-start">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase text-zinc-500">Category</div>
+            <h1 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">
+              {packageDomainLabels[domain]}
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-700">
+              Combined overview for the {packageDomainLabels[domain].toLowerCase()} package APIs,
+              wrapper frontends, and generated surfaces in this workspace.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+            <MetricTile label="Packages" value={String(domainPackages.length)} />
+            <MetricTile label="APIs" value={String(wrappers.length)} />
+            <MetricTile label="Apps" value={String(appCount)} />
+            <MetricTile label="WASM" value={String(wasmCount)} />
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-md border border-zinc-200 bg-white">
+        <div className="grid gap-4 border-b border-zinc-200 px-4 py-3 lg:grid-cols-[1fr_1fr]">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-950">Combined Surface</h2>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">
+              {wrappers.length > 0
+                ? `${libraries.join(", ")}`
+                : "No API wrapper packages are indexed for this category."}
+            </p>
+          </div>
+          {exposedSurfaces.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 lg:justify-end">
+              {exposedSurfaces.map((surface) => (
+                <span
+                  key={surface}
+                  className="inline-flex min-h-6 max-w-full items-center truncate rounded-md border border-zinc-200 bg-zinc-50 px-2 text-[11px] text-zinc-600"
+                >
+                  {surface}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        {wrappers.length > 0 ? (
+          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+            {wrappers.map((wrapper) => (
+              <WrapperCard
+                key={wrapper.name}
+                packages={packages}
+                wrapper={wrapper}
+                onSelect={() => onSelectWrapper(wrapper)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="p-5 text-sm text-zinc-500">No wrapper frontends are available in this category yet.</div>
+        )}
+      </section>
+
+      {wrappers.length > 0 ? (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-950">Category Frontends</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              Each mounted panel is the same frontend used by the individual wrapper page.
+            </p>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {wrappers.map((wrapper) => {
+              const library = serviceLibraryName(wrapper);
+              const surfaces = relatedSurfaces(library, packages);
+              return (
+                <section key={wrapper.name} className="overflow-hidden rounded-md border border-zinc-200 bg-white">
+                  <div className={classNames("border-b px-4 py-3", domainBorderClass(wrapper.domain), domainPanelClass(wrapper.domain))}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold text-zinc-950">{library}</h3>
+                        <p className="mt-1 truncate text-xs text-zinc-600">{wrapper.name}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <SurfacePill active={Boolean(surfaces.app)} label="App" />
+                        <SurfacePill active={Boolean(surfaces.server)} label="API" />
+                        <SurfacePill active={Boolean(surfaces.wasm)} label="WASM" />
+                      </div>
+                    </div>
+                  </div>
+                  <WrapperAppMount wrapper={wrapper} />
+                </section>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -605,6 +750,13 @@ function catalogRouteFromLocation(): CatalogRoute {
   const pathname = window.location.pathname.startsWith(base)
     ? window.location.pathname.slice(base.length)
     : window.location.pathname.replace(/^\//, "");
+  const categoryMatch = pathname.match(/^categories\/([^/]+)/);
+  if (categoryMatch) {
+    const domain = decodeURIComponent(categoryMatch[1]) as PackageDomain;
+    if (packageDomainOrder.includes(domain)) {
+      return { kind: "category", domain };
+    }
+  }
   const wrapperMatch = pathname.match(/^(?:wrappers|services)\/([^/]+)/);
   if (wrapperMatch) {
     return { kind: "wrapper", slug: decodeURIComponent(wrapperMatch[1]) };
@@ -652,6 +804,21 @@ function wrapperHref(wrapper: WorkspaceArchitecturePackage): string {
 function wrapperHrefFromSlug(slug: string): string {
   const base = rootHref();
   return `${base}wrappers/${slug}/`;
+}
+
+function categoryHref(domain: PackageDomain): string {
+  const base = rootHref();
+  return `${base}categories/${domain}/`;
+}
+
+function hrefForRoute(route: CatalogRoute, hash?: string): string {
+  if (route.kind === "wrapper") {
+    return wrapperHrefFromSlug(route.slug);
+  }
+  if (route.kind === "category") {
+    return categoryHref(route.domain);
+  }
+  return `${rootHref()}${hash ?? ""}`;
 }
 
 function rootHref(): string {

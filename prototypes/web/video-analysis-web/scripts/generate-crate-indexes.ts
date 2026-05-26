@@ -1,7 +1,11 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import { slugifyPackageName, type WorkspaceArchitectureResponse } from "../src/workspaceArchitecture";
+import {
+  packageDomainOrder,
+  slugifyPackageName,
+  type WorkspaceArchitectureResponse,
+} from "../src/workspaceArchitecture";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const distDir = `${projectRoot}/dist`;
@@ -27,4 +31,15 @@ for (const service of servicePackages) {
   await copyFile(indexPath, `${serviceDir}/index.html`);
 }
 
-console.log(`generated ${architecture.packages.length} crate pages and ${servicePackages.length} wrapper pages`);
+const serviceDomains = new Set(servicePackages.map((pkg) => pkg.domain));
+const categoryDomains = packageDomainOrder.filter((domain) => serviceDomains.has(domain));
+
+for (const domain of categoryDomains) {
+  const categoryDir = `${distDir}/categories/${domain}`;
+  await mkdir(categoryDir, { recursive: true });
+  await copyFile(indexPath, `${categoryDir}/index.html`);
+}
+
+console.log(
+  `generated ${architecture.packages.length} crate pages, ${servicePackages.length} wrapper pages, and ${categoryDomains.length} category pages`,
+);

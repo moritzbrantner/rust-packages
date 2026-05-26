@@ -41,6 +41,12 @@ export function App() {
     [embeddingDimensions, embeddings, keywordLimit, linguistics, profile, shingles, summarySentences, text],
   );
 
+  useEffect(() => {
+    if (profile === "modelBacked" && mode !== "server") {
+      setMode("server");
+    }
+  }, [mode, profile]);
+
   async function run() {
     setStatus("loading");
     try {
@@ -65,7 +71,7 @@ export function App() {
           </div>
           <div className="flex flex-wrap gap-2">
             <select className="h-10 rounded border border-slate-300 bg-white px-3" value={mode} onChange={(event) => setMode(event.target.value as RuntimeMode)}>
-              <option value="client-wasm">Client WASM</option>
+              <option value="client-wasm" disabled={profile === "modelBacked"}>Client WASM</option>
               <option value="server">Server</option>
             </select>
             <button className="h-10 rounded bg-slate-950 px-4 font-semibold text-white disabled:opacity-50" disabled={status === "loading"} onClick={run}>

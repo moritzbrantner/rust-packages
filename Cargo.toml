@@ -260,7 +260,7 @@ image-analysis-processing.workspace = true
 image-analysis-segmentation.workspace = true
 image-analysis-synthesis.workspace = true
 text-core.workspace = true
-text-analysis.workspace = true
+text-analysis = { workspace = true, features = ["candle"] }
 text-classification.workspace = true
 text-lexical.workspace = true
 text-linguistics = { workspace = true, features = ["candle", "transcripts"] }
