@@ -40,7 +40,8 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
             serde_json::json!({
                 "ok": true,
                 "package": format!("{}-server", LIBRARY_CRATE),
-                "library": LIBRARY_CRATE
+                "library": LIBRARY_CRATE,
+                "candleDevice": candle_device_metadata_value()
             }),
         ),
         ("GET", "/api/package") => json_response(200, "OK", package_metadata_value()),
@@ -83,6 +84,7 @@ fn package_metadata_value() -> serde_json::Value {
         "cliPackage": CLI_PACKAGE,
         "appPackage": APP_PACKAGE,
         "wasmPackage": WASM_PACKAGE,
+        "candleDevice": candle_device_metadata_value(),
         "endpoints": [
             "GET /health",
             "GET /api/package",
@@ -93,6 +95,15 @@ fn package_metadata_value() -> serde_json::Value {
         ],
         "operations": surface.operations
     })
+}
+
+fn candle_device_metadata_value() -> serde_json::Value {
+    match text_model_runtime::candle_device_preference() {
+        text_model_runtime::CandleDevicePreference::Cpu => serde_json::json!({"kind": "cpu"}),
+        text_model_runtime::CandleDevicePreference::Cuda { device_index } => {
+            serde_json::json!({"kind": "cuda", "deviceIndex": device_index})
+        }
+    }
 }
 
 fn schema_value() -> serde_json::Value {

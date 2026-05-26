@@ -79,7 +79,7 @@ criterion = "0.5.1"
 proptest = "1.6.0"
 unicode-normalization = "0.1.24"
 unicode-segmentation = "1.12.0"
-tokenizers = "0.22.2"
+tokenizers = { version = "0.22.2", default-features = false, features = ["unstable_wasm"] }
 ort = { version = "2.0.0-rc.12", default-features = false, features = ["std", "ndarray", "load-dynamic", "api-24"] }
 ndarray = "0.17.2"
 candle-core = "0.10.2"
@@ -260,10 +260,10 @@ image-analysis-processing.workspace = true
 image-analysis-segmentation.workspace = true
 image-analysis-synthesis.workspace = true
 text-core.workspace = true
-text-analysis = { workspace = true, features = ["candle"] }
+text-analysis = { workspace = true, features = ["candle", "model-bundles"] }
 text-classification.workspace = true
 text-lexical.workspace = true
-text-linguistics = { workspace = true, features = ["candle", "transcripts"] }
+text-linguistics = { workspace = true, features = ["candle", "model-bundles", "transcripts"] }
 text-model-runtime.workspace = true
 text-question-answering.workspace = true
 text-generation.workspace = true

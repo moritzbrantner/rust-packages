@@ -31,8 +31,10 @@ model-runtime = { workspace = true, optional = true }
 default = []
 tokenizers = ["dep:tokenizers", "text-model-runtime/tokenizers"]
 transcripts = ["dep:text-transcripts"]
-candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:jobs-core", "dep:model-runtime", "text-model-runtime/candle"]
-external-tests = ["candle"]
+model-bundles = ["dep:jobs-core", "dep:model-runtime", "text-model-runtime/model-bundles"]
+candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "text-model-runtime/candle"]
+cuda = ["candle", "text-model-runtime/cuda"]
+external-tests = ["candle", "model-bundles"]
 
 [dev-dependencies]
 criterion.workspace = true

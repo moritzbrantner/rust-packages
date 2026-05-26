@@ -4,6 +4,35 @@ use serde::Serialize;
 use video_analysis_core::runtime::SurfaceRequest;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = NumericSeriesIndex)]
+pub struct WasmNumericSeriesIndex {
+    inner: dense_data::NumericSeriesIndex,
+}
+
+#[wasm_bindgen(js_class = NumericSeriesIndex)]
+impl WasmNumericSeriesIndex {
+    #[wasm_bindgen(constructor)]
+    pub fn new(points: JsValue) -> Result<WasmNumericSeriesIndex, JsValue> {
+        let points: Vec<dense_data::NumericSeriesPoint> =
+            serde_wasm_bindgen::from_value(points).map_err(into_js_error)?;
+        let inner = dense_data::NumericSeriesIndex::from_points(points).map_err(into_js_error)?;
+        Ok(Self { inner })
+    }
+
+    #[wasm_bindgen(js_name = getSeriesBounds)]
+    pub fn get_series_bounds(&self) -> Result<JsValue, JsValue> {
+        to_json_value(&self.inner.bounds())
+    }
+
+    #[wasm_bindgen(js_name = getBinnedSeries)]
+    pub fn get_binned_series(&self, query: JsValue) -> Result<JsValue, JsValue> {
+        let query: dense_data::NumericSeriesBinQuery =
+            serde_wasm_bindgen::from_value(query).map_err(into_js_error)?;
+        let result = self.inner.bin(query).map_err(into_js_error)?;
+        to_json_value(&result)
+    }
+}
+
 #[wasm_bindgen(js_name = packageSurface)]
 pub fn package_surface() -> Result<JsValue, JsValue> {
     to_json_value(&dense_data::surface::package_surface())

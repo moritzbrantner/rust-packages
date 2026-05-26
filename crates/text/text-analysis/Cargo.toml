@@ -25,7 +25,9 @@ model-runtime = { workspace = true, optional = true }
 
 [features]
 default = []
-candle = ["text-linguistics/candle", "text-embeddings/candle", "dep:model-runtime", "model-runtime/jobs"]
+candle = ["text-linguistics/candle", "text-embeddings/candle"]
+cuda = ["candle", "text-embeddings/cuda", "text-linguistics/cuda"]
+model-bundles = ["dep:model-runtime", "model-runtime/jobs", "text-linguistics/model-bundles", "text-embeddings/model-bundles"]
 onnx = ["text-embeddings/onnx", "dep:model-runtime"]
 tokenizers = ["text-embeddings/tokenizers", "text-linguistics/tokenizers"]
-external-tests = ["candle", "onnx"]
+external-tests = ["candle", "model-bundles", "onnx"]

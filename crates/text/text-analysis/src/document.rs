@@ -452,7 +452,7 @@ fn candle_embedding_section(
     options: &DocumentAnalysisOptions,
     diagnostics: &mut Vec<TextAnalysisDiagnostic>,
 ) -> Option<EmbeddingAnalysisSection> {
-    #[cfg(feature = "candle")]
+    #[cfg(all(feature = "candle", feature = "model-bundles"))]
     {
         match model_runtime::ModelBundle::load(bundle_dir)
             .map_err(|error| error.to_string())
@@ -471,12 +471,12 @@ fn candle_embedding_section(
             }
         }
     }
-    #[cfg(not(feature = "candle"))]
+    #[cfg(not(all(feature = "candle", feature = "model-bundles")))]
     {
         let _ = (text, bundle_dir, corpus, options);
         diagnostics.push(TextAnalysisDiagnostic::warning(
             "candle_embedding_unavailable",
-            "text-analysis was built without the `candle` feature",
+            "text-analysis was built without the `candle` and `model-bundles` features",
         ));
         None
     }

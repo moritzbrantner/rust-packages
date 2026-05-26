@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-#[cfg(feature = "candle")]
+#[cfg(all(feature = "candle", feature = "model-bundles"))]
 use std::sync::{Arc, Mutex};
 
 use crate::discourse::{
@@ -21,9 +21,9 @@ use crate::syntax::{chunk_phrases, DependencyParser, DependencyTree, PhraseChunk
 use crate::tokenization::{
     TokenAlignmentMap, TokenizationMode, TokenizerPolicy, TokenizerRegistry, TokenizerSelection,
 };
-#[cfg(feature = "candle")]
+#[cfg(all(feature = "candle", feature = "model-bundles"))]
 use jobs_core::{BackgroundJobRunner, JobArtifact, JobError, JobProgress, JobSpec};
-#[cfg(feature = "candle")]
+#[cfg(all(feature = "candle", feature = "model-bundles"))]
 use model_runtime::{HuggingFaceDownloader, ModelBundle, ModelBundleStore};
 use text_core::{
     build_annotation_graph_from_parts, split_paragraphs, split_sentence_spans, tokenize,
@@ -72,7 +72,7 @@ impl ModelPreset {
         }
     }
 
-    #[cfg(feature = "candle")]
+    #[cfg(all(feature = "candle", feature = "model-bundles"))]
     fn spec(self) -> model_runtime::HuggingFaceModelSpec {
         match self {
             Self::BertBaseNer => model_runtime::ModelPreset::BertBaseNer.spec(),
@@ -694,7 +694,7 @@ fn entities_with_model_labeler(
     ))
 }
 
-#[cfg(feature = "candle")]
+#[cfg(all(feature = "candle", feature = "model-bundles"))]
 fn local_entity_labeler(options: &EntityRecognitionOptions) -> Result<CandleTokenClassifier> {
     if options.preset != ModelPreset::BertBaseNer {
         return Err(DetectError::InvalidArgument(format!(
@@ -707,15 +707,15 @@ fn local_entity_labeler(options: &EntityRecognitionOptions) -> Result<CandleToke
     CandleTokenClassifier::from_bundle(bundle)
 }
 
-#[cfg(not(feature = "candle"))]
+#[cfg(not(all(feature = "candle", feature = "model-bundles")))]
 fn local_entity_labeler(options: &EntityRecognitionOptions) -> Result<CandleTokenClassifier> {
     let _ = options;
     Err(DetectError::InvalidArgument(
-        "local entity recognition requires the `candle` feature".to_string(),
+        "local entity recognition requires the `candle` and `model-bundles` features".to_string(),
     ))
 }
 
-#[cfg(feature = "candle")]
+#[cfg(all(feature = "candle", feature = "model-bundles"))]
 fn ensure_local_entity_bundle(options: &EntityRecognitionOptions) -> Result<ModelBundle> {
     let spec = options.preset.spec();
     let store = local_model_bundle_store(options);
@@ -793,7 +793,7 @@ fn ensure_local_entity_bundle(options: &EntityRecognitionOptions) -> Result<Mode
     })
 }
 
-#[cfg(feature = "candle")]
+#[cfg(all(feature = "candle", feature = "model-bundles"))]
 fn local_model_bundle_store(options: &EntityRecognitionOptions) -> ModelBundleStore {
     ModelBundleStore::new(&options.bundle_dir).downloader(
         HuggingFaceDownloader::new()
@@ -802,7 +802,7 @@ fn local_model_bundle_store(options: &EntityRecognitionOptions) -> ModelBundleSt
     )
 }
 
-#[cfg(feature = "candle")]
+#[cfg(all(feature = "candle", feature = "model-bundles"))]
 fn model_runtime_error(error: model_runtime::ModelRuntimeError) -> DetectError {
     match error {
         model_runtime::ModelRuntimeError::InvalidArgument(message) => {
@@ -813,12 +813,12 @@ fn model_runtime_error(error: model_runtime::ModelRuntimeError) -> DetectError {
     }
 }
 
-#[cfg(feature = "candle")]
+#[cfg(all(feature = "candle", feature = "model-bundles"))]
 trait JobResultExt<T> {
     fn map_job_error(self) -> Result<T>;
 }
 
-#[cfg(feature = "candle")]
+#[cfg(all(feature = "candle", feature = "model-bundles"))]
 impl<T> JobResultExt<T> for jobs_core::Result<T> {
     fn map_job_error(self) -> Result<T> {
         self.map_err(|err| DetectError::Source(err.to_string()))

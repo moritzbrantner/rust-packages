@@ -83,3 +83,14 @@ Default features are deterministic and network-free. Optional runtime features
 may enable tokenizers, ONNX Runtime, or Candle, but callers must still select or
 provide the runtime explicitly. External tests that require real tools, models,
 or network access remain behind `external-tests`.
+
+Text Candle server binaries default to CPU. Native CUDA execution is opt-in with
+the server `cuda` feature and startup flags:
+
+```bash
+cargo run -p text-analysis-server -- --addr 127.0.0.1:3000
+cargo run -p text-analysis-server --features cuda -- --cuda --cuda-device-index 0
+```
+
+CUDA requires a CUDA-capable host and Candle CUDA build prerequisites. WASM
+Candle surfaces remain CPU-only and must not enable the native `cuda` feature.

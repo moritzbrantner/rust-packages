@@ -1,14 +1,15 @@
 //! Library-owned runtime surface for `dense-data`.
 
-use std::collections::BTreeMap;
-
 use serde::Deserialize;
 use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
 
-use crate::{BucketGrid, DenseBounds, DensePoint, KMeansConfig};
+use crate::{
+    BucketGrid, DenseBounds, DensePoint, KMeansConfig, NumericSeriesBinQuery, NumericSeriesIndex,
+    NumericSeriesPoint,
+};
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -300,7 +301,7 @@ struct NumericSeriesKernelPoint {
     index: usize,
     x: f64,
     y: f64,
-    metrics: Option<BTreeMap<String, f64>>,
+    metrics: Option<std::collections::BTreeMap<String, f64>>,
 }
 
 fn operation(
@@ -353,152 +354,28 @@ fn parse_dense_points(inputs: Vec<DensePointInput>) -> Result<Vec<DensePoint>, S
 }
 
 fn bin_numeric_series(input: BinNumericSeriesInput) -> Result<serde_json::Value, String> {
-    if input.target_bin_count == 0 {
-        return Err("targetBinCount must be positive".to_string());
-    }
-    if !input.x_domain[0].is_finite() || !input.x_domain[1].is_finite() {
-        return Err("xDomain bounds must be finite".to_string());
-    }
-
-    let x0 = input.x_domain[0].min(input.x_domain[1]);
-    let x1 = input.x_domain[0].max(input.x_domain[1]);
-    let span = x1 - x0;
-    let bin_width = if span > 0.0 {
-        span / input.target_bin_count as f64
-    } else {
-        1.0
-    };
-    let metric_keys = collect_metric_keys(&input.points);
-    let mut bins = (0..input.target_bin_count)
-        .map(|index| {
-            SeriesBinAccumulator::new(
-                index,
-                input.target_bin_count,
-                x0,
-                x1,
-                bin_width,
-                &metric_keys,
-            )
+    let index = NumericSeriesIndex::from_points(
+        input
+            .points
+            .into_iter()
+            .map(|point| NumericSeriesPoint {
+                source_index: point.index,
+                x: point.x,
+                y: point.y,
+                metrics: point.metrics.unwrap_or_default(),
+            })
+            .collect(),
+    )
+    .map_err(|error| error.to_string())?;
+    let result = index
+        .bin(NumericSeriesBinQuery {
+            x_domain: input.x_domain,
+            target_bin_count: input.target_bin_count,
+            include_empty_bins: input.include_empty_bins.unwrap_or(false),
         })
-        .collect::<Vec<_>>();
+        .map_err(|error| error.to_string())?;
 
-    for point in input.points.iter().filter(|point| {
-        point.x.is_finite() && point.y.is_finite() && point.x >= x0 && point.x <= x1
-    }) {
-        let bin_index = if span > 0.0 {
-            (((point.x - x0) / bin_width).floor() as usize).min(input.target_bin_count - 1)
-        } else {
-            0
-        };
-        bins[bin_index].push(point, &metric_keys);
-    }
-
-    let include_empty_bins = input.include_empty_bins.unwrap_or(false);
-    let visible_bins = bins
-        .into_iter()
-        .filter(|bin| include_empty_bins || bin.point_count > 0)
-        .map(SeriesBinAccumulator::into_value)
-        .collect::<Vec<_>>();
-
-    Ok(serde_json::json!({
-        "bins": visible_bins
-    }))
-}
-
-fn collect_metric_keys(points: &[NumericSeriesKernelPoint]) -> Vec<String> {
-    let mut keys = BTreeMap::<String, ()>::new();
-    for point in points {
-        if let Some(metrics) = &point.metrics {
-            for (key, value) in metrics {
-                if value.is_finite() {
-                    keys.insert(key.clone(), ());
-                }
-            }
-        }
-    }
-    keys.into_keys().collect()
-}
-
-#[derive(Debug, Clone)]
-struct SeriesBinAccumulator {
-    average_y: Option<f64>,
-    first_point_index: Option<usize>,
-    index: usize,
-    last_point_index: Option<usize>,
-    max_y: Option<f64>,
-    metrics: BTreeMap<String, f64>,
-    min_y: Option<f64>,
-    point_count: u64,
-    sum_y: f64,
-    x0: f64,
-    x1: f64,
-}
-
-impl SeriesBinAccumulator {
-    fn new(
-        index: usize,
-        bin_count: usize,
-        x0: f64,
-        x1: f64,
-        bin_width: f64,
-        metric_keys: &[String],
-    ) -> Self {
-        let bin_x0 = x0 + index as f64 * bin_width;
-        Self {
-            average_y: None,
-            first_point_index: None,
-            index,
-            last_point_index: None,
-            max_y: None,
-            metrics: metric_keys.iter().map(|key| (key.clone(), 0.0)).collect(),
-            min_y: None,
-            point_count: 0,
-            sum_y: 0.0,
-            x0: bin_x0,
-            x1: if index + 1 == bin_count {
-                x1
-            } else {
-                bin_x0 + bin_width
-            },
-        }
-    }
-
-    fn push(&mut self, point: &NumericSeriesKernelPoint, metric_keys: &[String]) {
-        self.first_point_index.get_or_insert(point.index);
-        self.last_point_index = Some(point.index);
-        self.point_count += 1;
-        self.sum_y += point.y;
-        self.average_y = Some(self.sum_y / self.point_count as f64);
-        self.min_y = Some(self.min_y.map_or(point.y, |min_y| min_y.min(point.y)));
-        self.max_y = Some(self.max_y.map_or(point.y, |max_y| max_y.max(point.y)));
-
-        for metric_key in metric_keys {
-            let value = point
-                .metrics
-                .as_ref()
-                .and_then(|metrics| metrics.get(metric_key))
-                .copied()
-                .filter(|value| value.is_finite())
-                .unwrap_or(0.0);
-            *self.metrics.entry(metric_key.clone()).or_insert(0.0) += value;
-        }
-    }
-
-    fn into_value(self) -> serde_json::Value {
-        serde_json::json!({
-            "averageY": self.average_y,
-            "firstPointIndex": self.first_point_index,
-            "index": self.index,
-            "lastPointIndex": self.last_point_index,
-            "maxY": self.max_y,
-            "metrics": self.metrics,
-            "minY": self.min_y,
-            "pointCount": self.point_count,
-            "sumY": self.sum_y,
-            "x0": self.x0,
-            "x1": self.x1
-        })
-    }
+    serde_json::to_value(result).map_err(|error| error.to_string())
 }
 
 fn dense_summary_value(summary: &crate::DenseSummary) -> serde_json::Value {

@@ -32,10 +32,12 @@ model-runtime = { workspace = true, optional = true }
 
 [features]
 default = []
-tokenizers = ["dep:tokenizers", "dep:model-runtime", "text-model-runtime/tokenizers"]
-onnx = ["tokenizers", "dep:ort", "dep:ndarray", "text-model-runtime/onnx"]
+model-bundles = ["dep:model-runtime", "tokenizers", "text-model-runtime/model-bundles"]
+tokenizers = ["dep:tokenizers", "text-model-runtime/tokenizers"]
+onnx = ["tokenizers", "model-bundles", "dep:ort", "dep:ndarray", "text-model-runtime/onnx"]
 candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "text-model-runtime/candle"]
-external-tests = ["onnx", "candle"]
+cuda = ["candle", "text-model-runtime/cuda"]
+external-tests = ["onnx", "candle", "model-bundles"]
 
 [dev-dependencies]
 criterion.workspace = true

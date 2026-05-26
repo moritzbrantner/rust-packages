@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 #[cfg(feature = "tokenizers")]
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{OnceLock, RwLock};
 
 #[cfg(feature = "candle")]
 use candle_core::{DType as CandleDType, Device as CandleDevice, Tensor as CandleTensor};
@@ -17,6 +18,110 @@ use model_runtime::{HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, Mo
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use video_analysis_core::{DetectError, Result};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+/// Device preference for Candle-backed native text execution.
+pub enum CandleDevicePreference {
+    /// Run Candle models on CPU.
+    #[serde(rename = "cpu")]
+    Cpu,
+    /// Run Candle models on a CUDA device.
+    #[serde(rename = "cuda")]
+    Cuda {
+        /// CUDA device index.
+        #[serde(rename = "deviceIndex")]
+        device_index: usize,
+    },
+}
+
+impl Default for CandleDevicePreference {
+    fn default() -> Self {
+        Self::Cpu
+    }
+}
+
+static CANDLE_DEVICE_PREFERENCE: OnceLock<RwLock<CandleDevicePreference>> = OnceLock::new();
+
+fn candle_device_preference_lock() -> &'static RwLock<CandleDevicePreference> {
+    CANDLE_DEVICE_PREFERENCE.get_or_init(|| RwLock::new(CandleDevicePreference::Cpu))
+}
+
+/// Sets the process-wide Candle device preference.
+pub fn set_candle_device_preference(preference: CandleDevicePreference) {
+    let mut guard = candle_device_preference_lock()
+        .write()
+        .unwrap_or_else(|err| err.into_inner());
+    *guard = preference;
+}
+
+/// Returns the process-wide Candle device preference.
+pub fn candle_device_preference() -> CandleDevicePreference {
+    *candle_device_preference_lock()
+        .read()
+        .unwrap_or_else(|err| err.into_inner())
+}
+
+/// Validates that the requested Candle device can be initialized.
+#[cfg(feature = "candle")]
+pub fn validate_candle_device_preference(preference: CandleDevicePreference) -> Result<()> {
+    match preference {
+        CandleDevicePreference::Cpu => Ok(()),
+        CandleDevicePreference::Cuda { device_index } => {
+            #[cfg(feature = "cuda")]
+            {
+                if !candle_core::utils::cuda_is_available() {
+                    return Err(candle_cuda_feature_error());
+                }
+                CandleDevice::new_cuda(device_index)
+                    .map(|_| ())
+                    .map_err(|err| candle_cuda_error(device_index, err))
+            }
+            #[cfg(not(feature = "cuda"))]
+            {
+                let _ = device_index;
+                Err(candle_cuda_feature_error())
+            }
+        }
+    }
+}
+
+/// Builds the Candle device selected by the process-wide preference.
+#[cfg(feature = "candle")]
+pub fn candle_device_from_preference() -> Result<CandleDevice> {
+    match candle_device_preference() {
+        CandleDevicePreference::Cpu => Ok(CandleDevice::Cpu),
+        CandleDevicePreference::Cuda { device_index } => {
+            #[cfg(feature = "cuda")]
+            {
+                if !candle_core::utils::cuda_is_available() {
+                    return Err(candle_cuda_feature_error());
+                }
+                CandleDevice::new_cuda(device_index)
+                    .map_err(|err| candle_cuda_error(device_index, err))
+            }
+            #[cfg(not(feature = "cuda"))]
+            {
+                let _ = device_index;
+                Err(candle_cuda_feature_error())
+            }
+        }
+    }
+}
+
+#[cfg(feature = "candle")]
+fn candle_cuda_feature_error() -> DetectError {
+    DetectError::Source(
+        "Candle CUDA requested but this binary was built without the `cuda` feature".to_string(),
+    )
+}
+
+#[cfg(all(feature = "candle", feature = "cuda"))]
+fn candle_cuda_error(device_index: usize, error: candle_core::Error) -> DetectError {
+    DetectError::Source(format!(
+        "failed to initialize Candle CUDA device {device_index}: {error}"
+    ))
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 /// Text-oriented raw prediction shared by local and imported NLP runtimes.
@@ -801,7 +906,7 @@ fn run_candle_token_classifier(
     architecture: CandleTokenClassifierArchitecture,
     tokens: &TokenizedText,
 ) -> Result<(Vec<f32>, Vec<usize>)> {
-    let device = CandleDevice::Cpu;
+    let device = candle_device_from_preference()?;
     let vb = candle_var_builder(model_paths, &device)?;
     let prefixes = model_prefix_candidates(config);
 
@@ -1097,5 +1202,30 @@ mod tests {
         let total = scores.iter().sum::<f32>();
         assert!((total - 1.0).abs() < 0.0001);
         assert!(scores[2] > scores[1]);
+    }
+
+    #[test]
+    fn candle_device_preference_defaults_to_cpu() {
+        assert_eq!(
+            CandleDevicePreference::default(),
+            CandleDevicePreference::Cpu
+        );
+    }
+
+    #[test]
+    fn candle_device_preference_serializes_cpu_metadata() {
+        set_candle_device_preference(CandleDevicePreference::Cpu);
+        let value = serde_json::to_value(candle_device_preference()).unwrap();
+        assert_eq!(value, serde_json::json!({"kind": "cpu"}));
+    }
+
+    #[cfg(all(feature = "candle", not(feature = "cuda")))]
+    #[test]
+    fn candle_cuda_validation_reports_missing_cuda_feature() {
+        let error =
+            validate_candle_device_preference(CandleDevicePreference::Cuda { device_index: 0 })
+                .unwrap_err()
+                .to_string();
+        assert!(error.contains("built without the `cuda` feature"));
     }
 }

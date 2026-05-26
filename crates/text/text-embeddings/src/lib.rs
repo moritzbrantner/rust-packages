@@ -2,10 +2,12 @@
 
 pub mod surface;
 use std::collections::{BTreeMap, BTreeSet};
-#[cfg(feature = "tokenizers")]
+#[cfg(feature = "model-bundles")]
 use std::fs;
+#[cfg(any(feature = "onnx", feature = "model-bundles"))]
+use std::path::Path;
 #[cfg(feature = "tokenizers")]
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 #[cfg(feature = "onnx")]
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "onnx")]
@@ -20,7 +22,7 @@ use candle_nn::VarBuilder as CandleVarBuilder;
 #[cfg(feature = "candle")]
 use candle_transformers::models::{bert as candle_bert, distilbert as candle_distilbert};
 use math_sparse_data::SparseVector;
-#[cfg(feature = "tokenizers")]
+#[cfg(feature = "model-bundles")]
 use model_runtime::ModelBundle;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "tokenizers")]
@@ -359,7 +361,11 @@ pub struct OnnxTextEmbedder<R = UnavailableOnnxRunner> {
     max_tokens: Option<usize>,
 }
 
-#[cfg(all(feature = "tokenizers", not(feature = "onnx")))]
+#[cfg(all(
+    feature = "tokenizers",
+    feature = "model-bundles",
+    not(feature = "onnx")
+))]
 impl OnnxTextEmbedder<UnavailableOnnxRunner> {
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
@@ -376,7 +382,7 @@ impl OnnxTextEmbedder<UnavailableOnnxRunner> {
     }
 }
 
-#[cfg(feature = "onnx")]
+#[cfg(all(feature = "tokenizers", feature = "onnx", feature = "model-bundles"))]
 impl OnnxTextEmbedder<NativeOnnxRunner> {
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
@@ -393,7 +399,7 @@ impl OnnxTextEmbedder<NativeOnnxRunner> {
     }
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 impl<R: OnnxTextEmbeddingRunner> OnnxTextEmbedder<R> {
     /// Builds this value from runner.
     pub fn from_runner(bundle: ModelBundle, runner: R) -> Result<Self> {
@@ -408,7 +414,10 @@ impl<R: OnnxTextEmbeddingRunner> OnnxTextEmbedder<R> {
             max_tokens: model_max_tokens_from_config_path(&info.config_path)?,
         })
     }
+}
 
+#[cfg(feature = "tokenizers")]
+impl<R: OnnxTextEmbeddingRunner> OnnxTextEmbedder<R> {
     /// Returns pooling.
     pub fn pooling(mut self, pooling: PoolingStrategy) -> Self {
         self.pooling = pooling;
@@ -476,7 +485,7 @@ pub struct OnnxBundleInfo {
     pub model_path: PathBuf,
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 /// Validates ONNX bundle.
 pub fn validate_onnx_bundle(bundle: &ModelBundle) -> Result<OnnxBundleInfo> {
     let config_path = required_bundle_file(bundle, "config.json")?;
@@ -493,6 +502,7 @@ pub fn validate_onnx_bundle(bundle: &ModelBundle) -> Result<OnnxBundleInfo> {
 
 #[cfg(feature = "tokenizers")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 enum CandleEmbeddingArchitecture {
     Bert,
     DistilBert,
@@ -513,7 +523,7 @@ pub struct CandleTextEmbedder {
     max_tokens: Option<usize>,
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 impl CandleTextEmbedder {
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
@@ -541,7 +551,10 @@ impl CandleTextEmbedder {
             max_tokens,
         })
     }
+}
 
+#[cfg(feature = "tokenizers")]
+impl CandleTextEmbedder {
     /// Returns pooling.
     pub fn pooling(mut self, pooling: PoolingStrategy) -> Self {
         self.pooling = pooling;
@@ -1236,7 +1249,7 @@ pub fn softmax(logits: &[f32]) -> Vec<f32> {
     values
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(feature = "model-bundles")]
 fn required_bundle_file(bundle: &ModelBundle, remote_path: &str) -> Result<PathBuf> {
     bundle.file_path(remote_path).ok_or_else(|| {
         invalid_argument(format!(
@@ -1246,7 +1259,7 @@ fn required_bundle_file(bundle: &ModelBundle, remote_path: &str) -> Result<PathB
     })
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(feature = "model-bundles")]
 fn first_bundle_file_with_extension(bundle: &ModelBundle, extension: &str) -> Option<PathBuf> {
     bundle
         .manifest
@@ -1258,7 +1271,7 @@ fn first_bundle_file_with_extension(bundle: &ModelBundle, extension: &str) -> Op
         .and_then(|path| bundle.file_path(path))
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(feature = "model-bundles")]
 fn bundle_files_with_extension(bundle: &ModelBundle, extension: &str) -> Vec<PathBuf> {
     bundle
         .manifest
@@ -1271,7 +1284,7 @@ fn bundle_files_with_extension(bundle: &ModelBundle, extension: &str) -> Vec<Pat
         .collect::<Vec<_>>()
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 fn embedding_architecture_from_config(config: &Value) -> Result<CandleEmbeddingArchitecture> {
     let architectures = architectures_from_config(config);
     if architectures.contains(&"DistilBertModel") {
@@ -1293,7 +1306,7 @@ fn embedding_architecture_from_config(config: &Value) -> Result<CandleEmbeddingA
     )))
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 fn architectures_from_config(config: &Value) -> Vec<&str> {
     config
         .get("architectures")
@@ -1304,12 +1317,12 @@ fn architectures_from_config(config: &Value) -> Vec<&str> {
         .collect::<Vec<_>>()
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 fn embedding_dimensions_from_config_path(config_path: &Path) -> Result<Option<usize>> {
     Ok(embedding_dimensions_from_config(&read_json(config_path)?))
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 fn embedding_dimensions_from_config(config: &Value) -> Option<usize> {
     config
         .get("hidden_size")
@@ -1318,12 +1331,12 @@ fn embedding_dimensions_from_config(config: &Value) -> Option<usize> {
         .and_then(|value| usize::try_from(value).ok())
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 fn model_max_tokens_from_config_path(config_path: &Path) -> Result<Option<usize>> {
     Ok(model_max_tokens_from_config(&read_json(config_path)?))
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 fn model_max_tokens_from_config(config: &Value) -> Option<usize> {
     config
         .get("max_position_embeddings")
@@ -1332,7 +1345,7 @@ fn model_max_tokens_from_config(config: &Value) -> Option<usize> {
         .and_then(|value| usize::try_from(value).ok())
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 fn tokenizer_with_model_limit(tokenizer: TokenizerBundle, config: &Value) -> TokenizerBundle {
     match model_max_tokens_from_config(config) {
         Some(max_tokens) => tokenizer.max_length(max_tokens),
@@ -1340,7 +1353,7 @@ fn tokenizer_with_model_limit(tokenizer: TokenizerBundle, config: &Value) -> Tok
     }
 }
 
-#[cfg(feature = "tokenizers")]
+#[cfg(all(feature = "tokenizers", feature = "model-bundles"))]
 fn read_json(path: &Path) -> Result<Value> {
     let data = fs::read(path)?;
     serde_json::from_slice(&data).map_err(|err| {
@@ -1355,7 +1368,7 @@ fn run_candle_embedder(
     architecture: CandleEmbeddingArchitecture,
     tokens: &TokenizedText,
 ) -> Result<(Vec<f32>, Vec<usize>)> {
-    let device = CandleDevice::Cpu;
+    let device = text_model_runtime::candle_device_from_preference()?;
     let vb = candle_var_builder(model_paths, &device)?;
     let prefixes = model_prefix_candidates(config);
 

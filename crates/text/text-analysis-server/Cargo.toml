@@ -21,3 +21,8 @@ video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 text-analysis = { workspace = true, features = ["candle"] }
+text-model-runtime = { workspace = true, features = ["candle"] }
+
+[features]
+default = []
+cuda = ["text-analysis/cuda", "text-model-runtime/cuda"]

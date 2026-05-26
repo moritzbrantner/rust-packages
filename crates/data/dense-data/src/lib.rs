@@ -8,6 +8,7 @@ use math_statistics::{
     CovarianceMatrix, PrincipalComponents, RunningCovariance, WeightedObservation,
 };
 use numbers_core::{NumberSummary, RunningStats};
+use serde::{Deserialize, Serialize};
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -421,6 +422,248 @@ pub struct ClusterResult {
     pub clusters: Vec<DenseCluster>,
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Numeric point used by chart-sized series binning.
+pub struct NumericSeriesPoint {
+    /// Source index used by callers to reattach application data.
+    pub source_index: usize,
+    /// The x coordinate.
+    pub x: f64,
+    /// The y coordinate.
+    pub y: f64,
+    /// Numeric metrics to aggregate with bins.
+    pub metrics: BTreeMap<String, f64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Query for binning an indexed numeric series.
+pub struct NumericSeriesBinQuery {
+    /// Visible x domain.
+    pub x_domain: [f64; 2],
+    /// Requested number of bins.
+    pub target_bin_count: usize,
+    /// Whether empty bins should be returned.
+    #[serde(default)]
+    pub include_empty_bins: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Bounds for an indexed numeric series.
+pub struct NumericSeriesBounds {
+    /// Minimum x value.
+    pub min_x: f64,
+    /// Maximum x value.
+    pub max_x: f64,
+    /// Minimum y value.
+    pub min_y: f64,
+    /// Maximum y value.
+    pub max_y: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// One chart-sized numeric series bin.
+pub struct NumericSeriesBin {
+    /// Average y value.
+    pub average_y: Option<f64>,
+    /// Source index of the first point in this bin.
+    pub first_point_index: Option<usize>,
+    /// Bin index.
+    pub index: usize,
+    /// Source index of the last point in this bin.
+    pub last_point_index: Option<usize>,
+    /// Maximum y value.
+    pub max_y: Option<f64>,
+    /// Aggregated metrics.
+    pub metrics: BTreeMap<String, f64>,
+    /// Minimum y value.
+    pub min_y: Option<f64>,
+    /// Number of points in this bin.
+    pub point_count: u64,
+    /// Sum of y values.
+    pub sum_y: f64,
+    /// Inclusive lower x boundary.
+    pub x0: f64,
+    /// Upper x boundary, except the last bin includes the domain end.
+    pub x1: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Result of numeric series binning.
+pub struct NumericSeriesBinResult {
+    /// Bins produced for the query.
+    pub bins: Vec<NumericSeriesBin>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Sorted numeric series index for repeated chart viewport queries.
+pub struct NumericSeriesIndex {
+    points: Vec<NumericSeriesPoint>,
+    metric_keys: Vec<String>,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+}
+
+impl NumericSeriesIndex {
+    /// Builds an index by dropping invalid records, normalizing metrics, and sorting by x.
+    pub fn from_points(points: Vec<NumericSeriesPoint>) -> Result<Self> {
+        let mut normalized_points = points
+            .into_iter()
+            .filter_map(|point| {
+                if !point.x.is_finite() || !point.y.is_finite() {
+                    return None;
+                }
+
+                Some(NumericSeriesPoint {
+                    source_index: point.source_index,
+                    x: point.x,
+                    y: point.y,
+                    metrics: point
+                        .metrics
+                        .into_iter()
+                        .filter(|(_, value)| value.is_finite())
+                        .collect(),
+                })
+            })
+            .collect::<Vec<_>>();
+
+        normalized_points.sort_by(|left, right| {
+            left.x
+                .total_cmp(&right.x)
+                .then_with(|| left.source_index.cmp(&right.source_index))
+        });
+
+        let metric_keys = collect_numeric_series_metric_keys(&normalized_points);
+        let mut min_x = f64::INFINITY;
+        let mut max_x = f64::NEG_INFINITY;
+        let mut min_y = f64::INFINITY;
+        let mut max_y = f64::NEG_INFINITY;
+
+        for point in &normalized_points {
+            min_x = min_x.min(point.x);
+            max_x = max_x.max(point.x);
+            min_y = min_y.min(point.y);
+            max_y = max_y.max(point.y);
+        }
+
+        if normalized_points.is_empty() {
+            min_x = 0.0;
+            max_x = 0.0;
+            min_y = 0.0;
+            max_y = 0.0;
+        }
+
+        Ok(Self {
+            points: normalized_points,
+            metric_keys,
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+        })
+    }
+
+    /// Returns series bounds, or none when no finite points were indexed.
+    pub fn bounds(&self) -> Option<NumericSeriesBounds> {
+        (!self.points.is_empty()).then_some(NumericSeriesBounds {
+            min_x: self.min_x,
+            max_x: self.max_x,
+            min_y: self.min_y,
+            max_y: self.max_y,
+        })
+    }
+
+    /// Bins points in the requested x domain.
+    pub fn bin(&self, query: NumericSeriesBinQuery) -> Result<NumericSeriesBinResult> {
+        if query.target_bin_count == 0 {
+            return Err(invalid_argument("targetBinCount must be positive"));
+        }
+        if !query.x_domain[0].is_finite() || !query.x_domain[1].is_finite() {
+            return Err(invalid_argument("xDomain bounds must be finite"));
+        }
+
+        let x0 = query.x_domain[0].min(query.x_domain[1]);
+        let x1 = query.x_domain[0].max(query.x_domain[1]);
+        let span = x1 - x0;
+        let bin_width = if span > 0.0 {
+            span / query.target_bin_count as f64
+        } else {
+            1.0
+        };
+        let mut bins = (0..query.target_bin_count)
+            .map(|index| {
+                NumericSeriesBinAccumulator::new(
+                    index,
+                    query.target_bin_count,
+                    x0,
+                    x1,
+                    bin_width,
+                    &self.metric_keys,
+                )
+            })
+            .collect::<Vec<_>>();
+        let start_index = self.lower_bound_by_x(x0);
+        let end_index = self.upper_bound_by_x(x1);
+
+        for point in &self.points[start_index..end_index] {
+            let bin_index = if span > 0.0 {
+                (((point.x - x0) / bin_width).floor() as usize).min(query.target_bin_count - 1)
+            } else {
+                0
+            };
+            bins[bin_index].push(point, &self.metric_keys);
+        }
+
+        Ok(NumericSeriesBinResult {
+            bins: bins
+                .into_iter()
+                .filter(|bin| query.include_empty_bins || bin.point_count > 0)
+                .map(NumericSeriesBinAccumulator::finish)
+                .collect(),
+        })
+    }
+
+    fn lower_bound_by_x(&self, x: f64) -> usize {
+        let mut low = 0;
+        let mut high = self.points.len();
+
+        while low < high {
+            let middle = (low + high) / 2;
+
+            if self.points[middle].x < x {
+                low = middle + 1;
+            } else {
+                high = middle;
+            }
+        }
+
+        low
+    }
+
+    fn upper_bound_by_x(&self, x: f64) -> usize {
+        let mut low = 0;
+        let mut high = self.points.len();
+
+        while low < high {
+            let middle = (low + high) / 2;
+
+            if self.points[middle].x <= x {
+                low = middle + 1;
+            } else {
+                high = middle;
+            }
+        }
+
+        low
+    }
+}
+
 /// Returns dense summary.
 pub fn dense_summary(points: &[DensePoint]) -> Result<DenseSummary> {
     SummaryAccumulator::from_points(points)?.summary()
@@ -767,6 +1010,92 @@ fn squared_distance(left: &[f64], right: &[f64]) -> f64 {
         .sum()
 }
 
+fn collect_numeric_series_metric_keys(points: &[NumericSeriesPoint]) -> Vec<String> {
+    let mut keys = BTreeMap::<String, ()>::new();
+    for point in points {
+        for key in point.metrics.keys() {
+            keys.insert(key.clone(), ());
+        }
+    }
+    keys.into_keys().collect()
+}
+
+#[derive(Debug, Clone)]
+struct NumericSeriesBinAccumulator {
+    average_y: Option<f64>,
+    first_point_index: Option<usize>,
+    index: usize,
+    last_point_index: Option<usize>,
+    max_y: Option<f64>,
+    metrics: BTreeMap<String, f64>,
+    min_y: Option<f64>,
+    point_count: u64,
+    sum_y: f64,
+    x0: f64,
+    x1: f64,
+}
+
+impl NumericSeriesBinAccumulator {
+    fn new(
+        index: usize,
+        bin_count: usize,
+        x0: f64,
+        x1: f64,
+        bin_width: f64,
+        metric_keys: &[String],
+    ) -> Self {
+        let bin_x0 = x0 + index as f64 * bin_width;
+        Self {
+            average_y: None,
+            first_point_index: None,
+            index,
+            last_point_index: None,
+            max_y: None,
+            metrics: metric_keys.iter().map(|key| (key.clone(), 0.0)).collect(),
+            min_y: None,
+            point_count: 0,
+            sum_y: 0.0,
+            x0: bin_x0,
+            x1: if index + 1 == bin_count {
+                x1
+            } else {
+                bin_x0 + bin_width
+            },
+        }
+    }
+
+    fn push(&mut self, point: &NumericSeriesPoint, metric_keys: &[String]) {
+        self.first_point_index.get_or_insert(point.source_index);
+        self.last_point_index = Some(point.source_index);
+        self.point_count += 1;
+        self.sum_y += point.y;
+        self.average_y = Some(self.sum_y / self.point_count as f64);
+        self.min_y = Some(self.min_y.map_or(point.y, |min_y| min_y.min(point.y)));
+        self.max_y = Some(self.max_y.map_or(point.y, |max_y| max_y.max(point.y)));
+
+        for metric_key in metric_keys {
+            *self.metrics.entry(metric_key.clone()).or_insert(0.0) +=
+                point.metrics.get(metric_key).copied().unwrap_or(0.0);
+        }
+    }
+
+    fn finish(self) -> NumericSeriesBin {
+        NumericSeriesBin {
+            average_y: self.average_y,
+            first_point_index: self.first_point_index,
+            index: self.index,
+            last_point_index: self.last_point_index,
+            max_y: self.max_y,
+            metrics: self.metrics,
+            min_y: self.min_y,
+            point_count: self.point_count,
+            sum_y: self.sum_y,
+            x0: self.x0,
+            x1: self.x1,
+        }
+    }
+}
+
 fn validate_point_set(points: &[DensePoint]) -> Result<usize> {
     if points.is_empty() {
         return Err(invalid_argument("dense point set must not be empty"));
@@ -970,6 +1299,89 @@ mod tests {
         assert_eq!(result.clusters[1].point_indices, vec![2, 3]);
         assert_eq!(result.clusters[0].centroid, vec![0.1, 0.05]);
         assert_eq!(result.clusters[1].centroid, vec![9.5, 9.5]);
+    }
+
+    #[test]
+    fn numeric_series_index_sorts_filters_and_bins_points() {
+        let index = NumericSeriesIndex::from_points(vec![
+            NumericSeriesPoint {
+                source_index: 0,
+                x: 10.0,
+                y: 6.0,
+                metrics: BTreeMap::from([("count".to_string(), 1.0)]),
+            },
+            NumericSeriesPoint {
+                source_index: 1,
+                x: f64::NAN,
+                y: 100.0,
+                metrics: BTreeMap::from([("count".to_string(), 100.0)]),
+            },
+            NumericSeriesPoint {
+                source_index: 2,
+                x: 0.0,
+                y: 2.0,
+                metrics: BTreeMap::from([
+                    ("count".to_string(), 1.0),
+                    ("invalid".to_string(), f64::INFINITY),
+                ]),
+            },
+            NumericSeriesPoint {
+                source_index: 3,
+                x: 1.0,
+                y: 4.0,
+                metrics: BTreeMap::from([("count".to_string(), 1.0)]),
+            },
+        ])
+        .unwrap();
+
+        assert_eq!(
+            index.bounds(),
+            Some(NumericSeriesBounds {
+                min_x: 0.0,
+                max_x: 10.0,
+                min_y: 2.0,
+                max_y: 6.0,
+            })
+        );
+
+        let result = index
+            .bin(NumericSeriesBinQuery {
+                x_domain: [10.0, 0.0],
+                target_bin_count: 2,
+                include_empty_bins: true,
+            })
+            .unwrap();
+
+        assert_eq!(result.bins.len(), 2);
+        assert_eq!(result.bins[0].point_count, 2);
+        assert_eq!(result.bins[0].first_point_index, Some(2));
+        assert_eq!(result.bins[0].last_point_index, Some(3));
+        assert_eq!(result.bins[0].metrics.get("count"), Some(&2.0));
+        assert!(!result.bins[0].metrics.contains_key("invalid"));
+        assert_eq!(result.bins[1].point_count, 1);
+        assert_eq!(result.bins[1].first_point_index, Some(0));
+    }
+
+    #[test]
+    fn numeric_series_index_handles_empty_and_empty_bins() {
+        let index = NumericSeriesIndex::from_points(Vec::new()).unwrap();
+
+        assert_eq!(index.bounds(), None);
+
+        let result = index
+            .bin(NumericSeriesBinQuery {
+                x_domain: [0.0, 0.0],
+                target_bin_count: 2,
+                include_empty_bins: true,
+            })
+            .unwrap();
+
+        assert_eq!(result.bins.len(), 2);
+        assert_eq!(result.bins[0].point_count, 0);
+        assert_eq!(result.bins[0].x0, 0.0);
+        assert_eq!(result.bins[0].x1, 1.0);
+        assert_eq!(result.bins[1].x0, 1.0);
+        assert_eq!(result.bins[1].x1, 0.0);
     }
 
     #[test]

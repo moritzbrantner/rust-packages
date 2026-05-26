@@ -21,4 +21,4 @@ serde.workspace = true
 serde_json.workspace = true
 serde-wasm-bindgen = "0.6.5"
 wasm-bindgen = "0.2.105"
-text-embeddings.workspace = true
+text-embeddings = { workspace = true, features = ["candle"] }

@@ -17,6 +17,8 @@ if (typeof process !== "undefined" && process.versions?.node) {
   await initWasm();
 }
 
+export const NumericSeriesIndex = wasmModule.NumericSeriesIndex;
+
 export function packageSurface() {
   return wasmModule.packageSurface();
 }
