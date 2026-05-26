@@ -8,7 +8,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use audio_analysis_core::OwnedAudioWaveformBatch;
-use audio_analysis_io::write_waveform_batch_as_wav;
 use serde::Deserialize;
 use text_core::{tokenize, tokenize_words, TextProcessingOptions, TokenKind};
 
@@ -539,6 +538,53 @@ pub fn transcribe_waveform_batch<T: Transcriber>(
 ) -> Result<TranscriptionResult> {
     write_waveform_batch_as_wav(wav_path, batch)?;
     transcriber.transcribe(wav_path)
+}
+
+fn write_waveform_batch_as_wav(
+    path: impl AsRef<Path>,
+    batch: &OwnedAudioWaveformBatch,
+) -> Result<()> {
+    let view = batch.as_view()?;
+    if view.batch_size() != 1 {
+        return Err(video_analysis_core::DetectError::InvalidArgument(
+            "waveform WAV export requires a batch size of 1".to_string(),
+        )
+        .into());
+    }
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let spec = hound::WavSpec {
+        channels: view.channel_count() as u16,
+        sample_rate: view.sample_rate,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(path, spec).map_err(|err| {
+        video_analysis_core::DetectError::Source(format!(
+            "failed to create WAV `{}`: {err}",
+            path.display()
+        ))
+    })?;
+    for time_index in 0..view.time_steps() {
+        for channel_index in 0..view.channel_count() {
+            let sample = view.waveform(0, channel_index)?[time_index];
+            writer.write_sample(sample).map_err(|err| {
+                video_analysis_core::DetectError::Source(format!(
+                    "failed to write WAV sample `{}`: {err}",
+                    path.display()
+                ))
+            })?;
+        }
+    }
+    writer.finalize().map_err(|err| {
+        video_analysis_core::DetectError::Source(format!(
+            "failed to finalize WAV `{}`: {err}",
+            path.display()
+        ))
+    })?;
+    Ok(())
 }
 
 /// Returns format srt timestamp.

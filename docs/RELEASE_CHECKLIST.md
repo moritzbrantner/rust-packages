@@ -52,6 +52,21 @@ Recommended publish order:
 3. Wave 3 external/runtime crates
 4. Wave 4 `video-analysis` and `video-analysis-cli`
 
+For a text-only release wave, publish and dry-run packages in this order so
+crates.io can resolve each internal dependency from the registry:
+
+1. Prerequisites: `video-analysis-core`, `numbers-core`, `math-signal-core`,
+   `tensor-data`, `audio-analysis-core`, `data-inversion-core`, `jobs-core`,
+   `vector-analysis-core`, `math-sparse-data`, `model-runtime`,
+   `vector-analysis-index`, `video-analysis-ingest`
+2. Text foundations: `text-core`, `text-lexical`, `text-model-runtime`
+3. Text feature crates: `text-embeddings`, `text-transcripts`,
+   `text-linguistics`, `text-retrieval`, `text-analysis`,
+   `text-classification`, `text-generation`, `text-generation-linguistics`,
+   `text-question-answering`
+4. Text adapters: publish each `crates/text/*-cli` and
+   `crates/text/*-server` crate after its paired library crate is published
+
 Do not publish:
 
 - `runtime-artifacts`

@@ -820,7 +820,7 @@ flowchart LR
   crate_text_analysis --> crate_text_linguistics
   crate_text_analysis --> crate_text_retrieval
   crate_text_analysis --> crate_video_analysis_core
-  crate_text_analysis --> crate_model_runtime
+  crate_text_analysis -. optional .-> crate_model_runtime
   crate_text_analysis_cli --> crate_text_analysis
   crate_text_analysis_cli --> crate_video_analysis_core
   crate_text_analysis_server --> crate_text_analysis
@@ -908,7 +908,6 @@ flowchart LR
   crate_text_retrieval_server --> crate_text_retrieval
   crate_text_retrieval_server --> crate_video_analysis_core
   crate_text_transcripts --> crate_audio_analysis_core
-  crate_text_transcripts --> crate_audio_analysis_io
   crate_text_transcripts --> crate_text_core
   crate_text_transcripts --> crate_video_analysis_core
   crate_text_transcripts --> crate_video_analysis_ingest

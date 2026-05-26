@@ -5032,7 +5032,6 @@ name = "text-transcripts"
 version = "0.1.0"
 dependencies = [
  "audio-analysis-core",
- "audio-analysis-io",
  "cmake",
  "hound",
  "serde",

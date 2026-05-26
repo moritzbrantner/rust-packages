@@ -5,7 +5,9 @@ Transcript parsing, ASR command adapters, and native whisper.cpp support for `vi
 ## Feature flags
 
 - `external-tests`: enables ignored CLI-backed smoke tests
-- `native`: builds bundled whisper.cpp support for offline transcription
+- `native`: builds whisper.cpp support for offline transcription. Repository
+  builds use `vendor/whisper.cpp`; crates.io builds must set
+  `WHISPER_CPP_SOURCE_DIR` to a local whisper.cpp source checkout.
 
 ## Example
 

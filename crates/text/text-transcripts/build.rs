@@ -10,11 +10,21 @@ fn main() {
     }
 
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
-    let vendor_dir = manifest_dir
-        .ancestors()
-        .nth(3)
-        .expect("workspace root")
-        .join("vendor/whisper.cpp");
+    let vendor_dir = env::var_os("WHISPER_CPP_SOURCE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            manifest_dir
+                .ancestors()
+                .nth(3)
+                .expect("workspace root")
+                .join("vendor/whisper.cpp")
+        });
+    if !vendor_dir.join("CMakeLists.txt").is_file() {
+        panic!(
+            "text-transcripts native builds require a whisper.cpp source checkout; \
+             set WHISPER_CPP_SOURCE_DIR or build from this repository with vendor/whisper.cpp present"
+        );
+    }
 
     println!("cargo:rerun-if-changed={}", vendor_dir.display());
 
