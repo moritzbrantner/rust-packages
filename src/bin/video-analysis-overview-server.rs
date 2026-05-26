@@ -18,8 +18,8 @@ use video_analysis::{
     image_synthesis, ingest, inversion, jobs, linear, maps_kernels, model_runtime, mvs, numbers,
     opencv_backend, output, posture, posture_io, radiance_fields, radiance_io, radiance_pipeline,
     recognition, reconstruction, sfm, sfm_rust_backend, signal, sparse, split, stats, storage,
-    synthesis, tensor_data, test_support, text_classification, text_core, text_embeddings,
-    text_generation, text_generation_linguistics, text_lexical, text_linguistics,
+    synthesis, tensor_data, test_support, text_analysis, text_classification, text_core,
+    text_embeddings, text_generation, text_generation_linguistics, text_lexical, text_linguistics,
     text_model_runtime, text_question_answering, text_retrieval, text_transcripts, three_d_core,
     three_d_io, three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
     video_segmentation, Timebase, Timestamp,
@@ -1694,6 +1694,7 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "model-runtime" => Some(model_runtime::surface::package_surface()),
         "numbers-core" => Some(numbers_core::surface::package_surface()),
         "tensor-data" => Some(tensor_data::surface::package_surface()),
+        "text-analysis" => Some(text_analysis::surface::package_surface()),
         "text-classification" => Some(text_classification::surface::package_surface()),
         "text-core" => Some(text_core::surface::package_surface()),
         "text-embeddings" => Some(text_embeddings::surface::package_surface()),
@@ -1859,6 +1860,7 @@ fn run_surface_operation_for(
         "model-runtime" => Some(model_runtime::surface::run_surface_operation(request)),
         "numbers-core" => Some(numbers_core::surface::run_surface_operation(request)),
         "tensor-data" => Some(tensor_data::surface::run_surface_operation(request)),
+        "text-analysis" => Some(text_analysis::surface::run_surface_operation(request)),
         "text-classification" => Some(text_classification::surface::run_surface_operation(request)),
         "text-core" => Some(text_core::surface::run_surface_operation(request)),
         "text-embeddings" => Some(text_embeddings::surface::run_surface_operation(request)),
@@ -2278,6 +2280,13 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
+        package: "text-analysis",
+        import_path: "video_analysis::text_analysis",
+        domain: "text",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
         package: "text-classification",
         import_path: "video_analysis::text_classification",
         domain: "text",
@@ -2664,6 +2673,71 @@ mod tests {
             .body
             .contains("\"operation\":\"linguistics.analyze\""));
         assert!(response.body.contains("\"tokens\""));
+    }
+
+    #[test]
+    fn serves_text_analysis_metadata_from_package_route() {
+        let request = Request {
+            method: "GET".to_string(),
+            path: "/api/rust/packages/text-analysis/api/package".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: String::new(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("text-analysis-server"));
+        assert!(response.body.contains("analysis.document"));
+    }
+
+    #[test]
+    fn serves_text_analysis_document_operation_from_package_route() {
+        let request = Request {
+            method: "POST".to_string(),
+            path: "/api/rust/packages/text-analysis/api/run".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: r#"{"operation":"analysis.document","input":{"id":"doc-1","text":"Alice presented the tokenizer roadmap in Berlin."}}"#.to_string(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert!(response
+            .body
+            .contains("\"operation\":\"analysis.document\""));
+        assert!(response.body.contains("\"enrichedStats\""));
+        assert!(response.body.contains("\"lexical\""));
+    }
+
+    #[test]
+    fn expected_text_library_crates_have_overview_surfaces() {
+        let expected = [
+            "text-analysis",
+            "text-core",
+            "text-classification",
+            "text-lexical",
+            "text-linguistics",
+            "text-model-runtime",
+            "text-question-answering",
+            "text-generation",
+            "text-generation-linguistics",
+            "text-retrieval",
+            "text-embeddings",
+            "text-transcripts",
+        ];
+
+        for package in expected {
+            let module = MODULES
+                .iter()
+                .copied()
+                .find(|module| module.package == package)
+                .unwrap_or_else(|| panic!("missing text module registration for {package}"));
+            let surface = package_surface_for(module)
+                .unwrap_or_else(|| panic!("missing package surface for {package}"));
+            assert!(
+                !surface.operations.is_empty(),
+                "missing operations for {package}"
+            );
+        }
     }
 
     #[test]

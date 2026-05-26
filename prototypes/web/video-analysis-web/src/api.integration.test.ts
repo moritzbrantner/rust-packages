@@ -80,6 +80,39 @@ describe("workspace API integration", () => {
     expect(body.dependencies.length).toBeGreaterThan(0);
     expect(body.interop.length).toBeGreaterThan(0);
   }, apiTestTimeoutMs);
+
+  it("serves complete text package overview surfaces", async () => {
+    const response = await fetch(`${baseUrl}/api/workspace-architecture`);
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    const packageNames = new Set(body.packages.map((pkg: { name: string }) => pkg.name));
+    const expectedTextLibraries = [
+      "text-analysis",
+      "text-core",
+      "text-classification",
+      "text-lexical",
+      "text-linguistics",
+      "text-model-runtime",
+      "text-question-answering",
+      "text-generation",
+      "text-generation-linguistics",
+      "text-retrieval",
+      "text-embeddings",
+      "text-transcripts",
+    ];
+
+    expect(packageNames.has("text-analysis")).toBe(true);
+    expect(packageNames.has("text-analysis-server")).toBe(true);
+    expect(packageNames.has("text-analysis-app")).toBe(true);
+    expect(packageNames.has("@mb-rust/text-analysis-wasm")).toBe(true);
+
+    for (const library of expectedTextLibraries) {
+      expect(packageNames.has(`${library}-app`), `${library} app`).toBe(true);
+      expect(packageNames.has(`${library}-server`), `${library} server`).toBe(true);
+      expect(packageNames.has(`@mb-rust/${library}-wasm`), `${library} wasm`).toBe(true);
+    }
+  }, apiTestTimeoutMs);
 });
 
 function availablePort(): Promise<number> {

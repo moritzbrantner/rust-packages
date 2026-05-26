@@ -122,6 +122,7 @@ Runtime and external integration crates use a shared feature policy:
 | `image-analysis-classification` | Image classification model surface | `image-analysis-core`, `model-runtime`, `video-analysis-core` | Classification model presets, class score DTOs, deterministic fallback classifiers, image classification backend traits | Applications labeling images or sampled video frames |
 | `image-analysis-embeddings` | Image embedding model surface | `image-analysis-core`, `model-runtime`, `vector-analysis-core`, `video-analysis-core` | Embedding model presets, image embedding request/result DTOs, deterministic fallback embeddings, vector bridges | Search, recognition, clustering, and multimodal retrieval workflows |
 | `image-analysis-synthesis` | Deterministic inverse image generation | `data-inversion-core`, `image-analysis-core`, `video-analysis-core` | Solid images, gradients, luma-histogram expansion, region painting | Applications reconstructing approximate image buffers from summaries or regions |
+| `text-analysis` | Unified text analysis orchestration | `text-core`, `text-lexical`, `text-linguistics`, `text-embeddings`, `text-retrieval`, `video-analysis-core`, optional `model-runtime` | Document and corpus analysis reports combining core text stats, lexical features, similarity, linguistic summaries, embeddings, retrieval, diagnostics, and reusable report DTOs | Text applications, transcript analysis, search prototypes, and package overview demos |
 | `text-core` | Shared text analysis utilities | `video-analysis-core`, `unicode-normalization`, `unicode-segmentation` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, Unicode word/grapheme spans, script profiles, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
 | `text-lexical` | Lexical features and classical corpus statistics | `text-core`, `math-sparse-data`, `video-analysis-core`, `serde` | Stop words, keywords, n-grams, shingles, readability, stemming, extractive summaries, sentiment, reusable text analyzers, TF-IDF, BM25, sparse term matrices/vectors | Applications, text analytics, semantic indexing |
 | `text-linguistics` | Local model-backed linguistic interpretation | `jobs-core`, `model-runtime`, `text-core`, `text-lexical`, `text-transcripts`, `video-analysis-core`, optional `tokenizers`/Candle crates | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
@@ -1245,6 +1246,9 @@ Allowed internal dependencies:
 - `audio-analysis-separation` -> `video-analysis-core`.
 - `image-analysis-core` -> `video-analysis-core`.
 - `image-analysis-processing` -> `image-analysis-core`,
+  `video-analysis-core`.
+- `text-analysis` -> `text-core`, `text-lexical`,
+  `text-linguistics`, `text-embeddings`, `text-retrieval`,
   `video-analysis-core`.
 - `text-core` -> `video-analysis-core`,
   `unicode-normalization`.

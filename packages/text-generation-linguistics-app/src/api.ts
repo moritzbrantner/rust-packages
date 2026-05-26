@@ -44,11 +44,11 @@ export async function initializeWasm(): Promise<PackageSurface> {
 }
 
 export async function fetchHealth(): Promise<HealthPayload> {
-  return fetchJson<HealthPayload>("/health");
+  return fetchPackageJson<HealthPayload>("/health");
 }
 
 export async function fetchServerSurface(): Promise<PackageSurface> {
-  const metadata = await fetchJson<{ operations: SurfaceOperation[]; library: string }>("/api/package");
+  const metadata = await fetchPackageJson<{ operations: SurfaceOperation[]; library: string }>("/api/package");
   return {
     library: metadata.library,
     version: "0.1.0",
@@ -61,7 +61,7 @@ export async function runOperation(mode: RuntimeMode, operation: string, input: 
   if (mode === "client-wasm") {
     return runWasmOperation({ operation, input });
   }
-  const response = await fetch(`${serverBaseUrl}/api/run`, {
+  const response = await fetchPackageRoute("/api/run", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ operation, input }),
@@ -72,10 +72,22 @@ export async function runOperation(mode: RuntimeMode, operation: string, input: 
   return response.json() as Promise<SurfaceResponse>;
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${serverBaseUrl}${path}`);
+async function fetchPackageJson<T>(path: string): Promise<T> {
+  const response = await fetchPackageRoute(path);
   if (!response.ok) {
     throw new Error(`Server returned ${response.status}`);
   }
   return response.json() as Promise<T>;
+}
+
+async function fetchPackageRoute(path: string, init?: RequestInit): Promise<Response> {
+  const scopedResponse = await fetch(`${serverBaseUrl}${packageRoute(path)}`, init);
+  if (scopedResponse.status !== 404) {
+    return scopedResponse;
+  }
+  return fetch(`${serverBaseUrl}${path}`, init);
+}
+
+function packageRoute(path: string): string {
+  return `/api/rust/packages/${wrappedLibrary}${path}`;
 }
