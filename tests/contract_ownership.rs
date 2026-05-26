@@ -70,21 +70,19 @@ fn native_text_model_runtime_dependencies_are_feature_gated() {
 #[test]
 fn generic_model_runtime_stays_domain_independent() {
     let manifest = read_manifest("crates/runtime/model-runtime/Cargo.toml");
-    for forbidden in [
-        "video-analysis-core",
-        "audio-analysis",
-        "image-analysis",
-        "text-",
-        "comfyui-",
-    ] {
+    for forbidden in ["audio-analysis", "image-analysis", "text-", "comfyui-"] {
         assert!(
             !manifest.contains(forbidden),
             "model-runtime must stay domain-independent and not depend on `{forbidden}`"
         );
     }
     assert!(
-        manifest.contains("jobs-core = { workspace = true, optional = true }"),
-        "model-runtime job helpers must keep jobs-core behind the jobs feature"
+        manifest.contains("jobs-core.workspace = true"),
+        "model-runtime should build model artifact handling on jobs-core generics"
+    );
+    assert!(
+        manifest.contains("video-analysis-core.workspace = true"),
+        "model-runtime surfaces should use video-analysis-core runtime DTOs"
     );
 }
 

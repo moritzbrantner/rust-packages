@@ -54,7 +54,6 @@ Recommended publish order:
 
 Do not publish:
 
-- `video-analysis-runtime-contracts`
 - `runtime-artifacts`
 - `runtime-jobs`
 - `audio-analysis-test-support`

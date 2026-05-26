@@ -4,6 +4,7 @@ use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 
 use crate::{ModelRuntimeError, Result};
+#[cfg(feature = "jobs")]
 use jobs_core::{ArtifactKind, ArtifactRef};
 use serde::{Deserialize, Serialize};
 
@@ -200,6 +201,7 @@ impl ModelBundle {
     }
 
     /// Returns generic job artifact references for the files in this model bundle.
+    #[cfg(feature = "jobs")]
     pub fn artifact_refs(&self) -> Vec<ArtifactRef> {
         self.manifest
             .files
@@ -346,10 +348,12 @@ fn absolute_path(path: PathBuf) -> PathBuf {
     }
 }
 
+#[cfg(feature = "jobs")]
 fn file_uri(path: &Path) -> String {
     format!("file://{}", path.to_string_lossy())
 }
 
+#[cfg(feature = "jobs")]
 fn model_file_kind(remote_path: &str) -> ArtifactKind {
     match model_file_role(remote_path) {
         "config" | "tokenizer" => ArtifactKind::Json,
@@ -358,6 +362,7 @@ fn model_file_kind(remote_path: &str) -> ArtifactKind {
     }
 }
 
+#[cfg(feature = "jobs")]
 fn model_file_media_type(remote_path: &str) -> &'static str {
     if remote_path.ends_with(".json") {
         "application/json"
@@ -368,6 +373,7 @@ fn model_file_media_type(remote_path: &str) -> &'static str {
     }
 }
 
+#[cfg(feature = "jobs")]
 fn model_file_role(remote_path: &str) -> &'static str {
     let file_name = remote_path.rsplit('/').next().unwrap_or(remote_path);
     if file_name == "config.json" {

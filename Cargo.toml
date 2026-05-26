@@ -38,14 +38,10 @@ exclude = [
     "crates/runtime/runtime-artifacts",
     "crates/runtime/runtime-artifacts-cli",
     "crates/runtime/runtime-artifacts-server",
-    "crates/runtime/runtime-contracts",
-    "crates/runtime/runtime-contracts-cli",
-    "crates/runtime/runtime-contracts-server",
     "crates/runtime/runtime-jobs",
     "crates/runtime/runtime-jobs-cli",
     "crates/runtime/runtime-jobs-server",
     "crates/bindings/runtime-artifacts-wasm",
-    "crates/bindings/runtime-contracts-wasm",
     "crates/bindings/runtime-jobs-wasm",
 ]
 resolver = "2"

@@ -53,6 +53,7 @@ fn model_bundle_store_materializes_generic_manifest() {
     assert_eq!(loaded.manifest, bundle.manifest);
 }
 
+#[cfg(feature = "jobs")]
 #[test]
 fn model_bundle_exports_generic_artifact_metadata() {
     let temp = tempdir().unwrap();
