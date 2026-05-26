@@ -19,12 +19,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use video_analysis_core::{DetectError, Result};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 /// Device preference for Candle-backed native text execution.
 pub enum CandleDevicePreference {
     /// Run Candle models on CPU.
     #[serde(rename = "cpu")]
+    #[default]
     Cpu,
     /// Run Candle models on a CUDA device.
     #[serde(rename = "cuda")]
@@ -33,12 +34,6 @@ pub enum CandleDevicePreference {
         #[serde(rename = "deviceIndex")]
         device_index: usize,
     },
-}
-
-impl Default for CandleDevicePreference {
-    fn default() -> Self {
-        Self::Cpu
-    }
 }
 
 static CANDLE_DEVICE_PREFERENCE: OnceLock<RwLock<CandleDevicePreference>> = OnceLock::new();

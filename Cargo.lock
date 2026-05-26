@@ -1690,6 +1690,7 @@ name = "finance-statistics"
 version = "0.1.0"
 dependencies = [
  "numbers-core",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -2179,6 +2180,7 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 name = "graph-analysis-core"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -3330,6 +3332,7 @@ name = "maps-kernels-core"
 version = "0.1.0"
 dependencies = [
  "numbers-core",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -3415,6 +3418,7 @@ name = "math-linear"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "serde",
  "serde_json",
  "tensor-data",
  "vector-analysis-core",
@@ -3459,6 +3463,7 @@ name = "math-signal-core"
 version = "0.1.0"
 dependencies = [
  "numbers-core",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -3502,6 +3507,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "numbers-core",
+ "serde",
  "serde_json",
  "vector-analysis-core",
  "video-analysis-core",
@@ -3547,6 +3553,7 @@ dependencies = [
  "criterion",
  "math-linear",
  "numbers-core",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -5915,6 +5922,7 @@ name = "vector-analysis-core"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]

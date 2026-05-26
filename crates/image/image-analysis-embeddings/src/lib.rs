@@ -240,7 +240,7 @@ pub fn parse_task(input: &str) -> Option<ImageEmbeddingTask> {
         .iter()
         .copied()
         .find(|task| task.path_segment() == input)
-        .or_else(|| match input {
+        .or(match input {
             "image_embedding" | "embedding" => Some(ImageEmbeddingTask::ImageEmbedding),
             "face_embedding" => Some(ImageEmbeddingTask::FaceEmbedding),
             _ => None,

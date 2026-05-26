@@ -208,13 +208,13 @@ pub fn run_video_red_cars(args: VideoRedCarsRequest) -> Result<VideoRedCarsRepor
     let mut detector = if args.vehicle_detector_command.as_os_str().is_empty() {
         RedCarDetector::Native(ColorBlobDetector::red_car())
     } else {
-        RedCarDetector::External(
+        RedCarDetector::External(Box::new(
             ExternalCommandModel::new(
                 &args.vehicle_detector_command,
                 downloaded_external_model("vehicle-detector", ModelTask::ObjectDetection),
             )
             .args(args.vehicle_detector_args.clone()),
-        )
+        ))
     };
     let accepted_labels = accepted_vehicle_labels();
     let mut red_samples = Vec::new();
@@ -396,7 +396,7 @@ fn accepted_vehicle_labels() -> BTreeSet<String> {
 
 enum RedCarDetector {
     Native(ColorBlobDetector),
-    External(ExternalCommandModel),
+    External(Box<ExternalCommandModel>),
 }
 
 fn red_observations_for_frame(

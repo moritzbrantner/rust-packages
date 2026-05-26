@@ -147,7 +147,7 @@ pub fn parse_task(input: &str) -> Option<ImageCaptioningTask> {
         .iter()
         .copied()
         .find(|task| task.path_segment() == input)
-        .or_else(|| match input {
+        .or(match input {
             "image_captioning" | "captioning" => Some(ImageCaptioningTask::ImageCaptioning),
             _ => None,
         })

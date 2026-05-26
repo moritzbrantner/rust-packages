@@ -13,6 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+serde.workspace = true
 serde_json.workspace = true
 tensor-data.workspace = true
 vector-analysis-core.workspace = true

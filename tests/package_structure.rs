@@ -146,7 +146,7 @@ fn library_crates_have_complete_runtime_surfaces() {
             missing.push(format!("{surface_name}: missing {surface_name}-cli"));
         } else {
             let cargo = fs::read_to_string(cli_dir.join("Cargo.toml")).unwrap();
-            if !has_exact_base_dependency(&cargo, &name, &surface_name) {
+            if !has_exact_base_dependency(&cargo, &name, surface_name) {
                 missing.push(format!(
                     "{surface_name}: cli does not depend on exact base crate"
                 ));
@@ -157,7 +157,7 @@ fn library_crates_have_complete_runtime_surfaces() {
             missing.push(format!("{surface_name}: missing {surface_name}-server"));
         } else {
             let cargo = fs::read_to_string(server_dir.join("Cargo.toml")).unwrap();
-            if !has_exact_base_dependency(&cargo, &name, &surface_name) {
+            if !has_exact_base_dependency(&cargo, &name, surface_name) {
                 missing.push(format!(
                     "{surface_name}: server does not depend on exact base crate"
                 ));

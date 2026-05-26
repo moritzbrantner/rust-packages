@@ -1,9 +1,14 @@
 //! Library-owned runtime surface for `math-geometry-2d`.
 
+use serde::Deserialize;
 use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+
+use crate::{Affine2, Bounds2f, Point2f, RectF32};
+
+const MAX_VALUES: usize = 100_000;
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -11,57 +16,228 @@ pub fn package_surface() -> PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
-        operations: vec![SurfaceOperation {
-            id: OperationId::new("describe"),
-            name: "Describe package".to_string(),
-            description: Some(
-                "Shared 2D geometry contracts for multimodal image, video, and layout processing."
-                    .to_string(),
+        operations: vec![
+            operation(
+                "describe",
+                "Describe package",
+                "Shared 2D geometry contracts for multimodal image, video, and layout processing.",
+                serde_json::json!({"includeOperations": true}),
             ),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "additionalProperties": true
-            }),
-            output_schema: serde_json::json!({
-                "type": "object",
-                "required": ["library", "version", "operationCount"]
-            }),
-            example_request: serde_json::json!({
-                "includeOperations": true
-            }),
-            wasm_supported: true,
-            server_supported: true,
-        }],
+            operation(
+                "geometry.bounds",
+                "Point bounds",
+                "Computes 2D bounds, dimensions, and center for finite points.",
+                serde_json::json!({"points": [[0.0, 1.0], [2.0, 3.0]]}),
+            ),
+            operation(
+                "geometry.transform",
+                "Transform points",
+                "Applies an affine transform to finite 2D points and returns transformed bounds.",
+                serde_json::json!({
+                    "points": [[1.0, 2.0]],
+                    "transform": {"m11": 1.0, "m12": 0.0, "m21": 0.0, "m22": 1.0, "tx": 2.0, "ty": 3.0}
+                }),
+            ),
+            operation(
+                "geometry.intersections",
+                "Rectangle intersections",
+                "Checks every rectangle pair and returns intersection rectangles when present.",
+                serde_json::json!({"rects": [{"x": 0.0, "y": 0.0, "width": 2.0, "height": 2.0}]}),
+            ),
+        ],
+    }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    SurfaceOperation {
+        id: OperationId::new(id),
+        name: name.to_string(),
+        description: Some(description.to_string()),
+        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
+        output_schema: serde_json::json!({"type": "object"}),
+        example_request,
+        wasm_supported: true,
+        server_supported: true,
     }
 }
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
-    match request.operation.as_str() {
-        "describe" => {
-            let surface = package_surface();
-            Ok(SurfaceResponse {
-                operation: request.operation,
-                value: serde_json::json!({
-                    "library": surface.library,
-                    "version": surface.version,
-                    "operationCount": surface.operations.len(),
-                    "operations": surface
-                        .operations
-                        .iter()
-                        .map(|operation| operation.id.as_str())
-                        .collect::<Vec<_>>(),
-                    "input": request.input
-                }),
-                diagnostics: Vec::new(),
-                artifacts: Vec::new(),
-            })
+    let operation = request.operation.clone();
+    let value = match request.operation.as_str() {
+        "describe" => describe_value(request.input),
+        "geometry.bounds" => bounds_value(parse_input(request.input)?)?,
+        "geometry.transform" => transform_value(parse_input(request.input)?)?,
+        "geometry.intersections" => intersections_value(parse_input(request.input)?)?,
+        operation => {
+            return Err(format!(
+                "unsupported operation `{operation}` for {}",
+                env!("CARGO_PKG_NAME")
+            ));
         }
-        operation => Err(format!(
-            "unsupported operation `{operation}` for {}",
-            env!("CARGO_PKG_NAME")
-        )),
+    };
+    Ok(response(operation, value))
+}
+
+fn describe_value(input: serde_json::Value) -> serde_json::Value {
+    let surface = package_surface();
+    serde_json::json!({
+        "library": surface.library,
+        "version": surface.version,
+        "operationCount": surface.operations.len(),
+        "operations": surface
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>(),
+        "input": input
+    })
+}
+
+fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PointsRequest {
+    points: Vec<[f32; 2]>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TransformRequest {
+    points: Vec<[f32; 2]>,
+    transform: Affine2,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct IntersectionsRequest {
+    rects: Vec<RectF32>,
+}
+
+fn bounds_value(request: PointsRequest) -> Result<serde_json::Value, String> {
+    let points = points_from_arrays(request.points)?;
+    bounds_json(bounds_for_points(&points)?)
+}
+
+fn transform_value(request: TransformRequest) -> Result<serde_json::Value, String> {
+    request
+        .transform
+        .validate()
+        .map_err(|error| error.to_string())?;
+    let points = points_from_arrays(request.points)?;
+    let transformed = points
+        .into_iter()
+        .map(|point| request.transform.apply_point(point))
+        .collect::<Vec<_>>();
+    let bounds = bounds_for_points(&transformed)?;
+    Ok(serde_json::json!({
+        "determinant": request.transform.determinant().map_err(|error| error.to_string())?,
+        "points": transformed.iter().map(point_array).collect::<Vec<_>>(),
+        "bounds": bounds_json(bounds)?
+    }))
+}
+
+fn intersections_value(request: IntersectionsRequest) -> Result<serde_json::Value, String> {
+    if request.rects.len() > MAX_VALUES {
+        return Err(format!("rects must not exceed {MAX_VALUES}"));
+    }
+    for rect in &request.rects {
+        rect.validate().map_err(|error| error.to_string())?;
+    }
+    let mut pairs = Vec::new();
+    for left_index in 0..request.rects.len() {
+        for right_index in (left_index + 1)..request.rects.len() {
+            let left = request.rects[left_index];
+            let right = request.rects[right_index];
+            let intersection = left
+                .intersection(right)
+                .map_err(|error| error.to_string())?;
+            pairs.push(serde_json::json!({
+                "left": left_index,
+                "right": right_index,
+                "intersects": intersection.is_some(),
+                "intersection": intersection.map(rect_json)
+            }));
+        }
+    }
+    Ok(serde_json::json!({
+        "rectCount": request.rects.len(),
+        "pairs": pairs
+    }))
+}
+
+fn points_from_arrays(points: Vec<[f32; 2]>) -> Result<Vec<Point2f>, String> {
+    if points.is_empty() {
+        return Err("points must not be empty".to_string());
+    }
+    if points.len() > MAX_VALUES {
+        return Err(format!("points must not exceed {MAX_VALUES}"));
+    }
+    points
+        .into_iter()
+        .map(|point| Point2f::new(point[0], point[1]))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())
+}
+
+fn bounds_for_points(points: &[Point2f]) -> Result<Bounds2f, String> {
+    let mut min_x = points[0].x;
+    let mut min_y = points[0].y;
+    let mut max_x = points[0].x;
+    let mut max_y = points[0].y;
+    for point in &points[1..] {
+        min_x = min_x.min(point.x);
+        min_y = min_y.min(point.y);
+        max_x = max_x.max(point.x);
+        max_y = max_y.max(point.y);
+    }
+    Bounds2f::new(
+        Point2f { x: min_x, y: min_y },
+        Point2f { x: max_x, y: max_y },
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn bounds_json(bounds: Bounds2f) -> Result<serde_json::Value, String> {
+    let width = bounds.max.x - bounds.min.x;
+    let height = bounds.max.y - bounds.min.y;
+    Ok(serde_json::json!({
+        "min": point_array(&bounds.min),
+        "max": point_array(&bounds.max),
+        "width": width,
+        "height": height,
+        "center": [bounds.min.x + width / 2.0, bounds.min.y + height / 2.0]
+    }))
+}
+
+fn point_array(point: &Point2f) -> [f32; 2] {
+    [point.x, point.y]
+}
+
+fn rect_json(rect: RectF32) -> serde_json::Value {
+    serde_json::json!({
+        "x": rect.x,
+        "y": rect.y,
+        "width": rect.width,
+        "height": rect.height
+    })
+}
+
+fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
+    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
 }
 
 #[cfg(test)]
@@ -69,21 +245,45 @@ mod tests {
     use super::*;
 
     #[test]
-    fn package_surface_has_describe_operation() {
-        let surface = package_surface();
-        assert_eq!(surface.library, env!("CARGO_PKG_NAME"));
-        assert!(!surface.operations.is_empty());
+    fn bounds_reports_dimensions_and_center() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("geometry.bounds"),
+            input: serde_json::json!({"points": [[0.0, 1.0], [2.0, 5.0]]}),
+        })
+        .expect("bounds operation");
+
+        assert_eq!(response.value["min"], serde_json::json!([0.0, 1.0]));
+        assert_eq!(response.value["max"], serde_json::json!([2.0, 5.0]));
+        assert_eq!(response.value["center"], serde_json::json!([1.0, 3.0]));
     }
 
     #[test]
-    fn describe_operation_returns_surface_summary() {
+    fn transform_applies_affine() {
         let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("describe"),
-            input: serde_json::json!({"includeOperations": true}),
+            operation: OperationId::new("geometry.transform"),
+            input: serde_json::json!({
+                "points": [[1.0, 2.0]],
+                "transform": {"m11": 2.0, "m12": 0.0, "m21": 0.0, "m22": 3.0, "tx": 1.0, "ty": -1.0}
+            }),
         })
-        .expect("describe operation");
+        .expect("transform operation");
 
-        assert_eq!(response.operation.as_str(), "describe");
-        assert_eq!(response.value["library"], env!("CARGO_PKG_NAME"));
+        assert_eq!(response.value["determinant"], 6.0);
+        assert_eq!(response.value["points"], serde_json::json!([[3.0, 5.0]]));
+    }
+
+    #[test]
+    fn intersections_reports_pairs() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("geometry.intersections"),
+            input: serde_json::json!({"rects": [
+                {"x": 0.0, "y": 0.0, "width": 2.0, "height": 2.0},
+                {"x": 1.0, "y": 1.0, "width": 2.0, "height": 2.0}
+            ]}),
+        })
+        .expect("intersections operation");
+
+        assert_eq!(response.value["rectCount"], 2);
+        assert_eq!(response.value["pairs"][0]["intersects"], true);
     }
 }

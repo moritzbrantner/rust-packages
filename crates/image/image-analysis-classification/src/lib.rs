@@ -149,7 +149,7 @@ pub fn parse_task(input: &str) -> Option<ImageClassificationTask> {
         .iter()
         .copied()
         .find(|task| task.path_segment() == input)
-        .or_else(|| match input {
+        .or(match input {
             "image_classification" | "classification" => {
                 Some(ImageClassificationTask::ImageClassification)
             }
