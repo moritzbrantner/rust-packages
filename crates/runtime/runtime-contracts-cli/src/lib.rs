@@ -1,4 +1,4 @@
-use runtime_contracts::{OperationId, PackageSurface, SurfaceRequest, SurfaceResponse};
+use video_analysis_core::runtime::{OperationId, PackageSurface, SurfaceRequest, SurfaceResponse};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "runtime-contracts";
@@ -14,7 +14,7 @@ pub const APP_PACKAGE: &str = "runtime-contracts-app";
 pub const WASM_PACKAGE: &str = "runtime-contracts-wasm";
 
 pub fn package_surface() -> PackageSurface {
-    runtime_contracts::surface::package_surface()
+    video_analysis_core::runtime::surface::package_surface()
 }
 
 pub fn package_metadata_json() -> String {
@@ -44,7 +44,7 @@ pub fn command_schema_json() -> String {
 }
 
 pub fn run_operation(operation: &str, input: serde_json::Value) -> Result<SurfaceResponse, String> {
-    runtime_contracts::surface::run_surface_operation(SurfaceRequest {
+    video_analysis_core::runtime::surface::run_surface_operation(SurfaceRequest {
         operation: OperationId::new(operation),
         input,
     })

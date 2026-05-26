@@ -14,5 +14,4 @@ categories.workspace = true
 
 [dependencies]
 serde_json.workspace = true
-runtime-contracts.workspace = true
 video-analysis-core.workspace = true

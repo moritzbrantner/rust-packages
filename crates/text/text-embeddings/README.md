@@ -2,6 +2,10 @@
 
 Lightweight semantic text embeddings and search for `video-analysis`.
 
+Default builds use deterministic hashed/local embedding behavior. Native model
+execution and tokenizer-backed model support are opt-in through explicit feature
+flags.
+
 ## Feature flags
 
 - `tokenizers`: tokenizer loading and model bundle tokenizer support

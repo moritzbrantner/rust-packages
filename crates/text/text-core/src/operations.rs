@@ -1,5 +1,5 @@
-use runtime_contracts::{Diagnostic, DiagnosticSeverity};
-use runtime_jobs::OperationResult;
+use jobs_core::OperationResult;
+use video_analysis_core::runtime::{Diagnostic, DiagnosticSeverity};
 
 use crate::contracts::{TextStatisticsRequest, TextStatisticsResult};
 use crate::text_stats;

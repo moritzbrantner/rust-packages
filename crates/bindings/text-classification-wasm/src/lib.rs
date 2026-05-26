@@ -1,6 +1,6 @@
 //! WASM bindings for `text-classification`.
 
-use runtime_contracts::SurfaceRequest;
+use video_analysis_core::runtime::SurfaceRequest;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = packageSurface)]

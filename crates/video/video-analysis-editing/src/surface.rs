@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `video-analysis-editing`.
 
-use runtime_contracts::{
+use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };

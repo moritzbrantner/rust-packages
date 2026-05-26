@@ -2,7 +2,7 @@
 
 pub mod surface;
 use runtime_artifacts::ArtifactRef;
-use runtime_contracts::{Diagnostic, JobId, OperationId};
+use video_analysis_core::runtime::{Diagnostic, JobId, OperationId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

@@ -5,10 +5,12 @@ use crate::{
     SurfaceResponse,
 };
 
+const SURFACE_LIBRARY_NAME: &str = "runtime-contracts";
+
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
     PackageSurface {
-        library: env!("CARGO_PKG_NAME").to_string(),
+        library: SURFACE_LIBRARY_NAME.to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![SurfaceOperation {
@@ -55,8 +57,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             })
         }
         operation => Err(format!(
-            "unsupported operation `{operation}` for {}",
-            env!("CARGO_PKG_NAME")
+            "unsupported operation `{operation}` for {SURFACE_LIBRARY_NAME}"
         )),
     }
 }
@@ -68,7 +69,7 @@ mod tests {
     #[test]
     fn package_surface_has_describe_operation() {
         let surface = package_surface();
-        assert_eq!(surface.library, env!("CARGO_PKG_NAME"));
+        assert_eq!(surface.library, SURFACE_LIBRARY_NAME);
         assert!(!surface.operations.is_empty());
     }
 
@@ -81,6 +82,6 @@ mod tests {
         .expect("describe operation");
 
         assert_eq!(response.operation.as_str(), "describe");
-        assert_eq!(response.value["library"], env!("CARGO_PKG_NAME"));
+        assert_eq!(response.value["library"], SURFACE_LIBRARY_NAME);
     }
 }

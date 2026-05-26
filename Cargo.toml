@@ -15,8 +15,38 @@ categories = ["multimedia", "computer-vision", "science", "algorithms"]
 [workspace]
 members = [
     ".",
-    "crates/*/*",
+    "crates/animation/*",
+    "crates/audio/*",
+    "crates/bindings/[a-q]*",
+    "crates/bindings/[s-z]*",
+    "crates/comfyui/*",
+    "crates/data/*",
+    "crates/image/*",
+    "crates/jobs/*",
+    "crates/math/*",
+    "crates/runtime/model-runtime",
+    "crates/runtime/model-runtime-cli",
+    "crates/runtime/model-runtime-server",
+    "crates/test-support/*",
+    "crates/text/*",
+    "crates/three-d/*",
+    "crates/vector/*",
+    "crates/video/*",
     "prototypes/rust/video-analysis-use-cases",
+]
+exclude = [
+    "crates/runtime/runtime-artifacts",
+    "crates/runtime/runtime-artifacts-cli",
+    "crates/runtime/runtime-artifacts-server",
+    "crates/runtime/runtime-contracts",
+    "crates/runtime/runtime-contracts-cli",
+    "crates/runtime/runtime-contracts-server",
+    "crates/runtime/runtime-jobs",
+    "crates/runtime/runtime-jobs-cli",
+    "crates/runtime/runtime-jobs-server",
+    "crates/bindings/runtime-artifacts-wasm",
+    "crates/bindings/runtime-contracts-wasm",
+    "crates/bindings/runtime-jobs-wasm",
 ]
 resolver = "2"
 
@@ -42,6 +72,7 @@ num-traits = "0.2.19"
 rusqlite = "0.32.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+sha2 = "0.10.9"
 geojson = "1"
 shlex = "1.3.0"
 rustfft = "6.2.0"
@@ -69,10 +100,7 @@ geo-data = { version = "0.1.0", path = "crates/data/geo-data" }
 dense-data = { version = "0.1.0", path = "crates/data/dense-data" }
 numbers-core = { version = "0.1.0", path = "crates/data/numbers-core" }
 tensor-data = { version = "0.1.0", path = "crates/data/tensor-data" }
-jobs-core = { version = "0.1.0", path = "crates/jobs/jobs-core" }
-runtime-artifacts = { version = "0.1.0", path = "crates/runtime/runtime-artifacts" }
-runtime-contracts = { version = "0.1.0", path = "crates/runtime/runtime-contracts" }
-runtime-jobs = { version = "0.1.0", path = "crates/runtime/runtime-jobs" }
+jobs-core = { version = "0.1.1", path = "crates/jobs/jobs-core" }
 model-runtime = { version = "0.1.0", path = "crates/runtime/model-runtime" }
 finance-statistics = { version = "0.1.0", path = "crates/math/finance-statistics" }
 maps-kernels-core = { version = "0.1.0", path = "crates/math/maps-kernels-core" }
@@ -123,7 +151,7 @@ three-d-processing-core = { version = "0.1.0", path = "crates/three-d/three-d-pr
 three-d-processing-io = { version = "0.1.0", path = "crates/three-d/three-d-processing-io" }
 three-d-processing-mesh = { version = "0.1.0", path = "crates/three-d/three-d-processing-mesh" }
 three-d-scene-svg = { version = "0.1.0", path = "crates/three-d/three-d-scene-svg" }
-video-analysis-core = { version = "0.1.0", path = "crates/video/video-analysis-core" }
+video-analysis-core = { version = "0.1.1", path = "crates/video/video-analysis-core" }
 video-analysis-data = { version = "0.1.0", path = "crates/video/video-analysis-data" }
 video-analysis-dataset = { version = "0.1.0", path = "crates/video/video-analysis-dataset" }
 video-analysis-detectors = { version = "0.1.0", path = "crates/video/video-analysis-detectors" }
@@ -212,8 +240,6 @@ numbers-core.workspace = true
 tensor-data.workspace = true
 jobs-core.workspace = true
 model-runtime.workspace = true
-runtime-artifacts.workspace = true
-runtime-jobs.workspace = true
 finance-statistics.workspace = true
 maps-kernels-core.workspace = true
 math-geometry-2d.workspace = true
@@ -255,7 +281,6 @@ three-d-processing-mesh.workspace = true
 three-d-scene-svg.workspace = true
 video-analysis-posture-io.workspace = true
 video-analysis-test-support.workspace = true
-runtime-contracts.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

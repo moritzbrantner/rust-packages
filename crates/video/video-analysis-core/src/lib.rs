@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod runtime;
 pub mod surface;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;

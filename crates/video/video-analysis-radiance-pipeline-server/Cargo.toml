@@ -17,7 +17,7 @@ name = "video-analysis-radiance-pipeline-server"
 path = "src/main.rs"
 
 [dependencies]
+video-analysis-core.workspace = true
 clap.workspace = true
-runtime-contracts.workspace = true
 serde_json.workspace = true
 video-analysis-radiance-pipeline = { path = "../video-analysis-radiance-pipeline" }

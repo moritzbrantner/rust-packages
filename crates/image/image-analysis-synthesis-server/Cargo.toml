@@ -17,7 +17,7 @@ name = "image-analysis-synthesis-server"
 path = "src/main.rs"
 
 [dependencies]
+video-analysis-core.workspace = true
 clap.workspace = true
-runtime-contracts.workspace = true
 serde_json.workspace = true
 image-analysis-synthesis = { path = "../image-analysis-synthesis" }

@@ -13,7 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-runtime-contracts.workspace = true
+video-analysis-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tensor-data.workspace = true

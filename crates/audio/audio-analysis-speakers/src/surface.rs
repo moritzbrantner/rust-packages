@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `audio-analysis-speakers`.
 
-use runtime_contracts::{
+use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };

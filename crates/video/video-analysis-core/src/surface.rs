@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `video-analysis-core`.
 
-use runtime_contracts::{
+use crate::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };

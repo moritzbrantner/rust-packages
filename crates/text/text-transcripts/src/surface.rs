@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `text-transcripts`.
 
-use runtime_contracts::{
+use serde::Deserialize;
+use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
-use serde::Deserialize;
 
 use crate::{
     format_srt, parse_plain_lines, parse_srt, parse_webvtt, parse_whisper_json,

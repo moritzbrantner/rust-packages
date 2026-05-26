@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `text-core`.
 
-use runtime_contracts::{
+use serde::Deserialize;
+use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
-use serde::Deserialize;
 
 use crate::{
     detailed_text_stats, detect_script_profile, normalize_text, normalize_whitespace,

@@ -1,11 +1,11 @@
 //! Library-owned runtime surface for `text-embeddings`.
 
-use runtime_contracts::{
+use serde::Deserialize;
+use text_core::TextDocument;
+use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
-use serde::Deserialize;
-use text_core::TextDocument;
 
 use crate::{
     text_similarity, CooccurrenceConfig, CooccurrenceGraph, HashedTextEmbedder, SemanticTextIndex,

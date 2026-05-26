@@ -86,10 +86,6 @@ pub use math_statistics as stats;
 pub use model_runtime;
 /// Re-exports the numbers API.
 pub use numbers_core as numbers;
-/// Re-exports the runtime artifacts API.
-pub use runtime_artifacts;
-/// Re-exports the runtime job API.
-pub use runtime_jobs;
 /// Re-exports the tensor data API.
 pub use tensor_data;
 /// Re-exports the text classification API.

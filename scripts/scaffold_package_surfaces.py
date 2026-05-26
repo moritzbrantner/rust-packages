@@ -29,8 +29,8 @@ def main() -> None:
         name = package["name"]
         description = package.get("description") or f"Runtime surface for the {name} library crate."
 
-        if name != "runtime-contracts":
-            add_dependency(manifest, "runtime-contracts.workspace = true")
+        if name != "video-analysis-core":
+            add_dependency(manifest, "video-analysis-core.workspace = true")
         add_dependency(manifest, "serde_json.workspace = true")
         write_surface_module(crate_dir, name, description)
         expose_surface_module(crate_dir / "src" / "lib.rs")
@@ -108,7 +108,9 @@ def expose_surface_module(lib_rs: Path) -> None:
 
 
 def write_surface_module(crate_dir: Path, name: str, description: str) -> None:
-    contract_import = "crate" if name == "runtime-contracts" else "runtime_contracts"
+    contract_import = (
+        "crate::runtime" if name == "video-analysis-core" else "video_analysis_core::runtime"
+    )
     write(
         crate_dir / "src" / "surface.rs",
         f"""//! Library-owned runtime surface for `{name}`.
@@ -233,7 +235,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
-{"" if name == "runtime-contracts" else "runtime-contracts.workspace = true"}
+{"" if name == "video-analysis-core" else "video-analysis-core.workspace = true"}
 serde_json.workspace = true
 {name} = {{ path = "../{name}" }}
 """,
@@ -268,7 +270,7 @@ cargo run -p {package_name} -- run --operation describe --json '{{"includeOperat
 
 
 def cli_lib_source(name: str) -> str:
-    return f"""use runtime_contracts::{{OperationId, PackageSurface, SurfaceRequest, SurfaceResponse}};
+    return f"""use video_analysis_core::runtime::{{OperationId, PackageSurface, SurfaceRequest, SurfaceResponse}};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "{name}";
@@ -459,7 +461,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
-{"" if name == "runtime-contracts" else "runtime-contracts.workspace = true"}
+{"" if name == "video-analysis-core" else "video-analysis-core.workspace = true"}
 serde_json.workspace = true
 {name} = {{ path = "../{name}" }}
 """,
@@ -515,7 +517,7 @@ def server_lib_source(name: str) -> str:
     return f"""use std::io::{{self, BufRead, BufReader, Read, Write}};
 use std::net::{{TcpListener, TcpStream}};
 
-use runtime_contracts::{{Diagnostic, DiagnosticSeverity, OperationId, SurfaceRequest}};
+use video_analysis_core::runtime::{{Diagnostic, DiagnosticSeverity, OperationId, SurfaceRequest}};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "{name}";
@@ -797,19 +799,19 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 js-sys = "0.3.82"
-runtime-contracts.workspace = true
+{"" if name == "video-analysis-core" else "video-analysis-core.workspace = true"}
 serde.workspace = true
 serde_json.workspace = true
 serde-wasm-bindgen = "0.6.5"
 wasm-bindgen = "0.2.105"
-{"" if name == "runtime-contracts" else f"{name}.workspace = true"}
+{name}.workspace = true
 """,
     )
     write(
         src_dir / "lib.rs",
         f"""//! WASM bindings for `{name}`.
 
-use runtime_contracts::SurfaceRequest;
+use video_analysis_core::runtime::SurfaceRequest;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = packageSurface)]

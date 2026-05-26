@@ -74,13 +74,18 @@ TypeScript declarations into `contracts/generated`. Reuse that idea when a crate
 is ready for generated clients, but do not require every crate to adopt it before
 the operation DTOs are stable.
 
-## Shared Runtime Crates
+## Shared Runtime Ownership
 
-- `runtime-contracts`: diagnostics, operation metadata, runtime capabilities,
-  and stable string identifiers.
-- `runtime-artifacts`: artifact references and minimal memory/local filesystem
-  stores.
-- `runtime-jobs`: serializable job DTOs and `OperationResult<T>`.
+- `video-analysis-core::runtime`: diagnostics, operation metadata, runtime
+  capabilities, package surfaces, surface requests/responses, and lightweight
+  runtime identifiers.
+- `jobs-core`: long-running job execution state, serializable job/result
+  envelopes, generic artifact references, memory/local artifact stores,
+  checksum validation, and downloader/validator traits.
+- `model-runtime`: model-specific tasks, sources, Hugging Face specs,
+  downloaded model records, bundle manifests, model file roles, and
+  model-specific validation.
 
-Keep these crates dependency-light. Add schema or TypeScript generation behind
-features only when this workspace has a concrete generator for the package.
+Keep `jobs-core` dependency-light. HTTP, Hugging Face, ONNX, Candle, tokenizer
+loading, and model bundle schemas belong in model/domain crates, not generic
+job infrastructure.

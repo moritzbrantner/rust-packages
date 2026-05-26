@@ -54,6 +54,32 @@ fn model_bundle_store_materializes_generic_manifest() {
 }
 
 #[test]
+fn model_bundle_exports_generic_artifact_metadata() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("tokenizer.json");
+    std::fs::write(&source, br#"{"tokenizer":"fixture"}"#).unwrap();
+
+    let downloaded = DownloadedModel {
+        spec: ModelSpec::new("owner/model", ModelTask::TextEmbedding)
+            .name("fixture-model")
+            .revision("v1")
+            .file("tokenizer.json"),
+        files: BTreeMap::from([("tokenizer.json".to_string(), source)]),
+    };
+
+    let bundle = ModelBundleStore::new(temp.path().join("bundles"))
+        .materialize(&downloaded)
+        .unwrap();
+    let artifacts = bundle.artifact_refs();
+
+    assert_eq!(artifacts.len(), 1);
+    assert_eq!(artifacts[0].metadata["model.repoId"], "owner/model");
+    assert_eq!(artifacts[0].metadata["model.revision"], "v1");
+    assert_eq!(artifacts[0].metadata["model.task"], "text_embedding");
+    assert_eq!(artifacts[0].metadata["model.fileRole"], "tokenizer");
+}
+
+#[test]
 fn blue_green_prediction_check_remains_generic() {
     let green = vec![RawPrediction::label("positive", 0.9)];
     let blue = vec![RawPrediction::label("positive", 0.90001)];

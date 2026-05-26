@@ -13,7 +13,5 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-runtime-artifacts.workspace = true
-runtime-contracts.workspace = true
 serde.workspace = true
 serde_json.workspace = true

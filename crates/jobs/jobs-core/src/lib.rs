@@ -1,6 +1,9 @@
 #![doc = include_str!("../README.md")]
 
+pub mod artifacts;
 pub mod surface;
+pub use artifacts::*;
+
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -12,6 +15,8 @@ use std::thread::{self, JoinHandle};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+pub use video_analysis_core::runtime::ArtifactId;
+use video_analysis_core::runtime::{Diagnostic, OperationId};
 
 /// Result type used by this crate.
 pub type Result<T> = std::result::Result<T, JobError>;
@@ -21,6 +26,12 @@ pub type Result<T> = std::result::Result<T, JobError>;
 pub enum JobError {
     /// The supplied argument was invalid.
     InvalidArgument(String),
+    /// A referenced job or artifact was not found.
+    NotFound(String),
+    /// A URI or path could not be interpreted safely.
+    InvalidUri(String),
+    /// An I/O operation failed.
+    Io(String),
     /// The job was cancelled.
     Cancelled,
     /// The job failed.
@@ -33,6 +44,9 @@ impl fmt::Display for JobError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidArgument(message) => write!(f, "invalid argument: {message}"),
+            Self::NotFound(message) => write!(f, "not found: {message}"),
+            Self::InvalidUri(uri) => write!(f, "invalid uri: {uri}"),
+            Self::Io(message) => write!(f, "io error: {message}"),
             Self::Cancelled => write!(f, "job cancelled"),
             Self::Failed(message) => write!(f, "job failed: {message}"),
             Self::StateUnavailable(message) => write!(f, "job state unavailable: {message}"),
@@ -41,6 +55,12 @@ impl fmt::Display for JobError {
 }
 
 impl std::error::Error for JobError {}
+
+impl From<std::io::Error> for JobError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error.to_string())
+    }
+}
 
 /// Stable identifier for a job.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -125,6 +145,7 @@ impl JobSpec {
 
 /// Current lifecycle state for a job.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum JobStatus {
     /// The job has been created but has not started.
     Queued,
@@ -235,8 +256,77 @@ impl JobProgress {
     }
 }
 
+/// Serializable manifest for a job-scoped operation.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct JobManifest {
+    /// Stable job identifier.
+    pub job_id: JobId,
+    /// Runtime operation associated with this job.
+    pub operation_id: OperationId,
+    /// Current lifecycle status.
+    pub status: JobStatus,
+    /// Latest progress value.
+    pub progress: Option<JobProgress>,
+    /// Diagnostics emitted by the operation.
+    pub diagnostics: Vec<Diagnostic>,
+    /// Artifacts produced by the operation.
+    pub artifacts: Vec<ArtifactRef>,
+    /// Caller or runtime metadata.
+    pub metadata: serde_json::Value,
+    /// Creation timestamp for lightweight manifests.
+    pub created_at: Option<String>,
+    /// Last update timestamp for lightweight manifests.
+    pub updated_at: Option<String>,
+}
+
+/// Serializable operation result envelope.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct OperationResult<T> {
+    /// Operation value when one was produced.
+    pub value: Option<T>,
+    /// Diagnostics emitted during execution.
+    pub diagnostics: Vec<Diagnostic>,
+    /// Artifacts produced during execution.
+    pub artifacts: Vec<ArtifactRef>,
+}
+
+impl<T> OperationResult<T> {
+    /// Creates a result with a value and no diagnostics or artifacts.
+    pub fn value(value: T) -> Self {
+        Self {
+            value: Some(value),
+            diagnostics: Vec::new(),
+            artifacts: Vec::new(),
+        }
+    }
+
+    /// Creates an empty result envelope.
+    pub fn empty() -> Self {
+        Self {
+            value: None,
+            diagnostics: Vec::new(),
+            artifacts: Vec::new(),
+        }
+    }
+}
+
+/// Serializable job result envelope.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct JobResult<T> {
+    /// Stable job identifier.
+    pub job_id: JobId,
+    /// Terminal or current job status.
+    pub status: JobStatus,
+    /// Operation result payload.
+    pub result: OperationResult<T>,
+}
+
 /// Severity for a job log entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum JobLogLevel {
     /// Verbose diagnostic message.
     Debug,
@@ -908,6 +998,9 @@ impl JobError {
     fn failure_message(&self) -> String {
         match self {
             Self::InvalidArgument(message)
+            | Self::NotFound(message)
+            | Self::InvalidUri(message)
+            | Self::Io(message)
             | Self::Failed(message)
             | Self::StateUnavailable(message) => message.clone(),
             Self::Cancelled => "cancelled".to_string(),
@@ -1008,5 +1101,37 @@ mod tests {
     #[test]
     fn progress_rejects_completed_above_total() {
         assert!(JobProgress::new(5, Some(4)).is_err());
+    }
+
+    #[test]
+    fn operation_result_serializes_contract_fields() {
+        let result = OperationResult::value(42_u32);
+        let json = serde_json::to_string(&result).expect("serialize result");
+
+        assert!(json.contains("\"value\":42"));
+        assert!(json.contains("\"diagnostics\":[]"));
+        assert!(json.contains("\"artifacts\":[]"));
+    }
+
+    #[test]
+    fn job_manifest_uses_camel_case_json() {
+        let manifest = JobManifest {
+            job_id: JobId::new("job-1").unwrap(),
+            operation_id: OperationId::new("describe"),
+            status: JobStatus::Succeeded,
+            progress: Some(JobProgress::new(1, Some(1)).unwrap()),
+            diagnostics: Vec::new(),
+            artifacts: Vec::new(),
+            metadata: serde_json::json!({"kind": "test"}),
+            created_at: Some("unix:1".to_string()),
+            updated_at: Some("unix:2".to_string()),
+        };
+
+        let json = serde_json::to_string(&manifest).expect("serialize manifest");
+
+        assert!(json.contains("\"jobId\":\"job-1\""));
+        assert!(json.contains("\"operationId\":\"describe\""));
+        assert!(json.contains("\"status\":\"succeeded\""));
+        assert!(json.contains("\"createdAt\":\"unix:1\""));
     }
 }

@@ -67,12 +67,15 @@ CLI, HTTP, WASM, and Vite app packages may translate transport concerns, but
 they must not own operation behavior. Library crates own operation metadata,
 example requests, validation, and execution.
 
-The shared DTOs live in `runtime-contracts`:
+The shared DTOs live in `video-analysis-core::runtime`:
 
 - `PackageSurface`
 - `SurfaceOperation`
 - `SurfaceRequest`
 - `SurfaceResponse`
+
+Generic `OperationResult<T>`, `JobResult<T>`, `JobManifest`, `ArtifactRef`, and
+artifact stores live in `jobs-core`.
 
 The generated baseline operation for every crate is `describe`, which returns a
 serializable summary of the library surface. Crates can add richer
@@ -126,8 +129,8 @@ But the request/result contracts stay the same.
 ```
 
 Artifact-producing operations should write files through an artifact store and
-return `ArtifactRef[]` instead of leaking ad hoc output paths into each result
-type. The first shared local layout is:
+return `jobs_core::ArtifactRef[]` instead of leaking ad hoc output paths into
+each result type. The first shared local layout is:
 
 ```text
 .workflow-output/

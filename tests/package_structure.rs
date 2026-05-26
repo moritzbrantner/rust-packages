@@ -130,60 +130,65 @@ fn library_crates_have_complete_runtime_surfaces() {
     for manifest in library_manifests(root) {
         let crate_dir = manifest.parent().expect("crate dir");
         let name = package_name(&manifest);
+        let surface_name = surface_package_name(&name);
         let parent = crate_dir.parent().expect("crate parent");
 
-        let cli_dir = parent.join(format!("{name}-cli"));
-        let server_dir = parent.join(format!("{name}-server"));
+        let cli_dir = parent.join(format!("{surface_name}-cli"));
+        let server_dir = parent.join(format!("{surface_name}-server"));
         let rust_wasm_dir = root
             .join("crates")
             .join("bindings")
-            .join(format!("{name}-wasm"));
-        let package_wasm_dir = root.join("packages").join(format!("{name}-wasm"));
-        let app_dir = root.join("packages").join(format!("{name}-app"));
+            .join(format!("{surface_name}-wasm"));
+        let package_wasm_dir = root.join("packages").join(format!("{surface_name}-wasm"));
+        let app_dir = root.join("packages").join(format!("{surface_name}-app"));
 
         if !cli_dir.join("Cargo.toml").is_file() {
-            missing.push(format!("{name}: missing {name}-cli"));
+            missing.push(format!("{surface_name}: missing {surface_name}-cli"));
         } else {
             let cargo = fs::read_to_string(cli_dir.join("Cargo.toml")).unwrap();
-            if !cargo.contains(&format!("{name} = {{ path = \"../{name}\" }}")) {
-                missing.push(format!("{name}: cli does not depend on exact base crate"));
+            if !has_exact_base_dependency(&cargo, &name, &surface_name) {
+                missing.push(format!(
+                    "{surface_name}: cli does not depend on exact base crate"
+                ));
             }
         }
 
         if !server_dir.join("Cargo.toml").is_file() {
-            missing.push(format!("{name}: missing {name}-server"));
+            missing.push(format!("{surface_name}: missing {surface_name}-server"));
         } else {
             let cargo = fs::read_to_string(server_dir.join("Cargo.toml")).unwrap();
-            if !cargo.contains(&format!("{name} = {{ path = \"../{name}\" }}")) {
+            if !has_exact_base_dependency(&cargo, &name, &surface_name) {
                 missing.push(format!(
-                    "{name}: server does not depend on exact base crate"
+                    "{surface_name}: server does not depend on exact base crate"
                 ));
             }
             let server_lib = fs::read_to_string(server_dir.join("src/lib.rs")).unwrap();
             if server_lib.contains("This generic adapter is ready for crate-specific operations") {
-                missing.push(format!("{name}: server still contains generic placeholder"));
+                missing.push(format!(
+                    "{surface_name}: server still contains generic placeholder"
+                ));
             }
         }
 
         if !rust_wasm_dir.join("Cargo.toml").is_file() {
-            missing.push(format!("{name}: missing Rust wasm crate"));
+            missing.push(format!("{surface_name}: missing Rust wasm crate"));
         }
         if !package_wasm_dir.join("package.json").is_file() {
-            missing.push(format!("{name}: missing Bun wasm package"));
+            missing.push(format!("{surface_name}: missing Bun wasm package"));
         }
         if !app_dir.join("package.json").is_file() {
-            missing.push(format!("{name}: missing Vite app package"));
+            missing.push(format!("{surface_name}: missing Vite app package"));
         } else {
             let package_json = fs::read_to_string(app_dir.join("package.json")).unwrap();
-            if !package_json.contains(&format!("@mb-rust/{name}-wasm")) {
+            if !package_json.contains(&format!("@mb-rust/{surface_name}-wasm")) {
                 missing.push(format!(
-                    "{name}: app does not depend on matching wasm package"
+                    "{surface_name}: app does not depend on matching wasm package"
                 ));
             }
             let api_ts = fs::read_to_string(app_dir.join("src/api.ts")).unwrap();
             if !api_ts.contains("runWasmOperation") || !api_ts.contains("serverBaseUrl") {
                 missing.push(format!(
-                    "{name}: app does not expose both wasm and server runtimes"
+                    "{surface_name}: app does not expose both wasm and server runtimes"
                 ));
             }
         }
@@ -237,6 +242,18 @@ fn package_name(manifest: &Path) -> String {
                 .map(|name| name.trim_matches('"').to_string())
         })
         .expect("package name")
+}
+
+fn surface_package_name(package_name: &str) -> &str {
+    package_name
+}
+
+fn has_exact_base_dependency(cargo: &str, package_name: &str, surface_name: &str) -> bool {
+    cargo.contains(&format!(
+        "{surface_name} = {{ path = \"../{package_name}\" }}"
+    )) || cargo.contains(&format!(
+        "{surface_name} = {{ path = \"../{surface_name}\" }}"
+    ))
 }
 
 fn local_markdown_link_targets(markdown: &str) -> Vec<String> {
@@ -361,6 +378,7 @@ fn collect_manifests(dir: &Path, manifests: &mut Vec<PathBuf>) {
             || file_name == "target"
             || file_name == "vendor"
             || file_name == "node_modules"
+            || is_retired_runtime_surface(&path)
         {
             continue;
         }
@@ -370,4 +388,26 @@ fn collect_manifests(dir: &Path, manifests: &mut Vec<PathBuf>) {
             manifests.push(path);
         }
     }
+}
+
+fn is_retired_runtime_surface(path: &Path) -> bool {
+    path.components().any(|component| {
+        component.as_os_str().to_str().is_some_and(|name| {
+            matches!(
+                name,
+                "runtime-artifacts"
+                    | "runtime-artifacts-cli"
+                    | "runtime-artifacts-server"
+                    | "runtime-artifacts-wasm"
+                    | "runtime-contracts"
+                    | "runtime-contracts-cli"
+                    | "runtime-contracts-server"
+                    | "runtime-contracts-wasm"
+                    | "runtime-jobs"
+                    | "runtime-jobs-cli"
+                    | "runtime-jobs-server"
+                    | "runtime-jobs-wasm"
+            )
+        })
+    })
 }

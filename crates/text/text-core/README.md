@@ -2,6 +2,9 @@
 
 Shared text documents, tokenization, spans, and statistics for `video-analysis`.
 
+Default builds are deterministic, local-first, and do not download models or
+invoke native inference/runtime tools.
+
 ## Feature flags
 
 - No optional feature flags today.

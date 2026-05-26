@@ -2,6 +2,10 @@
 
 Library-first semantic and hybrid retrieval for `video-analysis`.
 
+Default builds are deterministic and local-first. Transcript integration is
+feature-gated, and native model execution stays outside the default dependency
+closure.
+
 ## Highlights
 
 - Deterministic text chunking with token overlap

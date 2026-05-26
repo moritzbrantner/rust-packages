@@ -4,6 +4,7 @@ use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 
 use crate::{ModelRuntimeError, Result};
+use jobs_core::{ArtifactKind, ArtifactRef};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -198,6 +199,39 @@ impl ModelBundle {
             .map(|file| self.root.join(&file.local_path))
     }
 
+    /// Returns generic job artifact references for the files in this model bundle.
+    pub fn artifact_refs(&self) -> Vec<ArtifactRef> {
+        self.manifest
+            .files
+            .iter()
+            .map(|(remote_path, file)| {
+                let local_path = self.root.join(&file.local_path);
+                let mut artifact = ArtifactRef::new(
+                    format!("model:{}", remote_path.replace(['/', '\\'], "_")),
+                    model_file_kind(remote_path),
+                    model_file_media_type(remote_path),
+                    file_uri(&local_path),
+                );
+                artifact.size_bytes = Some(file.size_bytes);
+                artifact
+                    .metadata
+                    .insert("model.repoId".to_string(), self.manifest.repo_id.clone());
+                artifact
+                    .metadata
+                    .insert("model.revision".to_string(), self.manifest.revision.clone());
+                artifact.metadata.insert(
+                    "model.task".to_string(),
+                    self.manifest.task.as_protocol_str().to_string(),
+                );
+                artifact.metadata.insert(
+                    "model.fileRole".to_string(),
+                    model_file_role(remote_path).to_string(),
+                );
+                artifact
+            })
+            .collect()
+    }
+
     /// Converts this value to downloaded model.
     pub fn to_downloaded_model(&self) -> DownloadedModel {
         let files = self
@@ -309,5 +343,46 @@ fn absolute_path(path: PathBuf) -> PathBuf {
         current_dir.join(path)
     } else {
         path
+    }
+}
+
+fn file_uri(path: &Path) -> String {
+    format!("file://{}", path.to_string_lossy())
+}
+
+fn model_file_kind(remote_path: &str) -> ArtifactKind {
+    match model_file_role(remote_path) {
+        "config" | "tokenizer" => ArtifactKind::Json,
+        "vocabulary" => ArtifactKind::Text,
+        _ => ArtifactKind::Binary,
+    }
+}
+
+fn model_file_media_type(remote_path: &str) -> &'static str {
+    if remote_path.ends_with(".json") {
+        "application/json"
+    } else if remote_path.ends_with(".txt") {
+        "text/plain"
+    } else {
+        "application/octet-stream"
+    }
+}
+
+fn model_file_role(remote_path: &str) -> &'static str {
+    let file_name = remote_path.rsplit('/').next().unwrap_or(remote_path);
+    if file_name == "config.json" {
+        "config"
+    } else if file_name.contains("tokenizer") {
+        "tokenizer"
+    } else if matches!(file_name, "vocab.txt" | "merges.txt") {
+        "vocabulary"
+    } else if file_name.ends_with(".onnx")
+        || file_name.ends_with(".safetensors")
+        || file_name.ends_with(".bin")
+        || file_name.ends_with(".pt")
+    {
+        "weights"
+    } else {
+        "artifact"
     }
 }

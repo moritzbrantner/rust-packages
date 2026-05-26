@@ -1,12 +1,12 @@
 //! Library-owned runtime surface for `text-retrieval`.
 
-use runtime_contracts::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
-};
 use serde::Deserialize;
 use text_core::TextProcessingOptions;
 use text_embeddings::{HashedTextEmbedder, TextEmbeddingConfig};
+use video_analysis_core::runtime::{
+    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
+    SurfaceResponse,
+};
 
 use crate::{
     chunk_search_document, rerank_documents, ChunkingOptions, IngestReport, IngestionOptions,

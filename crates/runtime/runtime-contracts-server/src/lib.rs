@@ -1,7 +1,7 @@
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 
-use runtime_contracts::{Diagnostic, DiagnosticSeverity, OperationId, SurfaceRequest};
+use video_analysis_core::runtime::{Diagnostic, DiagnosticSeverity, OperationId, SurfaceRequest};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "runtime-contracts";
@@ -54,7 +54,7 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         ("GET", "/api/operations") => json_response(
             200,
             "OK",
-            serde_json::json!(runtime_contracts::surface::package_surface().operations),
+            serde_json::json!(video_analysis_core::runtime::surface::package_surface().operations),
         ),
         ("POST", "/api/run") => run_response(body),
         ("POST", path) if path.starts_with("/api/") => {
@@ -80,7 +80,7 @@ pub fn package_metadata_json() -> String {
 }
 
 fn package_metadata_value() -> serde_json::Value {
-    let surface = runtime_contracts::surface::package_surface();
+    let surface = video_analysis_core::runtime::surface::package_surface();
     serde_json::json!({
         "package": format!("{}-server", LIBRARY_CRATE),
         "surface": SURFACE_KIND,
@@ -102,7 +102,7 @@ fn package_metadata_value() -> serde_json::Value {
 }
 
 fn schema_value() -> serde_json::Value {
-    let operations = runtime_contracts::surface::package_surface()
+    let operations = video_analysis_core::runtime::surface::package_surface()
         .operations
         .into_iter()
         .map(|operation| {
@@ -159,7 +159,7 @@ fn run_response(body: &str) -> HttpResponse {
 }
 
 fn run_request(request: SurfaceRequest) -> HttpResponse {
-    match runtime_contracts::surface::run_surface_operation(request) {
+    match video_analysis_core::runtime::surface::run_surface_operation(request) {
         Ok(response) => json_response(200, "OK", serde_json::json!(response)),
         Err(error) => diagnostic_response(400, "Bad Request", "operation_failed", &error),
     }

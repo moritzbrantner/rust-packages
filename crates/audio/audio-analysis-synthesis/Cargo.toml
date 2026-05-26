@@ -14,7 +14,6 @@ categories.workspace = true
 
 [dependencies]
 serde_json.workspace = true
-runtime-contracts.workspace = true
 audio-analysis-recognition.workspace = true
 data-inversion-core.workspace = true
 serde.workspace = true

@@ -14,7 +14,6 @@ categories.workspace = true
 
 [dependencies]
 serde_json.workspace = true
-runtime-contracts.workspace = true
 math-linear.workspace = true
 math-statistics.workspace = true
 numbers-core.workspace = true

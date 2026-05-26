@@ -1,11 +1,11 @@
 use clap::Parser;
-use runtime_contracts::{
-    Diagnostic, DiagnosticSeverity, OperationId, PackageSurface, SurfaceRequest, SurfaceResponse,
-};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use video_analysis_core::runtime::{
+    Diagnostic, DiagnosticSeverity, OperationId, PackageSurface, SurfaceRequest, SurfaceResponse,
+};
 
 #[allow(unused_imports)]
 use video_analysis::{
@@ -17,12 +17,12 @@ use video_analysis::{
     image_detection, image_embeddings, image_io, image_ocr, image_processing, image_segmentation,
     image_synthesis, ingest, inversion, jobs, linear, maps_kernels, model_runtime, mvs, numbers,
     opencv_backend, output, posture, posture_io, radiance_fields, radiance_io, radiance_pipeline,
-    recognition, reconstruction, runtime_artifacts, runtime_jobs, sfm, sfm_rust_backend, signal,
-    sparse, split, stats, storage, synthesis, tensor_data, test_support, text_classification,
-    text_core, text_embeddings, text_generation, text_generation_linguistics, text_lexical,
-    text_linguistics, text_model_runtime, text_question_answering, text_retrieval,
-    text_transcripts, three_d_core, three_d_io, three_d_mesh, three_d_scene, tracking, transform,
-    vector_core, vector_index, video_segmentation, Timebase, Timestamp,
+    recognition, reconstruction, sfm, sfm_rust_backend, signal, sparse, split, stats, storage,
+    synthesis, tensor_data, test_support, text_classification, text_core, text_embeddings,
+    text_generation, text_generation_linguistics, text_lexical, text_linguistics,
+    text_model_runtime, text_question_answering, text_retrieval, text_transcripts, three_d_core,
+    three_d_io, three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
+    video_segmentation, Timebase, Timestamp,
 };
 
 #[cfg(feature = "onnx-backend")]
@@ -1693,9 +1693,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "math-statistics" => Some(math_statistics::surface::package_surface()),
         "model-runtime" => Some(model_runtime::surface::package_surface()),
         "numbers-core" => Some(numbers_core::surface::package_surface()),
-        "runtime-artifacts" => Some(runtime_artifacts::surface::package_surface()),
-        "runtime-contracts" => Some(runtime_contracts::surface::package_surface()),
-        "runtime-jobs" => Some(runtime_jobs::surface::package_surface()),
         "tensor-data" => Some(tensor_data::surface::package_surface()),
         "text-classification" => Some(text_classification::surface::package_surface()),
         "text-core" => Some(text_core::surface::package_surface()),
@@ -1861,9 +1858,6 @@ fn run_surface_operation_for(
         "math-statistics" => Some(math_statistics::surface::run_surface_operation(request)),
         "model-runtime" => Some(model_runtime::surface::run_surface_operation(request)),
         "numbers-core" => Some(numbers_core::surface::run_surface_operation(request)),
-        "runtime-artifacts" => Some(runtime_artifacts::surface::run_surface_operation(request)),
-        "runtime-contracts" => Some(runtime_contracts::surface::run_surface_operation(request)),
-        "runtime-jobs" => Some(runtime_jobs::surface::run_surface_operation(request)),
         "tensor-data" => Some(tensor_data::surface::run_surface_operation(request)),
         "text-classification" => Some(text_classification::surface::run_surface_operation(request)),
         "text-core" => Some(text_core::surface::run_surface_operation(request)),
@@ -2273,27 +2267,6 @@ const MODULES: &[ModuleInfo] = &[
         package: "numbers-core",
         import_path: "video_analysis::numbers",
         domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "runtime-artifacts",
-        import_path: "video_analysis::runtime_artifacts",
-        domain: "runtime",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "runtime-contracts",
-        import_path: "runtime_contracts",
-        domain: "runtime",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "runtime-jobs",
-        import_path: "video_analysis::runtime_jobs",
-        domain: "runtime",
         linked: true,
         required_feature: None,
     },

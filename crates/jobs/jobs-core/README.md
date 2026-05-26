@@ -1,6 +1,7 @@
 # jobs-core
 
-Reusable long-running job state for Rust applications.
+Reusable long-running job state and generic artifact handling for Rust
+applications.
 
 ## Highlights
 
@@ -9,6 +10,9 @@ Reusable long-running job state for Rust applications.
 - Cooperative cancellation token that can be shared with worker code
 - Progress snapshots with optional totals and percent calculation
 - Structured logs and artifact records
+- Generic `OperationResult<T>`, `JobResult<T>`, and `JobManifest` envelopes
+- Generic `ArtifactRef` records, memory/local artifact stores, SHA-256
+  validation, and downloader/validator traits
 - In-memory tracker and std-thread runner for small services, CLIs, and tests
 
 ## Example

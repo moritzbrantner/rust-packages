@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `text-classification`.
 
-use runtime_contracts::{
+use serde::Deserialize;
+use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
-use serde::Deserialize;
 
 use crate::{analyze_sentiment, classify_text, model_catalog, parse_task, zero_shot_classify};
 

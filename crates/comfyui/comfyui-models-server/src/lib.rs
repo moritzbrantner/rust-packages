@@ -1,7 +1,7 @@
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 
-use runtime_contracts::{Diagnostic, DiagnosticSeverity, OperationId, SurfaceRequest};
+use video_analysis_core::runtime::{Diagnostic, DiagnosticSeverity, OperationId, SurfaceRequest};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "comfyui-models";

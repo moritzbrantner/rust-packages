@@ -7,7 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use runtime_contracts::{ArtifactId, JobId};
+use video_analysis_core::runtime::{ArtifactId, JobId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

@@ -1,4 +1,4 @@
-use runtime_contracts::{OperationId, PackageSurface, SurfaceRequest, SurfaceResponse};
+use video_analysis_core::runtime::{OperationId, PackageSurface, SurfaceRequest, SurfaceResponse};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "audio-analysis-test-support";

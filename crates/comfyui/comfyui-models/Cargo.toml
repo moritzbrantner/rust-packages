@@ -13,8 +13,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+video-analysis-core.workspace = true
 serde_json.workspace = true
-runtime-contracts.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 

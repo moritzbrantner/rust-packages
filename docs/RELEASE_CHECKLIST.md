@@ -44,16 +44,19 @@ cargo package --allow-dirty -p <crate-name>
 
 Recommended publish order:
 
-1. Wave 1 foundations: `video-analysis-core`, `audio-analysis-core`,
-   `image-analysis-core`, `text-core`, `vector-analysis-core`,
-   `three-d-processing-core`, `data-inversion-core`, `numbers-core`, `dense-data`,
-   `video-analysis-ingest`
+1. Wave 1 foundations: `video-analysis-core`, `jobs-core`, `model-runtime`,
+   `audio-analysis-core`, `image-analysis-core`, `text-core`,
+   `vector-analysis-core`, `three-d-processing-core`, `data-inversion-core`,
+   `numbers-core`, `dense-data`, `video-analysis-ingest`
 2. Wave 2 pure-Rust leaf crates on top of the foundations
 3. Wave 3 external/runtime crates
 4. Wave 4 `video-analysis` and `video-analysis-cli`
 
 Do not publish:
 
+- `video-analysis-runtime-contracts`
+- `runtime-artifacts`
+- `runtime-jobs`
 - `audio-analysis-test-support`
 - `video-analysis-test-support`
 - `video-analysis-use-cases`
@@ -64,3 +67,7 @@ Do not publish:
 - Do not introduce new warnings in publishable crates.
 - Keep external-tool coverage opt-in and non-blocking for normal contributor
   workflows.
+- Runtime surface DTOs live in `video-analysis-core::runtime`.
+- Generic jobs, result envelopes, and artifact storage live in `jobs-core`.
+- Model-specific downloads, bundle manifests, and model artifact metadata live
+  in `model-runtime`.
