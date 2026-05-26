@@ -15,3 +15,14 @@ fn run_endpoint_calls_library_surface() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""operation""#));
 }
+
+#[test]
+fn run_endpoint_calls_representative_operation() {
+    let response = audio_analysis_recognition_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"audio.recognition.compare","input":{"leftSamples":[0.0,1.0,0.0,-1.0],"rightSamples":[0.0,1.0,0.0,-1.0],"sampleRate":4,"fftSize":4,"hopSize":2,"bands":2}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains("audio.recognition.compare"));
+}

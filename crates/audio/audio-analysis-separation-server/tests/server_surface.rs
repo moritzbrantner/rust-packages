@@ -15,3 +15,14 @@ fn run_endpoint_calls_library_surface() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""operation""#));
 }
+
+#[test]
+fn run_endpoint_calls_representative_operation() {
+    let response = audio_analysis_separation_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"audio.separation.expectedStems","input":{"model":"htdemucs","format":"wav"}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains("audio.separation.expectedStems"));
+}

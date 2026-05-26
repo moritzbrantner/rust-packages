@@ -1,9 +1,16 @@
 //! Library-owned runtime surface for `audio-analysis-fourier`.
 
+use audio_analysis_core::WindowFunction;
 use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+
+use crate::{spectrogram, zero_crossing_rate, FourierTransform, StftConfig};
+
+const MAX_SAMPLES: usize = 192_000;
+const DEFAULT_PREVIEW_BINS: usize = 64;
+const DEFAULT_PREVIEW_FRAMES: usize = 16;
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -11,55 +18,230 @@ pub fn package_surface() -> PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
-        operations: vec![SurfaceOperation {
-            id: OperationId::new("describe"),
-            name: "Describe package".to_string(),
-            description: Some(
-                "FFT, STFT, and spectral audio analysis for video-analysis.".to_string(),
+        operations: vec![
+            operation(
+                "describe",
+                "Describe package",
+                "FFT, STFT spectrograms, and spectral features for video-analysis.",
+                serde_json::json!({"includeOperations": true}),
             ),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "additionalProperties": true
-            }),
-            output_schema: serde_json::json!({
-                "type": "object",
-                "required": ["library", "version", "operationCount"]
-            }),
-            example_request: serde_json::json!({
-                "includeOperations": true
-            }),
-            wasm_supported: true,
-            server_supported: true,
-        }],
+            operation(
+                "audio.fourier.spectrum",
+                "Spectrum",
+                "Computes an FFT spectrum and returns dominant-frequency metadata.",
+                serde_json::json!({"samples": [0.0, 1.0, 0.0, -1.0], "sampleRate": 48000, "fftSize": 4}),
+            ),
+            operation(
+                "audio.fourier.spectrogram",
+                "Spectrogram",
+                "Computes deterministic STFT frame summaries.",
+                serde_json::json!({"samples": [0.0, 1.0, 0.0, -1.0, 0.0, 1.0], "sampleRate": 48000, "fftSize": 4, "hopSize": 2}),
+            ),
+            operation(
+                "audio.fourier.features",
+                "Spectral features",
+                "Returns spectral centroid, bandwidth, rolloff, flatness, and zero-crossing rate.",
+                serde_json::json!({"samples": [0.0, 1.0, 0.0, -1.0], "sampleRate": 48000, "fftSize": 4}),
+            ),
+        ],
+    }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    SurfaceOperation {
+        id: OperationId::new(id),
+        name: name.to_string(),
+        description: Some(description.to_string()),
+        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
+        output_schema: serde_json::json!({"type": "object"}),
+        example_request,
+        wasm_supported: true,
+        server_supported: true,
     }
 }
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
-    match request.operation.as_str() {
-        "describe" => {
-            let surface = package_surface();
-            Ok(SurfaceResponse {
-                operation: request.operation,
-                value: serde_json::json!({
-                    "library": surface.library,
-                    "version": surface.version,
-                    "operationCount": surface.operations.len(),
-                    "operations": surface
-                        .operations
-                        .iter()
-                        .map(|operation| operation.id.as_str())
-                        .collect::<Vec<_>>(),
-                    "input": request.input
-                }),
-                diagnostics: Vec::new(),
-                artifacts: Vec::new(),
-            })
+    let operation = request.operation.clone();
+    let value = match request.operation.as_str() {
+        "describe" => describe_value(request.input),
+        "audio.fourier.spectrum" => spectrum_value(request.input)?,
+        "audio.fourier.spectrogram" => spectrogram_value(request.input)?,
+        "audio.fourier.features" => features_value(request.input)?,
+        operation => {
+            return Err(format!(
+                "unsupported operation `{operation}` for {}",
+                env!("CARGO_PKG_NAME")
+            ));
         }
-        operation => Err(format!(
-            "unsupported operation `{operation}` for {}",
-            env!("CARGO_PKG_NAME")
-        )),
+    };
+    Ok(response(operation, value))
+}
+
+fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
+}
+
+fn describe_value(input: serde_json::Value) -> serde_json::Value {
+    let surface = package_surface();
+    serde_json::json!({
+        "library": surface.library,
+        "version": surface.version,
+        "operationCount": surface.operations.len(),
+        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
+        "input": input
+    })
+}
+
+fn spectrum_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let samples = sample_array(&input, "samples")?;
+    let sample_rate = sample_rate(&input)?;
+    let fft_size = positive_usize(&input, "fftSize", 1024)?;
+    let transform = FourierTransform::with_window(fft_size, window_name(&input))
+        .map_err(|error| error.to_string())?;
+    let spectrum = transform
+        .analyze_samples(&samples, sample_rate)
+        .map_err(|error| error.to_string())?;
+    let max_bins =
+        positive_usize(&input, "maxBins", DEFAULT_PREVIEW_BINS)?.min(DEFAULT_PREVIEW_BINS);
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "sampleCount": samples.len(),
+        "fftSize": spectrum.fft_size,
+        "binCount": spectrum.bins.len(),
+        "dominantFrequencyHz": spectrum.dominant_frequency_hz(),
+        "bins": spectrum.bins.iter().take(max_bins).map(|bin| serde_json::json!({
+            "index": bin.index,
+            "frequencyHz": bin.frequency_hz,
+            "magnitude": bin.magnitude,
+            "power": bin.power
+        })).collect::<Vec<_>>()
+    }))
+}
+
+fn spectrogram_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let samples = sample_array(&input, "samples")?;
+    let sample_rate = sample_rate(&input)?;
+    let fft_size = positive_usize(&input, "fftSize", 1024)?;
+    let hop_size = positive_usize(&input, "hopSize", fft_size / 2)?;
+    let config = StftConfig::new(fft_size, hop_size)
+        .map_err(|error| error.to_string())?
+        .window(window_name(&input))
+        .pad_final_frame(
+            input
+                .get("padFinalFrame")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
+        );
+    let frames = spectrogram(&samples, sample_rate, &config).map_err(|error| error.to_string())?;
+    let max_frames =
+        positive_usize(&input, "maxFrames", DEFAULT_PREVIEW_FRAMES)?.min(DEFAULT_PREVIEW_FRAMES);
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "sampleCount": samples.len(),
+        "fftSize": fft_size,
+        "hopSize": hop_size,
+        "frameCount": frames.len(),
+        "frames": frames.iter().take(max_frames).map(|frame| serde_json::json!({
+            "startSample": frame.start_sample,
+            "startSeconds": frame.start_seconds,
+            "dominantFrequencyHz": frame.spectrum.dominant_frequency_hz(),
+            "centroidHz": frame.spectrum.features().centroid_hz
+        })).collect::<Vec<_>>()
+    }))
+}
+
+fn features_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let samples = sample_array(&input, "samples")?;
+    let sample_rate = sample_rate(&input)?;
+    let fft_size = positive_usize(&input, "fftSize", 1024)?;
+    let transform = FourierTransform::with_window(fft_size, window_name(&input))
+        .map_err(|error| error.to_string())?;
+    let spectrum = transform
+        .analyze_samples(&samples, sample_rate)
+        .map_err(|error| error.to_string())?;
+    let features = spectrum.features();
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "sampleCount": samples.len(),
+        "fftSize": fft_size,
+        "centroidHz": features.centroid_hz,
+        "bandwidthHz": features.bandwidth_hz,
+        "rolloffHz": features.rolloff_hz,
+        "flatness": features.flatness,
+        "dominantFrequencyHz": features.dominant_frequency_hz,
+        "zeroCrossingRate": zero_crossing_rate(&samples)
+    }))
+}
+
+fn sample_array(input: &serde_json::Value, field: &str) -> Result<Vec<f32>, String> {
+    let values = input
+        .get(field)
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| format!("{field} must be an array"))?;
+    if values.len() > MAX_SAMPLES {
+        return Err(format!(
+            "{field} must not contain more than {MAX_SAMPLES} samples"
+        ));
+    }
+    values
+        .iter()
+        .map(|value| {
+            let sample = value
+                .as_f64()
+                .ok_or_else(|| format!("{field} must contain only numbers"))?
+                as f32;
+            if sample.is_finite() {
+                Ok(sample)
+            } else {
+                Err(format!("{field} must contain only finite numbers"))
+            }
+        })
+        .collect()
+}
+
+fn sample_rate(input: &serde_json::Value) -> Result<u32, String> {
+    let value = input
+        .get("sampleRate")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(48_000);
+    u32::try_from(value)
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| "sampleRate must be a positive u32".to_string())
+}
+
+fn positive_usize(
+    input: &serde_json::Value,
+    field: &str,
+    default_value: usize,
+) -> Result<usize, String> {
+    let value = input
+        .get(field)
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(default_value as u64);
+    usize::try_from(value)
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| format!("{field} must be positive"))
+}
+
+fn window_name(input: &serde_json::Value) -> WindowFunction {
+    match input.get("window").and_then(serde_json::Value::as_str) {
+        Some("rectangular" | "Rectangular") => WindowFunction::Rectangular,
+        Some("hamming" | "Hamming") => WindowFunction::Hamming,
+        Some("blackman" | "Blackman") => WindowFunction::Blackman,
+        _ => WindowFunction::Hann,
     }
 }
 
@@ -68,21 +250,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn package_surface_has_describe_operation() {
+    fn package_surface_lists_fourier_operations() {
         let surface = package_surface();
-        assert_eq!(surface.library, env!("CARGO_PKG_NAME"));
-        assert!(!surface.operations.is_empty());
+        let ids = surface
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>();
+        assert!(ids.contains(&"audio.fourier.spectrum"));
+        assert!(ids.contains(&"audio.fourier.features"));
     }
 
     #[test]
-    fn describe_operation_returns_surface_summary() {
+    fn spectrum_operation_returns_bins() {
         let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("describe"),
-            input: serde_json::json!({"includeOperations": true}),
+            operation: OperationId::new("audio.fourier.spectrum"),
+            input: serde_json::json!({"samples": [0.0, 1.0, 0.0, -1.0], "sampleRate": 4, "fftSize": 4}),
         })
-        .expect("describe operation");
+        .expect("spectrum");
+        assert_eq!(response.value["fftSize"], 4);
+        assert!(response.value["binCount"].as_u64().unwrap() > 0);
+    }
 
-        assert_eq!(response.operation.as_str(), "describe");
-        assert_eq!(response.value["library"], env!("CARGO_PKG_NAME"));
+    #[test]
+    fn invalid_samples_return_error() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.fourier.features"),
+            input: serde_json::json!({"samples": "bad"}),
+        })
+        .unwrap_err();
+        assert!(error.contains("samples"));
     }
 }

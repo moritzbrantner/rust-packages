@@ -8,3 +8,16 @@ fn cli_adapter_reports_wrapped_library() {
     assert_eq!(surface.library, "audio-analysis-separation");
     assert!(!surface.operations.is_empty());
 }
+
+#[test]
+fn cli_adapter_runs_representative_operation() {
+    let response = audio_analysis_separation_cli::run_operation(
+        "audio.separation.expectedStems",
+        serde_json::json!({"model": "htdemucs", "format": "wav"}),
+    )
+    .expect("run operation");
+    assert_eq!(
+        response.operation.as_str(),
+        "audio.separation.expectedStems"
+    );
+}

@@ -5,59 +5,268 @@ use video_analysis_core::runtime::{
     SurfaceResponse,
 };
 
+use crate::{
+    mean_absolute, peak, rms, samples_to_seconds, seconds_to_samples, FrameSpec, WindowFunction,
+};
+
+const MAX_SAMPLES: usize = 192_000;
+const DEFAULT_PREVIEW_SAMPLES: usize = 1024;
+
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
     PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
-        operations: vec![SurfaceOperation {
-            id: OperationId::new("describe"),
-            name: "Describe package".to_string(),
-            description: Some("Shared audio frame conversion, windowing, and streaming helpers for video-analysis.".to_string()),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "additionalProperties": true
-            }),
-            output_schema: serde_json::json!({
-                "type": "object",
-                "required": ["library", "version", "operationCount"]
-            }),
-            example_request: serde_json::json!({
-                "includeOperations": true
-            }),
-            wasm_supported: true,
-            server_supported: true,
-        }],
+        operations: vec![
+            operation(
+                "describe",
+                "Describe package",
+                "Shared audio frame conversion, windowing, and streaming helpers for video-analysis.",
+                serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "audio.levels",
+                "Audio levels",
+                "Returns deterministic level metrics for normalized audio samples.",
+                serde_json::json!({"samples": [0.0, 0.5, -0.5], "sampleRate": 48000, "channels": 1}),
+            ),
+            operation(
+                "audio.frames",
+                "Audio frames",
+                "Summarizes fixed-size analysis frames over normalized samples.",
+                serde_json::json!({"samples": [0.0, 0.5, -0.5, 0.25], "sampleRate": 48000, "channels": 1, "frameSize": 2, "hopSize": 1}),
+            ),
+            operation(
+                "audio.timestamps",
+                "Audio timestamps",
+                "Converts between seconds, samples, and timestamp ticks for a sample rate.",
+                serde_json::json!({"sampleRate": 48000, "seconds": 1.5, "samplesCount": 72000}),
+            ),
+        ],
+    }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    SurfaceOperation {
+        id: OperationId::new(id),
+        name: name.to_string(),
+        description: Some(description.to_string()),
+        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
+        output_schema: serde_json::json!({"type": "object"}),
+        example_request,
+        wasm_supported: true,
+        server_supported: true,
     }
 }
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
-    match request.operation.as_str() {
-        "describe" => {
-            let surface = package_surface();
-            Ok(SurfaceResponse {
-                operation: request.operation,
-                value: serde_json::json!({
-                    "library": surface.library,
-                    "version": surface.version,
-                    "operationCount": surface.operations.len(),
-                    "operations": surface
-                        .operations
-                        .iter()
-                        .map(|operation| operation.id.as_str())
-                        .collect::<Vec<_>>(),
-                    "input": request.input
-                }),
-                diagnostics: Vec::new(),
-                artifacts: Vec::new(),
-            })
+    let operation = request.operation.clone();
+    let value = match request.operation.as_str() {
+        "describe" => describe_value(request.input),
+        "audio.levels" => levels_value(request.input)?,
+        "audio.frames" => frames_value(request.input)?,
+        "audio.timestamps" => timestamps_value(request.input)?,
+        operation => {
+            return Err(format!(
+                "unsupported operation `{operation}` for {}",
+                env!("CARGO_PKG_NAME")
+            ));
         }
-        operation => Err(format!(
-            "unsupported operation `{operation}` for {}",
-            env!("CARGO_PKG_NAME")
-        )),
+    };
+    Ok(response(operation, value))
+}
+
+fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
+}
+
+fn describe_value(input: serde_json::Value) -> serde_json::Value {
+    let surface = package_surface();
+    serde_json::json!({
+        "library": surface.library,
+        "version": surface.version,
+        "operationCount": surface.operations.len(),
+        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
+        "input": input
+    })
+}
+
+fn levels_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let samples = sample_array(&input, "samples")?;
+    let sample_rate = sample_rate(&input)?;
+    let channels = channels(&input)?;
+    let samples_per_channel = samples_per_channel(samples.len(), channels)?;
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "channels": channels,
+        "sampleCount": samples.len(),
+        "samplesPerChannel": samples_per_channel,
+        "durationSeconds": samples_to_seconds(samples_per_channel as u64, sample_rate).map_err(|error| error.to_string())?,
+        "rms": rms(&samples),
+        "peak": peak(&samples),
+        "meanAbsolute": mean_absolute(&samples),
+        "samplePreview": preview(&samples, input_limit(&input, "previewSamples", DEFAULT_PREVIEW_SAMPLES)?)
+    }))
+}
+
+fn frames_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let samples = sample_array(&input, "samples")?;
+    let sample_rate = sample_rate(&input)?;
+    let channels = channels(&input)?;
+    let frame_size = positive_usize(&input, "frameSize", 1024)?;
+    let hop_size = positive_usize(&input, "hopSize", frame_size)?;
+    let frame_spec = FrameSpec::new(frame_size, hop_size).map_err(|error| error.to_string())?;
+    let window = window_name(input.get("window").and_then(serde_json::Value::as_str));
+    let summaries = frame_spec
+        .frames(&samples)
+        .take(input_limit(&input, "maxFrames", 32)?)
+        .map(|(start_sample, frame)| {
+            let windowed = window.apply(frame);
+            serde_json::json!({
+                "startSample": start_sample,
+                "len": frame.len(),
+                "rms": rms(frame),
+                "peak": peak(frame),
+                "windowedRms": rms(&windowed)
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "channels": channels,
+        "sampleCount": samples.len(),
+        "durationSeconds": samples_to_seconds(samples_per_channel(samples.len(), channels)? as u64, sample_rate).map_err(|error| error.to_string())?,
+        "frameSize": frame_size,
+        "hopSize": hop_size,
+        "frameCount": frame_spec.frame_count(samples.len()),
+        "frames": summaries
+    }))
+}
+
+fn timestamps_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let sample_rate = sample_rate(&input)?;
+    let seconds = input
+        .get("seconds")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    if !seconds.is_finite() || seconds < 0.0 {
+        return Err("seconds must be finite and non-negative".to_string());
+    }
+    let samples_count = input
+        .get("samplesCount")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or_else(|| seconds_to_samples(seconds, sample_rate).unwrap_or(0));
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "seconds": seconds,
+        "samplesFromSeconds": seconds_to_samples(seconds, sample_rate).map_err(|error| error.to_string())?,
+        "samplesCount": samples_count,
+        "secondsFromSamples": samples_to_seconds(samples_count, sample_rate).map_err(|error| error.to_string())?,
+        "timestamp": {
+            "pts": samples_count,
+            "timebase": {"num": 1, "den": sample_rate}
+        }
+    }))
+}
+
+fn sample_array(input: &serde_json::Value, field: &str) -> Result<Vec<f32>, String> {
+    let values = input
+        .get(field)
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| format!("{field} must be an array"))?;
+    if values.len() > MAX_SAMPLES {
+        return Err(format!(
+            "{field} must not contain more than {MAX_SAMPLES} samples"
+        ));
+    }
+    let mut samples = Vec::with_capacity(values.len());
+    for value in values {
+        let sample = value
+            .as_f64()
+            .ok_or_else(|| format!("{field} must contain only numbers"))?
+            as f32;
+        if !sample.is_finite() {
+            return Err(format!("{field} must contain only finite numbers"));
+        }
+        samples.push(sample);
+    }
+    Ok(samples)
+}
+
+fn sample_rate(input: &serde_json::Value) -> Result<u32, String> {
+    let value = input
+        .get("sampleRate")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(48_000);
+    u32::try_from(value)
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| "sampleRate must be a positive u32".to_string())
+}
+
+fn channels(input: &serde_json::Value) -> Result<u16, String> {
+    let value = input
+        .get("channels")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(1);
+    u16::try_from(value)
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| "channels must be a positive u16".to_string())
+}
+
+fn samples_per_channel(sample_count: usize, channels: u16) -> Result<usize, String> {
+    let channels = usize::from(channels);
+    if sample_count % channels != 0 {
+        return Err("sample count must be divisible by channels".to_string());
+    }
+    Ok(sample_count / channels)
+}
+
+fn positive_usize(
+    input: &serde_json::Value,
+    field: &str,
+    default_value: usize,
+) -> Result<usize, String> {
+    let value = input
+        .get(field)
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(default_value as u64);
+    usize::try_from(value)
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| format!("{field} must be positive"))
+}
+
+fn input_limit(
+    input: &serde_json::Value,
+    field: &str,
+    default_value: usize,
+) -> Result<usize, String> {
+    positive_usize(input, field, default_value).map(|value| value.min(DEFAULT_PREVIEW_SAMPLES))
+}
+
+fn preview(samples: &[f32], limit: usize) -> Vec<f32> {
+    samples.iter().copied().take(limit).collect()
+}
+
+fn window_name(name: Option<&str>) -> WindowFunction {
+    match name {
+        Some("hann" | "Hann") => WindowFunction::Hann,
+        Some("hamming" | "Hamming") => WindowFunction::Hamming,
+        _ => WindowFunction::Rectangular,
     }
 }
 
@@ -66,21 +275,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn package_surface_has_describe_operation() {
+    fn package_surface_lists_audio_operations() {
         let surface = package_surface();
-        assert_eq!(surface.library, env!("CARGO_PKG_NAME"));
-        assert!(!surface.operations.is_empty());
+        let ids = surface
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>();
+        assert!(ids.contains(&"audio.levels"));
+        assert!(ids.contains(&"audio.frames"));
+        assert!(ids.contains(&"audio.timestamps"));
     }
 
     #[test]
-    fn describe_operation_returns_surface_summary() {
+    fn levels_operation_returns_summary() {
         let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("describe"),
-            input: serde_json::json!({"includeOperations": true}),
+            operation: OperationId::new("audio.levels"),
+            input: serde_json::json!({"samples": [0.0, 1.0, -1.0], "sampleRate": 3, "channels": 1}),
         })
-        .expect("describe operation");
+        .expect("levels");
+        assert_eq!(response.value["sampleCount"], 3);
+        assert!(response.value["rms"].as_f64().unwrap() > 0.0);
+    }
 
-        assert_eq!(response.operation.as_str(), "describe");
-        assert_eq!(response.value["library"], env!("CARGO_PKG_NAME"));
+    #[test]
+    fn invalid_samples_return_error() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.levels"),
+            input: serde_json::json!({"samples": "bad"}),
+        })
+        .unwrap_err();
+        assert!(error.contains("samples"));
     }
 }

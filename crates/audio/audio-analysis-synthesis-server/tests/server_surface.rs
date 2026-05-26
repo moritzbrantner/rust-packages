@@ -15,3 +15,14 @@ fn run_endpoint_calls_library_surface() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""operation""#));
 }
+
+#[test]
+fn run_endpoint_calls_representative_operation() {
+    let response = audio_analysis_synthesis_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"audio.synthesis.tone","input":{"frequencyHz":440.0,"durationSeconds":0.01,"sampleRate":1000}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains("audio.synthesis.tone"));
+}

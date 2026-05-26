@@ -8,3 +8,13 @@ fn cli_adapter_reports_wrapped_library() {
     assert_eq!(surface.library, "audio-analysis-synthesis");
     assert!(!surface.operations.is_empty());
 }
+
+#[test]
+fn cli_adapter_runs_representative_operation() {
+    let response = audio_analysis_synthesis_cli::run_operation(
+        "audio.synthesis.tone",
+        serde_json::json!({"frequencyHz": 440.0, "durationSeconds": 0.01, "sampleRate": 1000}),
+    )
+    .expect("run operation");
+    assert_eq!(response.operation.as_str(), "audio.synthesis.tone");
+}

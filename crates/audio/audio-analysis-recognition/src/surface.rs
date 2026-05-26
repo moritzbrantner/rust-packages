@@ -5,63 +5,250 @@ use video_analysis_core::runtime::{
     SurfaceResponse,
 };
 
+use crate::{
+    AudioEmbeddingExtractor, AudioMatchOptions, AudioReferenceLibrary, SpectralAudioEmbedder,
+    SpectralEmbeddingConfig,
+};
+
+const MAX_SAMPLES: usize = 192_000;
+const DEFAULT_PREVIEW_VALUES: usize = 32;
+
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
     PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
-        operations: vec![SurfaceOperation {
-            id: OperationId::new("describe"),
-            name: "Describe package".to_string(),
-            description: Some(
-                "Deterministic audio embeddings and similarity search for video-analysis."
-                    .to_string(),
+        operations: vec![
+            operation(
+                "describe",
+                "Describe package",
+                "Deterministic audio embeddings and similarity search for video-analysis.",
+                serde_json::json!({"includeOperations": true}),
             ),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "additionalProperties": true
-            }),
-            output_schema: serde_json::json!({
-                "type": "object",
-                "required": ["library", "version", "operationCount"]
-            }),
-            example_request: serde_json::json!({
-                "includeOperations": true
-            }),
-            wasm_supported: true,
-            server_supported: true,
-        }],
+            operation(
+                "audio.recognition.embed",
+                "Embed audio",
+                "Computes a deterministic spectral embedding for normalized samples.",
+                serde_json::json!({"samples": [0.0, 1.0, 0.0, -1.0], "sampleRate": 48000, "bands": 8}),
+            ),
+            operation(
+                "audio.recognition.compare",
+                "Compare audio",
+                "Compares two in-memory sample arrays by cosine similarity.",
+                serde_json::json!({"leftSamples": [0.0, 1.0, 0.0, -1.0], "rightSamples": [0.0, 1.0, 0.0, -1.0], "sampleRate": 48000}),
+            ),
+            operation(
+                "audio.recognition.search",
+                "Search references",
+                "Builds a transient sample-backed reference library and searches it.",
+                serde_json::json!({"querySamples": [0.0, 1.0, 0.0, -1.0], "sampleRate": 48000, "references": [{"id": "ref-1", "label": "Reference", "samples": [0.0, 1.0, 0.0, -1.0]}]}),
+            ),
+        ],
+    }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    SurfaceOperation {
+        id: OperationId::new(id),
+        name: name.to_string(),
+        description: Some(description.to_string()),
+        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
+        output_schema: serde_json::json!({"type": "object"}),
+        example_request,
+        wasm_supported: true,
+        server_supported: true,
     }
 }
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
-    match request.operation.as_str() {
-        "describe" => {
-            let surface = package_surface();
-            Ok(SurfaceResponse {
-                operation: request.operation,
-                value: serde_json::json!({
-                    "library": surface.library,
-                    "version": surface.version,
-                    "operationCount": surface.operations.len(),
-                    "operations": surface
-                        .operations
-                        .iter()
-                        .map(|operation| operation.id.as_str())
-                        .collect::<Vec<_>>(),
-                    "input": request.input
-                }),
-                diagnostics: Vec::new(),
-                artifacts: Vec::new(),
-            })
+    let operation = request.operation.clone();
+    let value = match request.operation.as_str() {
+        "describe" => describe_value(request.input),
+        "audio.recognition.embed" => embed_value(request.input)?,
+        "audio.recognition.compare" => compare_value(request.input)?,
+        "audio.recognition.search" => search_value(request.input)?,
+        operation => {
+            return Err(format!(
+                "unsupported operation `{operation}` for {}",
+                env!("CARGO_PKG_NAME")
+            ));
         }
-        operation => Err(format!(
-            "unsupported operation `{operation}` for {}",
-            env!("CARGO_PKG_NAME")
-        )),
+    };
+    Ok(response(operation, value))
+}
+
+fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
     }
+}
+
+fn describe_value(input: serde_json::Value) -> serde_json::Value {
+    let surface = package_surface();
+    serde_json::json!({
+        "library": surface.library,
+        "version": surface.version,
+        "operationCount": surface.operations.len(),
+        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
+        "input": input
+    })
+}
+
+fn embed_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let samples = sample_array(&input, "samples")?;
+    let sample_rate = sample_rate(&input)?;
+    let embedder = embedder_from_input(&input)?;
+    let embedding = embedder
+        .embed_samples(&samples, sample_rate)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "sampleCount": samples.len(),
+        "dimensions": embedding.dimensions(),
+        "valuesPreview": embedding.values().iter().copied().take(DEFAULT_PREVIEW_VALUES).collect::<Vec<_>>()
+    }))
+}
+
+fn compare_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let left = sample_array(&input, "leftSamples")?;
+    let right = sample_array(&input, "rightSamples")?;
+    let sample_rate = sample_rate(&input)?;
+    let embedder = embedder_from_input(&input)?;
+    let left_embedding = embedder
+        .embed_samples(&left, sample_rate)
+        .map_err(|error| error.to_string())?;
+    let right_embedding = embedder
+        .embed_samples(&right, sample_rate)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "leftSampleCount": left.len(),
+        "rightSampleCount": right.len(),
+        "dimensions": left_embedding.dimensions(),
+        "similarity": left_embedding.cosine_similarity(&right_embedding).map_err(|error| error.to_string())?
+    }))
+}
+
+fn search_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let query = sample_array(&input, "querySamples")?;
+    let sample_rate = sample_rate(&input)?;
+    let embedder = embedder_from_input(&input)?;
+    let query_embedding = embedder
+        .embed_samples(&query, sample_rate)
+        .map_err(|error| error.to_string())?;
+    let references = input
+        .get("references")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "references must be an array".to_string())?;
+    let mut library = AudioReferenceLibrary::new();
+    for reference in references {
+        let id = reference
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| "reference id must be a string".to_string())?;
+        let label = reference
+            .get("label")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or(id);
+        let samples = sample_array(reference, "samples")?;
+        library
+            .add_reference_samples(id, label, &samples, sample_rate, &embedder)
+            .map_err(|error| error.to_string())?;
+    }
+    let options = AudioMatchOptions::new(
+        input
+            .get("minScore")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0) as f32,
+    )
+    .map_err(|error| error.to_string())?
+    .max_results(positive_usize(&input, "topK", 5)?);
+    let matches = library
+        .search(&query_embedding, &options)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "querySampleCount": query.len(),
+        "referenceCount": library.len(),
+        "matches": matches.into_iter().map(|matched| serde_json::json!({
+            "id": matched.reference_id,
+            "label": matched.label,
+            "score": matched.score
+        })).collect::<Vec<_>>()
+    }))
+}
+
+fn embedder_from_input(input: &serde_json::Value) -> Result<SpectralAudioEmbedder, String> {
+    let fft_size = positive_usize(input, "fftSize", 512)?;
+    let hop_size = positive_usize(input, "hopSize", fft_size / 2)?;
+    let bands = positive_usize(input, "bands", 8)?;
+    SpectralAudioEmbedder::new(
+        SpectralEmbeddingConfig::new(fft_size, hop_size, bands)
+            .map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn sample_array(input: &serde_json::Value, field: &str) -> Result<Vec<f32>, String> {
+    let values = input
+        .get(field)
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| format!("{field} must be an array"))?;
+    if values.len() > MAX_SAMPLES {
+        return Err(format!(
+            "{field} must not contain more than {MAX_SAMPLES} samples"
+        ));
+    }
+    values
+        .iter()
+        .map(|value| {
+            let sample = value
+                .as_f64()
+                .ok_or_else(|| format!("{field} must contain only numbers"))?
+                as f32;
+            if sample.is_finite() {
+                Ok(sample)
+            } else {
+                Err(format!("{field} must contain only finite numbers"))
+            }
+        })
+        .collect()
+}
+
+fn sample_rate(input: &serde_json::Value) -> Result<u32, String> {
+    let value = input
+        .get("sampleRate")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(48_000);
+    u32::try_from(value)
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| "sampleRate must be a positive u32".to_string())
+}
+
+fn positive_usize(
+    input: &serde_json::Value,
+    field: &str,
+    default_value: usize,
+) -> Result<usize, String> {
+    let value = input
+        .get(field)
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(default_value as u64);
+    usize::try_from(value)
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| format!("{field} must be positive"))
 }
 
 #[cfg(test)]
@@ -69,21 +256,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn package_surface_has_describe_operation() {
+    fn package_surface_lists_recognition_operations() {
         let surface = package_surface();
-        assert_eq!(surface.library, env!("CARGO_PKG_NAME"));
-        assert!(!surface.operations.is_empty());
+        let ids = surface
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>();
+        assert!(ids.contains(&"audio.recognition.embed"));
+        assert!(ids.contains(&"audio.recognition.search"));
     }
 
     #[test]
-    fn describe_operation_returns_surface_summary() {
+    fn compare_operation_returns_similarity() {
         let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("describe"),
-            input: serde_json::json!({"includeOperations": true}),
+            operation: OperationId::new("audio.recognition.compare"),
+            input: serde_json::json!({
+                "leftSamples": [0.0, 1.0, 0.0, -1.0],
+                "rightSamples": [0.0, 1.0, 0.0, -1.0],
+                "sampleRate": 4,
+                "fftSize": 4,
+                "hopSize": 2,
+                "bands": 2
+            }),
         })
-        .expect("describe operation");
+        .expect("compare");
+        assert!(response.value["similarity"].as_f64().unwrap() > 0.9);
+    }
 
-        assert_eq!(response.operation.as_str(), "describe");
-        assert_eq!(response.value["library"], env!("CARGO_PKG_NAME"));
+    #[test]
+    fn invalid_samples_return_error() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.recognition.embed"),
+            input: serde_json::json!({"samples": "bad"}),
+        })
+        .unwrap_err();
+        assert!(error.contains("samples"));
     }
 }

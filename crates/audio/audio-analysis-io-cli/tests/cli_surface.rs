@@ -5,3 +5,13 @@ fn cli_adapter_reports_wrapped_library() {
     assert_eq!(surface.library, "audio-analysis-io");
     assert!(!surface.operations.is_empty());
 }
+
+#[test]
+fn cli_adapter_runs_representative_operation() {
+    let response = audio_analysis_io_cli::run_operation(
+        "audio.io.inputPlan",
+        serde_json::json!({"source": "clip.wav"}),
+    )
+    .expect("run operation");
+    assert_eq!(response.operation.as_str(), "audio.io.inputPlan");
+}

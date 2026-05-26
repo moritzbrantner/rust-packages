@@ -8,3 +8,13 @@ fn cli_adapter_reports_wrapped_library() {
     assert_eq!(surface.library, "audio-analysis-core");
     assert!(!surface.operations.is_empty());
 }
+
+#[test]
+fn cli_adapter_runs_representative_operation() {
+    let response = audio_analysis_core_cli::run_operation(
+        "audio.levels",
+        serde_json::json!({"samples": [0.0, 1.0, -1.0], "sampleRate": 3, "channels": 1}),
+    )
+    .expect("run operation");
+    assert_eq!(response.operation.as_str(), "audio.levels");
+}

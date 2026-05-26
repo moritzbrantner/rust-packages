@@ -48,6 +48,15 @@ non-executing runtime helpers. These operations must continue to return
 must not silently download models, run native inference, invoke ASR commands, or
 write retrieval persistence files through default surface calls.
 
+The audio crate surfaces now follow the same parity rule. Default audio
+operations expose deterministic, in-memory signal summaries, FFT/STFT features,
+pitch and rhythm projections, processing summaries, spectral recognition,
+speaker baselines, synthesis, MIDI rendering, fixture generation, and
+non-executing I/O/separation plans. They must reject invalid sample metadata and
+non-finite samples, cap preview payloads, return `SurfaceResponse` JSON values,
+and avoid FFmpeg, Demucs, model downloads, native inference, filesystem writes,
+or network access in default calls.
+
 ## Contract Ownership Rule
 
 The crate that owns the most general semantic form owns the stable contract.
