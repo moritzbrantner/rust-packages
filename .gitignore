@@ -6,6 +6,7 @@ audio-tools/
 .test-corpora/
 test-corpora/
 .video-analysis-models/
+.model-runtime/
 .env
 .env.*
 !.env.example
