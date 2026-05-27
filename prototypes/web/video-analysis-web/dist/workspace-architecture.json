@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-26T18:55:58.051Z",
+  "generatedAt": "2026-05-27T11:03:13.207Z",
   "packages": [
     {
       "name": "video-analysis",
@@ -942,7 +942,8 @@
       "exposes": [
         "CLI commands",
         "package catalog metadata",
-        "and file outputs"
+        "file outputs",
+        "and primitive JSON analysis reports"
       ],
       "consumedBy": [
         "End users",
@@ -16288,6 +16289,11 @@
     },
     {
       "source": "text-analysis-server",
+      "target": "text-model-runtime",
+      "optional": false
+    },
+    {
+      "source": "text-analysis-server",
       "target": "video-analysis-core",
       "optional": false
     },
@@ -16444,6 +16450,11 @@
     {
       "source": "text-embeddings-server",
       "target": "text-embeddings",
+      "optional": false
+    },
+    {
+      "source": "text-embeddings-server",
+      "target": "text-model-runtime",
       "optional": false
     },
     {
@@ -16654,6 +16665,11 @@
     {
       "source": "text-linguistics-server",
       "target": "text-linguistics",
+      "optional": false
+    },
+    {
+      "source": "text-linguistics-server",
+      "target": "text-model-runtime",
       "optional": false
     },
     {
@@ -17574,6 +17590,11 @@
     {
       "source": "video-analysis-cli",
       "target": "video-analysis-core",
+      "optional": false
+    },
+    {
+      "source": "video-analysis-cli",
+      "target": "video-analysis-dataset",
       "optional": false
     },
     {
@@ -29562,6 +29583,18 @@
     {
       "packages": [
         "text-model-runtime",
+        "text-analysis-server"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-analysis-server depends on text-model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "text-model-runtime",
         "text-classification"
       ],
       "directDependency": true,
@@ -29574,12 +29607,36 @@
     {
       "packages": [
         "text-model-runtime",
+        "text-embeddings-server"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-embeddings-server depends on text-model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "text-model-runtime",
         "text-linguistics"
       ],
       "directDependency": true,
       "sharedTags": [],
       "reasons": [
         "text-linguistics depends on text-model-runtime"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "text-model-runtime",
+        "text-linguistics-server"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "text-linguistics-server depends on text-model-runtime"
       ],
       "strength": 2
     },
@@ -34616,6 +34673,18 @@
       "reasons": [
         "scenes and cuts",
         "3D geometry"
+      ],
+      "strength": 2
+    },
+    {
+      "packages": [
+        "video-analysis-dataset",
+        "video-analysis-cli"
+      ],
+      "directDependency": true,
+      "sharedTags": [],
+      "reasons": [
+        "video-analysis-cli depends on video-analysis-dataset"
       ],
       "strength": 2
     },
@@ -67582,34 +67651,6 @@
     {
       "packages": [
         "image-analysis-embeddings-cli",
-        "text-embeddings-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "image-analysis-embeddings-cli",
-        "text-embeddings-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "image-analysis-embeddings-cli",
         "vector-analysis-core-app"
       ],
       "directDependency": false,
@@ -68311,34 +68352,6 @@
       "packages": [
         "image-analysis-embeddings-server",
         "text-embeddings-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "image-analysis-embeddings-server",
-        "text-embeddings-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "image-analysis-embeddings-server",
-        "text-embeddings-server"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -69277,34 +69290,6 @@
       "packages": [
         "image-analysis-embeddings-wasm",
         "text-embeddings-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "image-analysis-embeddings-wasm",
-        "text-embeddings-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "image-analysis-embeddings-wasm",
-        "text-embeddings-server"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -94042,6 +94027,48 @@
     {
       "packages": [
         "text-embeddings-cli",
+        "image-analysis-embeddings-cli"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-cli",
+        "image-analysis-embeddings-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-cli",
+        "image-analysis-embeddings-wasm"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-cli",
         "math-linear-app"
       ],
       "directDependency": false,
@@ -94098,6 +94125,20 @@
     {
       "packages": [
         "text-embeddings-cli",
+        "text-embeddings-wasm"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-cli",
         "vector-analysis-core-app"
       ],
       "directDependency": false,
@@ -94140,6 +94181,20 @@
     {
       "packages": [
         "text-embeddings-cli",
+        "vector-analysis-core-wasm"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-cli",
         "vector-analysis-index-app"
       ],
       "directDependency": false,
@@ -94169,6 +94224,20 @@
       "packages": [
         "text-embeddings-cli",
         "vector-analysis-index-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-cli",
+        "vector-analysis-index-wasm"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -94294,6 +94363,48 @@
     {
       "packages": [
         "text-embeddings-server",
+        "image-analysis-embeddings-cli"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-server",
+        "image-analysis-embeddings-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-server",
+        "image-analysis-embeddings-wasm"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-server",
         "math-linear-app"
       ],
       "directDependency": false,
@@ -94323,6 +94434,20 @@
       "packages": [
         "text-embeddings-server",
         "text-embeddings-app"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-server",
+        "text-embeddings-wasm"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -94378,6 +94503,20 @@
     {
       "packages": [
         "text-embeddings-server",
+        "vector-analysis-core-wasm"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-server",
         "vector-analysis-index-app"
       ],
       "directDependency": false,
@@ -94407,6 +94546,20 @@
       "packages": [
         "text-embeddings-server",
         "vector-analysis-index-server"
+      ],
+      "directDependency": false,
+      "sharedTags": [
+        "vectors_and_embeddings"
+      ],
+      "reasons": [
+        "vectors and embeddings"
+      ],
+      "strength": 1
+    },
+    {
+      "packages": [
+        "text-embeddings-server",
+        "vector-analysis-index-wasm"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -94589,34 +94742,6 @@
       "packages": [
         "text-embeddings-wasm",
         "text-embeddings-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "text-embeddings-wasm",
-        "text-embeddings-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "text-embeddings-wasm",
-        "text-embeddings-server"
       ],
       "directDependency": false,
       "sharedTags": [
@@ -101672,34 +101797,6 @@
     {
       "packages": [
         "vector-analysis-core-wasm",
-        "text-embeddings-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "vector-analysis-core-wasm",
-        "text-embeddings-server"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "vector-analysis-core-wasm",
         "vector-analysis-core-app"
       ],
       "directDependency": false,
@@ -102877,34 +102974,6 @@
       "packages": [
         "vector-analysis-index-wasm",
         "text-embeddings-app"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "vector-analysis-index-wasm",
-        "text-embeddings-cli"
-      ],
-      "directDependency": false,
-      "sharedTags": [
-        "vectors_and_embeddings"
-      ],
-      "reasons": [
-        "vectors and embeddings"
-      ],
-      "strength": 1
-    },
-    {
-      "packages": [
-        "vector-analysis-index-wasm",
-        "text-embeddings-server"
       ],
       "directDependency": false,
       "sharedTags": [

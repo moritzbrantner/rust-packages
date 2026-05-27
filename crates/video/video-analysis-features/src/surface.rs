@@ -1,12 +1,14 @@
 //! Library-owned runtime surface for `video-analysis-features`.
 
 use serde::de::DeserializeOwned;
+use std::collections::BTreeMap;
+
 use serde::Deserialize;
 use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
-use video_analysis_dataset::AnalysisDataset;
+use video_analysis_dataset::{AnalysisDataset, DatasetRecord, FeatureRecord, FeatureValue};
 
 use crate::{
     AudioEventStatsExtractor, FeaturePipeline, FeatureVectorMeanExtractor,
@@ -45,6 +47,23 @@ pub fn package_surface() -> PackageSurface {
                     "extractors": DEFAULT_EXTRACTORS
                 }),
             ),
+            operation(
+                "video.features.timelineSummary",
+                "Summarize feature timeline",
+                "Summarizes retained dataset record counts and timestamp coverage before feature extraction.",
+                serde_json::json!({
+                    "dataset": {"metadata": {}, "records": []}
+                }),
+            ),
+            operation(
+                "video.features.aggregate",
+                "Aggregate extracted features",
+                "Runs selected deterministic feature extractors and summarizes output feature names, scopes, and value kinds.",
+                serde_json::json!({
+                    "dataset": {"metadata": {}, "records": []},
+                    "extractors": DEFAULT_EXTRACTORS
+                }),
+            ),
         ],
     }
 }
@@ -73,6 +92,8 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let value = match request.operation.as_str() {
         "describe" => describe_value(request.input),
         "video.features.extract" => extract_value(parse_input(request.input)?)?,
+        "video.features.timelineSummary" => timeline_summary_value(parse_input(request.input)?),
+        "video.features.aggregate" => aggregate_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -116,13 +137,25 @@ struct ExtractRequest {
 }
 
 fn extract_value(request: ExtractRequest) -> Result<serde_json::Value, String> {
-    let extractor_names = if request.extractors.is_empty() {
+    let (features, extractor_names) = extract_features(request.dataset, request.extractors)?;
+    Ok(serde_json::json!({
+        "features": features,
+        "featureCount": features.len(),
+        "extractors": extractor_names
+    }))
+}
+
+fn extract_features(
+    dataset: AnalysisDataset,
+    extractors: Vec<String>,
+) -> Result<(Vec<FeatureRecord>, Vec<String>), String> {
+    let extractor_names = if extractors.is_empty() {
         DEFAULT_EXTRACTORS
             .iter()
             .map(|value| (*value).to_string())
             .collect::<Vec<_>>()
     } else {
-        request.extractors
+        extractors
     };
 
     let mut builder = FeaturePipeline::builder();
@@ -142,13 +175,97 @@ fn extract_value(request: ExtractRequest) -> Result<serde_json::Value, String> {
 
     let features = builder
         .build()
-        .extract(&request.dataset)
+        .extract(&dataset)
         .map_err(|error| error.to_string())?;
+    Ok((features, extractor_names))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DatasetInput {
+    dataset: AnalysisDataset,
+}
+
+fn timeline_summary_value(request: DatasetInput) -> serde_json::Value {
+    let mut record_counts = BTreeMap::<String, u64>::new();
+    let mut first_timestamp = None::<f64>;
+    let mut last_timestamp = None::<f64>;
+    for record in &request.dataset.records {
+        *record_counts.entry(record.kind().to_string()).or_default() += 1;
+        if let Some(timestamp) = record_timestamp_seconds(record) {
+            first_timestamp = Some(first_timestamp.map_or(timestamp, |value| value.min(timestamp)));
+            last_timestamp = Some(last_timestamp.map_or(timestamp, |value| value.max(timestamp)));
+        }
+    }
+
+    serde_json::json!({
+        "recordCount": request.dataset.records.len(),
+        "recordCounts": record_counts,
+        "firstTimestampSeconds": first_timestamp,
+        "lastTimestampSeconds": last_timestamp,
+        "durationSeconds": match (first_timestamp, last_timestamp) {
+            (Some(first), Some(last)) => Some((last - first).max(0.0)),
+            _ => None,
+        }
+    })
+}
+
+fn aggregate_value(request: ExtractRequest) -> Result<serde_json::Value, String> {
+    let (features, extractor_names) = extract_features(request.dataset, request.extractors)?;
+    let mut value_kinds = BTreeMap::<String, u64>::new();
+    let mut scopes = BTreeMap::<String, u64>::new();
+    let mut names = BTreeMap::<String, u64>::new();
+
+    for feature in &features {
+        *value_kinds
+            .entry(feature_value_kind(&feature.value).to_string())
+            .or_default() += 1;
+        *scopes
+            .entry(
+                feature
+                    .scope
+                    .clone()
+                    .unwrap_or_else(|| "unspecified".to_string()),
+            )
+            .or_default() += 1;
+        *names.entry(feature.name.clone()).or_default() += 1;
+    }
+
     Ok(serde_json::json!({
-        "features": features,
         "featureCount": features.len(),
-        "extractors": extractor_names
+        "extractors": extractor_names,
+        "featureNames": names,
+        "scopes": scopes,
+        "valueKinds": value_kinds
     }))
+}
+
+fn feature_value_kind(value: &FeatureValue) -> &'static str {
+    match value {
+        FeatureValue::Number(_) => "number",
+        FeatureValue::Integer(_) => "integer",
+        FeatureValue::Boolean(_) => "boolean",
+        FeatureValue::Text(_) => "text",
+        FeatureValue::Vector(_) => "vector",
+        FeatureValue::Histogram(_) => "histogram",
+    }
+}
+
+fn record_timestamp_seconds(record: &DatasetRecord) -> Option<f64> {
+    match record {
+        DatasetRecord::VideoFrame(record) => Some(record.position.timestamp.seconds),
+        DatasetRecord::AudioFrame(record) => Some(record.timestamp.seconds),
+        DatasetRecord::TextSegment(record) => record.timestamp.map(|timestamp| timestamp.seconds),
+        DatasetRecord::Scene(record) => Some(record.start.timestamp.seconds),
+        DatasetRecord::Cut(record) => Some(record.position.timestamp.seconds),
+        DatasetRecord::Observation(record) => record.timestamp.map(|timestamp| timestamp.seconds),
+        DatasetRecord::Event(record) => record.timestamp.map(|timestamp| timestamp.seconds),
+        DatasetRecord::Metric(_) => None,
+        DatasetRecord::Feature(record) => record.timestamp.map(|timestamp| timestamp.seconds),
+        DatasetRecord::Track(record) => record.first_timestamp.map(|timestamp| timestamp.seconds),
+        DatasetRecord::Pose2d(record) => record.frame.map(|frame| frame.timestamp.seconds),
+        DatasetRecord::Pose3d(record) => record.frame.map(|frame| frame.timestamp.seconds),
+    }
 }
 
 #[cfg(test)]
