@@ -14,6 +14,7 @@ categories.workspace = true
 
 [dependencies]
 video-analysis-core.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 video-analysis-dataset.workspace = true
 

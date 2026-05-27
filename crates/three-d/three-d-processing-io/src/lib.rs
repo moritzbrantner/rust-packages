@@ -2,7 +2,7 @@
 
 pub mod surface;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -88,21 +88,36 @@ pub fn read_obj_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
 
 /// Writes obj mesh.
 pub fn write_obj_mesh(path: impl AsRef<Path>, mesh: &Mesh) -> Result<()> {
+    let mut output = Vec::new();
+    write_obj_mesh_to_writer(&mut output, mesh)?;
+    fs::write(path, output)?;
+    Ok(())
+}
+
+/// Writes obj mesh to an in-memory or streaming writer.
+pub fn write_obj_mesh_to_writer(mut writer: impl Write, mesh: &Mesh) -> Result<()> {
     mesh.validate()?;
-    let mut output = String::new();
     for vertex in &mesh.vertices {
-        output.push_str(&format!("v {} {} {}\n", vertex.x, vertex.y, vertex.z));
+        writeln!(writer, "v {} {} {}", vertex.x, vertex.y, vertex.z)?;
     }
     for triangle in &mesh.triangles {
-        output.push_str(&format!(
-            "f {} {} {}\n",
+        writeln!(
+            writer,
+            "f {} {} {}",
             triangle.vertices[0] + 1,
             triangle.vertices[1] + 1,
             triangle.vertices[2] + 1
-        ));
+        )?;
     }
-    fs::write(path, output)?;
     Ok(())
+}
+
+/// Encodes obj mesh as a UTF-8 string.
+pub fn mesh_to_obj_string(mesh: &Mesh) -> Result<String> {
+    let mut output = Vec::new();
+    write_obj_mesh_to_writer(&mut output, mesh)?;
+    String::from_utf8(output)
+        .map_err(|err| invalid_argument(format!("failed to encode OBJ as UTF-8: {err}")))
 }
 
 /// Reads PLY mesh.
@@ -155,24 +170,43 @@ pub fn read_ply_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
 
 /// Writes PLY mesh.
 pub fn write_ply_mesh(path: impl AsRef<Path>, mesh: &Mesh) -> Result<()> {
-    mesh.validate()?;
-    let mut output = String::new();
-    output.push_str("ply\nformat ascii 1.0\n");
-    output.push_str(&format!("element vertex {}\n", mesh.vertices.len()));
-    output.push_str("property float x\nproperty float y\nproperty float z\n");
-    output.push_str(&format!("element face {}\n", mesh.triangles.len()));
-    output.push_str("property list uchar int vertex_indices\nend_header\n");
-    for vertex in &mesh.vertices {
-        output.push_str(&format!("{} {} {}\n", vertex.x, vertex.y, vertex.z));
-    }
-    for triangle in &mesh.triangles {
-        output.push_str(&format!(
-            "3 {} {} {}\n",
-            triangle.vertices[0], triangle.vertices[1], triangle.vertices[2]
-        ));
-    }
+    let mut output = Vec::new();
+    write_ply_mesh_to_writer(&mut output, mesh)?;
     fs::write(path, output)?;
     Ok(())
+}
+
+/// Writes PLY mesh to an in-memory or streaming writer.
+pub fn write_ply_mesh_to_writer(mut writer: impl Write, mesh: &Mesh) -> Result<()> {
+    mesh.validate()?;
+    writeln!(writer, "ply")?;
+    writeln!(writer, "format ascii 1.0")?;
+    writeln!(writer, "element vertex {}", mesh.vertices.len())?;
+    writeln!(writer, "property float x")?;
+    writeln!(writer, "property float y")?;
+    writeln!(writer, "property float z")?;
+    writeln!(writer, "element face {}", mesh.triangles.len())?;
+    writeln!(writer, "property list uchar int vertex_indices")?;
+    writeln!(writer, "end_header")?;
+    for vertex in &mesh.vertices {
+        writeln!(writer, "{} {} {}", vertex.x, vertex.y, vertex.z)?;
+    }
+    for triangle in &mesh.triangles {
+        writeln!(
+            writer,
+            "3 {} {} {}",
+            triangle.vertices[0], triangle.vertices[1], triangle.vertices[2]
+        )?;
+    }
+    Ok(())
+}
+
+/// Encodes PLY mesh as a UTF-8 string.
+pub fn mesh_to_ply_string(mesh: &Mesh) -> Result<String> {
+    let mut output = Vec::new();
+    write_ply_mesh_to_writer(&mut output, mesh)?;
+    String::from_utf8(output)
+        .map_err(|err| invalid_argument(format!("failed to encode PLY as UTF-8: {err}")))
 }
 
 /// Reads PLY point cloud.
@@ -561,6 +595,25 @@ mod tests {
         let gltf = dir.path().join("mesh.gltf");
         write_gltf_mesh(&gltf, &mesh).unwrap();
         assert_eq!(read_gltf_mesh(&gltf).unwrap(), mesh);
+    }
+
+    #[test]
+    fn string_helpers_match_writer_format_conventions() {
+        let mesh = mesh();
+
+        let mut obj_bytes = Vec::new();
+        write_obj_mesh_to_writer(&mut obj_bytes, &mesh).unwrap();
+        let obj = mesh_to_obj_string(&mesh).unwrap();
+        assert_eq!(obj.as_bytes(), obj_bytes.as_slice());
+        assert_eq!(obj, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+
+        let mut ply_bytes = Vec::new();
+        write_ply_mesh_to_writer(&mut ply_bytes, &mesh).unwrap();
+        let ply = mesh_to_ply_string(&mesh).unwrap();
+        assert_eq!(ply.as_bytes(), ply_bytes.as_slice());
+        assert!(ply.starts_with("ply\nformat ascii 1.0\n"));
+        assert!(ply.contains("element vertex 3\n"));
+        assert!(ply.ends_with("3 0 1 2\n"));
     }
 
     #[test]

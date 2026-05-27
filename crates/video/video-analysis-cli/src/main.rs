@@ -10,10 +10,14 @@ use model_runtime::{
     HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelBundleStore, ModelPreset,
     ModelTask,
 };
+use serde::Serialize;
 use three_d_processing_core::Point3;
 use three_d_processing_io::{read_mesh, write_mesh};
 use video_analysis_cli::package_catalog::{package_by_name, package_catalog, PackageInfo};
-use video_analysis_core::{DetectError, PixelFormat, Result, SceneDetector, ScenePipeline};
+use video_analysis_core::{
+    DetectError, PixelFormat, Result, SceneDetector, ScenePipeline, VideoSource,
+};
+use video_analysis_dataset::AnalysisDataset;
 use video_analysis_detectors::{
     AdaptiveDetector, AdaptiveScoreAlgorithm, ContentDetector, ContentScoreAlgorithm, HashDetector,
     HashScoreAlgorithm, HistogramDetector, HistogramScoreAlgorithm, ThresholdDetector,
@@ -31,6 +35,8 @@ use video_analysis_recognition::PoseModelBackend;
 use video_analysis_recognition::RawPose2dPrediction;
 #[cfg(feature = "onnx")]
 use video_analysis_recognition::VisionModelBackend;
+#[cfg(feature = "onnx")]
+use video_analysis_recognition::{normalize_predictions, PredictionRepairOptions};
 use video_analysis_split::{split_video_ffmpeg, SplitOptions};
 
 #[derive(Debug, Parser)]
@@ -49,6 +55,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    Analyze(AnalyzeReportArgs),
     Detect(AnalyzeArgs),
     List(AnalyzeArgs),
     Packages(PackagesArgs),
@@ -68,6 +75,26 @@ struct AnalyzeArgs {
     output: Option<PathBuf>,
     #[arg(long)]
     stats: Option<PathBuf>,
+    #[command(flatten)]
+    detector_options: DetectorOptions,
+}
+
+#[derive(Debug, Parser)]
+struct AnalyzeReportArgs {
+    #[arg(short, long)]
+    input: PathBuf,
+    #[command(flatten)]
+    detection: DetectionSelection,
+    #[arg(long)]
+    output: Option<PathBuf>,
+    #[arg(long, default_value_t = 30)]
+    sample_every_frames: u64,
+    #[arg(long)]
+    max_frames: Option<u64>,
+    #[arg(long)]
+    model_manifest: Option<PathBuf>,
+    #[arg(long, value_enum, requires = "model_manifest")]
+    model_backend: Option<ModelBackendKind>,
     #[command(flatten)]
     detector_options: DetectorOptions,
 }
@@ -258,7 +285,7 @@ struct ModelRunArgs {
     output: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum ModelBackendKind {
     Onnx,
 }
@@ -439,6 +466,7 @@ struct DetectorOptions {
 fn main() -> Result<()> {
     let cli = parse_cli()?;
     match cli.command {
+        Command::Analyze(args) => run_analyze_report(args)?,
         Command::Detect(args) => {
             let result = run_detection(&args.input, &args.detection, &args.detector_options)?;
             if let Some(path) = args.output {
@@ -953,6 +981,160 @@ fn model_runtime_error(error: model_runtime::ModelRuntimeError) -> DetectError {
     }
 }
 
+fn run_analyze_report(args: AnalyzeReportArgs) -> Result<()> {
+    let report = build_analyze_report(&args)?;
+    if let Some(path) = args.output {
+        if let Some(parent) = path.parent().filter(|path| !path.as_os_str().is_empty()) {
+            std::fs::create_dir_all(parent)?;
+        }
+        serde_json::to_writer_pretty(File::create(path)?, &report).map_err(|err| {
+            DetectError::Source(format!("failed to write analyze report JSON: {err}"))
+        })?;
+    } else {
+        serde_json::to_writer_pretty(std::io::stdout(), &report).map_err(|err| {
+            DetectError::Source(format!("failed to write analyze report JSON: {err}"))
+        })?;
+        println!();
+    }
+    Ok(())
+}
+
+fn build_analyze_report(args: &AnalyzeReportArgs) -> Result<AnalyzeReport> {
+    if args.sample_every_frames == 0 {
+        return Err(DetectError::InvalidArgument(
+            "sample-every-frames must be greater than zero".to_string(),
+        ));
+    }
+    if args.model_manifest.is_some() && args.model_backend != Some(ModelBackendKind::Onnx) {
+        return Err(DetectError::InvalidArgument(
+            "`vanalyze analyze --model-manifest` requires `--model-backend onnx`".to_string(),
+        ));
+    }
+
+    #[cfg(not(feature = "onnx"))]
+    if args.model_manifest.is_some() {
+        return Err(DetectError::InvalidArgument(
+            "`vanalyze analyze --model-backend onnx` requires building video-analysis-cli with the `onnx` or `onnxruntime` feature".to_string(),
+        ));
+    }
+
+    #[cfg(feature = "onnx")]
+    let mut model_backend = if let Some(manifest) = &args.model_manifest {
+        let bundle = ModelBundle::load(manifest).map_err(model_runtime_error)?;
+        Some(video_analysis_onnx::OnnxObjectDetector::from_bundle(
+            bundle,
+        )?)
+    } else {
+        None
+    };
+
+    let mut source = FfmpegVideoSource::open(&args.input)?;
+    let mut pipeline = if args.detection.detectors.is_empty() {
+        build_single_detector_pipeline(args.detection.detector, &args.detector_options)?
+    } else {
+        build_composite_detector_pipeline(&args.detection, &args.detector_options)?
+    };
+    #[cfg_attr(not(feature = "onnx"), allow(unused_mut))]
+    let mut observations = Vec::new();
+    let mut decoded = 0_u64;
+
+    while args.max_frames.map(|max| decoded < max).unwrap_or(true) {
+        let Some(frame) = source.next_frame()? else {
+            break;
+        };
+        decoded += 1;
+        pipeline.process_frame_ref(&frame.as_frame())?;
+
+        #[cfg(feature = "onnx")]
+        if let Some(backend) = model_backend.as_mut() {
+            if frame.position.frame_index % args.sample_every_frames == 0 {
+                let predictions = VisionModelBackend::predict_frame(backend, &frame.as_frame())?;
+                observations.extend(
+                    normalize_predictions(
+                        predictions,
+                        &ModelTask::ObjectDetection,
+                        Some((frame.width, frame.height)),
+                        PredictionRepairOptions::default(),
+                    )
+                    .into_iter()
+                    .map(|prediction| prediction.to_observation("onnx").at_frame(frame.position)),
+                );
+            }
+        }
+    }
+
+    let detection = pipeline.finish_detection()?;
+    let mut dataset = AnalysisDataset::empty();
+    dataset.metadata.source = Some(args.input.display().to_string());
+    dataset.extend_detection_result(&detection);
+    dataset.extend_observations(observations);
+    let summary = dataset_summary(&dataset);
+    let model = args
+        .model_manifest
+        .as_ref()
+        .map(|manifest| AnalyzeModelReport {
+            backend: "onnx".to_string(),
+            manifest: manifest.display().to_string(),
+        });
+
+    Ok(AnalyzeReport {
+        input: args.input.display().to_string(),
+        frames_processed: detection.frames_processed,
+        sample_every_frames: args.sample_every_frames,
+        model,
+        detection: AnalyzeDetectionReport {
+            scene_count: detection.scenes.len(),
+            cut_count: detection.cuts.len(),
+        },
+        dataset,
+        summary,
+    })
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AnalyzeReport {
+    input: String,
+    frames_processed: u64,
+    sample_every_frames: u64,
+    model: Option<AnalyzeModelReport>,
+    detection: AnalyzeDetectionReport,
+    dataset: AnalysisDataset,
+    summary: AnalyzeDatasetSummary,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AnalyzeModelReport {
+    backend: String,
+    manifest: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AnalyzeDetectionReport {
+    scene_count: usize,
+    cut_count: usize,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AnalyzeDatasetSummary {
+    record_count: usize,
+    record_counts: BTreeMap<String, usize>,
+}
+
+fn dataset_summary(dataset: &AnalysisDataset) -> AnalyzeDatasetSummary {
+    let mut record_counts = BTreeMap::new();
+    for record in dataset.records() {
+        *record_counts.entry(record.kind().to_string()).or_insert(0) += 1;
+    }
+    AnalyzeDatasetSummary {
+        record_count: dataset.records.len(),
+        record_counts,
+    }
+}
+
 fn run_detection(
     input: &PathBuf,
     selection: &DetectionSelection,
@@ -1439,6 +1621,135 @@ mod tests {
             "content",
         ])
         .unwrap();
+    }
+
+    #[test]
+    fn analyze_accepts_report_args() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "analyze",
+            "--input",
+            "demo.mp4",
+            "--sample-every-frames",
+            "10",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Analyze(args) => {
+                assert_eq!(args.input, PathBuf::from("demo.mp4"));
+                assert_eq!(args.sample_every_frames, 10);
+                assert_eq!(args.model_backend, None);
+            }
+            _ => panic!("expected analyze command"),
+        }
+    }
+
+    #[test]
+    fn analyze_rejects_model_backend_without_manifest() {
+        let err = Cli::try_parse_from([
+            "vanalyze",
+            "analyze",
+            "--input",
+            "demo.mp4",
+            "--model-backend",
+            "onnx",
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+    }
+
+    #[test]
+    fn analyze_report_serializes_expected_shape() {
+        let mut dataset = AnalysisDataset::empty();
+        let result = video_analysis_core::DetectionResult {
+            frames_processed: 2,
+            ..Default::default()
+        };
+        dataset.extend_detection_result(&result);
+        let report = AnalyzeReport {
+            input: "demo.mp4".to_string(),
+            frames_processed: 2,
+            sample_every_frames: 30,
+            model: None,
+            detection: AnalyzeDetectionReport {
+                scene_count: 0,
+                cut_count: 0,
+            },
+            summary: dataset_summary(&dataset),
+            dataset,
+        };
+
+        let value = serde_json::to_value(report).unwrap();
+
+        assert_eq!(value["input"], "demo.mp4");
+        assert_eq!(value["framesProcessed"], 2);
+        assert!(value.get("dataset").is_some());
+        assert!(value.get("summary").is_some());
+    }
+
+    #[test]
+    fn analyze_generated_tiny_video_without_model() {
+        if std::process::Command::new("ffmpeg")
+            .arg("-version")
+            .status()
+            .is_err()
+        {
+            return;
+        }
+
+        let dir = tempdir().unwrap();
+        let input = dir.path().join("tiny.mp4");
+        video_analysis_ffmpeg::write_two_scene_test_video(&input).unwrap();
+
+        let report = build_analyze_report(&AnalyzeReportArgs {
+            input,
+            detection: DetectionSelection {
+                detector: DetectorKind::Content,
+                detectors: Vec::new(),
+                combined_threshold: 0.5,
+                detector_weights: Vec::new(),
+            },
+            output: None,
+            sample_every_frames: 30,
+            max_frames: Some(3),
+            model_manifest: None,
+            model_backend: None,
+            detector_options: detector_options(),
+        })
+        .unwrap();
+
+        let value = serde_json::to_value(report).unwrap();
+        assert_eq!(value["framesProcessed"], 3);
+        assert!(value.get("dataset").is_some());
+        assert!(value["detection"].get("sceneCount").is_some());
+        assert!(value["detection"].get("cutCount").is_some());
+    }
+
+    #[cfg(not(feature = "onnx"))]
+    #[test]
+    fn analyze_model_path_reports_feature_gated_error_without_onnx() {
+        let err = build_analyze_report(&AnalyzeReportArgs {
+            input: PathBuf::from("demo.mp4"),
+            detection: DetectionSelection {
+                detector: DetectorKind::Content,
+                detectors: Vec::new(),
+                combined_threshold: 0.5,
+                detector_weights: Vec::new(),
+            },
+            output: None,
+            sample_every_frames: 30,
+            max_frames: None,
+            model_manifest: Some(PathBuf::from("manifest.json")),
+            model_backend: Some(ModelBackendKind::Onnx),
+            detector_options: detector_options(),
+        })
+        .expect_err("onnx feature gate");
+
+        assert!(err
+            .to_string()
+            .contains("requires building video-analysis-cli"));
     }
 
     #[test]

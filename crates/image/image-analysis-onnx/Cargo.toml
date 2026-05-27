@@ -19,6 +19,7 @@ image-analysis-detection.workspace = true
 image-analysis-embeddings.workspace = true
 image-analysis-processing.workspace = true
 ort = { workspace = true, optional = true }
+serde.workspace = true
 serde_json.workspace = true
 video-analysis-core.workspace = true
 model-runtime.workspace = true

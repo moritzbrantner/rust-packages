@@ -10,9 +10,10 @@ Current state:
   command backends.
 - `video-analysis-use-cases` can already attach external object, OCR, and text
   model commands to the `youtube-video` workflow.
-- `video-analysis-cli` currently exposes scene detection/list/split plus model
-  preset/download/inspect commands. It also parses `models run` for raw
-  RGB/BGR frame inference, gated behind CLI ONNX features.
+- `video-analysis-cli` currently exposes scene detection/list/split, primitive
+  JSON analysis reports, plus model preset/download/inspect commands. It also
+  parses `models run` for raw RGB/BGR frame inference, gated behind CLI ONNX
+  features.
 - Text model execution is owned by the text crates that use it:
   `text-linguistics` owns tokenizer alignment and local Candle-backed NER,
   while `text-embeddings` owns optional ONNX/Candle embedding runtimes.
@@ -211,8 +212,8 @@ Tests:
 Add after a backend crate exists:
 
 Status: implemented for raw RGB/BGR frames and DETR/YOLOS-style ONNX outputs
-behind `video-analysis-cli --features onnxruntime`. The remaining CLI milestone
-is sampled video/report integration through `vanalyze analyze`.
+behind `video-analysis-cli --features onnxruntime`. The sampled video/report
+integration milestone is implemented through `vanalyze analyze`.
 
 ```bash
 vanalyze models run \
@@ -231,13 +232,17 @@ vanalyze analyze \
   --input video.mp4 \
   --model-manifest .model-runtime/yolos-tiny/main/manifest.json \
   --model-backend onnx \
-  --visual-sample-every 30 \
+  --sample-every-frames 30 \
   --output analysis.json
 ```
 
 Output contract:
 
 - JSON by default for model predictions and analysis reports.
+- `vanalyze analyze` reports `framesProcessed`, detection scene/cut counts, a
+  retained `AnalysisDataset`, and record-count summaries. Without a model
+  manifest it remains a scene/dataset report command; model inference remains
+  ONNX feature-gated.
 - CSV remains available for scene lists/stats.
 - Use core `Observation`/`AnalysisEvent` report shapes already represented in
   `video-analysis-use-cases`.

@@ -253,7 +253,12 @@ fn has_exact_base_dependency(cargo: &str, package_name: &str, surface_name: &str
         "{surface_name} = {{ path = \"../{package_name}\" }}"
     )) || cargo.contains(&format!(
         "{surface_name} = {{ path = \"../{surface_name}\" }}"
-    ))
+    )) || cargo.lines().any(|line| {
+        let line = line.trim();
+        line.starts_with(&format!("{surface_name} = {{"))
+            && (line.contains(&format!("path = \"../{package_name}\""))
+                || line.contains(&format!("path = \"../{surface_name}\"")))
+    })
 }
 
 fn local_markdown_link_targets(markdown: &str) -> Vec<String> {

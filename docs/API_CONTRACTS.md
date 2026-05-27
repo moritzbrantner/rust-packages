@@ -57,6 +57,14 @@ non-finite samples, cap preview payloads, return `SurfaceResponse` JSON values,
 and avoid FFmpeg, Demucs, model downloads, native inference, filesystem writes,
 or network access in default calls.
 
+The first video/image/3D/ComfyUI surface parity tranche follows the same
+library-owned convention. Dataset, transform, feature, storage, image, ComfyUI,
+3D, and radiance I/O surfaces now expose deterministic summary, filter,
+preview, validation, and extraction operations that run in memory and cap
+preview payloads. Storage and interchange surfaces use plan/preview operations
+for package adapters; actual file reads/writes remain explicit library or CLI
+workflows.
+
 ## Contract Ownership Rule
 
 The crate that owns the most general semantic form owns the stable contract.
@@ -180,7 +188,7 @@ Runtime and external integration crates use a shared feature policy:
 | `video-analysis-sfm` | Structure-from-motion workflow contracts | `video-analysis-core`, `video-analysis-reconstruction`, `video-analysis-radiance-fields` | SfM image/camera inputs, feature/match pipeline records, reconstruction summaries, backend trait adapters | Reconstruction, COLMAP/Rust backends, and radiance workflows |
 | `video-analysis-sfm-rust-backend` | Pure-Rust SfM backend primitives | `video-analysis-core`, `video-analysis-reconstruction`, `video-analysis-sfm` | Deterministic feature matching, track building, triangulation helpers, backend result DTOs | SfM tests, reconstruction workflows, and non-native fallback paths |
 | `video-analysis-test-support` | Shared video workspace test helpers | `video-analysis-core`, `video-analysis-dataset` | Synthetic frames, timestamps, observations, fixture builders, assertion helpers | Video crate tests, integration smoke tests, and package surface checks |
-| `video-analysis-cli` | `vanalyze` command-line composition | Core, detectors, FFmpeg, models, output, split | CLI commands, package catalog metadata, and file outputs | End users and automation |
+| `video-analysis-cli` | `vanalyze` command-line composition | Core, detectors, FFmpeg, models, output, split | CLI commands, package catalog metadata, file outputs, and primitive JSON analysis reports | End users and automation |
 | `video-analysis-use-cases` | Prototype runnable end-to-end workflows | Core, data, detectors, FFmpeg, ingest, models, audio/image helpers | `youtube-video`, `video-red-cars`, `audio-voice-analysis`, and `image-person-edit` workflow/report surfaces | End users, `@video-analysis/ui`, prototype web app |
 | `@video-analysis/ui` | React/Tailwind views for analysis data | React peer deps and generated report/data shapes | TypeScript report types, component subpath exports, Tailwind content export | Web apps and report viewers |
 | `@video-analysis/web` | Prototype app for local workflows, endpoints, and package UI | `@video-analysis/ui`, Vite, React | `/api/run-youtube-video`, `/api/workspace-architecture`, `/api/packages`, architecture and workflow pages | Developers exploring package behavior locally |

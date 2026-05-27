@@ -2693,6 +2693,7 @@ dependencies = [
 name = "image-analysis-core"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
  "tensor-data",
  "video-analysis-core",
@@ -2738,6 +2739,7 @@ dependencies = [
  "image-analysis-core",
  "image-analysis-segmentation",
  "model-runtime",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -2921,6 +2923,7 @@ dependencies = [
  "image-analysis-processing",
  "model-runtime",
  "ort",
+ "serde",
  "serde_json",
  "tempfile",
  "video-analysis-core",
@@ -2968,6 +2971,7 @@ dependencies = [
  "image-analysis-core",
  "math-geometry-2d",
  "math-linear",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -6118,12 +6122,14 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "model-runtime",
+ "serde",
  "serde_json",
  "shlex",
  "tempfile",
  "three-d-processing-core",
  "three-d-processing-io",
  "video-analysis-core",
+ "video-analysis-dataset",
  "video-analysis-detectors",
  "video-analysis-ffmpeg",
  "video-analysis-onnx",
@@ -6402,6 +6408,7 @@ name = "video-analysis-features"
 version = "0.1.0"
 dependencies = [
  "num-rational",
+ "serde",
  "serde_json",
  "video-analysis-core",
  "video-analysis-dataset",
@@ -7425,6 +7432,7 @@ name = "video-analysis-transform"
 version = "0.1.0"
 dependencies = [
  "num-rational",
+ "serde",
  "serde_json",
  "video-analysis-core",
  "video-analysis-dataset",

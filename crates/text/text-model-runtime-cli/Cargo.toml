@@ -20,4 +20,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-text-model-runtime.workspace = true
+text-model-runtime = { path = "../text-model-runtime" }

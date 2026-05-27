@@ -25,12 +25,14 @@ onnxruntime = ["onnx", "video-analysis-onnx/onnxruntime"]
 
 [dependencies]
 clap.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 shlex.workspace = true
 model-runtime.workspace = true
 three-d-processing-core.workspace = true
 three-d-processing-io.workspace = true
 video-analysis-core.workspace = true
+video-analysis-dataset.workspace = true
 video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-onnx = { workspace = true, optional = true }
