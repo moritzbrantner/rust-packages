@@ -12,6 +12,13 @@ use video_analysis_core::{
 pub enum FrameEdit {
     /// The crop variant.
     Crop(BoundingBox),
+    /// The resize nearest variant.
+    ResizeNearest {
+        /// Width in pixels.
+        width: u32,
+        /// Height in pixels.
+        height: u32,
+    },
     /// The box blur variant.
     BoxBlur {
         /// The radius value for this variant.
@@ -21,6 +28,22 @@ pub enum FrameEdit {
     Grayscale,
     /// The invert variant.
     Invert,
+    /// The flip horizontal variant.
+    FlipHorizontal,
+    /// The flip vertical variant.
+    FlipVertical,
+    /// The rotate 90 variant.
+    Rotate90 {
+        /// Number of clockwise quarter turns.
+        clockwise_turns: u8,
+    },
+    /// The fade to color variant.
+    FadeToColor {
+        /// Target RGB color.
+        color: [u8; 3],
+        /// Blend amount in [0, 1].
+        amount: f32,
+    },
     /// The brightness contrast variant.
     BrightnessContrast {
         /// The brightness value for this variant.
@@ -67,6 +90,11 @@ impl FrameEditor {
         Ok(self.crop(region.try_into()?))
     }
 
+    /// Returns resize nearest.
+    pub fn resize_nearest(self, width: u32, height: u32) -> Self {
+        self.edit(FrameEdit::ResizeNearest { width, height })
+    }
+
     /// Returns box blur.
     pub fn box_blur(self, radius: u32) -> Self {
         self.edit(FrameEdit::BoxBlur { radius })
@@ -80,6 +108,26 @@ impl FrameEditor {
     /// Returns invert.
     pub fn invert(self) -> Self {
         self.edit(FrameEdit::Invert)
+    }
+
+    /// Returns flip horizontal.
+    pub fn flip_horizontal(self) -> Self {
+        self.edit(FrameEdit::FlipHorizontal)
+    }
+
+    /// Returns flip vertical.
+    pub fn flip_vertical(self) -> Self {
+        self.edit(FrameEdit::FlipVertical)
+    }
+
+    /// Returns rotate 90.
+    pub fn rotate_90(self, clockwise_turns: u8) -> Self {
+        self.edit(FrameEdit::Rotate90 { clockwise_turns })
+    }
+
+    /// Returns fade to color.
+    pub fn fade_to_color(self, color: [u8; 3], amount: f32) -> Self {
+        self.edit(FrameEdit::FadeToColor { color, amount })
     }
 
     /// Returns brightness contrast.
@@ -146,6 +194,41 @@ pub fn crop_frame_rect(frame: &VideoFrame<'_>, region: RectU32) -> Result<OwnedV
     })
 }
 
+/// Returns resize nearest frame.
+pub fn resize_nearest_frame(
+    frame: &VideoFrame<'_>,
+    width: u32,
+    height: u32,
+) -> Result<OwnedVideoFrame> {
+    if width == 0 || height == 0 {
+        return Err(DetectError::InvalidDimensions { width, height });
+    }
+    let stride = width as usize * 3;
+    let mut data = vec![0; stride * height as usize];
+    for y in 0..height {
+        let src_y = (y as u64 * frame.height as u64 / height as u64) as u32;
+        for x in 0..width {
+            let src_x = (x as u64 * frame.width as u64 / width as u64) as u32;
+            write_native_pixel(
+                &mut data,
+                stride,
+                frame.pixel_format,
+                x,
+                y,
+                frame.pixel_rgb(src_x, src_y),
+            );
+        }
+    }
+    Ok(OwnedVideoFrame {
+        position: frame.position,
+        width,
+        height,
+        pixel_format: frame.pixel_format,
+        data,
+        stride,
+    })
+}
+
 /// Returns box blur frame.
 pub fn box_blur_frame(frame: &VideoFrame<'_>, radius: u32) -> Result<OwnedVideoFrame> {
     if radius == 0 {
@@ -189,6 +272,78 @@ pub fn invert_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
     map_pixels(frame, |x, y| {
         let [red, green, blue] = frame.pixel_rgb(x, y);
         [255 - red, 255 - green, 255 - blue]
+    })
+}
+
+/// Returns horizontally flipped frame.
+pub fn flip_horizontal_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
+    map_pixels(frame, |x, y| frame.pixel_rgb(frame.width - 1 - x, y))
+}
+
+/// Returns vertically flipped frame.
+pub fn flip_vertical_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
+    map_pixels(frame, |x, y| frame.pixel_rgb(x, frame.height - 1 - y))
+}
+
+/// Returns frame rotated by clockwise quarter turns.
+pub fn rotate_frame_90(frame: &VideoFrame<'_>, clockwise_turns: u8) -> Result<OwnedVideoFrame> {
+    let turns = clockwise_turns % 4;
+    if turns == 0 {
+        return Ok(compact_frame(frame));
+    }
+    let (width, height) = if turns == 2 {
+        (frame.width, frame.height)
+    } else {
+        (frame.height, frame.width)
+    };
+    let stride = width as usize * 3;
+    let mut data = vec![0; stride * height as usize];
+    for y in 0..height {
+        for x in 0..width {
+            let (source_x, source_y) = match turns {
+                1 => (y, frame.height - 1 - x),
+                2 => (frame.width - 1 - x, frame.height - 1 - y),
+                3 => (frame.width - 1 - y, x),
+                _ => unreachable!(),
+            };
+            write_native_pixel(
+                &mut data,
+                stride,
+                frame.pixel_format,
+                x,
+                y,
+                frame.pixel_rgb(source_x, source_y),
+            );
+        }
+    }
+    Ok(OwnedVideoFrame {
+        position: frame.position,
+        width,
+        height,
+        pixel_format: frame.pixel_format,
+        data,
+        stride,
+    })
+}
+
+/// Returns frame faded toward a color.
+pub fn fade_frame_to_color(
+    frame: &VideoFrame<'_>,
+    color: [u8; 3],
+    amount: f32,
+) -> Result<OwnedVideoFrame> {
+    if !amount.is_finite() || !(0.0..=1.0).contains(&amount) {
+        return Err(DetectError::InvalidArgument(
+            "fade amount must be finite and in [0, 1]".to_string(),
+        ));
+    }
+    map_pixels(frame, |x, y| {
+        let [red, green, blue] = frame.pixel_rgb(x, y);
+        [
+            clamp_u8(red as f32 * (1.0 - amount) + color[0] as f32 * amount),
+            clamp_u8(green as f32 * (1.0 - amount) + color[1] as f32 * amount),
+            clamp_u8(blue as f32 * (1.0 - amount) + color[2] as f32 * amount),
+        ]
     })
 }
 
@@ -272,9 +427,14 @@ pub fn edge_detect_frame(frame: &VideoFrame<'_>) -> Result<OwnedVideoFrame> {
 fn apply_edit(frame: &VideoFrame<'_>, edit: &FrameEdit) -> Result<OwnedVideoFrame> {
     match edit {
         FrameEdit::Crop(region) => crop_frame(frame, *region),
+        FrameEdit::ResizeNearest { width, height } => resize_nearest_frame(frame, *width, *height),
         FrameEdit::BoxBlur { radius } => box_blur_frame(frame, *radius),
         FrameEdit::Grayscale => grayscale_frame(frame),
         FrameEdit::Invert => invert_frame(frame),
+        FrameEdit::FlipHorizontal => flip_horizontal_frame(frame),
+        FrameEdit::FlipVertical => flip_vertical_frame(frame),
+        FrameEdit::Rotate90 { clockwise_turns } => rotate_frame_90(frame, *clockwise_turns),
+        FrameEdit::FadeToColor { color, amount } => fade_frame_to_color(frame, *color, *amount),
         FrameEdit::BrightnessContrast {
             brightness,
             contrast,
@@ -285,6 +445,301 @@ fn apply_edit(frame: &VideoFrame<'_>, edit: &FrameEdit) -> Result<OwnedVideoFram
             bias,
         } => filter_3x3_frame(frame, *kernel, *divisor, *bias),
     }
+}
+
+/// Source timeline span in seconds.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TimeSpan {
+    /// Inclusive start in seconds.
+    pub start_seconds: f64,
+    /// Exclusive end in seconds.
+    pub end_seconds: f64,
+}
+
+impl TimeSpan {
+    /// Creates a validated time span.
+    pub fn new(start_seconds: f64, end_seconds: f64) -> Result<Self> {
+        let span = Self {
+            start_seconds,
+            end_seconds,
+        };
+        span.validate()?;
+        Ok(span)
+    }
+
+    /// Returns duration seconds.
+    pub fn duration_seconds(self) -> f64 {
+        self.end_seconds - self.start_seconds
+    }
+
+    fn validate(self) -> Result<()> {
+        if !self.start_seconds.is_finite()
+            || !self.end_seconds.is_finite()
+            || self.start_seconds < 0.0
+            || self.end_seconds <= self.start_seconds
+        {
+            return Err(DetectError::InvalidArgument(
+                "time span must be finite, non-negative, and have end greater than start"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Timeline clip placement.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimelineClip {
+    /// Source media identifier.
+    pub source_id: String,
+    /// Source start in seconds.
+    pub source_start_seconds: f64,
+    /// Source end in seconds.
+    pub source_end_seconds: f64,
+    /// Timeline start in seconds.
+    pub timeline_start_seconds: f64,
+}
+
+impl TimelineClip {
+    /// Creates a validated timeline clip.
+    pub fn new(
+        source_id: impl Into<String>,
+        source_start_seconds: f64,
+        source_end_seconds: f64,
+        timeline_start_seconds: f64,
+    ) -> Result<Self> {
+        let clip = Self {
+            source_id: source_id.into(),
+            source_start_seconds,
+            source_end_seconds,
+            timeline_start_seconds,
+        };
+        clip.validate()?;
+        Ok(clip)
+    }
+
+    /// Returns duration seconds.
+    pub fn duration_seconds(&self) -> f64 {
+        self.source_end_seconds - self.source_start_seconds
+    }
+
+    /// Returns timeline end seconds.
+    pub fn timeline_end_seconds(&self) -> f64 {
+        self.timeline_start_seconds + self.duration_seconds()
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.source_id.trim().is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "timeline clip source_id must not be empty".to_string(),
+            ));
+        }
+        TimeSpan::new(self.source_start_seconds, self.source_end_seconds)?;
+        if !self.timeline_start_seconds.is_finite() || self.timeline_start_seconds < 0.0 {
+            return Err(DetectError::InvalidArgument(
+                "timeline_start_seconds must be finite and non-negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Timeline transition kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransitionKind {
+    /// Hard cut.
+    Cut,
+    /// Crossfade.
+    CrossFade,
+}
+
+/// Timeline transition.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TransitionSpec {
+    /// Source clip index.
+    pub from_clip: usize,
+    /// Destination clip index.
+    pub to_clip: usize,
+    /// Transition duration in seconds.
+    pub duration_seconds: f64,
+    /// Transition kind.
+    pub kind: TransitionKind,
+}
+
+impl TransitionSpec {
+    /// Creates a validated transition.
+    pub fn new(
+        from_clip: usize,
+        to_clip: usize,
+        duration_seconds: f64,
+        kind: TransitionKind,
+    ) -> Result<Self> {
+        let transition = Self {
+            from_clip,
+            to_clip,
+            duration_seconds,
+            kind,
+        };
+        transition.validate_for_clip_count(usize::MAX)?;
+        Ok(transition)
+    }
+
+    fn validate_for_clip_count(&self, clip_count: usize) -> Result<()> {
+        if self.from_clip == self.to_clip
+            || self.from_clip >= clip_count
+            || self.to_clip >= clip_count
+        {
+            return Err(DetectError::InvalidArgument(
+                "transition clip indexes must refer to two different clips".to_string(),
+            ));
+        }
+        if !self.duration_seconds.is_finite() || self.duration_seconds < 0.0 {
+            return Err(DetectError::InvalidArgument(
+                "transition duration must be finite and non-negative".to_string(),
+            ));
+        }
+        if matches!(self.kind, TransitionKind::CrossFade) && self.duration_seconds == 0.0 {
+            return Err(DetectError::InvalidArgument(
+                "crossfade transition duration must be greater than zero".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Subtitle overlay timed text.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubtitleOverlay {
+    /// Subtitle start in seconds.
+    pub start_seconds: f64,
+    /// Subtitle end in seconds.
+    pub end_seconds: f64,
+    /// Subtitle text.
+    pub text: String,
+}
+
+impl SubtitleOverlay {
+    /// Creates a validated subtitle overlay.
+    pub fn new(start_seconds: f64, end_seconds: f64, text: impl Into<String>) -> Result<Self> {
+        let subtitle = Self {
+            start_seconds,
+            end_seconds,
+            text: text.into(),
+        };
+        subtitle.validate()?;
+        Ok(subtitle)
+    }
+
+    fn validate(&self) -> Result<()> {
+        TimeSpan::new(self.start_seconds, self.end_seconds)?;
+        if self.text.trim().is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "subtitle text must not be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Deterministic edit decision list.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct EditDecisionList {
+    /// Timeline clips.
+    pub clips: Vec<TimelineClip>,
+    /// Timeline transitions.
+    pub transitions: Vec<TransitionSpec>,
+    /// Subtitle overlays.
+    pub subtitles: Vec<SubtitleOverlay>,
+}
+
+impl EditDecisionList {
+    /// Returns total timeline duration.
+    pub fn duration_seconds(&self) -> f64 {
+        self.clips
+            .iter()
+            .map(TimelineClip::timeline_end_seconds)
+            .fold(0.0, f64::max)
+    }
+}
+
+/// Builds a deterministic cut plan from ordered source intervals.
+pub fn build_cut_plan(
+    source_id: impl Into<String>,
+    intervals: &[TimeSpan],
+) -> Result<EditDecisionList> {
+    let source_id = source_id.into();
+    let mut clips = Vec::with_capacity(intervals.len());
+    let mut timeline_start = 0.0;
+    let mut previous_source_end = 0.0;
+    for interval in intervals {
+        interval.validate()?;
+        if interval.start_seconds < previous_source_end {
+            return Err(DetectError::InvalidArgument(
+                "cut intervals must be ordered by source time".to_string(),
+            ));
+        }
+        clips.push(TimelineClip::new(
+            source_id.clone(),
+            interval.start_seconds,
+            interval.end_seconds,
+            timeline_start,
+        )?);
+        timeline_start += interval.duration_seconds();
+        previous_source_end = interval.end_seconds;
+    }
+    Ok(EditDecisionList {
+        clips,
+        transitions: Vec::new(),
+        subtitles: Vec::new(),
+    })
+}
+
+/// Builds a deterministic concat plan from clips and transitions.
+pub fn build_concat_plan(
+    clips: Vec<TimelineClip>,
+    transitions: Vec<TransitionSpec>,
+) -> Result<EditDecisionList> {
+    validate_clips(&clips)?;
+    for transition in &transitions {
+        transition.validate_for_clip_count(clips.len())?;
+    }
+    Ok(EditDecisionList {
+        clips,
+        transitions,
+        subtitles: Vec::new(),
+    })
+}
+
+/// Builds a deterministic subtitle plan.
+pub fn build_subtitle_plan(
+    clips: Vec<TimelineClip>,
+    subtitles: Vec<SubtitleOverlay>,
+) -> Result<EditDecisionList> {
+    validate_clips(&clips)?;
+    for subtitle in &subtitles {
+        subtitle.validate()?;
+    }
+    Ok(EditDecisionList {
+        clips,
+        transitions: Vec::new(),
+        subtitles,
+    })
+}
+
+fn validate_clips(clips: &[TimelineClip]) -> Result<()> {
+    let mut previous_start = None;
+    for clip in clips {
+        clip.validate()?;
+        if let Some(previous) = previous_start {
+            if clip.timeline_start_seconds < previous {
+                return Err(DetectError::InvalidArgument(
+                    "timeline clips must have monotonic timeline starts".to_string(),
+                ));
+            }
+        }
+        previous_start = Some(clip.timeline_start_seconds);
+    }
+    Ok(())
 }
 
 fn compact_frame(frame: &VideoFrame<'_>) -> OwnedVideoFrame {
@@ -444,5 +899,66 @@ mod tests {
             .apply(&frame().as_frame())
             .unwrap();
         assert_eq!(edited.width, frame().width);
+    }
+
+    #[test]
+    fn frame_parity_operations_transform_pixels() {
+        let resized = resize_nearest_frame(&frame().as_frame(), 2, 1).unwrap();
+        assert_eq!((resized.width, resized.height), (2, 1));
+
+        let flipped = flip_horizontal_frame(&frame().as_frame()).unwrap();
+        assert_eq!(&flipped.data[0..3], &[0, 0, 255]);
+
+        let vertical = flip_vertical_frame(&frame().as_frame()).unwrap();
+        assert_eq!(&vertical.data[0..3], &[10, 20, 30]);
+
+        let rotated = rotate_frame_90(&frame().as_frame(), 1).unwrap();
+        assert_eq!((rotated.width, rotated.height), (2, 3));
+        assert_eq!(&rotated.data[0..3], &[10, 20, 30]);
+
+        let faded = fade_frame_to_color(&frame().as_frame(), [0, 0, 0], 0.5).unwrap();
+        assert_eq!(&faded.data[0..3], &[128, 0, 0]);
+    }
+
+    #[test]
+    fn edit_decision_builders_validate_timeline_data() {
+        let cut = build_cut_plan(
+            "source",
+            &[
+                TimeSpan::new(0.0, 1.0).unwrap(),
+                TimeSpan::new(2.0, 4.0).unwrap(),
+            ],
+        )
+        .unwrap();
+        assert_eq!(cut.clips.len(), 2);
+        assert_eq!(cut.clips[1].timeline_start_seconds, 1.0);
+        assert_eq!(cut.duration_seconds(), 3.0);
+
+        let clips = vec![
+            TimelineClip::new("a", 0.0, 1.0, 0.0).unwrap(),
+            TimelineClip::new("b", 0.0, 1.0, 1.0).unwrap(),
+        ];
+        let concat = build_concat_plan(
+            clips.clone(),
+            vec![TransitionSpec::new(0, 1, 0.25, TransitionKind::CrossFade).unwrap()],
+        )
+        .unwrap();
+        assert_eq!(concat.transitions.len(), 1);
+
+        let subtitles = build_subtitle_plan(
+            clips,
+            vec![SubtitleOverlay::new(0.0, 1.0, "hello").unwrap()],
+        )
+        .unwrap();
+        assert_eq!(subtitles.subtitles.len(), 1);
+
+        assert!(build_cut_plan(
+            "source",
+            &[
+                TimeSpan::new(2.0, 3.0).unwrap(),
+                TimeSpan::new(1.0, 2.0).unwrap(),
+            ],
+        )
+        .is_err());
     }
 }

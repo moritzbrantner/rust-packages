@@ -1,4 +1,7 @@
-use audio_analysis_core::{peak, rms, AudioClip, FadeCurve, InterpolationMode, SampleRate};
+use audio_analysis_core::{
+    peak, rms, seconds_to_samples, AudioClip, AudioFormatSpec, FadeCurve, InterpolationMode,
+    SampleRate,
+};
 use math_signal_core::resample_interleaved;
 use video_analysis_core::{DetectError, Result};
 
@@ -20,6 +23,40 @@ pub struct NormalizeSpec {
     pub target_peak: Option<f32>,
     /// Target RMS linear amplitude.
     pub target_rms: Option<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Placement for offline audio mixdown.
+pub struct AudioClipPlacement {
+    /// Clip to place on the output timeline.
+    pub clip: AudioClip,
+    /// Timeline start in seconds.
+    pub start_seconds: f64,
+    /// Linear gain applied to this placement.
+    pub gain: f32,
+}
+
+impl AudioClipPlacement {
+    /// Creates a validated placement.
+    pub fn new(clip: AudioClip, start_seconds: f64, gain: f32) -> Result<Self> {
+        let placement = Self {
+            clip,
+            start_seconds,
+            gain,
+        };
+        placement.validate()?;
+        Ok(placement)
+    }
+
+    fn validate(&self) -> Result<()> {
+        if !self.start_seconds.is_finite() || self.start_seconds < 0.0 || !self.gain.is_finite() {
+            return Err(DetectError::InvalidArgument(
+                "audio placement start_seconds must be finite and non-negative, and gain must be finite"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,6 +126,22 @@ impl OfflineAudioProcessor {
         self.transform(Normalize { spec })
     }
 
+    /// Adds insert silence.
+    pub fn insert_silence(self, at_seconds: f64, duration_seconds: f64) -> Self {
+        self.transform(InsertSilence {
+            at_seconds,
+            duration_seconds,
+        })
+    }
+
+    /// Adds delete seconds.
+    pub fn delete_seconds(self, start_seconds: f64, end_seconds: f64) -> Self {
+        self.transform(DeleteSeconds {
+            start_seconds,
+            end_seconds,
+        })
+    }
+
     /// Adds sample-rate conversion.
     pub fn resample(self, output_sample_rate: u32) -> Self {
         self.transform(Resample { output_sample_rate })
@@ -111,6 +164,150 @@ impl OfflineAudioProcessor {
         }
         Ok(clip)
     }
+}
+
+/// Inserts silence into a clip at the requested time.
+pub fn insert_silence(
+    clip: AudioClip,
+    at_seconds: f64,
+    duration_seconds: f64,
+) -> Result<AudioClip> {
+    if !duration_seconds.is_finite() || duration_seconds < 0.0 {
+        return Err(DetectError::InvalidArgument(
+            "silence duration must be finite and non-negative".to_string(),
+        ));
+    }
+    let at_sample = seconds_to_samples(at_seconds, clip.sample_rate)?;
+    let total = clip.samples_per_channel() as u64;
+    if at_sample > total {
+        return Err(DetectError::InvalidArgument(
+            "insert position must be inside the clip duration".to_string(),
+        ));
+    }
+    let silence_samples = seconds_to_samples(duration_seconds, clip.sample_rate)? as usize;
+    let channels = clip.channels as usize;
+    let split = at_sample as usize * channels;
+    let mut samples =
+        Vec::with_capacity(clip.samples.len() + silence_samples.saturating_mul(channels));
+    samples.extend_from_slice(&clip.samples[..split]);
+    samples.extend(std::iter::repeat_n(0.0, silence_samples * channels));
+    samples.extend_from_slice(&clip.samples[split..]);
+    AudioClip::new(clip.sample_rate, clip.channels, samples)
+}
+
+/// Deletes a time range from a clip.
+pub fn delete_seconds(clip: AudioClip, start_seconds: f64, end_seconds: f64) -> Result<AudioClip> {
+    if start_seconds > end_seconds {
+        return Err(DetectError::InvalidArgument(
+            "delete start_seconds must be less than or equal to end_seconds".to_string(),
+        ));
+    }
+    let start = seconds_to_samples(start_seconds, clip.sample_rate)?;
+    let end = seconds_to_samples(end_seconds, clip.sample_rate)?;
+    let total = clip.samples_per_channel() as u64;
+    if end > total {
+        return Err(DetectError::InvalidArgument(
+            "delete range must be inside the clip duration".to_string(),
+        ));
+    }
+    let channels = clip.channels as usize;
+    let mut samples = Vec::with_capacity(clip.samples.len() - (end - start) as usize * channels);
+    samples.extend_from_slice(&clip.samples[..start as usize * channels]);
+    samples.extend_from_slice(&clip.samples[end as usize * channels..]);
+    AudioClip::new(clip.sample_rate, clip.channels, samples)
+}
+
+/// Concatenates clips with a deterministic crossfade between adjacent clips.
+pub fn crossfade_concat(
+    clips: &[AudioClip],
+    duration_seconds: f64,
+    curve: FadeCurve,
+) -> Result<AudioClip> {
+    let first = clips.first().ok_or_else(|| {
+        DetectError::InvalidArgument("crossfade concat requires at least one clip".to_string())
+    })?;
+    if !duration_seconds.is_finite() || duration_seconds < 0.0 {
+        return Err(DetectError::InvalidArgument(
+            "crossfade duration must be finite and non-negative".to_string(),
+        ));
+    }
+    for clip in clips {
+        if clip.sample_rate != first.sample_rate || clip.channels != first.channels {
+            return Err(DetectError::InvalidArgument(
+                "crossfade concat requires matching sample rates and channel counts".to_string(),
+            ));
+        }
+    }
+    let fade_frames = seconds_to_samples(duration_seconds, first.sample_rate)? as usize;
+    if fade_frames == 0 {
+        return AudioClip::concat(clips, audio_analysis_core::ConcatPolicy::RequireSameFormat);
+    }
+    let channels = first.channels as usize;
+    let mut output = first.samples.clone();
+    for clip in &clips[1..] {
+        let output_frames = output.len() / channels;
+        let clip_frames = clip.samples_per_channel();
+        if fade_frames > output_frames || fade_frames > clip_frames {
+            return Err(DetectError::InvalidArgument(
+                "crossfade duration must fit inside adjacent clips".to_string(),
+            ));
+        }
+        let keep_len = (output_frames - fade_frames) * channels;
+        let mut next = Vec::with_capacity(keep_len + clip.samples.len());
+        next.extend_from_slice(&output[..keep_len]);
+        for frame in 0..fade_frames {
+            let position = if fade_frames == 1 {
+                1.0
+            } else {
+                frame as f32 / (fade_frames - 1) as f32
+            };
+            let fade_in = fade_gain(position, curve);
+            let fade_out = fade_gain(1.0 - position, curve);
+            for channel in 0..channels {
+                let left = output[keep_len + frame * channels + channel];
+                let right = clip.samples[frame * channels + channel];
+                next.push(left * fade_out + right * fade_in);
+            }
+        }
+        next.extend_from_slice(&clip.samples[fade_frames * channels..]);
+        output = next;
+    }
+    AudioClip::new(first.sample_rate, first.channels, output)
+}
+
+/// Mixes placed clips onto a single output timeline.
+pub fn mixdown_placements(
+    placements: &[AudioClipPlacement],
+    sample_rate: u32,
+    channels: u16,
+) -> Result<AudioClip> {
+    AudioFormatSpec::new(sample_rate, channels)?;
+    if placements.is_empty() {
+        return AudioClip::new(sample_rate, channels, Vec::new());
+    }
+    let mut output_frames = 0usize;
+    let mut starts = Vec::with_capacity(placements.len());
+    for placement in placements {
+        placement.validate()?;
+        if placement.clip.sample_rate != sample_rate || placement.clip.channels != channels {
+            return Err(DetectError::InvalidArgument(
+                "mixdown placements must match the requested sample rate and channel count"
+                    .to_string(),
+            ));
+        }
+        let start = seconds_to_samples(placement.start_seconds, sample_rate)? as usize;
+        output_frames = output_frames.max(start + placement.clip.samples_per_channel());
+        starts.push(start);
+    }
+    let channels_usize = channels as usize;
+    let mut output = vec![0.0; output_frames * channels_usize];
+    for (placement, start_frame) in placements.iter().zip(starts) {
+        let offset = start_frame * channels_usize;
+        for (index, sample) in placement.clip.samples.iter().enumerate() {
+            output[offset + index] += sample * placement.gain;
+        }
+    }
+    AudioClip::new(sample_rate, channels, output)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -230,6 +427,38 @@ impl OfflineAudioTransform for Normalize {
             *sample *= gain;
         }
         AudioClip::new(clip.sample_rate, clip.channels, clip.samples)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct InsertSilence {
+    at_seconds: f64,
+    duration_seconds: f64,
+}
+
+impl OfflineAudioTransform for InsertSilence {
+    fn name(&self) -> &str {
+        "audio_insert_silence"
+    }
+
+    fn process_clip(&mut self, clip: AudioClip) -> Result<AudioClip> {
+        insert_silence(clip, self.at_seconds, self.duration_seconds)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct DeleteSeconds {
+    start_seconds: f64,
+    end_seconds: f64,
+}
+
+impl OfflineAudioTransform for DeleteSeconds {
+    fn name(&self) -> &str {
+        "audio_delete_seconds"
+    }
+
+    fn process_clip(&mut self, clip: AudioClip) -> Result<AudioClip> {
+        delete_seconds(clip, self.start_seconds, self.end_seconds)
     }
 }
 
@@ -494,5 +723,32 @@ mod tests {
         let output = processor.process_clip(input.clone()).unwrap();
         assert_eq!(output.samples.len(), input.samples.len());
         assert!(output.samples.iter().all(|sample| sample.is_finite()));
+    }
+
+    #[test]
+    fn insert_delete_crossfade_and_mixdown_work() {
+        let input = clip(vec![1.0, 2.0, 3.0, 4.0]);
+        let inserted = insert_silence(input.clone(), 0.25, 0.25).unwrap();
+        assert_eq!(inserted.samples, vec![1.0, 2.0, 0.0, 0.0, 3.0, 4.0]);
+
+        let deleted = delete_seconds(inserted, 0.25, 0.5).unwrap();
+        assert_eq!(deleted.samples, input.samples);
+
+        let a = clip(vec![1.0, 1.0, 1.0, 1.0]);
+        let b = clip(vec![0.0, 0.0, 0.0, 0.0]);
+        let crossfaded =
+            crossfade_concat(&[a.clone(), b.clone()], 0.25, FadeCurve::Linear).unwrap();
+        assert_eq!(crossfaded.samples.len(), 6);
+
+        let mixed = mixdown_placements(
+            &[
+                AudioClipPlacement::new(a, 0.0, 1.0).unwrap(),
+                AudioClipPlacement::new(b, 0.25, 0.5).unwrap(),
+            ],
+            8,
+            1,
+        )
+        .unwrap();
+        assert_eq!(mixed.samples_per_channel(), 6);
     }
 }

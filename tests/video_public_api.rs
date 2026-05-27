@@ -15,7 +15,11 @@ use video_analysis_data::{BucketAggregator, BucketConfig, DataRecord};
 use video_analysis_dataset::{
     AnalysisDataset, DatasetRecord, FeatureRecord, FeatureValue, SceneRecord,
 };
-use video_analysis_editing::{crop_frame, grayscale_frame};
+use video_analysis_editing::{
+    build_concat_plan, build_cut_plan, crop_frame, fade_frame_to_color, flip_horizontal_frame,
+    grayscale_frame, resize_nearest_frame, SubtitleOverlay, TimeSpan, TimelineClip, TransitionKind,
+    TransitionSpec,
+};
 use video_analysis_features::{FeaturePipeline, FeatureVectorMeanExtractor, SceneStatsExtractor};
 use video_analysis_ingest::{MediaSourceInfo, SourceMode, TextFormat, TextStreamInfo};
 use video_analysis_output::{write_detection_result_json, write_scene_list_csv};
@@ -96,6 +100,26 @@ fn retained_video_crates_support_consumer_smoke_workflows() -> Result<(), Box<dy
     let cropped = crop_frame(&frame.as_frame(), BoundingBox::new(1, 1, 2, 2)?)?;
     let grayscale = grayscale_frame(&cropped.as_frame())?;
     assert_eq!(grayscale.width, 2);
+    let resized = resize_nearest_frame(&frame.as_frame(), 2, 2)?;
+    assert_eq!(resized.height, 2);
+    let flipped = flip_horizontal_frame(&frame.as_frame())?;
+    assert_eq!(flipped.width, frame.width);
+    let faded = fade_frame_to_color(&frame.as_frame(), [0, 0, 0], 0.25)?;
+    assert_eq!(faded.width, frame.width);
+    let cut_plan = build_cut_plan(
+        "clip",
+        &[TimeSpan::new(0.0, 1.0)?, TimeSpan::new(2.0, 3.0)?],
+    )?;
+    assert_eq!(cut_plan.clips[1].timeline_start_seconds, 1.0);
+    let concat_plan = build_concat_plan(
+        vec![
+            TimelineClip::new("a", 0.0, 1.0, 0.0)?,
+            TimelineClip::new("b", 0.0, 1.0, 1.0)?,
+        ],
+        vec![TransitionSpec::new(0, 1, 0.25, TransitionKind::CrossFade)?],
+    )?;
+    assert_eq!(concat_plan.transitions.len(), 1);
+    assert_eq!(SubtitleOverlay::new(0.0, 1.0, "caption")?.text, "caption");
 
     let mut tracker = IouTracker::new(TrackingOptions::default())?;
     let visible = tracker.update(

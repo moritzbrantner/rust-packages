@@ -1,7 +1,7 @@
 //! Library-owned runtime surface for `image-analysis-processing`.
 
 use image::GrayImage;
-use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
+use image_analysis_core::{compact_image, ImagePixelFormat, ImageView, OwnedImage};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use video_analysis_core::runtime::{
@@ -9,7 +9,10 @@ use video_analysis_core::runtime::{
     SurfaceResponse,
 };
 
-use crate::{apply_operation, perceptual_hash_luma, sharpen_image, ImageOperation, ImageRegion};
+use crate::{
+    apply_operation, composite_image, perceptual_hash_luma, sharpen_image, BlendMode,
+    CompositeSpec, ImageOperation, ImageRegion,
+};
 
 const DEFAULT_PREVIEW_LIMIT: usize = 32;
 const MAX_PREVIEW_LIMIT: usize = 512;
@@ -24,6 +27,8 @@ pub fn package_surface() -> PackageSurface {
         operations: vec![
             operation("describe", "Describe package", "CPU image processing primitives for video-analysis.", serde_json::json!({"includeOperations": true})),
             operation("image.processing.apply", "Apply operation", "Applies one deterministic CPU image operation and returns a capped output preview.", serde_json::json!({"image": sample_image_json(), "operation": {"type": "grayscale"}})),
+            operation("image.processing.pipeline", "Apply pipeline", "Applies an ordered deterministic CPU image operation pipeline and returns a capped output preview.", serde_json::json!({"image": sample_image_json(), "operations": [{"type": "flipHorizontal"}, {"type": "brightnessContrast", "brightness": 12, "contrast": 1.1}]})),
+            operation("image.processing.composite", "Composite images", "Composites an overlay image onto a base image with opacity, blend mode, and an optional gray mask.", serde_json::json!({"base": sample_image_json(), "overlay": sample_image_json(), "x": 0, "y": 0, "opacity": 0.5, "blendMode": "normal"})),
             operation("image.processing.hash", "Perceptual hash", "Computes a deterministic luma perceptual hash for an in-memory image.", serde_json::json!({"image": sample_image_json(), "hashSize": 8})),
         ],
     }
@@ -53,6 +58,8 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let value = match request.operation.as_str() {
         "describe" => describe_value(request.input),
         "image.processing.apply" => apply_value(parse_input(request.input)?)?,
+        "image.processing.pipeline" => pipeline_value(parse_input(request.input)?)?,
+        "image.processing.composite" => composite_value(parse_input(request.input)?)?,
         "image.processing.hash" => hash_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
@@ -98,6 +105,27 @@ struct ApplyRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct PipelineRequest {
+    image: ImagePayload,
+    operations: Vec<OperationRequest>,
+    preview_limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CompositeRequest {
+    base: ImagePayload,
+    overlay: ImagePayload,
+    mask: Option<ImagePayload>,
+    x: Option<i32>,
+    y: Option<i32>,
+    opacity: Option<f32>,
+    blend_mode: Option<String>,
+    preview_limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct HashRequest {
     image: ImagePayload,
     hash_size: Option<u32>,
@@ -122,6 +150,11 @@ struct OperationRequest {
     y: Option<u32>,
     width: Option<u32>,
     height: Option<u32>,
+    radius: Option<u32>,
+    brightness: Option<i16>,
+    contrast: Option<f32>,
+    saturation: Option<f32>,
+    clockwise_turns: Option<u8>,
     level: Option<u8>,
 }
 
@@ -131,11 +164,39 @@ fn apply_value(request: ApplyRequest) -> Result<serde_json::Value, String> {
     if preview_limit > MAX_PREVIEW_LIMIT {
         return Err(format!("previewLimit must be <= {MAX_PREVIEW_LIMIT}"));
     }
-    let output = match request.operation.kind.as_str() {
-        "sharpen" => sharpen_image(&image),
-        _ => apply_operation(&image, &request.operation.operation()?),
+    let output = apply_requested_operation(&image, &request.operation)?;
+    Ok(image_value(&output, preview_limit))
+}
+
+fn pipeline_value(request: PipelineRequest) -> Result<serde_json::Value, String> {
+    let image = request.image.view()?;
+    let preview_limit = request.preview_limit.unwrap_or(DEFAULT_PREVIEW_LIMIT);
+    if preview_limit > MAX_PREVIEW_LIMIT {
+        return Err(format!("previewLimit must be <= {MAX_PREVIEW_LIMIT}"));
     }
+    let mut current = compact_image(&image).map_err(|error| error.to_string())?;
+    for operation in &request.operations {
+        current = apply_requested_operation(&current.as_view(), operation)?;
+    }
+    Ok(image_value(&current, preview_limit))
+}
+
+fn composite_value(request: CompositeRequest) -> Result<serde_json::Value, String> {
+    let base = request.base.view()?;
+    let overlay = request.overlay.view()?;
+    let mask = request.mask.as_ref().map(ImagePayload::view).transpose()?;
+    let preview_limit = request.preview_limit.unwrap_or(DEFAULT_PREVIEW_LIMIT);
+    if preview_limit > MAX_PREVIEW_LIMIT {
+        return Err(format!("previewLimit must be <= {MAX_PREVIEW_LIMIT}"));
+    }
+    let spec = CompositeSpec::new(
+        request.x.unwrap_or(0),
+        request.y.unwrap_or(0),
+        request.opacity.unwrap_or(1.0),
+        blend_mode(request.blend_mode.as_deref().unwrap_or("normal"))?,
+    )
     .map_err(|error| error.to_string())?;
+    let output = composite_image(&base, &overlay, mask, spec).map_err(|error| error.to_string())?;
     Ok(image_value(&output, preview_limit))
 }
 
@@ -157,6 +218,17 @@ fn hash_value(request: HashRequest) -> Result<serde_json::Value, String> {
     }))
 }
 
+fn apply_requested_operation(
+    image: &ImageView<'_>,
+    operation: &OperationRequest,
+) -> Result<OwnedImage, String> {
+    match operation.kind.as_str() {
+        "sharpen" => sharpen_image(image),
+        _ => apply_operation(image, &operation.operation()?),
+    }
+    .map_err(|error| error.to_string())
+}
+
 impl OperationRequest {
     fn operation(&self) -> Result<ImageOperation, String> {
         match self.kind.as_str() {
@@ -173,10 +245,25 @@ impl OperationRequest {
                 width: self.width.ok_or("resizeNearest requires width")?,
                 height: self.height.ok_or("resizeNearest requires height")?,
             }),
+            "boxBlur" => Ok(ImageOperation::BoxBlur {
+                radius: self.radius.unwrap_or(1),
+            }),
             "grayscale" => Ok(ImageOperation::Grayscale),
             "invert" => Ok(ImageOperation::Invert),
+            "brightnessContrast" => Ok(ImageOperation::BrightnessContrast {
+                brightness: self.brightness.unwrap_or(0),
+                contrast: self.contrast.unwrap_or(1.0),
+            }),
+            "saturation" => Ok(ImageOperation::Saturation {
+                saturation: self.saturation.unwrap_or(1.0),
+            }),
             "threshold" => Ok(ImageOperation::Threshold {
                 level: self.level.ok_or("threshold requires level")?,
+            }),
+            "flipHorizontal" => Ok(ImageOperation::FlipHorizontal),
+            "flipVertical" => Ok(ImageOperation::FlipVertical),
+            "rotate90" => Ok(ImageOperation::Rotate90 {
+                clockwise_turns: self.clockwise_turns.unwrap_or(1),
             }),
             "sharpen" => Ok(ImageOperation::Grayscale),
             other => Err(format!("unsupported image operation `{other}`")),
@@ -224,6 +311,17 @@ fn pixel_format_name(format: ImagePixelFormat) -> &'static str {
     }
 }
 
+fn blend_mode(value: &str) -> Result<BlendMode, String> {
+    match value {
+        "normal" => Ok(BlendMode::Normal),
+        "multiply" => Ok(BlendMode::Multiply),
+        "screen" => Ok(BlendMode::Screen),
+        "add" => Ok(BlendMode::Add),
+        "difference" => Ok(BlendMode::Difference),
+        other => Err(format!("unsupported blend mode `{other}`")),
+    }
+}
+
 fn sample_image_json() -> serde_json::Value {
     serde_json::json!({
         "width": 2,
@@ -256,6 +354,38 @@ mod tests {
             invert.value["dataPreview"],
             serde_json::json!([0, 255, 255])
         );
+    }
+
+    #[test]
+    fn pipeline_and_composite_surfaces_work() {
+        let pipeline = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.processing.pipeline"),
+            input: serde_json::json!({
+                "image": sample_image_json(),
+                "operations": [
+                    {"type": "flipHorizontal"},
+                    {"type": "brightnessContrast", "brightness": 10, "contrast": 1.0}
+                ],
+                "previewLimit": 3
+            }),
+        })
+        .expect("pipeline");
+        assert_eq!(pipeline.value["pixelFormat"], "rgb24");
+
+        let composite = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.processing.composite"),
+            input: serde_json::json!({
+                "base": sample_image_json(),
+                "overlay": sample_image_json(),
+                "x": -1,
+                "y": 0,
+                "opacity": 0.5,
+                "blendMode": "normal",
+                "previewLimit": 3
+            }),
+        })
+        .expect("composite");
+        assert_eq!(composite.value["width"], 2);
     }
 
     #[test]

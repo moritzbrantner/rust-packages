@@ -8,7 +8,9 @@ use dense_data::{BucketGrid, DenseDataset, DensePoint};
 use finance_statistics::{historical_value_at_risk, max_drawdown, sharpe_ratio, simple_returns};
 use graph_analysis_core::{minimum_spanning_tree, shortest_path, Graph};
 use image_analysis_core::{mean_rgb, ImagePixelFormat, OwnedImage};
-use image_analysis_processing::grayscale_image;
+use image_analysis_processing::{
+    brightness_contrast_image, composite_image, grayscale_image, BlendMode, CompositeSpec,
+};
 use image_analysis_synthesis::{solid_image, ImageSynthesisConfig, RgbColor};
 use math_geometry_2d::{
     broad_phase_pairs_2d, BroadPhase2Config, BroadPhase2Strategy, NormalizedPoint2, RectU32, Size2u,
@@ -117,6 +119,16 @@ fn foundation_crates_support_basic_consumer_workflows() -> Result<(), Box<dyn st
     assert!(mean.red > mean.blue);
     let grayscale = grayscale_image(&image.as_view())?;
     assert_eq!(grayscale.pixel_format, ImagePixelFormat::Gray8);
+    let adjusted = brightness_contrast_image(&image.as_view(), 8, 1.0)?;
+    assert_eq!(adjusted.data[0], 255);
+    let overlay = OwnedImage::new(1, 1, ImagePixelFormat::Rgb24, vec![0, 0, 255], 3)?;
+    let composited = composite_image(
+        &image.as_view(),
+        &overlay.as_view(),
+        None,
+        CompositeSpec::new(1, 0, 0.5, BlendMode::Normal)?,
+    )?;
+    assert!(composited.data[3] < 128);
     assert_eq!(Kernel2d::sharpen_3x3().as_array_3x3()?[4], 5.0);
 
     let synthesized = solid_image(

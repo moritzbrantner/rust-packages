@@ -8,10 +8,10 @@ use video_analysis_core::runtime::{
 use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
 
 use crate::{
-    preset_chain, AudioEffectPreset, AudioEnergyAnalyzer, AudioProcessor, DelaySpec,
-    DistortionMode, DistortionSpec, DynamicsSpec, EqBandKind, EqBandSpec, FadeSpec, LimiterSpec,
-    ModulationDelaySpec, NoiseGateSpec, NormalizeSpec, OfflineAudioProcessor, PanSpec,
-    PitchShiftMode, ReverbSpec, SpeedMode, TremoloSpec,
+    mixdown_placements, preset_chain, AudioClipPlacement, AudioEffectPreset, AudioEnergyAnalyzer,
+    AudioProcessor, DelaySpec, DistortionMode, DistortionSpec, DynamicsSpec, EqBandKind,
+    EqBandSpec, FadeSpec, LimiterSpec, ModulationDelaySpec, NoiseGateSpec, NormalizeSpec,
+    OfflineAudioProcessor, PanSpec, PitchShiftMode, ReverbSpec, SpeedMode, TremoloSpec,
 };
 
 const MAX_SAMPLES: usize = 192_000;
@@ -47,6 +47,12 @@ pub fn package_surface() -> PackageSurface {
                 "Offline edit",
                 "Applies deterministic whole-clip edits such as trim, reverse, fade, normalize, speed, and pitch shift.",
                 serde_json::json!({"samples": [0.0, 0.5, -0.5], "sampleRate": 48000, "channels": 1, "chain": [{"type": "reverse"}]}),
+            ),
+            operation(
+                "audio.processing.mixdown",
+                "Mixdown",
+                "Mixes multiple whole-clip placements onto one deterministic output timeline.",
+                serde_json::json!({"sampleRate": 48000, "channels": 1, "placements": [{"samples": [0.0, 0.5], "startSeconds": 0.0, "gain": 1.0}, {"samples": [0.25], "startSeconds": 0.5, "gain": 0.8}]}),
             ),
             operation(
                 "audio.processing.preset",
@@ -96,6 +102,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.processing.apply" => apply_value(request.input)?,
         "audio.processing.effectsCatalog" => effects_catalog_value(),
         "audio.processing.offlineEdit" => offline_edit_value(request.input)?,
+        "audio.processing.mixdown" => mixdown_value(request.input)?,
         "audio.processing.preset" => preset_value(request.input)?,
         "audio.processing.energy" => energy_value(request.input)?,
         "audio.processing.chainSummary" => chain_summary_value(request.input)?,
@@ -348,7 +355,7 @@ fn effects_catalog_value() -> serde_json::Value {
             {"type": "pan", "fields": ["position"]},
             {"type": "stereoWidth", "fields": ["width"]}
         ],
-        "offlineEdits": ["trim", "reverse", "fade", "normalize", "resample", "speed", "pitchShift"],
+        "offlineEdits": ["trim", "reverse", "fade", "normalize", "insertSilence", "delete", "resample", "speed", "pitchShift"],
         "presets": ["VocalClean", "PodcastVoice", "LoFi", "WideChorus", "SmallRoomReverb", "HardLimiter"]
     })
 }
@@ -380,6 +387,15 @@ fn offline_edit_value(input: serde_json::Value) -> Result<serde_json::Value, Str
                 target_peak: finite_f32(item, "targetPeak")?,
                 target_rms: finite_f32(item, "targetRms")?,
             }),
+            "insertSilence" | "insert_silence" => processor.insert_silence(
+                finite_f64(item, "atSeconds")?.unwrap_or(0.0),
+                finite_f64(item, "durationSeconds")?.unwrap_or(0.0),
+            ),
+            "delete" | "deleteSeconds" | "delete_seconds" => processor.delete_seconds(
+                finite_f64(item, "startSeconds")?.unwrap_or(0.0),
+                finite_f64(item, "endSeconds")?
+                    .ok_or_else(|| "delete requires endSeconds in offlineEdit chain".to_string())?,
+            ),
             "resample" => processor.resample(
                 item.get("outputSampleRate")
                     .and_then(serde_json::Value::as_u64)
@@ -402,6 +418,66 @@ fn offline_edit_value(input: serde_json::Value) -> Result<serde_json::Value, Str
     let output = processor
         .process_clip(clip)
         .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "sampleRate": output.sample_rate,
+        "channels": output.channels,
+        "sampleCount": output.samples.len(),
+        "samplesPerChannel": output.samples_per_channel(),
+        "durationSeconds": output.duration_seconds(),
+        "rms": rms(&output.samples),
+        "peak": peak(&output.samples),
+        "samplePreview": preview(&output.samples, preview_limit(&input)?)
+    }))
+}
+
+fn mixdown_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let sample_rate = sample_rate(&input)?;
+    let channels = channels(&input)?;
+    let placements = input
+        .get("placements")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "placements must be an array".to_string())?;
+    let mut parsed = Vec::with_capacity(placements.len());
+    for placement in placements {
+        let placement_sample_rate = placement
+            .get("sampleRate")
+            .and_then(serde_json::Value::as_u64)
+            .map(|value| {
+                u32::try_from(value)
+                    .ok()
+                    .filter(|value| *value > 0)
+                    .ok_or_else(|| "placement sampleRate must be a positive u32".to_string())
+            })
+            .transpose()?
+            .unwrap_or(sample_rate);
+        let placement_channels = placement
+            .get("channels")
+            .and_then(serde_json::Value::as_u64)
+            .map(|value| {
+                u16::try_from(value)
+                    .ok()
+                    .filter(|value| *value > 0)
+                    .ok_or_else(|| "placement channels must be a positive u16".to_string())
+            })
+            .transpose()?
+            .unwrap_or(channels);
+        let clip = AudioClip::new(
+            placement_sample_rate,
+            placement_channels,
+            sample_array(placement, "samples")?,
+        )
+        .map_err(|error| error.to_string())?;
+        parsed.push(
+            AudioClipPlacement::new(
+                clip,
+                finite_f64(placement, "startSeconds")?.unwrap_or(0.0),
+                finite_f32(placement, "gain")?.unwrap_or(1.0),
+            )
+            .map_err(|error| error.to_string())?,
+        );
+    }
+    let output =
+        mixdown_placements(&parsed, sample_rate, channels).map_err(|error| error.to_string())?;
     Ok(serde_json::json!({
         "sampleRate": output.sample_rate,
         "channels": output.channels,
@@ -653,6 +729,7 @@ mod tests {
         assert!(ids.contains(&"audio.processing.energy"));
         assert!(ids.contains(&"audio.processing.effectsCatalog"));
         assert!(ids.contains(&"audio.processing.offlineEdit"));
+        assert!(ids.contains(&"audio.processing.mixdown"));
         assert!(ids.contains(&"audio.processing.preset"));
     }
 
@@ -707,6 +784,8 @@ mod tests {
                 "channels": 1,
                 "chain": [
                     {"type": "reverse"},
+                    {"type": "insertSilence", "atSeconds": 0.5, "durationSeconds": 0.1666667},
+                    {"type": "delete", "startSeconds": 0.5, "endSeconds": 0.6666667},
                     {"type": "fade", "fadeInSeconds": 0.1666667, "fadeOutSeconds": 0.1666667},
                     {"type": "normalize", "targetPeak": 1.0},
                     {"type": "speed", "factor": 2.0, "mode": "resampleChangesPitch"}
@@ -716,6 +795,27 @@ mod tests {
         .expect("offline edit");
         assert_eq!(response.value["channels"], 1);
         assert!(response.value["sampleCount"].as_u64().unwrap() < 6);
+    }
+
+    #[test]
+    fn mixdown_operation_places_clips_on_timeline() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.processing.mixdown"),
+            input: serde_json::json!({
+                "sampleRate": 4,
+                "channels": 1,
+                "placements": [
+                    {"samples": [1.0, 1.0], "startSeconds": 0.0, "gain": 1.0},
+                    {"samples": [0.5, 0.5], "startSeconds": 0.25, "gain": 1.0}
+                ],
+                "previewSamples": 4
+            }),
+        })
+        .expect("mixdown");
+        assert_eq!(
+            response.value["samplePreview"],
+            serde_json::json!([1.0, 1.5, 0.5])
+        );
     }
 
     #[test]

@@ -1,9 +1,14 @@
 mod support;
 
-use audio_analysis_core::{interleaved_to_mono, ChannelMix, FrameSpec, WindowFunction};
+use audio_analysis_core::{
+    interleaved_to_mono, AudioClip, ChannelMix, FadeCurve, FrameSpec, WindowFunction,
+};
 use audio_analysis_fourier::{spectrogram, FourierTransform, SpectralAnalyzer, StftConfig};
 use audio_analysis_pitch::AutocorrelationPitchDetector;
-use audio_analysis_processing::{AudioProcessor, BiquadKind, BiquadSpec, NoiseGateSpec};
+use audio_analysis_processing::{
+    crossfade_concat, delete_seconds, insert_silence, mixdown_placements, AudioClipPlacement,
+    AudioProcessor, BiquadKind, BiquadSpec, NoiseGateSpec,
+};
 use audio_analysis_recognition::{
     AudioRecognitionAnalyzer, AudioReferenceLibrary, SpectralAudioEmbedder, SpectralEmbeddingConfig,
 };
@@ -55,6 +60,23 @@ fn audio_packages_work_together_on_synthetic_signal() {
     assert!(processed_samples
         .iter()
         .all(|sample| (-0.9..=0.9).contains(sample)));
+
+    let clip = AudioClip::new(4, 1, vec![1.0, 2.0, 3.0, 4.0]).unwrap();
+    let inserted = insert_silence(clip.clone(), 0.5, 0.25).unwrap();
+    assert_eq!(
+        delete_seconds(inserted, 0.5, 0.75).unwrap().samples,
+        clip.samples
+    );
+    let crossfaded =
+        crossfade_concat(&[clip.clone(), clip.clone()], 0.25, FadeCurve::Linear).unwrap();
+    assert!(crossfaded.samples_per_channel() < clip.samples_per_channel() * 2);
+    let mixdown = mixdown_placements(
+        &[AudioClipPlacement::new(clip.clone(), 0.25, 0.5).unwrap()],
+        clip.sample_rate,
+        clip.channels,
+    )
+    .unwrap();
+    assert_eq!(mixdown.samples_per_channel(), 5);
 
     let transform = FourierTransform::with_window(4096, WindowFunction::Rectangular).unwrap();
     let spectrum = transform

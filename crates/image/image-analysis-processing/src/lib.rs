@@ -3,7 +3,7 @@
 pub mod surface;
 use image::imageops::FilterType;
 use image::{DynamicImage, GrayImage, RgbImage};
-use image_analysis_core::{ImagePixelFormat, ImageView, OwnedImage};
+use image_analysis_core::{compact_image, ImagePixelFormat, ImageView, OwnedImage};
 use math_geometry_2d::RectU32;
 use math_linear::Kernel2d;
 use video_analysis_core::{DetectError, Result};
@@ -145,14 +145,40 @@ pub enum ImageOperation {
         /// Height in pixels.
         height: u32,
     },
+    /// The box blur variant.
+    BoxBlur {
+        /// Blur radius in pixels.
+        radius: u32,
+    },
     /// The grayscale variant.
     Grayscale,
     /// The invert variant.
     Invert,
+    /// The brightness contrast variant.
+    BrightnessContrast {
+        /// Brightness offset in channel values.
+        brightness: i16,
+        /// Contrast multiplier around channel midpoint.
+        contrast: f32,
+    },
+    /// The saturation variant.
+    Saturation {
+        /// Saturation multiplier.
+        saturation: f32,
+    },
     /// The threshold variant.
     Threshold {
         /// The level value for this variant.
         level: u8,
+    },
+    /// The flip horizontal variant.
+    FlipHorizontal,
+    /// The flip vertical variant.
+    FlipVertical,
+    /// The rotate 90 variant.
+    Rotate90 {
+        /// Number of clockwise quarter turns.
+        clockwise_turns: u8,
     },
     /// The convolve3x3 variant.
     Convolve3x3 {
@@ -163,6 +189,58 @@ pub enum ImageOperation {
         /// The bias value for this variant.
         bias: f32,
     },
+}
+
+/// Blend modes for compositing images without requiring alpha pixel formats.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlendMode {
+    /// Source-over normal blend.
+    Normal,
+    /// Multiply blend.
+    Multiply,
+    /// Screen blend.
+    Screen,
+    /// Additive blend with clamping.
+    Add,
+    /// Absolute channel difference blend.
+    Difference,
+}
+
+/// Placement and opacity settings for compositing an overlay image onto a base image.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompositeSpec {
+    /// Overlay x offset in base-image pixels.
+    pub x: i32,
+    /// Overlay y offset in base-image pixels.
+    pub y: i32,
+    /// Overall opacity in [0, 1].
+    pub opacity: f32,
+    /// Blend mode.
+    pub blend_mode: BlendMode,
+}
+
+impl CompositeSpec {
+    /// Creates a validated composite spec.
+    pub fn new(x: i32, y: i32, opacity: f32, blend_mode: BlendMode) -> Result<Self> {
+        let spec = Self {
+            x,
+            y,
+            opacity,
+            blend_mode,
+        };
+        spec.validate()?;
+        Ok(spec)
+    }
+
+    fn validate(self) -> Result<()> {
+        if self.opacity.is_finite() && (0.0..=1.0).contains(&self.opacity) {
+            Ok(())
+        } else {
+            Err(DetectError::InvalidArgument(
+                "composite opacity must be finite and in [0, 1]".to_string(),
+            ))
+        }
+    }
 }
 
 impl ImageOperation {
@@ -219,9 +297,18 @@ pub fn apply_operation(image: &ImageView<'_>, operation: &ImageOperation) -> Res
     match operation {
         ImageOperation::Crop(region) => crop_image(image, *region),
         ImageOperation::ResizeNearest { width, height } => resize_nearest(image, *width, *height),
+        ImageOperation::BoxBlur { radius } => box_blur_image(image, *radius),
         ImageOperation::Grayscale => grayscale_image(image),
         ImageOperation::Invert => invert_image(image),
+        ImageOperation::BrightnessContrast {
+            brightness,
+            contrast,
+        } => brightness_contrast_image(image, *brightness, *contrast),
+        ImageOperation::Saturation { saturation } => saturation_image(image, *saturation),
         ImageOperation::Threshold { level } => threshold_image(image, *level),
+        ImageOperation::FlipHorizontal => flip_horizontal_image(image),
+        ImageOperation::FlipVertical => flip_vertical_image(image),
+        ImageOperation::Rotate90 { clockwise_turns } => rotate_image_90(image, *clockwise_turns),
         ImageOperation::Convolve3x3 {
             kernel,
             divisor,
@@ -283,6 +370,35 @@ pub fn resize_nearest(image: &ImageView<'_>, width: u32, height: u32) -> Result<
     OwnedImage::new(width, height, image.pixel_format, data, stride)
 }
 
+/// Returns box blur image.
+pub fn box_blur_image(image: &ImageView<'_>, radius: u32) -> Result<OwnedImage> {
+    if radius == 0 {
+        return compact_image(image);
+    }
+    map_pixels(image, image.pixel_format, |source, x, y| {
+        let x0 = x.saturating_sub(radius);
+        let y0 = y.saturating_sub(radius);
+        let x1 = (x + radius).min(source.width - 1);
+        let y1 = (y + radius).min(source.height - 1);
+        let mut sum = [0u32; 3];
+        let mut count = 0u32;
+        for sample_y in y0..=y1 {
+            for sample_x in x0..=x1 {
+                let pixel = source.pixel_rgb(sample_x, sample_y);
+                sum[0] += pixel[0] as u32;
+                sum[1] += pixel[1] as u32;
+                sum[2] += pixel[2] as u32;
+                count += 1;
+            }
+        }
+        [
+            (sum[0] / count) as u8,
+            (sum[1] / count) as u8,
+            (sum[2] / count) as u8,
+        ]
+    })
+}
+
 /// Returns grayscale image.
 pub fn grayscale_image(image: &ImageView<'_>) -> Result<OwnedImage> {
     map_pixels(image, ImagePixelFormat::Gray8, |source, x, y| {
@@ -298,12 +414,101 @@ pub fn invert_image(image: &ImageView<'_>) -> Result<OwnedImage> {
     })
 }
 
+/// Returns brightness contrast image.
+pub fn brightness_contrast_image(
+    image: &ImageView<'_>,
+    brightness: i16,
+    contrast: f32,
+) -> Result<OwnedImage> {
+    if !contrast.is_finite() {
+        return Err(DetectError::InvalidArgument(
+            "contrast must be finite".to_string(),
+        ));
+    }
+    map_pixels(image, image.pixel_format, |source, x, y| {
+        let [red, green, blue] = source.pixel_rgb(x, y);
+        [
+            adjust_channel(red, brightness, contrast),
+            adjust_channel(green, brightness, contrast),
+            adjust_channel(blue, brightness, contrast),
+        ]
+    })
+}
+
+/// Returns saturation adjusted image.
+pub fn saturation_image(image: &ImageView<'_>, saturation: f32) -> Result<OwnedImage> {
+    if !saturation.is_finite() {
+        return Err(DetectError::InvalidArgument(
+            "saturation must be finite".to_string(),
+        ));
+    }
+    map_pixels(image, image.pixel_format, |source, x, y| {
+        let [red, green, blue] = source.pixel_rgb(x, y);
+        let luma = source.luma(x, y) as f32;
+        [
+            clamp_u8(luma + (red as f32 - luma) * saturation),
+            clamp_u8(luma + (green as f32 - luma) * saturation),
+            clamp_u8(luma + (blue as f32 - luma) * saturation),
+        ]
+    })
+}
+
 /// Returns threshold image.
 pub fn threshold_image(image: &ImageView<'_>, level: u8) -> Result<OwnedImage> {
     map_pixels(image, ImagePixelFormat::Gray8, |source, x, y| {
         let value = if source.luma(x, y) >= level { 255 } else { 0 };
         [value, value, value]
     })
+}
+
+/// Returns horizontally flipped image.
+pub fn flip_horizontal_image(image: &ImageView<'_>) -> Result<OwnedImage> {
+    map_pixels(image, image.pixel_format, |source, x, y| {
+        source.pixel_rgb(source.width - 1 - x, y)
+    })
+}
+
+/// Returns vertically flipped image.
+pub fn flip_vertical_image(image: &ImageView<'_>) -> Result<OwnedImage> {
+    map_pixels(image, image.pixel_format, |source, x, y| {
+        source.pixel_rgb(x, source.height - 1 - y)
+    })
+}
+
+/// Returns image rotated by clockwise quarter turns.
+pub fn rotate_image_90(image: &ImageView<'_>, clockwise_turns: u8) -> Result<OwnedImage> {
+    image.validate()?;
+    let turns = clockwise_turns % 4;
+    if turns == 0 {
+        return compact_image(image);
+    }
+    let (width, height) = if turns == 2 {
+        (image.width, image.height)
+    } else {
+        (image.height, image.width)
+    };
+    let bpp = image.pixel_format.bytes_per_pixel();
+    let stride = width as usize * bpp;
+    let mut data = vec![0_u8; stride * height as usize];
+    for y in 0..height {
+        for x in 0..width {
+            let (source_x, source_y) = match turns {
+                1 => (y, image.height - 1 - x),
+                2 => (image.width - 1 - x, image.height - 1 - y),
+                3 => (image.width - 1 - y, x),
+                _ => unreachable!(),
+            };
+            write_pixel(
+                &mut data,
+                stride,
+                image.pixel_format,
+                x,
+                y,
+                image.pixel_rgb(source_x, source_y),
+            );
+        }
+    }
+    OwnedImage::new(width, height, image.pixel_format, data, stride)
 }
 
 /// Returns convolve 3x3.
@@ -355,6 +560,70 @@ pub fn sharpen_image(image: &ImageView<'_>) -> Result<OwnedImage> {
     convolve_3x3_kernel(image, &Kernel2d::sharpen_3x3(), 1.0, 0.0)
 }
 
+/// Composites an overlay image onto a base image using opacity, optional mask, and blend mode.
+pub fn composite_image(
+    base: &ImageView<'_>,
+    overlay: &ImageView<'_>,
+    mask: Option<ImageView<'_>>,
+    spec: CompositeSpec,
+) -> Result<OwnedImage> {
+    base.validate()?;
+    overlay.validate()?;
+    spec.validate()?;
+    if let Some(mask) = mask {
+        mask.validate()?;
+        if mask.width != overlay.width || mask.height != overlay.height {
+            return Err(DetectError::InvalidArgument(
+                "composite mask dimensions must match overlay dimensions".to_string(),
+            ));
+        }
+    }
+
+    let mut output = compact_image(base)?;
+    let x0 = spec.x.max(0) as u32;
+    let y0 = spec.y.max(0) as u32;
+    let x1 = (spec.x as i64 + overlay.width as i64)
+        .min(base.width as i64)
+        .max(0) as u32;
+    let y1 = (spec.y as i64 + overlay.height as i64)
+        .min(base.height as i64)
+        .max(0) as u32;
+    if x0 >= x1 || y0 >= y1 || spec.opacity == 0.0 {
+        return Ok(output);
+    }
+
+    for y in y0..y1 {
+        for x in x0..x1 {
+            let overlay_x = (x as i64 - spec.x as i64) as u32;
+            let overlay_y = (y as i64 - spec.y as i64) as u32;
+            let mask_alpha = mask
+                .map(|mask| mask.luma(overlay_x, overlay_y) as f32 / 255.0)
+                .unwrap_or(1.0);
+            let alpha = spec.opacity * mask_alpha;
+            if alpha <= 0.0 {
+                continue;
+            }
+            let base_rgb = base.pixel_rgb(x, y);
+            let overlay_rgb = overlay.pixel_rgb(overlay_x, overlay_y);
+            let blended = blend_rgb(base_rgb, overlay_rgb, spec.blend_mode);
+            let rgb = [
+                clamp_u8(base_rgb[0] as f32 * (1.0 - alpha) + blended[0] as f32 * alpha),
+                clamp_u8(base_rgb[1] as f32 * (1.0 - alpha) + blended[1] as f32 * alpha),
+                clamp_u8(base_rgb[2] as f32 * (1.0 - alpha) + blended[2] as f32 * alpha),
+            ];
+            write_pixel(
+                &mut output.data,
+                output.stride,
+                output.pixel_format,
+                x,
+                y,
+                rgb,
+            );
+        }
+    }
+    Ok(output)
+}
+
 fn map_pixels(
     image: &ImageView<'_>,
     output_format: ImagePixelFormat,
@@ -400,6 +669,26 @@ fn validate_region(image: &ImageView<'_>, region: RectU32) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn adjust_channel(value: u8, brightness: i16, contrast: f32) -> u8 {
+    clamp_u8((value as f32 - 128.0) * contrast + 128.0 + brightness as f32)
+}
+
+fn blend_rgb(base: [u8; 3], overlay: [u8; 3], mode: BlendMode) -> [u8; 3] {
+    let mut output = [0_u8; 3];
+    for channel in 0..3 {
+        let base = base[channel] as u16;
+        let overlay = overlay[channel] as u16;
+        output[channel] = match mode {
+            BlendMode::Normal => overlay as u8,
+            BlendMode::Multiply => ((base * overlay) / 255) as u8,
+            BlendMode::Screen => (255 - ((255 - base) * (255 - overlay)) / 255) as u8,
+            BlendMode::Add => (base + overlay).min(255) as u8,
+            BlendMode::Difference => base.abs_diff(overlay) as u8,
+        };
+    }
+    output
 }
 
 fn clamp_u8(value: f32) -> u8 {
@@ -505,6 +794,57 @@ mod tests {
             .process(&image().as_view())
             .unwrap();
         assert_eq!((processed.width, processed.height), (2, 2));
+    }
+
+    #[test]
+    fn editor_style_operations_transform_pixels() {
+        let flipped = flip_horizontal_image(&image().as_view()).unwrap();
+        assert_eq!(&flipped.data[0..3], &[255, 0, 0]);
+
+        let rotated = rotate_image_90(&image().as_view(), 1).unwrap();
+        assert_eq!((rotated.width, rotated.height), (2, 2));
+        assert_eq!(&rotated.data[0..3], &[0, 255, 0]);
+
+        let bright = brightness_contrast_image(&image().as_view(), 10, 1.0).unwrap();
+        assert_eq!(&bright.data[0..3], &[10, 10, 10]);
+
+        let saturated = saturation_image(&image().as_view(), 0.0).unwrap();
+        assert_eq!(&saturated.data[6..9], &[150, 150, 150]);
+
+        let blurred = box_blur_image(&image().as_view(), 1).unwrap();
+        assert_eq!(&blurred.data[0..3], &[63, 63, 63]);
+    }
+
+    #[test]
+    fn composite_supports_mask_opacity_and_negative_offsets() {
+        let base = OwnedImage::new_rgb(2, 2, vec![10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10])
+            .unwrap();
+        let overlay = OwnedImage::new_rgb(
+            2,
+            2,
+            vec![110, 10, 10, 110, 10, 10, 110, 10, 10, 110, 10, 10],
+        )
+        .unwrap();
+        let mask = OwnedImage::new_gray(2, 2, vec![0, 255, 255, 255]).unwrap();
+        let output = composite_image(
+            &base.as_view(),
+            &overlay.as_view(),
+            Some(mask.as_view()),
+            CompositeSpec::new(-1, 0, 0.5, BlendMode::Normal).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(&output.data[0..3], &[60, 10, 10]);
+        assert_eq!(&output.data[3..6], &[10, 10, 10]);
+
+        let bad_mask = OwnedImage::new_gray(1, 1, vec![255]).unwrap();
+        assert!(composite_image(
+            &base.as_view(),
+            &overlay.as_view(),
+            Some(bad_mask.as_view()),
+            CompositeSpec::new(0, 0, 1.0, BlendMode::Normal).unwrap(),
+        )
+        .is_err());
     }
 
     #[test]

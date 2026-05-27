@@ -6379,6 +6379,7 @@ dependencies = [
  "math-geometry-2d",
  "math-linear",
  "num-rational",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
