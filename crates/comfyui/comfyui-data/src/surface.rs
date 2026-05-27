@@ -16,15 +16,40 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Serde contracts for ComfyUI workflow and prompt data.", serde_json::json!({"includeOperations": true})),
-            operation("comfy.workflow.validate", "Validate workflow", "Validates ComfyUI workflow node and link references.", serde_json::json!({"workflow": {"nodes": [], "links": []}})),
-            operation("comfy.workflow.inventory", "Workflow inventory", "Returns normalized workflow socket inventory by input, output, and link position.", serde_json::json!({"workflow": {"nodes": [], "links": []}})),
-            operation("comfy.prompt.links", "Prompt links", "Lists parsed ComfyUI prompt graph input links and invalid link-shaped values.", serde_json::json!({"prompt": {}})),
+            operation(
+                "describe",
+                "Describe package",
+                "Serde contracts for ComfyUI workflow and prompt data.",
+                serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "comfy.workflow.validate",
+                "Validate workflow",
+                "Validates ComfyUI workflow node and link references.",
+                serde_json::json!({"workflow": {"nodes": [], "links": []}}),
+            ),
+            operation(
+                "comfy.workflow.inventory",
+                "Workflow inventory",
+                "Returns normalized workflow socket inventory by input, output, and link position.",
+                serde_json::json!({"workflow": {"nodes": [], "links": []}}),
+            ),
+            operation(
+                "comfy.prompt.links",
+                "Prompt links",
+                "Lists parsed ComfyUI prompt graph input links and invalid link-shaped values.",
+                serde_json::json!({"prompt": {}}),
+            ),
         ],
     }
 }
 
-fn operation(id: &str, name: &str, description: &str, example_request: serde_json::Value) -> SurfaceOperation {
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
     SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
@@ -67,7 +92,12 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
 }
 
 fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse { operation, value, diagnostics: Vec::new(), artifacts: Vec::new() }
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
 }
 
 fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {
@@ -185,8 +215,14 @@ mod tests {
             }),
         })
         .expect("inventory");
-        assert!(response.value["inputs"].as_array().unwrap().contains(&serde_json::json!("image")));
-        assert!(response.value["outputs"].as_array().unwrap().contains(&serde_json::json!("mask")));
+        assert!(response.value["inputs"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("image")));
+        assert!(response.value["outputs"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("mask")));
     }
 
     #[test]

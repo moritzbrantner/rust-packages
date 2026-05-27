@@ -17,15 +17,40 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "ComfyUI-oriented latent-space data contracts built on tensor-data.", serde_json::json!({"includeOperations": true})),
-            operation("comfy.latents.size", "Latent size", "Converts image size to ComfyUI latent dimensions.", serde_json::json!({"width": 512, "height": 512})),
-            operation("comfy.latents.batchSummary", "Latent batch summary", "Validates and summarizes a rank-4 latent sample tensor.", serde_json::json!({"samples": {"shape": [1, 4, 64, 64], "values": [0.0]}})),
-            operation("comfy.latents.maskCompatibility", "Mask compatibility", "Checks latent mask compatibility with a latent batch.", serde_json::json!({"batch": {"samples": {"shape": [1, 4, 64, 64], "values": [0.0]}}, "mask": {"shape": [64, 64], "values": [0.0]}})),
+            operation(
+                "describe",
+                "Describe package",
+                "ComfyUI-oriented latent-space data contracts built on tensor-data.",
+                serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "comfy.latents.size",
+                "Latent size",
+                "Converts image size to ComfyUI latent dimensions.",
+                serde_json::json!({"width": 512, "height": 512}),
+            ),
+            operation(
+                "comfy.latents.batchSummary",
+                "Latent batch summary",
+                "Validates and summarizes a rank-4 latent sample tensor.",
+                serde_json::json!({"samples": {"shape": [1, 4, 64, 64], "values": [0.0]}}),
+            ),
+            operation(
+                "comfy.latents.maskCompatibility",
+                "Mask compatibility",
+                "Checks latent mask compatibility with a latent batch.",
+                serde_json::json!({"batch": {"samples": {"shape": [1, 4, 64, 64], "values": [0.0]}}, "mask": {"shape": [64, 64], "values": [0.0]}}),
+            ),
         ],
     }
 }
 
-fn operation(id: &str, name: &str, description: &str, example_request: serde_json::Value) -> SurfaceOperation {
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
     SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
@@ -68,7 +93,12 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
 }
 
 fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse { operation, value, diagnostics: Vec::new(), artifacts: Vec::new() }
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
 }
 
 fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {
@@ -125,7 +155,9 @@ fn batch_summary_value(request: BatchSummaryRequest) -> Result<serde_json::Value
     Ok(batch_value(&batch))
 }
 
-fn mask_compatibility_value(request: MaskCompatibilityRequest) -> Result<serde_json::Value, String> {
+fn mask_compatibility_value(
+    request: MaskCompatibilityRequest,
+) -> Result<serde_json::Value, String> {
     let batch = LatentBatch::new(request.batch.samples.tensor()?).map_err(|e| e.to_string())?;
     let mask = LatentMask::new(request.mask.tensor()?).map_err(|e| e.to_string())?;
     Ok(serde_json::json!({

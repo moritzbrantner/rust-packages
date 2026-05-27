@@ -17,13 +17,28 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Canonical image detection types and mask-proposal adapters for video-analysis.", serde_json::json!({"includeOperations": true})),
-            operation("image.detection.colorBlob", "Color blob detection", "Detects connected red-dominant color blobs in an in-memory image.", serde_json::json!({"image": sample_image_json(), "targetColor": "red", "minAreaPixels": 1, "mergeAdjacent": true})),
+            operation(
+                "describe",
+                "Describe package",
+                "Canonical image detection types and mask-proposal adapters for video-analysis.",
+                serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "image.detection.colorBlob",
+                "Color blob detection",
+                "Detects connected red-dominant color blobs in an in-memory image.",
+                serde_json::json!({"image": sample_image_json(), "targetColor": "red", "minAreaPixels": 1, "mergeAdjacent": true}),
+            ),
         ],
     }
 }
 
-fn operation(id: &str, name: &str, description: &str, example_request: serde_json::Value) -> SurfaceOperation {
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
     SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
@@ -64,7 +79,12 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
 }
 
 fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse { operation, value, diagnostics: Vec::new(), artifacts: Vec::new() }
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
 }
 
 fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {
@@ -95,8 +115,8 @@ fn color_blob_value(request: ColorBlobRequest) -> Result<serde_json::Value, Stri
         "red" => TargetColor::Red,
         other => return Err(format!("unsupported target color `{other}`")),
     };
-    let mut options = ColorBlobDetectionOptions::default()
-        .min_area_pixels(request.min_area_pixels.unwrap_or(24));
+    let mut options =
+        ColorBlobDetectionOptions::default().min_area_pixels(request.min_area_pixels.unwrap_or(24));
     options.target = target;
     options.morph_open_3x3 = request.merge_adjacent.unwrap_or(true);
     let image = request.image.view()?;

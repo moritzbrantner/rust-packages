@@ -18,15 +18,40 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Shared 3D geometry primitives and transforms for video-analysis.", serde_json::json!({"includeOperations": true})),
-            operation("threeD.pointCloud.summary", "Point cloud summary", "Summarizes point count, centroid, and bounds.", serde_json::json!({"points": [[0, 0, 0], [1, 1, 1]]})),
-            operation("threeD.pointCloud.downsample", "Point cloud downsample", "Runs deterministic voxel downsampling over points.", serde_json::json!({"points": [[0, 0, 0], [0.01, 0, 0]], "voxelSize": 0.1})),
-            operation("threeD.geometry.intersections", "Geometry intersections", "Computes supported 3D geometry intersections.", serde_json::json!({"mode": "raySphere", "ray": {"origin": [0, 0, -2], "direction": [0, 0, 1]}, "sphere": {"center": [0, 0, 0], "radius": 1}})),
+            operation(
+                "describe",
+                "Describe package",
+                "Shared 3D geometry primitives and transforms for video-analysis.",
+                serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "threeD.pointCloud.summary",
+                "Point cloud summary",
+                "Summarizes point count, centroid, and bounds.",
+                serde_json::json!({"points": [[0, 0, 0], [1, 1, 1]]}),
+            ),
+            operation(
+                "threeD.pointCloud.downsample",
+                "Point cloud downsample",
+                "Runs deterministic voxel downsampling over points.",
+                serde_json::json!({"points": [[0, 0, 0], [0.01, 0, 0]], "voxelSize": 0.1}),
+            ),
+            operation(
+                "threeD.geometry.intersections",
+                "Geometry intersections",
+                "Computes supported 3D geometry intersections.",
+                serde_json::json!({"mode": "raySphere", "ray": {"origin": [0, 0, -2], "direction": [0, 0, 1]}, "sphere": {"center": [0, 0, 0], "radius": 1}}),
+            ),
         ],
     }
 }
 
-fn operation(id: &str, name: &str, description: &str, example_request: serde_json::Value) -> SurfaceOperation {
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
     SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
@@ -45,7 +70,9 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let value = match request.operation.as_str() {
         "describe" => describe_value(request.input),
         "threeD.pointCloud.summary" => point_cloud_summary_value(parse_input(request.input)?)?,
-        "threeD.pointCloud.downsample" => point_cloud_downsample_value(parse_input(request.input)?)?,
+        "threeD.pointCloud.downsample" => {
+            point_cloud_downsample_value(parse_input(request.input)?)?
+        }
         "threeD.geometry.intersections" => intersections_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
@@ -69,7 +96,12 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
 }
 
 fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse { operation, value, diagnostics: Vec::new(), artifacts: Vec::new() }
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
 }
 
 fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {

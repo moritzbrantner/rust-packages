@@ -21,15 +21,40 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "ComfyUI model folder, inventory, and extra path contracts.", serde_json::json!({"includeOperations": true})),
-            operation("comfy.models.defaults", "Default model folders", "Lists ComfyUI core model folder keys and default relative paths.", serde_json::json!({})),
-            operation("comfy.models.extraPathsPlan", "Extra paths plan", "Builds an extra_model_paths YAML plan without writing files.", serde_json::json!({"name": "video-analysis", "root": "/models", "folders": {"checkpoints": ["models/checkpoints"]}})),
-            operation("comfy.models.reference", "Model reference", "Builds a typed ComfyUI model reference from role and name.", serde_json::json!({"role": "checkpoint", "name": "model.safetensors"})),
+            operation(
+                "describe",
+                "Describe package",
+                "ComfyUI model folder, inventory, and extra path contracts.",
+                serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "comfy.models.defaults",
+                "Default model folders",
+                "Lists ComfyUI core model folder keys and default relative paths.",
+                serde_json::json!({}),
+            ),
+            operation(
+                "comfy.models.extraPathsPlan",
+                "Extra paths plan",
+                "Builds an extra_model_paths YAML plan without writing files.",
+                serde_json::json!({"name": "video-analysis", "root": "/models", "folders": {"checkpoints": ["models/checkpoints"]}}),
+            ),
+            operation(
+                "comfy.models.reference",
+                "Model reference",
+                "Builds a typed ComfyUI model reference from role and name.",
+                serde_json::json!({"role": "checkpoint", "name": "model.safetensors"}),
+            ),
         ],
     }
 }
 
-fn operation(id: &str, name: &str, description: &str, example_request: serde_json::Value) -> SurfaceOperation {
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
     SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
@@ -72,7 +97,12 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
 }
 
 fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse { operation, value, diagnostics: Vec::new(), artifacts: Vec::new() }
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
 }
 
 fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {
@@ -156,7 +186,10 @@ mod tests {
         })
         .expect("plan");
         assert!(response.value["yaml"].as_str().unwrap().contains("shared:"));
-        assert!(response.value["yaml"].as_str().unwrap().contains("checkpoints"));
+        assert!(response.value["yaml"]
+            .as_str()
+            .unwrap()
+            .contains("checkpoints"));
     }
 
     #[test]

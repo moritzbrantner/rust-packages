@@ -9,9 +9,7 @@ use video_analysis_core::runtime::{
     SurfaceResponse,
 };
 
-use crate::{
-    apply_operation, perceptual_hash_luma, sharpen_image, ImageOperation, ImageRegion,
-};
+use crate::{apply_operation, perceptual_hash_luma, sharpen_image, ImageOperation, ImageRegion};
 
 const DEFAULT_PREVIEW_LIMIT: usize = 32;
 const MAX_PREVIEW_LIMIT: usize = 512;
@@ -31,7 +29,12 @@ pub fn package_surface() -> PackageSurface {
     }
 }
 
-fn operation(id: &str, name: &str, description: &str, example_request: serde_json::Value) -> SurfaceOperation {
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
     SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
@@ -73,7 +76,12 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
 }
 
 fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse { operation, value, diagnostics: Vec::new(), artifacts: Vec::new() }
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
 }
 
 fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {
@@ -152,13 +160,15 @@ fn hash_value(request: HashRequest) -> Result<serde_json::Value, String> {
 impl OperationRequest {
     fn operation(&self) -> Result<ImageOperation, String> {
         match self.kind.as_str() {
-            "crop" => Ok(ImageOperation::Crop(ImageRegion::new(
-                self.x.ok_or("crop requires x")?,
-                self.y.ok_or("crop requires y")?,
-                self.width.ok_or("crop requires width")?,
-                self.height.ok_or("crop requires height")?,
-            )
-            .map_err(|error| error.to_string())?)),
+            "crop" => Ok(ImageOperation::Crop(
+                ImageRegion::new(
+                    self.x.ok_or("crop requires x")?,
+                    self.y.ok_or("crop requires y")?,
+                    self.width.ok_or("crop requires width")?,
+                    self.height.ok_or("crop requires height")?,
+                )
+                .map_err(|error| error.to_string())?,
+            )),
             "resizeNearest" => Ok(ImageOperation::ResizeNearest {
                 width: self.width.ok_or("resizeNearest requires width")?,
                 height: self.height.ok_or("resizeNearest requires height")?,
@@ -242,7 +252,10 @@ mod tests {
             input: serde_json::json!({"image": sample_image_json(), "operation": {"type": "invert"}, "previewLimit": 3}),
         })
         .expect("invert");
-        assert_eq!(invert.value["dataPreview"], serde_json::json!([0, 255, 255]));
+        assert_eq!(
+            invert.value["dataPreview"],
+            serde_json::json!([0, 255, 255])
+        );
     }
 
     #[test]

@@ -21,10 +21,30 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Shared image views, pixel formats, and image statistics for video-analysis.", serde_json::json!({"includeOperations": true})),
-            operation("image.core.summary", "Image summary", "Returns dimensions, format, compact length, and mean RGB for an in-memory image.", serde_json::json!({"image": sample_image_json()})),
-            operation("image.core.lumaHistogram", "Luma histogram", "Computes a capped luma histogram for an in-memory image.", serde_json::json!({"image": sample_image_json(), "bins": 16})),
-            operation("image.core.maskTensorSummary", "Mask tensor summary", "Builds a luma-derived mask tensor summary with capped value preview.", serde_json::json!({"image": sample_image_json(), "previewLimit": 16})),
+            operation(
+                "describe",
+                "Describe package",
+                "Shared image views, pixel formats, and image statistics for video-analysis.",
+                serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "image.core.summary",
+                "Image summary",
+                "Returns dimensions, format, compact length, and mean RGB for an in-memory image.",
+                serde_json::json!({"image": sample_image_json()}),
+            ),
+            operation(
+                "image.core.lumaHistogram",
+                "Luma histogram",
+                "Computes a capped luma histogram for an in-memory image.",
+                serde_json::json!({"image": sample_image_json(), "bins": 16}),
+            ),
+            operation(
+                "image.core.maskTensorSummary",
+                "Mask tensor summary",
+                "Builds a luma-derived mask tensor summary with capped value preview.",
+                serde_json::json!({"image": sample_image_json(), "previewLimit": 16}),
+            ),
         ],
     }
 }

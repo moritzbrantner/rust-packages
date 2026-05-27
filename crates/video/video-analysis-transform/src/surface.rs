@@ -155,14 +155,15 @@ fn filter_value(request: FilterRequest) -> Result<serde_json::Value, String> {
         .iter()
         .filter(|record| {
             (kinds.is_empty() || kinds.contains(record.kind()))
-                && request
-                    .start_seconds
-                    .is_none_or(|start| record_timestamp_seconds(record).is_some_and(|value| value >= start))
-                && request
-                    .end_seconds
-                    .is_none_or(|end| record_timestamp_seconds(record).is_some_and(|value| value <= end))
+                && request.start_seconds.is_none_or(|start| {
+                    record_timestamp_seconds(record).is_some_and(|value| value >= start)
+                })
+                && request.end_seconds.is_none_or(|end| {
+                    record_timestamp_seconds(record).is_some_and(|value| value <= end)
+                })
                 && (scene_indexes.is_empty()
-                    || record_scene_index(record).is_some_and(|index| scene_indexes.contains(&index)))
+                    || record_scene_index(record)
+                        .is_some_and(|index| scene_indexes.contains(&index)))
                 && (labels.is_empty()
                     || record_label(record).is_some_and(|label| labels.contains(label)))
         })
@@ -317,7 +318,10 @@ mod tests {
         .expect("filter");
 
         assert_eq!(response.value["outputRecordCount"], 1);
-        assert_eq!(response.value["dataset"]["records"][0]["event"]["label"], "speech");
+        assert_eq!(
+            response.value["dataset"]["records"][0]["event"]["label"],
+            "speech"
+        );
     }
 
     #[test]
@@ -329,7 +333,10 @@ mod tests {
         .expect("group scenes");
 
         assert_eq!(response.value["groups"][0]["sceneIndex"], 0);
-        assert_eq!(response.value["groups"][0]["recordCounts"]["observation"], 1);
+        assert_eq!(
+            response.value["groups"][0]["recordCounts"]["observation"],
+            1
+        );
     }
 
     #[test]

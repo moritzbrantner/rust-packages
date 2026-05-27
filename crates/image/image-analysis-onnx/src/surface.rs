@@ -11,7 +11,7 @@ use video_analysis_core::runtime::{
 };
 
 use crate::{
-    decode_object_detections, preprocessing_from_config, preprocess_image, BoxFormat, ChannelOrder,
+    decode_object_detections, preprocess_image, preprocessing_from_config, BoxFormat, ChannelOrder,
     OnnxImagePreprocessing, OnnxObjectDetectionOutput,
 };
 
@@ -25,15 +25,40 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "ONNX-backed still-image preprocessing and inference adapters for video-analysis.", serde_json::json!({"includeOperations": true})),
-            operation("image.onnx.preprocessing", "Parse preprocessing", "Parses deterministic ONNX image preprocessing options from config JSON.", serde_json::json!({"config": {"size": {"width": 2, "height": 2}, "image_mean": [0.0, 0.0, 0.0], "image_std": [1.0, 1.0, 1.0]}})),
-            operation("image.onnx.preprocess", "Preprocess image", "Preprocesses an in-memory image into a capped ONNX input tensor preview.", serde_json::json!({"image": sample_image_json(), "preprocessing": preprocessing_value(&OnnxImagePreprocessing::default()), "previewLimit": 16})),
-            operation("image.onnx.decodeDetections", "Decode detections", "Decodes deterministic object-detection tensor outputs into image detections.", serde_json::json!({"output": {"boxes": [[0.5, 0.5, 0.5, 0.5]], "classIds": [1], "scores": [0.9], "boxFormat": "cxcywhNormalized"}, "options": {"scoreThreshold": 0.5, "labels": {"1": "object"}}, "imageWidth": 640, "imageHeight": 480})),
+            operation(
+                "describe",
+                "Describe package",
+                "ONNX-backed still-image preprocessing and inference adapters for video-analysis.",
+                serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "image.onnx.preprocessing",
+                "Parse preprocessing",
+                "Parses deterministic ONNX image preprocessing options from config JSON.",
+                serde_json::json!({"config": {"size": {"width": 2, "height": 2}, "image_mean": [0.0, 0.0, 0.0], "image_std": [1.0, 1.0, 1.0]}}),
+            ),
+            operation(
+                "image.onnx.preprocess",
+                "Preprocess image",
+                "Preprocesses an in-memory image into a capped ONNX input tensor preview.",
+                serde_json::json!({"image": sample_image_json(), "preprocessing": preprocessing_value(&OnnxImagePreprocessing::default()), "previewLimit": 16}),
+            ),
+            operation(
+                "image.onnx.decodeDetections",
+                "Decode detections",
+                "Decodes deterministic object-detection tensor outputs into image detections.",
+                serde_json::json!({"output": {"boxes": [[0.5, 0.5, 0.5, 0.5]], "classIds": [1], "scores": [0.9], "boxFormat": "cxcywhNormalized"}, "options": {"scoreThreshold": 0.5, "labels": {"1": "object"}}, "imageWidth": 640, "imageHeight": 480}),
+            ),
         ],
     }
 }
 
-fn operation(id: &str, name: &str, description: &str, example_request: serde_json::Value) -> SurfaceOperation {
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
     SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
@@ -76,7 +101,12 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
 }
 
 fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse { operation, value, diagnostics: Vec::new(), artifacts: Vec::new() }
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
 }
 
 fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {

@@ -22,15 +22,40 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Triangle mesh validation and geometry helpers for video-analysis.", serde_json::json!({"includeOperations": true})),
-            operation("threeD.mesh.diagnostics", "Mesh diagnostics", "Returns mesh diagnostics, topology counts, area, bounds, and manifold flags.", serde_json::json!({"mesh": sample_mesh_json()})),
-            operation("threeD.mesh.repairPreview", "Mesh repair preview", "Runs in-memory degenerate-triangle removal and vertex welding previews.", serde_json::json!({"mesh": sample_mesh_json(), "weldEpsilon": 0.0001, "removeDegenerate": true})),
-            operation("threeD.mesh.sample", "Mesh sample", "Samples deterministic points from mesh surface with a capped sample count.", serde_json::json!({"mesh": sample_mesh_json(), "sampleCount": 32})),
+            operation(
+                "describe",
+                "Describe package",
+                "Triangle mesh validation and geometry helpers for video-analysis.",
+                serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "threeD.mesh.diagnostics",
+                "Mesh diagnostics",
+                "Returns mesh diagnostics, topology counts, area, bounds, and manifold flags.",
+                serde_json::json!({"mesh": sample_mesh_json()}),
+            ),
+            operation(
+                "threeD.mesh.repairPreview",
+                "Mesh repair preview",
+                "Runs in-memory degenerate-triangle removal and vertex welding previews.",
+                serde_json::json!({"mesh": sample_mesh_json(), "weldEpsilon": 0.0001, "removeDegenerate": true}),
+            ),
+            operation(
+                "threeD.mesh.sample",
+                "Mesh sample",
+                "Samples deterministic points from mesh surface with a capped sample count.",
+                serde_json::json!({"mesh": sample_mesh_json(), "sampleCount": 32}),
+            ),
         ],
     }
 }
 
-fn operation(id: &str, name: &str, description: &str, example_request: serde_json::Value) -> SurfaceOperation {
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
     SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
@@ -73,7 +98,12 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
 }
 
 fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse { operation, value, diagnostics: Vec::new(), artifacts: Vec::new() }
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
 }
 
 fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {
@@ -145,7 +175,8 @@ fn sample_value(request: SampleRequest) -> Result<serde_json::Value, String> {
         return Err(format!("sampleCount must be <= {MAX_SAMPLE_COUNT}"));
     }
     let mesh = request.mesh.mesh()?;
-    let points = sample_points_uniform(&mesh, request.sample_count).map_err(|error| error.to_string())?;
+    let points =
+        sample_points_uniform(&mesh, request.sample_count).map_err(|error| error.to_string())?;
     Ok(serde_json::json!({"points": points, "count": points.len()}))
 }
 
