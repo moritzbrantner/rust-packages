@@ -6,6 +6,13 @@ OCR model presets, rich text outputs, and backend contracts for `video-analysis`
 
 - No optional feature flags today.
 
+## Runtime Surface
+
+- `image.ocr.presets` lists supported OCR preset ids and model specs.
+- `image.ocr.requestSummary` validates OCR request-shaped JSON.
+- `image.ocr.documentSummary` summarizes imported OCR document structure
+  without running OCR.
+
 ## Example
 
 ```rust

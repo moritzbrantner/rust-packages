@@ -21,6 +21,12 @@ pub fn package_surface() -> PackageSurface {
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
             operation(
+                "describe",
+                "Describe package",
+                "Unified text analysis orchestration for video-analysis.",
+                serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
                 "analysis.describe",
                 "Describe package",
                 "Unified text analysis orchestration for video-analysis.",

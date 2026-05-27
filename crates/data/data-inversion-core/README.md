@@ -6,6 +6,12 @@ Shared fidelity and inversion trace metadata for generated analysis outputs.
 
 - No optional feature flags today.
 
+## Runtime Surface
+
+- `inversion.trace` builds an inversion trace summary from JSON.
+- `inversion.confidence` validates confidence values.
+- `inversion.fidelity` returns the weaker of two fidelity values.
+
 ## Example
 
 ```rust,ignore

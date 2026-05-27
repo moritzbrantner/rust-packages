@@ -289,3 +289,11 @@ comfyui-latents.workspace = true
 comfyui-models.workspace = true
 num-rational.workspace = true
 tensor-data.workspace = true
+text-core-cli = { path = "crates/text/text-core-cli" }
+text-core-server = { path = "crates/text/text-core-server" }
+text-embeddings-cli = { path = "crates/text/text-embeddings-cli" }
+text-embeddings-server = { path = "crates/text/text-embeddings-server" }
+text-retrieval-cli = { path = "crates/text/text-retrieval-cli" }
+text-retrieval-server = { path = "crates/text/text-retrieval-server" }
+text-transcripts-cli = { path = "crates/text/text-transcripts-cli" }
+text-transcripts-server = { path = "crates/text/text-transcripts-server" }

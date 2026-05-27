@@ -1394,6 +1394,7 @@ dependencies = [
 name = "data-inversion-core"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -2831,6 +2832,7 @@ version = "0.1.0"
 dependencies = [
  "image",
  "image-analysis-core",
+ "serde",
  "serde_json",
  "tempfile",
  "video-analysis-core",
@@ -2875,6 +2877,7 @@ version = "0.1.0"
 dependencies = [
  "image-analysis-core",
  "model-runtime",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -3015,6 +3018,7 @@ version = "0.1.0"
 dependencies = [
  "image-analysis-core",
  "model-runtime",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -3058,6 +3062,7 @@ version = "0.1.0"
 dependencies = [
  "data-inversion-core",
  "image-analysis-core",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -6069,7 +6074,11 @@ dependencies = [
  "text-analysis",
  "text-classification",
  "text-core",
+ "text-core-cli",
+ "text-core-server",
  "text-embeddings",
+ "text-embeddings-cli",
+ "text-embeddings-server",
  "text-generation",
  "text-generation-linguistics",
  "text-lexical",
@@ -6077,7 +6086,11 @@ dependencies = [
  "text-model-runtime",
  "text-question-answering",
  "text-retrieval",
+ "text-retrieval-cli",
+ "text-retrieval-server",
  "text-transcripts",
+ "text-transcripts-cli",
+ "text-transcripts-server",
  "three-d-processing-core",
  "three-d-processing-io",
  "three-d-processing-mesh",

@@ -38,6 +38,12 @@ richer representative operations in their own surface module as library
 functionality matures. See `docs/PACKAGE_SURFACE_MATRIX.md` for the generated
 crate-by-crate audit.
 
+Deterministic text, image, data, math, vector, jobs, model-runtime, and
+test-support library crates are expected to expose `describe` plus at least two
+crate-specific operations through the same library-owned surface. Image model
+task surfaces may expose catalog, schema, import, and validation operations, but
+default calls must not download models or run native inference.
+
 The text crate surfaces now expose deterministic, local-first operations for
 core statistics/tokenization/boundaries, lexical analysis and corpus search,
 linguistic analysis/entity projection, hashed embeddings and transient search,
@@ -313,7 +319,8 @@ helpers without requiring video timeline semantics.
 - `ImageView::from_video_frame` and `OwnedImage::from_video_frame` bridge core
   `VideoFrame<'_>` values into still-image workflows.
 - `image-analysis-io` owns PNG/JPEG/WebP file loading and saving for
-  `OwnedImage` buffers.
+  `OwnedImage` buffers. Its runtime surface exposes format support, extension
+  inference, and read/write planning without touching the filesystem.
 - `image-analysis-processing` owns `ImageOperation`, `ImageProcessor`,
   `ImageRegion`, crop, nearest-neighbor resize, grayscale, invert, threshold,
   convolution, and sharpen helpers. New shared geometry and kernel entrypoints
@@ -321,19 +328,26 @@ helpers without requiring video timeline semantics.
   `ImageRegion` and `[f32; 9]` compatibility shims.
 - `image-analysis-segmentation` owns still-image prompts, binary masks,
   segments, SAM presets, and segmentation backend contracts with explicit
-  opt-in automatic mask generation helpers.
+  opt-in automatic mask generation helpers. Its runtime surface exposes SAM
+  model metadata, prompt summaries, and imported binary mask summaries without
+  running SAM.
 - `image-analysis-detection` owns canonical still-image detections,
   mask-proposal adapters over segmentation backends, native color-blob
   detection for simple object workflows such as red-car detection, face
-  detection DTOs, face detection presets, and face detector backend traits.
+  detection DTOs, face detection presets, and face detector backend traits. Its
+  runtime surface additionally exposes non-executing model metadata and
+  imported box summaries.
 - `image-analysis-synthesis` owns deterministic, non-AI image generation from
-  colors, histograms, and regions.
+  colors, histograms, and regions. Its runtime surface returns summary
+  statistics and inversion traces, not encoded image bytes.
 - Image classification, embeddings, and captioning are owned by
   `image-analysis-classification`, `image-analysis-embeddings`, and
-  `image-analysis-captioning`; aggregate image task/model crates have been
-  removed.
+  `image-analysis-captioning`; their runtime surfaces expose catalog/schema and
+  imported value validation, not fake inference.
 - `image-analysis-ocr` owns OCR model presets, rich text layout contracts, and
   image/video-frame backend traits for model, command, or heuristic recognizers.
+  Its runtime surface summarizes presets, requests, and imported OCR documents
+  without recognizing images.
 - `image-analysis-onnx` owns still-image ONNX preprocessing and optional
   runtime-backed image model adapters. It now exposes batch preprocessing as
   `OnnxImageBatchTensor`, `image_batch_to_tensor`, and
@@ -494,7 +508,9 @@ data as recovered source material.
 - `data-inversion-core` owns `InformationFidelity`, `InversionMethod`,
   `InversionTrace`, and `Generated<T>`. Synthesis crates should attach traces
   that identify source and target types, confidence, assumptions, and fields
-  that were preserved, inferred, interpolated, templated, or defaulted.
+  that were preserved, inferred, interpolated, templated, or defaulted. Its
+  runtime surface validates confidence, compares fidelity, and builds trace
+  summaries from JSON inputs.
 - `audio-analysis-synthesis` turns tone timelines and supported
   `AnalysisEvent` labels such as pitch and onset events into `OwnedAudioFrame`
   values. It uses deterministic analytic waveforms and records that samples are
@@ -705,6 +721,10 @@ Model acquisition and identity:
 materializes downloaded files into a stable bundle directory with a
 `manifest.json`; `ModelBundle` can convert that manifest back to `DownloadedModel`
 for compatibility with external model execution.
+
+The `model-runtime` surface exposes preset summaries, spec validation, and
+bundle manifest plans only. Surface operations must not contact Hugging Face,
+download files, or materialize bundle directories.
 
 Text model presets include ONNX-friendly Hugging Face repos:
 

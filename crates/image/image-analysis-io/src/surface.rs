@@ -1,9 +1,12 @@
 //! Library-owned runtime surface for `image-analysis-io`.
 
+use serde::Deserialize;
 use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+
+use crate::ImageFileFormat;
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -11,56 +14,147 @@ pub fn package_surface() -> PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
-        operations: vec![SurfaceOperation {
-            id: OperationId::new("describe"),
-            name: "Describe package".to_string(),
-            description: Some(
-                "Still-image PNG/JPEG/WebP loading and saving for video-analysis.".to_string(),
+        operations: vec![
+            operation(
+                "describe",
+                "Describe package",
+                "Deterministic image I/O format inference and read/write planning.",
+                serde_json::json!({"includeOperations": true}),
             ),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "additionalProperties": true
-            }),
-            output_schema: serde_json::json!({
-                "type": "object",
-                "required": ["library", "version", "operationCount"]
-            }),
-            example_request: serde_json::json!({
-                "includeOperations": true
-            }),
-            wasm_supported: true,
-            server_supported: true,
-        }],
+            operation(
+                "image.io.supportedFormats",
+                "Supported image formats",
+                "Lists image file formats supported by the image I/O crate.",
+                serde_json::json!({}),
+            ),
+            operation(
+                "image.io.inferFormat",
+                "Infer image format",
+                "Infers an image file format from a path extension without reading the file.",
+                serde_json::json!({"path": "example.png"}),
+            ),
+            operation(
+                "image.io.plan",
+                "Plan image I/O",
+                "Plans a read or write operation by inferring format and support status without touching the filesystem.",
+                serde_json::json!({"path": "example.webp", "operation": "read"}),
+            ),
+        ],
+    }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    SurfaceOperation {
+        id: OperationId::new(id),
+        name: name.to_string(),
+        description: Some(description.to_string()),
+        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
+        output_schema: serde_json::json!({"type": "object"}),
+        example_request,
+        wasm_supported: true,
+        server_supported: true,
     }
 }
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
-    match request.operation.as_str() {
-        "describe" => {
-            let surface = package_surface();
-            Ok(SurfaceResponse {
-                operation: request.operation,
-                value: serde_json::json!({
-                    "library": surface.library,
-                    "version": surface.version,
-                    "operationCount": surface.operations.len(),
-                    "operations": surface
-                        .operations
-                        .iter()
-                        .map(|operation| operation.id.as_str())
-                        .collect::<Vec<_>>(),
-                    "input": request.input
-                }),
-                diagnostics: Vec::new(),
-                artifacts: Vec::new(),
-            })
+    let operation = request.operation.clone();
+    let value = match request.operation.as_str() {
+        "describe" => describe_value(request.input),
+        "image.io.supportedFormats" => supported_formats_value(),
+        "image.io.inferFormat" => infer_format_value(parse_input(request.input)?)?,
+        "image.io.plan" => plan_value(parse_input(request.input)?)?,
+        operation => {
+            return Err(format!(
+                "unsupported operation `{operation}` for {}",
+                env!("CARGO_PKG_NAME")
+            ));
         }
-        operation => Err(format!(
-            "unsupported operation `{operation}` for {}",
-            env!("CARGO_PKG_NAME")
-        )),
+    };
+    Ok(response(operation, value))
+}
+
+fn describe_value(input: serde_json::Value) -> serde_json::Value {
+    let surface = package_surface();
+    serde_json::json!({
+        "library": surface.library,
+        "version": surface.version,
+        "operationCount": surface.operations.len(),
+        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
+        "input": input
+    })
+}
+
+fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PathRequest {
+    path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlanRequest {
+    path: String,
+    operation: String,
+}
+
+fn supported_formats_value() -> serde_json::Value {
+    serde_json::json!({
+        "formats": ["png", "jpeg", "webp"],
+        "extensions": ["png", "jpg", "jpeg", "webp"]
+    })
+}
+
+fn infer_format_value(request: PathRequest) -> Result<serde_json::Value, String> {
+    let format = ImageFileFormat::from_path(&request.path).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "path": request.path,
+        "format": format_name(format),
+        "supported": true
+    }))
+}
+
+fn plan_value(request: PlanRequest) -> Result<serde_json::Value, String> {
+    if !matches!(request.operation.as_str(), "read" | "write") {
+        return Err(format!(
+            "unsupported image I/O operation `{}`",
+            request.operation
+        ));
+    }
+    let format = ImageFileFormat::from_path(&request.path).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "path": request.path,
+        "operation": request.operation,
+        "format": format_name(format),
+        "supported": true,
+        "willReadOrWriteFile": false
+    }))
+}
+
+fn format_name(format: ImageFileFormat) -> &'static str {
+    match format {
+        ImageFileFormat::Png => "png",
+        ImageFileFormat::Jpeg => "jpeg",
+        ImageFileFormat::WebP => "webp",
+    }
+}
+
+fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
+    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
 }
 
 #[cfg(test)]
@@ -68,21 +162,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn package_surface_has_describe_operation() {
-        let surface = package_surface();
-        assert_eq!(surface.library, env!("CARGO_PKG_NAME"));
-        assert!(!surface.operations.is_empty());
+    fn package_surface_lists_io_operations() {
+        let ids = package_surface()
+            .operations
+            .into_iter()
+            .map(|operation| operation.id.0)
+            .collect::<Vec<_>>();
+        assert!(ids.contains(&"image.io.supportedFormats".to_string()));
+        assert!(ids.contains(&"image.io.inferFormat".to_string()));
+        assert!(ids.contains(&"image.io.plan".to_string()));
     }
 
     #[test]
-    fn describe_operation_returns_surface_summary() {
+    fn infer_format_returns_jpeg_for_jpg_path() {
         let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("describe"),
-            input: serde_json::json!({"includeOperations": true}),
+            operation: OperationId::new("image.io.inferFormat"),
+            input: serde_json::json!({"path": "photo.jpg"}),
         })
-        .expect("describe operation");
+        .expect("infer format");
+        assert_eq!(response.value["format"], "jpeg");
+    }
 
-        assert_eq!(response.operation.as_str(), "describe");
-        assert_eq!(response.value["library"], env!("CARGO_PKG_NAME"));
+    #[test]
+    fn plan_rejects_unknown_operation() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.io.plan"),
+            input: serde_json::json!({"path": "photo.png", "operation": "delete"}),
+        })
+        .expect_err("unsupported operation");
+        assert!(error.contains("unsupported image I/O operation"));
     }
 }

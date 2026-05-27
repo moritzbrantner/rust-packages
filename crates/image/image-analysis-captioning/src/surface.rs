@@ -1,9 +1,14 @@
 //! Library-owned runtime surface for `image-analysis-captioning`.
 
+use std::collections::BTreeMap;
+
+use serde::Deserialize;
 use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+
+use crate::{image_captioning_catalog, parse_task, schema_summary, ImageCaption};
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -11,57 +16,160 @@ pub fn package_surface() -> PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
-        operations: vec![SurfaceOperation {
-            id: OperationId::new("describe"),
-            name: "Describe package".to_string(),
-            description: Some(
-                "Aggregate image task schemas, catalogs, and backend contracts for video-analysis."
-                    .to_string(),
+        operations: vec![
+            operation(
+                "describe",
+                "Describe package",
+                "Image captioning catalogs, schemas, and imported caption validation.",
+                serde_json::json!({"includeOperations": true}),
             ),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "additionalProperties": true
-            }),
-            output_schema: serde_json::json!({
-                "type": "object",
-                "required": ["library", "version", "operationCount"]
-            }),
-            example_request: serde_json::json!({
-                "includeOperations": true
-            }),
-            wasm_supported: true,
-            server_supported: true,
-        }],
+            operation(
+                "image.captioning.models",
+                "Captioning models",
+                "Lists deterministic image captioning catalog entries without running captioning.",
+                serde_json::json!({"task": "caption"}),
+            ),
+            operation(
+                "image.captioning.schema",
+                "Captioning schema",
+                "Returns image captioning task and preset schema metadata.",
+                serde_json::json!({}),
+            ),
+            operation(
+                "image.captioning.imported",
+                "Imported captions",
+                "Validates caller-supplied caption strings and scores into normalized captions.",
+                serde_json::json!({"captions": [{"text": "a red cube", "score": 0.8}]}),
+            ),
+        ],
+    }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    SurfaceOperation {
+        id: OperationId::new(id),
+        name: name.to_string(),
+        description: Some(description.to_string()),
+        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
+        output_schema: serde_json::json!({"type": "object"}),
+        example_request,
+        wasm_supported: true,
+        server_supported: true,
     }
 }
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
-    match request.operation.as_str() {
-        "describe" => {
-            let surface = package_surface();
-            Ok(SurfaceResponse {
-                operation: request.operation,
-                value: serde_json::json!({
-                    "library": surface.library,
-                    "version": surface.version,
-                    "operationCount": surface.operations.len(),
-                    "operations": surface
-                        .operations
-                        .iter()
-                        .map(|operation| operation.id.as_str())
-                        .collect::<Vec<_>>(),
-                    "input": request.input
-                }),
-                diagnostics: Vec::new(),
-                artifacts: Vec::new(),
-            })
+    let operation = request.operation.clone();
+    let value = match request.operation.as_str() {
+        "describe" => describe_value(request.input),
+        "image.captioning.models" => models_value(parse_input(request.input)?)?,
+        "image.captioning.schema" => schema_summary(),
+        "image.captioning.imported" => imported_value(parse_input(request.input)?)?,
+        operation => {
+            return Err(format!(
+                "unsupported operation `{operation}` for {}",
+                env!("CARGO_PKG_NAME")
+            ));
         }
-        operation => Err(format!(
-            "unsupported operation `{operation}` for {}",
-            env!("CARGO_PKG_NAME")
-        )),
+    };
+    Ok(response(operation, value))
+}
+
+fn describe_value(input: serde_json::Value) -> serde_json::Value {
+    let surface = package_surface();
+    serde_json::json!({
+        "library": surface.library,
+        "version": surface.version,
+        "operationCount": surface.operations.len(),
+        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
+        "input": input
+    })
+}
+
+fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelsRequest {
+    task: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportedRequest {
+    #[serde(default, alias = "items")]
+    captions: Vec<ImportedCaption>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportedCaption {
+    #[serde(alias = "caption")]
+    text: String,
+    score: Option<f32>,
+    #[serde(default)]
+    attributes: BTreeMap<String, String>,
+}
+
+fn models_value(request: ModelsRequest) -> Result<serde_json::Value, String> {
+    let task = request
+        .task
+        .as_deref()
+        .map(|task| parse_task(task).ok_or_else(|| format!("unsupported captioning task `{task}`")))
+        .transpose()?;
+    Ok(serde_json::json!({
+        "models": image_captioning_catalog(task)
+    }))
+}
+
+fn imported_value(request: ImportedRequest) -> Result<serde_json::Value, String> {
+    let captions = request
+        .captions
+        .into_iter()
+        .map(|item| {
+            if item.text.trim().is_empty() {
+                return Err("caption text must not be empty".to_string());
+            }
+            if let Some(score) = item.score {
+                if !score.is_finite() {
+                    return Err("caption score must be finite".to_string());
+                }
+            }
+            let mut caption = ImageCaption::new(item.text.trim().to_string());
+            if let Some(score) = item.score {
+                caption = caption.score(score);
+            }
+            for (key, value) in item.attributes {
+                caption = caption.attribute(key, value);
+            }
+            Ok(serde_json::json!({
+                "text": caption.text,
+                "score": caption.score,
+                "attributes": caption.attributes
+            }))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(serde_json::json!({
+        "count": captions.len(),
+        "captions": captions
+    }))
+}
+
+fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
+    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
 }
 
 #[cfg(test)]
@@ -69,21 +177,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn package_surface_has_describe_operation() {
-        let surface = package_surface();
-        assert_eq!(surface.library, env!("CARGO_PKG_NAME"));
-        assert!(!surface.operations.is_empty());
+    fn package_surface_lists_captioning_operations() {
+        let ids = package_surface()
+            .operations
+            .into_iter()
+            .map(|operation| operation.id.0)
+            .collect::<Vec<_>>();
+        assert!(ids.contains(&"image.captioning.models".to_string()));
+        assert!(ids.contains(&"image.captioning.imported".to_string()));
     }
 
     #[test]
-    fn describe_operation_returns_surface_summary() {
+    fn imported_operation_normalizes_caption_text() {
         let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("describe"),
-            input: serde_json::json!({"includeOperations": true}),
+            operation: OperationId::new("image.captioning.imported"),
+            input: serde_json::json!({"captions": [{"text": " a red cube ", "score": 0.8}]}),
         })
-        .expect("describe operation");
+        .expect("imported");
+        assert_eq!(response.value["count"], 1);
+        assert_eq!(response.value["captions"][0]["text"], "a red cube");
+    }
 
-        assert_eq!(response.operation.as_str(), "describe");
-        assert_eq!(response.value["library"], env!("CARGO_PKG_NAME"));
+    #[test]
+    fn imported_operation_rejects_empty_caption() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.captioning.imported"),
+            input: serde_json::json!({"captions": [{"text": ""}]}),
+        })
+        .expect_err("empty caption");
+        assert!(error.contains("caption text"));
     }
 }

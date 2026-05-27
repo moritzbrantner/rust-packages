@@ -6,6 +6,12 @@ Still-image PNG/JPEG/WebP loading and saving for `video-analysis`.
 
 - No optional feature flags today.
 
+## Runtime Surface
+
+- `image.io.supportedFormats` lists PNG, JPEG, and WebP support.
+- `image.io.inferFormat` infers format from a path extension.
+- `image.io.plan` returns read/write support without reading or writing files.
+
 ## Example
 
 ```rust,no_run

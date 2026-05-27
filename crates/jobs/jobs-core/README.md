@@ -15,6 +15,13 @@ applications.
   validation, and downloader/validator traits
 - In-memory tracker and std-thread runner for small services, CLIs, and tests
 
+## Runtime Surface
+
+- `jobs.spec` validates and normalizes `JobSpec` input.
+- `jobs.progress` validates progress and returns fraction/percent.
+- `jobs.lifecycle` applies a short in-memory lifecycle script without spawning
+  background threads.
+
 ## Example
 
 ```rust,no_run

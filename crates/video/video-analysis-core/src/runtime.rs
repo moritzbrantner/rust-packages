@@ -82,6 +82,25 @@ impl RuntimeCapabilities {
             max_recommended_input_bytes: None,
         }
     }
+
+    pub fn with_max_recommended_input_bytes(mut self, bytes: u64) -> Self {
+        self.max_recommended_input_bytes = Some(bytes);
+        self
+    }
+
+    pub fn with_requirement(
+        mut self,
+        name: impl Into<String>,
+        description: impl Into<String>,
+        required: bool,
+    ) -> Self {
+        self.requirements.push(RuntimeRequirement {
+            name: name.into(),
+            description: Some(description.into()),
+            required,
+        });
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -248,6 +267,20 @@ mod tests {
         assert!(capabilities.server);
         assert!(capabilities.wasm);
         assert_eq!(capabilities.mobile, MobileCapability::Wasm);
+    }
+
+    #[test]
+    fn capability_builders_preserve_pure_rust_defaults() {
+        let capabilities = RuntimeCapabilities::pure_rust()
+            .with_max_recommended_input_bytes(1024)
+            .with_requirement("fixture", "test fixture input", false);
+
+        assert!(capabilities.native);
+        assert!(capabilities.server);
+        assert!(capabilities.wasm);
+        assert_eq!(capabilities.max_recommended_input_bytes, Some(1024));
+        assert_eq!(capabilities.requirements[0].name, "fixture");
+        assert!(!capabilities.requirements[0].required);
     }
 
     #[test]
