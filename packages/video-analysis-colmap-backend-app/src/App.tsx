@@ -35,6 +35,20 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   featuredOperations: ["video.colmap.reconstructVideo"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the native video-to-sparse-reconstruction path.",
+      operations: ["video.colmap.reconstructVideo"],
+    },
+    {
+      id: "advanced",
+      label: "Advanced",
+      description: "Inspect COLMAP command plans and already-parsed JSON inputs without running external tools.",
+      operations: ["video.colmap.commandPlan", "video.colmap.imageList", "video.colmap.sparseSummary", "describe"],
+    },
+  ],
   defaultOperation: "video.colmap.reconstructVideo",
   defaultRuntime: "overview-server",
   presets: [

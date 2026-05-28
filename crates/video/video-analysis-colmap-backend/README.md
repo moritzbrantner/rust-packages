@@ -9,14 +9,18 @@ server-only `video.colmap.reconstructVideo` operation that extracts frames from
 a local sample video, runs COLMAP sparse reconstruction, exports the sparse model
 to text, and returns browser-friendly scene data.
 
-Default surface operations are deterministic unless marked server-only:
+The COLMAP app presents the native reconstruction as the primary workflow and
+keeps the deterministic inspection helpers under an Advanced tab. Default
+surface operations are deterministic unless marked server-only:
 
-- `video.colmap.commandPlan` returns the ffmpeg and COLMAP stages that would run
-  for a video reconstruction request without executing them.
-- `video.colmap.imageList` summarizes image ordering and camera grouping for
-  COLMAP ingestion.
+- `video.colmap.commandPlan` previews the ffmpeg and COLMAP commands that would
+  run for a video reconstruction request. It returns stage summaries, output
+  paths, shell-readable command strings, and `executes: false`.
+- `video.colmap.imageList` summarizes inline image JSON by frame order, detected
+  frame range, and camera groups. It does not scan directories on disk.
 - `video.colmap.sparseSummary` reports camera, registered image, sparse point,
-  and track-length counts from inline sparse model metadata.
+  model status, and track-length statistics from inline sparse model JSON. It
+  does not read COLMAP text or binary files from disk.
 - `video.colmap.reconstructVideo` is available only through the native server or
   overview server dispatch path because it shells out to `ffmpeg` and `colmap`.
 

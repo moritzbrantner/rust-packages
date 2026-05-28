@@ -132,6 +132,78 @@ describe("PackageSurfaceWorkbench", () => {
     expect(screen.getByText(/\"diagnostics\": 1/)).toBeTruthy();
   });
 
+  test("groups operations under category tabs", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/health")) {
+          return jsonResponse({ ok: true, package: "demo-package-server", library: "demo-package" });
+        }
+        if (url.endsWith("/api/package")) {
+          return jsonResponse({
+            library: "demo-package",
+            version: "0.1.0",
+            operations: [
+              {
+                id: "demo.run",
+                name: "Run demo",
+                description: "Runs the main workflow.",
+                exampleRequest: { mode: "run" },
+                wasmSupported: true,
+                serverSupported: true,
+              },
+              {
+                id: "demo.inspect",
+                name: "Inspect JSON",
+                description: "Inspects advanced JSON.",
+                exampleRequest: { mode: "inspect" },
+                wasmSupported: true,
+                serverSupported: true,
+              },
+            ],
+          });
+        }
+        if (url.endsWith("/api/models")) {
+          return jsonResponse([]);
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          wasm: undefined,
+          defaultOperation: "demo.run",
+          operationGroups: [
+            {
+              id: "workflow",
+              label: "Workflow",
+              operations: ["demo.run"],
+            },
+            {
+              id: "advanced",
+              label: "Advanced",
+              operations: ["demo.inspect"],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(await screen.findByRole("tab", { name: "Workflow" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Advanced" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Run demo" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Inspect JSON" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Advanced" }));
+
+    expect(await screen.findByRole("option", { name: "Inspect JSON" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Run demo" })).toBeNull();
+    expect((await screen.findByDisplayValue(/inspect/)) as HTMLTextAreaElement).toBeTruthy();
+  });
+
   test("falls back to overview server when WASM initialization fails", async () => {
     const runOperation = vi.fn(async () => operationResponse);
     const packageConfig = config({

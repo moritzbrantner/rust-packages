@@ -37,14 +37,14 @@ pub fn package_surface() -> PackageSurface {
             ),
             operation(
                 COMMAND_PLAN_OPERATION,
-                "Plan COLMAP commands",
-                "Builds a deterministic COLMAP command plan without executing external tools.",
+                "Preview reconstruction command plan",
+                "Shows the ffmpeg and COLMAP commands that reconstructVideo would run, without executing external tools.",
                 reconstruct_video_example_request(),
             ),
             operation(
                 IMAGE_LIST_OPERATION,
-                "List COLMAP images",
-                "Summarizes image paths, camera groups, and frame ordering for COLMAP ingestion.",
+                "Inspect image-list JSON",
+                "Summarizes inline COLMAP image metadata by frame order and camera group.",
                 serde_json::json!({
                     "images": [
                         {"name": "frame_00001.jpg", "cameraId": 1},
@@ -54,8 +54,8 @@ pub fn package_surface() -> PackageSurface {
             ),
             operation(
                 SPARSE_SUMMARY_OPERATION,
-                "Summarize sparse model",
-                "Summarizes sparse reconstruction cameras, images, and point statistics.",
+                "Inspect sparse-model JSON",
+                "Summarizes inline COLMAP sparse-model metadata that has already been parsed into JSON.",
                 serde_json::json!({
                     "dataset": {
                         "cameras": [{"id": 1, "model": "PINHOLE"}],
@@ -224,12 +224,99 @@ fn command_plan_value(input: serde_json::Value) -> Result<serde_json::Value, Str
         "fps={},scale='min({},iw)':-2",
         request.frame_fps, request.image_width
     );
+    let stages = vec![
+        command_stage(
+            "extractFrames",
+            "ffmpeg",
+            "Extract bounded JPEG frames from the local video.",
+            vec![
+                "-y".to_string(),
+                "-i".to_string(),
+                path_string(&request.video_path),
+                "-vf".to_string(),
+                filter,
+                "-frames:v".to_string(),
+                request.max_frames.to_string(),
+                "-q:v".to_string(),
+                "2".to_string(),
+                path_string(&frame_pattern),
+            ],
+        ),
+        command_stage(
+            "featureExtraction",
+            "colmap",
+            "Detect local features for extracted frames with one shared camera.",
+            vec![
+                "feature_extractor".to_string(),
+                "--database_path".to_string(),
+                path_string(&database_path),
+                "--image_path".to_string(),
+                path_string(&frames_dir),
+                "--ImageReader.single_camera".to_string(),
+                "1".to_string(),
+                "--SiftExtraction.use_gpu".to_string(),
+                "0".to_string(),
+            ],
+        ),
+        command_stage(
+            "matching",
+            "colmap",
+            "Exhaustively match extracted frame features.",
+            vec![
+                "exhaustive_matcher".to_string(),
+                "--database_path".to_string(),
+                path_string(&database_path),
+                "--SiftMatching.use_gpu".to_string(),
+                "0".to_string(),
+            ],
+        ),
+        command_stage(
+            "mapping",
+            "colmap",
+            "Register frames and build a sparse reconstruction.",
+            vec![
+                "mapper".to_string(),
+                "--database_path".to_string(),
+                path_string(&database_path),
+                "--image_path".to_string(),
+                path_string(&frames_dir),
+                "--output_path".to_string(),
+                path_string(&sparse_root),
+            ],
+        ),
+        command_stage(
+            "textExport",
+            "colmap",
+            "Convert COLMAP binary sparse model into text files for Rust parsing.",
+            vec![
+                "model_converter".to_string(),
+                "--input_path".to_string(),
+                path_string(&sparse_binary_dir),
+                "--output_path".to_string(),
+                path_string(&sparse_text_dir),
+                "--output_type".to_string(),
+                "TXT".to_string(),
+            ],
+        ),
+    ];
 
     Ok(serde_json::json!({
+        "title": "COLMAP reconstruction command preview",
         "operation": COMMAND_PLAN_OPERATION,
+        "summary": {
+            "willExecute": false,
+            "stageCount": stages.len(),
+            "videoPath": path_string(&request.video_path),
+            "outputDir": path_string(&request.output_dir),
+            "frameFps": request.frame_fps,
+            "maxFrames": request.max_frames,
+            "imageWidth": request.image_width,
+        },
+        "message": "This is a dry-run preview. Use video.colmap.reconstructVideo to execute the native reconstruction pipeline.",
         "deterministic": true,
         "executes": false,
         "externalToolsRequired": ["ffmpeg", "colmap"],
+        "nextOperation": RECONSTRUCT_VIDEO_OPERATION,
         "request": request,
         "outputs": {
             "framesDir": path_string(&frames_dir),
@@ -237,55 +324,7 @@ fn command_plan_value(input: serde_json::Value) -> Result<serde_json::Value, Str
             "sparseBinaryDir": path_string(&sparse_binary_dir),
             "sparseTextDir": path_string(&sparse_text_dir)
         },
-        "stages": [
-            {
-                "id": "extractFrames",
-                "tool": "ffmpeg",
-                "description": "Extract bounded JPEG frames from the local video.",
-                "args": [
-                    "-y", "-i", path_string(&request.video_path), "-vf", filter,
-                    "-frames:v", request.max_frames.to_string(), "-q:v", "2",
-                    path_string(&frame_pattern)
-                ]
-            },
-            {
-                "id": "featureExtraction",
-                "tool": "colmap",
-                "description": "Detect local features for extracted frames with one shared camera.",
-                "args": [
-                    "feature_extractor", "--database_path", path_string(&database_path),
-                    "--image_path", path_string(&frames_dir), "--ImageReader.single_camera", "1",
-                    "--SiftExtraction.use_gpu", "0"
-                ]
-            },
-            {
-                "id": "matching",
-                "tool": "colmap",
-                "description": "Exhaustively match extracted frame features.",
-                "args": [
-                    "exhaustive_matcher", "--database_path", path_string(&database_path),
-                    "--SiftMatching.use_gpu", "0"
-                ]
-            },
-            {
-                "id": "mapping",
-                "tool": "colmap",
-                "description": "Register frames and build a sparse reconstruction.",
-                "args": [
-                    "mapper", "--database_path", path_string(&database_path),
-                    "--image_path", path_string(&frames_dir), "--output_path", path_string(&sparse_root)
-                ]
-            },
-            {
-                "id": "textExport",
-                "tool": "colmap",
-                "description": "Convert COLMAP binary sparse model into text files for Rust parsing.",
-                "args": [
-                    "model_converter", "--input_path", path_string(&sparse_binary_dir),
-                    "--output_path", path_string(&sparse_text_dir), "--output_type", "TXT"
-                ]
-            }
-        ]
+        "stages": stages,
     }))
 }
 
@@ -325,7 +364,7 @@ fn reconstruct_request_from_input(
 
 fn image_list_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     let images = image_values_from_input(&input)?;
-    let records = images
+    let mut records = images
         .into_iter()
         .enumerate()
         .map(|(index, image)| {
@@ -336,13 +375,25 @@ fn image_list_value(input: serde_json::Value) -> Result<serde_json::Value, Strin
                 .and_then(serde_json::Value::as_u64)
                 .unwrap_or(1);
             serde_json::json!({
-                "index": index,
+                "inputIndex": index,
                 "name": name,
                 "cameraId": camera_id,
                 "frameNumber": infer_frame_number(&name),
             })
         })
         .collect::<Vec<_>>();
+    records.sort_by(|left, right| {
+        let left_frame = left.get("frameNumber").and_then(serde_json::Value::as_u64);
+        let right_frame = right.get("frameNumber").and_then(serde_json::Value::as_u64);
+        left_frame
+            .cmp(&right_frame)
+            .then_with(|| image_name(left).cmp(&image_name(right)))
+            .then_with(|| {
+                left.get("inputIndex")
+                    .and_then(serde_json::Value::as_u64)
+                    .cmp(&right.get("inputIndex").and_then(serde_json::Value::as_u64))
+            })
+    });
 
     let mut camera_groups = BTreeMap::<u64, usize>::new();
     for record in &records {
@@ -350,11 +401,41 @@ fn image_list_value(input: serde_json::Value) -> Result<serde_json::Value, Strin
             *camera_groups.entry(camera_id).or_default() += 1;
         }
     }
+    let camera_group_list = camera_groups
+        .iter()
+        .map(|(camera_id, image_count)| {
+            serde_json::json!({
+                "cameraId": camera_id,
+                "imageCount": image_count,
+            })
+        })
+        .collect::<Vec<_>>();
+    let frame_numbers = records
+        .iter()
+        .filter_map(|record| {
+            record
+                .get("frameNumber")
+                .and_then(serde_json::Value::as_u64)
+        })
+        .collect::<Vec<_>>();
+    let frame_range = match (frame_numbers.first(), frame_numbers.last()) {
+        (Some(first), Some(last)) => serde_json::json!({"first": first, "last": last}),
+        _ => serde_json::Value::Null,
+    };
 
     Ok(serde_json::json!({
+        "title": "COLMAP image-list summary",
         "operation": IMAGE_LIST_OPERATION,
+        "summary": {
+            "imageCount": records.len(),
+            "cameraCount": camera_groups.len(),
+            "frameNumbersDetected": frame_numbers.len(),
+            "frameRange": frame_range,
+        },
+        "message": "This report only inspects inline JSON. It does not scan an image directory on disk.",
         "imageCount": records.len(),
         "cameraGroups": camera_groups,
+        "cameraGroupList": camera_group_list,
         "images": records,
     }))
 }
@@ -426,13 +507,60 @@ fn sparse_summary_value(input: serde_json::Value) -> serde_json::Value {
             .unwrap_or(0);
         *track_length_histogram.entry(track_length).or_default() += 1;
     }
+    let track_lengths = points
+        .iter()
+        .map(|point| {
+            point
+                .get("track")
+                .and_then(serde_json::Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0)
+        })
+        .collect::<Vec<_>>();
+    let min_track_length = track_lengths.iter().min().copied().unwrap_or(0);
+    let max_track_length = track_lengths.iter().max().copied().unwrap_or(0);
+    let mean_track_length = if track_lengths.is_empty() {
+        0.0
+    } else {
+        track_lengths.iter().sum::<usize>() as f64 / track_lengths.len() as f64
+    };
+    let histogram = track_length_histogram
+        .iter()
+        .map(|(track_length, point_count)| {
+            serde_json::json!({
+                "trackLength": track_length,
+                "pointCount": point_count,
+            })
+        })
+        .collect::<Vec<_>>();
+    let model_status = if cameras == 0 && images == 0 && points.is_empty() {
+        "empty"
+    } else if points.is_empty() {
+        "camera-only"
+    } else {
+        "sparse-points"
+    };
 
     serde_json::json!({
+        "title": "COLMAP sparse-model summary",
         "operation": SPARSE_SUMMARY_OPERATION,
+        "summary": {
+            "cameraCount": cameras,
+            "registeredImageCount": images,
+            "sparsePointCount": points.len(),
+            "modelStatus": model_status,
+        },
+        "message": "This report summarizes already-parsed sparse model JSON. It does not read cameras.txt, images.txt, or points3D.txt from disk.",
         "cameraCount": cameras,
         "registeredImageCount": images,
         "sparsePointCount": points.len(),
         "trackLengthHistogram": track_length_histogram,
+        "trackLength": {
+            "min": min_track_length,
+            "max": max_track_length,
+            "mean": mean_track_length,
+            "histogram": histogram,
+        },
     })
 }
 
@@ -450,6 +578,32 @@ fn points_array(root: &serde_json::Value) -> &[serde_json::Value] {
         .and_then(serde_json::Value::as_array)
         .map(Vec::as_slice)
         .unwrap_or(&[])
+}
+
+fn command_stage(id: &str, tool: &str, description: &str, args: Vec<String>) -> serde_json::Value {
+    serde_json::json!({
+        "id": id,
+        "tool": tool,
+        "description": description,
+        "command": shell_command(tool, &args),
+        "args": args,
+    })
+}
+
+fn shell_command(tool: &str, args: &[String]) -> String {
+    std::iter::once(shell_quote(tool))
+        .chain(args.iter().map(|arg| shell_quote(arg)))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn shell_quote(value: &str) -> String {
+    if value.chars().all(|character| {
+        character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.' | '/' | ':' | '=')
+    }) {
+        return value.to_string();
+    }
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
 fn path_string(path: &Path) -> String {
@@ -507,8 +661,18 @@ mod tests {
 
         assert_eq!(response.value["deterministic"], true);
         assert_eq!(response.value["executes"], false);
+        assert_eq!(response.value["summary"]["willExecute"], false);
+        assert_eq!(response.value["summary"]["stageCount"], 5);
+        assert_eq!(
+            response.value["message"],
+            "This is a dry-run preview. Use video.colmap.reconstructVideo to execute the native reconstruction pipeline."
+        );
         assert_eq!(response.value["stages"].as_array().unwrap().len(), 5);
         assert_eq!(response.value["stages"][0]["tool"], "ffmpeg");
+        assert!(response.value["stages"][0]["command"]
+            .as_str()
+            .unwrap()
+            .contains("ffmpeg -y -i"));
         assert_eq!(response.value["stages"][4]["id"], "textExport");
     }
 
@@ -526,8 +690,13 @@ mod tests {
         .expect("image list operation");
 
         assert_eq!(response.value["imageCount"], 2);
+        assert_eq!(response.value["summary"]["cameraCount"], 1);
+        assert_eq!(response.value["summary"]["frameRange"]["first"], 1);
+        assert_eq!(response.value["summary"]["frameRange"]["last"], 2);
         assert_eq!(response.value["images"][0]["frameNumber"], 1);
         assert_eq!(response.value["cameraGroups"]["7"], 2);
+        assert_eq!(response.value["cameraGroupList"][0]["cameraId"], 7);
+        assert_eq!(response.value["cameraGroupList"][0]["imageCount"], 2);
     }
 
     #[test]
@@ -550,8 +719,15 @@ mod tests {
         assert_eq!(response.value["cameraCount"], 1);
         assert_eq!(response.value["registeredImageCount"], 2);
         assert_eq!(response.value["sparsePointCount"], 2);
+        assert_eq!(response.value["summary"]["modelStatus"], "sparse-points");
+        assert_eq!(response.value["trackLength"]["min"], 1);
+        assert_eq!(response.value["trackLength"]["max"], 2);
         assert_eq!(response.value["trackLengthHistogram"]["1"], 1);
         assert_eq!(response.value["trackLengthHistogram"]["2"], 1);
+        assert_eq!(
+            response.value["trackLength"]["histogram"][0]["trackLength"],
+            1
+        );
     }
 
     #[test]

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { FileInputs } from "./FileInputs";
 import { ModelSelector } from "./ModelSelector";
-import { OperationWorkbench } from "./OperationWorkbench";
+import { OperationWorkbench, type OperationWorkbenchGroup } from "./OperationWorkbench";
 import { ResultViewer } from "./ResultViewer";
 import { builtInVideoFileInput } from "./samples";
 import {
@@ -18,6 +18,7 @@ import type {
   ModelCatalogEntry,
   PackageAppConfig,
   PackageAppPreset,
+  OperationGroupDefinition,
   PackageSurfaceWorkbenchContext,
   PackageSurface,
   RuntimeMode,
@@ -89,6 +90,10 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
   }, [config]);
 
   const operations = useMemo(() => orderedOperations(surface?.operations ?? [], config.featuredOperations), [surface, config.featuredOperations]);
+  const operationGroups = useMemo(
+    () => groupedOperations(operations, config.operationGroups),
+    [operations, config.operationGroups],
+  );
   const operation = useMemo(
     () => operations.find((candidate) => candidate.id === selectedOperation) ?? operations[0] ?? null,
     [operations, selectedOperation],
@@ -238,6 +243,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
             error={error}
             input={input}
             operation={operation}
+            operationGroups={operationGroups}
             operations={operations}
             presets={config.presets}
             running={running}
@@ -427,6 +433,46 @@ function orderedOperations(operations: SurfaceOperation[], featured?: string[]):
   }
   const rank = new Map(featured.map((operation, index) => [operation, index]));
   return [...operations].sort((left, right) => (rank.get(left.id) ?? 999) - (rank.get(right.id) ?? 999));
+}
+
+function groupedOperations(
+  operations: SurfaceOperation[],
+  groups?: OperationGroupDefinition[],
+): OperationWorkbenchGroup[] | undefined {
+  if (!groups?.length || operations.length === 0) {
+    return undefined;
+  }
+
+  const byId = new Map(operations.map((operation) => [operation.id, operation]));
+  const claimed = new Set<string>();
+  const workbenchGroups = groups
+    .map((group) => {
+      const groupOperations = group.operations
+        .map((operationId) => byId.get(operationId))
+        .filter((operation): operation is SurfaceOperation => Boolean(operation));
+      for (const operation of groupOperations) {
+        claimed.add(operation.id);
+      }
+      return {
+        id: group.id,
+        label: group.label,
+        description: group.description,
+        operations: groupOperations,
+      };
+    })
+    .filter((group) => group.operations.length > 0);
+
+  const remaining = operations.filter((operation) => !claimed.has(operation.id));
+  if (remaining.length > 0) {
+    workbenchGroups.push({
+      id: "other",
+      label: "Other",
+      description: undefined,
+      operations: remaining,
+    });
+  }
+
+  return workbenchGroups.length > 1 ? workbenchGroups : undefined;
 }
 
 function initializeSelection(

@@ -93,6 +93,9 @@ function defaultSummary(response: SurfaceResponse): unknown {
   const object = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
   return {
     operation: response.operation,
+    title: typeof object.title === "string" ? object.title : undefined,
+    message: typeof object.message === "string" ? object.message : undefined,
+    summary: object.summary,
     diagnostics: response.diagnostics.length,
     artifacts: response.artifacts.length,
     keys: Object.keys(object).slice(0, 16),

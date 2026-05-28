@@ -86,6 +86,13 @@ export interface PackageAppPreset {
   description?: string;
 }
 
+export interface OperationGroupDefinition {
+  id: string;
+  label: string;
+  description?: string;
+  operations: string[];
+}
+
 export interface ResultTabDefinition {
   id: string;
   label: string;
@@ -132,6 +139,7 @@ export interface PackageAppConfig {
     standaloneRoute?: "";
   };
   featuredOperations?: string[];
+  operationGroups?: OperationGroupDefinition[];
   defaultOperation?: string;
   defaultRuntime?: RuntimeMode;
   presets?: PackageAppPreset[];
