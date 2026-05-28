@@ -65,18 +65,7 @@ if [[ "$found_unexpected" == "0" ]]; then
 fi
 
 section "Known Checked-In Generated Outputs"
-found_known=0
-for path in "packages/video-analysis-ui/dist/" "prototypes/web/video-analysis-web/dist/" "packages/text-core-wasm/pkg/"; do
-  count="$(git ls-files "$path" | wc -l | tr -d ' ')"
-  if [[ "$count" != "0" ]]; then
-    echo "$path ($count tracked files; regenerate with the package build flow, do not edit by hand)"
-    found_known=1
-  fi
-done
-
-if [[ "$found_known" == "0" ]]; then
-  echo "none"
-fi
+"$ROOT_DIR/scripts/check_generated_artifacts.sh"
 
 section "Local-Only Ignore Coverage"
 local_only=(

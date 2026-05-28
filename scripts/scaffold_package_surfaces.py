@@ -1375,7 +1375,14 @@ def app_tsconfig() -> str:
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "ignoreDeprecations": "6.0",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@video-analysis/ui": ["../video-analysis-ui/src/index.ts"],
+      "@video-analysis/ui/tailwind-content": ["../video-analysis-ui/src/tailwind-content.ts"],
+      "@video-analysis/ui/*": ["../video-analysis-ui/src/*/index.tsx"]
+    }
   },
   "include": ["src"],
   "references": []
@@ -1385,13 +1392,23 @@ def app_tsconfig() -> str:
 
 def app_vite_config(name: str) -> str:
     return f"""import react from "@vitejs/plugin-react";
+import {{ fileURLToPath }} from "node:url";
 import {{ defineConfig }} from "vite";
+
+const uiSourceRoot = fileURLToPath(new URL("../video-analysis-ui/src", import.meta.url));
 
 export default defineConfig({{
   optimizeDeps: {{
     exclude: ["@mb-rust/{name}-wasm"],
   }},
   plugins: [react()],
+  resolve: {{
+    alias: [
+      {{ find: /^@video-analysis\\/ui$/, replacement: `${{uiSourceRoot}}/index.ts` }},
+      {{ find: /^@video-analysis\\/ui\\/tailwind-content$/, replacement: `${{uiSourceRoot}}/tailwind-content.ts` }},
+      {{ find: /^@video-analysis\\/ui\\/([^/]+)$/, replacement: `${{uiSourceRoot}}/$1/index.tsx` }},
+    ],
+  }},
 }});
 """
 

@@ -32,6 +32,15 @@ The shared `PackageSurface`, `SurfaceOperation`, `SurfaceRequest`, and
 `SurfaceResponse` DTOs live in `video-analysis-core::runtime`. Generic job
 envelopes and artifact storage live in `jobs-core`; model-specific artifact
 metadata, bundle manifests, and Hugging Face downloads stay in `model-runtime`.
+`jobs-core` owns only generic job state, cancellation, progress, diagnostics,
+and artifact contracts. It must not gain model semantics, Hugging Face concepts,
+ONNX/Candle/tokenizer dependencies, or domain media dependencies.
+
+Model catalogs, model specs, preset metadata, schema validation, and deterministic
+fallback planning may run synchronously. Model downloads, bundle
+materialization, runtime warmup, native inference, external model commands, and
+batch inference must be exposed through `model-runtime::jobs` and therefore
+tracked by `jobs-core` job state and artifact paths.
 
 The current workspace-wide baseline operation is `describe`; crates should add
 richer representative operations in their own surface module as library

@@ -1,1 +1,0 @@
-{"version":3,"file":"ModelSelector.d.ts","sourceRoot":"","sources":["../../src/package-surface/ModelSelector.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,iBAAiB,EAAE,MAAM,SAAS,CAAC;AAEjD,wBAAgB,aAAa,CAAC,EAC5B,MAAM,EACN,aAAa,EACb,aAAa,GACd,EAAE;IACD,MAAM,EAAE,iBAAiB,EAAE,CAAC;IAC5B,aAAa,EAAE,MAAM,CAAC;IACtB,aAAa,EAAE,CAAC,KAAK,EAAE,MAAM,KAAK,IAAI,CAAC;CACxC,2CAuDA"}

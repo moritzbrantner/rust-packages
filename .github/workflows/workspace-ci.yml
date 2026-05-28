@@ -80,6 +80,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         if: ${{ env.ACT != 'true' }}
+      - run: bun run hygiene:generated
+      - run: bun run snapshot:check
       - run: cargo fmt --all --check
       - run: cargo test --workspace --all-targets
       - run: cargo clippy --workspace --all-targets -- -D warnings
@@ -178,6 +180,8 @@ jobs:
       - run: bun install --frozen-lockfile
         env:
           GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN || github.token }}
+      - run: bun run hygiene:generated
+      - run: bun run snapshot:check
       - run: bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium
       - run: bun run ui:build
       - run: bun run web:typecheck

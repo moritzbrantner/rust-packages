@@ -5187,6 +5187,7 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "jobs-core",
  "model-runtime",
  "ndarray",
  "ort",
@@ -6135,6 +6136,7 @@ name = "video-analysis-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "jobs-core",
  "model-runtime",
  "serde",
  "serde_json",

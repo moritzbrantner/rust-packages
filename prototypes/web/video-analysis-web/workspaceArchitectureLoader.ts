@@ -189,7 +189,7 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
   );
 
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: "1970-01-01T00:00:00.000Z",
     packages,
     dependencies: filteredDependencies,
     interop,
@@ -357,7 +357,9 @@ async function loadFrontendPackages(
         }
       }),
   );
-  return packages.filter((pkg): pkg is { name: string; path: string; description: string } => Boolean(pkg));
+  return packages
+    .filter((pkg): pkg is { name: string; path: string; description: string } => Boolean(pkg))
+    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function frontendRole(name: string): string {

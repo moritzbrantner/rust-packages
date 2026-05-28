@@ -116,4 +116,29 @@ fn model_job_spec_records_standard_metadata() {
     assert_eq!(job.metadata["model.task"], "text_classification");
     assert_eq!(job.metadata["model.runtime"], "onnx");
     assert_eq!(job.metadata["model.revision"], "v1");
+    assert_eq!(job.metadata["model.repoId"], "owner/model");
+}
+
+#[cfg(feature = "jobs")]
+#[test]
+fn model_access_job_request_records_standard_metadata() {
+    use crate::jobs::{run_model_job_inline_for_tests, ModelAccessJobRequest, ModelJobKind};
+
+    let request = ModelAccessJobRequest {
+        id: Some("inline-model-job".to_string()),
+        kind: ModelJobKind::Inference,
+        spec: ModelSpec::new("owner/model", ModelTask::TextClassification).revision("v1"),
+        backend: ModelRuntimeBackend::Heuristic,
+        inputs: vec![crate::jobs::ModelJobInput::Json(
+            serde_json::json!({"text": "hello"}),
+        )],
+        output_artifact_prefix: Some("prediction".to_string()),
+        metadata: BTreeMap::from([("caller".to_string(), "test".to_string())]),
+    };
+
+    let result = run_model_job_inline_for_tests(request).unwrap();
+    assert_eq!(result.job_id.as_str(), "inline-model-job");
+    assert_eq!(result.kind, ModelJobKind::Inference);
+    assert_eq!(result.backend, ModelRuntimeBackend::Heuristic);
+    assert_eq!(result.output.unwrap()["inline"], true);
 }

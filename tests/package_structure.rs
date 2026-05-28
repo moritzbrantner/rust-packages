@@ -250,6 +250,20 @@ fn retired_runtime_surfaces_are_documented_while_tracked() {
     }
 }
 
+#[test]
+fn retired_runtime_frontend_apps_do_not_return() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for path in [
+        "packages/runtime-artifacts-app",
+        "packages/runtime-jobs-app",
+    ] {
+        assert!(
+            !root.join(path).exists(),
+            "retired runtime app surface `{path}` must not be recreated; use jobs-core or model-runtime surfaces"
+        );
+    }
+}
+
 fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     let mut manifests = Vec::new();
     collect_manifests(root, &mut manifests);

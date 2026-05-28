@@ -56,13 +56,13 @@ fn native_text_model_runtime_dependencies_are_feature_gated() {
         "text-linguistics transcript adapters must be feature-gated"
     );
     assert!(
-        linguistics_manifest.contains("model-runtime = { workspace = true, optional = true }"),
+        linguistics_manifest.contains("model-runtime = { workspace = true, optional = true"),
         "text-linguistics must use model-runtime for optional model bundle support"
     );
 
     let runtime_manifest = read_manifest("crates/text/text-model-runtime/Cargo.toml");
     assert!(
-        runtime_manifest.contains("model-runtime = { workspace = true, optional = true }"),
+        runtime_manifest.contains("model-runtime = { workspace = true, optional = true"),
         "text-model-runtime must use model-runtime for optional model bundle support"
     );
 }
@@ -401,6 +401,162 @@ fn native_model_execution_dependencies_are_feature_gated() {
 }
 
 #[test]
+fn long_running_model_access_goes_through_model_runtime_jobs() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut violations = Vec::new();
+    for dir in ["crates", "src", "prototypes"] {
+        collect_rust_sources(&root.join(dir), &mut |path| {
+            let relative = path.strip_prefix(root).unwrap_or(path);
+            let path_text = relative.to_string_lossy();
+            if model_access_scan_is_allowed(&path_text) {
+                return;
+            }
+            let source = fs::read_to_string(path).expect("read Rust source");
+            for forbidden in [
+                ".download(&spec",
+                "ModelBundleStore::download",
+                "hf_hub::",
+                "hf-hub",
+            ] {
+                if source.contains(forbidden) {
+                    violations.push(format!("{path_text} -> {forbidden}"));
+                }
+            }
+            let model_related =
+                path_text.contains("model") || path_text.contains("external_command");
+            if model_related
+                && (source.contains("Command::new") || source.contains("std::process::Command"))
+            {
+                violations.push(format!("{path_text} -> direct external command"));
+            }
+        });
+    }
+
+    assert!(
+        violations.is_empty(),
+        "long-running model access must route through model-runtime::jobs: {}",
+        violations.join(", ")
+    );
+}
+
+#[test]
+fn jobs_core_stays_model_agnostic() {
+    let manifest = read_manifest("crates/jobs/jobs-core/Cargo.toml");
+    for forbidden in [
+        "model-runtime",
+        "hf-hub",
+        "reqwest",
+        "ureq",
+        "ort",
+        "candle",
+        "tokenizers",
+        "whisper",
+        "demucs",
+        "audio-analysis",
+        "image-analysis",
+        "text-",
+        "video-analysis-onnx",
+        "comfyui-",
+    ] {
+        assert!(
+            !manifest.contains(forbidden),
+            "jobs-core must remain model/domain agnostic and not depend on `{forbidden}`"
+        );
+    }
+}
+
+#[test]
+fn model_runtime_is_the_only_hugging_face_downloader() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut violations = Vec::new();
+    for dir in ["crates", "src", "prototypes"] {
+        collect_text_sources(&root.join(dir), &mut |path| {
+            let relative = path.strip_prefix(root).unwrap_or(path);
+            let path_text = relative.to_string_lossy();
+            if path_text.starts_with("crates/runtime/model-runtime/")
+                || path_text.ends_with("README.md")
+            {
+                return;
+            }
+            let source = fs::read_to_string(path).expect("read source");
+            if source.contains("hf_hub") || source.contains("hf-hub") {
+                violations.push(path_text.to_string());
+            }
+        });
+    }
+
+    assert!(
+        violations.is_empty(),
+        "Hugging Face download logic must stay in model-runtime: {}",
+        violations.join(", ")
+    );
+}
+
+#[test]
+fn default_surfaces_remain_side_effect_free() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut violations = Vec::new();
+    collect_rust_sources(&root.join("crates"), &mut |path| {
+        if path.file_name().and_then(|name| name.to_str()) != Some("surface.rs") {
+            return;
+        }
+        let relative = path.strip_prefix(root).unwrap_or(path);
+        let path_text = relative.to_string_lossy();
+        let source = fs::read_to_string(path).expect("read surface source");
+        for forbidden in [
+            "std::fs::write",
+            "fs::write",
+            "File::create",
+            "Command::new",
+            "std::process::Command",
+            "reqwest",
+            "ureq",
+            ".download(",
+            "ModelBundleStore::download",
+        ] {
+            if source.contains(forbidden) && !surface_planning_exception(&path_text, forbidden) {
+                violations.push(format!("{path_text} -> {forbidden}"));
+            }
+        }
+    });
+
+    assert!(
+        violations.is_empty(),
+        "default package surfaces must stay side-effect free: {}",
+        violations.join(", ")
+    );
+}
+
+#[test]
+fn runtime_backend_defaults_stay_empty_and_opt_in() {
+    for path in [
+        "crates/runtime/model-runtime/Cargo.toml",
+        "crates/text/text-model-runtime/Cargo.toml",
+        "crates/text/text-linguistics/Cargo.toml",
+        "crates/text/text-analysis/Cargo.toml",
+        "crates/text/text-embeddings/Cargo.toml",
+        "crates/image/image-analysis-onnx/Cargo.toml",
+        "crates/video/video-analysis-onnx/Cargo.toml",
+        "crates/audio/audio-analysis-separation/Cargo.toml",
+        "crates/video/video-analysis-cli/Cargo.toml",
+    ] {
+        let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(path);
+        if !manifest_path.exists() {
+            continue;
+        }
+        let manifest = fs::read_to_string(&manifest_path).expect("read manifest");
+        assert!(
+            manifest.contains("default = []"),
+            "`{path}` must keep runtime/backend features opt-in with `default = []`"
+        );
+        assert!(
+            !default_features_include_external_tests(&manifest),
+            "`{path}` must not include external-tests in default features"
+        );
+    }
+}
+
+#[test]
 fn transcript_dtos_are_owned_by_text_transcripts() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates");
     let mut violations = Vec::new();
@@ -518,4 +674,25 @@ fn collect_manifests(dir: &Path, visit: &mut impl FnMut(&Path)) {
             visit(&path);
         }
     }
+}
+
+fn model_access_scan_is_allowed(path: &str) -> bool {
+    path.starts_with("crates/runtime/model-runtime/")
+        || path.starts_with("crates/image/image-analysis-onnx/")
+        || path.starts_with("crates/video/video-analysis-onnx/")
+        || path.starts_with("crates/text/text-model-runtime/")
+        || path.starts_with("crates/video/video-analysis-recognition/src/external_command.rs")
+        || path.contains("/tests/")
+        || path.starts_with("prototypes/rust/video-analysis-use-cases/tests/")
+}
+
+fn surface_planning_exception(path: &str, forbidden: &str) -> bool {
+    path.starts_with("crates/runtime/model-runtime/") && forbidden == ".download("
+}
+
+fn default_features_include_external_tests(manifest: &str) -> bool {
+    manifest
+        .lines()
+        .map(str::trim)
+        .any(|line| line.starts_with("default = ") && line.contains("external-tests"))
 }

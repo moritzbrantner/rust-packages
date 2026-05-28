@@ -14,7 +14,12 @@ use candle_nn::{Linear as CandleLinear, Module as CandleModule, VarBuilder as Ca
 #[cfg(feature = "candle")]
 use candle_transformers::models::{bert as candle_bert, distilbert as candle_distilbert};
 #[cfg(feature = "model-bundles")]
-use model_runtime::{HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelTask};
+use jobs_core::BackgroundJobRunner;
+#[cfg(feature = "model-bundles")]
+use model_runtime::{
+    jobs::spawn_model_download_job, HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle,
+    ModelBundleStore, ModelTask,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use video_analysis_core::{DetectError, Result};
@@ -261,27 +266,29 @@ impl TokenizerSource {
             } => {
                 #[cfg(feature = "model-bundles")]
                 {
-                    let downloaded = options
-                        .downloader()
-                        .download(
-                            &HuggingFaceModelSpec::new(
-                                repo_id.clone(),
-                                ModelTask::Custom("tokenizer".to_string()),
-                            )
-                            .name(format!("{repo_id}-tokenizer"))
-                            .revision(revision.clone())
-                            .file(tokenizer_file.clone()),
-                        )
-                        .map_err(model_runtime_error)?;
-                    downloaded
-                        .files
-                        .get(tokenizer_file)
-                        .cloned()
-                        .ok_or_else(|| {
-                            DetectError::Source(format!(
+                    let spec = HuggingFaceModelSpec::new(
+                        repo_id.clone(),
+                        ModelTask::Custom("tokenizer".to_string()),
+                    )
+                    .name(format!("{repo_id}-tokenizer"))
+                    .revision(revision.clone())
+                    .file(tokenizer_file.clone());
+                    let bundle_root = options
+                        .cache_dir
+                        .clone()
+                        .unwrap_or_else(|| PathBuf::from(".model-runtime"));
+                    let store = ModelBundleStore::new(bundle_root).downloader(options.downloader());
+                    let runner = BackgroundJobRunner::default();
+                    let mut handle = spawn_model_download_job(&runner, spec, store)
+                        .map_err(|err| DetectError::Source(err.to_string()))?;
+                    let bundle = handle
+                        .join_result()
+                        .map_err(|err| DetectError::Source(err.to_string()))?;
+                    bundle.file_path(tokenizer_file).ok_or_else(|| {
+                        DetectError::Source(format!(
                             "downloaded tokenizer `{repo_id}` did not contain `{tokenizer_file}`"
                         ))
-                        })
+                    })
                 }
                 #[cfg(not(feature = "model-bundles"))]
                 {
@@ -1157,17 +1164,6 @@ fn candle_error(error: candle_core::Error) -> DetectError {
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
-}
-
-#[cfg(feature = "model-bundles")]
-fn model_runtime_error(error: model_runtime::ModelRuntimeError) -> DetectError {
-    match error {
-        model_runtime::ModelRuntimeError::InvalidArgument(message) => {
-            DetectError::InvalidArgument(message)
-        }
-        model_runtime::ModelRuntimeError::Source(message) => DetectError::Source(message),
-        model_runtime::ModelRuntimeError::Io(error) => DetectError::Io(error),
-    }
 }
 
 #[cfg(test)]

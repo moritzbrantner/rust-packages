@@ -1,0 +1,3 @@
+# Exact tracked paths that are exempt from scripts/check_generated_artifacts.sh.
+# Keep this list small and review every addition.
+

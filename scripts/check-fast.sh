@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python3 scripts/generate_dependency_chart.py --check
-python3 scripts/audit_package_surfaces.py --check
+scripts/check_generated_artifacts.sh
+scripts/check_generated_snapshots.sh
 cargo test --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 bun run text-wasm:test

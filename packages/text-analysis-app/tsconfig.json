@@ -2,7 +2,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
     "allowJs": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -14,8 +18,23 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@video-analysis/ui": [
+        "../video-analysis-ui/src/index.ts"
+      ],
+      "@video-analysis/ui/tailwind-content": [
+        "../video-analysis-ui/src/tailwind-content.ts"
+      ],
+      "@video-analysis/ui/*": [
+        "../video-analysis-ui/src/*/index.tsx"
+      ]
+    },
+    "ignoreDeprecations": "6.0"
   },
-  "include": ["src"],
+  "include": [
+    "src"
+  ],
   "references": []
 }

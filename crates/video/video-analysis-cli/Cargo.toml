@@ -28,7 +28,8 @@ clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 shlex.workspace = true
-model-runtime.workspace = true
+jobs-core.workspace = true
+model-runtime = { workspace = true, features = ["jobs"] }
 three-d-processing-core.workspace = true
 three-d-processing-io.workspace = true
 video-analysis-core.workspace = true

@@ -897,6 +897,7 @@ flowchart LR
   crate_text_linguistics_server --> crate_text_model_runtime
   crate_text_linguistics_server --> crate_video_analysis_core
   crate_text_model_runtime --> crate_video_analysis_core
+  crate_text_model_runtime -. optional .-> crate_jobs_core
   crate_text_model_runtime -. optional .-> crate_model_runtime
   crate_text_model_runtime_cli --> crate_text_model_runtime
   crate_text_model_runtime_cli --> crate_video_analysis_core
@@ -974,6 +975,7 @@ flowchart LR
   crate_video_analysis_cli --> crate_video_analysis_posture_io
   crate_video_analysis_cli --> crate_video_analysis_recognition
   crate_video_analysis_cli --> crate_video_analysis_split
+  crate_video_analysis_cli --> crate_jobs_core
   crate_video_analysis_cli --> crate_model_runtime
   crate_video_analysis_colmap_backend --> crate_video_analysis_core
   crate_video_analysis_colmap_backend --> crate_video_analysis_radiance_fields

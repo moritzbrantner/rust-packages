@@ -77,6 +77,13 @@ The shared DTOs live in `video-analysis-core::runtime`:
 Generic `OperationResult<T>`, `JobResult<T>`, `JobManifest`, `ArtifactRef`, and
 artifact stores live in `jobs-core`.
 
+Default surface calls must be side-effect free. They may validate inputs,
+return deterministic summaries, build plans, and describe runtime capabilities,
+but they must not perform network access, external command execution, native
+model inference, large filesystem writes, or persistent index writes. Side
+effects belong behind explicit CLI/server/job routes, with long-running model
+work routed through `model-runtime::jobs`.
+
 ## Retired Runtime Surfaces
 
 The older `runtime-artifacts` and `runtime-jobs` crates are intentionally
@@ -86,9 +93,9 @@ references, checksum validation, and artifact stores live in `jobs-core`.
 Model-specific bundle metadata, model sources, downloads, and validators live in
 `model-runtime`.
 
-Do not add new dependencies on the retired runtime crates. Remove the tracked
-retired trees in a separate explicit migration once downstream references and
-historical compatibility needs have been audited.
+Do not add new dependencies on the retired runtime crates. Do not recreate the
+retired frontend app packages; route generic job concepts to `jobs-core` and
+model-specific runtime concepts to `model-runtime`.
 
 The generated baseline operation for every crate is `describe`, which returns a
 serializable summary of the library surface. Crates can add richer

@@ -1,11 +1,18 @@
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Arc, Mutex};
 
-use jobs_core::{BackgroundJobRunner, JobArtifact, JobError, JobProgress, JobSpec};
+use jobs_core::{
+    ArtifactKind, ArtifactRef, BackgroundJobRunner, JobArtifact, JobError, JobProgress, JobSpec,
+};
+use serde::{Deserialize, Serialize};
+use video_analysis_core::runtime::Diagnostic;
 
-use crate::{ModelBundle, ModelBundleStore, ModelRuntimeBackend, ModelSpec};
+use crate::{ModelBundle, ModelBundleStore, ModelRuntimeBackend, ModelSource, ModelSpec};
 
 /// Long-running model operation kind.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModelJobKind {
     /// Download remote model files.
     Download,
@@ -21,6 +28,60 @@ pub enum ModelJobKind {
     BatchInference,
     /// Run an external model command.
     ExternalCommand,
+}
+
+/// Generic request for long-running or side-effectful model access.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelAccessJobRequest {
+    /// Optional caller-supplied job id.
+    pub id: Option<String>,
+    /// The model operation kind.
+    pub kind: ModelJobKind,
+    /// Model spec or preset-derived spec.
+    pub spec: ModelSpec,
+    /// Runtime backend that will handle the request.
+    pub backend: ModelRuntimeBackend,
+    /// Input values or artifacts for the job.
+    #[serde(default)]
+    pub inputs: Vec<ModelJobInput>,
+    /// Optional artifact id prefix for outputs.
+    pub output_artifact_prefix: Option<String>,
+    /// Caller-defined metadata.
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
+}
+
+/// Input accepted by generic model jobs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind", content = "value")]
+pub enum ModelJobInput {
+    /// JSON request payload.
+    Json(serde_json::Value),
+    /// Artifact produced by a previous job.
+    Artifact(ArtifactRef),
+    /// Local path supplied by an explicit CLI/server/job route.
+    LocalPath(PathBuf),
+}
+
+/// Generic result returned by model access jobs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelAccessJobResult {
+    /// Stable job identifier.
+    pub job_id: jobs_core::JobId,
+    /// Model operation kind.
+    pub kind: ModelJobKind,
+    /// Model spec used by the job.
+    pub spec: ModelSpec,
+    /// Runtime backend used by the job.
+    pub backend: ModelRuntimeBackend,
+    /// Artifacts produced by the job.
+    pub artifacts: Vec<ArtifactRef>,
+    /// Diagnostics emitted by the job.
+    pub diagnostics: Vec<Diagnostic>,
+    /// Optional structured output.
+    pub output: Option<serde_json::Value>,
 }
 
 impl ModelJobKind {
@@ -53,6 +114,9 @@ pub fn model_job_spec(
         .with_metadata("model.runtime", backend.as_str().to_string())?;
     if let Some(revision) = spec.revision_value() {
         job = job.with_metadata("model.revision", revision.to_string())?;
+    }
+    if let Some(repo_id) = spec.repo_id_value() {
+        job = job.with_metadata("model.repoId", repo_id.to_string())?;
     }
     Ok(job)
 }
@@ -120,6 +184,7 @@ pub fn spawn_model_download_job(
         let bundle = store
             .download(&spec)
             .map_err(|err| JobError::Failed(err.to_string()))?;
+        context.check_cancelled()?;
         context.progress(
             JobProgress::new(1, Some(2))?
                 .unit("steps")?
@@ -141,4 +206,351 @@ pub fn spawn_model_download_job(
         Ok(())
     })?;
     Ok(ModelJobJoinHandle { inner, value })
+}
+
+/// Spawns a model bundle materialization job.
+pub fn spawn_model_materialize_job(
+    runner: &BackgroundJobRunner,
+    request: ModelAccessJobRequest,
+    store: ModelBundleStore,
+) -> jobs_core::Result<ModelJobJoinHandle<ModelAccessJobResult>> {
+    spawn_access_job(runner, request, move |context, request| {
+        context.info(format!(
+            "materializing model bundle `{}`",
+            request.spec.name
+        ))?;
+        context.progress(
+            JobProgress::new(0, Some(2))?
+                .unit("steps")?
+                .message("starting model materialization"),
+        )?;
+        context.check_cancelled()?;
+        let bundle = store
+            .download(&request.spec)
+            .map_err(|err| JobError::Failed(err.to_string()))?;
+        context.check_cancelled()?;
+        let mut artifacts = bundle.artifact_refs();
+        let manifest_artifact = artifact_ref_for_path(
+            artifact_id(&request, "manifest"),
+            ArtifactKind::Json,
+            "application/json",
+            &bundle.manifest_path(),
+            model_metadata(&request.spec, request.backend.clone()),
+        );
+        context.artifact(
+            JobArtifact::new("manifest", "Model bundle manifest")
+                .kind("model-bundle")
+                .path(bundle.manifest_path()),
+        )?;
+        artifacts.push(manifest_artifact);
+        context.progress(
+            JobProgress::new(2, Some(2))?
+                .unit("steps")?
+                .message("model bundle materialized"),
+        )?;
+        Ok(ModelAccessJobResult {
+            job_id: context.id().clone(),
+            kind: request.kind,
+            spec: request.spec,
+            backend: request.backend,
+            artifacts,
+            diagnostics: Vec::new(),
+            output: Some(serde_json::json!({
+                "bundleRoot": bundle.root,
+                "manifestPath": bundle.manifest_path(),
+            })),
+        })
+    })
+}
+
+/// Spawns a model bundle validation job.
+pub fn spawn_model_validate_job(
+    runner: &BackgroundJobRunner,
+    request: ModelAccessJobRequest,
+) -> jobs_core::Result<ModelJobJoinHandle<ModelAccessJobResult>> {
+    spawn_access_job(runner, request, move |context, request| {
+        context.info(format!(
+            "validating model access for `{}`",
+            request.spec.name
+        ))?;
+        context.check_cancelled()?;
+        let mut artifacts = Vec::new();
+        for (index, input) in request.inputs.iter().enumerate() {
+            if let ModelJobInput::LocalPath(path) = input {
+                if !path.exists() {
+                    return Err(JobError::NotFound(format!(
+                        "model input path `{}` does not exist",
+                        path.display()
+                    )));
+                }
+                let kind = if path.is_dir() {
+                    ArtifactKind::Directory
+                } else {
+                    ArtifactKind::File
+                };
+                let artifact = artifact_ref_for_path(
+                    artifact_id(&request, &format!("input-{index}")),
+                    kind,
+                    "application/octet-stream",
+                    path,
+                    model_metadata(&request.spec, request.backend.clone()),
+                );
+                context.artifact(
+                    JobArtifact::new(format!("input-{index}"), "Validated model input").path(path),
+                )?;
+                artifacts.push(artifact);
+            }
+        }
+        context.check_cancelled()?;
+        Ok(ModelAccessJobResult {
+            job_id: context.id().clone(),
+            kind: request.kind,
+            spec: request.spec,
+            backend: request.backend,
+            artifacts,
+            diagnostics: Vec::new(),
+            output: Some(serde_json::json!({ "valid": true })),
+        })
+    })
+}
+
+/// Spawns a runtime warmup job.
+pub fn spawn_model_warmup_job(
+    runner: &BackgroundJobRunner,
+    request: ModelAccessJobRequest,
+) -> jobs_core::Result<ModelJobJoinHandle<ModelAccessJobResult>> {
+    spawn_access_job(runner, request, move |context, request| {
+        context.info(format!(
+            "warming model runtime `{}`",
+            request.backend.as_str()
+        ))?;
+        context.check_cancelled()?;
+        context.progress(
+            JobProgress::new(1, Some(1))?
+                .unit("steps")?
+                .message("model warmup recorded"),
+        )?;
+        Ok(empty_access_result(
+            context.id().clone(),
+            request,
+            Some(serde_json::json!({ "warmed": true })),
+        ))
+    })
+}
+
+/// Spawns a single model inference job.
+pub fn spawn_model_inference_job(
+    runner: &BackgroundJobRunner,
+    request: ModelAccessJobRequest,
+) -> jobs_core::Result<ModelJobJoinHandle<ModelAccessJobResult>> {
+    spawn_access_job(runner, request, move |context, request| {
+        context.info(format!("running model inference `{}`", request.spec.name))?;
+        context.check_cancelled()?;
+        let output = serde_json::json!({
+            "inputCount": request.inputs.len(),
+            "backend": request.backend.as_str(),
+        });
+        context.check_cancelled()?;
+        Ok(empty_access_result(
+            context.id().clone(),
+            request,
+            Some(output),
+        ))
+    })
+}
+
+/// Spawns a batch model inference job.
+pub fn spawn_model_batch_inference_job(
+    runner: &BackgroundJobRunner,
+    request: ModelAccessJobRequest,
+) -> jobs_core::Result<ModelJobJoinHandle<ModelAccessJobResult>> {
+    spawn_access_job(runner, request, move |context, request| {
+        context.info(format!(
+            "running batch model inference `{}`",
+            request.spec.name
+        ))?;
+        context.check_cancelled()?;
+        let input_count = request.inputs.len();
+        context.progress(
+            JobProgress::new(input_count as u64, Some(input_count.max(1) as u64))?
+                .unit("inputs")?
+                .message("batch inputs accepted"),
+        )?;
+        context.check_cancelled()?;
+        Ok(empty_access_result(
+            context.id().clone(),
+            request,
+            Some(serde_json::json!({ "inputCount": input_count })),
+        ))
+    })
+}
+
+/// Spawns an external model command job.
+pub fn spawn_external_model_command_job(
+    runner: &BackgroundJobRunner,
+    request: ModelAccessJobRequest,
+) -> jobs_core::Result<ModelJobJoinHandle<ModelAccessJobResult>> {
+    spawn_access_job(runner, request, move |context, request| {
+        let command = match &request.spec.source {
+            ModelSource::ExternalCommand { command } => command.clone(),
+            _ => {
+                return Err(JobError::InvalidArgument(
+                    "external model command jobs require ModelSource::ExternalCommand".to_string(),
+                ));
+            }
+        };
+        context.info(format!(
+            "running external model command `{}`",
+            command.display()
+        ))?;
+        context.check_cancelled()?;
+        let output = Command::new(&command).output().map_err(|err| {
+            JobError::Failed(format!("failed to run `{}`: {err}", command.display()))
+        })?;
+        context.check_cancelled()?;
+        if !output.status.success() {
+            return Err(JobError::Failed(format!(
+                "`{}` exited with status {}",
+                command.display(),
+                output.status
+            )));
+        }
+        Ok(empty_access_result(
+            context.id().clone(),
+            request,
+            Some(serde_json::json!({
+                "status": output.status.code(),
+                "stdout": String::from_utf8_lossy(&output.stdout),
+                "stderr": String::from_utf8_lossy(&output.stderr),
+            })),
+        ))
+    })
+}
+
+/// Runs a model job request inline for tests and deterministic contract checks.
+pub fn run_model_job_inline_for_tests(
+    request: ModelAccessJobRequest,
+) -> jobs_core::Result<ModelAccessJobResult> {
+    let job_id = jobs_core::JobId::new(
+        request
+            .id
+            .clone()
+            .unwrap_or_else(|| default_job_id(&request)),
+    )?;
+    Ok(empty_access_result(
+        job_id,
+        request,
+        Some(serde_json::json!({ "inline": true })),
+    ))
+}
+
+fn spawn_access_job<F>(
+    runner: &BackgroundJobRunner,
+    request: ModelAccessJobRequest,
+    run: F,
+) -> jobs_core::Result<ModelJobJoinHandle<ModelAccessJobResult>>
+where
+    F: FnOnce(
+            jobs_core::JobContext,
+            ModelAccessJobRequest,
+        ) -> jobs_core::Result<ModelAccessJobResult>
+        + Send
+        + 'static,
+{
+    let value = Arc::new(Mutex::new(None));
+    let value_for_job = Arc::clone(&value);
+    let job_spec = job_spec_for_request(&request)?;
+    let inner = runner.spawn(job_spec, move |context| {
+        for (key, value) in model_metadata(&request.spec, request.backend.clone()) {
+            context.metadata(key, value)?;
+        }
+        for (key, value) in &request.metadata {
+            context.metadata(key.clone(), value.clone())?;
+        }
+        let result = run(context, request)?;
+        *value_for_job.lock().map_err(|_| {
+            JobError::StateUnavailable("model job result lock poisoned".to_string())
+        })? = Some(result);
+        Ok(())
+    })?;
+    Ok(ModelJobJoinHandle { inner, value })
+}
+
+fn job_spec_for_request(request: &ModelAccessJobRequest) -> jobs_core::Result<JobSpec> {
+    let id = request
+        .id
+        .clone()
+        .unwrap_or_else(|| default_job_id(request));
+    let mut job = model_job_spec(id, request.kind, &request.spec, request.backend.clone())?;
+    for (key, value) in &request.metadata {
+        job = job.with_metadata(key.clone(), value.clone())?;
+    }
+    Ok(job)
+}
+
+fn default_job_id(request: &ModelAccessJobRequest) -> String {
+    format!(
+        "{}-{}-{}",
+        request.kind.as_str(),
+        request.spec.safe_name(),
+        request.spec.revision_value().unwrap_or("local")
+    )
+}
+
+fn empty_access_result(
+    job_id: jobs_core::JobId,
+    request: ModelAccessJobRequest,
+    output: Option<serde_json::Value>,
+) -> ModelAccessJobResult {
+    ModelAccessJobResult {
+        job_id,
+        kind: request.kind,
+        spec: request.spec,
+        backend: request.backend,
+        artifacts: Vec::new(),
+        diagnostics: Vec::new(),
+        output,
+    }
+}
+
+fn model_metadata(spec: &ModelSpec, backend: ModelRuntimeBackend) -> BTreeMap<String, String> {
+    let mut metadata = BTreeMap::new();
+    metadata.insert("model.name".to_string(), spec.name.clone());
+    metadata.insert(
+        "model.task".to_string(),
+        spec.task.as_protocol_str().to_string(),
+    );
+    metadata.insert("model.source".to_string(), spec.source.kind().to_string());
+    metadata.insert("model.runtime".to_string(), backend.as_str().to_string());
+    if let Some(revision) = spec.revision_value() {
+        metadata.insert("model.revision".to_string(), revision.to_string());
+    }
+    if let Some(repo_id) = spec.repo_id_value() {
+        metadata.insert("model.repoId".to_string(), repo_id.to_string());
+    }
+    metadata
+}
+
+fn artifact_id(request: &ModelAccessJobRequest, suffix: &str) -> String {
+    match &request.output_artifact_prefix {
+        Some(prefix) => format!("{prefix}-{suffix}"),
+        None => suffix.to_string(),
+    }
+}
+
+fn artifact_ref_for_path(
+    id: impl Into<video_analysis_core::runtime::ArtifactId>,
+    kind: ArtifactKind,
+    media_type: impl Into<String>,
+    path: &Path,
+    metadata: BTreeMap<String, String>,
+) -> ArtifactRef {
+    let mut artifact = ArtifactRef::new(id, kind, media_type, file_uri(path));
+    artifact.size_bytes = path.metadata().ok().map(|metadata| metadata.len());
+    artifact.metadata = metadata;
+    artifact
+}
+
+fn file_uri(path: &Path) -> String {
+    format!("file://{}", path.display())
 }

@@ -16,6 +16,8 @@
     "format:check": "cargo fmt --all --check",
     "build": "cargo build --workspace && bun run ui:build && bun run web:build",
     "hygiene": "scripts/check_repo_hygiene.sh",
+    "hygiene:generated": "scripts/check_generated_artifacts.sh",
+    "snapshot:check": "scripts/check_generated_snapshots.sh",
     "check": "scripts/check.sh",
     "maps-wasm:bench": "bun run --cwd packages/maps-kernels-core-wasm bench:browser",
     "maps-wasm:test": "bun run --cwd packages/maps-kernels-core-wasm test",

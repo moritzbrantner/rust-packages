@@ -1,0 +1,6 @@
+# Intentionally tracked generated snapshots and their freshness commands.
+# Format:
+# path<TAB>check command<TAB>regeneration command
+docs/DEPENDENCY_GRAPH.md	python3 scripts/generate_dependency_chart.py --check	python3 scripts/generate_dependency_chart.py
+docs/PACKAGE_SURFACE_MATRIX.md	python3 scripts/audit_package_surfaces.py --check	python3 scripts/audit_package_surfaces.py --write
+

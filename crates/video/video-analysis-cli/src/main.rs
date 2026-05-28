@@ -6,9 +6,10 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use clap::{ArgGroup, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
+use jobs_core::BackgroundJobRunner;
 use model_runtime::{
-    HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle, ModelBundleStore, ModelPreset,
-    ModelTask,
+    jobs::spawn_model_download_job, HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle,
+    ModelBundleStore, ModelPreset, ModelTask,
 };
 use serde::Serialize;
 use three_d_processing_core::Point3;
@@ -728,11 +729,15 @@ fn download_model(args: ModelDownloadArgs) -> Result<()> {
         downloader = downloader.token(token);
     }
 
-    let bundle = ModelBundleStore::new(args.bundle_dir)
+    let store = ModelBundleStore::new(args.bundle_dir)
         .downloader(downloader)
-        .overwrite(args.overwrite)
-        .download(&spec)
-        .map_err(model_runtime_error)?;
+        .overwrite(args.overwrite);
+    let runner = BackgroundJobRunner::default();
+    let mut handle = spawn_model_download_job(&runner, spec, store)
+        .map_err(|err| DetectError::Source(err.to_string()))?;
+    let bundle = handle
+        .join_result()
+        .map_err(|err| DetectError::Source(err.to_string()))?;
     println!(
         "downloaded {} from {}",
         bundle.manifest.name, bundle.manifest.repo_id

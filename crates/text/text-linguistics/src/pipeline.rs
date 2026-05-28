@@ -1,6 +1,4 @@
 use std::path::PathBuf;
-#[cfg(all(feature = "candle", feature = "model-bundles"))]
-use std::sync::{Arc, Mutex};
 
 use crate::discourse::{
     build_style_profile, build_topic_model, DiscourseSegment, DocumentOutline, SectionClassifier,
@@ -22,9 +20,11 @@ use crate::tokenization::{
     TokenAlignmentMap, TokenizationMode, TokenizerPolicy, TokenizerRegistry, TokenizerSelection,
 };
 #[cfg(all(feature = "candle", feature = "model-bundles"))]
-use jobs_core::{BackgroundJobRunner, JobArtifact, JobError, JobProgress, JobSpec};
+use jobs_core::BackgroundJobRunner;
 #[cfg(all(feature = "candle", feature = "model-bundles"))]
-use model_runtime::{HuggingFaceDownloader, ModelBundle, ModelBundleStore};
+use model_runtime::{
+    jobs::spawn_model_download_job, HuggingFaceDownloader, ModelBundle, ModelBundleStore,
+};
 use text_core::{
     build_annotation_graph_from_parts, split_paragraphs, split_sentence_spans, tokenize,
     AnnotationConfidence, AnnotationProvenance, Sentence, TextAnnotationGraph, TextDocument,
@@ -720,7 +720,6 @@ fn ensure_local_entity_bundle(options: &EntityRecognitionOptions) -> Result<Mode
     let spec = options.preset.spec();
     let store = local_model_bundle_store(options);
     let revision = spec.revision_value().unwrap_or("main").to_string();
-    let repo_id = spec.repo_id_value().unwrap_or("").to_string();
     if let Ok(bundle) = store.load(&spec.name, &revision) {
         return Ok(bundle);
     }
@@ -731,66 +730,9 @@ fn ensure_local_entity_bundle(options: &EntityRecognitionOptions) -> Result<Mode
     }
 
     let runner = BackgroundJobRunner::default();
-    let job_id = format!("text-linguistics-model-download-{}-{}", spec.name, revision);
-    let spec_for_job = spec.clone();
-    let repo_id_for_job = repo_id.clone();
-    let options_for_job = options.clone();
-    let downloaded_bundle = Arc::new(Mutex::new(None));
-    let downloaded_bundle_for_job = Arc::clone(&downloaded_bundle);
-    let job_spec = JobSpec::new(job_id, format!("Download {}", spec.name))
-        .map_job_error()?
-        .with_kind("model-download")
-        .map_job_error()?
-        .with_metadata("repo_id", repo_id)
-        .map_job_error()?
-        .with_metadata("revision", revision)
-        .map_job_error()?;
-    let mut handle = runner
-        .spawn(job_spec, move |context| {
-            context.info(format!(
-                "materializing local model bundle `{}` from `{}`",
-                spec_for_job.name, repo_id_for_job
-            ))?;
-            context.progress(
-                JobProgress::new(0, Some(2))?
-                    .unit("steps")?
-                    .message("starting model download"),
-            )?;
-            context.check_cancelled()?;
-            let store = local_model_bundle_store(&options_for_job);
-            let bundle = store
-                .download(&spec_for_job)
-                .map_err(|err| JobError::Failed(err.to_string()))?;
-            context.progress(
-                JobProgress::new(1, Some(2))?
-                    .unit("steps")?
-                    .message("model files materialized"),
-            )?;
-            context.artifact(
-                JobArtifact::new("manifest", "Model bundle manifest")
-                    .kind("model-bundle")
-                    .path(bundle.manifest_path()),
-            )?;
-            *downloaded_bundle_for_job.lock().map_err(|_| {
-                JobError::StateUnavailable("model bundle lock poisoned".to_string())
-            })? = Some(bundle);
-            context.progress(
-                JobProgress::new(2, Some(2))?
-                    .unit("steps")?
-                    .message("model bundle ready"),
-            )?;
-            Ok(())
-        })
-        .map_job_error()?;
-    handle.join().map_job_error()?;
-
-    let bundle = downloaded_bundle
-        .lock()
-        .map_err(|_| DetectError::Source("model bundle job lock poisoned".to_string()))?
-        .clone();
-    bundle.ok_or_else(|| {
-        DetectError::Source("model download job did not produce a bundle".to_string())
-    })
+    let store = local_model_bundle_store(options);
+    let mut handle = spawn_model_download_job(&runner, spec, store).map_job_error()?;
+    handle.join_result().map_job_error()
 }
 
 #[cfg(all(feature = "candle", feature = "model-bundles"))]

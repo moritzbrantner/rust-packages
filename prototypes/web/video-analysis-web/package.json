@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "bun scripts/dev-with-rust-server.ts",
     "dev:vite": "vite --host 0.0.0.0",
-    "build": "tsc -p tsconfig.json && vite build",
+    "build": "bun run pages:data && tsc -p tsconfig.json && vite build",
     "build:pages": "bun run pages:data && tsc -p tsconfig.json && vite build && bun run pages:crate-indexes",
     "pages:data": "bun scripts/generate-pages-data.ts",
     "pages:crate-indexes": "bun scripts/generate-crate-indexes.ts",
