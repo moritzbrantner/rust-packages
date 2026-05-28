@@ -6,8 +6,8 @@ use image_analysis_core::{ImagePixelFormat, ImageView};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    describe_surface_response, structured_operation_response, OperationId, PackageSurface,
+    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -73,9 +73,10 @@ fn operation(
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    let surface = package_surface();
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => describe_value(request.input),
+        "describe" => return Ok(describe_surface_response(&surface, request)),
         "image.onnx.preprocessing" => preprocessing_surface_value(parse_input(request.input)?)?,
         "image.onnx.preprocess" => preprocess_value(parse_input(request.input)?)?,
         "image.onnx.decodeDetections" => decode_detections_value(parse_input(request.input)?)?,
@@ -86,27 +87,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
-    Ok(surface_response(operation, value))
-}
-
-fn describe_value(input: serde_json::Value) -> serde_json::Value {
-    let surface = package_surface();
-    serde_json::json!({
-        "library": surface.library,
-        "version": surface.version,
-        "operationCount": surface.operations.len(),
-        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
-        "input": input
-    })
-}
-
-fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    Ok(structured_operation_response(&surface, operation, value))
 }
 
 fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {

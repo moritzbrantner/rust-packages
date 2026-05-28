@@ -15,6 +15,27 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-segmentation",
     standaloneRoute: "",
   },
+  defaultOperation: "image.segmentation.maskSummary",
+  featuredOperations: [
+    "image.segmentation.maskSummary",
+    "image.segmentation.promptSummary",
+    "image.segmentation.model",
+    "describe",
+  ],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Summarize imported segmentation masks.",
+      operations: ["image.segmentation.maskSummary"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect segmentation model metadata, prompts, and package metadata.",
+      operations: ["image.segmentation.model", "image.segmentation.promptSummary", "describe"],
+    },
+  ],
 };
 
 export function App() {

@@ -8,7 +8,9 @@ classification catalog metadata.
 
 ## Runtime Surface
 
-- `image.classification.models` lists catalog entries.
-- `image.classification.schema` returns task and preset schema metadata.
-- `image.classification.imported` validates caller-supplied labels and scores
-  without running a classifier.
+- Workflow operations: `image.classification.imported` validates caller-supplied
+  labels and scores into normalized classification values.
+- Debug operations: `image.classification.models`,
+  `image.classification.schema`, and `describe` inspect catalogs, schemas, and
+  package metadata.
+- The surface does not download models or run classifier inference.

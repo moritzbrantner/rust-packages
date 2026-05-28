@@ -71,7 +71,7 @@ beforeEach(() => {
               id: "demo.run",
               name: "Run demo",
               description: "Runs the demo operation.",
-              exampleRequest: { text: "server" },
+              exampleRequest: { text: "server", includeNearDuplicates: true },
               wasmSupported: true,
               serverSupported: true,
             },
@@ -118,14 +118,50 @@ describe("PackageSurfaceWorkbench", () => {
     expect((await screen.findAllByText("Fallback")).length).toBeGreaterThan(0);
   });
 
-  test("validates JSON before running", async () => {
-    render(<PackageSurfaceWorkbench config={config()} />);
+  test("edits operation input through form fields", async () => {
+    const runOperation = vi.fn(async () => operationResponse);
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          wasm: {
+            init: vi.fn(async () => undefined),
+            packageSurface: vi.fn(() => ({
+              library: "demo-package",
+              version: "0.1.0",
+              capabilities: {},
+              operations: [
+                {
+                  id: "demo.run",
+                  name: "Run demo",
+                  description: "Runs the demo operation.",
+                  inputSchema: {},
+                  outputSchema: {},
+                  exampleRequest: { text: "hello", includeNearDuplicates: true },
+                  wasmSupported: true,
+                  serverSupported: true,
+                },
+              ],
+            })),
+            runOperation,
+          },
+        })}
+      />,
+    );
 
-    const editor = await screen.findByDisplayValue(/hello|server/);
-    fireEvent.change(editor, { target: { value: "{" } });
+    const textInput = await screen.findByDisplayValue(/hello|server/);
+    fireEvent.change(textInput, { target: { value: "updated text" } });
+    const toggle = screen.getByRole("switch", { name: "Include Near Duplicates" });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
 
-    expect(await screen.findByText(/Parse error/)).toBeTruthy();
+    await waitFor(() => {
+      expect(runOperation).toHaveBeenCalledWith({
+        operation: "demo.run",
+        input: { text: "updated text", includeNearDuplicates: false },
+      });
+    });
   });
 
   test("runs the selected operation", async () => {
@@ -134,11 +170,10 @@ describe("PackageSurfaceWorkbench", () => {
     await screen.findByRole("combobox", { name: "Operation" });
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
 
-    await waitFor(() => expect(screen.getByText(/\"ok\": true/)).toBeTruthy());
-    expect(screen.getByText(/\"title\": \"Demo result\"/)).toBeTruthy();
-    expect(screen.getByText(/\"message\": \"Demo operation completed.\"/)).toBeTruthy();
-    expect(screen.getByText(/\"summary\":/)).toBeTruthy();
-    expect(screen.getByText(/\"diagnostics\": 1/)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Demo result")).toBeTruthy());
+    expect(screen.getByText("Demo operation completed.")).toBeTruthy();
+    expect(screen.getAllByText("Count").length).toBeGreaterThan(0);
+    expect(screen.getByText("1 diagnostics")).toBeTruthy();
   });
 
   test("groups operations under category tabs", async () => {
@@ -232,7 +267,7 @@ describe("PackageSurfaceWorkbench", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
 
-    await waitFor(() => expect(screen.getByText(/\"ok\": true/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Demo result")).toBeTruthy());
     expect(runOperation).not.toHaveBeenCalled();
     expect(fetch).toHaveBeenCalledWith(
       "http://127.0.0.1:3000/api/rust/packages/demo-package/api/run",
@@ -284,7 +319,7 @@ describe("PackageSurfaceWorkbench", () => {
     expect((screen.getByRole("button", { name: "Client WASM" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  test("loads bundled video samples into the JSON input", async () => {
+  test("loads bundled video samples into the request form", async () => {
     render(<PackageSurfaceWorkbench config={config({ domain: "video" })} />);
 
     await screen.findByDisplayValue(/hello|server/);
@@ -295,23 +330,29 @@ describe("PackageSurfaceWorkbench", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Test Pattern" }));
 
-    const editor = (await screen.findByDisplayValue(/videoDataUrl/)) as HTMLTextAreaElement;
+    const editor = (await screen.findByDisplayValue(/data:video\/webm/)) as HTMLTextAreaElement;
     expect(editor.value).toContain("data:video/webm");
   });
 
-  test("loads COLMAP sample patches and preview data into the JSON input", async () => {
+  test("loads COLMAP sample patches and preview data into the request form", async () => {
     render(<PackageSurfaceWorkbench config={config({ domain: "video" })} />);
 
     await screen.findByDisplayValue(/hello|server/);
     fireEvent.click(screen.getByRole("button", { name: "COLMAP Test Video" }));
 
     await waitFor(() => {
-      const editor = screen.getByDisplayValue(/videoPath/) as HTMLTextAreaElement;
-      expect(editor.value).toContain("prototypes/web/video-analysis-web/public/samples/video/test-video.mp4");
-      expect(editor.value).toContain("/samples/video/test-video.mp4");
-      expect(editor.value).toContain(".external-test-tools/colmap-runs/test-video");
-      expect(editor.value).toContain("data:video/mp4");
+      const editors = screen.getAllByDisplayValue(/test-video\.mp4/) as HTMLTextAreaElement[];
+      expect(editors.some((editor) => editor.value.includes("prototypes/web/video-analysis-web/public/samples/video/test-video.mp4"))).toBe(true);
     });
+    expect(
+      (screen.getAllByDisplayValue(/\/samples\/video\/test-video\.mp4/) as HTMLTextAreaElement[]).some((editor) =>
+        editor.value.includes("/samples/video/test-video.mp4"),
+      ),
+    ).toBe(true);
+    expect((screen.getByDisplayValue(/\.external-test-tools\/colmap-runs\/test-video/) as HTMLTextAreaElement).value).toContain(
+      ".external-test-tools/colmap-runs/test-video",
+    );
+    expect((screen.getByDisplayValue(/data:video\/mp4/) as HTMLTextAreaElement).value).toContain("data:video/mp4");
   });
 
   test("shows setup guidance when the optional COLMAP sample is missing", async () => {
@@ -353,8 +394,10 @@ describe("PackageSurfaceWorkbench", () => {
     fireEvent.click(screen.getByRole("button", { name: "COLMAP Test Video" }));
 
     expect(await screen.findByText(/bun run setup:colmap-video/)).toBeTruthy();
-    const editor = (await screen.findByDisplayValue(/videoPath/)) as HTMLTextAreaElement;
-    expect(editor.value).toContain("test-video.mp4");
+    await waitFor(() => {
+      const editors = screen.getAllByDisplayValue(/test-video\.mp4/) as HTMLTextAreaElement[];
+      expect(editors.some((editor) => editor.value.includes("test-video.mp4"))).toBe(true);
+    });
   });
 
   test("disables Run when no runtime is available", async () => {

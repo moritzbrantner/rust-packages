@@ -8,10 +8,11 @@ OCR model presets, rich text outputs, and backend contracts for `video-analysis`
 
 ## Runtime Surface
 
-- `image.ocr.presets` lists supported OCR preset ids and model specs.
-- `image.ocr.requestSummary` validates OCR request-shaped JSON.
-- `image.ocr.documentSummary` summarizes imported OCR document structure
-  without running OCR.
+- Workflow operations: `image.ocr.documentSummary` summarizes imported OCR
+  document structure.
+- Debug operations: `image.ocr.presets`, `image.ocr.requestSummary`, and
+  `describe` inspect model presets, request options, and package metadata.
+- The surface does not download models or run OCR.
 
 ## Example
 

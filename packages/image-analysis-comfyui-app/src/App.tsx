@@ -15,6 +15,27 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-comfyui",
     standaloneRoute: "",
   },
+  defaultOperation: "image.comfyui.promptPlan",
+  featuredOperations: [
+    "image.comfyui.promptPlan",
+    "image.comfyui.workflowSummary",
+    "image.comfyui.assetMap",
+    "describe",
+  ],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Build deterministic ComfyUI prompt graph plans.",
+      operations: ["image.comfyui.promptPlan"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect workflow summaries, assets, and package metadata.",
+      operations: ["image.comfyui.workflowSummary", "image.comfyui.assetMap", "describe"],
+    },
+  ],
 };
 
 export function App() {

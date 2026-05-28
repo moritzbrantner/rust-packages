@@ -300,6 +300,66 @@ pub fn structured_surface_response(
     surface_response(operation, value)
 }
 
+/// Builds a structured response for an operation listed in a package surface.
+///
+/// This keeps the concrete operation result at the top level for compatibility,
+/// while adding the common `title`, `message`, `summary`, and `result` fields
+/// expected by package-surface UIs.
+pub fn structured_operation_response(
+    surface: &PackageSurface,
+    operation: OperationId,
+    result: serde_json::Value,
+) -> SurfaceResponse {
+    let metadata = surface
+        .operations
+        .iter()
+        .find(|candidate| candidate.id.as_str() == operation.as_str());
+    let title = metadata
+        .map(|operation| operation.name.clone())
+        .unwrap_or_else(|| operation.as_str().to_string());
+    let message = metadata
+        .and_then(|operation| operation.description.clone())
+        .unwrap_or_else(|| format!("Ran package-surface operation `{}`.", operation.as_str()));
+    let summary = operation_summary(&result);
+    structured_surface_response(operation, title, message, summary, result)
+}
+
+fn operation_summary(result: &serde_json::Value) -> serde_json::Value {
+    match result {
+        serde_json::Value::Object(object) => {
+            let mut summary = serde_json::Map::new();
+            summary.insert("status".to_string(), serde_json::json!("ok"));
+            for key in [
+                "count",
+                "width",
+                "height",
+                "format",
+                "pixelFormat",
+                "dimensions",
+                "operationCount",
+            ] {
+                if let Some(value) = object.get(key) {
+                    summary.insert(key.to_string(), value.clone());
+                }
+            }
+            if let Some((key, value)) = object
+                .iter()
+                .find(|(_, value)| matches!(value, serde_json::Value::Array(_)))
+            {
+                summary.insert(
+                    format!("{key}Count"),
+                    serde_json::json!(value.as_array().map(Vec::len).unwrap_or(0)),
+                );
+            }
+            serde_json::Value::Object(summary)
+        }
+        serde_json::Value::Array(values) => {
+            serde_json::json!({"status": "ok", "count": values.len()})
+        }
+        _ => serde_json::json!({"status": "ok"}),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 pub struct JobId(pub String);

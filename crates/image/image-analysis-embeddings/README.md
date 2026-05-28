@@ -7,7 +7,8 @@ embedding values, embedder backend traits, and embedding catalog metadata.
 
 ## Runtime Surface
 
-- `image.embeddings.models` lists image and face embedding catalog entries.
-- `image.embeddings.schema` returns task and preset schema metadata.
-- `image.embeddings.validate` validates imported image or face vectors and
-  optional face regions without computing learned embeddings.
+- Workflow operations: `image.embeddings.validate` validates imported image or
+  face vectors and optional face regions.
+- Debug operations: `image.embeddings.models`, `image.embeddings.schema`, and
+  `describe` inspect catalogs, schemas, and package metadata.
+- The surface does not download models or compute learned embeddings.

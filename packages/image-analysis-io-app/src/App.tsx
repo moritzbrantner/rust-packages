@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-io",
     standaloneRoute: "",
   },
+  defaultOperation: "image.io.plan",
+  featuredOperations: ["image.io.plan", "image.io.inferFormat", "image.io.supportedFormats", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Plan image read and write operations.",
+      operations: ["image.io.plan"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect supported formats, inferred formats, and package metadata.",
+      operations: ["image.io.supportedFormats", "image.io.inferFormat", "describe"],
+    },
+  ],
 };
 
 export function App() {

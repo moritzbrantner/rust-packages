@@ -63,6 +63,11 @@ non-executing runtime helpers. These operations must continue to return
 must not silently download models, run native inference, invoke ASR commands, or
 write retrieval persistence files through default surface calls.
 
+Audited text and image package operations return structured JSON values with
+`operation`, `title`, `message`, `summary`, and `result` fields. Concrete domain
+fields remain at the top level for compatibility, while `result` carries the
+same operation-owned payload for generic UI rendering.
+
 The audio crate surfaces now follow the same parity rule. Default audio
 operations expose deterministic, in-memory signal summaries, FFT/STFT features,
 pitch and rhythm projections, processing summaries, spectral recognition,

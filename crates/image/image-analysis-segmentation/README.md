@@ -8,10 +8,12 @@ Image segmentation primitives and SAM model defaults for `video-analysis`.
 
 ## Runtime Surface
 
-- `image.segmentation.model` returns the default SAM model spec.
-- `image.segmentation.promptSummary` validates prompt/request JSON.
-- `image.segmentation.maskSummary` summarizes raw or rectangle-built masks
-  without running SAM.
+- Workflow operations: `image.segmentation.maskSummary` summarizes raw or
+  rectangle-built masks.
+- Debug operations: `image.segmentation.model`,
+  `image.segmentation.promptSummary`, and `describe` inspect model metadata,
+  prompt controls, and package metadata.
+- The surface does not download models or run SAM.
 
 ## Example
 

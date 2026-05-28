@@ -2,6 +2,14 @@
 
 Shared image views, pixel formats, and image statistics for `video-analysis`.
 
+## Runtime Surface
+
+- Workflow operations: `image.core.summary`, `image.core.lumaHistogram`, and
+  `image.core.maskTensorSummary`.
+- Debug operations: `describe` inspects package metadata and operation support.
+- Operations use in-memory image JSON only; they do not read files, decode image
+  formats, or run external tools.
+
 ## Feature flags
 
 - No optional feature flags today.

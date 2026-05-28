@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-core",
     standaloneRoute: "",
   },
+  defaultOperation: "image.core.summary",
+  featuredOperations: ["image.core.summary", "image.core.lumaHistogram", "image.core.maskTensorSummary", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run image summary and tensor analysis workflows.",
+      operations: ["image.core.summary", "image.core.lumaHistogram", "image.core.maskTensorSummary"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect package metadata and operation support.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

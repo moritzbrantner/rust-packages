@@ -2,6 +2,16 @@
 
 ONNX-backed still-image preprocessing and inference adapters for `video-analysis`.
 
+## Runtime Surface
+
+- Workflow operations: `image.onnx.preprocess` and
+  `image.onnx.decodeDetections` run deterministic preprocessing and output
+  decoding workflows.
+- Debug operations: `image.onnx.preprocessing` and `describe` inspect
+  preprocessing configuration and package metadata.
+- Default surface operations do not load ONNX Runtime sessions. Real runtime
+  integration remains behind feature-enabled adapters and external tests.
+
 ## Feature flags
 
 - `onnxruntime`: enables native ONNX Runtime execution for supported adapters.

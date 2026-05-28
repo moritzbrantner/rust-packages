@@ -8,9 +8,12 @@ Still-image PNG/JPEG/WebP loading and saving for `video-analysis`.
 
 ## Runtime Surface
 
-- `image.io.supportedFormats` lists PNG, JPEG, and WebP support.
-- `image.io.inferFormat` infers format from a path extension.
-- `image.io.plan` returns read/write support without reading or writing files.
+- Workflow operations: `image.io.plan` returns read/write support for a path and
+  inferred format.
+- Debug operations: `image.io.supportedFormats`, `image.io.inferFormat`, and
+  `describe` inspect format support and package metadata.
+- Surface operations do not read or write files. Use `read_image` and
+  `write_image` for actual filesystem I/O.
 
 ## Example
 

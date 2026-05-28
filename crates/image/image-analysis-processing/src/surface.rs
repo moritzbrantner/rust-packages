@@ -1,7 +1,7 @@
 //! Library-owned runtime surface for `image-analysis-processing`.
 
 use video_analysis_core::runtime::{
-    describe_surface_response, surface_operation, surface_response, PackageSurface,
+    describe_surface_response, structured_operation_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
 
@@ -44,7 +44,7 @@ pub fn package_surface() -> PackageSurface {
                 "image.processing.hash",
                 "Perceptual hash",
                 "Computes a deterministic luma perceptual hash for an in-memory image.",
-                serde_json::json!({"image": sample_image_json(), "hashSize": 8}),
+                serde_json::json!({"image": sample_image_json(), "hashSize": 2}),
             ),
         ],
     }
@@ -52,9 +52,10 @@ pub fn package_surface() -> PackageSurface {
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    let surface = package_surface();
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => return Ok(describe_surface_response(&package_surface(), request)),
+        "describe" => return Ok(describe_surface_response(&surface, request)),
         "image.processing.apply" => apply_value(request.input)?,
         "image.processing.pipeline" => pipeline_value(request.input)?,
         "image.processing.composite" => composite_value(request.input)?,
@@ -66,7 +67,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
-    Ok(surface_response(operation, value))
+    Ok(structured_operation_response(&surface, operation, value))
 }
 
 #[cfg(test)]

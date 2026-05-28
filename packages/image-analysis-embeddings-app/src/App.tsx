@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-embeddings",
     standaloneRoute: "",
   },
+  defaultOperation: "image.embeddings.validate",
+  featuredOperations: ["image.embeddings.validate", "image.embeddings.models", "image.embeddings.schema", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Validate imported image and face embedding vectors.",
+      operations: ["image.embeddings.validate"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect embedding catalogs, schemas, and package metadata.",
+      operations: ["image.embeddings.models", "image.embeddings.schema", "describe"],
+    },
+  ],
 };
 
 export function App() {

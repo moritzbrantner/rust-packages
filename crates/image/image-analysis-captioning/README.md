@@ -7,7 +7,8 @@ caption outputs, captioner backend traits, and captioning catalog metadata.
 
 ## Runtime Surface
 
-- `image.captioning.models` lists catalog entries.
-- `image.captioning.schema` returns task and preset schema metadata.
-- `image.captioning.imported` validates caller-supplied captions and scores
-  without running captioning.
+- Workflow operations: `image.captioning.imported` validates caller-supplied
+  captions and scores into normalized caption values.
+- Debug operations: `image.captioning.models`, `image.captioning.schema`, and
+  `describe` inspect catalogs, schemas, and package metadata.
+- The surface does not download models or run captioning inference.

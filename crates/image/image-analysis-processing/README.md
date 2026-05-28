@@ -2,6 +2,14 @@
 
 CPU image processing primitives for `video-analysis`.
 
+## Runtime Surface
+
+- Workflow operations: `image.processing.apply`, `image.processing.pipeline`,
+  `image.processing.composite`, and `image.processing.hash`.
+- Debug operations: `describe` inspects package metadata and operation support.
+- Operations process in-memory image JSON and return capped previews or hashes;
+  they do not read files or use external image tools.
+
 ## Feature flags
 
 - No optional feature flags today.

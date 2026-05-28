@@ -15,6 +15,33 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-processing",
     standaloneRoute: "",
   },
+  defaultOperation: "image.processing.apply",
+  featuredOperations: [
+    "image.processing.apply",
+    "image.processing.pipeline",
+    "image.processing.composite",
+    "image.processing.hash",
+    "describe",
+  ],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run deterministic CPU image processing workflows.",
+      operations: [
+        "image.processing.apply",
+        "image.processing.pipeline",
+        "image.processing.composite",
+        "image.processing.hash",
+      ],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect package metadata and operation support.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

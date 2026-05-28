@@ -57,6 +57,11 @@ pub fn hash_value(input: serde_json::Value) -> Result<serde_json::Value, String>
         return Err(format!("hashSize must be between 1 and {MAX_HASH_SIZE}"));
     }
     let image = request.image.view()?;
+    if image.width < hash_size || image.height < hash_size {
+        return Err(format!(
+            "image dimensions must be at least hashSize ({hash_size}) in both axes"
+        ));
+    }
     let mut luma = GrayImage::new(image.width, image.height);
     for y in 0..image.height {
         for x in 0..image.width {

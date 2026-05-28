@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-captioning",
     standaloneRoute: "",
   },
+  defaultOperation: "image.captioning.imported",
+  featuredOperations: ["image.captioning.imported", "image.captioning.models", "image.captioning.schema", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Validate and normalize imported caption results.",
+      operations: ["image.captioning.imported"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect captioning catalogs, schemas, and package metadata.",
+      operations: ["image.captioning.models", "image.captioning.schema", "describe"],
+    },
+  ],
 };
 
 export function App() {

@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-synthesis",
     standaloneRoute: "",
   },
+  defaultOperation: "image.synthesis.solid",
+  featuredOperations: ["image.synthesis.solid", "image.synthesis.gradient", "image.synthesis.histogram", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run deterministic image synthesis workflows.",
+      operations: ["image.synthesis.solid", "image.synthesis.gradient", "image.synthesis.histogram"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect package metadata and operation support.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

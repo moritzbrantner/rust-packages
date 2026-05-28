@@ -3,6 +3,16 @@
 ComfyUI workflow builders and a small HTTP client for image generation and
 manipulation in `video-analysis`.
 
+## Runtime Surface
+
+- Workflow operations: `image.comfyui.promptPlan` builds a deterministic ComfyUI
+  prompt graph without submitting it.
+- Debug operations: `image.comfyui.workflowSummary`,
+  `image.comfyui.assetMap`, and `describe` inspect workflow structure, referenced
+  assets, and package metadata.
+- The surface does not contact a ComfyUI server. Native execution remains
+  explicit through `ComfyImageEditExecutor`.
+
 ## Feature flags
 
 - No optional feature flags today.

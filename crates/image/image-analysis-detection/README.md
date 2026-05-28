@@ -9,10 +9,11 @@ SAM defaults for `video-analysis`.
 
 ## Runtime Surface
 
-- `image.detection.colorBlob` runs deterministic in-memory red blob detection.
-- `image.detection.models` returns non-executing detection model metadata.
-- `image.detection.boxSummary` validates imported boxes/detections and returns
-  aggregate bounds and score summaries.
+- Workflow operations: `image.detection.colorBlob` runs deterministic in-memory
+  red blob detection.
+- Debug operations: `image.detection.models`, `image.detection.boxSummary`, and
+  `describe` inspect model metadata, imported boxes, and package metadata.
+- `image.detection.models` does not download or run detector models.
 
 ## Example
 

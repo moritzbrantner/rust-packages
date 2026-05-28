@@ -8,12 +8,11 @@ Deterministic image synthesis helpers for `video-analysis`.
 
 ## Runtime Surface
 
-- `image.synthesis.solid` summarizes deterministic solid-image output.
-- `image.synthesis.gradient` summarizes deterministic vertical gradients.
-- `image.synthesis.histogram` summarizes luma-histogram image expansion.
-
-Surface operations return dimensions, color statistics, and inversion traces
-instead of encoded image bytes.
+- Workflow operations: `image.synthesis.solid`, `image.synthesis.gradient`, and
+  `image.synthesis.histogram`.
+- Debug operations: `describe` inspects package metadata and operation support.
+- Surface operations return dimensions, color statistics, and inversion traces
+  instead of encoded image bytes.
 
 ## Example
 
