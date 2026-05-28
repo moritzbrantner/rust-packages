@@ -159,7 +159,14 @@ fn run_response(body: &str) -> HttpResponse {
 }
 
 fn run_request(request: SurfaceRequest) -> HttpResponse {
-    match video_analysis_colmap_backend::surface::run_surface_operation(request) {
+    let result = if request.operation.as_str()
+        == video_analysis_colmap_backend::surface::RECONSTRUCT_VIDEO_OPERATION
+    {
+        video_analysis_colmap_backend::reconstruct_video_surface_operation(request.input)
+    } else {
+        video_analysis_colmap_backend::surface::run_surface_operation(request)
+    };
+    match result {
         Ok(response) => json_response(200, "OK", serde_json::json!(response)),
         Err(error) => diagnostic_response(400, "Bad Request", "operation_failed", &error),
     }

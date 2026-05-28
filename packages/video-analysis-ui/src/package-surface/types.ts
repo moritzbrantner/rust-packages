@@ -89,7 +89,8 @@ export interface PackageAppPreset {
 export interface ResultTabDefinition {
   id: string;
   label: string;
-  select: (response: SurfaceResponse) => unknown;
+  select?: (response: SurfaceResponse) => unknown;
+  render?: (response: SurfaceResponse | null) => ReactNode;
 }
 
 export interface FileInputSample {
@@ -97,6 +98,13 @@ export interface FileInputSample {
   label: string;
   url: string;
   description?: string;
+  missingHint?: string;
+  patches?: FileInputPatch[];
+}
+
+export interface FileInputPatch {
+  targetPath: string[];
+  value: unknown;
 }
 
 export interface FileInputDefinition {
@@ -125,8 +133,20 @@ export interface PackageAppConfig {
   };
   featuredOperations?: string[];
   defaultOperation?: string;
+  defaultRuntime?: RuntimeMode;
   presets?: PackageAppPreset[];
   resultTabs?: ResultTabDefinition[];
   fileInputs?: FileInputDefinition[];
-  children?: ReactNode;
+  children?: ReactNode | ((context: PackageSurfaceWorkbenchContext) => ReactNode);
+}
+
+export interface PackageSurfaceWorkbenchContext {
+  input: unknown;
+  inputJson: string;
+  response: SurfaceResponse | null;
+  selectedOperation: string;
+  runtimeMode: RuntimeMode;
+  patchInput: (path: string[], value: unknown) => void;
+  setInput: (value: unknown) => void;
+  setInputJson: (value: string) => void;
 }

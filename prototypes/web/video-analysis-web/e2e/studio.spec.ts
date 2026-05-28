@@ -40,5 +40,9 @@ test("loads the colmap backend app on its wrapper URL", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Test Pattern" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Color Bars" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Moving Box" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "COLMAP Test Video" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Test Video" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "COLMAP Run" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "3D View" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Support" })).toBeVisible();
 });

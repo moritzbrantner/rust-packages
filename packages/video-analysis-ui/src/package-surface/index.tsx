@@ -4,6 +4,7 @@ import { FileInputs } from "./FileInputs";
 import { ModelSelector } from "./ModelSelector";
 import { OperationWorkbench } from "./OperationWorkbench";
 import { ResultViewer } from "./ResultViewer";
+import { builtInVideoFileInput } from "./samples";
 import {
   configuredServerBaseUrl,
   fetchHealth,
@@ -17,6 +18,7 @@ import type {
   ModelCatalogEntry,
   PackageAppConfig,
   PackageAppPreset,
+  PackageSurfaceWorkbenchContext,
   PackageSurface,
   RuntimeMode,
   SurfaceOperation,
@@ -25,6 +27,7 @@ import type {
 
 export * from "./types";
 export * from "./runtime";
+export * from "./samples";
 export { FileInputs } from "./FileInputs";
 export { ModelSelector } from "./ModelSelector";
 export { OperationWorkbench } from "./OperationWorkbench";
@@ -90,8 +93,10 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
     () => operations.find((candidate) => candidate.id === selectedOperation) ?? operations[0] ?? null,
     [operations, selectedOperation],
   );
+  const parsedInput = useMemo(() => parseInputOrNull(input), [input]);
   const wasmAvailable = Boolean(config.wasm) && wasmState === "ready";
   const overviewServerAvailable = serverState === "ready";
+  const selectedOperationRuntimeSupported = operationSupportsRuntime(operation, runtimeMode);
   const selectedRuntimeAvailable =
     runtimeMode === "client-wasm"
       ? wasmAvailable
@@ -103,8 +108,9 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
     wasmAvailable,
     overviewServerAvailable,
     operations.length,
+    operation,
   );
-  const canRun = selectedRuntimeAvailable && operations.length > 0;
+  const canRun = selectedRuntimeAvailable && selectedOperationRuntimeSupported && operations.length > 0;
 
   useEffect(() => {
     if (operation && !selectedOperation) {
@@ -117,10 +123,14 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
       chooseRuntime("overview-server");
       return;
     }
+    if (runtimeMode === "client-wasm" && operation && !operation.wasmSupported && overviewServerAvailable) {
+      chooseRuntime("overview-server");
+      return;
+    }
     if (runtimeMode === "overview-server" && serverState === "error" && wasmAvailable) {
       chooseRuntime("client-wasm");
     }
-  }, [overviewServerAvailable, runtimeMode, serverState, wasmAvailable, wasmState]);
+  }, [operation, overviewServerAvailable, runtimeMode, serverState, wasmAvailable, wasmState]);
 
   function chooseRuntime(nextMode: RuntimeMode) {
     setRuntimeMode(nextMode);
@@ -146,15 +156,24 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
   }
 
   function patchInput(path: string[], value: unknown) {
-    try {
-      const parsed = JSON.parse(input || "{}") as unknown;
-      const patched = patchValue(parsed, path, value);
-      const nextInput = JSON.stringify(patched, null, 2);
-      setInput(nextInput);
-      persistInput(config.library, selectedOperation, nextInput);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    }
+    setInput((currentInput) => {
+      try {
+        const parsed = JSON.parse(currentInput || "{}") as unknown;
+        const patched = patchValue(parsed, path, value);
+        const nextInput = JSON.stringify(patched, null, 2);
+        persistInput(config.library, selectedOperation, nextInput);
+        return nextInput;
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : String(caught));
+        return currentInput;
+      }
+    });
+  }
+
+  function setInputValue(value: unknown) {
+    const nextInput = JSON.stringify(value, null, 2);
+    setInput(nextInput);
+    persistInput(config.library, selectedOperation, nextInput);
   }
 
   async function run() {
@@ -177,6 +196,21 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
     }
   }
 
+  const childContext: PackageSurfaceWorkbenchContext = {
+    input: parsedInput ?? {},
+    inputJson: input,
+    response,
+    selectedOperation,
+    runtimeMode,
+    patchInput,
+    setInput: setInputValue,
+    setInputJson: (nextInput) => {
+      setInput(nextInput);
+      persistInput(config.library, selectedOperation, nextInput);
+    },
+  };
+  const children = typeof config.children === "function" ? config.children(childContext) : config.children;
+
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-950">
       <section className="border-b border-zinc-200 bg-white">
@@ -188,6 +222,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
           </div>
           <RuntimeButtons
             config={config}
+            operation={operation}
             runtimeMode={runtimeMode}
             serverState={serverState}
             wasmState={wasmState}
@@ -216,7 +251,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
             onRun={() => void run()}
             onSelectOperation={chooseOperation}
           />
-          {config.children}
+          {children}
         </div>
         <ResultViewer response={response} resultTabs={config.resultTabs} />
         <aside className="space-y-5">
@@ -238,12 +273,14 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
 
 function RuntimeButtons({
   config,
+  operation,
   runtimeMode,
   serverState,
   wasmState,
   onRuntimeMode,
 }: {
   config: PackageAppConfig;
+  operation: SurfaceOperation | null;
   runtimeMode: RuntimeMode;
   serverState: LoadState;
   wasmState: LoadState;
@@ -251,13 +288,21 @@ function RuntimeButtons({
 }) {
   return (
     <div className="inline-grid overflow-hidden rounded-md border border-zinc-300 bg-white sm:grid-cols-3" role="group" aria-label="Runtime mode">
-      <ModeButton active={runtimeMode === "client-wasm"} disabled={!config.wasm || wasmState === "error"} onClick={() => onRuntimeMode("client-wasm")}>
+      <ModeButton
+        active={runtimeMode === "client-wasm"}
+        disabled={!config.wasm || wasmState === "error" || operation?.wasmSupported === false}
+        onClick={() => onRuntimeMode("client-wasm")}
+      >
         Client WASM
       </ModeButton>
-      <ModeButton active={runtimeMode === "overview-server"} disabled={serverState === "error"} onClick={() => onRuntimeMode("overview-server")}>
+      <ModeButton
+        active={runtimeMode === "overview-server"}
+        disabled={serverState === "error" || operation?.serverSupported === false}
+        onClick={() => onRuntimeMode("overview-server")}
+      >
         Overview Server
       </ModeButton>
-      <ModeButton active={runtimeMode === "standalone-server"} onClick={() => onRuntimeMode("standalone-server")}>
+      <ModeButton active={runtimeMode === "standalone-server"} disabled={operation?.serverSupported === false} onClick={() => onRuntimeMode("standalone-server")}>
         Standalone Server
       </ModeButton>
     </div>
@@ -343,6 +388,7 @@ function runtimeDisabledReason(
   wasmAvailable: boolean,
   overviewServerAvailable: boolean,
   operationCount: number,
+  operation: SurfaceOperation | null,
 ): string | undefined {
   if (!wasmAvailable && !overviewServerAvailable && runtimeMode !== "standalone-server") {
     return "No runnable runtime is available for this package.";
@@ -353,10 +399,26 @@ function runtimeDisabledReason(
   if (runtimeMode === "client-wasm" && !wasmAvailable) {
     return "Client WASM is unavailable. Use Overview Server or build the generated WASM package.";
   }
+  if (runtimeMode === "client-wasm" && operation?.wasmSupported === false) {
+    return "This operation is server-only. Use Overview Server or Standalone Server.";
+  }
   if (runtimeMode === "overview-server" && !overviewServerAvailable) {
     return "Overview Server is unavailable. Start the dev server with bun run dev.";
   }
+  if ((runtimeMode === "overview-server" || runtimeMode === "standalone-server") && operation?.serverSupported === false) {
+    return "This operation is not supported by the selected server runtime.";
+  }
   return undefined;
+}
+
+function operationSupportsRuntime(operation: SurfaceOperation | null, runtimeMode: RuntimeMode): boolean {
+  if (!operation) {
+    return true;
+  }
+  if (runtimeMode === "client-wasm") {
+    return operation.wasmSupported;
+  }
+  return operation.serverSupported;
 }
 
 function orderedOperations(operations: SurfaceOperation[], featured?: string[]): SurfaceOperation[] {
@@ -393,7 +455,21 @@ function readRuntimeMode(config: PackageAppConfig): RuntimeMode {
     }
     return runtime;
   }
+  if (config.defaultRuntime) {
+    if (config.defaultRuntime === "client-wasm" && !config.wasm) {
+      return "overview-server";
+    }
+    return config.defaultRuntime;
+  }
   return config.wasm ? "client-wasm" : "overview-server";
+}
+
+function parseInputOrNull(input: string): unknown | null {
+  try {
+    return JSON.parse(input || "{}");
+  } catch {
+    return null;
+  }
 }
 
 function readQuery(key: string): string | null {
@@ -458,44 +534,10 @@ function defaultFileInputs(domain: PackageAppConfig["domain"]) {
     return [{ id: "audio", label: "Audio input", accept: "audio/*", targetPath: ["audioDataUrl"] }];
   }
   if (domain === "video") {
-    return [
-      {
-        id: "video",
-        label: "Video input",
-        accept: "video/*",
-        targetPath: ["videoDataUrl"],
-        samples: [
-          {
-            id: "test-pattern",
-            label: "Test Pattern",
-            url: publicAssetUrl("/samples/video/test-pattern.webm"),
-            description: "Generated 2s test pattern clip.",
-          },
-          {
-            id: "color-bars",
-            label: "Color Bars",
-            url: publicAssetUrl("/samples/video/color-bars.webm"),
-            description: "Generated 2s SMPTE color bars clip.",
-          },
-          {
-            id: "moving-box",
-            label: "Moving Box",
-            url: publicAssetUrl("/samples/video/moving-box.webm"),
-            description: "Generated 2s moving rectangle clip.",
-          },
-        ],
-      },
-    ];
+    return [builtInVideoFileInput()];
   }
   if (domain === "comfyui") {
     return [{ id: "workflow", label: "Workflow JSON", accept: "application/json,.json", targetPath: ["workflow"], encoding: "text" as const }];
   }
   return [];
-}
-
-function publicAssetUrl(path: string): string {
-  const meta = import.meta as unknown as { env?: { BASE_URL?: string } };
-  const base = meta.env?.BASE_URL ?? "/";
-  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
-  return `${normalizedBase}${path.replace(/^\/+/, "")}`;
 }

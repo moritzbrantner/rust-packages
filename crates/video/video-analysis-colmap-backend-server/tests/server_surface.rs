@@ -15,3 +15,15 @@ fn run_endpoint_calls_library_surface() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""operation""#));
 }
+
+#[test]
+fn reconstruct_video_dispatch_uses_native_runner() {
+    let response = video_analysis_colmap_backend_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"video.colmap.reconstructVideo","input":{"videoPath":"prototypes/web/video-analysis-web/public/samples/video/missing-test-video.mp4"}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains("invalid_request"));
+    assert!(response.body.contains("not readable"));
+}

@@ -6160,6 +6160,7 @@ dependencies = [
 name = "video-analysis-colmap-backend"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
  "tempfile",
  "video-analysis-core",

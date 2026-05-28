@@ -43,7 +43,8 @@ export function ResultViewer({
   );
   const [activeTab, setActiveTab] = useState(tabs[0]?.id ?? "summary");
   const tab = tabs.find((candidate) => candidate.id === activeTab) ?? tabs[0];
-  const selected = response && tab ? tab.select(response) : {};
+  const customRendered = tab?.render ? tab.render(response) : null;
+  const selected = response && tab?.select ? tab.select(response) : (response ?? {});
   const rendered = JSON.stringify(selected, null, 2);
 
   return (
@@ -67,18 +68,22 @@ export function ResultViewer({
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
-          <button className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold" type="button" onClick={() => void copyText(rendered)}>
-            Copy
-          </button>
-          <button className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold" type="button" onClick={() => downloadJson(rendered)}>
-            Download
-          </button>
-        </div>
+        {tab?.render ? null : (
+          <div className="flex gap-2">
+            <button className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold" type="button" onClick={() => void copyText(rendered)}>
+              Copy
+            </button>
+            <button className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold" type="button" onClick={() => downloadJson(rendered)}>
+              Download
+            </button>
+          </div>
+        )}
       </div>
-      <pre className="mt-4 max-h-[42rem] overflow-auto rounded-md bg-zinc-950 p-4 text-sm leading-6 text-zinc-50">
-        {rendered}
-      </pre>
+      {customRendered ?? (
+        <pre className="mt-4 max-h-[42rem] overflow-auto rounded-md bg-zinc-950 p-4 text-sm leading-6 text-zinc-50">
+          {rendered}
+        </pre>
+      )}
     </section>
   );
 }

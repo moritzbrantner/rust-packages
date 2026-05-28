@@ -2178,6 +2178,12 @@ fn run_surface_operation_for(
         "vector-analysis-index" => Some(vector_analysis_index::surface::run_surface_operation(
             request,
         )),
+        "video-analysis-colmap-backend"
+            if request.operation.as_str()
+                == video_analysis_colmap_backend::surface::RECONSTRUCT_VIDEO_OPERATION =>
+        {
+            Some(video_analysis_colmap_backend::reconstruct_video_surface_operation(request.input))
+        }
         "video-analysis-colmap-backend" => {
             Some(video_analysis_colmap_backend::surface::run_surface_operation(request))
         }
@@ -2992,6 +2998,21 @@ mod tests {
             .contains("\"operation\":\"analysis.document\""));
         assert!(response.body.contains("\"enrichedStats\""));
         assert!(response.body.contains("\"lexical\""));
+    }
+
+    #[test]
+    fn serves_colmap_reconstruct_video_from_native_package_route() {
+        let request = Request {
+            method: "POST".to_string(),
+            path: "/api/rust/packages/video-analysis-colmap-backend/api/run".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: r#"{"operation":"video.colmap.reconstructVideo","input":{"videoPath":"prototypes/web/video-analysis-web/public/samples/video/missing-test-video.mp4"}}"#.to_string(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("invalid_request"));
+        assert!(response.body.contains("not readable"));
     }
 
     #[test]

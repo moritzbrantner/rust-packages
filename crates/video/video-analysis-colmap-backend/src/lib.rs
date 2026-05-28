@@ -1,6 +1,9 @@
 #![doc = include_str!("../README.md")]
 
+mod reconstruct_video;
+mod scene;
 pub mod surface;
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -13,6 +16,22 @@ use video_analysis_reconstruction::SparseReconstruction;
 use video_analysis_sfm::{
     reconstruction_report, SfmBackend, SfmPipelineOutput, SfmRequest, SfmRunReport,
 };
+
+#[cfg(test)]
+pub(crate) use reconstruct_video::find_executable;
+#[cfg(not(target_family = "wasm"))]
+pub use reconstruct_video::validate_reconstruct_video_request;
+pub use reconstruct_video::{
+    default_reconstruct_video_request, reconstruct_video_surface_operation, ReconstructVideoColmap,
+    ReconstructVideoFrames, ReconstructVideoRequest, ReconstructVideoResult, ReconstructVideoVideo,
+    COLMAP_TEST_VIDEO_PATH, COLMAP_TEST_VIDEO_URL, DEFAULT_RECONSTRUCT_OUTPUT_DIR,
+};
+pub use scene::{
+    build_colmap_scene, ColmapScene, ColmapSceneBounds, ColmapSceneCamera, ColmapScenePoint,
+    ColmapSceneSummary,
+};
+#[cfg(test)]
+pub(crate) use scene::{build_colmap_scene_from_dataset, scene_summary_from_dataset};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
@@ -208,6 +227,7 @@ mod tests {
     use std::fs;
 
     use tempfile::tempdir;
+    use video_analysis_core::runtime::DiagnosticSeverity;
 
     use super::*;
 
@@ -241,5 +261,122 @@ mod tests {
     fn reports_binary_models_as_explicitly_unsupported() {
         let error = load_colmap_baseline(&ColmapInput::binary_dir("sparse/0")).unwrap_err();
         assert!(error.to_string().contains("binary"));
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    #[test]
+    fn reconstruct_video_validation_rejects_missing_and_out_of_scope_video_path() {
+        let mut request = default_reconstruct_video_request();
+        request.video_path = PathBuf::from(
+            "prototypes/web/video-analysis-web/public/samples/video/missing-test-video.mp4",
+        );
+        request.video_url = None;
+        let missing = validate_reconstruct_video_request(request).unwrap_err();
+        assert!(missing.contains("not readable"));
+
+        let dir = tempdir().unwrap();
+        let outside = dir.path().join("outside.mp4");
+        fs::write(&outside, b"not a real video").unwrap();
+        let mut request = default_reconstruct_video_request();
+        request.video_path = outside;
+        request.video_url = None;
+        let out_of_scope = validate_reconstruct_video_request(request).unwrap_err();
+        assert!(out_of_scope.contains("inside workspace"));
+    }
+
+    #[test]
+    fn scene_extraction_from_colmap_text_fixture_returns_path_and_points() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("cameras.txt"),
+            "1 PINHOLE 32 32 30 30 15 15\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.path().join("images.txt"),
+            "1 1 0 0 0 0 0 0 1 frame_00001.jpg\n15 15 1\n2 1 0 0 0 -1 0 0 1 frame_00002.jpg\n15 15 1\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.path().join("points3D.txt"),
+            "1 0 0 3 255 128 0 0.25 1 0 2 0\n",
+        )
+        .unwrap();
+
+        let baseline = load_colmap_text_baseline(dir.path()).unwrap();
+        let scene = build_colmap_scene(&baseline).unwrap();
+
+        assert_eq!(scene.cameras.len(), 2);
+        assert_eq!(scene.camera_path.len(), 2);
+        assert_eq!(scene.points.len(), 1);
+        assert_eq!(scene.points[0].position, [0.0, 0.0, 3.0]);
+        assert_eq!(scene.points[0].color, [255, 128, 0]);
+    }
+
+    #[test]
+    fn scene_summary_and_scene_support_simple_radial_colmap_text() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("cameras.txt"),
+            "1 SIMPLE_RADIAL 32 32 30 15 15 0.1\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.path().join("images.txt"),
+            "1 1 0 0 0 0 0 0 1 frame_00001.jpg\n15 15 1\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.path().join("points3D.txt"),
+            "1 0 0 3 255 255 255 0.25 1 0\n",
+        )
+        .unwrap();
+
+        assert!(load_colmap_text_baseline(dir.path()).is_err());
+        let dataset = read_colmap_text_dir(dir.path()).unwrap();
+        let summary = scene_summary_from_dataset(&dataset);
+        let scene = build_colmap_scene_from_dataset(&dataset).unwrap();
+
+        assert_eq!(summary.camera_count, 1);
+        assert_eq!(summary.registered_image_count, 1);
+        assert_eq!(summary.sparse_point_count, 1);
+        assert_eq!(summary.track_length_histogram[&1], 1);
+        assert_eq!(scene.cameras.len(), 1);
+        assert_eq!(scene.points.len(), 1);
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    #[test]
+    #[ignore = "requires local test-video.mp4, ffmpeg, and COLMAP"]
+    fn real_colmap_video_smoke_test_when_local_tools_are_available() {
+        let video_path = PathBuf::from(COLMAP_TEST_VIDEO_PATH);
+        if !video_path.exists()
+            || find_executable(&["ffmpeg", "/usr/bin/ffmpeg"]).is_none()
+            || find_executable(&["colmap", "/usr/local/bin/colmap"]).is_none()
+        {
+            eprintln!("skipping real COLMAP smoke test because video or tools are unavailable");
+            return;
+        }
+
+        let response = reconstruct_video_surface_operation(serde_json::json!({
+            "videoPath": video_path,
+            "videoUrl": COLMAP_TEST_VIDEO_URL,
+            "outputDir": DEFAULT_RECONSTRUCT_OUTPUT_DIR,
+            "frameFps": 2,
+            "maxFrames": 80,
+            "imageWidth": 1280,
+            "clean": false
+        }))
+        .unwrap();
+
+        assert!(
+            response
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.severity != DiagnosticSeverity::Error),
+            "unexpected diagnostics: {:?}",
+            response.diagnostics
+        );
+        assert!(response.value["scene"]["points"].as_array().is_some());
     }
 }

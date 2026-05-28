@@ -18,6 +18,7 @@
     "hygiene": "scripts/check_repo_hygiene.sh",
     "hygiene:generated": "scripts/check_generated_artifacts.sh",
     "snapshot:check": "scripts/check_generated_snapshots.sh",
+    "setup:colmap-video": "scripts/setup_colmap_test_video.sh",
     "check": "scripts/check.sh",
     "bench": "bash -lc 'cargo bench --jobs \"${CARGO_BUILD_JOBS:-${TEST_MAX_WORKERS:-2}}\" --workspace'",
     "maps-wasm:bench": "bun run --cwd packages/maps-kernels-core-wasm bench:browser",

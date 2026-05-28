@@ -88,10 +88,11 @@ beforeEach(() => {
       if (url.endsWith("/api/run")) {
         return jsonResponse(operationResponse);
       }
-      if (url.endsWith(".webm")) {
-        return new Response(new Blob(["sample video"], { type: "video/webm" }), {
+      if (url.endsWith(".webm") || url.endsWith(".mp4")) {
+        const type = url.endsWith(".mp4") ? "video/mp4" : "video/webm";
+        return new Response(new Blob(["sample video"], { type }), {
           status: 200,
-          headers: { "content-type": "video/webm" },
+          headers: { "content-type": type },
         });
       }
       return new Response("not found", { status: 404 });
@@ -158,6 +159,50 @@ describe("PackageSurfaceWorkbench", () => {
     );
   });
 
+  test("defaults to overview server when configured", async () => {
+    render(<PackageSurfaceWorkbench config={config({ defaultRuntime: "overview-server" })} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Overview Server" }).className).toContain("bg-zinc-950");
+    });
+  });
+
+  test("moves server-only operations away from client WASM", async () => {
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          defaultOperation: "demo.serverOnly",
+          wasm: {
+            init: vi.fn(async () => undefined),
+            packageSurface: vi.fn(() => ({
+              library: "demo-package",
+              version: "0.1.0",
+              capabilities: {},
+              operations: [
+                {
+                  id: "demo.serverOnly",
+                  name: "Server only",
+                  description: "Runs on the server.",
+                  inputSchema: {},
+                  outputSchema: {},
+                  exampleRequest: { text: "server" },
+                  wasmSupported: false,
+                  serverSupported: true,
+                },
+              ],
+            })),
+            runOperation: vi.fn(async () => operationResponse),
+          },
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Overview Server" }).className).toContain("bg-zinc-950");
+    });
+    expect((screen.getByRole("button", { name: "Client WASM" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   test("loads bundled video samples into the JSON input", async () => {
     render(<PackageSurfaceWorkbench config={config({ domain: "video" })} />);
 
@@ -165,11 +210,70 @@ describe("PackageSurfaceWorkbench", () => {
     expect(await screen.findByRole("button", { name: "Test Pattern" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Color Bars" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Moving Box" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "COLMAP Test Video" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Test Pattern" }));
 
     const editor = (await screen.findByDisplayValue(/videoDataUrl/)) as HTMLTextAreaElement;
     expect(editor.value).toContain("data:video/webm");
+  });
+
+  test("loads COLMAP sample patches and preview data into the JSON input", async () => {
+    render(<PackageSurfaceWorkbench config={config({ domain: "video" })} />);
+
+    await screen.findByDisplayValue(/hello|server/);
+    fireEvent.click(screen.getByRole("button", { name: "COLMAP Test Video" }));
+
+    await waitFor(() => {
+      const editor = screen.getByDisplayValue(/videoPath/) as HTMLTextAreaElement;
+      expect(editor.value).toContain("prototypes/web/video-analysis-web/public/samples/video/test-video.mp4");
+      expect(editor.value).toContain("/samples/video/test-video.mp4");
+      expect(editor.value).toContain(".external-test-tools/colmap-runs/test-video");
+      expect(editor.value).toContain("data:video/mp4");
+    });
+  });
+
+  test("shows setup guidance when the optional COLMAP sample is missing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/health")) {
+          return jsonResponse({ ok: true, package: "demo-package-server", library: "demo-package" });
+        }
+        if (url.endsWith("/api/package")) {
+          return jsonResponse({
+            library: "demo-package",
+            version: "0.1.0",
+            operations: [
+              {
+                id: "demo.run",
+                name: "Run demo",
+                description: "Runs the demo operation.",
+                exampleRequest: { text: "server" },
+                wasmSupported: true,
+                serverSupported: true,
+              },
+            ],
+          });
+        }
+        if (url.endsWith("/api/models")) {
+          return jsonResponse([]);
+        }
+        if (url.endsWith(".mp4")) {
+          return new Response("missing", { status: 404 });
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+    render(<PackageSurfaceWorkbench config={config({ domain: "video" })} />);
+
+    await screen.findByDisplayValue(/hello|server/);
+    fireEvent.click(screen.getByRole("button", { name: "COLMAP Test Video" }));
+
+    expect(await screen.findByText(/bun run setup:colmap-video/)).toBeTruthy();
+    const editor = (await screen.findByDisplayValue(/videoPath/)) as HTMLTextAreaElement;
+    expect(editor.value).toContain("test-video.mp4");
   });
 
   test("disables Run when no runtime is available", async () => {

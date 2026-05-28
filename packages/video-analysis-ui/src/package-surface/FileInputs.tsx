@@ -46,6 +46,9 @@ function FileInputControl({
 
   async function loadSample(sample: FileInputSample) {
     setError(null);
+    for (const patch of sample.patches ?? []) {
+      onPatch(patch.targetPath, patch.value);
+    }
     try {
       const response = await fetch(sample.url);
       if (!response.ok) {
@@ -53,7 +56,8 @@ function FileInputControl({
       }
       await patchBlob(await response.blob());
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : `Unable to load ${sample.label}`);
+      const message = caught instanceof Error ? caught.message : `Unable to load ${sample.label}`;
+      setError(sample.missingHint ? `${message}. ${sample.missingHint}` : message);
     }
   }
 
