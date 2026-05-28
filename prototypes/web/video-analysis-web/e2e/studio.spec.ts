@@ -27,6 +27,7 @@ test("loads the colmap backend app on its wrapper URL", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Video Analysis Colmap Backend" })).toBeVisible();
   await expect(page.getByRole("group", { name: "Runtime mode" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Client WASM" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Server API" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Surface" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Overview Server" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Standalone Server" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Support" })).toBeVisible();
 });

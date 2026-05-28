@@ -11,7 +11,7 @@ const operationResponse: SurfaceResponse = {
   artifacts: [{ id: "artifact-1" }],
 };
 
-function config(): PackageAppConfig {
+function config(overrides: Partial<PackageAppConfig> = {}): PackageAppConfig {
   return {
     library: "demo-package",
     title: "Demo Package",
@@ -42,6 +42,7 @@ function config(): PackageAppConfig {
       scopedRoute: "/api/rust/packages/demo-package",
       standaloneRoute: "",
     },
+    ...overrides,
   };
 }
 
@@ -122,6 +123,56 @@ describe("PackageSurfaceWorkbench", () => {
 
     await waitFor(() => expect(screen.getByText(/\"ok\": true/)).toBeTruthy());
     expect(screen.getByText(/\"diagnostics\": 1/)).toBeTruthy();
+  });
+
+  test("falls back to overview server when WASM initialization fails", async () => {
+    const runOperation = vi.fn(async () => operationResponse);
+    const packageConfig = config({
+      wasm: {
+        init: vi.fn(async () => {
+          throw new Error("missing generated wasm");
+        }),
+        packageSurface: vi.fn(),
+        runOperation,
+      },
+    });
+
+    render(<PackageSurfaceWorkbench config={packageConfig} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Overview Server" }).className).toContain("bg-zinc-950");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+
+    await waitFor(() => expect(screen.getByText(/\"ok\": true/)).toBeTruthy());
+    expect(runOperation).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:3000/api/rust/packages/demo-package/api/run",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  test("disables Run when no runtime is available", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("unavailable", { status: 503 })),
+    );
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          wasm: {
+            init: vi.fn(async () => {
+              throw new Error("missing generated wasm");
+            }),
+            packageSurface: vi.fn(),
+            runOperation: vi.fn(),
+          },
+        })}
+      />,
+    );
+
+    expect(await screen.findByText("No runnable runtime is available for this package.")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Run" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

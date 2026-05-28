@@ -9,7 +9,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "bun run vite --host 127.0.0.1 --port 4175",
+    command: "VITE_HOST=127.0.0.1 VITE_PORT=4175 bun scripts/dev-with-rust-server.ts",
     url: "http://127.0.0.1:4175/",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

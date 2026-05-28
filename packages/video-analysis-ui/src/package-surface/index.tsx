@@ -90,12 +90,37 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
     () => operations.find((candidate) => candidate.id === selectedOperation) ?? operations[0] ?? null,
     [operations, selectedOperation],
   );
+  const wasmAvailable = Boolean(config.wasm) && wasmState === "ready";
+  const overviewServerAvailable = serverState === "ready";
+  const selectedRuntimeAvailable =
+    runtimeMode === "client-wasm"
+      ? wasmAvailable
+      : runtimeMode === "overview-server"
+        ? overviewServerAvailable
+        : true;
+  const runDisabledReason = runtimeDisabledReason(
+    runtimeMode,
+    wasmAvailable,
+    overviewServerAvailable,
+    operations.length,
+  );
+  const canRun = selectedRuntimeAvailable && operations.length > 0;
 
   useEffect(() => {
     if (operation && !selectedOperation) {
       chooseOperation(operation.id);
     }
   }, [operation, selectedOperation]);
+
+  useEffect(() => {
+    if (runtimeMode === "client-wasm" && wasmState === "error" && overviewServerAvailable) {
+      chooseRuntime("overview-server");
+      return;
+    }
+    if (runtimeMode === "overview-server" && serverState === "error" && wasmAvailable) {
+      chooseRuntime("client-wasm");
+    }
+  }, [overviewServerAvailable, runtimeMode, serverState, wasmAvailable, wasmState]);
 
   function chooseRuntime(nextMode: RuntimeMode) {
     setRuntimeMode(nextMode);
@@ -133,6 +158,10 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
   }
 
   async function run() {
+    if (!canRun) {
+      setError(runDisabledReason ?? "No runnable runtime is available for this package.");
+      return;
+    }
     setRunning(true);
     setResponse(null);
     setError(null);
@@ -170,12 +199,14 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
       <section className="mx-auto grid max-w-screen-2xl gap-5 px-5 py-5 xl:grid-cols-[minmax(380px,0.8fr)_minmax(0,1.2fr)_360px]">
         <div className="space-y-5">
           <OperationWorkbench
+            canRun={canRun}
             error={error}
             input={input}
             operation={operation}
             operations={operations}
             presets={config.presets}
             running={running}
+            runDisabledReason={runDisabledReason}
             selectedOperation={selectedOperation}
             onInputChange={(nextInput) => {
               setInput(nextInput);
@@ -307,6 +338,27 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function runtimeDisabledReason(
+  runtimeMode: RuntimeMode,
+  wasmAvailable: boolean,
+  overviewServerAvailable: boolean,
+  operationCount: number,
+): string | undefined {
+  if (!wasmAvailable && !overviewServerAvailable && runtimeMode !== "standalone-server") {
+    return "No runnable runtime is available for this package.";
+  }
+  if (operationCount === 0) {
+    return "No operations are available for this package.";
+  }
+  if (runtimeMode === "client-wasm" && !wasmAvailable) {
+    return "Client WASM is unavailable. Use Overview Server or build the generated WASM package.";
+  }
+  if (runtimeMode === "overview-server" && !overviewServerAvailable) {
+    return "Overview Server is unavailable. Start the dev server with bun run dev.";
+  }
+  return undefined;
+}
+
 function orderedOperations(operations: SurfaceOperation[], featured?: string[]): SurfaceOperation[] {
   if (!featured?.length) {
     return operations;
@@ -413,4 +465,3 @@ function defaultFileInputs(domain: PackageAppConfig["domain"]) {
   }
   return [];
 }
-

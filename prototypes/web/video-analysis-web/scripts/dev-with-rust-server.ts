@@ -6,6 +6,8 @@ const workspaceRoot = fileURLToPath(new URL("../../../..", import.meta.url));
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const rustServerAddr = process.env.OVERVIEW_RUST_SERVER_ADDR ?? (await availableAddress("127.0.0.1", 3000));
 const rustServerUrl = `http://${rustServerAddr}`;
+const viteHost = process.env.VITE_HOST ?? "0.0.0.0";
+const vitePort = process.env.VITE_PORT;
 
 const children = new Set<ChildProcess>();
 let shuttingDown = false;
@@ -24,7 +26,12 @@ const rustServer = start("cargo", [
 
 await waitForRustServer();
 
-const viteServer = start(process.execPath, ["x", "vite", "--host", "0.0.0.0"], {
+const viteArgs = ["x", "vite", "--host", viteHost];
+if (vitePort) {
+  viteArgs.push("--port", vitePort);
+}
+
+const viteServer = start(process.execPath, viteArgs, {
   cwd: projectRoot,
   env: {
     ...process.env,

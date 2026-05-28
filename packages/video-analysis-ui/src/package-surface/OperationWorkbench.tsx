@@ -3,24 +3,28 @@ import type { FormEvent } from "react";
 import type { PackageAppPreset, SurfaceOperation } from "./types";
 
 export function OperationWorkbench({
+  canRun,
   error,
   input,
   operation,
   operations,
   presets = [],
   running,
+  runDisabledReason,
   selectedOperation,
   onInputChange,
   onPreset,
   onRun,
   onSelectOperation,
 }: {
+  canRun: boolean;
   error: string | null;
   input: string;
   operation: SurfaceOperation | null;
   operations: SurfaceOperation[];
   presets?: PackageAppPreset[];
   running: boolean;
+  runDisabledReason?: string;
   selectedOperation: string;
   onInputChange: (input: string) => void;
   onPreset: (preset: PackageAppPreset) => void;
@@ -51,7 +55,7 @@ export function OperationWorkbench({
         </label>
         <button
           className="min-h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={running || !selectedOperation}
+          disabled={!canRun || running || !selectedOperation}
           type="submit"
         >
           {running ? "Running" : "Run"}
@@ -79,8 +83,12 @@ export function OperationWorkbench({
         value={input}
         onChange={(event) => onInputChange(event.target.value)}
       />
+      {runDisabledReason ? (
+        <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {runDisabledReason}
+        </p>
+      ) : null}
       {error ? <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
     </form>
   );
 }
-
