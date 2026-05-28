@@ -6,6 +6,14 @@ Scene detection algorithms and detector adapters for `video-analysis`.
 
 - No optional feature flags today.
 
+## Runtime surface
+
+- `video.detectors.registry` summarizes detector families and score algorithms.
+- `video.detectors.flashFilter` runs the deterministic flash filter over frame
+  threshold decisions.
+- `video.detectors.compositePlan` validates weighted composite detector
+  configuration without processing media.
+
 ## Example
 
 ```rust,ignore

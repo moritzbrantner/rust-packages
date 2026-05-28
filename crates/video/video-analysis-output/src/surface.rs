@@ -1,9 +1,22 @@
 //! Library-owned runtime surface for `video-analysis-output`.
 
+use std::collections::BTreeMap;
+
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use video_analysis_core::runtime::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use video_analysis_core::{
+    Cut, DetectionResult, FramePosition, MetricsSink, MetricsStore, Scene, Timebase, Timestamp,
+};
+
+use crate::{
+    write_detection_result_json, write_scene_list_csv, write_scene_list_html, write_stats_csv,
+};
+
+const DEFAULT_PREVIEW_LIMIT: usize = 20;
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -16,36 +29,36 @@ pub fn package_surface() -> PackageSurface {
                 "describe",
                 "Describe package",
                 "Report, export, and presentation contracts for video-analysis results.",
-                serde_json::json!({
-                    "includeOperations": true
-                }),
+                serde_json::json!({"includeOperations": true}),
             ),
             operation(
                 "video.output.reportSummary",
                 "Summarize report",
-                "Summarizes report sections, included datasets, artifacts, and diagnostics.",
+                "Summarizes detection result scenes, cuts, metrics, and JSON report size.",
                 serde_json::json!({
-                    "input": {},
-                    "mode": "deterministic"
+                    "result": {
+                        "framesProcessed": 30,
+                        "scenes": [{"startFrame": 0, "endFrame": 30}],
+                        "cuts": [{"frameIndex": 30, "detector": "content", "score": 0.9}],
+                        "metrics": [{"frameIndex": 0, "values": {"content": 0.1}}]
+                    }
                 }),
             ),
             operation(
                 "video.output.csvPlan",
                 "Plan CSV export",
-                "Builds a deterministic CSV export plan for records, metrics, and feature tables.",
+                "Renders scene and optional stats CSV previews in memory without writing files.",
                 serde_json::json!({
-                    "input": {},
-                    "mode": "deterministic"
+                    "scenes": [{"startFrame": 0, "endFrame": 30}],
+                    "metrics": [{"frameIndex": 0, "values": {"content": 0.1}}],
+                    "previewLimit": 20
                 }),
             ),
             operation(
                 "video.output.htmlPlan",
                 "Plan HTML export",
-                "Builds a deterministic HTML report plan for scenes, observations, and timelines.",
-                serde_json::json!({
-                    "input": {},
-                    "mode": "deterministic"
-                }),
+                "Renders an HTML scene list preview in memory without writing files.",
+                serde_json::json!({"scenes": [{"startFrame": 0, "endFrame": 30}], "previewLimit": 20}),
             ),
         ],
     }
@@ -71,76 +84,258 @@ fn operation(
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
-    let surface = package_surface();
     let operation = request.operation.clone();
-    let Some(surface_operation) = surface
-        .operations
-        .iter()
-        .find(|candidate| candidate.id.as_str() == operation.as_str())
-    else {
-        return Err(format!(
-            "unsupported operation `{}` for {}",
-            operation.as_str(),
-            env!("CARGO_PKG_NAME")
-        ));
+    let value = match request.operation.as_str() {
+        "describe" => describe_value(request.input),
+        "video.output.reportSummary" => report_summary_value(parse_input(request.input)?)?,
+        "video.output.csvPlan" => csv_plan_value(parse_input(request.input)?)?,
+        "video.output.htmlPlan" => html_plan_value(parse_input(request.input)?)?,
+        operation => {
+            return Err(format!(
+                "unsupported operation `{operation}` for {}",
+                env!("CARGO_PKG_NAME")
+            ))
+        }
     };
-
-    let value = if operation.as_str() == "describe" {
-        describe_value(&surface, request.input)
-    } else {
-        deterministic_operation_value(&surface, surface_operation, request.input)
-    };
-
-    Ok(SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    })
+    Ok(surface_response(operation, value))
 }
 
-fn describe_value(surface: &PackageSurface, input: serde_json::Value) -> serde_json::Value {
+fn describe_value(input: serde_json::Value) -> serde_json::Value {
+    let surface = package_surface();
     serde_json::json!({
-        "library": &surface.library,
-        "version": &surface.version,
+        "library": surface.library,
+        "version": surface.version,
         "operationCount": surface.operations.len(),
-        "operations": surface
-            .operations
-            .iter()
-            .map(|operation| operation.id.as_str())
-            .collect::<Vec<_>>(),
+        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
 }
 
-fn deterministic_operation_value(
-    surface: &PackageSurface,
-    operation: &SurfaceOperation,
-    input: serde_json::Value,
-) -> serde_json::Value {
-    let operation_id = operation.id.as_str();
-    serde_json::json!({
-        "library": &surface.library,
-        "version": &surface.version,
-        "operation": operation_id,
-        "name": &operation.name,
-        "description": &operation.description,
-        "deterministic": true,
-        "externalToolsRequired": false,
-        "request": input,
-        "plan": {
-            "accepts": "JSON request metadata for the operation-specific package surface",
-            "produces": "A deterministic summary or execution plan owned by the Rust library",
-            "operationFamily": operation_family(operation_id),
-        }
+fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
+}
+
+fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {
+    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReportSummaryRequest {
+    result: DetectionResultRequest,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CsvPlanRequest {
+    #[serde(default)]
+    scenes: Vec<SceneRequest>,
+    #[serde(default)]
+    metrics: Vec<MetricRowRequest>,
+    preview_limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HtmlPlanRequest {
+    #[serde(default)]
+    scenes: Vec<SceneRequest>,
+    preview_limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DetectionResultRequest {
+    #[serde(default)]
+    scenes: Vec<SceneRequest>,
+    #[serde(default)]
+    cuts: Vec<CutRequest>,
+    #[serde(default)]
+    metrics: Vec<MetricRowRequest>,
+    #[serde(default)]
+    frames_processed: u64,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SceneRequest {
+    start_frame: u64,
+    end_frame: u64,
+    #[serde(default = "default_fps_num")]
+    fps_num: i32,
+    #[serde(default = "default_fps_den")]
+    fps_den: i32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CutRequest {
+    frame_index: u64,
+    #[serde(default = "default_fps_num")]
+    fps_num: i32,
+    #[serde(default = "default_fps_den")]
+    fps_den: i32,
+    #[serde(default = "default_detector")]
+    detector: String,
+    score: Option<f32>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct MetricRowRequest {
+    frame_index: u64,
+    #[serde(default)]
+    values: BTreeMap<String, f64>,
+}
+
+fn default_fps_num() -> i32 {
+    30
+}
+
+fn default_fps_den() -> i32 {
+    1
+}
+
+fn default_detector() -> String {
+    "surface".to_string()
+}
+
+fn report_summary_value(request: ReportSummaryRequest) -> Result<serde_json::Value, String> {
+    let result = detection_result(request.result)?;
+    let mut json = Vec::new();
+    write_detection_result_json(&mut json, &result).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "sceneCount": result.scenes.len(),
+        "cutCount": result.cuts.len(),
+        "metricKeys": result.metrics.keys().collect::<Vec<_>>(),
+        "metricRowCount": result.metrics.rows().len(),
+        "framesProcessed": result.frames_processed,
+        "jsonBytes": json.len()
+    }))
+}
+
+fn csv_plan_value(request: CsvPlanRequest) -> Result<serde_json::Value, String> {
+    let scenes = scenes(&request.scenes)?;
+    let mut scene_csv = Vec::new();
+    write_scene_list_csv(&mut scene_csv, &scenes).map_err(|error| error.to_string())?;
+    let scene_csv = String::from_utf8(scene_csv).map_err(|error| error.to_string())?;
+
+    let stats = if request.metrics.is_empty() {
+        None
+    } else {
+        let metrics = metrics_store(&request.metrics)?;
+        let mut stats_csv = Vec::new();
+        write_stats_csv(&mut stats_csv, &metrics).map_err(|error| error.to_string())?;
+        Some(String::from_utf8(stats_csv).map_err(|error| error.to_string())?)
+    };
+    let limit = preview_limit(request.preview_limit);
+
+    Ok(serde_json::json!({
+        "sceneCount": scenes.len(),
+        "sceneCsvLineCount": scene_csv.lines().count(),
+        "sceneCsvPreview": preview_lines(&scene_csv, limit),
+        "statsCsvLineCount": stats.as_ref().map(|value| value.lines().count()).unwrap_or(0),
+        "statsCsvPreview": stats.as_ref().map(|value| preview_lines(value, limit)).unwrap_or_default(),
+        "previewLimit": limit,
+        "externalToolsRequired": false
+    }))
+}
+
+fn html_plan_value(request: HtmlPlanRequest) -> Result<serde_json::Value, String> {
+    let scenes = scenes(&request.scenes)?;
+    let mut html = Vec::new();
+    write_scene_list_html(&mut html, &scenes).map_err(|error| error.to_string())?;
+    let html = String::from_utf8(html).map_err(|error| error.to_string())?;
+    let limit = preview_limit(request.preview_limit);
+    Ok(serde_json::json!({
+        "sceneCount": scenes.len(),
+        "byteLength": html.len(),
+        "lineCount": html.lines().count(),
+        "htmlPreview": preview_lines(&html, limit),
+        "previewLimit": limit
+    }))
+}
+
+fn detection_result(request: DetectionResultRequest) -> Result<DetectionResult, String> {
+    Ok(DetectionResult {
+        scenes: scenes(&request.scenes)?,
+        cuts: request
+            .cuts
+            .into_iter()
+            .map(cut)
+            .collect::<Result<Vec<_>, _>>()?,
+        metrics: metrics_store(&request.metrics)?,
+        frames_processed: request.frames_processed,
     })
 }
 
-fn operation_family(operation_id: &str) -> &str {
-    operation_id
-        .split_once('.')
-        .map(|(family, _)| family)
-        .unwrap_or(operation_id)
+fn scenes(requests: &[SceneRequest]) -> Result<Vec<Scene>, String> {
+    requests
+        .iter()
+        .map(|request| {
+            if request.end_frame < request.start_frame {
+                return Err(
+                    "scene endFrame must be greater than or equal to startFrame".to_string()
+                );
+            }
+            Ok(Scene {
+                start: frame_position(request.start_frame, request.fps_num, request.fps_den)?,
+                end: frame_position(request.end_frame, request.fps_num, request.fps_den)?,
+            })
+        })
+        .collect()
+}
+
+fn cut(request: CutRequest) -> Result<Cut, String> {
+    if let Some(score) = request.score {
+        if !score.is_finite() {
+            return Err("cut score must be finite".to_string());
+        }
+    }
+    Ok(Cut {
+        position: frame_position(request.frame_index, request.fps_num, request.fps_den)?,
+        detector: Box::leak(request.detector.into_boxed_str()),
+        score: request.score,
+    })
+}
+
+fn metrics_store(requests: &[MetricRowRequest]) -> Result<MetricsStore, String> {
+    let mut metrics = MetricsStore::default();
+    for row in requests {
+        for (key, value) in &row.values {
+            if !value.is_finite() {
+                return Err(format!("metric `{key}` must be finite"));
+            }
+            metrics.set_metric(row.frame_index, key, *value);
+        }
+    }
+    Ok(metrics)
+}
+
+fn frame_position(frame_index: u64, fps_num: i32, fps_den: i32) -> Result<FramePosition, String> {
+    if fps_num <= 0 || fps_den <= 0 {
+        return Err("fps numerator and denominator must be positive".to_string());
+    }
+    Ok(FramePosition {
+        frame_index,
+        timestamp: Timestamp::new(frame_index as i64, Timebase::new(fps_den, fps_num)),
+    })
+}
+
+fn preview_limit(value: Option<usize>) -> usize {
+    value
+        .filter(|limit| *limit > 0)
+        .unwrap_or(DEFAULT_PREVIEW_LIMIT)
+        .min(DEFAULT_PREVIEW_LIMIT)
+}
+
+fn preview_lines(value: &str, limit: usize) -> Vec<&str> {
+    value.lines().take(limit).collect()
 }
 
 #[cfg(test)]
@@ -148,39 +343,52 @@ mod tests {
     use super::*;
 
     #[test]
-    fn package_surface_has_multiple_operations() {
-        let surface = package_surface();
-        assert_eq!(surface.library, env!("CARGO_PKG_NAME"));
-        assert!(surface
-            .operations
-            .iter()
-            .any(|operation| operation.id.as_str() == "describe"));
-        assert!(surface.operations.len() >= 3);
+    fn report_summary_uses_detection_result_json() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("video.output.reportSummary"),
+            input: serde_json::json!({
+                "result": {
+                    "framesProcessed": 30,
+                    "scenes": [{"startFrame": 0, "endFrame": 30}],
+                    "cuts": [{"frameIndex": 30, "detector": "content", "score": 0.9}],
+                    "metrics": [{"frameIndex": 0, "values": {"content": 0.1}}]
+                }
+            }),
+        })
+        .expect("report summary");
+        assert_eq!(response.value["sceneCount"], 1);
+        assert_eq!(response.value["cutCount"], 1);
+        assert!(response.value.get("plan").is_none());
     }
 
     #[test]
-    fn describe_operation_returns_surface_summary() {
+    fn csv_plan_returns_in_memory_preview() {
         let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("describe"),
-            input: serde_json::json!({"includeOperations": true}),
+            operation: OperationId::new("video.output.csvPlan"),
+            input: serde_json::json!({
+                "scenes": [{"startFrame": 0, "endFrame": 30}],
+                "metrics": [{"frameIndex": 0, "values": {"content": 0.1}}],
+                "previewLimit": 1
+            }),
         })
-        .expect("describe operation");
-
-        assert_eq!(response.operation.as_str(), "describe");
-        assert_eq!(response.value["library"], env!("CARGO_PKG_NAME"));
-        assert!(response.value["operationCount"].as_u64().unwrap() >= 3);
+        .expect("csv plan");
+        assert_eq!(
+            response.value["sceneCsvPreview"].as_array().unwrap().len(),
+            1
+        );
+        assert_eq!(
+            response.value["statsCsvPreview"].as_array().unwrap().len(),
+            1
+        );
     }
 
     #[test]
-    fn package_operation_returns_deterministic_plan() {
-        let operation_id = package_surface().operations[1].id.clone();
-        let response = run_surface_operation(SurfaceRequest {
-            operation: operation_id,
-            input: serde_json::json!({"sample": true}),
+    fn html_plan_rejects_invalid_scene() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("video.output.htmlPlan"),
+            input: serde_json::json!({"scenes": [{"startFrame": 2, "endFrame": 1}]}),
         })
-        .expect("package operation");
-
-        assert_eq!(response.value["deterministic"], true);
-        assert_eq!(response.value["externalToolsRequired"], false);
+        .expect_err("invalid scene");
+        assert!(error.contains("endFrame"));
     }
 }

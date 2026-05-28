@@ -6333,6 +6333,7 @@ name = "video-analysis-detectors"
 version = "0.1.0"
 dependencies = [
  "num-rational",
+ "serde",
  "serde_json",
  "video-analysis-core",
  "video-analysis-ffmpeg",
@@ -7225,6 +7226,7 @@ name = "video-analysis-split"
 version = "0.1.0"
 dependencies = [
  "num-rational",
+ "serde",
  "serde_json",
  "tempfile",
  "video-analysis-core",
@@ -7316,6 +7318,7 @@ version = "0.1.0"
 dependencies = [
  "data-inversion-core",
  "num-rational",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]
@@ -7405,6 +7408,7 @@ dependencies = [
  "criterion",
  "math-geometry-2d",
  "num-rational",
+ "serde",
  "serde_json",
  "video-analysis-core",
 ]

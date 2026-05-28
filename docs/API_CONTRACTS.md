@@ -64,12 +64,13 @@ and avoid FFmpeg, Demucs, model downloads, native inference, filesystem writes,
 or network access in default calls.
 
 The first video/image/3D/ComfyUI surface parity tranche follows the same
-library-owned convention. Dataset, transform, feature, storage, image, ComfyUI,
-3D, and radiance I/O surfaces now expose deterministic summary, filter,
-preview, validation, and extraction operations that run in memory and cap
-preview payloads. Storage and interchange surfaces use plan/preview operations
-for package adapters; actual file reads/writes remain explicit library or CLI
-workflows.
+library-owned convention. Dataset, transform, feature, storage, detector,
+tracking, split, synthesis, recognition, output, image, ComfyUI, 3D, and
+radiance I/O surfaces now expose deterministic summary, filter, preview,
+validation, extraction, planning, and reporting operations that run in memory
+and cap preview payloads. Storage and interchange surfaces use plan/preview
+operations for package adapters; actual file reads/writes remain explicit
+library or CLI workflows.
 
 ## Contract Ownership Rule
 

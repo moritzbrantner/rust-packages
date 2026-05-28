@@ -63,9 +63,48 @@ fn migrated_tranche_operation_metadata_is_complete() {
         audio_analysis_processing::surface::package_surface(),
         image_analysis_processing::surface::package_surface(),
         text_core::surface::package_surface(),
+        video_analysis_detectors::surface::package_surface(),
         video_analysis_editing::surface::package_surface(),
+        video_analysis_output::surface::package_surface(),
+        video_analysis_recognition::surface::package_surface(),
+        video_analysis_split::surface::package_surface(),
+        video_analysis_synthesis::surface::package_surface(),
+        video_analysis_tracking::surface::package_surface(),
     ] {
         assert_surface_metadata(surface);
+    }
+
+    for (surface, runner) in [
+        (
+            video_analysis_detectors::surface::package_surface(),
+            video_analysis_detectors::surface::run_surface_operation
+                as fn(
+                    video_analysis_core::runtime::SurfaceRequest,
+                )
+                    -> Result<video_analysis_core::runtime::SurfaceResponse, String>,
+        ),
+        (
+            video_analysis_output::surface::package_surface(),
+            video_analysis_output::surface::run_surface_operation,
+        ),
+        (
+            video_analysis_recognition::surface::package_surface(),
+            video_analysis_recognition::surface::run_surface_operation,
+        ),
+        (
+            video_analysis_split::surface::package_surface(),
+            video_analysis_split::surface::run_surface_operation,
+        ),
+        (
+            video_analysis_synthesis::surface::package_surface(),
+            video_analysis_synthesis::surface::run_surface_operation,
+        ),
+        (
+            video_analysis_tracking::surface::package_surface(),
+            video_analysis_tracking::surface::run_surface_operation,
+        ),
+    ] {
+        assert_surface_operations_are_not_scaffold(surface, runner);
     }
 }
 
@@ -101,6 +140,40 @@ fn assert_operation_metadata(library: &str, operation: &SurfaceOperation) {
         operation.output_schema.is_object(),
         "{library}:{id} output_schema must be an object"
     );
+}
+
+fn assert_surface_operations_are_not_scaffold(
+    surface: PackageSurface,
+    runner: fn(
+        video_analysis_core::runtime::SurfaceRequest,
+    ) -> Result<video_analysis_core::runtime::SurfaceResponse, String>,
+) {
+    for operation in surface
+        .operations
+        .iter()
+        .filter(|operation| operation.id.as_str() != "describe")
+    {
+        let response = runner(video_analysis_core::runtime::SurfaceRequest {
+            operation: operation.id.clone(),
+            input: operation.example_request.clone(),
+        })
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}:{} example request failed: {error}",
+                surface.library,
+                operation.id.as_str()
+            )
+        });
+        assert!(
+            !response
+                .value
+                .to_string()
+                .contains("A deterministic summary or execution plan owned by the Rust library"),
+            "{}:{} still returns scaffold payload",
+            surface.library,
+            operation.id.as_str()
+        );
+    }
 }
 
 fn parse_matrix() -> BTreeMap<String, MatrixRow> {

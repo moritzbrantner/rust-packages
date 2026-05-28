@@ -13,6 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+serde.workspace = true
 serde_json.workspace = true
 data-inversion-core.workspace = true
 num-rational.workspace = true
