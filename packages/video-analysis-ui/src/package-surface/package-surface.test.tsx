@@ -88,6 +88,12 @@ beforeEach(() => {
       if (url.endsWith("/api/run")) {
         return jsonResponse(operationResponse);
       }
+      if (url.endsWith(".webm")) {
+        return new Response(new Blob(["sample video"], { type: "video/webm" }), {
+          status: 200,
+          headers: { "content-type": "video/webm" },
+        });
+      }
       return new Response("not found", { status: 404 });
     }),
   );
@@ -150,6 +156,20 @@ describe("PackageSurfaceWorkbench", () => {
       "http://127.0.0.1:3000/api/rust/packages/demo-package/api/run",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  test("loads bundled video samples into the JSON input", async () => {
+    render(<PackageSurfaceWorkbench config={config({ domain: "video" })} />);
+
+    await screen.findByDisplayValue(/hello|server/);
+    expect(await screen.findByRole("button", { name: "Test Pattern" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Color Bars" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Moving Box" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Test Pattern" }));
+
+    const editor = (await screen.findByDisplayValue(/videoDataUrl/)) as HTMLTextAreaElement;
+    expect(editor.value).toContain("data:video/webm");
   });
 
   test("disables Run when no runtime is available", async () => {

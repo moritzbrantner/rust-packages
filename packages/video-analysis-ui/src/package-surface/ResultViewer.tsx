@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 
 import type { ResultTabDefinition, SurfaceResponse } from "./types";
 
+type ResultTab = ResultTabDefinition & { description?: string };
+
 export function ResultViewer({
   response,
   resultTabs = [],
@@ -9,12 +11,32 @@ export function ResultViewer({
   response: SurfaceResponse | null;
   resultTabs?: ResultTabDefinition[];
 }) {
-  const tabs = useMemo(
+  const tabs = useMemo<ResultTab[]>(
     () => [
-      { id: "summary", label: "Summary", select: defaultSummary },
-      { id: "json", label: "JSON", select: (value: SurfaceResponse) => value },
-      { id: "diagnostics", label: "Diagnostics", select: (value: SurfaceResponse) => value.diagnostics },
-      { id: "artifacts", label: "Artifacts", select: (value: SurfaceResponse) => value.artifacts },
+      {
+        id: "summary",
+        label: "Summary",
+        description: "Compact response summary",
+        select: defaultSummary,
+      },
+      {
+        id: "json",
+        label: "JSON",
+        description: "Full raw response JSON",
+        select: (value: SurfaceResponse) => value,
+      },
+      {
+        id: "diagnostics",
+        label: "Diagnostics",
+        description: "Warnings, notes, and non-fatal operation messages",
+        select: (value: SurfaceResponse) => value.diagnostics,
+      },
+      {
+        id: "artifacts",
+        label: "Artifacts",
+        description: "Generated outputs and file-like references",
+        select: (value: SurfaceResponse) => value.artifacts,
+      },
       ...resultTabs,
     ],
     [resultTabs],
@@ -36,6 +58,8 @@ export function ResultViewer({
                   ? "rounded-md bg-zinc-950 px-3 py-2 text-sm font-semibold text-white"
                   : "rounded-md bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-200"
               }
+              aria-label={candidate.description ? `${candidate.label}: ${candidate.description}` : candidate.label}
+              title={candidate.description}
               type="button"
               onClick={() => setActiveTab(candidate.id)}
             >
@@ -84,4 +108,3 @@ function downloadJson(text: string) {
   anchor.click();
   URL.revokeObjectURL(url);
 }
-

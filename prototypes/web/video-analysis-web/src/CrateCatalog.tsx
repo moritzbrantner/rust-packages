@@ -760,6 +760,13 @@ function catalogRouteFromLocation(): CatalogRoute {
       return { kind: "category", domain };
     }
   }
+  const directCategoryMatch = pathname.match(/^([^/]+)\/?$/);
+  if (directCategoryMatch) {
+    const domain = decodeURIComponent(directCategoryMatch[1]) as PackageDomain;
+    if (packageDomainOrder.includes(domain)) {
+      return { kind: "category", domain };
+    }
+  }
   const wrapperMatch = pathname.match(/^(?:wrappers|services)\/([^/]+)/);
   if (wrapperMatch) {
     return { kind: "wrapper", slug: decodeURIComponent(wrapperMatch[1]) };
@@ -821,7 +828,7 @@ function wrapperHrefFromSlug(slug: string): string {
 
 function categoryHref(domain: PackageDomain): string {
   const base = rootHref();
-  return `${base}categories/${domain}/`;
+  return `${base}${domain}/`;
 }
 
 function hrefForRoute(route: CatalogRoute, hash?: string): string {

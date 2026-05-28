@@ -84,7 +84,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun run test:unit && bun run test:e2e",
-    "test:unit": "vitest --run --environment jsdom src",
+    "test:unit": "bash -lc 'vitest --run --maxWorkers \"${VITEST_MAX_WORKERS:-${TEST_MAX_WORKERS:-2}}\" --maxConcurrency \"${VITEST_MAX_CONCURRENCY:-${TEST_MAX_CONCURRENCY:-2}}\" --environment jsdom src'",
     "test:e2e": "playwright test"
   },
   "peerDependencies": {

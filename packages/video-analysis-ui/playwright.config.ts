@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  workers: Number(process.env.PLAYWRIGHT_WORKERS ?? process.env.TEST_MAX_WORKERS ?? "2"),
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: "http://127.0.0.1:4174",

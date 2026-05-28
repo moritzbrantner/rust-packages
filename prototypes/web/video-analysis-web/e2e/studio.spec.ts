@@ -19,6 +19,14 @@ test("opens a wrapper route with the package frontend inside the overview shell"
   await expect(page.getByRole("heading", { name: "Audio Analysis Core" })).toBeVisible();
 });
 
+test("opens the direct video category route", async ({ page }) => {
+  await page.goto("/video/");
+
+  await expect(page).toHaveURL(/\/video\//);
+  await expect(page.getByRole("heading", { name: "Video", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /video-analysis-colmap-backend/ })).toBeVisible();
+});
+
 test("loads the colmap backend app on its wrapper URL", async ({ page }) => {
   await page.goto("/wrappers/video-analysis-colmap-backend/");
 
@@ -29,5 +37,8 @@ test("loads the colmap backend app on its wrapper URL", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Client WASM" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Overview Server" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Standalone Server" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Test Pattern" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Color Bars" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Moving Box" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Support" })).toBeVisible();
 });

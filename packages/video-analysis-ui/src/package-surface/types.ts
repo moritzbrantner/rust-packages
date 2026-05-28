@@ -92,12 +92,20 @@ export interface ResultTabDefinition {
   select: (response: SurfaceResponse) => unknown;
 }
 
+export interface FileInputSample {
+  id: string;
+  label: string;
+  url: string;
+  description?: string;
+}
+
 export interface FileInputDefinition {
   id: string;
   label: string;
   accept?: string;
   targetPath: string[];
   encoding?: "data-url" | "text";
+  samples?: FileInputSample[];
 }
 
 export interface PackageAppConfig {
@@ -122,4 +130,3 @@ export interface PackageAppConfig {
   fileInputs?: FileInputDefinition[];
   children?: ReactNode;
 }
-
