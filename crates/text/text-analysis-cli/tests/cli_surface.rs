@@ -19,6 +19,7 @@ fn run_operation_returns_document_sections() {
         }),
     )
     .unwrap();
+    assert_eq!(response.value["operation"], "analysis.document");
     assert!(response.value.get("core").is_some());
     assert!(response.value.get("lexical").is_some());
     assert!(response.value.get("similarity").is_some());

@@ -15,6 +15,45 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/text-retrieval",
     standaloneRoute: "",
   },
+  defaultOperation: "retrieval.search",
+  featuredOperations: ["retrieval.search", "retrieval.chunk", "retrieval.rerank", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run transient retrieval chunking, search, and reranking workflows.",
+      operations: ["retrieval.search", "retrieval.chunk", "retrieval.rerank"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect package metadata and operation support.",
+      operations: ["describe"],
+    },
+  ],
+  presets: [
+    {
+      id: "hybrid-search",
+      label: "Search",
+      operation: "retrieval.search",
+      description: "Build and search a transient in-memory hybrid retrieval index.",
+      input: {
+        documents: [
+          { id: "doc-1", body: "Rust text retrieval" },
+          { id: "doc-2", body: "Video scene reports" },
+        ],
+        query: "text",
+        mode: "hybrid",
+      },
+    },
+    {
+      id: "rerank",
+      label: "Rerank",
+      operation: "retrieval.rerank",
+      description: "Rerank query/document pairs with lexical overlap.",
+      input: { query: "rust", documents: ["rust text", "video scenes"] },
+    },
+  ],
 };
 
 export function App() {

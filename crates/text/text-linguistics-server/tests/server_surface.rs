@@ -11,8 +11,8 @@ fn run_endpoint_calls_library_surface() {
     let response = text_linguistics_server::response_for(
         "POST",
         "/api/run",
-        r#"{"operation":"describe","input":{"includeOperations":true}}"#,
+        r#"{"operation":"linguistics.analyze","input":{"text":"Alice presented the tokenizer roadmap in Berlin.","profile":"fast"}}"#,
     );
     assert_eq!(response.status_code, 200);
-    assert!(response.body.contains(r#""operation""#));
+    assert!(response.body.contains("linguistics.analyze"));
 }

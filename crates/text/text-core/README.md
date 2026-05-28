@@ -21,8 +21,21 @@ assert!(!graph.tokens.is_empty());
 assert_eq!(graph.sentences.len(), 1);
 ```
 
+## Package surface
+
+- Primary workflow: `text.tokenize` returns tokens, spans, script profile, and
+  text statistics.
+- Workflow operations: `text.statistics`, `text.normalize`, `text.tokenize`,
+  and `text.boundaries`.
+- Debug operations: `describe` inspects package metadata and operation support.
+- Runtime support: pure Rust, available through library, CLI, server, and WASM
+  wrappers.
+- Sample output includes `title`, `message`, `summary`, `result`, and the
+  operation-specific fields such as `tokens`, `stats`, `text`, or `words`.
+- This crate does not download models, run native inference, or scan files.
+
 ## Related crates
 
 - `text-lexical`
-- `text-lexical`
+- `text-linguistics`
 - `video-analysis-core`

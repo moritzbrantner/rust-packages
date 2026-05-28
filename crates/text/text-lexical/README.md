@@ -30,6 +30,21 @@ let similarity = token_shingle_similarity(
 let _ = (keywords, similarity);
 ```
 
+## Package surface
+
+- Primary workflow: `lexical.analyze` computes deterministic lexical features,
+  summaries, readability, sentiment, and rule entities.
+- Workflow operations: `lexical.analyze`, `lexical.keywords`, and
+  `lexical.corpusSearch`.
+- Debug operations: `describe` inspects package metadata and operation support.
+- Runtime support: pure Rust, available through library, CLI, server, and WASM
+  wrappers.
+- Sample output includes `title`, `message`, `summary`, `result`, and
+  operation-specific fields such as `keywords`, `phraseKeywords`, `mode`, or
+  `results`.
+- This crate does not download models, execute native inference, or persist
+  corpus indexes from package-surface operations.
+
 ## Related crates
 
 - `text-core`

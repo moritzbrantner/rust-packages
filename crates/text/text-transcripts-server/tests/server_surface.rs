@@ -10,8 +10,8 @@ fn run_endpoint_calls_library_surface() {
     let response = text_transcripts_server::response_for(
         "POST",
         "/api/run",
-        r#"{"operation":"describe","input":{"includeOperations":true}}"#,
+        r#"{"operation":"transcripts.parse","input":{"format":"srt","content":"1\n00:00:01,000 --> 00:00:02,000\nHello.\n"}}"#,
     );
     assert_eq!(response.status_code, 200);
-    assert!(response.body.contains(r#""operation""#));
+    assert!(response.body.contains("transcripts.parse"));
 }

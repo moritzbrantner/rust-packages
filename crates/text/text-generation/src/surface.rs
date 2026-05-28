@@ -2,8 +2,8 @@
 
 use serde::Deserialize;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{synthesize_from_terms, MarkovChain, TermPrompt, TextSynthesisOptions};
@@ -17,7 +17,7 @@ pub fn package_surface() -> PackageSurface {
         operations: vec![
             operation(
                 "describe",
-                "Describe package",
+                "Inspect package metadata",
                 "Deterministic Markov-chain prediction and text synthesis for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
@@ -76,6 +76,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -93,6 +94,55 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Package surface metadata",
+            "Inspected the text-generation package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "generation.markovPredict" => (
+            "Markov prediction result",
+            "Trained a transient deterministic Markov chain and predicted next tokens.",
+            serde_json::json!({
+                "status": "ok",
+                "order": value["order"],
+                "contexts": value["contexts"],
+                "predictionCount": value["predictions"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "generation.markovGenerate" => (
+            "Markov generation result",
+            "Trained a transient deterministic Markov chain and generated text.",
+            serde_json::json!({
+                "status": "ok",
+                "order": value["order"],
+                "contexts": value["contexts"],
+                "generatedTokenCount": value["generation"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "generation.synthesizeTerms" => (
+            "Term synthesis result",
+            "Synthesized deterministic text from weighted term prompts.",
+            serde_json::json!({
+                "status": "ok",
+                "id": value["value"]["id"],
+                "language": value["value"]["language"],
+                "assumptionCount": value["trace"]["assumptions"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        _ => (
+            "Text generation result",
+            "Ran a text-generation package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[derive(Debug, Deserialize)]

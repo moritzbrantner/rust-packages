@@ -3,8 +3,8 @@
 use serde::Deserialize;
 use text_core::TextDocument;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -21,7 +21,7 @@ pub fn package_surface() -> PackageSurface {
         operations: vec![
             operation(
                 "describe",
-                "Describe package",
+                "Inspect package metadata",
                 "Lightweight semantic text embeddings and search for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
@@ -87,6 +87,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -104,6 +105,61 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Package surface metadata",
+            "Inspected the text-embeddings package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "embeddings.embed" => (
+            "Text embedding result",
+            "Built deterministic hashed embeddings for the supplied texts.",
+            serde_json::json!({
+                "status": "ok",
+                "embeddingCount": value["embeddings"].as_array().map(Vec::len).unwrap_or(0),
+                "dimensions": value["model"]["dimensions"]
+            }),
+        ),
+        "embeddings.similarity" => (
+            "Text similarity result",
+            "Computed deterministic hashed-vector similarity for the supplied text pair.",
+            serde_json::json!({
+                "status": "ok",
+                "similarity": value["similarity"],
+                "dimensions": value["model"]["dimensions"]
+            }),
+        ),
+        "embeddings.semanticSearch" => (
+            "Semantic search result",
+            "Built a transient hashed semantic index and searched it in memory.",
+            serde_json::json!({
+                "status": "ok",
+                "resultCount": value["results"].as_array().map(Vec::len).unwrap_or(0),
+                "dimensions": value["model"]["dimensions"]
+            }),
+        ),
+        "embeddings.relatedTerms" => (
+            "Related terms result",
+            "Scored local co-occurring terms for the requested term.",
+            serde_json::json!({
+                "status": "ok",
+                "term": value["term"],
+                "relatedTermCount": value["relatedTerms"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        _ => (
+            "Text embeddings result",
+            "Ran a text-embeddings package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[derive(Debug, Deserialize)]

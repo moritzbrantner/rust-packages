@@ -8,3 +8,14 @@ fn cli_adapter_reports_wrapped_library() {
     assert_eq!(surface.library, "text-classification");
     assert!(!surface.operations.is_empty());
 }
+
+#[test]
+fn cli_adapter_runs_default_workflow() {
+    let response = text_classification_cli::run_operation(
+        "classification.classify",
+        serde_json::json!({"text": "rust is reliable", "labels": ["positive", "negative"], "model": {"fallbackPolicy": "lexical_fallback"}}),
+    )
+    .expect("classify");
+    assert_eq!(response.value["operation"], "classification.classify");
+    assert!(response.value["summary"].is_object());
+}

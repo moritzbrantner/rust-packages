@@ -2,8 +2,8 @@
 
 use serde::Deserialize;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{analyze_sentiment, classify_text, model_catalog, parse_task, zero_shot_classify};
@@ -15,8 +15,8 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Text classification, sentiment, and zero-shot classification contracts with imported prediction handling and deterministic fallbacks.", serde_json::json!({"includeOperations": true})),
-            operation("classification.models", "List classification models", "Lists registered text classification presets.", serde_json::json!({})),
+            operation("describe", "Inspect package metadata", "Text classification, sentiment, and zero-shot classification contracts with imported prediction handling and deterministic fallbacks.", serde_json::json!({"includeOperations": true})),
+            operation("classification.models", "Inspect classification model catalog", "Lists registered text classification presets.", serde_json::json!({})),
             operation("classification.classify", "Classify text", "Runs imported-prediction or explicit fallback text classification.", serde_json::json!({"text": "rust is reliable", "labels": ["positive", "negative"], "model": {"fallbackPolicy": "lexical_fallback"}})),
             operation("classification.sentiment", "Analyze sentiment", "Runs imported-prediction or explicit fallback sentiment analysis.", serde_json::json!({"text": "rust is reliable", "model": {"fallbackPolicy": "lexical_fallback"}})),
             operation("classification.zeroShot", "Zero-shot classify", "Runs imported-prediction or explicit fallback zero-shot classification.", serde_json::json!({"text": "rust text", "labels": ["code", "music"], "model": {"fallbackPolicy": "lexical_fallback"}})),
@@ -67,6 +67,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -84,6 +85,60 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Package surface metadata",
+            "Inspected the text-classification package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "classification.models" => (
+            "Classification model catalog",
+            "Inspected registered classification presets without executing a model.",
+            serde_json::json!({
+                "status": "ok",
+                "modelCount": value["models"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "classification.classify" => (
+            "Text classification result",
+            "Ran imported-prediction or explicit lexical fallback text classification.",
+            serde_json::json!({
+                "status": "ok",
+                "predictionCount": value["predictions"].as_array().map(Vec::len).unwrap_or(0),
+                "runtime": value["runtime"]
+            }),
+        ),
+        "classification.sentiment" => (
+            "Sentiment analysis result",
+            "Ran imported-prediction or explicit lexical fallback sentiment analysis.",
+            serde_json::json!({
+                "status": "ok",
+                "label": value["label"],
+                "runtime": value["runtime"]
+            }),
+        ),
+        "classification.zeroShot" => (
+            "Zero-shot classification result",
+            "Ran imported-prediction or explicit lexical fallback zero-shot classification.",
+            serde_json::json!({
+                "status": "ok",
+                "predictionCount": value["predictions"].as_array().map(Vec::len).unwrap_or(0),
+                "runtime": value["runtime"]
+            }),
+        ),
+        _ => (
+            "Text classification result",
+            "Ran a text-classification package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[derive(Debug, Deserialize, Default)]

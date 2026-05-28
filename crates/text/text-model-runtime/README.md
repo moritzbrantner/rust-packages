@@ -18,3 +18,18 @@ cargo run -p text-analysis-server --features cuda -- --cuda --cuda-device-index 
 CUDA is native-server only. It requires a CUDA-capable host plus Candle's CUDA
 build prerequisites, and startup fails before binding if the requested CUDA
 device cannot be initialized. WASM Candle bindings remain CPU-only.
+
+## Package surface
+
+- Primary workflow: `runtime.tokenizeSummary` builds a deterministic
+  whitespace-token summary without downloads or native model execution.
+- Workflow operations: `runtime.tokenizeSummary`.
+- Support operations: `runtime.softmax` exposes the shared stable softmax
+  helper.
+- Debug operations: `describe` inspects package metadata and operation support.
+- Runtime support: pure Rust package-surface helpers are available through
+  library, CLI, server, and WASM wrappers.
+- Sample output includes `title`, `message`, `summary`, `result`, and
+  operation-specific fields such as `tokens`, `tokenized`, or `probabilities`.
+- The package surface does not load tokenizers or execute ONNX/Candle runtimes;
+  those paths remain feature-gated library/server concerns.

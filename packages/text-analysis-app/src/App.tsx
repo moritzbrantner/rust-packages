@@ -20,6 +20,20 @@ const packageAppConfig: PackageAppConfig = {
   },
   defaultOperation: "analysis.document",
   featuredOperations: ["analysis.document", "analysis.corpus", "analysis.similarity", "analysis.describe", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run document, corpus, and text-similarity analysis workflows.",
+      operations: ["analysis.document", "analysis.corpus", "analysis.similarity"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect package metadata and operation support.",
+      operations: ["analysis.describe", "describe"],
+    },
+  ],
   presets: [
     {
       id: "document-deterministic",

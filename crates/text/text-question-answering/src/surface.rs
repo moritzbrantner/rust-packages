@@ -1,8 +1,8 @@
 //! Library-owned runtime surface for `text-question-answering`.
 
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{answer_question, model_catalog};
@@ -14,8 +14,8 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Extractive question-answering contracts, imported span postprocessing, and backend execution hooks.", serde_json::json!({"includeOperations": true})),
-            operation("qa.models", "List QA models", "Lists registered extractive question-answering presets.", serde_json::json!({})),
+            operation("describe", "Inspect package metadata", "Extractive question-answering contracts, imported span postprocessing, and backend execution hooks.", serde_json::json!({"includeOperations": true})),
+            operation("qa.models", "Inspect QA model catalog", "Lists registered extractive question-answering presets.", serde_json::json!({})),
             operation("qa.answer", "Answer question", "Postprocesses imported span predictions for extractive QA.", serde_json::json!({"question": "What is reliable?", "context": "Rust is reliable.", "importedPredictions": [{"text": "Rust", "score": 0.9}]})),
         ],
     }
@@ -60,6 +60,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -77,6 +78,41 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Package surface metadata",
+            "Inspected the text-question-answering package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "qa.models" => (
+            "QA model catalog",
+            "Inspected registered extractive question-answering model presets without executing a model.",
+            serde_json::json!({
+                "status": "ok",
+                "modelCount": value["models"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "qa.answer" => (
+            "Question answering result",
+            "Postprocessed imported extractive QA span predictions for the supplied question and context.",
+            serde_json::json!({
+                "status": "ok",
+                "answerCount": value["answers"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        _ => (
+            "Question answering result",
+            "Ran a text-question-answering package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[cfg(test)]

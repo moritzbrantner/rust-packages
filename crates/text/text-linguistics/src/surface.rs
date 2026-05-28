@@ -2,8 +2,8 @@
 
 use serde::Deserialize;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{LinguisticAnalysis, TextNlpConfig, TextNlpPipeline};
@@ -15,7 +15,7 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Local model-backed linguistic analysis pipeline for video-analysis.", serde_json::json!({"includeOperations": true})),
+            operation("describe", "Inspect package metadata", "Local model-backed linguistic analysis pipeline for video-analysis.", serde_json::json!({"includeOperations": true})),
             operation("linguistics.analyze", "Analyze text", "Runs the deterministic linguistic pipeline and returns a serializable analysis projection.", serde_json::json!({"text": "Alice presented the tokenizer roadmap in Berlin.", "profile": "fast"})),
             operation("linguistics.entities", "Extract linguistic entities", "Returns entities, canonical entities, relations, and events from the pipeline.", serde_json::json!({"text": "Alice presented the tokenizer roadmap in Berlin."})),
         ],
@@ -54,6 +54,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -71,6 +72,46 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Package surface metadata",
+            "Inspected the text-linguistics package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "linguistics.analyze" => (
+            "Linguistic analysis result",
+            "Ran the deterministic linguistic pipeline and returned tokens, language, entities, topics, and style signals.",
+            serde_json::json!({
+                "status": "ok",
+                "tokenCount": value["tokens"].as_array().map(Vec::len).unwrap_or(0),
+                "entityCount": value["entities"].as_array().map(Vec::len).unwrap_or(0),
+                "language": value["language"]["primary"]["language"]
+            }),
+        ),
+        "linguistics.entities" => (
+            "Linguistic entity extraction result",
+            "Extracted entities, canonical entity records, relations, and event arguments from the supplied text.",
+            serde_json::json!({
+                "status": "ok",
+                "entityCount": value["entities"].as_array().map(Vec::len).unwrap_or(0),
+                "canonicalEntityCount": value["canonicalEntities"].as_array().map(Vec::len).unwrap_or(0),
+                "relationCount": value["relations"].as_array().map(Vec::len).unwrap_or(0),
+                "eventCount": value["events"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        _ => (
+            "Text linguistics result",
+            "Ran a text-linguistics package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[derive(Debug, Deserialize)]

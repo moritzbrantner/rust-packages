@@ -38,6 +38,20 @@ LLM token is required. Transcript-specific analysis is available behind the
 `transcripts` feature. For deterministic offline tests or constrained
 environments, use `LinguisticAnalysisOptions::heuristic()`.
 
+## Package surface
+
+- Primary workflow: `linguistics.analyze` runs the deterministic linguistic
+  pipeline and returns tokens, language, entities, topics, and style signals.
+- Workflow operations: `linguistics.analyze` and `linguistics.entities`.
+- Debug operations: `describe` inspects package metadata and operation support.
+- Runtime support: deterministic package-surface operations are pure Rust and
+  available through library, CLI, server, and WASM wrappers; richer model-backed
+  library APIs remain feature-gated.
+- Sample output includes `title`, `message`, `summary`, `result`, and
+  operation-specific fields such as `tokens`, `language`, `entities`,
+  `relations`, or `events`.
+- The package surface does not download models or execute hosted LLMs.
+
 ## Related crates
 
 - `text-core`

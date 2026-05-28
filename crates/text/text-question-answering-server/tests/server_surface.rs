@@ -10,8 +10,8 @@ fn run_endpoint_calls_library_surface() {
     let response = text_question_answering_server::response_for(
         "POST",
         "/api/run",
-        r#"{"operation":"describe","input":{"includeOperations":true}}"#,
+        r#"{"operation":"qa.answer","input":{"question":"What is reliable?","context":"Rust is reliable.","importedPredictions":[{"text":"Rust","score":0.9}]}}"#,
     );
     assert_eq!(response.status_code, 200);
-    assert!(response.body.contains(r#""operation""#));
+    assert!(response.body.contains("qa.answer"));
 }

@@ -10,8 +10,8 @@ fn run_endpoint_calls_library_surface() {
     let response = text_core_server::response_for(
         "POST",
         "/api/run",
-        r#"{"operation":"describe","input":{"includeOperations":true}}"#,
+        r#"{"operation":"text.tokenize","input":{"text":"Hello Berlin.","includePunctuation":true}}"#,
     );
     assert_eq!(response.status_code, 200);
-    assert!(response.body.contains(r#""operation""#));
+    assert!(response.body.contains("text.tokenize"));
 }

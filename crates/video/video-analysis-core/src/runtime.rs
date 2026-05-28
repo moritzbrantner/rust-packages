@@ -220,19 +220,34 @@ pub fn describe_surface_response(
     surface: &PackageSurface,
     request: SurfaceRequest,
 ) -> SurfaceResponse {
-    surface_response(
+    let result = serde_json::json!({
+        "library": &surface.library,
+        "version": &surface.version,
+        "operationCount": surface.operations.len(),
+        "operations": surface
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>(),
+        "input": request.input
+    });
+    structured_surface_response(
         request.operation,
+        "Package surface metadata",
+        format!(
+            "{} exposes {} package-surface operations.",
+            surface.library,
+            surface.operations.len()
+        ),
         serde_json::json!({
-            "library": &surface.library,
-            "version": &surface.version,
             "operationCount": surface.operations.len(),
-            "operations": surface
-                .operations
-                .iter()
-                .map(|operation| operation.id.as_str())
-                .collect::<Vec<_>>(),
-            "input": request.input
+            "runtime": {
+                "wasm": surface.capabilities.wasm,
+                "server": surface.capabilities.server,
+                "native": surface.capabilities.native
+            }
         }),
+        result,
     )
 }
 
@@ -244,6 +259,45 @@ pub fn surface_response(operation: OperationId, value: serde_json::Value) -> Sur
         diagnostics: Vec::new(),
         artifacts: Vec::new(),
     }
+}
+
+/// Builds a package-surface value with standard human-readable metadata while
+/// preserving object fields from the concrete operation result at the top level.
+pub fn structured_surface_value(
+    operation: &OperationId,
+    title: impl Into<String>,
+    message: impl Into<String>,
+    summary: serde_json::Value,
+    result: serde_json::Value,
+) -> serde_json::Value {
+    let mut object = match &result {
+        serde_json::Value::Object(map) => map.clone(),
+        _ => serde_json::Map::new(),
+    };
+    object.insert("title".to_string(), serde_json::Value::String(title.into()));
+    object.insert(
+        "operation".to_string(),
+        serde_json::Value::String(operation.as_str().to_string()),
+    );
+    object.insert(
+        "message".to_string(),
+        serde_json::Value::String(message.into()),
+    );
+    object.insert("summary".to_string(), summary);
+    object.insert("result".to_string(), result);
+    serde_json::Value::Object(object)
+}
+
+/// Builds a successful package-surface response using `structured_surface_value`.
+pub fn structured_surface_response(
+    operation: OperationId,
+    title: impl Into<String>,
+    message: impl Into<String>,
+    summary: serde_json::Value,
+    result: serde_json::Value,
+) -> SurfaceResponse {
+    let value = structured_surface_value(&operation, title, message, summary, result);
+    surface_response(operation, value)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]

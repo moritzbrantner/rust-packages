@@ -10,8 +10,8 @@ fn run_endpoint_calls_library_surface() {
     let response = text_lexical_server::response_for(
         "POST",
         "/api/run",
-        r#"{"operation":"describe","input":{"includeOperations":true}}"#,
+        r#"{"operation":"lexical.analyze","input":{"text":"Rust crates make text analysis reliable.","maxTerms":5}}"#,
     );
     assert_eq!(response.status_code, 200);
-    assert!(response.body.contains(r#""operation""#));
+    assert!(response.body.contains("lexical.analyze"));
 }

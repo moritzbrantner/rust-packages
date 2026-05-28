@@ -15,6 +15,44 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/text-embeddings",
     standaloneRoute: "",
   },
+  defaultOperation: "embeddings.embed",
+  featuredOperations: ["embeddings.embed", "embeddings.similarity", "embeddings.semanticSearch", "embeddings.relatedTerms", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run deterministic embedding, similarity, semantic search, and related-term workflows.",
+      operations: ["embeddings.embed", "embeddings.similarity", "embeddings.semanticSearch", "embeddings.relatedTerms"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect package metadata and operation support.",
+      operations: ["describe"],
+    },
+  ],
+  presets: [
+    {
+      id: "embed",
+      label: "Embed",
+      operation: "embeddings.embed",
+      description: "Build deterministic hashed embeddings.",
+      input: { texts: ["rust text analysis"], dimensions: 64 },
+    },
+    {
+      id: "semantic-search",
+      label: "Search",
+      operation: "embeddings.semanticSearch",
+      description: "Search a transient hashed semantic index.",
+      input: {
+        documents: [
+          { id: "doc-1", text: "rust text analysis" },
+          { id: "doc-2", text: "video scenes" },
+        ],
+        query: "text",
+      },
+    },
+  ],
 };
 
 export function App() {

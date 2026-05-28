@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 use video_analysis_core::runtime::{
-    describe_surface_response, surface_operation, surface_response, PackageSurface,
+    describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
 
@@ -21,7 +21,7 @@ pub fn package_surface() -> PackageSurface {
         operations: vec![
             surface_operation(
                 "describe",
-                "Describe package",
+                "Inspect package metadata",
                 "Shared text documents, tokenization, spans, and statistics for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
@@ -72,7 +72,66 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ));
         }
     };
-    Ok(surface_response(operation, value))
+    Ok(structured_surface_response(
+        operation.clone(),
+        workflow_title(operation.as_str()),
+        workflow_message(operation.as_str()),
+        workflow_summary(operation.as_str(), &value),
+        value,
+    ))
+}
+
+fn workflow_title(operation: &str) -> &'static str {
+    match operation {
+        "text.statistics" => "Text statistics",
+        "text.normalize" => "Normalized text",
+        "text.tokenize" => "Tokenized text",
+        "text.boundaries" => "Text boundaries",
+        _ => "Text core result",
+    }
+}
+
+fn workflow_message(operation: &str) -> &'static str {
+    match operation {
+        "text.statistics" => {
+            "Computed deterministic byte, character, word, line, and sentence statistics."
+        }
+        "text.normalize" => "Normalized text with explicit before and after statistics.",
+        "text.tokenize" => {
+            "Tokenized the supplied text with spans, script profile, and text statistics."
+        }
+        "text.boundaries" => {
+            "Extracted Unicode-safe word, sentence, paragraph, and grapheme boundaries."
+        }
+        _ => "Ran a text-core package operation.",
+    }
+}
+
+fn workflow_summary(operation: &str, value: &serde_json::Value) -> serde_json::Value {
+    match operation {
+        "text.statistics" => serde_json::json!({
+            "status": "ok",
+            "words": value["value"]["wordCount"],
+            "sentences": value["value"]["sentenceCount"]
+        }),
+        "text.normalize" => serde_json::json!({
+            "status": "ok",
+            "inputWords": value["before"]["basic"]["words"],
+            "outputWords": value["after"]["basic"]["words"]
+        }),
+        "text.tokenize" => serde_json::json!({
+            "status": "ok",
+            "tokenCount": value["tokens"].as_array().map(Vec::len).unwrap_or(0),
+            "dominantScript": value["scriptProfile"]["dominantScript"]
+        }),
+        "text.boundaries" => serde_json::json!({
+            "status": "ok",
+            "wordCount": value["words"].as_array().map(Vec::len).unwrap_or(0),
+            "sentenceCount": value["sentences"].as_array().map(Vec::len).unwrap_or(0),
+            "paragraphCount": value["paragraphs"].as_array().map(Vec::len).unwrap_or(0)
+        }),
+        _ => serde_json::json!({"status": "ok"}),
+    }
 }
 
 #[derive(Debug, Deserialize)]

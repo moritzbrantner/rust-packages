@@ -19,6 +19,21 @@ model.train_text("Scene transitions follow strong visual changes.");
 let _next = model.predict_next(["scene", "transitions"], 3).unwrap();
 ```
 
+## Package surface
+
+- Primary workflow: `generation.markovGenerate` trains a transient Markov chain
+  and deterministically generates text.
+- Workflow operations: `generation.markovPredict`,
+  `generation.markovGenerate`, and `generation.synthesizeTerms`.
+- Debug operations: `describe` inspects package metadata and operation support.
+- Runtime support: pure Rust, available through library, CLI, server, and WASM
+  wrappers.
+- Sample output includes `title`, `message`, `summary`, `result`, and
+  operation-specific fields such as `predictions`, `generation`, `value`, or
+  `trace`.
+- This crate does not include hosted LLM clients or native open-ended
+  generative model inference.
+
 ## Related crates
 
 - `text-core`

@@ -2,8 +2,8 @@
 
 use serde::Deserialize;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -20,7 +20,7 @@ pub fn package_surface() -> PackageSurface {
         operations: vec![
             operation(
                 "describe",
-                "Describe package",
+                "Inspect package metadata",
                 "Transcript parsing and ASR command adapters for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
@@ -79,6 +79,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -96,6 +97,51 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Package surface metadata",
+            "Inspected the text-transcripts package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "transcripts.parse" => (
+            "Transcript parse result",
+            "Parsed transcript content into the normalized transcript contract.",
+            serde_json::json!({
+                "status": "ok",
+                "segmentCount": value["segments"].as_array().map(Vec::len).unwrap_or(0),
+                "hasText": value["text"].as_str().map(|text| !text.is_empty()).unwrap_or(false)
+            }),
+        ),
+        "transcripts.normalize" => (
+            "Transcript normalization result",
+            "Normalized transcript contract text, segments, words, and confidence values.",
+            serde_json::json!({
+                "status": "ok",
+                "segmentCount": value["segments"].as_array().map(Vec::len).unwrap_or(0),
+                "hasText": value["text"].as_str().map(|text| !text.is_empty()).unwrap_or(false)
+            }),
+        ),
+        "transcripts.formatSrt" => (
+            "SRT formatting result",
+            "Formatted a normalized transcript contract as SRT text.",
+            serde_json::json!({
+                "status": "ok",
+                "bytes": value["srt"].as_str().map(str::len).unwrap_or(0)
+            }),
+        ),
+        _ => (
+            "Transcript result",
+            "Ran a text-transcripts package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[derive(Debug, Deserialize)]

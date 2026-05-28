@@ -10,8 +10,8 @@ fn run_endpoint_calls_library_surface() {
     let response = text_retrieval_server::response_for(
         "POST",
         "/api/run",
-        r#"{"operation":"describe","input":{"includeOperations":true}}"#,
+        r#"{"operation":"retrieval.search","input":{"documents":[{"id":"doc-1","body":"Rust text retrieval"},{"id":"doc-2","body":"Video scene reports"}],"query":"text","mode":"hybrid"}}"#,
     );
     assert_eq!(response.status_code, 200);
-    assert!(response.body.contains(r#""operation""#));
+    assert!(response.body.contains("retrieval.search"));
 }

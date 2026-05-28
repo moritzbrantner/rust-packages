@@ -2,8 +2,8 @@
 
 use serde::Deserialize;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{softmax, TokenizedText};
@@ -15,9 +15,9 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Shared tokenizer and native text model runtime traits for video-analysis.", serde_json::json!({"includeOperations": true})),
+            operation("describe", "Inspect package metadata", "Shared tokenizer and native text model runtime traits for video-analysis.", serde_json::json!({"includeOperations": true})),
             operation("runtime.tokenizeSummary", "Tokenize summary", "Builds a deterministic TokenizedText-like whitespace-token summary without downloads or native runtime execution.", serde_json::json!({"text": "Rust text runtime", "maxTokens": 8})),
-            operation("runtime.softmax", "Softmax", "Normalizes logits with a stable softmax.", serde_json::json!({"logits": [0.0, 1.0]})),
+            operation("runtime.softmax", "Normalize logits", "Normalizes logits with a stable softmax helper.", serde_json::json!({"logits": [0.0, 1.0]})),
         ],
     }
 }
@@ -54,6 +54,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -71,6 +72,42 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Package surface metadata",
+            "Inspected the text-model-runtime package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "runtime.tokenizeSummary" => (
+            "Tokenizer summary result",
+            "Built a deterministic whitespace-token summary without downloads or native model execution.",
+            serde_json::json!({
+                "status": "ok",
+                "backend": value["backend"],
+                "tokenCount": value["tokens"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "runtime.softmax" => (
+            "Softmax support result",
+            "Normalized logits with the shared stable softmax helper.",
+            serde_json::json!({
+                "status": "ok",
+                "probabilityCount": value["probabilities"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        _ => (
+            "Text model runtime result",
+            "Ran a text-model-runtime package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[derive(Debug, Deserialize)]

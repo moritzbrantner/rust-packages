@@ -4,8 +4,8 @@ use serde::Deserialize;
 use text_generation::{MarkovChain, MarkovInputMode, TextSynthesisOptions};
 use text_linguistics::{analyze_text, LinguisticAnalysisOptions};
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -21,7 +21,7 @@ pub fn package_surface() -> PackageSurface {
         operations: vec![
             operation(
                 "describe",
-                "Describe package",
+                "Inspect package metadata",
                 "Adapters from text-linguistics analysis outputs into text-generation.",
                 serde_json::json!({"includeOperations": true}),
             ),
@@ -82,6 +82,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -99,6 +100,56 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Package surface metadata",
+            "Inspected the text-generation-linguistics package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "generationLinguistics.analysisTerms" => (
+            "Linguistic term extraction result",
+            "Analyzed text and converted linguistic signals into weighted term prompts.",
+            serde_json::json!({
+                "status": "ok",
+                "termCount": value["terms"].as_array().map(Vec::len).unwrap_or(0),
+                "entityCount": value["entities"].as_array().map(Vec::len).unwrap_or(0),
+                "language": value["language"]
+            }),
+        ),
+        "generationLinguistics.synthesizeFromAnalysis" => (
+            "Linguistic synthesis result",
+            "Analyzed text and synthesized a deterministic document from linguistic terms.",
+            serde_json::json!({
+                "status": "ok",
+                "id": value["value"]["id"],
+                "language": value["value"]["language"],
+                "assumptionCount": value["trace"]["assumptions"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "generationLinguistics.trainAnalysis" => (
+            "Linguistic Markov training result",
+            "Analyzed text and trained a transient Markov chain from linguistic tokens.",
+            serde_json::json!({
+                "status": "ok",
+                "mode": value["mode"],
+                "order": value["order"],
+                "tokenCount": value["tokens"].as_array().map(Vec::len).unwrap_or(0),
+                "contexts": value["contexts"]
+            }),
+        ),
+        _ => (
+            "Text generation linguistics result",
+            "Ran a text-generation-linguistics package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[derive(Debug, Deserialize)]

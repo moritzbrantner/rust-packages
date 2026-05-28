@@ -3,8 +3,8 @@
 use serde::Deserialize;
 use text_core::TextDocument;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -21,7 +21,7 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Lexical text features, corpus statistics, TF-IDF, and BM25 for video-analysis.", serde_json::json!({"includeOperations": true})),
+            operation("describe", "Inspect package metadata", "Lexical text features, corpus statistics, TF-IDF, and BM25 for video-analysis.", serde_json::json!({"includeOperations": true})),
             operation("lexical.analyze", "Analyze lexical features", "Returns deterministic keywords, summaries, readability, sentiment, and rule entities.", serde_json::json!({"text": "Rust crates make text analysis reliable.", "maxTerms": 5})),
             operation("lexical.keywords", "Extract keywords", "Ranks deterministic lexical keywords.", serde_json::json!({"text": "Rust text crates analyze text text.", "limit": 3})),
             operation("lexical.corpusSearch", "Search corpus", "Searches a transient TF-IDF or BM25 corpus.", serde_json::json!({"documents": [{"id": "doc-1", "text": "rust text analysis"}, {"id": "doc-2", "text": "video scene analysis"}], "query": "text", "mode": "bm25"})),
@@ -62,6 +62,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ));
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -79,6 +80,52 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Package surface metadata",
+            "Inspected the text-lexical package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "lexical.analyze" => (
+            "Lexical analysis result",
+            "Computed deterministic keywords, summaries, readability, sentiment, and rule entities.",
+            serde_json::json!({
+                "status": "ok",
+                "keywordCount": value["keywords"].as_array().map(Vec::len).unwrap_or(0),
+                "phraseKeywordCount": value["phraseKeywords"].as_array().map(Vec::len).unwrap_or(0),
+                "entityCount": value["ruleEntities"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "lexical.keywords" => (
+            "Keyword ranking result",
+            "Ranked deterministic lexical keywords for the supplied text.",
+            serde_json::json!({
+                "status": "ok",
+                "keywordCount": value["keywords"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "lexical.corpusSearch" => (
+            "Lexical corpus search result",
+            "Built a transient lexical corpus and searched it without writing persistence artifacts.",
+            serde_json::json!({
+                "status": "ok",
+                "mode": value["mode"],
+                "resultCount": value["results"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        _ => (
+            "Text lexical result",
+            "Ran a text-lexical package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[derive(Debug, Deserialize)]

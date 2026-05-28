@@ -15,6 +15,38 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/text-core",
     standaloneRoute: "",
   },
+  defaultOperation: "text.tokenize",
+  featuredOperations: ["text.tokenize", "text.statistics", "text.normalize", "text.boundaries", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run text statistics, normalization, tokenization, and boundary workflows.",
+      operations: ["text.tokenize", "text.statistics", "text.normalize", "text.boundaries"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect package metadata and operation support.",
+      operations: ["describe"],
+    },
+  ],
+  presets: [
+    {
+      id: "tokenize-sample",
+      label: "Tokenize",
+      operation: "text.tokenize",
+      description: "Tokenize a short sentence with punctuation spans.",
+      input: { text: "Hello, Berlin 2026.", includePunctuation: true },
+    },
+    {
+      id: "normalize-sample",
+      label: "Normalize",
+      operation: "text.normalize",
+      description: "Normalize casing and whitespace.",
+      input: { text: "  Hello   WORLD  ", lowercase: true, normalizeWhitespace: true },
+    },
+  ],
 };
 
 export function App() {

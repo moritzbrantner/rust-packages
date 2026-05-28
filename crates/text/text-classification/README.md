@@ -7,3 +7,18 @@ Model download and bundle handling belong to `model-runtime`; this crate owns
 the text-facing request/response types, imported prediction handling, and
 deterministic fallback behavior.
 
+## Package surface
+
+- Primary workflow: `classification.classify` runs imported-prediction or
+  explicit lexical fallback text classification.
+- Workflow operations: `classification.classify`, `classification.sentiment`,
+  and `classification.zeroShot`.
+- Debug operations: `classification.models` inspects the model catalog, and
+  `describe` inspects package metadata and operation support.
+- Runtime support: pure Rust default behavior is available through library, CLI,
+  server, and WASM wrappers.
+- Sample output includes `title`, `message`, `summary`, `result`, and
+  operation-specific fields from classification, sentiment, or zero-shot
+  responses.
+- The package surface does not download model bundles or execute native model
+  runtimes.

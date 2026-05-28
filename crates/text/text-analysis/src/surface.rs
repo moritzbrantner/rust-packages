@@ -5,8 +5,8 @@ use text_core::TextDocument;
 use text_embeddings::PoolingStrategy;
 use text_lexical::{character_shingle_similarity, token_shingle_similarity};
 use video_analysis_core::runtime::{
-    Diagnostic, DiagnosticCode, DiagnosticSeverity, OperationId, PackageSurface,
-    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
+    structured_surface_value, Diagnostic, DiagnosticCode, DiagnosticSeverity, OperationId,
+    PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -22,13 +22,13 @@ pub fn package_surface() -> PackageSurface {
         operations: vec![
             operation(
                 "describe",
-                "Describe package",
+                "Inspect package metadata",
                 "Unified text analysis orchestration for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
             operation(
                 "analysis.describe",
-                "Describe package",
+                "Inspect analysis metadata",
                 "Unified text analysis orchestration for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
@@ -156,6 +156,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ));
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -191,6 +192,58 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" | "analysis.describe" => (
+            "Package surface metadata",
+            "Inspected the text-analysis package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "analysis.document" => (
+            "Document analysis result",
+            "Analyzed one text with core, lexical, similarity, linguistic, and embedding sections.",
+            serde_json::json!({
+                "status": "ok",
+                "id": value["id"],
+                "language": value["language"],
+                "tokenCount": value["core"]["tokens"].as_array().map(Vec::len).unwrap_or(0),
+                "keywordCount": value["lexical"]["keywords"].as_array().map(Vec::len).unwrap_or(0),
+                "diagnosticCount": value["diagnostics"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "analysis.corpus" => (
+            "Corpus analysis result",
+            "Analyzed a transient corpus with lexical statistics, search reports, near duplicates, and semantic neighbors.",
+            serde_json::json!({
+                "status": "ok",
+                "documentCount": value["documents"].as_array().map(Vec::len).unwrap_or(0),
+                "termCount": value["termStats"].as_array().map(Vec::len).unwrap_or(0),
+                "nearDuplicateCount": value["nearDuplicates"].as_array().map(Vec::len).unwrap_or(0),
+                "semanticNeighborCount": value["semanticNeighbors"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "analysis.similarity" => (
+            "Text similarity result",
+            "Compared two texts with character or token shingle Jaccard similarity.",
+            serde_json::json!({
+                "status": "ok",
+                "mode": value["mode"],
+                "n": value["n"],
+                "similarity": value["similarity"]
+            }),
+        ),
+        _ => (
+            "Text analysis result",
+            "Ran a text-analysis package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[derive(Debug, Deserialize)]

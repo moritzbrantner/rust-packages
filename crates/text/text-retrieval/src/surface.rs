@@ -4,8 +4,8 @@ use serde::Deserialize;
 use text_core::TextProcessingOptions;
 use text_embeddings::{HashedTextEmbedder, TextEmbeddingConfig};
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -22,7 +22,7 @@ pub fn package_surface() -> PackageSurface {
         operations: vec![
             operation(
                 "describe",
-                "Describe package",
+                "Inspect package metadata",
                 "Library-first semantic and hybrid retrieval for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
@@ -85,6 +85,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ))
         }
     };
+    let value = annotated_value(&operation, value);
     Ok(SurfaceResponse {
         operation,
         value,
@@ -102,6 +103,53 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
         "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
         "input": input
     })
+}
+
+fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Package surface metadata",
+            "Inspected the text-retrieval package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "retrieval.chunk" => (
+            "Document chunking result",
+            "Chunked search documents in memory without writing persistence artifacts.",
+            serde_json::json!({
+                "status": "ok",
+                "documentCount": value["report"]["documentsReceived"],
+                "chunkCount": value["chunks"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "retrieval.search" => (
+            "Retrieval search result",
+            "Built a transient in-memory retrieval index and searched it.",
+            serde_json::json!({
+                "status": "ok",
+                "mode": value["mode"],
+                "indexedChunks": value["report"]["chunksIndexed"],
+                "resultCount": value["results"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "retrieval.rerank" => (
+            "Document reranking result",
+            "Reranked query/document pairs using imported scores or deterministic lexical overlap.",
+            serde_json::json!({
+                "status": "ok",
+                "query": value["query"],
+                "resultCount": value["results"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        _ => (
+            "Text retrieval result",
+            "Ran a text-retrieval package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 #[derive(Debug, Deserialize)]
