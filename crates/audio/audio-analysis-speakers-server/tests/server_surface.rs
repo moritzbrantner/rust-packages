@@ -25,4 +25,6 @@ fn run_endpoint_calls_representative_operation() {
     );
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains("audio.speakers.embed"));
+    assert!(response.body.contains("\"title\""));
+    assert!(response.body.contains("\"summary\""));
 }

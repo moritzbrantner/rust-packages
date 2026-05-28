@@ -2,7 +2,7 @@
 
 use audio_analysis_core::{mean_absolute, peak, rms, AudioClip, ChannelMix, FadeCurve};
 use video_analysis_core::runtime::{
-    describe_surface_response, surface_operation, surface_response, PackageSurface,
+    describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
 use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
@@ -39,8 +39,8 @@ pub fn package_surface() -> PackageSurface {
             ),
             surface_operation(
                 "audio.processing.effectsCatalog",
-                "Effects catalog",
-                "Lists supported streaming and offline audio processing operations.",
+                "Inspect effects catalog",
+                "Inspects supported streaming and offline audio processing operations without applying them.",
                 serde_json::json!({}),
             ),
             surface_operation(
@@ -69,8 +69,8 @@ pub fn package_surface() -> PackageSurface {
             ),
             surface_operation(
                 "audio.processing.chainSummary",
-                "Chain summary",
-                "Describes the deterministic transform chain that would be applied.",
+                "Inspect chain summary",
+                "Inspects the deterministic transform chain that would be applied.",
                 serde_json::json!({"gain": 0.8, "mono": true, "noiseGateThreshold": 0.01}),
             ),
         ],
@@ -96,7 +96,81 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ));
         }
     };
-    Ok(surface_response(operation, value))
+    Ok(response(operation, value))
+}
+
+fn response(
+    operation: video_analysis_core::runtime::OperationId,
+    value: serde_json::Value,
+) -> SurfaceResponse {
+    let (title, message, summary) = match operation.as_str() {
+        "audio.processing.apply" => (
+            "Audio processing result",
+            "Applied an in-memory streaming processing chain to normalized samples.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "channels": value.get("channels").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "processorCount": value.get("processorCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.processing.offlineEdit" => (
+            "Offline audio edit result",
+            "Applied deterministic whole-clip edits to the supplied audio samples.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "channels": value.get("channels").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.processing.mixdown" => (
+            "Audio mixdown result",
+            "Mixed deterministic whole-clip placements onto one output timeline.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "channels": value.get("channels").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.processing.preset" => (
+            "Audio preset result",
+            "Applied or described the requested audio processing preset.",
+            serde_json::json!({
+                "preset": value.get("preset").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.processing.energy" => (
+            "Audio energy result",
+            "Computed RMS, peak, mean absolute value, and level labels for normalized samples.",
+            serde_json::json!({
+                "rms": value.get("rms").cloned().unwrap_or(serde_json::Value::Null),
+                "peak": value.get("peak").cloned().unwrap_or(serde_json::Value::Null),
+                "label": value.get("label").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.processing.effectsCatalog" => (
+            "Audio effects catalog",
+            "Inspected supported streaming and offline processing operations without processing audio.",
+            serde_json::json!({
+                "streamingEffectCount": value.get("streamingEffects").and_then(serde_json::Value::as_array).map_or(0, Vec::len),
+                "offlineEditCount": value.get("offlineEdits").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        "audio.processing.chainSummary" => (
+            "Audio processing chain summary",
+            "Inspected the processing chain that would be built from the supplied request.",
+            serde_json::json!({
+                "operationCount": value.get("operations").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        _ => (
+            "Audio processing operation result",
+            "Completed the audio processing package surface operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn apply_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
@@ -555,6 +629,9 @@ fn sample_array(input: &serde_json::Value, field: &str) -> Result<Vec<f32>, Stri
         .get(field)
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| format!("{field} must be an array"))?;
+    if values.is_empty() {
+        return Err(format!("{field} must not be empty"));
+    }
     if values.len() > MAX_SAMPLES {
         return Err(format!(
             "{field} must not contain more than {MAX_SAMPLES} samples"
@@ -682,7 +759,26 @@ mod tests {
             input: serde_json::json!({"samples": [0.0, 1.0, -1.0], "sampleRate": 3, "channels": 1}),
         })
         .expect("energy");
+        assert_eq!(response.value["operation"], "audio.processing.energy");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert!(response.value["rms"].as_f64().unwrap() > 0.0);
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

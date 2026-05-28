@@ -1,8 +1,8 @@
 //! Library-owned runtime surface for `audio-analysis-recognition`.
 
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -85,12 +85,47 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 }
 
 fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Recognition package metadata",
+            "Inspected the embedding, comparison, and reference-search operations exposed by this package.",
+            serde_json::json!({
+                "operationCount": value.get("operationCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.recognition.embed" => (
+            "Audio embedding result",
+            "Computed a deterministic spectral embedding for normalized audio samples.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "dimensions": value.get("dimensions").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.recognition.compare" => (
+            "Audio comparison result",
+            "Compared two in-memory sample arrays by cosine similarity.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "similarity": value.get("similarity").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.recognition.search" => (
+            "Audio reference search result",
+            "Built a transient sample-backed reference library and searched it with the query audio.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "referenceCount": value.get("referenceCount").cloned().unwrap_or(serde_json::Value::Null),
+                "matchCount": value.get("matches").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        _ => (
+            "Recognition operation result",
+            "Completed the recognition package surface operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -204,6 +239,9 @@ fn sample_array(input: &serde_json::Value, field: &str) -> Result<Vec<f32>, Stri
         .get(field)
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| format!("{field} must be an array"))?;
+    if values.is_empty() {
+        return Err(format!("{field} must not be empty"));
+    }
     if values.len() > MAX_SAMPLES {
         return Err(format!(
             "{field} must not contain more than {MAX_SAMPLES} samples"
@@ -281,7 +319,26 @@ mod tests {
             }),
         })
         .expect("compare");
+        assert_eq!(response.value["operation"], "audio.recognition.compare");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert!(response.value["similarity"].as_f64().unwrap() > 0.9);
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

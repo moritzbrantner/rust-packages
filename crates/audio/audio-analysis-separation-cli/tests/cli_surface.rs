@@ -20,4 +20,6 @@ fn cli_adapter_runs_representative_operation() {
         response.operation.as_str(),
         "audio.separation.expectedStems"
     );
+    assert!(response.value["title"].is_string());
+    assert!(response.value["summary"].is_object());
 }

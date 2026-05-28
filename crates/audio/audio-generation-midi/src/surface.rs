@@ -2,8 +2,8 @@
 
 use audio_analysis_synthesis::{AudioSynthesisConfig, Waveform};
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 use video_analysis_core::AudioBuffer;
 
@@ -27,8 +27,8 @@ pub fn package_surface() -> PackageSurface {
             ),
             operation(
                 "audio.midi.note",
-                "MIDI note",
-                "Converts a MIDI note number or note name into frequency metadata.",
+                "Inspect MIDI note",
+                "Inspects frequency metadata for a MIDI note number or note name.",
                 serde_json::json!({"note": 69}),
             ),
             operation(
@@ -84,12 +84,47 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 }
 
 fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "MIDI package metadata",
+            "Inspected the MIDI note, encoding, and audio rendering operations exposed by this package.",
+            serde_json::json!({
+                "operationCount": value.get("operationCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.midi.note" => (
+            "MIDI note metadata",
+            "Inspected frequency metadata for the requested MIDI note.",
+            serde_json::json!({
+                "note": value.get("note").cloned().unwrap_or(serde_json::Value::Null),
+                "frequencyHz": value.get("frequencyHz").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.midi.encode" => (
+            "MIDI encoding result",
+            "Encoded a deterministic single-track MIDI byte stream and returned a byte summary.",
+            serde_json::json!({
+                "tempoBpm": value.get("tempoBpm").cloned().unwrap_or(serde_json::Value::Null),
+                "noteCount": value.get("noteCount").cloned().unwrap_or(serde_json::Value::Null),
+                "byteCount": value.get("byteCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.midi.render" => (
+            "MIDI audio render result",
+            "Rendered a MIDI-like note sequence into deterministic in-memory audio samples.",
+            serde_json::json!({
+                "tempoBpm": value.get("tempoBpm").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        _ => (
+            "MIDI operation result",
+            "Completed the MIDI generation package surface operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -273,7 +308,26 @@ mod tests {
             input: serde_json::json!({"note": 69}),
         })
         .expect("note");
+        assert_eq!(response.value["operation"], "audio.midi.note");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert_eq!(response.value["frequencyHz"], 440.0);
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

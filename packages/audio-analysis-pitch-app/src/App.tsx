@@ -6,6 +6,22 @@ const packageAppConfig: PackageAppConfig = {
   title: "Audio Analysis Pitch",
   description: "Autocorrelation pitch detection for video-analysis audio pipelines.",
   domain: "audio",
+  defaultOperation: "audio.pitch.estimate",
+  featuredOperations: ["audio.pitch.estimate", "audio.pitch.track", "audio.pitch.noteName", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["audio.pitch.estimate", "audio.pitch.track"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "audio.pitch.noteName"],
+    },
+  ],
   wasm: {
     init: wasm.init,
     packageSurface: wasm.packageSurface,

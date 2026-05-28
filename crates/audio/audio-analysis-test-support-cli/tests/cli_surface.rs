@@ -17,4 +17,6 @@ fn cli_adapter_runs_representative_operation() {
     )
     .expect("run operation");
     assert_eq!(response.operation.as_str(), "audio.fixtures.generate");
+    assert!(response.value["title"].is_string());
+    assert!(response.value["summary"].is_object());
 }

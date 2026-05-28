@@ -3,8 +3,8 @@
 use std::path::PathBuf;
 
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -26,14 +26,14 @@ pub fn package_surface() -> PackageSurface {
             ),
             operation(
                 "audio.separation.models",
-                "Separation models",
-                "Lists known Demucs model layouts without executing Demucs.",
+                "Inspect separation models",
+                "Inspects known Demucs model layouts without executing Demucs.",
                 serde_json::json!({}),
             ),
             operation(
                 "audio.separation.plan",
-                "Separation plan",
-                "Builds a Demucs command plan without running an external process.",
+                "Preview separation command",
+                "Previews a Demucs command without running an external process.",
                 serde_json::json!({"input": "song.wav", "outputDir": "stems", "model": "htdemucs", "format": "wav"}),
             ),
             operation(
@@ -83,12 +83,49 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 }
 
 fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Separation package metadata",
+            "Inspected the deterministic source-separation planning operations exposed by this package.",
+            serde_json::json!({
+                "operationCount": value.get("operationCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.separation.models" => (
+            "Separation model inventory",
+            "Inspected known Demucs model layouts without executing Demucs.",
+            serde_json::json!({
+                "backend": value.get("backend").cloned().unwrap_or(serde_json::Value::Null),
+                "modelCount": value.get("models").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        "audio.separation.plan" => (
+            "Separation command preview",
+            "Built a Demucs command preview only; this operation does not run Demucs, read audio, or write stems.",
+            serde_json::json!({
+                "program": value.get("program").cloned().unwrap_or(serde_json::Value::Null),
+                "model": value.get("model").cloned().unwrap_or(serde_json::Value::Null),
+                "outputDir": value.get("outputDir").cloned().unwrap_or(serde_json::Value::Null),
+                "executed": value.get("executed").cloned().unwrap_or(serde_json::Value::Null),
+                "expectedStemCount": value.get("expectedStemPaths").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        "audio.separation.expectedStems" => (
+            "Expected separation stems",
+            "Computed deterministic separated stem filenames for the requested model and output format.",
+            serde_json::json!({
+                "model": value.get("model").cloned().unwrap_or(serde_json::Value::Null),
+                "layout": value.get("layout").cloned().unwrap_or(serde_json::Value::Null),
+                "stemCount": value.get("stems").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        _ => (
+            "Separation operation result",
+            "Completed the separation package surface operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -125,15 +162,33 @@ fn models_value() -> serde_json::Value {
 fn plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     let input_path = string_field(&input, "input", "input.wav")?;
     let separator = separator_from_input(&input)?;
+    let output_dir = separator.options.output_dir.clone();
+    let output_dir_string = output_dir.to_string_lossy().to_string();
+    let format = output_format(&input);
     let command = separator
         .build_command(PathBuf::from(&input_path))
         .map_err(|error| error.to_string())?;
+    let expected_stem_paths = separator
+        .expected_stems()
+        .iter()
+        .map(|stem| format!("{}/{}", output_dir_string, stem.file_name(&format)))
+        .collect::<Vec<_>>();
     Ok(serde_json::json!({
         "input": input_path,
+        "outputDir": output_dir_string,
+        "model": separator.options.model.as_str(),
         "program": command.program,
         "args": command.args.iter().map(|arg| arg.to_string_lossy().to_string()).collect::<Vec<_>>(),
         "executed": false,
-        "expectedStems": separator.expected_stems().iter().map(Stem::as_str).collect::<Vec<_>>()
+        "doesNot": ["read audio", "write stems", "run Demucs"],
+        "setup": {
+            "pythonPackage": "demucs",
+            "exampleCommand": "python -m pip install demucs",
+            "expectedExecutable": command.program
+        },
+        "missingToolBehavior": "A native execution path should report a missing Demucs executable before spawning a command; this surface operation only previews the command.",
+        "expectedStems": separator.expected_stems().iter().map(Stem::as_str).collect::<Vec<_>>(),
+        "expectedStemPaths": expected_stem_paths
     }))
 }
 
@@ -226,12 +281,43 @@ mod tests {
             input: serde_json::json!({"input": "song.wav", "outputDir": "stems"}),
         })
         .expect("plan");
+        assert_eq!(response.value["operation"], "audio.separation.plan");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert_eq!(response.value["executed"], false);
+        assert_eq!(response.value["model"], "htdemucs");
+        assert!(
+            response.value["expectedStemPaths"]
+                .as_array()
+                .unwrap()
+                .len()
+                >= 4
+        );
+        assert!(response.value["missingToolBehavior"]
+            .as_str()
+            .unwrap()
+            .contains("missing Demucs"));
         assert!(response.value["args"]
             .as_array()
             .unwrap()
             .iter()
             .any(|arg| arg == "song.wav"));
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

@@ -2,8 +2,8 @@
 
 use audio_analysis_core::FrameSpec;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -40,8 +40,8 @@ pub fn package_surface() -> PackageSurface {
             ),
             operation(
                 "audio.pitch.noteName",
-                "Pitch note name",
-                "Converts a frequency in hertz to MIDI note and scientific note name.",
+                "Inspect note name",
+                "Inspects the MIDI note and scientific note name for a frequency in hertz.",
                 serde_json::json!({"frequencyHz": 440.0}),
             ),
         ],
@@ -85,12 +85,49 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 }
 
 fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Pitch package metadata",
+            "Inspected the pitch detection and note projection operations exposed by this package.",
+            serde_json::json!({
+                "operationCount": value.get("operationCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.pitch.estimate" => (
+            "Pitch estimate result",
+            "Estimated one fundamental frequency from normalized audio samples.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "frequencyHz": value.get("frequencyHz").cloned().unwrap_or(serde_json::Value::Null),
+                "confidence": value.get("confidence").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.pitch.track" => (
+            "Pitch track result",
+            "Estimated pitch over fixed frames and grouped contiguous note segments.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "frameCount": value.get("frameCount").cloned().unwrap_or(serde_json::Value::Null),
+                "segmentCount": value.get("segments").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        "audio.pitch.noteName" => (
+            "Pitch note name",
+            "Inspected the MIDI note and scientific note name for the supplied frequency.",
+            serde_json::json!({
+                "frequencyHz": value.get("frequencyHz").cloned().unwrap_or(serde_json::Value::Null),
+                "midiNote": value.get("midiNote").cloned().unwrap_or(serde_json::Value::Null),
+                "noteName": value.get("noteName").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        _ => (
+            "Pitch operation result",
+            "Completed the pitch package surface operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -214,6 +251,9 @@ fn sample_array(input: &serde_json::Value, field: &str) -> Result<Vec<f32>, Stri
         .get(field)
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| format!("{field} must be an array"))?;
+    if values.is_empty() {
+        return Err(format!("{field} must not be empty"));
+    }
     if values.len() > MAX_SAMPLES {
         return Err(format!(
             "{field} must not contain more than {MAX_SAMPLES} samples"
@@ -284,7 +324,26 @@ mod tests {
             input: serde_json::json!({"frequencyHz": 440.0}),
         })
         .expect("note");
+        assert_eq!(response.value["operation"], "audio.pitch.noteName");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert_eq!(response.value["noteName"], "A4");
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

@@ -6,6 +6,22 @@ const packageAppConfig: PackageAppConfig = {
   title: "Audio Analysis Rhythm",
   description: "Onset and tempo analysis for video-analysis audio pipelines.",
   domain: "audio",
+  defaultOperation: "audio.rhythm.onsets",
+  featuredOperations: ["audio.rhythm.onsets", "audio.rhythm.tempo", "audio.rhythm.beatGrid", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["audio.rhythm.onsets", "audio.rhythm.tempo", "audio.rhythm.beatGrid"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
   wasm: {
     init: wasm.init,
     packageSurface: wasm.packageSurface,

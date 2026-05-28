@@ -1,7 +1,7 @@
 //! Library-owned runtime surface for `audio-analysis-core`.
 
 use video_analysis_core::runtime::{
-    describe_surface_response, surface_operation, surface_response, PackageSurface,
+    describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
 
@@ -62,7 +62,53 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ));
         }
     };
-    Ok(surface_response(operation, value))
+    Ok(response(operation, value))
+}
+
+fn response(
+    operation: video_analysis_core::runtime::OperationId,
+    value: serde_json::Value,
+) -> SurfaceResponse {
+    let (title, message, summary) = match operation.as_str() {
+        "audio.levels" => (
+            "Audio level metrics",
+            "Computed deterministic RMS, peak, and mean absolute level metrics for normalized audio samples.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "channels": value.get("channels").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "durationSeconds": value.get("durationSeconds").cloned().unwrap_or(serde_json::Value::Null),
+                "rms": value.get("rms").cloned().unwrap_or(serde_json::Value::Null),
+                "peak": value.get("peak").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.frames" => (
+            "Audio frame summaries",
+            "Segmented normalized samples into fixed-size analysis frames and summarized each previewed frame.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "channels": value.get("channels").cloned().unwrap_or(serde_json::Value::Null),
+                "frameSize": value.get("frameSize").cloned().unwrap_or(serde_json::Value::Null),
+                "hopSize": value.get("hopSize").cloned().unwrap_or(serde_json::Value::Null),
+                "frameCount": value.get("frameCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.timestamps" => (
+            "Audio timestamp conversion",
+            "Converted between seconds, sample counts, and timestamp ticks for the requested sample rate.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "seconds": value.get("seconds").cloned().unwrap_or(serde_json::Value::Null),
+                "samplesCount": value.get("samplesCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        _ => (
+            "Audio operation result",
+            "Completed the audio package surface operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn levels_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
@@ -148,6 +194,9 @@ fn sample_array(input: &serde_json::Value, field: &str) -> Result<Vec<f32>, Stri
         .get(field)
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| format!("{field} must be an array"))?;
+    if values.is_empty() {
+        return Err(format!("{field} must not be empty"));
+    }
     if values.len() > MAX_SAMPLES {
         return Err(format!(
             "{field} must not contain more than {MAX_SAMPLES} samples"
@@ -257,8 +306,27 @@ mod tests {
             input: serde_json::json!({"samples": [0.0, 1.0, -1.0], "sampleRate": 3, "channels": 1}),
         })
         .expect("levels");
+        assert_eq!(response.value["operation"], "audio.levels");
+        assert!(response.value["title"].as_str().unwrap().contains("Audio"));
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert_eq!(response.value["sampleCount"], 3);
         assert!(response.value["rms"].as_f64().unwrap() > 0.0);
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

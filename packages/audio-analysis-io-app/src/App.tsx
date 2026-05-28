@@ -6,6 +6,36 @@ const packageAppConfig: PackageAppConfig = {
   title: "Audio Analysis IO",
   description: "Audio input helpers and FFmpeg-backed source conveniences for video-analysis.",
   domain: "audio",
+  defaultOperation: "audio.io.waveformBatchSummary",
+  featuredOperations: [
+    "audio.io.waveformBatchSummary",
+    "audio.io.inputPlan",
+    "audio.io.decodePlan",
+    "audio.io.ffmpegFilterPlan",
+    "describe",
+  ],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["audio.io.waveformBatchSummary"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: [
+        "describe",
+        "audio.io.inputPlan",
+        "audio.io.decodePlan",
+        "audio.io.editPlan",
+        "audio.io.splitPlan",
+        "audio.io.joinPlan",
+        "audio.io.ffmpegFilterPlan",
+      ],
+    },
+  ],
   wasm: {
     init: wasm.init,
     packageSurface: wasm.packageSurface,

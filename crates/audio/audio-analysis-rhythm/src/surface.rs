@@ -2,8 +2,8 @@
 
 use audio_analysis_core::FrameSpec;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -85,12 +85,46 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 }
 
 fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Rhythm package metadata",
+            "Inspected the onset, tempo, and beat-grid operations exposed by this package.",
+            serde_json::json!({
+                "operationCount": value.get("operationCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.rhythm.onsets" => (
+            "Onset detection result",
+            "Computed an onset envelope and deterministic onset list from normalized samples.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "envelopeFrameCount": value.get("envelopeFrameCount").cloned().unwrap_or(serde_json::Value::Null),
+                "onsetCount": value.get("onsetCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.rhythm.tempo" => (
+            "Tempo estimate result",
+            "Estimated BPM from detected onset intervals.",
+            serde_json::json!({
+                "bpm": value.get("bpm").cloned().unwrap_or(serde_json::Value::Null),
+                "onsetCount": value.get("onsetCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.rhythm.beatGrid" => (
+            "Beat grid result",
+            "Created a deterministic beat grid from start time, BPM, and beat count.",
+            serde_json::json!({
+                "bpm": value.get("bpm").cloned().unwrap_or(serde_json::Value::Null),
+                "beatCount": value.get("grid").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        _ => (
+            "Rhythm operation result",
+            "Completed the rhythm package surface operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -169,6 +203,9 @@ fn sample_array(input: &serde_json::Value, field: &str) -> Result<Vec<f32>, Stri
         .get(field)
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| format!("{field} must be an array"))?;
+    if values.is_empty() {
+        return Err(format!("{field} must not be empty"));
+    }
     if values.len() > MAX_SAMPLES {
         return Err(format!(
             "{field} must not contain more than {MAX_SAMPLES} samples"
@@ -251,7 +288,26 @@ mod tests {
             input: serde_json::json!({"startSeconds": 0.0, "bpm": 120.0, "beats": 4}),
         })
         .expect("beat grid");
+        assert_eq!(response.value["operation"], "audio.rhythm.beatGrid");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert_eq!(response.value["grid"].as_array().unwrap().len(), 4);
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

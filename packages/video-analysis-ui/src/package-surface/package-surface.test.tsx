@@ -6,7 +6,13 @@ import type { PackageAppConfig, SurfaceResponse } from "./types";
 
 const operationResponse: SurfaceResponse = {
   operation: "demo.run",
-  value: { ok: true, count: 1 },
+  value: {
+    ok: true,
+    count: 1,
+    title: "Demo result",
+    message: "Demo operation completed.",
+    summary: { count: 1 },
+  },
   diagnostics: [{ code: "demo", message: "diagnostic" }],
   artifacts: [{ id: "artifact-1" }],
 };
@@ -129,6 +135,9 @@ describe("PackageSurfaceWorkbench", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
 
     await waitFor(() => expect(screen.getByText(/\"ok\": true/)).toBeTruthy());
+    expect(screen.getByText(/\"title\": \"Demo result\"/)).toBeTruthy();
+    expect(screen.getByText(/\"message\": \"Demo operation completed.\"/)).toBeTruthy();
+    expect(screen.getByText(/\"summary\":/)).toBeTruthy();
     expect(screen.getByText(/\"diagnostics\": 1/)).toBeTruthy();
   });
 

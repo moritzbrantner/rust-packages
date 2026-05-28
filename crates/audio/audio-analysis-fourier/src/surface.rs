@@ -2,8 +2,8 @@
 
 use audio_analysis_core::WindowFunction;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{spectrogram, zero_crossing_rate, FourierTransform, StftConfig};
@@ -84,12 +84,52 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 }
 
 fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Fourier package metadata",
+            "Inspected the FFT, STFT, and spectral feature operations exposed by this package.",
+            serde_json::json!({
+                "operationCount": value.get("operationCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.fourier.spectrum" => (
+            "FFT spectrum result",
+            "Computed an FFT spectrum and dominant-frequency metadata for normalized audio samples.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "fftSize": value.get("fftSize").cloned().unwrap_or(serde_json::Value::Null),
+                "binCount": value.get("binCount").cloned().unwrap_or(serde_json::Value::Null),
+                "dominantFrequencyHz": value.get("dominantFrequencyHz").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.fourier.spectrogram" => (
+            "STFT spectrogram result",
+            "Computed deterministic STFT frame summaries for normalized audio samples.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "fftSize": value.get("fftSize").cloned().unwrap_or(serde_json::Value::Null),
+                "hopSize": value.get("hopSize").cloned().unwrap_or(serde_json::Value::Null),
+                "frameCount": value.get("frameCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.fourier.features" => (
+            "Spectral feature result",
+            "Computed spectral centroid, bandwidth, rolloff, flatness, dominant frequency, and zero-crossing rate.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "fftSize": value.get("fftSize").cloned().unwrap_or(serde_json::Value::Null),
+                "centroidHz": value.get("centroidHz").cloned().unwrap_or(serde_json::Value::Null),
+                "dominantFrequencyHz": value.get("dominantFrequencyHz").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        _ => (
+            "Fourier operation result",
+            "Completed the Fourier package surface operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -189,6 +229,9 @@ fn sample_array(input: &serde_json::Value, field: &str) -> Result<Vec<f32>, Stri
         .get(field)
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| format!("{field} must be an array"))?;
+    if values.is_empty() {
+        return Err(format!("{field} must not be empty"));
+    }
     if values.len() > MAX_SAMPLES {
         return Err(format!(
             "{field} must not contain more than {MAX_SAMPLES} samples"
@@ -268,8 +311,27 @@ mod tests {
             input: serde_json::json!({"samples": [0.0, 1.0, 0.0, -1.0], "sampleRate": 4, "fftSize": 4}),
         })
         .expect("spectrum");
+        assert_eq!(response.value["operation"], "audio.fourier.spectrum");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert_eq!(response.value["fftSize"], 4);
         assert!(response.value["binCount"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

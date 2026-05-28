@@ -1,8 +1,8 @@
 //! Library-owned runtime surface for `audio-analysis-io`.
 
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{build_ffmpeg_audio_filter_chain, FfmpegAudioEditSpec, FfmpegAudioEffect};
@@ -24,8 +24,8 @@ pub fn package_surface() -> PackageSurface {
             ),
             operation(
                 "audio.io.inputPlan",
-                "Input plan",
-                "Describes the audio input that would be opened without touching the filesystem.",
+                "Preview input plan",
+                "Previews the audio input that would be opened without scanning files or touching the filesystem.",
                 serde_json::json!({"source": "clip.wav", "mode": "recorded", "samplesPerChunk": 4096}),
             ),
             operation(
@@ -36,32 +36,32 @@ pub fn package_surface() -> PackageSurface {
             ),
             operation(
                 "audio.io.decodePlan",
-                "Decode plan",
-                "Returns deterministic decode settings and backend requirements without decoding.",
+                "Preview decode plan",
+                "Previews deterministic decode settings and backend requirements without decoding audio.",
                 serde_json::json!({"source": "clip.wav", "target": "mono-f32", "sampleRate": 48000}),
             ),
             operation(
                 "audio.io.editPlan",
-                "Edit plan",
-                "Returns a deterministic file edit plan without executing FFmpeg.",
+                "Preview edit plan",
+                "Previews a deterministic file edit plan without editing media or executing FFmpeg.",
                 serde_json::json!({"input": "clip.wav", "output": "out.wav", "edit": {"speedFactor": 1.25, "effects": [{"type": "normalize"}]}}),
             ),
             operation(
                 "audio.io.splitPlan",
-                "Split plan",
-                "Returns deterministic split output paths without touching the filesystem.",
+                "Preview split plan",
+                "Previews deterministic split output paths without splitting media or touching the filesystem.",
                 serde_json::json!({"input": "clip.wav", "outputDir": "segments", "segments": [{"startSeconds": 0.0, "endSeconds": 1.0}], "outputFormat": "wav"}),
             ),
             operation(
                 "audio.io.joinPlan",
-                "Join plan",
-                "Returns deterministic join settings without touching the filesystem.",
+                "Preview join plan",
+                "Previews deterministic join settings without joining media or touching the filesystem.",
                 serde_json::json!({"inputs": ["a.wav", "b.wav"], "output": "joined.wav", "crossfadeSeconds": 0.05}),
             ),
             operation(
                 "audio.io.ffmpegFilterPlan",
-                "FFmpeg filter plan",
-                "Builds the FFmpeg audio filter chain for an edit spec without executing it.",
+                "Preview FFmpeg filter plan",
+                "Previews the FFmpeg audio filter chain for an edit spec without executing FFmpeg.",
                 serde_json::json!({"speedFactor": 1.25, "pitchShiftSemitones": 2.0, "effects": [{"type": "compressor", "thresholdDb": -18.0, "ratio": 3.0}]}),
             ),
         ],
@@ -109,12 +109,84 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 }
 
 fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Audio IO package metadata",
+            "Inspected the audio IO planning and waveform summary operations exposed by this package.",
+            serde_json::json!({
+                "operationCount": value.get("operationCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.io.waveformBatchSummary" => (
+            "Waveform batch summary",
+            "Summarized an in-memory batch/channel/time waveform tensor.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "batchSize": value.get("batchSize").cloned().unwrap_or(serde_json::Value::Null),
+                "totalSamples": value.get("totalSamples").cloned().unwrap_or(serde_json::Value::Null),
+                "durationSeconds": value.get("durationSeconds").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.io.inputPlan" => (
+            "Audio input plan preview",
+            "Previewed input settings only; this operation does not scan files, open media, or run FFmpeg.",
+            serde_json::json!({
+                "backend": value.get("backend").cloned().unwrap_or(serde_json::Value::Null),
+                "executed": false
+            }),
+        ),
+        "audio.io.decodePlan" => (
+            "Audio decode plan preview",
+            "Previewed decode settings only; this operation does not decode audio or run FFmpeg.",
+            serde_json::json!({
+                "backend": value.get("backend").cloned().unwrap_or(serde_json::Value::Null),
+                "requiresExternalTool": value.get("requiresExternalTool").cloned().unwrap_or(serde_json::Value::Null),
+                "executed": value.get("executed").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.io.editPlan" => (
+            "Audio edit plan preview",
+            "Previewed edit settings only; this operation does not edit media or run FFmpeg.",
+            serde_json::json!({
+                "backend": value.get("backend").cloned().unwrap_or(serde_json::Value::Null),
+                "executed": value.get("executed").cloned().unwrap_or(serde_json::Value::Null),
+                "hasFilterChain": value.get("filterChain").is_some()
+            }),
+        ),
+        "audio.io.splitPlan" => (
+            "Audio split plan preview",
+            "Previewed split output paths only; this operation does not split files or touch the filesystem.",
+            serde_json::json!({
+                "backend": value.get("backend").cloned().unwrap_or(serde_json::Value::Null),
+                "executed": value.get("executed").cloned().unwrap_or(serde_json::Value::Null),
+                "segmentCount": value.get("segments").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        "audio.io.joinPlan" => (
+            "Audio join plan preview",
+            "Previewed join settings only; this operation does not join files or run FFmpeg.",
+            serde_json::json!({
+                "backend": value.get("backend").cloned().unwrap_or(serde_json::Value::Null),
+                "executed": value.get("executed").cloned().unwrap_or(serde_json::Value::Null),
+                "inputCount": value.get("inputs").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        "audio.io.ffmpegFilterPlan" => (
+            "FFmpeg filter plan preview",
+            "Built a filter-chain preview only; this operation does not execute FFmpeg.",
+            serde_json::json!({
+                "backend": value.get("backend").cloned().unwrap_or(serde_json::Value::Null),
+                "executed": value.get("executed").cloned().unwrap_or(serde_json::Value::Null),
+                "hasFilterChain": value.get("filterChain").is_some()
+            }),
+        ),
+        _ => (
+            "Audio IO operation result",
+            "Completed the audio IO package surface operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -139,6 +211,8 @@ fn input_plan_value(input: serde_json::Value) -> Result<serde_json::Value, Strin
         "realtime": mode == "live",
         "backend": "ffmpeg",
         "opensExternalProcess": false,
+        "executed": false,
+        "doesNot": ["scan files", "open media", "run FFmpeg"],
         "notes": ["plan only", "no filesystem or FFmpeg access during surface execution"]
     }))
 }
@@ -190,6 +264,7 @@ fn decode_plan_value(input: serde_json::Value) -> Result<serde_json::Value, Stri
         "backend": "ffmpeg",
         "requiresExternalTool": true,
         "executed": false,
+        "doesNot": ["decode audio", "open media", "run FFmpeg"],
         "supportedTargets": ["f32", "mono-f32", "waveform-batch", "wav"]
     }))
 }
@@ -206,6 +281,7 @@ fn edit_plan_value(input: serde_json::Value) -> Result<serde_json::Value, String
         "backend": "ffmpeg",
         "requiresExternalTool": true,
         "executed": false,
+        "doesNot": ["edit media", "write files", "run FFmpeg"],
         "filterChain": filter_chain,
         "outputSampleRate": spec.output_sample_rate,
         "outputChannels": spec.output_channels
@@ -241,6 +317,7 @@ fn split_plan_value(input: serde_json::Value) -> Result<serde_json::Value, Strin
         "backend": "ffmpeg",
         "requiresExternalTool": true,
         "executed": false,
+        "doesNot": ["split media", "write files", "run FFmpeg"],
         "outputFormat": output_format,
         "segments": outputs
     }))
@@ -271,6 +348,7 @@ fn join_plan_value(input: serde_json::Value) -> Result<serde_json::Value, String
         "backend": "ffmpeg",
         "requiresExternalTool": true,
         "executed": false,
+        "doesNot": ["join media", "write files", "run FFmpeg"],
         "filter": if crossfade.unwrap_or(0.0) > 0.0 { "acrossfade" } else { "concat" }
     }))
 }
@@ -282,7 +360,8 @@ fn ffmpeg_filter_plan_value(input: serde_json::Value) -> Result<serde_json::Valu
         "filterChain": filter_chain,
         "backend": "ffmpeg",
         "requiresExternalTool": true,
-        "executed": false
+        "executed": false,
+        "doesNot": ["open media", "write files", "run FFmpeg"]
     }))
 }
 
@@ -379,9 +458,13 @@ fn ffmpeg_effect(input: &serde_json::Value) -> Result<FfmpegAudioEffect, String>
 }
 
 fn sample_array(value: &serde_json::Value) -> Result<Vec<f32>, String> {
-    value
+    let values = value
         .as_array()
-        .ok_or_else(|| "sample channel must be an array".to_string())?
+        .ok_or_else(|| "sample channel must be an array".to_string())?;
+    if values.is_empty() {
+        return Err("sample channel must not be empty".to_string());
+    }
+    values
         .iter()
         .map(|sample| {
             let sample = sample
@@ -484,8 +567,27 @@ mod tests {
             input: serde_json::json!({"source": "clip.wav"}),
         })
         .expect("input plan");
+        assert_eq!(response.value["operation"], "audio.io.inputPlan");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert_eq!(response.value["backend"], "ffmpeg");
         assert_eq!(response.value["opensExternalProcess"], false);
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

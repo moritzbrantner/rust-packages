@@ -6,6 +6,22 @@ const packageAppConfig: PackageAppConfig = {
   title: "Audio Analysis Synthesis",
   description: "Deterministic audio synthesis from analysis events for video-analysis.",
   domain: "audio",
+  defaultOperation: "audio.synthesis.tone",
+  featuredOperations: ["audio.synthesis.tone", "audio.synthesis.timeline", "audio.synthesis.fromEvents", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["audio.synthesis.tone", "audio.synthesis.timeline", "audio.synthesis.fromEvents"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
   wasm: {
     init: wasm.init,
     packageSurface: wasm.packageSurface,

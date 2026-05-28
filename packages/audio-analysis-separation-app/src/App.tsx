@@ -6,6 +6,22 @@ const packageAppConfig: PackageAppConfig = {
   title: "Audio Analysis Separation",
   description: "Demucs-based audio stem separation command wrapper for video-analysis.",
   domain: "audio",
+  defaultOperation: "audio.separation.expectedStems",
+  featuredOperations: ["audio.separation.expectedStems", "audio.separation.plan", "audio.separation.models", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["audio.separation.expectedStems"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "audio.separation.models", "audio.separation.plan"],
+    },
+  ],
   wasm: {
     init: wasm.init,
     packageSurface: wasm.packageSurface,

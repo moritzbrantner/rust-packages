@@ -292,6 +292,14 @@ The `audio-analysis-*` crates build on the canonical `AudioFrame`,
 `AudioBuffer`, `AudioAnalyzer`, and `AnalysisEvent` contracts from
 `video-analysis-core`.
 
+Audio package-surface operations return structured JSON values with `title`,
+`operation`, `message`, `summary`, and `result` fields while preserving their
+domain-specific top-level fields for compatibility. Workflow operations perform
+in-memory analysis, processing, synthesis, or rendering. Plan, catalog, note
+lookup, timestamp, model inventory, and command-preview operations are Debug UI
+operations and must state when they do not scan files, decode media, write
+outputs, or execute external tools.
+
 - `audio-analysis-core` converts supported `AudioBuffer` formats into
   normalized `f32` samples, mixes interleaved channels to mono, applies common
   windows, iterates fixed-size analysis frames, and provides
@@ -321,9 +329,10 @@ The `audio-analysis-*` crates build on the canonical `AudioFrame`,
   `audio:recognized:<reference_id>:<label>` events over streaming windows.
 - `audio-analysis-rhythm` detects onset events from energy changes, estimates
   BPM from onset intervals, and can emit both onset and tempo events.
-- `audio-analysis-separation` wraps the external Demucs CLI with the `htdemucs`
-  model by default. It does not decode audio itself; it validates command
-  options, runs the process, and returns the expected separated stem paths.
+- `audio-analysis-separation` owns deterministic Demucs/HTDemucs command
+  previews and expected stem-path contracts for the package surface. The
+  surface preview does not decode audio, run Demucs, or write stems; any native
+  execution path must report missing tools before spawning the external process.
 
 Audio analysis crates should accept borrowed core audio frames or normalized
 sample slices and should emit `AnalysisEvent` values for pipeline integration.

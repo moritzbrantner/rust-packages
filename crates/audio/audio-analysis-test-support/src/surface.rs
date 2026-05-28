@@ -1,8 +1,8 @@
 //! Library-owned runtime surface for `audio-analysis-test-support`.
 
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 use video_analysis_core::AudioBuffer;
 
@@ -37,8 +37,8 @@ pub fn package_surface() -> PackageSurface {
             ),
             operation(
                 "audio.fixtures.catalog",
-                "Fixture catalog",
-                "Lists deterministic fixture generators available to tests and surface checks.",
+                "Inspect fixture catalog",
+                "Inspects deterministic fixture generators available to tests and surface checks.",
                 serde_json::json!({}),
             ),
         ],
@@ -82,12 +82,47 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 }
 
 fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Audio fixture package metadata",
+            "Inspected the deterministic audio fixture support operations exposed by this package.",
+            serde_json::json!({
+                "operationCount": value.get("operationCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.fixtures.generate" => (
+            "Generated audio fixture",
+            "Generated deterministic in-memory samples for tests and examples.",
+            serde_json::json!({
+                "kind": value.get("kind").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "durationSeconds": value.get("durationSeconds").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.fixtures.frame" => (
+            "Generated audio frame fixture",
+            "Built a deterministic OwnedAudioFrame summary from generated samples.",
+            serde_json::json!({
+                "kind": value.get("kind").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.fixtures.catalog" => (
+            "Audio fixture catalog",
+            "Inspected deterministic fixture generators without generating samples.",
+            serde_json::json!({
+                "kindCount": value.get("kinds").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        _ => (
+            "Audio fixture operation result",
+            "Completed the audio fixture support operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -231,7 +266,26 @@ mod tests {
             input: serde_json::json!({"kind": "sine", "frequencyHz": 440.0, "sampleRate": 1000, "seconds": 0.01}),
         })
         .expect("generate");
+        assert_eq!(response.value["operation"], "audio.fixtures.generate");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert!(response.value["sampleCount"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

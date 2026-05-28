@@ -1,8 +1,8 @@
 //! Library-owned runtime surface for `audio-analysis-synthesis`.
 
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 use video_analysis_core::{AnalysisEvent, AudioBuffer, Timebase, Timestamp};
 
@@ -85,12 +85,50 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 }
 
 fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    let (title, message, summary) = match operation.as_str() {
+        "describe" => (
+            "Synthesis package metadata",
+            "Inspected the tone, timeline, and event-to-audio synthesis operations exposed by this package.",
+            serde_json::json!({
+                "operationCount": value.get("operationCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.synthesis.tone" => (
+            "Synthesized tone result",
+            "Generated an in-memory analytic tone frame.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "channels": value.get("channels").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "durationSeconds": value.get("durationSeconds").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.synthesis.timeline" => (
+            "Synthesized timeline result",
+            "Generated an in-memory tone timeline from segment specs.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "segmentCount": value.get("segmentCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.synthesis.fromEvents" => (
+            "Synthesized event audio result",
+            "Converted pitch/onset event labels into tone segments and synthesized them.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "eventCount": value.get("eventCount").cloned().unwrap_or(serde_json::Value::Null),
+                "segmentCount": value.get("segmentCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        _ => (
+            "Synthesis operation result",
+            "Completed the synthesis package surface operation.",
+            serde_json::json!({}),
+        ),
+    };
+    structured_surface_response(operation, title, message, summary, value)
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -277,7 +315,26 @@ mod tests {
             input: serde_json::json!({"frequencyHz": 440.0, "durationSeconds": 0.01, "sampleRate": 1000}),
         })
         .expect("tone");
+        assert_eq!(response.value["operation"], "audio.synthesis.tone");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
+        assert!(response.value["result"].is_object());
         assert!(response.value["sampleCount"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn example_requests_run_with_structured_outputs() {
+        for operation in package_surface().operations {
+            let response = run_surface_operation(SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            })
+            .unwrap_or_else(|error| panic!("{} example failed: {error}", operation.id.as_str()));
+            assert_eq!(response.value["operation"], operation.id.as_str());
+            assert!(response.value["title"].is_string());
+            assert!(response.value["summary"].is_object());
+            assert!(response.value["result"].is_object());
+        }
     }
 
     #[test]

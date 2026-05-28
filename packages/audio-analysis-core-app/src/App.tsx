@@ -6,6 +6,22 @@ const packageAppConfig: PackageAppConfig = {
   title: "Audio Analysis Core",
   description: "Shared audio frame conversion, windowing, and streaming helpers for video-analysis.",
   domain: "audio",
+  defaultOperation: "audio.levels",
+  featuredOperations: ["audio.levels", "audio.frames", "audio.timestamps", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["audio.levels", "audio.frames"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "audio.timestamps"],
+    },
+  ],
   wasm: {
     init: wasm.init,
     packageSurface: wasm.packageSurface,

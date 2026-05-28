@@ -28,5 +28,19 @@ mod tests {
         let surface = audio_analysis_separation::surface::package_surface();
         assert_eq!(surface.library, "audio-analysis-separation");
         assert!(!surface.operations.is_empty());
+        let operation = surface
+            .operations
+            .iter()
+            .find(|operation| operation.id.as_str() != "describe")
+            .unwrap();
+        let response = audio_analysis_separation::surface::run_surface_operation(
+            video_analysis_core::runtime::SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            },
+        )
+        .expect("run default wasm operation");
+        assert!(response.value["title"].is_string());
+        assert!(response.value["summary"].is_object());
     }
 }
