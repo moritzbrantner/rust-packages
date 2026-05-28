@@ -6,6 +6,7 @@ export * from "./detectors";
 export * from "./ffmpeg";
 export * from "./ingest";
 export * from "./models";
+export * from "./package-surface";
 export * from "./output";
 export * from "./split";
 export * from "./use-cases";

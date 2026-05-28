@@ -1,0 +1,87 @@
+import { useMemo, useState } from "react";
+
+import type { ResultTabDefinition, SurfaceResponse } from "./types";
+
+export function ResultViewer({
+  response,
+  resultTabs = [],
+}: {
+  response: SurfaceResponse | null;
+  resultTabs?: ResultTabDefinition[];
+}) {
+  const tabs = useMemo(
+    () => [
+      { id: "summary", label: "Summary", select: defaultSummary },
+      { id: "json", label: "JSON", select: (value: SurfaceResponse) => value },
+      { id: "diagnostics", label: "Diagnostics", select: (value: SurfaceResponse) => value.diagnostics },
+      { id: "artifacts", label: "Artifacts", select: (value: SurfaceResponse) => value.artifacts },
+      ...resultTabs,
+    ],
+    [resultTabs],
+  );
+  const [activeTab, setActiveTab] = useState(tabs[0]?.id ?? "summary");
+  const tab = tabs.find((candidate) => candidate.id === activeTab) ?? tabs[0];
+  const selected = response && tab ? tab.select(response) : {};
+  const rendered = JSON.stringify(selected, null, 2);
+
+  return (
+    <section className="rounded-md border border-zinc-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 pb-3">
+        <div className="flex flex-wrap gap-2">
+          {tabs.map((candidate) => (
+            <button
+              key={candidate.id}
+              className={
+                activeTab === candidate.id
+                  ? "rounded-md bg-zinc-950 px-3 py-2 text-sm font-semibold text-white"
+                  : "rounded-md bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-200"
+              }
+              type="button"
+              onClick={() => setActiveTab(candidate.id)}
+            >
+              {candidate.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <button className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold" type="button" onClick={() => void copyText(rendered)}>
+            Copy
+          </button>
+          <button className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold" type="button" onClick={() => downloadJson(rendered)}>
+            Download
+          </button>
+        </div>
+      </div>
+      <pre className="mt-4 max-h-[42rem] overflow-auto rounded-md bg-zinc-950 p-4 text-sm leading-6 text-zinc-50">
+        {rendered}
+      </pre>
+    </section>
+  );
+}
+
+function defaultSummary(response: SurfaceResponse): unknown {
+  const value = response.value;
+  const object = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return {
+    operation: response.operation,
+    diagnostics: response.diagnostics.length,
+    artifacts: response.artifacts.length,
+    keys: Object.keys(object).slice(0, 16),
+    value,
+  };
+}
+
+async function copyText(text: string) {
+  await navigator.clipboard?.writeText(text);
+}
+
+function downloadJson(text: string) {
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "surface-response.json";
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+

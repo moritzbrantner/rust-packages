@@ -170,54 +170,10 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
         ("GET", "/api/package") => package_metadata_response(module),
         ("GET", "/api/schema") => package_schema_response(module),
         ("GET", "/api/operations") => package_operations_response(module),
-        ("GET", "/api/models") if module.package == "text-linguistics" => {
-            json_response(200, "OK", json!(text_model_catalog(None)))
-        }
-        ("GET", "/api/models") if module.package == "audio-analysis-recognition" => {
-            json_response(200, "OK", json!(audio_model_catalog(None)))
-        }
-        ("GET", path)
-            if module.package == "text-linguistics" && path.starts_with("/api/models/") =>
-        {
+        ("GET", "/api/models") => json_response(200, "OK", json!(model_catalog_for(module, None))),
+        ("GET", path) if path.starts_with("/api/models/") => {
             let task = path.trim_start_matches("/api/models/");
-            match parse_text_model_task(task) {
-                Some(task) => json_response(200, "OK", json!(text_model_catalog(Some(task)))),
-                None => json_response(
-                    400,
-                    "Bad Request",
-                    json!({
-                        "package": "text-linguistics-server",
-                        "library": "text-linguistics",
-                        "accepted": false,
-                        "error": {
-                            "code": "invalid_request",
-                            "message": format!("unknown NLP task `{task}`")
-                        }
-                    }),
-                ),
-            }
-        }
-        ("GET", path)
-            if module.package == "audio-analysis-recognition"
-                && path.starts_with("/api/models/") =>
-        {
-            let task = path.trim_start_matches("/api/models/");
-            match parse_audio_model_task(task) {
-                Some(task) => json_response(200, "OK", json!(audio_model_catalog(Some(task)))),
-                None => json_response(
-                    400,
-                    "Bad Request",
-                    json!({
-                        "package": "audio-analysis-recognition-server",
-                        "library": "audio-analysis-recognition",
-                        "accepted": false,
-                        "error": {
-                            "code": "invalid_request",
-                            "message": format!("unknown audio task `{task}`")
-                        }
-                    }),
-                ),
-            }
+            json_response(200, "OK", json!(model_catalog_for(module, Some(task))))
         }
         ("POST", "/api/entities") if module.package == "text-linguistics" => {
             text_linguistics_run_response(body)
@@ -867,25 +823,6 @@ fn text_nlp_error_response(
     )
 }
 
-fn parse_text_model_task(input: &str) -> Option<&'static str> {
-    match input {
-        "classify" | "text_classification" | "classification" | "TextClassification" => {
-            Some("classify")
-        }
-        "sentiment" | "Sentiment" => Some("sentiment"),
-        "zero-shot" | "zero_shot" | "zero_shot_classification" | "ZeroShotClassification" => {
-            Some("zero-shot")
-        }
-        "embed" | "embedding" | "text_embedding" | "TextEmbedding" => Some("embed"),
-        "summarize" | "summary" | "summarization" | "Summarization" => Some("summarize"),
-        "rerank" | "reranking" | "Reranking" => Some("rerank"),
-        "question-answer" | "question_answer" | "question_answering" | "QuestionAnswering" => {
-            Some("question-answer")
-        }
-        _ => None,
-    }
-}
-
 fn text_model_catalog(task: Option<&str>) -> Vec<Value> {
     let mut entries = Vec::new();
     if task.is_none() || matches!(task, Some("classify" | "sentiment" | "zero-shot")) {
@@ -921,23 +858,6 @@ fn text_schema_summary() -> Value {
         "questionAnswering": text_question_answering::schema_summary(),
         "models": text_model_catalog(None)
     })
-}
-
-fn parse_audio_model_task(input: &str) -> Option<&'static str> {
-    match input {
-        "classify" | "audio_classification" | "classification" | "AudioClassification" => {
-            Some("classify")
-        }
-        "events" | "audio_event_detection" | "event_detection" | "AudioEventDetection" => {
-            Some("events")
-        }
-        "embed" | "audio_embedding" | "embedding" | "AudioEmbedding" => Some("embed"),
-        "transcribe" | "speech_recognition" | "asr" | "SpeechRecognition" => Some("transcribe"),
-        "diarize" | "speaker_diarization" | "speakers" | "SpeakerDiarization" => Some("diarize"),
-        "separate" | "source_separation" | "separation" | "SourceSeparation" => Some("separate"),
-        "generate" | "audio_generation" | "synthesis" | "AudioGeneration" => Some("generate"),
-        _ => None,
-    }
 }
 
 fn audio_model_catalog(task: Option<&str>) -> Vec<Value> {
@@ -1109,6 +1029,372 @@ fn audio_schema_summary() -> Value {
                     || preset.contains("musicgen")
             })
             .collect::<Vec<_>>()
+    })
+}
+
+fn model_catalog_for(module: ModuleInfo, task: Option<&str>) -> Vec<Value> {
+    let entries = match module.package {
+        "text-linguistics" => text_model_catalog(task),
+        "text-analysis" => vec![
+            model_catalog_entry(
+                "deterministic-text-analysis",
+                "Deterministic text analysis",
+                "analyze",
+                "deterministic",
+                true,
+                None,
+                Some("Default lexical, linguistic, and hashed embedding profile."),
+            ),
+            model_catalog_entry(
+                "model-backed-text-analysis",
+                "Model-backed text analysis",
+                "analyze",
+                "candle",
+                true,
+                Some("deterministic-text-analysis"),
+                Some("Uses local model bundles when available through the overview server."),
+            ),
+        ],
+        "text-classification" => text_model_catalog(task),
+        "text-embeddings" => vec![
+            model_catalog_entry(
+                "hashed-text-embedding",
+                "Hashed text embedding",
+                "embed",
+                "deterministic",
+                true,
+                None,
+                Some("Pure Rust deterministic embedding fallback."),
+            ),
+            model_catalog_entry(
+                "sentence-transformer-local",
+                "Sentence transformer local",
+                "embed",
+                "candle",
+                false,
+                Some("hashed-text-embedding"),
+                Some("Registered as a local model preset; execution is opt-in."),
+            ),
+        ],
+        "text-question-answering" => text_model_catalog(task),
+        "text-transcripts" => vec![
+            model_catalog_entry(
+                "whisper-tiny-en",
+                "Whisper tiny English",
+                "transcribe",
+                "whisper_cpp",
+                false,
+                None,
+                Some("Requires local whisper.cpp model files."),
+            ),
+            model_catalog_entry(
+                "fixture-transcript",
+                "Fixture transcript",
+                "transcribe",
+                "deterministic",
+                true,
+                None,
+                Some("Uses checked-in transcript fixture style data."),
+            ),
+        ],
+        "audio-analysis-recognition" => audio_model_catalog(task),
+        "audio-analysis-separation" => vec![
+            model_catalog_entry(
+                "demucs-stem-plan",
+                "Demucs stem plan",
+                "separate",
+                "heuristic",
+                true,
+                None,
+                Some("Plans stems without invoking external Demucs."),
+            ),
+            model_catalog_entry(
+                "demucs-local",
+                "Demucs local",
+                "separate",
+                "external",
+                false,
+                Some("demucs-stem-plan"),
+                Some("Requires external audio tooling."),
+            ),
+        ],
+        "audio-analysis-speakers" => vec![
+            model_catalog_entry(
+                "single-speaker-heuristic",
+                "Single speaker heuristic",
+                "diarize",
+                "heuristic",
+                true,
+                None,
+                Some("Creates one speaker segment for quick testing."),
+            ),
+            model_catalog_entry(
+                "pyannote-local",
+                "Pyannote local",
+                "diarize",
+                "external",
+                false,
+                Some("single-speaker-heuristic"),
+                Some("Requires gated external model access."),
+            ),
+        ],
+        package if package.starts_with("audio-") => vec![model_catalog_entry(
+            "deterministic-audio",
+            "Deterministic audio runtime",
+            "analyze",
+            "deterministic",
+            true,
+            None,
+            Some("Uses frame summaries and local feature calculations."),
+        )],
+        "image-analysis-classification" => vec![
+            model_catalog_entry(
+                "color-histogram-classifier",
+                "Color histogram classifier",
+                "classify",
+                "heuristic",
+                true,
+                None,
+                Some("Deterministic image classification fallback."),
+            ),
+            model_catalog_entry(
+                "mobilenet-onnx",
+                "MobileNet ONNX",
+                "classify",
+                "onnx",
+                false,
+                Some("color-histogram-classifier"),
+                Some("Requires ONNX backend wiring."),
+            ),
+        ],
+        "image-analysis-detection" => vec![
+            model_catalog_entry(
+                "mask-proposal-demo",
+                "Mask proposal demo",
+                "detect",
+                "heuristic",
+                true,
+                None,
+                Some("Pure Rust detection-style fixture output."),
+            ),
+            model_catalog_entry(
+                "yolo-onnx",
+                "YOLO ONNX",
+                "detect",
+                "onnx",
+                false,
+                Some("mask-proposal-demo"),
+                Some("Requires ONNX backend wiring."),
+            ),
+        ],
+        "image-analysis-segmentation" => vec![
+            model_catalog_entry(
+                "threshold-segmentation",
+                "Threshold segmentation",
+                "segment",
+                "heuristic",
+                true,
+                None,
+                Some("Local deterministic segmentation fallback."),
+            ),
+            model_catalog_entry(
+                "sam-onnx",
+                "Segment Anything ONNX",
+                "segment",
+                "onnx",
+                false,
+                Some("threshold-segmentation"),
+                Some("Requires ONNX backend wiring."),
+            ),
+        ],
+        "image-analysis-ocr" => vec![
+            model_catalog_entry(
+                "fixture-ocr",
+                "Fixture OCR",
+                "ocr",
+                "heuristic",
+                true,
+                None,
+                Some("Uses OCR-compatible text output fixtures."),
+            ),
+            model_catalog_entry(
+                "tesseract-local",
+                "Tesseract local",
+                "ocr",
+                "external",
+                false,
+                Some("fixture-ocr"),
+                Some("Requires external OCR tooling."),
+            ),
+        ],
+        "image-analysis-captioning" => vec![
+            model_catalog_entry(
+                "metadata-captioner",
+                "Metadata captioner",
+                "caption",
+                "heuristic",
+                true,
+                None,
+                Some("Builds captions from supplied image metadata."),
+            ),
+            model_catalog_entry(
+                "blip-onnx",
+                "BLIP ONNX",
+                "caption",
+                "onnx",
+                false,
+                Some("metadata-captioner"),
+                Some("Requires ONNX backend wiring."),
+            ),
+        ],
+        "image-analysis-onnx" => vec![model_catalog_entry(
+            "onnx-image-runtime",
+            "ONNX image runtime",
+            "infer",
+            "onnx",
+            cfg!(feature = "onnx-backend"),
+            None,
+            Some("Feature-gated ONNX runtime surface."),
+        )],
+        package if package.starts_with("image-") => vec![model_catalog_entry(
+            "deterministic-image",
+            "Deterministic image runtime",
+            "analyze",
+            "deterministic",
+            true,
+            None,
+            Some("Uses local image metadata and pixel summaries."),
+        )],
+        "video-analysis-opencv-backend" => vec![
+            model_catalog_entry(
+                "opencv-person-detector",
+                "OpenCV person detector",
+                "detect",
+                "opencv",
+                true,
+                None,
+                Some("Uses OpenCV-compatible backend contracts."),
+            ),
+            model_catalog_entry(
+                "opencv-red-car-detector",
+                "OpenCV red car detector",
+                "detect",
+                "opencv",
+                true,
+                None,
+                Some("Local test detector preset."),
+            ),
+        ],
+        "video-analysis-onnx" => vec![model_catalog_entry(
+            "onnx-video-runtime",
+            "ONNX video runtime",
+            "infer",
+            "onnx",
+            cfg!(feature = "onnx-backend"),
+            None,
+            Some("Feature-gated ONNX video runtime surface."),
+        )],
+        "video-analysis-recognition" => vec![
+            model_catalog_entry(
+                "scene-label-heuristic",
+                "Scene label heuristic",
+                "recognize",
+                "heuristic",
+                true,
+                None,
+                Some("Deterministic recognition fallback."),
+            ),
+            model_catalog_entry(
+                "action-recognition-onnx",
+                "Action recognition ONNX",
+                "recognize",
+                "onnx",
+                false,
+                Some("scene-label-heuristic"),
+                Some("Requires ONNX backend wiring."),
+            ),
+        ],
+        "video-analysis-posture" => vec![
+            model_catalog_entry(
+                "stick-figure-posture",
+                "Stick figure posture",
+                "pose",
+                "heuristic",
+                true,
+                None,
+                Some("Keypoint-compatible deterministic fallback."),
+            ),
+            model_catalog_entry(
+                "openpose-local",
+                "OpenPose local",
+                "pose",
+                "external",
+                false,
+                Some("stick-figure-posture"),
+                Some("Requires external posture tooling."),
+            ),
+        ],
+        package if package.starts_with("video-analysis-") => vec![model_catalog_entry(
+            "deterministic-video",
+            "Deterministic video runtime",
+            "analyze",
+            "deterministic",
+            true,
+            None,
+            Some("Uses checked-in fixtures and local surface operations."),
+        )],
+        "comfyui-data" | "comfyui-models" | "comfyui-latents" | "image-analysis-comfyui" => vec![
+            model_catalog_entry(
+                "comfyui-workflow-fixture",
+                "ComfyUI workflow fixture",
+                "workflow",
+                "comfyui",
+                true,
+                None,
+                Some("Uses workflow JSON contracts without starting ComfyUI."),
+            ),
+            model_catalog_entry(
+                "comfyui-local-server",
+                "ComfyUI local server",
+                "workflow",
+                "external",
+                false,
+                Some("comfyui-workflow-fixture"),
+                Some("Requires a running ComfyUI instance."),
+            ),
+        ],
+        _ => Vec::new(),
+    };
+    filter_model_catalog(entries, task)
+}
+
+fn filter_model_catalog(entries: Vec<Value>, task: Option<&str>) -> Vec<Value> {
+    entries
+        .into_iter()
+        .filter(|entry| {
+            task.map(|task| entry.get("task").and_then(Value::as_str) == Some(task))
+                .unwrap_or(true)
+        })
+        .collect()
+}
+
+fn model_catalog_entry(
+    id: &str,
+    label: &str,
+    task: &str,
+    runtime: &str,
+    supported: bool,
+    fallback: Option<&str>,
+    note: Option<&str>,
+) -> Value {
+    json!({
+        "id": id,
+        "label": label,
+        "task": task,
+        "runtime": runtime,
+        "supported": supported,
+        "fallback": fallback,
+        "note": note,
     })
 }
 
@@ -2706,6 +2992,52 @@ mod tests {
             .contains("\"operation\":\"analysis.document\""));
         assert!(response.body.contains("\"enrichedStats\""));
         assert!(response.body.contains("\"lexical\""));
+    }
+
+    #[test]
+    fn serves_package_model_catalog_from_package_route() {
+        let request = Request {
+            method: "GET".to_string(),
+            path: "/api/rust/packages/image-analysis-detection/api/models".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: String::new(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("mask-proposal-demo"));
+        assert!(response.body.contains("yolo-onnx"));
+    }
+
+    #[test]
+    fn packages_without_models_return_empty_catalog() {
+        let request = Request {
+            method: "GET".to_string(),
+            path: "/api/rust/packages/math-linear/api/models".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: String::new(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert_eq!(response.body, "[]");
+    }
+
+    #[test]
+    fn onnx_model_catalog_reports_feature_gate() {
+        let request = Request {
+            method: "GET".to_string(),
+            path: "/api/rust/packages/image-analysis-onnx/api/models".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: String::new(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("onnx-image-runtime"));
+        assert!(response
+            .body
+            .contains(&format!("\"supported\":{}", cfg!(feature = "onnx-backend"))));
     }
 
     #[test]

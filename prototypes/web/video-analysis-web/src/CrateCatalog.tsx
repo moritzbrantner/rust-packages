@@ -443,6 +443,7 @@ function CategoryPage({
                         <SurfacePill active={Boolean(surfaces.app)} label="App" />
                         <SurfacePill active={Boolean(surfaces.server)} label="API" />
                         <SurfacePill active={Boolean(surfaces.wasm)} label="WASM" />
+                        <SurfacePill active={hasModelCatalog(library)} label="Models" />
                       </div>
                     </div>
                   </div>
@@ -522,6 +523,7 @@ function WrapperCard({
         <SurfacePill active={Boolean(surfaces.app)} label="App" />
         <SurfacePill active={Boolean(surfaces.server)} label="API" />
         <SurfacePill active={Boolean(surfaces.wasm)} label="WASM" />
+        <SurfacePill active={hasModelCatalog(library)} label="Models" />
       </div>
     </a>
   );
@@ -560,6 +562,7 @@ function WrapperPage({
           <SurfacePill active={Boolean(surfaces.app)} label={surfaces.app?.name ?? `${library}-app`} />
           <SurfacePill active={Boolean(surfaces.server)} label={surfaces.server?.name ?? `${library}-server`} />
           <SurfacePill active={Boolean(surfaces.wasm)} label={surfaces.wasm?.name ?? `${library}-wasm`} />
+          <SurfacePill active={hasModelCatalog(library)} label="Model catalog" />
         </div>
       </section>
 
@@ -783,6 +786,16 @@ function relatedSurfaces(library: string, packages: WorkspaceArchitecturePackage
     server: packages.find((pkg) => pkg.name === `${library}-server`),
     wasm: packages.find((pkg) => wasmNames.has(pkg.name)),
   };
+}
+
+function hasModelCatalog(library: string): boolean {
+  return (
+    library.startsWith("text-") ||
+    library.startsWith("audio-") ||
+    library.startsWith("image-") ||
+    library.startsWith("video-analysis-") ||
+    library.startsWith("comfyui-")
+  );
 }
 
 function titleFromPackageName(name: string): string {

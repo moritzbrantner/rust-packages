@@ -13,6 +13,7 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@video-analysis/ui": "workspace:*",
     "@mb-rust/math-signal-core-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",

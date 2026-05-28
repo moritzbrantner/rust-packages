@@ -1,0 +1,11 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+export function ModelSelector({ models, selectedModel, onSelectModel, }) {
+    if (models.length === 0) {
+        return (_jsxs("section", { className: "rounded-md border border-zinc-200 bg-white p-4", children: [_jsx("h2", { className: "text-sm font-semibold text-zinc-950", children: "Models" }), _jsx("p", { className: "mt-2 text-sm text-zinc-500", children: "No model presets are registered for this package." })] }));
+    }
+    const current = models.find((model) => model.id === selectedModel) ?? models[0];
+    return (_jsxs("section", { className: "rounded-md border border-zinc-200 bg-white p-4", children: [_jsxs("div", { className: "flex items-start justify-between gap-3", children: [_jsxs("div", { children: [_jsx("h2", { className: "text-sm font-semibold text-zinc-950", children: "Models" }), _jsx("p", { className: "mt-1 text-xs text-zinc-500", children: "Local presets and deterministic fallbacks." })] }), _jsx("span", { className: current.supported
+                            ? "rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800"
+                            : "rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800", children: current.supported ? "Supported" : "Fallback" })] }), _jsx("select", { className: "mt-3 min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm", value: current.id, onChange: (event) => onSelectModel(event.target.value), children: models.map((model) => (_jsxs("option", { value: model.id, children: [model.label, " - ", model.task] }, model.id))) }), _jsxs("dl", { className: "mt-3 grid gap-2 text-sm", children: [_jsxs("div", { children: [_jsx("dt", { className: "text-xs font-semibold uppercase text-zinc-500", children: "Runtime" }), _jsx("dd", { className: "font-mono text-zinc-900", children: current.runtime })] }), current.fallback ? (_jsxs("div", { children: [_jsx("dt", { className: "text-xs font-semibold uppercase text-zinc-500", children: "Fallback" }), _jsx("dd", { className: "font-mono text-zinc-900", children: current.fallback })] })) : null, current.note ? _jsx("dd", { className: "text-xs leading-5 text-zinc-500", children: current.note }) : null] })] }));
+}
+//# sourceMappingURL=ModelSelector.js.map

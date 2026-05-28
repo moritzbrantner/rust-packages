@@ -1,0 +1,1 @@
+{"version":3,"file":"FileInputs.d.ts","sourceRoot":"","sources":["../../src/package-surface/FileInputs.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,mBAAmB,EAAE,MAAM,SAAS,CAAC;AAEnD,wBAAgB,UAAU,CAAC,EACzB,WAAW,EACX,OAAO,GACR,EAAE;IACD,WAAW,EAAE,mBAAmB,EAAE,CAAC;IACnC,OAAO,EAAE,CAAC,IAAI,EAAE,MAAM,EAAE,EAAE,KAAK,EAAE,OAAO,KAAK,IAAI,CAAC;CACnD,kDA8BA"}

@@ -54,6 +54,11 @@
       "import": "./dist/models/index.js",
       "default": "./dist/models/index.js"
     },
+    "./package-surface": {
+      "types": "./dist/package-surface/index.d.ts",
+      "import": "./dist/package-surface/index.js",
+      "default": "./dist/package-surface/index.js"
+    },
     "./output": {
       "types": "./dist/output/index.d.ts",
       "import": "./dist/output/index.js",

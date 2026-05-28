@@ -10,6 +10,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/animation-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -33,6 +34,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -56,6 +58,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-fourier-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -79,6 +82,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-io-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -102,6 +106,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-pitch-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -125,6 +130,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-processing-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -148,6 +154,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-recognition-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -171,6 +178,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-rhythm-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -194,6 +202,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-separation-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -217,6 +226,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-speakers-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -240,6 +250,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-synthesis-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -263,6 +274,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-analysis-test-support-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -286,6 +298,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/audio-generation-midi-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -309,6 +322,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/comfyui-data-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -332,6 +346,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/comfyui-latents-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -355,6 +370,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/comfyui-models-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -378,6 +394,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/data-inversion-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -401,6 +418,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/dense-data-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -424,6 +442,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/finance-statistics-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -447,6 +466,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/geo-data-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -470,6 +490,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/graph-analysis-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -493,6 +514,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-captioning-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -516,6 +538,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-classification-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -539,6 +562,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-comfyui-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -562,6 +586,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -585,6 +610,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-detection-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -608,6 +634,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-embeddings-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -631,6 +658,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-io-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -654,6 +682,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-ocr-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -677,6 +706,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-onnx-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -700,6 +730,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-processing-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -723,6 +754,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-segmentation-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -746,6 +778,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/image-analysis-synthesis-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -769,6 +802,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/jobs-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -792,6 +826,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/maps-kernels-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -815,6 +850,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/math-geometry-2d-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -838,6 +874,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/math-linear-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -861,6 +898,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/math-signal-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -884,6 +922,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/math-sparse-data-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -907,6 +946,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/math-statistics-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -930,6 +970,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/model-runtime-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -953,6 +994,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/numbers-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -976,6 +1018,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/runtime-artifacts-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -999,6 +1042,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/runtime-jobs-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1022,6 +1066,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/tensor-data-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1045,6 +1090,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-analysis-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1068,6 +1114,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-classification-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1091,6 +1138,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1114,6 +1162,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-embeddings-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1137,6 +1186,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-generation-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1156,6 +1206,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-generation-linguistics-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1183,6 +1234,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-lexical-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1206,6 +1258,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-linguistics-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1229,6 +1282,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-model-runtime-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1252,6 +1306,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-question-answering-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1275,6 +1330,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-retrieval-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1298,6 +1354,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/text-transcripts-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1321,6 +1378,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/three-d-processing-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1344,6 +1402,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/three-d-processing-io-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1367,6 +1426,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/three-d-processing-mesh-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1390,6 +1450,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/three-d-scene-svg-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1413,6 +1474,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/vector-analysis-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1436,6 +1498,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/vector-analysis-index-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1459,6 +1522,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-colmap-backend-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1482,6 +1546,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-core-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1505,6 +1570,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-data-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1528,6 +1594,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-dataset-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1551,6 +1618,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-detectors-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1574,6 +1642,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-editing-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1597,6 +1666,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-features-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1620,6 +1690,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-ffmpeg-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1643,6 +1714,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-gaussian-splatting-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1666,6 +1738,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-ingest-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1689,6 +1762,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-mvs-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1712,6 +1786,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-onnx-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1735,6 +1810,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-opencv-backend-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1758,6 +1834,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-output-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1781,6 +1858,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-posture-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1800,6 +1878,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-posture-io-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1827,6 +1906,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-radiance-fields-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1850,6 +1930,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-radiance-io-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1873,6 +1954,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-radiance-pipeline-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1896,6 +1978,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-recognition-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1919,6 +2002,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-reconstruction-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1942,6 +2026,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-segmentation-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1965,6 +2050,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-sfm-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -1984,6 +2070,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-sfm-rust-backend-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -2011,6 +2098,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-split-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -2034,6 +2122,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-storage-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -2057,6 +2146,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-synthesis-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -2080,6 +2170,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-test-support-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -2103,6 +2194,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-tracking-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -2126,6 +2218,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@mb-rust/video-analysis-transform-wasm": "workspace:*",
+        "@video-analysis/ui": "workspace:*",
         "@vitejs/plugin-react": "^5.1.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",

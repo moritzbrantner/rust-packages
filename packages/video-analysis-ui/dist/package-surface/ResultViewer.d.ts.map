@@ -1,0 +1,1 @@
+{"version":3,"file":"ResultViewer.d.ts","sourceRoot":"","sources":["../../src/package-surface/ResultViewer.tsx"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,mBAAmB,EAAE,eAAe,EAAE,MAAM,SAAS,CAAC;AAEpE,wBAAgB,YAAY,CAAC,EAC3B,QAAQ,EACR,UAAe,GAChB,EAAE;IACD,QAAQ,EAAE,eAAe,GAAG,IAAI,CAAC;IACjC,UAAU,CAAC,EAAE,mBAAmB,EAAE,CAAC;CACpC,2CAiDA"}
