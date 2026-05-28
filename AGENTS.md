@@ -18,6 +18,11 @@ to exercise and display the Rust package surfaces.
 - Use `cargo metadata --no-deps` when workspace membership or crate dependency
   boundaries matter.
 - Check `git status --short --branch` before edits and again before handoff.
+- When the user says `Apply the Crate Surface Audit Protocol to <crate-name>`,
+  follow `docs/CRATE_SURFACE_AUDIT_PROTOCOL.md` exactly. Audit one crate at a
+  time, verify every package-surface operation, make the primary workflow the
+  default UI path, move inspection/debug helpers into a Debug operation tab, and
+  update tests and docs.
 
 ## Ownership Boundaries
 

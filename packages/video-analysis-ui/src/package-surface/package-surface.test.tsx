@@ -184,7 +184,7 @@ describe("PackageSurfaceWorkbench", () => {
             },
             {
               id: "advanced",
-              label: "Advanced",
+              label: "Debug",
               operations: ["demo.inspect"],
             },
           ],
@@ -193,11 +193,11 @@ describe("PackageSurfaceWorkbench", () => {
     );
 
     expect(await screen.findByRole("tab", { name: "Workflow" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Advanced" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Debug" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Run demo" })).toBeTruthy();
     expect(screen.queryByRole("option", { name: "Inspect JSON" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Advanced" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Debug" }));
 
     expect(await screen.findByRole("option", { name: "Inspect JSON" })).toBeTruthy();
     expect(screen.queryByRole("option", { name: "Run demo" })).toBeNull();

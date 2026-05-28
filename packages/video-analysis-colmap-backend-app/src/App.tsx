@@ -44,7 +44,7 @@ const packageAppConfig: PackageAppConfig = {
     },
     {
       id: "advanced",
-      label: "Advanced",
+      label: "Debug",
       description: "Inspect COLMAP command plans and already-parsed JSON inputs without running external tools.",
       operations: ["video.colmap.commandPlan", "video.colmap.imageList", "video.colmap.sparseSummary", "describe"],
     },

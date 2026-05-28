@@ -10,7 +10,7 @@ a local sample video, runs COLMAP sparse reconstruction, exports the sparse mode
 to text, and returns browser-friendly scene data.
 
 The COLMAP app presents the native reconstruction as the primary workflow and
-keeps the deterministic inspection helpers under an Advanced tab. Default
+keeps the deterministic inspection helpers under a Debug tab. Default
 surface operations are deterministic unless marked server-only:
 
 - `video.colmap.commandPlan` previews the ffmpeg and COLMAP commands that would
