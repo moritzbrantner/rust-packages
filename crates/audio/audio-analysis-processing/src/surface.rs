@@ -2,11 +2,12 @@
 
 use audio_analysis_core::{mean_absolute, peak, rms, AudioClip, ChannelMix, FadeCurve};
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    describe_surface_response, surface_operation, surface_response, PackageSurface,
+    RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
 use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
 
+use crate::operations::effects_catalog_value;
 use crate::{
     mixdown_placements, preset_chain, AudioClipPlacement, AudioEffectPreset, AudioEnergyAnalyzer,
     AudioProcessor, DelaySpec, DistortionMode, DistortionSpec, DynamicsSpec, EqBandKind,
@@ -24,49 +25,49 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation(
+            surface_operation(
                 "describe",
                 "Describe package",
                 "Realtime-safe audio transforms and processed sources for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            operation(
+            surface_operation(
                 "audio.processing.apply",
                 "Apply processing",
                 "Applies an in-memory streaming chain to normalized samples.",
                 serde_json::json!({"samples": [0.0, 0.5, -0.5], "sampleRate": 48000, "channels": 1, "chain": [{"type": "gain", "linear": 0.8}, {"type": "distortion", "mode": "tanh", "driveDb": 12.0, "mix": 0.5}]}),
             ),
-            operation(
+            surface_operation(
                 "audio.processing.effectsCatalog",
                 "Effects catalog",
                 "Lists supported streaming and offline audio processing operations.",
                 serde_json::json!({}),
             ),
-            operation(
+            surface_operation(
                 "audio.processing.offlineEdit",
                 "Offline edit",
                 "Applies deterministic whole-clip edits such as trim, reverse, fade, normalize, speed, and pitch shift.",
                 serde_json::json!({"samples": [0.0, 0.5, -0.5], "sampleRate": 48000, "channels": 1, "chain": [{"type": "reverse"}]}),
             ),
-            operation(
+            surface_operation(
                 "audio.processing.mixdown",
                 "Mixdown",
                 "Mixes multiple whole-clip placements onto one deterministic output timeline.",
                 serde_json::json!({"sampleRate": 48000, "channels": 1, "placements": [{"samples": [0.0, 0.5], "startSeconds": 0.0, "gain": 1.0}, {"samples": [0.25], "startSeconds": 0.5, "gain": 0.8}]}),
             ),
-            operation(
+            surface_operation(
                 "audio.processing.preset",
                 "Preset",
                 "Applies or describes a named audio effect preset.",
                 serde_json::json!({"preset": "PodcastVoice", "samples": [0.0, 0.5, -0.5], "sampleRate": 48000, "channels": 1}),
             ),
-            operation(
+            surface_operation(
                 "audio.processing.energy",
                 "Energy",
                 "Returns RMS, peak, mean absolute value, and silence/loud labels.",
                 serde_json::json!({"samples": [0.0, 0.5, -0.5], "sampleRate": 48000, "channels": 1}),
             ),
-            operation(
+            surface_operation(
                 "audio.processing.chainSummary",
                 "Chain summary",
                 "Describes the deterministic transform chain that would be applied.",
@@ -76,29 +77,11 @@ pub fn package_surface() -> PackageSurface {
     }
 }
 
-fn operation(
-    id: &str,
-    name: &str,
-    description: &str,
-    example_request: serde_json::Value,
-) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
-}
-
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => describe_value(request.input),
+        "describe" => return Ok(describe_surface_response(&package_surface(), request)),
         "audio.processing.apply" => apply_value(request.input)?,
         "audio.processing.effectsCatalog" => effects_catalog_value(),
         "audio.processing.offlineEdit" => offline_edit_value(request.input)?,
@@ -113,27 +96,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ));
         }
     };
-    Ok(response(operation, value))
-}
-
-fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
-}
-
-fn describe_value(input: serde_json::Value) -> serde_json::Value {
-    let surface = package_surface();
-    serde_json::json!({
-        "library": surface.library,
-        "version": surface.version,
-        "operationCount": surface.operations.len(),
-        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
-        "input": input
-    })
+    Ok(surface_response(operation, value))
 }
 
 fn apply_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
@@ -336,28 +299,6 @@ fn chain_summary_value(input: serde_json::Value) -> Result<serde_json::Value, St
         "transforms": transforms,
         "outputSampleFormat": "f32"
     }))
-}
-
-fn effects_catalog_value() -> serde_json::Value {
-    serde_json::json!({
-        "streamingEffects": [
-            {"type": "gain", "fields": ["linear"]},
-            {"type": "distortion", "fields": ["mode", "driveDb", "mix", "outputGainDb"]},
-            {"type": "delay", "fields": ["delaySeconds", "feedback", "wet", "dry"]},
-            {"type": "echo", "fields": ["delaySeconds", "feedback", "wet", "dry"]},
-            {"type": "reverb", "fields": ["roomSize", "damping", "wet", "dry", "width"]},
-            {"type": "compressor", "fields": ["thresholdDb", "ratio", "attackMs", "releaseMs", "makeupGainDb", "kneeDb"]},
-            {"type": "limiter", "fields": ["ceilingDb", "releaseMs"]},
-            {"type": "eq", "fields": ["bands"]},
-            {"type": "chorus", "fields": ["baseDelayMs", "depthMs", "rateHz", "feedback", "wet", "dry"]},
-            {"type": "flanger", "fields": ["baseDelayMs", "depthMs", "rateHz", "feedback", "wet", "dry"]},
-            {"type": "tremolo", "fields": ["rateHz", "depth"]},
-            {"type": "pan", "fields": ["position"]},
-            {"type": "stereoWidth", "fields": ["width"]}
-        ],
-        "offlineEdits": ["trim", "reverse", "fade", "normalize", "insertSilence", "delete", "resample", "speed", "pitchShift"],
-        "presets": ["VocalClean", "PodcastVoice", "LoFi", "WideChorus", "SmallRoomReverb", "HardLimiter"]
-    })
 }
 
 fn offline_edit_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
@@ -716,6 +657,7 @@ fn preview(samples: &[f32], limit: usize) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use video_analysis_core::runtime::OperationId;
 
     #[test]
     fn package_surface_lists_processing_operations() {

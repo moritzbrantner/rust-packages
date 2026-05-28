@@ -1,8 +1,8 @@
 //! Library-owned runtime surface for `audio-analysis-core`.
 
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    describe_surface_response, surface_operation, surface_response, PackageSurface,
+    RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -19,25 +19,25 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation(
+            surface_operation(
                 "describe",
                 "Describe package",
                 "Shared audio frame conversion, windowing, and streaming helpers for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            operation(
+            surface_operation(
                 "audio.levels",
                 "Audio levels",
                 "Returns deterministic level metrics for normalized audio samples.",
                 serde_json::json!({"samples": [0.0, 0.5, -0.5], "sampleRate": 48000, "channels": 1}),
             ),
-            operation(
+            surface_operation(
                 "audio.frames",
                 "Audio frames",
                 "Summarizes fixed-size analysis frames over normalized samples.",
                 serde_json::json!({"samples": [0.0, 0.5, -0.5, 0.25], "sampleRate": 48000, "channels": 1, "frameSize": 2, "hopSize": 1}),
             ),
-            operation(
+            surface_operation(
                 "audio.timestamps",
                 "Audio timestamps",
                 "Converts between seconds, samples, and timestamp ticks for a sample rate.",
@@ -47,29 +47,11 @@ pub fn package_surface() -> PackageSurface {
     }
 }
 
-fn operation(
-    id: &str,
-    name: &str,
-    description: &str,
-    example_request: serde_json::Value,
-) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
-}
-
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => describe_value(request.input),
+        "describe" => return Ok(describe_surface_response(&package_surface(), request)),
         "audio.levels" => levels_value(request.input)?,
         "audio.frames" => frames_value(request.input)?,
         "audio.timestamps" => timestamps_value(request.input)?,
@@ -80,27 +62,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             ));
         }
     };
-    Ok(response(operation, value))
-}
-
-fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
-}
-
-fn describe_value(input: serde_json::Value) -> serde_json::Value {
-    let surface = package_surface();
-    serde_json::json!({
-        "library": surface.library,
-        "version": surface.version,
-        "operationCount": surface.operations.len(),
-        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
-        "input": input
-    })
+    Ok(surface_response(operation, value))
 }
 
 fn levels_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
@@ -273,6 +235,7 @@ fn window_name(name: Option<&str>) -> WindowFunction {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use video_analysis_core::runtime::OperationId;
 
     #[test]
     fn package_surface_lists_audio_operations() {

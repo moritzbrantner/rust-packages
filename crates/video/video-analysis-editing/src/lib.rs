@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+pub mod contracts;
+pub mod operations;
 pub mod surface;
 use math_geometry_2d::RectU32;
 use math_linear::Kernel2d;

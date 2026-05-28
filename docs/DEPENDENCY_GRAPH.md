@@ -503,7 +503,11 @@ flowchart LR
   crate_video_analysis --> crate_text_analysis
   crate_video_analysis --> crate_text_classification
   crate_video_analysis --> crate_text_core
+  crate_video_analysis -. dev .-> crate_text_core_cli
+  crate_video_analysis -. dev .-> crate_text_core_server
   crate_video_analysis --> crate_text_embeddings
+  crate_video_analysis -. dev .-> crate_text_embeddings_cli
+  crate_video_analysis -. dev .-> crate_text_embeddings_server
   crate_video_analysis --> crate_text_generation
   crate_video_analysis --> crate_text_generation_linguistics
   crate_video_analysis --> crate_text_lexical
@@ -511,7 +515,11 @@ flowchart LR
   crate_video_analysis --> crate_text_model_runtime
   crate_video_analysis --> crate_text_question_answering
   crate_video_analysis --> crate_text_retrieval
+  crate_video_analysis -. dev .-> crate_text_retrieval_cli
+  crate_video_analysis -. dev .-> crate_text_retrieval_server
   crate_video_analysis --> crate_text_transcripts
+  crate_video_analysis -. dev .-> crate_text_transcripts_cli
+  crate_video_analysis -. dev .-> crate_text_transcripts_server
   crate_video_analysis --> crate_vector_analysis_core
   crate_video_analysis --> crate_vector_analysis_index
   crate_video_analysis --> crate_three_d_processing_core
@@ -824,6 +832,7 @@ flowchart LR
   crate_text_analysis_cli --> crate_text_analysis
   crate_text_analysis_cli --> crate_video_analysis_core
   crate_text_analysis_server --> crate_text_analysis
+  crate_text_analysis_server --> crate_text_model_runtime
   crate_text_analysis_server --> crate_video_analysis_core
   crate_text_classification --> crate_text_core
   crate_text_classification --> crate_text_lexical
@@ -850,6 +859,7 @@ flowchart LR
   crate_text_embeddings_cli --> crate_text_embeddings
   crate_text_embeddings_cli --> crate_video_analysis_core
   crate_text_embeddings_server --> crate_text_embeddings
+  crate_text_embeddings_server --> crate_text_model_runtime
   crate_text_embeddings_server --> crate_video_analysis_core
   crate_text_generation --> crate_data_inversion_core
   crate_text_generation --> crate_text_core
@@ -884,6 +894,7 @@ flowchart LR
   crate_text_linguistics_cli --> crate_text_linguistics
   crate_text_linguistics_cli --> crate_video_analysis_core
   crate_text_linguistics_server --> crate_text_linguistics
+  crate_text_linguistics_server --> crate_text_model_runtime
   crate_text_linguistics_server --> crate_video_analysis_core
   crate_text_model_runtime --> crate_video_analysis_core
   crate_text_model_runtime -. optional .-> crate_model_runtime
@@ -954,6 +965,7 @@ flowchart LR
   crate_video_analysis_cli --> crate_three_d_processing_core
   crate_video_analysis_cli --> crate_three_d_processing_io
   crate_video_analysis_cli --> crate_video_analysis_core
+  crate_video_analysis_cli --> crate_video_analysis_dataset
   crate_video_analysis_cli --> crate_video_analysis_detectors
   crate_video_analysis_cli --> crate_video_analysis_ffmpeg
   crate_video_analysis_cli -. optional .-> crate_video_analysis_onnx

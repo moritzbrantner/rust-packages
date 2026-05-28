@@ -1,7 +1,9 @@
 #![doc = include_str!("../README.md")]
 
+pub mod contracts;
 mod effects;
 mod offline;
+pub mod operations;
 pub mod surface;
 pub use effects::*;
 pub use offline::*;

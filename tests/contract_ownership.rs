@@ -301,6 +301,106 @@ fn audio_asr_contract_uses_text_transcript_contracts() {
 }
 
 #[test]
+fn foundational_audio_and_image_cores_stay_runtime_independent() {
+    let audio_core = read_manifest("crates/audio/audio-analysis-core/Cargo.toml");
+    for forbidden in [
+        "video-analysis-ffmpeg",
+        "model-runtime",
+        "text-transcripts",
+        "text-core",
+    ] {
+        assert!(
+            !audio_core.contains(forbidden),
+            "audio-analysis-core must not depend on runtime or transcript crate `{forbidden}`"
+        );
+    }
+
+    let image_core = read_manifest("crates/image/image-analysis-core/Cargo.toml");
+    for forbidden in [
+        "image-analysis-onnx",
+        "video-analysis-onnx",
+        "model-runtime",
+        "ort",
+        "candle",
+    ] {
+        assert!(
+            !image_core.contains(forbidden),
+            "image-analysis-core must not depend on model/runtime crate `{forbidden}`"
+        );
+    }
+}
+
+#[test]
+fn math_data_and_vector_crates_stay_independent_of_media_runtimes() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut violations = Vec::new();
+    for family in ["crates/math", "crates/data", "crates/vector"] {
+        collect_manifests(&root.join(family), &mut |manifest| {
+            let source = fs::read_to_string(manifest).expect("read manifest");
+            for forbidden in [
+                "audio-analysis",
+                "image-analysis",
+                "text-",
+                "video-analysis-ffmpeg",
+                "video-analysis-ingest",
+                "video-analysis-onnx",
+                "video-analysis-split",
+                "model-runtime",
+                "ffmpeg-next",
+                "ort",
+                "candle",
+                "tokenizers",
+            ] {
+                if source.contains(forbidden) {
+                    violations.push(format!("{} -> {forbidden}", manifest.display()));
+                }
+            }
+        });
+    }
+
+    assert!(
+        violations.is_empty(),
+        "math/data/vector crates must stay independent of media runtime dependencies: {}",
+        violations.join(", ")
+    );
+}
+
+#[test]
+fn native_model_execution_dependencies_are_feature_gated() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut violations = Vec::new();
+    collect_manifests(&root.join("crates"), &mut |manifest| {
+        let source = fs::read_to_string(manifest).expect("read manifest");
+        let mut in_dependency_section = false;
+        for dependency in [
+            "ort",
+            "candle-core",
+            "candle-nn",
+            "candle-transformers",
+            "tokenizers",
+        ] {
+            for line in source.lines().map(str::trim) {
+                if line.starts_with('[') {
+                    in_dependency_section = matches!(line, "[dependencies]" | "[dev-dependencies]");
+                }
+                if line.starts_with(&format!("{dependency} = "))
+                    && in_dependency_section
+                    && !line.contains("optional = true")
+                {
+                    violations.push(format!("{}: {}", manifest.display(), line));
+                }
+            }
+        }
+    });
+
+    assert!(
+        violations.is_empty(),
+        "native model execution dependencies must remain optional: {}",
+        violations.join(", ")
+    );
+}
+
+#[test]
 fn transcript_dtos_are_owned_by_text_transcripts() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates");
     let mut violations = Vec::new();
@@ -390,6 +490,31 @@ fn collect_rust_sources(dir: &Path, visit: &mut impl FnMut(&Path)) {
         if path.is_dir() {
             collect_rust_sources(&path, visit);
         } else if path.extension().is_some_and(|extension| extension == "rs") {
+            visit(&path);
+        }
+    }
+}
+
+fn collect_manifests(dir: &Path, visit: &mut impl FnMut(&Path)) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+
+    for entry in entries.flatten() {
+        let path: PathBuf = entry.path();
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        if file_name == "target"
+            || file_name == ".cargo-target"
+            || file_name == "vendor"
+            || file_name == "node_modules"
+            || file_name == "dist"
+        {
+            continue;
+        }
+        if path.is_dir() {
+            collect_manifests(&path, visit);
+        } else if file_name == "Cargo.toml" {
             visit(&path);
         }
     }

@@ -367,6 +367,7 @@ dependencies = [
  "criterion",
  "math-signal-core",
  "proptest",
+ "serde",
  "serde_json",
  "video-analysis-core",
  "video-analysis-ingest",

@@ -194,6 +194,58 @@ pub struct SurfaceResponse {
     pub artifacts: Vec<serde_json::Value>,
 }
 
+/// Builds the standard package-surface operation metadata used by library
+/// crates and transport adapters.
+pub fn surface_operation(
+    id: impl Into<String>,
+    name: impl Into<String>,
+    description: impl Into<String>,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    SurfaceOperation {
+        id: OperationId::new(id),
+        name: name.into(),
+        description: Some(description.into()),
+        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
+        output_schema: serde_json::json!({"type": "object"}),
+        example_request,
+        wasm_supported: true,
+        server_supported: true,
+    }
+}
+
+/// Builds the standard `describe` response without changing the shared
+/// `SurfaceResponse` JSON shape.
+pub fn describe_surface_response(
+    surface: &PackageSurface,
+    request: SurfaceRequest,
+) -> SurfaceResponse {
+    surface_response(
+        request.operation,
+        serde_json::json!({
+            "library": &surface.library,
+            "version": &surface.version,
+            "operationCount": surface.operations.len(),
+            "operations": surface
+                .operations
+                .iter()
+                .map(|operation| operation.id.as_str())
+                .collect::<Vec<_>>(),
+            "input": request.input
+        }),
+    )
+}
+
+/// Builds a successful surface response with empty diagnostics and artifacts.
+pub fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
+    SurfaceResponse {
+        operation,
+        value,
+        diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 pub struct JobId(pub String);
@@ -306,5 +358,33 @@ mod tests {
         assert!(json.contains("\"inputSchema\""));
         assert!(json.contains("\"exampleRequest\""));
         assert!(json.contains("\"wasmSupported\":true"));
+    }
+
+    #[test]
+    fn surface_helpers_preserve_standard_response_shape() {
+        let surface = PackageSurface {
+            library: "demo".to_string(),
+            version: "0.1.0".to_string(),
+            capabilities: RuntimeCapabilities::pure_rust(),
+            operations: vec![surface_operation(
+                "describe",
+                "Describe",
+                "Describe demo package",
+                serde_json::json!({"includeOperations": true}),
+            )],
+        };
+        let response = describe_surface_response(
+            &surface,
+            SurfaceRequest {
+                operation: OperationId::new("describe"),
+                input: serde_json::json!({"includeOperations": true}),
+            },
+        );
+
+        assert_eq!(response.operation.as_str(), "describe");
+        assert_eq!(response.value["library"], "demo");
+        assert_eq!(response.value["operationCount"], 1);
+        assert_eq!(response.diagnostics, Vec::new());
+        assert_eq!(response.artifacts, Vec::<serde_json::Value>::new());
     }
 }

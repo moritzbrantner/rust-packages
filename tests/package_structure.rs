@@ -201,6 +201,55 @@ fn library_crates_have_complete_runtime_surfaces() {
     );
 }
 
+#[test]
+fn representative_adapters_delegate_to_library_owned_surfaces() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for crate_name in [
+        "audio-analysis-processing",
+        "image-analysis-processing",
+        "video-analysis-editing",
+    ] {
+        let domain = if crate_name.starts_with("audio-") {
+            "audio"
+        } else if crate_name.starts_with("image-") {
+            "image"
+        } else {
+            "video"
+        };
+        let rust_ident = crate_name.replace('-', "_");
+        let cli = read_source(root.join(format!("crates/{domain}/{crate_name}-cli/src/lib.rs")));
+        let server =
+            read_source(root.join(format!("crates/{domain}/{crate_name}-server/src/lib.rs")));
+        let wasm = read_source(root.join(format!("crates/bindings/{crate_name}-wasm/src/lib.rs")));
+        let call = format!("{rust_ident}::surface::run_surface_operation");
+
+        for (surface, source) in [("cli", cli), ("server", server), ("wasm", wasm)] {
+            assert!(
+                source.contains(&call),
+                "{crate_name} {surface} adapter must call library-owned run_surface_operation"
+            );
+            assert!(
+                !source.contains(".operation.as_str()"),
+                "{crate_name} {surface} adapter must not branch on operation IDs"
+            );
+        }
+    }
+}
+
+#[test]
+fn retired_runtime_surfaces_are_documented_while_tracked() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let docs = fs::read_to_string(root.join("docs/runtime-surfaces.md")).unwrap();
+    for retired in ["runtime-artifacts", "runtime-jobs"] {
+        if root.join("crates/runtime").join(retired).exists() {
+            assert!(
+                docs.contains(retired),
+                "tracked retired runtime surface {retired} must be documented"
+            );
+        }
+    }
+}
+
 fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     let mut manifests = Vec::new();
     collect_manifests(root, &mut manifests);
@@ -242,6 +291,11 @@ fn package_name(manifest: &Path) -> String {
                 .map(|name| name.trim_matches('"').to_string())
         })
         .expect("package name")
+}
+
+fn read_source(path: impl AsRef<Path>) -> String {
+    fs::read_to_string(path.as_ref())
+        .unwrap_or_else(|err| panic!("read source `{}`: {err}", path.as_ref().display()))
 }
 
 fn surface_package_name(package_name: &str) -> &str {

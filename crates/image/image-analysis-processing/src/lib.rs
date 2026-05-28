@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+pub mod contracts;
+pub mod operations;
 pub mod surface;
 use image::imageops::FilterType;
 use image::{DynamicImage, GrayImage, RgbImage};
