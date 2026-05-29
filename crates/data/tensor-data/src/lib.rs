@@ -12,30 +12,30 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-/// Data type for tensor shape.
+/// Checked tensor dimensions with a non-zero rank and non-zero extents.
 pub struct TensorShape {
     dims: Vec<usize>,
 }
 
 impl TensorShape {
-    /// Creates a new value.
+    /// Creates a tensor shape after validating rank, extents, and element count.
     pub fn new(dims: impl Into<Vec<usize>>) -> Result<Self> {
         let shape = Self { dims: dims.into() };
         shape.validate()?;
         Ok(shape)
     }
 
-    /// Returns dimensions.
+    /// Borrows the dimensions in storage order.
     pub fn dimensions(&self) -> &[usize] {
         &self.dims
     }
 
-    /// Returns rank.
+    /// Returns the number of dimensions.
     pub fn rank(&self) -> usize {
         self.dims.len()
     }
 
-    /// Returns element count.
+    /// Multiplies all dimensions and fails if the count overflows `usize`.
     pub fn element_count(&self) -> Result<usize> {
         self.dims.iter().try_fold(1_usize, |count, dimension| {
             count
@@ -44,7 +44,7 @@ impl TensorShape {
         })
     }
 
-    /// Returns reshape.
+    /// Builds a new shape with the same element count as this shape.
     pub fn reshape(&self, dims: impl Into<Vec<usize>>) -> Result<Self> {
         let reshaped = Self::new(dims)?;
         if reshaped.element_count()? != self.element_count()? {
@@ -74,7 +74,7 @@ impl TensorShape {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-/// Data type for f32 tensor.
+/// Owned finite `f32` tensor values plus optional JSON metadata.
 pub struct F32Tensor {
     shape: TensorShape,
     values: Vec<f32>,
@@ -83,7 +83,7 @@ pub struct F32Tensor {
 }
 
 impl F32Tensor {
-    /// Creates a new value.
+    /// Creates an owned tensor when shape and finite-value validation pass.
     pub fn new(shape: TensorShape, values: Vec<f32>) -> Result<Self> {
         let tensor = Self {
             shape,
@@ -94,50 +94,50 @@ impl F32Tensor {
         Ok(tensor)
     }
 
-    /// Builds this value from dims.
+    /// Creates an owned tensor from raw dimensions and values.
     pub fn from_dims(dims: impl Into<Vec<usize>>, values: Vec<f32>) -> Result<Self> {
         Self::new(TensorShape::new(dims)?, values)
     }
 
-    /// Returns shape.
+    /// Borrows the checked tensor shape.
     pub fn shape(&self) -> &TensorShape {
         &self.shape
     }
 
-    /// Returns values.
+    /// Borrows the contiguous tensor values.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
 
-    /// Consumes this value into a values.
+    /// Consumes the tensor and returns its contiguous values.
     pub fn into_values(self) -> Vec<f32> {
         self.values
     }
 
-    /// Returns metadata.
+    /// Borrows optional transport metadata attached to the tensor.
     pub fn metadata(&self) -> &BTreeMap<String, Value> {
         &self.metadata
     }
 
-    /// Returns this value with metadata.
+    /// Attaches one metadata entry and returns the updated tensor.
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<Value>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
 
-    /// Sets metadata.
+    /// Inserts or replaces one metadata entry in place.
     pub fn set_metadata(&mut self, key: impl Into<String>, value: impl Into<Value>) -> &mut Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
 
-    /// Returns reshape.
+    /// Changes only the shape metadata after verifying the element count is unchanged.
     pub fn reshape(mut self, dims: impl Into<Vec<usize>>) -> Result<Self> {
         self.shape = self.shape.reshape(dims)?;
         Ok(self)
     }
 
-    /// Borrows this value as a view.
+    /// Borrows this tensor as a validated view that shares the value slice.
     pub fn as_view(&self) -> F32TensorView<'_> {
         F32TensorView {
             shape: self.shape.clone(),
@@ -146,7 +146,7 @@ impl F32Tensor {
         }
     }
 
-    /// Validates this value.
+    /// Verifies shape/value count agreement and rejects non-finite values.
     pub fn validate(&self) -> Result<()> {
         let expected = self.shape.element_count()?;
         if expected != self.values.len() {
@@ -163,7 +163,7 @@ impl F32Tensor {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for f32 tensor view.
+/// Borrowed finite `f32` tensor values with owned shape and metadata.
 pub struct F32TensorView<'a> {
     shape: TensorShape,
     values: &'a [f32],
@@ -171,7 +171,7 @@ pub struct F32TensorView<'a> {
 }
 
 impl<'a> F32TensorView<'a> {
-    /// Creates a new value.
+    /// Creates a borrowed tensor view when shape and values are compatible.
     pub fn new(shape: TensorShape, values: &'a [f32]) -> Result<Self> {
         let view = Self {
             shape,
@@ -182,46 +182,46 @@ impl<'a> F32TensorView<'a> {
         Ok(view)
     }
 
-    /// Builds this value from dims.
+    /// Creates a borrowed tensor view from raw dimensions and values.
     pub fn from_dims(dims: impl Into<Vec<usize>>, values: &'a [f32]) -> Result<Self> {
         Self::new(TensorShape::new(dims)?, values)
     }
 
-    /// Returns shape.
+    /// Borrows the checked tensor shape.
     pub fn shape(&self) -> &TensorShape {
         &self.shape
     }
 
-    /// Returns values.
+    /// Borrows the underlying contiguous value slice.
     pub fn values(&self) -> &'a [f32] {
         self.values
     }
 
-    /// Returns metadata.
+    /// Borrows optional transport metadata attached to the view.
     pub fn metadata(&self) -> &BTreeMap<String, Value> {
         &self.metadata
     }
 
-    /// Returns this value with metadata.
+    /// Attaches one metadata entry and returns the updated view.
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<Value>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
 
-    /// Returns reshape.
+    /// Changes only the shape metadata after verifying the element count is unchanged.
     pub fn reshape(mut self, dims: impl Into<Vec<usize>>) -> Result<Self> {
         self.shape = self.shape.reshape(dims)?;
         Ok(self)
     }
 
-    /// Consumes this value into an owned.
+    /// Copies the borrowed values into an owned tensor while preserving metadata.
     pub fn into_owned(self) -> Result<F32Tensor> {
         let mut tensor = F32Tensor::new(self.shape, self.values.to_vec())?;
         tensor.metadata = self.metadata;
         Ok(tensor)
     }
 
-    /// Validates this value.
+    /// Verifies shape/value count agreement and rejects non-finite values.
     pub fn validate(&self) -> Result<()> {
         let expected = self.shape.element_count()?;
         if expected != self.values.len() {

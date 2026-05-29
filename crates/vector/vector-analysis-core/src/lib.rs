@@ -4,13 +4,13 @@ pub mod surface;
 use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for dense vector.
+/// Owned finite `f32` vector used by vector metrics and matrix bridges.
 pub struct DenseVector {
     values: Vec<f32>,
 }
 
 impl DenseVector {
-    /// Creates a new value.
+    /// Creates a non-empty vector and rejects non-finite components.
     pub fn new(values: impl Into<Vec<f32>>) -> Result<Self> {
         let vector = Self {
             values: values.into(),
@@ -19,22 +19,22 @@ impl DenseVector {
         Ok(vector)
     }
 
-    /// Borrows this value as a slice.
+    /// Borrows the vector components in storage order.
     pub fn as_slice(&self) -> &[f32] {
         &self.values
     }
 
-    /// Consumes this value into a values.
+    /// Consumes the vector and returns its components.
     pub fn into_values(self) -> Vec<f32> {
         self.values
     }
 
-    /// Returns dimensions.
+    /// Returns the component count.
     pub fn dimensions(&self) -> usize {
         self.values.len()
     }
 
-    /// Validates this value.
+    /// Verifies that the vector is non-empty and all components are finite.
     pub fn validate(&self) -> Result<()> {
         if self.values.is_empty() {
             return Err(invalid_argument("vector must not be empty"));
@@ -45,7 +45,7 @@ impl DenseVector {
         Ok(())
     }
 
-    /// Returns l2 normalized.
+    /// Returns a unit-length copy or fails when the norm is effectively zero.
     pub fn l2_normalized(&self) -> Result<Self> {
         let norm = l2_norm(self.as_slice())?;
         if norm <= f32::EPSILON {
@@ -61,32 +61,32 @@ impl DenseVector {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Variants describing vector metric.
+/// Distance or similarity metric selectable through [`metric_distance`].
 pub enum VectorMetric {
-    /// The cosine variant.
+    /// Cosine distance, computed as `1.0 - cosine_similarity`.
     Cosine,
-    /// The euclidean variant.
+    /// Euclidean L2 distance.
     Euclidean,
-    /// The manhattan variant.
+    /// Manhattan L1 distance.
     Manhattan,
-    /// The dot variant.
+    /// Negative dot product, useful when smaller metric values rank higher.
     Dot,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for vector stats.
+/// Per-dimension summary for a batch of same-length dense vectors.
 pub struct VectorStats {
-    /// The dimensions value.
+    /// Number of components in every vector in the batch.
     pub dimensions: usize,
-    /// The mean value.
+    /// Per-dimension arithmetic mean.
     pub mean: Vec<f32>,
-    /// The min value.
+    /// Per-dimension minimum.
     pub min: Vec<f32>,
-    /// The max value.
+    /// Per-dimension maximum.
     pub max: Vec<f32>,
 }
 
-/// Returns dot.
+/// Computes the dot product for two finite vectors with identical dimensions.
 pub fn dot(left: &[f32], right: &[f32]) -> Result<f32> {
     validate_pair(left, right)?;
     Ok(left
@@ -96,13 +96,13 @@ pub fn dot(left: &[f32], right: &[f32]) -> Result<f32> {
         .sum())
 }
 
-/// Returns l2 norm.
+/// Computes the Euclidean norm for a non-empty finite vector.
 pub fn l2_norm(values: &[f32]) -> Result<f32> {
     validate_slice(values, "vector")?;
     Ok(values.iter().map(|value| value * value).sum::<f32>().sqrt())
 }
 
-/// Returns cosine similarity.
+/// Computes cosine similarity and rejects zero-norm inputs.
 pub fn cosine_similarity(left: &[f32], right: &[f32]) -> Result<f32> {
     let numerator = dot(left, right)?;
     let left_norm = l2_norm(left)?;
@@ -115,7 +115,7 @@ pub fn cosine_similarity(left: &[f32], right: &[f32]) -> Result<f32> {
     Ok(numerator / (left_norm * right_norm))
 }
 
-/// Returns euclidean distance.
+/// Computes Euclidean distance for two finite vectors with identical dimensions.
 pub fn euclidean_distance(left: &[f32], right: &[f32]) -> Result<f32> {
     validate_pair(left, right)?;
     Ok(left
@@ -129,7 +129,7 @@ pub fn euclidean_distance(left: &[f32], right: &[f32]) -> Result<f32> {
         .sqrt())
 }
 
-/// Returns manhattan distance.
+/// Computes Manhattan distance for two finite vectors with identical dimensions.
 pub fn manhattan_distance(left: &[f32], right: &[f32]) -> Result<f32> {
     validate_pair(left, right)?;
     Ok(left
@@ -139,7 +139,7 @@ pub fn manhattan_distance(left: &[f32], right: &[f32]) -> Result<f32> {
         .sum())
 }
 
-/// Returns mean vector.
+/// Computes the per-dimension arithmetic mean of a non-empty vector batch.
 pub fn mean_vector(vectors: &[DenseVector]) -> Result<DenseVector> {
     let dimensions = validate_vector_set(vectors)?;
     let mut mean = vec![0.0_f32; dimensions];
@@ -154,7 +154,7 @@ pub fn mean_vector(vectors: &[DenseVector]) -> Result<DenseVector> {
     DenseVector::new(mean)
 }
 
-/// Returns vector stats.
+/// Computes per-dimension mean, minimum, and maximum for a vector batch.
 pub fn vector_stats(vectors: &[DenseVector]) -> Result<VectorStats> {
     let dimensions = validate_vector_set(vectors)?;
     let mut mean = vec![0.0_f32; dimensions];
@@ -178,7 +178,7 @@ pub fn vector_stats(vectors: &[DenseVector]) -> Result<VectorStats> {
     })
 }
 
-/// Returns metric distance.
+/// Applies the selected metric to two finite vectors with identical dimensions.
 pub fn metric_distance(metric: VectorMetric, left: &[f32], right: &[f32]) -> Result<f32> {
     match metric {
         VectorMetric::Cosine => Ok(1.0 - cosine_similarity(left, right)?),

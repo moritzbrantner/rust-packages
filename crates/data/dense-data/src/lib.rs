@@ -1093,22 +1093,22 @@ impl NumericSeriesIndex {
     }
 }
 
-/// Returns dense summary.
+/// Computes weighted coordinate, value, and bounds summaries for dense points.
 pub fn dense_summary(points: &[DensePoint]) -> Result<DenseSummary> {
     SummaryAccumulator::from_points(points)?.summary()
 }
 
-/// Returns dense averages.
+/// Computes weighted coordinate averages and optional scalar value averages.
 pub fn dense_averages(points: &[DensePoint]) -> Result<DenseAverages> {
     SummaryAccumulator::from_points(points)?.averages()
 }
 
-/// Returns dense bounds.
+/// Computes per-dimension coordinate bounds for a dense point set.
 pub fn dense_bounds(points: &[DensePoint]) -> Result<DenseBounds> {
     SummaryAccumulator::from_points(points)?.bounds()
 }
 
-/// Returns bucket points.
+/// Assigns dense points to deterministic fixed-grid buckets.
 pub fn bucket_points(points: &[DensePoint], grid: &BucketGrid) -> Result<Vec<DenseBucket>> {
     validate_point_set(points)?;
     grid.validate()?;
@@ -1126,7 +1126,7 @@ pub fn bucket_points(points: &[DensePoint], grid: &BucketGrid) -> Result<Vec<Den
         .collect()
 }
 
-/// Returns k means.
+/// Clusters dense points with deterministic k-means initialization.
 pub fn k_means(points: &[DensePoint], config: KMeansConfig) -> Result<ClusterResult> {
     config.validate()?;
     let dimensions = validate_point_set(points)?;

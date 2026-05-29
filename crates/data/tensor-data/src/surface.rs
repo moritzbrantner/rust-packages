@@ -8,7 +8,7 @@ use video_analysis_core::runtime::{
 
 use crate::{F32Tensor, TensorShape};
 
-/// Returns the package surface exposed by every transport wrapper.
+/// Describes the tensor operations exposed by transport wrappers.
 pub fn package_surface() -> PackageSurface {
     PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),

@@ -11,7 +11,7 @@ use crate::{
     NumericSeriesPoint,
 };
 
-/// Returns the package surface exposed by every transport wrapper.
+/// Describes the dense data operations exposed by transport wrappers.
 pub fn package_surface() -> PackageSurface {
     PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),

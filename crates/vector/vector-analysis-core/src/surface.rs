@@ -15,7 +15,7 @@ const DEFAULT_PREVIEW: usize = 16;
 const MAX_PREVIEW: usize = 256;
 const MAX_VALUES: usize = 100_000;
 
-/// Returns the package surface exposed by every transport wrapper.
+/// Describes the vector operations exposed by transport wrappers.
 pub fn package_surface() -> PackageSurface {
     PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),

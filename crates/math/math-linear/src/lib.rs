@@ -10,23 +10,23 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Data type for matrix shape.
+/// Checked dense matrix dimensions.
 pub struct MatrixShape {
-    /// The rows value.
+    /// Number of matrix rows.
     pub rows: usize,
-    /// The cols value.
+    /// Number of matrix columns.
     pub cols: usize,
 }
 
 impl MatrixShape {
-    /// Creates a new value.
+    /// Creates a shape with non-zero rows and columns.
     pub fn new(rows: usize, cols: usize) -> Result<Self> {
         let shape = Self { rows, cols };
         shape.validate()?;
         Ok(shape)
     }
 
-    /// Validates this value.
+    /// Verifies non-zero dimensions and element-count overflow safety.
     pub fn validate(self) -> Result<()> {
         if self.rows == 0 || self.cols == 0 {
             return Err(invalid_argument(
@@ -37,7 +37,7 @@ impl MatrixShape {
         Ok(())
     }
 
-    /// Returns element count.
+    /// Multiplies rows by columns and fails on `usize` overflow.
     pub fn element_count(self) -> Result<usize> {
         self.rows
             .checked_mul(self.cols)
@@ -46,16 +46,16 @@ impl MatrixShape {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Variants describing matrix layout.
+/// Memory interpretation for a matrix or matrix view.
 pub enum MatrixLayout {
-    /// The row major variant.
+    /// Contiguous rows, where adjacent values advance across columns.
     RowMajor,
-    /// The column major variant.
+    /// Contiguous columns, used by transpose views without copying.
     ColumnMajor,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for f32 matrix.
+/// Owned finite `f32` matrix stored in row-major order.
 pub struct F32Matrix {
     shape: MatrixShape,
     layout: MatrixLayout,
@@ -63,7 +63,7 @@ pub struct F32Matrix {
 }
 
 impl F32Matrix {
-    /// Creates a new value.
+    /// Creates a row-major matrix after shape and finite-value validation.
     pub fn new(shape: MatrixShape, values: Vec<f32>) -> Result<Self> {
         let matrix = Self {
             shape,
@@ -74,7 +74,7 @@ impl F32Matrix {
         Ok(matrix)
     }
 
-    /// Builds this value from rows.
+    /// Builds a matrix from compile-time-sized row arrays.
     pub fn from_rows<const R: usize, const C: usize>(rows: [[f32; C]; R]) -> Result<Self> {
         let mut values = Vec::with_capacity(R * C);
         for row in rows {
@@ -83,27 +83,27 @@ impl F32Matrix {
         Self::new(MatrixShape::new(R, C)?, values)
     }
 
-    /// Returns shape.
+    /// Returns the checked row and column dimensions.
     pub fn shape(&self) -> MatrixShape {
         self.shape
     }
 
-    /// Returns layout.
+    /// Returns the matrix storage layout.
     pub fn layout(&self) -> MatrixLayout {
         self.layout
     }
 
-    /// Returns values.
+    /// Borrows the contiguous matrix values.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
 
-    /// Consumes this value into a values.
+    /// Consumes the matrix and returns its contiguous values.
     pub fn into_values(self) -> Vec<f32> {
         self.values
     }
 
-    /// Borrows this value as a view.
+    /// Borrows this matrix as a view without copying values.
     pub fn as_view(&self) -> F32MatrixView<'_> {
         F32MatrixView {
             shape: self.shape,
@@ -112,47 +112,47 @@ impl F32Matrix {
         }
     }
 
-    /// Returns row.
+    /// Borrows one row, respecting the current matrix layout.
     pub fn row(&self, index: usize) -> Result<RowView<'_>> {
         self.as_view().row(index)
     }
 
-    /// Returns column.
+    /// Borrows one column, respecting the current matrix layout.
     pub fn column(&self, index: usize) -> Result<ColumnView<'_>> {
         self.as_view().column(index)
     }
 
-    /// Returns matmul.
+    /// Multiplies this matrix by `right`.
     pub fn matmul(&self, right: &F32MatrixView<'_>) -> Result<Self> {
         self.as_view().matmul(right)
     }
 
-    /// Returns matvec.
+    /// Multiplies this matrix by a finite dense vector.
     pub fn matvec(&self, vector: &[f32]) -> Result<DenseVector> {
         self.as_view().matvec(vector)
     }
 
-    /// Returns transpose view.
+    /// Creates a transposed view without copying values.
     pub fn transpose_view(&self) -> F32MatrixView<'_> {
         self.as_view().transpose()
     }
 
-    /// Returns l2 normalize rows.
+    /// Returns a row-major matrix whose rows have unit L2 norm.
     pub fn l2_normalize_rows(&self) -> Result<Self> {
         self.as_view().l2_normalize_rows()
     }
 
-    /// Returns l2 normalize columns.
+    /// Returns a row-major matrix whose columns have unit L2 norm.
     pub fn l2_normalize_columns(&self) -> Result<Self> {
         self.as_view().l2_normalize_columns()
     }
 
-    /// Returns pairwise row cosine.
+    /// Computes all pairwise row cosine similarities against `right`.
     pub fn pairwise_row_cosine(&self, right: &F32MatrixView<'_>) -> Result<Self> {
         self.as_view().pairwise_row_cosine(right)
     }
 
-    /// Validates this value.
+    /// Verifies shape/value count agreement and rejects non-finite values.
     pub fn validate(&self) -> Result<()> {
         self.shape.validate()?;
         if self.values.len() != self.shape.element_count()? {
@@ -170,7 +170,7 @@ impl F32Matrix {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-/// Data type for f32 matrix view.
+/// Borrowed finite `f32` matrix values with shape and layout metadata.
 pub struct F32MatrixView<'a> {
     shape: MatrixShape,
     layout: MatrixLayout,
@@ -178,7 +178,7 @@ pub struct F32MatrixView<'a> {
 }
 
 impl<'a> F32MatrixView<'a> {
-    /// Creates a new value.
+    /// Creates a row-major matrix view after validating shape and values.
     pub fn new(shape: MatrixShape, values: &'a [f32]) -> Result<Self> {
         let view = Self {
             shape,
@@ -189,22 +189,22 @@ impl<'a> F32MatrixView<'a> {
         Ok(view)
     }
 
-    /// Returns shape.
+    /// Returns the checked row and column dimensions.
     pub fn shape(&self) -> MatrixShape {
         self.shape
     }
 
-    /// Returns layout.
+    /// Returns how the borrowed value slice is interpreted.
     pub fn layout(&self) -> MatrixLayout {
         self.layout
     }
 
-    /// Returns values.
+    /// Borrows the underlying contiguous values.
     pub fn values(&self) -> &'a [f32] {
         self.values
     }
 
-    /// Returns transpose.
+    /// Creates a transposed view by swapping dimensions and layout metadata.
     pub fn transpose(self) -> Self {
         Self {
             shape: MatrixShape {
@@ -219,7 +219,7 @@ impl<'a> F32MatrixView<'a> {
         }
     }
 
-    /// Returns row.
+    /// Borrows one logical row from this view.
     pub fn row(self, index: usize) -> Result<RowView<'a>> {
         if index >= self.shape.rows {
             return Err(invalid_argument(format!(
@@ -239,7 +239,7 @@ impl<'a> F32MatrixView<'a> {
         })
     }
 
-    /// Returns column.
+    /// Borrows one logical column from this view.
     pub fn column(self, index: usize) -> Result<ColumnView<'a>> {
         if index >= self.shape.cols {
             return Err(invalid_argument(format!(
@@ -259,7 +259,7 @@ impl<'a> F32MatrixView<'a> {
         })
     }
 
-    /// Returns get.
+    /// Reads one value by logical row and column.
     pub fn get(self, row: usize, col: usize) -> Result<f32> {
         if row >= self.shape.rows || col >= self.shape.cols {
             return Err(invalid_argument("matrix indices are out of bounds"));
@@ -271,7 +271,7 @@ impl<'a> F32MatrixView<'a> {
         Ok(self.values[index])
     }
 
-    /// Returns matmul.
+    /// Multiplies this view by another matrix view.
     pub fn matmul(self, right: &F32MatrixView<'_>) -> Result<F32Matrix> {
         self.validate()?;
         right.validate()?;
@@ -292,7 +292,7 @@ impl<'a> F32MatrixView<'a> {
         F32Matrix::new(shape, values)
     }
 
-    /// Returns matvec.
+    /// Multiplies this view by a finite dense vector.
     pub fn matvec(self, vector: &[f32]) -> Result<DenseVector> {
         self.validate()?;
         if vector.len() != self.shape.cols {
@@ -310,21 +310,21 @@ impl<'a> F32MatrixView<'a> {
         DenseVector::new(output)
     }
 
-    /// Returns row sums.
+    /// Sums each logical row.
     pub fn row_sums(self) -> Result<Vec<f32>> {
         (0..self.shape.rows)
             .map(|index| Ok(self.row(index)?.iter().sum()))
             .collect()
     }
 
-    /// Returns column sums.
+    /// Sums each logical column.
     pub fn column_sums(self) -> Result<Vec<f32>> {
         (0..self.shape.cols)
             .map(|index| Ok(self.column(index)?.iter().sum()))
             .collect()
     }
 
-    /// Returns l2 normalize rows.
+    /// Returns a row-major matrix whose rows have unit L2 norm.
     pub fn l2_normalize_rows(self) -> Result<F32Matrix> {
         let mut values = Vec::with_capacity(self.values.len());
         for row in 0..self.shape.rows {
@@ -335,7 +335,7 @@ impl<'a> F32MatrixView<'a> {
         F32Matrix::new(self.shape, values)
     }
 
-    /// Returns l2 normalize columns.
+    /// Returns a row-major matrix whose columns have unit L2 norm.
     pub fn l2_normalize_columns(self) -> Result<F32Matrix> {
         let mut values = vec![0.0; self.shape.element_count()?];
         let normalized = (0..self.shape.cols)
@@ -349,7 +349,7 @@ impl<'a> F32MatrixView<'a> {
         F32Matrix::new(self.shape, values)
     }
 
-    /// Returns pairwise row dot.
+    /// Computes the dot product for every pair of rows in two matrices.
     pub fn pairwise_row_dot(self, right: &F32MatrixView<'_>) -> Result<F32Matrix> {
         if self.shape.cols != right.shape.cols {
             return Err(invalid_argument(
@@ -369,7 +369,7 @@ impl<'a> F32MatrixView<'a> {
         F32Matrix::new(shape, values)
     }
 
-    /// Returns pairwise row cosine.
+    /// Computes cosine similarity for every pair of rows in two matrices.
     pub fn pairwise_row_cosine(self, right: &F32MatrixView<'_>) -> Result<F32Matrix> {
         if self.shape.cols != right.shape.cols {
             return Err(invalid_argument(
@@ -389,7 +389,7 @@ impl<'a> F32MatrixView<'a> {
         F32Matrix::new(shape, values)
     }
 
-    /// Validates this value.
+    /// Verifies shape/value count agreement and rejects non-finite values.
     pub fn validate(self) -> Result<()> {
         self.shape.validate()?;
         if self.values.len() != self.shape.element_count()? {
@@ -405,14 +405,14 @@ impl<'a> F32MatrixView<'a> {
         Ok(())
     }
 
-    /// Consumes this value into an owned.
+    /// Copies this view into an owned row-major matrix.
     pub fn into_owned(self) -> Result<F32Matrix> {
         F32Matrix::new(self.shape, self.values.to_vec())
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-/// Data type for row view.
+/// Strided borrowed view over one logical matrix row.
 pub struct RowView<'a> {
     values: &'a [f32],
     len: usize,
@@ -421,34 +421,34 @@ pub struct RowView<'a> {
 }
 
 impl<'a> RowView<'a> {
-    /// Returns len.
+    /// Returns the number of values in the row.
     pub fn len(&self) -> usize {
         self.len
     }
 
-    /// Returns whether is empty.
+    /// Returns whether the row has no values.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    /// Returns iter.
+    /// Iterates over row values in logical column order.
     pub fn iter(&self) -> impl Iterator<Item = f32> + '_ {
         (0..self.len).map(|index| self.values[self.offset + index * self.stride])
     }
 
-    /// Borrows this value as a slice.
+    /// Collects the possibly strided row into a contiguous vector.
     pub fn as_slice(&self) -> Vec<f32> {
         self.iter().collect()
     }
 
-    /// Converts this value to dense vector.
+    /// Copies the row into a validated dense vector.
     pub fn to_dense_vector(&self) -> Result<DenseVector> {
         DenseVector::new(self.as_slice())
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-/// Data type for column view.
+/// Strided borrowed view over one logical matrix column.
 pub struct ColumnView<'a> {
     values: &'a [f32],
     len: usize,
@@ -457,34 +457,34 @@ pub struct ColumnView<'a> {
 }
 
 impl<'a> ColumnView<'a> {
-    /// Returns len.
+    /// Returns the number of values in the column.
     pub fn len(&self) -> usize {
         self.len
     }
 
-    /// Returns whether is empty.
+    /// Returns whether the column has no values.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    /// Returns iter.
+    /// Iterates over column values in logical row order.
     pub fn iter(&self) -> impl Iterator<Item = f32> + '_ {
         (0..self.len).map(|index| self.values[self.offset + index * self.stride])
     }
 
-    /// Borrows this value as a slice.
+    /// Collects the possibly strided column into a contiguous vector.
     pub fn as_slice(&self) -> Vec<f32> {
         self.iter().collect()
     }
 
-    /// Converts this value to dense vector.
+    /// Copies the column into a validated dense vector.
     pub fn to_dense_vector(&self) -> Result<DenseVector> {
         DenseVector::new(self.as_slice())
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for kernel2d.
+/// Finite 2D convolution kernel stored in row-major order.
 pub struct Kernel2d {
     width: usize,
     height: usize,
@@ -492,7 +492,7 @@ pub struct Kernel2d {
 }
 
 impl Kernel2d {
-    /// Creates a new value.
+    /// Creates a kernel with non-zero dimensions and matching finite values.
     pub fn new(width: usize, height: usize, values: impl Into<Vec<f32>>) -> Result<Self> {
         let kernel = Self {
             width,
@@ -503,22 +503,22 @@ impl Kernel2d {
         Ok(kernel)
     }
 
-    /// Returns width.
+    /// Returns the number of columns in the kernel.
     pub fn width(&self) -> usize {
         self.width
     }
 
-    /// Returns height.
+    /// Returns the number of rows in the kernel.
     pub fn height(&self) -> usize {
         self.height
     }
 
-    /// Returns values.
+    /// Borrows row-major kernel values.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
 
-    /// Validates this value.
+    /// Verifies dimensions, value count, and finite values.
     pub fn validate(&self) -> Result<()> {
         if self.width == 0 || self.height == 0 {
             return Err(invalid_argument(
@@ -539,7 +539,7 @@ impl Kernel2d {
         Ok(())
     }
 
-    /// Returns identity 3x3.
+    /// Creates a 3x3 identity kernel with a `1.0` center coefficient.
     pub fn identity_3x3() -> Self {
         Self {
             width: 3,
@@ -548,7 +548,7 @@ impl Kernel2d {
         }
     }
 
-    /// Returns sharpen 3x3.
+    /// Creates a standard 3x3 sharpen kernel.
     pub fn sharpen_3x3() -> Self {
         Self {
             width: 3,
@@ -557,7 +557,7 @@ impl Kernel2d {
         }
     }
 
-    /// Returns edge 3x3.
+    /// Creates a standard 3x3 edge-detection kernel.
     pub fn edge_3x3() -> Self {
         Self {
             width: 3,
@@ -566,7 +566,7 @@ impl Kernel2d {
         }
     }
 
-    /// Returns blur 3x3.
+    /// Creates an unnormalized 3x3 box blur kernel.
     pub fn blur_3x3() -> Self {
         Self {
             width: 3,
@@ -575,7 +575,7 @@ impl Kernel2d {
         }
     }
 
-    /// Borrows this value as an array 3x3.
+    /// Copies a 3x3 kernel into a fixed-size row-major array.
     pub fn as_array_3x3(&self) -> Result<[f32; 9]> {
         if self.width != 3 || self.height != 3 {
             return Err(invalid_argument("kernel is not 3x3"));
@@ -599,13 +599,13 @@ impl From<[f32; 9]> for Kernel2d {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for kernel1d.
+/// Finite 1D convolution kernel.
 pub struct Kernel1d {
     values: Vec<f32>,
 }
 
 impl Kernel1d {
-    /// Creates a new value.
+    /// Creates a non-empty kernel and rejects non-finite values.
     pub fn new(values: impl Into<Vec<f32>>) -> Result<Self> {
         let kernel = Self {
             values: values.into(),
@@ -614,12 +614,12 @@ impl Kernel1d {
         Ok(kernel)
     }
 
-    /// Returns values.
+    /// Borrows kernel coefficients in storage order.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
 
-    /// Validates this value.
+    /// Verifies that the kernel is non-empty and finite.
     pub fn validate(&self) -> Result<()> {
         if self.values.is_empty() {
             return Err(invalid_argument("1D kernel must not be empty"));

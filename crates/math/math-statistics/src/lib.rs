@@ -10,21 +10,21 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for weighted observation.
+/// One finite multivariate observation with a positive statistical weight.
 pub struct WeightedObservation {
-    /// The values value.
+    /// Observation coordinates or feature values.
     pub values: Vec<f64>,
-    /// The weight value.
+    /// Positive finite contribution to weighted statistics.
     pub weight: f64,
 }
 
 impl WeightedObservation {
-    /// Creates a new value.
+    /// Creates an observation with weight `1.0`.
     pub fn new(values: impl Into<Vec<f64>>) -> Result<Self> {
         Self::weighted(values, 1.0)
     }
 
-    /// Returns weighted.
+    /// Creates an observation with an explicit positive finite weight.
     pub fn weighted(values: impl Into<Vec<f64>>, weight: f64) -> Result<Self> {
         let observation = Self {
             values: values.into(),
@@ -34,7 +34,7 @@ impl WeightedObservation {
         Ok(observation)
     }
 
-    /// Validates this value.
+    /// Verifies non-empty finite values and a positive finite weight.
     pub fn validate(&self) -> Result<()> {
         if self.values.is_empty() {
             return Err(invalid_argument(
@@ -56,20 +56,20 @@ impl WeightedObservation {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for covariance matrix.
+/// Population covariance result with means and weighted sample metadata.
 pub struct CovarianceMatrix {
-    /// The matrix value.
+    /// Dense square covariance matrix in row-major order.
     pub matrix: F32Matrix,
-    /// The means value.
+    /// Per-dimension weighted means used to center the observations.
     pub means: Vec<f64>,
     /// Number of items represented by this value.
     pub count: u64,
-    /// The weight sum value.
+    /// Sum of all observation weights.
     pub weight_sum: f64,
 }
 
 impl CovarianceMatrix {
-    /// Returns correlation matrix.
+    /// Converts covariance values to correlations using diagonal variances.
     pub fn correlation_matrix(&self) -> Result<F32Matrix> {
         let dims = self.matrix.shape().rows;
         let mut values = vec![0.0; dims * dims];
@@ -86,7 +86,7 @@ impl CovarianceMatrix {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for running covariance.
+/// Streaming weighted population covariance accumulator.
 pub struct RunningCovariance {
     dimensions: usize,
     count: u64,
@@ -96,7 +96,7 @@ pub struct RunningCovariance {
 }
 
 impl RunningCovariance {
-    /// Creates a new value.
+    /// Creates an empty accumulator for fixed-width observations.
     pub fn new(dimensions: usize) -> Result<Self> {
         if dimensions == 0 {
             return Err(invalid_argument(
@@ -112,7 +112,7 @@ impl RunningCovariance {
         })
     }
 
-    /// Builds this value from matrix.
+    /// Accumulates one unit-weight observation for each row in a matrix.
     pub fn from_matrix(matrix: &F32MatrixView<'_>) -> Result<Self> {
         let mut running = Self::new(matrix.shape().cols)?;
         for row in 0..matrix.shape().rows {
@@ -127,17 +127,17 @@ impl RunningCovariance {
         Ok(running)
     }
 
-    /// Returns dimensions.
+    /// Returns the required observation width.
     pub fn dimensions(&self) -> usize {
         self.dimensions
     }
 
-    /// Returns count.
+    /// Returns the number of observations pushed, independent of weights.
     pub fn count(&self) -> u64 {
         self.count
     }
 
-    /// Adds push to this value.
+    /// Adds one weighted observation using a numerically stable online update.
     pub fn push(&mut self, observation: WeightedObservation) -> Result<()> {
         observation.validate()?;
         if observation.values.len() != self.dimensions {
@@ -178,7 +178,7 @@ impl RunningCovariance {
         Ok(())
     }
 
-    /// Returns covariance matrix.
+    /// Returns weighted population covariance and fails when no observations exist.
     pub fn covariance_matrix(&self) -> Result<CovarianceMatrix> {
         if self.weight_sum <= 0.0 {
             return Err(invalid_argument(
@@ -200,14 +200,14 @@ impl RunningCovariance {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for z score normalizer.
+/// Per-column z-score normalizer fitted from a dense matrix.
 pub struct ZScoreNormalizer {
     means: Vec<f64>,
     std_devs: Vec<f64>,
 }
 
 impl ZScoreNormalizer {
-    /// Returns fit.
+    /// Fits per-column means and standard deviations from matrix rows.
     pub fn fit(matrix: &F32MatrixView<'_>) -> Result<Self> {
         let cols = matrix.shape().cols;
         let mut stats = (0..cols).map(|_| RunningStats::new()).collect::<Vec<_>>();
@@ -228,17 +228,17 @@ impl ZScoreNormalizer {
         Ok(Self { means, std_devs })
     }
 
-    /// Returns means.
+    /// Borrows the fitted per-column means.
     pub fn means(&self) -> &[f64] {
         &self.means
     }
 
-    /// Returns std devs.
+    /// Borrows the fitted per-column standard deviations.
     pub fn std_devs(&self) -> &[f64] {
         &self.std_devs
     }
 
-    /// Returns transform matrix.
+    /// Applies `(value - mean) / std_dev` to each matrix column.
     pub fn transform_matrix(&self, matrix: &F32MatrixView<'_>) -> Result<F32Matrix> {
         if matrix.shape().cols != self.means.len() {
             return Err(invalid_argument(
@@ -257,13 +257,13 @@ impl ZScoreNormalizer {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for min max normalizer.
+/// Per-column min/max normalizer fitted from a dense matrix.
 pub struct MinMaxNormalizer {
     ranges: Vec<NumberRange>,
 }
 
 impl MinMaxNormalizer {
-    /// Returns fit.
+    /// Fits per-column finite minimum and maximum ranges.
     pub fn fit(matrix: &F32MatrixView<'_>) -> Result<Self> {
         let cols = matrix.shape().cols;
         let mut mins = vec![f64::INFINITY; cols];
@@ -282,12 +282,12 @@ impl MinMaxNormalizer {
         Ok(Self { ranges })
     }
 
-    /// Returns ranges.
+    /// Borrows fitted per-column ranges.
     pub fn ranges(&self) -> &[NumberRange] {
         &self.ranges
     }
 
-    /// Returns transform matrix.
+    /// Maps each column into the unit interval using its fitted range.
     pub fn transform_matrix(&self, matrix: &F32MatrixView<'_>) -> Result<F32Matrix> {
         if matrix.shape().cols != self.ranges.len() {
             return Err(invalid_argument(
@@ -306,7 +306,7 @@ impl MinMaxNormalizer {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for principal components.
+/// Deterministic PCA-lite model for small and medium dense matrices.
 pub struct PrincipalComponents {
     mean: Vec<f32>,
     components: F32Matrix,
@@ -314,7 +314,7 @@ pub struct PrincipalComponents {
 }
 
 impl PrincipalComponents {
-    /// Returns fit.
+    /// Fits principal components from the weighted population covariance matrix.
     pub fn fit(matrix: &F32MatrixView<'_>, component_count: usize) -> Result<Self> {
         if component_count == 0 {
             return Err(invalid_argument(
@@ -350,22 +350,22 @@ impl PrincipalComponents {
         })
     }
 
-    /// Returns components.
+    /// Borrows component vectors as rows in descending extraction order.
     pub fn components(&self) -> &F32Matrix {
         &self.components
     }
 
-    /// Returns mean.
+    /// Borrows the per-column mean used to center inputs.
     pub fn mean(&self) -> &[f32] {
         &self.mean
     }
 
-    /// Returns explained variance.
+    /// Borrows the non-negative variance captured by each component.
     pub fn explained_variance(&self) -> &[f32] {
         &self.explained_variance
     }
 
-    /// Returns transform.
+    /// Centers the input matrix and projects rows onto the fitted components.
     pub fn transform(&self, matrix: &F32MatrixView<'_>) -> Result<F32Matrix> {
         if matrix.shape().cols != self.mean.len() {
             return Err(invalid_argument(

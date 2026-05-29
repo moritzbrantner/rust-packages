@@ -11,7 +11,7 @@ use crate::{F32Matrix, Kernel1d, MatrixShape};
 
 const MAX_VALUES: usize = 100_000;
 
-/// Returns the package surface exposed by every transport wrapper.
+/// Describes the linear algebra operations exposed by transport wrappers.
 pub fn package_surface() -> PackageSurface {
     PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),

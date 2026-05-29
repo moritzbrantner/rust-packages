@@ -284,7 +284,7 @@ pub fn summarize_numbers(values: &[f64]) -> NumberSummary {
     stats.summary()
 }
 
-/// Returns an interpolated quantile over finite values.
+/// Computes a linearly interpolated quantile over finite values.
 pub fn quantile(values: &[f64], quantile: f64) -> Result<f64> {
     if !quantile.is_finite() || !(0.0..=1.0).contains(&quantile) {
         return Err(invalid_argument(
@@ -304,7 +304,7 @@ pub fn quantile(values: &[f64], quantile: f64) -> Result<f64> {
     Ok(finite[lower] + (finite[upper] - finite[lower]) * fraction)
 }
 
-/// Returns interpolated first quartile, median, third quartile, and IQR.
+/// Computes interpolated first quartile, median, third quartile, and IQR.
 pub fn quartiles(values: &[f64]) -> Result<QuartileSummary> {
     let q1 = quantile(values, 0.25)?;
     let median = quantile(values, 0.5)?;

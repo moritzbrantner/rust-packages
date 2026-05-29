@@ -8,7 +8,7 @@ use video_analysis_core::runtime::{
 
 use crate::{histogram, quantile, quartiles, summarize_numbers, HistogramConfig, NumberRange};
 
-/// Returns the package surface exposed by every transport wrapper.
+/// Describes the scalar numeric operations exposed by transport wrappers.
 pub fn package_surface() -> PackageSurface {
     PackageSurface {
         library: env!("CARGO_PKG_NAME").to_string(),
