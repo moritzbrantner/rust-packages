@@ -1,10 +1,10 @@
 import initWasm, {
-  NumericSeriesIndex as WasmNumericSeriesIndex,
+  GeoPointIndex as WasmGeoPointIndex,
   initSync,
   packageSurface as wasmPackageSurface,
   runOperation as wasmRunOperation,
-} from "./pkg/dense_data_wasm.js";
-import * as wasmModule from "./pkg/dense_data_wasm.js";
+} from "./pkg/geo_viz_core_wasm.js";
+import * as wasmModule from "./pkg/geo_viz_core_wasm.js";
 
 let initialized = false;
 
@@ -27,30 +27,30 @@ if (isNodeLikeRuntime()) {
   await init();
 }
 
-export class NumericSeriesIndex {
-  constructor(points) {
+export class GeoPointIndex {
+  constructor(points, options) {
     initializeNodeSync();
-    this.inner = new WasmNumericSeriesIndex(points);
+    this.inner = new WasmGeoPointIndex(points, options ?? null);
   }
 
-  getSeriesBounds() {
-    return this.inner.getSeriesBounds();
+  getBounds() {
+    return this.inner.getBounds();
   }
 
-  getBinnedSeries(query) {
-    return this.inner.getBinnedSeries(query);
+  getPointById(pointId) {
+    return this.inner.getPointById(pointId);
   }
 
-  getChartSeries(query) {
-    return this.inner.getChartSeries(query);
+  getViewportAggregation(query) {
+    return this.inner.getViewportAggregation(query);
   }
 
-  getHistogram(query) {
-    return this.inner.getHistogram(query);
+  getClusterExpansionZoom(clusterId) {
+    return this.inner.getClusterExpansionZoom(clusterId);
   }
 
-  getHeatmap(query) {
-    return this.inner.getHeatmap(query);
+  getClusterLeaves(clusterId, limit, offset) {
+    return this.inner.getClusterLeaves(clusterId, limit, offset);
   }
 
   free() {
@@ -73,7 +73,7 @@ function initializeNodeSync() {
     return;
   }
 
-  const wasmPath = new URL("./pkg/dense_data_wasm_bg.wasm", import.meta.url);
+  const wasmPath = new URL("./pkg/geo_viz_core_wasm_bg.wasm", import.meta.url);
   const bytes = readNodeFileSync(wasmPath);
 
   initSync({ module: bytes });
@@ -89,7 +89,7 @@ function readNodeFileSync(wasmPath) {
 
   if (!fs?.readFileSync) {
     throw new Error(
-      `dense-data-wasm could not synchronously read ${wasmPath.toString()}.`,
+      `geo-viz-core-wasm could not synchronously read ${wasmPath.toString()}.`,
     );
   }
 

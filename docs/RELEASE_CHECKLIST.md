@@ -47,10 +47,23 @@ Recommended publish order:
 1. Wave 1 foundations: `video-analysis-core`, `jobs-core`, `model-runtime`,
    `audio-analysis-core`, `image-analysis-core`, `text-core`,
    `vector-analysis-core`, `three-d-processing-core`, `data-inversion-core`,
-   `numbers-core`, `dense-data`, `video-analysis-ingest`
+   `numbers-core`, `tensor-data`, `math-linear`, `math-statistics`,
+   `dense-data`, `video-analysis-ingest`
 2. Wave 2 pure-Rust leaf crates on top of the foundations
 3. Wave 3 external/runtime crates
 4. Wave 4 `video-analysis` and `video-analysis-cli`
+
+For a numerics and dense-data release slice, publish and dry-run packages in
+this order so crates.io can resolve each internal dependency from the registry:
+
+1. Confirm `video-analysis-core` is already available at the required version,
+   or publish it first.
+2. Publish `tensor-data`.
+3. Publish `vector-analysis-core`.
+4. Publish `numbers-core`.
+5. Publish `math-linear`.
+6. Publish `math-statistics`.
+7. Publish `dense-data`.
 
 For a text-only release wave, publish and dry-run packages in this order so
 crates.io can resolve each internal dependency from the registry:

@@ -11,7 +11,9 @@ test("dense-data-wasm package exports stable entrypoints", async () => {
 test("dense-data-wasm runs dense operations", async () => {
   const entry = await import("../index.js");
   const surface = entry.packageSurface();
-  expect(surface.operations.map((operation) => operation.id)).toContain("summarizeDensePoints");
+  expect(surface.operations.map((operation) => operation.id)).toContain(
+    "summarizeDensePoints",
+  );
 
   const response = entry.runOperation({
     operation: "binNumericSeries",
@@ -57,4 +59,29 @@ test("dense-data-wasm indexes numeric series for repeated queries", async () => 
   expect(response.bins[0].firstPointIndex).toBe(2);
   expect(response.bins[0].lastPointIndex).toBe(3);
   expect(response.bins[0].metrics.count).toBe(2);
+
+  const series = index.getChartSeries({
+    xDomain: [0, 10],
+    targetBinCount: 2,
+    valueMode: "sum",
+    includeEmptyBins: true,
+  });
+
+  expect(series.samples.map((sample) => sample.y)).toEqual([6, 6]);
+
+  const histogram = index.getHistogram({
+    bucketCount: 2,
+    xDomain: [0, 10],
+  });
+
+  expect(histogram.buckets.map((bucket) => bucket.pointCount)).toEqual([1, 2]);
+
+  const heatmap = index.getHeatmap({
+    xBinCount: 2,
+    xDomain: [0, 10],
+    yBinCount: 2,
+    yDomain: [0, 10],
+  });
+
+  expect(heatmap.cells.map((cell) => cell.pointCount)).toEqual([2, 0, 0, 1]);
 });

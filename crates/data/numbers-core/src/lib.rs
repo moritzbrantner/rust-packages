@@ -1,44 +1,45 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
+use serde::{Deserialize, Serialize};
 use video_analysis_core::{DetectError, Result};
 
-#[derive(Debug, Clone, PartialEq)]
-/// Data type for number summary.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+/// Summary statistics for a stream or slice of scalar values.
 pub struct NumberSummary {
-    /// Number of items represented by this value.
+    /// Number of input items, including non-finite values.
     pub count: u64,
-    /// The finite count value.
+    /// Number of finite values that contributed to numeric statistics.
     pub finite_count: u64,
-    /// The non finite count value.
+    /// Number of `NaN` or infinite values skipped by numeric statistics.
     pub non_finite_count: u64,
-    /// The min value.
+    /// Minimum finite value.
     pub min: Option<f64>,
-    /// The max value.
+    /// Maximum finite value.
     pub max: Option<f64>,
-    /// The sum value.
+    /// Weighted sum of finite values.
     pub sum: Option<f64>,
-    /// The mean value.
+    /// Weighted mean of finite values.
     pub mean: Option<f64>,
-    /// The variance value.
+    /// Weighted population variance of finite values.
     pub variance: Option<f64>,
-    /// The std dev value.
+    /// Square root of the weighted population variance.
     pub std_dev: Option<f64>,
-    /// The weight sum value.
+    /// Sum of weights for finite values.
     pub weight_sum: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-/// Data type for number range.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+/// Inclusive finite numeric range used for normalization and histograms.
 pub struct NumberRange {
-    /// The min value.
+    /// Inclusive lower bound.
     pub min: f64,
-    /// The max value.
+    /// Inclusive upper bound.
     pub max: f64,
 }
 
 impl NumberRange {
-    /// Creates a new value.
+    /// Creates a finite range whose lower bound is not greater than its upper bound.
     pub fn new(min: f64, max: f64) -> Result<Self> {
         if !min.is_finite() || !max.is_finite() {
             return Err(invalid_argument("number range bounds must be finite"));
@@ -57,7 +58,7 @@ impl NumberRange {
         Ok(value.clamp(self.min, self.max))
     }
 
-    /// Normalizes this value.
+    /// Clamps and normalizes a finite value into `0.0..=1.0`.
     pub fn normalize(self, value: f64) -> Result<f64> {
         let value = self.clamp(value)?;
         if self.min == self.max {
@@ -66,7 +67,7 @@ impl NumberRange {
         Ok((value - self.min) / (self.max - self.min))
     }
 
-    /// Denormalizes this value.
+    /// Maps a finite normalized value back into this range.
     pub fn denormalize(self, value: f64) -> Result<f64> {
         if !value.is_finite() {
             return Err(invalid_argument("normalized value must be finite"));
@@ -78,8 +79,8 @@ impl NumberRange {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-/// Data type for quartile summary.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+/// Interpolated quartile summary over finite values.
 pub struct QuartileSummary {
     /// The first quartile value.
     pub q1: f64,
@@ -91,12 +92,12 @@ pub struct QuartileSummary {
     pub iqr: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-/// Data type for histogram config.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+/// Configuration for fixed-width histogram generation.
 pub struct HistogramConfig {
-    /// The bins value.
+    /// Number of fixed-width bins to produce.
     pub bins: usize,
-    /// The range value.
+    /// Optional explicit inclusive range. When omitted, finite inputs define the range.
     pub range: Option<NumberRange>,
 }
 
@@ -108,7 +109,7 @@ impl HistogramConfig {
         Ok(config)
     }
 
-    /// Returns this value with range.
+    /// Sets an explicit inclusive histogram range.
     pub fn with_range(mut self, range: NumberRange) -> Self {
         self.range = Some(range);
         self
@@ -126,32 +127,32 @@ impl HistogramConfig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-/// Data type for histogram bin.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+/// One fixed-width histogram bin.
 pub struct HistogramBin {
-    /// The start value.
+    /// Inclusive lower bin boundary.
     pub start: f64,
-    /// The end value.
+    /// Upper bin boundary. The final bin includes this value.
     pub end: f64,
-    /// Number of items represented by this value.
+    /// Number of finite input values in this bin.
     pub count: u64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-/// Data type for histogram.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+/// Fixed-width histogram over finite values.
 pub struct Histogram {
-    /// The bins value.
+    /// Histogram bins in ascending order.
     pub bins: Vec<HistogramBin>,
-    /// Number of items represented by this value.
+    /// Number of finite values counted into bins.
     pub count: u64,
-    /// The min value.
+    /// Inclusive histogram lower bound.
     pub min: f64,
-    /// The max value.
+    /// Inclusive histogram upper bound.
     pub max: f64,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
-/// Data type for running stats.
+/// Online weighted scalar statistics accumulator.
 pub struct RunningStats {
     count: u64,
     finite_count: u64,
@@ -165,30 +166,30 @@ pub struct RunningStats {
 }
 
 impl RunningStats {
-    /// Creates a new value.
+    /// Creates an empty accumulator.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Adds push to this value.
+    /// Adds one value with unit weight.
     pub fn push(&mut self, value: f64) {
         self.push_weighted_internal(value, 1.0, false)
             .expect("unit weight is valid");
     }
 
-    /// Adds push weighted to this value.
+    /// Adds one value with a finite positive weight.
     pub fn push_weighted(&mut self, value: f64, weight: f64) -> Result<()> {
         self.push_weighted_internal(value, weight, true)
     }
 
-    /// Returns extend.
+    /// Adds values with unit weight.
     pub fn extend(&mut self, values: impl IntoIterator<Item = f64>) {
         for value in values {
             self.push(value);
         }
     }
 
-    /// Returns merge.
+    /// Merges another accumulator into this one.
     pub fn merge(&mut self, other: &Self) {
         self.count += other.count;
         self.finite_count += other.finite_count;
@@ -214,7 +215,10 @@ impl RunningStats {
         self.weight_sum = total_weight;
     }
 
-    /// Returns summary.
+    /// Returns the current weighted summary.
+    ///
+    /// Variance is the weighted population variance over finite values. Non-finite values
+    /// increase `count` and `non_finite_count`, but do not change weighted statistics.
     pub fn summary(&self) -> NumberSummary {
         let variance = (self.weight_sum > 0.0).then_some(self.m2 / self.weight_sum);
         NumberSummary {
@@ -273,14 +277,14 @@ impl RunningStats {
     }
 }
 
-/// Returns summarize numbers.
+/// Summarizes values with unit weights, counting but skipping non-finite values.
 pub fn summarize_numbers(values: &[f64]) -> NumberSummary {
     let mut stats = RunningStats::new();
     stats.extend(values.iter().copied());
     stats.summary()
 }
 
-/// Returns quantile.
+/// Returns an interpolated quantile over finite values.
 pub fn quantile(values: &[f64], quantile: f64) -> Result<f64> {
     if !quantile.is_finite() || !(0.0..=1.0).contains(&quantile) {
         return Err(invalid_argument(
@@ -300,7 +304,7 @@ pub fn quantile(values: &[f64], quantile: f64) -> Result<f64> {
     Ok(finite[lower] + (finite[upper] - finite[lower]) * fraction)
 }
 
-/// Returns quartiles.
+/// Returns interpolated first quartile, median, third quartile, and IQR.
 pub fn quartiles(values: &[f64]) -> Result<QuartileSummary> {
     let q1 = quantile(values, 0.25)?;
     let median = quantile(values, 0.5)?;
@@ -313,7 +317,7 @@ pub fn quartiles(values: &[f64]) -> Result<QuartileSummary> {
     })
 }
 
-/// Returns histogram.
+/// Builds fixed-width bins over finite values.
 pub fn histogram(values: &[f64], config: HistogramConfig) -> Result<Histogram> {
     config.validate()?;
 

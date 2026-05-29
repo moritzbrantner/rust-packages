@@ -2064,7 +2064,7 @@ dependencies = [
 name = "geo-data"
 version = "0.1.0"
 dependencies = [
- "geojson",
+ "geojson 1.0.0",
  "serde",
  "serde_json",
  "video-analysis-core",
@@ -2117,6 +2117,46 @@ dependencies = [
  "rstar 0.8.4",
  "rstar 0.9.3",
  "serde",
+]
+
+[[package]]
+name = "geo-viz-core"
+version = "0.1.0"
+dependencies = [
+ "geo-data",
+ "geojson 0.24.2",
+ "maps-kernels-core",
+ "serde",
+ "serde_json",
+ "supercluster",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "geo-viz-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "geo-viz-core",
+ "getrandom 0.3.4",
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "video-analysis-core",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "geojson"
+version = "0.24.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e26f3c45b36fccc9cf2805e61d4da6bc4bbd5a3a9589b01afa3a40eff703bd79"
+dependencies = [
+ "geo-types",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -4703,6 +4743,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
+name = "supercluster"
+version = "3.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e50a9957334452435631002367eabde8cb703766e7496c1645f56c86eb13f27"
+dependencies = [
+ "geojson 0.24.2",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "twox-hash",
+]
+
+[[package]]
 name = "syn"
 version = "2.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5728,6 +5781,15 @@ checksum = "1ad61aed86bc3faea4300c7aee358b4c6d0c8d6ccc36524c96e4c92ccf26e77e"
 dependencies = [
  "num-integer",
  "strength_reduce",
+]
+
+[[package]]
+name = "twox-hash"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea3136b675547379c4bd395ca6b938e5ad3c3d20fad76e7fe85f9e0d011419c"
+dependencies = [
+ "rand",
 ]
 
 [[package]]

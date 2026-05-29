@@ -31,6 +31,30 @@ impl WasmNumericSeriesIndex {
         let result = self.inner.bin(query).map_err(into_js_error)?;
         to_json_value(&result)
     }
+
+    #[wasm_bindgen(js_name = getChartSeries)]
+    pub fn get_chart_series(&self, query: JsValue) -> Result<JsValue, JsValue> {
+        let query: dense_data::NumericSeriesQuery =
+            serde_wasm_bindgen::from_value(query).map_err(into_js_error)?;
+        let result = self.inner.get_chart_series(query).map_err(into_js_error)?;
+        to_json_value(&result)
+    }
+
+    #[wasm_bindgen(js_name = getHistogram)]
+    pub fn get_histogram(&self, query: JsValue) -> Result<JsValue, JsValue> {
+        let query: dense_data::NumericHistogramQuery =
+            serde_wasm_bindgen::from_value(query).map_err(into_js_error)?;
+        let result = self.inner.get_histogram(query).map_err(into_js_error)?;
+        to_json_value(&result)
+    }
+
+    #[wasm_bindgen(js_name = getHeatmap)]
+    pub fn get_heatmap(&self, query: JsValue) -> Result<JsValue, JsValue> {
+        let query: dense_data::NumericHeatmapQuery =
+            serde_wasm_bindgen::from_value(query).map_err(into_js_error)?;
+        let result = self.inner.get_heatmap(query).map_err(into_js_error)?;
+        to_json_value(&result)
+    }
 }
 
 #[wasm_bindgen(js_name = packageSurface)]

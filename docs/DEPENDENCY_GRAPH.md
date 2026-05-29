@@ -486,7 +486,6 @@ flowchart LR
   crate_video_analysis --> crate_audio_analysis_separation
   crate_video_analysis --> crate_audio_analysis_speakers
   crate_video_analysis --> crate_audio_analysis_synthesis
-  crate_video_analysis --> crate_audio_analysis_test_support
   crate_video_analysis --> crate_audio_generation_midi
   crate_video_analysis --> crate_image_analysis_captioning
   crate_video_analysis --> crate_image_analysis_classification
@@ -558,7 +557,6 @@ flowchart LR
   crate_video_analysis --> crate_comfyui_data
   crate_video_analysis --> crate_comfyui_latents
   crate_video_analysis --> crate_comfyui_models
-  crate_video_analysis --> crate_video_analysis_test_support
   crate_video_analysis --> crate_animation_core
   crate_video_analysis --> crate_jobs_core
   crate_video_analysis --> crate_model_runtime
@@ -1176,7 +1174,6 @@ flowchart LR
   crate_video_analysis_transform_server --> crate_video_analysis_core
   crate_video_analysis_transform_server --> crate_video_analysis_transform
   crate_comfyui_data --> crate_tensor_data
-  crate_comfyui_data -. dev .-> crate_image_analysis_comfyui
   crate_comfyui_data --> crate_video_analysis_core
   crate_comfyui_data_cli --> crate_video_analysis_core
   crate_comfyui_data_cli --> crate_comfyui_data
