@@ -16,13 +16,30 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "linear.matmul",
-  featuredOperations: ["linear.matmul", "linear.kernel1d", "linear.tensorBridge", "describe"],
+  featuredOperations: [
+    "linear.matmul",
+    "linear.transpose",
+    "linear.solve",
+    "linear.decompose",
+    "linear.inverse",
+    "linear.kernel1d",
+    "linear.tensorBridge",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["linear.matmul", "linear.kernel1d", "linear.tensorBridge"],
+      operations: [
+        "linear.matmul",
+        "linear.transpose",
+        "linear.solve",
+        "linear.decompose",
+        "linear.inverse",
+        "linear.kernel1d",
+        "linear.tensorBridge",
+      ],
     },
     {
       id: "debug",

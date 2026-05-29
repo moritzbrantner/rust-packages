@@ -12,6 +12,12 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[features]
+default = []
+pure-rust = []
+faer-backend = []
+nalgebra-backend = []
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true

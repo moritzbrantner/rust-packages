@@ -7,7 +7,10 @@ Dense matrix and kernel contracts bridging `tensor-data` and
 
 - Checked small dense matrix shapes and views
 - Row and column iteration with transpose views
+- Identity, zero, transpose, add, subtract, scale, trace, and mean utilities
 - Matrix multiply, matrix-vector multiply, and row cosine helpers
+- Pure Rust LU decomposition with partial pivoting, determinant, solve, and
+  inverse helpers
 - Shared `Kernel2d` and `Kernel1d` types for image and video processing
 - Bridges between rank-2 tensors, dense vectors, and matrices
 
@@ -17,10 +20,14 @@ Dense matrix and kernel contracts bridging `tensor-data` and
 use math_linear::{F32Matrix, Kernel2d};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let matrix = F32Matrix::from_rows([[1.0, 0.0], [0.0, 1.0]])?;
+    let matrix = F32Matrix::from_rows([[2.0, 1.0], [1.0, 3.0]])?;
     let product = matrix.matmul(&matrix.as_view())?;
+    let solution = matrix.solve_vector(&[1.0, 2.0])?;
+    let inverse = matrix.inverse()?;
     let kernel = Kernel2d::sharpen_3x3();
     assert_eq!(product.shape().rows, 2);
+    assert_eq!(solution.len(), 2);
+    assert_eq!(inverse.shape().cols, 2);
     assert_eq!(kernel.as_array_3x3()?, [0.0, -1.0, 0.0, -1.0, 5.0, -1.0, 0.0, -1.0, 0.0]);
     Ok(())
 }
@@ -37,9 +44,25 @@ Matrix construction and validation require the value count to match
 `rows * cols`, and every value must be finite. Matrix/vector multiplication also
 requires a finite vector whose length matches the matrix column count.
 
+Owned utility results are emitted as row-major `F32Matrix` values. Transpose
+views do not copy, while `transpose_owned()` writes the logical transpose into a
+new row-major buffer. Elementwise add, subtract, and scale validate shapes and
+reject non-finite scale factors before producing owned output.
+
 Matrix multiplication requires `left.cols == right.rows`. Pairwise row dot and
 pairwise row cosine require both inputs to have the same column count and return
 a matrix shaped `left.rows x right.rows`.
+
+LU decomposition is implemented in pure Rust for deterministic small and
+medium-size matrix workflows. It uses partial pivoting, rejects non-square and
+singular or near-singular matrices, and powers determinant, vector solve, matrix
+solve, and inverse helpers. This crate is intended as an internal matrix backend
+layer for workspace packages, not as a full replacement for specialized
+numerical linear algebra backends.
+
+Future adapters for libraries such as faer or nalgebra can be added behind
+private feature-gated backend modules while keeping the public API owned by
+`math-linear` types and functions.
 
 Row and column L2 normalization use `vector-analysis-core` normalization rules.
 Rows or columns with an effectively zero norm return an error instead of

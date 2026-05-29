@@ -17,18 +17,42 @@ fn matrix(rows: usize, cols: usize, seed: f32) -> F32Matrix {
 fn bench_matrix(c: &mut Criterion) {
     let left = matrix(128, 128, 0.1);
     let right = matrix(128, 128, 1.3);
+    let small = F32Matrix::from_rows([
+        [4.0, 7.0, 2.0, 3.0],
+        [0.0, 5.0, 1.0, 2.0],
+        [2.0, 1.0, 6.0, 1.0],
+        [1.0, 0.0, 2.0, 4.0],
+    ])
+    .unwrap();
     let tall = matrix(512, 128, 2.1);
     let query = matrix(256, 128, 0.7);
     let vector = (0..128)
         .map(|index| (index as f32 * 0.023).sin())
         .collect::<Vec<_>>();
+    let small_vector = vec![1.0, 2.0, 3.0, 4.0];
 
     c.bench_function("matrix_matmul_128x128", |b| {
         b.iter(|| left.matmul(black_box(&right.as_view())).unwrap())
     });
 
+    c.bench_function("matrix_transpose_owned_128x128", |b| {
+        b.iter(|| left.as_view().transpose_owned().unwrap())
+    });
+
     c.bench_function("matrix_matvec_512x128", |b| {
         b.iter(|| tall.matvec(black_box(&vector)).unwrap())
+    });
+
+    c.bench_function("matrix_lu_decompose_4x4", |b| {
+        b.iter(|| small.as_view().lu_decompose().unwrap())
+    });
+
+    c.bench_function("matrix_solve_vector_4x4", |b| {
+        b.iter(|| small.solve_vector(black_box(&small_vector)).unwrap())
+    });
+
+    c.bench_function("matrix_inverse_4x4", |b| {
+        b.iter(|| small.inverse().unwrap())
     });
 
     c.bench_function("matrix_l2_normalize_rows_512x128", |b| {

@@ -34,6 +34,39 @@ pub fn package_surface() -> PackageSurface {
                 }),
             ),
             operation(
+                "linear.transpose",
+                "Matrix transpose",
+                "Returns a row-major owned transpose of a finite f32 matrix.",
+                serde_json::json!({
+                    "matrix": {"rows": 2, "cols": 3, "values": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]}
+                }),
+            ),
+            operation(
+                "linear.solve",
+                "Linear solve",
+                "Solves a square finite f32 matrix against a vector or matrix right-hand side.",
+                serde_json::json!({
+                    "matrix": {"rows": 2, "cols": 2, "values": [2.0, 1.0, 1.0, 3.0]},
+                    "rhs": [1.0, 2.0]
+                }),
+            ),
+            operation(
+                "linear.decompose",
+                "LU decomposition",
+                "Decomposes a square finite f32 matrix with partial-pivoted LU.",
+                serde_json::json!({
+                    "matrix": {"rows": 2, "cols": 2, "values": [2.0, 1.0, 1.0, 3.0]}
+                }),
+            ),
+            operation(
+                "linear.inverse",
+                "Matrix inverse",
+                "Returns the inverse of a finite square f32 matrix.",
+                serde_json::json!({
+                    "matrix": {"rows": 2, "cols": 2, "values": [2.0, 1.0, 1.0, 3.0]}
+                }),
+            ),
+            operation(
                 "linear.kernel1d",
                 "1D kernel",
                 "Validates and optionally normalizes a finite 1D f32 kernel.",
@@ -73,6 +106,10 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let value = match request.operation.as_str() {
         "describe" => describe_value(request.input),
         "linear.matmul" => matmul_value(parse_input(request.input)?)?,
+        "linear.transpose" => transpose_value(parse_input(request.input)?)?,
+        "linear.solve" => solve_value(parse_input(request.input)?)?,
+        "linear.decompose" => decompose_value(parse_input(request.input)?)?,
+        "linear.inverse" => inverse_value(parse_input(request.input)?)?,
         "linear.kernel1d" => kernel1d_value(parse_input(request.input)?)?,
         "linear.tensorBridge" => tensor_bridge_value(parse_input(request.input)?)?,
         operation => {
@@ -118,6 +155,22 @@ struct MatmulRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct UnaryMatrixRequest {
+    matrix: MatrixRequest,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SolveRequest {
+    matrix: MatrixRequest,
+    #[serde(default)]
+    rhs: Option<Vec<f32>>,
+    #[serde(default)]
+    rhs_matrix: Option<MatrixRequest>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct MatrixRequest {
     rows: usize,
     cols: usize,
@@ -147,6 +200,106 @@ fn matmul_value(request: MatmulRequest) -> Result<serde_json::Value, String> {
         .matmul(&right.as_view())
         .map_err(|error| error.to_string())?;
     matrix_json(product)
+}
+
+fn transpose_value(request: UnaryMatrixRequest) -> Result<serde_json::Value, String> {
+    let matrix = matrix_from_request(request.matrix)?;
+    let transpose = matrix
+        .as_view()
+        .transpose_owned()
+        .map_err(|error| error.to_string())?;
+    matrix_json(transpose)
+}
+
+fn solve_value(request: SolveRequest) -> Result<serde_json::Value, String> {
+    if request.rhs.is_some() && request.rhs_matrix.is_some() {
+        return Err("linear.solve accepts either rhs or rhsMatrix, not both".to_string());
+    }
+    if let Some(rhs) = request.rhs.as_ref() {
+        validate_value_count(rhs.len())?;
+    }
+    if let Some(rhs_matrix) = request.rhs_matrix.as_ref() {
+        validate_value_count(rhs_matrix.values.len())?;
+    }
+    let matrix = matrix_from_request(request.matrix)?;
+    let decomposition = matrix
+        .as_view()
+        .lu_decompose()
+        .map_err(|error| error.to_string())?;
+    let determinant = decomposition
+        .determinant()
+        .map_err(|error| error.to_string())?;
+
+    match (request.rhs, request.rhs_matrix) {
+        (Some(_), Some(_)) => unreachable!("checked above"),
+        (Some(rhs), None) => {
+            let solution = decomposition
+                .solve_vector(&rhs)
+                .map_err(|error| error.to_string())?;
+            Ok(serde_json::json!({
+                "solution": solution,
+                "determinant": determinant
+            }))
+        }
+        (None, Some(rhs_matrix)) => {
+            let rhs = matrix_from_request(rhs_matrix)?;
+            let solution = decomposition
+                .solve_matrix(&rhs.as_view())
+                .map_err(|error| error.to_string())?;
+            let shape = solution.shape();
+            Ok(serde_json::json!({
+                "solutionMatrix": {
+                    "rows": shape.rows,
+                    "cols": shape.cols,
+                    "values": solution.values()
+                },
+                "determinant": determinant
+            }))
+        }
+        (None, None) => Err("linear.solve requires rhs or rhsMatrix".to_string()),
+    }
+}
+
+fn decompose_value(request: UnaryMatrixRequest) -> Result<serde_json::Value, String> {
+    let matrix = matrix_from_request(request.matrix)?;
+    let decomposition = matrix
+        .as_view()
+        .lu_decompose()
+        .map_err(|error| error.to_string())?;
+    let determinant = decomposition
+        .determinant()
+        .map_err(|error| error.to_string())?;
+    let lower = decomposition
+        .lower_matrix()
+        .map_err(|error| error.to_string())?;
+    let upper = decomposition
+        .upper_matrix()
+        .map_err(|error| error.to_string())?;
+    let shape = decomposition.shape();
+    Ok(serde_json::json!({
+        "method": "lu",
+        "rows": shape.rows,
+        "cols": shape.cols,
+        "pivots": decomposition.pivots(),
+        "swapCount": decomposition.swap_count(),
+        "determinant": determinant,
+        "lower": {
+            "rows": lower.shape().rows,
+            "cols": lower.shape().cols,
+            "values": lower.values()
+        },
+        "upper": {
+            "rows": upper.shape().rows,
+            "cols": upper.shape().cols,
+            "values": upper.values()
+        }
+    }))
+}
+
+fn inverse_value(request: UnaryMatrixRequest) -> Result<serde_json::Value, String> {
+    let matrix = matrix_from_request(request.matrix)?;
+    let inverse = matrix.inverse().map_err(|error| error.to_string())?;
+    matrix_json(inverse)
 }
 
 fn kernel1d_value(request: KernelRequest) -> Result<serde_json::Value, String> {
@@ -242,6 +395,14 @@ fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result
 mod tests {
     use super::*;
 
+    fn assert_close(left: f32, right: f32) {
+        assert!((left - right).abs() < 1.0e-4, "expected {left} ≈ {right}");
+    }
+
+    fn f32_array(value: &serde_json::Value) -> Vec<f32> {
+        serde_json::from_value(value.clone()).expect("f32 array")
+    }
+
     #[test]
     fn matmul_returns_product() {
         let response = run_surface_operation(SurfaceRequest {
@@ -284,5 +445,97 @@ mod tests {
 
         assert_eq!(response.value["rows"], 2);
         assert_eq!(response.value["cols"], 2);
+    }
+
+    #[test]
+    fn transpose_returns_expected_shape_and_values() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linear.transpose"),
+            input: serde_json::json!({
+                "matrix": {"rows": 2, "cols": 3, "values": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]}
+            }),
+        })
+        .expect("transpose operation");
+
+        assert_eq!(response.value["rows"], 3);
+        assert_eq!(response.value["cols"], 2);
+        assert_eq!(
+            response.value["values"],
+            serde_json::json!([1.0, 4.0, 2.0, 5.0, 3.0, 6.0])
+        );
+    }
+
+    #[test]
+    fn solve_with_vector_rhs_returns_solution() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linear.solve"),
+            input: serde_json::json!({
+                "matrix": {"rows": 2, "cols": 2, "values": [2.0, 1.0, 1.0, 3.0]},
+                "rhs": [1.0, 2.0]
+            }),
+        })
+        .expect("solve operation");
+
+        let solution = f32_array(&response.value["solution"]);
+        assert_close(solution[0], 0.2);
+        assert_close(solution[1], 0.6);
+        assert_close(
+            serde_json::from_value(response.value["determinant"].clone()).unwrap(),
+            5.0,
+        );
+    }
+
+    #[test]
+    fn solve_with_matrix_rhs_returns_inverse_like_result() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linear.solve"),
+            input: serde_json::json!({
+                "matrix": {"rows": 2, "cols": 2, "values": [2.0, 1.0, 1.0, 3.0]},
+                "rhsMatrix": {"rows": 2, "cols": 2, "values": [1.0, 0.0, 0.0, 1.0]}
+            }),
+        })
+        .expect("solve operation");
+
+        assert_eq!(response.value["solutionMatrix"]["rows"], 2);
+        assert_eq!(response.value["solutionMatrix"]["cols"], 2);
+        let values = f32_array(&response.value["solutionMatrix"]["values"]);
+        assert_close(values[0], 0.6);
+        assert_close(values[1], -0.2);
+        assert_close(values[2], -0.2);
+        assert_close(values[3], 0.4);
+    }
+
+    #[test]
+    fn decompose_returns_lower_and_upper_objects() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linear.decompose"),
+            input: serde_json::json!({
+                "matrix": {"rows": 2, "cols": 2, "values": [2.0, 1.0, 1.0, 3.0]}
+            }),
+        })
+        .expect("decompose operation");
+
+        assert_eq!(response.value["method"], "lu");
+        assert_eq!(response.value["lower"]["rows"], 2);
+        assert_eq!(response.value["upper"]["cols"], 2);
+        assert!(response.value["lower"]["values"].is_array());
+        assert!(response.value["upper"]["values"].is_array());
+    }
+
+    #[test]
+    fn inverse_returns_expected_values() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linear.inverse"),
+            input: serde_json::json!({
+                "matrix": {"rows": 2, "cols": 2, "values": [2.0, 1.0, 1.0, 3.0]}
+            }),
+        })
+        .expect("inverse operation");
+
+        let values = f32_array(&response.value["values"]);
+        assert_close(values[0], 0.6);
+        assert_close(values[1], -0.2);
+        assert_close(values[2], -0.2);
+        assert_close(values[3], 0.4);
     }
 }

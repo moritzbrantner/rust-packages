@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+mod backend;
 pub mod surface;
+
 use tensor_data::{F32Tensor, F32TensorView, TensorShape};
 use vector_analysis_core::{cosine_similarity, dot, DenseVector};
 use video_analysis_core::{DetectError, Result};
@@ -74,6 +76,22 @@ impl F32Matrix {
         Ok(matrix)
     }
 
+    /// Creates a row-major matrix filled with zeros.
+    pub fn zeros(rows: usize, cols: usize) -> Result<Self> {
+        let shape = MatrixShape::new(rows, cols)?;
+        Self::new(shape, vec![0.0; shape.element_count()?])
+    }
+
+    /// Creates a row-major square identity matrix.
+    pub fn identity(size: usize) -> Result<Self> {
+        let shape = MatrixShape::new(size, size)?;
+        let mut values = vec![0.0; shape.element_count()?];
+        for index in 0..size {
+            values[index * size + index] = 1.0;
+        }
+        Self::new(shape, values)
+    }
+
     /// Builds a matrix from compile-time-sized row arrays.
     pub fn from_rows<const R: usize, const C: usize>(rows: [[f32; C]; R]) -> Result<Self> {
         let mut values = Vec::with_capacity(R * C);
@@ -137,6 +155,11 @@ impl F32Matrix {
         self.as_view().transpose()
     }
 
+    /// Returns a row-major owned transpose of this matrix.
+    pub fn transpose_owned(&self) -> Result<Self> {
+        self.as_view().transpose_owned()
+    }
+
     /// Returns a row-major matrix whose rows have unit L2 norm.
     pub fn l2_normalize_rows(&self) -> Result<Self> {
         self.as_view().l2_normalize_rows()
@@ -150,6 +173,31 @@ impl F32Matrix {
     /// Computes all pairwise row cosine similarities against `right`.
     pub fn pairwise_row_cosine(&self, right: &F32MatrixView<'_>) -> Result<Self> {
         self.as_view().pairwise_row_cosine(right)
+    }
+
+    /// Decomposes this square matrix using LU factorization with partial pivoting.
+    pub fn lu_decompose(&self) -> Result<LuDecomposition> {
+        self.as_view().lu_decompose()
+    }
+
+    /// Computes this square matrix determinant through LU decomposition.
+    pub fn determinant(&self) -> Result<f32> {
+        self.as_view().determinant()
+    }
+
+    /// Solves `A x = b` for a finite vector `b`.
+    pub fn solve_vector(&self, b: &[f32]) -> Result<Vec<f32>> {
+        self.as_view().solve_vector(b)
+    }
+
+    /// Solves `A X = B` for matrix `B`.
+    pub fn solve_matrix(&self, b: &F32MatrixView<'_>) -> Result<Self> {
+        self.as_view().solve_matrix(b)
+    }
+
+    /// Computes this square matrix inverse.
+    pub fn inverse(&self) -> Result<Self> {
+        self.as_view().inverse()
     }
 
     /// Verifies shape/value count agreement and rejects non-finite values.
@@ -219,6 +267,11 @@ impl<'a> F32MatrixView<'a> {
         }
     }
 
+    /// Returns a row-major owned transpose of this view.
+    pub fn transpose_owned(&self) -> Result<F32Matrix> {
+        self.transpose().into_owned()
+    }
+
     /// Borrows one logical row from this view.
     pub fn row(self, index: usize) -> Result<RowView<'a>> {
         if index >= self.shape.rows {
@@ -271,6 +324,62 @@ impl<'a> F32MatrixView<'a> {
         Ok(self.values[index])
     }
 
+    /// Returns whether this view is square.
+    pub fn is_square(&self) -> bool {
+        self.shape.rows == self.shape.cols
+    }
+
+    /// Adds two matrices with equal shape and returns a row-major matrix.
+    pub fn add(&self, right: &F32MatrixView<'_>) -> Result<F32Matrix> {
+        self.elementwise_binary(right, |left, right| left + right)
+    }
+
+    /// Subtracts two matrices with equal shape and returns a row-major matrix.
+    pub fn sub(&self, right: &F32MatrixView<'_>) -> Result<F32Matrix> {
+        self.elementwise_binary(right, |left, right| left - right)
+    }
+
+    /// Scales every matrix value by a finite factor.
+    pub fn scale(&self, factor: f32) -> Result<F32Matrix> {
+        self.validate()?;
+        if !factor.is_finite() {
+            return Err(invalid_argument("matrix scale factor must be finite"));
+        }
+        let mut values = Vec::with_capacity(self.shape.element_count()?);
+        for row in 0..self.shape.rows {
+            for col in 0..self.shape.cols {
+                values.push(self.get(row, col)? * factor);
+            }
+        }
+        F32Matrix::new(self.shape, values)
+    }
+
+    /// Computes the Frobenius norm.
+    pub fn frobenius_norm(&self) -> Result<f32> {
+        self.validate()?;
+        let sum_squares = self.values.iter().map(|value| value * value).sum::<f32>();
+        if !sum_squares.is_finite() {
+            return Err(invalid_argument(
+                "matrix Frobenius norm produced a non-finite value",
+            ));
+        }
+        Ok(sum_squares.sqrt())
+    }
+
+    /// Computes the trace of a square matrix.
+    pub fn trace(&self) -> Result<f32> {
+        self.validate()?;
+        self.require_square("matrix trace")?;
+        let mut trace = 0.0;
+        for index in 0..self.shape.rows {
+            trace += self.get(index, index)?;
+        }
+        if !trace.is_finite() {
+            return Err(invalid_argument("matrix trace produced a non-finite value"));
+        }
+        Ok(trace)
+    }
+
     /// Multiplies this view by another matrix view.
     pub fn matmul(self, right: &F32MatrixView<'_>) -> Result<F32Matrix> {
         self.validate()?;
@@ -321,6 +430,22 @@ impl<'a> F32MatrixView<'a> {
     pub fn column_sums(self) -> Result<Vec<f32>> {
         (0..self.shape.cols)
             .map(|index| Ok(self.column(index)?.iter().sum()))
+            .collect()
+    }
+
+    /// Averages each logical row.
+    pub fn row_means(&self) -> Result<Vec<f32>> {
+        self.validate()?;
+        (0..self.shape.rows)
+            .map(|index| Ok(self.row(index)?.iter().sum::<f32>() / self.shape.cols as f32))
+            .collect()
+    }
+
+    /// Averages each logical column.
+    pub fn column_means(&self) -> Result<Vec<f32>> {
+        self.validate()?;
+        (0..self.shape.cols)
+            .map(|index| Ok(self.column(index)?.iter().sum::<f32>() / self.shape.rows as f32))
             .collect()
     }
 
@@ -389,6 +514,34 @@ impl<'a> F32MatrixView<'a> {
         F32Matrix::new(shape, values)
     }
 
+    /// Decomposes this square matrix using LU factorization with partial pivoting.
+    pub fn lu_decompose(&self) -> Result<LuDecomposition> {
+        self.validate()?;
+        self.require_square("LU decomposition")?;
+        backend::pure::lu_decompose(*self)
+    }
+
+    /// Computes this square matrix determinant through LU decomposition.
+    pub fn determinant(&self) -> Result<f32> {
+        self.lu_decompose()?.determinant()
+    }
+
+    /// Solves `A x = b` for a finite vector `b`.
+    pub fn solve_vector(&self, b: &[f32]) -> Result<Vec<f32>> {
+        self.lu_decompose()?.solve_vector(b)
+    }
+
+    /// Solves `A X = B` for matrix `B`.
+    pub fn solve_matrix(&self, b: &F32MatrixView<'_>) -> Result<F32Matrix> {
+        self.lu_decompose()?.solve_matrix(b)
+    }
+
+    /// Computes this square matrix inverse.
+    pub fn inverse(&self) -> Result<F32Matrix> {
+        let identity = F32Matrix::identity(self.shape.rows)?;
+        self.solve_matrix(&identity.as_view())
+    }
+
     /// Verifies shape/value count agreement and rejects non-finite values.
     pub fn validate(self) -> Result<()> {
         self.shape.validate()?;
@@ -407,7 +560,218 @@ impl<'a> F32MatrixView<'a> {
 
     /// Copies this view into an owned row-major matrix.
     pub fn into_owned(self) -> Result<F32Matrix> {
-        F32Matrix::new(self.shape, self.values.to_vec())
+        let mut values = Vec::with_capacity(self.shape.element_count()?);
+        for row in 0..self.shape.rows {
+            for col in 0..self.shape.cols {
+                values.push(self.get(row, col)?);
+            }
+        }
+        F32Matrix::new(self.shape, values)
+    }
+
+    fn elementwise_binary(
+        &self,
+        right: &F32MatrixView<'_>,
+        op: impl Fn(f32, f32) -> f32,
+    ) -> Result<F32Matrix> {
+        self.validate()?;
+        right.validate()?;
+        if self.shape != right.shape {
+            return Err(invalid_argument("matrix shapes are incompatible"));
+        }
+        let mut values = Vec::with_capacity(self.shape.element_count()?);
+        for row in 0..self.shape.rows {
+            for col in 0..self.shape.cols {
+                values.push(op(self.get(row, col)?, right.get(row, col)?));
+            }
+        }
+        F32Matrix::new(self.shape, values)
+    }
+
+    fn require_square(&self, operation: &str) -> Result<()> {
+        if !self.is_square() {
+            return Err(invalid_argument(format!(
+                "{operation} requires a square matrix"
+            )));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Matrix triangle selector for decomposed matrices.
+pub enum MatrixTriangle {
+    /// Unit diagonal lower triangular factor.
+    Lower,
+    /// Upper triangular factor.
+    Upper,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// LU decomposition with partial pivoting for a finite square `f32` matrix.
+pub struct LuDecomposition {
+    shape: MatrixShape,
+    lu: Vec<f32>,
+    pivots: Vec<usize>,
+    swap_count: usize,
+}
+
+impl LuDecomposition {
+    pub(crate) fn new(
+        shape: MatrixShape,
+        lu: Vec<f32>,
+        pivots: Vec<usize>,
+        swap_count: usize,
+    ) -> Self {
+        Self {
+            shape,
+            lu,
+            pivots,
+            swap_count,
+        }
+    }
+
+    /// Returns the square decomposition shape.
+    pub fn shape(&self) -> MatrixShape {
+        self.shape
+    }
+
+    /// Returns the row permutation after partial pivoting.
+    pub fn pivots(&self) -> &[usize] {
+        &self.pivots
+    }
+
+    /// Returns the number of pivot row swaps performed.
+    pub fn swap_count(&self) -> usize {
+        self.swap_count
+    }
+
+    /// Computes the determinant from the upper-triangular diagonal and swap parity.
+    pub fn determinant(&self) -> Result<f32> {
+        self.validate()?;
+        let size = self.shape.rows;
+        let mut determinant = if self.swap_count % 2 == 0 { 1.0 } else { -1.0 };
+        for index in 0..size {
+            determinant *= self.lu[index * size + index];
+        }
+        if !determinant.is_finite() {
+            return Err(invalid_argument(
+                "matrix determinant produced a non-finite value",
+            ));
+        }
+        Ok(determinant)
+    }
+
+    /// Solves `A x = b` for a finite vector `b`.
+    pub fn solve_vector(&self, b: &[f32]) -> Result<Vec<f32>> {
+        self.validate()?;
+        let size = self.shape.rows;
+        if b.len() != size {
+            return Err(invalid_argument(
+                "linear solve vector length is incompatible",
+            ));
+        }
+        if b.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument("linear solve values must be finite"));
+        }
+
+        let mut y = vec![0.0; size];
+        for row in 0..size {
+            let mut sum = b[self.pivots[row]];
+            for col in 0..row {
+                sum -= self.lu[row * size + col] * y[col];
+            }
+            y[row] = sum;
+        }
+
+        let tolerance = backend::pure::pivot_tolerance(&self.lu);
+        let mut x = vec![0.0; size];
+        for row in (0..size).rev() {
+            let mut sum = y[row];
+            for col in row + 1..size {
+                sum -= self.lu[row * size + col] * x[col];
+            }
+            let pivot = self.lu[row * size + row];
+            if pivot.abs() <= tolerance {
+                return Err(invalid_argument("matrix is singular or near-singular"));
+            }
+            x[row] = sum / pivot;
+        }
+        if x.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument("linear solve produced non-finite values"));
+        }
+        Ok(x)
+    }
+
+    /// Solves `A X = B` for a finite matrix `B`.
+    pub fn solve_matrix(&self, b: &F32MatrixView<'_>) -> Result<F32Matrix> {
+        self.validate()?;
+        b.validate()?;
+        if b.shape.rows != self.shape.rows {
+            return Err(invalid_argument(
+                "linear solve matrix rows are incompatible",
+            ));
+        }
+        let shape = MatrixShape::new(self.shape.rows, b.shape.cols)?;
+        let mut values = vec![0.0; shape.element_count()?];
+        for col in 0..b.shape.cols {
+            let rhs = b.column(col)?.as_slice();
+            let solution = self.solve_vector(&rhs)?;
+            for row in 0..shape.rows {
+                values[row * shape.cols + col] = solution[row];
+            }
+        }
+        F32Matrix::new(shape, values)
+    }
+
+    /// Extracts the unit diagonal lower triangular factor.
+    pub fn lower_matrix(&self) -> Result<F32Matrix> {
+        self.triangle_matrix(MatrixTriangle::Lower)
+    }
+
+    /// Extracts the upper triangular factor.
+    pub fn upper_matrix(&self) -> Result<F32Matrix> {
+        self.triangle_matrix(MatrixTriangle::Upper)
+    }
+
+    fn triangle_matrix(&self, triangle: MatrixTriangle) -> Result<F32Matrix> {
+        self.validate()?;
+        let size = self.shape.rows;
+        let mut values = vec![0.0; self.shape.element_count()?];
+        for row in 0..size {
+            for col in 0..size {
+                values[row * size + col] = match triangle {
+                    MatrixTriangle::Lower if row > col => self.lu[row * size + col],
+                    MatrixTriangle::Lower if row == col => 1.0,
+                    MatrixTriangle::Upper if row <= col => self.lu[row * size + col],
+                    _ => 0.0,
+                };
+            }
+        }
+        F32Matrix::new(self.shape, values)
+    }
+
+    fn validate(&self) -> Result<()> {
+        self.shape.validate()?;
+        if self.shape.rows != self.shape.cols {
+            return Err(invalid_argument(
+                "LU decomposition requires a square matrix",
+            ));
+        }
+        if self.lu.len() != self.shape.element_count()? {
+            return Err(invalid_argument(
+                "LU decomposition values do not match shape",
+            ));
+        }
+        if self.pivots.len() != self.shape.rows {
+            return Err(invalid_argument(
+                "LU decomposition pivots do not match shape",
+            ));
+        }
+        if self.lu.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument("LU decomposition values must be finite"));
+        }
+        Ok(())
     }
 }
 
@@ -715,6 +1079,10 @@ impl TryFrom<&DenseVector> for F32Matrix {
 mod tests {
     use super::*;
 
+    fn assert_close(left: f32, right: f32) {
+        assert!((left - right).abs() < 1.0e-4, "expected {left} ≈ {right}");
+    }
+
     #[test]
     fn validates_shapes_and_stride_backed_views() {
         assert!(MatrixShape::new(0, 2).is_err());
@@ -751,5 +1119,109 @@ mod tests {
         );
         let tensor_round_trip = F32Tensor::try_from(&matrix).unwrap();
         assert_eq!(tensor_round_trip.values(), tensor.values());
+    }
+
+    #[test]
+    fn identity_matrix_has_unit_diagonal() {
+        let matrix = F32Matrix::identity(3).unwrap();
+
+        assert_eq!(
+            matrix.values(),
+            &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+        );
+    }
+
+    #[test]
+    fn transpose_owned_round_trip_restores_original() {
+        let matrix = F32Matrix::from_rows([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]).unwrap();
+        let transposed = matrix.as_view().transpose_owned().unwrap();
+        assert_eq!(transposed.shape(), MatrixShape { rows: 3, cols: 2 });
+        assert_eq!(transposed.values(), &[1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
+
+        let round_trip = transposed.as_view().transpose_owned().unwrap();
+        assert_eq!(round_trip, matrix);
+    }
+
+    #[test]
+    fn add_sub_and_scale_produce_expected_values() {
+        let left = F32Matrix::from_rows([[1.0, 2.0], [3.0, 4.0]]).unwrap();
+        let right = F32Matrix::from_rows([[5.0, 6.0], [7.0, 8.0]]).unwrap();
+
+        let added = left.as_view().add(&right.as_view()).unwrap();
+        assert_eq!(added.values(), &[6.0, 8.0, 10.0, 12.0]);
+
+        let subtracted = right.as_view().sub(&left.as_view()).unwrap();
+        assert_eq!(subtracted.values(), &[4.0, 4.0, 4.0, 4.0]);
+
+        let scaled = left.as_view().scale(0.5).unwrap();
+        assert_eq!(scaled.values(), &[0.5, 1.0, 1.5, 2.0]);
+        assert!(left.as_view().scale(f32::NAN).is_err());
+    }
+
+    #[test]
+    fn frobenius_norm_and_means_are_correct() {
+        let matrix = F32Matrix::from_rows([[1.0, 2.0], [3.0, 4.0]]).unwrap();
+
+        assert_close(matrix.as_view().frobenius_norm().unwrap(), 30.0_f32.sqrt());
+        assert_eq!(matrix.as_view().row_means().unwrap(), vec![1.5, 3.5]);
+        assert_eq!(matrix.as_view().column_means().unwrap(), vec![2.0, 3.0]);
+    }
+
+    #[test]
+    fn trace_requires_square_matrix() {
+        let matrix = F32Matrix::from_rows([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]).unwrap();
+
+        assert!(matrix.as_view().trace().is_err());
+    }
+
+    #[test]
+    fn lu_determinant_works_for_small_matrices() {
+        let matrix_2x2 = F32Matrix::from_rows([[2.0, 1.0], [1.0, 3.0]]).unwrap();
+        assert_close(matrix_2x2.determinant().unwrap(), 5.0);
+
+        let matrix_3x3 =
+            F32Matrix::from_rows([[6.0, 1.0, 1.0], [4.0, -2.0, 5.0], [2.0, 8.0, 7.0]]).unwrap();
+        assert_close(matrix_3x3.determinant().unwrap(), -306.0);
+    }
+
+    #[test]
+    fn solving_vector_returns_expected_values() {
+        let matrix = F32Matrix::from_rows([[2.0, 1.0], [1.0, 3.0]]).unwrap();
+        let solution = matrix.solve_vector(&[1.0, 2.0]).unwrap();
+
+        assert_close(solution[0], 0.2);
+        assert_close(solution[1], 0.6);
+    }
+
+    #[test]
+    fn matrix_inverse_multiplies_to_identity() {
+        let matrix = F32Matrix::from_rows([[4.0, 7.0], [2.0, 6.0]]).unwrap();
+        let inverse = matrix.inverse().unwrap();
+        let product = matrix.matmul(&inverse.as_view()).unwrap();
+
+        assert_close(product.as_view().get(0, 0).unwrap(), 1.0);
+        assert_close(product.as_view().get(0, 1).unwrap(), 0.0);
+        assert_close(product.as_view().get(1, 0).unwrap(), 0.0);
+        assert_close(product.as_view().get(1, 1).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn singular_matrix_returns_error() {
+        let matrix = F32Matrix::from_rows([[1.0, 2.0], [2.0, 4.0]]).unwrap();
+
+        assert!(matrix.lu_decompose().is_err());
+        assert!(matrix.inverse().is_err());
+    }
+
+    #[test]
+    fn pivoting_handles_zero_initial_pivot() {
+        let matrix = F32Matrix::from_rows([[0.0, 2.0], [1.0, 3.0]]).unwrap();
+        let decomposition = matrix.lu_decompose().unwrap();
+        let solution = decomposition.solve_vector(&[4.0, 5.0]).unwrap();
+
+        assert_eq!(decomposition.swap_count(), 1);
+        assert_close(decomposition.determinant().unwrap(), -2.0);
+        assert_close(solution[0], -1.0);
+        assert_close(solution[1], 2.0);
     }
 }
