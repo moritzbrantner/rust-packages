@@ -1,7 +1,6 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
-
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use geo_data::{
@@ -278,22 +277,17 @@ pub struct GeoVizIndexedFlow {
     pub properties: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 /// Flow aggregation mode.
 pub enum GeoVizFlowAggregateMode {
     /// Return individual flows.
+    #[default]
     None,
     /// Combine identical origin/destination pairs.
     OriginDestination,
     /// Reserved for future grid aggregation; currently equivalent to origin/destination.
     Grid,
-}
-
-impl Default for GeoVizFlowAggregateMode {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]

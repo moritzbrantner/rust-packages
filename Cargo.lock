@@ -2134,6 +2134,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "geo-viz-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "geo-viz-core",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "geo-viz-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "geo-viz-core",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "geo-viz-core-wasm"
 version = "0.1.0"
 dependencies = [

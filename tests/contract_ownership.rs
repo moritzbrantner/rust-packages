@@ -46,6 +46,21 @@ fn text_retrieval_transcript_ingestion_is_feature_gated() {
 
 #[test]
 fn native_text_model_runtime_dependencies_are_feature_gated() {
+    for path in [
+        "crates/text/text-analysis/Cargo.toml",
+        "crates/text/text-embeddings/Cargo.toml",
+        "crates/text/text-linguistics/Cargo.toml",
+        "crates/text/text-model-runtime/Cargo.toml",
+        "crates/text/text-retrieval/Cargo.toml",
+        "crates/text/text-transcripts/Cargo.toml",
+    ] {
+        let manifest = read_manifest(path);
+        assert!(
+            manifest.contains("default = []"),
+            "{path} must keep native/model runtime dependencies out of default builds"
+        );
+    }
+
     let linguistics_manifest = read_manifest("crates/text/text-linguistics/Cargo.toml");
     assert!(
         linguistics_manifest.contains("jobs-core = { workspace = true, optional = true }"),
@@ -65,6 +80,50 @@ fn native_text_model_runtime_dependencies_are_feature_gated() {
         runtime_manifest.contains("model-runtime = { workspace = true, optional = true"),
         "text-model-runtime must use model-runtime for optional model bundle support"
     );
+
+    for (path, dependencies) in [
+        (
+            "crates/text/text-embeddings/Cargo.toml",
+            &[
+                "ort",
+                "ndarray",
+                "tokenizers",
+                "candle-core",
+                "candle-nn",
+                "candle-transformers",
+            ][..],
+        ),
+        (
+            "crates/text/text-linguistics/Cargo.toml",
+            &[
+                "tokenizers",
+                "candle-core",
+                "candle-nn",
+                "candle-transformers",
+            ][..],
+        ),
+        (
+            "crates/text/text-model-runtime/Cargo.toml",
+            &[
+                "ort",
+                "ndarray",
+                "tokenizers",
+                "candle-core",
+                "candle-nn",
+                "candle-transformers",
+            ][..],
+        ),
+    ] {
+        let manifest = read_manifest(path);
+        for dependency in dependencies {
+            assert!(
+                manifest.contains(&format!(
+                    "{dependency} = {{ workspace = true, optional = true"
+                )),
+                "{path} must keep native/model dependency `{dependency}` optional"
+            );
+        }
+    }
 }
 
 #[test]

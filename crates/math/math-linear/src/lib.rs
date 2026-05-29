@@ -650,7 +650,11 @@ impl LuDecomposition {
     pub fn determinant(&self) -> Result<f32> {
         self.validate()?;
         let size = self.shape.rows;
-        let mut determinant = if self.swap_count % 2 == 0 { 1.0 } else { -1.0 };
+        let mut determinant = if self.swap_count.is_multiple_of(2) {
+            1.0
+        } else {
+            -1.0
+        };
         for index in 0..size {
             determinant *= self.lu[index * size + index];
         }
@@ -678,8 +682,8 @@ impl LuDecomposition {
         let mut y = vec![0.0; size];
         for row in 0..size {
             let mut sum = b[self.pivots[row]];
-            for col in 0..row {
-                sum -= self.lu[row * size + col] * y[col];
+            for (col, value) in y.iter().enumerate().take(row) {
+                sum -= self.lu[row * size + col] * value;
             }
             y[row] = sum;
         }
@@ -688,8 +692,8 @@ impl LuDecomposition {
         let mut x = vec![0.0; size];
         for row in (0..size).rev() {
             let mut sum = y[row];
-            for col in row + 1..size {
-                sum -= self.lu[row * size + col] * x[col];
+            for (col, value) in x.iter().enumerate().take(size).skip(row + 1) {
+                sum -= self.lu[row * size + col] * value;
             }
             let pivot = self.lu[row * size + row];
             if pivot.abs() <= tolerance {

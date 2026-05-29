@@ -11,10 +11,10 @@ execution is opt-in through feature flags and explicit runtime configuration.
 | `text-core` | Text documents, Unicode-safe spans, tokenization, sentence and paragraph boundaries, annotation graph primitives. | Model downloads, native inference, corpus search, transcript formats, transport concerns. |
 | `text-lexical` | Deterministic lexical features, stop words, keywords, TF-IDF, BM25, rule entities, extractive summaries, lexical sentiment. | ASR, transcript-specific source adapters, native model execution. |
 | `text-model-runtime` | Shared tokenizer bundles, tokenized model inputs, runtime backend traits, and optional native model facade types. | High-level NLP schemas, retrieval indexes, transcript parsing, text pipeline orchestration. |
-| `text-linguistics` | Structured NLP pipeline: language, lemmas, POS, morphology, syntax, entities, coreference, events, discourse, topics, style. | Generic task schemas, vector retrieval storage, transcript file formats. |
+| `text-linguistics` | Heuristic-first linguistic pipeline: language, lemmas, POS, morphology, syntax, entities, coreference, events, discourse, topics, style; optional model-backed paths. | Generic task schemas, vector retrieval storage, transcript file formats. |
 | `text-embeddings` | Embedding backends, pooling, hashed fallback vectors, semantic search indexes. | General text classification, transcript parsing, linguistic annotations. |
 | `text-retrieval` | Chunking, metadata filters, BM25/vector/hybrid retrieval, persistence helpers. | Embedding model internals, ASR, linguistic parsing. |
-| `text-transcripts` | Transcript formats, ASR command adapters, whisper.cpp integration, transcript-specific analyzers. | Generic lexical features, retrieval ranking. |
+| `text-transcripts` | Transcript formats, transcript-specific analyzers, and optional ASR command/native adapters. | Generic lexical features, retrieval ranking. |
 | `text-classification` | Text classification, zero-shot classification, sentiment request/response contracts, imported-prediction handling, deterministic fallbacks, runtime broker APIs. | Tokenizer implementation details, direct download policy, retrieval indexes, transcript parsing. |
 | `text-question-answering` | Extractive QA request/response contracts and imported span postprocessing. | Text classification, retrieval indexes, transcript parsing. |
 | `text-generation` | Deterministic Markov prediction and template/text synthesis from known signals. | Hosted LLM clients or claims of open-ended generative model inference. |
