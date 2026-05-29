@@ -12,9 +12,6 @@ to exercise and display the Rust package surfaces.
 - Start with `rg --files | sed -n '1,200p'` for a fast file inventory.
 - Use `rg "<symbol-or-text>" crates packages prototypes tests scripts docs` for
   exact matches.
-- Use Semble when semantic search is available, for example
-  `semble search --repo . "how package reports are generated"` or the Codex
-  Semble search tool with `repo="."`.
 - Use `cargo metadata --no-deps` when workspace membership or crate dependency
   boundaries matter.
 - Check `git status --short --branch` before edits and again before handoff.

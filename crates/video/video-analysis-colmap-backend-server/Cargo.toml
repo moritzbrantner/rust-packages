@@ -20,4 +20,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-colmap-backend = { path = "../video-analysis-colmap-backend" }
+video-analysis-colmap-backend = { version = "0.1.0", path = "../video-analysis-colmap-backend" }

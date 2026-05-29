@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+publish = false
 description = "Command-line adapter for the audio-analysis-test-support library crate."
 repository.workspace = true
 homepage.workspace = true
@@ -20,4 +21,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-audio-analysis-test-support = { path = "../audio-analysis-test-support" }
+audio-analysis-test-support = { version = "0.1.0", path = "../audio-analysis-test-support" }

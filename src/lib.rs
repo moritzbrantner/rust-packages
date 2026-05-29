@@ -23,8 +23,6 @@ pub use audio_analysis_separation as audio_separation;
 pub use audio_analysis_speakers as audio_speakers;
 /// Re-exports the audio synthesis API.
 pub use audio_analysis_synthesis as audio_synthesis;
-/// Re-exports the audio test support API.
-pub use audio_analysis_test_support as audio_test_support;
 /// Re-exports the MIDI-like audio generation API.
 pub use audio_generation_midi as audio_midi;
 /// Re-exports the ComfyUI data API.
@@ -179,8 +177,6 @@ pub use video_analysis_split as split;
 pub use video_analysis_storage as storage;
 /// Re-exports the synthesis API.
 pub use video_analysis_synthesis as synthesis;
-/// Re-exports the video-analysis test support API.
-pub use video_analysis_test_support as test_support;
 /// Re-exports the tracking API.
 pub use video_analysis_tracking as tracking;
 /// Re-exports the transform API.

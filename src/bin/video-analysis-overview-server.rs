@@ -11,15 +11,15 @@ use video_analysis_core::runtime::{
 use video_analysis::{
     animation, audio_core, audio_fourier, audio_io, audio_midi, audio_pitch, audio_processing,
     audio_recognition, audio_rhythm, audio_separation, audio_speakers, audio_synthesis,
-    audio_test_support, colmap_backend, comfyui_data, comfyui_latents, comfyui_models, data,
-    dataset_records, dense, editing, features, ffmpeg, finance, gaussian_splatting, geo_data,
+    colmap_backend, comfyui_data, comfyui_latents, comfyui_models, data, dataset_records, dense,
+    editing, features, ffmpeg, finance, gaussian_splatting, geo_data,
     geometry2d, graph_core, image_captioning, image_classification, image_comfyui, image_core,
     image_detection, image_embeddings, image_io, image_ocr, image_processing, image_segmentation,
     image_synthesis, ingest, inversion, jobs, linear, maps_kernels, model_runtime, mvs, numbers,
     opencv_backend, output, posture, posture_io, radiance_fields, radiance_io, radiance_pipeline,
     recognition, reconstruction, sfm, sfm_rust_backend, signal, sparse, split, stats, storage,
-    synthesis, tensor_data, test_support, text_analysis, text_classification, text_core,
-    text_embeddings, text_generation, text_generation_linguistics, text_lexical, text_linguistics,
+    synthesis, tensor_data, text_analysis, text_classification, text_core, text_embeddings,
+    text_generation, text_generation_linguistics, text_lexical, text_linguistics,
     text_model_runtime, text_question_answering, text_retrieval, text_transcripts, three_d_core,
     three_d_io, three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
     video_segmentation, Timebase, Timestamp,
@@ -1941,9 +1941,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "audio-analysis-separation" => Some(audio_analysis_separation::surface::package_surface()),
         "audio-analysis-speakers" => Some(audio_analysis_speakers::surface::package_surface()),
         "audio-analysis-synthesis" => Some(audio_analysis_synthesis::surface::package_surface()),
-        "audio-analysis-test-support" => {
-            Some(audio_analysis_test_support::surface::package_surface())
-        }
         "audio-generation-midi" => Some(audio_generation_midi::surface::package_surface()),
         "comfyui-data" => Some(comfyui_data::surface::package_surface()),
         "comfyui-latents" => Some(comfyui_latents::surface::package_surface()),
@@ -2048,9 +2045,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "video-analysis-split" => Some(video_analysis_split::surface::package_surface()),
         "video-analysis-storage" => Some(video_analysis_storage::surface::package_surface()),
         "video-analysis-synthesis" => Some(video_analysis_synthesis::surface::package_surface()),
-        "video-analysis-test-support" => {
-            Some(video_analysis_test_support::surface::package_surface())
-        }
         "video-analysis-tracking" => Some(video_analysis_tracking::surface::package_surface()),
         "video-analysis-transform" => Some(video_analysis_transform::surface::package_surface()),
         _ => None,
@@ -2092,9 +2086,6 @@ fn run_surface_operation_for(
         )),
         "audio-analysis-synthesis" => Some(
             audio_analysis_synthesis::surface::run_surface_operation(request),
-        ),
-        "audio-analysis-test-support" => Some(
-            audio_analysis_test_support::surface::run_surface_operation(request),
         ),
         "audio-generation-midi" => Some(audio_generation_midi::surface::run_surface_operation(
             request,
@@ -2256,9 +2247,6 @@ fn run_surface_operation_for(
         "video-analysis-synthesis" => Some(
             video_analysis_synthesis::surface::run_surface_operation(request),
         ),
-        "video-analysis-test-support" => Some(
-            video_analysis_test_support::surface::run_surface_operation(request),
-        ),
         "video-analysis-tracking" => Some(video_analysis_tracking::surface::run_surface_operation(
             request,
         )),
@@ -2344,13 +2332,6 @@ const MODULES: &[ModuleInfo] = &[
         package: "audio-analysis-synthesis",
         import_path: "video_analysis::audio_synthesis",
         domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-test-support",
-        import_path: "video_analysis::audio_test_support",
-        domain: "support",
         linked: true,
         required_feature: None,
     },
@@ -2883,13 +2864,6 @@ const MODULES: &[ModuleInfo] = &[
         package: "video-analysis-synthesis",
         import_path: "video_analysis::synthesis",
         domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-test-support",
-        import_path: "video_analysis::test_support",
-        domain: "support",
         linked: true,
         required_feature: None,
     },

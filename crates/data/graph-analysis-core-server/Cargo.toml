@@ -20,4 +20,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-graph-analysis-core = { path = "../graph-analysis-core" }
+graph-analysis-core = { version = "0.1.0", path = "../graph-analysis-core" }

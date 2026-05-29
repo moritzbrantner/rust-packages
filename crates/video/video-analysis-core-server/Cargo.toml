@@ -19,4 +19,4 @@ path = "src/main.rs"
 [dependencies]
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-core = { path = "../video-analysis-core" }
+video-analysis-core = { version = "0.1.1", path = "../video-analysis-core" }

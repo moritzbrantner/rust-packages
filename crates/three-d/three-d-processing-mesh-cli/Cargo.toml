@@ -20,4 +20,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-three-d-processing-mesh = { path = "../three-d-processing-mesh" }
+three-d-processing-mesh = { version = "0.1.0", path = "../three-d-processing-mesh" }

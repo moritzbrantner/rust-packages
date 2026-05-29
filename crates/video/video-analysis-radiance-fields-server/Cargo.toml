@@ -20,4 +20,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-radiance-fields = { path = "../video-analysis-radiance-fields" }
+video-analysis-radiance-fields = { version = "0.1.0", path = "../video-analysis-radiance-fields" }

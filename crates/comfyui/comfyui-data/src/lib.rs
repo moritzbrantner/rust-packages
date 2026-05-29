@@ -762,9 +762,6 @@ pub fn write_prompt_pretty(prompt: &PromptGraph, writer: impl Write) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image_analysis_comfyui::{
-        build_generation_workflow, ComfyWorkflowPreset, ImageGenerationMode, ImageGenerationRequest,
-    };
 
     #[test]
     fn parses_and_validates_workflow_links() {
@@ -816,50 +813,6 @@ mod tests {
         let link = parse_prompt_link(&prompt["2"].inputs["model"]).unwrap();
         assert_eq!(link.node_id, "1");
         assert_eq!(link.output_index, 0);
-    }
-
-    #[test]
-    fn normalizes_socket_types_emitted_by_image_analysis_comfyui() {
-        let workflows = [
-            build_generation_workflow(&ImageGenerationRequest::new("red cube")).unwrap(),
-            build_generation_workflow(
-                &ImageGenerationRequest::new("repair")
-                    .mode(ImageGenerationMode::Inpaint)
-                    .input_image("input.png")
-                    .mask_image("mask.png"),
-            )
-            .unwrap(),
-            build_generation_workflow(
-                &ImageGenerationRequest::new("upscale")
-                    .mode(ImageGenerationMode::Upscale)
-                    .input_image("input.png"),
-            )
-            .unwrap(),
-            build_generation_workflow(
-                &ImageGenerationRequest::new("flux")
-                    .preset(ComfyWorkflowPreset::FluxInpaint)
-                    .mode(ImageGenerationMode::Inpaint)
-                    .checkpoint("flux1-dev.safetensors")
-                    .input_image("input.png")
-                    .mask_image("mask.png"),
-            )
-            .unwrap(),
-        ];
-
-        let observed: BTreeSet<_> = workflows
-            .iter()
-            .flat_map(|workflow| workflow.observed_socket_types().all())
-            .map(|socket_type| socket_type.to_string())
-            .collect();
-
-        assert!(observed.contains("MODEL"));
-        assert!(observed.contains("CLIP"));
-        assert!(observed.contains("VAE"));
-        assert!(observed.contains("CONDITIONING"));
-        assert!(observed.contains("LATENT"));
-        assert!(observed.contains("IMAGE"));
-        assert!(observed.contains("MASK"));
-        assert!(observed.contains("UPSCALE_MODEL"));
     }
 
     #[test]

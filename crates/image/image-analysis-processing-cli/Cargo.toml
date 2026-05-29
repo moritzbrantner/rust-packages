@@ -20,4 +20,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-image-analysis-processing = { path = "../image-analysis-processing" }
+image-analysis-processing = { version = "0.1.0", path = "../image-analysis-processing" }

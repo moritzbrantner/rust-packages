@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+publish = false
 description = "HTTP API adapter for the video-analysis-test-support library crate."
 repository.workspace = true
 homepage.workspace = true
@@ -20,4 +21,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-test-support = { path = "../video-analysis-test-support" }
+video-analysis-test-support = { version = "0.1.0", path = "../video-analysis-test-support" }

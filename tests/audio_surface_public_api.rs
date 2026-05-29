@@ -3,17 +3,7 @@ use video_analysis_core::runtime::{OperationId, SurfaceRequest};
 
 #[test]
 fn audio_surfaces_expose_cross_crate_deterministic_flow() {
-    let fixture = va::audio_test_support::surface::run_surface_operation(SurfaceRequest {
-        operation: OperationId::new("audio.fixtures.generate"),
-        input: serde_json::json!({
-            "kind": "sine",
-            "frequencyHz": 440.0,
-            "sampleRate": 8000,
-            "seconds": 0.05
-        }),
-    })
-    .expect("fixture");
-    let samples = fixture.value["samplePreview"].clone();
+    let samples = serde_json::json!([0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0]);
 
     let pitch = va::audio_pitch::surface::run_surface_operation(SurfaceRequest {
         operation: OperationId::new("audio.pitch.noteName"),

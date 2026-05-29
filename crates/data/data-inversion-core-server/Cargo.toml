@@ -20,4 +20,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-data-inversion-core = { path = "../data-inversion-core" }
+data-inversion-core = { version = "0.1.0", path = "../data-inversion-core" }

@@ -20,4 +20,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-audio-analysis-separation = { path = "../audio-analysis-separation" }
+audio-analysis-separation = { version = "0.1.0", path = "../audio-analysis-separation" }

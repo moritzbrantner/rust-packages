@@ -32,14 +32,3 @@ fn data_inversion_jobs_and_model_runtime_surfaces_accept_valid_inputs() {
     assert_eq!(bundle.value["downloadsRequired"], false);
     assert_eq!(bundle.value["manifest"]["files"][0]["presentLocally"], true);
 }
-
-#[test]
-fn test_support_surface_returns_minimal_fixture_report() {
-    let response = video_analysis_test_support::surface::run_surface_operation(SurfaceRequest {
-        operation: OperationId::new("testSupport.minimalReport"),
-        input: serde_json::json!({}),
-    })
-    .expect("minimal report");
-    assert_eq!(response.value["producesComplexVideoOr3dPayloads"], false);
-    assert!(response.value["dataset"]["records"].as_u64().unwrap() > 0);
-}

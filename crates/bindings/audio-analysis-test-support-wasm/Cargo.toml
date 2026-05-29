@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+publish = false
 description = "WASM bindings for audio-analysis-test-support."
 repository.workspace = true
 homepage.workspace = true

@@ -1016,7 +1016,6 @@ checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 name = "comfyui-data"
 version = "0.1.0"
 dependencies = [
- "image-analysis-comfyui",
  "serde",
  "serde_json",
  "tensor-data",
@@ -6036,7 +6035,6 @@ dependencies = [
  "audio-analysis-separation",
  "audio-analysis-speakers",
  "audio-analysis-synthesis",
- "audio-analysis-test-support",
  "audio-generation-midi",
  "clap",
  "comfyui-data",
@@ -6126,7 +6124,6 @@ dependencies = [
  "video-analysis-split",
  "video-analysis-storage",
  "video-analysis-synthesis",
- "video-analysis-test-support",
  "video-analysis-tracking",
  "video-analysis-transform",
 ]

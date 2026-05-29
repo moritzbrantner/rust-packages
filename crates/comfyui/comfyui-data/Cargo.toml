@@ -18,6 +18,3 @@ serde.workspace = true
 serde_json.workspace = true
 tensor-data.workspace = true
 thiserror.workspace = true
-
-[dev-dependencies]
-image-analysis-comfyui.workspace = true

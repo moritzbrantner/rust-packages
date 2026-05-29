@@ -20,4 +20,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-posture-io = { path = "../video-analysis-posture-io" }
+video-analysis-posture-io = { version = "0.1.0", path = "../video-analysis-posture-io" }

@@ -228,7 +228,6 @@ audio-analysis-rhythm.workspace = true
 audio-analysis-separation.workspace = true
 audio-analysis-speakers.workspace = true
 audio-analysis-synthesis.workspace = true
-audio-analysis-test-support.workspace = true
 data-inversion-core.workspace = true
 graph-analysis-core.workspace = true
 geo-data.workspace = true
@@ -278,7 +277,6 @@ three-d-processing-io.workspace = true
 three-d-processing-mesh.workspace = true
 three-d-scene-svg.workspace = true
 video-analysis-posture-io.workspace = true
-video-analysis-test-support.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
