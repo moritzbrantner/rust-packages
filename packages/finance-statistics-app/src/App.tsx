@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/finance-statistics",
     standaloneRoute: "",
   },
+  defaultOperation: "finance.returns",
+  featuredOperations: ["finance.returns", "finance.risk", "finance.drawdown", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["finance.returns", "finance.risk", "finance.drawdown"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

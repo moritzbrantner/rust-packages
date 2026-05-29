@@ -59,3 +59,23 @@ assert!(svg.contains("<svg"));
 - `three-d-processing-core`
 - `three-d-processing-mesh`
 - `three-d-processing-io`
+
+## Package surface
+
+Workflow operations:
+
+- `threeD.sceneSvg.summary`
+- `threeD.sceneSvg.exportSvg`
+
+Debug operations:
+
+- `describe`
+- `threeD.sceneSvg.renderPlan`
+
+Runtime limits:
+
+Operations are deterministic, local-first, and side-effect free. They return inline JSON reports and do not download models, write files, or run native tools.
+
+Invalid input returns a clear error through `run_surface_operation`; successful
+responses include `operation`, `title`, `message`, `summary`, and `result` while
+keeping existing top-level domain fields for compatibility.

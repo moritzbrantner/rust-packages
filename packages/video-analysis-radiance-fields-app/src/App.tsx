@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-radiance-fields",
     standaloneRoute: "",
   },
+  defaultOperation: "video.radiance.fieldSummary",
+  featuredOperations: ["video.radiance.fieldSummary", "video.radiance.cameraPath", "video.radiance.renderPlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.radiance.fieldSummary", "video.radiance.cameraPath"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.radiance.renderPlan"],
+    },
+  ],
 };
 
 export function App() {

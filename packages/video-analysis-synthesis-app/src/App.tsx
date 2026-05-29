@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-synthesis",
     standaloneRoute: "",
   },
+  defaultOperation: "video.synthesis.framePlan",
+  featuredOperations: ["video.synthesis.framePlan", "video.synthesis.overlayPlan", "video.synthesis.renderSummary", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.synthesis.framePlan"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.synthesis.overlayPlan", "video.synthesis.renderSummary"],
+    },
+  ],
 };
 
 export function App() {

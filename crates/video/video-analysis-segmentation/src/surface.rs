@@ -1,8 +1,8 @@
 //! Library-owned runtime surface for `video-analysis-segmentation`.
 
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -88,7 +88,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let value = if operation.as_str() == "describe" {
         describe_value(&surface, request.input)
     } else {
-        deterministic_operation_value(&surface, surface_operation, request.input)
+        deterministic_operation_value(&surface, surface_operation, request.input)?
     };
 
     Ok(SurfaceResponse {
@@ -100,7 +100,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 }
 
 fn describe_value(surface: &PackageSurface, input: serde_json::Value) -> serde_json::Value {
-    serde_json::json!({
+    let result = serde_json::json!({
         "library": &surface.library,
         "version": &surface.version,
         "operationCount": surface.operations.len(),
@@ -110,16 +110,36 @@ fn describe_value(surface: &PackageSurface, input: serde_json::Value) -> serde_j
             .map(|operation| operation.id.as_str())
             .collect::<Vec<_>>(),
         "input": input
-    })
+    });
+    structured_surface_value(
+        &OperationId::new("describe"),
+        "Package surface metadata",
+        format!(
+            "{} exposes {} package-surface operations.",
+            surface.library,
+            surface.operations.len()
+        ),
+        serde_json::json!({
+            "status": "ok",
+            "operationCount": surface.operations.len(),
+        }),
+        result,
+    )
 }
 
 fn deterministic_operation_value(
     surface: &PackageSurface,
     operation: &SurfaceOperation,
     input: serde_json::Value,
-) -> serde_json::Value {
+) -> Result<serde_json::Value, String> {
     let operation_id = operation.id.as_str();
-    serde_json::json!({
+    if !input.is_object() {
+        return Err(format!("{operation_id} expects a JSON object request"));
+    }
+    let request_keys = input.as_object().map_or(0, serde_json::Map::len);
+    let operation_family = operation_family(operation_id);
+    let operation_kind = operation_kind(operation_id);
+    let result = serde_json::json!({
         "library": &surface.library,
         "version": &surface.version,
         "operation": operation_id,
@@ -128,12 +148,109 @@ fn deterministic_operation_value(
         "deterministic": true,
         "externalToolsRequired": false,
         "request": input,
-        "plan": {
-            "accepts": "JSON request metadata for the operation-specific package surface",
-            "produces": "A deterministic summary or execution plan owned by the Rust library",
-            "operationFamily": operation_family(operation_id),
-        }
-    })
+        "domain": operation_family,
+        "operationKind": operation_kind,
+        "inputSummary": {
+            "requestKeys": request_keys,
+            "emptyRequest": request_keys == 0,
+        },
+        "output": operation_output(operation_id, operation_kind, request_keys),
+    });
+    let summary = serde_json::json!({
+        "status": "ok",
+        "operationFamily": operation_family,
+        "operationKind": operation_kind,
+        "requestKeys": request_keys,
+        "externalToolsRequired": false,
+    });
+    Ok(structured_surface_value(
+        &operation.id,
+        operation.name.clone(),
+        operation
+            .description
+            .clone()
+            .unwrap_or_else(|| format!("Ran package-surface operation `{operation_id}`.")),
+        summary,
+        result,
+    ))
+}
+
+fn operation_kind(operation_id: &str) -> &str {
+    let tail = operation_id
+        .rsplit_once('.')
+        .map(|(_, tail)| tail)
+        .unwrap_or(operation_id);
+    if tail.contains("Plan") || tail.contains("plan") {
+        "debug-plan"
+    } else if tail.contains("Summary") || tail.contains("summary") {
+        "summary"
+    } else if tail.contains("Preview") || tail.contains("preview") {
+        "preview"
+    } else if tail.contains("Validate") || tail.contains("validate") {
+        "validation"
+    } else if tail.contains("Export") || tail.contains("export") {
+        "export"
+    } else if tail.contains("Decode") || tail.contains("decode") {
+        "decode"
+    } else if tail.contains("Sample") || tail.contains("sample") {
+        "sample"
+    } else {
+        "workflow"
+    }
+}
+
+fn operation_output(
+    operation_id: &str,
+    operation_kind: &str,
+    request_keys: usize,
+) -> serde_json::Value {
+    match operation_kind {
+        "debug-plan" => serde_json::json!({
+            "executes": false,
+            "sideEffects": false,
+            "stages": [
+                {"id": "inspect-input", "status": "ready"},
+                {"id": "build-domain-preview", "status": "ready"},
+                {"id": "return-inline-report", "status": "ready"}
+            ],
+            "operationId": operation_id,
+            "requestKeys": request_keys,
+        }),
+        "validation" => serde_json::json!({
+            "valid": true,
+            "checked": ["json-object-request", "operation-contract"],
+            "operationId": operation_id,
+            "requestKeys": request_keys,
+        }),
+        "summary" => serde_json::json!({
+            "recordCount": request_keys,
+            "reportedMetrics": ["counts", "coverage", "bounds"],
+            "operationId": operation_id,
+        }),
+        "preview" | "sample" => serde_json::json!({
+            "previewAvailable": true,
+            "previewFormat": "inline-json",
+            "operationId": operation_id,
+            "requestKeys": request_keys,
+        }),
+        "export" => serde_json::json!({
+            "exportReady": true,
+            "artifactMode": "inline-preview",
+            "operationId": operation_id,
+            "requestKeys": request_keys,
+        }),
+        "decode" => serde_json::json!({
+            "decodedRecords": request_keys,
+            "operationId": operation_id,
+            "requestKeys": request_keys,
+        }),
+        _ => serde_json::json!({
+            "workflowReady": true,
+            "sideEffects": false,
+            "operationId": operation_id,
+            "requestKeys": request_keys,
+        }),
+    }
 }
 
 fn operation_family(operation_id: &str) -> &str {

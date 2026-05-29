@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/comfyui-data",
     standaloneRoute: "",
   },
+  defaultOperation: "comfy.workflow.validate",
+  featuredOperations: ["comfy.workflow.validate", "comfy.prompt.links", "comfy.workflow.inventory", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["comfy.workflow.validate", "comfy.prompt.links"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "comfy.workflow.inventory"],
+    },
+  ],
 };
 
 export function App() {

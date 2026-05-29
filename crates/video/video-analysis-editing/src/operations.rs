@@ -87,7 +87,7 @@ pub fn deterministic_operation_value(
     input: serde_json::Value,
 ) -> serde_json::Value {
     let operation_id = operation.id.as_str();
-    serde_json::json!({
+    let result = serde_json::json!({
         "library": &surface.library,
         "version": &surface.version,
         "operation": operation_id,
@@ -96,12 +96,26 @@ pub fn deterministic_operation_value(
         "deterministic": true,
         "externalToolsRequired": false,
         "request": input,
-        "plan": {
-            "accepts": "JSON request metadata for the operation-specific package surface",
-            "produces": "A deterministic summary or execution plan owned by the Rust library",
+        "output": {
             "operationFamily": operation_family(operation_id),
+            "sideEffects": false,
+            "artifactMode": "inline-json"
         }
-    })
+    });
+    video_analysis_core::runtime::structured_surface_value(
+        &operation.id,
+        operation.name.clone(),
+        operation
+            .description
+            .clone()
+            .unwrap_or_else(|| format!("Ran package-surface operation `{operation_id}`.")),
+        serde_json::json!({
+            "status": "ok",
+            "operationFamily": operation_family(operation_id),
+            "externalToolsRequired": false
+        }),
+        result,
+    )
 }
 
 fn parse_clips(requests: Vec<TimelineClipRequest>) -> Result<Vec<TimelineClip>, String> {

@@ -10,8 +10,8 @@ const packageAppConfig: PackageAppConfig = {
   featuredOperations: ["audio.fixtures.generate", "audio.fixtures.frame", "audio.fixtures.catalog", "describe"],
   operationGroups: [
     {
-      id: "support",
-      label: "Support",
+      id: "workflow",
+      label: "Workflow",
       description: "Generate deterministic audio fixtures for tests and examples.",
       operations: ["audio.fixtures.generate", "audio.fixtures.frame"],
     },

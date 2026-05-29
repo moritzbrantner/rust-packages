@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/math-linear",
     standaloneRoute: "",
   },
+  defaultOperation: "linear.matmul",
+  featuredOperations: ["linear.matmul", "linear.kernel1d", "linear.tensorBridge", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["linear.matmul", "linear.kernel1d", "linear.tensorBridge"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

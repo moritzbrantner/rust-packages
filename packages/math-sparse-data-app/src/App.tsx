@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/math-sparse-data",
     standaloneRoute: "",
   },
+  defaultOperation: "sparse.similarity",
+  featuredOperations: ["sparse.similarity", "sparse.toDense", "sparse.matrixSummary", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["sparse.similarity", "sparse.toDense"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "sparse.matrixSummary"],
+    },
+  ],
 };
 
 export function App() {

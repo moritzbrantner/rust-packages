@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-posture-io",
     standaloneRoute: "",
   },
+  defaultOperation: "video.postureIo.formatSummary",
+  featuredOperations: ["video.postureIo.formatSummary", "video.postureIo.parsePlan", "video.postureIo.exportPlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.postureIo.formatSummary"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.postureIo.parsePlan", "video.postureIo.exportPlan"],
+    },
+  ],
 };
 
 export function App() {

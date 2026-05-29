@@ -6,22 +6,46 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import argparse
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
+WRITE_FORCE = False
+SKIPPED_WRITES: list[Path] = []
 
 
 def main() -> None:
+    global WRITE_FORCE
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--only",
+        action="append",
+        required=True,
+        help="library crate to scaffold; required for all writes and repeatable",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite existing generated files for the selected crate(s)",
+    )
+    args = parser.parse_args()
+    WRITE_FORCE = args.force
+
     metadata = cargo_metadata()
     workspace_members = set(metadata["workspace_members"])
+    selected = set(args.only)
     packages = [
         pkg
         for pkg in metadata["packages"]
         if pkg["id"] in workspace_members and is_library_crate(pkg)
+        and pkg["name"] in selected
     ]
     packages.sort(key=lambda pkg: pkg["name"])
+    missing = selected - {pkg["name"] for pkg in packages}
+    if missing:
+        raise SystemExit(f"unknown library crate(s): {', '.join(sorted(missing))}")
 
     for package in packages:
         manifest = Path(package["manifest_path"])
@@ -43,6 +67,10 @@ def main() -> None:
 
     rewrite_root_package_scripts()
     print(f"generated CLI, server, WASM, and app surfaces for {len(packages)} library crates")
+    if SKIPPED_WRITES:
+        print(
+            f"skipped {len(SKIPPED_WRITES)} existing files; rerun with --force to overwrite"
+        )
 
 
 def cargo_metadata() -> dict:
@@ -270,7 +298,9 @@ cargo run -p {package_name} -- run --operation describe --json '{{"includeOperat
 
 
 def cli_lib_source(name: str) -> str:
-    return f"""use video_analysis_core::runtime::{{OperationId, PackageSurface, SurfaceRequest, SurfaceResponse}};
+    return f"""use video_analysis_core::runtime::{{
+    ensure_structured_surface_value, OperationId, PackageSurface, SurfaceRequest, SurfaceResponse,
+}};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "{name}";
@@ -316,10 +346,21 @@ pub fn command_schema_json() -> String {{
 }}
 
 pub fn run_operation(operation: &str, input: serde_json::Value) -> Result<SurfaceResponse, String> {{
-    {rust_ident(name)}::surface::run_surface_operation(SurfaceRequest {{
+    let mut response = {rust_ident(name)}::surface::run_surface_operation(SurfaceRequest {{
         operation: OperationId::new(operation),
         input,
-    }})
+    }})?;
+    let value = std::mem::take(&mut response.value);
+    response.value = ensure_structured_surface_value(
+        &response.operation,
+        response.operation.as_str().to_string(),
+        format!(
+            "Ran package-surface operation `{{}}`.",
+            response.operation.as_str()
+        ),
+        value,
+    );
+    Ok(response)
 }}
 
 #[cfg(test)]
@@ -982,7 +1023,7 @@ def write_app(name: str, description: str) -> None:
     package_name = f"{name}-app"
     app_dir = ROOT / "packages" / package_name
     src_dir = app_dir / "src"
-    if src_dir.exists():
+    if src_dir.exists() and WRITE_FORCE:
         shutil.rmtree(src_dir)
     src_dir.mkdir(parents=True, exist_ok=True)
     title = title_case(name)
@@ -1005,6 +1046,7 @@ def write_app(name: str, description: str) -> None:
                     "preview": "vite preview --host 0.0.0.0",
                 },
                 "dependencies": {
+                    "@video-analysis/ui": "workspace:*",
                     wasm_package: "workspace:*",
                     "@vitejs/plugin-react": "^5.1.2",
                     "react": "^19.2.5",
@@ -1029,7 +1071,6 @@ def write_app(name: str, description: str) -> None:
     write(app_dir / "vite.config.ts", app_vite_config(name))
     write(app_dir / "postcss.config.ts", app_postcss_config())
     write(app_dir / "tailwind.config.ts", app_tailwind_config())
-    write(src_dir / "api.ts", app_api_source(name))
     write(src_dir / "App.tsx", app_component_source(name, title, description))
     write(src_dir / "vite-env.d.ts", '/// <reference types="vite/client" />\n')
     write(src_dir / "main.tsx", app_main_source())
@@ -1142,202 +1183,44 @@ async function fetchJson<T>(path: string): Promise<T> {{
 
 
 def app_component_source(name: str, title: str, description: str) -> str:
-    return f"""import {{ FormEvent, useEffect, useMemo, useState }} from "react";
+    domain = package_domain(name)
+    return f"""import {{ PackageSurfaceWorkbench, type PackageAppConfig }} from "@video-analysis/ui/package-surface";
+import * as wasm from "@mb-rust/{name}-wasm";
 
-import {{
-  fetchHealth,
-  fetchServerSurface,
-  initializeWasm,
-  runOperation,
-  serverBaseUrl,
-  wrappedLibrary,
-  type HealthPayload,
-  type PackageSurface,
-  type RuntimeMode,
-  type SurfaceOperation,
-}} from "./api";
-
-type LoadState = "loading" | "ready" | "error";
-const packageDescription = {json.dumps(description)};
+const packageAppConfig: PackageAppConfig = {{
+  library: "{name}",
+  title: "{title}",
+  description: {json.dumps(description)},
+  domain: "{domain}",
+  wasm: {{
+    init: wasm.init,
+    packageSurface: wasm.packageSurface,
+    runOperation: wasm.runOperation,
+  }},
+  server: {{
+    scopedRoute: "/api/rust/packages/{name}",
+    standaloneRoute: "",
+  }},
+  defaultOperation: "describe",
+  featuredOperations: ["describe"],
+  operationGroups: [
+    {{
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: [],
+    }},
+    {{
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    }},
+  ],
+}};
 
 export function App() {{
-  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("client-wasm");
-  const [wasmState, setWasmState] = useState<LoadState>("loading");
-  const [serverState, setServerState] = useState<LoadState>("loading");
-  const [health, setHealth] = useState<HealthPayload | null>(null);
-  const [surface, setSurface] = useState<PackageSurface | null>(null);
-  const [selectedOperation, setSelectedOperation] = useState("describe");
-  const [input, setInput] = useState("{{}}");
-  const [result, setResult] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {{
-    initializeWasm()
-      .then((nextSurface) => {{
-        setSurface(nextSurface);
-        setSelectedOperation(nextSurface.operations[0]?.id ?? "describe");
-        setInput(JSON.stringify(nextSurface.operations[0]?.exampleRequest ?? {{}}, null, 2));
-        setWasmState("ready");
-      }})
-      .catch((caught) => {{
-        setError(caught instanceof Error ? caught.message : String(caught));
-        setWasmState("error");
-      }});
-
-    Promise.all([fetchHealth(), fetchServerSurface()])
-      .then(([nextHealth, serverSurface]) => {{
-        setHealth(nextHealth);
-        setSurface((current) => current ?? serverSurface);
-        setServerState("ready");
-      }})
-      .catch(() => setServerState("error"));
-  }}, []);
-
-  const operation = useMemo(
-    () => surface?.operations.find((candidate) => candidate.id === selectedOperation) ?? surface?.operations[0],
-    [selectedOperation, surface?.operations],
-  );
-
-  function chooseOperation(nextOperation: string) {{
-    setSelectedOperation(nextOperation);
-    const metadata = surface?.operations.find((candidate) => candidate.id === nextOperation);
-    setInput(JSON.stringify(metadata?.exampleRequest ?? {{}}, null, 2));
-    setResult("");
-    setError(null);
-  }}
-
-  async function submit(event: FormEvent<HTMLFormElement>) {{
-    event.preventDefault();
-    setError(null);
-    setResult("");
-    try {{
-      const payload = JSON.parse(input || "{{}}");
-      const response = await runOperation(runtimeMode, selectedOperation, payload);
-      setResult(JSON.stringify(response, null, 2));
-    }} catch (caught) {{
-      setError(caught instanceof Error ? caught.message : "Operation failed");
-    }}
-  }}
-
-  return (
-    <main className="min-h-screen bg-zinc-50 text-zinc-950">
-      <section className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">Package surface app</p>
-            <h1 className="mt-1 text-2xl font-semibold">{title}</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{{packageDescription}}</p>
-          </div>
-          <div className="segmented-control" role="group" aria-label="Runtime mode">
-            <ModeButton active={{runtimeMode === "client-wasm"}} onClick={{() => setRuntimeMode("client-wasm")}}>
-              Client WASM
-            </ModeButton>
-            <ModeButton active={{runtimeMode === "server"}} onClick={{() => setRuntimeMode("server")}}>
-              Server API
-            </ModeButton>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto grid max-w-6xl gap-5 px-5 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <form className="panel" onSubmit={{submit}}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <label className="grid flex-1 gap-1 text-sm">
-              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Operation</span>
-              <select
-                className="rounded-md border border-zinc-300 px-3 py-2"
-                value={{selectedOperation}}
-                onChange={{(event) => chooseOperation(event.target.value)}}
-              >
-                {{(surface?.operations ?? []).map((candidate) => (
-                  <option key={{candidate.id}} value={{candidate.id}}>
-                    {{candidate.name}}
-                  </option>
-                ))}}
-              </select>
-            </label>
-            <button className="button-primary" type="submit">
-              Run
-            </button>
-          </div>
-          <p className="section-copy mt-3">{{operation?.description ?? `Run ${{wrappedLibrary}} operation.`}}</p>
-          <textarea
-            className="code-input mt-4"
-            spellCheck={{false}}
-            value={{input}}
-            onChange={{(event) => setInput(event.target.value)}}
-          />
-          {{result ? <pre className="result-block">{{result}}</pre> : null}}
-          {{error ? <p className="error-text">{{error}}</p> : null}}
-        </form>
-
-        <aside className="space-y-5">
-          <section className="panel">
-            <h2 className="section-title">Runtime</h2>
-            <dl className="detail-list">
-              <StatusRow label="WASM" state={{wasmState}} />
-              <StatusRow label="Server" state={{serverState}} />
-              <div>
-                <dt>Server URL</dt>
-                <dd>{{serverBaseUrl}}</dd>
-              </div>
-              <div>
-                <dt>Health</dt>
-                <dd>{{health?.package ?? "Not loaded"}}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="panel">
-            <h2 className="section-title">Surface</h2>
-            <dl className="detail-list">
-              <div>
-                <dt>Library</dt>
-                <dd>{{surface?.library ?? wrappedLibrary}}</dd>
-              </div>
-              <div>
-                <dt>Operations</dt>
-                <dd>{{surface?.operations.length ?? 0}}</dd>
-              </div>
-              <div>
-                <dt>Selected</dt>
-                <dd>{{selectedOperation}}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="panel">
-            <h2 className="section-title">Support</h2>
-            <ul className="endpoint-list">
-              {{(surface?.operations ?? []).map((candidate: SurfaceOperation) => (
-                <li key={{candidate.id}}>
-                  {{candidate.id}} · WASM {{candidate.wasmSupported ? "yes" : "no"}} · server{" "}
-                  {{candidate.serverSupported ? "yes" : "no"}}
-                </li>
-              ))}}
-            </ul>
-          </section>
-        </aside>
-      </section>
-    </main>
-  );
-}}
-
-function ModeButton(props: {{ active: boolean; children: string; onClick: () => void }}) {{
-  return (
-    <button className={{props.active ? "mode-button mode-button-active" : "mode-button"}} type="button" onClick={{props.onClick}}>
-      {{props.children}}
-    </button>
-  );
-}}
-
-function StatusRow(props: {{ label: string; state: LoadState }}) {{
-  return (
-    <div>
-      <dt>{{props.label}}</dt>
-      <dd>{{props.state === "ready" ? "Ready" : props.state === "error" ? "Unavailable" : "Loading"}}</dd>
-    </div>
-  );
+  return <PackageSurfaceWorkbench config={{packageAppConfig}} />;
 }}
 """
 
@@ -1427,7 +1310,7 @@ def app_tailwind_config() -> str:
     return """import type { Config } from "tailwindcss";
 
 export default {
-  content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  content: ["./index.html", "./src/**/*.{ts,tsx}", "../video-analysis-ui/src/**/*.{ts,tsx}"],
   theme: {
     extend: {},
   },
@@ -1541,8 +1424,39 @@ def rust_ident(name: str) -> str:
 
 
 def write(path: Path, content: str) -> None:
+    if path.exists() and not WRITE_FORCE:
+        SKIPPED_WRITES.append(path)
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
+
+
+def package_domain(name: str) -> str:
+    if name.startswith("audio-"):
+        return "audio"
+    if name.startswith("image-"):
+        return "image"
+    if name.startswith("text-"):
+        return "text"
+    if name.startswith("vector-"):
+        return "vector"
+    if name.startswith("three-d-"):
+        return "three-d"
+    if name.startswith("comfyui-"):
+        return "comfyui"
+    if name.startswith("math-") or name in {"finance-statistics", "numbers-core"}:
+        return "math"
+    if name.startswith("data-") or name in {"dense-data", "geo-data", "graph-analysis-core", "tensor-data"}:
+        return "data"
+    if name.startswith("model-"):
+        return "runtime"
+    if name.startswith("jobs-"):
+        return "jobs"
+    if name.endswith("test-support"):
+        return "support"
+    if name.startswith("animation-"):
+        return "animation"
+    return "video"
 
 
 if __name__ == "__main__":

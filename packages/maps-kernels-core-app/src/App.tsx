@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/maps-kernels-core",
     standaloneRoute: "",
   },
+  defaultOperation: "maps.kernelSummary",
+  featuredOperations: ["maps.kernelSummary", "maps.applyKernel", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["maps.kernelSummary", "maps.applyKernel"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

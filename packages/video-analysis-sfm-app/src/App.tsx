@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-sfm",
     standaloneRoute: "",
   },
+  defaultOperation: "video.sfm.matchPlan",
+  featuredOperations: ["video.sfm.matchPlan", "video.sfm.cameraGraph", "video.sfm.reconstructionSummary", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.sfm.matchPlan"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.sfm.cameraGraph", "video.sfm.reconstructionSummary"],
+    },
+  ],
 };
 
 export function App() {

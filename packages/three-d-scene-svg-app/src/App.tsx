@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/three-d-scene-svg",
     standaloneRoute: "",
   },
+  defaultOperation: "threeD.sceneSvg.summary",
+  featuredOperations: ["threeD.sceneSvg.summary", "threeD.sceneSvg.exportSvg", "threeD.sceneSvg.renderPlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["threeD.sceneSvg.summary", "threeD.sceneSvg.exportSvg"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "threeD.sceneSvg.renderPlan"],
+    },
+  ],
 };
 
 export function App() {

@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use video_analysis_core::runtime::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    ensure_structured_surface_value, Diagnostic, DiagnosticSeverity, OperationId, PackageSurface,
+    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -133,20 +133,25 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         ));
     };
 
-    if operation.as_str() == RECONSTRUCT_VIDEO_OPERATION {
-        return Err(format!(
-            "`{}` is a native server-only operation; call the video-analysis-colmap-backend server or overview server dispatch path",
-            RECONSTRUCT_VIDEO_OPERATION
-        ));
-    }
-
     let value = match operation.as_str() {
         "describe" => describe_value(&surface, request.input),
         COMMAND_PLAN_OPERATION => command_plan_value(request.input)?,
         IMAGE_LIST_OPERATION => image_list_value(request.input)?,
         SPARSE_SUMMARY_OPERATION => sparse_summary_value(request.input),
+        RECONSTRUCT_VIDEO_OPERATION => {
+            return Ok(native_operation_diagnostic(operation));
+        }
         _ => deterministic_operation_value(&surface, surface_operation, request.input),
     };
+    let value = ensure_structured_surface_value(
+        &operation,
+        surface_operation.name.clone(),
+        surface_operation
+            .description
+            .clone()
+            .unwrap_or_else(|| format!("Ran package-surface operation `{}`.", operation.as_str())),
+        value,
+    );
 
     Ok(SurfaceResponse {
         operation,
@@ -176,7 +181,7 @@ fn deterministic_operation_value(
     input: serde_json::Value,
 ) -> serde_json::Value {
     let operation_id = operation.id.as_str();
-    serde_json::json!({
+    let result = serde_json::json!({
         "library": &surface.library,
         "version": &surface.version,
         "operation": operation_id,
@@ -185,12 +190,21 @@ fn deterministic_operation_value(
         "deterministic": true,
         "externalToolsRequired": false,
         "request": input,
-        "plan": {
-            "accepts": "JSON request metadata for the operation-specific package surface",
-            "produces": "A deterministic summary or execution plan owned by the Rust library",
+        "output": {
             "operationFamily": operation_family(operation_id),
+            "sideEffects": false,
+            "artifactMode": "inline-json"
         }
-    })
+    });
+    ensure_structured_surface_value(
+        &operation.id,
+        operation.name.clone(),
+        operation
+            .description
+            .clone()
+            .unwrap_or_else(|| format!("Ran package-surface operation `{operation_id}`.")),
+        result,
+    )
 }
 
 fn operation_family(operation_id: &str) -> &str {
@@ -198,6 +212,43 @@ fn operation_family(operation_id: &str) -> &str {
         .split_once('.')
         .map(|(family, _)| family)
         .unwrap_or(operation_id)
+}
+
+fn native_operation_diagnostic(operation: OperationId) -> SurfaceResponse {
+    let message = format!(
+        "`{RECONSTRUCT_VIDEO_OPERATION}` is a native server-only operation; call the video-analysis-colmap-backend server or overview server dispatch path"
+    );
+    let result = serde_json::json!({
+        "operation": operation.as_str(),
+        "supported": false,
+        "runtime": "native-server",
+        "requiredTools": ["ffmpeg", "colmap"],
+        "nextStep": "Run the package server or overview server dispatch path to execute native reconstruction.",
+    });
+    SurfaceResponse {
+        value: video_analysis_core::runtime::structured_surface_value(
+            &operation,
+            "COLMAP native reconstruction unavailable in library runner",
+            &message,
+            serde_json::json!({
+                "status": "unsupported",
+                "nativeServerOnly": true,
+                "requiredTools": ["ffmpeg", "colmap"],
+            }),
+            result,
+        ),
+        operation,
+        diagnostics: vec![Diagnostic {
+            severity: DiagnosticSeverity::Warning,
+            code: "native_server_only".into(),
+            message,
+            source: Some(env!("CARGO_PKG_NAME").to_string()),
+            help: Some(
+                "Use video.colmap.commandPlan for a deterministic dry-run preview.".to_string(),
+            ),
+        }],
+        artifacts: Vec::new(),
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -731,13 +782,15 @@ mod tests {
     }
 
     #[test]
-    fn generic_runner_rejects_native_reconstruct_video_operation() {
-        let error = run_surface_operation(SurfaceRequest {
+    fn generic_runner_reports_native_reconstruct_video_diagnostic() {
+        let response = run_surface_operation(SurfaceRequest {
             operation: OperationId::new(RECONSTRUCT_VIDEO_OPERATION),
             input: serde_json::json!({}),
         })
-        .unwrap_err();
+        .expect("native diagnostic");
 
-        assert!(error.contains("server-only"));
+        assert_eq!(response.value["summary"]["status"], "unsupported");
+        assert_eq!(response.value["result"]["supported"], false);
+        assert_eq!(response.diagnostics[0].code.as_str(), "native_server_only");
     }
 }

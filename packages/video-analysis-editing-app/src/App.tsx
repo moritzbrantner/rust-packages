@@ -15,6 +15,28 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-editing",
     standaloneRoute: "",
   },
+  defaultOperation: "video.editing.cutPlan",
+  featuredOperations: [
+    "video.editing.cutPlan",
+    "video.editing.frameApply",
+    "video.editing.concatPlan",
+    "video.editing.subtitlePlan",
+    "describe",
+  ],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.editing.cutPlan", "video.editing.frameApply"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.editing.concatPlan", "video.editing.subtitlePlan"],
+    },
+  ],
 };
 
 export function App() {

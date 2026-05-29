@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-mvs",
     standaloneRoute: "",
   },
+  defaultOperation: "video.mvs.depthPlan",
+  featuredOperations: ["video.mvs.depthPlan", "video.mvs.fusionPlan", "video.mvs.outputSummary", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.mvs.depthPlan"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.mvs.fusionPlan", "video.mvs.outputSummary"],
+    },
+  ],
 };
 
 export function App() {

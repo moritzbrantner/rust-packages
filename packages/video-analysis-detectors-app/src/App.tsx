@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-detectors",
     standaloneRoute: "",
   },
+  defaultOperation: "video.detectors.registry",
+  featuredOperations: ["video.detectors.registry", "video.detectors.flashFilter", "video.detectors.compositePlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.detectors.registry", "video.detectors.flashFilter"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.detectors.compositePlan"],
+    },
+  ],
 };
 
 export function App() {

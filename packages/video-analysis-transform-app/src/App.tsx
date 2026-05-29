@@ -15,6 +15,33 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-transform",
     standaloneRoute: "",
   },
+  defaultOperation: "video.transform.filter",
+  featuredOperations: [
+    "video.transform.filter",
+    "video.transform.window",
+    "video.transform.groupScenes",
+    "video.transform.resampleFeatures",
+    "describe",
+  ],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: [
+        "video.transform.filter",
+        "video.transform.window",
+        "video.transform.groupScenes",
+        "video.transform.resampleFeatures",
+      ],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

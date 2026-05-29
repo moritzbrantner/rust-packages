@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/comfyui-latents",
     standaloneRoute: "",
   },
+  defaultOperation: "comfy.latents.size",
+  featuredOperations: ["comfy.latents.size", "comfy.latents.maskCompatibility", "comfy.latents.batchSummary", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["comfy.latents.size", "comfy.latents.maskCompatibility"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "comfy.latents.batchSummary"],
+    },
+  ],
 };
 
 export function App() {

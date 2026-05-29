@@ -1,7 +1,7 @@
 //! Library-owned runtime surface for `video-analysis-editing`.
 
 use video_analysis_core::runtime::{
-    describe_surface_response, surface_operation, surface_response, PackageSurface,
+    describe_surface_response, structured_operation_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
 
@@ -79,7 +79,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         _ => deterministic_operation_value(&surface, surface_operation, request.input),
     };
 
-    Ok(surface_response(operation, value))
+    Ok(structured_operation_response(&surface, operation, value))
 }
 
 #[cfg(test)]

@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/math-signal-core",
     standaloneRoute: "",
   },
+  defaultOperation: "signal.frames",
+  featuredOperations: ["signal.frames", "signal.filterDesign", "signal.resamplePlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["signal.frames", "signal.filterDesign"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "signal.resamplePlan"],
+    },
+  ],
 };
 
 export function App() {

@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/math-statistics",
     standaloneRoute: "",
   },
+  defaultOperation: "stats.normalize",
+  featuredOperations: ["stats.normalize", "stats.covariance", "stats.pca", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["stats.normalize", "stats.covariance", "stats.pca"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

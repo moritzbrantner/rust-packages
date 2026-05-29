@@ -129,7 +129,7 @@ struct SplitPlanRequest {
     options: SplitOptionsRequest,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SplitOptionsRequest {
     output_dir: Option<String>,
@@ -137,17 +137,6 @@ struct SplitOptionsRequest {
     video_name: Option<String>,
     #[serde(default)]
     ffmpeg_args: Vec<String>,
-}
-
-impl Default for SplitOptionsRequest {
-    fn default() -> Self {
-        Self {
-            output_dir: None,
-            template: None,
-            video_name: None,
-            ffmpeg_args: Vec::new(),
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, Clone)]

@@ -42,7 +42,7 @@ pub fn package_surface() -> PackageSurface {
                     "type": "object",
                     "required": ["schemaVersion", "recordCount", "recordCounts", "attributeCount"]
                 }),
-                serde_json::json!({"dataset": {"metadata": {}, "records": []}}),
+                serde_json::json!({"dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []}}),
             ),
             operation(
                 "video.dataset.recordsByKind",
@@ -62,7 +62,7 @@ pub fn package_surface() -> PackageSurface {
                     "required": ["records", "returned", "totalMatching", "truncated"]
                 }),
                 serde_json::json!({
-                    "dataset": {"metadata": {}, "records": []},
+                    "dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []},
                     "kinds": ["scene", "observation"],
                     "limit": 100
                 }),

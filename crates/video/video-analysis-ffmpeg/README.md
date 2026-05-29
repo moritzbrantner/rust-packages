@@ -26,3 +26,23 @@ let _ = source.stream_info()?;
 - `video-analysis-ingest`
 - `audio-analysis-io`
 - `video-analysis-cli`
+
+## Package surface
+
+Workflow operations:
+
+- `video.ffmpeg.probePlan`
+
+Debug operations:
+
+- `describe`
+- `video.ffmpeg.extractFramesPlan`
+- `video.ffmpeg.filterGraphPlan`
+
+Runtime limits:
+
+The package surface is side-effect free. FFmpeg probing, decode, and extraction stay behind the crate feature flags and command/native runtime paths described above.
+
+Invalid input returns a clear error through `run_surface_operation`; successful
+responses include `operation`, `title`, `message`, `summary`, and `result` while
+keeping existing top-level domain fields for compatibility.

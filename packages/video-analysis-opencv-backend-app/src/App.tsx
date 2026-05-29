@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-opencv-backend",
     standaloneRoute: "",
   },
+  defaultOperation: "video.opencv.capturePlan",
+  featuredOperations: ["video.opencv.capturePlan", "video.opencv.detectorPlan", "video.opencv.frameStats", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.opencv.capturePlan"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.opencv.detectorPlan", "video.opencv.frameStats"],
+    },
+  ],
 };
 
 export function App() {

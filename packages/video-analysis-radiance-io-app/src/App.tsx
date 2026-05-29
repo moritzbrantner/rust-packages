@@ -15,6 +15,27 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-radiance-io",
     standaloneRoute: "",
   },
+  defaultOperation: "radiance.io.colmapCameraSupport",
+  featuredOperations: [
+    "radiance.io.colmapCameraSupport",
+    "radiance.io.colmapSummary",
+    "radiance.io.gaussianSplatSummary",
+    "describe",
+  ],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["radiance.io.colmapCameraSupport"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "radiance.io.colmapSummary", "radiance.io.gaussianSplatSummary"],
+    },
+  ],
 };
 
 export function App() {

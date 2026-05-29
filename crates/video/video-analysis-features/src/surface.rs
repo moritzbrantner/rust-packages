@@ -43,7 +43,7 @@ pub fn package_surface() -> PackageSurface {
                 "Extract features",
                 "Runs selected deterministic feature extractors over a retained dataset.",
                 serde_json::json!({
-                    "dataset": {"metadata": {}, "records": []},
+                    "dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []},
                     "extractors": DEFAULT_EXTRACTORS
                 }),
             ),
@@ -52,7 +52,7 @@ pub fn package_surface() -> PackageSurface {
                 "Summarize feature timeline",
                 "Summarizes retained dataset record counts and timestamp coverage before feature extraction.",
                 serde_json::json!({
-                    "dataset": {"metadata": {}, "records": []}
+                    "dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []}
                 }),
             ),
             operation(
@@ -60,7 +60,7 @@ pub fn package_surface() -> PackageSurface {
                 "Aggregate extracted features",
                 "Runs selected deterministic feature extractors and summarizes output feature names, scopes, and value kinds.",
                 serde_json::json!({
-                    "dataset": {"metadata": {}, "records": []},
+                    "dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []},
                     "extractors": DEFAULT_EXTRACTORS
                 }),
             ),

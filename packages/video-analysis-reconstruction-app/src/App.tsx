@@ -15,6 +15,27 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-reconstruction",
     standaloneRoute: "",
   },
+  defaultOperation: "video.reconstruction.plan",
+  featuredOperations: [
+    "video.reconstruction.plan",
+    "video.reconstruction.cameraSummary",
+    "video.reconstruction.assetSummary",
+    "describe",
+  ],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.reconstruction.plan"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.reconstruction.cameraSummary", "video.reconstruction.assetSummary"],
+    },
+  ],
 };
 
 export function App() {

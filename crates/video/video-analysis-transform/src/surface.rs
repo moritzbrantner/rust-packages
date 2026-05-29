@@ -23,10 +23,10 @@ pub fn package_surface() -> PackageSurface {
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
             operation("describe", "Describe package", "Filtering, joins, grouping, and resampling for video-analysis datasets.", serde_json::json!({"includeOperations": true})),
-            operation("video.transform.filter", "Filter dataset", "Filters retained dataset records by kind, time, scene, label, and capped result size.", serde_json::json!({"dataset": {"metadata": {}, "records": []}, "kinds": ["observation"], "limit": 1000})),
-            operation("video.transform.window", "Window dataset", "Groups records into fixed-duration time windows.", serde_json::json!({"dataset": {"metadata": {}, "records": []}, "seconds": 5.0})),
-            operation("video.transform.groupScenes", "Group scenes", "Groups records under scene intervals using explicit scene indexes or frame bounds.", serde_json::json!({"dataset": {"metadata": {}, "records": []}})),
-            operation("video.transform.resampleFeatures", "Resample numeric features", "Aggregates numeric feature records into fixed time windows.", serde_json::json!({"dataset": {"metadata": {}, "records": []}, "featureName": "metric", "seconds": 1.0, "aggregation": "mean"})),
+            operation("video.transform.filter", "Filter dataset", "Filters retained dataset records by kind, time, scene, label, and capped result size.", serde_json::json!({"dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []}, "kinds": ["observation"], "limit": 1000})),
+            operation("video.transform.window", "Window dataset", "Groups records into fixed-duration time windows.", serde_json::json!({"dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []}, "seconds": 5.0})),
+            operation("video.transform.groupScenes", "Group scenes", "Groups records under scene intervals using explicit scene indexes or frame bounds.", serde_json::json!({"dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []}})),
+            operation("video.transform.resampleFeatures", "Resample numeric features", "Aggregates numeric feature records into fixed time windows.", serde_json::json!({"dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []}, "featureName": "metric", "seconds": 1.0, "aggregation": "mean"})),
         ],
     }
 }

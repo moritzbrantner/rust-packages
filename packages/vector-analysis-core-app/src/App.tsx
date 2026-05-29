@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/vector-analysis-core",
     standaloneRoute: "",
   },
+  defaultOperation: "vector.normalize",
+  featuredOperations: ["vector.normalize", "vector.distance", "vector.summary", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["vector.normalize", "vector.distance"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "vector.summary"],
+    },
+  ],
 };
 
 export function App() {

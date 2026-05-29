@@ -21,8 +21,8 @@ pub fn package_surface() -> PackageSurface {
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
             operation("describe", "Describe package", "Dataset persistence for video-analysis.", serde_json::json!({"includeOperations": true})),
-            operation("video.storage.manifestPlan", "Manifest plan", "Builds a dataset manifest preview without writing files.", serde_json::json!({"dataset": {"metadata": {}, "records": []}, "recordsPath": "records.jsonl"})),
-            operation("video.storage.jsonlPreview", "JSONL preview", "Serializes a capped preview of dataset records as JSON lines without writing files.", serde_json::json!({"dataset": {"metadata": {}, "records": []}, "limit": 20})),
+            operation("video.storage.manifestPlan", "Manifest plan", "Builds a dataset manifest preview without writing files.", serde_json::json!({"dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []}, "recordsPath": "records.jsonl"})),
+            operation("video.storage.jsonlPreview", "JSONL preview", "Serializes a capped preview of dataset records as JSON lines without writing files.", serde_json::json!({"dataset": {"metadata": {"schema_version": 2, "name": null, "source": null, "created_at": null, "attributes": {}}, "records": []}, "limit": 20})),
         ],
     }
 }

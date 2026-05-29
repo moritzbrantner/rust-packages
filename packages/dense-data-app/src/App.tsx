@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/dense-data",
     standaloneRoute: "",
   },
+  defaultOperation: "summarizeDensePoints",
+  featuredOperations: ["summarizeDensePoints", "bucketDensePoints", "clusterDensePoints", "binNumericSeries", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["summarizeDensePoints", "bucketDensePoints", "clusterDensePoints", "binNumericSeries"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/tensor-data",
     standaloneRoute: "",
   },
+  defaultOperation: "tensor.validate",
+  featuredOperations: ["tensor.validate", "tensor.summary", "tensor.reshapePlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["tensor.validate"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "tensor.summary", "tensor.reshapePlan"],
+    },
+  ],
 };
 
 export function App() {

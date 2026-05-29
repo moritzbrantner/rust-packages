@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/comfyui-models",
     standaloneRoute: "",
   },
+  defaultOperation: "comfy.models.defaults",
+  featuredOperations: ["comfy.models.defaults", "comfy.models.reference", "comfy.models.extraPathsPlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["comfy.models.defaults", "comfy.models.reference"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "comfy.models.extraPathsPlan"],
+    },
+  ],
 };
 
 export function App() {

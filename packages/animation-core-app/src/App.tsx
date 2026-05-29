@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/animation-core",
     standaloneRoute: "",
   },
+  defaultOperation: "animation.timeline.summary",
+  featuredOperations: ["animation.timeline.summary", "animation.keyframes.sample", "animation.easing.preview", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["animation.timeline.summary", "animation.keyframes.sample"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "animation.easing.preview"],
+    },
+  ],
 };
 
 export function App() {

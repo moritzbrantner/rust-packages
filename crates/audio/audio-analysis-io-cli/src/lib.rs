@@ -1,4 +1,6 @@
-use video_analysis_core::runtime::{OperationId, PackageSurface, SurfaceRequest, SurfaceResponse};
+use video_analysis_core::runtime::{
+    ensure_structured_surface_value, OperationId, PackageSurface, SurfaceRequest, SurfaceResponse,
+};
 
 /// Wrapped library crate name.
 pub const LIBRARY_CRATE: &str = "audio-analysis-io";
@@ -44,10 +46,18 @@ pub fn command_schema_json() -> String {
 }
 
 pub fn run_operation(operation: &str, input: serde_json::Value) -> Result<SurfaceResponse, String> {
-    audio_analysis_io::surface::run_surface_operation(SurfaceRequest {
+    let mut response = audio_analysis_io::surface::run_surface_operation(SurfaceRequest {
         operation: OperationId::new(operation),
         input,
-    })
+    })?;
+    let value = std::mem::take(&mut response.value);
+    response.value = ensure_structured_surface_value(
+        &response.operation,
+        operation.to_string(),
+        format!("Ran package-surface operation `{}`.", operation),
+        value,
+    );
+    Ok(response)
 }
 
 #[cfg(test)]

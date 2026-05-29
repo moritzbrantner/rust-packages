@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-ffmpeg",
     standaloneRoute: "",
   },
+  defaultOperation: "video.ffmpeg.probePlan",
+  featuredOperations: ["video.ffmpeg.probePlan", "video.ffmpeg.extractFramesPlan", "video.ffmpeg.filterGraphPlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.ffmpeg.probePlan"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.ffmpeg.extractFramesPlan", "video.ffmpeg.filterGraphPlan"],
+    },
+  ],
 };
 
 export function App() {

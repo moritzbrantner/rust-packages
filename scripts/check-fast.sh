@@ -8,6 +8,7 @@ export RUST_TEST_THREADS
 scripts/check_generated_artifacts.sh
 scripts/check_generated_snapshots.sh
 cargo test --jobs "$CARGO_BUILD_JOBS" --workspace --all-targets
+python3 scripts/audit_package_surfaces.py --quality
 cargo clippy --workspace --all-targets -- -D warnings
 bun run text-wasm:test
 bun run audio-wasm:test

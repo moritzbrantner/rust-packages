@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-gaussian-splatting",
     standaloneRoute: "",
   },
+  defaultOperation: "video.splat.summary",
+  featuredOperations: ["video.splat.summary", "video.splat.cameraPlan", "video.splat.trainingPlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.splat.summary"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.splat.cameraPlan", "video.splat.trainingPlan"],
+    },
+  ],
 };
 
 export function App() {

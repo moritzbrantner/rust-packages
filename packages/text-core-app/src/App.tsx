@@ -20,6 +20,20 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/text-core",
     standaloneRoute: "",
   },
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["text.statistics", "text.normalize", "text.tokenize", "text.boundaries"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
   defaultOperation: "text.tokenize",
   featuredOperations: ["text.tokenize", "text.statistics", "text.normalize", "text.boundaries", "describe"],
   resultTabs: [

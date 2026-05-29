@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-recognition",
     standaloneRoute: "",
   },
+  defaultOperation: "video.recognition.labelPlan",
+  featuredOperations: ["video.recognition.labelPlan", "video.recognition.confidence", "video.recognition.trackSummary", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.recognition.labelPlan", "video.recognition.confidence"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.recognition.trackSummary"],
+    },
+  ],
 };
 
 export function App() {

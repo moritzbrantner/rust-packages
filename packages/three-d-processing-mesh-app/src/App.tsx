@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/three-d-processing-mesh",
     standaloneRoute: "",
   },
+  defaultOperation: "threeD.mesh.diagnostics",
+  featuredOperations: ["threeD.mesh.diagnostics", "threeD.mesh.sample", "threeD.mesh.repairPreview", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["threeD.mesh.diagnostics", "threeD.mesh.sample"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "threeD.mesh.repairPreview"],
+    },
+  ],
 };
 
 export function App() {

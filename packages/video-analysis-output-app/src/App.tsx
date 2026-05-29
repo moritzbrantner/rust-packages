@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-output",
     standaloneRoute: "",
   },
+  defaultOperation: "video.output.reportSummary",
+  featuredOperations: ["video.output.reportSummary", "video.output.csvPlan", "video.output.htmlPlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.output.reportSummary"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.output.csvPlan", "video.output.htmlPlan"],
+    },
+  ],
 };
 
 export function App() {

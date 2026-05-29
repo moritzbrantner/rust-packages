@@ -38,3 +38,23 @@ let _ = preview;
 Preview rendering is CPU-only and always targets an explicit view source. The
 crate does not currently normalize distorted COLMAP camera models into direct
 ray/view conversion.
+
+## Package surface
+
+Workflow operations:
+
+- `video.radiancePipeline.stagePlan`
+
+Debug operations:
+
+- `describe`
+- `video.radiancePipeline.assetCheck`
+- `video.radiancePipeline.commandPlan`
+
+Runtime limits:
+
+Operations are deterministic, local-first, and side-effect free. They return inline JSON reports and do not download models, write files, or run native tools.
+
+Invalid input returns a clear error through `run_surface_operation`; successful
+responses include `operation`, `title`, `message`, `summary`, and `result` while
+keeping existing top-level domain fields for compatibility.

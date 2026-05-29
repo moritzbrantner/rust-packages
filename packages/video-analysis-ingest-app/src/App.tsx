@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-ingest",
     standaloneRoute: "",
   },
+  defaultOperation: "video.ingest.sourcePlan",
+  featuredOperations: ["video.ingest.sourcePlan", "video.ingest.manifest", "video.ingest.validate", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.ingest.sourcePlan"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.ingest.manifest", "video.ingest.validate"],
+    },
+  ],
 };
 
 export function App() {

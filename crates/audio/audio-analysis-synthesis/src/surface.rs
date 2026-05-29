@@ -42,7 +42,7 @@ pub fn package_surface() -> PackageSurface {
                 "audio.synthesis.fromEvents",
                 "Synthesize from events",
                 "Converts pitch/onset event labels into tone segments and synthesizes them.",
-                serde_json::json!({"events": [{"label": "audio:pitch:440.00Hz", "score": 0.8, "timestampSeconds": 0.0}], "defaultDurationSeconds": 0.1}),
+                serde_json::json!({"events": [{"label": "audio:pitch:440.00hz", "score": 0.8, "timestampSeconds": 0.0}], "defaultDurationSeconds": 0.1}),
             ),
         ],
     }

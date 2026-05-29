@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/numbers-core",
     standaloneRoute: "",
   },
+  defaultOperation: "numbers.summary",
+  featuredOperations: ["numbers.summary", "numbers.quantiles", "numbers.histogram", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["numbers.summary", "numbers.quantiles"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "numbers.histogram"],
+    },
+  ],
 };
 
 export function App() {

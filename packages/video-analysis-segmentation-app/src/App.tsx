@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-segmentation",
     standaloneRoute: "",
   },
+  defaultOperation: "video.segmentation.maskSummary",
+  featuredOperations: ["video.segmentation.maskSummary", "video.segmentation.promptPlan", "video.segmentation.trackPlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.segmentation.maskSummary"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.segmentation.promptPlan", "video.segmentation.trackPlan"],
+    },
+  ],
 };
 
 export function App() {

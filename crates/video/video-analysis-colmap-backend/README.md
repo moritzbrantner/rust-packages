@@ -44,3 +44,24 @@ package UIs.
 
 - `video-analysis-radiance-io`
 - `video-analysis-sfm`
+
+## Package surface
+
+Workflow operations:
+
+- `video.colmap.commandPlan`
+- `video.colmap.reconstructVideo`
+
+Debug operations:
+
+- `describe`
+- `video.colmap.imageList`
+- `video.colmap.sparseSummary`
+
+Runtime limits:
+
+Debug operations are side-effect free. `video.colmap.reconstructVideo` is server-only and requires local `ffmpeg` and `colmap` binaries.
+
+Invalid input returns a clear error through `run_surface_operation`; successful
+responses include `operation`, `title`, `message`, `summary`, and `result` while
+keeping existing top-level domain fields for compatibility.

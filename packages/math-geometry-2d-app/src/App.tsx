@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/math-geometry-2d",
     standaloneRoute: "",
   },
+  defaultOperation: "geometry.bounds",
+  featuredOperations: ["geometry.bounds", "geometry.transform", "geometry.intersections", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["geometry.bounds", "geometry.transform", "geometry.intersections"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

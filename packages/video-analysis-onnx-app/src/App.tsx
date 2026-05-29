@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-onnx",
     standaloneRoute: "",
   },
+  defaultOperation: "video.onnx.modelSummary",
+  featuredOperations: ["video.onnx.modelSummary", "video.onnx.decodeDetections", "video.onnx.inputPlan", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.onnx.modelSummary", "video.onnx.decodeDetections"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.onnx.inputPlan"],
+    },
+  ],
 };
 
 export function App() {

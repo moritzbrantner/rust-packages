@@ -36,3 +36,23 @@ assert_eq!(tensor.channels, 3);
 - `model-runtime`
 - `image-analysis-onnx`
 - `video-analysis-cli`
+
+## Package surface
+
+Workflow operations:
+
+- `video.onnx.modelSummary`
+- `video.onnx.decodeDetections`
+
+Debug operations:
+
+- `describe`
+- `video.onnx.inputPlan`
+
+Runtime limits:
+
+The package surface reports deterministic model and tensor contracts. ONNX Runtime execution remains opt-in behind the `onnxruntime` feature.
+
+Invalid input returns a clear error through `run_surface_operation`; successful
+responses include `operation`, `title`, `message`, `summary`, and `result` while
+keeping existing top-level domain fields for compatibility.

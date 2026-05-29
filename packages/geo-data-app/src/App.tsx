@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/geo-data",
     standaloneRoute: "",
   },
+  defaultOperation: "geo.bounds",
+  featuredOperations: ["geo.bounds", "geo.distance", "geo.toGeoJson", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["geo.bounds", "geo.distance", "geo.toGeoJson"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe"],
+    },
+  ],
 };
 
 export function App() {

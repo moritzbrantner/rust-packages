@@ -253,6 +253,9 @@ pub fn describe_surface_response(
 
 /// Builds a successful surface response with empty diagnostics and artifacts.
 pub fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
+    let title = operation.as_str().to_string();
+    let message = format!("Ran package-surface operation `{}`.", operation.as_str());
+    let value = ensure_structured_surface_value(&operation, title, message, value);
     SurfaceResponse {
         operation,
         value,
@@ -285,6 +288,35 @@ pub fn structured_surface_value(
     );
     object.insert("summary".to_string(), summary);
     object.insert("result".to_string(), result);
+    serde_json::Value::Object(object)
+}
+
+/// Adds the common package-surface UI fields to a result value when they are
+/// missing, while preserving every existing top-level domain field.
+pub fn ensure_structured_surface_value(
+    operation: &OperationId,
+    title: impl Into<String>,
+    message: impl Into<String>,
+    value: serde_json::Value,
+) -> serde_json::Value {
+    let result = value.clone();
+    let mut object = match value {
+        serde_json::Value::Object(map) => map,
+        _ => serde_json::Map::new(),
+    };
+    object
+        .entry("operation".to_string())
+        .or_insert_with(|| serde_json::Value::String(operation.as_str().to_string()));
+    object
+        .entry("title".to_string())
+        .or_insert_with(|| serde_json::Value::String(title.into()));
+    object
+        .entry("message".to_string())
+        .or_insert_with(|| serde_json::Value::String(message.into()));
+    object
+        .entry("summary".to_string())
+        .or_insert_with(|| operation_summary(&result));
+    object.entry("result".to_string()).or_insert(result);
     serde_json::Value::Object(object)
 }
 

@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-features",
     standaloneRoute: "",
   },
+  defaultOperation: "video.features.extract",
+  featuredOperations: ["video.features.extract", "video.features.aggregate", "video.features.timelineSummary", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["video.features.extract", "video.features.aggregate"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "video.features.timelineSummary"],
+    },
+  ],
 };
 
 export function App() {

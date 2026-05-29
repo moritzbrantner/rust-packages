@@ -15,6 +15,22 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/graph-analysis-core",
     standaloneRoute: "",
   },
+  defaultOperation: "graph.components",
+  featuredOperations: ["graph.components", "graph.shortestPath", "graph.validateTree", "describe"],
+  operationGroups: [
+    {
+      id: "workflow",
+      label: "Workflow",
+      description: "Run the main package workflow.",
+      operations: ["graph.components", "graph.shortestPath"],
+    },
+    {
+      id: "debug",
+      label: "Debug",
+      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
+      operations: ["describe", "graph.validateTree"],
+    },
+  ],
 };
 
 export function App() {
