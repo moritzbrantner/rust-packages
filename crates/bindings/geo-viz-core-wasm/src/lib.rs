@@ -9,6 +9,16 @@ pub struct WasmGeoPointIndex {
     inner: geo_viz_core::GeoPointIndex,
 }
 
+#[wasm_bindgen(js_name = GeoFlowIndex)]
+pub struct WasmGeoFlowIndex {
+    inner: geo_viz_core::GeoFlowIndex,
+}
+
+#[wasm_bindgen(js_name = GeoJsonIndex)]
+pub struct WasmGeoJsonIndex {
+    inner: geo_viz_core::GeoJsonIndex,
+}
+
 #[wasm_bindgen(js_class = GeoPointIndex)]
 impl WasmGeoPointIndex {
     #[wasm_bindgen(constructor)]
@@ -63,6 +73,103 @@ impl WasmGeoPointIndex {
             limit.unwrap_or(10),
             offset.unwrap_or(0),
         ))
+    }
+
+    #[wasm_bindgen(js_name = getHeatFeatures)]
+    pub fn get_heat_features(&self, query: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
+        let query: geo_viz_core::GeoVizViewportQuery =
+            serde_wasm_bindgen::from_value(query).map_err(into_js_error)?;
+        let options = if options.is_undefined() || options.is_null() {
+            geo_viz_core::GeoVizHeatOptions {
+                radius_meters: None,
+                weight_metric: None,
+            }
+        } else {
+            serde_wasm_bindgen::from_value(options).map_err(into_js_error)?
+        };
+        to_json_value(
+            &self
+                .inner
+                .get_heat_features(query, options)
+                .map_err(into_js_error)?,
+        )
+    }
+
+    #[wasm_bindgen(js_name = nearestPoint)]
+    pub fn nearest_point(&self, query: JsValue) -> Result<JsValue, JsValue> {
+        let query: geo_viz_core::GeoVizNearestPointQuery =
+            serde_wasm_bindgen::from_value(query).map_err(into_js_error)?;
+        to_json_value(&self.inner.nearest_point(query).map_err(into_js_error)?)
+    }
+}
+
+#[wasm_bindgen(js_class = GeoFlowIndex)]
+impl WasmGeoFlowIndex {
+    #[wasm_bindgen(constructor)]
+    pub fn new(flows: JsValue) -> Result<WasmGeoFlowIndex, JsValue> {
+        let flows: Vec<geo_viz_core::GeoVizFlow> =
+            serde_wasm_bindgen::from_value(flows).map_err(into_js_error)?;
+        let inner = geo_viz_core::GeoFlowIndex::new(flows).map_err(into_js_error)?;
+        Ok(Self { inner })
+    }
+
+    #[wasm_bindgen(js_name = getBounds)]
+    pub fn get_bounds(&self) -> Result<JsValue, JsValue> {
+        to_json_value(&self.inner.get_bounds())
+    }
+
+    #[wasm_bindgen(js_name = getViewportFlows)]
+    pub fn get_viewport_flows(&self, query: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
+        let query: geo_viz_core::GeoVizViewportQuery =
+            serde_wasm_bindgen::from_value(query).map_err(into_js_error)?;
+        let options = if options.is_undefined() || options.is_null() {
+            geo_viz_core::GeoVizFlowOptions::default()
+        } else {
+            serde_wasm_bindgen::from_value(options).map_err(into_js_error)?
+        };
+        to_json_value(
+            &self
+                .inner
+                .get_viewport_flows(query, options)
+                .map_err(into_js_error)?,
+        )
+    }
+}
+
+#[wasm_bindgen(js_class = GeoJsonIndex)]
+impl WasmGeoJsonIndex {
+    #[wasm_bindgen(constructor)]
+    pub fn new(geo_json: JsValue) -> Result<WasmGeoJsonIndex, JsValue> {
+        let geo_json: serde_json::Value =
+            serde_wasm_bindgen::from_value(geo_json).map_err(into_js_error)?;
+        let inner = geo_viz_core::GeoJsonIndex::new(geo_json).map_err(into_js_error)?;
+        Ok(Self { inner })
+    }
+
+    #[wasm_bindgen(js_name = getBounds)]
+    pub fn get_bounds(&self) -> Result<JsValue, JsValue> {
+        to_json_value(&self.inner.get_bounds())
+    }
+
+    #[wasm_bindgen(js_name = getViewportFeatures)]
+    pub fn get_viewport_features(
+        &self,
+        query: JsValue,
+        options: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let query: geo_viz_core::GeoVizViewportQuery =
+            serde_wasm_bindgen::from_value(query).map_err(into_js_error)?;
+        let options = if options.is_undefined() || options.is_null() {
+            geo_viz_core::GeoVizGeoJsonOptions::default()
+        } else {
+            serde_wasm_bindgen::from_value(options).map_err(into_js_error)?
+        };
+        to_json_value(
+            &self
+                .inner
+                .get_viewport_features(query, options)
+                .map_err(into_js_error)?,
+        )
     }
 }
 

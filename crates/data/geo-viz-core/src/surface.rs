@@ -6,7 +6,10 @@ use video_analysis_core::runtime::{
     SurfaceResponse,
 };
 
-use crate::{GeoPointIndex, GeoVizAggregationOptions, GeoVizPoint, GeoVizViewportQuery};
+use crate::{
+    GeoFlowIndex, GeoJsonIndex, GeoPointIndex, GeoVizAggregationOptions, GeoVizFlow,
+    GeoVizFlowOptions, GeoVizGeoJsonOptions, GeoVizHeatOptions, GeoVizPoint, GeoVizViewportQuery,
+};
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -34,6 +37,33 @@ pub fn package_surface() -> PackageSurface {
                 serde_json::json!({
                     "points": [{"id": "a", "longitude": 8.0, "latitude": 49.0}],
                     "query": {"bounds": [7.0, 48.0, 9.0, 50.0], "zoom": 8}
+                }),
+            ),
+            operation(
+                "geoViz.heatViewport",
+                "Geo heat viewport",
+                "Returns weighted heat features for visible geographic points.",
+                serde_json::json!({
+                    "points": [{"id": "a", "longitude": 8.0, "latitude": 49.0, "metrics": {"weight": 2}}],
+                    "query": {"bounds": [7.0, 48.0, 9.0, 50.0], "zoom": 8}
+                }),
+            ),
+            operation(
+                "geoViz.geoJsonViewport",
+                "GeoJSON viewport",
+                "Filters GeoJSON features for a viewport and returns a FeatureCollection.",
+                serde_json::json!({
+                    "geoJson": {"type": "FeatureCollection", "features": []},
+                    "query": {"bounds": [7.0, 48.0, 9.0, 50.0], "zoom": 8}
+                }),
+            ),
+            operation(
+                "geoViz.flowViewport",
+                "Geo flow viewport",
+                "Filters and optionally aggregates geographic flows for a viewport.",
+                serde_json::json!({
+                    "flows": [{"from": [8.0, 49.0], "to": [9.0, 50.0], "metrics": {"weight": 2}}],
+                    "query": {"bounds": [7.0, 48.0, 10.0, 51.0], "zoom": 8}
                 }),
             ),
             operation(
@@ -75,6 +105,9 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "geoViz.describe" | "describe" => describe_value(request.input),
         "geoViz.bounds" => bounds_value(parse_input(request.input)?)?,
         "geoViz.aggregateViewport" => aggregate_value(parse_input(request.input)?)?,
+        "geoViz.heatViewport" => heat_value(parse_input(request.input)?)?,
+        "geoViz.geoJsonViewport" => geojson_value(parse_input(request.input)?)?,
+        "geoViz.flowViewport" => flow_value(parse_input(request.input)?)?,
         "geoViz.resampleGeometry" => resample_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
@@ -127,6 +160,33 @@ struct AggregateRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct HeatRequest {
+    points: Vec<GeoVizPoint>,
+    query: GeoVizViewportQuery,
+    #[serde(default)]
+    options: Option<GeoVizHeatOptions>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GeoJsonRequest {
+    geo_json: serde_json::Value,
+    query: GeoVizViewportQuery,
+    #[serde(default)]
+    options: GeoVizGeoJsonOptions,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FlowRequest {
+    flows: Vec<GeoVizFlow>,
+    query: GeoVizViewportQuery,
+    #[serde(default)]
+    options: GeoVizFlowOptions,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ResampleRequest {
     coordinates: Vec<f64>,
     coordinate_count: usize,
@@ -146,6 +206,43 @@ fn aggregate_value(request: AggregateRequest) -> Result<serde_json::Value, Strin
     serde_json::to_value(
         index
             .get_viewport_aggregation(request.query)
+            .map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn heat_value(request: HeatRequest) -> Result<serde_json::Value, String> {
+    let index = GeoPointIndex::new(request.points, GeoVizAggregationOptions::default())
+        .map_err(|error| error.to_string())?;
+    serde_json::to_value(
+        index
+            .get_heat_features(
+                request.query,
+                request.options.unwrap_or(GeoVizHeatOptions {
+                    radius_meters: None,
+                    weight_metric: None,
+                }),
+            )
+            .map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn geojson_value(request: GeoJsonRequest) -> Result<serde_json::Value, String> {
+    let index = GeoJsonIndex::new(request.geo_json).map_err(|error| error.to_string())?;
+    serde_json::to_value(
+        index
+            .get_viewport_features(request.query, request.options)
+            .map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn flow_value(request: FlowRequest) -> Result<serde_json::Value, String> {
+    let index = GeoFlowIndex::new(request.flows).map_err(|error| error.to_string())?;
+    serde_json::to_value(
+        index
+            .get_viewport_flows(request.query, request.options)
             .map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())

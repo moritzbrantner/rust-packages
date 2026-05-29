@@ -4,8 +4,12 @@ pub mod surface;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use geo_data::Coordinate;
-use geojson024::{feature::Id, Feature, Geometry, JsonObject, Value};
+use geo_data::{
+    parse_geojson, simplify_geometry, to_geojson_feature_collection, BBox, Coordinate, GeoFeature,
+    GeoFeatureCollection, GeoJsonDocument, Geometry as GeoDataGeometry,
+};
+use geojson024::{feature::Id, Feature, Geometry as GeoJsonGeometry, JsonObject, Value};
+use rstar::{PointDistance, RTree, RTreeObject, AABB};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use supercluster::{CoordinateSystem, Supercluster};
@@ -16,6 +20,9 @@ pub type GeoVizMetricRecord = BTreeMap<String, f64>;
 
 /// Geographic bounding box in `[west, south, east, north]` order.
 pub type GeoVizBounds = [f64; 4];
+
+/// GeoJSON-compatible feature collection value returned to renderer adapters.
+pub type GeoVizFeatureCollectionValue = serde_json::Value;
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
@@ -158,12 +165,246 @@ pub struct GeoVizAggregation {
     pub summary: GeoVizAggregationSummary,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Query for the nearest indexed point.
+pub struct GeoVizNearestPointQuery {
+    /// Longitude in degrees.
+    pub longitude: f64,
+    /// Latitude in degrees.
+    pub latitude: f64,
+    /// Optional maximum distance in coordinate degrees.
+    #[serde(default)]
+    pub max_distance: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Point heat feature options.
+pub struct GeoVizHeatOptions {
+    /// Optional radius hint for renderers.
+    #[serde(default)]
+    pub radius_meters: Option<f64>,
+    /// Metric key used as heat weight. Defaults to `weight`, then `1`.
+    #[serde(default)]
+    pub weight_metric: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Weighted point feature for geographic heat layers.
+pub struct GeoVizHeatFeature {
+    /// `[longitude, latitude]`.
+    pub coordinates: [f64; 2],
+    /// Stable point id.
+    pub id: String,
+    /// Point label.
+    pub label: String,
+    /// Point metrics.
+    pub metrics: GeoVizMetricRecord,
+    /// Source point.
+    pub point: GeoVizIndexedPoint,
+    /// Number of represented points.
+    pub point_count: usize,
+    /// Unnormalized feature weight.
+    pub raw_weight: f64,
+    /// Weight normalized to `[0, 1]`.
+    pub value: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Summary for geographic heat features.
+pub struct GeoVizHeatSummary {
+    /// Queried bounds.
+    pub bounds: GeoVizBounds,
+    /// Queried zoom.
+    pub zoom: f64,
+    /// Aggregated visible metrics.
+    pub metrics: GeoVizMetricRecord,
+    /// Maximum raw feature weight.
+    pub max_weight: f64,
+    /// Visible weighted point count.
+    pub visible_point_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Heat features for one viewport.
+pub struct GeoVizHeatAggregation {
+    /// Visible heat features.
+    pub features: Vec<GeoVizHeatFeature>,
+    /// Visible summary.
+    pub summary: GeoVizHeatSummary,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Input flow between two geographic coordinates.
+pub struct GeoVizFlow {
+    /// Caller-owned optional identifier.
+    pub id: Option<String>,
+    /// Optional human-readable label.
+    pub label: Option<String>,
+    /// Origin `[longitude, latitude]`.
+    pub from: [f64; 2],
+    /// Destination `[longitude, latitude]`.
+    pub to: [f64; 2],
+    /// Finite numeric metrics.
+    #[serde(default)]
+    pub metrics: GeoVizMetricRecord,
+    /// Caller-owned JSON properties.
+    #[serde(default)]
+    pub properties: serde_json::Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Indexed, normalized geographic flow.
+pub struct GeoVizIndexedFlow {
+    /// Stable flow id.
+    pub id: String,
+    /// Source index from the input array.
+    pub source_index: usize,
+    /// Label, defaulting to an empty string.
+    pub label: String,
+    /// Origin `[longitude, latitude]`.
+    pub from: [f64; 2],
+    /// Destination `[longitude, latitude]`.
+    pub to: [f64; 2],
+    /// Finite numeric metrics.
+    pub metrics: GeoVizMetricRecord,
+    /// Caller-owned JSON properties.
+    pub properties: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+/// Flow aggregation mode.
+pub enum GeoVizFlowAggregateMode {
+    /// Return individual flows.
+    None,
+    /// Combine identical origin/destination pairs.
+    OriginDestination,
+    /// Reserved for future grid aggregation; currently equivalent to origin/destination.
+    Grid,
+}
+
+impl Default for GeoVizFlowAggregateMode {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Geographic flow query options.
+pub struct GeoVizFlowOptions {
+    /// Aggregation mode.
+    #[serde(default)]
+    pub aggregate: GeoVizFlowAggregateMode,
+    /// Minimum raw weight to include.
+    #[serde(default)]
+    pub min_weight: Option<f64>,
+    /// Metric key used as flow weight. Defaults to `weight`, then `1`.
+    #[serde(default)]
+    pub weight_metric: Option<String>,
+}
+
+impl Default for GeoVizFlowOptions {
+    fn default() -> Self {
+        Self {
+            aggregate: GeoVizFlowAggregateMode::None,
+            min_weight: None,
+            weight_metric: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Weighted geographic flow feature.
+pub struct GeoVizFlowFeature {
+    /// Source flow.
+    pub flow: GeoVizIndexedFlow,
+    /// Unnormalized feature weight.
+    pub raw_weight: f64,
+    /// Weight normalized to `[0, 1]`.
+    pub value: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Summary for geographic flow features.
+pub struct GeoVizFlowSummary {
+    /// Bounds for all returned flows.
+    pub bounds: Option<GeoVizBounds>,
+    /// Queried bounds.
+    pub viewport_bounds: GeoVizBounds,
+    /// Queried zoom.
+    pub zoom: f64,
+    /// Aggregated visible metrics.
+    pub metrics: GeoVizMetricRecord,
+    /// Maximum raw feature weight.
+    pub max_weight: f64,
+    /// Visible flow count.
+    pub visible_flow_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Flow features for one viewport.
+pub struct GeoVizFlowAggregation {
+    /// Visible flow features.
+    pub features: Vec<GeoVizFlowFeature>,
+    /// Visible summary.
+    pub summary: GeoVizFlowSummary,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// GeoJSON viewport query options.
+pub struct GeoVizGeoJsonOptions {
+    /// Whether viewport filtering should be applied.
+    #[serde(default = "default_clip_to_viewport")]
+    pub clip_to_viewport: bool,
+    /// Optional simplification tolerance in coordinate units.
+    #[serde(default)]
+    pub simplify_tolerance: Option<f64>,
+}
+
+impl Default for GeoVizGeoJsonOptions {
+    fn default() -> Self {
+        Self {
+            clip_to_viewport: true,
+            simplify_tolerance: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// GeoJSON features for one viewport.
+pub struct GeoVizGeoJsonViewport {
+    /// Bounds for returned features.
+    pub bounds: Option<GeoVizBounds>,
+    /// GeoJSON FeatureCollection value.
+    pub feature_collection: GeoVizFeatureCollectionValue,
+    /// Number of returned features.
+    pub feature_count: usize,
+    /// Queried bounds.
+    pub viewport_bounds: GeoVizBounds,
+    /// Queried zoom.
+    pub zoom: f64,
+}
+
 /// Geographic point aggregation index.
 #[derive(Debug, Clone)]
 pub struct GeoPointIndex {
     points: Vec<GeoVizIndexedPoint>,
     point_lookup: HashMap<String, GeoVizIndexedPoint>,
     metric_keys: Vec<String>,
+    spatial_index: RTree<SpatialPoint>,
     tree: Supercluster,
 }
 
@@ -184,6 +425,15 @@ impl GeoPointIndex {
             .cloned()
             .map(|point| (point.id.clone(), point))
             .collect::<HashMap<_, _>>();
+        let spatial_index = RTree::bulk_load(
+            normalized
+                .iter()
+                .map(|point| SpatialPoint {
+                    point: [point.longitude, point.latitude],
+                    point_id: point.id.clone(),
+                })
+                .collect(),
+        );
         let mut tree = Supercluster::new(
             Supercluster::builder()
                 .radius(options.radius.unwrap_or(72.0))
@@ -201,6 +451,7 @@ impl GeoPointIndex {
             points: normalized,
             point_lookup,
             metric_keys,
+            spatial_index,
             tree,
         })
     }
@@ -246,6 +497,88 @@ impl GeoPointIndex {
             summary: summarize_features(query, &features, &self.metric_keys),
             features,
         })
+    }
+
+    /// Returns weighted heat features for a viewport.
+    pub fn get_heat_features(
+        &self,
+        query: GeoVizViewportQuery,
+        options: GeoVizHeatOptions,
+    ) -> Result<GeoVizHeatAggregation> {
+        validate_bounds(query.bounds)?;
+        let points = self
+            .points
+            .iter()
+            .filter(|point| point_in_bounds(point.longitude, point.latitude, query.bounds))
+            .cloned()
+            .collect::<Vec<_>>();
+        let weighted = points
+            .into_iter()
+            .filter_map(|point| {
+                let raw_weight = geo_weight(&point.metrics, options.weight_metric.as_deref());
+                (raw_weight > 0.0).then_some((point, raw_weight))
+            })
+            .collect::<Vec<_>>();
+        let max_weight = weighted
+            .iter()
+            .map(|(_, weight)| *weight)
+            .fold(1.0_f64, f64::max);
+        let features = weighted
+            .into_iter()
+            .map(|(point, raw_weight)| GeoVizHeatFeature {
+                coordinates: [point.longitude, point.latitude],
+                id: point.id.clone(),
+                label: point.label.clone(),
+                metrics: point.metrics.clone(),
+                point,
+                point_count: 1,
+                raw_weight,
+                value: raw_weight / max_weight,
+            })
+            .collect::<Vec<_>>();
+
+        Ok(GeoVizHeatAggregation {
+            summary: GeoVizHeatSummary {
+                bounds: query.bounds,
+                zoom: query.zoom,
+                metrics: sum_metrics(
+                    features.iter().map(|feature| &feature.metrics),
+                    &self.metric_keys,
+                ),
+                max_weight,
+                visible_point_count: features.len(),
+            },
+            features,
+        })
+    }
+
+    /// Returns the nearest point to a coordinate.
+    pub fn nearest_point(
+        &self,
+        query: GeoVizNearestPointQuery,
+    ) -> Result<Option<GeoVizIndexedPoint>> {
+        Coordinate::new(query.longitude, query.latitude)?.validate_geographic()?;
+        if let Some(max_distance) = query.max_distance {
+            if !max_distance.is_finite() || max_distance < 0.0 {
+                return Err(invalid_argument(
+                    "maxDistance must be finite and non-negative",
+                ));
+            }
+        }
+        let nearest = self
+            .spatial_index
+            .nearest_neighbor([query.longitude, query.latitude]);
+        let Some(nearest) = nearest else {
+            return Ok(None);
+        };
+        if let Some(max_distance) = query.max_distance {
+            if nearest.distance_2(&[query.longitude, query.latitude]) > max_distance * max_distance
+            {
+                return Ok(None);
+            }
+        }
+
+        Ok(self.point_lookup.get(&nearest.point_id).cloned())
     }
 
     /// Returns the zoom where a cluster expands.
@@ -313,6 +646,182 @@ impl GeoPointIndex {
     }
 }
 
+#[derive(Debug, Clone)]
+struct SpatialPoint {
+    point: [f64; 2],
+    point_id: String,
+}
+
+impl RTreeObject for SpatialPoint {
+    type Envelope = AABB<[f64; 2]>;
+
+    fn envelope(&self) -> Self::Envelope {
+        AABB::from_point(self.point)
+    }
+}
+
+impl PointDistance for SpatialPoint {
+    fn distance_2(&self, point: &[f64; 2]) -> f64 {
+        let dx = self.point[0] - point[0];
+        let dy = self.point[1] - point[1];
+        dx * dx + dy * dy
+    }
+}
+
+/// Geographic flow index.
+#[derive(Debug, Clone)]
+pub struct GeoFlowIndex {
+    flows: Vec<GeoVizIndexedFlow>,
+    metric_keys: Vec<String>,
+}
+
+impl GeoFlowIndex {
+    /// Builds a new flow index.
+    pub fn new(flows: impl IntoIterator<Item = GeoVizFlow>) -> Result<Self> {
+        let flows = flows
+            .into_iter()
+            .enumerate()
+            .map(|(index, flow)| normalize_flow(flow, index))
+            .collect::<Result<Vec<_>>>()?;
+        let metric_keys = collect_flow_metric_keys(&flows);
+
+        Ok(Self { flows, metric_keys })
+    }
+
+    /// Returns bounds for all indexed flows.
+    pub fn get_bounds(&self) -> Option<GeoVizBounds> {
+        bounds_for_flows(&self.flows)
+    }
+
+    /// Returns visible weighted flow features for a viewport.
+    pub fn get_viewport_flows(
+        &self,
+        query: GeoVizViewportQuery,
+        options: GeoVizFlowOptions,
+    ) -> Result<GeoVizFlowAggregation> {
+        validate_bounds(query.bounds)?;
+        let min_weight = options.min_weight.unwrap_or(0.0);
+        if !min_weight.is_finite() || min_weight < 0.0 {
+            return Err(invalid_argument(
+                "minWeight must be finite and non-negative",
+            ));
+        }
+        let mut weighted = self
+            .flows
+            .iter()
+            .filter(|flow| flow_intersects_bounds(flow, query.bounds))
+            .filter_map(|flow| {
+                let raw_weight = geo_weight(&flow.metrics, options.weight_metric.as_deref());
+                (raw_weight >= min_weight && raw_weight > 0.0).then_some((flow.clone(), raw_weight))
+            })
+            .collect::<Vec<_>>();
+
+        if options.aggregate != GeoVizFlowAggregateMode::None {
+            weighted = aggregate_flows(weighted, &self.metric_keys);
+        }
+
+        let max_weight = weighted
+            .iter()
+            .map(|(_, weight)| *weight)
+            .fold(1.0_f64, f64::max);
+        let features = weighted
+            .into_iter()
+            .map(|(flow, raw_weight)| GeoVizFlowFeature {
+                flow,
+                raw_weight,
+                value: raw_weight / max_weight,
+            })
+            .collect::<Vec<_>>();
+
+        Ok(GeoVizFlowAggregation {
+            summary: GeoVizFlowSummary {
+                bounds: bounds_for_flows(features.iter().map(|feature| &feature.flow)),
+                viewport_bounds: query.bounds,
+                zoom: query.zoom,
+                metrics: sum_metrics(
+                    features.iter().map(|feature| &feature.flow.metrics),
+                    &self.metric_keys,
+                ),
+                max_weight,
+                visible_flow_count: features.len(),
+            },
+            features,
+        })
+    }
+}
+
+/// GeoJSON viewport index.
+#[derive(Debug, Clone)]
+pub struct GeoJsonIndex {
+    collection: GeoFeatureCollection,
+}
+
+impl GeoJsonIndex {
+    /// Builds a new GeoJSON index from a GeoJSON object or string value.
+    pub fn new(geo_json: serde_json::Value) -> Result<Self> {
+        let text = match geo_json {
+            serde_json::Value::String(text) => text,
+            value if value.is_object() => value.to_string(),
+            _ => return Err(invalid_argument("geoJson must be an object or string")),
+        };
+        let collection = match parse_geojson(&text)? {
+            GeoJsonDocument::Geometry(geometry) => {
+                GeoFeatureCollection::new(vec![GeoFeature::new(Some(geometry))])
+            }
+            GeoJsonDocument::Feature(feature) => GeoFeatureCollection::new(vec![feature]),
+            GeoJsonDocument::FeatureCollection(collection) => collection,
+        };
+
+        Ok(Self { collection })
+    }
+
+    /// Returns bounds for all indexed features.
+    pub fn get_bounds(&self) -> Option<GeoVizBounds> {
+        bounds_for_collection(&self.collection)
+    }
+
+    /// Returns GeoJSON features for a viewport.
+    pub fn get_viewport_features(
+        &self,
+        query: GeoVizViewportQuery,
+        options: GeoVizGeoJsonOptions,
+    ) -> Result<GeoVizGeoJsonViewport> {
+        validate_bounds(query.bounds)?;
+        let mut collection = if options.clip_to_viewport {
+            filter_collection_for_bounds(&self.collection, query.bounds)?
+        } else {
+            self.collection.clone()
+        };
+
+        if let Some(tolerance) = options.simplify_tolerance {
+            collection.features = collection
+                .features
+                .into_iter()
+                .map(|mut feature| {
+                    feature.geometry = feature
+                        .geometry
+                        .as_ref()
+                        .map(|geometry| simplify_geometry(geometry, tolerance))
+                        .transpose()?;
+                    Ok(feature)
+                })
+                .collect::<Result<Vec<_>>>()?;
+        }
+
+        let feature_collection =
+            serde_json::to_value(to_geojson_feature_collection(&collection.features))
+                .map_err(|error| invalid_argument(error.to_string()))?;
+
+        Ok(GeoVizGeoJsonViewport {
+            bounds: bounds_for_collection(&collection),
+            feature_collection,
+            feature_count: collection.features.len(),
+            viewport_bounds: query.bounds,
+            zoom: query.zoom,
+        })
+    }
+}
+
 fn normalize_point(point: GeoVizPoint, source_index: usize) -> Result<GeoVizIndexedPoint> {
     Coordinate::new(point.longitude, point.latitude)?.validate_geographic()?;
     Ok(GeoVizIndexedPoint {
@@ -330,6 +839,24 @@ fn normalize_point(point: GeoVizPoint, source_index: usize) -> Result<GeoVizInde
     })
 }
 
+fn normalize_flow(flow: GeoVizFlow, source_index: usize) -> Result<GeoVizIndexedFlow> {
+    Coordinate::from_position(flow.from)?.validate_geographic()?;
+    Coordinate::from_position(flow.to)?.validate_geographic()?;
+    Ok(GeoVizIndexedFlow {
+        id: flow.id.unwrap_or_else(|| source_index.to_string()),
+        source_index,
+        label: flow.label.unwrap_or_default(),
+        from: flow.from,
+        to: flow.to,
+        metrics: flow
+            .metrics
+            .into_iter()
+            .filter(|(_, value)| value.is_finite())
+            .collect(),
+        properties: flow.properties,
+    })
+}
+
 fn point_to_feature(point: &GeoVizIndexedPoint) -> Feature {
     let mut properties = JsonObject::new();
     properties.insert("pointId".to_string(), json!(point.id));
@@ -340,7 +867,7 @@ fn point_to_feature(point: &GeoVizIndexedPoint) -> Feature {
     Feature {
         bbox: None,
         foreign_members: None,
-        geometry: Some(Geometry::new(Value::Point(vec![
+        geometry: Some(GeoJsonGeometry::new(Value::Point(vec![
             point.longitude,
             point.latitude,
         ]))),
@@ -353,6 +880,16 @@ fn collect_metric_keys(points: &[GeoVizIndexedPoint]) -> Vec<String> {
     let mut keys = BTreeSet::new();
     for point in points {
         for key in point.metrics.keys() {
+            keys.insert(key.clone());
+        }
+    }
+    keys.into_iter().collect()
+}
+
+fn collect_flow_metric_keys(flows: &[GeoVizIndexedFlow]) -> Vec<String> {
+    let mut keys = BTreeSet::new();
+    for flow in flows {
+        for key in flow.metrics.keys() {
             keys.insert(key.clone());
         }
     }
@@ -376,6 +913,124 @@ fn bounds_for_points(points: &[GeoVizIndexedPoint]) -> Option<GeoVizBounds> {
     Some([west, south, east, north])
 }
 
+fn bounds_for_flows<'a>(
+    flows: impl IntoIterator<Item = &'a GeoVizIndexedFlow>,
+) -> Option<GeoVizBounds> {
+    let mut coordinates = flows
+        .into_iter()
+        .flat_map(|flow| [flow.from, flow.to])
+        .collect::<Vec<_>>();
+    let first = coordinates.pop()?;
+    let mut west = first[0];
+    let mut south = first[1];
+    let mut east = first[0];
+    let mut north = first[1];
+
+    for coordinate in coordinates {
+        west = west.min(coordinate[0]);
+        south = south.min(coordinate[1]);
+        east = east.max(coordinate[0]);
+        north = north.max(coordinate[1]);
+    }
+
+    Some([west, south, east, north])
+}
+
+fn bounds_for_collection(collection: &GeoFeatureCollection) -> Option<GeoVizBounds> {
+    let mut bounds: Option<GeoVizBounds> = None;
+    for feature in &collection.features {
+        if let Some(geometry) = &feature.geometry {
+            visit_geometry_positions(geometry, &mut |position| {
+                bounds = Some(match bounds {
+                    Some([west, south, east, north]) => [
+                        west.min(position[0]),
+                        south.min(position[1]),
+                        east.max(position[0]),
+                        north.max(position[1]),
+                    ],
+                    None => [position[0], position[1], position[0], position[1]],
+                });
+            });
+        }
+    }
+    bounds
+}
+
+fn filter_collection_for_bounds(
+    collection: &GeoFeatureCollection,
+    bounds: GeoVizBounds,
+) -> Result<GeoFeatureCollection> {
+    if bounds[0] <= bounds[2] {
+        let bbox = BBox::new(bounds)?;
+        return Ok(collection.filter_intersecting_bbox(bbox));
+    }
+
+    let west = BBox::new([bounds[0], bounds[1], 180.0, bounds[3]])?;
+    let east = BBox::new([-180.0, bounds[1], bounds[2], bounds[3]])?;
+    let mut seen = BTreeSet::new();
+    let features = collection
+        .features
+        .iter()
+        .filter(|feature| {
+            let intersects = feature.geometry.as_ref().is_some_and(|geometry| {
+                west.intersects_geometry(geometry) || east.intersects_geometry(geometry)
+            });
+            if !intersects {
+                return false;
+            }
+            let key = feature
+                .id
+                .clone()
+                .unwrap_or_else(|| serde_json::to_string(&feature.geometry).unwrap_or_default());
+            if seen.contains(&key) {
+                return false;
+            }
+            seen.insert(key);
+            true
+        })
+        .cloned()
+        .collect();
+
+    Ok(GeoFeatureCollection {
+        bbox: collection.bbox,
+        features,
+    })
+}
+
+fn visit_geometry_positions(geometry: &GeoDataGeometry, visit: &mut dyn FnMut([f64; 2])) {
+    match geometry {
+        GeoDataGeometry::Point { coordinates } => visit(*coordinates),
+        GeoDataGeometry::MultiPoint { coordinates }
+        | GeoDataGeometry::LineString { coordinates } => {
+            for position in coordinates {
+                visit(*position);
+            }
+        }
+        GeoDataGeometry::MultiLineString { coordinates }
+        | GeoDataGeometry::Polygon { coordinates } => {
+            for line in coordinates {
+                for position in line {
+                    visit(*position);
+                }
+            }
+        }
+        GeoDataGeometry::MultiPolygon { coordinates } => {
+            for polygon in coordinates {
+                for ring in polygon {
+                    for position in ring {
+                        visit(*position);
+                    }
+                }
+            }
+        }
+        GeoDataGeometry::GeometryCollection { geometries } => {
+            for geometry in geometries {
+                visit_geometry_positions(geometry, visit);
+            }
+        }
+    }
+}
+
 fn validate_bounds(bounds: GeoVizBounds) -> Result<()> {
     if bounds.iter().any(|value| !value.is_finite()) {
         return Err(invalid_argument("viewport bounds must be finite"));
@@ -389,6 +1044,89 @@ fn validate_bounds(bounds: GeoVizBounds) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn point_in_bounds(longitude: f64, latitude: f64, bounds: GeoVizBounds) -> bool {
+    let longitude_visible = if bounds[0] <= bounds[2] {
+        longitude >= bounds[0] && longitude <= bounds[2]
+    } else {
+        longitude >= bounds[0] || longitude <= bounds[2]
+    };
+
+    longitude_visible && latitude >= bounds[1] && latitude <= bounds[3]
+}
+
+fn flow_intersects_bounds(flow: &GeoVizIndexedFlow, bounds: GeoVizBounds) -> bool {
+    point_in_bounds(flow.from[0], flow.from[1], bounds)
+        || point_in_bounds(flow.to[0], flow.to[1], bounds)
+        || flow_bbox_intersects_bounds(flow, bounds)
+}
+
+fn flow_bbox_intersects_bounds(flow: &GeoVizIndexedFlow, bounds: GeoVizBounds) -> bool {
+    let flow_west = flow.from[0].min(flow.to[0]);
+    let flow_east = flow.from[0].max(flow.to[0]);
+    let flow_south = flow.from[1].min(flow.to[1]);
+    let flow_north = flow.from[1].max(flow.to[1]);
+    let latitude_intersects = flow_south <= bounds[3] && flow_north >= bounds[1];
+
+    if !latitude_intersects {
+        return false;
+    }
+
+    if bounds[0] <= bounds[2] {
+        flow_west <= bounds[2] && flow_east >= bounds[0]
+    } else {
+        flow_east >= bounds[0] || flow_west <= bounds[2]
+    }
+}
+
+fn geo_weight(metrics: &GeoVizMetricRecord, weight_metric: Option<&str>) -> f64 {
+    let weight = weight_metric
+        .and_then(|key| metrics.get(key))
+        .copied()
+        .or_else(|| metrics.get("weight").copied())
+        .unwrap_or(1.0);
+
+    if weight.is_finite() {
+        weight.max(0.0)
+    } else {
+        0.0
+    }
+}
+
+fn aggregate_flows(
+    weighted: Vec<(GeoVizIndexedFlow, f64)>,
+    metric_keys: &[String],
+) -> Vec<(GeoVizIndexedFlow, f64)> {
+    let mut grouped = BTreeMap::<String, (GeoVizIndexedFlow, f64)>::new();
+
+    for (flow, raw_weight) in weighted {
+        let key = format!(
+            "{:.6},{:.6}->{:.6},{:.6}",
+            flow.from[0], flow.from[1], flow.to[0], flow.to[1]
+        );
+        let entry = grouped.entry(key).or_insert_with(|| {
+            let mut flow = flow.clone();
+            flow.id = format!(
+                "{}:{}:{}:{}",
+                flow.from[0], flow.from[1], flow.to[0], flow.to[1]
+            );
+            flow.label.clear();
+            flow.metrics = metric_keys.iter().map(|key| (key.clone(), 0.0)).collect();
+            (flow, 0.0)
+        });
+        entry.1 += raw_weight;
+        for key in metric_keys {
+            *entry.0.metrics.entry(key.clone()).or_insert(0.0) +=
+                flow.metrics.get(key).copied().unwrap_or(0.0);
+        }
+    }
+
+    grouped.into_values().collect()
+}
+
+fn default_clip_to_viewport() -> bool {
+    true
 }
 
 fn coordinates_from_feature(feature: &Feature) -> Option<[f64; 2]> {
@@ -595,5 +1333,123 @@ mod tests {
             .expect("aggregation");
 
         assert_eq!(aggregation.summary.visible_point_count, 2);
+    }
+
+    #[test]
+    fn returns_heat_features_and_nearest_points() {
+        let index = GeoPointIndex::new(
+            [point("a", 13.0, 52.0, 2.0), point("b", 14.0, 53.0, 4.0)],
+            GeoVizAggregationOptions::default(),
+        )
+        .expect("index");
+        let heat = index
+            .get_heat_features(
+                GeoVizViewportQuery {
+                    bounds: [12.0, 51.0, 14.5, 53.5],
+                    zoom: 7.0,
+                },
+                GeoVizHeatOptions {
+                    radius_meters: Some(1000.0),
+                    weight_metric: Some("value".to_string()),
+                },
+            )
+            .expect("heat");
+
+        assert_eq!(heat.features.len(), 2);
+        assert_eq!(heat.summary.max_weight, 4.0);
+        assert_eq!(
+            index
+                .nearest_point(GeoVizNearestPointQuery {
+                    longitude: 13.1,
+                    latitude: 52.1,
+                    max_distance: Some(1.0),
+                })
+                .expect("nearest")
+                .map(|point| point.id),
+            Some("a".to_string())
+        );
+    }
+
+    #[test]
+    fn filters_geojson_features_by_viewport() {
+        let index = GeoJsonIndex::new(json!({
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "id": "inside",
+                    "properties": {"name": "inside"},
+                    "geometry": {"type": "Point", "coordinates": [13.0, 52.0]}
+                },
+                {
+                    "type": "Feature",
+                    "id": "outside",
+                    "properties": {"name": "outside"},
+                    "geometry": {"type": "Point", "coordinates": [20.0, 60.0]}
+                }
+            ]
+        }))
+        .expect("geojson index");
+        let viewport = index
+            .get_viewport_features(
+                GeoVizViewportQuery {
+                    bounds: [12.0, 51.0, 14.0, 53.0],
+                    zoom: 5.0,
+                },
+                GeoVizGeoJsonOptions::default(),
+            )
+            .expect("viewport");
+
+        assert_eq!(index.get_bounds(), Some([13.0, 52.0, 20.0, 60.0]));
+        assert_eq!(viewport.feature_count, 1);
+        assert_eq!(viewport.feature_collection["features"][0]["id"], "inside");
+    }
+
+    #[test]
+    fn filters_and_aggregates_flows() {
+        let index = GeoFlowIndex::new([
+            GeoVizFlow {
+                id: Some("a".to_string()),
+                label: None,
+                from: [13.0, 52.0],
+                to: [14.0, 53.0],
+                metrics: BTreeMap::from([("value".to_string(), 2.0)]),
+                properties: json!({}),
+            },
+            GeoVizFlow {
+                id: Some("b".to_string()),
+                label: None,
+                from: [13.0, 52.0],
+                to: [14.0, 53.0],
+                metrics: BTreeMap::from([("value".to_string(), 3.0)]),
+                properties: json!({}),
+            },
+            GeoVizFlow {
+                id: Some("outside".to_string()),
+                label: None,
+                from: [40.0, 40.0],
+                to: [41.0, 41.0],
+                metrics: BTreeMap::from([("value".to_string(), 10.0)]),
+                properties: json!({}),
+            },
+        ])
+        .expect("flow index");
+        let aggregation = index
+            .get_viewport_flows(
+                GeoVizViewportQuery {
+                    bounds: [12.0, 51.0, 15.0, 54.0],
+                    zoom: 4.0,
+                },
+                GeoVizFlowOptions {
+                    aggregate: GeoVizFlowAggregateMode::OriginDestination,
+                    min_weight: Some(1.0),
+                    weight_metric: Some("value".to_string()),
+                },
+            )
+            .expect("flows");
+
+        assert_eq!(aggregation.features.len(), 1);
+        assert_eq!(aggregation.features[0].raw_weight, 5.0);
+        assert_eq!(aggregation.summary.visible_flow_count, 1);
     }
 }

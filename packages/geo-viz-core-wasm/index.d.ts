@@ -28,7 +28,12 @@ export interface SurfaceResponse {
   artifacts: unknown[];
 }
 
-export type GeoVizBounds = [west: number, south: number, east: number, north: number];
+export type GeoVizBounds = [
+  west: number,
+  south: number,
+  east: number,
+  north: number,
+];
 export type GeoVizMetricRecord = Record<string, number>;
 
 export interface GeoVizPoint<TProperties = unknown> {
@@ -93,17 +98,146 @@ export interface GeoVizAggregation<TProperties = unknown> {
   summary: GeoVizAggregationSummary;
 }
 
+export interface GeoVizHeatOptions {
+  radiusMeters?: number;
+  weightMetric?: string;
+}
+
+export interface GeoVizHeatFeature<TProperties = unknown> {
+  coordinates: [longitude: number, latitude: number];
+  id: string;
+  label: string;
+  metrics: GeoVizMetricRecord;
+  point: GeoVizIndexedPoint<TProperties>;
+  pointCount: number;
+  rawWeight: number;
+  value: number;
+}
+
+export interface GeoVizHeatAggregation<TProperties = unknown> {
+  features: Array<GeoVizHeatFeature<TProperties>>;
+  summary: {
+    bounds: GeoVizBounds;
+    zoom: number;
+    metrics: GeoVizMetricRecord;
+    maxWeight: number;
+    visiblePointCount: number;
+  };
+}
+
+export interface GeoVizNearestPointQuery {
+  longitude: number;
+  latitude: number;
+  maxDistance?: number;
+}
+
+export interface GeoVizFlow<TProperties = unknown> {
+  id?: string;
+  label?: string;
+  from: [longitude: number, latitude: number];
+  to: [longitude: number, latitude: number];
+  metrics?: GeoVizMetricRecord;
+  properties?: TProperties;
+}
+
+export interface GeoVizIndexedFlow<TProperties = unknown> {
+  id: string;
+  sourceIndex: number;
+  label: string;
+  from: [longitude: number, latitude: number];
+  to: [longitude: number, latitude: number];
+  metrics: GeoVizMetricRecord;
+  properties: TProperties;
+}
+
+export interface GeoVizFlowOptions {
+  aggregate?: "none" | "origin-destination" | "grid";
+  minWeight?: number;
+  weightMetric?: string;
+}
+
+export interface GeoVizFlowFeature<TProperties = unknown> {
+  flow: GeoVizIndexedFlow<TProperties>;
+  rawWeight: number;
+  value: number;
+}
+
+export interface GeoVizFlowAggregation<TProperties = unknown> {
+  features: Array<GeoVizFlowFeature<TProperties>>;
+  summary: {
+    bounds: GeoVizBounds | null;
+    viewportBounds: GeoVizBounds;
+    zoom: number;
+    metrics: GeoVizMetricRecord;
+    maxWeight: number;
+    visibleFlowCount: number;
+  };
+}
+
+export interface GeoVizGeoJsonOptions {
+  clipToViewport?: boolean;
+  simplifyTolerance?: number;
+}
+
+export interface GeoVizGeoJsonViewport<TProperties = unknown> {
+  bounds: GeoVizBounds | null;
+  featureCollection: {
+    type: "FeatureCollection";
+    features: Array<{
+      geometry: unknown;
+      id?: string | number;
+      properties?: TProperties;
+      type: "Feature";
+    }>;
+  };
+  featureCount: number;
+  viewportBounds: GeoVizBounds;
+  zoom: number;
+}
+
 export class GeoPointIndex<TProperties = unknown> {
-  constructor(points: Array<GeoVizPoint<TProperties>>, options?: GeoVizAggregationOptions);
+  constructor(
+    points: Array<GeoVizPoint<TProperties>>,
+    options?: GeoVizAggregationOptions,
+  );
   getBounds(): GeoVizBounds | null;
   getPointById(pointId: string): GeoVizIndexedPoint<TProperties> | null;
-  getViewportAggregation(query: GeoVizViewportQuery): GeoVizAggregation<TProperties>;
+  getViewportAggregation(
+    query: GeoVizViewportQuery,
+  ): GeoVizAggregation<TProperties>;
   getClusterExpansionZoom(clusterId: number): number;
   getClusterLeaves(
     clusterId: number,
     limit?: number,
     offset?: number,
   ): Array<GeoVizIndexedPoint<TProperties>>;
+  getHeatFeatures(
+    query: GeoVizViewportQuery,
+    options?: GeoVizHeatOptions,
+  ): GeoVizHeatAggregation<TProperties>;
+  nearestPoint(
+    query: GeoVizNearestPointQuery,
+  ): GeoVizIndexedPoint<TProperties> | null;
+  free(): void;
+}
+
+export class GeoFlowIndex<TProperties = unknown> {
+  constructor(flows: Array<GeoVizFlow<TProperties>>);
+  getBounds(): GeoVizBounds | null;
+  getViewportFlows(
+    query: GeoVizViewportQuery,
+    options?: GeoVizFlowOptions,
+  ): GeoVizFlowAggregation<TProperties>;
+  free(): void;
+}
+
+export class GeoJsonIndex<TProperties = unknown> {
+  constructor(geoJson: unknown);
+  getBounds(): GeoVizBounds | null;
+  getViewportFeatures(
+    query: GeoVizViewportQuery,
+    options?: GeoVizGeoJsonOptions,
+  ): GeoVizGeoJsonViewport<TProperties>;
   free(): void;
 }
 

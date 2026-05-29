@@ -1,4 +1,6 @@
 import initWasm, {
+  GeoFlowIndex as WasmGeoFlowIndex,
+  GeoJsonIndex as WasmGeoJsonIndex,
   GeoPointIndex as WasmGeoPointIndex,
   initSync,
   packageSurface as wasmPackageSurface,
@@ -51,6 +53,52 @@ export class GeoPointIndex {
 
   getClusterLeaves(clusterId, limit, offset) {
     return this.inner.getClusterLeaves(clusterId, limit, offset);
+  }
+
+  getHeatFeatures(query, options) {
+    return this.inner.getHeatFeatures(query, options ?? null);
+  }
+
+  nearestPoint(query) {
+    return this.inner.nearestPoint(query);
+  }
+
+  free() {
+    this.inner.free();
+  }
+}
+
+export class GeoFlowIndex {
+  constructor(flows) {
+    initializeNodeSync();
+    this.inner = new WasmGeoFlowIndex(flows);
+  }
+
+  getBounds() {
+    return this.inner.getBounds();
+  }
+
+  getViewportFlows(query, options) {
+    return this.inner.getViewportFlows(query, options ?? null);
+  }
+
+  free() {
+    this.inner.free();
+  }
+}
+
+export class GeoJsonIndex {
+  constructor(geoJson) {
+    initializeNodeSync();
+    this.inner = new WasmGeoJsonIndex(geoJson);
+  }
+
+  getBounds() {
+    return this.inner.getBounds();
+  }
+
+  getViewportFeatures(query, options) {
+    return this.inner.getViewportFeatures(query, options ?? null);
   }
 
   free() {
