@@ -15,14 +15,29 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/geo-viz",
     standaloneRoute: "",
   },
-  defaultOperation: "describe",
-  featuredOperations: ["describe"],
+  defaultOperation: "geoViz.aggregateViewport",
+  featuredOperations: [
+    "geoViz.aggregateViewport",
+    "geoViz.bounds",
+    "geoViz.heatViewport",
+    "geoViz.geoJsonViewport",
+    "geoViz.flowViewport",
+    "geoViz.resampleGeometry",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: [],
+      operations: [
+        "geoViz.aggregateViewport",
+        "geoViz.bounds",
+        "geoViz.heatViewport",
+        "geoViz.geoJsonViewport",
+        "geoViz.flowViewport",
+        "geoViz.resampleGeometry",
+      ],
     },
     {
       id: "debug",

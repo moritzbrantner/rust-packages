@@ -103,6 +103,8 @@ tensor-data = { version = "0.1.0", path = "crates/data/tensor-data" }
 jobs-core = { version = "0.1.1", path = "crates/jobs/jobs-core" }
 model-runtime = { version = "0.1.0", path = "crates/runtime/model-runtime" }
 finance-statistics = { version = "0.1.0", path = "crates/math/finance-statistics" }
+finance-data = { version = "0.1.0", path = "crates/data/finance-data" }
+finance-data-wasm = { version = "0.1.0", path = "crates/bindings/finance-data-wasm" }
 maps-kernels-core = { version = "0.1.0", path = "crates/math/maps-kernels-core" }
 math-geometry-2d = { version = "0.1.0", path = "crates/math/math-geometry-2d" }
 math-linear = { version = "0.1.0", path = "crates/math/math-linear" }

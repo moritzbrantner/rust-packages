@@ -15,14 +15,14 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/geo-io-geojson",
     standaloneRoute: "",
   },
-  defaultOperation: "geo.bounds",
-  featuredOperations: ["geo.bounds", "geo.distance", "geo.toGeoJson", "describe"],
+  defaultOperation: "geoJson.bounds",
+  featuredOperations: ["geoJson.bounds", "geoJson.toGeoJson", "geoJson.distance", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["geo.bounds", "geo.distance", "geo.toGeoJson"],
+      operations: ["geoJson.bounds", "geoJson.toGeoJson", "geoJson.distance"],
     },
     {
       id: "debug",

@@ -15,14 +15,14 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/geo-clustering",
     standaloneRoute: "",
   },
-  defaultOperation: "geo.bounds",
-  featuredOperations: ["geo.bounds", "geo.distance", "geo.toGeoJson", "describe"],
+  defaultOperation: "geoCluster.viewport",
+  featuredOperations: ["geoCluster.viewport", "geoCluster.bounds", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["geo.bounds", "geo.distance", "geo.toGeoJson"],
+      operations: ["geoCluster.viewport", "geoCluster.bounds"],
     },
     {
       id: "debug",

@@ -1,0 +1,19 @@
+[package]
+name = "finance-data"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Provider-neutral financial market data types, validation, indexing, and derived series."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords = ["finance", "market-data", "ohlcv", "timeseries"]
+categories = ["data-structures", "science", "algorithms"]
+
+[dependencies]
+finance-statistics.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+video-analysis-core.workspace = true

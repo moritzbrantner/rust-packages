@@ -1687,6 +1687,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "finance-data"
+version = "0.1.0"
+dependencies = [
+ "finance-statistics",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "finance-data-wasm"
+version = "0.1.0"
+dependencies = [
+ "finance-data",
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "video-analysis-core",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "finance-statistics"
 version = "0.1.0"
 dependencies = [
@@ -3833,6 +3855,7 @@ dependencies = [
 name = "moritzbrantner-geo-viz"
 version = "0.1.0"
 dependencies = [
+ "maps-kernels-core",
  "moritzbrantner-geo-clustering",
  "moritzbrantner-geo-core",
  "moritzbrantner-geo-io-geojson",

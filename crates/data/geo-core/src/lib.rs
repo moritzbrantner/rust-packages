@@ -13,6 +13,8 @@ pub type Properties = BTreeMap<String, Value>;
 /// Two-dimensional coordinate position in `[longitude, latitude]` order.
 pub type Position = [f64; 2];
 
+const GEOMETRY_EPSILON: f64 = 1e-12;
+
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
 }
@@ -156,7 +158,7 @@ impl BBox {
             .any(|coordinate| self.contains(coordinate))
     }
 
-    /// Returns true when this bbox contains at least one coordinate in the geometry.
+    /// Returns true when this bbox intersects a geometry.
     pub fn intersects_geometry(self, geometry: &Geometry) -> bool {
         geometry_intersects_bbox(geometry, self)
     }
@@ -520,29 +522,157 @@ pub fn point_in_ring(point: Coordinate, ring: &[Coordinate]) -> bool {
     inside
 }
 
-/// Returns true when a geometry has at least one coordinate inside a bbox.
+/// Returns true when a geometry intersects a bbox.
 pub fn geometry_intersects_bbox(geometry: &Geometry, bbox: BBox) -> bool {
     match geometry {
         Geometry::Point { coordinates } => Coordinate::from_position(*coordinates)
             .map(|coordinate| bbox.contains(coordinate))
             .unwrap_or(false),
-        Geometry::MultiPoint { coordinates } | Geometry::LineString { coordinates } => {
-            positions_intersect_bbox(coordinates, bbox)
-        }
-        Geometry::MultiLineString { coordinates } | Geometry::Polygon { coordinates } => {
-            coordinates
-                .iter()
-                .any(|line| positions_intersect_bbox(line, bbox))
-        }
-        Geometry::MultiPolygon { coordinates } => coordinates.iter().any(|polygon| {
-            polygon
-                .iter()
-                .any(|ring| positions_intersect_bbox(ring, bbox))
-        }),
+        Geometry::MultiPoint { coordinates } => positions_intersect_bbox(coordinates, bbox),
+        Geometry::LineString { coordinates } => line_positions_intersect_bbox(coordinates, bbox),
+        Geometry::MultiLineString { coordinates } => coordinates
+            .iter()
+            .any(|line| line_positions_intersect_bbox(line, bbox)),
+        Geometry::Polygon { coordinates } => polygon_positions_intersect_bbox(coordinates, bbox),
+        Geometry::MultiPolygon { coordinates } => coordinates
+            .iter()
+            .any(|polygon| polygon_positions_intersect_bbox(polygon, bbox)),
         Geometry::GeometryCollection { geometries } => geometries
             .iter()
             .any(|geometry| geometry_intersects_bbox(geometry, bbox)),
     }
+}
+
+fn line_positions_intersect_bbox(coordinates: &[Position], bbox: BBox) -> bool {
+    if positions_intersect_bbox(coordinates, bbox) {
+        return true;
+    }
+    positions_to_coordinates(coordinates)
+        .map(|coordinates| line_segments_intersect_bbox(&coordinates, bbox))
+        .unwrap_or(false)
+}
+
+fn polygon_positions_intersect_bbox(polygon: &[Vec<Position>], bbox: BBox) -> bool {
+    let rings = polygon
+        .iter()
+        .map(|ring| positions_to_coordinates(ring))
+        .collect::<Result<Vec<_>>>();
+    let Ok(rings) = rings else {
+        return false;
+    };
+    if rings.iter().any(|ring| {
+        ring.iter()
+            .copied()
+            .any(|coordinate| bbox.contains(coordinate))
+            || line_segments_intersect_bbox(ring, bbox)
+    }) {
+        return true;
+    }
+    let Some(exterior) = rings.first() else {
+        return false;
+    };
+    bbox_corners(bbox).iter().copied().any(|corner| {
+        point_in_ring(corner, exterior)
+            && !rings
+                .iter()
+                .skip(1)
+                .any(|interior| point_in_ring(corner, interior))
+    })
+}
+
+fn line_segments_intersect_bbox(coordinates: &[Coordinate], bbox: BBox) -> bool {
+    coordinates
+        .windows(2)
+        .any(|segment| segment_intersects_bbox(segment[0], segment[1], bbox))
+}
+
+fn segment_intersects_bbox(start: Coordinate, end: Coordinate, bbox: BBox) -> bool {
+    if bbox.contains(start) || bbox.contains(end) {
+        return true;
+    }
+    if start.lon.max(end.lon) < bbox.min_lon
+        || start.lon.min(end.lon) > bbox.max_lon
+        || start.lat.max(end.lat) < bbox.min_lat
+        || start.lat.min(end.lat) > bbox.max_lat
+    {
+        return false;
+    }
+    let corners = bbox_corners(bbox);
+    let edges = [
+        (corners[0], corners[1]),
+        (corners[1], corners[2]),
+        (corners[2], corners[3]),
+        (corners[3], corners[0]),
+    ];
+    edges
+        .iter()
+        .any(|(edge_start, edge_end)| segments_intersect(start, end, *edge_start, *edge_end))
+}
+
+fn bbox_corners(bbox: BBox) -> [Coordinate; 4] {
+    [
+        Coordinate {
+            lon: bbox.min_lon,
+            lat: bbox.min_lat,
+        },
+        Coordinate {
+            lon: bbox.max_lon,
+            lat: bbox.min_lat,
+        },
+        Coordinate {
+            lon: bbox.max_lon,
+            lat: bbox.max_lat,
+        },
+        Coordinate {
+            lon: bbox.min_lon,
+            lat: bbox.max_lat,
+        },
+    ]
+}
+
+fn segments_intersect(
+    first_start: Coordinate,
+    first_end: Coordinate,
+    second_start: Coordinate,
+    second_end: Coordinate,
+) -> bool {
+    let o1 = orientation_sign(first_start, first_end, second_start);
+    let o2 = orientation_sign(first_start, first_end, second_end);
+    let o3 = orientation_sign(second_start, second_end, first_start);
+    let o4 = orientation_sign(second_start, second_end, first_end);
+
+    if o1 == 0 && coordinate_on_segment(second_start, first_start, first_end) {
+        return true;
+    }
+    if o2 == 0 && coordinate_on_segment(second_end, first_start, first_end) {
+        return true;
+    }
+    if o3 == 0 && coordinate_on_segment(first_start, second_start, second_end) {
+        return true;
+    }
+    if o4 == 0 && coordinate_on_segment(first_end, second_start, second_end) {
+        return true;
+    }
+
+    o1 != o2 && o3 != o4
+}
+
+fn orientation_sign(a: Coordinate, b: Coordinate, c: Coordinate) -> i8 {
+    let orientation = (b.lon - a.lon) * (c.lat - a.lat) - (b.lat - a.lat) * (c.lon - a.lon);
+    if orientation.abs() <= GEOMETRY_EPSILON {
+        0
+    } else if orientation > 0.0 {
+        1
+    } else {
+        -1
+    }
+}
+
+fn coordinate_on_segment(point: Coordinate, start: Coordinate, end: Coordinate) -> bool {
+    point.lon >= start.lon.min(end.lon) - GEOMETRY_EPSILON
+        && point.lon <= start.lon.max(end.lon) + GEOMETRY_EPSILON
+        && point.lat >= start.lat.min(end.lat) - GEOMETRY_EPSILON
+        && point.lat <= start.lat.max(end.lat) + GEOMETRY_EPSILON
 }
 
 /// Applies a coordinate transform to every coordinate in a geometry.
@@ -932,6 +1062,51 @@ mod tests {
 
         assert!(bbox.contains(coord(8.7, 48.9)));
         assert!(!bbox.contains(coord(10.0, 48.9)));
+    }
+
+    #[test]
+    fn bbox_intersects_crossing_line_segments() {
+        let bbox = BBox::new([0.0, 0.0, 1.0, 1.0]).unwrap();
+        let geometry = Geometry::LineString {
+            coordinates: vec![[-1.0, 0.5], [2.0, 0.5]],
+        };
+
+        assert!(bbox.intersects_geometry(&geometry));
+    }
+
+    #[test]
+    fn bbox_intersects_polygon_that_contains_viewport() {
+        let bbox = BBox::new([0.0, 0.0, 1.0, 1.0]).unwrap();
+        let geometry = Geometry::Polygon {
+            coordinates: vec![vec![
+                [-1.0, -1.0],
+                [2.0, -1.0],
+                [2.0, 2.0],
+                [-1.0, 2.0],
+                [-1.0, -1.0],
+            ]],
+        };
+
+        assert!(bbox.intersects_geometry(&geometry));
+    }
+
+    #[test]
+    fn bbox_inside_polygon_hole_does_not_intersect() {
+        let bbox = BBox::new([0.25, 0.25, 0.75, 0.75]).unwrap();
+        let geometry = Geometry::Polygon {
+            coordinates: vec![
+                vec![
+                    [-1.0, -1.0],
+                    [2.0, -1.0],
+                    [2.0, 2.0],
+                    [-1.0, 2.0],
+                    [-1.0, -1.0],
+                ],
+                vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]],
+            ],
+        };
+
+        assert!(!bbox.intersects_geometry(&geometry));
     }
 
     #[test]

@@ -45,6 +45,7 @@ flowchart LR
     crate_dense_data["dense-data"]:::crate
     crate_dense_data_cli["dense-data-cli"]:::crate
     crate_dense_data_server["dense-data-server"]:::crate
+    crate_finance_data["finance-data"]:::crate
     crate_geo_clustering_cli["geo-clustering-cli"]:::crate
     crate_geo_clustering_server["geo-clustering-server"]:::crate
     crate_geo_core_cli["geo-core-cli"]:::crate
@@ -364,6 +365,7 @@ flowchart LR
     crate_comfyui_models_wasm["comfyui-models-wasm"]:::crate
     crate_data_inversion_core_wasm["data-inversion-core-wasm"]:::crate
     crate_dense_data_wasm["dense-data-wasm"]:::crate
+    crate_finance_data_wasm["finance-data-wasm"]:::crate
     crate_finance_statistics_wasm["finance-statistics-wasm"]:::crate
     crate_geo_clustering_wasm["geo-clustering-wasm"]:::crate
     crate_geo_core_wasm["geo-core-wasm"]:::crate
@@ -588,6 +590,8 @@ flowchart LR
   crate_dense_data_cli --> crate_video_analysis_core
   crate_dense_data_server --> crate_dense_data
   crate_dense_data_server --> crate_video_analysis_core
+  crate_finance_data --> crate_finance_statistics
+  crate_finance_data --> crate_video_analysis_core
   crate_geo_clustering_cli --> crate_moritzbrantner_geo_clustering
   crate_geo_clustering_cli --> crate_video_analysis_core
   crate_geo_clustering_server --> crate_moritzbrantner_geo_clustering
@@ -617,6 +621,7 @@ flowchart LR
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_clustering
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_core
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_io_geojson
+  crate_moritzbrantner_geo_viz --> crate_maps_kernels_core
   crate_moritzbrantner_geo_viz --> crate_video_analysis_core
   crate_numbers_core --> crate_video_analysis_core
   crate_numbers_core_cli --> crate_numbers_core
@@ -1261,6 +1266,8 @@ flowchart LR
   crate_data_inversion_core_wasm --> crate_video_analysis_core
   crate_dense_data_wasm --> crate_dense_data
   crate_dense_data_wasm --> crate_video_analysis_core
+  crate_finance_data_wasm --> crate_finance_data
+  crate_finance_data_wasm --> crate_video_analysis_core
   crate_finance_statistics_wasm --> crate_finance_statistics
   crate_finance_statistics_wasm --> crate_video_analysis_core
   crate_geo_clustering_wasm --> crate_moritzbrantner_geo_clustering

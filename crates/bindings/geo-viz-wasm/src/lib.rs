@@ -196,10 +196,30 @@ fn into_js_error(error: impl std::fmt::Display) -> JsValue {
 
 #[cfg(test)]
 mod tests {
+    use video_analysis_core::runtime::{OperationId, SurfaceRequest};
+
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = geo_viz::surface::package_surface();
         assert_eq!(surface.library, "moritzbrantner-geo-viz");
         assert!(!surface.operations.is_empty());
+    }
+
+    #[test]
+    fn wrapped_surface_runs_operation() {
+        let response = geo_viz::surface::run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("geoViz.resampleGeometry"),
+            input: serde_json::json!({
+                "coordinates": [0.0, 0.0, 10.0, 0.0],
+                "coordinateCount": 3,
+                "closed": false
+            }),
+        })
+        .expect("resample operation");
+
+        assert_eq!(
+            response.value["coordinates"],
+            serde_json::json!([0.0, 0.0, 5.0, 0.0, 10.0, 0.0])
+        );
     }
 }

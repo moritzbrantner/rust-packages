@@ -1321,6 +1321,12 @@ mod tests {
                     "id": "outside",
                     "properties": {"name": "outside"},
                     "geometry": {"type": "Point", "coordinates": [20.0, 60.0]}
+                },
+                {
+                    "type": "Feature",
+                    "id": "crossing",
+                    "properties": {"name": "crossing"},
+                    "geometry": {"type": "LineString", "coordinates": [[11.0, 52.0], [15.0, 52.0]]}
                 }
             ]
         }))
@@ -1335,8 +1341,8 @@ mod tests {
             )
             .expect("viewport");
 
-        assert_eq!(index.get_bounds(), Some([13.0, 52.0, 20.0, 60.0]));
-        assert_eq!(viewport.feature_count, 1);
+        assert_eq!(index.get_bounds(), Some([11.0, 52.0, 20.0, 60.0]));
+        assert_eq!(viewport.feature_count, 2);
         assert_eq!(viewport.feature_collection["features"][0]["id"], "inside");
     }
 

@@ -19,6 +19,7 @@ name = "geo_viz"
 geo-clustering.workspace = true
 geo-core.workspace = true
 geo-io-geojson.workspace = true
+maps-kernels-core.workspace = true
 rstar.workspace = true
 serde.workspace = true
 serde_json.workspace = true

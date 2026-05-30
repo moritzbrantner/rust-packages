@@ -76,7 +76,7 @@ export type GeoVizAggregationFeature<TProperties = unknown> =
     }
   | {
       kind: "cluster";
-      clusterId: number;
+      clusterId: string;
       coordinates: [longitude: number, latitude: number];
       expansionZoom: number;
       metrics: GeoVizMetricRecord;
@@ -205,9 +205,9 @@ export class GeoPointIndex<TProperties = unknown> {
   getViewportAggregation(
     query: GeoVizViewportQuery,
   ): GeoVizAggregation<TProperties>;
-  getClusterExpansionZoom(clusterId: number): number;
+  getClusterExpansionZoom(clusterId: string): number;
   getClusterLeaves(
-    clusterId: number,
+    clusterId: string,
     limit?: number,
     offset?: number,
   ): Array<GeoVizIndexedPoint<TProperties>>;

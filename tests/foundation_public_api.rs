@@ -22,8 +22,9 @@ use math_statistics::{PrincipalComponents, RunningCovariance};
 use numbers_core::{quartiles, summarize_numbers};
 use tempfile::tempdir;
 use three_d_processing_core::{
-    broad_phase_pairs_3d, centroid, voxel_downsample, Bounds3, BroadPhase3Config,
-    BroadPhase3Strategy, Point3, SpatialCellSize3,
+    broad_phase_pairs_3d, centroid, collision_sphere_sphere, intersect_ray_bounds,
+    sphere_intersects_bounds, voxel_downsample, Bounds3, BroadPhase3Config, BroadPhase3Strategy,
+    Point3, Ray3, SpatialCellSize3, Sphere3, Vector3,
 };
 use three_d_processing_io::{read_mesh, write_obj_mesh};
 use three_d_processing_mesh::{Mesh, Triangle};
@@ -206,6 +207,19 @@ fn foundation_crates_support_basic_consumer_workflows() -> Result<(), Box<dyn st
         .len(),
         1
     );
+    let bounds = Bounds3::new(Point3::new(-1.0, -1.0, -1.0), Point3::new(1.0, 1.0, 1.0))?;
+    let sphere = Sphere3::new(Point3::new(1.5, 0.0, 0.0), 0.75)?;
+    assert!(sphere_intersects_bounds(sphere, bounds)?);
+    assert!(intersect_ray_bounds(
+        Ray3::new(Point3::new(0.0, 0.0, -3.0), Vector3::new(0.0, 0.0, 1.0))?,
+        bounds
+    )?
+    .is_some());
+    assert!(collision_sphere_sphere(
+        Sphere3::new(Point3::new(0.0, 0.0, 0.0), 1.0)?,
+        Sphere3::new(Point3::new(1.5, 0.0, 0.0), 1.0)?
+    )?
+    .is_some());
 
     let mesh_path = temp.path().join("triangle.obj");
     write_obj_mesh(&mesh_path, &mesh)?;

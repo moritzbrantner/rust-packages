@@ -249,10 +249,25 @@ fn module_from_body(body: &str) -> Option<ModuleInfo> {
 
 fn module_by_package_or_library(value: &str) -> Option<ModuleInfo> {
     let normalized = value.strip_suffix("-server").unwrap_or(value);
+    let normalized = geo_package_alias(normalized).unwrap_or(normalized);
     MODULES
         .iter()
         .copied()
         .find(|module| module.package == normalized || slugify(module.package) == normalized)
+}
+
+fn geo_package_alias(value: &str) -> Option<&'static str> {
+    match value {
+        "geo-core" => Some("moritzbrantner-geo-core"),
+        "geo-io-geojson" => Some("moritzbrantner-geo-io-geojson"),
+        "geo-clustering" => Some("moritzbrantner-geo-clustering"),
+        "geo-viz" => Some("moritzbrantner-geo-viz"),
+        _ => None,
+    }
+}
+
+fn adapter_package_base(package: &str) -> &str {
+    package.strip_prefix("moritzbrantner-").unwrap_or(package)
 }
 
 fn split_package_path(value: &str) -> Option<(&str, &str)> {
@@ -275,6 +290,7 @@ fn overview_health() -> HttpResponse {
 }
 
 fn package_health(module: ModuleInfo) -> HttpResponse {
+    let adapter_base = adapter_package_base(module.package);
     json_response(
         if module.linked { 200 } else { 503 },
         if module.linked {
@@ -284,7 +300,7 @@ fn package_health(module: ModuleInfo) -> HttpResponse {
         },
         json!({
             "ok": module.linked,
-            "package": format!("{}-server", module.package),
+            "package": format!("{adapter_base}-server"),
             "library": module.package,
             "domain": module.domain,
             "linked": module.linked,
@@ -335,6 +351,7 @@ fn package_operations_response(module: ModuleInfo) -> HttpResponse {
 }
 
 fn package_metadata_value(module: &ModuleInfo) -> Value {
+    let adapter_base = adapter_package_base(module.package);
     let surface = package_surface_for(*module);
     let operations = surface
         .as_ref()
@@ -377,14 +394,14 @@ fn package_metadata_value(module: &ModuleInfo) -> Value {
         ]
     };
     json!({
-        "package": format!("{}-server", module.package),
+        "package": format!("{adapter_base}-server"),
         "surface": "api",
         "library": module.package,
         "version": version,
         "libraryImport": format!("use {}", module.import_path),
-        "cliPackage": format!("{}-cli", module.package),
-        "appPackage": format!("{}-app", module.package),
-        "wasmPackage": format!("{}-wasm", module.package),
+        "cliPackage": format!("{adapter_base}-cli"),
+        "appPackage": format!("{adapter_base}-app"),
+        "wasmPackage": format!("{adapter_base}-wasm"),
         "domain": module.domain,
         "linked": module.linked,
         "requiredFeature": module.required_feature,

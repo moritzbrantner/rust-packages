@@ -256,6 +256,26 @@ impl Bounds3 {
             && other.min.z < self.max.z)
     }
 
+    /// Returns the closest point in this bounds to a point.
+    pub fn closest_point(self, point: Point3) -> Result<Point3> {
+        closest_point_on_bounds(self, point)
+    }
+
+    /// Returns the distance from this bounds to a point.
+    pub fn distance_to_point(self, point: Point3) -> Result<f32> {
+        distance_point_bounds(point, self)
+    }
+
+    /// Returns whether this bounds intersects a sphere.
+    pub fn intersects_sphere(self, sphere: Sphere3) -> Result<bool> {
+        sphere_intersects_bounds(sphere, self)
+    }
+
+    /// Returns the forward ray-bounds intersection interval, if any.
+    pub fn intersect_ray(self, ray: Ray3) -> Result<Option<RayBoundsIntersection>> {
+        intersect_ray_bounds(ray, self)
+    }
+
     /// Returns intersection.
     pub fn intersection(self, other: Self) -> Result<Option<Self>> {
         if !self.intersects(other)? {
@@ -1220,6 +1240,21 @@ impl Sphere3 {
         Ok(self.center.distance(point) <= self.radius)
     }
 
+    /// Returns whether this sphere intersects another sphere.
+    pub fn intersects_sphere(self, other: Self) -> Result<bool> {
+        sphere_intersects_sphere(self, other)
+    }
+
+    /// Returns the collision contact with another sphere, if any.
+    pub fn collision_with_sphere(self, other: Self) -> Result<Option<SphereCollision>> {
+        collision_sphere_sphere(self, other)
+    }
+
+    /// Returns whether this sphere intersects bounds.
+    pub fn intersects_bounds(self, bounds: Bounds3) -> Result<bool> {
+        sphere_intersects_bounds(self, bounds)
+    }
+
     /// Returns surface area.
     pub fn surface_area(self) -> f32 {
         sphere_surface_area(self)
@@ -1245,6 +1280,32 @@ impl Sphere3 {
     pub fn intersect_ray(self, ray: Ray3) -> Result<Vec<Point3>> {
         intersect_ray_sphere(ray, self)
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Data type for a ray/bounds intersection interval.
+pub struct RayBoundsIntersection {
+    /// Distance to the first forward point inside the bounds.
+    pub entry_distance: f32,
+    /// Distance to the last forward point inside the bounds.
+    pub exit_distance: f32,
+    /// First forward point inside the bounds.
+    pub entry_point: Point3,
+    /// Last forward point inside the bounds.
+    pub exit_point: Point3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Data type for a sphere/sphere collision contact.
+pub struct SphereCollision {
+    /// Unit normal pointing from the left sphere toward the right sphere.
+    pub normal: Vector3,
+    /// Contact point halfway through the overlapping region.
+    pub point: Point3,
+    /// Overlap depth along the normal.
+    pub penetration_depth: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1379,6 +1440,22 @@ pub fn project_point_to_plane(point: Point3, plane: Plane3) -> Result<Point3> {
     Ok(point - normal * distance)
 }
 
+/// Returns the closest point in bounds to a point.
+pub fn closest_point_on_bounds(bounds: Bounds3, point: Point3) -> Result<Point3> {
+    bounds.validate()?;
+    validate_points(&[point])?;
+    Ok(Point3::new(
+        point.x.clamp(bounds.min.x, bounds.max.x),
+        point.y.clamp(bounds.min.y, bounds.max.y),
+        point.z.clamp(bounds.min.z, bounds.max.z),
+    ))
+}
+
+/// Returns the distance from a point to bounds.
+pub fn distance_point_bounds(point: Point3, bounds: Bounds3) -> Result<f32> {
+    Ok(point.distance(closest_point_on_bounds(bounds, point)?))
+}
+
 /// Returns forward ray-plane intersection point, if any.
 pub fn intersect_ray_plane(ray: Ray3, plane: Plane3) -> Result<Option<Point3>> {
     validate_points(&[ray.origin])?;
@@ -1399,6 +1476,51 @@ pub fn intersect_ray_plane(ray: Ray3, plane: Plane3) -> Result<Option<Point3>> {
         return Ok(None);
     }
     Ok(Some(ray.origin + direction * distance))
+}
+
+/// Returns the forward ray-bounds intersection interval, if any.
+pub fn intersect_ray_bounds(ray: Ray3, bounds: Bounds3) -> Result<Option<RayBoundsIntersection>> {
+    validate_points(&[ray.origin])?;
+    validate_finite_vector(ray.direction, "ray direction")?;
+    bounds.validate()?;
+    let direction = ray.direction.normalize()?;
+    let mut near = f32::NEG_INFINITY;
+    let mut far = f32::INFINITY;
+
+    for (origin, direction, min, max) in [
+        (ray.origin.x, direction.x, bounds.min.x, bounds.max.x),
+        (ray.origin.y, direction.y, bounds.min.y, bounds.max.y),
+        (ray.origin.z, direction.z, bounds.min.z, bounds.max.z),
+    ] {
+        if direction.abs() <= f32::EPSILON {
+            if origin < min || origin > max {
+                return Ok(None);
+            }
+            continue;
+        }
+        let inverse = 1.0 / direction;
+        let mut axis_near = (min - origin) * inverse;
+        let mut axis_far = (max - origin) * inverse;
+        if axis_near > axis_far {
+            std::mem::swap(&mut axis_near, &mut axis_far);
+        }
+        near = near.max(axis_near);
+        far = far.min(axis_far);
+        if near > far {
+            return Ok(None);
+        }
+    }
+
+    if far < 0.0 {
+        return Ok(None);
+    }
+    let entry_distance = near.max(0.0);
+    Ok(Some(RayBoundsIntersection {
+        entry_distance,
+        exit_distance: far,
+        entry_point: ray.origin + direction * entry_distance,
+        exit_point: ray.origin + direction * far,
+    }))
 }
 
 /// Returns sphere surface area.
@@ -1426,6 +1548,48 @@ pub fn closest_point_on_sphere(sphere: Sphere3, point: Point3) -> Result<Point3>
         offset.normalize()?
     };
     Ok(sphere.center + direction * sphere.radius)
+}
+
+/// Returns whether two spheres intersect.
+pub fn sphere_intersects_sphere(left: Sphere3, right: Sphere3) -> Result<bool> {
+    validate_sphere(left)?;
+    validate_sphere(right)?;
+    let radius_sum = left.radius + right.radius;
+    Ok((right.center - left.center).length_squared() <= radius_sum * radius_sum)
+}
+
+/// Returns collision contact data for two intersecting spheres.
+pub fn collision_sphere_sphere(left: Sphere3, right: Sphere3) -> Result<Option<SphereCollision>> {
+    validate_sphere(left)?;
+    validate_sphere(right)?;
+    let offset = right.center - left.center;
+    let distance = offset.length();
+    let radius_sum = left.radius + right.radius;
+    if distance > radius_sum {
+        return Ok(None);
+    }
+    let normal = if distance <= f32::EPSILON {
+        Vector3::new(1.0, 0.0, 0.0)
+    } else {
+        offset / distance
+    };
+    let penetration_depth = radius_sum - distance;
+    let left_surface = left.center + normal * left.radius;
+    let right_surface = right.center - normal * right.radius;
+    Ok(Some(SphereCollision {
+        normal,
+        point: left_surface.midpoint(right_surface),
+        penetration_depth,
+    }))
+}
+
+/// Returns whether a sphere intersects bounds.
+pub fn sphere_intersects_bounds(sphere: Sphere3, bounds: Bounds3) -> Result<bool> {
+    validate_sphere(sphere)?;
+    bounds.validate()?;
+    let distance_squared =
+        (closest_point_on_bounds(bounds, sphere.center)? - sphere.center).length_squared();
+    Ok(distance_squared <= sphere.radius * sphere.radius)
 }
 
 /// Returns forward ray-sphere intersection points in distance order.
@@ -1465,6 +1629,16 @@ pub fn intersect_ray_sphere(ray: Ray3, sphere: Sphere3) -> Result<Vec<Point3>> {
         intersections.push(ray.origin + direction * distance);
     }
     Ok(intersections)
+}
+
+fn validate_sphere(sphere: Sphere3) -> Result<()> {
+    validate_points(&[sphere.center])?;
+    if !sphere.radius.is_finite() || sphere.radius <= 0.0 {
+        return Err(invalid_argument(
+            "sphere radius must be finite and greater than zero",
+        ));
+    }
+    Ok(())
 }
 
 /// Returns transform rigid.
@@ -1699,6 +1873,40 @@ mod tests {
     }
 
     #[test]
+    fn bounds_collision_helpers_cover_points_spheres_and_rays() {
+        let bounds =
+            Bounds3::new(Point3::new(-1.0, -1.0, -1.0), Point3::new(1.0, 1.0, 1.0)).unwrap();
+
+        assert_eq!(
+            bounds.closest_point(Point3::new(2.0, 0.5, -3.0)).unwrap(),
+            Point3::new(1.0, 0.5, -1.0)
+        );
+        assert!(
+            (bounds
+                .distance_to_point(Point3::new(3.0, 0.0, 0.0))
+                .unwrap()
+                - 2.0)
+                .abs()
+                < 0.001
+        );
+        assert!(bounds
+            .intersects_sphere(Sphere3::new(Point3::new(1.5, 0.0, 0.0), 0.5).unwrap())
+            .unwrap());
+
+        let ray = Ray3::new(Point3::new(0.0, 0.0, -3.0), Vector3::new(0.0, 0.0, 1.0)).unwrap();
+        let hit = bounds.intersect_ray(ray).unwrap().unwrap();
+        assert!((hit.entry_distance - 2.0).abs() < 0.001);
+        assert!((hit.exit_distance - 4.0).abs() < 0.001);
+        assert_eq!(hit.entry_point, Point3::new(0.0, 0.0, -1.0));
+
+        let inside_ray =
+            Ray3::new(Point3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0)).unwrap();
+        let inside_hit = intersect_ray_bounds(inside_ray, bounds).unwrap().unwrap();
+        assert_eq!(inside_hit.entry_distance, 0.0);
+        assert_eq!(inside_hit.exit_point, Point3::new(1.0, 0.0, 0.0));
+    }
+
+    #[test]
     fn sphere_algorithms_report_surface_volume_and_intersections() {
         let sphere = Sphere3::new(Point3::new(0.0, 0.0, 0.0), 2.0).unwrap();
         assert!((sphere.surface_area() - (16.0 * std::f32::consts::PI)).abs() < 0.001);
@@ -1715,6 +1923,21 @@ mod tests {
             intersections,
             vec![Point3::new(-2.0, 0.0, 0.0), Point3::new(2.0, 0.0, 0.0)]
         );
+    }
+
+    #[test]
+    fn sphere_collision_reports_contact_data() {
+        let left = Sphere3::new(Point3::new(0.0, 0.0, 0.0), 1.0).unwrap();
+        let right = Sphere3::new(Point3::new(1.5, 0.0, 0.0), 1.0).unwrap();
+        let collision = left.collision_with_sphere(right).unwrap().unwrap();
+
+        assert_eq!(collision.normal, Vector3::new(1.0, 0.0, 0.0));
+        assert_eq!(collision.point, Point3::new(0.75, 0.0, 0.0));
+        assert!((collision.penetration_depth - 0.5).abs() < 0.001);
+        assert!(left.intersects_sphere(right).unwrap());
+        assert!(!left
+            .intersects_sphere(Sphere3::new(Point3::new(3.0, 0.0, 0.0), 1.0).unwrap())
+            .unwrap());
     }
 
     #[test]

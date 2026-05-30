@@ -6,6 +6,15 @@ test("geo-viz-wasm package exports stable entrypoints", async () => {
   expect(typeof entry.packageSurface).toBe("function");
   expect(typeof entry.runOperation).toBe("function");
   expect(typeof entry.GeoPointIndex).toBe("function");
+
+  const surface = await entry.packageSurface();
+  expect(surface.library).toBe("moritzbrantner-geo-viz");
+
+  const describe = await entry.runOperation({
+    operation: "describe",
+    input: {},
+  });
+  expect(describe.operation).toBe("describe");
 });
 
 test("GeoPointIndex aggregates viewport features", async () => {
@@ -21,4 +30,18 @@ test("GeoPointIndex aggregates viewport features", async () => {
 
   expect(aggregation.summary.visiblePointCount).toBe(2);
   expect(aggregation.summary.metrics.value).toBe(5);
+});
+
+test("runOperation resamples geometry", async () => {
+  const { runOperation } = await import("../index.js");
+  const response = await runOperation({
+    operation: "geoViz.resampleGeometry",
+    input: {
+      coordinates: [0, 0, 10, 0],
+      coordinateCount: 3,
+      closed: false,
+    },
+  });
+
+  expect(response.value.coordinates).toEqual([0, 0, 5, 0, 10, 0]);
 });
