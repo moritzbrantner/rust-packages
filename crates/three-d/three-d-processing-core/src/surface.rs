@@ -123,19 +123,28 @@ struct DownsampleRequest {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct IntersectionsRequest {
-    mode: String,
-    #[serde(default)]
-    ray: Option<RayPayload>,
-    #[serde(default)]
-    sphere: Option<SpherePayload>,
-    #[serde(default)]
-    left_sphere: Option<SpherePayload>,
-    #[serde(default)]
-    right_sphere: Option<SpherePayload>,
-    #[serde(default)]
-    bounds: Option<BoundsPayload>,
+#[serde(tag = "mode")]
+enum IntersectionsRequest {
+    #[serde(rename = "raySphere")]
+    RaySphere {
+        ray: RayPayload,
+        sphere: SpherePayload,
+    },
+    #[serde(rename = "rayBounds")]
+    RayBounds {
+        ray: RayPayload,
+        bounds: BoundsPayload,
+    },
+    #[serde(rename = "sphereSphere", rename_all = "camelCase")]
+    SphereSphere {
+        left_sphere: SpherePayload,
+        right_sphere: SpherePayload,
+    },
+    #[serde(rename = "sphereBounds")]
+    SphereBounds {
+        sphere: SpherePayload,
+        bounds: BoundsPayload,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -181,43 +190,45 @@ fn point_cloud_downsample_value(request: DownsampleRequest) -> Result<serde_json
 }
 
 fn intersections_value(request: IntersectionsRequest) -> Result<serde_json::Value, String> {
-    match request.mode.as_str() {
-        "raySphere" => {
-            let ray = ray_payload(required(request.ray, "ray")?)?;
-            let sphere = sphere_payload(required(request.sphere, "sphere")?)?;
+    match request {
+        IntersectionsRequest::RaySphere { ray, sphere } => {
+            let ray = ray_payload(ray)?;
+            let sphere = sphere_payload(sphere)?;
             Ok(serde_json::json!({
-                "mode": request.mode,
+                "mode": "raySphere",
                 "points": intersect_ray_sphere(ray, sphere).map_err(|error| error.to_string())?
             }))
         }
-        "rayBounds" => {
-            let ray = ray_payload(required(request.ray, "ray")?)?;
-            let bounds = bounds_payload(required(request.bounds, "bounds")?)?;
+        IntersectionsRequest::RayBounds { ray, bounds } => {
+            let ray = ray_payload(ray)?;
+            let bounds = bounds_payload(bounds)?;
             Ok(serde_json::json!({
-                "mode": request.mode,
+                "mode": "rayBounds",
                 "intersection": intersect_ray_bounds(ray, bounds).map_err(|error| error.to_string())?
             }))
         }
-        "sphereSphere" => {
-            let left = sphere_payload(required(request.left_sphere, "leftSphere")?)?;
-            let right = sphere_payload(required(request.right_sphere, "rightSphere")?)?;
+        IntersectionsRequest::SphereSphere {
+            left_sphere,
+            right_sphere,
+        } => {
+            let left = sphere_payload(left_sphere)?;
+            let right = sphere_payload(right_sphere)?;
             let collision =
                 collision_sphere_sphere(left, right).map_err(|error| error.to_string())?;
             Ok(serde_json::json!({
-                "mode": request.mode,
+                "mode": "sphereSphere",
                 "intersects": collision.is_some(),
                 "collision": collision
             }))
         }
-        "sphereBounds" => {
-            let sphere = sphere_payload(required(request.sphere, "sphere")?)?;
-            let bounds = bounds_payload(required(request.bounds, "bounds")?)?;
+        IntersectionsRequest::SphereBounds { sphere, bounds } => {
+            let sphere = sphere_payload(sphere)?;
+            let bounds = bounds_payload(bounds)?;
             Ok(serde_json::json!({
-                "mode": request.mode,
+                "mode": "sphereBounds",
                 "intersects": sphere_intersects_bounds(sphere, bounds).map_err(|error| error.to_string())?
             }))
         }
-        other => Err(format!("unsupported intersection mode `{other}`")),
     }
 }
 
@@ -227,10 +238,6 @@ fn parse_points(points: Vec<[f32; 3]>) -> Vec<Point3> {
 
 fn point(value: [f32; 3]) -> Point3 {
     Point3::new(value[0], value[1], value[2])
-}
-
-fn required<T>(value: Option<T>, field: &str) -> Result<T, String> {
-    value.ok_or_else(|| format!("missing `{field}` for intersection mode"))
 }
 
 fn ray_payload(payload: RayPayload) -> Result<Ray3, String> {
@@ -330,6 +337,6 @@ mod tests {
             input: serde_json::json!({"mode": "rayBounds", "ray": {"origin": [0, 0, -2], "direction": [0, 0, 1]}}),
         })
         .expect_err("missing bounds");
-        assert!(error.contains("missing `bounds`"));
+        assert!(error.contains("bounds"));
     }
 }
