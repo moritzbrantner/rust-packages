@@ -305,4 +305,31 @@ mod tests {
         assert_eq!(sphere_sphere.value["intersects"], true);
         assert_eq!(sphere_sphere.value["collision"]["penetrationDepth"], 0.5);
     }
+
+    #[test]
+    fn surface_reports_sphere_bounds_and_misses() {
+        let sphere_bounds = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("threeD.geometry.intersections"),
+            input: serde_json::json!({"mode": "sphereBounds", "sphere": {"center": [2, 0, 0], "radius": 1.0}, "bounds": {"min": [-1, -1, -1], "max": [1, 1, 1]}}),
+        })
+        .expect("sphere bounds");
+        assert_eq!(sphere_bounds.value["intersects"], true);
+
+        let miss = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("threeD.geometry.intersections"),
+            input: serde_json::json!({"mode": "rayBounds", "ray": {"origin": [2, 0, -2], "direction": [0, 0, 1]}, "bounds": {"min": [-1, -1, -1], "max": [1, 1, 1]}}),
+        })
+        .expect("ray bounds miss");
+        assert!(miss.value["intersection"].is_null());
+    }
+
+    #[test]
+    fn surface_rejects_missing_geometry_payloads() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("threeD.geometry.intersections"),
+            input: serde_json::json!({"mode": "rayBounds", "ray": {"origin": [0, 0, -2], "direction": [0, 0, 1]}}),
+        })
+        .expect_err("missing bounds");
+        assert!(error.contains("missing `bounds`"));
+    }
 }

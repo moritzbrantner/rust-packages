@@ -1907,6 +1907,35 @@ mod tests {
     }
 
     #[test]
+    fn bounds_collision_helpers_report_misses_and_tangents() {
+        let bounds =
+            Bounds3::new(Point3::new(-1.0, -1.0, -1.0), Point3::new(1.0, 1.0, 1.0)).unwrap();
+
+        let parallel_miss =
+            Ray3::new(Point3::new(2.0, 0.0, -3.0), Vector3::new(0.0, 0.0, 1.0)).unwrap();
+        assert_eq!(bounds.intersect_ray(parallel_miss).unwrap(), None);
+
+        let behind_ray =
+            Ray3::new(Point3::new(0.0, 0.0, 3.0), Vector3::new(0.0, 0.0, 1.0)).unwrap();
+        assert_eq!(intersect_ray_bounds(behind_ray, bounds).unwrap(), None);
+
+        let tangent_ray =
+            Ray3::new(Point3::new(1.0, 0.0, -3.0), Vector3::new(0.0, 0.0, 1.0)).unwrap();
+        let tangent_hit = bounds.intersect_ray(tangent_ray).unwrap().unwrap();
+        assert_eq!(tangent_hit.entry_point, Point3::new(1.0, 0.0, -1.0));
+        assert_eq!(tangent_hit.exit_point, Point3::new(1.0, 0.0, 1.0));
+
+        assert!(!bounds
+            .intersects_sphere(Sphere3::new(Point3::new(2.1, 0.0, 0.0), 1.0).unwrap())
+            .unwrap());
+        assert!(sphere_intersects_bounds(
+            Sphere3::new(Point3::new(2.0, 0.0, 0.0), 1.0).unwrap(),
+            bounds
+        )
+        .unwrap());
+    }
+
+    #[test]
     fn sphere_algorithms_report_surface_volume_and_intersections() {
         let sphere = Sphere3::new(Point3::new(0.0, 0.0, 0.0), 2.0).unwrap();
         assert!((sphere.surface_area() - (16.0 * std::f32::consts::PI)).abs() < 0.001);
@@ -1938,6 +1967,23 @@ mod tests {
         assert!(!left
             .intersects_sphere(Sphere3::new(Point3::new(3.0, 0.0, 0.0), 1.0).unwrap())
             .unwrap());
+    }
+
+    #[test]
+    fn sphere_collision_handles_tangent_and_concentric_cases() {
+        let left = Sphere3::new(Point3::new(0.0, 0.0, 0.0), 1.0).unwrap();
+        let tangent = Sphere3::new(Point3::new(2.0, 0.0, 0.0), 1.0).unwrap();
+        let tangent_collision = collision_sphere_sphere(left, tangent).unwrap().unwrap();
+        assert_eq!(tangent_collision.penetration_depth, 0.0);
+        assert_eq!(tangent_collision.point, Point3::new(1.0, 0.0, 0.0));
+
+        let separate = Sphere3::new(Point3::new(2.01, 0.0, 0.0), 1.0).unwrap();
+        assert_eq!(collision_sphere_sphere(left, separate).unwrap(), None);
+
+        let concentric = Sphere3::new(Point3::new(0.0, 0.0, 0.0), 0.5).unwrap();
+        let concentric_collision = left.collision_with_sphere(concentric).unwrap().unwrap();
+        assert_eq!(concentric_collision.normal, Vector3::new(1.0, 0.0, 0.0));
+        assert!((concentric_collision.penetration_depth - 1.5).abs() < 0.001);
     }
 
     #[test]
