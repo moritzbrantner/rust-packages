@@ -15,6 +15,12 @@ ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = ROOT / "docs" / "PACKAGE_SURFACE_MATRIX.md"
 EXCLUDED_LIBRARY_CRATES = {"runtime-artifacts", "runtime-jobs"}
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
+COMPANION_PACKAGE_BASE_NAMES = {
+    "moritzbrantner-geo-core": "geo-core",
+    "moritzbrantner-geo-io-geojson": "geo-io-geojson",
+    "moritzbrantner-geo-clustering": "geo-clustering",
+    "moritzbrantner-geo-viz": "geo-viz",
+}
 SCAFFOLD_STRINGS = [
     "A deterministic summary or execution plan owned by the Rust library",
     "JSON request metadata for the operation-specific package surface",
@@ -96,18 +102,19 @@ def render_matrix(packages: list[LibraryPackage]) -> str:
     ]
     for package in packages:
         operations = operation_ids(package.name)
+        companion_base = companion_package_base_name(package.name)
         lines.append(
             "| "
             + " | ".join(
                 [
                     tick(package.name),
-                    tick(f"{package.name}-cli"),
-                    tick(f"{package.name}-server"),
-                    tick(f"crates/bindings/{package.name}-wasm"),
-                    tick(f"packages/{package.name}-wasm"),
-                    tick(f"packages/{package.name}-app"),
+                    tick(f"{companion_base}-cli"),
+                    tick(f"{companion_base}-server"),
+                    tick(f"crates/bindings/{companion_base}-wasm"),
+                    tick(f"packages/{companion_base}-wasm"),
+                    tick(f"packages/{companion_base}-app"),
                     ", ".join(tick(operation) for operation in operations),
-                    yes_no((ROOT / "crates" / "bindings" / f"{package.name}-wasm").is_dir()),
+                    yes_no((ROOT / "crates" / "bindings" / f"{companion_base}-wasm").is_dir()),
                     yes_no(companion_dir(package, "server").is_dir()),
                 ]
             )
@@ -118,8 +125,18 @@ def render_matrix(packages: list[LibraryPackage]) -> str:
 
 
 def operation_ids(crate: str) -> list[str]:
+    companion_base = companion_package_base_name(crate)
     output = subprocess.check_output(
-        ["cargo", "run", "--quiet", "-p", f"{crate}-cli", "--", "operations", "--json"],
+        [
+            "cargo",
+            "run",
+            "--quiet",
+            "-p",
+            f"{companion_base}-cli",
+            "--",
+            "operations",
+            "--json",
+        ],
         cwd=ROOT,
         text=True,
     )
@@ -130,22 +147,27 @@ def operation_ids(crate: str) -> list[str]:
 
 def verify_companions(package: LibraryPackage) -> None:
     missing = []
+    companion_base = companion_package_base_name(package.name)
     if not companion_dir(package, "cli").joinpath("Cargo.toml").is_file():
-        missing.append(f"{package.name}-cli")
+        missing.append(f"{companion_base}-cli")
     if not companion_dir(package, "server").joinpath("Cargo.toml").is_file():
-        missing.append(f"{package.name}-server")
-    if not (ROOT / "crates" / "bindings" / f"{package.name}-wasm" / "Cargo.toml").is_file():
-        missing.append(f"crates/bindings/{package.name}-wasm")
-    if not (ROOT / "packages" / f"{package.name}-wasm" / "package.json").is_file():
-        missing.append(f"packages/{package.name}-wasm")
-    if not (ROOT / "packages" / f"{package.name}-app" / "package.json").is_file():
-        missing.append(f"packages/{package.name}-app")
+        missing.append(f"{companion_base}-server")
+    if not (ROOT / "crates" / "bindings" / f"{companion_base}-wasm" / "Cargo.toml").is_file():
+        missing.append(f"crates/bindings/{companion_base}-wasm")
+    if not (ROOT / "packages" / f"{companion_base}-wasm" / "package.json").is_file():
+        missing.append(f"packages/{companion_base}-wasm")
+    if not (ROOT / "packages" / f"{companion_base}-app" / "package.json").is_file():
+        missing.append(f"packages/{companion_base}-app")
     if missing:
         raise SystemExit(f"{package.name}: missing companion packages: {', '.join(missing)}")
 
 
 def companion_dir(package: LibraryPackage, kind: str) -> Path:
-    return package.manifest_path.parent.parent / f"{package.name}-{kind}"
+    return package.manifest_path.parent.parent / f"{companion_package_base_name(package.name)}-{kind}"
+
+
+def companion_package_base_name(package_name: str) -> str:
+    return COMPANION_PACKAGE_BASE_NAMES.get(package_name, package_name)
 
 
 def run_json(command: list[str]) -> dict:
@@ -199,12 +221,13 @@ def audit_one_package_quality(package: LibraryPackage, failures: list[str]) -> N
 
 
 def read_cli_operations(package: LibraryPackage, failures: list[str]) -> list[dict]:
+    companion_base = companion_package_base_name(package.name)
     command = [
         "cargo",
         "run",
         "--quiet",
         "-p",
-        f"{package.name}-cli",
+        f"{companion_base}-cli",
         "--",
         "operations",
         "--json",
@@ -244,12 +267,13 @@ def validate_operation_metadata(crate: str, operation: dict, failures: list[str]
 def run_operation_example(crate: str, operation: dict, failures: list[str]) -> None:
     operation_id = operation["id"]
     example_request = operation.get("exampleRequest")
+    companion_base = companion_package_base_name(crate)
     command = [
         "cargo",
         "run",
         "--quiet",
         "-p",
-        f"{crate}-cli",
+        f"{companion_base}-cli",
         "--",
         "run",
         "--operation",
@@ -299,13 +323,14 @@ def run_operation_example(crate: str, operation: dict, failures: list[str]) -> N
 
 
 def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
+    companion_base = companion_package_base_name(crate)
     unsupported = subprocess.run(
         [
             "cargo",
             "run",
             "--quiet",
             "-p",
-            f"{crate}-cli",
+            f"{companion_base}-cli",
             "--",
             "run",
             "--operation",
@@ -328,7 +353,7 @@ def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
             "run",
             "--quiet",
             "-p",
-            f"{crate}-cli",
+            f"{companion_base}-cli",
             "--",
             "run",
             "--operation",
@@ -350,7 +375,8 @@ def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
 
 
 def validate_app_config(crate: str, operation_ids: list[str], failures: list[str]) -> None:
-    app_path = ROOT / "packages" / f"{crate}-app" / "src" / "App.tsx"
+    companion_base = companion_package_base_name(crate)
+    app_path = ROOT / "packages" / f"{companion_base}-app" / "src" / "App.tsx"
     if not app_path.is_file():
         failures.append(f"{crate}: missing app source {app_path.relative_to(ROOT)}")
         return

@@ -1,0 +1,23 @@
+[package]
+name = "geo-core-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the geo-core library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "geo-core-server"
+
+[[bin]]
+name = "geo-core-server"
+path = "src/main.rs"
+
+[dependencies]
+video-analysis-core.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+geo-core = { package = "moritzbrantner-geo-core", version = "0.1.0", path = "../geo-core" }

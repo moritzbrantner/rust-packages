@@ -1,0 +1,21 @@
+[package]
+name = "moritzbrantner-geo-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Format-agnostic geospatial domain types, geometry helpers, and transforms for video-analysis."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/moritzbrantner-geo-core"
+keywords = ["geo", "geospatial", "geometry", "maps"]
+categories = ["science::geo", "data-structures", "algorithms"]
+
+[lib]
+name = "geo_core"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+video-analysis-core.workspace = true

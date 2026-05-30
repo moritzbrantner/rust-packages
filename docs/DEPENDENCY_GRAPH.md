@@ -45,12 +45,21 @@ flowchart LR
     crate_dense_data["dense-data"]:::crate
     crate_dense_data_cli["dense-data-cli"]:::crate
     crate_dense_data_server["dense-data-server"]:::crate
-    crate_geo_data["geo-data"]:::crate
-    crate_geo_data_cli["geo-data-cli"]:::crate
-    crate_geo_data_server["geo-data-server"]:::crate
+    crate_geo_clustering_cli["geo-clustering-cli"]:::crate
+    crate_geo_clustering_server["geo-clustering-server"]:::crate
+    crate_geo_core_cli["geo-core-cli"]:::crate
+    crate_geo_core_server["geo-core-server"]:::crate
+    crate_geo_io_geojson_cli["geo-io-geojson-cli"]:::crate
+    crate_geo_io_geojson_server["geo-io-geojson-server"]:::crate
+    crate_geo_viz_cli["geo-viz-cli"]:::crate
+    crate_geo_viz_server["geo-viz-server"]:::crate
     crate_graph_analysis_core["graph-analysis-core"]:::crate
     crate_graph_analysis_core_cli["graph-analysis-core-cli"]:::crate
     crate_graph_analysis_core_server["graph-analysis-core-server"]:::crate
+    crate_moritzbrantner_geo_clustering["moritzbrantner-geo-clustering"]:::crate
+    crate_moritzbrantner_geo_core["moritzbrantner-geo-core"]:::crate
+    crate_moritzbrantner_geo_io_geojson["moritzbrantner-geo-io-geojson"]:::crate
+    crate_moritzbrantner_geo_viz["moritzbrantner-geo-viz"]:::crate
     crate_numbers_core["numbers-core"]:::crate
     crate_numbers_core_cli["numbers-core-cli"]:::crate
     crate_numbers_core_server["numbers-core-server"]:::crate
@@ -356,7 +365,10 @@ flowchart LR
     crate_data_inversion_core_wasm["data-inversion-core-wasm"]:::crate
     crate_dense_data_wasm["dense-data-wasm"]:::crate
     crate_finance_statistics_wasm["finance-statistics-wasm"]:::crate
-    crate_geo_data_wasm["geo-data-wasm"]:::crate
+    crate_geo_clustering_wasm["geo-clustering-wasm"]:::crate
+    crate_geo_core_wasm["geo-core-wasm"]:::crate
+    crate_geo_io_geojson_wasm["geo-io-geojson-wasm"]:::crate
+    crate_geo_viz_wasm["geo-viz-wasm"]:::crate
     crate_graph_analysis_core_wasm["graph-analysis-core-wasm"]:::crate
     crate_image_analysis_captioning_wasm["image-analysis-captioning-wasm"]:::crate
     crate_image_analysis_classification_wasm["image-analysis-classification-wasm"]:::crate
@@ -465,8 +477,11 @@ flowchart LR
 
   crate_video_analysis --> crate_data_inversion_core
   crate_video_analysis --> crate_dense_data
-  crate_video_analysis --> crate_geo_data
   crate_video_analysis --> crate_graph_analysis_core
+  crate_video_analysis --> crate_moritzbrantner_geo_clustering
+  crate_video_analysis --> crate_moritzbrantner_geo_core
+  crate_video_analysis --> crate_moritzbrantner_geo_io_geojson
+  crate_video_analysis --> crate_moritzbrantner_geo_viz
   crate_video_analysis --> crate_numbers_core
   crate_video_analysis --> crate_tensor_data
   crate_video_analysis --> crate_finance_statistics
@@ -573,16 +588,36 @@ flowchart LR
   crate_dense_data_cli --> crate_video_analysis_core
   crate_dense_data_server --> crate_dense_data
   crate_dense_data_server --> crate_video_analysis_core
-  crate_geo_data --> crate_video_analysis_core
-  crate_geo_data_cli --> crate_geo_data
-  crate_geo_data_cli --> crate_video_analysis_core
-  crate_geo_data_server --> crate_geo_data
-  crate_geo_data_server --> crate_video_analysis_core
+  crate_geo_clustering_cli --> crate_moritzbrantner_geo_clustering
+  crate_geo_clustering_cli --> crate_video_analysis_core
+  crate_geo_clustering_server --> crate_moritzbrantner_geo_clustering
+  crate_geo_clustering_server --> crate_video_analysis_core
+  crate_geo_core_cli --> crate_moritzbrantner_geo_core
+  crate_geo_core_cli --> crate_video_analysis_core
+  crate_geo_core_server --> crate_moritzbrantner_geo_core
+  crate_geo_core_server --> crate_video_analysis_core
+  crate_geo_io_geojson_cli --> crate_moritzbrantner_geo_io_geojson
+  crate_geo_io_geojson_cli --> crate_video_analysis_core
+  crate_geo_io_geojson_server --> crate_moritzbrantner_geo_io_geojson
+  crate_geo_io_geojson_server --> crate_video_analysis_core
+  crate_geo_viz_cli --> crate_moritzbrantner_geo_viz
+  crate_geo_viz_cli --> crate_video_analysis_core
+  crate_geo_viz_server --> crate_moritzbrantner_geo_viz
+  crate_geo_viz_server --> crate_video_analysis_core
   crate_graph_analysis_core --> crate_video_analysis_core
   crate_graph_analysis_core_cli --> crate_graph_analysis_core
   crate_graph_analysis_core_cli --> crate_video_analysis_core
   crate_graph_analysis_core_server --> crate_graph_analysis_core
   crate_graph_analysis_core_server --> crate_video_analysis_core
+  crate_moritzbrantner_geo_clustering --> crate_moritzbrantner_geo_core
+  crate_moritzbrantner_geo_clustering --> crate_video_analysis_core
+  crate_moritzbrantner_geo_core --> crate_video_analysis_core
+  crate_moritzbrantner_geo_io_geojson --> crate_moritzbrantner_geo_core
+  crate_moritzbrantner_geo_io_geojson --> crate_video_analysis_core
+  crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_clustering
+  crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_core
+  crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_io_geojson
+  crate_moritzbrantner_geo_viz --> crate_video_analysis_core
   crate_numbers_core --> crate_video_analysis_core
   crate_numbers_core_cli --> crate_numbers_core
   crate_numbers_core_cli --> crate_video_analysis_core
@@ -1228,8 +1263,14 @@ flowchart LR
   crate_dense_data_wasm --> crate_video_analysis_core
   crate_finance_statistics_wasm --> crate_finance_statistics
   crate_finance_statistics_wasm --> crate_video_analysis_core
-  crate_geo_data_wasm --> crate_geo_data
-  crate_geo_data_wasm --> crate_video_analysis_core
+  crate_geo_clustering_wasm --> crate_moritzbrantner_geo_clustering
+  crate_geo_clustering_wasm --> crate_video_analysis_core
+  crate_geo_core_wasm --> crate_moritzbrantner_geo_core
+  crate_geo_core_wasm --> crate_video_analysis_core
+  crate_geo_io_geojson_wasm --> crate_moritzbrantner_geo_io_geojson
+  crate_geo_io_geojson_wasm --> crate_video_analysis_core
+  crate_geo_viz_wasm --> crate_moritzbrantner_geo_viz
+  crate_geo_viz_wasm --> crate_video_analysis_core
   crate_graph_analysis_core_wasm --> crate_graph_analysis_core
   crate_graph_analysis_core_wasm --> crate_video_analysis_core
   crate_image_analysis_captioning_wasm --> crate_image_analysis_captioning

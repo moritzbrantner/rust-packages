@@ -699,7 +699,7 @@ cargo run -p video-analysis-cli -- posture export --input poses.coco.json --outp
 ```rust
 use model_runtime::{ModelBundleStore, ModelPreset};
 
-# fn main() -> video_analysis_core::Result<()> {
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let spec = ModelPreset::YolosTiny.spec();
 let bundle = ModelBundleStore::new(".model-runtime").download(&spec)?;
 let downloaded = bundle.to_downloaded_model();
@@ -715,10 +715,10 @@ video-specific inference behind small backend traits:
 use std::env;
 
 use model_runtime::{HuggingFaceModelSpec, ModelBundleStore, ModelPreset};
-use video_analysis_core::{Result, VideoAnalysisPipeline};
+use video_analysis_core::VideoAnalysisPipeline;
 use video_analysis_recognition::{ExternalCommandModel, ModelVideoAnalyzer};
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let spec = HuggingFaceModelSpec::from_preset(ModelPreset::DetrResnet50);
     let downloaded = ModelBundleStore::new(".model-runtime")
         .download(&spec)?

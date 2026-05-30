@@ -1446,7 +1446,15 @@ def package_domain(name: str) -> str:
         return "comfyui"
     if name.startswith("math-") or name in {"finance-statistics", "numbers-core"}:
         return "math"
-    if name.startswith("data-") or name in {"dense-data", "geo-data", "graph-analysis-core", "tensor-data"}:
+    if name.startswith("data-") or name.startswith("moritzbrantner-geo-") or name in {
+        "dense-data",
+        "geo-clustering",
+        "geo-core",
+        "geo-io-geojson",
+        "geo-viz",
+        "graph-analysis-core",
+        "tensor-data",
+    }:
         return "data"
     if name.startswith("model-"):
         return "runtime"

@@ -2061,41 +2061,97 @@ dependencies = [
 ]
 
 [[package]]
-name = "geo-data"
-version = "0.1.0"
-dependencies = [
- "geojson 1.0.0",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-data-cli"
+name = "geo-clustering-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "geo-data",
+ "moritzbrantner-geo-clustering",
  "serde_json",
  "video-analysis-core",
 ]
 
 [[package]]
-name = "geo-data-server"
+name = "geo-clustering-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "geo-data",
+ "moritzbrantner-geo-clustering",
  "serde_json",
  "video-analysis-core",
 ]
 
 [[package]]
-name = "geo-data-wasm"
+name = "geo-clustering-wasm"
 version = "0.1.0"
 dependencies = [
- "geo-data",
  "js-sys",
+ "moritzbrantner-geo-clustering",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "video-analysis-core",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "geo-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-core",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "geo-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-core",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "geo-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-geo-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "video-analysis-core",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "geo-io-geojson-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-io-geojson",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "geo-io-geojson-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-io-geojson",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "geo-io-geojson-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-geo-io-geojson",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2120,64 +2176,37 @@ dependencies = [
 ]
 
 [[package]]
-name = "geo-viz-core"
-version = "0.1.0"
-dependencies = [
- "geo-data",
- "geojson 0.24.2",
- "maps-kernels-core",
- "rstar 0.13.0",
- "serde",
- "serde_json",
- "supercluster",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-viz-core-cli"
+name = "geo-viz-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "geo-viz-core",
+ "moritzbrantner-geo-viz",
  "serde_json",
  "video-analysis-core",
 ]
 
 [[package]]
-name = "geo-viz-core-server"
+name = "geo-viz-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "geo-viz-core",
+ "moritzbrantner-geo-viz",
  "serde_json",
  "video-analysis-core",
 ]
 
 [[package]]
-name = "geo-viz-core-wasm"
+name = "geo-viz-wasm"
 version = "0.1.0"
 dependencies = [
- "geo-viz-core",
  "getrandom 0.3.4",
  "js-sys",
+ "moritzbrantner-geo-viz",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
  "video-analysis-core",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "geojson"
-version = "0.24.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e26f3c45b36fccc9cf2805e61d4da6bc4bbd5a3a9589b01afa3a40eff703bd79"
-dependencies = [
- "geo-types",
- "log",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -3771,6 +3800,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "moritzbrantner-geo-clustering"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-geo-core",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "moritzbrantner-geo-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "moritzbrantner-geo-io-geojson"
+version = "0.1.0"
+dependencies = [
+ "geojson",
+ "moritzbrantner-geo-core",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "moritzbrantner-geo-viz"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-geo-clustering",
+ "moritzbrantner-geo-core",
+ "moritzbrantner-geo-io-geojson",
+ "rstar 0.13.0",
+ "serde",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "moxcms"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4773,19 +4845,6 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
-
-[[package]]
-name = "supercluster"
-version = "3.0.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e50a9957334452435631002367eabde8cb703766e7496c1645f56c86eb13f27"
-dependencies = [
- "geojson 0.24.2",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "twox-hash",
-]
 
 [[package]]
 name = "syn"
@@ -5816,15 +5875,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "twox-hash"
-version = "2.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ea3136b675547379c4bd395ca6b938e5ad3c3d20fad76e7fe85f9e0d011419c"
-dependencies = [
- "rand",
-]
-
-[[package]]
 name = "typed-path"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6137,7 +6187,6 @@ dependencies = [
  "data-inversion-core",
  "dense-data",
  "finance-statistics",
- "geo-data",
  "graph-analysis-core",
  "image-analysis-captioning",
  "image-analysis-classification",
@@ -6159,6 +6208,10 @@ dependencies = [
  "math-sparse-data",
  "math-statistics",
  "model-runtime",
+ "moritzbrantner-geo-clustering",
+ "moritzbrantner-geo-core",
+ "moritzbrantner-geo-io-geojson",
+ "moritzbrantner-geo-viz",
  "num-rational",
  "numbers-core",
  "serde",

@@ -267,7 +267,11 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
     packageName === "data-inversion-core" ||
     packageName === "graph-analysis-core" ||
     packageName === "dense-data" ||
-    packageName === "geo-data" ||
+    packageName === "geo-core" ||
+    packageName === "geo-io-geojson" ||
+    packageName === "geo-clustering" ||
+    packageName === "geo-viz" ||
+    packageName.startsWith("moritzbrantner-geo-") ||
     packageName === "numbers-core" ||
     packageName === "tensor-data"
   ) {
@@ -279,6 +283,7 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
 export function packageShortName(name: string): string {
   return name
     .replace(/^@video-analysis\//, "")
+    .replace(/^moritzbrantner-/, "")
     .replace(/^video-analysis-/, "")
     .replace(/^audio-analysis-/, "audio:")
     .replace(/^image-analysis-/, "image:")

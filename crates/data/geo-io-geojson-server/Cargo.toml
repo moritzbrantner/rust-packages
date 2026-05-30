@@ -1,0 +1,23 @@
+[package]
+name = "geo-io-geojson-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HTTP API adapter for the geo-io-geojson library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "geo-io-geojson-server"
+
+[[bin]]
+name = "geo-io-geojson-server"
+path = "src/main.rs"
+
+[dependencies]
+video-analysis-core.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+geo-io-geojson = { package = "moritzbrantner-geo-io-geojson", version = "0.1.0", path = "../geo-io-geojson" }

@@ -313,7 +313,13 @@ fn read_source(path: impl AsRef<Path>) -> String {
 }
 
 fn surface_package_name(package_name: &str) -> &str {
-    package_name
+    match package_name {
+        "moritzbrantner-geo-core" => "geo-core",
+        "moritzbrantner-geo-io-geojson" => "geo-io-geojson",
+        "moritzbrantner-geo-clustering" => "geo-clustering",
+        "moritzbrantner-geo-viz" => "geo-viz",
+        _ => package_name,
+    }
 }
 
 fn has_exact_base_dependency(cargo: &str, package_name: &str, surface_name: &str) -> bool {

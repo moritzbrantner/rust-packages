@@ -38,7 +38,10 @@ pub use dense_data as dense;
 /// Re-exports the finance statistics API.
 pub use finance_statistics as finance;
 /// Re-exports the geo data API.
-pub use geo_data;
+pub use geo_clustering;
+pub use geo_core;
+pub use geo_io_geojson;
+pub use geo_viz;
 /// Re-exports the graph core API.
 pub use graph_analysis_core as graph_core;
 /// Re-exports the image captioning API.
