@@ -19,6 +19,11 @@ pub struct WasmGeoJsonIndex {
     inner: geo_viz::GeoJsonIndex,
 }
 
+#[wasm_bindgen(js_name = ScalarFieldIndex)]
+pub struct WasmScalarFieldIndex {
+    inner: geo_viz::GeoVizScalarFieldIndex,
+}
+
 #[wasm_bindgen(js_class = GeoPointIndex)]
 impl WasmGeoPointIndex {
     #[wasm_bindgen(constructor)]
@@ -173,6 +178,66 @@ impl WasmGeoJsonIndex {
     }
 }
 
+#[wasm_bindgen(js_class = ScalarFieldIndex)]
+impl WasmScalarFieldIndex {
+    #[wasm_bindgen(constructor)]
+    pub fn new(points: JsValue, options: JsValue) -> Result<WasmScalarFieldIndex, JsValue> {
+        let points: Vec<geo_viz::GeoVizPoint> =
+            serde_wasm_bindgen::from_value(points).map_err(into_js_error)?;
+        let options = if options.is_undefined() || options.is_null() {
+            geo_viz::GeoVizScalarFieldOptions::default()
+        } else {
+            serde_wasm_bindgen::from_value(options).map_err(into_js_error)?
+        };
+        let inner = geo_viz::GeoVizScalarFieldIndex::new(points, options).map_err(into_js_error)?;
+        Ok(Self { inner })
+    }
+
+    #[wasm_bindgen(js_name = getBounds)]
+    pub fn get_bounds(&self) -> Result<JsValue, JsValue> {
+        to_json_value(&self.inner.get_bounds())
+    }
+
+    #[wasm_bindgen(js_name = getPointCount)]
+    pub fn get_point_count(&self) -> usize {
+        self.inner.point_count()
+    }
+
+    #[wasm_bindgen(js_name = getValueDomain)]
+    pub fn get_value_domain(&self) -> Result<JsValue, JsValue> {
+        to_json_value(&self.inner.value_domain())
+    }
+
+    #[wasm_bindgen(js_name = getValueAtCoordinate)]
+    pub fn get_value_at_coordinate(&self, coordinate: JsValue) -> Result<JsValue, JsValue> {
+        let coordinate: [f64; 2] =
+            serde_wasm_bindgen::from_value(coordinate).map_err(into_js_error)?;
+        to_json_value(
+            &self
+                .inner
+                .get_value_at_coordinate(coordinate)
+                .map_err(into_js_error)?,
+        )
+    }
+
+    #[wasm_bindgen(js_name = createGrid)]
+    pub fn create_grid(&self) -> Result<JsValue, JsValue> {
+        to_json_value(&self.inner.create_grid())
+    }
+}
+
+#[wasm_bindgen(js_name = createScalarFieldGrid)]
+pub fn create_scalar_field_grid(points: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
+    let points: Vec<geo_viz::GeoVizPoint> =
+        serde_wasm_bindgen::from_value(points).map_err(into_js_error)?;
+    let options = if options.is_undefined() || options.is_null() {
+        geo_viz::GeoVizScalarFieldOptions::default()
+    } else {
+        serde_wasm_bindgen::from_value(options).map_err(into_js_error)?
+    };
+    to_json_value(&geo_viz::create_scalar_field_grid(points, options).map_err(into_js_error)?)
+}
+
 #[wasm_bindgen(js_name = packageSurface)]
 pub fn package_surface() -> Result<JsValue, JsValue> {
     to_json_value(&geo_viz::surface::package_surface())
@@ -221,5 +286,19 @@ mod tests {
             response.value["coordinates"],
             serde_json::json!([0.0, 0.0, 5.0, 0.0, 10.0, 0.0])
         );
+    }
+
+    #[test]
+    fn wrapped_surface_runs_scalar_field_operation() {
+        let response = geo_viz::surface::run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("geoViz.scalarFieldGrid"),
+            input: serde_json::json!({
+                "points": [{"id": "a", "longitude": 13.0, "latitude": 52.0, "metrics": {"value": 3.0}}],
+                "options": {"domainBounds": [12.0, 51.0, 14.0, 53.0], "fieldColumns": 1, "fieldRows": 1}
+            }),
+        })
+        .expect("scalar field operation");
+
+        assert_eq!(response.value["values"], serde_json::json!([3.0]));
     }
 }

@@ -195,6 +195,29 @@ export interface GeoVizGeoJsonViewport<TProperties = unknown> {
   zoom: number;
 }
 
+export interface GeoVizScalarFieldOptions {
+  domainBounds?: GeoVizBounds;
+  domainPaddingRatio?: number;
+  fieldCellSizeMeters?: number;
+  fieldColumns?: number;
+  fieldRows?: number;
+  interpolationEpsilonMeters?: number;
+  interpolationExtrapolate?: boolean;
+  interpolationK?: number;
+  interpolationMaxDistanceMeters?: number;
+  interpolationPower?: number;
+  valueDomain?: [min: number, max: number];
+  valueMetric?: string;
+}
+
+export interface GeoVizScalarFieldGrid {
+  bounds: GeoVizBounds;
+  columns: number;
+  rows: number;
+  valueDomain: [min: number, max: number] | null;
+  values: Array<number | null>;
+}
+
 export class GeoPointIndex<TProperties = unknown> {
   constructor(
     points: Array<GeoVizPoint<TProperties>>,
@@ -240,6 +263,26 @@ export class GeoJsonIndex<TProperties = unknown> {
   ): GeoVizGeoJsonViewport<TProperties>;
   free(): void;
 }
+
+export class ScalarFieldIndex<TProperties = unknown> {
+  constructor(
+    points: Array<GeoVizPoint<TProperties>>,
+    options?: GeoVizScalarFieldOptions,
+  );
+  getBounds(): GeoVizBounds | null;
+  getPointCount(): number;
+  getValueDomain(): [min: number, max: number] | null;
+  getValueAtCoordinate(
+    coordinate: [longitude: number, latitude: number],
+  ): number | null;
+  createGrid(): GeoVizScalarFieldGrid;
+  free(): void;
+}
+
+export function createScalarFieldGrid<TProperties = unknown>(
+  points: Array<GeoVizPoint<TProperties>>,
+  options?: GeoVizScalarFieldOptions,
+): GeoVizScalarFieldGrid;
 
 export function init(): Promise<unknown>;
 export function packageSurface(): PackageSurface;

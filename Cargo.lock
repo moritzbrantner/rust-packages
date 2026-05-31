@@ -1697,6 +1697,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "finance-data-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "finance-data",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
+name = "finance-data-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "finance-data",
+ "serde_json",
+ "video-analysis-core",
+]
+
+[[package]]
 name = "finance-data-wasm"
 version = "0.1.0"
 dependencies = [
@@ -1704,6 +1724,7 @@ dependencies = [
  "js-sys",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "video-analysis-core",
  "wasm-bindgen",
 ]
@@ -6209,6 +6230,7 @@ dependencies = [
  "comfyui-models",
  "data-inversion-core",
  "dense-data",
+ "finance-data",
  "finance-statistics",
  "graph-analysis-core",
  "image-analysis-captioning",

@@ -8,8 +8,9 @@ use video_analysis_core::runtime::{
 };
 
 use crate::{
-    GeoFlowIndex, GeoJsonIndex, GeoPointIndex, GeoVizAggregationOptions, GeoVizFlow,
-    GeoVizFlowOptions, GeoVizGeoJsonOptions, GeoVizHeatOptions, GeoVizPoint, GeoVizViewportQuery,
+    create_scalar_field_grid, GeoFlowIndex, GeoJsonIndex, GeoPointIndex, GeoVizAggregationOptions,
+    GeoVizFlow, GeoVizFlowOptions, GeoVizGeoJsonOptions, GeoVizHeatOptions, GeoVizPoint,
+    GeoVizScalarFieldOptions, GeoVizViewportQuery,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -77,6 +78,15 @@ pub fn package_surface() -> PackageSurface {
                     "closed": false
                 }),
             ),
+            operation(
+                "geoViz.scalarFieldGrid",
+                "Scalar field grid",
+                "Creates an IDW scalar field grid for geographic value points.",
+                serde_json::json!({
+                    "points": [{"id": "a", "longitude": 8.0, "latitude": 49.0, "metrics": {"value": 2}}],
+                    "options": {"domainBounds": [7.0, 48.0, 9.0, 50.0], "fieldColumns": 8, "fieldRows": 4}
+                }),
+            ),
         ],
     }
 }
@@ -110,6 +120,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "geoViz.geoJsonViewport" => geojson_value(parse_input(request.input)?)?,
         "geoViz.flowViewport" => flow_value(parse_input(request.input)?)?,
         "geoViz.resampleGeometry" => resample_value(parse_input(request.input)?)?,
+        "geoViz.scalarFieldGrid" => scalar_field_grid_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -195,6 +206,14 @@ struct ResampleRequest {
     closed: bool,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ScalarFieldGridRequest {
+    points: Vec<GeoVizPoint>,
+    #[serde(default)]
+    options: GeoVizScalarFieldOptions,
+}
+
 fn bounds_value(request: BoundsRequest) -> Result<serde_json::Value, String> {
     let index = GeoPointIndex::new(request.points, GeoVizAggregationOptions::default())
         .map_err(|error| error.to_string())?;
@@ -264,6 +283,14 @@ fn resample_value(request: ResampleRequest) -> Result<serde_json::Value, String>
     }))
 }
 
+fn scalar_field_grid_value(request: ScalarFieldGridRequest) -> Result<serde_json::Value, String> {
+    serde_json::to_value(
+        create_scalar_field_grid(request.points, request.options)
+            .map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
+}
+
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
     serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
 }
@@ -280,6 +307,10 @@ mod tests {
             .operations
             .iter()
             .any(|op| op.id.as_str() == "geoViz.aggregateViewport"));
+        assert!(surface
+            .operations
+            .iter()
+            .any(|op| op.id.as_str() == "geoViz.scalarFieldGrid"));
     }
 
     #[test]
@@ -298,5 +329,32 @@ mod tests {
             response.value["coordinates"],
             serde_json::json!([0.0, 0.0, 5.0, 0.0, 10.0, 0.0])
         );
+    }
+
+    #[test]
+    fn scalar_field_grid_operation_runs_idw() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("geoViz.scalarFieldGrid"),
+            input: serde_json::json!({
+                "points": [
+                    {"id": "cold", "longitude": 0.0, "latitude": 0.0, "metrics": {"temperature": 0.0}},
+                    {"id": "warm", "longitude": 2.0, "latitude": 0.0, "metrics": {"temperature": 20.0}}
+                ],
+                "options": {
+                    "domainBounds": [0.0, -1.0, 2.0, 1.0],
+                    "fieldColumns": 2,
+                    "fieldRows": 1,
+                    "interpolationK": 2,
+                    "valueMetric": "temperature"
+                }
+            }),
+        })
+        .expect("scalar field grid");
+
+        assert_eq!(response.value["columns"], serde_json::json!(2));
+        assert_eq!(response.value["rows"], serde_json::json!(1));
+        let domain = response.value["valueDomain"].as_array().expect("domain");
+        assert!((domain[0].as_f64().expect("min") - 2.0).abs() < 1e-12);
+        assert!((domain[1].as_f64().expect("max") - 18.0).abs() < 1e-12);
     }
 }

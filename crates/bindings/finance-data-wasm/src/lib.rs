@@ -2,6 +2,7 @@
 
 use finance_data::{FinanceSeries, FinanceSeriesIndex, RiskSummaryOptions};
 use serde::Deserialize;
+use video_analysis_core::runtime::SurfaceRequest;
 use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Deserialize)]
@@ -26,6 +27,18 @@ struct ReturnsQuery {
     adjusted: bool,
     #[serde(default = "default_returns_method")]
     method: String,
+}
+
+#[wasm_bindgen(js_name = packageSurface)]
+pub fn package_surface() -> Result<JsValue, JsValue> {
+    serde_wasm_bindgen::to_value(&finance_data::surface::package_surface()).map_err(into_js_error)
+}
+
+#[wasm_bindgen(js_name = runOperation)]
+pub fn run_operation(request: JsValue) -> Result<JsValue, JsValue> {
+    let request: SurfaceRequest = serde_wasm_bindgen::from_value(request).map_err(into_js_error)?;
+    let response = finance_data::surface::run_surface_operation(request).map_err(into_js_error)?;
+    serde_wasm_bindgen::to_value(&response).map_err(into_js_error)
 }
 
 #[wasm_bindgen(js_name = FinanceDataSeriesIndex)]
@@ -137,5 +150,15 @@ mod tests {
             ],
         };
         assert!(finance_data::FinanceSeriesIndex::new(series).is_ok());
+    }
+
+    #[test]
+    fn wrapped_surface_has_operations() {
+        let surface = finance_data::surface::package_surface();
+        assert_eq!(surface.library, "finance-data");
+        assert!(surface
+            .operations
+            .iter()
+            .any(|operation| operation.id.as_str() == "financeData.bounds"));
     }
 }

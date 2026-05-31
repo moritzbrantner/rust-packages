@@ -25,6 +25,22 @@ SCAFFOLD_STRINGS = [
     "A deterministic summary or execution plan owned by the Rust library",
     "JSON request metadata for the operation-specific package surface",
 ]
+LEGACY_WASM_TEST_STRING = "run default wasm operation"
+LEGACY_WASM_TEST_ALLOWLIST = {
+    "crates/bindings/audio-analysis-core-wasm/src/lib.rs",
+    "crates/bindings/audio-analysis-fourier-wasm/src/lib.rs",
+    "crates/bindings/audio-analysis-io-wasm/src/lib.rs",
+    "crates/bindings/audio-analysis-pitch-wasm/src/lib.rs",
+    "crates/bindings/audio-analysis-processing-wasm/src/lib.rs",
+    "crates/bindings/audio-analysis-recognition-wasm/src/lib.rs",
+    "crates/bindings/audio-analysis-rhythm-wasm/src/lib.rs",
+    "crates/bindings/audio-analysis-separation-wasm/src/lib.rs",
+    "crates/bindings/audio-analysis-speakers-wasm/src/lib.rs",
+    "crates/bindings/audio-analysis-synthesis-wasm/src/lib.rs",
+    "crates/bindings/audio-analysis-test-support-wasm/src/lib.rs",
+    "crates/bindings/audio-generation-midi-wasm/src/lib.rs",
+}
+MOD_DECLARATION_RE = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;")
 
 
 @dataclass(frozen=True)
@@ -100,6 +116,7 @@ def render_matrix(packages: list[LibraryPackage]) -> str:
         "| Library | CLI | Server | Rust WASM crate | Bun WASM package | App package | Representative operations | WASM | Server |",
         "|---|---|---|---|---|---|---|---|---|",
     ]
+    missing_companions = []
     for package in packages:
         operations = operation_ids(package.name)
         companion_base = companion_package_base_name(package.name)
@@ -120,7 +137,12 @@ def render_matrix(packages: list[LibraryPackage]) -> str:
             )
             + " |"
         )
-        verify_companions(package)
+        missing_companions.extend(companion_failures(package))
+    if missing_companions:
+        raise SystemExit(
+            "missing companion packages:\n"
+            + "\n".join(f"- {failure}" for failure in missing_companions)
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -145,7 +167,7 @@ def operation_ids(crate: str) -> list[str]:
     return ids or ["describe"]
 
 
-def verify_companions(package: LibraryPackage) -> None:
+def companion_failures(package: LibraryPackage) -> list[str]:
     missing = []
     companion_base = companion_package_base_name(package.name)
     if not companion_dir(package, "cli").joinpath("Cargo.toml").is_file():
@@ -158,8 +180,10 @@ def verify_companions(package: LibraryPackage) -> None:
         missing.append(f"packages/{companion_base}-wasm")
     if not (ROOT / "packages" / f"{companion_base}-app" / "package.json").is_file():
         missing.append(f"packages/{companion_base}-app")
-    if missing:
-        raise SystemExit(f"{package.name}: missing companion packages: {', '.join(missing)}")
+    return [
+        f"{package.name}: missing companion package `{companion}`"
+        for companion in missing
+    ]
 
 
 def companion_dir(package: LibraryPackage, kind: str) -> Path:
@@ -177,6 +201,7 @@ def run_json(command: list[str]) -> dict:
 
 def quality_audit(packages: list[LibraryPackage]) -> int:
     failures: list[str] = []
+    audit_repository_quality(failures)
     for package in packages:
         audit_one_package_quality(package, failures)
 
@@ -191,7 +216,10 @@ def quality_audit(packages: list[LibraryPackage]) -> int:
 
 
 def audit_one_package_quality(package: LibraryPackage, failures: list[str]) -> None:
-    verify_companions(package)
+    companion_missing = companion_failures(package)
+    failures.extend(companion_missing)
+    if companion_missing:
+        return
     operations = read_cli_operations(package, failures)
     if not operations:
         failures.append(f"{package.name}: CLI reported no operations")
@@ -218,6 +246,64 @@ def audit_one_package_quality(package: LibraryPackage, failures: list[str]) -> N
 
     validate_cli_invalid_behavior(package.name, failures)
     validate_app_config(package.name, operation_ids, failures)
+
+
+def audit_repository_quality(failures: list[str]) -> None:
+    validate_no_dangling_mod_declarations(failures)
+    validate_no_new_legacy_wasm_tests(failures)
+
+
+def validate_no_dangling_mod_declarations(failures: list[str]) -> None:
+    for path in sorted((ROOT / "crates").rglob("*.rs")):
+        relative = path.relative_to(ROOT)
+        if any(part in {"target", ".cargo-target"} for part in relative.parts):
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for line_number, line in enumerate(lines, start=1):
+            match = MOD_DECLARATION_RE.match(line)
+            if not match:
+                continue
+            if has_cfg_attribute(lines, line_number):
+                continue
+            module_name = match.group(1)
+            if module_name in {"self", "super", "crate"}:
+                continue
+            if not module_file_candidates(path, module_name):
+                failures.append(
+                    f"{relative}:{line_number}: dangling module declaration `mod {module_name};`"
+                )
+
+
+def has_cfg_attribute(lines: list[str], line_number: int) -> bool:
+    index = line_number - 2
+    while index >= 0:
+        previous = lines[index].strip()
+        if not previous:
+            index -= 1
+            continue
+        return previous.startswith("#[cfg") or previous.startswith("#[path")
+    return False
+
+
+def module_file_candidates(path: Path, module_name: str) -> bool:
+    stem = path.stem
+    if stem in {"lib", "main", "mod"}:
+        base = path.parent
+    else:
+        base = path.parent / stem
+    return (base / f"{module_name}.rs").is_file() or (base / module_name / "mod.rs").is_file()
+
+
+def validate_no_new_legacy_wasm_tests(failures: list[str]) -> None:
+    for path in sorted((ROOT / "crates" / "bindings").rglob("*.rs")):
+        relative = path.relative_to(ROOT).as_posix()
+        if relative in LEGACY_WASM_TEST_ALLOWLIST:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if LEGACY_WASM_TEST_STRING in text:
+            failures.append(
+                f"{relative}: replace legacy `{LEGACY_WASM_TEST_STRING}` test with operation-specific assertions"
+            )
 
 
 def read_cli_operations(package: LibraryPackage, failures: list[str]) -> list[dict]:

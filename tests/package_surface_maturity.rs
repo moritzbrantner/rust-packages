@@ -62,6 +62,7 @@ fn migrated_tranche_operation_metadata_is_complete() {
         audio_analysis_core::surface::package_surface(),
         audio_analysis_processing::surface::package_surface(),
         image_analysis_processing::surface::package_surface(),
+        finance_data::surface::package_surface(),
         text_core::surface::package_surface(),
         video_analysis_detectors::surface::package_surface(),
         video_analysis_editing::surface::package_surface(),
@@ -75,6 +76,14 @@ fn migrated_tranche_operation_metadata_is_complete() {
     }
 
     for (surface, runner) in [
+        (
+            finance_data::surface::package_surface(),
+            finance_data::surface::run_surface_operation
+                as fn(
+                    video_analysis_core::runtime::SurfaceRequest,
+                )
+                    -> Result<video_analysis_core::runtime::SurfaceResponse, String>,
+        ),
         (
             video_analysis_detectors::surface::package_surface(),
             video_analysis_detectors::surface::run_surface_operation

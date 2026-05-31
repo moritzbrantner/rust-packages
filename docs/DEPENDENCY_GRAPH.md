@@ -46,6 +46,8 @@ flowchart LR
     crate_dense_data_cli["dense-data-cli"]:::crate
     crate_dense_data_server["dense-data-server"]:::crate
     crate_finance_data["finance-data"]:::crate
+    crate_finance_data_cli["finance-data-cli"]:::crate
+    crate_finance_data_server["finance-data-server"]:::crate
     crate_geo_clustering_cli["geo-clustering-cli"]:::crate
     crate_geo_clustering_server["geo-clustering-server"]:::crate
     crate_geo_core_cli["geo-core-cli"]:::crate
@@ -479,6 +481,7 @@ flowchart LR
 
   crate_video_analysis --> crate_data_inversion_core
   crate_video_analysis --> crate_dense_data
+  crate_video_analysis -. dev .-> crate_finance_data
   crate_video_analysis --> crate_graph_analysis_core
   crate_video_analysis --> crate_moritzbrantner_geo_clustering
   crate_video_analysis --> crate_moritzbrantner_geo_core
@@ -592,6 +595,10 @@ flowchart LR
   crate_dense_data_server --> crate_video_analysis_core
   crate_finance_data --> crate_finance_statistics
   crate_finance_data --> crate_video_analysis_core
+  crate_finance_data_cli --> crate_finance_data
+  crate_finance_data_cli --> crate_video_analysis_core
+  crate_finance_data_server --> crate_finance_data
+  crate_finance_data_server --> crate_video_analysis_core
   crate_geo_clustering_cli --> crate_moritzbrantner_geo_clustering
   crate_geo_clustering_cli --> crate_video_analysis_core
   crate_geo_clustering_server --> crate_moritzbrantner_geo_clustering

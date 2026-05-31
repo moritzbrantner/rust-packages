@@ -392,6 +392,405 @@ fn operation_summary(result: &serde_json::Value) -> serde_json::Value {
     }
 }
 
+/// Shared helpers for thin package-surface CLI adapters.
+pub mod cli {
+    use std::fs;
+    use std::io::{self, Read};
+
+    use super::{
+        ensure_structured_surface_value, OperationId, PackageSurface, SurfaceRequest,
+        SurfaceResponse,
+    };
+
+    /// Static package metadata for one CLI adapter.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct CliAdapterMetadata {
+        pub library_crate: &'static str,
+        pub surface_kind: &'static str,
+        pub library_import: &'static str,
+        pub server_package: &'static str,
+        pub app_package: &'static str,
+        pub wasm_package: &'static str,
+    }
+
+    /// Builds the standard CLI adapter metadata payload.
+    pub fn package_metadata_json(metadata: CliAdapterMetadata, surface: PackageSurface) -> String {
+        serde_json::json!({
+            "package": format!("{}-cli", metadata.library_crate),
+            "surface": metadata.surface_kind,
+            "library": metadata.library_crate,
+            "libraryImport": metadata.library_import,
+            "serverPackage": metadata.server_package,
+            "appPackage": metadata.app_package,
+            "wasmPackage": metadata.wasm_package,
+            "operations": surface.operations
+        })
+        .to_string()
+    }
+
+    /// Builds the standard CLI command schema payload.
+    pub fn command_schema_json() -> String {
+        serde_json::json!({
+            "commands": [
+                {"name": "info", "description": "Print package and adapter metadata."},
+                {"name": "schema", "description": "Print the CLI command schema."},
+                {"name": "operations", "description": "Print library operations."},
+                {"name": "run", "description": "Run one library-owned operation."}
+            ]
+        })
+        .to_string()
+    }
+
+    /// Reads a JSON request from `--json`, `--file`, or stdin.
+    pub fn read_json_input(
+        json: Option<String>,
+        file: Option<String>,
+    ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+        let input = if let Some(json) = json {
+            json
+        } else if let Some(file) = file {
+            fs::read_to_string(file)?
+        } else {
+            let mut buffer = String::new();
+            io::stdin().read_to_string(&mut buffer)?;
+            if buffer.trim().is_empty() {
+                "{}".to_string()
+            } else {
+                buffer
+            }
+        };
+        Ok(serde_json::from_str(&input)?)
+    }
+
+    /// Runs an operation through a library-owned surface and adds standard
+    /// package-surface value fields if an older surface omitted them.
+    pub fn run_wrapped_operation(
+        operation: &str,
+        input: serde_json::Value,
+        runner: fn(SurfaceRequest) -> Result<SurfaceResponse, String>,
+    ) -> Result<SurfaceResponse, String> {
+        let mut response = runner(SurfaceRequest {
+            operation: OperationId::new(operation),
+            input,
+        })?;
+        let value = std::mem::take(&mut response.value);
+        response.value = ensure_structured_surface_value(
+            &response.operation,
+            operation.to_string(),
+            format!("Ran package-surface operation `{}`.", operation),
+            value,
+        );
+        Ok(response)
+    }
+}
+
+/// Shared helpers for local package-surface HTTP adapters.
+pub mod server {
+    use std::io::{self, BufRead, BufReader, Read, Write};
+    use std::net::{TcpListener, TcpStream};
+
+    use super::{
+        Diagnostic, DiagnosticSeverity, OperationId, PackageSurface, SurfaceRequest,
+        SurfaceResponse,
+    };
+
+    /// Static package metadata for one server adapter.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct ServerAdapterMetadata {
+        pub library_crate: &'static str,
+        pub surface_kind: &'static str,
+        pub library_import: &'static str,
+        pub cli_package: &'static str,
+        pub app_package: &'static str,
+        pub wasm_package: &'static str,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct HttpResponse {
+        pub status_code: u16,
+        pub reason: &'static str,
+        pub content_type: &'static str,
+        pub body: String,
+    }
+
+    /// Serves the standard local package-surface HTTP API.
+    pub fn serve(
+        addr: &str,
+        metadata: ServerAdapterMetadata,
+        surface_provider: fn() -> PackageSurface,
+        runner: fn(SurfaceRequest) -> Result<SurfaceResponse, String>,
+    ) -> io::Result<()> {
+        let listener = TcpListener::bind(addr)?;
+        for stream in listener.incoming() {
+            handle_stream(stream?, metadata, surface_provider, runner)?;
+        }
+        Ok(())
+    }
+
+    /// Returns the standard response for one HTTP request.
+    pub fn response_for(
+        method: &str,
+        path: &str,
+        body: &str,
+        metadata: ServerAdapterMetadata,
+        surface_provider: fn() -> PackageSurface,
+        runner: fn(SurfaceRequest) -> Result<SurfaceResponse, String>,
+    ) -> HttpResponse {
+        match (method, path) {
+            ("OPTIONS", _) => HttpResponse {
+                status_code: 204,
+                reason: "No Content",
+                content_type: "application/json",
+                body: String::new(),
+            },
+            ("GET", "/health") => json_response(
+                200,
+                "OK",
+                serde_json::json!({
+                    "ok": true,
+                    "package": format!("{}-server", metadata.library_crate),
+                    "library": metadata.library_crate
+                }),
+            ),
+            ("GET", "/api/package") => json_response(
+                200,
+                "OK",
+                package_metadata_value(metadata, surface_provider()),
+            ),
+            ("GET", "/api/schema") => {
+                json_response(200, "OK", schema_value(metadata, surface_provider()))
+            }
+            ("GET", "/api/operations") => {
+                json_response(200, "OK", serde_json::json!(surface_provider().operations))
+            }
+            ("POST", "/api/run") => run_response(body, metadata, runner),
+            ("POST", path) if path.starts_with("/api/") => {
+                let operation = path.trim_start_matches("/api/");
+                run_request(
+                    SurfaceRequest {
+                        operation: OperationId::new(operation),
+                        input: parse_json_or_empty(body),
+                    },
+                    metadata,
+                    runner,
+                )
+            }
+            _ => json_response(
+                404,
+                "Not Found",
+                serde_json::json!({
+                    "error": "not found",
+                    "path": path
+                }),
+            ),
+        }
+    }
+
+    /// Builds the standard server adapter metadata payload.
+    pub fn package_metadata_json(
+        metadata: ServerAdapterMetadata,
+        surface: PackageSurface,
+    ) -> String {
+        package_metadata_value(metadata, surface).to_string()
+    }
+
+    fn package_metadata_value(
+        metadata: ServerAdapterMetadata,
+        surface: PackageSurface,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "package": format!("{}-server", metadata.library_crate),
+            "surface": metadata.surface_kind,
+            "library": metadata.library_crate,
+            "libraryImport": metadata.library_import,
+            "cliPackage": metadata.cli_package,
+            "appPackage": metadata.app_package,
+            "wasmPackage": metadata.wasm_package,
+            "endpoints": [
+                "GET /health",
+                "GET /api/package",
+                "GET /api/schema",
+                "GET /api/operations",
+                "POST /api/run",
+                "POST /api/<operation-id>"
+            ],
+            "operations": surface.operations
+        })
+    }
+
+    fn schema_value(metadata: ServerAdapterMetadata, surface: PackageSurface) -> serde_json::Value {
+        let operations = surface
+            .operations
+            .into_iter()
+            .map(|operation| {
+                let path = format!("/api/{}", operation.id.as_str());
+                (
+                    path,
+                    serde_json::json!({
+                        "post": {
+                            "summary": operation.name,
+                            "description": operation.description,
+                            "requestBody": operation.input_schema,
+                            "responses": {"200": operation.output_schema}
+                        }
+                    }),
+                )
+            })
+            .collect::<serde_json::Map<_, _>>();
+
+        serde_json::json!({
+            "openapi": "3.1.0",
+            "info": {
+                "title": format!("{} API", metadata.library_crate),
+                "version": env!("CARGO_PKG_VERSION")
+            },
+            "paths": operations
+        })
+    }
+
+    fn run_response(
+        body: &str,
+        metadata: ServerAdapterMetadata,
+        runner: fn(SurfaceRequest) -> Result<SurfaceResponse, String>,
+    ) -> HttpResponse {
+        let payload = match serde_json::from_str::<serde_json::Value>(body) {
+            Ok(value) => value,
+            Err(error) => {
+                return diagnostic_response(
+                    400,
+                    "Bad Request",
+                    "invalid_request",
+                    &format!("invalid JSON: {error}"),
+                    metadata,
+                );
+            }
+        };
+        let operation = payload
+            .get("operation")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("describe")
+            .to_string();
+        let input = payload
+            .get("input")
+            .cloned()
+            .unwrap_or_else(|| payload.clone());
+        run_request(
+            SurfaceRequest {
+                operation: OperationId::new(operation),
+                input,
+            },
+            metadata,
+            runner,
+        )
+    }
+
+    fn run_request(
+        request: SurfaceRequest,
+        metadata: ServerAdapterMetadata,
+        runner: fn(SurfaceRequest) -> Result<SurfaceResponse, String>,
+    ) -> HttpResponse {
+        match runner(request) {
+            Ok(response) => json_response(200, "OK", serde_json::json!(response)),
+            Err(error) => {
+                diagnostic_response(400, "Bad Request", "operation_failed", &error, metadata)
+            }
+        }
+    }
+
+    fn diagnostic_response(
+        status_code: u16,
+        reason: &'static str,
+        code: &str,
+        message: &str,
+        metadata: ServerAdapterMetadata,
+    ) -> HttpResponse {
+        json_response(
+            status_code,
+            reason,
+            serde_json::json!({
+                "diagnostics": [Diagnostic {
+                    severity: DiagnosticSeverity::Error,
+                    code: code.into(),
+                    message: message.to_string(),
+                    source: Some(format!("{}-server", metadata.library_crate)),
+                    help: None,
+                }]
+            }),
+        )
+    }
+
+    fn parse_json_or_empty(body: &str) -> serde_json::Value {
+        if body.trim().is_empty() {
+            serde_json::json!({})
+        } else {
+            serde_json::from_str(body).unwrap_or_else(|_| serde_json::json!({"raw": body}))
+        }
+    }
+
+    fn handle_stream(
+        mut stream: TcpStream,
+        metadata: ServerAdapterMetadata,
+        surface_provider: fn() -> PackageSurface,
+        runner: fn(SurfaceRequest) -> Result<SurfaceResponse, String>,
+    ) -> io::Result<()> {
+        let mut reader = BufReader::new(stream.try_clone()?);
+        let mut request_line = String::new();
+        reader.read_line(&mut request_line)?;
+
+        let mut content_length = 0usize;
+        loop {
+            let mut header = String::new();
+            reader.read_line(&mut header)?;
+            let trimmed = header.trim_end();
+            if trimmed.is_empty() {
+                break;
+            }
+            if let Some((name, value)) = trimmed.split_once(':') {
+                if name.eq_ignore_ascii_case("content-length") {
+                    content_length = value.trim().parse().unwrap_or(0);
+                }
+            }
+        }
+
+        let mut body = vec![0; content_length];
+        if content_length > 0 {
+            reader.read_exact(&mut body)?;
+        }
+        let body = String::from_utf8_lossy(&body);
+
+        let mut parts = request_line.split_whitespace();
+        let method = parts.next().unwrap_or("GET");
+        let path = parts.next().unwrap_or("/");
+        let response = response_for(method, path, &body, metadata, surface_provider, runner);
+        write_response(&mut stream, response)
+    }
+
+    fn json_response(
+        status_code: u16,
+        reason: &'static str,
+        value: serde_json::Value,
+    ) -> HttpResponse {
+        HttpResponse {
+            status_code,
+            reason,
+            content_type: "application/json",
+            body: value.to_string(),
+        }
+    }
+
+    fn write_response(stream: &mut TcpStream, response: HttpResponse) -> io::Result<()> {
+        write!(
+            stream,
+            "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: content-type\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nConnection: close\r\n\r\n{}",
+            response.status_code,
+            response.reason,
+            response.content_type,
+            response.body.len(),
+            response.body
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 pub struct JobId(pub String);

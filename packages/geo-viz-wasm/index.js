@@ -2,6 +2,8 @@ import initWasm, {
   GeoFlowIndex as WasmGeoFlowIndex,
   GeoJsonIndex as WasmGeoJsonIndex,
   GeoPointIndex as WasmGeoPointIndex,
+  ScalarFieldIndex as WasmScalarFieldIndex,
+  createScalarFieldGrid as wasmCreateScalarFieldGrid,
   initSync,
   packageSurface as wasmPackageSurface,
   runOperation as wasmRunOperation,
@@ -23,9 +25,7 @@ export async function init() {
   return wasmModule;
 }
 
-if (isNodeLikeRuntime()) {
-  initializeNodeSync();
-} else {
+if (!isNodeLikeRuntime()) {
   await init();
 }
 
@@ -106,6 +106,42 @@ export class GeoJsonIndex {
   }
 }
 
+export class ScalarFieldIndex {
+  constructor(points, options) {
+    initializeNodeSync();
+    this.inner = new WasmScalarFieldIndex(points, options ?? null);
+  }
+
+  getBounds() {
+    return this.inner.getBounds();
+  }
+
+  getPointCount() {
+    return this.inner.getPointCount();
+  }
+
+  getValueDomain() {
+    return this.inner.getValueDomain();
+  }
+
+  getValueAtCoordinate(coordinate) {
+    return this.inner.getValueAtCoordinate(coordinate);
+  }
+
+  createGrid() {
+    return this.inner.createGrid();
+  }
+
+  free() {
+    this.inner.free();
+  }
+}
+
+export function createScalarFieldGrid(points, options) {
+  initializeNodeSync();
+  return wasmCreateScalarFieldGrid(points, options ?? null);
+}
+
 export function packageSurface() {
   initializeNodeSync();
   return wasmPackageSurface();
@@ -121,7 +157,8 @@ function initializeNodeSync() {
     return;
   }
 
-  const wasmPath = new URL("./pkg/geo_viz_wasm_bg.wasm", import.meta.url);
+  const wasmFile = "./pkg/" + "geo_viz_wasm_bg.wasm";
+  const wasmPath = new URL(wasmFile, import.meta.url);
   const bytes = readNodeFileSync(wasmPath);
 
   initSync({ module: bytes });

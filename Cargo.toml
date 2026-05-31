@@ -294,6 +294,7 @@ tempfile.workspace = true
 comfyui-data.workspace = true
 comfyui-latents.workspace = true
 comfyui-models.workspace = true
+finance-data.workspace = true
 num-rational.workspace = true
 tensor-data.workspace = true
 text-core-cli = { path = "crates/text/text-core-cli" }

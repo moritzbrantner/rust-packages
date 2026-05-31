@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod scalar_field;
 pub mod surface;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -21,6 +22,11 @@ pub type GeoVizBounds = [f64; 4];
 
 /// GeoJSON-compatible feature collection value returned to renderer adapters.
 pub type GeoVizFeatureCollectionValue = serde_json::Value;
+
+pub use scalar_field::{
+    create_scalar_field_grid, GeoVizScalarFieldGrid, GeoVizScalarFieldIndex,
+    GeoVizScalarFieldOptions,
+};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())

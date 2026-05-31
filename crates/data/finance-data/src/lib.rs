@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+pub mod surface;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use video_analysis_core::{DetectError, Result};
