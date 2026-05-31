@@ -28,5 +28,10 @@ default = []
 transcripts = ["dep:text-transcripts"]
 
 [dev-dependencies]
+criterion.workspace = true
 tempfile.workspace = true
 text-embeddings.workspace = true
+
+[[bench]]
+name = "retrieval_index"
+harness = false

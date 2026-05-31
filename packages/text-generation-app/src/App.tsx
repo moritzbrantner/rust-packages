@@ -47,6 +47,26 @@ const packageAppConfig: PackageAppConfig = {
       input: { terms: [{ term: "rust", weight: 2.0 }, { term: "analysis", weight: 1.0 }] },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "markov-predict",
+      label: "Markov Predict",
+      operation: "generation.markovPredict",
+      input: { trainingTexts: ["rust text analysis supports transcript search", "rust crates analyze captions"], order: 2, prefix: ["rust"] },
+      iterations: 100,
+      warmupIterations: 5,
+      outputCountPath: ["predictions"],
+    },
+    {
+      id: "markov-generate",
+      label: "Markov Generate",
+      operation: "generation.markovGenerate",
+      input: { trainingTexts: ["rust text analysis supports crates"], order: 2, maxTokens: 12 },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["tokens"],
+    },
+  ],
 };
 
 export function App() {

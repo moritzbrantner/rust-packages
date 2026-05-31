@@ -4,6 +4,45 @@ The text crates are local-first. Default builds must not require network access,
 model downloads, hosted AI credentials, or native inference runtimes. Model
 execution is opt-in through feature flags and explicit runtime configuration.
 
+## Model Loading Contract
+
+Text package model catalogs distinguish deterministic, loadable, and reference-only entries:
+
+- `supported: true, loadable: true` means the default or selected runtime can run without extra model setup.
+- `supported: true, loadable: false` means the crate has an implemented opt-in native path, but the local bundle must be materialized first.
+- `supported: false, loadable: false` means the entry is reference metadata only. Classification sequence models and extractive QA models remain in this state until native runners are implemented.
+
+`text-model-runtime` owns the shared conformance report types: `TextModelLoadReport`, `TextModelRunReport`, `TextModelCapability`, `validate_text_model_bundle`, and `validate_tokenizer_bundle`.
+
+Default builds remain deterministic and network-free. Native tokenizers, Candle, ONNX, model bundles, and whisper.cpp paths are opt-in through feature gates such as `tokenizers`, `candle`, `onnx`, `model-bundles`, `native`, and `external-tests`.
+
+Use the existing bundle sync flow before running native smoke tests:
+
+```bash
+scripts/sync_model_bundles.sh
+cargo test -p text-model-runtime --features external-tests -- --ignored
+cargo test -p text-linguistics --features external-tests -- --ignored
+cargo test -p text-embeddings --features external-tests -- --ignored
+cargo test -p text-transcripts --features native,external-tests -- --ignored
+```
+
+## Benchmarks
+
+Native Criterion benches cover segmentation, linguistics, embeddings, lexical corpus search, retrieval indexing, and text analysis reports:
+
+```bash
+bun run text-native:bench
+```
+
+Browser WASM benchmarks run in Playwright and measure the current browser and machine:
+
+```bash
+bun run text-wasm:bench:all
+bun run text:bench
+```
+
+Benchmark results are not portable performance claims; they depend on CPU, browser, build profile, and current package inputs.
+
 ## Responsibilities
 
 | Crate | Owns | Must not own |

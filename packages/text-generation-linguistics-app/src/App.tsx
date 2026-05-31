@@ -56,6 +56,26 @@ const packageAppConfig: PackageAppConfig = {
       input: { text: "Scene transitions follow visual changes.", mode: "lemma", order: 2 },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "synthesize-from-analysis",
+      label: "Synthesize",
+      operation: "generationLinguistics.synthesizeFromAnalysis",
+      input: { id: "bench-analysis", text: "Alice presented the tokenizer roadmap in Berlin. Rust workflows summarize transcript evidence." },
+      iterations: 50,
+      warmupIterations: 3,
+      outputCountPath: ["terms"],
+    },
+    {
+      id: "analysis-terms",
+      label: "Terms",
+      operation: "generationLinguistics.analysisTerms",
+      input: { text: "Scene transitions follow visual changes and transcript cues." },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["terms"],
+    },
+  ],
 };
 
 export function App() {

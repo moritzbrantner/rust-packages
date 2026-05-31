@@ -46,6 +46,26 @@ const packageAppConfig: PackageAppConfig = {
       input: { text: "Rust text runtime", maxTokens: 8 },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "tokenizer-summary",
+      label: "Tokenizer Summary",
+      operation: "runtime.tokenizeSummary",
+      input: { text: "Rust text runtime summarizes token offsets for package surfaces.", maxTokens: 12 },
+      iterations: 120,
+      warmupIterations: 5,
+      outputCountPath: ["tokens"],
+    },
+    {
+      id: "softmax",
+      label: "Softmax",
+      operation: "runtime.softmax",
+      input: { logits: [0.1, 0.3, 1.2, -0.7, 2.4, 0.0] },
+      iterations: 200,
+      warmupIterations: 10,
+      outputCountPath: ["probabilities"],
+    },
+  ],
 };
 
 export function App() {

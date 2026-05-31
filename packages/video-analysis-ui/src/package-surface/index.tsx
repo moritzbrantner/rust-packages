@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { BenchmarkPanel } from "./BenchmarkPanel";
 import { FileInputs } from "./FileInputs";
 import { ModelSelector } from "./ModelSelector";
 import { OperationWorkbench, type OperationWorkbenchGroup } from "./OperationWorkbench";
@@ -24,6 +25,7 @@ import type {
   RuntimeMode,
   SurfaceOperation,
   SurfaceResponse,
+  ResultTabDefinition,
 } from "./types";
 
 export * from "./types";
@@ -33,6 +35,7 @@ export { FileInputs } from "./FileInputs";
 export { ModelSelector } from "./ModelSelector";
 export { OperationWorkbench } from "./OperationWorkbench";
 export { ResultViewer } from "./ResultViewer";
+export { BenchmarkPanel } from "./BenchmarkPanel";
 
 type LoadState = "loading" | "ready" | "error" | "disabled";
 
@@ -215,6 +218,10 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
     },
   };
   const children = typeof config.children === "function" ? config.children(childContext) : config.children;
+  const resultTabs = useMemo(
+    () => benchmarkResultTabs(config, runtimeMode),
+    [config, runtimeMode],
+  );
 
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-950">
@@ -259,7 +266,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
           />
           {children}
         </div>
-        <ResultViewer response={response} resultTabs={config.resultTabs} />
+        <ResultViewer response={response} resultTabs={resultTabs} />
         <aside className="space-y-5">
           <RuntimePanel
             config={config}
@@ -275,6 +282,20 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
       </section>
     </main>
   );
+}
+
+function benchmarkResultTabs(config: PackageAppConfig, runtimeMode: RuntimeMode): ResultTabDefinition[] | undefined {
+  if (!config.benchmarkScenarios?.length) {
+    return config.resultTabs;
+  }
+  return [
+    ...(config.resultTabs ?? []),
+    {
+      id: "benchmarks",
+      label: "Benchmarks",
+      render: () => <BenchmarkPanel config={config} runtimeMode={runtimeMode} />,
+    },
+  ];
 }
 
 function RuntimeButtons({

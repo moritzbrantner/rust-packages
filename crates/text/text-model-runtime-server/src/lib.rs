@@ -52,6 +52,8 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         ),
         ("GET", "/api/package") => json_response(200, "OK", package_metadata_value()),
         ("GET", "/api/schema") => json_response(200, "OK", schema_value()),
+        ("GET", "/api/models") => json_response(200, "OK", model_catalog_value()),
+        ("GET", "/api/benchmarks") => json_response(200, "OK", benchmark_catalog_value()),
         ("GET", "/api/operations") => json_response(
             200,
             "OK",
@@ -95,12 +97,59 @@ fn package_metadata_value() -> serde_json::Value {
             "GET /health",
             "GET /api/package",
             "GET /api/schema",
+            "GET /api/models",
+            "GET /api/benchmarks",
             "GET /api/operations",
             "POST /api/run",
             "POST /api/<operation-id>"
         ],
         "operations": surface.operations
     })
+}
+
+fn model_catalog_value() -> serde_json::Value {
+    serde_json::json!([
+        {
+            "id": "bert-base-uncased",
+            "label": "BERT base uncased tokenizer",
+            "task": "tokenizer",
+            "runtime": "external",
+            "supported": true,
+            "loadable": false,
+            "requiredFeature": "tokenizers,model-bundles",
+            "requiredSetup": "scripts/sync_model_bundles.sh text",
+            "smokeOperation": "runtime.tokenizeSummary"
+        },
+        {
+            "id": "distilbert-sst2",
+            "label": "DistilBERT SST-2 tokenizer",
+            "task": "tokenizer",
+            "runtime": "external",
+            "supported": true,
+            "loadable": false,
+            "requiredFeature": "tokenizers,model-bundles",
+            "requiredSetup": "scripts/sync_model_bundles.sh text",
+            "smokeOperation": "runtime.tokenizeSummary"
+        },
+        {
+            "id": "minilm-l6-v2",
+            "label": "MiniLM L6 v2 tokenizer",
+            "task": "tokenizer",
+            "runtime": "external",
+            "supported": true,
+            "loadable": false,
+            "requiredFeature": "tokenizers,model-bundles",
+            "requiredSetup": "scripts/sync_model_bundles.sh text",
+            "smokeOperation": "runtime.tokenizeSummary"
+        }
+    ])
+}
+
+fn benchmark_catalog_value() -> serde_json::Value {
+    serde_json::json!([
+        {"id": "tokenizer-summary", "label": "Tokenizer Summary", "operation": "runtime.tokenizeSummary", "iterations": 120},
+        {"id": "softmax", "label": "Softmax", "operation": "runtime.softmax", "iterations": 200}
+    ])
 }
 
 fn candle_device_metadata_value() -> serde_json::Value {

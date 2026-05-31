@@ -51,6 +51,8 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         ),
         ("GET", "/api/package") => json_response(200, "OK", package_metadata_value()),
         ("GET", "/api/schema") => json_response(200, "OK", schema_value()),
+        ("GET", "/api/models") => json_response(200, "OK", model_catalog_value()),
+        ("GET", "/api/benchmarks") => json_response(200, "OK", benchmark_catalog_value()),
         ("GET", "/api/operations") => json_response(
             200,
             "OK",
@@ -93,12 +95,49 @@ fn package_metadata_value() -> serde_json::Value {
             "GET /health",
             "GET /api/package",
             "GET /api/schema",
+            "GET /api/models",
+            "GET /api/benchmarks",
             "GET /api/operations",
             "POST /api/run",
             "POST /api/<operation-id>"
         ],
         "operations": surface.operations
     })
+}
+
+fn model_catalog_value() -> serde_json::Value {
+    serde_json::json!([
+        {
+            "id": "transcript-fixtures",
+            "label": "Transcript fixtures",
+            "task": "parse",
+            "runtime": "deterministic",
+            "supported": true,
+            "loadable": true,
+            "smokeOperation": "transcripts.parse",
+            "note": "Default parser and formatter path."
+        },
+        {
+            "id": "whisper-tiny-en",
+            "label": "Whisper tiny English",
+            "task": "transcribe",
+            "runtime": "whisper_cpp",
+            "supported": true,
+            "loadable": false,
+            "requiredFeature": "native,external-tests",
+            "requiredSetup": "cargo test -p text-transcripts --features native,external-tests -- --ignored",
+            "smokeOperation": "transcripts.parse",
+            "note": "Native transcription runs only when the whisper.cpp model file exists locally."
+        }
+    ])
+}
+
+fn benchmark_catalog_value() -> serde_json::Value {
+    serde_json::json!([
+        {"id": "parse-srt", "label": "Parse SRT", "operation": "transcripts.parse", "iterations": 120},
+        {"id": "normalize", "label": "Normalize", "operation": "transcripts.normalize", "iterations": 120},
+        {"id": "format-srt", "label": "Format SRT", "operation": "transcripts.formatSrt", "iterations": 120}
+    ])
 }
 
 fn schema_value() -> serde_json::Value {

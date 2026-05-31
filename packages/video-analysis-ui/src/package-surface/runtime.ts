@@ -124,8 +124,11 @@ export function normalizeModelCatalog(input: unknown[]): ModelCatalogEntry[] {
       task: String(value.task ?? "general"),
       runtime: normalizeRuntime(value.runtime),
       supported: Boolean(value.supported ?? false),
+      loadable: Boolean(value.loadable ?? value.supported ?? false),
       fallback: stringField(value.fallback),
       requiredFeature: stringField(value.requiredFeature ?? value.required_feature),
+      requiredSetup: stringField(value.requiredSetup ?? value.required_setup),
+      smokeOperation: stringField(value.smokeOperation ?? value.smoke_operation),
       source: stringField(value.source ?? value.modelId ?? value.model_id),
       note: stringField(value.note),
     }))
@@ -152,4 +155,3 @@ function normalizeRuntime(value: unknown): ModelCatalogEntry["runtime"] {
 function stringField(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
-

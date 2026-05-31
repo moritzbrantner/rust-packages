@@ -54,6 +54,34 @@ const packageAppConfig: PackageAppConfig = {
       },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "keywords",
+      label: "Keywords",
+      operation: "lexical.keywords",
+      input: { text: "Rust text analysis supports transcript retrieval and lexical search. ".repeat(24), maxTerms: 12 },
+      iterations: 100,
+      warmupIterations: 5,
+      outputCountPath: ["keywords"],
+    },
+    {
+      id: "corpus-search",
+      label: "Corpus Search",
+      operation: "lexical.corpusSearch",
+      input: {
+        documents: [
+          { id: "doc-1", text: "rust text analysis" },
+          { id: "doc-2", text: "video scene analysis" },
+          { id: "doc-3", text: "transcript retrieval and search" },
+        ],
+        query: "text search",
+        mode: "bm25",
+      },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["results"],
+    },
+  ],
 };
 
 export function App() {

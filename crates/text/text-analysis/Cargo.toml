@@ -31,3 +31,10 @@ model-bundles = ["dep:model-runtime", "model-runtime/jobs", "text-linguistics/mo
 onnx = ["text-embeddings/onnx", "dep:model-runtime"]
 tokenizers = ["text-embeddings/tokenizers", "text-linguistics/tokenizers"]
 external-tests = ["candle", "model-bundles", "onnx"]
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "document_and_corpus"
+harness = false

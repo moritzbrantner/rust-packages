@@ -49,6 +49,20 @@ assert_eq!(matches[0].metadata.model_name.as_deref(), Some("hashed-text-embedder
 - The package surface does not download model bundles or invoke native ONNX or
   Candle inference.
 
+## Model Loading
+
+The catalog treats hashed embeddings as the default loadable path. MiniLM Candle
+and ONNX entries are loadable only when the matching `.model-runtime` bundles
+exist and the crate is built with `candle` or `onnx` plus `model-bundles`.
+
+```bash
+scripts/sync_model_bundles.sh
+cargo test -p text-embeddings --features external-tests -- --ignored
+```
+
+Use `bun run text-native:bench` for Criterion benches and
+`bun run text-wasm:bench:all` for local browser WASM timings.
+
 ## Related crates
 
 - `text-core`

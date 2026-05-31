@@ -49,6 +49,35 @@ const packageAppConfig: PackageAppConfig = {
       },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "parse-srt",
+      label: "Parse SRT",
+      operation: "transcripts.parse",
+      input: { format: "srt", content: "1\n00:00:01,000 --> 00:00:02,000\nHello benchmark.\n\n2\n00:00:02,000 --> 00:00:03,000\nRust transcript parsing.\n" },
+      iterations: 120,
+      warmupIterations: 5,
+      outputCountPath: ["segments"],
+    },
+    {
+      id: "normalize",
+      label: "Normalize",
+      operation: "transcripts.normalize",
+      input: { segments: [{ index: 0, startSeconds: 1.0, endSeconds: 2.0, text: "  Hello   benchmark.  ", isFinal: true }] },
+      iterations: 120,
+      warmupIterations: 5,
+      outputCountPath: ["segments"],
+    },
+    {
+      id: "format-srt",
+      label: "Format SRT",
+      operation: "transcripts.formatSrt",
+      input: { segments: [{ index: 0, startSeconds: 1.0, endSeconds: 2.0, text: "Hello.", isFinal: true }] },
+      iterations: 120,
+      warmupIterations: 5,
+      outputCountPath: ["content"],
+    },
+  ],
 };
 
 export function App() {

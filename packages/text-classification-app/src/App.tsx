@@ -47,6 +47,35 @@ const packageAppConfig: PackageAppConfig = {
       input: { text: "rust text", labels: ["code", "music"], model: { fallbackPolicy: "lexical_fallback" } },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "lexical-classify",
+      label: "Lexical Classify",
+      operation: "classification.classify",
+      input: { text: "rust text analysis is reliable and fast", labels: ["positive", "negative"], model: { fallbackPolicy: "lexical_fallback" } },
+      iterations: 100,
+      warmupIterations: 5,
+      outputCountPath: ["predictions"],
+    },
+    {
+      id: "sentiment",
+      label: "Sentiment",
+      operation: "classification.sentiment",
+      input: { text: "the transcript workflow is reliable", model: { fallbackPolicy: "lexical_fallback" } },
+      iterations: 100,
+      warmupIterations: 5,
+      outputCountPath: ["predictions"],
+    },
+    {
+      id: "zero-shot",
+      label: "Zero-shot",
+      operation: "classification.zeroShot",
+      input: { text: "rust text retrieval", labels: ["code", "sports", "music"], model: { fallbackPolicy: "lexical_fallback" } },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["predictions"],
+    },
+  ],
 };
 
 export function App() {

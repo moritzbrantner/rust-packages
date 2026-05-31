@@ -72,10 +72,25 @@ export interface ModelCatalogEntry {
   task: string;
   runtime: ModelRuntime;
   supported: boolean;
+  loadable: boolean;
   fallback?: string;
   requiredFeature?: string;
+  requiredSetup?: string;
+  smokeOperation?: string;
   source?: string;
   note?: string;
+}
+
+export interface BenchmarkScenario {
+  id: string;
+  label: string;
+  description?: string;
+  operation: string;
+  input: unknown;
+  iterations: number;
+  warmupIterations?: number;
+  runtimeModes?: RuntimeMode[];
+  outputCountPath?: string[];
 }
 
 export interface PackageAppPreset {
@@ -143,6 +158,7 @@ export interface PackageAppConfig {
   defaultOperation?: string;
   defaultRuntime?: RuntimeMode;
   presets?: PackageAppPreset[];
+  benchmarkScenarios?: BenchmarkScenario[];
   resultTabs?: ResultTabDefinition[];
   fileInputs?: FileInputDefinition[];
   children?: ReactNode | ((context: PackageSurfaceWorkbenchContext) => ReactNode);

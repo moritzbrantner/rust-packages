@@ -52,6 +52,8 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         ),
         ("GET", "/api/package") => json_response(200, "OK", package_metadata_value()),
         ("GET", "/api/schema") => json_response(200, "OK", schema_value()),
+        ("GET", "/api/models") => json_response(200, "OK", model_catalog_value()),
+        ("GET", "/api/benchmarks") => json_response(200, "OK", benchmark_catalog_value()),
         ("GET", "/api/operations") => json_response(
             200,
             "OK",
@@ -95,12 +97,62 @@ fn package_metadata_value() -> serde_json::Value {
             "GET /health",
             "GET /api/package",
             "GET /api/schema",
+            "GET /api/models",
+            "GET /api/benchmarks",
             "GET /api/operations",
             "POST /api/run",
             "POST /api/<operation-id>"
         ],
         "operations": surface.operations
     })
+}
+
+fn model_catalog_value() -> serde_json::Value {
+    serde_json::json!([
+        {
+            "id": "hashed-text-embedding",
+            "label": "Hashed text embedding",
+            "task": "embedding",
+            "runtime": "deterministic",
+            "supported": true,
+            "loadable": true,
+            "smokeOperation": "embeddings.embed",
+            "note": "Pure Rust deterministic embedding fallback."
+        },
+        {
+            "id": "minilm-l6-v2-candle",
+            "label": "MiniLM L6 v2 Candle",
+            "task": "embedding",
+            "runtime": "candle",
+            "supported": true,
+            "loadable": false,
+            "fallback": "hashed-text-embedding",
+            "requiredFeature": "candle,model-bundles",
+            "requiredSetup": "scripts/sync_model_bundles.sh text",
+            "smokeOperation": "embeddings.embed",
+            "note": "Loadable when the MiniLM safetensors bundle is present."
+        },
+        {
+            "id": "xenova-minilm-l6-v2-onnx",
+            "label": "MiniLM L6 v2 ONNX",
+            "task": "embedding",
+            "runtime": "onnx",
+            "supported": true,
+            "loadable": false,
+            "fallback": "hashed-text-embedding",
+            "requiredFeature": "onnx,model-bundles",
+            "requiredSetup": "scripts/sync_model_bundles.sh text",
+            "smokeOperation": "embeddings.embed",
+            "note": "Loadable when the Xenova ONNX bundle is present."
+        }
+    ])
+}
+
+fn benchmark_catalog_value() -> serde_json::Value {
+    serde_json::json!([
+        {"id": "hashed-embed", "label": "Hashed Embed", "operation": "embeddings.embed", "iterations": 80},
+        {"id": "semantic-search", "label": "Semantic Search", "operation": "embeddings.semanticSearch", "iterations": 60}
+    ])
 }
 
 fn candle_device_metadata_value() -> serde_json::Value {

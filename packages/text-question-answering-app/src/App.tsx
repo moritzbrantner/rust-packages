@@ -44,6 +44,21 @@ const packageAppConfig: PackageAppConfig = {
       },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "imported-span",
+      label: "Imported Span",
+      operation: "qa.answer",
+      input: {
+        question: "What is reliable?",
+        context: "Rust is reliable for deterministic text package benchmarks.",
+        importedPredictions: [{ text: "Rust", score: 0.9, attributes: { byte_start: "0", byte_end: "4" } }],
+      },
+      iterations: 100,
+      warmupIterations: 5,
+      outputCountPath: ["answers"],
+    },
+  ],
 };
 
 export function App() {

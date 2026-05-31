@@ -105,8 +105,16 @@ pub struct TextClassificationModelMetadata {
     pub runtime: TextClassificationRuntime,
     /// Whether the runtime is available in the default contributor build.
     pub supported: bool,
+    /// Whether this entry has an implemented native load/run path.
+    pub loadable: bool,
     /// Optional fallback preset id.
     pub fallback: Option<String>,
+    /// Cargo feature required for native loading.
+    pub required_feature: Option<String>,
+    /// Setup command or note required before loading.
+    pub required_setup: Option<String>,
+    /// Surface operation that smokes the implemented path.
+    pub smoke_operation: Option<String>,
     /// Human-readable note for unsupported or fallback-only paths.
     pub note: Option<String>,
 }
@@ -595,7 +603,18 @@ fn metadata(
         task,
         runtime,
         supported,
+        loadable: false,
         fallback: fallback.map(str::to_string),
+        required_feature: match runtime {
+            TextClassificationRuntime::Candle => Some("candle".to_string()),
+            TextClassificationRuntime::Onnx => Some("onnx".to_string()),
+            _ => None,
+        },
+        required_setup: Some(
+            "Reference-only until a native sequence-classification runner is implemented"
+                .to_string(),
+        ),
+        smoke_operation: Some("classification.classify".to_string()),
         note: note.map(str::to_string),
     }
 }

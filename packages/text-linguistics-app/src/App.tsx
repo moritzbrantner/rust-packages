@@ -47,6 +47,35 @@ const packageAppConfig: PackageAppConfig = {
       input: { text: "Alice presented the tokenizer roadmap in Berlin." },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "fast-analysis",
+      label: "Fast Analysis",
+      operation: "linguistics.analyze",
+      input: { text: "Alice presented the tokenizer roadmap in Berlin.", profile: "fast" },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["entities"],
+    },
+    {
+      id: "balanced-analysis",
+      label: "Balanced Analysis",
+      operation: "linguistics.analyze",
+      input: { text: "Alice presented the tokenizer roadmap in Berlin. The team discussed Rust search workflows.", profile: "balanced" },
+      iterations: 60,
+      warmupIterations: 5,
+      outputCountPath: ["entities"],
+    },
+    {
+      id: "rich-analysis",
+      label: "Rich Analysis",
+      operation: "linguistics.analyze",
+      input: { text: "Alice presented the tokenizer roadmap in Berlin. Bob reviewed transcript retrieval evidence.", profile: "rich" },
+      iterations: 40,
+      warmupIterations: 3,
+      outputCountPath: ["entities"],
+    },
+  ],
 };
 
 export function App() {

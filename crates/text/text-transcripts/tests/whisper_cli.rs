@@ -5,9 +5,15 @@ mod external {
 
     use text_transcripts::{Transcriber, WhisperCliTranscriber};
 
-    fn require_command(command: &str) {
-        find_command(command)
-            .unwrap_or_else(|| panic!("required command `{command}` is unavailable"));
+    fn command_is_usable(command: &str, args: &[&str]) -> bool {
+        find_command(command).is_some()
+            && Command::new(command)
+                .args(args)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .map(|status| status.success())
+                .unwrap_or(false)
     }
 
     fn find_command(command: &str) -> Option<PathBuf> {
@@ -25,8 +31,16 @@ mod external {
     #[test]
     #[ignore = "requires real ffmpeg with flite filter and whisper CLI"]
     fn real_whisper_transcribes_generated_speech_audio() {
-        require_command("ffmpeg");
-        require_command("whisper");
+        if !command_is_usable("ffmpeg", &["-version"]) {
+            eprintln!("skipping external whisper CLI smoke: ffmpeg is unavailable");
+            return;
+        }
+        if !command_is_usable("whisper", &["--help"]) {
+            eprintln!(
+                "skipping external whisper CLI smoke: whisper CLI is unavailable or incomplete"
+            );
+            return;
+        }
 
         let dir = tempfile::tempdir().unwrap();
         let input = dir.path().join("speech.wav");

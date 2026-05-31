@@ -3,6 +3,24 @@
 This guide explains how the text corpus and search types fit together. All
 examples are deterministic and local-only.
 
+## Benchmarking Corpus Workflows
+
+The text package apps include a `Benchmarks` result tab for local browser WASM timing. Scenarios cover tokenization, lexical keyword extraction, semantic and hybrid search, document reports, corpus reports, linguistic analysis, fallback classification, imported-span QA, generation, and transcript parsing.
+
+Run all browser text scenarios from the root:
+
+```bash
+bun run text-wasm:bench:all
+```
+
+Run native text Criterion benches:
+
+```bash
+bun run text-native:bench
+```
+
+Use benchmark output for local regressions only. Corpus size, browser version, CPU throttling, and build profile all affect the numbers.
+
 ## Corpus Types
 
 `TextCorpus` is the user-facing document collection in `text-lexical`. It owns

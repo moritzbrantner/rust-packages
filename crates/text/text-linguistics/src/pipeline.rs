@@ -73,7 +73,7 @@ impl ModelPreset {
     }
 
     #[cfg(all(feature = "candle", feature = "model-bundles"))]
-    fn spec(self) -> model_runtime::HuggingFaceModelSpec {
+    pub(crate) fn spec(self) -> model_runtime::HuggingFaceModelSpec {
         match self {
             Self::BertBaseNer => model_runtime::ModelPreset::BertBaseNer.spec(),
         }

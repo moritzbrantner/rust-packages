@@ -175,6 +175,252 @@ impl TokenizedText {
     }
 }
 
+/// User-visible text model capabilities that can be validated by package surfaces.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextModelCapability {
+    /// Tokenizer-only loading and tokenization.
+    Tokenizer,
+    /// Token classification, including NER.
+    TokenClassification,
+    /// Text embedding.
+    Embedding,
+    /// Sequence or sentiment classification.
+    SequenceClassification,
+    /// Extractive question answering.
+    QuestionAnswering,
+    /// Native whisper.cpp transcription.
+    WhisperCpp,
+}
+
+/// Report describing whether a text model bundle can be loaded by this build.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextModelLoadReport {
+    /// Stable model or preset id.
+    pub model_id: String,
+    /// Capability being validated.
+    pub capability: TextModelCapability,
+    /// Whether the model is a supported package surface.
+    pub supported: bool,
+    /// Whether all required local files are present for the requested runtime.
+    pub loadable: bool,
+    /// Required cargo feature for real loading/running.
+    pub required_feature: Option<String>,
+    /// User-facing setup command or note.
+    pub required_setup: Option<String>,
+    /// Package surface operation that smokes this path.
+    pub smoke_operation: Option<String>,
+    /// Bundle root inspected.
+    pub bundle_root: PathBuf,
+    /// Required bundle files.
+    pub required_files: Vec<String>,
+    /// Present required bundle files.
+    pub present_files: Vec<String>,
+    /// Missing required bundle files.
+    pub missing_files: Vec<String>,
+    /// Whether tokenizer loading was validated.
+    pub tokenizer_loaded: bool,
+    /// Whether model weight loading or presence was validated.
+    pub weights_loaded: bool,
+    /// Non-fatal notes from validation.
+    pub diagnostics: Vec<String>,
+}
+
+impl TextModelLoadReport {
+    /// Returns true when the report has no missing required files.
+    pub fn bundle_present(&self) -> bool {
+        self.missing_files.is_empty()
+    }
+}
+
+/// Report from a minimal run through a loaded or deterministic text runtime.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextModelRunReport {
+    /// Stable model or preset id.
+    pub model_id: String,
+    /// Capability being exercised.
+    pub capability: TextModelCapability,
+    /// Smoke operation name.
+    pub operation: String,
+    /// Whether the sample run executed.
+    pub ran: bool,
+    /// Count of output records, tokens, embeddings, or spans.
+    pub output_count: usize,
+    /// Non-fatal notes from the run.
+    pub diagnostics: Vec<String>,
+}
+
+/// Input for validating local text model bundle presence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextModelBundleCheck {
+    /// Stable model or preset id.
+    pub model_id: String,
+    /// Capability being validated.
+    pub capability: TextModelCapability,
+    /// Bundle root to inspect.
+    pub bundle_root: PathBuf,
+    /// Required file paths relative to `bundle_root`.
+    pub required_files: Vec<String>,
+    /// Optional feature required for native loading.
+    pub required_feature: Option<String>,
+    /// Optional setup guidance.
+    pub required_setup: Option<String>,
+    /// Optional surface operation used as smoke coverage.
+    pub smoke_operation: Option<String>,
+    /// Whether this path has an implemented runner in this workspace.
+    pub supported: bool,
+}
+
+impl TextModelBundleCheck {
+    /// Creates a new bundle check.
+    pub fn new(
+        model_id: impl Into<String>,
+        capability: TextModelCapability,
+        bundle_root: impl Into<PathBuf>,
+        required_files: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            model_id: model_id.into(),
+            capability,
+            bundle_root: bundle_root.into(),
+            required_files: required_files.into_iter().map(Into::into).collect(),
+            required_feature: None,
+            required_setup: None,
+            smoke_operation: None,
+            supported: true,
+        }
+    }
+
+    /// Sets required feature guidance.
+    pub fn required_feature(mut self, feature: impl Into<String>) -> Self {
+        self.required_feature = Some(feature.into());
+        self
+    }
+
+    /// Sets setup guidance.
+    pub fn required_setup(mut self, setup: impl Into<String>) -> Self {
+        self.required_setup = Some(setup.into());
+        self
+    }
+
+    /// Sets the smoke operation id.
+    pub fn smoke_operation(mut self, operation: impl Into<String>) -> Self {
+        self.smoke_operation = Some(operation.into());
+        self
+    }
+
+    /// Marks this catalog entry as reference-only.
+    pub fn reference_only(mut self) -> Self {
+        self.supported = false;
+        self
+    }
+}
+
+/// Validates required files for a local text model bundle without downloading anything.
+pub fn validate_text_model_bundle(check: TextModelBundleCheck) -> TextModelLoadReport {
+    let mut present_files = Vec::new();
+    let mut missing_files = Vec::new();
+    for file in &check.required_files {
+        if check.bundle_root.join(file).exists() {
+            present_files.push(file.clone());
+        } else {
+            missing_files.push(file.clone());
+        }
+    }
+    let loadable = missing_files.is_empty() && check.supported;
+    let diagnostics = if loadable {
+        Vec::new()
+    } else if check.supported {
+        vec![format!(
+            "model bundle `{}` is missing {} required file(s)",
+            check.model_id,
+            missing_files.len()
+        )]
+    } else {
+        vec![format!(
+            "model `{}` is reference-only until a native runner is implemented",
+            check.model_id
+        )]
+    };
+    TextModelLoadReport {
+        model_id: check.model_id,
+        capability: check.capability,
+        supported: check.supported,
+        loadable,
+        required_feature: check.required_feature,
+        required_setup: check.required_setup,
+        smoke_operation: check.smoke_operation,
+        bundle_root: check.bundle_root,
+        required_files: check.required_files,
+        present_files,
+        missing_files,
+        tokenizer_loaded: false,
+        weights_loaded: loadable,
+        diagnostics,
+    }
+}
+
+/// Validates tokenizer loading and a minimal tokenization run for a local bundle.
+pub fn validate_tokenizer_bundle(
+    model_id: impl Into<String>,
+    tokenizer_path: impl Into<PathBuf>,
+    sample: &str,
+) -> (TextModelLoadReport, Option<TextModelRunReport>) {
+    let model_id = model_id.into();
+    let tokenizer_path = tokenizer_path.into();
+    let bundle_root = tokenizer_path
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let file_name = tokenizer_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("tokenizer.json")
+        .to_string();
+    let mut report = validate_text_model_bundle(
+        TextModelBundleCheck::new(
+            model_id.clone(),
+            TextModelCapability::Tokenizer,
+            bundle_root,
+            [file_name],
+        )
+        .required_feature("tokenizers")
+        .smoke_operation("runtime.tokenizeSummary"),
+    );
+
+    if !report.bundle_present() {
+        return (report, None);
+    }
+
+    match TokenizerBundle::new(&tokenizer_path).tokenize(sample) {
+        Ok(tokens) => {
+            report.tokenizer_loaded = true;
+            report.loadable = true;
+            let output_count = tokens.input_ids.len();
+            (
+                report,
+                Some(TextModelRunReport {
+                    model_id,
+                    capability: TextModelCapability::Tokenizer,
+                    operation: "tokenize".to_string(),
+                    ran: true,
+                    output_count,
+                    diagnostics: Vec::new(),
+                }),
+            )
+        }
+        Err(error) => {
+            report.loadable = false;
+            report
+                .diagnostics
+                .push(format!("failed to load or run tokenizer: {error}"));
+            (report, None)
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Built-in tokenizer presets.
 pub enum TokenizerPreset {

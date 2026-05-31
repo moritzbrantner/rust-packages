@@ -33,3 +33,18 @@ device cannot be initialized. WASM Candle bindings remain CPU-only.
   operation-specific fields such as `tokens`, `tokenized`, or `probabilities`.
 - The package surface does not load tokenizers or execute ONNX/Candle runtimes;
   those paths remain feature-gated library/server concerns.
+
+## Model Conformance
+
+The crate exposes `TextModelLoadReport`, `TextModelRunReport`, and
+`TextModelCapability` for text packages that need to show whether a model is
+loadable or reference-only. `validate_text_model_bundle` checks local bundle
+presence without downloads; `validate_tokenizer_bundle` additionally attempts a
+feature-gated tokenizer load and sample tokenization.
+
+Opt-in checks reuse `.model-runtime`:
+
+```bash
+scripts/sync_model_bundles.sh
+cargo test -p text-model-runtime --features external-tests -- --ignored
+```

@@ -53,6 +53,33 @@ const packageAppConfig: PackageAppConfig = {
       },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "hashed-embed",
+      label: "Hashed Embed",
+      operation: "embeddings.embed",
+      input: { texts: ["rust text analysis", "semantic transcript retrieval", "video scene reports"], dimensions: 128 },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["embeddings"],
+    },
+    {
+      id: "semantic-search",
+      label: "Semantic Search",
+      operation: "embeddings.semanticSearch",
+      input: {
+        documents: [
+          { id: "doc-1", text: "rust text analysis" },
+          { id: "doc-2", text: "semantic search over transcripts" },
+          { id: "doc-3", text: "video scene boundary reports" },
+        ],
+        query: "text search",
+      },
+      iterations: 60,
+      warmupIterations: 5,
+      outputCountPath: ["results"],
+    },
+  ],
 };
 
 export function App() {

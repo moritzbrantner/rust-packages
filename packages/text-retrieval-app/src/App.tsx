@@ -54,6 +54,51 @@ const packageAppConfig: PackageAppConfig = {
       input: { query: "rust", documents: ["rust text", "video scenes"] },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "chunk",
+      label: "Chunk",
+      operation: "retrieval.chunk",
+      input: { text: "Rust text retrieval chunks transcript content for search. ".repeat(20), maxChunkTokens: 24, overlapTokens: 4 },
+      iterations: 100,
+      warmupIterations: 5,
+      outputCountPath: ["chunks"],
+    },
+    {
+      id: "full-text-search",
+      label: "Full-text Search",
+      operation: "retrieval.search",
+      input: {
+        documents: [
+          { id: "doc-1", body: "rust text retrieval" },
+          { id: "doc-2", body: "video scene reports" },
+          { id: "doc-3", body: "transcript search and chunks" },
+        ],
+        query: "text search",
+        mode: "fullText",
+      },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["results"],
+    },
+    {
+      id: "hybrid-search",
+      label: "Hybrid Search",
+      operation: "retrieval.search",
+      input: {
+        documents: [
+          { id: "doc-1", body: "rust text retrieval" },
+          { id: "doc-2", body: "video scene reports" },
+          { id: "doc-3", body: "transcript search and chunks" },
+        ],
+        query: "text search",
+        mode: "hybrid",
+      },
+      iterations: 60,
+      warmupIterations: 5,
+      outputCountPath: ["results"],
+    },
+  ],
 };
 
 export function App() {

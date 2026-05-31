@@ -55,8 +55,16 @@ pub struct QuestionAnsweringModelMetadata {
     pub runtime: QuestionAnsweringRuntime,
     /// Whether the runtime is available in the default contributor build.
     pub supported: bool,
+    /// Whether this entry has an implemented native load/run path.
+    pub loadable: bool,
     /// Optional fallback preset id.
     pub fallback: Option<String>,
+    /// Cargo feature required for native loading.
+    pub required_feature: Option<String>,
+    /// Setup command or note required before loading.
+    pub required_setup: Option<String>,
+    /// Surface operation that smokes the implemented path.
+    pub smoke_operation: Option<String>,
     /// Human-readable note for unsupported or fallback-only paths.
     pub note: Option<String>,
 }
@@ -151,7 +159,13 @@ pub fn model_catalog() -> Vec<QuestionAnsweringModelMetadata> {
         model_id: "deepset/roberta-base-squad2".to_string(),
         runtime: QuestionAnsweringRuntime::Onnx,
         supported: false,
+        loadable: false,
         fallback: None,
+        required_feature: Some("onnx".to_string()),
+        required_setup: Some(
+            "Reference-only until a native extractive QA runner is implemented".to_string(),
+        ),
+        smoke_operation: Some("qa.answer".to_string()),
         note: Some(
             "Schema and imported span support are available; native span extraction is not wired."
                 .to_string(),

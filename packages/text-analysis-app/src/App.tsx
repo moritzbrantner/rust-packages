@@ -86,6 +86,43 @@ const packageAppConfig: PackageAppConfig = {
       },
     },
   ],
+  benchmarkScenarios: [
+    {
+      id: "document-report",
+      label: "Document Report",
+      operation: "analysis.document",
+      input: {
+        id: "bench-doc",
+        text: sampleText.repeat(6),
+        profile: "deterministic",
+        keywordLimit: 12,
+        summarySentences: 3,
+        embedding: { mode: "hashed", dimensions: 128, useIdf: false },
+      },
+      iterations: 20,
+      warmupIterations: 3,
+      outputCountPath: ["summary"],
+    },
+    {
+      id: "corpus-report",
+      label: "Corpus Report",
+      operation: "analysis.corpus",
+      input: {
+        documents: [
+          { id: "doc-1", text: sampleText },
+          { id: "doc-2", text: "Scene reports and transcript retrieval share lexical search." },
+          { id: "doc-3", text: "Embeddings support semantic discovery over captions." },
+        ],
+        query: "text retrieval",
+        topK: 5,
+        includeSemanticNeighbors: true,
+        embedding: { mode: "hashed", dimensions: 128, useIdf: true },
+      },
+      iterations: 15,
+      warmupIterations: 2,
+      outputCountPath: ["results"],
+    },
+  ],
   resultTabs: [
     { id: "overview", label: "Overview", select: (response) => summarizeTextAnalysis(response.value) },
     { id: "stats", label: "Stats", select: (response) => selectObject(response.value, ["core", "enrichedStats"]) },

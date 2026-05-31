@@ -52,6 +52,8 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         ),
         ("GET", "/api/package") => json_response(200, "OK", package_metadata_value()),
         ("GET", "/api/schema") => json_response(200, "OK", schema_value()),
+        ("GET", "/api/models") => json_response(200, "OK", model_catalog_value()),
+        ("GET", "/api/benchmarks") => json_response(200, "OK", benchmark_catalog_value()),
         ("GET", "/api/operations") => json_response(
             200,
             "OK",
@@ -95,12 +97,50 @@ fn package_metadata_value() -> serde_json::Value {
             "GET /health",
             "GET /api/package",
             "GET /api/schema",
+            "GET /api/models",
+            "GET /api/benchmarks",
             "GET /api/operations",
             "POST /api/run",
             "POST /api/<operation-id>"
         ],
         "operations": surface.operations
     })
+}
+
+fn model_catalog_value() -> serde_json::Value {
+    serde_json::json!([
+        {
+            "id": "heuristic-linguistics",
+            "label": "Heuristic linguistics",
+            "task": "analyze",
+            "runtime": "heuristic",
+            "supported": true,
+            "loadable": true,
+            "smokeOperation": "linguistics.analyze",
+            "note": "Default deterministic linguistic analysis."
+        },
+        {
+            "id": "bert-base-ner",
+            "label": "dslim/bert-base-NER",
+            "task": "token-classification",
+            "runtime": "candle",
+            "supported": true,
+            "loadable": false,
+            "fallback": "heuristic-linguistics",
+            "requiredFeature": "candle,model-bundles,external-tests",
+            "requiredSetup": "scripts/sync_model_bundles.sh text",
+            "smokeOperation": "linguistics.entities",
+            "note": "Loadable when the opt-in local model bundle is present."
+        }
+    ])
+}
+
+fn benchmark_catalog_value() -> serde_json::Value {
+    serde_json::json!([
+        {"id": "fast-analysis", "label": "Fast Analysis", "operation": "linguistics.analyze", "iterations": 80},
+        {"id": "balanced-analysis", "label": "Balanced Analysis", "operation": "linguistics.analyze", "iterations": 60},
+        {"id": "rich-analysis", "label": "Rich Analysis", "operation": "linguistics.analyze", "iterations": 40}
+    ])
 }
 
 fn candle_device_metadata_value() -> serde_json::Value {

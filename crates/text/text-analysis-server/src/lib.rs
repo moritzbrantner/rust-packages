@@ -46,6 +46,8 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         ),
         ("GET", "/api/package") => json_response(200, "OK", package_metadata_value()),
         ("GET", "/api/schema") => json_response(200, "OK", schema_value()),
+        ("GET", "/api/models") => json_response(200, "OK", model_catalog_value()),
+        ("GET", "/api/benchmarks") => json_response(200, "OK", benchmark_catalog_value()),
         ("GET", "/api/operations") => json_response(
             200,
             "OK",
@@ -89,12 +91,49 @@ fn package_metadata_value() -> serde_json::Value {
             "GET /health",
             "GET /api/package",
             "GET /api/schema",
+            "GET /api/models",
+            "GET /api/benchmarks",
             "GET /api/operations",
             "POST /api/run",
             "POST /api/<operation-id>"
         ],
         "operations": surface.operations
     })
+}
+
+fn model_catalog_value() -> serde_json::Value {
+    serde_json::json!([
+        {
+            "id": "deterministic-text-analysis",
+            "label": "Deterministic text analysis",
+            "task": "analyze",
+            "runtime": "deterministic",
+            "supported": true,
+            "loadable": true,
+            "smokeOperation": "analysis.document",
+            "note": "Default lexical, linguistic, and hashed embedding profile."
+        },
+        {
+            "id": "model-backed-text-analysis",
+            "label": "Model-backed text analysis",
+            "task": "analyze",
+            "runtime": "candle",
+            "supported": false,
+            "loadable": false,
+            "fallback": "deterministic-text-analysis",
+            "requiredFeature": "candle,model-bundles",
+            "requiredSetup": "scripts/sync_model_bundles.sh text",
+            "smokeOperation": "analysis.document",
+            "note": "Reference metadata until every nested model-backed path is locally available."
+        }
+    ])
+}
+
+fn benchmark_catalog_value() -> serde_json::Value {
+    serde_json::json!([
+        {"id": "document-report", "label": "Document Report", "operation": "analysis.document", "iterations": 20},
+        {"id": "corpus-report", "label": "Corpus Report", "operation": "analysis.corpus", "iterations": 15}
+    ])
 }
 
 fn candle_device_metadata_value() -> serde_json::Value {

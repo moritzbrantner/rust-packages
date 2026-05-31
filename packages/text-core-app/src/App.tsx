@@ -36,6 +36,35 @@ const packageAppConfig: PackageAppConfig = {
   ],
   defaultOperation: "text.tokenize",
   featuredOperations: ["text.tokenize", "text.statistics", "text.normalize", "text.boundaries", "describe"],
+  benchmarkScenarios: [
+    {
+      id: "tokenize",
+      label: "Tokenize",
+      operation: "text.tokenize",
+      input: { text: "Rust analyzes transcripts, captions, and scene notes.".repeat(24), includeStats: true },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["tokens"],
+    },
+    {
+      id: "boundaries",
+      label: "Boundaries",
+      operation: "text.boundaries",
+      input: { text: "One sentence. Another sentence for browser benchmarks.\n\nA new paragraph follows." },
+      iterations: 120,
+      warmupIterations: 5,
+      outputCountPath: ["sentences"],
+    },
+    {
+      id: "statistics",
+      label: "Statistics",
+      operation: "text.statistics",
+      input: { text: "Statistics over repeated transcript text. ".repeat(64) },
+      iterations: 100,
+      warmupIterations: 5,
+      outputCountPath: ["value"],
+    },
+  ],
   resultTabs: [
     {
       id: "summary",

@@ -50,6 +50,20 @@ The setup script publishes `.external-test-tools/bin` in GitHub Actions through
 `.external-test-tools/bin` and `.audio-tools/bin` to `PATH` if those directories
 exist.
 
+## Text Models
+
+Default text tests do not download model files or require native runtimes. Opt-in text model tests are ignored and feature-gated:
+
+```bash
+scripts/sync_model_bundles.sh
+cargo test -p text-model-runtime --features external-tests -- --ignored
+cargo test -p text-linguistics --features external-tests -- --ignored
+cargo test -p text-embeddings --features external-tests -- --ignored
+cargo test -p text-transcripts --features native,external-tests -- --ignored
+```
+
+These tests reuse `.model-runtime` and report whether required tokenizer, Candle, ONNX, or whisper.cpp files are locally present. Classification and question-answering model entries are reference-only until native runners are added.
+
 The multimodal workflow smoke tests still include optional command adapters
 under `scripts/`, but image/video workflows now prefer Rust-side adapters when
 configured without commands:

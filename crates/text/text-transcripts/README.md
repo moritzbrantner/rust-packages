@@ -11,13 +11,14 @@ Transcript parsing, ASR command adapters, and native whisper.cpp support for `vi
 
 ## Example
 
-```rust,ignore
+```rust,no_run
 use text_transcripts::{parse_whisper_json, TranscriptionContract};
 
 let parsed = parse_whisper_json(include_bytes!("../../../../tests/fixtures/whisper-sample.json"))?;
 let transcript = TranscriptionContract::from(parsed).normalized()?;
 
 assert!(!transcript.text_or_joined().is_empty());
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 ## Package surface
@@ -33,6 +34,19 @@ assert!(!transcript.text_or_joined().is_empty());
   operation-specific fields such as `segments`, `text`, or `srt`.
 - Package-surface operations do not invoke whisper.cpp or external ASR tools;
   native transcription remains feature-gated.
+
+## Native whisper.cpp
+
+The transcript parsers are loadable in default builds. whisper.cpp catalog and
+model-store validation is available behind `native`; transcription only runs
+when the requested model file is present or an opt-in setup flow downloads it.
+
+```bash
+cargo test -p text-transcripts --features native,external-tests -- --ignored
+```
+
+Browser benchmarks cover parse, normalize, and SRT formatting workflows through
+`bun run text-wasm:bench:all`.
 
 ## Related crates
 

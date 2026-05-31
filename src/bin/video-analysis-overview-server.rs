@@ -112,6 +112,9 @@ fn response_for(request: &Request) -> HttpResponse {
         ("GET", "/api/operations") => selected_module(request)
             .map(package_operations_response)
             .unwrap_or_else(|| json_response(200, "OK", json!([]))),
+        ("GET", "/api/benchmarks") => selected_module(request)
+            .map(|module| json_response(200, "OK", json!(benchmark_catalog_for(module))))
+            .unwrap_or_else(|| json_response(200, "OK", json!([]))),
         ("GET", "/api/schema") => selected_module(request)
             .map(package_schema_response)
             .unwrap_or_else(|| json_response(200, "OK", overview_schema_value())),
@@ -171,6 +174,9 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
         ("GET", "/api/schema") => package_schema_response(module),
         ("GET", "/api/operations") => package_operations_response(module),
         ("GET", "/api/models") => json_response(200, "OK", json!(model_catalog_for(module, None))),
+        ("GET", "/api/benchmarks") => {
+            json_response(200, "OK", json!(benchmark_catalog_for(module)))
+        }
         ("GET", path) if path.starts_with("/api/models/") => {
             let task = path.trim_start_matches("/api/models/");
             json_response(200, "OK", json!(model_catalog_for(module, Some(task))))
@@ -371,6 +377,7 @@ fn package_metadata_value(module: &ModuleInfo) -> Value {
             "GET /api/package",
             "GET /api/schema",
             "GET /api/operations",
+            "GET /api/benchmarks",
             "GET /api/models",
             "GET /api/models/:task",
             "POST /api/entities",
@@ -389,6 +396,7 @@ fn package_metadata_value(module: &ModuleInfo) -> Value {
             "GET /api/package",
             "GET /api/schema",
             "GET /api/operations",
+            "GET /api/benchmarks",
             "POST /api/run",
             "POST /api/<operation-id>",
         ]
@@ -1022,9 +1030,117 @@ fn audio_model_entry(
         "task": task,
         "runtime": runtime,
         "supported": supported,
+        "loadable": supported,
         "fallback": fallback,
+        "requiredFeature": null,
+        "requiredSetup": null,
+        "smokeOperation": null,
         "note": note,
     })
+}
+
+fn benchmark_catalog_for(module: ModuleInfo) -> Vec<Value> {
+    match module.package {
+        "text-core" => text_benchmark_entries(&[
+            ("tokenize", "Tokenize", "text.tokenize"),
+            ("boundaries", "Boundaries", "text.boundaries"),
+            ("statistics", "Statistics", "text.statistics"),
+        ]),
+        "text-lexical" => text_benchmark_entries(&[
+            ("keywords", "Keywords", "lexical.keywords"),
+            ("corpus-search", "Corpus Search", "lexical.corpusSearch"),
+        ]),
+        "text-embeddings" => text_benchmark_entries(&[
+            ("hashed-embed", "Hashed Embed", "embeddings.embed"),
+            (
+                "semantic-search",
+                "Semantic Search",
+                "embeddings.semanticSearch",
+            ),
+        ]),
+        "text-retrieval" => text_benchmark_entries(&[
+            ("chunk", "Chunk", "retrieval.chunk"),
+            ("hybrid-search", "Hybrid Search", "retrieval.search"),
+        ]),
+        "text-analysis" => text_benchmark_entries(&[
+            ("document-report", "Document Report", "analysis.document"),
+            ("corpus-report", "Corpus Report", "analysis.corpus"),
+        ]),
+        "text-linguistics" => text_benchmark_entries(&[
+            ("fast-analysis", "Fast Analysis", "linguistics.analyze"),
+            (
+                "balanced-analysis",
+                "Balanced Analysis",
+                "linguistics.analyze",
+            ),
+            ("rich-analysis", "Rich Analysis", "linguistics.analyze"),
+        ]),
+        "text-model-runtime" => text_benchmark_entries(&[
+            (
+                "tokenizer-summary",
+                "Tokenizer Summary",
+                "runtime.tokenizeSummary",
+            ),
+            ("softmax", "Softmax", "runtime.softmax"),
+        ]),
+        "text-classification" => text_benchmark_entries(&[
+            (
+                "lexical-classify",
+                "Lexical Classify",
+                "classification.classify",
+            ),
+            ("sentiment", "Sentiment", "classification.sentiment"),
+            ("zero-shot", "Zero-shot", "classification.zeroShot"),
+        ]),
+        "text-question-answering" => {
+            text_benchmark_entries(&[("imported-span", "Imported Span", "qa.answer")])
+        }
+        "text-generation" => text_benchmark_entries(&[
+            (
+                "markov-predict",
+                "Markov Predict",
+                "generation.markovPredict",
+            ),
+            (
+                "markov-generate",
+                "Markov Generate",
+                "generation.markovGenerate",
+            ),
+        ]),
+        "text-generation-linguistics" => text_benchmark_entries(&[
+            (
+                "synthesize-from-analysis",
+                "Synthesize",
+                "generationLinguistics.synthesizeFromAnalysis",
+            ),
+            (
+                "analysis-terms",
+                "Terms",
+                "generationLinguistics.analysisTerms",
+            ),
+        ]),
+        "text-transcripts" => text_benchmark_entries(&[
+            ("parse-srt", "Parse SRT", "transcripts.parse"),
+            ("normalize", "Normalize", "transcripts.normalize"),
+            ("format-srt", "Format SRT", "transcripts.formatSrt"),
+        ]),
+        _ => Vec::new(),
+    }
+}
+
+fn text_benchmark_entries(entries: &[(&str, &str, &str)]) -> Vec<Value> {
+    entries
+        .iter()
+        .map(|(id, label, operation)| {
+            json!({
+                "id": id,
+                "label": label,
+                "operation": operation,
+                "iterations": 50,
+                "runtimeModes": ["client-wasm", "overview-server", "standalone-server"]
+            })
+        })
+        .collect()
 }
 
 fn audio_schema_summary() -> Value {

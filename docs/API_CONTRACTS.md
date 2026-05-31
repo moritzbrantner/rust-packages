@@ -25,6 +25,14 @@ Library crates should not declare generic CLI/API/UI `[[bin]]` targets. Adapter
 packages depend on the library and own their runtime, transport, and webpage
 code.
 
+Text package servers and overview routes expose discovery metadata:
+
+- `GET /api/models` returns model catalog entries with `supported`, `loadable`, `requiredFeature`, `requiredSetup`, and `smokeOperation` where applicable.
+- `GET /api/benchmarks` returns benchmark scenario metadata only. It never stores or returns host-specific benchmark results.
+- `POST /api/run` remains the generic operation contract.
+
+The UI measures benchmark scenarios locally with `performance.now()` against the selected runtime mode and reports browser user agent, runtime mode, iteration counts, total time, average time, throughput, and output count.
+
 Every non-wrapper library crate owns its operation metadata and execution in
 `src/surface.rs`. Thin CLI, server, WASM, and app packages must call that
 library-owned surface instead of implementing package behavior in wrapper code.

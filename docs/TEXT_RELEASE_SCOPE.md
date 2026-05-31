@@ -11,6 +11,20 @@ claims of production-grade NLP quality. Model-backed paths may exist behind
 features or caller-supplied backends, but they are not the default experience
 and are not required to use the text crates.
 
+## Text Model Release Scope
+
+The text release surface treats user-visible model entries as either loadable or reference-only. Deterministic fallback models remain available in default builds. Native model loads require explicit feature gates and local setup:
+
+- Tokenizers: `tokenizers,model-bundles`
+- Candle token classification and embeddings: `candle,model-bundles`
+- ONNX embeddings: `onnx,model-bundles`
+- whisper.cpp transcription: `native`
+- External smoke tests: `external-tests`
+
+Classification and question-answering catalogs keep their upstream metadata but are not presented as runnable native models until sequence-classification and extractive-QA runners exist.
+
+Release checks should include the default deterministic suite plus opt-in ignored tests only on machines with model bundles or native runtimes installed.
+
 ## What This Release Provides
 
 - Shared text document, segment, span, token, sentence, and paragraph contracts.

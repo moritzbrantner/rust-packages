@@ -52,6 +52,22 @@ environments, use `LinguisticAnalysisOptions::heuristic()`.
   `relations`, or `events`.
 - The package surface does not download models or execute hosted LLMs.
 
+## Model Loading
+
+The deterministic heuristic pipeline is always available. `dslim/bert-base-NER`
+is the implemented opt-in Candle token-classification path; it becomes loadable
+when the local bundle exists under `.model-runtime` and the crate is built with
+`candle,model-bundles`.
+
+```bash
+scripts/sync_model_bundles.sh
+cargo test -p text-linguistics --features external-tests -- --ignored
+```
+
+Browser package apps expose local benchmark scenarios in the `Benchmarks` tab.
+Root scripts `bun run text-native:bench` and `bun run text-wasm:bench:all`
+exercise native and browser paths respectively.
+
 ## Related crates
 
 - `text-core`
