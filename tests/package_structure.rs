@@ -316,6 +316,7 @@ fn surface_package_name(package_name: &str) -> &str {
     match package_name {
         "moritzbrantner-geo-core" => "geo-core",
         "moritzbrantner-geo-io-geojson" => "geo-io-geojson",
+        "moritzbrantner-geo-io-osm" => "geo-io-osm",
         "moritzbrantner-geo-clustering" => "geo-clustering",
         "moritzbrantner-geo-viz" => "geo-viz",
         _ => package_name,

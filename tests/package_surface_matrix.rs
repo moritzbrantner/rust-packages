@@ -13,6 +13,7 @@ fn prioritized_crates_expose_more_than_describe() {
         "graph-analysis-core",
         "moritzbrantner-geo-core",
         "moritzbrantner-geo-io-geojson",
+        "moritzbrantner-geo-io-osm",
         "moritzbrantner-geo-clustering",
         "moritzbrantner-geo-viz",
         "math-geometry-2d",

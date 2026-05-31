@@ -1451,6 +1451,7 @@ def package_domain(name: str) -> str:
         "geo-clustering",
         "geo-core",
         "geo-io-geojson",
+        "geo-io-osm",
         "geo-viz",
         "graph-analysis-core",
         "tensor-data",

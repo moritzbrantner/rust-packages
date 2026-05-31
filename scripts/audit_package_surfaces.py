@@ -18,6 +18,7 @@ WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
 COMPANION_PACKAGE_BASE_NAMES = {
     "moritzbrantner-geo-core": "geo-core",
     "moritzbrantner-geo-io-geojson": "geo-io-geojson",
+    "moritzbrantner-geo-io-osm": "geo-io-osm",
     "moritzbrantner-geo-clustering": "geo-clustering",
     "moritzbrantner-geo-viz": "geo-viz",
 }

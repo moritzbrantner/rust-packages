@@ -41,6 +41,7 @@ pub use finance_statistics as finance;
 pub use geo_clustering;
 pub use geo_core;
 pub use geo_io_geojson;
+pub use geo_io_osm;
 pub use geo_viz;
 /// Re-exports the graph core API.
 pub use graph_analysis_core as graph_core;

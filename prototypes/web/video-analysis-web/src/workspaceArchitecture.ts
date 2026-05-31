@@ -269,6 +269,7 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
     packageName === "dense-data" ||
     packageName === "geo-core" ||
     packageName === "geo-io-geojson" ||
+    packageName === "geo-io-osm" ||
     packageName === "geo-clustering" ||
     packageName === "geo-viz" ||
     packageName.startsWith("moritzbrantner-geo-") ||
