@@ -38,6 +38,10 @@ document language and metadata available for later workflows. It owns the raw
 text and can be serialized through snapshots after conversion to deterministic
 lexical term statistics.
 
+For an end-to-end walkthrough across `TextCorpus`, TF-IDF, BM25, semantic
+search, retrieval, analysis reports, and snapshots, see
+[`docs/TEXT_CORPUS_GUIDE.md`](../../../docs/TEXT_CORPUS_GUIDE.md).
+
 `TfIdfCorpus` and `Bm25Corpus` are scoring/index structures. They preserve the
 existing direct construction APIs and are still the right choice when you only
 need local lexical search or term statistics. `TextCorpus` converts into both

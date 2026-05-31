@@ -77,6 +77,8 @@ The term "corpus" has crate-specific meanings. In `text-lexical`,
 `Bm25Corpus` are scoring structures. In `text-analysis`, corpus APIs produce
 multi-document reports. In `text-retrieval`, `RetrievalIndex` is a chunked,
 metadata-rich search index for full-text, vector, and hybrid retrieval.
+See [Text Corpus Guide](TEXT_CORPUS_GUIDE.md) for end-to-end examples across
+these types.
 
 `text-classification`, `text-question-answering`, and `text-generation` are
 concrete task crates. They are intentionally not aggregate NLP mega-crates and

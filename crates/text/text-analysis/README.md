@@ -7,6 +7,10 @@ reports. Defaults are deterministic, local-first, and do not download models or
 invoke native inference runtimes. Local model-backed NER and embeddings are
 available through explicit options and feature flags.
 
+For an end-to-end walkthrough of how `CorpusAnalysisReport` relates to
+`TextCorpus`, lexical scoring, hashed semantic search, and retrieval indexes,
+see [`docs/TEXT_CORPUS_GUIDE.md`](../../../docs/TEXT_CORPUS_GUIDE.md).
+
 ## Example
 
 ```rust,no_run
