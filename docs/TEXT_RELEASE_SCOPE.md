@@ -16,7 +16,8 @@ and are not required to use the text crates.
 - Shared text document, segment, span, token, sentence, and paragraph contracts.
 - Unicode-aware normalization and deterministic segmentation helpers.
 - Classical lexical analysis: stop words, keywords, n-grams, shingles,
-  readability, stemming, sentiment, extractive summaries, TF-IDF, and BM25.
+  readability, stemming, sentiment, extractive summaries, user-facing lexical
+  corpus assembly, reproducible corpus snapshots, TF-IDF, and BM25.
 - High-level document and corpus report orchestration built from the focused
   text crates.
 - Deterministic hashed embeddings, vector similarity helpers, and embedding
@@ -66,9 +67,16 @@ Start with the smallest crate that owns the capability you need:
 | Linguistic-analysis adapters for deterministic generation workflows | `text-generation-linguistics` |
 
 Use `text-core` when you are defining data boundaries or passing text between
-packages. Use `text-lexical` when you want deterministic local analysis. Use
-`text-analysis` when you want a report assembled from multiple focused crates
-instead of wiring them yourself.
+packages. Use `text-lexical` when you want deterministic local analysis,
+lexical corpus construction, TF-IDF/BM25 scoring, or serializable lexical corpus
+snapshots. Use `text-analysis` when you want a report assembled from multiple
+focused crates instead of wiring them yourself.
+
+The term "corpus" has crate-specific meanings. In `text-lexical`,
+`TextCorpus` is the user-facing raw text corpus builder and `TfIdfCorpus` /
+`Bm25Corpus` are scoring structures. In `text-analysis`, corpus APIs produce
+multi-document reports. In `text-retrieval`, `RetrievalIndex` is a chunked,
+metadata-rich search index for full-text, vector, and hybrid retrieval.
 
 `text-classification`, `text-question-answering`, and `text-generation` are
 concrete task crates. They are intentionally not aggregate NLP mega-crates and
@@ -82,8 +90,9 @@ The intended stable surface for `0.1` is:
 - `text-core` contracts, owned/borrowed document and segment types, span types,
   normalization helpers, tokenization, sentence boundaries, paragraph
   boundaries, and conversion traits.
-- `text-lexical` deterministic lexical feature APIs and corpus statistics where
-  outputs are derived from local text inputs.
+- `text-lexical` deterministic lexical feature APIs, `TextCorpus` builders,
+  reproducible lexical corpus snapshots, TF-IDF/BM25 scoring APIs, and corpus
+  statistics where outputs are derived from local text inputs.
 - `text-transcripts` transcript contracts, parsers, formatters, and conversion
   into generic text segments.
 - `text-embeddings` embedding backend traits and deterministic hashed embedding

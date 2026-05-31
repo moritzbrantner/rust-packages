@@ -9,11 +9,11 @@ execution is opt-in through feature flags and explicit runtime configuration.
 | Crate | Owns | Must not own |
 | --- | --- | --- |
 | `text-core` | Text documents, Unicode-safe spans, tokenization, sentence and paragraph boundaries, annotation graph primitives. | Model downloads, native inference, corpus search, transcript formats, transport concerns. |
-| `text-lexical` | Deterministic lexical features, stop words, keywords, TF-IDF, BM25, rule entities, extractive summaries, lexical sentiment. | ASR, transcript-specific source adapters, native model execution. |
+| `text-lexical` | Deterministic lexical features, stop words, keywords, `TextCorpus` raw lexical corpus assembly, reproducible lexical snapshots, TF-IDF, BM25, rule entities, extractive summaries, lexical sentiment. | ASR, transcript-specific source adapters, chunked retrieval storage, native model execution. |
 | `text-model-runtime` | Shared tokenizer bundles, tokenized model inputs, runtime backend traits, and optional native model facade types. | High-level NLP schemas, retrieval indexes, transcript parsing, text pipeline orchestration. |
 | `text-linguistics` | Heuristic-first linguistic pipeline: language, lemmas, POS, morphology, syntax, entities, coreference, events, discourse, topics, style; optional model-backed paths. | Generic task schemas, vector retrieval storage, transcript file formats. |
 | `text-embeddings` | Embedding backends, pooling, hashed fallback vectors, semantic search indexes. | General text classification, transcript parsing, linguistic annotations. |
-| `text-retrieval` | Chunking, metadata filters, BM25/vector/hybrid retrieval, persistence helpers. | Embedding model internals, ASR, linguistic parsing. |
+| `text-retrieval` | Chunking, metadata filters, metadata-rich `RetrievalIndex` workflows, BM25/vector/hybrid retrieval, persistence helpers. | Embedding model internals, ASR, linguistic parsing. |
 | `text-transcripts` | Transcript formats, transcript-specific analyzers, and optional ASR command/native adapters. | Generic lexical features, retrieval ranking. |
 | `text-classification` | Text classification, zero-shot classification, sentiment request/response contracts, imported-prediction handling, deterministic fallbacks, runtime broker APIs. | Tokenizer implementation details, direct download policy, retrieval indexes, transcript parsing. |
 | `text-question-answering` | Extractive QA request/response contracts and imported span postprocessing. | Text classification, retrieval indexes, transcript parsing. |
@@ -45,6 +45,17 @@ retrieval crates.
 `AsTextSegmentContract`. These are the stable DTOs and conversion traits that
 non-text packages should consume when they need to hand text into the text
 stack.
+
+`text-lexical` uses those generic contracts for local lexical corpus assembly.
+`TextCorpus` owns raw document text, language, and metadata and can derive
+`TfIdfCorpus` or `Bm25Corpus` scoring structures without changing their existing
+APIs. `TextCorpusSnapshot` serializes deterministic TF-IDF term state for
+reproducible local round trips.
+
+`text-retrieval` remains the owner for chunked retrieval workflows.
+`RetrievalIndex` is the metadata-rich search index for full-text, vector, and
+hybrid retrieval; it should not be treated as the same abstraction as a
+`text-lexical` corpus.
 
 `text-transcripts` owns transcript extensions such as
 `TranscriptSegmentContract`, `TranscriptWordContract`, and

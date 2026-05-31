@@ -30,6 +30,43 @@ let similarity = token_shingle_similarity(
 let _ = (keywords, similarity);
 ```
 
+## Corpus APIs
+
+Use `TextCorpus` when you want to assemble a lexical corpus from raw text,
+portable `text-core` document contracts, or segment contracts while keeping
+document language and metadata available for later workflows. It owns the raw
+text and can be serialized through snapshots after conversion to deterministic
+lexical term statistics.
+
+`TfIdfCorpus` and `Bm25Corpus` are scoring/index structures. They preserve the
+existing direct construction APIs and are still the right choice when you only
+need local lexical search or term statistics. `TextCorpus` converts into both
+without changing the scoring behavior.
+
+`text-retrieval::RetrievalIndex` is separate: it owns chunked, metadata-rich
+retrieval workflows that combine full-text, vector, and hybrid search.
+
+```rust,ignore
+use text_core::{TextDocumentContract, TextSegmentContract};
+use text_lexical::{Bm25Options, CorpusOptions, TextCorpus};
+
+let mut document = TextDocumentContract::new("doc-1", "Rust cargo builds packages.");
+document.language = Some("en".to_string());
+document
+    .attributes
+    .insert("source".to_string(), "readme".to_string());
+
+let mut segment = TextSegmentContract::new(2, "Scene reports mention cargo.");
+segment.stream_id = Some("subs".to_string());
+
+let corpus = TextCorpus::from_document_contracts([document], CorpusOptions::default())?;
+let tfidf = corpus.to_tfidf_corpus()?;
+let bm25 = corpus.to_bm25_corpus(Bm25Options::default())?;
+let snapshot_json = serde_json::to_string_pretty(&corpus.snapshot()?)?;
+
+let _ = (segment, tfidf.search("cargo", 5)?, bm25.search("cargo", 5)?, snapshot_json);
+```
+
 ## Package surface
 
 - Primary workflow: `lexical.analyze` computes deterministic lexical features,

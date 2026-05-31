@@ -92,6 +92,21 @@ fn transcript_to_features_dataset_pipeline_keeps_packages_compatible() {
         corpus.search("video scene reports", 1).unwrap()[0].id,
         "doc-2"
     );
+    let text_corpus = va::text_lexical::TextCorpus::from_documents(
+        documents.iter().map(|document| {
+            let mut corpus_document =
+                va::text_lexical::TextCorpusDocument::new(&document.id, &document.text);
+            corpus_document.language = document.language.clone();
+            corpus_document
+        }),
+        va::text_lexical::CorpusOptions::default(),
+    )
+    .unwrap();
+    let text_corpus_tfidf = text_corpus.to_tfidf_corpus().unwrap();
+    assert_eq!(
+        text_corpus_tfidf.search("video scene reports", 1).unwrap()[0].id,
+        "segment:2"
+    );
 
     let embedder = va::text_embeddings::HashedTextEmbedder::new(
         va::text_embeddings::TextEmbeddingConfig {

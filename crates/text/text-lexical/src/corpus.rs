@@ -1,11 +1,17 @@
 #![doc = include_str!("../README.md")]
 
+use std::borrow::Borrow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use math_sparse_data::{CooMatrix, CsrMatrix, SparseVector};
 use serde::{Deserialize, Serialize};
-use text_core::{segment_document_id, tokenize, TextDocument, TextProcessingOptions, TokenKind};
+use text_core::{
+    segment_document_id, tokenize, TextDocument, TextDocumentContract, TextProcessingOptions,
+    TextSegmentContract, TokenKind,
+};
 use video_analysis_core::{DetectError, Result, TextSegment};
+
+const TEXT_CORPUS_SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for corpus options.
@@ -28,6 +34,337 @@ impl Default for CorpusOptions {
             stop_words: BTreeSet::new(),
             max_terms_per_document: None,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for user-facing lexical text corpus.
+pub struct TextCorpus {
+    /// Options used when deriving lexical indexes from this corpus.
+    pub options: CorpusOptions,
+    /// Documents contained in this corpus.
+    pub documents: Vec<TextCorpusDocument>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Data type for a text corpus document.
+pub struct TextCorpusDocument {
+    /// Identifier for this value.
+    pub id: String,
+    /// Text content for this value.
+    pub text: String,
+    /// Language tag for this value.
+    pub language: Option<String>,
+    /// Metadata associated with this value.
+    pub metadata: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Serializable snapshot of a deterministic lexical corpus index.
+pub struct TextCorpusSnapshot {
+    /// Snapshot schema version.
+    pub schema_version: u32,
+    /// Options used to build the index.
+    pub options: CorpusOptions,
+    /// Indexed documents in corpus order.
+    pub documents: Vec<TextCorpusSnapshotDocument>,
+    /// Aggregate corpus statistics.
+    pub stats: CorpusStats,
+    /// Sorted vocabulary.
+    pub vocabulary: Vec<String>,
+    /// Number of documents containing each term.
+    pub document_frequency: BTreeMap<String, usize>,
+    /// Total collection count for each term.
+    pub collection_counts: BTreeMap<String, usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Serializable snapshot entry for one corpus document.
+pub struct TextCorpusSnapshotDocument {
+    /// Identifier for this value.
+    pub id: String,
+    /// Language tag for this value.
+    pub language: Option<String>,
+    /// Metadata associated with this value.
+    pub metadata: BTreeMap<String, String>,
+    /// Total terms in this document.
+    pub total_terms: usize,
+    /// Per-term counts in this document.
+    pub term_counts: BTreeMap<String, usize>,
+}
+
+impl TextCorpusDocument {
+    /// Creates a new value.
+    pub fn new(id: impl Into<String>, text: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            text: text.into(),
+            language: None,
+            metadata: BTreeMap::new(),
+        }
+    }
+}
+
+impl TextCorpus {
+    /// Creates a new value.
+    pub fn new(options: CorpusOptions) -> Self {
+        Self {
+            options,
+            documents: Vec::new(),
+        }
+    }
+
+    /// Builds this value from texts.
+    pub fn from_texts<I, S>(texts: I, options: CorpusOptions) -> Result<Self>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut corpus = Self::new(options);
+        for (index, text) in texts.into_iter().enumerate() {
+            corpus.add_document(TextCorpusDocument::new(
+                format!("doc-{index}"),
+                text.as_ref(),
+            ))?;
+        }
+        Ok(corpus)
+    }
+
+    /// Builds this value from corpus documents.
+    pub fn from_documents<I>(documents: I, options: CorpusOptions) -> Result<Self>
+    where
+        I: IntoIterator<Item = TextCorpusDocument>,
+    {
+        let mut corpus = Self::new(options);
+        for document in documents {
+            corpus.add_document(document)?;
+        }
+        Ok(corpus)
+    }
+
+    /// Builds this value from portable text document contracts.
+    pub fn from_document_contracts<I, D>(documents: I, options: CorpusOptions) -> Result<Self>
+    where
+        I: IntoIterator<Item = D>,
+        D: Borrow<TextDocumentContract>,
+    {
+        let mut corpus = Self::new(options);
+        for document in documents {
+            corpus.add_document_contract(document.borrow())?;
+        }
+        Ok(corpus)
+    }
+
+    /// Builds this value from portable text segment contracts.
+    pub fn from_segment_contracts<I, S>(segments: I, options: CorpusOptions) -> Result<Self>
+    where
+        I: IntoIterator<Item = S>,
+        S: Borrow<TextSegmentContract>,
+    {
+        let mut corpus = Self::new(options);
+        for segment in segments {
+            corpus.add_segment_contract(segment.borrow())?;
+        }
+        Ok(corpus)
+    }
+
+    /// Adds document to this value.
+    pub fn add_document(&mut self, document: TextCorpusDocument) -> Result<usize> {
+        validate_document_id(&document.id)?;
+        if self
+            .documents
+            .iter()
+            .any(|existing| existing.id == document.id)
+        {
+            return Err(duplicate_document_id(&document.id));
+        }
+
+        self.documents.push(document);
+        Ok(self.documents.len() - 1)
+    }
+
+    /// Adds text document to this value.
+    pub fn add_text_document(&mut self, document: &TextDocument<'_>) -> Result<usize> {
+        self.add_document(TextCorpusDocument {
+            id: document.id.to_string(),
+            text: document.text.to_string(),
+            language: document.language.map(ToString::to_string),
+            metadata: BTreeMap::new(),
+        })
+    }
+
+    /// Adds portable text document contract to this value.
+    pub fn add_document_contract(&mut self, document: &TextDocumentContract) -> Result<usize> {
+        self.add_document(text_corpus_document_from_contract(document))
+    }
+
+    /// Adds portable text segment contract to this value.
+    pub fn add_segment_contract(&mut self, segment: &TextSegmentContract) -> Result<usize> {
+        self.add_document(text_corpus_document_from_segment_contract(segment))
+    }
+
+    /// Replaces an existing document.
+    pub fn replace_document(&mut self, document: TextCorpusDocument) -> Result<TextCorpusDocument> {
+        validate_document_id(&document.id)?;
+        let Some(index) = self
+            .documents
+            .iter()
+            .position(|existing| existing.id == document.id)
+        else {
+            return Err(invalid_argument(format!(
+                "document `{}` was not found",
+                document.id
+            )));
+        };
+
+        Ok(std::mem::replace(&mut self.documents[index], document))
+    }
+
+    /// Removes document from this value.
+    pub fn remove_document(&mut self, id: &str) -> Option<TextCorpusDocument> {
+        let index = self
+            .documents
+            .iter()
+            .position(|document| document.id == id)?;
+        Some(self.documents.remove(index))
+    }
+
+    /// Returns document.
+    pub fn document(&self, id: &str) -> Option<&TextCorpusDocument> {
+        self.documents.iter().find(|document| document.id == id)
+    }
+
+    /// Returns len.
+    pub fn len(&self) -> usize {
+        self.documents.len()
+    }
+
+    /// Returns whether is empty.
+    pub fn is_empty(&self) -> bool {
+        self.documents.is_empty()
+    }
+
+    /// Returns borrowed text documents.
+    pub fn as_text_documents(&self) -> Vec<TextDocument<'_>> {
+        self.text_documents().collect()
+    }
+
+    /// Returns an iterator over borrowed text documents.
+    pub fn text_documents(&self) -> impl Iterator<Item = TextDocument<'_>> + '_ {
+        self.documents.iter().map(|document| TextDocument {
+            id: &document.id,
+            text: &document.text,
+            language: document.language.as_deref(),
+            timestamp: None,
+        })
+    }
+
+    /// Builds a TF-IDF scoring corpus from this value.
+    pub fn to_tfidf_corpus(&self) -> Result<TfIdfCorpus> {
+        TfIdfCorpus::from_documents(self.text_documents(), self.options.clone())
+    }
+
+    /// Builds a BM25 scoring corpus from this value.
+    pub fn to_bm25_corpus(&self, options: Bm25Options) -> Result<Bm25Corpus> {
+        Bm25Corpus::from_documents(self.text_documents(), options)
+    }
+
+    /// Returns a reproducible lexical corpus snapshot.
+    pub fn snapshot(&self) -> Result<TextCorpusSnapshot> {
+        let mut snapshot = self.to_tfidf_corpus()?.snapshot();
+        for snapshot_document in &mut snapshot.documents {
+            if let Some(document) = self.document(&snapshot_document.id) {
+                snapshot_document.language = document.language.clone();
+                snapshot_document.metadata = document.metadata.clone();
+            }
+        }
+        Ok(snapshot)
+    }
+}
+
+impl TextCorpusSnapshot {
+    /// Validates this snapshot for deterministic reconstruction.
+    pub fn validate(&self) -> Result<()> {
+        if self.schema_version != TEXT_CORPUS_SNAPSHOT_SCHEMA_VERSION {
+            return Err(invalid_argument(format!(
+                "unsupported text corpus snapshot schema version {}",
+                self.schema_version
+            )));
+        }
+
+        let mut ids = BTreeSet::new();
+        let mut document_frequency = BTreeMap::new();
+        let mut collection_counts = BTreeMap::new();
+        let mut total_terms = 0;
+
+        for document in &self.documents {
+            validate_document_id(&document.id)?;
+            if !ids.insert(document.id.clone()) {
+                return Err(duplicate_document_id(&document.id));
+            }
+
+            let mut document_total_terms = 0;
+            for (term, count) in &document.term_counts {
+                if *count == 0 {
+                    return Err(invalid_argument(format!(
+                        "term `{term}` in document `{}` has zero count",
+                        document.id
+                    )));
+                }
+                document_total_terms += count;
+                *document_frequency.entry(term.clone()).or_insert(0) += 1;
+                *collection_counts.entry(term.clone()).or_insert(0) += count;
+            }
+            if document.total_terms != document_total_terms {
+                return Err(invalid_argument(format!(
+                    "document `{}` total_terms does not match term counts",
+                    document.id
+                )));
+            }
+            total_terms += document.total_terms;
+        }
+
+        if self.document_frequency != document_frequency {
+            return Err(invalid_argument(
+                "document frequency does not match documents",
+            ));
+        }
+        if self.collection_counts != collection_counts {
+            return Err(invalid_argument("collection counts do not match documents"));
+        }
+
+        let vocabulary = collection_counts.keys().cloned().collect::<Vec<_>>();
+        if self.vocabulary != vocabulary {
+            return Err(invalid_argument("vocabulary does not match documents"));
+        }
+
+        let stats = CorpusStats {
+            documents: self.documents.len(),
+            total_terms,
+            unique_terms: collection_counts.len(),
+            average_terms_per_document: if self.documents.is_empty() {
+                0.0
+            } else {
+                total_terms as f32 / self.documents.len() as f32
+            },
+        };
+        if self.stats.documents != stats.documents
+            || self.stats.total_terms != stats.total_terms
+            || self.stats.unique_terms != stats.unique_terms
+            || (self.stats.average_terms_per_document - stats.average_terms_per_document).abs()
+                > f32::EPSILON
+        {
+            return Err(invalid_argument("corpus stats do not match documents"));
+        }
+
+        Ok(())
+    }
+
+    /// Reconstructs a TF-IDF corpus from this snapshot.
+    pub fn to_tfidf_corpus(&self) -> Result<TfIdfCorpus> {
+        tfidf_from_snapshot_parts(self)
     }
 }
 
@@ -520,6 +857,29 @@ impl TfIdfCorpus {
         build_sparse_term_matrix(&self.documents)
     }
 
+    /// Returns a reproducible lexical corpus snapshot.
+    pub fn snapshot(&self) -> TextCorpusSnapshot {
+        TextCorpusSnapshot {
+            schema_version: TEXT_CORPUS_SNAPSHOT_SCHEMA_VERSION,
+            options: self.options.clone(),
+            documents: self
+                .documents
+                .iter()
+                .map(|document| TextCorpusSnapshotDocument {
+                    id: document.id.clone(),
+                    language: None,
+                    metadata: BTreeMap::new(),
+                    total_terms: document.total_terms,
+                    term_counts: document.term_counts.clone(),
+                })
+                .collect(),
+            stats: self.stats(),
+            vocabulary: self.collection_counts.keys().cloned().collect(),
+            document_frequency: self.document_frequency.clone(),
+            collection_counts: self.collection_counts.clone(),
+        }
+    }
+
     /// Returns term stats.
     pub fn term_stats(&self, limit: usize) -> Vec<CorpusTermStats> {
         let total = self.total_terms.max(1) as f32;
@@ -734,6 +1094,73 @@ fn bm25_term_counts(text: &str, options: &Bm25Options) -> BTreeMap<String, usize
     )
 }
 
+fn text_corpus_document_from_contract(document: &TextDocumentContract) -> TextCorpusDocument {
+    let mut metadata = document.attributes.clone();
+    if let Some(timestamp) = document.timestamp {
+        metadata.insert(
+            "timestamp_seconds".to_string(),
+            timestamp.seconds().to_string(),
+        );
+    }
+    TextCorpusDocument {
+        id: document.id.clone(),
+        text: document.text.clone(),
+        language: document.language.clone(),
+        metadata,
+    }
+}
+
+fn text_corpus_document_from_segment_contract(segment: &TextSegmentContract) -> TextCorpusDocument {
+    let mut metadata = segment.attributes.clone();
+    if let Some(timestamp) = segment.timestamp {
+        metadata.insert(
+            "timestamp_seconds".to_string(),
+            timestamp.seconds().to_string(),
+        );
+    }
+    if let Some(duration_seconds) = segment.duration_seconds {
+        metadata.insert("duration_seconds".to_string(), duration_seconds.to_string());
+    }
+    TextCorpusDocument {
+        id: segment
+            .document_id()
+            .unwrap_or_else(|| segment.segment_index.to_string()),
+        text: segment.text.clone(),
+        language: segment.language.clone(),
+        metadata,
+    }
+}
+
+fn tfidf_from_snapshot_parts(snapshot: &TextCorpusSnapshot) -> Result<TfIdfCorpus> {
+    snapshot.validate()?;
+    Ok(TfIdfCorpus {
+        options: snapshot.options.clone(),
+        documents: snapshot
+            .documents
+            .iter()
+            .map(|document| IndexedDocument {
+                id: document.id.clone(),
+                term_counts: document.term_counts.clone(),
+                total_terms: document.total_terms,
+            })
+            .collect(),
+        document_frequency: snapshot.document_frequency.clone(),
+        collection_counts: snapshot.collection_counts.clone(),
+        total_terms: snapshot.stats.total_terms,
+    })
+}
+
+fn validate_document_id(id: &str) -> Result<()> {
+    if id.trim().is_empty() {
+        return Err(invalid_argument("document id must not be empty"));
+    }
+    Ok(())
+}
+
+fn duplicate_document_id(id: &str) -> DetectError {
+    invalid_argument(format!("document id `{id}` already exists"))
+}
+
 fn retain_top_counts(counts: &BTreeMap<String, usize>, limit: usize) -> BTreeMap<String, usize> {
     let mut ranked = counts.iter().collect::<Vec<_>>();
     ranked.sort_by(|(left_term, left_count), (right_term, right_count)| {
@@ -801,6 +1228,206 @@ fn validate_stream_id(stream_id: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn text_corpus_from_document_contract_preserves_metadata() {
+        let mut document = TextDocumentContract::new("doc-1", "rust cargo crates");
+        document.language = Some("en".to_string());
+        document
+            .attributes
+            .insert("source".to_string(), "fixture".to_string());
+        document.timestamp = Some(text_core::TimestampContract {
+            pts: 1500,
+            timebase: text_core::TimebaseContract { num: 1, den: 1000 },
+        });
+
+        let corpus =
+            TextCorpus::from_document_contracts([document], CorpusOptions::default()).unwrap();
+        let indexed = corpus.document("doc-1").unwrap();
+
+        assert_eq!(indexed.language.as_deref(), Some("en"));
+        assert_eq!(indexed.metadata.get("source").unwrap(), "fixture");
+        assert_eq!(indexed.metadata.get("timestamp_seconds").unwrap(), "1.5");
+        assert!(!indexed.metadata.contains_key("language"));
+    }
+
+    #[test]
+    fn text_corpus_from_segment_contract_uses_canonical_id_and_metadata() {
+        let mut segment = TextSegmentContract::new(7, "scene transcript text");
+        segment.stream_id = Some("subs".to_string());
+        segment.language = Some("en".to_string());
+        segment.duration_seconds = Some(2.25);
+        segment
+            .attributes
+            .insert("speaker".to_string(), "A".to_string());
+        segment.timestamp = Some(text_core::TimestampContract {
+            pts: 2500,
+            timebase: text_core::TimebaseContract { num: 1, den: 1000 },
+        });
+
+        let corpus =
+            TextCorpus::from_segment_contracts([segment], CorpusOptions::default()).unwrap();
+        let indexed = corpus.document("subs:7").unwrap();
+
+        assert_eq!(indexed.text, "scene transcript text");
+        assert_eq!(indexed.language.as_deref(), Some("en"));
+        assert_eq!(indexed.metadata.get("speaker").unwrap(), "A");
+        assert_eq!(indexed.metadata.get("timestamp_seconds").unwrap(), "2.5");
+        assert_eq!(indexed.metadata.get("duration_seconds").unwrap(), "2.25");
+        assert!(!indexed.metadata.contains_key("language"));
+    }
+
+    #[test]
+    fn text_corpus_segment_contract_without_stream_id_uses_segment_index() {
+        let segment = TextSegmentContract::new(3, "unscoped segment");
+
+        let corpus =
+            TextCorpus::from_segment_contracts([segment], CorpusOptions::default()).unwrap();
+
+        assert!(corpus.document("3").is_some());
+    }
+
+    #[test]
+    fn text_corpus_to_tfidf_matches_direct_from_documents() {
+        let documents = vec![
+            TextCorpusDocument::new("rust", "rust cargo crates ownership"),
+            TextCorpusDocument::new("video", "video scenes reports frames"),
+        ];
+        let corpus = TextCorpus::from_documents(documents, CorpusOptions::default()).unwrap();
+        let direct = TfIdfCorpus::from_documents(
+            [
+                TextDocument::new("rust", "rust cargo crates ownership"),
+                TextDocument::new("video", "video scenes reports frames"),
+            ],
+            CorpusOptions::default(),
+        )
+        .unwrap();
+        let derived = corpus.to_tfidf_corpus().unwrap();
+
+        assert_eq!(derived.documents(), direct.documents());
+        assert_eq!(
+            derived.search("cargo rust", 1).unwrap(),
+            direct.search("cargo rust", 1).unwrap()
+        );
+    }
+
+    #[test]
+    fn text_corpus_replace_document_updates_converted_tfidf() {
+        let mut corpus = TextCorpus::from_texts(
+            ["rust cargo ownership", "video scene detection"],
+            CorpusOptions::default(),
+        )
+        .unwrap();
+
+        let old = corpus
+            .replace_document(TextCorpusDocument::new("doc-1", "cargo compiler build"))
+            .unwrap();
+        let tfidf = corpus.to_tfidf_corpus().unwrap();
+
+        assert_eq!(old.text, "video scene detection");
+        assert_eq!(tfidf.search("compiler cargo", 1).unwrap()[0].id, "doc-1");
+        assert!(tfidf.search("scene detection", 5).unwrap().is_empty());
+    }
+
+    #[test]
+    fn text_corpus_remove_document_removes_converted_document() {
+        let mut corpus = TextCorpus::from_texts(
+            ["rust cargo ownership", "video scene detection"],
+            CorpusOptions::default(),
+        )
+        .unwrap();
+
+        let removed = corpus.remove_document("doc-0").unwrap();
+        let tfidf = corpus.to_tfidf_corpus().unwrap();
+
+        assert_eq!(removed.id, "doc-0");
+        assert_eq!(corpus.len(), 1);
+        assert!(tfidf.document("doc-0").is_none());
+        assert_eq!(tfidf.search("scene detection", 1).unwrap()[0].id, "doc-1");
+    }
+
+    #[test]
+    fn text_corpus_rejects_duplicate_ids() {
+        let documents = vec![
+            TextCorpusDocument::new("dup", "rust cargo"),
+            TextCorpusDocument::new("dup", "video scene"),
+        ];
+
+        let error = TextCorpus::from_documents(documents, CorpusOptions::default()).unwrap_err();
+
+        assert!(
+            matches!(error, DetectError::InvalidArgument(message) if message.contains("document id `dup` already exists"))
+        );
+    }
+
+    #[test]
+    fn text_corpus_rejects_empty_ids() {
+        let error = TextCorpus::from_documents(
+            [TextCorpusDocument::new("  ", "rust cargo")],
+            CorpusOptions::default(),
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(error, DetectError::InvalidArgument(message) if message == "document id must not be empty")
+        );
+    }
+
+    #[test]
+    fn tfidf_snapshot_validates_and_round_trips() {
+        let corpus = TfIdfCorpus::from_texts(
+            ["rust cargo cargo", "video scene report"],
+            CorpusOptions::default(),
+        )
+        .unwrap();
+
+        let snapshot = corpus.snapshot();
+        snapshot.validate().unwrap();
+        let json = serde_json::to_string(&snapshot).unwrap();
+        let decoded: TextCorpusSnapshot = serde_json::from_str(&json).unwrap();
+        let restored = decoded.to_tfidf_corpus().unwrap();
+
+        assert_eq!(restored.documents(), corpus.documents());
+        assert_eq!(restored.stats(), corpus.stats());
+        assert_eq!(
+            restored.search("cargo rust", 1).unwrap(),
+            corpus.search("cargo rust", 1).unwrap()
+        );
+    }
+
+    #[test]
+    fn text_corpus_snapshot_preserves_document_metadata() {
+        let mut document = TextCorpusDocument::new("doc", "rust cargo");
+        document.language = Some("en".to_string());
+        document
+            .metadata
+            .insert("source".to_string(), "contract".to_string());
+        let corpus = TextCorpus::from_documents([document], CorpusOptions::default()).unwrap();
+
+        let snapshot = corpus.snapshot().unwrap();
+
+        snapshot.validate().unwrap();
+        assert_eq!(snapshot.documents[0].language.as_deref(), Some("en"));
+        assert_eq!(
+            snapshot.documents[0].metadata.get("source").unwrap(),
+            "contract"
+        );
+    }
+
+    #[test]
+    fn snapshot_validation_rejects_inconsistent_counts() {
+        let corpus = TfIdfCorpus::from_texts(["rust cargo"], CorpusOptions::default()).unwrap();
+        let mut snapshot = corpus.snapshot();
+        snapshot.documents[0]
+            .term_counts
+            .insert("rust".to_string(), 0);
+
+        let error = snapshot.validate().unwrap_err();
+
+        assert!(
+            matches!(error, DetectError::InvalidArgument(message) if message.contains("zero count"))
+        );
+    }
 
     #[test]
     fn indexes_corpus_statistics() {
