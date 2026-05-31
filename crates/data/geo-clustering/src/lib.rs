@@ -292,6 +292,41 @@ mod tests {
     }
 
     #[test]
+    fn validates_points_and_bounds() {
+        assert!(validate_point(point("bad-lon", 181.0, 0.0)).is_err());
+        assert!(validate_point(point("bad-lat", 0.0, 91.0)).is_err());
+        assert!(validate_point(point("", 0.0, 0.0)).is_err());
+
+        assert!(validate_bounds([0.0, 1.0, 1.0, 0.0]).is_err());
+        assert!(validate_bounds([0.0, -91.0, 1.0, 0.0]).is_err());
+        assert!(validate_bounds([170.0, -10.0, -170.0, 10.0]).is_ok());
+    }
+
+    #[test]
+    fn cell_size_decreases_as_zoom_increases() {
+        let options = ClusterOptions {
+            base_cell_count: 2,
+            ..ClusterOptions::default()
+        };
+
+        assert!(cell_size_degrees(4, options) < cell_size_degrees(3, options));
+    }
+
+    #[test]
+    fn parses_generated_cluster_ids_and_rejects_malformed_ids() {
+        let cluster = cluster_for_points(3, 42, 17, &[point("a", 0.0, 0.0), point("b", 1.0, 1.0)]);
+        let (x, y) = parse_cluster_id(&cluster.id).expect("generated cluster id");
+
+        assert_eq!(x.zoom, 3);
+        assert_eq!(x.cell, 42);
+        assert_eq!(y.zoom, 3);
+        assert_eq!(y.cell, 17);
+        assert!(parse_cluster_id("3:42:17").is_none());
+        assert!(parse_cluster_id("z3:42").is_none());
+        assert!(parse_cluster_id("z3:x:17").is_none());
+    }
+
+    #[test]
     fn clusters_points_for_bbox_and_zoom() {
         let index = ClusterIndex::new(
             [
@@ -306,6 +341,26 @@ mod tests {
         let items = index.get_clusters([12.0, 51.0, 14.0, 53.0], 1).unwrap();
 
         assert_eq!(items.len(), 1);
+        assert!(matches!(
+            &items[0],
+            ClusterItem::Cluster(Cluster { point_count: 2, .. })
+        ));
+    }
+
+    #[test]
+    fn clusters_geo_core_coordinate_derived_points() {
+        let coordinates = [
+            Coordinate::new(13.0, 52.0).unwrap(),
+            Coordinate::new(13.0001, 52.0001).unwrap(),
+        ];
+        let points = coordinates
+            .into_iter()
+            .enumerate()
+            .map(|(index, coordinate)| point(&format!("p{index}"), coordinate.lon, coordinate.lat));
+        let index = ClusterIndex::new(points, ClusterOptions::default()).unwrap();
+
+        let items = index.get_clusters([12.0, 51.0, 14.0, 53.0], 1).unwrap();
+
         assert!(matches!(
             &items[0],
             ClusterItem::Cluster(Cluster { point_count: 2, .. })

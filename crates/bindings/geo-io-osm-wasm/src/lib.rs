@@ -32,10 +32,20 @@ mod tests {
     fn wrapped_surface_has_operations() {
         let surface = geo_io_osm::surface::package_surface();
         assert_eq!(surface.library, "moritzbrantner-geo-io-osm");
-        assert!(surface
+        let operation_ids = surface
             .operations
             .iter()
-            .any(|operation| operation.id.as_str() == "osm.filterPbfBase64"));
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            operation_ids,
+            vec![
+                "describe",
+                "osm.validateSpec",
+                "osm.filterSummary",
+                "osm.filterPbfBase64"
+            ]
+        );
     }
 
     #[test]

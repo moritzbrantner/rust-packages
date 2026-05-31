@@ -898,6 +898,57 @@ mod tests {
         );
     }
 
+    #[test]
+    fn positive_option_helpers_ignore_non_positive_or_non_finite_values() {
+        assert_eq!(positive_integer(Some(3)), Some(3));
+        assert_eq!(positive_integer(Some(0)), None);
+        assert_eq!(positive_integer(None), None);
+        assert_eq!(positive_finite(Some(2.5), 1.0), 2.5);
+        assert_eq!(positive_finite(Some(-2.5), 1.0), 1.0);
+        assert_eq!(positive_finite(Some(f64::NAN), 1.0), 1.0);
+        assert_eq!(positive_finite_option(Some(2.5)), Some(2.5));
+        assert_eq!(positive_finite_option(Some(0.0)), None);
+        assert_eq!(positive_finite_option(Some(f64::INFINITY)), None);
+    }
+
+    #[test]
+    fn normalize_bounds_rejects_invalid_or_degenerate_bounds() {
+        assert_eq!(
+            normalize_bounds([1.0, 1.0, 0.0, 0.0]),
+            Some([0.0, 0.0, 1.0, 1.0])
+        );
+        assert_eq!(normalize_bounds([0.0, 0.0, 0.0, 1.0]), None);
+        assert_eq!(normalize_bounds([0.0, f64::NAN, 1.0, 1.0]), None);
+    }
+
+    #[test]
+    fn scalar_field_dimensions_use_explicit_clamped_and_fallback_sizes() {
+        let explicit = resolve_scalar_field_dimensions(
+            [0.0, 0.0, 1.0, 1.0],
+            &GeoVizScalarFieldOptions {
+                field_columns: Some(MAX_EXPLICIT_FIELD_SIZE + 1),
+                field_rows: Some(0),
+                ..Default::default()
+            },
+        );
+        assert_eq!(explicit.0, MAX_EXPLICIT_FIELD_SIZE);
+        assert!(explicit.1 >= 1);
+
+        let from_cell_size = resolve_scalar_field_dimensions(
+            [0.0, 0.0, 1.0, 1.0],
+            &GeoVizScalarFieldOptions {
+                field_cell_size_meters: Some(50_000.0),
+                ..Default::default()
+            },
+        );
+        assert!(from_cell_size.0 > 1);
+        assert!(from_cell_size.1 > 1);
+
+        let fallback = resolve_scalar_field_dimensions([0.0, 0.0, 1.0, 1.0], &Default::default());
+        assert_eq!(fallback.0, DEFAULT_FIELD_COLUMNS);
+        assert!(fallback.1 >= 1);
+    }
+
     fn point(id: &str, longitude: f64, latitude: f64, temperature: f64) -> GeoVizPoint {
         let metrics = [("temperature".to_string(), temperature)]
             .into_iter()

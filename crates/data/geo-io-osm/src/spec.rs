@@ -381,6 +381,14 @@ mod tests {
     }
 
     #[test]
+    fn rejects_duplicate_filter_types() {
+        let error = validate_unique_types(&[OsmElementType::Node, OsmElementType::Node])
+            .expect_err("duplicate type");
+
+        assert!(error.to_string().contains("duplicate"));
+    }
+
+    #[test]
     fn validates_tag_condition_operators() {
         for condition in [
             OsmTagCondition {
@@ -463,5 +471,6 @@ mod tests {
                 .as_deref(),
             Some("^A")
         );
+        assert!(OsmFilterSpec::from_inline("bad key=value").is_err());
     }
 }

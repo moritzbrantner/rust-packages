@@ -1116,6 +1116,79 @@ mod tests {
     }
 
     #[test]
+    fn way_geometry_respects_line_and_polygon_modes() {
+        let coordinates = vec![
+            Coordinate::new(0.0, 0.0).unwrap(),
+            Coordinate::new(1.0, 0.0).unwrap(),
+            Coordinate::new(1.0, 1.0).unwrap(),
+            Coordinate::new(0.0, 0.0).unwrap(),
+        ];
+
+        assert!(matches!(
+            way_geometry(&coordinates, true, OsmGeometryMode::Full),
+            Geometry::LineString { .. }
+        ));
+        assert!(matches!(
+            way_geometry(&coordinates, true, OsmGeometryMode::Polygon),
+            Geometry::Polygon { .. }
+        ));
+    }
+
+    #[test]
+    fn coordinates_for_way_returns_none_when_any_node_is_missing() {
+        let mut index = MemoryNodeIndex::new();
+        index
+            .insert(NodeId(1), StoredCoordinate::from_degrees(8.0, 48.0))
+            .unwrap();
+
+        let coordinates = coordinates_for_way(&[NodeId(1), NodeId(2)], &index).unwrap();
+
+        assert!(coordinates.is_none());
+    }
+
+    #[test]
+    fn assemble_relation_reports_missing_members_and_invalid_rings() {
+        let candidate = CandidateRelation {
+            id: RelationId(1),
+            tags: tags(&[("type", "multipolygon")]),
+            members: vec![RelationWayMember {
+                way_id: WayId(10),
+                role: RelationMemberRole::Outer,
+            }],
+        };
+        let missing = HashMap::new();
+        assert!(matches!(
+            assemble_relation(&candidate, &missing),
+            RelationAssemblyResult::MissingMembers
+        ));
+
+        let invalid = HashMap::from([(
+            WayId(10),
+            vec![
+                Coordinate::new(0.0, 0.0).unwrap(),
+                Coordinate::new(1.0, 0.0).unwrap(),
+                Coordinate::new(1.0, 1.0).unwrap(),
+            ],
+        )]);
+        assert!(matches!(
+            assemble_relation(&candidate, &invalid),
+            RelationAssemblyResult::InvalidRings
+        ));
+    }
+
+    #[test]
+    fn normalize_tags_preserves_deterministic_content() {
+        let normalized = normalize_tags(&osm_tags(&[("z", "last"), ("a", "first")]));
+
+        assert_eq!(
+            normalized.keys().cloned().collect::<Vec<_>>(),
+            vec!["a".to_string(), "z".to_string()]
+        );
+        assert_eq!(normalized["a"], "first");
+        assert_eq!(normalized["z"], "last");
+    }
+
+    #[test]
     fn way_with_missing_node_is_counted() {
         let (features, report) = filter_constructed_objects(
             &[

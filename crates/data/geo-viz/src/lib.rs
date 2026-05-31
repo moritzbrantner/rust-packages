@@ -1195,6 +1195,117 @@ mod tests {
     }
 
     #[test]
+    fn normalize_point_rejects_invalid_coordinates_and_preserves_finite_metrics() {
+        let normalized = normalize_point(
+            GeoVizPoint {
+                id: Some("a".to_string()),
+                label: Some("Alpha".to_string()),
+                longitude: 13.0,
+                latitude: 52.0,
+                metrics: BTreeMap::from([
+                    ("value".to_string(), 2.0),
+                    ("bad".to_string(), f64::NAN),
+                ]),
+                properties: json!({"source": "test"}),
+            },
+            7,
+        )
+        .expect("normalized point");
+
+        assert_eq!(normalized.id, "a");
+        assert_eq!(normalized.source_index, 7);
+        assert_eq!(
+            normalized.metrics,
+            BTreeMap::from([("value".to_string(), 2.0)])
+        );
+        assert_eq!(normalized.properties["source"], "test");
+        assert!(normalize_point(point("bad", 181.0, 52.0, 1.0), 0).is_err());
+    }
+
+    #[test]
+    fn bounds_for_collection_handles_geometry_types_and_empty_collections() {
+        let collection = GeoFeatureCollection::new(vec![
+            GeoFeature::new(Some(GeoDataGeometry::Point {
+                coordinates: [13.0, 52.0],
+            })),
+            GeoFeature::new(Some(GeoDataGeometry::LineString {
+                coordinates: vec![[12.0, 51.0], [14.0, 53.0]],
+            })),
+            GeoFeature::new(Some(GeoDataGeometry::Polygon {
+                coordinates: vec![vec![
+                    [11.0, 50.0],
+                    [15.0, 50.0],
+                    [15.0, 54.0],
+                    [11.0, 54.0],
+                    [11.0, 50.0],
+                ]],
+            })),
+        ]);
+
+        assert_eq!(
+            bounds_for_collection(&collection),
+            Some([11.0, 50.0, 15.0, 54.0])
+        );
+        assert_eq!(
+            bounds_for_collection(&GeoFeatureCollection::new(Vec::new())),
+            None
+        );
+    }
+
+    #[test]
+    fn flow_bbox_intersection_detects_crossing_and_non_crossing_flows() {
+        let crossing = normalize_flow(
+            GeoVizFlow {
+                id: Some("crossing".to_string()),
+                label: None,
+                from: [10.0, 52.0],
+                to: [16.0, 52.0],
+                metrics: BTreeMap::new(),
+                properties: json!({}),
+            },
+            0,
+        )
+        .unwrap();
+        let outside = normalize_flow(
+            GeoVizFlow {
+                id: Some("outside".to_string()),
+                label: None,
+                from: [20.0, 60.0],
+                to: [21.0, 61.0],
+                metrics: BTreeMap::new(),
+                properties: json!({}),
+            },
+            1,
+        )
+        .unwrap();
+        let bounds = [12.0, 51.0, 14.0, 53.0];
+
+        assert!(flow_bbox_intersects_bounds(&crossing, bounds));
+        assert!(!flow_bbox_intersects_bounds(&outside, bounds));
+    }
+
+    #[test]
+    fn feature_key_is_stable_for_points_and_clusters() {
+        let point_feature = GeoVizAggregationFeature::Point {
+            coordinates: [13.0, 52.0],
+            metrics: BTreeMap::new(),
+            point: normalize_point(point("a", 13.0, 52.0, 1.0), 0).unwrap(),
+        };
+        let cluster_feature = GeoVizAggregationFeature::Cluster {
+            cluster_id: "z1:2:3".to_string(),
+            coordinates: [13.0, 52.0],
+            expansion_zoom: 2,
+            metrics: BTreeMap::new(),
+            point_count: 2,
+            point_count_abbreviated: "2".to_string(),
+        };
+
+        assert_eq!(feature_key(&point_feature), "point:a");
+        assert_eq!(feature_key(&point_feature), "point:a");
+        assert_eq!(feature_key(&cluster_feature), "cluster:z1:2:3");
+    }
+
+    #[test]
     fn reports_bounds_and_lookup() {
         let index = GeoPointIndex::new(
             [point("a", 13.0, 52.0, 2.0), point("b", 14.0, 53.0, 3.0)],
@@ -1350,6 +1461,80 @@ mod tests {
         assert_eq!(index.get_bounds(), Some([11.0, 52.0, 20.0, 60.0]));
         assert_eq!(viewport.feature_count, 2);
         assert_eq!(viewport.feature_collection["features"][0]["id"], "inside");
+    }
+
+    #[test]
+    fn parsed_geojson_collection_feeds_viewport_index() {
+        let GeoJsonDocument::FeatureCollection(collection) = parse_geojson(
+            r#"{"type":"FeatureCollection","features":[{"type":"Feature","id":"inside","properties":{},"geometry":{"type":"Point","coordinates":[13,52]}},{"type":"Feature","id":"outside","properties":{},"geometry":{"type":"Point","coordinates":[20,60]}}]}"#,
+        )
+        .unwrap()
+        else {
+            panic!("expected feature collection");
+        };
+        let geojson = serde_json::to_value(to_geojson_feature_collection(&collection.features))
+            .expect("geojson value");
+        let index = GeoJsonIndex::new(geojson).expect("geojson index");
+        let viewport = index
+            .get_viewport_features(
+                GeoVizViewportQuery {
+                    bounds: [12.0, 51.0, 14.0, 53.0],
+                    zoom: 5.0,
+                },
+                GeoVizGeoJsonOptions::default(),
+            )
+            .expect("viewport");
+
+        assert_eq!(viewport.feature_count, 1);
+        assert_eq!(viewport.feature_collection["features"][0]["id"], "inside");
+    }
+
+    #[test]
+    fn clustering_output_can_feed_geo_viz_aggregation() {
+        let cluster_index = ClusterIndex::new(
+            [
+                ClusterPoint {
+                    id: "a".to_string(),
+                    longitude: 13.0,
+                    latitude: 52.0,
+                    properties: BTreeMap::from([("value".to_string(), 2.0)]),
+                },
+                ClusterPoint {
+                    id: "b".to_string(),
+                    longitude: 13.0001,
+                    latitude: 52.0001,
+                    properties: BTreeMap::from([("value".to_string(), 3.0)]),
+                },
+            ],
+            ClusterOptions::default(),
+        )
+        .expect("cluster index");
+        let points = cluster_index
+            .get_clusters([12.0, 51.0, 14.0, 53.0], 16)
+            .unwrap()
+            .into_iter()
+            .filter_map(|item| match item {
+                ClusterItem::Point(point) => Some(GeoVizPoint {
+                    id: Some(point.id),
+                    label: None,
+                    longitude: point.longitude,
+                    latitude: point.latitude,
+                    metrics: point.properties,
+                    properties: json!({}),
+                }),
+                ClusterItem::Cluster(_) => None,
+            });
+        let viz =
+            GeoPointIndex::new(points, GeoVizAggregationOptions::default()).expect("viz index");
+        let aggregation = viz
+            .get_viewport_aggregation(GeoVizViewportQuery {
+                bounds: [12.0, 51.0, 14.0, 53.0],
+                zoom: 16.0,
+            })
+            .expect("aggregation");
+
+        assert_eq!(aggregation.summary.visible_point_count, 2);
+        assert_eq!(aggregation.summary.metrics["value"], 5.0);
     }
 
     #[test]

@@ -255,6 +255,55 @@ mod tests {
     }
 
     #[test]
+    fn rejects_invalid_bbox_values() {
+        assert!(bbox_from_values(&[0.0, 0.0, 1.0]).is_err());
+        assert!(bbox_from_values(&[2.0, 0.0, 1.0, 1.0]).is_err());
+        assert!(bbox_from_values(&[0.0, f64::NAN, 1.0, 1.0]).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_geojson_positions() {
+        assert!(array_position(&geojson::Position::from(vec![8.0])).is_err());
+        assert!(array_position(&geojson::Position::from([f64::INFINITY, 48.0])).is_err());
+        assert!(array_position(&geojson::Position::from([8.0, f64::NAN])).is_err());
+    }
+
+    #[test]
+    fn property_maps_round_trip_json_values() {
+        let properties = Properties::from([
+            ("name".to_string(), Value::from("Park")),
+            ("rank".to_string(), Value::from(3)),
+            ("nested".to_string(), serde_json::json!({"open": true})),
+        ]);
+
+        let mapped = map_properties(&properties);
+        let round_tripped = btree_properties(&mapped);
+
+        assert_eq!(round_tripped, properties);
+    }
+
+    #[test]
+    fn geo_core_geojson_round_trip_preserves_feature_contract() {
+        let mut feature = GeoFeature::new(Some(Geometry::LineString {
+            coordinates: vec![[8.0, 48.0], [9.0, 49.0]],
+        }))
+        .with_id("line/1")
+        .with_bbox(BBox::new([8.0, 48.0, 9.0, 49.0]).unwrap())
+        .unwrap();
+        feature.insert_property("name", "Trail");
+        feature.insert_property("score", 7);
+
+        let geojson = to_geojson_feature(&feature);
+        let parsed = from_geojson_feature(&geojson).unwrap();
+
+        assert_eq!(parsed.id.as_deref(), Some("line/1"));
+        assert_eq!(parsed.bbox.unwrap().as_array(), [8.0, 48.0, 9.0, 49.0]);
+        assert_eq!(parsed.properties["name"], Value::from("Trail"));
+        assert_eq!(parsed.properties["score"], Value::from(7));
+        assert_eq!(parsed.geometry, feature.geometry);
+    }
+
+    #[test]
     fn parses_geojson_feature_collection() {
         let document = parse_geojson(
             r#"{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Park"},"geometry":{"type":"Point","coordinates":[8.7,48.9]}}]}"#,

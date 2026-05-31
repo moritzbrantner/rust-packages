@@ -34,6 +34,20 @@ mod tests {
         let surface = geo_io_geojson::surface::package_surface();
         assert_eq!(surface.library, "moritzbrantner-geo-io-geojson");
         assert!(!surface.operations.is_empty());
+        let operation_ids = surface
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            operation_ids,
+            vec![
+                "describe",
+                "geoJson.bounds",
+                "geoJson.distance",
+                "geoJson.toGeoJson"
+            ]
+        );
     }
 
     #[test]

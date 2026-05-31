@@ -34,6 +34,15 @@ mod tests {
         let surface = geo_clustering::surface::package_surface();
         assert_eq!(surface.library, "moritzbrantner-geo-clustering");
         assert!(!surface.operations.is_empty());
+        let operation_ids = surface
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            operation_ids,
+            vec!["describe", "geoCluster.viewport", "geoCluster.bounds"]
+        );
     }
 
     #[test]

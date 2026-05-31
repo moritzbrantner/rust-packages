@@ -206,6 +206,12 @@ fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
+    use base64::prelude::*;
+    use osmpbfreader::{fileformat, osmformat};
+    use protobuf::Message;
+
     use super::*;
 
     #[test]
@@ -226,5 +232,65 @@ mod tests {
         })
         .unwrap();
         assert_eq!(response.value["hasBbox"], true);
+    }
+
+    #[test]
+    fn filters_base64_pbf_into_geojson_features() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("osm.filterPbfBase64"),
+            input: serde_json::json!({
+                "pbfBase64": BASE64_STANDARD.encode(synthetic_pbf_bytes()),
+                "spec": {"filter": {"types": ["node"], "include": {"all": [{"key": "amenity", "value": "school"}]}}}
+            }),
+        })
+        .unwrap();
+
+        assert_eq!(response.value["featureCount"], 1);
+        assert_eq!(response.value["features"][0]["id"], "node/1");
+        assert_eq!(
+            response.value["features"][0]["properties"]["amenity"],
+            "school"
+        );
+        assert_eq!(response.value["report"]["objectsCollected"], 1);
+    }
+
+    fn synthetic_pbf_bytes() -> Vec<u8> {
+        let mut string_table = osmformat::StringTable::new();
+        for value in ["", "amenity", "school"] {
+            string_table.mut_s().push(value.as_bytes().to_vec());
+        }
+
+        let mut dense_nodes = osmformat::DenseNodes::new();
+        dense_nodes.id = vec![1];
+        dense_nodes.lat = vec![480_000_000];
+        dense_nodes.lon = vec![80_000_000];
+        dense_nodes.keys_vals = vec![1, 2, 0];
+
+        let mut group = osmformat::PrimitiveGroup::new();
+        group.set_dense(dense_nodes);
+
+        let mut block = osmformat::PrimitiveBlock::new();
+        block.set_stringtable(string_table);
+        block.mut_primitivegroup().push(group);
+
+        let mut bytes = Vec::new();
+        write_raw_blob(&mut bytes, "OSMData", block.write_to_bytes().unwrap());
+        bytes
+    }
+
+    fn write_raw_blob(writer: &mut Vec<u8>, field_type: &str, payload: Vec<u8>) {
+        let mut blob = fileformat::Blob::new();
+        blob.set_raw(payload);
+        let blob_bytes = blob.write_to_bytes().unwrap();
+
+        let mut header = fileformat::BlobHeader::new();
+        header.set_field_type(field_type.to_owned());
+        header.set_datasize(blob_bytes.len().try_into().unwrap());
+        let header_bytes = header.write_to_bytes().unwrap();
+
+        let header_len: u32 = header_bytes.len().try_into().unwrap();
+        writer.write_all(&header_len.to_be_bytes()).unwrap();
+        writer.write_all(&header_bytes).unwrap();
+        writer.write_all(&blob_bytes).unwrap();
     }
 }

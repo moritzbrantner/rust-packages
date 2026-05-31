@@ -14,4 +14,9 @@ fn cli_adapter_reports_wrapped_library() {
     )
     .expect("describe operation");
     assert_eq!(response.operation.as_str(), "describe");
+    assert_eq!(response.value["operation"], "describe");
+    assert_eq!(
+        response.value["result"]["library"],
+        "moritzbrantner-geo-clustering"
+    );
 }

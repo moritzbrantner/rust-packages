@@ -528,7 +528,7 @@ pub fn geometry_intersects_bbox(geometry: &Geometry, bbox: BBox) -> bool {
         Geometry::Point { coordinates } => Coordinate::from_position(*coordinates)
             .map(|coordinate| bbox.contains(coordinate))
             .unwrap_or(false),
-        Geometry::MultiPoint { coordinates } => positions_intersect_bbox(coordinates, bbox),
+        Geometry::MultiPoint { coordinates } => point_positions_intersect_bbox(coordinates, bbox),
         Geometry::LineString { coordinates } => line_positions_intersect_bbox(coordinates, bbox),
         Geometry::MultiLineString { coordinates } => coordinates
             .iter()
@@ -669,7 +669,8 @@ fn orientation_sign(a: Coordinate, b: Coordinate, c: Coordinate) -> i8 {
 }
 
 fn coordinate_on_segment(point: Coordinate, start: Coordinate, end: Coordinate) -> bool {
-    point.lon >= start.lon.min(end.lon) - GEOMETRY_EPSILON
+    orientation_sign(start, end, point) == 0
+        && point.lon >= start.lon.min(end.lon) - GEOMETRY_EPSILON
         && point.lon <= start.lon.max(end.lon) + GEOMETRY_EPSILON
         && point.lat >= start.lat.min(end.lat) - GEOMETRY_EPSILON
         && point.lat <= start.lat.max(end.lat) + GEOMETRY_EPSILON
@@ -877,12 +878,25 @@ fn coordinates_to_positions(coordinates: &[Coordinate]) -> Result<Vec<Position>>
         .collect()
 }
 
-fn positions_intersect_bbox(coordinates: &[Position], bbox: BBox) -> bool {
+fn point_positions_intersect_bbox(coordinates: &[Position], bbox: BBox) -> bool {
     coordinates
         .iter()
         .copied()
         .filter_map(|position| Coordinate::from_position(position).ok())
         .any(|coordinate| bbox.contains(coordinate))
+}
+
+fn positions_intersect_bbox(coordinates: &[Position], bbox: BBox) -> bool {
+    let coordinates = coordinates
+        .iter()
+        .copied()
+        .filter_map(|position| Coordinate::from_position(position).ok())
+        .collect::<Vec<_>>();
+    coordinates
+        .iter()
+        .copied()
+        .any(|coordinate| bbox.contains(coordinate))
+        || line_segments_intersect_bbox(&coordinates, bbox)
 }
 
 fn map_geometry_coordinates_inner(
@@ -1075,6 +1089,52 @@ mod tests {
     }
 
     #[test]
+    fn segment_intersection_handles_crossing_touching_overlap_and_separated() {
+        assert!(segments_intersect(
+            coord(0.0, 0.0),
+            coord(2.0, 2.0),
+            coord(0.0, 2.0),
+            coord(2.0, 0.0),
+        ));
+        assert!(segments_intersect(
+            coord(0.0, 0.0),
+            coord(1.0, 1.0),
+            coord(1.0, 1.0),
+            coord(2.0, 0.0),
+        ));
+        assert!(segments_intersect(
+            coord(0.0, 0.0),
+            coord(2.0, 0.0),
+            coord(1.0, 0.0),
+            coord(3.0, 0.0),
+        ));
+        assert!(!segments_intersect(
+            coord(0.0, 0.0),
+            coord(1.0, 0.0),
+            coord(2.0, 0.0),
+            coord(3.0, 0.0),
+        ));
+    }
+
+    #[test]
+    fn coordinate_on_segment_handles_endpoint_interior_and_off_segment() {
+        let start = coord(0.0, 0.0);
+        let end = coord(2.0, 2.0);
+
+        assert!(coordinate_on_segment(start, start, end));
+        assert!(coordinate_on_segment(coord(1.0, 1.0), start, end));
+        assert!(!coordinate_on_segment(coord(1.0, 1.1), start, end));
+        assert!(!coordinate_on_segment(coord(3.0, 3.0), start, end));
+    }
+
+    #[test]
+    fn positions_intersect_bbox_detects_crossing_without_inside_vertices() {
+        let bbox = BBox::new([0.0, 0.0, 1.0, 1.0]).unwrap();
+
+        assert!(positions_intersect_bbox(&[[-1.0, 0.5], [2.0, 0.5]], bbox));
+    }
+
+    #[test]
     fn bbox_intersects_polygon_that_contains_viewport() {
         let bbox = BBox::new([0.0, 0.0, 1.0, 1.0]).unwrap();
         let geometry = Geometry::Polygon {
@@ -1203,6 +1263,23 @@ mod tests {
         let simplified = simplify_line(&line, 0.1).unwrap();
 
         assert_eq!(simplified, vec![coord(0.0, 0.0), coord(3.0, 0.0)]);
+    }
+
+    #[test]
+    fn simplify_ring_preserves_valid_closure() {
+        let ring = vec![
+            coord(0.0, 0.0),
+            coord(1.0, 0.01),
+            coord(2.0, 0.0),
+            coord(2.0, 2.0),
+            coord(0.0, 2.0),
+            coord(0.0, 0.0),
+        ];
+
+        let simplified = simplify_ring(&ring, 0.1).unwrap();
+
+        assert!(is_valid_closed_ring(&simplified));
+        assert_eq!(simplified.first(), simplified.last());
     }
 
     #[test]

@@ -2235,7 +2235,10 @@ dependencies = [
  "clap",
  "moritzbrantner-geo-io-geojson",
  "moritzbrantner-geo-io-osm",
+ "osmpbfreader",
+ "protobuf",
  "serde_json",
+ "tempfile",
  "video-analysis-core",
 ]
 

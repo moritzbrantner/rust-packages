@@ -17,7 +17,7 @@ pub struct Instrument {
     pub asset_class: AssetClass,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AssetClass {
     Equity,
@@ -29,13 +29,8 @@ pub enum AssetClass {
     Crypto,
     Forex,
     Bond,
+    #[default]
     Other,
-}
-
-impl Default for AssetClass {
-    fn default() -> Self {
-        Self::Other
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]

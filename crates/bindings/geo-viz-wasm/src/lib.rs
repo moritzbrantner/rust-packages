@@ -267,7 +267,24 @@ mod tests {
     fn wrapped_surface_has_operations() {
         let surface = geo_viz::surface::package_surface();
         assert_eq!(surface.library, "moritzbrantner-geo-viz");
-        assert!(!surface.operations.is_empty());
+        let operation_ids = surface
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            operation_ids,
+            vec![
+                "describe",
+                "geoViz.bounds",
+                "geoViz.aggregateViewport",
+                "geoViz.heatViewport",
+                "geoViz.geoJsonViewport",
+                "geoViz.flowViewport",
+                "geoViz.resampleGeometry",
+                "geoViz.scalarFieldGrid"
+            ]
+        );
     }
 
     #[test]

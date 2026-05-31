@@ -33,6 +33,15 @@ mod tests {
         let surface = geo_core::surface::package_surface();
         assert_eq!(surface.library, "moritzbrantner-geo-core");
         assert!(!surface.operations.is_empty());
+        let operation_ids = surface
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            operation_ids,
+            vec!["describe", "geo.bounds", "geo.distance"]
+        );
     }
 
     #[test]

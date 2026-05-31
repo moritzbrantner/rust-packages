@@ -299,6 +299,41 @@ fn read_manifest(path: &str) -> String {
         .unwrap_or_else(|err| panic!("read manifest `{path}`: {err}"))
 }
 
+fn manifest_declares_dependency(source: &str, dependency: &str) -> bool {
+    let mut in_dependency_section = false;
+    let inline_prefix = format!("{dependency} ");
+    let table_prefix = format!("{dependency}.");
+
+    for line in source.lines() {
+        let line = line
+            .split_once('#')
+            .map_or(line, |(before, _)| before)
+            .trim();
+        if line.is_empty() {
+            continue;
+        }
+        if line.starts_with('[') && line.ends_with(']') {
+            in_dependency_section = line.contains("dependencies");
+            continue;
+        }
+        if !in_dependency_section {
+            continue;
+        }
+
+        if line == dependency
+            || line.starts_with(&inline_prefix)
+            || line.starts_with(&table_prefix)
+            || line
+                .strip_prefix(dependency)
+                .is_some_and(|rest| rest.trim_start().starts_with('='))
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
 #[test]
 fn audio_analysis_models_crate_is_removed() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -410,7 +445,7 @@ fn math_data_and_vector_crates_stay_independent_of_media_runtimes() {
                 "candle",
                 "tokenizers",
             ] {
-                if source.contains(forbidden) {
+                if manifest_declares_dependency(&source, forbidden) {
                     violations.push(format!("{} -> {forbidden}", manifest.display()));
                 }
             }

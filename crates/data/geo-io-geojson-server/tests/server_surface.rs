@@ -21,4 +21,6 @@ fn run_endpoint_calls_library_surface() {
     );
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""bbox""#));
+    let body: serde_json::Value = serde_json::from_str(&response.body).expect("response JSON");
+    assert_eq!(body["operation"], "geoJson.bounds");
 }
