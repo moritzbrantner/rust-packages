@@ -8,8 +8,9 @@ use serde::Deserialize;
 
 use crate::{
     annualized_return, annualized_volatility, beta_alpha, cumulative_return,
-    historical_value_at_risk, log_returns, max_drawdown, mean_return, sharpe_ratio, simple_returns,
-    sortino_ratio, std_dev, VarianceMode,
+    historical_value_at_risk, log_returns, max_drawdown, mean_return, rolling_correlation,
+    rolling_mean, rolling_std_dev, sharpe_ratio, simple_returns, sortino_ratio, std_dev,
+    VarianceMode,
 };
 
 const MAX_VALUES: usize = 100_000;
@@ -45,6 +46,12 @@ pub fn package_surface() -> PackageSurface {
                 "Computes maximum drawdown details from a return series.",
                 serde_json::json!({"returns": [0.1, -0.2, 0.05, 0.3]}),
             ),
+            operation(
+                "finance.rolling",
+                "Finance rolling statistics",
+                "Computes rolling mean, sample volatility, and optional benchmark correlation.",
+                serde_json::json!({"returns": [0.1, -0.2, 0.05, 0.3], "window": 2}),
+            ),
         ],
     }
 }
@@ -75,6 +82,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "finance.returns" => returns_value(parse_input(request.input)?)?,
         "finance.risk" => risk_value(parse_input(request.input)?)?,
         "finance.drawdown" => drawdown_value(parse_input(request.input)?)?,
+        "finance.rolling" => rolling_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -131,6 +139,15 @@ struct RiskRequest {
 #[serde(rename_all = "camelCase")]
 struct DrawdownRequest {
     returns: Vec<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RollingRequest {
+    returns: Vec<f64>,
+    window: usize,
+    #[serde(default)]
+    benchmark_returns: Option<Vec<f64>>,
 }
 
 fn returns_value(request: ReturnsRequest) -> Result<serde_json::Value, String> {
@@ -203,6 +220,26 @@ fn drawdown_value(request: DrawdownRequest) -> Result<serde_json::Value, String>
     }))
 }
 
+fn rolling_value(request: RollingRequest) -> Result<serde_json::Value, String> {
+    validate_value_count(request.returns.len())?;
+    if let Some(benchmark) = &request.benchmark_returns {
+        validate_value_count(benchmark.len())?;
+    }
+    let mut value = serde_json::json!({
+        "window": request.window,
+        "meanReturn": rolling_mean(&request.returns, request.window).map_err(|error| error.to_string())?,
+        "stdDev": rolling_std_dev(&request.returns, request.window).map_err(|error| error.to_string())?
+    });
+    if let Some(benchmark) = request.benchmark_returns {
+        value["correlation"] =
+            serde_json::json!(
+                rolling_correlation(&request.returns, &benchmark, request.window)
+                    .map_err(|error| error.to_string())?
+            );
+    }
+    Ok(value)
+}
+
 fn validate_value_count(count: usize) -> Result<(), String> {
     if count > MAX_VALUES {
         return Err(format!("values must not exceed {MAX_VALUES}"));
@@ -260,5 +297,16 @@ mod tests {
         .expect("drawdown");
         assert_eq!(response.value["peakIndex"], 1);
         assert_eq!(response.value["troughIndex"], 2);
+    }
+
+    #[test]
+    fn rolling_returns_windowed_values() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("finance.rolling"),
+            input: serde_json::json!({"returns": [0.1, -0.2, 0.05, 0.3], "benchmarkReturns": [0.1, -0.2, 0.05, 0.3], "window": 2}),
+        })
+        .expect("rolling");
+        assert_eq!(response.value["meanReturn"].as_array().unwrap().len(), 3);
+        assert_eq!(response.value["correlation"].as_array().unwrap().len(), 3);
     }
 }

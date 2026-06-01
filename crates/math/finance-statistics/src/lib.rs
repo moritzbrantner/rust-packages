@@ -1,17 +1,9 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
-use numbers_core::quantile;
 use video_analysis_core::{DetectError, Result};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Variance normalization to use for second-moment statistics.
-pub enum VarianceMode {
-    /// Divide by `n`.
-    Population,
-    /// Divide by `n - 1`.
-    Sample,
-}
+pub use math_statistics::{Drawdown, VarianceMode};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Historical value-at-risk summary using return quantiles.
@@ -26,19 +18,6 @@ pub struct HistoricalRisk {
     pub return_threshold: f64,
     /// Number of return observations used.
     pub observations: usize,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-/// Maximum drawdown details for a compounded return path.
-pub struct Drawdown {
-    /// Positive drawdown depth as a fraction of prior peak equity.
-    pub depth: f64,
-    /// Index of the equity peak before the drawdown.
-    pub peak_index: usize,
-    /// Index of the equity trough.
-    pub trough_index: usize,
-    /// First index where equity recovered to the prior peak, if any.
-    pub recovery_index: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -58,55 +37,32 @@ pub struct BetaAlpha {
 
 /// Returns simple period returns from strictly positive prices.
 pub fn simple_returns(prices: &[f64]) -> Result<Vec<f64>> {
-    validate_prices(prices)?;
-    Ok(prices
-        .windows(2)
-        .map(|window| window[1] / window[0] - 1.0)
-        .collect())
+    math_statistics::changes(prices, math_statistics::ChangeMethod::Relative)
 }
 
 /// Returns natural-log period returns from strictly positive prices.
 pub fn log_returns(prices: &[f64]) -> Result<Vec<f64>> {
-    validate_prices(prices)?;
-    Ok(prices
-        .windows(2)
-        .map(|window| (window[1] / window[0]).ln())
-        .collect())
+    math_statistics::changes(prices, math_statistics::ChangeMethod::LogRatio)
 }
 
 /// Returns the arithmetic mean of a return series.
 pub fn mean_return(returns: &[f64]) -> Result<f64> {
-    validate_returns(returns)?;
-    Ok(returns.iter().sum::<f64>() / returns.len() as f64)
+    math_statistics::mean(returns)
 }
 
 /// Returns variance for a return series.
 pub fn variance(returns: &[f64], mode: VarianceMode) -> Result<f64> {
-    validate_returns(returns)?;
-    let denom = variance_denominator(returns.len(), mode)?;
-    let mean = mean_return(returns)?;
-    Ok(returns
-        .iter()
-        .map(|value| {
-            let centered = value - mean;
-            centered * centered
-        })
-        .sum::<f64>()
-        / denom)
+    math_statistics::variance(returns, mode)
 }
 
 /// Returns standard deviation for a return series.
 pub fn std_dev(returns: &[f64], mode: VarianceMode) -> Result<f64> {
-    Ok(variance(returns, mode)?.sqrt())
+    math_statistics::std_dev(returns, mode)
 }
 
 /// Returns compounded cumulative return.
 pub fn cumulative_return(returns: &[f64]) -> Result<f64> {
-    validate_compoundable_returns(returns)?;
-    Ok(returns
-        .iter()
-        .fold(1.0, |equity, value| equity * (1.0 + value))
-        - 1.0)
+    math_statistics::cumulative_compounded_return(returns)
 }
 
 /// Returns annualized compounded return.
@@ -188,28 +144,12 @@ pub fn sortino_ratio(
 
 /// Returns sample covariance between two equally sized return series.
 pub fn covariance(left: &[f64], right: &[f64], mode: VarianceMode) -> Result<f64> {
-    validate_pair(left, right)?;
-    let denom = variance_denominator(left.len(), mode)?;
-    let left_mean = mean_return(left)?;
-    let right_mean = mean_return(right)?;
-    Ok(left
-        .iter()
-        .zip(right)
-        .map(|(left, right)| (left - left_mean) * (right - right_mean))
-        .sum::<f64>()
-        / denom)
+    math_statistics::covariance(left, right, mode)
 }
 
 /// Returns Pearson correlation between two equally sized return series.
 pub fn correlation(left: &[f64], right: &[f64]) -> Result<f64> {
-    let cov = covariance(left, right, VarianceMode::Sample)?;
-    let left_std = std_dev(left, VarianceMode::Sample)?;
-    let right_std = std_dev(right, VarianceMode::Sample)?;
-    let denom = left_std * right_std;
-    if denom <= f64::EPSILON {
-        return Err(invalid_argument("correlation requires non-zero variance"));
-    }
-    Ok((cov / denom).clamp(-1.0, 1.0))
+    math_statistics::correlation(left, right)
 }
 
 /// Returns CAPM-style beta and alpha using per-period risk-free return.
@@ -253,74 +193,18 @@ pub fn beta_alpha(
 
 /// Returns maximum drawdown for a compounded return path.
 pub fn max_drawdown(returns: &[f64]) -> Result<Drawdown> {
-    validate_compoundable_returns(returns)?;
-    let mut equity = 1.0;
-    let mut peak = 1.0;
-    let mut peak_index = 0;
-    let mut max_drawdown = Drawdown {
-        depth: 0.0,
-        peak_index: 0,
-        trough_index: 0,
-        recovery_index: Some(0),
-    };
-    let mut active_peak_index = 0;
-
-    for (index, value) in returns.iter().enumerate() {
-        let equity_index = index + 1;
-        equity *= 1.0 + value;
-        if equity >= peak {
-            peak = equity;
-            peak_index = equity_index;
-            active_peak_index = equity_index;
-            if max_drawdown.recovery_index.is_none() && equity >= peak {
-                max_drawdown.recovery_index = Some(equity_index);
-            }
-        }
-        let depth = if peak > 0.0 {
-            (peak - equity) / peak
-        } else {
-            0.0
-        };
-        if depth > max_drawdown.depth {
-            max_drawdown = Drawdown {
-                depth,
-                peak_index: active_peak_index,
-                trough_index: equity_index,
-                recovery_index: None,
-            };
-        } else if max_drawdown.recovery_index.is_none()
-            && peak_index > max_drawdown.trough_index
-            && equity >= peak
-        {
-            max_drawdown.recovery_index = Some(equity_index);
-        }
-    }
-
-    Ok(max_drawdown)
+    math_statistics::max_drawdown(returns)
 }
 
 /// Returns historical VaR and CVaR as positive loss values.
 pub fn historical_value_at_risk(returns: &[f64], confidence: f64) -> Result<HistoricalRisk> {
-    validate_returns(returns)?;
-    if !confidence.is_finite() || confidence <= 0.0 || confidence >= 1.0 {
-        return Err(invalid_argument(
-            "confidence must be finite and between 0 and 1",
-        ));
-    }
-    let tail_probability = 1.0 - confidence;
-    let threshold = quantile(returns, tail_probability)?;
-    let tail = returns
-        .iter()
-        .copied()
-        .filter(|value| *value <= threshold)
-        .collect::<Vec<_>>();
-    let tail_mean = tail.iter().sum::<f64>() / tail.len() as f64;
+    let tail = math_statistics::tail_risk(returns, confidence)?;
     Ok(HistoricalRisk {
-        confidence,
-        value_at_risk: (-threshold).max(0.0),
-        conditional_value_at_risk: (-tail_mean).max(0.0),
-        return_threshold: threshold,
-        observations: returns.len(),
+        confidence: tail.confidence,
+        value_at_risk: tail.value_at_risk,
+        conditional_value_at_risk: tail.conditional_value_at_risk,
+        return_threshold: tail.threshold,
+        observations: tail.observations,
     })
 }
 
@@ -364,69 +248,17 @@ pub fn active_returns(portfolio_returns: &[f64], benchmark_returns: &[f64]) -> R
 
 /// Returns rolling arithmetic means for fixed-size windows.
 pub fn rolling_mean(values: &[f64], window: usize) -> Result<Vec<f64>> {
-    rolling_apply(values, window, mean_return)
+    math_statistics::rolling_mean(values, window)
 }
 
 /// Returns rolling sample standard deviations for fixed-size windows.
 pub fn rolling_std_dev(values: &[f64], window: usize) -> Result<Vec<f64>> {
-    rolling_apply(values, window, |window| {
-        std_dev(window, VarianceMode::Sample)
-    })
+    math_statistics::rolling_std_dev(values, window, VarianceMode::Sample)
 }
 
 /// Returns rolling correlations for fixed-size paired windows.
 pub fn rolling_correlation(left: &[f64], right: &[f64], window: usize) -> Result<Vec<f64>> {
-    validate_pair(left, right)?;
-    validate_window(window, left.len())?;
-    let mut values = Vec::with_capacity(left.len() + 1 - window);
-    for start in 0..=(left.len() - window) {
-        values.push(correlation(
-            &left[start..start + window],
-            &right[start..start + window],
-        )?);
-    }
-    Ok(values)
-}
-
-fn rolling_apply(
-    values: &[f64],
-    window: usize,
-    mut operation: impl FnMut(&[f64]) -> Result<f64>,
-) -> Result<Vec<f64>> {
-    validate_returns(values)?;
-    validate_window(window, values.len())?;
-    let mut results = Vec::with_capacity(values.len() + 1 - window);
-    for start in 0..=(values.len() - window) {
-        results.push(operation(&values[start..start + window])?);
-    }
-    Ok(results)
-}
-
-fn validate_window(window: usize, len: usize) -> Result<()> {
-    if window == 0 {
-        return Err(invalid_argument("rolling window must be greater than zero"));
-    }
-    if window > len {
-        return Err(invalid_argument(
-            "rolling window must not exceed series length",
-        ));
-    }
-    Ok(())
-}
-
-fn validate_prices(prices: &[f64]) -> Result<()> {
-    if prices.len() < 2 {
-        return Err(invalid_argument(
-            "price series must contain at least two values",
-        ));
-    }
-    if prices
-        .iter()
-        .any(|value| !value.is_finite() || *value <= 0.0)
-    {
-        return Err(invalid_argument("prices must be finite and positive"));
-    }
-    Ok(())
+    math_statistics::rolling_correlation(left, right, window)
 }
 
 fn validate_returns(returns: &[f64]) -> Result<()> {
@@ -435,16 +267,6 @@ fn validate_returns(returns: &[f64]) -> Result<()> {
     }
     if returns.iter().any(|value| !value.is_finite()) {
         return Err(invalid_argument("returns must be finite"));
-    }
-    Ok(())
-}
-
-fn validate_compoundable_returns(returns: &[f64]) -> Result<()> {
-    validate_returns(returns)?;
-    if returns.iter().any(|value| *value < -1.0) {
-        return Err(invalid_argument(
-            "compound returns must be greater than or equal to -1",
-        ));
     }
     Ok(())
 }
@@ -465,20 +287,6 @@ fn validate_periods_per_year(periods_per_year: f64) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-fn variance_denominator(len: usize, mode: VarianceMode) -> Result<f64> {
-    match mode {
-        VarianceMode::Population => Ok(len as f64),
-        VarianceMode::Sample => {
-            if len < 2 {
-                return Err(invalid_argument(
-                    "sample variance requires at least two observations",
-                ));
-            }
-            Ok((len - 1) as f64)
-        }
-    }
 }
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
@@ -549,6 +357,45 @@ mod tests {
         for value in rolling_correlation(&returns, &returns, 3).unwrap() {
             assert_close(value, 1.0);
         }
+    }
+
+    #[test]
+    fn finance_wrappers_match_generic_statistics() {
+        let prices = [100.0, 102.0, 99.0, 105.0];
+        let returns = simple_returns(&prices).unwrap();
+        assert_eq!(
+            returns,
+            math_statistics::changes(&prices, math_statistics::ChangeMethod::Relative).unwrap()
+        );
+        assert_close(
+            mean_return(&returns).unwrap(),
+            math_statistics::mean(&returns).unwrap(),
+        );
+        assert_close(
+            std_dev(&returns, VarianceMode::Sample).unwrap(),
+            math_statistics::std_dev(&returns, VarianceMode::Sample).unwrap(),
+        );
+        assert_close(
+            correlation(&returns, &returns).unwrap(),
+            math_statistics::correlation(&returns, &returns).unwrap(),
+        );
+
+        let risk = historical_value_at_risk(&returns, 0.8).unwrap();
+        let generic_risk = math_statistics::tail_risk(&returns, 0.8).unwrap();
+        assert_close(risk.value_at_risk, generic_risk.value_at_risk);
+        assert_close(
+            risk.conditional_value_at_risk,
+            generic_risk.conditional_value_at_risk,
+        );
+
+        assert_eq!(
+            max_drawdown(&returns).unwrap(),
+            math_statistics::max_drawdown(&returns).unwrap()
+        );
+        assert_eq!(
+            rolling_mean(&returns, 2).unwrap(),
+            math_statistics::rolling_mean(&returns, 2).unwrap()
+        );
     }
 
     #[test]

@@ -4,7 +4,8 @@ Provider-neutral financial market data types and indexing helpers.
 
 This crate owns OHLCV bars, quotes, instruments, corporate actions, range
 queries, candle downsampling, and market-data validation. Return and risk
-statistics are delegated to `moritzbrantner-finance-statistics`.
+statistics are delegated to `moritzbrantner-finance-statistics`, which in turn
+uses the generic algorithms from `moritzbrantner-math-statistics`.
 
 Provider-specific clients are intentionally out of scope for the initial API.
 

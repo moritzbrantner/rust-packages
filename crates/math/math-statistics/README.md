@@ -1,11 +1,16 @@
 # math-statistics
 
-Shared multivariate statistics for dense matrix inputs and streaming
-observations.
+Shared scalar, pairwise, rolling, multivariate, and matrix statistics for
+finite local inputs.
 
 ## Highlights
 
 - Streaming covariance accumulation
+- Scalar series summaries, sample/population variance, and z-scores
+- Pairwise covariance and correlation
+- Difference, relative-change, and log-ratio derived series
+- Rolling mean, standard deviation, min/max ranges, and correlation
+- Empirical tail risk and compounded-path drawdown helpers
 - Z-score and min/max normalizers
 - Dense covariance matrix generation
 - PCA-lite for small and medium dense inputs
@@ -15,12 +20,16 @@ observations.
 
 ```rust,no_run
 use math_linear::F32Matrix;
-use math_statistics::{PrincipalComponents, RunningCovariance};
+use math_statistics::{changes, summarize_series, ChangeMethod, PrincipalComponents, RunningCovariance, VarianceMode};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let returns = changes(&[100.0, 102.0, 99.0], ChangeMethod::Relative)?;
+    let summary = summarize_series(&returns, VarianceMode::Sample)?;
+
     let matrix = F32Matrix::from_rows([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])?;
     let covariance = RunningCovariance::from_matrix(&matrix.as_view())?.covariance_matrix()?;
     let pca = PrincipalComponents::fit(&matrix.as_view(), 1)?;
+    assert_eq!(summary.count, 2);
     assert_eq!(covariance.matrix.shape().rows, 2);
     assert_eq!(pca.components().shape().rows, 1);
     Ok(())
@@ -28,6 +37,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 ## Behavior
+
+Scalar series helpers reject empty or non-finite inputs. Sample variance uses
+`n - 1` and requires at least two observations; population variance uses `n`.
+Relative changes and log-ratios require strictly positive adjacent values.
+Drawdown and compounded-return helpers require period values greater than or
+equal to `-1.0`.
 
 `WeightedObservation` requires at least one finite value and a positive finite
 weight. `RunningCovariance` has a fixed dimensionality; every pushed

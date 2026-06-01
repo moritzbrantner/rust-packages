@@ -1,6 +1,9 @@
 # finance-statistics
 
 Finance-oriented statistics helpers for return series and portfolio analytics.
+Generic scalar, pairwise, rolling, tail-risk, and drawdown algorithms are
+implemented in `moritzbrantner-math-statistics`; this crate keeps the finance
+vocabulary and market-specific wrappers.
 
 ## Highlights
 
@@ -30,6 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Related crates
 
-- `numbers-core`
 - `math-statistics`
+- `numbers-core`
+- `finance-data`
 - `dense-data`

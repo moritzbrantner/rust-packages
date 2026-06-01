@@ -18,7 +18,7 @@ use math_geometry_2d::{
 use math_linear::{F32Matrix, Kernel2d};
 use math_signal_core::{BiquadDesign, SampleRate, WindowFunction};
 use math_sparse_data::SparseVector;
-use math_statistics::{PrincipalComponents, RunningCovariance};
+use math_statistics::{summarize_series, PrincipalComponents, RunningCovariance, VarianceMode};
 use numbers_core::{quartiles, summarize_numbers};
 use tempfile::tempdir;
 use three_d_processing_core::{
@@ -89,6 +89,7 @@ fn foundation_crates_support_basic_consumer_workflows() -> Result<(), Box<dyn st
     assert_eq!(quartiles(&[1.0, 2.0, 3.0, 4.0])?.median, 2.5);
 
     let returns = simple_returns(&[100.0, 102.0, 99.0, 105.0])?;
+    assert_eq!(summarize_series(&returns, VarianceMode::Sample)?.count, 3);
     assert!(sharpe_ratio(&returns, 0.0, 252.0)?.is_finite());
     assert!(max_drawdown(&returns)?.depth >= 0.0);
     assert_eq!(historical_value_at_risk(&returns, 0.95)?.observations, 3);

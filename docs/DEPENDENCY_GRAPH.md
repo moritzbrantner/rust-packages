@@ -660,7 +660,7 @@ flowchart LR
   crate_moritzbrantner_tensor_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_tensor_data
   crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_numbers_core
+  crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_math_statistics
   crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_finance_statistics_cli --> crate_moritzbrantner_finance_statistics

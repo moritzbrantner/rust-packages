@@ -16,13 +16,13 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "finance.returns",
-  featuredOperations: ["finance.returns", "finance.risk", "finance.drawdown", "describe"],
+  featuredOperations: ["finance.returns", "finance.risk", "finance.drawdown", "finance.rolling", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["finance.returns", "finance.risk", "finance.drawdown"],
+      operations: ["finance.returns", "finance.risk", "finance.drawdown", "finance.rolling"],
     },
     {
       id: "debug",

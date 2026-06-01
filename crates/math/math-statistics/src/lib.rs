@@ -2,11 +2,335 @@
 
 pub mod surface;
 use math_linear::{F32Matrix, F32MatrixView, MatrixShape};
-use numbers_core::{NumberRange, RunningStats};
+use numbers_core::{quantile, quartiles, NumberRange, RunningStats};
 use video_analysis_core::{DetectError, Result};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variance normalization to use for second-moment statistics.
+pub enum VarianceMode {
+    /// Divide by `n`.
+    Population,
+    /// Divide by `n - 1`.
+    Sample,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Method used to convert adjacent values into a derived series.
+pub enum ChangeMethod {
+    /// `next - previous`.
+    Difference,
+    /// `next / previous - 1.0`, requiring strictly positive values.
+    Relative,
+    /// `ln(next / previous)`, requiring strictly positive values.
+    LogRatio,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Summary statistics for a finite scalar series.
+pub struct SeriesSummary {
+    /// Number of observations.
+    pub count: usize,
+    /// Arithmetic mean.
+    pub mean: f64,
+    /// Variance using the requested normalization.
+    pub variance: f64,
+    /// Square root of variance.
+    pub std_dev: f64,
+    /// Minimum value.
+    pub min: f64,
+    /// Maximum value.
+    pub max: f64,
+    /// First quartile.
+    pub q1: f64,
+    /// Median.
+    pub median: f64,
+    /// Third quartile.
+    pub q3: f64,
+    /// Interquartile range.
+    pub iqr: f64,
+    /// Fisher-Pearson moment skewness, when variance is non-zero.
+    pub skewness: Option<f64>,
+    /// Moment excess kurtosis, when variance is non-zero.
+    pub excess_kurtosis: Option<f64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Pairwise summary for two equally sized finite scalar series.
+pub struct PairwiseSummary {
+    /// Arithmetic mean of the left series.
+    pub left_mean: f64,
+    /// Arithmetic mean of the right series.
+    pub right_mean: f64,
+    /// Covariance using the requested normalization.
+    pub covariance: f64,
+    /// Pearson correlation.
+    pub correlation: f64,
+    /// Number of paired observations.
+    pub observations: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Tail-risk summary using empirical quantiles.
+pub struct TailRisk {
+    /// Confidence level in the exclusive range `(0, 1)`.
+    pub confidence: f64,
+    /// Return/value threshold at `1.0 - confidence`.
+    pub threshold: f64,
+    /// Positive loss amount at the requested confidence.
+    pub value_at_risk: f64,
+    /// Positive average tail loss at or below the threshold.
+    pub conditional_value_at_risk: f64,
+    /// Number of observations used.
+    pub observations: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Maximum drawdown details for a compounded path.
+pub struct Drawdown {
+    /// Positive drawdown depth as a fraction of prior peak equity.
+    pub depth: f64,
+    /// Index of the equity peak before the drawdown.
+    pub peak_index: usize,
+    /// Index of the equity trough.
+    pub trough_index: usize,
+    /// First index where equity recovered to the prior peak, if any.
+    pub recovery_index: Option<usize>,
+}
+
+/// Returns summary statistics for a finite scalar series.
+pub fn summarize_series(values: &[f64], mode: VarianceMode) -> Result<SeriesSummary> {
+    validate_series(values, "series")?;
+    let mean = mean(values)?;
+    let variance = variance(values, mode)?;
+    let std_dev = variance.sqrt();
+    let quartiles = quartiles(values)?;
+    let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+    let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let (skewness, excess_kurtosis) = higher_moments(values, mean, std_dev);
+    Ok(SeriesSummary {
+        count: values.len(),
+        mean,
+        variance,
+        std_dev,
+        min,
+        max,
+        q1: quartiles.q1,
+        median: quartiles.median,
+        q3: quartiles.q3,
+        iqr: quartiles.iqr,
+        skewness,
+        excess_kurtosis,
+    })
+}
+
+/// Returns the arithmetic mean of a finite scalar series.
+pub fn mean(values: &[f64]) -> Result<f64> {
+    validate_series(values, "series")?;
+    Ok(values.iter().sum::<f64>() / values.len() as f64)
+}
+
+/// Returns variance for a finite scalar series.
+pub fn variance(values: &[f64], mode: VarianceMode) -> Result<f64> {
+    validate_series(values, "series")?;
+    let denom = variance_denominator(values.len(), mode)?;
+    let mean = mean(values)?;
+    Ok(values
+        .iter()
+        .map(|value| {
+            let centered = value - mean;
+            centered * centered
+        })
+        .sum::<f64>()
+        / denom)
+}
+
+/// Returns standard deviation for a finite scalar series.
+pub fn std_dev(values: &[f64], mode: VarianceMode) -> Result<f64> {
+    Ok(variance(values, mode)?.sqrt())
+}
+
+/// Returns covariance between two equally sized finite scalar series.
+pub fn covariance(left: &[f64], right: &[f64], mode: VarianceMode) -> Result<f64> {
+    validate_pair(left, right)?;
+    let denom = variance_denominator(left.len(), mode)?;
+    let left_mean = mean(left)?;
+    let right_mean = mean(right)?;
+    Ok(left
+        .iter()
+        .zip(right)
+        .map(|(left, right)| (left - left_mean) * (right - right_mean))
+        .sum::<f64>()
+        / denom)
+}
+
+/// Returns Pearson correlation between two equally sized finite scalar series.
+pub fn correlation(left: &[f64], right: &[f64]) -> Result<f64> {
+    let cov = covariance(left, right, VarianceMode::Sample)?;
+    let left_std = std_dev(left, VarianceMode::Sample)?;
+    let right_std = std_dev(right, VarianceMode::Sample)?;
+    let denom = left_std * right_std;
+    if denom <= f64::EPSILON {
+        return Err(invalid_argument("correlation requires non-zero variance"));
+    }
+    Ok((cov / denom).clamp(-1.0, 1.0))
+}
+
+/// Returns pairwise mean, covariance, and correlation for two scalar series.
+pub fn summarize_pair(left: &[f64], right: &[f64], mode: VarianceMode) -> Result<PairwiseSummary> {
+    validate_pair(left, right)?;
+    Ok(PairwiseSummary {
+        left_mean: mean(left)?,
+        right_mean: mean(right)?,
+        covariance: covariance(left, right, mode)?,
+        correlation: correlation(left, right)?,
+        observations: left.len(),
+    })
+}
+
+/// Converts adjacent finite values into differences, relative changes, or log-ratios.
+pub fn changes(values: &[f64], method: ChangeMethod) -> Result<Vec<f64>> {
+    validate_change_input(values, method)?;
+    Ok(values
+        .windows(2)
+        .map(|window| match method {
+            ChangeMethod::Difference => window[1] - window[0],
+            ChangeMethod::Relative => window[1] / window[0] - 1.0,
+            ChangeMethod::LogRatio => (window[1] / window[0]).ln(),
+        })
+        .collect())
+}
+
+/// Returns compounded cumulative return/change from period returns.
+pub fn cumulative_compounded_return(values: &[f64]) -> Result<f64> {
+    validate_compoundable(values)?;
+    Ok(values
+        .iter()
+        .fold(1.0, |equity, value| equity * (1.0 + value))
+        - 1.0)
+}
+
+/// Returns maximum drawdown for a compounded path.
+pub fn max_drawdown(values: &[f64]) -> Result<Drawdown> {
+    validate_compoundable(values)?;
+    let mut equity = 1.0;
+    let mut peak = 1.0;
+    let mut peak_index = 0;
+    let mut max_drawdown = Drawdown {
+        depth: 0.0,
+        peak_index: 0,
+        trough_index: 0,
+        recovery_index: Some(0),
+    };
+    let mut active_peak_index = 0;
+
+    for (index, value) in values.iter().enumerate() {
+        let equity_index = index + 1;
+        equity *= 1.0 + value;
+        if equity >= peak {
+            peak = equity;
+            peak_index = equity_index;
+            active_peak_index = equity_index;
+            if max_drawdown.recovery_index.is_none() && equity >= peak {
+                max_drawdown.recovery_index = Some(equity_index);
+            }
+        }
+        let depth = if peak > 0.0 {
+            (peak - equity) / peak
+        } else {
+            0.0
+        };
+        if depth > max_drawdown.depth {
+            max_drawdown = Drawdown {
+                depth,
+                peak_index: active_peak_index,
+                trough_index: equity_index,
+                recovery_index: None,
+            };
+        } else if max_drawdown.recovery_index.is_none()
+            && peak_index > max_drawdown.trough_index
+            && equity >= peak
+        {
+            max_drawdown.recovery_index = Some(equity_index);
+        }
+    }
+
+    Ok(max_drawdown)
+}
+
+/// Returns empirical VaR/CVaR style tail risk as positive loss values.
+pub fn tail_risk(values: &[f64], confidence: f64) -> Result<TailRisk> {
+    validate_series(values, "tail risk series")?;
+    if !confidence.is_finite() || confidence <= 0.0 || confidence >= 1.0 {
+        return Err(invalid_argument(
+            "confidence must be finite and between 0 and 1",
+        ));
+    }
+    let threshold = quantile(values, 1.0 - confidence)?;
+    let tail = values
+        .iter()
+        .copied()
+        .filter(|value| *value <= threshold)
+        .collect::<Vec<_>>();
+    let tail_mean = tail.iter().sum::<f64>() / tail.len() as f64;
+    Ok(TailRisk {
+        confidence,
+        threshold,
+        value_at_risk: (-threshold).max(0.0),
+        conditional_value_at_risk: (-tail_mean).max(0.0),
+        observations: values.len(),
+    })
+}
+
+/// Returns rolling arithmetic means for fixed-size windows.
+pub fn rolling_mean(values: &[f64], window: usize) -> Result<Vec<f64>> {
+    rolling_apply(values, window, mean)
+}
+
+/// Returns rolling standard deviations for fixed-size windows.
+pub fn rolling_std_dev(values: &[f64], window: usize, mode: VarianceMode) -> Result<Vec<f64>> {
+    rolling_apply(values, window, |window| std_dev(window, mode))
+}
+
+/// Returns rolling correlations for fixed-size paired windows.
+pub fn rolling_correlation(left: &[f64], right: &[f64], window: usize) -> Result<Vec<f64>> {
+    validate_pair(left, right)?;
+    validate_window(window, left.len())?;
+    let mut values = Vec::with_capacity(left.len() + 1 - window);
+    for start in 0..=(left.len() - window) {
+        values.push(correlation(
+            &left[start..start + window],
+            &right[start..start + window],
+        )?);
+    }
+    Ok(values)
+}
+
+/// Returns rolling min/max ranges for fixed-size windows.
+pub fn rolling_min_max(values: &[f64], window: usize) -> Result<Vec<NumberRange>> {
+    validate_series(values, "series")?;
+    validate_window(window, values.len())?;
+    let mut ranges = Vec::with_capacity(values.len() + 1 - window);
+    for start in 0..=(values.len() - window) {
+        let slice = &values[start..start + window];
+        let min = slice.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = slice.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        ranges.push(NumberRange::new(min, max)?);
+    }
+    Ok(ranges)
+}
+
+/// Returns z-scores using the requested variance normalization.
+pub fn z_scores(values: &[f64], mode: VarianceMode) -> Result<Vec<f64>> {
+    let mean = mean(values)?;
+    let std = std_dev(values, mode)?;
+    if std <= f64::EPSILON {
+        return Err(invalid_argument("z-scores require non-zero variance"));
+    }
+    Ok(values.iter().map(|value| (value - mean) / std).collect())
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -419,9 +743,199 @@ fn power_iteration(values: &[f32], dims: usize) -> Result<(f32, Vec<f32>)> {
     Ok((eigenvalue, vector))
 }
 
+fn higher_moments(values: &[f64], mean: f64, std_dev: f64) -> (Option<f64>, Option<f64>) {
+    if std_dev <= f64::EPSILON {
+        return (None, None);
+    }
+    let n = values.len() as f64;
+    let skewness = values
+        .iter()
+        .map(|value| ((value - mean) / std_dev).powi(3))
+        .sum::<f64>()
+        / n;
+    let excess_kurtosis = values
+        .iter()
+        .map(|value| ((value - mean) / std_dev).powi(4))
+        .sum::<f64>()
+        / n
+        - 3.0;
+    (Some(skewness), Some(excess_kurtosis))
+}
+
+fn rolling_apply(
+    values: &[f64],
+    window: usize,
+    mut operation: impl FnMut(&[f64]) -> Result<f64>,
+) -> Result<Vec<f64>> {
+    validate_series(values, "series")?;
+    validate_window(window, values.len())?;
+    let mut results = Vec::with_capacity(values.len() + 1 - window);
+    for start in 0..=(values.len() - window) {
+        results.push(operation(&values[start..start + window])?);
+    }
+    Ok(results)
+}
+
+fn validate_series(values: &[f64], name: &str) -> Result<()> {
+    if values.is_empty() {
+        return Err(invalid_argument(format!("{name} must not be empty")));
+    }
+    if values.iter().any(|value| !value.is_finite()) {
+        return Err(invalid_argument(format!("{name} values must be finite")));
+    }
+    Ok(())
+}
+
+fn validate_pair(left: &[f64], right: &[f64]) -> Result<()> {
+    validate_series(left, "left series")?;
+    validate_series(right, "right series")?;
+    if left.len() != right.len() {
+        return Err(invalid_argument("series lengths must match"));
+    }
+    Ok(())
+}
+
+fn validate_change_input(values: &[f64], method: ChangeMethod) -> Result<()> {
+    if values.len() < 2 {
+        return Err(invalid_argument(
+            "change series must contain at least two values",
+        ));
+    }
+    validate_series(values, "change series")?;
+    if matches!(method, ChangeMethod::Relative | ChangeMethod::LogRatio)
+        && values.iter().any(|value| *value <= 0.0)
+    {
+        return Err(invalid_argument(
+            "relative and log-ratio changes require positive values",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_compoundable(values: &[f64]) -> Result<()> {
+    validate_series(values, "compound series")?;
+    if values.iter().any(|value| *value < -1.0) {
+        return Err(invalid_argument(
+            "compound values must be greater than or equal to -1",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_window(window: usize, len: usize) -> Result<()> {
+    if window == 0 {
+        return Err(invalid_argument("rolling window must be greater than zero"));
+    }
+    if window > len {
+        return Err(invalid_argument(
+            "rolling window must not exceed series length",
+        ));
+    }
+    Ok(())
+}
+
+fn variance_denominator(len: usize, mode: VarianceMode) -> Result<f64> {
+    match mode {
+        VarianceMode::Population => Ok(len as f64),
+        VarianceMode::Sample => {
+            if len < 2 {
+                return Err(invalid_argument(
+                    "sample variance requires at least two observations",
+                ));
+            }
+            Ok((len - 1) as f64)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_close(left: f64, right: f64) {
+        assert!(
+            (left - right).abs() < 1.0e-10,
+            "expected {left} to be close to {right}"
+        );
+    }
+
+    #[test]
+    fn scalar_series_reports_sample_and_population_moments() {
+        let values = [1.0, 2.0, 3.0, 4.0];
+        assert_close(mean(&values).unwrap(), 2.5);
+        assert_close(variance(&values, VarianceMode::Population).unwrap(), 1.25);
+        assert_close(
+            variance(&values, VarianceMode::Sample).unwrap(),
+            1.6666666666666667,
+        );
+        let summary = summarize_series(&values, VarianceMode::Sample).unwrap();
+        assert_eq!(summary.count, 4);
+        assert_close(summary.median, 2.5);
+        assert!(summary.skewness.unwrap().abs() < 1.0e-10);
+    }
+
+    #[test]
+    fn scalar_series_rejects_invalid_inputs() {
+        assert!(mean(&[]).is_err());
+        assert!(mean(&[1.0, f64::NAN]).is_err());
+        assert!(std_dev(&[1.0], VarianceMode::Sample).is_err());
+        assert!(correlation(&[1.0, 1.0], &[2.0, 3.0]).is_err());
+        assert!(covariance(&[1.0, 2.0], &[1.0], VarianceMode::Sample).is_err());
+    }
+
+    #[test]
+    fn changes_support_difference_relative_and_log_ratio() {
+        let values = [100.0, 110.0, 99.0];
+        assert_eq!(
+            changes(&values, ChangeMethod::Difference).unwrap(),
+            vec![10.0, -11.0]
+        );
+        let relative = changes(&values, ChangeMethod::Relative).unwrap();
+        assert_close(relative[0], 0.1);
+        assert_close(relative[1], -0.1);
+        let logs = changes(&values, ChangeMethod::LogRatio).unwrap();
+        assert_close(logs.iter().sum::<f64>(), (99.0_f64 / 100.0).ln());
+        assert!(changes(&[1.0], ChangeMethod::Difference).is_err());
+        assert!(changes(&[1.0, 0.0], ChangeMethod::Relative).is_err());
+        assert!(changes(&[1.0, -1.0], ChangeMethod::LogRatio).is_err());
+    }
+
+    #[test]
+    fn computes_pairwise_tail_drawdown_rolling_and_z_scores() {
+        let returns = [0.1, -0.2, 0.05, 0.3, -0.1];
+        let pair = summarize_pair(&returns, &returns, VarianceMode::Sample).unwrap();
+        assert_close(pair.correlation, 1.0);
+        assert_eq!(pair.observations, 5);
+
+        let risk = tail_risk(&returns, 0.8).unwrap();
+        assert_eq!(risk.observations, 5);
+        assert!(risk.value_at_risk >= 0.0);
+        assert!(risk.conditional_value_at_risk >= risk.value_at_risk);
+
+        let drawdown = max_drawdown(&returns).unwrap();
+        assert_close(drawdown.depth, 0.2);
+        assert_eq!(drawdown.peak_index, 1);
+        assert_eq!(drawdown.trough_index, 2);
+        assert_eq!(drawdown.recovery_index, Some(4));
+
+        assert_eq!(rolling_mean(&returns, 3).unwrap().len(), 3);
+        assert_eq!(
+            rolling_std_dev(&returns, 3, VarianceMode::Sample)
+                .unwrap()
+                .len(),
+            3
+        );
+        assert_eq!(rolling_min_max(&returns, 3).unwrap().len(), 3);
+        assert!(rolling_mean(&returns, 0).is_err());
+        assert!(rolling_mean(&returns, 6).is_err());
+        for value in rolling_correlation(&returns, &returns, 3).unwrap() {
+            assert_close(value, 1.0);
+        }
+
+        let scores = z_scores(&[1.0, 2.0, 3.0], VarianceMode::Population).unwrap();
+        assert_close(mean(&scores).unwrap(), 0.0);
+        assert_close(std_dev(&scores, VarianceMode::Population).unwrap(), 1.0);
+    }
 
     #[test]
     fn streaming_covariance_matches_batch_covariance() {

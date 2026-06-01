@@ -4,7 +4,7 @@ import * as wasm from "@moritzbrantner/math-statistics-wasm";
 const packageAppConfig: PackageAppConfig = {
   library: "math-statistics",
   title: "Math Statistics",
-  description: "Shared multivariate statistics for dense matrix inputs and streaming observations.",
+  description: "Shared scalar, pairwise, rolling, multivariate, and matrix statistics.",
   domain: "math",
   wasm: {
     init: wasm.init,
@@ -15,14 +15,35 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/math-statistics",
     standaloneRoute: "",
   },
-  defaultOperation: "stats.normalize",
-  featuredOperations: ["stats.normalize", "stats.covariance", "stats.pca", "describe"],
+  defaultOperation: "stats.series.describe",
+  featuredOperations: [
+    "stats.series.describe",
+    "stats.series.changes",
+    "stats.series.compare",
+    "stats.series.rolling",
+    "stats.series.tailRisk",
+    "stats.series.zScores",
+    "stats.normalize",
+    "stats.covariance",
+    "stats.pca",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["stats.normalize", "stats.covariance", "stats.pca"],
+      operations: [
+        "stats.series.describe",
+        "stats.series.changes",
+        "stats.series.compare",
+        "stats.series.rolling",
+        "stats.series.tailRisk",
+        "stats.series.zScores",
+        "stats.normalize",
+        "stats.covariance",
+        "stats.pca",
+      ],
     },
     {
       id: "debug",

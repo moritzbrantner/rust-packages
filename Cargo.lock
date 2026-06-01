@@ -2735,7 +2735,7 @@ dependencies = [
 name = "moritzbrantner-finance-statistics"
 version = "0.1.0"
 dependencies = [
- "moritzbrantner-numbers-core",
+ "moritzbrantner-math-statistics",
  "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
