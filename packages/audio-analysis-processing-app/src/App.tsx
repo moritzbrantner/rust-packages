@@ -11,6 +11,7 @@ const packageAppConfig: PackageAppConfig = {
     "audio.processing.apply",
     "audio.processing.offlineEdit",
     "audio.processing.mixdown",
+    "audio.processing.loudness",
     "audio.processing.preset",
     "audio.processing.energy",
     "audio.processing.effectsCatalog",
@@ -26,8 +27,8 @@ const packageAppConfig: PackageAppConfig = {
         "audio.processing.apply",
         "audio.processing.offlineEdit",
         "audio.processing.mixdown",
+        "audio.processing.loudness",
         "audio.processing.preset",
-        "audio.processing.energy",
       ],
     },
     {

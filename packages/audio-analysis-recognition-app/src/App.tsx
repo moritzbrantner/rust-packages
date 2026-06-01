@@ -7,19 +7,31 @@ const packageAppConfig: PackageAppConfig = {
   description: "Deterministic audio embeddings and similarity search for video-analysis.",
   domain: "audio",
   defaultOperation: "audio.recognition.embed",
-  featuredOperations: ["audio.recognition.embed", "audio.recognition.compare", "audio.recognition.search", "describe"],
+  featuredOperations: [
+    "audio.recognition.embed",
+    "audio.recognition.compare",
+    "audio.recognition.search",
+    "audio.recognition.transcribeImported",
+    "audio.recognition.transcriptionPlan",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["audio.recognition.embed", "audio.recognition.compare", "audio.recognition.search"],
+      operations: [
+        "audio.recognition.embed",
+        "audio.recognition.compare",
+        "audio.recognition.search",
+        "audio.recognition.transcribeImported",
+      ],
     },
     {
       id: "debug",
       label: "Debug",
       description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
-      operations: ["describe"],
+      operations: ["describe", "audio.recognition.transcriptionPlan"],
     },
   ],
   wasm: {

@@ -1,15 +1,18 @@
 //! Library-owned runtime surface for `audio-analysis-speakers`.
 
-use audio_analysis_recognition::SpectralEmbeddingConfig;
+use audio_analysis_recognition::{AudioRuntime, SpectralEmbeddingConfig};
 use runtime_core::{
     structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
     SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
-    assign_speakers_to_transcript, SpeakerAudio, SpeakerDiarizationResponse,
-    SpeakerEmbeddingExtractor, SpeakerId, SpeakerIdentificationOptions, SpeakerLabel,
-    SpeakerLibrary, SpectralSpeakerEmbedder, TranscriptionContract,
+    assign_speakers_to_transcript_with_policy, diarize_speakers, DiarizedSpeaker, EnergyVadConfig,
+    EnergyVoiceActivityDetector, SpeakerAudio, SpeakerDiarizationRequest,
+    SpeakerDiarizationResponse, SpeakerDiarizer, SpeakerEmbeddingExtractor, SpeakerId,
+    SpeakerIdentificationOptions, SpeakerLabel, SpeakerLibrary, SpeakerSegmentPrediction,
+    SpeakerTranscriptAssignmentPolicy, SpectralSpeakerEmbedder, TranscriptionContract,
+    VoiceActivityDetector, WindowedSpeakerDiarizer,
 };
 
 const MAX_SAMPLES: usize = 192_000;
@@ -44,7 +47,19 @@ pub fn package_surface() -> PackageSurface {
                 "audio.speakers.assignTranscript",
                 "Assign transcript speakers",
                 "Applies diarization segments to an existing transcription contract.",
-                serde_json::json!({"transcript": {"segments": [{"index": 0, "text": "hello", "startSeconds": 0.0, "endSeconds": 1.0, "isFinal": true}]}, "diarization": {"accepted": true, "operation": "diarize", "modelId": "single-speaker-heuristic", "runtime": "heuristic", "segments": [{"speaker": "speaker_0", "startSeconds": 0.0, "endSeconds": 1.0, "score": 1.0}]}}),
+                serde_json::json!({"overlapPolicy": "majority", "transcript": {"segments": [{"index": 0, "text": "hello", "startSeconds": 0.0, "endSeconds": 1.0, "isFinal": true}]}, "diarization": {"accepted": true, "operation": "diarize", "modelId": "single-speaker-heuristic", "runtime": "heuristic", "segments": [{"speaker": "speaker_0", "startSeconds": 0.0, "endSeconds": 1.0, "score": 1.0}]}}),
+            ),
+            operation(
+                "audio.speakers.vad",
+                "Voice activity",
+                "Detects speech-like regions with a deterministic RMS voice activity detector.",
+                serde_json::json!({"samples": [0.0, 0.2, 0.2, 0.0], "sampleRate": 4, "channels": 1, "frameSize": 2, "hopSize": 1, "threshold": 0.01, "minSpeechSeconds": 0.0, "minSilenceSeconds": 0.0}),
+            ),
+            operation(
+                "audio.speakers.diarize",
+                "Diarize speakers",
+                "Runs deterministic VAD/window/spectral speaker diarization or normalizes imported diarization segments.",
+                serde_json::json!({"samples": [0.0, 0.2, 0.2, 0.0, -0.2, -0.2, 0.0], "sampleRate": 4, "channels": 1, "frameSize": 2, "hopSize": 1, "threshold": 0.01, "minSpeechSeconds": 0.0, "minSilenceSeconds": 0.0}),
             ),
         ],
     }
@@ -76,6 +91,8 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.speakers.embed" => embed_value(request.input)?,
         "audio.speakers.identify" => identify_value(request.input)?,
         "audio.speakers.assignTranscript" => assign_transcript_value(request.input)?,
+        "audio.speakers.vad" => vad_value(request.input)?,
+        "audio.speakers.diarize" => diarize_value(request.input)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -118,6 +135,23 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
             serde_json::json!({
                 "segmentCount": value.get("segments").and_then(serde_json::Value::as_array).map_or(0, Vec::len),
                 "accepted": value.get("accepted").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.speakers.vad" => (
+            "Voice activity result",
+            "Detected speech-like regions with a deterministic RMS voice activity detector.",
+            serde_json::json!({
+                "segmentCount": value.pointer("/summary/segmentCount").cloned().unwrap_or(serde_json::Value::Null),
+                "speechSeconds": value.pointer("/summary/speechSeconds").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.speakers.diarize" => (
+            "Speaker diarization result",
+            "Ran deterministic VAD/window/spectral diarization or normalized imported diarization segments.",
+            serde_json::json!({
+                "speakerCount": value.get("speakerCount").cloned().unwrap_or(serde_json::Value::Null),
+                "segmentCount": value.get("segments").and_then(serde_json::Value::as_array).map_or(0, Vec::len),
+                "runtime": value.get("runtime").cloned().unwrap_or(serde_json::Value::Null)
             }),
         ),
         _ => (
@@ -239,12 +273,126 @@ fn assign_transcript_value(input: serde_json::Value) -> Result<serde_json::Value
             .ok_or_else(|| "diarization is required".to_string())?,
     )
     .map_err(|error| format!("invalid diarization: {error}"))?;
-    let assigned = assign_speakers_to_transcript(&transcript, &diarization)
+    let policy = overlap_policy_from_input(&input)?;
+    let assigned = assign_speakers_to_transcript_with_policy(&transcript, &diarization, policy)
         .map_err(|error| error.to_string())?;
     Ok(serde_json::json!({
+        "accepted": true,
+        "overlapPolicy": policy,
         "segmentCount": assigned.segments.len(),
+        "segments": assigned.segments,
         "transcript": assigned
     }))
+}
+
+fn overlap_policy_from_input(
+    input: &serde_json::Value,
+) -> Result<SpeakerTranscriptAssignmentPolicy, String> {
+    let Some(value) = input.get("overlapPolicy") else {
+        return Ok(SpeakerTranscriptAssignmentPolicy::Majority);
+    };
+    serde_json::from_value(value.clone()).map_err(|error| format!("invalid overlapPolicy: {error}"))
+}
+
+fn vad_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let samples = sample_array(&input, "samples")?;
+    let sample_rate = sample_rate(&input)?;
+    let channels = channels(&input)?;
+    let audio = SpeakerAudio::interleaved(&samples, sample_rate, channels)
+        .map_err(|error| error.to_string())?;
+    let config = vad_config_from_input(&input, sample_rate)?;
+    let mut vad = EnergyVoiceActivityDetector::new(config).map_err(|error| error.to_string())?;
+    let spans = vad
+        .detect_speech(&audio)
+        .map_err(|error| error.to_string())?;
+    let speech_seconds = spans
+        .iter()
+        .map(|span| span.duration_seconds())
+        .sum::<f64>();
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "channels": channels,
+        "sampleCount": samples.len(),
+        "summary": {
+            "segmentCount": spans.len(),
+            "speechSeconds": speech_seconds
+        },
+        "segments": spans.iter().map(|span| serde_json::json!({
+            "startSeconds": span.start_seconds,
+            "endSeconds": span.end_seconds,
+            "score": span.score
+        })).collect::<Vec<_>>()
+    }))
+}
+
+fn diarize_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    if input.get("samples").is_none() {
+        let request: SpeakerDiarizationRequest = serde_json::from_value(input)
+            .map_err(|error| format!("invalid diarization request: {error}"))?;
+        let response = diarize_speakers(request).map_err(|error| error.to_string())?;
+        let speaker_count = unique_speaker_count(&response.segments);
+        return Ok(serde_json::json!({
+            "accepted": response.accepted,
+            "operation": response.operation,
+            "modelId": response.model_id,
+            "runtime": response.runtime,
+            "speakerCount": speaker_count,
+            "segments": response.segments,
+            "diagnostics": ["Imported segments or heuristic fallback were normalized without native diarization."]
+        }));
+    }
+
+    let samples = sample_array(&input, "samples")?;
+    let sample_rate = sample_rate(&input)?;
+    let channels = channels(&input)?;
+    let audio = SpeakerAudio::interleaved(&samples, sample_rate, channels)
+        .map_err(|error| error.to_string())?;
+    let vad = EnergyVoiceActivityDetector::new(vad_config_from_input(&input, sample_rate)?)
+        .map_err(|error| error.to_string())?;
+    let embedder = speaker_embedder(&input)?;
+    let mut diarizer = WindowedSpeakerDiarizer::new(embedder, vad);
+    if let Some(threshold) = finite_f32(&input, "clusterThreshold")? {
+        diarizer = diarizer
+            .cluster_threshold(threshold)
+            .map_err(|error| error.to_string())?;
+    }
+    let result = diarizer
+        .diarize(&audio)
+        .map_err(|error| error.to_string())?;
+    let segments = result
+        .segments
+        .into_iter()
+        .map(|segment| SpeakerSegmentPrediction {
+            speaker: diarized_speaker_label(segment.speaker),
+            start_seconds: segment.start_seconds as f32,
+            end_seconds: segment.end_seconds as f32,
+            score: Some(segment.score),
+        })
+        .collect::<Vec<_>>();
+    Ok(serde_json::json!({
+        "accepted": true,
+        "operation": "diarize",
+        "modelId": "spectral-speaker-baseline",
+        "runtime": AudioRuntime::Heuristic,
+        "speakerCount": unique_speaker_count(&segments),
+        "segments": segments,
+        "diagnostics": ["Deterministic baseline diarization uses RMS VAD and spectral speaker embeddings; it is intended for tests and prototypes."]
+    }))
+}
+
+fn diarized_speaker_label(speaker: DiarizedSpeaker) -> String {
+    match speaker {
+        DiarizedSpeaker::Known(id) => id.as_str().to_string(),
+        DiarizedSpeaker::Unknown(label) => label,
+    }
+}
+
+fn unique_speaker_count(segments: &[SpeakerSegmentPrediction]) -> usize {
+    let mut speakers = std::collections::BTreeSet::new();
+    for segment in segments {
+        speakers.insert(segment.speaker.as_str());
+    }
+    speakers.len()
 }
 
 fn speaker_embedder(input: &serde_json::Value) -> Result<SpectralSpeakerEmbedder, String> {
@@ -256,6 +404,34 @@ fn speaker_embedder(input: &serde_json::Value) -> Result<SpectralSpeakerEmbedder
             .map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())
+}
+
+fn vad_config_from_input(
+    input: &serde_json::Value,
+    sample_rate: u32,
+) -> Result<EnergyVadConfig, String> {
+    let frame_size = positive_usize(
+        input,
+        "frameSize",
+        ((sample_rate as f64) * EnergyVadConfig::default().frame_seconds).round() as usize,
+    )?;
+    let hop_size = positive_usize(
+        input,
+        "hopSize",
+        ((sample_rate as f64) * EnergyVadConfig::default().hop_seconds).round() as usize,
+    )?;
+    let config = EnergyVadConfig {
+        rms_threshold: finite_f32(input, "threshold")?
+            .unwrap_or(EnergyVadConfig::default().rms_threshold),
+        frame_seconds: frame_size as f64 / sample_rate as f64,
+        hop_seconds: hop_size as f64 / sample_rate as f64,
+        min_speech_seconds: finite_f64(input, "minSpeechSeconds")?
+            .unwrap_or(EnergyVadConfig::default().min_speech_seconds),
+        merge_gap_seconds: finite_f64(input, "minSilenceSeconds")?
+            .unwrap_or(EnergyVadConfig::default().merge_gap_seconds),
+    };
+    config.validate().map_err(|error| error.to_string())?;
+    Ok(config)
 }
 
 fn sample_array(input: &serde_json::Value, field: &str) -> Result<Vec<f32>, String> {
@@ -324,6 +500,34 @@ fn positive_usize(
         .ok_or_else(|| format!("{field} must be positive"))
 }
 
+fn finite_f32(input: &serde_json::Value, field: &str) -> Result<Option<f32>, String> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    let value = value
+        .as_f64()
+        .ok_or_else(|| format!("{field} must be a number"))? as f32;
+    if value.is_finite() {
+        Ok(Some(value))
+    } else {
+        Err(format!("{field} must be finite"))
+    }
+}
+
+fn finite_f64(input: &serde_json::Value, field: &str) -> Result<Option<f64>, String> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    let value = value
+        .as_f64()
+        .ok_or_else(|| format!("{field} must be a number"))?;
+    if value.is_finite() {
+        Ok(Some(value))
+    } else {
+        Err(format!("{field} must be finite"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -338,6 +542,8 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"audio.speakers.embed"));
         assert!(ids.contains(&"audio.speakers.assignTranscript"));
+        assert!(ids.contains(&"audio.speakers.vad"));
+        assert!(ids.contains(&"audio.speakers.diarize"));
     }
 
     #[test]
@@ -352,6 +558,77 @@ mod tests {
         assert!(response.value["summary"].is_object());
         assert!(response.value["result"].is_object());
         assert!(response.value["model"]["dimensions"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn vad_and_diarize_operations_return_segments() {
+        let vad = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.speakers.vad"),
+            input: serde_json::json!({
+                "samples": [0.0, 0.2, 0.2, 0.0],
+                "sampleRate": 4,
+                "channels": 1,
+                "frameSize": 2,
+                "hopSize": 1,
+                "threshold": 0.01,
+                "minSpeechSeconds": 0.0,
+                "minSilenceSeconds": 0.0
+            }),
+        })
+        .expect("vad");
+        assert_eq!(vad.value["operation"], "audio.speakers.vad");
+        assert!(vad.value["summary"]["segmentCount"].as_u64().unwrap() > 0);
+
+        let diarize = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.speakers.diarize"),
+            input: serde_json::json!({
+                "samples": [0.0, 0.2, 0.2, 0.0, -0.2, -0.2, 0.0],
+                "sampleRate": 4,
+                "channels": 1,
+                "frameSize": 2,
+                "hopSize": 1,
+                "threshold": 0.01,
+                "minSpeechSeconds": 0.0,
+                "minSilenceSeconds": 0.0,
+                "fftSize": 4,
+                "hopSize": 2,
+                "bands": 2
+            }),
+        })
+        .expect("diarize");
+        assert_eq!(diarize.value["operation"], "audio.speakers.diarize");
+        assert!(!diarize.value["segments"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn assign_transcript_accepts_overlap_policy() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.speakers.assignTranscript"),
+            input: serde_json::json!({
+                "overlapPolicy": "strictContained",
+                "transcript": {
+                    "segments": [
+                        {"index": 0, "text": "hello", "startSeconds": 0.0, "endSeconds": 2.0, "isFinal": true}
+                    ]
+                },
+                "diarization": {
+                    "accepted": true,
+                    "operation": "diarize",
+                    "modelId": "fixture",
+                    "runtime": "imported",
+                    "segments": [
+                        {"speaker": "partial", "startSeconds": 0.5, "endSeconds": 1.5, "score": 1.0}
+                    ]
+                }
+            }),
+        })
+        .expect("assign transcript");
+        assert_eq!(
+            response.value["operation"],
+            "audio.speakers.assignTranscript"
+        );
+        assert_eq!(response.value["overlapPolicy"], "strictContained");
+        assert_eq!(response.value["segments"][0]["speaker"], "unknown");
     }
 
     #[test]

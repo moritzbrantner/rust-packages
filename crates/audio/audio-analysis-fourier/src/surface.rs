@@ -6,7 +6,10 @@ use runtime_core::{
     SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
-use crate::{spectrogram, zero_crossing_rate, FourierTransform, StftConfig};
+use crate::{
+    spectral_feature_frames, spectrogram, zero_crossing_rate, FourierTransform,
+    SpectralFeatureOptions, StftConfig,
+};
 
 const MAX_SAMPLES: usize = 192_000;
 const DEFAULT_PREVIEW_BINS: usize = 64;
@@ -40,8 +43,8 @@ pub fn package_surface() -> PackageSurface {
             operation(
                 "audio.fourier.features",
                 "Spectral features",
-                "Returns spectral centroid, bandwidth, rolloff, flatness, and zero-crossing rate.",
-                serde_json::json!({"samples": [0.0, 1.0, 0.0, -1.0], "sampleRate": 48000, "fftSize": 4}),
+                "Returns spectral centroid, bandwidth, rolloff, flatness, zero-crossing rate, and optional mel-style band features.",
+                serde_json::json!({"samples": [0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0], "sampleRate": 48000, "fftSize": 4, "hopSize": 2, "melBandCount": 4}),
             ),
         ],
     }
@@ -115,11 +118,12 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
         ),
         "audio.fourier.features" => (
             "Spectral feature result",
-            "Computed spectral centroid, bandwidth, rolloff, flatness, dominant frequency, and zero-crossing rate.",
+            "Computed spectral centroid, bandwidth, rolloff, flatness, dominant frequency, zero-crossing rate, and optional mel-style band features.",
             serde_json::json!({
                 "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
                 "fftSize": value.get("fftSize").cloned().unwrap_or(serde_json::Value::Null),
                 "centroidHz": value.get("centroidHz").cloned().unwrap_or(serde_json::Value::Null),
+                "rolloffHz": value.get("rolloffHz").cloned().unwrap_or(serde_json::Value::Null),
                 "dominantFrequencyHz": value.get("dominantFrequencyHz").cloned().unwrap_or(serde_json::Value::Null)
             }),
         ),
@@ -205,22 +209,67 @@ fn features_value(input: serde_json::Value) -> Result<serde_json::Value, String>
     let samples = sample_array(&input, "samples")?;
     let sample_rate = sample_rate(&input)?;
     let fft_size = positive_usize(&input, "fftSize", 1024)?;
+    let hop_size = positive_usize(&input, "hopSize", fft_size / 2)?;
+    let mel_band_count = input
+        .get("melBandCount")
+        .and_then(serde_json::Value::as_u64)
+        .map(|value| usize::try_from(value).map_err(|_| "melBandCount must fit usize".to_string()))
+        .transpose()?;
     let transform = FourierTransform::with_window(fft_size, window_name(&input))
         .map_err(|error| error.to_string())?;
     let spectrum = transform
         .analyze_samples(&samples, sample_rate)
         .map_err(|error| error.to_string())?;
     let features = spectrum.features();
+    let options = SpectralFeatureOptions::new(fft_size, hop_size, sample_rate)
+        .map_err(|error| error.to_string())?
+        .mel_band_count(mel_band_count)
+        .map_err(|error| error.to_string())?;
+    let frames = spectral_feature_frames(&samples, options).map_err(|error| error.to_string())?;
+    let max_frames =
+        positive_usize(&input, "maxFrames", DEFAULT_PREVIEW_FRAMES)?.min(DEFAULT_PREVIEW_FRAMES);
+    let mel_bands = if mel_band_count.is_some() && !frames.is_empty() {
+        let band_count = frames[0].mel_bands.len();
+        let mut bands = vec![0.0_f32; band_count];
+        for frame in &frames {
+            for (index, value) in frame.mel_bands.iter().enumerate() {
+                bands[index] += *value;
+            }
+        }
+        for band in &mut bands {
+            *band /= frames.len() as f32;
+        }
+        bands
+    } else {
+        Vec::new()
+    };
     Ok(serde_json::json!({
         "sampleRate": sample_rate,
         "sampleCount": samples.len(),
         "fftSize": fft_size,
+        "hopSize": hop_size,
         "centroidHz": features.centroid_hz,
         "bandwidthHz": features.bandwidth_hz,
         "rolloffHz": features.rolloff_hz,
         "flatness": features.flatness,
         "dominantFrequencyHz": features.dominant_frequency_hz,
-        "zeroCrossingRate": zero_crossing_rate(&samples)
+        "zeroCrossingRate": zero_crossing_rate(&samples),
+        "melBands": mel_bands,
+        "summary": {
+            "frameCount": frames.len(),
+            "dominantFrequencyHz": features.dominant_frequency_hz,
+            "centroidHz": features.centroid_hz,
+            "rolloffHz": features.rolloff_hz
+        },
+        "frames": frames.iter().take(max_frames).map(|frame| serde_json::json!({
+            "startSeconds": frame.start_seconds,
+            "centroidHz": frame.centroid_hz,
+            "bandwidthHz": frame.bandwidth_hz,
+            "rolloffHz": frame.rolloff_hz,
+            "flatness": frame.flatness,
+            "energy": frame.energy,
+            "melBands": frame.mel_bands
+        })).collect::<Vec<_>>()
     }))
 }
 
@@ -317,6 +366,31 @@ mod tests {
         assert!(response.value["result"].is_object());
         assert_eq!(response.value["fftSize"], 4);
         assert!(response.value["binCount"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn features_operation_returns_frames_and_mel_bands() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.fourier.features"),
+            input: serde_json::json!({
+                "samples": [0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0],
+                "sampleRate": 8,
+                "fftSize": 4,
+                "hopSize": 2,
+                "melBandCount": 3
+            }),
+        })
+        .expect("features");
+        assert_eq!(response.value["operation"], "audio.fourier.features");
+        assert_eq!(response.value["result"]["summary"]["frameCount"], 3);
+        assert_eq!(response.value["melBands"].as_array().unwrap().len(), 3);
+        assert_eq!(
+            response.value["frames"][0]["melBands"]
+                .as_array()
+                .unwrap()
+                .len(),
+            3
+        );
     }
 
     #[test]

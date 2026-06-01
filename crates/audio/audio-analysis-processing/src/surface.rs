@@ -1,6 +1,9 @@
 //! Library-owned runtime surface for `audio-analysis-processing`.
 
-use audio_analysis_core::{mean_absolute, peak, rms, AudioClip, ChannelMix, FadeCurve};
+use audio_analysis_core::{
+    interleaved_to_mono, mean_absolute, peak, rms, summarize_feature_series, AudioClip, ChannelMix,
+    FadeCurve,
+};
 use runtime_core::{
     describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
@@ -11,8 +14,9 @@ use crate::operations::effects_catalog_value;
 use crate::{
     mixdown_placements, preset_chain, AudioClipPlacement, AudioEffectPreset, AudioEnergyAnalyzer,
     AudioProcessor, DelaySpec, DistortionMode, DistortionSpec, DynamicsSpec, EqBandKind,
-    EqBandSpec, FadeSpec, LimiterSpec, ModulationDelaySpec, NoiseGateSpec, NormalizeSpec,
-    OfflineAudioProcessor, PanSpec, PitchShiftMode, ReverbSpec, SpeedMode, TremoloSpec,
+    EqBandSpec, FadeSpec, LimiterSpec, LoudnessOptions, ModulationDelaySpec, NoiseGateSpec,
+    NormalizeSpec, OfflineAudioProcessor, PanSpec, PitchShiftMode, ReverbSpec, SpeedMode,
+    TremoloSpec,
 };
 
 const MAX_SAMPLES: usize = 192_000;
@@ -68,6 +72,12 @@ pub fn package_surface() -> PackageSurface {
                 serde_json::json!({"samples": [0.0, 0.5, -0.5], "sampleRate": 48000, "channels": 1}),
             ),
             surface_operation(
+                "audio.processing.loudness",
+                "Loudness",
+                "Computes deterministic loudness-oriented peak, RMS, crest factor, and approximate LUFS metrics.",
+                serde_json::json!({"samples": [0.0, 0.5, -0.5, 0.25], "sampleRate": 48000, "channels": 1, "frameSize": 2, "hopSize": 1}),
+            ),
+            surface_operation(
                 "audio.processing.chainSummary",
                 "Inspect chain summary",
                 "Inspects the deterministic transform chain that would be applied.",
@@ -88,6 +98,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.processing.mixdown" => mixdown_value(request.input)?,
         "audio.processing.preset" => preset_value(request.input)?,
         "audio.processing.energy" => energy_value(request.input)?,
+        "audio.processing.loudness" => loudness_value(request.input)?,
         "audio.processing.chainSummary" => chain_summary_value(request.input)?,
         operation => {
             return Err(format!(
@@ -144,6 +155,17 @@ fn response(operation: runtime_core::OperationId, value: serde_json::Value) -> S
                 "rms": value.get("rms").cloned().unwrap_or(serde_json::Value::Null),
                 "peak": value.get("peak").cloned().unwrap_or(serde_json::Value::Null),
                 "label": value.get("label").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.processing.loudness" => (
+            "Audio loudness result",
+            "Computed deterministic peak, RMS, crest factor, and approximate LUFS-style loudness metrics. The LUFS value is a lightweight approximation, not an EBU R128 compliance result.",
+            serde_json::json!({
+                "peakDbfs": value.get("peakDbfs").cloned().unwrap_or(serde_json::Value::Null),
+                "rmsDbfs": value.get("rmsDbfs").cloned().unwrap_or(serde_json::Value::Null),
+                "crestFactorDb": value.get("crestFactorDb").cloned().unwrap_or(serde_json::Value::Null),
+                "approximateLufs": value.get("approximateLufs").cloned().unwrap_or(serde_json::Value::Null),
+                "frameCount": value.get("frameSummary").and_then(|summary| summary.get("frame_count")).cloned().unwrap_or(serde_json::Value::Null)
             }),
         ),
         "audio.processing.effectsCatalog" => (
@@ -336,6 +358,46 @@ fn energy_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
         "meanAbsolute": mean_absolute(&samples),
         "isSilent": level < silence_threshold,
         "isLoud": level >= loud_threshold
+    }))
+}
+
+fn loudness_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let samples = sample_array(&input, "samples")?;
+    let sample_rate = sample_rate(&input)?;
+    let channels = channels(&input)?;
+    let mono = if channels == 1 {
+        samples.clone()
+    } else {
+        interleaved_to_mono(
+            &AudioBuffer::F32(samples.clone()),
+            channels,
+            ChannelMix::Average,
+        )
+        .map_err(|error| error.to_string())?
+    };
+    let frame_size = positive_usize(&input, "frameSize", mono.len().clamp(1, 1024))?;
+    let hop_size = positive_usize(&input, "hopSize", frame_size)?;
+    let options = LoudnessOptions::new(frame_size, hop_size)
+        .map_err(|error| error.to_string())?
+        .gate_threshold_db(finite_f32(&input, "gateThresholdDb")?)
+        .map_err(|error| error.to_string())?;
+    let report =
+        crate::analyze_loudness(&mono, sample_rate, options).map_err(|error| error.to_string())?;
+    let frame_summary =
+        summarize_feature_series(&report.frame_series).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "channels": channels,
+        "analysisChannels": 1,
+        "sampleCount": samples.len(),
+        "analysisSampleCount": mono.len(),
+        "peakDbfs": report.peak_dbfs,
+        "rmsDbfs": report.rms_dbfs,
+        "crestFactorDb": report.crest_factor_db,
+        "approximateLufs": report.approximate_lufs,
+        "approximation": "Lightweight RMS-gated LUFS-style estimate; not EBU R128 compliant.",
+        "frameSeries": report.frame_series,
+        "frameSummary": frame_summary
     }))
 }
 
@@ -672,6 +734,21 @@ fn channels(input: &serde_json::Value) -> Result<u16, String> {
         .ok_or_else(|| "channels must be a positive u16".to_string())
 }
 
+fn positive_usize(
+    input: &serde_json::Value,
+    field: &str,
+    default_value: usize,
+) -> Result<usize, String> {
+    let value = input
+        .get(field)
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(default_value as u64);
+    usize::try_from(value)
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| format!("{field} must be positive"))
+}
+
 fn finite_f32(input: &serde_json::Value, field: &str) -> Result<Option<f32>, String> {
     let Some(value) = input.get(field) else {
         return Ok(None);
@@ -747,6 +824,7 @@ mod tests {
         assert!(ids.contains(&"audio.processing.offlineEdit"));
         assert!(ids.contains(&"audio.processing.mixdown"));
         assert!(ids.contains(&"audio.processing.preset"));
+        assert!(ids.contains(&"audio.processing.loudness"));
     }
 
     #[test]
@@ -761,6 +839,29 @@ mod tests {
         assert!(response.value["summary"].is_object());
         assert!(response.value["result"].is_object());
         assert!(response.value["rms"].as_f64().unwrap() > 0.0);
+    }
+
+    #[test]
+    fn loudness_operation_returns_finite_report() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.processing.loudness"),
+            input: serde_json::json!({
+                "samples": [0.0, 1.0, -1.0, 0.0],
+                "sampleRate": 4,
+                "channels": 1,
+                "frameSize": 2,
+                "hopSize": 1
+            }),
+        })
+        .expect("loudness");
+        assert_eq!(response.value["operation"], "audio.processing.loudness");
+        assert!(response.value["peakDbfs"].as_f64().unwrap().is_finite());
+        assert!(response.value["rmsDbfs"].as_f64().unwrap().is_finite());
+        assert!(response.value["approximateLufs"]
+            .as_f64()
+            .unwrap()
+            .is_finite());
+        assert_eq!(response.value["frameSummary"]["frame_count"], 3);
     }
 
     #[test]

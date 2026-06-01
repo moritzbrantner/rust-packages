@@ -330,6 +330,84 @@ pub fn synthesize_click(
     )
 }
 
+/// Synthesizes a fixed-length click track from beat positions in seconds.
+pub fn synthesize_click_track(
+    beat_seconds: &[f32],
+    duration_seconds: f32,
+    click_frequency_hz: f32,
+    click_duration_seconds: f32,
+    amplitude: f32,
+    config: AudioSynthesisConfig,
+) -> Result<Generated<OwnedAudioFrame>> {
+    if beat_seconds.is_empty() {
+        return Err(invalid_argument("click track requires at least one beat"));
+    }
+    if !duration_seconds.is_finite() || duration_seconds <= 0.0 {
+        return Err(invalid_argument(
+            "click track duration_seconds must be finite and greater than zero",
+        ));
+    }
+    let click = ToneSpec {
+        frequency_hz: click_frequency_hz,
+        duration_seconds: click_duration_seconds,
+        amplitude,
+        waveform: Waveform::Pulse,
+    };
+    click.validate()?;
+    let total_samples = seconds_to_samples(duration_seconds, config.sample_rate)?.max(1);
+    let click_samples = seconds_to_samples(click_duration_seconds, config.sample_rate)?.max(1);
+    let mut mono = vec![0.0_f32; total_samples];
+    let mut previous = None;
+    for beat in beat_seconds {
+        if !beat.is_finite() || *beat < 0.0 {
+            return Err(invalid_argument(
+                "click track beats must be finite and non-negative",
+            ));
+        }
+        if let Some(previous) = previous {
+            if *beat < previous {
+                return Err(invalid_argument("click track beats must be sorted by time"));
+            }
+        }
+        previous = Some(*beat);
+        let start = seconds_to_samples(*beat, config.sample_rate)?;
+        if start >= total_samples {
+            continue;
+        }
+        let end = (start + click_samples).min(total_samples);
+        for (offset, sample) in mono[start..end].iter_mut().enumerate() {
+            let t = offset as f32 / config.sample_rate as f32;
+            *sample += wave_sample(Waveform::Pulse, click_frequency_hz, t) * amplitude;
+        }
+    }
+    apply_clipping_policy(&mut mono, config.clipping_policy);
+    let mut interleaved = Vec::with_capacity(mono.len() * usize::from(config.channels));
+    for sample in mono {
+        for _ in 0..config.channels {
+            interleaved.push(sample);
+        }
+    }
+    let frame = OwnedAudioFrame::new(
+        config.start_timestamp,
+        config.sample_rate,
+        config.channels,
+        AudioBuffer::F32(interleaved),
+    )?;
+    Ok(Generated::new(
+        frame,
+        InversionTrace::new(
+            "click_track",
+            "owned_audio_frame",
+            InformationFidelity::Interpolated,
+        )
+        .note(
+            "beats",
+            InversionMethod::Template,
+            "beat times are rendered as analytic pulse clicks",
+        ),
+    ))
+}
+
 /// Returns synthesize noise burst.
 pub fn synthesize_noise_burst(
     duration_seconds: f32,
@@ -603,6 +681,26 @@ mod tests {
         let segment = event_to_tone_segment(&event, 0.2).unwrap();
         assert_eq!(segment.tone.frequency_hz, 220.0);
         assert_eq!(segment.tone.amplitude, 0.7);
+    }
+
+    #[test]
+    fn synthesizes_click_track_at_expected_samples() {
+        let generated = synthesize_click_track(
+            &[0.0, 0.5],
+            1.0,
+            1_800.0,
+            0.02,
+            0.8,
+            AudioSynthesisConfig::new(1_000, 1).unwrap(),
+        )
+        .unwrap();
+        let AudioBuffer::F32(samples) = generated.value.data else {
+            panic!("expected f32 samples");
+        };
+
+        assert_eq!(samples.len(), 1_000);
+        assert!(samples[0] > 0.0);
+        assert!(samples[500] > 0.0);
     }
 
     #[test]

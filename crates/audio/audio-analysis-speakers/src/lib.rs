@@ -63,6 +63,22 @@ pub struct SpeakerDiarizationResponse {
     pub segments: Vec<SpeakerSegmentPrediction>,
 }
 
+/// Speaker assignment policy for transcript segments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SpeakerTranscriptAssignmentPolicy {
+    /// Assign the speaker with the largest positive time overlap.
+    #[default]
+    Majority,
+    /// Assign the speaker whose segment start is nearest the transcript start.
+    NearestStart,
+    /// Assign only when the diarization segment fully contains the transcript segment.
+    StrictContained,
+}
+
+/// Backward-compatible alias for the speaker transcript assignment policy.
+pub type TranscriptSpeakerOverlapPolicy = SpeakerTranscriptAssignmentPolicy;
+
 #[derive(
     Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
@@ -1532,6 +1548,19 @@ pub fn assign_speakers_to_transcript(
     transcript: &TranscriptionContract,
     diarization: &SpeakerDiarizationResponse,
 ) -> Result<TranscriptionContract> {
+    assign_speakers_to_transcript_with_policy(
+        transcript,
+        diarization,
+        SpeakerTranscriptAssignmentPolicy::Majority,
+    )
+}
+
+/// Assigns speaker diarization output onto transcript segments using an explicit policy.
+pub fn assign_speakers_to_transcript_with_policy(
+    transcript: &TranscriptionContract,
+    diarization: &SpeakerDiarizationResponse,
+    policy: SpeakerTranscriptAssignmentPolicy,
+) -> Result<TranscriptionContract> {
     let mut transcript = transcript
         .clone()
         .normalized()
@@ -1544,7 +1573,12 @@ pub fn assign_speakers_to_transcript(
         .collect::<Result<Vec<_>>>()?;
 
     for segment in &mut transcript.segments {
-        let Some(best) = best_speaker_match(segment, &diarization_segments) else {
+        let Some(best) = best_speaker_match(segment, &diarization_segments, policy) else {
+            if policy == SpeakerTranscriptAssignmentPolicy::StrictContained
+                && segment.speaker.is_none()
+            {
+                segment.speaker = Some("unknown".to_string());
+            }
             continue;
         };
         segment.speaker = Some(best.speaker.clone());
@@ -1590,6 +1624,24 @@ fn normalize_speaker_segment(
 fn best_speaker_match<'a>(
     transcript_segment: &TranscriptSegmentContract,
     diarization_segments: &'a [SpeakerSegmentPrediction],
+    policy: SpeakerTranscriptAssignmentPolicy,
+) -> Option<&'a SpeakerSegmentPrediction> {
+    match policy {
+        SpeakerTranscriptAssignmentPolicy::Majority => {
+            best_majority_speaker_match(transcript_segment, diarization_segments)
+        }
+        SpeakerTranscriptAssignmentPolicy::NearestStart => {
+            nearest_start_speaker_match(transcript_segment, diarization_segments)
+        }
+        SpeakerTranscriptAssignmentPolicy::StrictContained => {
+            strict_contained_speaker_match(transcript_segment, diarization_segments)
+        }
+    }
+}
+
+fn best_majority_speaker_match<'a>(
+    transcript_segment: &TranscriptSegmentContract,
+    diarization_segments: &'a [SpeakerSegmentPrediction],
 ) -> Option<&'a SpeakerSegmentPrediction> {
     let positive_overlap = diarization_segments
         .iter()
@@ -1611,6 +1663,48 @@ fn best_speaker_match<'a>(
             start <= midpoint && midpoint <= end
         })
         .map(|candidate| (candidate, 0.0))
+        .max_by(compare_speaker_candidates)
+        .map(|(candidate, _)| candidate)
+}
+
+fn nearest_start_speaker_match<'a>(
+    transcript_segment: &TranscriptSegmentContract,
+    diarization_segments: &'a [SpeakerSegmentPrediction],
+) -> Option<&'a SpeakerSegmentPrediction> {
+    let transcript_start = transcript_segment
+        .start_seconds
+        .or_else(|| transcript_segment.midpoint_seconds())?;
+    diarization_segments
+        .iter()
+        .map(|candidate| {
+            (
+                candidate,
+                (candidate.start_seconds as f64 - transcript_start).abs(),
+            )
+        })
+        .min_by(|left, right| {
+            left.1
+                .total_cmp(&right.1)
+                .then_with(|| speaker_score(right.0).total_cmp(&speaker_score(left.0)))
+                .then_with(|| left.0.start_seconds.total_cmp(&right.0.start_seconds))
+                .then_with(|| left.0.speaker.cmp(&right.0.speaker))
+        })
+        .map(|(candidate, _)| candidate)
+}
+
+fn strict_contained_speaker_match<'a>(
+    transcript_segment: &TranscriptSegmentContract,
+    diarization_segments: &'a [SpeakerSegmentPrediction],
+) -> Option<&'a SpeakerSegmentPrediction> {
+    let transcript_start = transcript_segment.start_seconds?;
+    let transcript_end = transcript_segment.end_seconds?;
+    diarization_segments
+        .iter()
+        .filter(|candidate| {
+            candidate.start_seconds as f64 <= transcript_start
+                && candidate.end_seconds as f64 >= transcript_end
+        })
+        .map(|candidate| (candidate, (transcript_end - transcript_start).max(0.0)))
         .max_by(compare_speaker_candidates)
         .map(|(candidate, _)| candidate)
 }
@@ -1801,6 +1895,75 @@ mod tests {
 
         assert_eq!(assigned.segments[0].speaker.as_deref(), Some("original"));
         assert!(!assigned.segments[0].attributes.contains_key("speakerScore"));
+    }
+
+    #[test]
+    fn speaker_assignment_supports_nearest_start_policy() {
+        let mut segment = TranscriptSegmentContract::new(0, "hello");
+        segment.start_seconds = Some(5.0);
+        segment.end_seconds = Some(6.0);
+        let transcript = TranscriptionContract::new(vec![segment]);
+        let diarization = SpeakerDiarizationResponse {
+            accepted: true,
+            operation: "diarize".to_string(),
+            model_id: "fixture".to_string(),
+            runtime: AudioRuntime::Imported,
+            segments: vec![
+                SpeakerSegmentPrediction {
+                    speaker: "speaker_far".to_string(),
+                    start_seconds: 0.0,
+                    end_seconds: 1.0,
+                    score: Some(1.0),
+                },
+                SpeakerSegmentPrediction {
+                    speaker: "speaker_near".to_string(),
+                    start_seconds: 4.9,
+                    end_seconds: 5.1,
+                    score: Some(0.1),
+                },
+            ],
+        };
+
+        let assigned = assign_speakers_to_transcript_with_policy(
+            &transcript,
+            &diarization,
+            SpeakerTranscriptAssignmentPolicy::NearestStart,
+        )
+        .unwrap();
+
+        assert_eq!(
+            assigned.segments[0].speaker.as_deref(),
+            Some("speaker_near")
+        );
+    }
+
+    #[test]
+    fn speaker_assignment_strict_contained_uses_unknown_without_match() {
+        let mut segment = TranscriptSegmentContract::new(0, "hello");
+        segment.start_seconds = Some(0.0);
+        segment.end_seconds = Some(2.0);
+        let transcript = TranscriptionContract::new(vec![segment]);
+        let diarization = SpeakerDiarizationResponse {
+            accepted: true,
+            operation: "diarize".to_string(),
+            model_id: "fixture".to_string(),
+            runtime: AudioRuntime::Imported,
+            segments: vec![SpeakerSegmentPrediction {
+                speaker: "partial".to_string(),
+                start_seconds: 0.5,
+                end_seconds: 1.5,
+                score: Some(1.0),
+            }],
+        };
+
+        let assigned = assign_speakers_to_transcript_with_policy(
+            &transcript,
+            &diarization,
+            SpeakerTranscriptAssignmentPolicy::StrictContained,
+        )
+        .unwrap();
+
+        assert_eq!(assigned.segments[0].speaker.as_deref(), Some("unknown"));
     }
 
     #[derive(Debug, Clone)]

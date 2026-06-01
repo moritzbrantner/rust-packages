@@ -94,6 +94,40 @@ Both paths symlink `demucs` into `.audio-tools/bin` and verify `demucs --help`
 before tests run. You can override the command with
 `DEMUCS_COMMAND=/path/to/demucs`.
 
+## Native Whisper Smoke Test
+
+Audio recognition keeps native ASR out of default tests. The deterministic
+workflow is `audio.recognition.transcribeImported`; real Whisper execution
+belongs to `moritzbrantner-text-transcripts` and is only tested when explicitly
+requested.
+
+Prepare a local 16 kHz mono WAV fixture and a cached whisper.cpp model first.
+The smoke test checks that the model already exists before calling the native
+transcriber, so it does not download models itself:
+
+```bash
+RUN_NATIVE_WHISPER_TESTS=1 \
+NATIVE_WHISPER_AUDIO_PATH=/path/to/fixture-16khz-mono.wav \
+cargo test -p moritzbrantner-text-transcripts \
+  --features native,external-tests \
+  native_whisper_cpp_smoke_when_requested -- --ignored --nocapture
+```
+
+Optional override:
+
+```bash
+WHISPER_CPP_MODEL_STORE="$PWD/.model-runtime/whisper-cpp" \
+RUN_NATIVE_WHISPER_TESTS=1 \
+NATIVE_WHISPER_AUDIO_PATH=/path/to/fixture-16khz-mono.wav \
+cargo test -p moritzbrantner-text-transcripts \
+  --features native,external-tests \
+  native_whisper_cpp_smoke_when_requested -- --ignored --nocapture
+```
+
+If `RUN_NATIVE_WHISPER_TESTS` is not set, the ignored smoke test exits as a
+skip. If it is set and the fixture or cached model is missing, the test fails
+with setup text.
+
 ## Benchmarks
 
 Compute-heavy crates have Criterion benchmarks:

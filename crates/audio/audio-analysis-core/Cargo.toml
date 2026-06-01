@@ -17,6 +17,7 @@ name = "audio_analysis_core"
 
 [dependencies]
 runtime-core.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 math-signal-core.workspace = true
 tensor-data.workspace = true

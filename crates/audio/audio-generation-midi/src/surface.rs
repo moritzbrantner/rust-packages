@@ -7,7 +7,10 @@ use runtime_core::{
 };
 use video_analysis_core::AudioBuffer;
 
-use crate::{MidiNote, MidiNoteEvent, MidiSong, MidiTrack, NoteName};
+use crate::{
+    pitch_track_to_midi_notes, MidiNote, MidiNoteEvent, MidiSong, MidiTrack, NoteName,
+    PitchTrackFrame, PitchTrackMidiOptions,
+};
 
 const DEFAULT_PREVIEW_BYTES: usize = 64;
 const DEFAULT_PREVIEW_SAMPLES: usize = 1024;
@@ -43,6 +46,12 @@ pub fn package_surface() -> PackageSurface {
                 "Renders a MIDI-like note sequence into deterministic in-memory audio samples.",
                 serde_json::json!({"tempoBpm": 120.0, "sampleRate": 48000, "notes": [{"note": 69, "startBeats": 0.0, "durationBeats": 1.0}]}),
             ),
+            operation(
+                "audio.midi.fromPitchTrack",
+                "Convert pitch track",
+                "Converts pitch-track frames into merged MIDI-like note events and a byte summary.",
+                serde_json::json!({"tempoBpm": 120.0, "minNoteDurationSeconds": 0.05, "pitchTrack": [{"startSeconds": 0.0, "endSeconds": 0.5, "frequencyHz": 440.0, "confidence": 0.9}, {"startSeconds": 0.5, "endSeconds": 1.0, "frequencyHz": 440.0, "confidence": 0.9}]}),
+            ),
         ],
     }
 }
@@ -73,6 +82,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.midi.note" => note_value(request.input)?,
         "audio.midi.encode" => encode_value(request.input)?,
         "audio.midi.render" => render_value(request.input)?,
+        "audio.midi.fromPitchTrack" => from_pitch_track_value(request.input)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -116,6 +126,16 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
                 "tempoBpm": value.get("tempoBpm").cloned().unwrap_or(serde_json::Value::Null),
                 "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
                 "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.midi.fromPitchTrack" => (
+            "Pitch-track MIDI result",
+            "Converted pitch-track frames into merged MIDI-like note events and a byte summary.",
+            serde_json::json!({
+                "tempoBpm": value.get("tempoBpm").cloned().unwrap_or(serde_json::Value::Null),
+                "noteCount": value.get("noteCount").cloned().unwrap_or(serde_json::Value::Null),
+                "byteLength": value.get("byteLength").cloned().unwrap_or(serde_json::Value::Null),
+                "diagnosticCount": value.get("diagnostics").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
             }),
         ),
         _ => (
@@ -185,6 +205,66 @@ fn render_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
         "samplesPerChannel": samples.len() / usize::from(generated.value.channels),
         "samplePreview": samples.into_iter().take(DEFAULT_PREVIEW_SAMPLES).collect::<Vec<_>>()
     }))
+}
+
+fn from_pitch_track_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let options = PitchTrackMidiOptions {
+        tempo_bpm: finite_f32(&input, "tempoBpm", 120.0)?,
+        quantization_beats: input
+            .get("quantizationBeats")
+            .map(|_| finite_f32(&input, "quantizationBeats", 0.0))
+            .transpose()?,
+        min_note_duration_seconds: finite_f32(&input, "minNoteDurationSeconds", 0.05)?,
+        velocity: input
+            .get("velocity")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(100) as u8,
+    };
+    let frames = input
+        .get("pitchTrack")
+        .or_else(|| input.get("frames"))
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "pitchTrack must be an array".to_string())?
+        .iter()
+        .map(pitch_frame_from_value)
+        .collect::<Result<Vec<_>, _>>()?;
+    let result = pitch_track_to_midi_notes(&frames, options).map_err(|error| error.to_string())?;
+    let mut track = MidiTrack::new("pitch-track");
+    for note in &result.notes {
+        track.push(*note).map_err(|error| error.to_string())?;
+    }
+    let song = MidiSong::new(options.tempo_bpm)
+        .map_err(|error| error.to_string())?
+        .with_track(track)
+        .map_err(|error| error.to_string())?;
+    let bytes = song.to_midi_bytes().map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "tempoBpm": options.tempo_bpm,
+        "noteCount": result.notes.len(),
+        "midiByteLength": bytes.len(),
+        "byteLength": bytes.len(),
+        "bytePreview": bytes.iter().copied().take(DEFAULT_PREVIEW_BYTES).collect::<Vec<_>>(),
+        "notes": result.notes.iter().map(|note| serde_json::json!({
+            "note": note.note.value(),
+            "frequencyHz": note.note.frequency_hz(),
+            "startBeats": note.start_beats,
+            "durationBeats": note.duration_beats,
+            "velocity": note.velocity,
+            "channel": note.channel
+        })).collect::<Vec<_>>(),
+        "diagnostics": result.diagnostics
+    }))
+}
+
+fn pitch_frame_from_value(input: &serde_json::Value) -> Result<PitchTrackFrame, String> {
+    let frame = PitchTrackFrame {
+        start_seconds: finite_f32(input, "startSeconds", 0.0)?,
+        end_seconds: finite_f32(input, "endSeconds", 0.0)?,
+        frequency_hz: finite_f32(input, "frequencyHz", 0.0)?,
+        confidence: finite_f32(input, "confidence", 1.0)?,
+    };
+    frame.validate().map_err(|error| error.to_string())?;
+    Ok(frame)
 }
 
 fn song_from_input(input: &serde_json::Value) -> Result<MidiSong, String> {
@@ -299,6 +379,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"audio.midi.note"));
         assert!(ids.contains(&"audio.midi.encode"));
+        assert!(ids.contains(&"audio.midi.fromPitchTrack"));
     }
 
     #[test]
@@ -338,5 +419,25 @@ mod tests {
         })
         .unwrap_err();
         assert!(error.contains("note"));
+    }
+
+    #[test]
+    fn pitch_track_operation_merges_a4_frames() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.midi.fromPitchTrack"),
+            input: serde_json::json!({
+                "tempoBpm": 120.0,
+                "pitchTrack": [
+                    {"startSeconds": 0.0, "endSeconds": 0.5, "frequencyHz": 440.0, "confidence": 0.9},
+                    {"startSeconds": 0.5, "endSeconds": 1.0, "frequencyHz": 440.0, "confidence": 0.9},
+                    {"startSeconds": 1.0, "endSeconds": 1.01, "frequencyHz": 493.88, "confidence": 0.9}
+                ]
+            }),
+        })
+        .expect("pitch track");
+        assert_eq!(response.value["operation"], "audio.midi.fromPitchTrack");
+        assert_eq!(response.value["noteCount"], 1);
+        assert_eq!(response.value["notes"][0]["note"], 69);
+        assert!(response.value["diagnostics"].as_array().unwrap().len() >= 2);
     }
 }

@@ -35,6 +35,18 @@ pub fn package_surface() -> PackageSurface {
                 serde_json::json!({"sampleRate": 48000, "waveforms": [[[0.0, 0.5, -0.5]]]}),
             ),
             operation(
+                "audio.io.wavSummary",
+                "WAV summary",
+                "Summarizes inline WAV-like samples or previews a native/server WAV path read without invoking FFmpeg.",
+                serde_json::json!({"sampleRate": 48000, "channels": 1, "samples": [0.0, 0.5, -0.5]}),
+            ),
+            operation(
+                "audio.io.probePlan",
+                "Preview probe plan",
+                "Explains whether a probe would need FFprobe without executing it.",
+                serde_json::json!({"source": "clip.wav", "format": "wav"}),
+            ),
+            operation(
                 "audio.io.decodePlan",
                 "Preview decode plan",
                 "Previews deterministic decode settings and backend requirements without decoding audio.",
@@ -93,6 +105,8 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "describe" => describe_value(request.input),
         "audio.io.inputPlan" => input_plan_value(request.input)?,
         "audio.io.waveformBatchSummary" => waveform_batch_summary_value(request.input)?,
+        "audio.io.wavSummary" => wav_summary_value(request.input)?,
+        "audio.io.probePlan" => probe_plan_value(request.input)?,
         "audio.io.decodePlan" => decode_plan_value(request.input)?,
         "audio.io.editPlan" => edit_plan_value(request.input)?,
         "audio.io.splitPlan" => split_plan_value(request.input)?,
@@ -133,6 +147,25 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
             serde_json::json!({
                 "backend": value.get("backend").cloned().unwrap_or(serde_json::Value::Null),
                 "executed": false
+            }),
+        ),
+        "audio.io.wavSummary" => (
+            "WAV summary",
+            "Summarized inline WAV-like samples or previewed a native/server WAV path read.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "channels": value.get("channels").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "executed": value.get("executed").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.io.probePlan" => (
+            "Audio probe plan preview",
+            "Planned audio probing only; this operation does not execute FFprobe.",
+            serde_json::json!({
+                "backend": value.get("backend").cloned().unwrap_or(serde_json::Value::Null),
+                "requiresExternalTool": value.get("requiresExternalTool").cloned().unwrap_or(serde_json::Value::Null),
+                "executed": value.get("executed").cloned().unwrap_or(serde_json::Value::Null)
             }),
         ),
         "audio.io.decodePlan" => (
@@ -251,6 +284,84 @@ fn waveform_batch_summary_value(input: serde_json::Value) -> Result<serde_json::
         "totalSamples": total_samples,
         "durationSeconds": if sample_rate == 0 { 0.0 } else { total_samples as f64 / sample_rate as f64 },
         "batches": batch_shapes
+    }))
+}
+
+fn wav_summary_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    if input.get("paths").is_some() {
+        return Err(
+            "wavSummary accepts a single inline sample set or one path, not multi-file batches"
+                .to_string(),
+        );
+    }
+    if let Some(path) = input.get("path").and_then(serde_json::Value::as_str) {
+        return Ok(serde_json::json!({
+            "source": path,
+            "sourceKind": "path",
+            "format": "wav",
+            "backend": "hound",
+            "requiresExternalTool": false,
+            "requiresFilesystem": true,
+            "serverSupported": true,
+            "wasmSupportedForPath": false,
+            "executed": false,
+            "doesNot": ["read files", "run FFmpeg", "run FFprobe"],
+            "diagnostics": ["Path WAV reads are available through native/server library APIs such as read_wav_as_clip."]
+        }));
+    }
+    let sample_rate = positive_u64(&input, "sampleRate", 48_000)?;
+    let channels = positive_u64(&input, "channels", 1)?;
+    let samples = input
+        .get("samples")
+        .map(sample_array)
+        .transpose()?
+        .ok_or_else(|| "samples are required for inline wavSummary".to_string())?;
+    if !samples.len().is_multiple_of(channels as usize) {
+        return Err("samples length must be divisible by channels".to_string());
+    }
+    if samples.len() > MAX_SAMPLES {
+        return Err(format!(
+            "samples must not contain more than {MAX_SAMPLES} values"
+        ));
+    }
+    let frames = samples.len() / channels as usize;
+    let peak = samples
+        .iter()
+        .map(|sample| sample.abs())
+        .fold(0.0_f32, f32::max);
+    Ok(serde_json::json!({
+        "sourceKind": "inline",
+        "format": "wav",
+        "backend": "hound-compatible",
+        "requiresExternalTool": false,
+        "requiresFilesystem": false,
+        "executed": true,
+        "sampleRate": sample_rate,
+        "channels": channels,
+        "sampleCount": samples.len(),
+        "frames": frames,
+        "durationSeconds": frames as f64 / sample_rate as f64,
+        "peak": peak
+    }))
+}
+
+fn probe_plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let source = string_field(&input, "source", "clip.wav")?;
+    let format = string_field(&input, "format", "")?;
+    let wav_like = source.ends_with(".wav") || format == "wav";
+    Ok(serde_json::json!({
+        "source": source,
+        "formatHint": if format.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(format) },
+        "backend": if wav_like { "hound metadata or ffprobe" } else { "ffprobe" },
+        "requiresExternalTool": !wav_like,
+        "executed": false,
+        "doesNot": ["open media", "read files", "run FFprobe"],
+        "supportedNativeApis": ["probe_audio_input_metadata", "read_wav_as_clip"],
+        "diagnostics": if wav_like {
+            vec!["WAV metadata can be read through the pure hound path in native/server code."]
+        } else {
+            vec!["Non-WAV probing requires FFprobe through the optional FFmpeg-backed helpers."]
+        }
     }))
 }
 
@@ -555,6 +666,8 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"audio.io.inputPlan"));
         assert!(ids.contains(&"audio.io.waveformBatchSummary"));
+        assert!(ids.contains(&"audio.io.wavSummary"));
+        assert!(ids.contains(&"audio.io.probePlan"));
         assert!(ids.contains(&"audio.io.ffmpegFilterPlan"));
         assert!(ids.contains(&"audio.io.splitPlan"));
         assert!(ids.contains(&"audio.io.joinPlan"));
@@ -598,6 +711,39 @@ mod tests {
         })
         .unwrap_err();
         assert!(error.contains("waveforms"));
+    }
+
+    #[test]
+    fn wav_summary_handles_inline_samples_and_path_plans() {
+        let inline = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.io.wavSummary"),
+            input: serde_json::json!({"sampleRate": 4, "channels": 1, "samples": [0.0, 0.5, -0.5, 0.0]}),
+        })
+        .expect("inline wav summary");
+        assert_eq!(inline.value["operation"], "audio.io.wavSummary");
+        assert_eq!(inline.value["executed"], true);
+        assert_eq!(inline.value["durationSeconds"], 1.0);
+        assert_eq!(inline.value["peak"], 0.5);
+
+        let path_plan = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.io.wavSummary"),
+            input: serde_json::json!({"path": "clip.wav"}),
+        })
+        .expect("path wav summary plan");
+        assert_eq!(path_plan.value["executed"], false);
+        assert_eq!(path_plan.value["wasmSupportedForPath"], false);
+    }
+
+    #[test]
+    fn probe_plan_reports_ffprobe_requirement() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.io.probePlan"),
+            input: serde_json::json!({"source": "clip.mp3"}),
+        })
+        .expect("probe plan");
+        assert_eq!(response.value["operation"], "audio.io.probePlan");
+        assert_eq!(response.value["requiresExternalTool"], true);
+        assert_eq!(response.value["executed"], false);
     }
 
     #[test]

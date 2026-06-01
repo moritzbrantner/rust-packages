@@ -8,6 +8,7 @@ pub use math_signal_core::{
     BiquadCoefficients, BiquadDesign, FirKernel1d, FrameStride, InterpolationMode, ResampleRatio,
     ResampleSpec, SampleRate, WindowFunction, WindowSpec,
 };
+use std::collections::{BTreeMap, BTreeSet};
 
 use tensor_data::{F32Tensor, F32TensorView};
 use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result, Timebase, Timestamp};
@@ -83,6 +84,147 @@ pub struct MonoSamples {
     pub sample_rate: u32,
     /// The samples value.
     pub samples: Vec<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// One window of generic audio feature values.
+pub struct AudioFeaturePoint {
+    /// Window start time in seconds.
+    pub start_seconds: f32,
+    /// Window end time in seconds.
+    pub end_seconds: f32,
+    /// Named finite feature values for this window.
+    pub values: BTreeMap<String, f32>,
+}
+
+impl AudioFeaturePoint {
+    /// Creates a validated feature point.
+    pub fn new(
+        start_seconds: f32,
+        end_seconds: f32,
+        values: BTreeMap<String, f32>,
+    ) -> Result<Self> {
+        let point = Self {
+            start_seconds,
+            end_seconds,
+            values,
+        };
+        point.validate()?;
+        Ok(point)
+    }
+
+    /// Validates this feature point.
+    pub fn validate(&self) -> Result<()> {
+        validate_time_range(self.start_seconds, self.end_seconds, "audio feature point")?;
+        validate_feature_values(&self.values)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// A windowed series of generic audio features.
+pub struct AudioFeatureSeries {
+    /// Sample rate in hertz.
+    pub sample_rate: u32,
+    /// Number of source channels represented by the series.
+    pub channels: u16,
+    /// Analysis frame size in samples per channel.
+    pub frame_size: usize,
+    /// Analysis hop size in samples per channel.
+    pub hop_size: usize,
+    /// Feature points ordered by time.
+    pub points: Vec<AudioFeaturePoint>,
+}
+
+impl AudioFeatureSeries {
+    /// Creates a validated feature series.
+    pub fn new(
+        sample_rate: u32,
+        channels: u16,
+        frame_size: usize,
+        hop_size: usize,
+        points: Vec<AudioFeaturePoint>,
+    ) -> Result<Self> {
+        let series = Self {
+            sample_rate,
+            channels,
+            frame_size,
+            hop_size,
+            points,
+        };
+        series.validate()?;
+        Ok(series)
+    }
+
+    /// Validates this feature series.
+    pub fn validate(&self) -> Result<()> {
+        AudioFormatSpec::new(self.sample_rate, self.channels)?.frame_samples(self.frame_size)?;
+        FrameSpec::new(self.frame_size, self.hop_size)?;
+        let mut previous_start = 0.0_f32;
+        for point in &self.points {
+            point.validate()?;
+            if point.start_seconds < previous_start
+                && !nearly_equal(point.start_seconds, previous_start)
+            {
+                return Err(DetectError::InvalidArgument(
+                    "audio feature points must be ordered by start time".to_string(),
+                ));
+            }
+            previous_start = point.start_seconds;
+        }
+        Ok(())
+    }
+
+    /// Returns the covered duration in seconds.
+    pub fn duration_seconds(&self) -> f32 {
+        self.points
+            .last()
+            .map(|point| point.end_seconds)
+            .unwrap_or(0.0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Summary metrics for an audio feature series.
+pub struct AudioFeatureSummary {
+    /// Sample rate in hertz.
+    pub sample_rate: u32,
+    /// Duration covered by the series.
+    pub duration_seconds: f32,
+    /// Number of feature frames.
+    pub frame_count: usize,
+    /// Named finite summary metrics.
+    pub metrics: BTreeMap<String, f32>,
+}
+
+impl AudioFeatureSummary {
+    /// Creates a validated feature summary.
+    pub fn new(
+        sample_rate: u32,
+        duration_seconds: f32,
+        frame_count: usize,
+        metrics: BTreeMap<String, f32>,
+    ) -> Result<Self> {
+        let summary = Self {
+            sample_rate,
+            duration_seconds,
+            frame_count,
+            metrics,
+        };
+        summary.validate()?;
+        Ok(summary)
+    }
+
+    /// Validates this summary.
+    pub fn validate(&self) -> Result<()> {
+        AudioFormatSpec::new(self.sample_rate, 1)?;
+        if !self.duration_seconds.is_finite() || self.duration_seconds < 0.0 {
+            return Err(DetectError::InvalidArgument(
+                "audio feature summary duration_seconds must be finite and non-negative"
+                    .to_string(),
+            ));
+        }
+        validate_feature_values(&self.metrics)
+    }
 }
 
 impl MonoSamples {
@@ -590,6 +732,83 @@ pub fn mean_absolute(samples: &[f32]) -> f32 {
     samples.iter().map(|sample| sample.abs()).sum::<f32>() / samples.len() as f32
 }
 
+/// Returns zero crossing rate for adjacent sample pairs.
+pub fn zero_crossing_rate(samples: &[f32]) -> f32 {
+    if samples.len() < 2 {
+        return 0.0;
+    }
+    let crossings = samples
+        .windows(2)
+        .filter(|pair| pair[0].is_sign_positive() != pair[1].is_sign_positive())
+        .filter(|pair| pair[0] != 0.0 && pair[1] != 0.0)
+        .count();
+    crossings as f32 / (samples.len() - 1) as f32
+}
+
+/// Converts mono samples into a windowed level feature series.
+pub fn windowed_level_series(
+    samples: &[f32],
+    sample_rate: u32,
+    frame_spec: FrameSpec,
+) -> Result<AudioFeatureSeries> {
+    AudioFormatSpec::new(sample_rate, 1)?;
+    FrameSpec::new(frame_spec.frame_size, frame_spec.hop_size)?;
+    validate_samples(samples)?;
+    let mut points = Vec::with_capacity(frame_spec.frame_count(samples.len()));
+    for (start_sample, frame) in frame_spec.frames(samples) {
+        let end_sample = start_sample + frame.len();
+        let mut values = BTreeMap::new();
+        values.insert("rms".to_string(), rms(frame));
+        values.insert("peak".to_string(), peak(frame));
+        values.insert("meanAbsolute".to_string(), mean_absolute(frame));
+        values.insert("zeroCrossingRate".to_string(), zero_crossing_rate(frame));
+        points.push(AudioFeaturePoint::new(
+            start_sample as f32 / sample_rate as f32,
+            end_sample as f32 / sample_rate as f32,
+            values,
+        )?);
+    }
+    AudioFeatureSeries::new(
+        sample_rate,
+        1,
+        frame_spec.frame_size,
+        frame_spec.hop_size,
+        points,
+    )
+}
+
+/// Summarizes a windowed audio feature series.
+pub fn summarize_feature_series(series: &AudioFeatureSeries) -> Result<AudioFeatureSummary> {
+    series.validate()?;
+    let mut names = BTreeSet::new();
+    for point in &series.points {
+        names.extend(point.values.keys().cloned());
+    }
+
+    let mut metrics = BTreeMap::new();
+    for name in names {
+        let values = series
+            .points
+            .iter()
+            .filter_map(|point| point.values.get(&name).copied())
+            .collect::<Vec<_>>();
+        if values.is_empty() {
+            continue;
+        }
+        let mean = values.iter().sum::<f32>() / values.len() as f32;
+        let max = values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        metrics.insert(format!("{name}.mean"), mean);
+        metrics.insert(format!("{name}.max"), max);
+    }
+
+    AudioFeatureSummary::new(
+        series.sample_rate,
+        series.duration_seconds(),
+        series.points.len(),
+        metrics,
+    )
+}
+
 /// Returns zero pad to.
 pub fn zero_pad_to(mut samples: Vec<f32>, target_len: usize) -> Vec<f32> {
     samples.resize(target_len, 0.0);
@@ -633,6 +852,56 @@ pub fn timestamp_to_sample(timestamp: Timestamp, sample_rate: u32) -> Result<u64
 /// Returns sample to timestamp.
 pub fn sample_to_timestamp(sample: u64, sample_rate: u32) -> Timestamp {
     Timestamp::new(sample as i64, Timebase::new(1, sample_rate as i32))
+}
+
+fn validate_time_range(start_seconds: f32, end_seconds: f32, label: &str) -> Result<()> {
+    if !start_seconds.is_finite() || start_seconds < 0.0 {
+        return Err(DetectError::InvalidArgument(format!(
+            "{label} start_seconds must be finite and non-negative"
+        )));
+    }
+    if !end_seconds.is_finite() || end_seconds < 0.0 {
+        return Err(DetectError::InvalidArgument(format!(
+            "{label} end_seconds must be finite and non-negative"
+        )));
+    }
+    if end_seconds < start_seconds {
+        return Err(DetectError::InvalidArgument(format!(
+            "{label} end_seconds must be greater than or equal to start_seconds"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_feature_values(values: &BTreeMap<String, f32>) -> Result<()> {
+    for (name, value) in values {
+        if name.trim().is_empty() {
+            return Err(DetectError::InvalidArgument(
+                "audio feature names must not be empty".to_string(),
+            ));
+        }
+        if !value.is_finite() {
+            return Err(DetectError::InvalidArgument(format!(
+                "audio feature `{name}` must be finite"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_samples(samples: &[f32]) -> Result<()> {
+    for sample in samples {
+        if !sample.is_finite() {
+            return Err(DetectError::InvalidArgument(
+                "audio samples must contain only finite values".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn nearly_equal(left: f32, right: f32) -> bool {
+    (left - right).abs() <= f32::EPSILON * 16.0
 }
 
 #[cfg(test)]
@@ -757,6 +1026,47 @@ mod tests {
         assert_eq!(frames.len(), 2);
         assert_eq!(frames[0], (0, &[0.0, 1.0, 2.0, 3.0][..]));
         assert_eq!(frames[1], (2, &[2.0, 3.0, 4.0, 5.0][..]));
+    }
+
+    #[test]
+    fn feature_contracts_validate_ranges_and_values() {
+        assert!(AudioFeaturePoint::new(1.0, 0.5, BTreeMap::new()).is_err());
+        assert!(AudioFeaturePoint::new(f32::NAN, 1.0, BTreeMap::new()).is_err());
+
+        let mut values = BTreeMap::new();
+        values.insert("rms".to_string(), f32::INFINITY);
+        assert!(AudioFeaturePoint::new(0.0, 1.0, values).is_err());
+
+        let point =
+            AudioFeaturePoint::new(0.0, 0.5, BTreeMap::from([("rms".to_string(), 0.25)])).unwrap();
+        assert!(AudioFeatureSeries::new(0, 1, 128, 64, vec![point.clone()]).is_err());
+        assert!(AudioFeatureSeries::new(48_000, 1, 0, 64, vec![point.clone()]).is_err());
+        assert!(AudioFeatureSummary::new(
+            48_000,
+            f32::NAN,
+            1,
+            BTreeMap::from([("rms.mean".to_string(), 0.25)])
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn windowed_level_series_summarizes_deterministic_metrics() {
+        let series =
+            windowed_level_series(&[0.0, 1.0, -1.0, 0.0], 4, FrameSpec::new(2, 1).unwrap())
+                .unwrap();
+        assert_eq!(series.points.len(), 3);
+        assert_eq!(series.points[0].start_seconds, 0.0);
+        assert_eq!(series.points[0].end_seconds, 0.5);
+        assert_approx_eq(series.points[0].values["rms"], 0.5_f32.sqrt(), 1.0e-6);
+        assert_approx_eq(series.points[1].values["zeroCrossingRate"], 1.0, 1.0e-6);
+
+        let summary = summarize_feature_series(&series).unwrap();
+        assert_eq!(summary.sample_rate, 4);
+        assert_eq!(summary.frame_count, 3);
+        assert_approx_eq(summary.duration_seconds, 1.0, 1.0e-6);
+        assert!(summary.metrics["rms.mean"] > 0.0);
+        assert_eq!(zero_crossing_rate(&[0.0, 1.0, 0.0]), 0.0);
     }
 
     #[test]

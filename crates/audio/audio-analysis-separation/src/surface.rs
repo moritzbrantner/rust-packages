@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `audio-analysis-separation`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use runtime_core::{
     structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
@@ -8,7 +8,8 @@ use runtime_core::{
 };
 
 use crate::{
-    DemucsModel, HtdemucsOptions, HtdemucsSeparator, SeparationOutputFormat, Stem, StemLayout,
+    is_demucs_command_available, DemucsModel, HtdemucsOptions, HtdemucsSeparator,
+    SeparationOutputFormat, Stem, StemLayout,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -42,6 +43,14 @@ pub fn package_surface() -> PackageSurface {
                 "Returns expected separated stem filenames for a model/layout.",
                 serde_json::json!({"model": "htdemucs", "format": "wav"}),
             ),
+            operation_with_support(
+                "audio.separation.runDemucs",
+                "Run Demucs",
+                "Opt-in native/server Demucs execution with setup checks before spawning.",
+                serde_json::json!({"input": "song.wav", "outputDir": "stems", "model": "htdemucs", "format": "wav", "execute": false}),
+                false,
+                true,
+            ),
         ],
     }
 }
@@ -52,6 +61,17 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
+    operation_with_support(id, name, description, example_request, true, true)
+}
+
+fn operation_with_support(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+    wasm_supported: bool,
+    server_supported: bool,
+) -> SurfaceOperation {
     SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
@@ -59,8 +79,8 @@ fn operation(
         input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
         output_schema: serde_json::json!({"type": "object"}),
         example_request,
-        wasm_supported: true,
-        server_supported: true,
+        wasm_supported,
+        server_supported,
     }
 }
 
@@ -72,6 +92,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.separation.models" => models_value(),
         "audio.separation.plan" => plan_value(request.input)?,
         "audio.separation.expectedStems" => expected_stems_value(request.input)?,
+        "audio.separation.runDemucs" => run_demucs_value(request.input)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -116,6 +137,16 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
             serde_json::json!({
                 "model": value.get("model").cloned().unwrap_or(serde_json::Value::Null),
                 "layout": value.get("layout").cloned().unwrap_or(serde_json::Value::Null),
+                "stemCount": value.get("stems").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        "audio.separation.runDemucs" => (
+            "Demucs execution result",
+            "Handled an opt-in Demucs execution request with setup checks before spawning.",
+            serde_json::json!({
+                "model": value.get("model").cloned().unwrap_or(serde_json::Value::Null),
+                "executed": value.get("executed").cloned().unwrap_or(serde_json::Value::Null),
+                "requiresExternalTool": value.get("requiresExternalTool").cloned().unwrap_or(serde_json::Value::Null),
                 "stemCount": value.get("stems").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
             }),
         ),
@@ -164,21 +195,30 @@ fn plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     let separator = separator_from_input(&input)?;
     let output_dir = separator.options.output_dir.clone();
     let output_dir_string = output_dir.to_string_lossy().to_string();
-    let format = output_format(&input);
+    let format = output_format(&input)?;
     let command = separator
         .build_command(PathBuf::from(&input_path))
         .map_err(|error| error.to_string())?;
+    let args = command
+        .args
+        .iter()
+        .map(|arg| arg.to_string_lossy().to_string())
+        .collect::<Vec<_>>();
     let expected_stem_paths = separator
         .expected_stems()
         .iter()
         .map(|stem| format!("{}/{}", output_dir_string, stem.file_name(&format)))
         .collect::<Vec<_>>();
+    let command_preview = command_preview(&command.program, &args);
     Ok(serde_json::json!({
         "input": input_path,
         "outputDir": output_dir_string,
         "model": separator.options.model.as_str(),
-        "program": command.program,
-        "args": command.args.iter().map(|arg| arg.to_string_lossy().to_string()).collect::<Vec<_>>(),
+        "outputLayout": layout_value(&separator.expected_layout()),
+        "program": command.program.clone(),
+        "args": args,
+        "commandPreview": command_preview,
+        "requiresExternalTool": true,
         "executed": false,
         "doesNot": ["read audio", "write stems", "run Demucs"],
         "setup": {
@@ -186,19 +226,25 @@ fn plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
             "exampleCommand": "python -m pip install demucs",
             "expectedExecutable": command.program
         },
+        "setupCommands": ["python -m pip install demucs"],
         "missingToolBehavior": "A native execution path should report a missing Demucs executable before spawning a command; this surface operation only previews the command.",
         "expectedStems": separator.expected_stems().iter().map(Stem::as_str).collect::<Vec<_>>(),
-        "expectedStemPaths": expected_stem_paths
+        "expectedStemPaths": expected_stem_paths,
+        "diagnostics": ["Plan preview only; no audio is read and Demucs is not executed."]
     }))
 }
 
 fn expected_stems_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     let separator = separator_from_input(&input)?;
-    let format = output_format(&input);
+    let format = output_format(&input)?;
     Ok(serde_json::json!({
         "model": separator.options.model.as_str(),
         "layout": layout_name(&separator.expected_layout()),
+        "outputLayout": layout_value(&separator.expected_layout()),
         "format": format.extension(),
+        "requiresExternalTool": false,
+        "setupCommands": ["python -m pip install demucs"],
+        "diagnostics": ["Expected stems are computed from model/layout metadata only."],
         "stems": separator.expected_stems().iter().map(|stem| serde_json::json!({
             "stem": stem.as_str(),
             "fileName": stem.file_name(&format)
@@ -206,11 +252,80 @@ fn expected_stems_value(input: serde_json::Value) -> Result<serde_json::Value, S
     }))
 }
 
+fn run_demucs_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let execute = input
+        .get("execute")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let input_path = string_field(&input, "input", "")?;
+    let separator = separator_from_input(&input)?;
+    let format = output_format(&input)?;
+    let command = separator
+        .build_command(PathBuf::from(&input_path))
+        .map_err(|error| error.to_string())?;
+    let args = command
+        .args
+        .iter()
+        .map(|arg| arg.to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+    if !execute {
+        return Ok(serde_json::json!({
+            "input": input_path,
+            "model": separator.options.model.as_str(),
+            "outputLayout": layout_value(&separator.expected_layout()),
+            "format": format.extension(),
+            "program": command.program.clone(),
+            "args": args,
+            "commandPreview": command_preview(&command.program, &args),
+            "requiresExternalTool": true,
+            "serverSupported": true,
+            "wasmSupported": false,
+            "executed": false,
+            "setupCommands": ["python -m pip install demucs"],
+            "diagnostics": ["Set execute=true in a native/server runtime to run Demucs."]
+        }));
+    }
+    if !is_demucs_command_available(&command.program) {
+        return Err(format!(
+            "Demucs executable `{}` is not available; run `python -m pip install demucs` or pass a valid command",
+            command.program.display()
+        ));
+    }
+    let input_path_buf = PathBuf::from(&input_path);
+    if !input_path_buf.is_file() {
+        return Err(format!(
+            "demucs input `{}` does not exist or is not a file",
+            input_path_buf.display()
+        ));
+    }
+    let result = separator
+        .separate(&input_path_buf)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "input": input_path,
+        "model": result.model.as_str(),
+        "outputDir": result.output_dir,
+        "outputLayout": layout_value(&result.layout),
+        "format": format.extension(),
+        "requiresExternalTool": true,
+        "executed": true,
+        "allOutputsPresent": result.all_outputs_present,
+        "missingStems": result.missing_stems.iter().map(Stem::as_str).collect::<Vec<_>>(),
+        "stems": result.stems.iter().map(|stem| serde_json::json!({
+            "stem": stem.stem.as_str(),
+            "path": stem.path,
+            "exists": stem.exists,
+            "bytes": stem.bytes
+        })).collect::<Vec<_>>(),
+        "diagnostics": ["Demucs completed and expected outputs were inspected."]
+    }))
+}
+
 fn separator_from_input(input: &serde_json::Value) -> Result<HtdemucsSeparator, String> {
     let mut options = HtdemucsOptions::new(string_field(input, "outputDir", "stems")?)
         .command(string_field(input, "command", "demucs")?)
         .model(string_field(input, "model", "htdemucs")?)
-        .output_format(output_format(input));
+        .output_format(output_format(input)?);
     if let Some(primary) = input.get("twoStems").and_then(serde_json::Value::as_str) {
         options = options.two_stems(primary.parse::<Stem>().map_err(|error| error.to_string())?);
     }
@@ -224,12 +339,30 @@ fn separator_from_input(input: &serde_json::Value) -> Result<HtdemucsSeparator, 
     HtdemucsSeparator::new(options).map_err(|error| error.to_string())
 }
 
-fn output_format(input: &serde_json::Value) -> SeparationOutputFormat {
+fn output_format(input: &serde_json::Value) -> Result<SeparationOutputFormat, String> {
     match input.get("format").and_then(serde_json::Value::as_str) {
-        Some("mp3") => SeparationOutputFormat::Mp3,
-        Some("flac") => SeparationOutputFormat::Flac,
-        Some(other) if other != "wav" => SeparationOutputFormat::Custom(other.to_string()),
-        _ => SeparationOutputFormat::Wav,
+        Some("mp3") => Ok(SeparationOutputFormat::Mp3),
+        Some("flac") => Ok(SeparationOutputFormat::Flac),
+        Some("wav") | None => Ok(SeparationOutputFormat::Wav),
+        Some(other) => Err(format!("unsupported separation output format `{other}`")),
+    }
+}
+
+fn command_preview(program: &Path, args: &[String]) -> String {
+    std::iter::once(program.display().to_string())
+        .chain(args.iter().map(|arg| shell_preview_arg(arg)))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn shell_preview_arg(arg: &str) -> String {
+    if arg
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || "-_./:{}".contains(ch))
+    {
+        arg.to_string()
+    } else {
+        format!("'{}'", arg.replace('\'', "'\\''"))
     }
 }
 
@@ -258,6 +391,13 @@ fn layout_name(layout: &StemLayout) -> &'static str {
     }
 }
 
+fn layout_value(layout: &StemLayout) -> serde_json::Value {
+    serde_json::json!({
+        "name": layout_name(layout),
+        "stems": layout.stems().iter().map(Stem::as_str).collect::<Vec<_>>()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -272,6 +412,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"audio.separation.models"));
         assert!(ids.contains(&"audio.separation.plan"));
+        assert!(ids.contains(&"audio.separation.runDemucs"));
     }
 
     #[test]
@@ -303,6 +444,35 @@ mod tests {
             .unwrap()
             .iter()
             .any(|arg| arg == "song.wav"));
+        assert_eq!(response.value["requiresExternalTool"], true);
+        assert!(response.value["commandPreview"]
+            .as_str()
+            .unwrap()
+            .contains("demucs"));
+        assert!(response.value["outputLayout"].is_object());
+    }
+
+    #[test]
+    fn run_demucs_default_is_non_executing_plan() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.separation.runDemucs"),
+            input: serde_json::json!({"input": "song.wav", "execute": false}),
+        })
+        .expect("run plan");
+        assert_eq!(response.value["operation"], "audio.separation.runDemucs");
+        assert_eq!(response.value["executed"], false);
+        assert_eq!(response.value["wasmSupported"], false);
+        assert_eq!(response.value["requiresExternalTool"], true);
+    }
+
+    #[test]
+    fn invalid_output_format_returns_error() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.separation.expectedStems"),
+            input: serde_json::json!({"format": "aac"}),
+        })
+        .unwrap_err();
+        assert!(error.contains("format"));
     }
 
     #[test]

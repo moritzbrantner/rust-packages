@@ -7,13 +7,19 @@ const packageAppConfig: PackageAppConfig = {
   description: "MIDI-like note sequencing, Standard MIDI export, and audio rendering helpers for video-analysis.",
   domain: "audio",
   defaultOperation: "audio.midi.render",
-  featuredOperations: ["audio.midi.render", "audio.midi.encode", "audio.midi.note", "describe"],
+  featuredOperations: [
+    "audio.midi.render",
+    "audio.midi.fromPitchTrack",
+    "audio.midi.encode",
+    "audio.midi.note",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["audio.midi.encode", "audio.midi.render"],
+      operations: ["audio.midi.encode", "audio.midi.render", "audio.midi.fromPitchTrack"],
     },
     {
       id: "debug",

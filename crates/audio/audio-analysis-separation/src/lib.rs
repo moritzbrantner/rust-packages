@@ -890,7 +890,13 @@ impl HtdemucsSeparator {
 /// Returns whether is demucs available.
 pub fn is_demucs_available() -> bool {
     let command = std::env::var_os("DEMUCS_COMMAND").unwrap_or_else(|| OsString::from("demucs"));
-    Command::new(command)
+    is_demucs_command_available(command)
+}
+
+/// Returns whether a Demucs-compatible command can be invoked for setup checks.
+pub fn is_demucs_command_available(command: impl Into<PathBuf>) -> bool {
+    let command = command.into();
+    Command::new(&command)
         .arg("--help")
         .stdin(Stdio::null())
         .stdout(Stdio::null())

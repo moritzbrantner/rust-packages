@@ -7,13 +7,19 @@ const packageAppConfig: PackageAppConfig = {
   description: "Demucs-based audio stem separation command wrapper for video-analysis.",
   domain: "audio",
   defaultOperation: "audio.separation.expectedStems",
-  featuredOperations: ["audio.separation.expectedStems", "audio.separation.plan", "audio.separation.models", "describe"],
+  featuredOperations: [
+    "audio.separation.expectedStems",
+    "audio.separation.runDemucs",
+    "audio.separation.plan",
+    "audio.separation.models",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["audio.separation.expectedStems"],
+      operations: ["audio.separation.expectedStems", "audio.separation.runDemucs"],
     },
     {
       id: "debug",

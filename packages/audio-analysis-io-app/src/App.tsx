@@ -9,7 +9,9 @@ const packageAppConfig: PackageAppConfig = {
   defaultOperation: "audio.io.waveformBatchSummary",
   featuredOperations: [
     "audio.io.waveformBatchSummary",
+    "audio.io.wavSummary",
     "audio.io.inputPlan",
+    "audio.io.probePlan",
     "audio.io.decodePlan",
     "audio.io.ffmpegFilterPlan",
     "describe",
@@ -19,7 +21,7 @@ const packageAppConfig: PackageAppConfig = {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["audio.io.waveformBatchSummary"],
+      operations: ["audio.io.waveformBatchSummary", "audio.io.wavSummary"],
     },
     {
       id: "debug",
@@ -28,6 +30,7 @@ const packageAppConfig: PackageAppConfig = {
       operations: [
         "describe",
         "audio.io.inputPlan",
+        "audio.io.probePlan",
         "audio.io.decodePlan",
         "audio.io.editPlan",
         "audio.io.splitPlan",

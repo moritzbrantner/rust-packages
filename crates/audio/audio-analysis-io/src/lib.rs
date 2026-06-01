@@ -6,7 +6,7 @@ pub use editing::*;
 use std::path::{Path, PathBuf};
 
 use audio_analysis_core::{interleaved_to_mono, AudioClip, ChannelMix, OwnedAudioWaveformBatch};
-use video_analysis_core::{OwnedAudioFrame, Result};
+use video_analysis_core::{OwnedAudioFrame, Result, Timebase, Timestamp};
 /// Re-exports the video analysis FFmpeg API.
 pub use video_analysis_ffmpeg::{
     probe_audio as probe_audio_file, probe_audio_input, AudioMetadata, FfmpegAudioSource,
@@ -191,6 +191,108 @@ pub fn decode_audio_to_clip(
     let (metadata, frames) = decode_audio_to_f32(input, options)?;
     let clip = AudioClip::from_frames(&frames)?;
     Ok((metadata, clip))
+}
+
+/// Reads a WAV file into a whole-buffer interleaved f32 clip without invoking FFmpeg.
+pub fn read_wav_as_clip(path: impl AsRef<Path>) -> Result<AudioClip> {
+    let path = path.as_ref();
+    let mut reader = hound::WavReader::open(path).map_err(|err| {
+        video_analysis_core::DetectError::Source(format!(
+            "failed to open WAV `{}`: {err}",
+            path.display()
+        ))
+    })?;
+    let spec = reader.spec();
+    if spec.sample_rate == 0 {
+        return Err(video_analysis_core::DetectError::InvalidArgument(
+            "WAV sample rate must be positive".to_string(),
+        ));
+    }
+    if spec.channels == 0 {
+        return Err(video_analysis_core::DetectError::InvalidArgument(
+            "WAV channel count must be positive".to_string(),
+        ));
+    }
+    let samples = match spec.sample_format {
+        hound::SampleFormat::Float => {
+            if spec.bits_per_sample != 32 {
+                return Err(video_analysis_core::DetectError::InvalidArgument(format!(
+                    "unsupported float WAV bit depth {}; expected 32",
+                    spec.bits_per_sample
+                )));
+            }
+            reader
+                .samples::<f32>()
+                .map(|sample| {
+                    sample.map_err(|err| {
+                        video_analysis_core::DetectError::Source(format!(
+                            "failed to read WAV sample `{}`: {err}",
+                            path.display()
+                        ))
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?
+        }
+        hound::SampleFormat::Int => read_pcm_wav_samples(&mut reader, spec.bits_per_sample, path)?,
+    };
+    AudioClip::new(spec.sample_rate, spec.channels, samples)
+}
+
+/// Reads a WAV file into a single-item waveform batch without invoking FFmpeg.
+pub fn read_wav_as_waveform_batch(path: impl AsRef<Path>) -> Result<OwnedAudioWaveformBatch> {
+    let clip = read_wav_as_clip(path)?;
+    let frame = clip.to_frame(Timestamp::new(0, Timebase::new(1, clip.sample_rate as i32)))?;
+    OwnedAudioWaveformBatch::from_audio_frames(&[frame])
+}
+
+fn read_pcm_wav_samples(
+    reader: &mut hound::WavReader<std::io::BufReader<std::fs::File>>,
+    bits_per_sample: u16,
+    path: &Path,
+) -> Result<Vec<f32>> {
+    match bits_per_sample {
+        1..=8 => reader
+            .samples::<i8>()
+            .map(|sample| {
+                sample.map(|sample| sample as f32 / 128.0).map_err(|err| {
+                    video_analysis_core::DetectError::Source(format!(
+                        "failed to read WAV sample `{}`: {err}",
+                        path.display()
+                    ))
+                })
+            })
+            .collect(),
+        9..=16 => reader
+            .samples::<i16>()
+            .map(|sample| {
+                sample
+                    .map(|sample| sample as f32 / 32_768.0)
+                    .map_err(|err| {
+                        video_analysis_core::DetectError::Source(format!(
+                            "failed to read WAV sample `{}`: {err}",
+                            path.display()
+                        ))
+                    })
+            })
+            .collect(),
+        17..=32 => {
+            let scale = 2_f32.powi(bits_per_sample as i32 - 1);
+            reader
+                .samples::<i32>()
+                .map(|sample| {
+                    sample.map(|sample| sample as f32 / scale).map_err(|err| {
+                        video_analysis_core::DetectError::Source(format!(
+                            "failed to read WAV sample `{}`: {err}",
+                            path.display()
+                        ))
+                    })
+                })
+                .collect()
+        }
+        _ => Err(video_analysis_core::DetectError::InvalidArgument(format!(
+            "unsupported PCM WAV bit depth {bits_per_sample}; expected 1 through 32"
+        ))),
+    }
 }
 
 /// Writes waveform batch as wav.
@@ -383,6 +485,51 @@ mod tests {
             .unwrap();
         assert_eq!(reader.spec().channels, 2);
         assert_eq!(samples, vec![0.0, 0.5, -0.25, 0.25]);
+    }
+
+    #[test]
+    fn reads_float_wav_as_clip_and_waveform_batch() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("float.wav");
+        let clip = AudioClip::new(8_000, 2, vec![0.0, 0.5, -0.25, 0.25]).unwrap();
+
+        write_clip_as_wav(&path, &clip).unwrap();
+
+        let decoded = read_wav_as_clip(&path).unwrap();
+        assert_eq!(decoded.sample_rate, 8_000);
+        assert_eq!(decoded.channels, 2);
+        assert_eq!(decoded.samples, clip.samples);
+
+        let batch = read_wav_as_waveform_batch(&path).unwrap();
+        let view = batch.as_view().unwrap();
+        assert_eq!(view.batch_size(), 1);
+        assert_eq!(view.channel_count(), 2);
+        assert_eq!(view.time_steps(), 2);
+        assert_eq!(view.waveform(0, 0).unwrap(), &[0.0, -0.25]);
+        assert_eq!(view.waveform(0, 1).unwrap(), &[0.5, 0.25]);
+    }
+
+    #[test]
+    fn reads_pcm_wav_as_normalized_clip() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("pcm.wav");
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 4,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(&path, spec).unwrap();
+        writer.write_sample::<i16>(0).unwrap();
+        writer.write_sample::<i16>(16_384).unwrap();
+        writer.write_sample::<i16>(-16_384).unwrap();
+        writer.finalize().unwrap();
+
+        let decoded = read_wav_as_clip(&path).unwrap();
+
+        assert_eq!(decoded.sample_rate, 4);
+        assert_eq!(decoded.channels, 1);
+        assert_eq!(decoded.samples, vec![0.0, 0.5, -0.5]);
     }
 
     #[test]

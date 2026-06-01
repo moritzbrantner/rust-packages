@@ -17,6 +17,7 @@ name = "audio_analysis_fourier"
 
 [dependencies]
 runtime-core.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 audio-analysis-core.workspace = true
 rustfft.workspace = true

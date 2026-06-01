@@ -9,7 +9,10 @@ pub use effects::*;
 pub use offline::*;
 use std::collections::VecDeque;
 
-use audio_analysis_core::{interleaved_to_mono, normalized_samples, ChannelMix};
+use audio_analysis_core::{
+    interleaved_to_mono, normalized_samples, peak, rms, windowed_level_series, AudioFeatureSeries,
+    ChannelMix, FrameSpec,
+};
 use math_signal_core::{BiquadCoefficients as DesignedBiquadCoefficients, SampleRate};
 use video_analysis_core::{
     AnalysisEvent, AudioAnalyzer, AudioBuffer, AudioFrame, DetectError, OwnedAudioFrame, Result,
@@ -119,6 +122,149 @@ impl AudioProcessor {
     pub fn output_channels(&self) -> Option<u16> {
         self.output_channels
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Options for deterministic loudness-oriented metrics.
+pub struct LoudnessOptions {
+    /// Analysis frame size in samples.
+    pub frame_size: usize,
+    /// Analysis hop size in samples.
+    pub hop_size: usize,
+    /// Optional gate threshold in dBFS for approximate loudness aggregation.
+    pub gate_threshold_db: Option<f32>,
+}
+
+impl LoudnessOptions {
+    /// Creates a validated loudness options value.
+    pub fn new(frame_size: usize, hop_size: usize) -> Result<Self> {
+        let options = Self {
+            frame_size,
+            hop_size,
+            gate_threshold_db: None,
+        };
+        options.validate()?;
+        Ok(options)
+    }
+
+    /// Sets the optional gate threshold.
+    pub fn gate_threshold_db(mut self, threshold_db: Option<f32>) -> Result<Self> {
+        self.gate_threshold_db = threshold_db;
+        self.validate()?;
+        Ok(self)
+    }
+
+    /// Validates this value.
+    pub fn validate(&self) -> Result<()> {
+        FrameSpec::new(self.frame_size, self.hop_size)?;
+        if let Some(threshold) = self.gate_threshold_db {
+            if !threshold.is_finite() {
+                return Err(DetectError::InvalidArgument(
+                    "gate_threshold_db must be finite".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Default for LoudnessOptions {
+    fn default() -> Self {
+        Self {
+            frame_size: 1024,
+            hop_size: 512,
+            gate_threshold_db: Some(-70.0),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Deterministic loudness report.
+pub struct LoudnessReport {
+    /// Peak level in dBFS, floored for silence.
+    pub peak_dbfs: f32,
+    /// RMS level in dBFS, floored for silence.
+    pub rms_dbfs: f32,
+    /// Peak-to-RMS difference in decibels.
+    pub crest_factor_db: f32,
+    /// Approximate LUFS-style integrated value.
+    pub approximate_lufs: f32,
+    /// Windowed level series used to derive the report.
+    pub frame_series: AudioFeatureSeries,
+}
+
+/// Computes deterministic loudness-oriented metrics for mono normalized samples.
+pub fn analyze_loudness(
+    samples: &[f32],
+    sample_rate: u32,
+    options: LoudnessOptions,
+) -> Result<LoudnessReport> {
+    options.validate()?;
+    for sample in samples {
+        if !sample.is_finite() {
+            return Err(DetectError::InvalidArgument(
+                "loudness samples must contain only finite values".to_string(),
+            ));
+        }
+    }
+    let frame_series = windowed_level_series(
+        samples,
+        sample_rate,
+        FrameSpec::new(options.frame_size, options.hop_size)?,
+    )?;
+    let peak_dbfs = amplitude_to_dbfs(peak(samples));
+    let rms_dbfs = amplitude_to_dbfs(rms(samples));
+    let crest_factor_db = (peak_dbfs - rms_dbfs).max(0.0);
+    let approximate_lufs = approximate_lufs(samples, &frame_series, options.gate_threshold_db)?;
+    Ok(LoudnessReport {
+        peak_dbfs,
+        rms_dbfs,
+        crest_factor_db,
+        approximate_lufs,
+        frame_series,
+    })
+}
+
+fn approximate_lufs(
+    samples: &[f32],
+    frame_series: &AudioFeatureSeries,
+    gate_threshold_db: Option<f32>,
+) -> Result<f32> {
+    let threshold = gate_threshold_db.unwrap_or(f32::NEG_INFINITY);
+    let mut gated_square_sum = 0.0_f32;
+    let mut gated_count = 0_usize;
+    for point in &frame_series.points {
+        let frame_rms_db = point
+            .values
+            .get("rms")
+            .copied()
+            .map(amplitude_to_dbfs)
+            .unwrap_or(DBFS_FLOOR);
+        if frame_rms_db >= threshold {
+            let start = (point.start_seconds * frame_series.sample_rate as f32).round() as usize;
+            let end = (point.end_seconds * frame_series.sample_rate as f32).round() as usize;
+            for sample in &samples[start.min(samples.len())..end.min(samples.len())] {
+                gated_square_sum += sample * sample;
+                gated_count += 1;
+            }
+        }
+    }
+    let gated_rms = if gated_count == 0 {
+        0.0
+    } else {
+        (gated_square_sum / gated_count as f32).sqrt()
+    };
+    let dbfs = amplitude_to_dbfs(gated_rms);
+    Ok((dbfs - 0.691).max(DBFS_FLOOR))
+}
+
+const DBFS_FLOOR: f32 = -120.0;
+
+fn amplitude_to_dbfs(amplitude: f32) -> f32 {
+    if !amplitude.is_finite() || amplitude <= 0.0 {
+        return DBFS_FLOOR;
+    }
+    (20.0 * amplitude.log10()).max(DBFS_FLOOR)
 }
 
 /// Data type for processed audio source.
@@ -944,6 +1090,46 @@ mod tests {
         assert!(repeated.is_empty());
         assert_eq!(active[0].label, "audio:active");
         assert_eq!(loud[0].label, "audio:loud");
+    }
+
+    #[test]
+    fn loudness_report_handles_silence_and_sine() {
+        let silence = analyze_loudness(
+            &[0.0; 1024],
+            48_000,
+            LoudnessOptions::new(256, 128).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(silence.peak_dbfs, DBFS_FLOOR);
+        assert_eq!(silence.rms_dbfs, DBFS_FLOOR);
+        assert_eq!(silence.approximate_lufs, DBFS_FLOOR);
+        assert!(silence.frame_series.points.len() > 1);
+
+        let sine = sine(1_000.0, 48_000, 4096);
+        let report = analyze_loudness(
+            &sine,
+            48_000,
+            LoudnessOptions::new(1024, 512)
+                .unwrap()
+                .gate_threshold_db(Some(-80.0))
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(report.peak_dbfs <= 0.0);
+        assert!(report.rms_dbfs < report.peak_dbfs);
+        assert!(report.crest_factor_db > 0.0);
+        assert!(report.approximate_lufs.is_finite());
+    }
+
+    #[test]
+    fn loudness_options_reject_invalid_values() {
+        assert!(LoudnessOptions::new(0, 1).is_err());
+        assert!(LoudnessOptions::new(256, 0).is_err());
+        assert!(LoudnessOptions::new(256, 128)
+            .unwrap()
+            .gate_threshold_db(Some(f32::NAN))
+            .is_err());
+        assert!(analyze_loudness(&[f32::INFINITY], 48_000, LoudnessOptions::default()).is_err());
     }
 
     #[test]

@@ -7,7 +7,7 @@ use runtime_core::{
 };
 
 use crate::{
-    frequency_to_midi_note, frequency_to_note_name, segment_pitch_track,
+    frequency_to_midi_note, frequency_to_note_name, pitch_class_summary, segment_pitch_track,
     AutocorrelationPitchDetector, PitchDetectorConfig, PitchFrameEstimate,
 };
 
@@ -44,6 +44,12 @@ pub fn package_surface() -> PackageSurface {
                 "Inspects the MIDI note and scientific note name for a frequency in hertz.",
                 serde_json::json!({"frequencyHz": 440.0}),
             ),
+            operation(
+                "audio.pitch.chroma",
+                "Chroma",
+                "Summarizes normalized samples into a 12-bin pitch-class chroma vector.",
+                serde_json::json!({"samples": [0.0, 1.0, 0.0, -1.0], "sampleRate": 48000}),
+            ),
         ],
     }
 }
@@ -74,6 +80,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.pitch.estimate" => estimate_value(request.input)?,
         "audio.pitch.track" => track_value(request.input)?,
         "audio.pitch.noteName" => note_name_value(request.input)?,
+        "audio.pitch.chroma" => chroma_value(request.input)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -119,6 +126,15 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
                 "frequencyHz": value.get("frequencyHz").cloned().unwrap_or(serde_json::Value::Null),
                 "midiNote": value.get("midiNote").cloned().unwrap_or(serde_json::Value::Null),
                 "noteName": value.get("noteName").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.pitch.chroma" => (
+            "Pitch chroma result",
+            "Summarized normalized samples into a 12-bin pitch-class chroma vector.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "strongestPitchClass": value.get("strongestPitchClass").cloned().unwrap_or(serde_json::Value::Null)
             }),
         ),
         _ => (
@@ -222,6 +238,19 @@ fn note_name_value(input: serde_json::Value) -> Result<serde_json::Value, String
     }))
 }
 
+fn chroma_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let samples = sample_array(&input, "samples")?;
+    let sample_rate = sample_rate(&input)?;
+    let summary = pitch_class_summary(&samples, sample_rate).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "sampleRate": sample_rate,
+        "sampleCount": samples.len(),
+        "chroma": summary.chroma.bins,
+        "pitchClasses": ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
+        "strongestPitchClass": summary.strongest_pitch_class.map(|note| note.as_str())
+    }))
+}
+
 fn config_from_input(input: &serde_json::Value) -> Result<PitchDetectorConfig, String> {
     let mut config = PitchDetectorConfig::default();
     if let Some(value) = input
@@ -315,6 +344,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"audio.pitch.estimate"));
         assert!(ids.contains(&"audio.pitch.noteName"));
+        assert!(ids.contains(&"audio.pitch.chroma"));
     }
 
     #[test]
@@ -329,6 +359,24 @@ mod tests {
         assert!(response.value["summary"].is_object());
         assert!(response.value["result"].is_object());
         assert_eq!(response.value["noteName"], "A4");
+    }
+
+    #[test]
+    fn chroma_operation_returns_a_pitch_class() {
+        let samples = (0..1024)
+            .map(|index| {
+                let t = index as f32 / 8_192.0;
+                (2.0 * std::f32::consts::PI * 440.0 * t).sin()
+            })
+            .collect::<Vec<_>>();
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.pitch.chroma"),
+            input: serde_json::json!({"samples": samples, "sampleRate": 8192}),
+        })
+        .expect("chroma");
+        assert_eq!(response.value["operation"], "audio.pitch.chroma");
+        assert_eq!(response.value["strongestPitchClass"], "A");
+        assert_eq!(response.value["chroma"].as_array().unwrap().len(), 12);
     }
 
     #[test]

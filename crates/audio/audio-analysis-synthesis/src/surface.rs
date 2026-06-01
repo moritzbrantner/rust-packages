@@ -7,8 +7,8 @@ use runtime_core::{
 use video_analysis_core::{AnalysisEvent, AudioBuffer, Timebase, Timestamp};
 
 use crate::{
-    event_to_tone_segment, synthesize_timeline, synthesize_tone, AudioSynthesisConfig,
-    ClippingPolicy, ToneSegment, ToneSpec, Waveform,
+    event_to_tone_segment, synthesize_click_track, synthesize_timeline, synthesize_tone,
+    AudioSynthesisConfig, ClippingPolicy, ToneSegment, ToneSpec, Waveform,
 };
 
 const DEFAULT_PREVIEW_SAMPLES: usize = 1024;
@@ -44,6 +44,12 @@ pub fn package_surface() -> PackageSurface {
                 "Converts pitch/onset event labels into tone segments and synthesizes them.",
                 serde_json::json!({"events": [{"label": "audio:pitch:440.00hz", "score": 0.8, "timestampSeconds": 0.0}], "defaultDurationSeconds": 0.1}),
             ),
+            operation(
+                "audio.synthesis.clickTrack",
+                "Synthesize click track",
+                "Generates a deterministic in-memory click track from BPM or explicit beat positions.",
+                serde_json::json!({"bpm": 120.0, "durationSeconds": 1.0, "sampleRate": 1000, "clickFrequencyHz": 1800.0, "amplitude": 0.8}),
+            ),
         ],
     }
 }
@@ -74,6 +80,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.synthesis.tone" => tone_value(request.input)?,
         "audio.synthesis.timeline" => timeline_value(request.input)?,
         "audio.synthesis.fromEvents" => from_events_value(request.input)?,
+        "audio.synthesis.clickTrack" => click_track_value(request.input)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -120,6 +127,16 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
                 "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
                 "eventCount": value.get("eventCount").cloned().unwrap_or(serde_json::Value::Null),
                 "segmentCount": value.get("segmentCount").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.synthesis.clickTrack" => (
+            "Synthesized click track result",
+            "Generated a deterministic in-memory click track from BPM or explicit beat positions.",
+            serde_json::json!({
+                "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleCount": value.get("sampleCount").cloned().unwrap_or(serde_json::Value::Null),
+                "beatCount": value.get("beatCount").cloned().unwrap_or(serde_json::Value::Null),
+                "durationSeconds": value.get("durationSeconds").cloned().unwrap_or(serde_json::Value::Null)
             }),
         ),
         _ => (
@@ -181,6 +198,63 @@ fn from_events_value(input: serde_json::Value) -> Result<serde_json::Value, Stri
     let generated = synthesize_timeline(&segments, config_from_input(&input)?)
         .map_err(|error| error.to_string())?;
     frame_value(generated.value, segments.len())
+}
+
+fn click_track_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let duration_seconds = finite_f32(&input, "durationSeconds", 1.0)?;
+    let beats = beat_seconds_from_input(&input, duration_seconds)?;
+    let click_frequency_hz = finite_f32(&input, "clickFrequencyHz", 1_800.0)?;
+    let click_duration_seconds = finite_f32(&input, "clickDurationSeconds", 0.02)?;
+    let amplitude = finite_f32(&input, "amplitude", 0.8)?;
+    let config = config_from_input(&input)?;
+    let generated = synthesize_click_track(
+        &beats,
+        duration_seconds,
+        click_frequency_hz,
+        click_duration_seconds,
+        amplitude,
+        config,
+    )
+    .map_err(|error| error.to_string())?;
+    let mut value = frame_value(generated.value, beats.len())?;
+    value["beatCount"] = serde_json::json!(beats.len());
+    value["beatSeconds"] = serde_json::json!(beats);
+    value["clickFrequencyHz"] = serde_json::json!(click_frequency_hz);
+    Ok(value)
+}
+
+fn beat_seconds_from_input(
+    input: &serde_json::Value,
+    duration_seconds: f32,
+) -> Result<Vec<f32>, String> {
+    if let Some(beat_grid) = input.get("beatGrid").and_then(serde_json::Value::as_array) {
+        return beat_grid
+            .iter()
+            .map(|value| {
+                let beat = value
+                    .as_f64()
+                    .ok_or_else(|| "beatGrid values must be numbers".to_string())?
+                    as f32;
+                if beat.is_finite() && beat >= 0.0 {
+                    Ok(beat)
+                } else {
+                    Err("beatGrid values must be finite and non-negative".to_string())
+                }
+            })
+            .collect();
+    }
+    let bpm = finite_f32(input, "bpm", 120.0)?;
+    if bpm <= 0.0 {
+        return Err("bpm must be greater than zero".to_string());
+    }
+    let step = 60.0 / bpm;
+    let mut beats = Vec::new();
+    let mut current = 0.0;
+    while current < duration_seconds {
+        beats.push(current);
+        current += step;
+    }
+    Ok(beats)
 }
 
 fn frame_value(
@@ -306,6 +380,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"audio.synthesis.tone"));
         assert!(ids.contains(&"audio.synthesis.timeline"));
+        assert!(ids.contains(&"audio.synthesis.clickTrack"));
     }
 
     #[test]
@@ -345,5 +420,20 @@ mod tests {
         })
         .unwrap_err();
         assert!(error.contains("frequency"));
+    }
+
+    #[test]
+    fn click_track_operation_places_beats() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.synthesis.clickTrack"),
+            input: serde_json::json!({"beatGrid": [0.0, 0.5], "durationSeconds": 1.0, "sampleRate": 1000}),
+        })
+        .expect("click track");
+        assert_eq!(response.value["operation"], "audio.synthesis.clickTrack");
+        assert_eq!(response.value["sampleCount"], 1000);
+        assert_eq!(response.value["beatCount"], 2);
+        let preview = response.value["samplePreview"].as_array().unwrap();
+        assert!(preview[0].as_f64().unwrap() > 0.0);
+        assert!(preview[500].as_f64().unwrap() > 0.0);
     }
 }

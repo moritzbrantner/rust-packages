@@ -7,13 +7,19 @@ const packageAppConfig: PackageAppConfig = {
   description: "Autocorrelation pitch detection for video-analysis audio pipelines.",
   domain: "audio",
   defaultOperation: "audio.pitch.estimate",
-  featuredOperations: ["audio.pitch.estimate", "audio.pitch.track", "audio.pitch.noteName", "describe"],
+  featuredOperations: [
+    "audio.pitch.estimate",
+    "audio.pitch.track",
+    "audio.pitch.chroma",
+    "audio.pitch.noteName",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["audio.pitch.estimate", "audio.pitch.track"],
+      operations: ["audio.pitch.estimate", "audio.pitch.track", "audio.pitch.chroma"],
     },
     {
       id: "debug",

@@ -62,6 +62,77 @@ pub struct SpectralFeatures {
     pub dominant_frequency_hz: Option<f32>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Options for windowed spectral feature extraction.
+pub struct SpectralFeatureOptions {
+    /// FFT size in samples.
+    pub fft_size: usize,
+    /// Hop size in samples.
+    pub hop_size: usize,
+    /// Sample rate in hertz.
+    pub sample_rate: u32,
+    /// Optional number of mel-style bands to summarize.
+    pub mel_band_count: Option<usize>,
+}
+
+impl SpectralFeatureOptions {
+    /// Creates a validated spectral feature options value.
+    pub fn new(fft_size: usize, hop_size: usize, sample_rate: u32) -> Result<Self> {
+        let options = Self {
+            fft_size,
+            hop_size,
+            sample_rate,
+            mel_band_count: None,
+        };
+        options.validate()?;
+        Ok(options)
+    }
+
+    /// Sets mel-style band count.
+    pub fn mel_band_count(mut self, band_count: Option<usize>) -> Result<Self> {
+        self.mel_band_count = band_count;
+        self.validate()?;
+        Ok(self)
+    }
+
+    /// Validates this value.
+    pub fn validate(&self) -> Result<()> {
+        FourierTransform::new(self.fft_size)?;
+        FrameSpec::new(self.fft_size, self.hop_size)?;
+        if self.sample_rate == 0 {
+            return Err(DetectError::InvalidAudioFormat {
+                sample_rate: self.sample_rate,
+                channels: 1,
+            });
+        }
+        if self.mel_band_count == Some(0) {
+            return Err(DetectError::InvalidArgument(
+                "mel_band_count must be greater than zero".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// One window of spectral features.
+pub struct SpectralFeatureFrame {
+    /// Frame start time in seconds.
+    pub start_seconds: f32,
+    /// Spectral centroid in hertz.
+    pub centroid_hz: f32,
+    /// Spectral bandwidth in hertz.
+    pub bandwidth_hz: f32,
+    /// Spectral rolloff in hertz.
+    pub rolloff_hz: f32,
+    /// Spectral flatness ratio.
+    pub flatness: f32,
+    /// Sum of bin power values.
+    pub energy: f32,
+    /// Optional mel-style band energies.
+    pub mel_bands: Vec<f32>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for fourier transform.
 pub struct FourierTransform {
@@ -301,6 +372,55 @@ pub fn spectral_features(spectrum: &Spectrum) -> SpectralFeatures {
     }
 }
 
+/// Extracts windowed spectral feature frames.
+pub fn spectral_feature_frames(
+    samples: &[f32],
+    options: SpectralFeatureOptions,
+) -> Result<Vec<SpectralFeatureFrame>> {
+    options.validate()?;
+    let config = StftConfig::new(options.fft_size, options.hop_size)?;
+    let frames = spectrogram(samples, options.sample_rate, &config)?;
+    Ok(frames
+        .iter()
+        .map(|frame| {
+            let features = frame.spectrum.features();
+            SpectralFeatureFrame {
+                start_seconds: frame.start_seconds as f32,
+                centroid_hz: features.centroid_hz,
+                bandwidth_hz: features.bandwidth_hz,
+                rolloff_hz: features.rolloff_hz,
+                flatness: features.flatness,
+                energy: frame.spectrum.bins.iter().map(|bin| bin.power).sum(),
+                mel_bands: options
+                    .mel_band_count
+                    .map(|count| mel_style_bands(&frame.spectrum, count))
+                    .unwrap_or_default(),
+            }
+        })
+        .collect())
+}
+
+fn mel_style_bands(spectrum: &Spectrum, band_count: usize) -> Vec<f32> {
+    if band_count == 0 {
+        return Vec::new();
+    }
+    let mut bands = vec![0.0_f32; band_count];
+    let max_hz = spectrum.sample_rate as f32 / 2.0;
+    if max_hz <= 0.0 {
+        return bands;
+    }
+    for bin in spectrum.bins.iter().skip(1) {
+        let normalized = (hz_to_mel(bin.frequency_hz) / hz_to_mel(max_hz)).clamp(0.0, 1.0);
+        let index = ((normalized * band_count as f32).floor() as usize).min(band_count - 1);
+        bands[index] += bin.power;
+    }
+    bands
+}
+
+fn hz_to_mel(hz: f32) -> f32 {
+    2595.0 * (1.0 + hz.max(0.0) / 700.0).log10()
+}
+
 fn rolloff_hz(spectrum: &Spectrum, total_power: f32, threshold: f32) -> f32 {
     let target = total_power * threshold;
     let mut accumulated = 0.0;
@@ -526,6 +646,23 @@ mod tests {
             .unwrap()
             .features();
         assert!(noise.flatness > tone.flatness);
+    }
+
+    #[test]
+    fn spectral_feature_frames_include_mel_bands() {
+        let options = SpectralFeatureOptions::new(512, 256, 8_192)
+            .unwrap()
+            .mel_band_count(Some(6))
+            .unwrap();
+        let frames = spectral_feature_frames(&sine_len(440.0, 8_192, 1024), options).unwrap();
+        assert_eq!(frames.len(), 3);
+        assert_eq!(frames[0].mel_bands.len(), 6);
+        assert!(frames.iter().all(|frame| frame.energy.is_finite()));
+        assert!(SpectralFeatureOptions::new(512, 0, 8_192).is_err());
+        assert!(SpectralFeatureOptions::new(512, 256, 8_192)
+            .unwrap()
+            .mel_band_count(Some(0))
+            .is_err());
     }
 
     #[test]

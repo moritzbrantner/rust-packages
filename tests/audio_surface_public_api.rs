@@ -33,6 +33,23 @@ fn audio_surfaces_expose_cross_crate_deterministic_flow() {
     .expect("synthesis");
     assert!(synthesis.value["sampleCount"].as_u64().unwrap() > 0);
 
+    let levels = va::audio_core::surface::run_surface_operation(SurfaceRequest {
+        operation: OperationId::new("audio.levels"),
+        input: serde_json::json!({"samples": [0.0, 1.0, -1.0, 0.0], "sampleRate": 8000, "channels": 1, "frameSize": 2, "hopSize": 1}),
+    })
+    .expect("levels");
+    assert_eq!(levels.value["featureSummary"]["frame_count"], 3);
+
+    let loudness = va::audio_processing::surface::run_surface_operation(SurfaceRequest {
+        operation: OperationId::new("audio.processing.loudness"),
+        input: serde_json::json!({"samples": [0.0, 1.0, -1.0, 0.0], "sampleRate": 8000, "channels": 1, "frameSize": 2, "hopSize": 1}),
+    })
+    .expect("loudness");
+    assert!(loudness.value["approximateLufs"]
+        .as_f64()
+        .unwrap()
+        .is_finite());
+
     let midi = va::audio_midi::surface::run_surface_operation(SurfaceRequest {
         operation: OperationId::new("audio.midi.render"),
         input: serde_json::json!({

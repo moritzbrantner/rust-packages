@@ -1,7 +1,8 @@
 # audio-analysis-processing
 
-Realtime-safe audio transforms, named effect presets, and deterministic
-whole-clip offline edits for `moritzbrantner-video-analysis`.
+Realtime-safe audio transforms, named effect presets, deterministic whole-clip
+offline edits, and loudness-oriented metrics for
+`moritzbrantner-video-analysis`.
 
 ## Feature flags
 
@@ -53,6 +54,10 @@ let _ = realtime;
   and stereo width.
 - `OfflineAudioProcessor` handles duration/order-changing operations on
   `AudioClip`: trim, reverse, fade, normalize, resample, speed, and pitch shift.
+- `analyze_loudness` returns peak dBFS, RMS dBFS, crest factor, an approximate
+  LUFS-style value, and the shared `AudioFeatureSeries` frame data used to
+  derive the report. The LUFS value is a lightweight RMS-gated approximation,
+  not an EBU R128 compliance result.
 - Pure Rust pitch/time operations are deterministic baseline implementations;
   FFmpeg-backed file output should be preferred when production pitch/time
   quality is required.

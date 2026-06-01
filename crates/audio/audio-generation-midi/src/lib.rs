@@ -98,6 +98,119 @@ impl MidiNote {
     pub fn frequency_hz(self) -> f32 {
         440.0 * 2.0_f32.powf((self.0 as f32 - 69.0) / 12.0)
     }
+
+    /// Creates the nearest MIDI note for an equal-tempered frequency in hertz.
+    pub fn from_frequency_hz(frequency_hz: f32) -> Result<Self> {
+        if !frequency_hz.is_finite() || frequency_hz <= 0.0 {
+            return Err(invalid_argument(
+                "frequency_hz must be finite and greater than zero",
+            ));
+        }
+        let value = (69.0 + 12.0 * (frequency_hz / 440.0).log2()).round();
+        if !(0.0..=127.0).contains(&value) {
+            return Err(invalid_argument(
+                "frequency_hz resolves outside the MIDI note range",
+            ));
+        }
+        Self::new(value as u8)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// One pitch-track frame that can be quantized into MIDI-like note events.
+pub struct PitchTrackFrame {
+    /// Start time in seconds.
+    pub start_seconds: f32,
+    /// End time in seconds.
+    pub end_seconds: f32,
+    /// Estimated frequency in hertz.
+    pub frequency_hz: f32,
+    /// Confidence in the inclusive range `0.0..=1.0`.
+    pub confidence: f32,
+}
+
+impl PitchTrackFrame {
+    /// Validates this value.
+    pub fn validate(self) -> Result<()> {
+        if !self.start_seconds.is_finite()
+            || !self.end_seconds.is_finite()
+            || self.start_seconds < 0.0
+            || self.end_seconds <= self.start_seconds
+        {
+            return Err(invalid_argument(
+                "pitch frame start/end seconds must be finite, non-negative, and ordered",
+            ));
+        }
+        MidiNote::from_frequency_hz(self.frequency_hz)?;
+        if !self.confidence.is_finite() || !(0.0..=1.0).contains(&self.confidence) {
+            return Err(invalid_argument(
+                "pitch frame confidence must be finite and between 0.0 and 1.0",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Options for converting pitch-track frames into MIDI-like notes.
+pub struct PitchTrackMidiOptions {
+    /// Tempo used to convert seconds into quarter-note beats.
+    pub tempo_bpm: f32,
+    /// Optional quantization grid in quarter-note beats.
+    pub quantization_beats: Option<f32>,
+    /// Minimum note duration in seconds.
+    pub min_note_duration_seconds: f32,
+    /// Fixed MIDI velocity.
+    pub velocity: u8,
+}
+
+impl Default for PitchTrackMidiOptions {
+    fn default() -> Self {
+        Self {
+            tempo_bpm: 120.0,
+            quantization_beats: None,
+            min_note_duration_seconds: 0.05,
+            velocity: DEFAULT_VELOCITY,
+        }
+    }
+}
+
+impl PitchTrackMidiOptions {
+    /// Validates this value.
+    pub fn validate(self) -> Result<()> {
+        if !self.tempo_bpm.is_finite() || self.tempo_bpm <= 0.0 {
+            return Err(invalid_argument(
+                "tempo_bpm must be finite and greater than zero",
+            ));
+        }
+        if let Some(grid) = self.quantization_beats {
+            if !grid.is_finite() || grid <= 0.0 {
+                return Err(invalid_argument(
+                    "quantization_beats must be finite and greater than zero",
+                ));
+            }
+        }
+        if !self.min_note_duration_seconds.is_finite() || self.min_note_duration_seconds < 0.0 {
+            return Err(invalid_argument(
+                "min_note_duration_seconds must be finite and non-negative",
+            ));
+        }
+        if self.velocity > 127 {
+            return Err(invalid_argument(
+                "MIDI velocity must be in the range 0..=127",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Result of converting pitch-track frames into MIDI-like notes.
+pub struct PitchTrackMidiResult {
+    /// Merged note events.
+    pub notes: Vec<MidiNoteEvent>,
+    /// Diagnostics for dropped or merged frames.
+    pub diagnostics: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -368,6 +481,88 @@ impl MidiSong {
     }
 }
 
+/// Converts pitch-track frames into merged MIDI-like note events.
+pub fn pitch_track_to_midi_notes(
+    frames: &[PitchTrackFrame],
+    options: PitchTrackMidiOptions,
+) -> Result<PitchTrackMidiResult> {
+    options.validate()?;
+    let mut diagnostics = Vec::new();
+    let mut notes = Vec::new();
+    let mut current: Option<(MidiNote, f32, f32)> = None;
+    let mut previous_start = None;
+
+    for frame in frames {
+        frame.validate()?;
+        if let Some(previous) = previous_start {
+            if frame.start_seconds < previous {
+                return Err(invalid_argument(
+                    "pitch frames must be ordered by start_seconds",
+                ));
+            }
+        }
+        previous_start = Some(frame.start_seconds);
+        let note = MidiNote::from_frequency_hz(frame.frequency_hz)?;
+        match &mut current {
+            Some((current_note, _start, end))
+                if *current_note == note && frame.start_seconds <= *end + 1.0e-4 =>
+            {
+                *end = (*end).max(frame.end_seconds);
+                diagnostics.push(format!(
+                    "merged pitch frame {:.3}-{:.3}s into MIDI note {}",
+                    frame.start_seconds,
+                    frame.end_seconds,
+                    note.value()
+                ));
+            }
+            Some((current_note, start, end)) => {
+                push_pitch_note(
+                    &mut notes,
+                    &mut diagnostics,
+                    *current_note,
+                    *start,
+                    *end,
+                    options,
+                )?;
+                current = Some((note, frame.start_seconds, frame.end_seconds));
+            }
+            None => current = Some((note, frame.start_seconds, frame.end_seconds)),
+        }
+    }
+
+    if let Some((note, start, end)) = current {
+        push_pitch_note(&mut notes, &mut diagnostics, note, start, end, options)?;
+    }
+    Ok(PitchTrackMidiResult { notes, diagnostics })
+}
+
+fn push_pitch_note(
+    notes: &mut Vec<MidiNoteEvent>,
+    diagnostics: &mut Vec<String>,
+    note: MidiNote,
+    start_seconds: f32,
+    end_seconds: f32,
+    options: PitchTrackMidiOptions,
+) -> Result<()> {
+    let duration_seconds = end_seconds - start_seconds;
+    if duration_seconds < options.min_note_duration_seconds {
+        diagnostics.push(format!(
+            "dropped MIDI note {} shorter than {:.3}s",
+            note.value(),
+            options.min_note_duration_seconds
+        ));
+        return Ok(());
+    }
+    let mut start_beats = start_seconds * options.tempo_bpm / 60.0;
+    let mut duration_beats = duration_seconds * options.tempo_bpm / 60.0;
+    if let Some(grid) = options.quantization_beats {
+        start_beats = (start_beats / grid).round() * grid;
+        duration_beats = ((duration_beats / grid).round() * grid).max(grid);
+    }
+    notes.push(MidiNoteEvent::new(note, start_beats, duration_beats)?.velocity(options.velocity)?);
+    Ok(())
+}
+
 fn tempo_track_bytes(tempo_bpm: f32) -> Result<Vec<u8>> {
     let micros_per_quarter = (60_000_000.0 / tempo_bpm).round();
     if !micros_per_quarter.is_finite() || !(1.0..=16_777_215.0).contains(&micros_per_quarter) {
@@ -543,6 +738,56 @@ mod tests {
             panic!("expected f32 samples");
         };
         assert!(samples.iter().any(|sample| *sample != 0.0));
+    }
+
+    #[test]
+    fn converts_pitch_track_to_single_a4_note() {
+        let result = pitch_track_to_midi_notes(
+            &[
+                PitchTrackFrame {
+                    start_seconds: 0.0,
+                    end_seconds: 0.5,
+                    frequency_hz: 440.0,
+                    confidence: 0.9,
+                },
+                PitchTrackFrame {
+                    start_seconds: 0.5,
+                    end_seconds: 1.0,
+                    frequency_hz: 440.0,
+                    confidence: 0.9,
+                },
+            ],
+            PitchTrackMidiOptions::default(),
+        )
+        .unwrap();
+
+        assert_eq!(result.notes.len(), 1);
+        assert_eq!(result.notes[0].note.value(), 69);
+        assert_eq!(result.notes[0].start_beats, 0.0);
+        assert_eq!(result.notes[0].duration_beats, 2.0);
+    }
+
+    #[test]
+    fn pitch_track_drops_notes_below_minimum_duration() {
+        let result = pitch_track_to_midi_notes(
+            &[PitchTrackFrame {
+                start_seconds: 0.0,
+                end_seconds: 0.01,
+                frequency_hz: 440.0,
+                confidence: 0.9,
+            }],
+            PitchTrackMidiOptions {
+                min_note_duration_seconds: 0.05,
+                ..PitchTrackMidiOptions::default()
+            },
+        )
+        .unwrap();
+
+        assert!(result.notes.is_empty());
+        assert!(result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.contains("dropped")));
     }
 
     #[test]

@@ -6,14 +6,27 @@ const packageAppConfig: PackageAppConfig = {
   title: "Audio Analysis Speakers",
   description: "Speaker embeddings, enrollment, identification, VAD, and diarization APIs for video-analysis.",
   domain: "audio",
-  defaultOperation: "audio.speakers.embed",
-  featuredOperations: ["audio.speakers.embed", "audio.speakers.identify", "audio.speakers.assignTranscript", "describe"],
+  defaultOperation: "audio.speakers.vad",
+  featuredOperations: [
+    "audio.speakers.vad",
+    "audio.speakers.diarize",
+    "audio.speakers.embed",
+    "audio.speakers.identify",
+    "audio.speakers.assignTranscript",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["audio.speakers.embed", "audio.speakers.identify", "audio.speakers.assignTranscript"],
+      operations: [
+        "audio.speakers.vad",
+        "audio.speakers.diarize",
+        "audio.speakers.embed",
+        "audio.speakers.identify",
+        "audio.speakers.assignTranscript",
+      ],
     },
     {
       id: "debug",

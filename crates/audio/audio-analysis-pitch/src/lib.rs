@@ -118,6 +118,137 @@ pub struct SungNoteSegment {
     pub frames: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// Pitch-class note names.
+pub enum NoteName {
+    /// C pitch class.
+    C,
+    /// C sharp pitch class.
+    #[serde(rename = "C#")]
+    CSharp,
+    /// D pitch class.
+    D,
+    /// D sharp pitch class.
+    #[serde(rename = "D#")]
+    DSharp,
+    /// E pitch class.
+    E,
+    /// F pitch class.
+    F,
+    /// F sharp pitch class.
+    #[serde(rename = "F#")]
+    FSharp,
+    /// G pitch class.
+    G,
+    /// G sharp pitch class.
+    #[serde(rename = "G#")]
+    GSharp,
+    /// A pitch class.
+    A,
+    /// A sharp pitch class.
+    #[serde(rename = "A#")]
+    ASharp,
+    /// B pitch class.
+    B,
+}
+
+impl NoteName {
+    /// Returns stable display text.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::C => "C",
+            Self::CSharp => "C#",
+            Self::D => "D",
+            Self::DSharp => "D#",
+            Self::E => "E",
+            Self::F => "F",
+            Self::FSharp => "F#",
+            Self::G => "G",
+            Self::GSharp => "G#",
+            Self::A => "A",
+            Self::ASharp => "A#",
+            Self::B => "B",
+        }
+    }
+
+    /// Returns from pitch-class index.
+    pub fn from_index(index: usize) -> Option<Self> {
+        match index {
+            0 => Some(Self::C),
+            1 => Some(Self::CSharp),
+            2 => Some(Self::D),
+            3 => Some(Self::DSharp),
+            4 => Some(Self::E),
+            5 => Some(Self::F),
+            6 => Some(Self::FSharp),
+            7 => Some(Self::G),
+            8 => Some(Self::GSharp),
+            9 => Some(Self::A),
+            10 => Some(Self::ASharp),
+            11 => Some(Self::B),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Normalized 12-bin chroma vector.
+pub struct ChromaVector {
+    /// Pitch-class bins ordered C through B.
+    pub bins: [f32; 12],
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Pitch-class summary.
+pub struct PitchClassSummary {
+    /// Normalized chroma vector.
+    pub chroma: ChromaVector,
+    /// Strongest pitch class when one is detected.
+    pub strongest_pitch_class: Option<NoteName>,
+}
+
+/// Returns a deterministic pitch-class summary for normalized samples.
+pub fn pitch_class_summary(samples: &[f32], sample_rate: u32) -> Result<PitchClassSummary> {
+    if samples.iter().any(|sample| !sample.is_finite()) {
+        return Err(DetectError::InvalidArgument(
+            "pitch-class samples must contain only finite values".to_string(),
+        ));
+    }
+    if samples.is_empty() {
+        return Ok(PitchClassSummary {
+            chroma: ChromaVector { bins: [0.0; 12] },
+            strongest_pitch_class: None,
+        });
+    }
+    let detector = AutocorrelationPitchDetector::default();
+    let estimate = detector.estimate_samples(samples, sample_rate)?;
+    let Some(frequency_hz) = estimate.frequency_hz else {
+        return Ok(PitchClassSummary {
+            chroma: ChromaVector { bins: [0.0; 12] },
+            strongest_pitch_class: None,
+        });
+    };
+    let Some(midi) = frequency_to_midi_note(frequency_hz) else {
+        return Ok(PitchClassSummary {
+            chroma: ChromaVector { bins: [0.0; 12] },
+            strongest_pitch_class: None,
+        });
+    };
+    let index = (midi.round() as i32).rem_euclid(12) as usize;
+    let mut bins = [0.0_f32; 12];
+    bins[index] = estimate.confidence.max(0.0);
+    let max = bins.iter().copied().fold(0.0_f32, f32::max);
+    if max > f32::EPSILON {
+        for bin in &mut bins {
+            *bin /= max;
+        }
+    }
+    Ok(PitchClassSummary {
+        chroma: ChromaVector { bins },
+        strongest_pitch_class: NoteName::from_index(index),
+    })
+}
+
 /// Returns segment pitch track.
 pub fn segment_pitch_track(
     frames: &[PitchFrameEstimate],
@@ -567,6 +698,21 @@ mod tests {
         assert_eq!(estimate.note_name().as_deref(), Some("A4"));
         assert_eq!(frequency_to_note_name(261.63).as_deref(), Some("C4"));
         assert!(frequency_to_midi_note(0.0).is_none());
+    }
+
+    #[test]
+    fn pitch_class_summary_handles_a4_and_silence() {
+        let a4 = pitch_class_summary(&sine(440.0, 8_192, 0.125), 8_192).unwrap();
+        assert_eq!(a4.strongest_pitch_class, Some(NoteName::A));
+        assert_eq!(a4.chroma.bins[9], 1.0);
+
+        let silence = pitch_class_summary(&vec![0.0; 1024], 8_192).unwrap();
+        assert_eq!(silence.strongest_pitch_class, None);
+        assert!(silence.chroma.bins.iter().all(|bin| *bin == 0.0));
+
+        let empty = pitch_class_summary(&[], 8_192).unwrap();
+        assert_eq!(empty.strongest_pitch_class, None);
+        assert!(pitch_class_summary(&[f32::NAN], 8_192).is_err());
     }
 
     #[test]

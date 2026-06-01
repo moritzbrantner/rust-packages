@@ -6,7 +6,8 @@ use runtime_core::{
 };
 
 use crate::{
-    mean_absolute, peak, rms, samples_to_seconds, seconds_to_samples, FrameSpec, WindowFunction,
+    mean_absolute, peak, rms, samples_to_seconds, seconds_to_samples, summarize_feature_series,
+    windowed_level_series, zero_crossing_rate, FrameSpec, WindowFunction,
 };
 
 const MAX_SAMPLES: usize = 192_000;
@@ -113,6 +114,19 @@ fn levels_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     let sample_rate = sample_rate(&input)?;
     let channels = channels(&input)?;
     let samples_per_channel = samples_per_channel(samples.len(), channels)?;
+    let frame_size = positive_usize(
+        &input,
+        "frameSize",
+        samples_per_channel.clamp(1, DEFAULT_PREVIEW_SAMPLES),
+    )?;
+    let hop_size = positive_usize(&input, "hopSize", frame_size)?;
+    let series = windowed_level_series(
+        &samples,
+        sample_rate,
+        FrameSpec::new(frame_size, hop_size).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    let summary = summarize_feature_series(&series).map_err(|error| error.to_string())?;
     Ok(serde_json::json!({
         "sampleRate": sample_rate,
         "channels": channels,
@@ -122,6 +136,9 @@ fn levels_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
         "rms": rms(&samples),
         "peak": peak(&samples),
         "meanAbsolute": mean_absolute(&samples),
+        "zeroCrossingRate": zero_crossing_rate(&samples),
+        "featureSeries": series,
+        "featureSummary": summary,
         "samplePreview": preview(&samples, input_limit(&input, "previewSamples", DEFAULT_PREVIEW_SAMPLES)?)
     }))
 }
@@ -144,6 +161,8 @@ fn frames_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
                 "len": frame.len(),
                 "rms": rms(frame),
                 "peak": peak(frame),
+                "meanAbsolute": mean_absolute(frame),
+                "zeroCrossingRate": zero_crossing_rate(frame),
                 "windowedRms": rms(&windowed)
             })
         })
@@ -309,6 +328,8 @@ mod tests {
         assert!(response.value["result"].is_object());
         assert_eq!(response.value["sampleCount"], 3);
         assert!(response.value["rms"].as_f64().unwrap() > 0.0);
+        assert_eq!(response.value["featureSummary"]["frame_count"], 1);
+        assert!(response.value["featureSeries"]["points"].is_array());
     }
 
     #[test]
