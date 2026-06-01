@@ -1,5 +1,5 @@
 {
-  "name": "video-analysis-synthesis-app",
+  "name": "@moritzbrantner/video-analysis-synthesis-app",
   "version": "0.1.0",
   "description": "React app for video-analysis-synthesis: Deterministic storyboard and frame synthesis for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/video-analysis-synthesis-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/video-analysis-synthesis-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

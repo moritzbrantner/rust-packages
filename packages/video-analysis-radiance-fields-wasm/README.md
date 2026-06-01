@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-radiance-fields-wasm
+# @moritzbrantner/video-analysis-radiance-fields-wasm
 
 WASM package for `video-analysis-radiance-fields`.
 

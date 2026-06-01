@@ -1,6 +1,6 @@
 # video-analysis-recognition-cli
 
-Thin command-line adapter for `video-analysis-recognition`.
+Thin command-line adapter for `moritzbrantner-video-analysis-recognition`.
 
 Run:
 

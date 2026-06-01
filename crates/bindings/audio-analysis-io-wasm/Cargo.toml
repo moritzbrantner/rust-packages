@@ -1,5 +1,5 @@
 [package]
-name = "audio-analysis-io-wasm"
+name = "moritzbrantner-audio-analysis-io-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

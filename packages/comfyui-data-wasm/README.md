@@ -1,4 +1,4 @@
-# @mb-rust/comfyui-data-wasm
+# @moritzbrantner/comfyui-data-wasm
 
 WASM package for `comfyui-data`.
 

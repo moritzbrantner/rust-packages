@@ -1,6 +1,6 @@
 # audio-analysis-separation-cli
 
-Thin command-line adapter for `audio-analysis-separation`.
+Thin command-line adapter for `moritzbrantner-audio-analysis-separation`.
 
 Run:
 

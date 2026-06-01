@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/numbers-core-wasm";
+import { PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/numbers-core-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "numbers-core",

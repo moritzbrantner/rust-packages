@@ -1,4 +1,4 @@
-# @mb-rust/audio-analysis-pitch-wasm
+# @moritzbrantner/audio-analysis-pitch-wasm
 
 WASM package for `audio-analysis-pitch`.
 

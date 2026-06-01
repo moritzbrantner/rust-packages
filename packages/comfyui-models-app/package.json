@@ -1,5 +1,5 @@
 {
-  "name": "comfyui-models-app",
+  "name": "@moritzbrantner/comfyui-models-app",
   "version": "0.1.0",
   "description": "React app for comfyui-models: ComfyUI model folder, inventory, and extra path contracts.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/comfyui-models-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/comfyui-models-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

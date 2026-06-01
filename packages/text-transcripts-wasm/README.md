@@ -1,4 +1,4 @@
-# @mb-rust/text-transcripts-wasm
+# @moritzbrantner/text-transcripts-wasm
 
 WASM package for `text-transcripts`.
 

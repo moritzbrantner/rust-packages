@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-dataset-wasm",
+  "name": "@moritzbrantner/video-analysis-dataset-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-dataset.",
   "license": "MIT OR Apache-2.0",

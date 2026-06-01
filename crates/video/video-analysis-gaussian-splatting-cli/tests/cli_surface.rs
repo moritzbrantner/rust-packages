@@ -5,6 +5,9 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-gaussian-splatting"
     );
     let surface = video_analysis_gaussian_splatting_cli::package_surface();
-    assert_eq!(surface.library, "video-analysis-gaussian-splatting");
+    assert_eq!(
+        surface.library,
+        "moritzbrantner-video-analysis-gaussian-splatting"
+    );
     assert!(!surface.operations.is_empty());
 }

@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-onnx-wasm
+# @moritzbrantner/video-analysis-onnx-wasm
 
 WASM package for `video-analysis-onnx`.
 

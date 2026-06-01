@@ -1,6 +1,6 @@
 # audio-analysis-recognition-cli
 
-Thin command-line adapter for `audio-analysis-recognition`.
+Thin command-line adapter for `moritzbrantner-audio-analysis-recognition`.
 
 Run:
 

@@ -1,4 +1,4 @@
-# @mb-rust/audio-analysis-speakers-wasm
+# @moritzbrantner/audio-analysis-speakers-wasm
 
 WASM package for `audio-analysis-speakers`.
 

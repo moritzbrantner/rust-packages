@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/audio-generation-midi-wasm",
+  "name": "@moritzbrantner/audio-generation-midi-wasm",
   "version": "0.1.0",
   "description": "WASM package for audio-generation-midi.",
   "license": "MIT OR Apache-2.0",

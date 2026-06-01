@@ -1,6 +1,6 @@
 # image-analysis-ocr-server
 
-Thin HTTP API adapter for `image-analysis-ocr`.
+Thin HTTP API adapter for `moritzbrantner-image-analysis-ocr`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # comfyui-models-cli
 
-Thin command-line adapter for `comfyui-models`.
+Thin command-line adapter for `moritzbrantner-comfyui-models`.
 
 Run:
 

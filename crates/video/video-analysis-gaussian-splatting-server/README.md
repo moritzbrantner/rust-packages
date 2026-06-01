@@ -1,6 +1,6 @@
 # video-analysis-gaussian-splatting-server
 
-Thin HTTP API adapter for `video-analysis-gaussian-splatting`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-gaussian-splatting`.
 
 Run:
 

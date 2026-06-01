@@ -1,7 +1,7 @@
 # audio-analysis-core
 
 Shared audio frame conversion, whole-buffer clip editing primitives, windowing,
-and streaming helpers for `video-analysis`.
+and streaming helpers for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

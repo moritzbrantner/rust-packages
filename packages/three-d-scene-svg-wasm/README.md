@@ -1,4 +1,4 @@
-# @mb-rust/three-d-scene-svg-wasm
+# @moritzbrantner/three-d-scene-svg-wasm
 
 WASM package for `three-d-scene-svg`.
 

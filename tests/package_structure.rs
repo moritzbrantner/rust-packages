@@ -100,7 +100,7 @@ fn api_packages_have_http_integration_tests() {
 
     assert!(
         web_package.join("src/api.integration.test.ts").is_file(),
-        "@video-analysis/web needs API integration tests"
+        "@moritzbrantner/video-analysis-web needs API integration tests"
     );
 }
 
@@ -110,15 +110,64 @@ fn frontend_libraries_and_ui_packages_have_expected_test_layers() {
 
     assert!(
         has_frontend_unit_test(&root.join("packages/text-core-wasm")),
-        "@mb-rust/text-core-wasm needs frontend package unit tests"
+        "@moritzbrantner/text-core-wasm needs frontend package unit tests"
     );
     assert!(
         has_frontend_e2e_test(&root.join("packages/video-analysis-ui")),
-        "@video-analysis/ui needs browser e2e tests"
+        "@moritzbrantner/video-analysis-ui needs browser e2e tests"
     );
     assert!(
         has_frontend_e2e_test(&root.join("prototypes/web/video-analysis-web")),
-        "@video-analysis/web needs browser e2e tests"
+        "@moritzbrantner/video-analysis-web needs browser e2e tests"
+    );
+}
+
+#[test]
+fn public_package_identifiers_use_moritzbrantner_prefix() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut failures = Vec::new();
+
+    for file in tracked_identifier_files(root) {
+        let relative = file.strip_prefix(root).unwrap_or(&file);
+        let Ok(text) = fs::read_to_string(&file) else {
+            continue;
+        };
+        let legacy_mb_scope = concat!("@", "mb-rust/");
+        let legacy_video_scope = concat!("@", "video-analysis/");
+        if text.contains(legacy_mb_scope) || text.contains(legacy_video_scope) {
+            failures.push(format!(
+                "{} still references an old npm package scope",
+                relative.display()
+            ));
+        }
+
+        if file.file_name().is_some_and(|name| name == "package.json") {
+            if let Some(name) = json_name_field(&text) {
+                if !name.starts_with("@moritzbrantner/") {
+                    failures.push(format!(
+                        "{} package name `{name}` is not under @moritzbrantner",
+                        relative.display()
+                    ));
+                }
+            }
+        }
+
+        if file.file_name().is_some_and(|name| name == "Cargo.toml") {
+            if let Some(name) = cargo_package_name(&text) {
+                if !name.starts_with("moritzbrantner-") {
+                    failures.push(format!(
+                        "{} package name `{name}` is not prefixed with moritzbrantner-",
+                        relative.display()
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "public package identifiers need moritzbrantner ownership prefix: {}",
+        failures.join(", ")
     );
 }
 
@@ -180,7 +229,7 @@ fn library_crates_have_complete_runtime_surfaces() {
             missing.push(format!("{surface_name}: missing Vite app package"));
         } else {
             let package_json = fs::read_to_string(app_dir.join("package.json")).unwrap();
-            if !package_json.contains(&format!("@mb-rust/{surface_name}-wasm")) {
+            if !package_json.contains(&format!("@moritzbrantner/{surface_name}-wasm")) {
                 missing.push(format!(
                     "{surface_name}: app does not depend on matching wasm package"
                 ));
@@ -307,20 +356,43 @@ fn package_name(manifest: &Path) -> String {
         .expect("package name")
 }
 
+fn cargo_package_name(manifest_text: &str) -> Option<String> {
+    let mut in_package = false;
+    for line in manifest_text.lines() {
+        let line = line.trim();
+        if line == "[package]" {
+            in_package = true;
+            continue;
+        }
+        if in_package && line.starts_with('[') {
+            return None;
+        }
+        if in_package {
+            if let Some(name) = line.strip_prefix("name = ") {
+                return Some(name.trim_matches('"').to_string());
+            }
+        }
+    }
+    None
+}
+
+fn json_name_field(text: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        let line = line.trim();
+        let value = line.strip_prefix("\"name\": ")?;
+        Some(value.trim_end_matches(',').trim_matches('"').to_string())
+    })
+}
+
 fn read_source(path: impl AsRef<Path>) -> String {
     fs::read_to_string(path.as_ref())
         .unwrap_or_else(|err| panic!("read source `{}`: {err}", path.as_ref().display()))
 }
 
 fn surface_package_name(package_name: &str) -> &str {
-    match package_name {
-        "moritzbrantner-geo-core" => "geo-core",
-        "moritzbrantner-geo-io-geojson" => "geo-io-geojson",
-        "moritzbrantner-geo-io-osm" => "geo-io-osm",
-        "moritzbrantner-geo-clustering" => "geo-clustering",
-        "moritzbrantner-geo-viz" => "geo-viz",
-        _ => package_name,
-    }
+    package_name
+        .strip_prefix("moritzbrantner-")
+        .unwrap_or(package_name)
 }
 
 fn has_exact_base_dependency(cargo: &str, package_name: &str, surface_name: &str) -> bool {
@@ -328,6 +400,8 @@ fn has_exact_base_dependency(cargo: &str, package_name: &str, surface_name: &str
         "{surface_name} = {{ path = \"../{package_name}\" }}"
     )) || cargo.contains(&format!(
         "{surface_name} = {{ path = \"../{surface_name}\" }}"
+    )) || cargo.contains(&format!(
+        "{surface_name} = {{ package = \"{package_name}\", path = \"../{surface_name}\" }}"
     )) || cargo.lines().any(|line| {
         let line = line.trim();
         line.starts_with(&format!("{surface_name} = {{"))
@@ -468,6 +542,64 @@ fn collect_manifests(dir: &Path, manifests: &mut Vec<PathBuf>) {
             manifests.push(path);
         }
     }
+}
+
+fn tracked_identifier_files(root: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    collect_identifier_files(root, &mut files);
+    files
+}
+
+fn collect_identifier_files(dir: &Path, files: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        if file_name == ".git"
+            || file_name == ".cargo-target"
+            || file_name == ".external-test-tools"
+            || file_name == "target"
+            || file_name == "vendor"
+            || file_name == "references"
+            || file_name == "node_modules"
+            || file_name == "pkg"
+            || file_name == "dist"
+        {
+            continue;
+        }
+        if path.ends_with("prototypes/web/video-analysis-web/public/workspace-architecture.json") {
+            continue;
+        }
+        if path.is_dir() {
+            collect_identifier_files(&path, files);
+        } else if is_identifier_file(&path) {
+            files.push(path);
+        }
+    }
+}
+
+fn is_identifier_file(path: &Path) -> bool {
+    let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    if matches!(
+        file_name,
+        "Cargo.toml" | "package.json" | "README.md" | "bun.lock" | "Cargo.lock"
+    ) {
+        return true;
+    }
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            matches!(
+                extension,
+                "rs" | "ts" | "tsx" | "js" | "mjs" | "json" | "md" | "py" | "sh"
+            )
+        })
 }
 
 fn is_retired_runtime_surface(path: &Path) -> bool {

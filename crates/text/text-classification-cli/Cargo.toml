@@ -1,5 +1,5 @@
 [package]
-name = "text-classification-cli"
+name = "moritzbrantner-text-classification-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "text-classification-cli"
 
+[lib]
+name = "text_classification_cli"
+
 [[bin]]
 name = "text-classification-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-text-classification = { version = "0.1.0", path = "../text-classification" }
+text-classification = { package = "moritzbrantner-text-classification", version = "0.1.0", path = "../text-classification" }

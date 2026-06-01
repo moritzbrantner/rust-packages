@@ -1,6 +1,6 @@
 # text-generation-server
 
-Thin HTTP API adapter for `text-generation`.
+Thin HTTP API adapter for `moritzbrantner-text-generation`.
 
 Run:
 

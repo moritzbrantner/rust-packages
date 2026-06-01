@@ -25,7 +25,7 @@ and the package dry-run checklist in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CH
 
 ## Local Setup
 
-Install the Rust WASM build prerequisites used by `@mb-rust/text-core-wasm`:
+Install the Rust WASM build prerequisites used by `@moritzbrantner/text-core-wasm`:
 
 ```bash
 rustup target add wasm32-unknown-unknown

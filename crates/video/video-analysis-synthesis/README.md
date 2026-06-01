@@ -1,6 +1,6 @@
 # video-analysis-synthesis
 
-Deterministic storyboard and frame synthesis for `video-analysis`.
+Deterministic storyboard and frame synthesis for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

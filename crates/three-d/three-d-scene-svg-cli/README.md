@@ -1,6 +1,6 @@
 # three-d-scene-svg-cli
 
-Thin command-line adapter for `three-d-scene-svg`.
+Thin command-line adapter for `moritzbrantner-three-d-scene-svg`.
 
 Run:
 

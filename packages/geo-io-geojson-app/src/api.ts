@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/geo-io-geojson-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/geo-io-geojson-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

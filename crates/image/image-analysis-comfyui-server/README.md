@@ -1,6 +1,6 @@
 # image-analysis-comfyui-server
 
-Thin HTTP API adapter for `image-analysis-comfyui`.
+Thin HTTP API adapter for `moritzbrantner-image-analysis-comfyui`.
 
 Run:
 

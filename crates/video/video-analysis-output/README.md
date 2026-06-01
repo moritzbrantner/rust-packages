@@ -1,6 +1,6 @@
 # video-analysis-output
 
-CSV and HTML report helpers for `video-analysis`.
+CSV and HTML report helpers for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 
@@ -21,4 +21,4 @@ let _ = bytes;
 
 - `video-analysis-core`
 - `video-analysis-features`
-- `@video-analysis/ui`
+- `@moritzbrantner/video-analysis-ui`

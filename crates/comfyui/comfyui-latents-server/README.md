@@ -1,6 +1,6 @@
 # comfyui-latents-server
 
-Thin HTTP API adapter for `comfyui-latents`.
+Thin HTTP API adapter for `moritzbrantner-comfyui-latents`.
 
 Run:
 

@@ -1,4 +1,4 @@
-# @mb-rust/dense-data-wasm
+# @moritzbrantner/dense-data-wasm
 
 WASM package for `dense-data`.
 

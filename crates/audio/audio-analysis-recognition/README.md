@@ -1,7 +1,7 @@
 # audio-analysis-recognition
 
 Deterministic audio embeddings, similarity search, and contract-first speech
-recognition surfaces for `video-analysis`.
+recognition surfaces for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

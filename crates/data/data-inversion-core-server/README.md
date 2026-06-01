@@ -1,6 +1,6 @@
 # data-inversion-core-server
 
-Thin HTTP API adapter for `data-inversion-core`.
+Thin HTTP API adapter for `moritzbrantner-data-inversion-core`.
 
 Run:
 

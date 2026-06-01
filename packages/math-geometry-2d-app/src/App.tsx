@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/math-geometry-2d-wasm";
+import { PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/math-geometry-2d-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "math-geometry-2d",

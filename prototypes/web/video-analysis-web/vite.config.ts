@@ -20,16 +20,19 @@ export default defineConfig({
   base: process.env.PAGES_BASE_PATH ?? "/",
   plugins: [react(), workspaceArchitectureApi()],
   optimizeDeps: {
-    exclude: ["@mb-rust/text-core-wasm", "@mb-rust/text-linguistics-wasm"],
+    exclude: ["@moritzbrantner/text-core-wasm", "@moritzbrantner/text-linguistics-wasm"],
   },
   resolve: {
     alias: [
-      { find: /^@mb-rust\/text-core-wasm$/, replacement: textCoreWasmEntry },
-      { find: /^@mb-rust\/text-linguistics-wasm$/, replacement: textLinguisticsWasmEntry },
+      { find: /^@moritzbrantner\/text-core-wasm$/, replacement: textCoreWasmEntry },
+      { find: /^@moritzbrantner\/text-linguistics-wasm$/, replacement: textLinguisticsWasmEntry },
       ...workspaceWasmAliases(),
-      { find: /^@video-analysis\/ui$/, replacement: `${uiSourceRoot}/index.ts` },
-      { find: /^@video-analysis\/ui\/tailwind-content$/, replacement: `${uiSourceRoot}/tailwind-content.ts` },
-      { find: /^@video-analysis\/ui\/([^/]+)$/, replacement: `${uiSourceRoot}/$1/index.tsx` },
+      { find: /^@moritzbrantner\/video-analysis-ui$/, replacement: `${uiSourceRoot}/index.ts` },
+      {
+        find: /^@moritzbrantner\/video-analysis-ui\/tailwind-content$/,
+        replacement: `${uiSourceRoot}/tailwind-content.ts`,
+      },
+      { find: /^@moritzbrantner\/video-analysis-ui\/([^/]+)$/, replacement: `${uiSourceRoot}/$1/index.tsx` },
       { find: /^react\/jsx-runtime$/, replacement: `${rootNodeModules}react/jsx-runtime.js` },
       { find: /^react\/jsx-dev-runtime$/, replacement: `${rootNodeModules}react/jsx-dev-runtime.js` },
       { find: /^react-dom\/client$/, replacement: `${rootNodeModules}react-dom/client.js` },

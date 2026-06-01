@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-transform-wasm",
+  "name": "@moritzbrantner/video-analysis-transform-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-transform.",
   "license": "MIT OR Apache-2.0",

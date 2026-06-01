@@ -1,9 +1,9 @@
 # three-d-scene-svg
 
-`three-d-scene-svg` provides a small, SVG-inspired document model for
+`moritzbrantner-three-d-scene-svg` provides a small, SVG-inspired document model for
 declarative 3D scenes plus a deterministic SVG preview renderer. It is meant
 for diagrams, reports, generated previews, test fixtures, and compact
-programmatic 3D illustrations in the `video-analysis` workspace.
+programmatic 3D illustrations in the `moritzbrantner-video-analysis` workspace.
 
 This crate does not try to replace existing interchange standards:
 

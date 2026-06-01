@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/audio-analysis-fourier-wasm",
+  "name": "@moritzbrantner/audio-analysis-fourier-wasm",
   "version": "0.1.0",
   "description": "WASM package for audio-analysis-fourier.",
   "license": "MIT OR Apache-2.0",

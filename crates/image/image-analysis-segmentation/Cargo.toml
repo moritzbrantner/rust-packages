@@ -1,5 +1,5 @@
 [package]
-name = "image-analysis-segmentation"
+name = "moritzbrantner-image-analysis-segmentation"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "image_analysis_segmentation"
 
 [dependencies]
 serde.workspace = true

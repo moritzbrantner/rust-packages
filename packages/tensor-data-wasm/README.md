@@ -1,4 +1,4 @@
-# @mb-rust/tensor-data-wasm
+# @moritzbrantner/tensor-data-wasm
 
 WASM package for `tensor-data`.
 

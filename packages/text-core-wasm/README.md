@@ -1,4 +1,4 @@
-# @mb-rust/text-core-wasm
+# @moritzbrantner/text-core-wasm
 
 WASM package for `text-core`.
 

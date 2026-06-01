@@ -1,5 +1,5 @@
 [package]
-name = "image-analysis-synthesis-wasm"
+name = "moritzbrantner-image-analysis-synthesis-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,5 +1,5 @@
 [package]
-name = "text-embeddings-wasm"
+name = "moritzbrantner-text-embeddings-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

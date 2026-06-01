@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-ffmpeg-wasm",
+  "name": "@moritzbrantner/video-analysis-ffmpeg-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-ffmpeg.",
   "license": "MIT OR Apache-2.0",

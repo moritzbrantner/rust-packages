@@ -33,11 +33,11 @@ afterAll(async () => {
 
 describe("workspace API integration", () => {
   it("serves the package catalog over HTTP", async () => {
-    const response = await fetch(`${baseUrl}/api/packages?name=video-analysis-core`);
+    const response = await fetch(`${baseUrl}/api/packages?name=moritzbrantner-video-analysis-core`);
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.name).toBe("video-analysis-core");
+    expect(body.name).toBe("moritzbrantner-video-analysis-core");
     expect(body.capabilities.map((capability: { kind: string }) => capability.kind)).toEqual([
       "library",
       "cli",
@@ -47,7 +47,7 @@ describe("workspace API integration", () => {
   }, apiTestTimeoutMs);
 
   it("reports adapter packages without fabricated nested companion surfaces", async () => {
-    const response = await fetch(`${baseUrl}/api/packages?name=maps-kernels-core-cli`);
+    const response = await fetch(`${baseUrl}/api/packages?name=moritzbrantner-maps-kernels-core-cli`);
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -76,7 +76,7 @@ describe("workspace API integration", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.packages.some((pkg: { name: string }) => pkg.name === "@video-analysis/ui")).toBe(true);
+    expect(body.packages.some((pkg: { name: string }) => pkg.name === "@moritzbrantner/video-analysis-ui")).toBe(true);
     expect(body.dependencies.length).toBeGreaterThan(0);
     expect(body.interop.length).toBeGreaterThan(0);
   }, apiTestTimeoutMs);
@@ -102,15 +102,15 @@ describe("workspace API integration", () => {
       "text-transcripts",
     ];
 
-    expect(packageNames.has("text-analysis")).toBe(true);
-    expect(packageNames.has("text-analysis-server")).toBe(true);
-    expect(packageNames.has("text-analysis-app")).toBe(true);
-    expect(packageNames.has("@mb-rust/text-analysis-wasm")).toBe(true);
+    expect(packageNames.has("moritzbrantner-text-analysis")).toBe(true);
+    expect(packageNames.has("moritzbrantner-text-analysis-server")).toBe(true);
+    expect(packageNames.has("@moritzbrantner/text-analysis-app")).toBe(true);
+    expect(packageNames.has("@moritzbrantner/text-analysis-wasm")).toBe(true);
 
     for (const library of expectedTextLibraries) {
-      expect(packageNames.has(`${library}-app`), `${library} app`).toBe(true);
-      expect(packageNames.has(`${library}-server`), `${library} server`).toBe(true);
-      expect(packageNames.has(`@mb-rust/${library}-wasm`), `${library} wasm`).toBe(true);
+      expect(packageNames.has(`@moritzbrantner/${library}-app`), `${library} app`).toBe(true);
+      expect(packageNames.has(`moritzbrantner-${library}-server`), `${library} server`).toBe(true);
+      expect(packageNames.has(`@moritzbrantner/${library}-wasm`), `${library} wasm`).toBe(true);
     }
   }, apiTestTimeoutMs);
 });

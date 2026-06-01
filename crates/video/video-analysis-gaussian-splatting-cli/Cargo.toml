@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-gaussian-splatting-cli"
+name = "moritzbrantner-video-analysis-gaussian-splatting-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "video-analysis-gaussian-splatting-cli"
 
+[lib]
+name = "video_analysis_gaussian_splatting_cli"
+
 [[bin]]
 name = "video-analysis-gaussian-splatting-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-gaussian-splatting = { version = "0.1.0", path = "../video-analysis-gaussian-splatting" }
+video-analysis-gaussian-splatting = { package = "moritzbrantner-video-analysis-gaussian-splatting", version = "0.1.0", path = "../video-analysis-gaussian-splatting" }

@@ -1,4 +1,4 @@
-# @mb-rust/math-signal-core-wasm
+# @moritzbrantner/math-signal-core-wasm
 
 WASM package for `math-signal-core`.
 

@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-core-wasm",
+  "name": "@moritzbrantner/video-analysis-core-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-core.",
   "license": "MIT OR Apache-2.0",

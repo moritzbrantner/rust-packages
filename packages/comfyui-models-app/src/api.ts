@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/comfyui-models-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/comfyui-models-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

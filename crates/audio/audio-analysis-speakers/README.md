@@ -1,8 +1,8 @@
 # audio-analysis-speakers
 
-Speaker-domain APIs for `video-analysis`.
+Speaker-domain APIs for `moritzbrantner-video-analysis`.
 
-This crate keeps `audio-analysis-recognition` focused on generic embeddings and reference search while adding speaker-specific concepts:
+This crate keeps `moritzbrantner-audio-analysis-recognition` focused on generic embeddings and reference search while adding speaker-specific concepts:
 
 - speaker IDs and labels
 - model-versioned speaker embeddings

@@ -1,5 +1,5 @@
 [package]
-name = "comfyui-models-server"
+name = "moritzbrantner-comfyui-models-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "comfyui-models-server"
 
+[lib]
+name = "comfyui_models_server"
+
 [[bin]]
 name = "comfyui-models-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-comfyui-models = { version = "0.1.0", path = "../comfyui-models" }
+comfyui-models = { package = "moritzbrantner-comfyui-models", version = "0.1.0", path = "../comfyui-models" }

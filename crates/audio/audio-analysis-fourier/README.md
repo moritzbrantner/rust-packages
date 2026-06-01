@@ -1,6 +1,6 @@
 # audio-analysis-fourier
 
-FFT, STFT, and spectral audio analysis for `video-analysis`.
+FFT, STFT, and spectral audio analysis for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

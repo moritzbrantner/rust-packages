@@ -596,8 +596,19 @@ fn automatic_config_path(
         }
     }
 
-    let package_conf_path = current_dir.join(format!("{package_name}.conf"));
-    package_conf_path.is_file().then_some(package_conf_path)
+    for candidate in [
+        package_name,
+        package_name
+            .strip_prefix("moritzbrantner-")
+            .unwrap_or(package_name),
+    ] {
+        let package_conf_path = current_dir.join(format!("{candidate}.conf"));
+        if package_conf_path.is_file() {
+            return Some(package_conf_path);
+        }
+    }
+
+    None
 }
 
 fn explicit_config_path(raw_args: &[OsString]) -> Result<Option<PathBuf>> {

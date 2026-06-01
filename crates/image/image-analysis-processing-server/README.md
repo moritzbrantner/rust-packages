@@ -1,6 +1,6 @@
 # image-analysis-processing-server
 
-Thin HTTP API adapter for `image-analysis-processing`.
+Thin HTTP API adapter for `moritzbrantner-image-analysis-processing`.
 
 Run:
 

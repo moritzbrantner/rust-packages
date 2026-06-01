@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-classification-wasm
+# @moritzbrantner/image-analysis-classification-wasm
 
 WASM package for `image-analysis-classification`.
 

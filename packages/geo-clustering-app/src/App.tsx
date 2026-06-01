@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/geo-clustering-wasm";
+import { PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/geo-clustering-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "geo-clustering",

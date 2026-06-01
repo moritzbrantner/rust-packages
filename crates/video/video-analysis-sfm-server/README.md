@@ -1,6 +1,6 @@
 # video-analysis-sfm-server
 
-Thin HTTP API adapter for `video-analysis-sfm`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-sfm`.
 
 Run:
 

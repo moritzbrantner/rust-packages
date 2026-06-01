@@ -1,6 +1,6 @@
 # image-analysis-synthesis
 
-Deterministic image synthesis helpers for `video-analysis`.
+Deterministic image synthesis helpers for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

@@ -1,6 +1,6 @@
 # video-analysis-tracking
 
-IoU-based object tracking for `video-analysis`.
+IoU-based object tracking for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

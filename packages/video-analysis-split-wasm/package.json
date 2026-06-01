@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-split-wasm",
+  "name": "@moritzbrantner/video-analysis-split-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-split.",
   "license": "MIT OR Apache-2.0",

@@ -1,6 +1,6 @@
 # video-analysis-posture-cli
 
-Thin command-line adapter for `video-analysis-posture`.
+Thin command-line adapter for `moritzbrantner-video-analysis-posture`.
 
 Run:
 

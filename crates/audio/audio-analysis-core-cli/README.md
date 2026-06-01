@@ -1,6 +1,6 @@
 # audio-analysis-core-cli
 
-Thin command-line adapter for `audio-analysis-core`.
+Thin command-line adapter for `moritzbrantner-audio-analysis-core`.
 
 Run:
 

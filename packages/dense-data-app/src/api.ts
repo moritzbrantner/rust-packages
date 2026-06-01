@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/dense-data-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/dense-data-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

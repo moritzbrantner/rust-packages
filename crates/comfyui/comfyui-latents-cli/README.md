@@ -1,6 +1,6 @@
 # comfyui-latents-cli
 
-Thin command-line adapter for `comfyui-latents`.
+Thin command-line adapter for `moritzbrantner-comfyui-latents`.
 
 Run:
 

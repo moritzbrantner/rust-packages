@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/video-analysis-features-wasm";
+import { PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/video-analysis-features-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "video-analysis-features",

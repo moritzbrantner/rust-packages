@@ -1,6 +1,6 @@
 # animation-core-server
 
-Thin HTTP API adapter for `animation-core`.
+Thin HTTP API adapter for `moritzbrantner-animation-core`.
 
 Run:
 

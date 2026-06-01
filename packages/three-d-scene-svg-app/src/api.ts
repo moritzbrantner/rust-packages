@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/three-d-scene-svg-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/three-d-scene-svg-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

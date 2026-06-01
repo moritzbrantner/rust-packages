@@ -1,5 +1,5 @@
 [package]
-name = "text-generation-linguistics-server"
+name = "moritzbrantner-text-generation-linguistics-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "text-generation-linguistics-server"
 
+[lib]
+name = "text_generation_linguistics_server"
+
 [[bin]]
 name = "text-generation-linguistics-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-text-generation-linguistics = { version = "0.1.0", path = "../text-generation-linguistics" }
+text-generation-linguistics = { package = "moritzbrantner-text-generation-linguistics", version = "0.1.0", path = "../text-generation-linguistics" }

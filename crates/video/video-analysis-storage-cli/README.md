@@ -1,6 +1,6 @@
 # video-analysis-storage-cli
 
-Thin command-line adapter for `video-analysis-storage`.
+Thin command-line adapter for `moritzbrantner-video-analysis-storage`.
 
 Run:
 

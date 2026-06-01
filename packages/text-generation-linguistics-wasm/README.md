@@ -1,4 +1,4 @@
-# @mb-rust/text-generation-linguistics-wasm
+# @moritzbrantner/text-generation-linguistics-wasm
 
 WASM package for `text-generation-linguistics`.
 

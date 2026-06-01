@@ -1,5 +1,5 @@
 [package]
-name = "finance-data"
+name = "moritzbrantner-finance-data"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords = ["finance", "market-data", "ohlcv", "timeseries"]
 categories = ["data-structures", "science", "algorithms"]
+
+[lib]
+name = "finance_data"
 
 [dependencies]
 finance-statistics.workspace = true

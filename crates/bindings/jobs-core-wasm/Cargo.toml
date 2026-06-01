@@ -1,5 +1,5 @@
 [package]
-name = "jobs-core-wasm"
+name = "moritzbrantner-jobs-core-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

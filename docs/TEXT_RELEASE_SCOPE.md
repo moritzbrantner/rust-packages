@@ -59,7 +59,7 @@ Release checks should include the default deterministic suite plus opt-in ignore
   classification, question answering, or generation.
 - It does not provide an aggregate "do everything NLP" crate. Task crates stay
   focused on their concrete request/response contracts.
-- It does not promise open-ended generative model inference. `text-generation`
+- It does not promise open-ended generative model inference. `moritzbrantner-text-generation`
   is deterministic Markov/template-style generation from known inputs.
 
 ## Which Crate Should I Use?
@@ -68,33 +68,33 @@ Start with the smallest crate that owns the capability you need:
 
 | Need | Start with |
 | --- | --- |
-| Contracts, document/segment types, spans, normalization, tokenization, sentence boundaries, or paragraph boundaries | `text-core` |
-| Deterministic lexical analysis, stop words, keywords, n-grams, shingles, readability, stemming, sentiment, extractive summaries, TF-IDF, or BM25 | `text-lexical` |
-| High-level document or corpus reports that orchestrate the focused text crates | `text-analysis` |
-| Deterministic hashed embeddings or embedding backend traits | `text-embeddings` |
-| Chunking, metadata-aware search, full-text/semantic/hybrid retrieval, or persistence helpers | `text-retrieval` |
-| Heuristic-first linguistic analysis, with optional model-backed paths | `text-linguistics` |
-| Transcript parsing, normalization, or formatting | `text-transcripts` |
-| Text classification or zero-shot classification contracts and deterministic fallbacks | `text-classification` |
-| Extractive question-answering contracts and deterministic/imported span handling | `text-question-answering` |
-| Deterministic generation contracts and Markov/template fallbacks | `text-generation` |
-| Linguistic-analysis adapters for deterministic generation workflows | `text-generation-linguistics` |
+| Contracts, document/segment types, spans, normalization, tokenization, sentence boundaries, or paragraph boundaries | `moritzbrantner-text-core` |
+| Deterministic lexical analysis, stop words, keywords, n-grams, shingles, readability, stemming, sentiment, extractive summaries, TF-IDF, or BM25 | `moritzbrantner-text-lexical` |
+| High-level document or corpus reports that orchestrate the focused text crates | `moritzbrantner-text-analysis` |
+| Deterministic hashed embeddings or embedding backend traits | `moritzbrantner-text-embeddings` |
+| Chunking, metadata-aware search, full-text/semantic/hybrid retrieval, or persistence helpers | `moritzbrantner-text-retrieval` |
+| Heuristic-first linguistic analysis, with optional model-backed paths | `moritzbrantner-text-linguistics` |
+| Transcript parsing, normalization, or formatting | `moritzbrantner-text-transcripts` |
+| Text classification or zero-shot classification contracts and deterministic fallbacks | `moritzbrantner-text-classification` |
+| Extractive question-answering contracts and deterministic/imported span handling | `moritzbrantner-text-question-answering` |
+| Deterministic generation contracts and Markov/template fallbacks | `moritzbrantner-text-generation` |
+| Linguistic-analysis adapters for deterministic generation workflows | `moritzbrantner-text-generation-linguistics` |
 
-Use `text-core` when you are defining data boundaries or passing text between
-packages. Use `text-lexical` when you want deterministic local analysis,
+Use `moritzbrantner-text-core` when you are defining data boundaries or passing text between
+packages. Use `moritzbrantner-text-lexical` when you want deterministic local analysis,
 lexical corpus construction, TF-IDF/BM25 scoring, or serializable lexical corpus
-snapshots. Use `text-analysis` when you want a report assembled from multiple
+snapshots. Use `moritzbrantner-text-analysis` when you want a report assembled from multiple
 focused crates instead of wiring them yourself.
 
-The term "corpus" has crate-specific meanings. In `text-lexical`,
+The term "corpus" has crate-specific meanings. In `moritzbrantner-text-lexical`,
 `TextCorpus` is the user-facing raw text corpus builder and `TfIdfCorpus` /
-`Bm25Corpus` are scoring structures. In `text-analysis`, corpus APIs produce
-multi-document reports. In `text-retrieval`, `RetrievalIndex` is a chunked,
+`Bm25Corpus` are scoring structures. In `moritzbrantner-text-analysis`, corpus APIs produce
+multi-document reports. In `moritzbrantner-text-retrieval`, `RetrievalIndex` is a chunked,
 metadata-rich search index for full-text, vector, and hybrid retrieval.
 See [Text Corpus Guide](TEXT_CORPUS_GUIDE.md) for end-to-end examples across
 these types.
 
-`text-classification`, `text-question-answering`, and `text-generation` are
+`moritzbrantner-text-classification`, `moritzbrantner-text-question-answering`, and `moritzbrantner-text-generation` are
 concrete task crates. They are intentionally not aggregate NLP mega-crates and
 should not grow unrelated embedding, retrieval, summarization, or transcript
 APIs.
@@ -103,20 +103,20 @@ APIs.
 
 The intended stable surface for `0.1` is:
 
-- `text-core` contracts, owned/borrowed document and segment types, span types,
+- `moritzbrantner-text-core` contracts, owned/borrowed document and segment types, span types,
   normalization helpers, tokenization, sentence boundaries, paragraph
   boundaries, and conversion traits.
-- `text-lexical` deterministic lexical feature APIs, `TextCorpus` builders,
+- `moritzbrantner-text-lexical` deterministic lexical feature APIs, `TextCorpus` builders,
   reproducible lexical corpus snapshots, TF-IDF/BM25 scoring APIs, and corpus
   statistics where outputs are derived from local text inputs.
-- `text-transcripts` transcript contracts, parsers, formatters, and conversion
+- `moritzbrantner-text-transcripts` transcript contracts, parsers, formatters, and conversion
   into generic text segments.
-- `text-embeddings` embedding backend traits and deterministic hashed embedding
+- `moritzbrantner-text-embeddings` embedding backend traits and deterministic hashed embedding
   APIs.
-- `text-retrieval` chunking, retrieval request/result contracts, metadata
+- `moritzbrantner-text-retrieval` chunking, retrieval request/result contracts, metadata
   filters, and persistence DTOs.
-- Concrete task request/response structs in `text-classification`,
-  `text-question-answering`, and `text-generation`.
+- Concrete task request/response structs in `moritzbrantner-text-classification`,
+  `moritzbrantner-text-question-answering`, and `moritzbrantner-text-generation`.
 - Feature policy: default builds stay local, deterministic, and free of native
   inference/runtime requirements.
 
@@ -147,8 +147,8 @@ improve over time.
 
 ## Release Boundary Rules
 
-- `text-core` must not depend on specialized text crates.
-- `text-retrieval` may consume `text-transcripts` only through an explicit
+- `moritzbrantner-text-core` must not depend on specialized text crates.
+- `moritzbrantner-text-retrieval` may consume `moritzbrantner-text-transcripts` only through an explicit
   optional feature.
 - Model/runtime support must remain opt-in and feature-gated.
 - Default builds must not add network access, model downloads, hosted API

@@ -26,7 +26,10 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = audio_analysis_test_support::surface::package_surface();
-        assert_eq!(surface.library, "audio-analysis-test-support");
+        assert_eq!(
+            surface.library,
+            "moritzbrantner-audio-analysis-test-support"
+        );
         assert!(!surface.operations.is_empty());
         let operation = surface
             .operations

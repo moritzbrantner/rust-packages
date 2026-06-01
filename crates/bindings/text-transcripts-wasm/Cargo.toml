@@ -1,5 +1,5 @@
 [package]
-name = "text-transcripts-wasm"
+name = "moritzbrantner-text-transcripts-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

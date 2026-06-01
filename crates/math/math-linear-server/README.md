@@ -1,6 +1,6 @@
 # math-linear-server
 
-Thin HTTP API adapter for `math-linear`.
+Thin HTTP API adapter for `moritzbrantner-math-linear`.
 
 Run:
 

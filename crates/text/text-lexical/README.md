@@ -1,6 +1,6 @@
 # text-lexical
 
-Text feature extraction and analyzer adapters for `video-analysis`.
+Text feature extraction and analyzer adapters for `moritzbrantner-video-analysis`.
 
 Default builds are deterministic, local-first, and limited to classical lexical
 analysis; they do not download models or invoke native inference/runtime tools.

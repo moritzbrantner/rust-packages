@@ -1,7 +1,7 @@
 # image-analysis-detection
 
 Object detection built from image segmentation masks, color blob detection, and
-SAM defaults for `video-analysis`.
+SAM defaults for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

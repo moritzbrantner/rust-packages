@@ -1,5 +1,5 @@
 [package]
-name = "runtime-jobs"
+name = "moritzbrantner-runtime-jobs"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "runtime_jobs"
 
 [dependencies]
 serde.workspace = true

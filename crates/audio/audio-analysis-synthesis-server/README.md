@@ -1,6 +1,6 @@
 # audio-analysis-synthesis-server
 
-Thin HTTP API adapter for `audio-analysis-synthesis`.
+Thin HTTP API adapter for `moritzbrantner-audio-analysis-synthesis`.
 
 Run:
 

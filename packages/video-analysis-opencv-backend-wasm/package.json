@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-opencv-backend-wasm",
+  "name": "@moritzbrantner/video-analysis-opencv-backend-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-opencv-backend.",
   "license": "MIT OR Apache-2.0",

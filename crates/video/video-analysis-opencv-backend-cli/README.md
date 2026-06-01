@@ -1,6 +1,6 @@
 # video-analysis-opencv-backend-cli
 
-Thin command-line adapter for `video-analysis-opencv-backend`.
+Thin command-line adapter for `moritzbrantner-video-analysis-opencv-backend`.
 
 Run:
 

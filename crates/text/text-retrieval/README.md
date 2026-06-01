@@ -1,6 +1,6 @@
 # text-retrieval
 
-Library-first semantic and hybrid retrieval for `video-analysis`.
+Library-first semantic and hybrid retrieval for `moritzbrantner-video-analysis`.
 
 Default builds are deterministic and local-first. Transcript integration is
 feature-gated, and native model execution stays outside the default dependency
@@ -13,8 +13,8 @@ lexical scoring, hashed semantic search, and corpus analysis reports, see
 ## Highlights
 
 - Deterministic text chunking with token overlap
-- Exact semantic retrieval over `vector-analysis-index`
-- BM25 lexical retrieval over `text-lexical`
+- Exact semantic retrieval over `moritzbrantner-vector-analysis-index`
+- BM25 lexical retrieval over `moritzbrantner-text-lexical`
 - Hybrid weighted ranking with metadata filters
 - Related-content lookup and persistence-friendly export helpers
 
@@ -34,6 +34,6 @@ lexical scoring, hashed semantic search, and corpus analysis reports, see
 
 ## Related crates
 
-- `text-embeddings`
-- `text-lexical`
-- `vector-analysis-index`
+- `moritzbrantner-text-embeddings`
+- `moritzbrantner-text-lexical`
+- `moritzbrantner-vector-analysis-index`

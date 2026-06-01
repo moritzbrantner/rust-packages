@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-radiance-pipeline-wasm
+# @moritzbrantner/video-analysis-radiance-pipeline-wasm
 
 WASM package for `video-analysis-radiance-pipeline`.
 

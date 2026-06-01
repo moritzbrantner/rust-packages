@@ -1,7 +1,7 @@
 # audio-analysis-io
 
 Audio input helpers, clip decode/write utilities, and FFmpeg-backed file editing
-conveniences for `video-analysis`.
+conveniences for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

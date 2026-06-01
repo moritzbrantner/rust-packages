@@ -1,6 +1,6 @@
 # math-sparse-data-cli
 
-Thin command-line adapter for `math-sparse-data`.
+Thin command-line adapter for `moritzbrantner-math-sparse-data`.
 
 Run:
 

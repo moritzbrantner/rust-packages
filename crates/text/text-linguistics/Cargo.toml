@@ -1,5 +1,5 @@
 [package]
-name = "text-linguistics"
+name = "moritzbrantner-text-linguistics"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "text_linguistics"
 
 [dependencies]
 candle-core = { workspace = true, optional = true }
@@ -26,7 +29,6 @@ text-transcripts = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
 model-runtime = { workspace = true, optional = true, features = ["jobs"] }
-
 [features]
 default = []
 tokenizers = ["dep:tokenizers", "text-model-runtime/tokenizers"]

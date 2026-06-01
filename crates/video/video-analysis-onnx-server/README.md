@@ -1,6 +1,6 @@
 # video-analysis-onnx-server
 
-Thin HTTP API adapter for `video-analysis-onnx`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-onnx`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # comfyui-models-server
 
-Thin HTTP API adapter for `comfyui-models`.
+Thin HTTP API adapter for `moritzbrantner-comfyui-models`.
 
 Run:
 

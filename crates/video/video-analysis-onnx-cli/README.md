@@ -1,6 +1,6 @@
 # video-analysis-onnx-cli
 
-Thin command-line adapter for `video-analysis-onnx`.
+Thin command-line adapter for `moritzbrantner-video-analysis-onnx`.
 
 Run:
 

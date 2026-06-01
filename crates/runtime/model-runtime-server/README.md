@@ -1,6 +1,6 @@
 # model-runtime-server
 
-Thin HTTP API adapter for `model-runtime`.
+Thin HTTP API adapter for `moritzbrantner-model-runtime`.
 
 Run:
 

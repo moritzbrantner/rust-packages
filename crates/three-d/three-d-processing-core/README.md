@@ -1,7 +1,7 @@
 # three-d-processing-core
 
 Shared 3D geometry primitives, transforms, and basic surface algorithms for
-`video-analysis`.
+`moritzbrantner-video-analysis`.
 
 ## Feature flags
 

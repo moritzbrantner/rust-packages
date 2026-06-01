@@ -13,10 +13,23 @@ export async function init() {
 
 export async function packageSurface() {
   const module = await init();
-  return module.packageSurface();
+  return fromWasm(module.packageSurface());
 }
 
 export async function runOperation(request) {
   const module = await init();
-  return module.runOperation(request);
+  return fromWasm(module.runOperation(request));
+}
+
+function fromWasm(value) {
+  if (value instanceof Map) {
+    return Object.fromEntries(Array.from(value.entries(), ([key, entry]) => [key, fromWasm(entry)]));
+  }
+  if (Array.isArray(value)) {
+    return value.map(fromWasm);
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, fromWasm(entry)]));
+  }
+  return value;
 }

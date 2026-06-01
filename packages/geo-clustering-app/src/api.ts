@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/geo-clustering-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/geo-clustering-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

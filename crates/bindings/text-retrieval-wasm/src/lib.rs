@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = text_retrieval::surface::package_surface();
-        assert_eq!(surface.library, "text-retrieval");
+        assert_eq!(surface.library, "moritzbrantner-text-retrieval");
         assert!(!surface.operations.is_empty());
     }
 }

@@ -1,6 +1,6 @@
 # video-analysis-segmentation-server
 
-Thin HTTP API adapter for `video-analysis-segmentation`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-segmentation`.
 
 Run:
 

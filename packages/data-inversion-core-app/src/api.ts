@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/data-inversion-core-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/data-inversion-core-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

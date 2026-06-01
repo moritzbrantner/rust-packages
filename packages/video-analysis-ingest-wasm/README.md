@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-ingest-wasm
+# @moritzbrantner/video-analysis-ingest-wasm
 
 WASM package for `video-analysis-ingest`.
 

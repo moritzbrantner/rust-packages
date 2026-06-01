@@ -1,5 +1,5 @@
 [package]
-name = "geo-viz-cli"
+name = "moritzbrantner-geo-viz-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 default-run = "geo-viz-cli"
+
+[lib]
+name = "geo_viz_cli"
 
 [[bin]]
 name = "geo-viz-cli"

@@ -1,6 +1,6 @@
 # video-analysis-radiance-pipeline-server
 
-Thin HTTP API adapter for `video-analysis-radiance-pipeline`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-radiance-pipeline`.
 
 Run:
 

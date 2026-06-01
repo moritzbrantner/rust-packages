@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-segmentation-wasm",
+  "name": "@moritzbrantner/video-analysis-segmentation-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-segmentation.",
   "license": "MIT OR Apache-2.0",

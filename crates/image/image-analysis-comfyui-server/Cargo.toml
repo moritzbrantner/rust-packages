@@ -1,5 +1,5 @@
 [package]
-name = "image-analysis-comfyui-server"
+name = "moritzbrantner-image-analysis-comfyui-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "image-analysis-comfyui-server"
 
+[lib]
+name = "image_analysis_comfyui_server"
+
 [[bin]]
 name = "image-analysis-comfyui-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-image-analysis-comfyui = { version = "0.1.0", path = "../image-analysis-comfyui" }
+image-analysis-comfyui = { package = "moritzbrantner-image-analysis-comfyui", version = "0.1.0", path = "../image-analysis-comfyui" }

@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-editing-cli"
+name = "moritzbrantner-video-analysis-editing-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "video-analysis-editing-cli"
 
+[lib]
+name = "video_analysis_editing_cli"
+
 [[bin]]
 name = "video-analysis-editing-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-editing = { version = "0.1.0", path = "../video-analysis-editing" }
+video-analysis-editing = { package = "moritzbrantner-video-analysis-editing", version = "0.1.0", path = "../video-analysis-editing" }

@@ -1,6 +1,6 @@
 # three-d-scene-svg-server
 
-Thin HTTP API adapter for `three-d-scene-svg`.
+Thin HTTP API adapter for `moritzbrantner-three-d-scene-svg`.
 
 Run:
 

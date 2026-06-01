@@ -1,6 +1,6 @@
 # audio-analysis-processing-cli
 
-Thin command-line adapter for `audio-analysis-processing`.
+Thin command-line adapter for `moritzbrantner-audio-analysis-processing`.
 
 Run:
 

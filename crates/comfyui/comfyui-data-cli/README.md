@@ -1,6 +1,6 @@
 # comfyui-data-cli
 
-Thin command-line adapter for `comfyui-data`.
+Thin command-line adapter for `moritzbrantner-comfyui-data`.
 
 Run:
 

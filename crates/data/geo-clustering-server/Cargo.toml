@@ -1,5 +1,5 @@
 [package]
-name = "geo-clustering-server"
+name = "moritzbrantner-geo-clustering-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 default-run = "geo-clustering-server"
+
+[lib]
+name = "geo_clustering_server"
 
 [[bin]]
 name = "geo-clustering-server"

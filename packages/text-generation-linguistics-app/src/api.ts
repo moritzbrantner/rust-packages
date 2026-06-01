@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/text-generation-linguistics-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/text-generation-linguistics-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

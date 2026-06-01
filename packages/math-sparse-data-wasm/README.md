@@ -1,4 +1,4 @@
-# @mb-rust/math-sparse-data-wasm
+# @moritzbrantner/math-sparse-data-wasm
 
 WASM package for `math-sparse-data`.
 

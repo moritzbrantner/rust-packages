@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-output-wasm",
+  "name": "@moritzbrantner/video-analysis-output-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-output.",
   "license": "MIT OR Apache-2.0",

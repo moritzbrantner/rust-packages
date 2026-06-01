@@ -1,6 +1,6 @@
 # text-retrieval-cli
 
-Thin command-line adapter for `text-retrieval`.
+Thin command-line adapter for `moritzbrantner-text-retrieval`.
 
 Run:
 

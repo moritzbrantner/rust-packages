@@ -1,6 +1,6 @@
 # numbers-core-server
 
-Thin HTTP API adapter for `numbers-core`.
+Thin HTTP API adapter for `moritzbrantner-numbers-core`.
 
 Run:
 

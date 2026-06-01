@@ -1,6 +1,6 @@
 # video-analysis-ingest-server
 
-Thin HTTP API adapter for `video-analysis-ingest`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-ingest`.
 
 Run:
 

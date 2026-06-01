@@ -1,6 +1,6 @@
 # video-analysis-gaussian-splatting
 
-Gaussian splatting primitives and CPU compositing for `video-analysis`.
+Gaussian splatting primitives and CPU compositing for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

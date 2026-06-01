@@ -1,7 +1,7 @@
 # video-analysis-sfm
 
 Structure-from-Motion backend contracts and sparse pipeline orchestration for
-`video-analysis`.
+`moritzbrantner-video-analysis`.
 
 This crate defines the stable Rust API for COLMAP-like sparse reconstruction.
 Concrete backends can wrap native engines such as COLMAP/OpenCV or provide a
@@ -14,10 +14,10 @@ model.
 
 ## Related crates
 
-- `video-analysis-reconstruction`
-- `video-analysis-colmap-backend`
-- `video-analysis-opencv-backend`
-- `video-analysis-sfm-rust-backend`
+- `moritzbrantner-video-analysis-reconstruction`
+- `moritzbrantner-video-analysis-colmap-backend`
+- `moritzbrantner-video-analysis-opencv-backend`
+- `moritzbrantner-video-analysis-sfm-rust-backend`
 
 ## Package surface
 

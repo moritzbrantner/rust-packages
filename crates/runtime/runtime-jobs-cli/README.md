@@ -1,6 +1,6 @@
 # runtime-jobs-cli
 
-Thin command-line adapter for `runtime-jobs`.
+Thin command-line adapter for `moritzbrantner-runtime-jobs`.
 
 Run:
 

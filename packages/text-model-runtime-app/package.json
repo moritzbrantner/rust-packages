@@ -1,5 +1,5 @@
 {
-  "name": "text-model-runtime-app",
+  "name": "@moritzbrantner/text-model-runtime-app",
   "version": "0.1.0",
   "description": "React app for text-model-runtime: Shared tokenizer and native text model runtime traits for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/text-model-runtime-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/text-model-runtime-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

@@ -1,5 +1,5 @@
 [package]
-name = "geo-clustering-cli"
+name = "moritzbrantner-geo-clustering-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 default-run = "geo-clustering-cli"
+
+[lib]
+name = "geo_clustering_cli"
 
 [[bin]]
 name = "geo-clustering-cli"

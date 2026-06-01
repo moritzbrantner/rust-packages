@@ -1,6 +1,6 @@
 # video-analysis-posture-io-server
 
-Thin HTTP API adapter for `video-analysis-posture-io`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-posture-io`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # three-d-processing-mesh-server
 
-Thin HTTP API adapter for `three-d-processing-mesh`.
+Thin HTTP API adapter for `moritzbrantner-three-d-processing-mesh`.
 
 Run:
 

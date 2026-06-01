@@ -1,6 +1,6 @@
 # video-analysis-ingest-cli
 
-Thin command-line adapter for `video-analysis-ingest`.
+Thin command-line adapter for `moritzbrantner-video-analysis-ingest`.
 
 Run:
 

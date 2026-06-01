@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/audio-analysis-pitch-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/audio-analysis-pitch-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

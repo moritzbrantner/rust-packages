@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-import type { SurfaceResponse } from "@video-analysis/ui/package-surface";
+import type { SurfaceResponse } from "@moritzbrantner/video-analysis-ui/package-surface";
 
 interface ColmapScene {
   cameras?: Array<{ id: number; name: string; position: [number, number, number]; forward: [number, number, number] }>;

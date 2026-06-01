@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-test-support-wasm
+# @moritzbrantner/video-analysis-test-support-wasm
 
 WASM package for `video-analysis-test-support`.
 

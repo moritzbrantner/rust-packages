@@ -1,5 +1,5 @@
 [package]
-name = "audio-generation-midi-server"
+name = "moritzbrantner-audio-generation-midi-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "audio-generation-midi-server"
 
+[lib]
+name = "audio_generation_midi_server"
+
 [[bin]]
 name = "audio-generation-midi-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-audio-generation-midi = { version = "0.1.0", path = "../audio-generation-midi" }
+audio-generation-midi = { package = "moritzbrantner-audio-generation-midi", version = "0.1.0", path = "../audio-generation-midi" }

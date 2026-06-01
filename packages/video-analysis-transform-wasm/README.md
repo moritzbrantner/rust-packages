@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-transform-wasm
+# @moritzbrantner/video-analysis-transform-wasm
 
 WASM package for `video-analysis-transform`.
 

@@ -5,7 +5,7 @@ fn cli_adapter_reports_wrapped_library() {
         "audio-analysis-processing"
     );
     let surface = audio_analysis_processing_cli::package_surface();
-    assert_eq!(surface.library, "audio-analysis-processing");
+    assert_eq!(surface.library, "moritzbrantner-audio-analysis-processing");
     assert!(!surface.operations.is_empty());
 }
 

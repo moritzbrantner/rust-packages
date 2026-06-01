@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/video-analysis-test-support-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/video-analysis-test-support-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

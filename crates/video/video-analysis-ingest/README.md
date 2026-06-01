@@ -1,6 +1,6 @@
 # video-analysis-ingest
 
-Media ingest traits and source adapters for `video-analysis`.
+Media ingest traits and source adapters for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

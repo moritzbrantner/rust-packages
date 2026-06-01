@@ -1,6 +1,6 @@
 # audio-analysis-synthesis-cli
 
-Thin command-line adapter for `audio-analysis-synthesis`.
+Thin command-line adapter for `moritzbrantner-audio-analysis-synthesis`.
 
 Run:
 

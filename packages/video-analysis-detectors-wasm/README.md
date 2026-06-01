@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-detectors-wasm
+# @moritzbrantner/video-analysis-detectors-wasm
 
 WASM package for `video-analysis-detectors`.
 

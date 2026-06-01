@@ -1,6 +1,6 @@
 # video-analysis-radiance-io-cli
 
-Thin command-line adapter for `video-analysis-radiance-io`.
+Thin command-line adapter for `moritzbrantner-video-analysis-radiance-io`.
 
 Run:
 

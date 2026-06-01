@@ -58,11 +58,14 @@ pub fn package_catalog() -> Vec<PackageInfo> {
         })
         .collect();
 
-    if !packages.iter().any(|pkg| pkg.name == "@video-analysis/web") {
+    if !packages
+        .iter()
+        .any(|pkg| pkg.name == "@moritzbrantner/video-analysis-web")
+    {
         packages.push(PackageInfo {
-            name: "@video-analysis/web".to_string(),
+            name: "@moritzbrantner/video-analysis-web".to_string(),
             role: "Prototype web app exposing package endpoints and package UI.".to_string(),
-            capabilities: capabilities_for("@video-analysis/web"),
+            capabilities: capabilities_for("@moritzbrantner/video-analysis-web"),
         });
     }
 
@@ -98,10 +101,20 @@ fn capabilities_for(name: &str) -> Vec<PackageCapability> {
 
 fn library_entrypoint(name: &str) -> String {
     match name {
-        "@video-analysis/ui" => "import from @video-analysis/ui".to_string(),
-        "@video-analysis/web" => "prototypes/web/video-analysis-web".to_string(),
-        "video-analysis-cli" => "use video_analysis_cli::package_catalog".to_string(),
-        rust_crate => format!("use {}", rust_crate.replace('-', "_")),
+        "@moritzbrantner/video-analysis-ui" => {
+            "import from @moritzbrantner/video-analysis-ui".to_string()
+        }
+        "@moritzbrantner/video-analysis-web" => "prototypes/web/video-analysis-web".to_string(),
+        "moritzbrantner-video-analysis-cli" => {
+            "use video_analysis_cli::package_catalog".to_string()
+        }
+        rust_crate => format!(
+            "use {}",
+            rust_crate
+                .strip_prefix("moritzbrantner-")
+                .unwrap_or(rust_crate)
+                .replace('-', "_")
+        ),
     }
 }
 
@@ -109,21 +122,28 @@ fn cli_entrypoint(name: &str) -> String {
     if name.starts_with('@') {
         return "frontend package scripts".to_string();
     }
-    format!("{name}/cli (package {name}-cli)")
+    let short_name = short_package_name(name);
+    format!("{short_name}/cli (package {name}-cli)")
 }
 
 fn api_entrypoint(name: &str) -> String {
     if name.starts_with('@') {
         return format!("/api/packages?name={}", percent_encode(name));
     }
-    format!("{name}/api (package {name}-api)")
+    let short_name = short_package_name(name);
+    format!("{short_name}/api (package {name}-server)")
 }
 
 fn ui_entrypoint(name: &str) -> String {
     if name.starts_with('@') {
         return format!("Architecture page package detail for {name}");
     }
-    format!("{name}/app (package {name}-app)")
+    let short_name = short_package_name(name);
+    format!("{short_name}/app (package @moritzbrantner/{short_name}-app)")
+}
+
+fn short_package_name(name: &str) -> &str {
+    name.strip_prefix("moritzbrantner-").unwrap_or(name)
 }
 
 fn percent_encode(value: &str) -> String {
@@ -204,9 +224,15 @@ mod tests {
     #[test]
     fn catalog_gives_every_package_four_capabilities() {
         let catalog = package_catalog();
-        assert!(catalog.iter().any(|pkg| pkg.name == "video-analysis-core"));
-        assert!(catalog.iter().any(|pkg| pkg.name == "video-analysis-cli"));
-        assert!(catalog.iter().any(|pkg| pkg.name == "@video-analysis/web"));
+        assert!(catalog
+            .iter()
+            .any(|pkg| pkg.name == "moritzbrantner-video-analysis-core"));
+        assert!(catalog
+            .iter()
+            .any(|pkg| pkg.name == "moritzbrantner-video-analysis-cli"));
+        assert!(catalog
+            .iter()
+            .any(|pkg| pkg.name == "@moritzbrantner/video-analysis-web"));
 
         for package in catalog {
             let kinds: Vec<&str> = package
@@ -220,7 +246,7 @@ mod tests {
 
     #[test]
     fn cli_crate_has_a_library_entrypoint() {
-        let package = package_by_name("video-analysis-cli").unwrap();
+        let package = package_by_name("moritzbrantner-video-analysis-cli").unwrap();
         assert!(package.capabilities.iter().any(|capability| capability.kind
             == PackageCapabilityKind::Library
             && capability.entrypoint.contains("video_analysis_cli")));

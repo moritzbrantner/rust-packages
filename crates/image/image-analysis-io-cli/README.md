@@ -1,6 +1,6 @@
 # image-analysis-io-cli
 
-Thin command-line adapter for `image-analysis-io`.
+Thin command-line adapter for `moritzbrantner-image-analysis-io`.
 
 Run:
 

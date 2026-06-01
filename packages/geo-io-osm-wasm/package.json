@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/geo-io-osm-wasm",
+  "name": "@moritzbrantner/geo-io-osm-wasm",
   "version": "0.1.0",
   "description": "WASM package for geo-io-osm.",
   "license": "MIT OR Apache-2.0",

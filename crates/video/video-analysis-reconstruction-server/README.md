@@ -1,6 +1,6 @@
 # video-analysis-reconstruction-server
 
-Thin HTTP API adapter for `video-analysis-reconstruction`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-reconstruction`.
 
 Run:
 

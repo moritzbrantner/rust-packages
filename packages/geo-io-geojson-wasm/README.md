@@ -1,4 +1,4 @@
-# @mb-rust/geo-io-geojson-wasm
+# @moritzbrantner/geo-io-geojson-wasm
 
 WASM package for `geo-io-geojson`.
 

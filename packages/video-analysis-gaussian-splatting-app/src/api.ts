@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/video-analysis-gaussian-splatting-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/video-analysis-gaussian-splatting-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

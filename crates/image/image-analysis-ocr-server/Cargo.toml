@@ -1,5 +1,5 @@
 [package]
-name = "image-analysis-ocr-server"
+name = "moritzbrantner-image-analysis-ocr-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "image-analysis-ocr-server"
 
+[lib]
+name = "image_analysis_ocr_server"
+
 [[bin]]
 name = "image-analysis-ocr-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-image-analysis-ocr = { version = "0.1.0", path = "../image-analysis-ocr" }
+image-analysis-ocr = { package = "moritzbrantner-image-analysis-ocr", version = "0.1.0", path = "../image-analysis-ocr" }

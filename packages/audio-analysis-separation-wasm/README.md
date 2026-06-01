@@ -1,4 +1,4 @@
-# @mb-rust/audio-analysis-separation-wasm
+# @moritzbrantner/audio-analysis-separation-wasm
 
 WASM package for `audio-analysis-separation`.
 

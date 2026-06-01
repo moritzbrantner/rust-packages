@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/maps-kernels-core-wasm",
+  "name": "@moritzbrantner/maps-kernels-core-wasm",
   "version": "0.1.0",
   "description": "WASM package for maps-kernels-core.",
   "license": "MIT OR Apache-2.0",

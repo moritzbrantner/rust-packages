@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-dataset-wasm
+# @moritzbrantner/video-analysis-dataset-wasm
 
 WASM package for `video-analysis-dataset`.
 

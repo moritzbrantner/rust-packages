@@ -1,7 +1,7 @@
 # video-analysis-radiance-pipeline
 
 Library-first project loading, validation, summaries, and CPU Gaussian preview
-rendering for `video-analysis` radiance workflows.
+rendering for `moritzbrantner-video-analysis` radiance workflows.
 
 ## Feature flags
 

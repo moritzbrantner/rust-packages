@@ -1,6 +1,6 @@
 # video-analysis-radiance-fields-cli
 
-Thin command-line adapter for `video-analysis-radiance-fields`.
+Thin command-line adapter for `moritzbrantner-video-analysis-radiance-fields`.
 
 Run:
 

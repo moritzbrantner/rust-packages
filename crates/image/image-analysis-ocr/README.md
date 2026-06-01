@@ -1,6 +1,6 @@
 # image-analysis-ocr
 
-OCR model presets, rich text outputs, and backend contracts for `video-analysis`.
+OCR model presets, rich text outputs, and backend contracts for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

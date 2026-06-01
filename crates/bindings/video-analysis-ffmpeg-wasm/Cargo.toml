@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-ffmpeg-wasm"
+name = "moritzbrantner-video-analysis-ffmpeg-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

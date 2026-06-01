@@ -1,5 +1,5 @@
 {
-  "name": "three-d-processing-mesh-app",
+  "name": "@moritzbrantner/three-d-processing-mesh-app",
   "version": "0.1.0",
   "description": "React app for three-d-processing-mesh: Triangle mesh validation and geometry helpers for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/three-d-processing-mesh-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/three-d-processing-mesh-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

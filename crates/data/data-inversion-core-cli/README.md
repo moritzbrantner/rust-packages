@@ -1,6 +1,6 @@
 # data-inversion-core-cli
 
-Thin command-line adapter for `data-inversion-core`.
+Thin command-line adapter for `moritzbrantner-data-inversion-core`.
 
 Run:
 

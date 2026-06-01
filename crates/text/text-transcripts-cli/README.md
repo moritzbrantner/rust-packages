@@ -1,6 +1,6 @@
 # text-transcripts-cli
 
-Thin command-line adapter for `text-transcripts`.
+Thin command-line adapter for `moritzbrantner-text-transcripts`.
 
 Run:
 

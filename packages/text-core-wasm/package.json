@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/text-core-wasm",
+  "name": "@moritzbrantner/text-core-wasm",
   "version": "0.1.0",
   "description": "WASM package for text-core.",
   "license": "MIT OR Apache-2.0",

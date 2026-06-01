@@ -1,6 +1,6 @@
 # image-analysis-core-cli
 
-Thin command-line adapter for `image-analysis-core`.
+Thin command-line adapter for `moritzbrantner-image-analysis-core`.
 
 Run:
 

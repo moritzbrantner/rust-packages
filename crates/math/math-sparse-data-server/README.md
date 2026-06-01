@@ -1,6 +1,6 @@
 # math-sparse-data-server
 
-Thin HTTP API adapter for `math-sparse-data`.
+Thin HTTP API adapter for `moritzbrantner-math-sparse-data`.
 
 Run:
 

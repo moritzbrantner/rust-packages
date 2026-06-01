@@ -1,5 +1,5 @@
 [package]
-name = "data-inversion-core"
+name = "moritzbrantner-data-inversion-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "data_inversion_core"
 
 [dependencies]
 serde.workspace = true

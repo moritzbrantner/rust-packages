@@ -1,4 +1,4 @@
-# @mb-rust/text-retrieval-wasm
+# @moritzbrantner/text-retrieval-wasm
 
 WASM package for `text-retrieval`.
 

@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/text-embeddings-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/text-embeddings-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

@@ -1,4 +1,4 @@
-# @mb-rust/text-linguistics-wasm
+# @moritzbrantner/text-linguistics-wasm
 
 WASM package for `text-linguistics`.
 

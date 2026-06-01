@@ -1,6 +1,6 @@
 # audio-analysis-fourier-cli
 
-Thin command-line adapter for `audio-analysis-fourier`.
+Thin command-line adapter for `moritzbrantner-audio-analysis-fourier`.
 
 Run:
 

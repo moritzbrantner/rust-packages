@@ -1,5 +1,5 @@
 [package]
-name = "text-embeddings"
+name = "moritzbrantner-text-embeddings"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "text_embeddings"
 
 [dependencies]
 candle-core = { workspace = true, optional = true }
@@ -29,7 +32,6 @@ vector-analysis-core.workspace = true
 vector-analysis-index.workspace = true
 video-analysis-core.workspace = true
 model-runtime = { workspace = true, optional = true }
-
 [features]
 default = []
 model-bundles = ["dep:model-runtime", "tokenizers", "text-model-runtime/model-bundles"]

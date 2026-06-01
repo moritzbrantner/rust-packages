@@ -1,6 +1,6 @@
 # audio-analysis-pitch-cli
 
-Thin command-line adapter for `audio-analysis-pitch`.
+Thin command-line adapter for `moritzbrantner-audio-analysis-pitch`.
 
 Run:
 

@@ -1,5 +1,5 @@
 {
-  "name": "dense-data-app",
+  "name": "@moritzbrantner/dense-data-app",
   "version": "0.1.0",
   "description": "React app for dense-data: Deterministic dense point datasets, bucketing, and clustering for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/dense-data-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/dense-data-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

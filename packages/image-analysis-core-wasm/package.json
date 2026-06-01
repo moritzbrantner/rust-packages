@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/image-analysis-core-wasm",
+  "name": "@moritzbrantner/image-analysis-core-wasm",
   "version": "0.1.0",
   "description": "WASM package for image-analysis-core.",
   "license": "MIT OR Apache-2.0",

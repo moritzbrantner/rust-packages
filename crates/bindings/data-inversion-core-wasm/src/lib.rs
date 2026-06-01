@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = data_inversion_core::surface::package_surface();
-        assert_eq!(surface.library, "data-inversion-core");
+        assert_eq!(surface.library, "moritzbrantner-data-inversion-core");
         assert!(!surface.operations.is_empty());
     }
 }

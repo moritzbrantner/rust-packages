@@ -1,5 +1,5 @@
 [package]
-name = "maps-kernels-core-wasm"
+name = "moritzbrantner-maps-kernels-core-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

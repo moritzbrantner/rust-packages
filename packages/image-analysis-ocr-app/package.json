@@ -1,5 +1,5 @@
 {
-  "name": "image-analysis-ocr-app",
+  "name": "@moritzbrantner/image-analysis-ocr-app",
   "version": "0.1.0",
   "description": "React app for image-analysis-ocr: OCR model presets, rich text outputs, and image/video backend contracts for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/image-analysis-ocr-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/image-analysis-ocr-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

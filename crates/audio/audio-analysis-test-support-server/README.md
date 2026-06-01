@@ -1,6 +1,6 @@
 # audio-analysis-test-support-server
 
-Thin HTTP API adapter for `audio-analysis-test-support`.
+Thin HTTP API adapter for `moritzbrantner-audio-analysis-test-support`.
 
 Run:
 

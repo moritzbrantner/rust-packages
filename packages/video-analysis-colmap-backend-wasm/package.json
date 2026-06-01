@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-colmap-backend-wasm",
+  "name": "@moritzbrantner/video-analysis-colmap-backend-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-colmap-backend.",
   "license": "MIT OR Apache-2.0",

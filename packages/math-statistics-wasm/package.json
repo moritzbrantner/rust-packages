@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/math-statistics-wasm",
+  "name": "@moritzbrantner/math-statistics-wasm",
   "version": "0.1.0",
   "description": "WASM package for math-statistics.",
   "license": "MIT OR Apache-2.0",

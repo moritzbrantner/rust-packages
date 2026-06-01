@@ -1,6 +1,6 @@
 # video-analysis-test-support-cli
 
-Thin command-line adapter for `video-analysis-test-support`.
+Thin command-line adapter for `moritzbrantner-video-analysis-test-support`.
 
 Run:
 

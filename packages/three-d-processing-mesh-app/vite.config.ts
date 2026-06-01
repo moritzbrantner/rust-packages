@@ -6,7 +6,7 @@ const uiSourceRoot = fileURLToPath(new URL("../video-analysis-ui/src", import.me
 
 export default defineConfig({
   optimizeDeps: {
-    exclude: ["@mb-rust/three-d-processing-mesh-wasm"],
+    exclude: ["@moritzbrantner/three-d-processing-mesh-wasm"],
   },
   plugins: [react()],
   resolve: {

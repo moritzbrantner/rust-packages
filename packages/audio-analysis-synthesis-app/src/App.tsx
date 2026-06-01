@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/audio-analysis-synthesis-wasm";
+import { PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/audio-analysis-synthesis-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "audio-analysis-synthesis",

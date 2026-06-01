@@ -1,6 +1,6 @@
 # video-analysis-sfm-rust-backend-cli
 
-Thin command-line adapter for `video-analysis-sfm-rust-backend`.
+Thin command-line adapter for `moritzbrantner-video-analysis-sfm-rust-backend`.
 
 Run:
 

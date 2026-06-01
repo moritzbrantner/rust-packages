@@ -1,6 +1,6 @@
 # video-analysis-radiance-fields-server
 
-Thin HTTP API adapter for `video-analysis-radiance-fields`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-radiance-fields`.
 
 Run:
 

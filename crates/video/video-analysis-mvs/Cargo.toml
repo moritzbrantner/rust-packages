@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-mvs"
+name = "moritzbrantner-video-analysis-mvs"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "video_analysis_mvs"
 
 [dependencies]
 serde_json.workspace = true

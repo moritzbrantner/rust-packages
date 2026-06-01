@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/comfyui-latents-wasm",
+  "name": "@moritzbrantner/comfyui-latents-wasm",
   "version": "0.1.0",
   "description": "WASM package for comfyui-latents.",
   "license": "MIT OR Apache-2.0",

@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = finance_statistics::surface::package_surface();
-        assert_eq!(surface.library, "finance-statistics");
+        assert_eq!(surface.library, "moritzbrantner-finance-statistics");
         assert!(!surface.operations.is_empty());
     }
 }

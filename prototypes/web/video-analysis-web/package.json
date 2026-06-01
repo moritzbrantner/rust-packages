@@ -1,5 +1,5 @@
 {
-  "name": "@video-analysis/web",
+  "name": "@moritzbrantner/video-analysis-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,7 +19,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "@xyflow/react": "^12.10.2",
     "react": "^19.2.5",

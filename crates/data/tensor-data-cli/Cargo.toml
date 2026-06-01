@@ -1,5 +1,5 @@
 [package]
-name = "tensor-data-cli"
+name = "moritzbrantner-tensor-data-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "tensor-data-cli"
 
+[lib]
+name = "tensor_data_cli"
+
 [[bin]]
 name = "tensor-data-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-tensor-data = { version = "0.1.0", path = "../tensor-data" }
+tensor-data = { package = "moritzbrantner-tensor-data", version = "0.1.0", path = "../tensor-data" }

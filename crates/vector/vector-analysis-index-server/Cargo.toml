@@ -1,5 +1,5 @@
 [package]
-name = "vector-analysis-index-server"
+name = "moritzbrantner-vector-analysis-index-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "vector-analysis-index-server"
 
+[lib]
+name = "vector_analysis_index_server"
+
 [[bin]]
 name = "vector-analysis-index-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-vector-analysis-index = { version = "0.1.0", path = "../vector-analysis-index" }
+vector-analysis-index = { package = "moritzbrantner-vector-analysis-index", version = "0.1.0", path = "../vector-analysis-index" }

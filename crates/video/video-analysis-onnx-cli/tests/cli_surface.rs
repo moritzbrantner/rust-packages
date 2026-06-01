@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-onnx"
     );
     let surface = video_analysis_onnx_cli::package_surface();
-    assert_eq!(surface.library, "video-analysis-onnx");
+    assert_eq!(surface.library, "moritzbrantner-video-analysis-onnx");
     assert!(!surface.operations.is_empty());
 }

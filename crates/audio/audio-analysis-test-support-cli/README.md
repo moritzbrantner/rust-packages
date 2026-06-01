@@ -1,6 +1,6 @@
 # audio-analysis-test-support-cli
 
-Thin command-line adapter for `audio-analysis-test-support`.
+Thin command-line adapter for `moritzbrantner-audio-analysis-test-support`.
 
 Run:
 

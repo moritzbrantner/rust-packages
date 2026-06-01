@@ -26,7 +26,10 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_opencv_backend::surface::package_surface();
-        assert_eq!(surface.library, "video-analysis-opencv-backend");
+        assert_eq!(
+            surface.library,
+            "moritzbrantner-video-analysis-opencv-backend"
+        );
         assert!(!surface.operations.is_empty());
     }
 }

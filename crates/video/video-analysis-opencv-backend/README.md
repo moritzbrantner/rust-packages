@@ -1,12 +1,12 @@
 # video-analysis-opencv-backend
 
-Optional OpenCV backend contracts for COLMAP-like `video-analysis` pipelines.
+Optional OpenCV backend contracts for COLMAP-like `moritzbrantner-video-analysis` pipelines.
 
 The crate is intentionally feature-gated so the workspace can compile without a
 native OpenCV installation. It does not provide a command adapter. Prefer
-Rust-native color/object heuristics in `image-analysis-detection`, learned
-detectors in `video-analysis-onnx`, or known-pose Rust SfM in
-`video-analysis-sfm-rust-backend`.
+Rust-native color/object heuristics in `moritzbrantner-image-analysis-detection`, learned
+detectors in `moritzbrantner-video-analysis-onnx`, or known-pose Rust SfM in
+`moritzbrantner-video-analysis-sfm-rust-backend`.
 
 ## Feature flags
 
@@ -14,11 +14,11 @@ detectors in `video-analysis-onnx`, or known-pose Rust SfM in
 
 ## Related crates
 
-- `video-analysis-sfm`
-- `video-analysis-mvs`
-- `video-analysis-sfm-rust-backend`
-- `video-analysis-onnx`
-- `image-analysis-detection`
+- `moritzbrantner-video-analysis-sfm`
+- `moritzbrantner-video-analysis-mvs`
+- `moritzbrantner-video-analysis-sfm-rust-backend`
+- `moritzbrantner-video-analysis-onnx`
+- `moritzbrantner-image-analysis-detection`
 
 ## Package surface
 

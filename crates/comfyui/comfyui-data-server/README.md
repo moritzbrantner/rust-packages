@@ -1,6 +1,6 @@
 # comfyui-data-server
 
-Thin HTTP API adapter for `comfyui-data`.
+Thin HTTP API adapter for `moritzbrantner-comfyui-data`.
 
 Run:
 

@@ -1,5 +1,5 @@
 {
-  "name": "numbers-core-app",
+  "name": "@moritzbrantner/numbers-core-app",
   "version": "0.1.0",
   "description": "React app for numbers-core: Deterministic scalar numeric summaries, quantiles, ranges, and histograms for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/numbers-core-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/numbers-core-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

@@ -1,5 +1,5 @@
 [package]
-name = "text-model-runtime-server"
+name = "moritzbrantner-text-model-runtime-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "text-model-runtime-server"
 
+[lib]
+name = "text_model_runtime_server"
+
 [[bin]]
 name = "text-model-runtime-server"
 path = "src/main.rs"
@@ -20,8 +23,7 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-text-model-runtime = { version = "0.1.0", path = "../text-model-runtime", features = ["candle"] }
-
+text-model-runtime = { package = "moritzbrantner-text-model-runtime", version = "0.1.0", path = "../text-model-runtime", features = ["candle"] }
 [features]
 default = []
 cuda = ["text-model-runtime/cuda"]

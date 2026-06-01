@@ -1,4 +1,4 @@
-# @mb-rust/maps-kernels-core-wasm
+# @moritzbrantner/maps-kernels-core-wasm
 
 WASM package for `maps-kernels-core`.
 

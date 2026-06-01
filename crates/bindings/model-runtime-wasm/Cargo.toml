@@ -1,5 +1,5 @@
 [package]
-name = "model-runtime-wasm"
+name = "moritzbrantner-model-runtime-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

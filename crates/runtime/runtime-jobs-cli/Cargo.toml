@@ -1,5 +1,5 @@
 [package]
-name = "runtime-jobs-cli"
+name = "moritzbrantner-runtime-jobs-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,6 +15,9 @@ default-run = "runtime-jobs-cli"
 [[bin]]
 name = "runtime-jobs-cli"
 path = "src/main.rs"
+
+[lib]
+name = "runtime_jobs_cli"
 
 [dependencies]
 clap.workspace = true

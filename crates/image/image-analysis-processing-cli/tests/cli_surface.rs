@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "image-analysis-processing"
     );
     let surface = image_analysis_processing_cli::package_surface();
-    assert_eq!(surface.library, "image-analysis-processing");
+    assert_eq!(surface.library, "moritzbrantner-image-analysis-processing");
     assert!(!surface.operations.is_empty());
 }

@@ -5,6 +5,9 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-opencv-backend"
     );
     let surface = video_analysis_opencv_backend_cli::package_surface();
-    assert_eq!(surface.library, "video-analysis-opencv-backend");
+    assert_eq!(
+        surface.library,
+        "moritzbrantner-video-analysis-opencv-backend"
+    );
     assert!(!surface.operations.is_empty());
 }

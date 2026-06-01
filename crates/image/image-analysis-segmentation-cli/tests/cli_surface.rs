@@ -5,6 +5,9 @@ fn cli_adapter_reports_wrapped_library() {
         "image-analysis-segmentation"
     );
     let surface = image_analysis_segmentation_cli::package_surface();
-    assert_eq!(surface.library, "image-analysis-segmentation");
+    assert_eq!(
+        surface.library,
+        "moritzbrantner-image-analysis-segmentation"
+    );
     assert!(!surface.operations.is_empty());
 }

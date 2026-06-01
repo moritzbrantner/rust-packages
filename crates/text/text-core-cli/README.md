@@ -1,6 +1,6 @@
 # text-core-cli
 
-Thin command-line adapter for `text-core`.
+Thin command-line adapter for `moritzbrantner-text-core`.
 
 Run:
 

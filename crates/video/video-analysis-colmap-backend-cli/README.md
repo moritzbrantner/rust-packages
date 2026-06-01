@@ -1,6 +1,6 @@
 # video-analysis-colmap-backend-cli
 
-Thin command-line adapter for `video-analysis-colmap-backend`.
+Thin command-line adapter for `moritzbrantner-video-analysis-colmap-backend`.
 
 Run:
 

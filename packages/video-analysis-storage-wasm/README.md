@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-storage-wasm
+# @moritzbrantner/video-analysis-storage-wasm
 
 WASM package for `video-analysis-storage`.
 

@@ -1,9 +1,9 @@
 # video-analysis-sfm-rust-backend
 
-Rust-native SfM backend adapters for `video-analysis`.
+Rust-native SfM backend adapters for `moritzbrantner-video-analysis`.
 
 This crate keeps the native Rust implementation behind the same
-`video-analysis-sfm` traits used by COLMAP/OpenCV-compatible backends. The first
+`moritzbrantner-video-analysis-sfm` traits used by COLMAP/OpenCV-compatible backends. The first
 backend is a known-pose sparse mapper that consumes pre-extracted binary
 features and pairwise matches.
 
@@ -13,8 +13,8 @@ features and pairwise matches.
 
 ## Related crates
 
-- `video-analysis-sfm`
-- `video-analysis-reconstruction`
+- `moritzbrantner-video-analysis-sfm`
+- `moritzbrantner-video-analysis-reconstruction`
 
 ## Package surface
 

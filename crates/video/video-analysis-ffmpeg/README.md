@@ -1,6 +1,6 @@
 # video-analysis-ffmpeg
 
-FFmpeg-backed media ingest for `video-analysis`.
+FFmpeg-backed media ingest for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

@@ -1,6 +1,6 @@
 # image-analysis-classification-server
 
-Thin HTTP API adapter for `image-analysis-classification`.
+Thin HTTP API adapter for `moritzbrantner-image-analysis-classification`.
 
 Run:
 

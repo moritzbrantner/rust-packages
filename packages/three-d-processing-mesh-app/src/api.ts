@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/three-d-processing-mesh-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/three-d-processing-mesh-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

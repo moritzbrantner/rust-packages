@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-test-support-wasm",
+  "name": "@moritzbrantner/video-analysis-test-support-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-test-support.",
   "license": "MIT OR Apache-2.0",

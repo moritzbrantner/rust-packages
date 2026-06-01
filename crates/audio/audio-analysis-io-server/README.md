@@ -1,6 +1,6 @@
 # audio-analysis-io-server
 
-Thin HTTP API adapter for `audio-analysis-io`.
+Thin HTTP API adapter for `moritzbrantner-audio-analysis-io`.
 
 Run:
 

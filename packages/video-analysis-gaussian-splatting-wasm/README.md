@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-gaussian-splatting-wasm
+# @moritzbrantner/video-analysis-gaussian-splatting-wasm
 
 WASM package for `video-analysis-gaussian-splatting`.
 

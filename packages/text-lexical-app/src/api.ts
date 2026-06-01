@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/text-lexical-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/text-lexical-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

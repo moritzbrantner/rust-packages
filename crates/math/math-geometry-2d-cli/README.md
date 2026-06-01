@@ -1,6 +1,6 @@
 # math-geometry-2d-cli
 
-Thin command-line adapter for `math-geometry-2d`.
+Thin command-line adapter for `moritzbrantner-math-geometry-2d`.
 
 Run:
 

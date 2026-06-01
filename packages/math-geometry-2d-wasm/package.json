@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/math-geometry-2d-wasm",
+  "name": "@moritzbrantner/math-geometry-2d-wasm",
   "version": "0.1.0",
   "description": "WASM package for math-geometry-2d.",
   "license": "MIT OR Apache-2.0",

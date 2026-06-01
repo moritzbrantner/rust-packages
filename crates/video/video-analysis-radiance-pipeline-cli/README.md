@@ -1,6 +1,6 @@
 # video-analysis-radiance-pipeline-cli
 
-Thin command-line adapter for `video-analysis-radiance-pipeline`.
+Thin command-line adapter for `moritzbrantner-video-analysis-radiance-pipeline`.
 
 Run:
 

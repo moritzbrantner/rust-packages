@@ -6,7 +6,7 @@ const uiSourceRoot = fileURLToPath(new URL("../video-analysis-ui/src", import.me
 
 export default defineConfig({
   optimizeDeps: {
-    exclude: ["@mb-rust/audio-analysis-rhythm-wasm"],
+    exclude: ["@moritzbrantner/audio-analysis-rhythm-wasm"],
   },
   plugins: [react()],
   resolve: {

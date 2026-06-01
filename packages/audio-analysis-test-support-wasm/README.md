@@ -1,4 +1,4 @@
-# @mb-rust/audio-analysis-test-support-wasm
+# @moritzbrantner/audio-analysis-test-support-wasm
 
 WASM package for `audio-analysis-test-support`.
 

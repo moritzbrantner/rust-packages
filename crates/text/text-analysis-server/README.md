@@ -1,6 +1,6 @@
 # text-analysis-server
 
-HTTP API adapter for `text-analysis`.
+HTTP API adapter for `moritzbrantner-text-analysis`.
 
 ```bash
 cargo run -p text-analysis-server -- --addr 127.0.0.1:3000

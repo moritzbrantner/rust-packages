@@ -1,6 +1,6 @@
 # vector-analysis-index-cli
 
-Thin command-line adapter for `vector-analysis-index`.
+Thin command-line adapter for `moritzbrantner-vector-analysis-index`.
 
 Run:
 

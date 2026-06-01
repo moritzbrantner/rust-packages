@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = audio_generation_midi::surface::package_surface();
-        assert_eq!(surface.library, "audio-generation-midi");
+        assert_eq!(surface.library, "moritzbrantner-audio-generation-midi");
         assert!(!surface.operations.is_empty());
         let operation = surface
             .operations

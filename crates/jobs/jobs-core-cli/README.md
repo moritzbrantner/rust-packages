@@ -1,6 +1,6 @@
 # jobs-core-cli
 
-Thin command-line adapter for `jobs-core`.
+Thin command-line adapter for `moritzbrantner-jobs-core`.
 
 Run:
 

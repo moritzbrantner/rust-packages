@@ -1,6 +1,6 @@
 # runtime-artifacts-cli
 
-Thin command-line adapter for `runtime-artifacts`.
+Thin command-line adapter for `moritzbrantner-runtime-artifacts`.
 
 Run:
 

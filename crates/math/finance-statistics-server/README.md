@@ -1,6 +1,6 @@
 # finance-statistics-server
 
-Thin HTTP API adapter for `finance-statistics`.
+Thin HTTP API adapter for `moritzbrantner-finance-statistics`.
 
 Run:
 

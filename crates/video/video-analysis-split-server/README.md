@@ -1,6 +1,6 @@
 # video-analysis-split-server
 
-Thin HTTP API adapter for `video-analysis-split`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-split`.
 
 Run:
 

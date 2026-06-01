@@ -1,6 +1,6 @@
 # three-d-processing-mesh
 
-Triangle mesh validation and geometry algorithms for `video-analysis`.
+Triangle mesh validation and geometry algorithms for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

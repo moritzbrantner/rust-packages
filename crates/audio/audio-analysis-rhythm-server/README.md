@@ -1,6 +1,6 @@
 # audio-analysis-rhythm-server
 
-Thin HTTP API adapter for `audio-analysis-rhythm`.
+Thin HTTP API adapter for `moritzbrantner-audio-analysis-rhythm`.
 
 Run:
 

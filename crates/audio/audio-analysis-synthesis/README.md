@@ -1,6 +1,6 @@
 # audio-analysis-synthesis
 
-Deterministic audio synthesis from analysis events for `video-analysis`.
+Deterministic audio synthesis from analysis events for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

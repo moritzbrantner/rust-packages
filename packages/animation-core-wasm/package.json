@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/animation-core-wasm",
+  "name": "@moritzbrantner/animation-core-wasm",
   "version": "0.1.0",
   "description": "WASM package for animation-core.",
   "license": "MIT OR Apache-2.0",

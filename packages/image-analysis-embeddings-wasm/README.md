@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-embeddings-wasm
+# @moritzbrantner/image-analysis-embeddings-wasm
 
 WASM package for `image-analysis-embeddings`.
 

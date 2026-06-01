@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-onnx-wasm
+# @moritzbrantner/image-analysis-onnx-wasm
 
 WASM package for `image-analysis-onnx`.
 

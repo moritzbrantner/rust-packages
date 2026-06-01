@@ -1,6 +1,6 @@
 # video-analysis-transform-server
 
-Thin HTTP API adapter for `video-analysis-transform`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-transform`.
 
 Run:
 

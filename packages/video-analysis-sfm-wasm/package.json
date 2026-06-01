@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-sfm-wasm",
+  "name": "@moritzbrantner/video-analysis-sfm-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-sfm.",
   "license": "MIT OR Apache-2.0",

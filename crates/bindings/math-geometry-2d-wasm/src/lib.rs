@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = math_geometry_2d::surface::package_surface();
-        assert_eq!(surface.library, "math-geometry-2d");
+        assert_eq!(surface.library, "moritzbrantner-math-geometry-2d");
         assert!(!surface.operations.is_empty());
     }
 }

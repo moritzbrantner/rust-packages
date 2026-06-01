@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-mvs-wasm
+# @moritzbrantner/video-analysis-mvs-wasm
 
 WASM package for `video-analysis-mvs`.
 

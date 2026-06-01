@@ -1,4 +1,4 @@
-# @mb-rust/text-question-answering-wasm
+# @moritzbrantner/text-question-answering-wasm
 
 WASM package for `text-question-answering`.
 

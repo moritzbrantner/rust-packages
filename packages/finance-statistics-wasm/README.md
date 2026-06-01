@@ -1,4 +1,4 @@
-# @mb-rust/finance-statistics-wasm
+# @moritzbrantner/finance-statistics-wasm
 
 WASM package for `finance-statistics`.
 

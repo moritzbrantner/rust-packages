@@ -1,5 +1,5 @@
 [package]
-name = "vector-analysis-index-wasm"
+name = "moritzbrantner-vector-analysis-index-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,6 +1,6 @@
 # text-question-answering-cli
 
-Thin command-line adapter for `text-question-answering`.
+Thin command-line adapter for `moritzbrantner-text-question-answering`.
 
 Run:
 

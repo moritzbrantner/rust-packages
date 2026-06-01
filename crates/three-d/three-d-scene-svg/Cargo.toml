@@ -1,5 +1,5 @@
 [package]
-name = "three-d-scene-svg"
+name = "moritzbrantner-three-d-scene-svg"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "three_d_scene_svg"
 
 [dependencies]
 serde.workspace = true

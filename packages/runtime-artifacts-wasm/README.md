@@ -1,4 +1,4 @@
-# @mb-rust/runtime-artifacts-wasm
+# @moritzbrantner/runtime-artifacts-wasm
 
 WASM package for `runtime-artifacts`.
 

@@ -6,7 +6,7 @@ const uiSourceRoot = fileURLToPath(new URL("../video-analysis-ui/src", import.me
 
 export default defineConfig({
   optimizeDeps: {
-    exclude: ["@mb-rust/tensor-data-wasm"],
+    exclude: ["@moritzbrantner/tensor-data-wasm"],
   },
   plugins: [react()],
   resolve: {

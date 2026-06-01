@@ -1,6 +1,6 @@
 # video-analysis-ffmpeg-server
 
-Thin HTTP API adapter for `video-analysis-ffmpeg`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-ffmpeg`.
 
 Run:
 

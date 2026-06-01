@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-tracking"
     );
     let surface = video_analysis_tracking_cli::package_surface();
-    assert_eq!(surface.library, "video-analysis-tracking");
+    assert_eq!(surface.library, "moritzbrantner-video-analysis-tracking");
     assert!(!surface.operations.is_empty());
 }

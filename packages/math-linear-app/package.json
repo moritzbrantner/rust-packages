@@ -1,5 +1,5 @@
 {
-  "name": "math-linear-app",
+  "name": "@moritzbrantner/math-linear-app",
   "version": "0.1.0",
   "description": "React app for math-linear: Dense matrix and kernel contracts bridging tensor-data and vector-analysis-core.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/math-linear-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/math-linear-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

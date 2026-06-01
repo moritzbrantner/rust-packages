@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_onnx::surface::package_surface();
-        assert_eq!(surface.library, "video-analysis-onnx");
+        assert_eq!(surface.library, "moritzbrantner-video-analysis-onnx");
         assert!(!surface.operations.is_empty());
     }
 }

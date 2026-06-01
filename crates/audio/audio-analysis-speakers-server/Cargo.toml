@@ -1,5 +1,5 @@
 [package]
-name = "audio-analysis-speakers-server"
+name = "moritzbrantner-audio-analysis-speakers-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "audio-analysis-speakers-server"
 
+[lib]
+name = "audio_analysis_speakers_server"
+
 [[bin]]
 name = "audio-analysis-speakers-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-audio-analysis-speakers = { version = "0.1.0", path = "../audio-analysis-speakers" }
+audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.0", path = "../audio-analysis-speakers" }

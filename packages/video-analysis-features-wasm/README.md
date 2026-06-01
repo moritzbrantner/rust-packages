@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-features-wasm
+# @moritzbrantner/video-analysis-features-wasm
 
 WASM package for `video-analysis-features`.
 

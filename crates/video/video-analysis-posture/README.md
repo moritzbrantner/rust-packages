@@ -1,6 +1,6 @@
 # video-analysis-posture
 
-Pose and skeleton helpers for `video-analysis`.
+Pose and skeleton helpers for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

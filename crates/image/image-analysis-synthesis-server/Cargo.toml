@@ -1,5 +1,5 @@
 [package]
-name = "image-analysis-synthesis-server"
+name = "moritzbrantner-image-analysis-synthesis-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "image-analysis-synthesis-server"
 
+[lib]
+name = "image_analysis_synthesis_server"
+
 [[bin]]
 name = "image-analysis-synthesis-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-image-analysis-synthesis = { version = "0.1.0", path = "../image-analysis-synthesis" }
+image-analysis-synthesis = { package = "moritzbrantner-image-analysis-synthesis", version = "0.1.0", path = "../image-analysis-synthesis" }

@@ -1,5 +1,5 @@
 {
-  "name": "text-generation-linguistics-app",
+  "name": "@moritzbrantner/text-generation-linguistics-app",
   "version": "0.1.0",
   "description": "React app for text-generation-linguistics: Adapters from text-linguistics analysis outputs into text-generation.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/text-generation-linguistics-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/text-generation-linguistics-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-use-cases"
+name = "moritzbrantner-video-analysis-use-cases"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 publish = false
+
+[lib]
+name = "video_analysis_use_cases"
 
 [[bin]]
 name = "video-analysis-use-cases"

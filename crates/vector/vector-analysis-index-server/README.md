@@ -1,6 +1,6 @@
 # vector-analysis-index-server
 
-Thin HTTP API adapter for `vector-analysis-index`.
+Thin HTTP API adapter for `moritzbrantner-vector-analysis-index`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # text-generation-linguistics-cli
 
-Thin command-line adapter for `text-generation-linguistics`.
+Thin command-line adapter for `moritzbrantner-text-generation-linguistics`.
 
 Run:
 

@@ -1,5 +1,5 @@
 {
-  "name": "vector-analysis-index-app",
+  "name": "@moritzbrantner/vector-analysis-index-app",
   "version": "0.1.0",
   "description": "React app for vector-analysis-index: Exact in-memory vector search for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/vector-analysis-index-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/vector-analysis-index-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

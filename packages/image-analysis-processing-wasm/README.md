@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-processing-wasm
+# @moritzbrantner/image-analysis-processing-wasm
 
 WASM package for `image-analysis-processing`.
 

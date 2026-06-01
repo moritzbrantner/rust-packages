@@ -1,6 +1,6 @@
 # math-statistics-server
 
-Thin HTTP API adapter for `math-statistics`.
+Thin HTTP API adapter for `moritzbrantner-math-statistics`.
 
 Run:
 

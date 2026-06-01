@@ -210,14 +210,14 @@ export const packageDomainLabels: Record<PackageDomain, string> = {
 };
 
 export function packageDomainFor(name: string, path?: string | null): PackageDomain {
-  const packageName = name.replace(/^@mb-rust\//, "").replace(/^@video-analysis\//, "");
-  if (name === "video-analysis") {
+  const packageName = name.replace(/^@moritzbrantner\//, "").replace(/^moritzbrantner-/, "");
+  if (packageName === "video-analysis") {
     return "facade";
   }
-  if (name === "@video-analysis/ui") {
+  if (name === "@moritzbrantner/video-analysis-ui") {
     return "ui";
   }
-  if (name === "@video-analysis/web") {
+  if (name === "@moritzbrantner/video-analysis-web") {
     return "apps";
   }
   if (path?.includes("/bindings/")) {
@@ -272,7 +272,6 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
     packageName === "geo-io-osm" ||
     packageName === "geo-clustering" ||
     packageName === "geo-viz" ||
-    packageName.startsWith("moritzbrantner-geo-") ||
     packageName === "numbers-core" ||
     packageName === "tensor-data"
   ) {
@@ -283,7 +282,7 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
 
 export function packageShortName(name: string): string {
   return name
-    .replace(/^@video-analysis\//, "")
+    .replace(/^@moritzbrantner\//, "")
     .replace(/^moritzbrantner-/, "")
     .replace(/^video-analysis-/, "")
     .replace(/^audio-analysis-/, "audio:")

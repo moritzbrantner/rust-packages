@@ -1,6 +1,6 @@
 # audio-analysis-pitch
 
-Autocorrelation pitch detection for `video-analysis` audio pipelines.
+Autocorrelation pitch detection for `moritzbrantner-video-analysis` audio pipelines.
 
 ## Feature flags
 

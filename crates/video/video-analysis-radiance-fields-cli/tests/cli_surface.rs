@@ -5,6 +5,9 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-radiance-fields"
     );
     let surface = video_analysis_radiance_fields_cli::package_surface();
-    assert_eq!(surface.library, "video-analysis-radiance-fields");
+    assert_eq!(
+        surface.library,
+        "moritzbrantner-video-analysis-radiance-fields"
+    );
     assert!(!surface.operations.is_empty());
 }

@@ -1,5 +1,5 @@
 {
-  "name": "text-classification-app",
+  "name": "@moritzbrantner/text-classification-app",
   "version": "0.1.0",
   "description": "React app for text-classification: Text classification APIs, runtime selection, imported prediction handling, and deterministic fallbacks.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/text-classification-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/text-classification-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

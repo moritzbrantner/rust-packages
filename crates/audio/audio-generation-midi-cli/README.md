@@ -1,6 +1,6 @@
 # audio-generation-midi-cli
 
-Thin command-line adapter for `audio-generation-midi`.
+Thin command-line adapter for `moritzbrantner-audio-generation-midi`.
 
 Run:
 

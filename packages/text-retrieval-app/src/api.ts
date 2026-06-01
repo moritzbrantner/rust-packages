@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/text-retrieval-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/text-retrieval-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

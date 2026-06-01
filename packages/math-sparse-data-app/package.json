@@ -1,5 +1,5 @@
 {
-  "name": "math-sparse-data-app",
+  "name": "@moritzbrantner/math-sparse-data-app",
   "version": "0.1.0",
   "description": "React app for math-sparse-data: Sparse vector and matrix contracts for text, retrieval, and feature indexing.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/math-sparse-data-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/math-sparse-data-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

@@ -1,4 +1,4 @@
-# @mb-rust/comfyui-models-wasm
+# @moritzbrantner/comfyui-models-wasm
 
 WASM package for `comfyui-models`.
 

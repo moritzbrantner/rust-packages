@@ -12,7 +12,7 @@ import {
   TranscriptPanel,
   VideoSummaryCards,
   type YoutubeVideoReport,
-} from "@video-analysis/ui";
+} from "@moritzbrantner/video-analysis-ui";
 
 export type DashboardWidgetId =
   | "summary"

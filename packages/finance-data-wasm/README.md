@@ -1,4 +1,4 @@
-# @mb-rust/finance-data-wasm
+# @moritzbrantner/finance-data-wasm
 
 WASM package for `finance-data`.
 

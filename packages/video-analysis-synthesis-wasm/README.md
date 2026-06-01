@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-synthesis-wasm
+# @moritzbrantner/video-analysis-synthesis-wasm
 
 WASM package for `video-analysis-synthesis`.
 

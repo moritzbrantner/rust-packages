@@ -1,6 +1,6 @@
 # audio-generation-midi
 
-MIDI-like note sequencing, Standard MIDI export, and deterministic audio rendering helpers for `video-analysis`.
+MIDI-like note sequencing, Standard MIDI export, and deterministic audio rendering helpers for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

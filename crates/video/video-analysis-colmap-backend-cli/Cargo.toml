@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-colmap-backend-cli"
+name = "moritzbrantner-video-analysis-colmap-backend-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "video-analysis-colmap-backend-cli"
 
+[lib]
+name = "video_analysis_colmap_backend_cli"
+
 [[bin]]
 name = "video-analysis-colmap-backend-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-colmap-backend = { version = "0.1.0", path = "../video-analysis-colmap-backend" }
+video-analysis-colmap-backend = { package = "moritzbrantner-video-analysis-colmap-backend", version = "0.1.0", path = "../video-analysis-colmap-backend" }

@@ -1,6 +1,6 @@
 # dense-data-server
 
-Thin HTTP API adapter for `dense-data`.
+Thin HTTP API adapter for `moritzbrantner-dense-data`.
 
 Run:
 

@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-output-wasm
+# @moritzbrantner/video-analysis-output-wasm
 
 WASM package for `video-analysis-output`.
 

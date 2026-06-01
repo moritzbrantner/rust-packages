@@ -13,15 +13,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = ROOT / "docs" / "PACKAGE_SURFACE_MATRIX.md"
-EXCLUDED_LIBRARY_CRATES = {"runtime-artifacts", "runtime-jobs"}
-WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
-COMPANION_PACKAGE_BASE_NAMES = {
-    "moritzbrantner-geo-core": "geo-core",
-    "moritzbrantner-geo-io-geojson": "geo-io-geojson",
-    "moritzbrantner-geo-io-osm": "geo-io-osm",
-    "moritzbrantner-geo-clustering": "geo-clustering",
-    "moritzbrantner-geo-viz": "geo-viz",
+EXCLUDED_LIBRARY_CRATES = {
+    "moritzbrantner-runtime-artifacts",
+    "moritzbrantner-runtime-jobs",
 }
+WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
 SCAFFOLD_STRINGS = [
     "A deterministic summary or execution plan owned by the Rust library",
     "JSON request metadata for the operation-specific package surface",
@@ -126,8 +122,8 @@ def render_matrix(packages: list[LibraryPackage]) -> str:
             + " | ".join(
                 [
                     tick(package.name),
-                    tick(f"{companion_base}-cli"),
-                    tick(f"{companion_base}-server"),
+                    tick(public_package_name(f"{companion_base}-cli")),
+                    tick(public_package_name(f"{companion_base}-server")),
                     tick(f"crates/bindings/{companion_base}-wasm"),
                     tick(f"packages/{companion_base}-wasm"),
                     tick(f"packages/{companion_base}-app"),
@@ -155,7 +151,7 @@ def operation_ids(crate: str) -> list[str]:
             "run",
             "--quiet",
             "-p",
-            f"{companion_base}-cli",
+            public_package_name(f"{companion_base}-cli"),
             "--",
             "operations",
             "--json",
@@ -192,7 +188,11 @@ def companion_dir(package: LibraryPackage, kind: str) -> Path:
 
 
 def companion_package_base_name(package_name: str) -> str:
-    return COMPANION_PACKAGE_BASE_NAMES.get(package_name, package_name)
+    return package_name.removeprefix("moritzbrantner-")
+
+
+def public_package_name(package_name: str) -> str:
+    return package_name if package_name.startswith("moritzbrantner-") else f"moritzbrantner-{package_name}"
 
 
 def run_json(command: list[str]) -> dict:

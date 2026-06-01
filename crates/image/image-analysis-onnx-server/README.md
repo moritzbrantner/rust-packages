@@ -1,6 +1,6 @@
 # image-analysis-onnx-server
 
-Thin HTTP API adapter for `image-analysis-onnx`.
+Thin HTTP API adapter for `moritzbrantner-image-analysis-onnx`.
 
 Run:
 

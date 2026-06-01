@@ -1,6 +1,6 @@
 # math-signal-core-server
 
-Thin HTTP API adapter for `math-signal-core`.
+Thin HTTP API adapter for `moritzbrantner-math-signal-core`.
 
 Run:
 

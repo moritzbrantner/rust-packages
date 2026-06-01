@@ -1,6 +1,6 @@
 # video-analysis-tracking-cli
 
-Thin command-line adapter for `video-analysis-tracking`.
+Thin command-line adapter for `moritzbrantner-video-analysis-tracking`.
 
 Run:
 

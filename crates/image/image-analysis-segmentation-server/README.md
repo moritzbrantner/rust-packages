@@ -1,6 +1,6 @@
 # image-analysis-segmentation-server
 
-Thin HTTP API adapter for `image-analysis-segmentation`.
+Thin HTTP API adapter for `moritzbrantner-image-analysis-segmentation`.
 
 Run:
 

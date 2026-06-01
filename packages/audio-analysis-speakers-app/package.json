@@ -1,5 +1,5 @@
 {
-  "name": "audio-analysis-speakers-app",
+  "name": "@moritzbrantner/audio-analysis-speakers-app",
   "version": "0.1.0",
   "description": "React app for audio-analysis-speakers: Speaker embeddings, enrollment, identification, VAD, and diarization APIs for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/audio-analysis-speakers-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/audio-analysis-speakers-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

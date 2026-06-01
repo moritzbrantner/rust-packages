@@ -1,4 +1,4 @@
-# @mb-rust/comfyui-latents-wasm
+# @moritzbrantner/comfyui-latents-wasm
 
 WASM package for `comfyui-latents`.
 

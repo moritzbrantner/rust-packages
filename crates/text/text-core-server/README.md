@@ -1,6 +1,6 @@
 # text-core-server
 
-Thin HTTP API adapter for `text-core`.
+Thin HTTP API adapter for `moritzbrantner-text-core`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # video-analysis-reconstruction
 
-Sparse reconstruction helpers for `video-analysis`.
+Sparse reconstruction helpers for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

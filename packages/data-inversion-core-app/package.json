@@ -1,5 +1,5 @@
 {
-  "name": "data-inversion-core-app",
+  "name": "@moritzbrantner/data-inversion-core-app",
   "version": "0.1.0",
   "description": "React app for data-inversion-core: Shared fidelity and inversion trace metadata for generated analysis outputs.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/data-inversion-core-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/data-inversion-core-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

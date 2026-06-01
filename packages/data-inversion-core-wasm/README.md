@@ -1,4 +1,4 @@
-# @mb-rust/data-inversion-core-wasm
+# @moritzbrantner/data-inversion-core-wasm
 
 WASM package for `data-inversion-core`.
 

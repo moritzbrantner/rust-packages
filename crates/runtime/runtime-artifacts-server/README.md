@@ -1,6 +1,6 @@
 # runtime-artifacts-server
 
-Thin HTTP API adapter for `runtime-artifacts`.
+Thin HTTP API adapter for `moritzbrantner-runtime-artifacts`.
 
 Run:
 

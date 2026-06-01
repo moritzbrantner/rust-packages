@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-gaussian-splatting"
+name = "moritzbrantner-video-analysis-gaussian-splatting"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "video_analysis_gaussian_splatting"
 
 [dependencies]
 serde_json.workspace = true

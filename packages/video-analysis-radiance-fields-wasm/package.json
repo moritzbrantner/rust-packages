@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-radiance-fields-wasm",
+  "name": "@moritzbrantner/video-analysis-radiance-fields-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-radiance-fields.",
   "license": "MIT OR Apache-2.0",

@@ -1,6 +1,6 @@
 # audio-analysis-separation-server
 
-Thin HTTP API adapter for `audio-analysis-separation`.
+Thin HTTP API adapter for `moritzbrantner-audio-analysis-separation`.
 
 Run:
 

@@ -26,7 +26,10 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_gaussian_splatting::surface::package_surface();
-        assert_eq!(surface.library, "video-analysis-gaussian-splatting");
+        assert_eq!(
+            surface.library,
+            "moritzbrantner-video-analysis-gaussian-splatting"
+        );
         assert!(!surface.operations.is_empty());
     }
 }

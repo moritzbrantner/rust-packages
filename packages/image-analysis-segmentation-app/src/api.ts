@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/image-analysis-segmentation-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/image-analysis-segmentation-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

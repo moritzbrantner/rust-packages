@@ -1,5 +1,5 @@
 {
-  "name": "jobs-core-app",
+  "name": "@moritzbrantner/jobs-core-app",
   "version": "0.1.0",
   "description": "React app for jobs-core: Reusable long-running job state, cancellation, progress, logs, and artifact primitives.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/jobs-core-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/jobs-core-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

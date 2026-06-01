@@ -1,6 +1,6 @@
 # video-analysis-features-server
 
-Thin HTTP API adapter for `video-analysis-features`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-features`.
 
 Run:
 

@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-core-wasm
+# @moritzbrantner/video-analysis-core-wasm
 
 WASM package for `video-analysis-core`.
 

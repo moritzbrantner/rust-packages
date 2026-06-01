@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/image-analysis-ocr-wasm",
+  "name": "@moritzbrantner/image-analysis-ocr-wasm",
   "version": "0.1.0",
   "description": "WASM package for image-analysis-ocr.",
   "license": "MIT OR Apache-2.0",

@@ -1,6 +1,6 @@
 # maps-kernels-core-cli
 
-Thin command-line adapter for `maps-kernels-core`.
+Thin command-line adapter for `moritzbrantner-maps-kernels-core`.
 
 Run:
 

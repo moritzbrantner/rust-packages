@@ -1,5 +1,5 @@
 [package]
-name = "three-d-processing-core-cli"
+name = "moritzbrantner-three-d-processing-core-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "three-d-processing-core-cli"
 
+[lib]
+name = "three_d_processing_core_cli"
+
 [[bin]]
 name = "three-d-processing-core-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-three-d-processing-core = { version = "0.1.0", path = "../three-d-processing-core" }
+three-d-processing-core = { package = "moritzbrantner-three-d-processing-core", version = "0.1.0", path = "../three-d-processing-core" }

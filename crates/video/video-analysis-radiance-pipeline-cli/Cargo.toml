@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-radiance-pipeline-cli"
+name = "moritzbrantner-video-analysis-radiance-pipeline-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "video-analysis-radiance-pipeline-cli"
 
+[lib]
+name = "video_analysis_radiance_pipeline_cli"
+
 [[bin]]
 name = "video-analysis-radiance-pipeline-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-radiance-pipeline = { version = "0.1.0", path = "../video-analysis-radiance-pipeline" }
+video-analysis-radiance-pipeline = { package = "moritzbrantner-video-analysis-radiance-pipeline", version = "0.1.0", path = "../video-analysis-radiance-pipeline" }

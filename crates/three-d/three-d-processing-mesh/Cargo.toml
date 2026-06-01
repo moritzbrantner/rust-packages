@@ -1,5 +1,5 @@
 [package]
-name = "three-d-processing-mesh"
+name = "moritzbrantner-three-d-processing-mesh"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "three_d_processing_mesh"
 
 [dependencies]
 serde_json.workspace = true

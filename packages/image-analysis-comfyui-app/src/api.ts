@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/image-analysis-comfyui-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/image-analysis-comfyui-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

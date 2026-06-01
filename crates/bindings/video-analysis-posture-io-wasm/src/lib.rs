@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_posture_io::surface::package_surface();
-        assert_eq!(surface.library, "video-analysis-posture-io");
+        assert_eq!(surface.library, "moritzbrantner-video-analysis-posture-io");
         assert!(!surface.operations.is_empty());
     }
 }

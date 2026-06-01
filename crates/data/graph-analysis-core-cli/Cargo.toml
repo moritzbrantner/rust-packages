@@ -1,5 +1,5 @@
 [package]
-name = "graph-analysis-core-cli"
+name = "moritzbrantner-graph-analysis-core-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "graph-analysis-core-cli"
 
+[lib]
+name = "graph_analysis_core_cli"
+
 [[bin]]
 name = "graph-analysis-core-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-graph-analysis-core = { version = "0.1.0", path = "../graph-analysis-core" }
+graph-analysis-core = { package = "moritzbrantner-graph-analysis-core", version = "0.1.0", path = "../graph-analysis-core" }

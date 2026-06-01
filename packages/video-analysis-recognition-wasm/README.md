@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-recognition-wasm
+# @moritzbrantner/video-analysis-recognition-wasm
 
 WASM package for `video-analysis-recognition`.
 

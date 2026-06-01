@@ -1,5 +1,5 @@
 [package]
-name = "runtime-artifacts-server"
+name = "moritzbrantner-runtime-artifacts-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,6 +15,9 @@ default-run = "runtime-artifacts-server"
 [[bin]]
 name = "runtime-artifacts-server"
 path = "src/main.rs"
+
+[lib]
+name = "runtime_artifacts_server"
 
 [dependencies]
 clap.workspace = true

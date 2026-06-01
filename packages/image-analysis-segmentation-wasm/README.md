@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-segmentation-wasm
+# @moritzbrantner/image-analysis-segmentation-wasm
 
 WASM package for `image-analysis-segmentation`.
 

@@ -1,5 +1,5 @@
 {
-  "name": "model-runtime-app",
+  "name": "@moritzbrantner/model-runtime-app",
   "version": "0.1.0",
   "description": "React app for model-runtime: Generic model specs, bundles, downloads, and job helpers for multimodal runtimes.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/model-runtime-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/model-runtime-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

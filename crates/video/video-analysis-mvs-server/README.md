@@ -1,6 +1,6 @@
 # video-analysis-mvs-server
 
-Thin HTTP API adapter for `video-analysis-mvs`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-mvs`.
 
 Run:
 

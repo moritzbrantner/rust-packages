@@ -1,4 +1,4 @@
-# @mb-rust/text-model-runtime-wasm
+# @moritzbrantner/text-model-runtime-wasm
 
 WASM package for `text-model-runtime`.
 

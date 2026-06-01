@@ -24,7 +24,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = math_linear::surface::package_surface();
-        assert_eq!(surface.library, "math-linear");
+        assert_eq!(surface.library, "moritzbrantner-math-linear");
         assert!(!surface.operations.is_empty());
     }
 }

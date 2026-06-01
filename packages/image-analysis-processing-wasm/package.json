@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/image-analysis-processing-wasm",
+  "name": "@moritzbrantner/image-analysis-processing-wasm",
   "version": "0.1.0",
   "description": "WASM package for image-analysis-processing.",
   "license": "MIT OR Apache-2.0",

@@ -1,5 +1,5 @@
 {
-  "name": "geo-io-osm-app",
+  "name": "@moritzbrantner/geo-io-osm-app",
   "version": "0.1.0",
   "description": "React app for geo-io-osm: OpenStreetMap PBF import adapters for geo-core.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@mb-rust/geo-io-osm-wasm": "workspace:*",
-    "@video-analysis/ui": "workspace:*",
+    "@moritzbrantner/geo-io-osm-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

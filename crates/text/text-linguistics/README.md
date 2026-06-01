@@ -1,6 +1,6 @@
 # text-linguistics
 
-Local model-backed linguistic analysis pipeline for `video-analysis`.
+Local model-backed linguistic analysis pipeline for `moritzbrantner-video-analysis`.
 
 ## Highlights
 

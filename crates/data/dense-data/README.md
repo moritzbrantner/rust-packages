@@ -1,12 +1,12 @@
 # dense-data
 
-Deterministic dense point datasets, bucketing, and clustering for `video-analysis`.
+Deterministic dense point datasets, bucketing, and clustering for `moritzbrantner-video-analysis`.
 
 ## Highlights
 
 - Weighted dense point summaries with per-dimension stats
-- `math-linear` matrix export for dense point coordinates
-- `math-statistics` covariance and PCA helpers
+- `moritzbrantner-math-linear` matrix export for dense point coordinates
+- `moritzbrantner-math-statistics` covariance and PCA helpers
 - Deterministic fixed-grid bucketing
 - Deterministic k-means clustering
 - Dataset and point-set helpers for tables, charts, and media-derived features

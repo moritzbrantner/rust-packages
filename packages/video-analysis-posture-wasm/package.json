@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-posture-wasm",
+  "name": "@moritzbrantner/video-analysis-posture-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-posture.",
   "license": "MIT OR Apache-2.0",

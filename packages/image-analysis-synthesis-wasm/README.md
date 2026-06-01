@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-synthesis-wasm
+# @moritzbrantner/image-analysis-synthesis-wasm
 
 WASM package for `image-analysis-synthesis`.
 

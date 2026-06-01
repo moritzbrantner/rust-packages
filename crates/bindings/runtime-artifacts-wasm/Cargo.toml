@@ -1,5 +1,5 @@
 [package]
-name = "runtime-artifacts-wasm"
+name = "moritzbrantner-runtime-artifacts-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [lib]
+name = "runtime_artifacts_wasm"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]

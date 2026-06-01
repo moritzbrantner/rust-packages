@@ -1,6 +1,6 @@
 # video-analysis-synthesis-server
 
-Thin HTTP API adapter for `video-analysis-synthesis`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-synthesis`.
 
 Run:
 

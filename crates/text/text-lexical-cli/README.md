@@ -1,6 +1,6 @@
 # text-lexical-cli
 
-Thin command-line adapter for `text-lexical`.
+Thin command-line adapter for `moritzbrantner-text-lexical`.
 
 Run:
 

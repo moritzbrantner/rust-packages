@@ -1,6 +1,6 @@
 # video-analysis-colmap-backend-server
 
-Thin HTTP API adapter for `video-analysis-colmap-backend`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-colmap-backend`.
 
 Run:
 

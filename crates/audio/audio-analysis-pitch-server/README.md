@@ -1,6 +1,6 @@
 # audio-analysis-pitch-server
 
-Thin HTTP API adapter for `audio-analysis-pitch`.
+Thin HTTP API adapter for `moritzbrantner-audio-analysis-pitch`.
 
 Run:
 

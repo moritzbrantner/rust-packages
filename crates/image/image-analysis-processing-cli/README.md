@@ -1,6 +1,6 @@
 # image-analysis-processing-cli
 
-Thin command-line adapter for `image-analysis-processing`.
+Thin command-line adapter for `moritzbrantner-image-analysis-processing`.
 
 Run:
 

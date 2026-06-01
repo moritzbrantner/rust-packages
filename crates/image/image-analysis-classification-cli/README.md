@@ -1,6 +1,6 @@
 # image-analysis-classification-cli
 
-Thin command-line adapter for `image-analysis-classification`.
+Thin command-line adapter for `moritzbrantner-image-analysis-classification`.
 
 Run:
 

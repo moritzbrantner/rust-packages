@@ -1,5 +1,5 @@
 [package]
-name = "comfyui-latents-wasm"
+name = "moritzbrantner-comfyui-latents-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

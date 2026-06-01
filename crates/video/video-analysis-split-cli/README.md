@@ -1,6 +1,6 @@
 # video-analysis-split-cli
 
-Thin command-line adapter for `video-analysis-split`.
+Thin command-line adapter for `moritzbrantner-video-analysis-split`.
 
 Run:
 

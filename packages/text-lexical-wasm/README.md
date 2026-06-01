@@ -1,4 +1,4 @@
-# @mb-rust/text-lexical-wasm
+# @moritzbrantner/text-lexical-wasm
 
 WASM package for `text-lexical`.
 

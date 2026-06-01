@@ -1,4 +1,4 @@
-# @mb-rust/three-d-processing-io-wasm
+# @moritzbrantner/three-d-processing-io-wasm
 
 WASM package for `three-d-processing-io`.
 

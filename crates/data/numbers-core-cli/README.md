@@ -1,6 +1,6 @@
 # numbers-core-cli
 
-Thin command-line adapter for `numbers-core`.
+Thin command-line adapter for `moritzbrantner-numbers-core`.
 
 Run:
 

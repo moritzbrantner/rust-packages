@@ -1,6 +1,6 @@
 # video-analysis-segmentation
 
-Video segmentation primitives and SAM 2 defaults for `video-analysis`.
+Video segmentation primitives and SAM 2 defaults for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

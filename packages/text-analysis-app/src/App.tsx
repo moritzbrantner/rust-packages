@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/text-analysis-wasm";
+import { createTextResultTabs, PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/text-analysis-wasm";
 
 const sampleText =
   "Alice presented the tokenizer roadmap in Berlin. Rust crates analyze text with deterministic local features. Semantic search and lexical statistics support transcript workflows.";
@@ -69,7 +69,7 @@ const packageAppConfig: PackageAppConfig = {
     },
     {
       id: "corpus",
-      label: "Corpus",
+      label: "Corpus retrieval report",
       operation: "analysis.corpus",
       description: "Transient corpus search and similarity report.",
       input: {
@@ -83,6 +83,18 @@ const packageAppConfig: PackageAppConfig = {
         includeNearDuplicates: true,
         includeSemanticNeighbors: true,
         embedding: { mode: "hashed", dimensions: 128, useIdf: true },
+      },
+    },
+    {
+      id: "similarity",
+      label: "Similarity overlap and embedding",
+      operation: "analysis.similarity",
+      description: "Compare two transcript-style passages with lexical and deterministic embedding signals.",
+      input: {
+        left: "Rust text packages extract keywords, entities, and transcript retrieval evidence.",
+        right: "Transcript search in Rust combines lexical features with deterministic semantic embeddings.",
+        n: 3,
+        mode: "token",
       },
     },
   ],
@@ -123,34 +135,34 @@ const packageAppConfig: PackageAppConfig = {
       outputCountPath: ["results"],
     },
   ],
-  resultTabs: [
-    { id: "overview", label: "Overview", select: (response) => summarizeTextAnalysis(response.value) },
-    { id: "stats", label: "Stats", select: (response) => selectObject(response.value, ["core", "enrichedStats"]) },
-    { id: "lexical", label: "Lexical", select: (response) => getObject(response.value).lexical ?? {} },
-    { id: "embedding", label: "Embedding", select: (response) => getObject(response.value).embedding ?? {} },
-  ],
+  resultTabs: createTextResultTabs({
+    library: "text-analysis",
+    primaryOperations: {
+      "analysis.document": {
+        title: "Document analysis",
+        summaryFields: ["profile", "language", "wordCount", "keywordCount", "entityCount", "embeddingDimensions"],
+        listFields: ["lexical.keywords", "linguistics.entities", "retrieval.results", "diagnostics"],
+        objectFields: ["core", "lexical", "linguistics", "embedding", "retrieval"],
+        explanation: () => "The orchestrator ran core statistics, lexical keyword extraction, linguistic projections, deterministic embeddings, and retrieval-oriented diagnostics for one document.",
+      },
+      "analysis.corpus": {
+        title: "Corpus analysis",
+        summaryFields: ["documentCount", "resultCount", "nearDuplicateCount", "semanticNeighborCount"],
+        listFields: ["results", "nearDuplicates", "semanticNeighbors", "documents"],
+        objectFields: ["embedding", "diagnostics"],
+        explanation: () => "The app built a transient corpus from the sample documents, searched it, and added near-duplicate or semantic-neighbor sections when requested.",
+      },
+      "analysis.similarity": {
+        title: "Text similarity",
+        summaryFields: ["mode", "score", "lexicalScore", "embeddingScore"],
+        listFields: ["sharedTerms", "diagnostics"],
+        objectFields: ["lexical", "embedding", "result"],
+        explanation: () => "The run compared two passages with the selected similarity mode and reports the lexical and embedding contributions that were available.",
+      },
+    },
+  }),
 };
 
 export function App() {
   return <PackageSurfaceWorkbench config={packageAppConfig} />;
-}
-
-function summarizeTextAnalysis(value: unknown) {
-  const result = getObject(value);
-  return {
-    id: result.id,
-    language: result.language,
-    diagnostics: result.diagnostics,
-    words: getObject(getObject(getObject(result.core).stats).basic).words,
-    keywords: Array.isArray(getObject(result.lexical).keywords) ? getObject(result.lexical).keywords.slice(0, 5) : [],
-  };
-}
-
-function selectObject(value: unknown, keys: string[]) {
-  const object = getObject(value);
-  return Object.fromEntries(keys.map((key) => [key, object[key]]));
-}
-
-function getObject(value: unknown): Record<string, any> {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, any>) : {};
 }

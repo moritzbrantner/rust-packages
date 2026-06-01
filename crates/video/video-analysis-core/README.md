@@ -1,7 +1,7 @@
 # video-analysis-core
 
 Core media, timing, runtime surface, detection, and analyzer contracts for
-`video-analysis`.
+`moritzbrantner-video-analysis`.
 
 Runtime DTOs used by package surfaces live under `video_analysis_core::runtime`,
 including diagnostics, capabilities, package surfaces, surface requests,

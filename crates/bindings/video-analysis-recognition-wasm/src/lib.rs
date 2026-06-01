@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_recognition::surface::package_surface();
-        assert_eq!(surface.library, "video-analysis-recognition");
+        assert_eq!(surface.library, "moritzbrantner-video-analysis-recognition");
         assert!(!surface.operations.is_empty());
     }
 }

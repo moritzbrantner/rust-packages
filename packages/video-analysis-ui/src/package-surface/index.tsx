@@ -36,6 +36,8 @@ export { ModelSelector } from "./ModelSelector";
 export { OperationWorkbench } from "./OperationWorkbench";
 export { ResultViewer } from "./ResultViewer";
 export { BenchmarkPanel } from "./BenchmarkPanel";
+export { createTextResultTabs } from "./TextResultPanels";
+export type { TextOperationPresentation, TextResultTabsConfig } from "./TextResultPanels";
 
 type LoadState = "loading" | "ready" | "error" | "disabled";
 
@@ -370,8 +372,9 @@ function RuntimePanel({
     <section className="rounded-md border border-zinc-200 bg-white p-4">
       <h2 className="text-sm font-semibold text-zinc-950">Runtime</h2>
       <dl className="mt-3 grid gap-3 text-sm">
-        <StatusRow label="WASM" state={wasmState} />
-        <StatusRow label="Server" state={serverState} />
+        <StatusRow label="Client WASM" state={wasmState} detail="Runs the generated browser WASM package." />
+        <StatusRow label="Overview Server" state={serverState} detail={`Calls ${config.server?.scopedRoute ?? "/api/rust/packages/<library>"}/api/run.`} />
+        <DetailRow label="Standalone Server" value="Uses package server routes through the configured base URL." />
         <DetailRow label="Server URL" value={configuredServerBaseUrl(config)} />
         <DetailRow label="Health" value={health?.package ?? "Not loaded"} />
         <DetailRow label="Library" value={surface?.library ?? config.library} />
@@ -397,8 +400,13 @@ function SupportPanel({ operations }: { operations: SurfaceOperation[] }) {
   );
 }
 
-function StatusRow({ label, state }: { label: string; state: LoadState }) {
-  return <DetailRow label={label} value={state === "ready" ? "Ready" : state === "error" ? "Unavailable" : state === "disabled" ? "Disabled" : "Loading"} />;
+function StatusRow({ label, state, detail }: { label: string; state: LoadState; detail?: string }) {
+  return (
+    <div>
+      <DetailRow label={label} value={state === "ready" ? "Ready" : state === "error" ? "Unavailable" : state === "disabled" ? "Disabled" : "Loading"} />
+      {detail ? <p className="mt-1 text-xs leading-5 text-zinc-500">{detail}</p> : null}
+    </div>
+  );
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {

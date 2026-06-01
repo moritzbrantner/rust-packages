@@ -1,6 +1,6 @@
 # video-analysis-detectors-server
 
-Thin HTTP API adapter for `video-analysis-detectors`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-detectors`.
 
 Run:
 

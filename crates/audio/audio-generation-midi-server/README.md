@@ -1,6 +1,6 @@
 # audio-generation-midi-server
 
-Thin HTTP API adapter for `audio-generation-midi`.
+Thin HTTP API adapter for `moritzbrantner-audio-generation-midi`.
 
 Run:
 

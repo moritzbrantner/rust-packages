@@ -53,49 +53,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
-name = "animation-core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "three-d-processing-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "animation-core-cli"
-version = "0.1.0"
-dependencies = [
- "animation-core",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "animation-core-server"
-version = "0.1.0"
-dependencies = [
- "animation-core",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "animation-core-wasm"
-version = "0.1.0"
-dependencies = [
- "animation-core",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -179,539 +136,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cf2bce30dfe09ef0bfaef228b9d414faaf7e563035494d7fe092dba54b300f4"
 dependencies = [
  "critical-section",
-]
-
-[[package]]
-name = "audio-analysis-core"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "math-signal-core",
- "proptest",
- "serde_json",
- "tensor-data",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-core-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-core-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-core-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-analysis-fourier"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "criterion",
- "rustfft",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-fourier-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-fourier",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-fourier-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-fourier",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-fourier-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-fourier",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-analysis-io"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "hound",
- "serde_json",
- "tempfile",
- "video-analysis-core",
- "video-analysis-ffmpeg",
- "video-analysis-ingest",
-]
-
-[[package]]
-name = "audio-analysis-io-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-io",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-io-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-io",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-io-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-io",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-analysis-pitch"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "criterion",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-pitch-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-pitch",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-pitch-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-pitch",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-pitch-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-pitch",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-analysis-processing"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "criterion",
- "math-signal-core",
- "proptest",
- "serde",
- "serde_json",
- "video-analysis-core",
- "video-analysis-ingest",
-]
-
-[[package]]
-name = "audio-analysis-processing-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-processing",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-processing-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-processing",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-processing-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-processing",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-analysis-recognition"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "audio-analysis-fourier",
- "criterion",
- "model-runtime",
- "serde",
- "serde_json",
- "text-transcripts",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-recognition-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-recognition",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-recognition-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-recognition",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-recognition-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-recognition",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-analysis-rhythm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "criterion",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-rhythm-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-rhythm",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-rhythm-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-rhythm",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-rhythm-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-rhythm",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-analysis-separation"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-recognition",
- "jobs-core",
- "serde",
- "serde_json",
- "tempfile",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-separation-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-separation",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-separation-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-separation",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-separation-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-separation",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-analysis-speakers"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "audio-analysis-recognition",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-speakers-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-speakers",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-speakers-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-speakers",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-speakers-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-speakers",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-analysis-synthesis"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-recognition",
- "data-inversion-core",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-synthesis-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-synthesis",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-synthesis-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-synthesis",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-synthesis-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-synthesis",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-analysis-test-support"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "tempfile",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-test-support-cli"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-test-support",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-test-support-server"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-test-support",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-analysis-test-support-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-test-support",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "audio-generation-midi"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-synthesis",
- "data-inversion-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-generation-midi-cli"
-version = "0.1.0"
-dependencies = [
- "audio-generation-midi",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-generation-midi-server"
-version = "0.1.0"
-dependencies = [
- "audio-generation-midi",
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "audio-generation-midi-wasm"
-version = "0.1.0"
-dependencies = [
- "audio-generation-midi",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -1013,137 +437,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
-name = "comfyui-data"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tensor-data",
- "thiserror 2.0.18",
- "video-analysis-core",
-]
-
-[[package]]
-name = "comfyui-data-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "comfyui-data",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "comfyui-data-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "comfyui-data",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "comfyui-data-wasm"
-version = "0.1.0"
-dependencies = [
- "comfyui-data",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "comfyui-latents"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tensor-data",
- "video-analysis-core",
-]
-
-[[package]]
-name = "comfyui-latents-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "comfyui-latents",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "comfyui-latents-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "comfyui-latents",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "comfyui-latents-wasm"
-version = "0.1.0"
-dependencies = [
- "comfyui-latents",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "comfyui-models"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
- "video-analysis-core",
-]
-
-[[package]]
-name = "comfyui-models-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "comfyui-models",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "comfyui-models-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "comfyui-models",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "comfyui-models-wasm"
-version = "0.1.0"
-dependencies = [
- "comfyui-models",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "compact_str"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1391,94 +684,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "data-inversion-core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "data-inversion-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "data-inversion-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "data-inversion-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "data-inversion-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "data-inversion-core-wasm"
-version = "0.1.0"
-dependencies = [
- "data-inversion-core",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "dense-data"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "math-linear",
- "math-statistics",
- "numbers-core",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "dense-data-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "dense-data",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "dense-data-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "dense-data",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "dense-data-wasm"
-version = "0.1.0"
-dependencies = [
- "dense-data",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "deranged"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1684,92 +889,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e6853b52649d4ac5c0bd02320cddc5ba956bdb407c4b75a2c6b75bf51500f8c"
 dependencies = [
  "simd-adler32",
-]
-
-[[package]]
-name = "finance-data"
-version = "0.1.0"
-dependencies = [
- "finance-statistics",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "finance-data-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "finance-data",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "finance-data-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "finance-data",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "finance-data-wasm"
-version = "0.1.0"
-dependencies = [
- "finance-data",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "finance-statistics"
-version = "0.1.0"
-dependencies = [
- "numbers-core",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "finance-statistics-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "finance-statistics",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "finance-statistics-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "finance-statistics",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "finance-statistics-wasm"
-version = "0.1.0"
-dependencies = [
- "finance-statistics",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2130,142 +1249,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "geo-clustering-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-geo-clustering",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-clustering-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-geo-clustering",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-clustering-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-geo-clustering",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "geo-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-geo-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-geo-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-geo-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "geo-io-geojson-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-geo-io-geojson",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-io-geojson-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-geo-io-geojson",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-io-geojson-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-geo-io-geojson",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "geo-io-osm-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-geo-io-geojson",
- "moritzbrantner-geo-io-osm",
- "osmpbfreader",
- "protobuf",
- "serde_json",
- "tempfile",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-io-osm-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-geo-io-osm",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-io-osm-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-geo-io-osm",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "geo-types"
 version = "0.7.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2279,40 +1262,6 @@ dependencies = [
  "rstar 0.8.4",
  "rstar 0.9.3",
  "serde",
-]
-
-[[package]]
-name = "geo-viz-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-geo-viz",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-viz-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-geo-viz",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "geo-viz-wasm"
-version = "0.1.0"
-dependencies = [
- "getrandom 0.3.4",
- "js-sys",
- "moritzbrantner-geo-viz",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2372,48 +1321,6 @@ name = "glob"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
-
-[[package]]
-name = "graph-analysis-core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "graph-analysis-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "graph-analysis-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "graph-analysis-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "graph-analysis-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "graph-analysis-core-wasm"
-version = "0.1.0"
-dependencies = [
- "graph-analysis-core",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
 
 [[package]]
 name = "half"
@@ -2747,556 +1654,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "image-analysis-captioning"
-version = "0.1.0"
-dependencies = [
- "image-analysis-core",
- "image-analysis-detection",
- "image-analysis-ocr",
- "image-analysis-segmentation",
- "image-analysis-synthesis",
- "model-runtime",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-captioning-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-captioning",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-captioning-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-captioning",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-captioning-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-captioning",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-classification"
-version = "0.1.0"
-dependencies = [
- "image-analysis-core",
- "image-analysis-detection",
- "image-analysis-ocr",
- "image-analysis-segmentation",
- "image-analysis-synthesis",
- "model-runtime",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-classification-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-classification",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-classification-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-classification",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-classification-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-classification",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-comfyui"
-version = "0.1.0"
-dependencies = [
- "comfyui-data",
- "comfyui-models",
- "serde_json",
- "tempfile",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-comfyui-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-comfyui",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-comfyui-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-comfyui",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-comfyui-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-comfyui",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tensor-data",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-core-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-core",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-detection"
-version = "0.1.0"
-dependencies = [
- "image-analysis-core",
- "image-analysis-segmentation",
- "model-runtime",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-detection-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-detection",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-detection-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-detection",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-detection-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-detection",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-embeddings"
-version = "0.1.0"
-dependencies = [
- "image-analysis-core",
- "image-analysis-detection",
- "image-analysis-ocr",
- "image-analysis-segmentation",
- "image-analysis-synthesis",
- "model-runtime",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-embeddings-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-embeddings",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-embeddings-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-embeddings",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-embeddings-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-embeddings",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-io"
-version = "0.1.0"
-dependencies = [
- "image",
- "image-analysis-core",
- "serde",
- "serde_json",
- "tempfile",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-io-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-io",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-io-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-io",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-io-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-io",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-ocr"
-version = "0.1.0"
-dependencies = [
- "image-analysis-core",
- "model-runtime",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-ocr-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-ocr",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-ocr-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-ocr",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-ocr-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-ocr",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-onnx"
-version = "0.1.0"
-dependencies = [
- "image-analysis-classification",
- "image-analysis-core",
- "image-analysis-detection",
- "image-analysis-embeddings",
- "image-analysis-processing",
- "model-runtime",
- "ort",
- "serde",
- "serde_json",
- "tempfile",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-onnx-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-onnx",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-onnx-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-onnx",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-onnx-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-onnx",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-processing"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "image",
- "image-analysis-core",
- "math-geometry-2d",
- "math-linear",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-processing-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-processing",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-processing-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-processing",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-processing-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-processing",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-segmentation"
-version = "0.1.0"
-dependencies = [
- "image-analysis-core",
- "model-runtime",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-segmentation-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-segmentation",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-segmentation-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-segmentation",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-segmentation-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-segmentation",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "image-analysis-synthesis"
-version = "0.1.0"
-dependencies = [
- "data-inversion-core",
- "image-analysis-core",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-synthesis-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-synthesis",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-synthesis-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image-analysis-synthesis",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "image-analysis-synthesis-wasm"
-version = "0.1.0"
-dependencies = [
- "image-analysis-synthesis",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "image-webp"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3371,50 +1728,6 @@ name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
-
-[[package]]
-name = "jobs-core"
-version = "0.1.1"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "sha2",
- "video-analysis-core",
-]
-
-[[package]]
-name = "jobs-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "jobs-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "jobs-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "jobs-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "jobs-core-wasm"
-version = "0.1.0"
-dependencies = [
- "jobs-core",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
 
 [[package]]
 name = "js-sys"
@@ -3533,270 +1846,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "670fdfda89751bc4a84ac13eaa63e205cf0fd22b4c9a5fbfa085b63c1f1d3a30"
 
 [[package]]
-name = "maps-kernels-core"
-version = "0.1.0"
-dependencies = [
- "numbers-core",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "maps-kernels-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "maps-kernels-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "maps-kernels-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "maps-kernels-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "maps-kernels-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "maps-kernels-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "math-geometry-2d"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-geometry-2d-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "math-geometry-2d",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-geometry-2d-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "math-geometry-2d",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-geometry-2d-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "math-geometry-2d",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "math-linear"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "serde",
- "serde_json",
- "tensor-data",
- "vector-analysis-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-linear-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "math-linear",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-linear-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "math-linear",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-linear-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "math-linear",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "math-signal-core"
-version = "0.1.0"
-dependencies = [
- "numbers-core",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-signal-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "math-signal-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-signal-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "math-signal-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-signal-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "math-signal-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "math-sparse-data"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "numbers-core",
- "serde",
- "serde_json",
- "vector-analysis-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-sparse-data-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "math-sparse-data",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-sparse-data-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "math-sparse-data",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-sparse-data-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "math-sparse-data",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "math-statistics"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "math-linear",
- "numbers-core",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-statistics-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "math-statistics",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-statistics-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "math-statistics",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "math-statistics-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "math-statistics",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "matrixmultiply"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3839,51 +1888,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "model-runtime"
-version = "0.1.0"
-dependencies = [
- "hf-hub",
- "jobs-core",
- "serde",
- "serde_json",
- "tempfile",
- "video-analysis-core",
-]
-
-[[package]]
-name = "model-runtime-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "model-runtime",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "model-runtime-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "model-runtime",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "model-runtime-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "model-runtime",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "monostate"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3906,22 +1910,969 @@ dependencies = [
 ]
 
 [[package]]
+name = "moritzbrantner-animation-core"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-animation-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-animation-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-animation-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-animation-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-animation-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-animation-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-core"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-math-signal-core",
+ "moritzbrantner-tensor-data",
+ "moritzbrantner-video-analysis-core",
+ "proptest",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-fourier"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "rustfft",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-fourier-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-fourier",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-fourier-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-fourier",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-fourier-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-fourier",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-io"
+version = "0.1.0"
+dependencies = [
+ "hound",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ffmpeg",
+ "moritzbrantner-video-analysis-ingest",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-io-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-io",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-io-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-io",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-io-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-io",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-pitch"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-pitch-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-pitch",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-pitch-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-pitch",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-pitch-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-pitch",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-processing"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-math-signal-core",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ingest",
+ "proptest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-processing-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-processing",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-processing-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-processing",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-processing-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-processing",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-recognition"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-audio-analysis-fourier",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-text-transcripts",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-recognition-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-recognition",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-recognition-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-recognition",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-recognition-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-recognition",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-rhythm"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-rhythm-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-rhythm",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-rhythm-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-rhythm",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-rhythm-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-rhythm",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-separation"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-audio-analysis-recognition",
+ "moritzbrantner-jobs-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-separation-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-separation",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-separation-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-separation",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-separation-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-separation",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-speakers"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-audio-analysis-recognition",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-speakers-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-speakers",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-speakers-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-speakers",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-speakers-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-speakers",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-synthesis"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-audio-analysis-recognition",
+ "moritzbrantner-data-inversion-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-synthesis-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-synthesis",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-synthesis-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-synthesis",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-synthesis-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-synthesis",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-test-support"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-test-support-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-test-support",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-test-support-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-test-support",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-test-support-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-test-support",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-audio-generation-midi"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-audio-analysis-synthesis",
+ "moritzbrantner-data-inversion-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-generation-midi-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-generation-midi",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-generation-midi-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-generation-midi",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-generation-midi-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-generation-midi",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-data"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-tensor-data",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-data-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-comfyui-data",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-data-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-comfyui-data",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-data-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-comfyui-data",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-latents"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-tensor-data",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-latents-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-comfyui-latents",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-latents-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-comfyui-latents",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-latents-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-comfyui-latents",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-models"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-models-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-comfyui-models",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-models-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-comfyui-models",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-comfyui-models-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-comfyui-models",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-data-inversion-core"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-data-inversion-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-data-inversion-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-data-inversion-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-data-inversion-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-data-inversion-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-data-inversion-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-dense-data"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-math-linear",
+ "moritzbrantner-math-statistics",
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-dense-data-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-dense-data",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-dense-data-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-dense-data",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-dense-data-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-dense-data",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-finance-data"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-finance-statistics",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-finance-data-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-finance-data",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-finance-data-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-finance-data",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-finance-data-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-finance-data",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-finance-statistics"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-finance-statistics-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-finance-statistics",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-finance-statistics-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-finance-statistics",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-finance-statistics-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-finance-statistics",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "moritzbrantner-geo-clustering"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-geo-core",
+ "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
- "video-analysis-core",
+]
+
+[[package]]
+name = "moritzbrantner-geo-clustering-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-clustering",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-geo-clustering-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-clustering",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-geo-clustering-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-geo-clustering",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]
 name = "moritzbrantner-geo-core"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
- "video-analysis-core",
+]
+
+[[package]]
+name = "moritzbrantner-geo-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-geo-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-geo-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-geo-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -3930,9 +2881,42 @@ version = "0.1.0"
 dependencies = [
  "geojson",
  "moritzbrantner-geo-core",
+ "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
- "video-analysis-core",
+]
+
+[[package]]
+name = "moritzbrantner-geo-io-geojson-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-io-geojson",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-geo-io-geojson-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-io-geojson",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-geo-io-geojson-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-geo-io-geojson",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -3943,6 +2927,7 @@ dependencies = [
  "geo-types",
  "moritzbrantner-geo-core",
  "moritzbrantner-geo-io-geojson",
+ "moritzbrantner-video-analysis-core",
  "osmpbfreader",
  "protobuf",
  "redb",
@@ -3950,21 +2935,3479 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "video-analysis-core",
+]
+
+[[package]]
+name = "moritzbrantner-geo-io-osm-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-io-geojson",
+ "moritzbrantner-geo-io-osm",
+ "moritzbrantner-video-analysis-core",
+ "osmpbfreader",
+ "protobuf",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-geo-io-osm-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-io-osm",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-geo-io-osm-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-geo-io-osm",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]
 name = "moritzbrantner-geo-viz"
 version = "0.1.0"
 dependencies = [
- "maps-kernels-core",
  "moritzbrantner-geo-clustering",
  "moritzbrantner-geo-core",
  "moritzbrantner-geo-io-geojson",
+ "moritzbrantner-maps-kernels-core",
+ "moritzbrantner-video-analysis-core",
  "rstar 0.13.0",
  "serde",
  "serde_json",
- "video-analysis-core",
+]
+
+[[package]]
+name = "moritzbrantner-geo-viz-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-viz",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-geo-viz-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-geo-viz",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-geo-viz-wasm"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.3.4",
+ "js-sys",
+ "moritzbrantner-geo-viz",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-graph-analysis-core"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-graph-analysis-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-graph-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-graph-analysis-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-graph-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-graph-analysis-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-graph-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-captioning"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-detection",
+ "moritzbrantner-image-analysis-ocr",
+ "moritzbrantner-image-analysis-segmentation",
+ "moritzbrantner-image-analysis-synthesis",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-captioning-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-captioning",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-captioning-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-captioning",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-captioning-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-captioning",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-classification"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-detection",
+ "moritzbrantner-image-analysis-ocr",
+ "moritzbrantner-image-analysis-segmentation",
+ "moritzbrantner-image-analysis-synthesis",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-classification-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-classification",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-classification-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-classification",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-classification-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-classification",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-comfyui"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-comfyui-data",
+ "moritzbrantner-comfyui-models",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-comfyui-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-comfyui",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-comfyui-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-comfyui",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-comfyui-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-comfyui",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-core"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-tensor-data",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-detection"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-segmentation",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-detection-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-detection",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-detection-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-detection",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-detection-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-detection",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-embeddings"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-detection",
+ "moritzbrantner-image-analysis-ocr",
+ "moritzbrantner-image-analysis-segmentation",
+ "moritzbrantner-image-analysis-synthesis",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-embeddings-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-embeddings",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-embeddings-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-embeddings",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-embeddings-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-embeddings",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-io"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-io-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-io",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-io-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-io",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-io-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-io",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-ocr"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-ocr-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-ocr",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-ocr-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-ocr",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-ocr-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-ocr",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-onnx"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-image-analysis-classification",
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-detection",
+ "moritzbrantner-image-analysis-embeddings",
+ "moritzbrantner-image-analysis-processing",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "ort",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-onnx-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-onnx",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-onnx-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-onnx",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-onnx-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-onnx",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-processing"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "image",
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-math-linear",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-processing-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-processing",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-processing-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-processing",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-processing-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-processing",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-segmentation"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-segmentation-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-segmentation",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-segmentation-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-segmentation",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-segmentation-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-segmentation",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-synthesis"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-data-inversion-core",
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-synthesis-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-synthesis",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-synthesis-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-image-analysis-synthesis",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-image-analysis-synthesis-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-image-analysis-synthesis",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-jobs-core"
+version = "0.1.1"
+dependencies = [
+ "chrono",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "moritzbrantner-jobs-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-jobs-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-jobs-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-jobs-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-jobs-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-jobs-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-maps-kernels-core"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-maps-kernels-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-maps-kernels-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-maps-kernels-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-maps-kernels-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-maps-kernels-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-maps-kernels-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-math-geometry-2d"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-geometry-2d-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-geometry-2d-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-geometry-2d-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-math-linear"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-tensor-data",
+ "moritzbrantner-vector-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-linear-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-math-linear",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-linear-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-math-linear",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-linear-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-math-linear",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-math-signal-core"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-signal-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-math-signal-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-signal-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-math-signal-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-signal-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-math-signal-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-math-sparse-data"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-vector-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-sparse-data-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-math-sparse-data",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-sparse-data-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-math-sparse-data",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-sparse-data-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-math-sparse-data",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-math-statistics"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-math-linear",
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-statistics-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-math-statistics",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-statistics-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-math-statistics",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-math-statistics-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-math-statistics",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-model-runtime"
+version = "0.1.0"
+dependencies = [
+ "hf-hub",
+ "moritzbrantner-jobs-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-model-runtime-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-model-runtime-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-model-runtime-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-numbers-core"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-numbers-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-numbers-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-numbers-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-tensor-data"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-tensor-data-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-tensor-data",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-tensor-data-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-tensor-data",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-tensor-data-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-tensor-data",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-analysis"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-text-core",
+ "moritzbrantner-text-embeddings",
+ "moritzbrantner-text-lexical",
+ "moritzbrantner-text-linguistics",
+ "moritzbrantner-text-retrieval",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-analysis-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-analysis",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-analysis-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-analysis",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-analysis-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-analysis",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-classification"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-text-core",
+ "moritzbrantner-text-lexical",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-classification-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-classification",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-classification-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-classification",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-classification-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-classification",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-core"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-jobs-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "unicode-normalization",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "moritzbrantner-text-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-embeddings"
+version = "0.1.0"
+dependencies = [
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
+ "criterion",
+ "moritzbrantner-math-sparse-data",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-text-core",
+ "moritzbrantner-text-lexical",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-vector-analysis-core",
+ "moritzbrantner-vector-analysis-index",
+ "moritzbrantner-video-analysis-core",
+ "ndarray",
+ "ort",
+ "serde",
+ "serde_json",
+ "tokenizers",
+]
+
+[[package]]
+name = "moritzbrantner-text-embeddings-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-embeddings",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-embeddings-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-embeddings",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-embeddings-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-embeddings",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-generation"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-data-inversion-core",
+ "moritzbrantner-text-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-generation-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-generation",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-generation-linguistics"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-data-inversion-core",
+ "moritzbrantner-text-core",
+ "moritzbrantner-text-generation",
+ "moritzbrantner-text-linguistics",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-generation-linguistics-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-generation-linguistics",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-generation-linguistics-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-generation-linguistics",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-generation-linguistics-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-generation-linguistics",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-generation-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-generation",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-generation-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-generation",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-lexical"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-math-sparse-data",
+ "moritzbrantner-text-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-lexical-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-lexical",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-lexical-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-lexical",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-lexical-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-lexical",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-linguistics"
+version = "0.1.0"
+dependencies = [
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
+ "criterion",
+ "moritzbrantner-jobs-core",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-text-core",
+ "moritzbrantner-text-lexical",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-text-transcripts",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokenizers",
+]
+
+[[package]]
+name = "moritzbrantner-text-linguistics-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-linguistics",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-linguistics-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-linguistics",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-linguistics-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-linguistics",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-model-runtime"
+version = "0.1.0"
+dependencies = [
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
+ "moritzbrantner-jobs-core",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "ndarray",
+ "ort",
+ "serde",
+ "serde_json",
+ "tokenizers",
+]
+
+[[package]]
+name = "moritzbrantner-text-model-runtime-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-model-runtime-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-model-runtime-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-question-answering"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-question-answering-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-question-answering",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-question-answering-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-question-answering",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-question-answering-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-question-answering",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-retrieval"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-text-core",
+ "moritzbrantner-text-embeddings",
+ "moritzbrantner-text-lexical",
+ "moritzbrantner-text-transcripts",
+ "moritzbrantner-vector-analysis-index",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "moritzbrantner-text-retrieval-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-retrieval",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-retrieval-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-retrieval",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-retrieval-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-retrieval",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-text-transcripts"
+version = "0.1.0"
+dependencies = [
+ "cmake",
+ "hound",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-text-core",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ingest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.18",
+ "ureq 2.12.1",
+]
+
+[[package]]
+name = "moritzbrantner-text-transcripts-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-transcripts",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-transcripts-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-text-transcripts",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-text-transcripts-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-text-transcripts",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-core"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-io"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-three-d-processing-mesh",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-io-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-three-d-processing-io",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-io-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-three-d-processing-io",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-io-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-three-d-processing-io",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-mesh"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-mesh-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-three-d-processing-mesh",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-mesh-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-three-d-processing-mesh",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-processing-mesh-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-three-d-processing-mesh",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-scene-svg"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-three-d-processing-mesh",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-scene-svg-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-three-d-scene-svg",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-scene-svg-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-three-d-scene-svg",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-three-d-scene-svg-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-three-d-scene-svg",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-vector-analysis-core"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-vector-analysis-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-vector-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-vector-analysis-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-vector-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-vector-analysis-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-vector-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-vector-analysis-index"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-vector-analysis-core",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-vector-analysis-index-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-vector-analysis-index",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-vector-analysis-index-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-vector-analysis-index",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-vector-analysis-index-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-vector-analysis-index",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-animation-core",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-audio-analysis-fourier",
+ "moritzbrantner-audio-analysis-io",
+ "moritzbrantner-audio-analysis-pitch",
+ "moritzbrantner-audio-analysis-processing",
+ "moritzbrantner-audio-analysis-recognition",
+ "moritzbrantner-audio-analysis-rhythm",
+ "moritzbrantner-audio-analysis-separation",
+ "moritzbrantner-audio-analysis-speakers",
+ "moritzbrantner-audio-analysis-synthesis",
+ "moritzbrantner-audio-generation-midi",
+ "moritzbrantner-comfyui-data",
+ "moritzbrantner-comfyui-latents",
+ "moritzbrantner-comfyui-models",
+ "moritzbrantner-data-inversion-core",
+ "moritzbrantner-dense-data",
+ "moritzbrantner-finance-data",
+ "moritzbrantner-finance-statistics",
+ "moritzbrantner-geo-clustering",
+ "moritzbrantner-geo-core",
+ "moritzbrantner-geo-io-geojson",
+ "moritzbrantner-geo-io-osm",
+ "moritzbrantner-geo-viz",
+ "moritzbrantner-graph-analysis-core",
+ "moritzbrantner-image-analysis-captioning",
+ "moritzbrantner-image-analysis-classification",
+ "moritzbrantner-image-analysis-comfyui",
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-detection",
+ "moritzbrantner-image-analysis-embeddings",
+ "moritzbrantner-image-analysis-io",
+ "moritzbrantner-image-analysis-ocr",
+ "moritzbrantner-image-analysis-onnx",
+ "moritzbrantner-image-analysis-processing",
+ "moritzbrantner-image-analysis-segmentation",
+ "moritzbrantner-image-analysis-synthesis",
+ "moritzbrantner-jobs-core",
+ "moritzbrantner-maps-kernels-core",
+ "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-math-linear",
+ "moritzbrantner-math-signal-core",
+ "moritzbrantner-math-sparse-data",
+ "moritzbrantner-math-statistics",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-tensor-data",
+ "moritzbrantner-text-analysis",
+ "moritzbrantner-text-classification",
+ "moritzbrantner-text-core",
+ "moritzbrantner-text-core-cli",
+ "moritzbrantner-text-core-server",
+ "moritzbrantner-text-embeddings",
+ "moritzbrantner-text-embeddings-cli",
+ "moritzbrantner-text-embeddings-server",
+ "moritzbrantner-text-generation",
+ "moritzbrantner-text-generation-linguistics",
+ "moritzbrantner-text-lexical",
+ "moritzbrantner-text-linguistics",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-text-question-answering",
+ "moritzbrantner-text-retrieval",
+ "moritzbrantner-text-retrieval-cli",
+ "moritzbrantner-text-retrieval-server",
+ "moritzbrantner-text-transcripts",
+ "moritzbrantner-text-transcripts-cli",
+ "moritzbrantner-text-transcripts-server",
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-three-d-processing-io",
+ "moritzbrantner-three-d-processing-mesh",
+ "moritzbrantner-three-d-scene-svg",
+ "moritzbrantner-vector-analysis-core",
+ "moritzbrantner-vector-analysis-index",
+ "moritzbrantner-video-analysis-colmap-backend",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-data",
+ "moritzbrantner-video-analysis-dataset",
+ "moritzbrantner-video-analysis-detectors",
+ "moritzbrantner-video-analysis-editing",
+ "moritzbrantner-video-analysis-features",
+ "moritzbrantner-video-analysis-ffmpeg",
+ "moritzbrantner-video-analysis-gaussian-splatting",
+ "moritzbrantner-video-analysis-ingest",
+ "moritzbrantner-video-analysis-mvs",
+ "moritzbrantner-video-analysis-onnx",
+ "moritzbrantner-video-analysis-opencv-backend",
+ "moritzbrantner-video-analysis-output",
+ "moritzbrantner-video-analysis-posture",
+ "moritzbrantner-video-analysis-posture-io",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "moritzbrantner-video-analysis-radiance-io",
+ "moritzbrantner-video-analysis-radiance-pipeline",
+ "moritzbrantner-video-analysis-recognition",
+ "moritzbrantner-video-analysis-reconstruction",
+ "moritzbrantner-video-analysis-segmentation",
+ "moritzbrantner-video-analysis-sfm",
+ "moritzbrantner-video-analysis-sfm-rust-backend",
+ "moritzbrantner-video-analysis-split",
+ "moritzbrantner-video-analysis-storage",
+ "moritzbrantner-video-analysis-synthesis",
+ "moritzbrantner-video-analysis-tracking",
+ "moritzbrantner-video-analysis-transform",
+ "num-rational",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-jobs-core",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-three-d-processing-io",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-dataset",
+ "moritzbrantner-video-analysis-detectors",
+ "moritzbrantner-video-analysis-ffmpeg",
+ "moritzbrantner-video-analysis-onnx",
+ "moritzbrantner-video-analysis-output",
+ "moritzbrantner-video-analysis-posture",
+ "moritzbrantner-video-analysis-posture-io",
+ "moritzbrantner-video-analysis-recognition",
+ "moritzbrantner-video-analysis-split",
+ "serde",
+ "serde_json",
+ "shlex",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-colmap-backend"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "moritzbrantner-video-analysis-radiance-io",
+ "moritzbrantner-video-analysis-reconstruction",
+ "moritzbrantner-video-analysis-sfm",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-colmap-backend-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-colmap-backend",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-colmap-backend-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-colmap-backend",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-colmap-backend-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-colmap-backend",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-core"
+version = "0.1.1"
+dependencies = [
+ "num-rational",
+ "num-traits",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-core-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-core-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-core-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-data"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-numbers-core",
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-data-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-data",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-data-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-data",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-data-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-data",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-dataset"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-posture",
+ "num-rational",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-dataset-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-dataset",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-dataset-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-dataset",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-dataset-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-dataset",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-detectors"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ffmpeg",
+ "moritzbrantner-video-analysis-ingest",
+ "num-rational",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-detectors-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-detectors",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-detectors-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-detectors",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-detectors-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-detectors",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-editing"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-math-linear",
+ "moritzbrantner-video-analysis-core",
+ "num-rational",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-editing-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-editing",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-editing-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-editing",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-editing-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-editing",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-features"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-dataset",
+ "moritzbrantner-video-analysis-transform",
+ "num-rational",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-features-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-features",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-features-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-features",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-features-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-features",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-ffmpeg"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ingest",
+ "num-rational",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-ffmpeg-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ffmpeg",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-ffmpeg-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ffmpeg",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-ffmpeg-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ffmpeg",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-gaussian-splatting"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-gaussian-splatting-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-gaussian-splatting",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-gaussian-splatting-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-gaussian-splatting",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-gaussian-splatting-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-gaussian-splatting",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-ingest"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "num-rational",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-ingest-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ingest",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-ingest-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ingest",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-ingest-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ingest",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-mvs"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-three-d-processing-mesh",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "moritzbrantner-video-analysis-reconstruction",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-mvs-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-mvs",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-mvs-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-mvs",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-mvs-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-mvs",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-onnx"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-onnx",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-posture",
+ "moritzbrantner-video-analysis-recognition",
+ "num-rational",
+ "ort",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-onnx-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-onnx",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-onnx-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-onnx",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-onnx-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-onnx",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-opencv-backend"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-mvs",
+ "moritzbrantner-video-analysis-sfm",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-opencv-backend-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-opencv-backend",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-opencv-backend-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-opencv-backend",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-opencv-backend-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-opencv-backend",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-output"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "num-rational",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-output-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-output",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-output-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-output",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-output-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-output",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-posture"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-video-analysis-core",
+ "num-rational",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-posture-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-posture",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-posture-io"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-posture",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-posture-io-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-posture-io",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-posture-io-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-posture-io",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-posture-io-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-posture-io",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-posture-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-posture",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-posture-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-posture",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-fields"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-fields-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-fields-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-fields-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-io"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-gaussian-splatting",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "moritzbrantner-video-analysis-reconstruction",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-io-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-io",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-io-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-io",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-io-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-io",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-pipeline"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-gaussian-splatting",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "moritzbrantner-video-analysis-radiance-io",
+ "moritzbrantner-video-analysis-reconstruction",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-pipeline-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-pipeline",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-pipeline-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-pipeline",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-radiance-pipeline-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-pipeline",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-recognition"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-three-d-processing-core",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-posture",
+ "num-rational",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-recognition-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-recognition",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-recognition-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-recognition",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-recognition-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-recognition",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-reconstruction"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-reconstruction-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-reconstruction",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-reconstruction-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-reconstruction",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-reconstruction-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-reconstruction",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-segmentation"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-image-analysis-segmentation",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ffmpeg",
+ "moritzbrantner-video-analysis-ingest",
+ "moritzbrantner-video-analysis-recognition",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-segmentation-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-segmentation",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-segmentation-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-segmentation",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-segmentation-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-segmentation",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-sfm"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "moritzbrantner-video-analysis-reconstruction",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-sfm-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-sfm",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-sfm-rust-backend"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "moritzbrantner-video-analysis-reconstruction",
+ "moritzbrantner-video-analysis-sfm",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-sfm-rust-backend-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-sfm-rust-backend",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-sfm-rust-backend-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-sfm-rust-backend",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-sfm-rust-backend-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-sfm-rust-backend",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-sfm-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-sfm",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-sfm-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-sfm",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-split"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-ffmpeg",
+ "num-rational",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-split-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-split",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-split-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-split",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-split-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-split",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-storage"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-dataset",
+ "num-rational",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-storage-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-storage",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-storage-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-storage",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-storage-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-storage",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-synthesis"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-data-inversion-core",
+ "moritzbrantner-video-analysis-core",
+ "num-rational",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-synthesis-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-synthesis",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-synthesis-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-synthesis",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-synthesis-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-synthesis",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-test-support"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-dataset",
+ "moritzbrantner-video-analysis-radiance-fields",
+ "moritzbrantner-video-analysis-radiance-io",
+ "num-rational",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-test-support-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-test-support",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-test-support-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-test-support",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-test-support-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-test-support",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-tracking"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-video-analysis-core",
+ "num-rational",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-tracking-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-tracking",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-tracking-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-tracking",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-tracking-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-tracking",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-transform"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-dataset",
+ "num-rational",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-transform-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-transform",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-transform-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-transform",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-transform-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-transform",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "moritzbrantner-video-analysis-use-cases"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-audio-analysis-io",
+ "moritzbrantner-audio-analysis-pitch",
+ "moritzbrantner-audio-analysis-processing",
+ "moritzbrantner-audio-analysis-recognition",
+ "moritzbrantner-audio-analysis-rhythm",
+ "moritzbrantner-audio-analysis-separation",
+ "moritzbrantner-audio-analysis-test-support",
+ "moritzbrantner-comfyui-latents",
+ "moritzbrantner-comfyui-models",
+ "moritzbrantner-image-analysis-comfyui",
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-detection",
+ "moritzbrantner-image-analysis-io",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-text-lexical",
+ "moritzbrantner-text-transcripts",
+ "moritzbrantner-video-analysis-core",
+ "moritzbrantner-video-analysis-data",
+ "moritzbrantner-video-analysis-detectors",
+ "moritzbrantner-video-analysis-ffmpeg",
+ "moritzbrantner-video-analysis-ingest",
+ "moritzbrantner-video-analysis-onnx",
+ "moritzbrantner-video-analysis-recognition",
+ "moritzbrantner-video-analysis-test-support",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "shlex",
+ "tempfile",
 ]
 
 [[package]]
@@ -4091,49 +6534,6 @@ checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
 dependencies = [
  "hermit-abi",
  "libc",
-]
-
-[[package]]
-name = "numbers-core"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "numbers-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "numbers-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "numbers-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "numbers-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "numbers-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "numbers-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -5109,630 +7509,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tensor-data"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "tensor-data-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "tensor-data",
- "video-analysis-core",
-]
-
-[[package]]
-name = "tensor-data-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "tensor-data",
- "video-analysis-core",
-]
-
-[[package]]
-name = "tensor-data-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "tensor-data",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-analysis"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "model-runtime",
- "serde",
- "serde_json",
- "text-core",
- "text-embeddings",
- "text-lexical",
- "text-linguistics",
- "text-retrieval",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-analysis-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-analysis",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-analysis-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-analysis",
- "text-model-runtime",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-analysis-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-analysis",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-classification"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "text-core",
- "text-lexical",
- "text-model-runtime",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-classification-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-classification",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-classification-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-classification",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-classification-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-classification",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-core"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "jobs-core",
- "serde",
- "serde_json",
- "unicode-normalization",
- "unicode-segmentation",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-core",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-embeddings"
-version = "0.1.0"
-dependencies = [
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "criterion",
- "math-sparse-data",
- "model-runtime",
- "ndarray",
- "ort",
- "serde",
- "serde_json",
- "text-core",
- "text-lexical",
- "text-model-runtime",
- "tokenizers",
- "vector-analysis-core",
- "vector-analysis-index",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-embeddings-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-embeddings",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-embeddings-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-embeddings",
- "text-model-runtime",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-embeddings-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-embeddings",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-generation"
-version = "0.1.0"
-dependencies = [
- "data-inversion-core",
- "serde",
- "serde_json",
- "text-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-generation-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-generation",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-generation-linguistics"
-version = "0.1.0"
-dependencies = [
- "data-inversion-core",
- "serde",
- "serde_json",
- "text-core",
- "text-generation",
- "text-linguistics",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-generation-linguistics-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-generation-linguistics",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-generation-linguistics-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-generation-linguistics",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-generation-linguistics-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-generation-linguistics",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-generation-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-generation",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-generation-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-generation",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-lexical"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "math-sparse-data",
- "serde",
- "serde_json",
- "text-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-lexical-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-lexical",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-lexical-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-lexical",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-lexical-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-lexical",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-linguistics"
-version = "0.1.0"
-dependencies = [
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "criterion",
- "jobs-core",
- "model-runtime",
- "serde",
- "serde_json",
- "tempfile",
- "text-core",
- "text-lexical",
- "text-model-runtime",
- "text-transcripts",
- "tokenizers",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-linguistics-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-linguistics",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-linguistics-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-linguistics",
- "text-model-runtime",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-linguistics-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-linguistics",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-model-runtime"
-version = "0.1.0"
-dependencies = [
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "jobs-core",
- "model-runtime",
- "ndarray",
- "ort",
- "serde",
- "serde_json",
- "tokenizers",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-model-runtime-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-model-runtime",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-model-runtime-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-model-runtime",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-model-runtime-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-model-runtime",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-question-answering"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "text-model-runtime",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-question-answering-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-question-answering",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-question-answering-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-question-answering",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-question-answering-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-question-answering",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-retrieval"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "serde",
- "serde_json",
- "tempfile",
- "text-core",
- "text-embeddings",
- "text-lexical",
- "text-transcripts",
- "thiserror 2.0.18",
- "vector-analysis-index",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-retrieval-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-retrieval",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-retrieval-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-retrieval",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-retrieval-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-retrieval",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "text-transcripts"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "cmake",
- "hound",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "text-core",
- "thiserror 2.0.18",
- "ureq 2.12.1",
- "video-analysis-core",
- "video-analysis-ingest",
-]
-
-[[package]]
-name = "text-transcripts-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-transcripts",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-transcripts-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "text-transcripts",
- "video-analysis-core",
-]
-
-[[package]]
-name = "text-transcripts-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "text-transcripts",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5770,182 +7546,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "three-d-processing-core"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-processing-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "three-d-processing-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-processing-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "three-d-processing-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-processing-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "three-d-processing-core",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "three-d-processing-io"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "serde",
- "serde_json",
- "tempfile",
- "three-d-processing-core",
- "three-d-processing-mesh",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-processing-io-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "three-d-processing-io",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-processing-io-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "three-d-processing-io",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-processing-io-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "three-d-processing-io",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "three-d-processing-mesh"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "three-d-processing-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-processing-mesh-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "three-d-processing-mesh",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-processing-mesh-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "three-d-processing-mesh",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-processing-mesh-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "three-d-processing-mesh",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "three-d-scene-svg"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "three-d-processing-core",
- "three-d-processing-mesh",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-scene-svg-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "three-d-scene-svg",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-scene-svg-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "three-d-scene-svg",
- "video-analysis-core",
-]
-
-[[package]]
-name = "three-d-scene-svg-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "three-d-scene-svg",
- "video-analysis-core",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -6288,1610 +7888,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
-name = "vector-analysis-core"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "vector-analysis-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "vector-analysis-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "vector-analysis-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "vector-analysis-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "vector-analysis-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "vector-analysis-core",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "vector-analysis-index"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "serde",
- "serde_json",
- "vector-analysis-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "vector-analysis-index-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "vector-analysis-index",
- "video-analysis-core",
-]
-
-[[package]]
-name = "vector-analysis-index-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "vector-analysis-index",
- "video-analysis-core",
-]
-
-[[package]]
-name = "vector-analysis-index-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "vector-analysis-index",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "video-analysis"
-version = "0.1.0"
-dependencies = [
- "animation-core",
- "audio-analysis-core",
- "audio-analysis-fourier",
- "audio-analysis-io",
- "audio-analysis-pitch",
- "audio-analysis-processing",
- "audio-analysis-recognition",
- "audio-analysis-rhythm",
- "audio-analysis-separation",
- "audio-analysis-speakers",
- "audio-analysis-synthesis",
- "audio-generation-midi",
- "clap",
- "comfyui-data",
- "comfyui-latents",
- "comfyui-models",
- "data-inversion-core",
- "dense-data",
- "finance-data",
- "finance-statistics",
- "graph-analysis-core",
- "image-analysis-captioning",
- "image-analysis-classification",
- "image-analysis-comfyui",
- "image-analysis-core",
- "image-analysis-detection",
- "image-analysis-embeddings",
- "image-analysis-io",
- "image-analysis-ocr",
- "image-analysis-onnx",
- "image-analysis-processing",
- "image-analysis-segmentation",
- "image-analysis-synthesis",
- "jobs-core",
- "maps-kernels-core",
- "math-geometry-2d",
- "math-linear",
- "math-signal-core",
- "math-sparse-data",
- "math-statistics",
- "model-runtime",
- "moritzbrantner-geo-clustering",
- "moritzbrantner-geo-core",
- "moritzbrantner-geo-io-geojson",
- "moritzbrantner-geo-io-osm",
- "moritzbrantner-geo-viz",
- "num-rational",
- "numbers-core",
- "serde",
- "serde_json",
- "tempfile",
- "tensor-data",
- "text-analysis",
- "text-classification",
- "text-core",
- "text-core-cli",
- "text-core-server",
- "text-embeddings",
- "text-embeddings-cli",
- "text-embeddings-server",
- "text-generation",
- "text-generation-linguistics",
- "text-lexical",
- "text-linguistics",
- "text-model-runtime",
- "text-question-answering",
- "text-retrieval",
- "text-retrieval-cli",
- "text-retrieval-server",
- "text-transcripts",
- "text-transcripts-cli",
- "text-transcripts-server",
- "three-d-processing-core",
- "three-d-processing-io",
- "three-d-processing-mesh",
- "three-d-scene-svg",
- "vector-analysis-core",
- "vector-analysis-index",
- "video-analysis-colmap-backend",
- "video-analysis-core",
- "video-analysis-data",
- "video-analysis-dataset",
- "video-analysis-detectors",
- "video-analysis-editing",
- "video-analysis-features",
- "video-analysis-ffmpeg",
- "video-analysis-gaussian-splatting",
- "video-analysis-ingest",
- "video-analysis-mvs",
- "video-analysis-onnx",
- "video-analysis-opencv-backend",
- "video-analysis-output",
- "video-analysis-posture",
- "video-analysis-posture-io",
- "video-analysis-radiance-fields",
- "video-analysis-radiance-io",
- "video-analysis-radiance-pipeline",
- "video-analysis-recognition",
- "video-analysis-reconstruction",
- "video-analysis-segmentation",
- "video-analysis-sfm",
- "video-analysis-sfm-rust-backend",
- "video-analysis-split",
- "video-analysis-storage",
- "video-analysis-synthesis",
- "video-analysis-tracking",
- "video-analysis-transform",
-]
-
-[[package]]
-name = "video-analysis-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "jobs-core",
- "model-runtime",
- "serde",
- "serde_json",
- "shlex",
- "tempfile",
- "three-d-processing-core",
- "three-d-processing-io",
- "video-analysis-core",
- "video-analysis-dataset",
- "video-analysis-detectors",
- "video-analysis-ffmpeg",
- "video-analysis-onnx",
- "video-analysis-output",
- "video-analysis-posture",
- "video-analysis-posture-io",
- "video-analysis-recognition",
- "video-analysis-split",
-]
-
-[[package]]
-name = "video-analysis-colmap-backend"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tempfile",
- "video-analysis-core",
- "video-analysis-radiance-fields",
- "video-analysis-radiance-io",
- "video-analysis-reconstruction",
- "video-analysis-sfm",
-]
-
-[[package]]
-name = "video-analysis-colmap-backend-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-colmap-backend",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-colmap-backend-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-colmap-backend",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-colmap-backend-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-colmap-backend",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-core"
-version = "0.1.1"
-dependencies = [
- "num-rational",
- "num-traits",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "video-analysis-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-data"
-version = "0.1.0"
-dependencies = [
- "numbers-core",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-data-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-data",
-]
-
-[[package]]
-name = "video-analysis-data-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-data",
-]
-
-[[package]]
-name = "video-analysis-data-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-data",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-dataset"
-version = "0.1.0"
-dependencies = [
- "num-rational",
- "serde",
- "serde_json",
- "three-d-processing-core",
- "video-analysis-core",
- "video-analysis-posture",
-]
-
-[[package]]
-name = "video-analysis-dataset-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-dataset",
-]
-
-[[package]]
-name = "video-analysis-dataset-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-dataset",
-]
-
-[[package]]
-name = "video-analysis-dataset-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-dataset",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-detectors"
-version = "0.1.0"
-dependencies = [
- "num-rational",
- "serde",
- "serde_json",
- "video-analysis-core",
- "video-analysis-ffmpeg",
- "video-analysis-ingest",
-]
-
-[[package]]
-name = "video-analysis-detectors-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-detectors",
-]
-
-[[package]]
-name = "video-analysis-detectors-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-detectors",
-]
-
-[[package]]
-name = "video-analysis-detectors-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-detectors",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-editing"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "math-geometry-2d",
- "math-linear",
- "num-rational",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-editing-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-editing",
-]
-
-[[package]]
-name = "video-analysis-editing-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-editing",
-]
-
-[[package]]
-name = "video-analysis-editing-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-editing",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-features"
-version = "0.1.0"
-dependencies = [
- "num-rational",
- "serde",
- "serde_json",
- "video-analysis-core",
- "video-analysis-dataset",
- "video-analysis-transform",
-]
-
-[[package]]
-name = "video-analysis-features-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-features",
-]
-
-[[package]]
-name = "video-analysis-features-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-features",
-]
-
-[[package]]
-name = "video-analysis-features-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-features",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-ffmpeg"
-version = "0.1.0"
-dependencies = [
- "num-rational",
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
- "video-analysis-core",
- "video-analysis-ingest",
-]
-
-[[package]]
-name = "video-analysis-ffmpeg-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-ffmpeg",
-]
-
-[[package]]
-name = "video-analysis-ffmpeg-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-ffmpeg",
-]
-
-[[package]]
-name = "video-analysis-ffmpeg-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-ffmpeg",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-gaussian-splatting"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-fields",
-]
-
-[[package]]
-name = "video-analysis-gaussian-splatting-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-gaussian-splatting",
-]
-
-[[package]]
-name = "video-analysis-gaussian-splatting-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-gaussian-splatting",
-]
-
-[[package]]
-name = "video-analysis-gaussian-splatting-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-gaussian-splatting",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-ingest"
-version = "0.1.0"
-dependencies = [
- "num-rational",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-ingest-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-ingest",
-]
-
-[[package]]
-name = "video-analysis-ingest-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-ingest",
-]
-
-[[package]]
-name = "video-analysis-ingest-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-ingest",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-mvs"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "three-d-processing-core",
- "three-d-processing-mesh",
- "video-analysis-core",
- "video-analysis-radiance-fields",
- "video-analysis-reconstruction",
-]
-
-[[package]]
-name = "video-analysis-mvs-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-mvs",
-]
-
-[[package]]
-name = "video-analysis-mvs-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-mvs",
-]
-
-[[package]]
-name = "video-analysis-mvs-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-mvs",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-onnx"
-version = "0.1.0"
-dependencies = [
- "image-analysis-core",
- "image-analysis-onnx",
- "model-runtime",
- "num-rational",
- "ort",
- "serde_json",
- "tempfile",
- "video-analysis-core",
- "video-analysis-posture",
- "video-analysis-recognition",
-]
-
-[[package]]
-name = "video-analysis-onnx-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-onnx",
-]
-
-[[package]]
-name = "video-analysis-onnx-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-onnx",
-]
-
-[[package]]
-name = "video-analysis-onnx-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-onnx",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-opencv-backend"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "video-analysis-core",
- "video-analysis-mvs",
- "video-analysis-sfm",
-]
-
-[[package]]
-name = "video-analysis-opencv-backend-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-opencv-backend",
-]
-
-[[package]]
-name = "video-analysis-opencv-backend-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-opencv-backend",
-]
-
-[[package]]
-name = "video-analysis-opencv-backend-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-opencv-backend",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-output"
-version = "0.1.0"
-dependencies = [
- "num-rational",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-output-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-output",
-]
-
-[[package]]
-name = "video-analysis-output-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-output",
-]
-
-[[package]]
-name = "video-analysis-output-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-output",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-posture"
-version = "0.1.0"
-dependencies = [
- "math-geometry-2d",
- "num-rational",
- "serde",
- "serde_json",
- "three-d-processing-core",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-posture-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-posture",
-]
-
-[[package]]
-name = "video-analysis-posture-io"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "serde",
- "serde_json",
- "tempfile",
- "three-d-processing-core",
- "video-analysis-core",
- "video-analysis-posture",
-]
-
-[[package]]
-name = "video-analysis-posture-io-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-posture-io",
-]
-
-[[package]]
-name = "video-analysis-posture-io-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-posture-io",
-]
-
-[[package]]
-name = "video-analysis-posture-io-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-posture-io",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-posture-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-posture",
-]
-
-[[package]]
-name = "video-analysis-posture-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-posture",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-radiance-fields"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-radiance-fields-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-fields",
-]
-
-[[package]]
-name = "video-analysis-radiance-fields-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-fields",
-]
-
-[[package]]
-name = "video-analysis-radiance-fields-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-fields",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-radiance-io"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
- "video-analysis-core",
- "video-analysis-gaussian-splatting",
- "video-analysis-radiance-fields",
- "video-analysis-reconstruction",
-]
-
-[[package]]
-name = "video-analysis-radiance-io-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-io",
-]
-
-[[package]]
-name = "video-analysis-radiance-io-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-io",
-]
-
-[[package]]
-name = "video-analysis-radiance-io-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-io",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-radiance-pipeline"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
- "video-analysis-core",
- "video-analysis-gaussian-splatting",
- "video-analysis-radiance-fields",
- "video-analysis-radiance-io",
- "video-analysis-reconstruction",
-]
-
-[[package]]
-name = "video-analysis-radiance-pipeline-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-pipeline",
-]
-
-[[package]]
-name = "video-analysis-radiance-pipeline-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-pipeline",
-]
-
-[[package]]
-name = "video-analysis-radiance-pipeline-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-pipeline",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-recognition"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "model-runtime",
- "num-rational",
- "serde",
- "serde_json",
- "three-d-processing-core",
- "video-analysis-core",
- "video-analysis-posture",
-]
-
-[[package]]
-name = "video-analysis-recognition-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-recognition",
-]
-
-[[package]]
-name = "video-analysis-recognition-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-recognition",
-]
-
-[[package]]
-name = "video-analysis-recognition-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-recognition",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-reconstruction"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-fields",
-]
-
-[[package]]
-name = "video-analysis-reconstruction-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-reconstruction",
-]
-
-[[package]]
-name = "video-analysis-reconstruction-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-reconstruction",
-]
-
-[[package]]
-name = "video-analysis-reconstruction-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-reconstruction",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-segmentation"
-version = "0.1.0"
-dependencies = [
- "image-analysis-segmentation",
- "model-runtime",
- "serde_json",
- "video-analysis-core",
- "video-analysis-ffmpeg",
- "video-analysis-ingest",
- "video-analysis-recognition",
-]
-
-[[package]]
-name = "video-analysis-segmentation-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-segmentation",
-]
-
-[[package]]
-name = "video-analysis-segmentation-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-segmentation",
-]
-
-[[package]]
-name = "video-analysis-segmentation-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-segmentation",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-sfm"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-fields",
- "video-analysis-reconstruction",
-]
-
-[[package]]
-name = "video-analysis-sfm-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-sfm",
-]
-
-[[package]]
-name = "video-analysis-sfm-rust-backend"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "video-analysis-core",
- "video-analysis-radiance-fields",
- "video-analysis-reconstruction",
- "video-analysis-sfm",
-]
-
-[[package]]
-name = "video-analysis-sfm-rust-backend-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-sfm-rust-backend",
-]
-
-[[package]]
-name = "video-analysis-sfm-rust-backend-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-sfm-rust-backend",
-]
-
-[[package]]
-name = "video-analysis-sfm-rust-backend-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-sfm-rust-backend",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-sfm-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-sfm",
-]
-
-[[package]]
-name = "video-analysis-sfm-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-sfm",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-split"
-version = "0.1.0"
-dependencies = [
- "num-rational",
- "serde",
- "serde_json",
- "tempfile",
- "video-analysis-core",
- "video-analysis-ffmpeg",
-]
-
-[[package]]
-name = "video-analysis-split-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-split",
-]
-
-[[package]]
-name = "video-analysis-split-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-split",
-]
-
-[[package]]
-name = "video-analysis-split-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-split",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-storage"
-version = "0.1.0"
-dependencies = [
- "num-rational",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
- "video-analysis-core",
- "video-analysis-dataset",
-]
-
-[[package]]
-name = "video-analysis-storage-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-storage",
-]
-
-[[package]]
-name = "video-analysis-storage-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-storage",
-]
-
-[[package]]
-name = "video-analysis-storage-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-storage",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-synthesis"
-version = "0.1.0"
-dependencies = [
- "data-inversion-core",
- "num-rational",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-synthesis-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-synthesis",
-]
-
-[[package]]
-name = "video-analysis-synthesis-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-synthesis",
-]
-
-[[package]]
-name = "video-analysis-synthesis-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-synthesis",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-test-support"
-version = "0.1.0"
-dependencies = [
- "num-rational",
- "serde_json",
- "video-analysis-core",
- "video-analysis-dataset",
- "video-analysis-radiance-fields",
- "video-analysis-radiance-io",
-]
-
-[[package]]
-name = "video-analysis-test-support-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-test-support",
-]
-
-[[package]]
-name = "video-analysis-test-support-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-test-support",
-]
-
-[[package]]
-name = "video-analysis-test-support-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-test-support",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-tracking"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "math-geometry-2d",
- "num-rational",
- "serde",
- "serde_json",
- "video-analysis-core",
-]
-
-[[package]]
-name = "video-analysis-tracking-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-tracking",
-]
-
-[[package]]
-name = "video-analysis-tracking-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-tracking",
-]
-
-[[package]]
-name = "video-analysis-tracking-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-tracking",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-transform"
-version = "0.1.0"
-dependencies = [
- "num-rational",
- "serde",
- "serde_json",
- "video-analysis-core",
- "video-analysis-dataset",
-]
-
-[[package]]
-name = "video-analysis-transform-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-transform",
-]
-
-[[package]]
-name = "video-analysis-transform-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "serde_json",
- "video-analysis-core",
- "video-analysis-transform",
-]
-
-[[package]]
-name = "video-analysis-transform-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "video-analysis-core",
- "video-analysis-transform",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "video-analysis-use-cases"
-version = "0.1.0"
-dependencies = [
- "audio-analysis-core",
- "audio-analysis-io",
- "audio-analysis-pitch",
- "audio-analysis-processing",
- "audio-analysis-recognition",
- "audio-analysis-rhythm",
- "audio-analysis-separation",
- "audio-analysis-test-support",
- "chrono",
- "clap",
- "comfyui-latents",
- "comfyui-models",
- "image-analysis-comfyui",
- "image-analysis-core",
- "image-analysis-detection",
- "image-analysis-io",
- "model-runtime",
- "rusqlite",
- "serde",
- "serde_json",
- "shlex",
- "tempfile",
- "text-lexical",
- "text-transcripts",
- "video-analysis-core",
- "video-analysis-data",
- "video-analysis-detectors",
- "video-analysis-ffmpeg",
- "video-analysis-ingest",
- "video-analysis-onnx",
- "video-analysis-recognition",
- "video-analysis-test-support",
-]
 
 [[package]]
 name = "wait-timeout"

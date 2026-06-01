@@ -1,4 +1,4 @@
-# @mb-rust/geo-viz-wasm
+# @moritzbrantner/geo-viz-wasm
 
 WASM package for `geo-viz`.
 

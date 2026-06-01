@@ -1,5 +1,5 @@
 [package]
-name = "geo-clustering-wasm"
+name = "moritzbrantner-geo-clustering-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

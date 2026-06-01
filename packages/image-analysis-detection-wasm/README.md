@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-detection-wasm
+# @moritzbrantner/image-analysis-detection-wasm
 
 WASM package for `image-analysis-detection`.
 

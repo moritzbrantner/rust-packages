@@ -1,5 +1,5 @@
 {
-  "name": "video-analysis-features-app",
+  "name": "@moritzbrantner/video-analysis-features-app",
   "version": "0.1.0",
   "description": "React app for video-analysis-features: Feature extraction over retained video-analysis datasets.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/video-analysis-features-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/video-analysis-features-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

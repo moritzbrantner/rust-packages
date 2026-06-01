@@ -1,5 +1,5 @@
 [package]
-name = "maps-kernels-core-server"
+name = "moritzbrantner-maps-kernels-core-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "maps-kernels-core-server"
 
+[lib]
+name = "maps_kernels_core_server"
+
 [[bin]]
 name = "maps-kernels-core-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-maps-kernels-core = { version = "0.1.0", path = "../maps-kernels-core" }
+maps-kernels-core = { package = "moritzbrantner-maps-kernels-core", version = "0.1.0", path = "../maps-kernels-core" }

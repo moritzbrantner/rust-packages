@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/three-d-scene-svg-wasm",
+  "name": "@moritzbrantner/three-d-scene-svg-wasm",
   "version": "0.1.0",
   "description": "WASM package for three-d-scene-svg.",
   "license": "MIT OR Apache-2.0",

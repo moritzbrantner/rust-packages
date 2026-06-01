@@ -1,5 +1,5 @@
 [package]
-name = "animation-core-cli"
+name = "moritzbrantner-animation-core-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "animation-core-cli"
 
+[lib]
+name = "animation_core_cli"
+
 [[bin]]
 name = "animation-core-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-animation-core = { version = "0.1.0", path = "../animation-core" }
+animation-core = { package = "moritzbrantner-animation-core", version = "0.1.0", path = "../animation-core" }

@@ -1,6 +1,6 @@
 # audio-analysis-speakers-cli
 
-Thin command-line adapter for `audio-analysis-speakers`.
+Thin command-line adapter for `moritzbrantner-audio-analysis-speakers`.
 
 Run:
 

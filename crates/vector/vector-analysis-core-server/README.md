@@ -1,6 +1,6 @@
 # vector-analysis-core-server
 
-Thin HTTP API adapter for `vector-analysis-core`.
+Thin HTTP API adapter for `moritzbrantner-vector-analysis-core`.
 
 Run:
 

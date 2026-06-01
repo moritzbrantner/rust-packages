@@ -1,6 +1,6 @@
 # math-linear-cli
 
-Thin command-line adapter for `math-linear`.
+Thin command-line adapter for `moritzbrantner-math-linear`.
 
 Run:
 

@@ -1,4 +1,4 @@
-# @mb-rust/numbers-core-wasm
+# @moritzbrantner/numbers-core-wasm
 
 WASM package for `numbers-core`.
 

@@ -6,7 +6,7 @@ const uiSourceRoot = fileURLToPath(new URL("../video-analysis-ui/src", import.me
 
 export default defineConfig({
   optimizeDeps: {
-    exclude: ["@mb-rust/comfyui-data-wasm"],
+    exclude: ["@moritzbrantner/comfyui-data-wasm"],
   },
   plugins: [react()],
   resolve: {

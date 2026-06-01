@@ -1,6 +1,6 @@
 # text-embeddings
 
-Lightweight semantic text embeddings and search for `video-analysis`.
+Lightweight semantic text embeddings and search for `moritzbrantner-video-analysis`.
 
 Default builds use deterministic hashed/local embedding behavior. Native model
 execution and tokenizer-backed model support are opt-in through explicit feature

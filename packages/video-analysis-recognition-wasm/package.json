@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-recognition-wasm",
+  "name": "@moritzbrantner/video-analysis-recognition-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-recognition.",
   "license": "MIT OR Apache-2.0",

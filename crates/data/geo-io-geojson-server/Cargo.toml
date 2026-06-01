@@ -1,5 +1,5 @@
 [package]
-name = "geo-io-geojson-server"
+name = "moritzbrantner-geo-io-geojson-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 default-run = "geo-io-geojson-server"
+
+[lib]
+name = "geo_io_geojson_server"
 
 [[bin]]
 name = "geo-io-geojson-server"

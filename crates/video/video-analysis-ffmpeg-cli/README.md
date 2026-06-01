@@ -1,6 +1,6 @@
 # video-analysis-ffmpeg-cli
 
-Thin command-line adapter for `video-analysis-ffmpeg`.
+Thin command-line adapter for `moritzbrantner-video-analysis-ffmpeg`.
 
 Run:
 

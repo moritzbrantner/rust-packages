@@ -1,6 +1,6 @@
 # video-analysis-use-cases
 
-Prototype runnable end-to-end workflows built from the `video-analysis`
+Prototype runnable end-to-end workflows built from the `moritzbrantner-video-analysis`
 crates.
 
 ## Feature flags
@@ -43,4 +43,4 @@ current directory default.
 
 - `video-analysis-cli`
 - `model-runtime`
-- `@video-analysis/ui`
+- `@moritzbrantner/video-analysis-ui`

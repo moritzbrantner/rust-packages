@@ -1,6 +1,6 @@
 # audio-analysis-speakers-server
 
-Thin HTTP API adapter for `audio-analysis-speakers`.
+Thin HTTP API adapter for `moritzbrantner-audio-analysis-speakers`.
 
 Run:
 

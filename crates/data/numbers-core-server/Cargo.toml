@@ -1,5 +1,5 @@
 [package]
-name = "numbers-core-server"
+name = "moritzbrantner-numbers-core-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "numbers-core-server"
 
+[lib]
+name = "numbers_core_server"
+
 [[bin]]
 name = "numbers-core-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-numbers-core = { version = "0.1.0", path = "../numbers-core" }
+numbers-core = { package = "moritzbrantner-numbers-core", version = "0.1.0", path = "../numbers-core" }

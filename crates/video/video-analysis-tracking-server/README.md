@@ -1,6 +1,6 @@
 # video-analysis-tracking-server
 
-Thin HTTP API adapter for `video-analysis-tracking`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-tracking`.
 
 Run:
 

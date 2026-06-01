@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-dataset-cli"
+name = "moritzbrantner-video-analysis-dataset-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "video-analysis-dataset-cli"
 
+[lib]
+name = "video_analysis_dataset_cli"
+
 [[bin]]
 name = "video-analysis-dataset-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-dataset = { version = "0.1.0", path = "../video-analysis-dataset" }
+video-analysis-dataset = { package = "moritzbrantner-video-analysis-dataset", version = "0.1.0", path = "../video-analysis-dataset" }

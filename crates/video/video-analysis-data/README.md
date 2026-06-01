@@ -1,6 +1,6 @@
 # video-analysis-data
 
-Normalized stream records and online aggregation for `video-analysis`.
+Normalized stream records and online aggregation for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

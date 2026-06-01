@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-editing"
     );
     let surface = video_analysis_editing_cli::package_surface();
-    assert_eq!(surface.library, "video-analysis-editing");
+    assert_eq!(surface.library, "moritzbrantner-video-analysis-editing");
     assert!(!surface.operations.is_empty());
 }

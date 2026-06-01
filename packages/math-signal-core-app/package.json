@@ -1,5 +1,5 @@
 {
-  "name": "math-signal-core-app",
+  "name": "@moritzbrantner/math-signal-core-app",
   "version": "0.1.0",
   "description": "React app for math-signal-core: Shared signal-domain math for windows, frame strides, resampling, and biquad design.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/math-signal-core-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/math-signal-core-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

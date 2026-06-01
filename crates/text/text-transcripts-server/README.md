@@ -1,6 +1,6 @@
 # text-transcripts-server
 
-Thin HTTP API adapter for `text-transcripts`.
+Thin HTTP API adapter for `moritzbrantner-text-transcripts`.
 
 Run:
 

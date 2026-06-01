@@ -1,4 +1,4 @@
-# @mb-rust/animation-core-wasm
+# @moritzbrantner/animation-core-wasm
 
 WASM package for `animation-core`.
 

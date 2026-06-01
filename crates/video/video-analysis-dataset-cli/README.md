@@ -1,6 +1,6 @@
 # video-analysis-dataset-cli
 
-Thin command-line adapter for `video-analysis-dataset`.
+Thin command-line adapter for `moritzbrantner-video-analysis-dataset`.
 
 Run:
 

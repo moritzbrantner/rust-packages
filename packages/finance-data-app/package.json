@@ -1,5 +1,5 @@
 {
-  "name": "finance-data-app",
+  "name": "@moritzbrantner/finance-data-app",
   "version": "0.1.0",
   "description": "React app for finance-data: provider-neutral financial market data validation, indexing, and derived series.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/finance-data-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/finance-data-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

@@ -1,6 +1,6 @@
 # audio-analysis-fourier-server
 
-Thin HTTP API adapter for `audio-analysis-fourier`.
+Thin HTTP API adapter for `moritzbrantner-audio-analysis-fourier`.
 
 Run:
 

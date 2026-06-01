@@ -1,6 +1,6 @@
 # image-analysis-synthesis-cli
 
-Thin command-line adapter for `image-analysis-synthesis`.
+Thin command-line adapter for `moritzbrantner-image-analysis-synthesis`.
 
 Run:
 

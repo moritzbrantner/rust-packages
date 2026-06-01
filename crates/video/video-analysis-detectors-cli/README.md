@@ -1,6 +1,6 @@
 # video-analysis-detectors-cli
 
-Thin command-line adapter for `video-analysis-detectors`.
+Thin command-line adapter for `moritzbrantner-video-analysis-detectors`.
 
 Run:
 

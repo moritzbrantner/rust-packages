@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/text-generation-wasm";
+import { createTextResultTabs, PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/text-generation-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "text-generation",
@@ -33,18 +33,51 @@ const packageAppConfig: PackageAppConfig = {
   ],
   presets: [
     {
+      id: "markov-predict",
+      label: "Predict next transcript token",
+      operation: "generation.markovPredict",
+      description: "Train a transient Markov chain and predict next tokens.",
+      input: {
+        trainingTexts: [
+          "rust text analysis supports transcript search",
+          "rust text generation predicts transcript terms",
+          "caption retrieval supports editorial review",
+        ],
+        context: ["rust", "text"],
+        order: 2,
+        topK: 5,
+      },
+    },
+    {
       id: "markov-generate",
-      label: "Generate",
+      label: "Generate Markov caption",
       operation: "generation.markovGenerate",
       description: "Train a transient Markov chain and generate text.",
-      input: { trainingTexts: ["rust text analysis supports crates"], order: 2, maxTokens: 6 },
+      input: {
+        trainingTexts: [
+          "rust text analysis supports transcript search",
+          "rust text generation supports caption synthesis",
+          "transcript search supports editorial evidence review",
+        ],
+        seed: ["rust", "text"],
+        order: 2,
+        maxTokens: 12,
+      },
     },
     {
       id: "term-synthesis",
-      label: "Terms",
+      label: "Synthesize weighted terms",
       operation: "generation.synthesizeTerms",
       description: "Synthesize deterministic text from weighted terms.",
-      input: { terms: [{ term: "rust", weight: 2.0 }, { term: "analysis", weight: 1.0 }] },
+      input: {
+        id: "caption-summary",
+        terms: [
+          { term: "rust", weight: 2.0 },
+          { term: "transcript", weight: 1.8 },
+          { term: "retrieval", weight: 1.4 },
+          { term: "editorial", weight: 1.0 },
+        ],
+      },
     },
   ],
   benchmarkScenarios: [
@@ -67,6 +100,32 @@ const packageAppConfig: PackageAppConfig = {
       outputCountPath: ["tokens"],
     },
   ],
+  resultTabs: createTextResultTabs({
+    library: "text-generation",
+    primaryOperations: {
+      "generation.markovPredict": {
+        title: "Markov prediction",
+        summaryFields: ["order", "contexts", "predictionCount"],
+        listFields: ["predictions"],
+        objectFields: ["result"],
+        explanation: () => "The operation trained a transient deterministic Markov chain from the sample text and predicted the next likely tokens for the supplied context.",
+      },
+      "generation.markovGenerate": {
+        title: "Markov generation",
+        summaryFields: ["order", "contexts", "generatedTokenCount"],
+        listFields: ["generation.tokens"],
+        objectFields: ["generation", "result"],
+        explanation: () => "The generator used a deterministic Markov chain and seed tokens to produce a repeatable token sequence.",
+      },
+      "generation.synthesizeTerms": {
+        title: "Term synthesis",
+        summaryFields: ["id", "language", "assumptionCount"],
+        listFields: ["trace.assumptions", "trace.notes", "terms"],
+        objectFields: ["value", "trace"],
+        explanation: () => "The synthesizer converted weighted terms into deterministic text and records assumptions in the trace rather than calling a model.",
+      },
+    },
+  }),
 };
 
 export function App() {

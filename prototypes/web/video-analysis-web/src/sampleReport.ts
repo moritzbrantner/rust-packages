@@ -1,4 +1,4 @@
-import type { YoutubeVideoReport } from "@video-analysis/ui";
+import type { YoutubeVideoReport } from "@moritzbrantner/video-analysis-ui";
 
 export const sampleReport: YoutubeVideoReport = {
   use_case: "youtube-video",

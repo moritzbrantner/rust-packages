@@ -1,4 +1,4 @@
-# @mb-rust/audio-generation-midi-wasm
+# @moritzbrantner/audio-generation-midi-wasm
 
 WASM package for `audio-generation-midi`.
 

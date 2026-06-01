@@ -1,6 +1,6 @@
 # audio-analysis-core-server
 
-Thin HTTP API adapter for `audio-analysis-core`.
+Thin HTTP API adapter for `moritzbrantner-audio-analysis-core`.
 
 Run:
 

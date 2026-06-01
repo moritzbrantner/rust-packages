@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-mvs-cli"
+name = "moritzbrantner-video-analysis-mvs-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "video-analysis-mvs-cli"
 
+[lib]
+name = "video_analysis_mvs_cli"
+
 [[bin]]
 name = "video-analysis-mvs-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-mvs = { version = "0.1.0", path = "../video-analysis-mvs" }
+video-analysis-mvs = { package = "moritzbrantner-video-analysis-mvs", version = "0.1.0", path = "../video-analysis-mvs" }

@@ -2,7 +2,7 @@
 fn cli_adapter_reports_wrapped_library() {
     assert_eq!(finance_data_cli::LIBRARY_CRATE, "finance-data");
     let surface = finance_data_cli::package_surface();
-    assert_eq!(surface.library, "finance-data");
+    assert_eq!(surface.library, "moritzbrantner-finance-data");
     assert!(!surface.operations.is_empty());
 }
 

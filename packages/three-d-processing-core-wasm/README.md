@@ -1,4 +1,4 @@
-# @mb-rust/three-d-processing-core-wasm
+# @moritzbrantner/three-d-processing-core-wasm
 
 WASM package for `three-d-processing-core`.
 

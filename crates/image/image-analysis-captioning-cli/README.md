@@ -1,6 +1,6 @@
 # image-analysis-captioning-cli
 
-Thin command-line adapter for `image-analysis-captioning`.
+Thin command-line adapter for `moritzbrantner-image-analysis-captioning`.
 
 Run:
 

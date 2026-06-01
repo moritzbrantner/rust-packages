@@ -1,6 +1,6 @@
 # video-analysis-opencv-backend-server
 
-Thin HTTP API adapter for `video-analysis-opencv-backend`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-opencv-backend`.
 
 Run:
 

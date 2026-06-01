@@ -1,6 +1,6 @@
 # image-analysis-io-server
 
-Thin HTTP API adapter for `image-analysis-io`.
+Thin HTTP API adapter for `moritzbrantner-image-analysis-io`.
 
 Run:
 

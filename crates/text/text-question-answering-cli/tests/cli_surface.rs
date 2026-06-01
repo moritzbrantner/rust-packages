@@ -5,7 +5,7 @@ fn cli_adapter_reports_wrapped_library() {
         "text-question-answering"
     );
     let surface = text_question_answering_cli::package_surface();
-    assert_eq!(surface.library, "text-question-answering");
+    assert_eq!(surface.library, "moritzbrantner-text-question-answering");
     assert!(!surface.operations.is_empty());
 }
 

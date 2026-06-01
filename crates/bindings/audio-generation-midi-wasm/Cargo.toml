@@ -1,5 +1,5 @@
 [package]
-name = "audio-generation-midi-wasm"
+name = "moritzbrantner-audio-generation-midi-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

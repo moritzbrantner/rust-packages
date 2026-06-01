@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-detectors-wasm"
+name = "moritzbrantner-video-analysis-detectors-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

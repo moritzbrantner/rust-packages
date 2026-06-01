@@ -6,7 +6,7 @@ const uiSourceRoot = fileURLToPath(new URL("../video-analysis-ui/src", import.me
 
 export default defineConfig({
   optimizeDeps: {
-    exclude: ["@mb-rust/geo-clustering-wasm"],
+    exclude: ["@moritzbrantner/geo-clustering-wasm"],
   },
   plugins: [react()],
   resolve: {

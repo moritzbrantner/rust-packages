@@ -5,19 +5,19 @@ threads can pick up implementation without redoing discovery.
 
 Current state:
 
-- `model-runtime` owns model specs, Hugging Face downloads, bundle
+- `moritzbrantner-model-runtime` owns model specs, Hugging Face downloads, bundle
   materialization, prediction normalization, analyzer adapters, and external
   command backends.
-- `video-analysis-use-cases` can already attach external object, OCR, and text
+- `moritzbrantner-video-analysis-use-cases` can already attach external object, OCR, and text
   model commands to the `youtube-video` workflow.
-- `video-analysis-cli` currently exposes scene detection/list/split, primitive
+- `moritzbrantner-video-analysis-cli` currently exposes scene detection/list/split, primitive
   JSON analysis reports, plus model preset/download/inspect commands. It also
   parses `models run` for raw RGB/BGR frame inference, gated behind CLI ONNX
   features.
 - Text model execution is owned by the text crates that use it:
-  `text-linguistics` owns tokenizer alignment and local Candle-backed NER,
-  while `text-embeddings` owns optional ONNX/Candle embedding runtimes.
-- `video-analysis-onnx` now owns the first native vision backend surface:
+  `moritzbrantner-text-linguistics` owns tokenizer alignment and local Candle-backed NER,
+  while `moritzbrantner-text-embeddings` owns optional ONNX/Candle embedding runtimes.
+- `moritzbrantner-video-analysis-onnx` now owns the first native vision backend surface:
   object-detection bundle validation, image preprocessing, fake-runner decoding
   tests, and optional `onnxruntime` execution for DETR/YOLOS-style outputs.
 - Optional Python dependencies for model-backend experiments can be installed
@@ -43,7 +43,7 @@ Rationale:
 
 ### Thread A: Backend Crate Skeleton
 
-Status: implemented as `video-analysis-onnx`.
+Status: implemented as `moritzbrantner-video-analysis-onnx`.
 
 Add a new crate:
 

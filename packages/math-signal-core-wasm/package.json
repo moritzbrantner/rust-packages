@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/math-signal-core-wasm",
+  "name": "@moritzbrantner/math-signal-core-wasm",
   "version": "0.1.0",
   "description": "WASM package for math-signal-core.",
   "license": "MIT OR Apache-2.0",

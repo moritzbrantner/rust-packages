@@ -1,5 +1,5 @@
 [package]
-name = "text-embeddings-cli"
+name = "moritzbrantner-text-embeddings-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "text-embeddings-cli"
 
+[lib]
+name = "text_embeddings_cli"
+
 [[bin]]
 name = "text-embeddings-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-text-embeddings = { version = "0.1.0", path = "../text-embeddings" }
+text-embeddings = { package = "moritzbrantner-text-embeddings", version = "0.1.0", path = "../text-embeddings" }

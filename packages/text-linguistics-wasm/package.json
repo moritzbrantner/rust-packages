@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/text-linguistics-wasm",
+  "name": "@moritzbrantner/text-linguistics-wasm",
   "version": "0.1.0",
   "description": "WASM package for text-linguistics.",
   "license": "MIT OR Apache-2.0",

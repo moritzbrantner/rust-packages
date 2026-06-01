@@ -1,6 +1,6 @@
 # video-analysis-reconstruction-cli
 
-Thin command-line adapter for `video-analysis-reconstruction`.
+Thin command-line adapter for `moritzbrantner-video-analysis-reconstruction`.
 
 Run:
 

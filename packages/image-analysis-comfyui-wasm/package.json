@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/image-analysis-comfyui-wasm",
+  "name": "@moritzbrantner/image-analysis-comfyui-wasm",
   "version": "0.1.0",
   "description": "WASM package for image-analysis-comfyui.",
   "license": "MIT OR Apache-2.0",

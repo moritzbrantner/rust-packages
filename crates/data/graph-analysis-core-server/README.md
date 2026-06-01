@@ -1,6 +1,6 @@
 # graph-analysis-core-server
 
-Thin HTTP API adapter for `graph-analysis-core`.
+Thin HTTP API adapter for `moritzbrantner-graph-analysis-core`.
 
 Run:
 

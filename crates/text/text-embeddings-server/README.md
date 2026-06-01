@@ -1,6 +1,6 @@
 # text-embeddings-server
 
-Thin HTTP API adapter for `text-embeddings`.
+Thin HTTP API adapter for `moritzbrantner-text-embeddings`.
 
 Run:
 

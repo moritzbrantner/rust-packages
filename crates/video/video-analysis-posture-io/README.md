@@ -1,6 +1,6 @@
 # video-analysis-posture-io
 
-COCO-style posture JSON and 3D stick-figure export helpers for `video-analysis`.
+COCO-style posture JSON and 3D stick-figure export helpers for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

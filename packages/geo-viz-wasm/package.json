@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/geo-viz-wasm",
+  "name": "@moritzbrantner/geo-viz-wasm",
   "version": "0.1.0",
   "description": "WASM package for geo-viz.",
   "license": "MIT OR Apache-2.0",

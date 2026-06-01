@@ -1,4 +1,4 @@
-# @mb-rust/audio-analysis-recognition-wasm
+# @moritzbrantner/audio-analysis-recognition-wasm
 
 WASM package for `audio-analysis-recognition`.
 

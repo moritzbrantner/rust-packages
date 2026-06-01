@@ -68,8 +68,8 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
   const includedNames = new Set<string>([
     ...cargoPackages.map((pkg: CargoMetadataPackage) => pkg.name),
     ...contractRows.map((row) => row.name),
-    "@video-analysis/web",
-    "@video-analysis/ui",
+    "@moritzbrantner/video-analysis-web",
+    "@moritzbrantner/video-analysis-ui",
   ]);
 
   const packages: WorkspaceArchitecturePackage[] = cargoPackages.map((pkg: CargoMetadataPackage) =>
@@ -79,34 +79,34 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
   const uiInfo = JSON.parse(uiPackageJson) as { name?: string };
   const webInfo = JSON.parse(webPackageJson) as { name?: string };
 
-  if (!packages.some((pkg) => pkg.name === "@video-analysis/ui")) {
+  if (!packages.some((pkg) => pkg.name === "@moritzbrantner/video-analysis-ui")) {
     packages.push({
-      name: uiInfo.name ?? "@video-analysis/ui",
+      name: uiInfo.name ?? "@moritzbrantner/video-analysis-ui",
       kind: "frontend",
       domain: "ui",
       path: "packages/video-analysis-ui",
       description: "React/Tailwind component pack for rendered analysis reports.",
       role:
-        contractByName.get("@video-analysis/ui")?.role ??
+        contractByName.get("@moritzbrantner/video-analysis-ui")?.role ??
         "React and Tailwind views for analysis data and report JSON.",
-      exposes: splitExposes(contractByName.get("@video-analysis/ui")?.exposesText),
-      consumedBy: splitConsumedBy(contractByName.get("@video-analysis/ui")?.consumedByText),
+      exposes: splitExposes(contractByName.get("@moritzbrantner/video-analysis-ui")?.exposesText),
+      consumedBy: splitConsumedBy(contractByName.get("@moritzbrantner/video-analysis-ui")?.consumedByText),
       tags: extractContractTags(
         [
-          contractByName.get("@video-analysis/ui")?.role,
-          contractByName.get("@video-analysis/ui")?.exposesText,
+          contractByName.get("@moritzbrantner/video-analysis-ui")?.role,
+          contractByName.get("@moritzbrantner/video-analysis-ui")?.exposesText,
           "report views scenes observations transcript data buckets dashboard json report",
         ]
           .filter(Boolean)
           .join(" "),
       ),
-      capabilities: capabilitiesFor("@video-analysis/ui", "frontend", "packages/video-analysis-ui", true),
+      capabilities: capabilitiesFor("@moritzbrantner/video-analysis-ui", "frontend", "packages/video-analysis-ui", true),
     });
   }
 
-  if (!packages.some((pkg) => pkg.name === "@video-analysis/web")) {
+  if (!packages.some((pkg) => pkg.name === "@moritzbrantner/video-analysis-web")) {
     packages.push({
-      name: webInfo.name ?? "@video-analysis/web",
+      name: webInfo.name ?? "@moritzbrantner/video-analysis-web",
       kind: "frontend",
       domain: "apps",
       path: "prototypes/web/video-analysis-web",
@@ -116,7 +116,7 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
       consumedBy: ["Developers exploring workspace behavior locally"],
       tags: extractContractTags("dashboard report workflow json report scenes observations data buckets"),
       capabilities: capabilitiesFor(
-        "@video-analysis/web",
+        "@moritzbrantner/video-analysis-web",
         "frontend",
         "prototypes/web/video-analysis-web",
         true,
@@ -167,8 +167,8 @@ export async function loadWorkspaceArchitecture(workspaceRoot: string): Promise<
   }
 
   dependencies.push({
-    source: "@video-analysis/web",
-    target: "@video-analysis/ui",
+    source: "@moritzbrantner/video-analysis-web",
+    target: "@moritzbrantner/video-analysis-ui",
     optional: false,
   });
 
@@ -240,7 +240,7 @@ function capabilitiesFor(
         entrypoint: `import from ${name}`,
       });
     }
-    if (name.endsWith("-app") || name === "@video-analysis/web" || name === "@video-analysis/ui") {
+    if (name.endsWith("-app") || name === "@moritzbrantner/video-analysis-web" || name === "@moritzbrantner/video-analysis-ui") {
       capabilities.push({
         kind: "ui",
         entrypoint: path ?? name,
@@ -325,10 +325,11 @@ function libraryEntrypoint(
   hasLibraryTarget: boolean,
 ): string {
   if (kind === "frontend") {
-    return name === "@video-analysis/ui" ? "import from @video-analysis/ui" : path ?? name;
+    return name === "@moritzbrantner/video-analysis-ui" ? "import from @moritzbrantner/video-analysis-ui" : path ?? name;
   }
   if (hasLibraryTarget) {
-    return `use ${name.replaceAll("-", "_")}`;
+    const importName = name.replace(/^moritzbrantner-/, "");
+    return `use ${importName.replaceAll("-", "_")}`;
   }
   return "add src/lib.rs before publishing new library APIs";
 }
@@ -383,7 +384,7 @@ function frontendExposes(name: string): string[] {
 }
 
 function frontendLibraryName(name: string): string {
-  return name.replace(/^@mb-rust\//, "").replace(/-(app|wasm)$/, "");
+  return name.replace(/^@moritzbrantner\//, "").replace(/^moritzbrantner-/, "").replace(/-(app|wasm)$/, "");
 }
 
 function cargoMetadata(workspaceRoot: string): Promise<CargoMetadataResponse> {

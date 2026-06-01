@@ -1,5 +1,5 @@
 [package]
-name = "text-analysis"
+name = "moritzbrantner-text-analysis"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[lib]
+name = "text_analysis"
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
@@ -22,7 +25,6 @@ text-embeddings.workspace = true
 text-retrieval.workspace = true
 video-analysis-core.workspace = true
 model-runtime = { workspace = true, optional = true }
-
 [features]
 default = []
 candle = ["text-linguistics/candle", "text-embeddings/candle"]

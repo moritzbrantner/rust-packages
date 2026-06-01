@@ -1,5 +1,5 @@
 {
-  "name": "audio-analysis-pitch-app",
+  "name": "@moritzbrantner/audio-analysis-pitch-app",
   "version": "0.1.0",
   "description": "React app for audio-analysis-pitch: Autocorrelation pitch detection for video-analysis audio pipelines.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/audio-analysis-pitch-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/audio-analysis-pitch-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

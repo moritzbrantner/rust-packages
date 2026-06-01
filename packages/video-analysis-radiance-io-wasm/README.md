@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-radiance-io-wasm
+# @moritzbrantner/video-analysis-radiance-io-wasm
 
 WASM package for `video-analysis-radiance-io`.
 

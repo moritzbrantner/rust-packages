@@ -1,6 +1,6 @@
 # text-question-answering-server
 
-Thin HTTP API adapter for `text-question-answering`.
+Thin HTTP API adapter for `moritzbrantner-text-question-answering`.
 
 Run:
 

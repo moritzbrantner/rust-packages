@@ -1,4 +1,4 @@
-# @mb-rust/audio-analysis-synthesis-wasm
+# @moritzbrantner/audio-analysis-synthesis-wasm
 
 WASM package for `audio-analysis-synthesis`.
 

@@ -1,6 +1,6 @@
 # text-transcripts
 
-Transcript parsing, ASR command adapters, and native whisper.cpp support for `video-analysis`.
+Transcript parsing, ASR command adapters, and native whisper.cpp support for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

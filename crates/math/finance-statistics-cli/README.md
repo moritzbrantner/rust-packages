@@ -1,6 +1,6 @@
 # finance-statistics-cli
 
-Thin command-line adapter for `finance-statistics`.
+Thin command-line adapter for `moritzbrantner-finance-statistics`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # audio-analysis-rhythm
 
-Onset and tempo analysis for `video-analysis` audio pipelines.
+Onset and tempo analysis for `moritzbrantner-video-analysis` audio pipelines.
 
 ## Feature flags
 

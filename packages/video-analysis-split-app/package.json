@@ -1,5 +1,5 @@
 {
-  "name": "video-analysis-split-app",
+  "name": "@moritzbrantner/video-analysis-split-app",
   "version": "0.1.0",
   "description": "React app for video-analysis-split: FFmpeg-backed scene splitting utilities for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/video-analysis-split-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/video-analysis-split-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

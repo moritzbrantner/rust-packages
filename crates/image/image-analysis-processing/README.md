@@ -1,6 +1,6 @@
 # image-analysis-processing
 
-CPU image processing primitives for `video-analysis`.
+CPU image processing primitives for `moritzbrantner-video-analysis`.
 
 ## Runtime Surface
 

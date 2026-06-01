@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-posture-io-wasm
+# @moritzbrantner/video-analysis-posture-io-wasm
 
 WASM package for `video-analysis-posture-io`.
 

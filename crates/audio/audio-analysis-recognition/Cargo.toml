@@ -1,5 +1,5 @@
 [package]
-name = "audio-analysis-recognition"
+name = "moritzbrantner-audio-analysis-recognition"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "audio_analysis_recognition"
 
 [dependencies]
 audio-analysis-core.workspace = true

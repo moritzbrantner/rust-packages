@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/dense-data-wasm",
+  "name": "@moritzbrantner/dense-data-wasm",
   "version": "0.1.0",
   "description": "WASM package for dense-data.",
   "license": "MIT OR Apache-2.0",

@@ -1,5 +1,5 @@
 [package]
-name = "three-d-scene-svg-cli"
+name = "moritzbrantner-three-d-scene-svg-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "three-d-scene-svg-cli"
 
+[lib]
+name = "three_d_scene_svg_cli"
+
 [[bin]]
 name = "three-d-scene-svg-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-three-d-scene-svg = { version = "0.1.0", path = "../three-d-scene-svg" }
+three-d-scene-svg = { package = "moritzbrantner-three-d-scene-svg", version = "0.1.0", path = "../three-d-scene-svg" }

@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-ffmpeg-wasm
+# @moritzbrantner/video-analysis-ffmpeg-wasm
 
 WASM package for `video-analysis-ffmpeg`.
 

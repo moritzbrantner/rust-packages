@@ -1,6 +1,6 @@
 # video-analysis-output-server
 
-Thin HTTP API adapter for `video-analysis-output`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-output`.
 
 Run:
 

@@ -1,4 +1,4 @@
-# @mb-rust/text-analysis-wasm
+# @moritzbrantner/text-analysis-wasm
 
 WASM package for `text-analysis`.
 

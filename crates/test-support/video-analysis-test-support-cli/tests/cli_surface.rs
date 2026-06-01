@@ -5,6 +5,9 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-test-support"
     );
     let surface = video_analysis_test_support_cli::package_surface();
-    assert_eq!(surface.library, "video-analysis-test-support");
+    assert_eq!(
+        surface.library,
+        "moritzbrantner-video-analysis-test-support"
+    );
     assert!(!surface.operations.is_empty());
 }

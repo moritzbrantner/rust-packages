@@ -1,6 +1,6 @@
 # text-model-runtime-server
 
-Thin HTTP API adapter for `text-model-runtime`.
+Thin HTTP API adapter for `moritzbrantner-text-model-runtime`.
 
 Run:
 

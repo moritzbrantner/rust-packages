@@ -1,4 +1,4 @@
-# @mb-rust/three-d-processing-mesh-wasm
+# @moritzbrantner/three-d-processing-mesh-wasm
 
 WASM package for `three-d-processing-mesh`.
 

@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = three_d_scene_svg::surface::package_surface();
-        assert_eq!(surface.library, "three-d-scene-svg");
+        assert_eq!(surface.library, "moritzbrantner-three-d-scene-svg");
         assert!(!surface.operations.is_empty());
     }
 }

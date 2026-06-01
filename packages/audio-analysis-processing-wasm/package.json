@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/audio-analysis-processing-wasm",
+  "name": "@moritzbrantner/audio-analysis-processing-wasm",
   "version": "0.1.0",
   "description": "WASM package for audio-analysis-processing.",
   "license": "MIT OR Apache-2.0",

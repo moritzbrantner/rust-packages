@@ -1,7 +1,7 @@
 # video-analysis-mvs
 
 Multi-View Stereo backend contracts and dense reconstruction outputs for
-`video-analysis`.
+`moritzbrantner-video-analysis`.
 
 This crate normalizes dense reconstruction outputs to workspace point-cloud and
 mesh types so native COLMAP/OpenCV-style backends and Rust-native backends can
@@ -13,9 +13,9 @@ share one public API.
 
 ## Related crates
 
-- `three-d-processing-core`
-- `three-d-processing-mesh`
-- `video-analysis-reconstruction`
+- `moritzbrantner-three-d-processing-core`
+- `moritzbrantner-three-d-processing-mesh`
+- `moritzbrantner-video-analysis-reconstruction`
 
 ## Package surface
 

@@ -1,4 +1,4 @@
-# @mb-rust/vector-analysis-core-wasm
+# @moritzbrantner/vector-analysis-core-wasm
 
 WASM package for `vector-analysis-core`.
 

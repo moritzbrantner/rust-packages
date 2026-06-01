@@ -1,7 +1,7 @@
 # video-analysis-colmap-backend
 
 COLMAP compatibility backend, command planning, and parity reporting for
-`video-analysis`.
+`moritzbrantner-video-analysis`.
 
 The current implementation supports COLMAP text models as a hermetic baseline
 and exposes explicit status for binary model support. It also exposes a native

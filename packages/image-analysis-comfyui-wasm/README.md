@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-comfyui-wasm
+# @moritzbrantner/image-analysis-comfyui-wasm
 
 WASM package for `image-analysis-comfyui`.
 

@@ -1,5 +1,5 @@
 [package]
-name = "text-model-runtime"
+name = "moritzbrantner-text-model-runtime"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "text_model_runtime"
 
 [dependencies]
 candle-core = { workspace = true, optional = true }
@@ -24,7 +27,6 @@ tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
 jobs-core = { workspace = true, optional = true }
 model-runtime = { workspace = true, optional = true, features = ["jobs"] }
-
 [features]
 default = []
 model-bundles = ["dep:jobs-core", "dep:model-runtime"]

@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = text_embeddings::surface::package_surface();
-        assert_eq!(surface.library, "text-embeddings");
+        assert_eq!(surface.library, "moritzbrantner-text-embeddings");
         assert!(!surface.operations.is_empty());
     }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/text-transcripts-wasm",
+  "name": "@moritzbrantner/text-transcripts-wasm",
   "version": "0.1.0",
   "description": "WASM package for text-transcripts.",
   "license": "MIT OR Apache-2.0",

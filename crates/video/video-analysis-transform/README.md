@@ -1,6 +1,6 @@
 # video-analysis-transform
 
-Filtering, joins, grouping, and resampling for `video-analysis` datasets.
+Filtering, joins, grouping, and resampling for `moritzbrantner-video-analysis` datasets.
 
 ## Feature flags
 

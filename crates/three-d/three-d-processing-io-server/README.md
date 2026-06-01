@@ -1,6 +1,6 @@
 # three-d-processing-io-server
 
-Thin HTTP API adapter for `three-d-processing-io`.
+Thin HTTP API adapter for `moritzbrantner-three-d-processing-io`.
 
 Run:
 

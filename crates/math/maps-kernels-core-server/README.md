@@ -1,6 +1,6 @@
 # maps-kernels-core-server
 
-Thin HTTP API adapter for `maps-kernels-core`.
+Thin HTTP API adapter for `moritzbrantner-maps-kernels-core`.
 
 Run:
 

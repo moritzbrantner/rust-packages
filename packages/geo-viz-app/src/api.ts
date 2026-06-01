@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/geo-viz-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/geo-viz-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

@@ -1,6 +1,6 @@
 # video-analysis-radiance-fields
 
-Radiance-field cameras, rays, and volumes for `video-analysis`.
+Radiance-field cameras, rays, and volumes for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

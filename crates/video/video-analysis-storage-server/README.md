@@ -1,6 +1,6 @@
 # video-analysis-storage-server
 
-Thin HTTP API adapter for `video-analysis-storage`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-storage`.
 
 Run:
 

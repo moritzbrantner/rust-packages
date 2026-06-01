@@ -1,6 +1,6 @@
 # text-generation-linguistics
 
-Adapters from `text-linguistics` analysis outputs into `text-generation`
+Adapters from `moritzbrantner-text-linguistics` analysis outputs into `moritzbrantner-text-generation`
 Markov training and template synthesis.
 
 ## Package surface

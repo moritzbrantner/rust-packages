@@ -1,6 +1,6 @@
 # video-analysis-output-cli
 
-Thin command-line adapter for `video-analysis-output`.
+Thin command-line adapter for `moritzbrantner-video-analysis-output`.
 
 Run:
 

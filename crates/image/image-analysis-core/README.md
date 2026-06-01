@@ -1,6 +1,6 @@
 # image-analysis-core
 
-Shared image views, pixel formats, and image statistics for `video-analysis`.
+Shared image views, pixel formats, and image statistics for `moritzbrantner-video-analysis`.
 
 ## Runtime Surface
 

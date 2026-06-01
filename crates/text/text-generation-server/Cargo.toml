@@ -1,5 +1,5 @@
 [package]
-name = "text-generation-server"
+name = "moritzbrantner-text-generation-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "text-generation-server"
 
+[lib]
+name = "text_generation_server"
+
 [[bin]]
 name = "text-generation-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-text-generation = { version = "0.1.0", path = "../text-generation" }
+text-generation = { package = "moritzbrantner-text-generation", version = "0.1.0", path = "../text-generation" }

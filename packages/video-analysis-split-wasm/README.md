@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-split-wasm
+# @moritzbrantner/video-analysis-split-wasm
 
 WASM package for `video-analysis-split`.
 

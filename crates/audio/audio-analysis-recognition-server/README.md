@@ -1,6 +1,6 @@
 # audio-analysis-recognition-server
 
-Thin HTTP API adapter for `audio-analysis-recognition`.
+Thin HTTP API adapter for `moritzbrantner-audio-analysis-recognition`.
 
 Run:
 

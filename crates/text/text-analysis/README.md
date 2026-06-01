@@ -1,6 +1,6 @@
 # text-analysis
 
-Unified text analysis orchestration for `video-analysis`.
+Unified text analysis orchestration for `moritzbrantner-video-analysis`.
 
 The crate composes the lower-level text packages into document and corpus
 reports. Defaults are deterministic, local-first, and do not download models or

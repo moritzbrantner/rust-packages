@@ -1,7 +1,7 @@
 # video-analysis-recognition
 
 Reference-embedding recognition helpers plus video model prediction contracts
-for `video-analysis`.
+for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

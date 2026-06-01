@@ -1,5 +1,5 @@
 [package]
-name = "image-analysis-ocr-wasm"
+name = "moritzbrantner-image-analysis-ocr-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

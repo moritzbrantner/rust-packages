@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-captioning-wasm
+# @moritzbrantner/image-analysis-captioning-wasm
 
 WASM package for `image-analysis-captioning`.
 

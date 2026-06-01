@@ -39,24 +39,27 @@ fn observed_comfyui_types_map_to_matrix_rows() {
     let expected_rows = [
         (
             va::comfyui_data::ComfySocketType::Image,
-            "image-analysis-core",
+            "moritzbrantner-image-analysis-core",
         ),
         (
             va::comfyui_data::ComfySocketType::Mask,
-            "`image-analysis-core` + `tensor-data`",
+            "`moritzbrantner-image-analysis-core` + `moritzbrantner-tensor-data`",
         ),
         (
             va::comfyui_data::ComfySocketType::Latent,
-            "`comfyui-latents` + `tensor-data`",
+            "`moritzbrantner-comfyui-latents` + `moritzbrantner-tensor-data`",
         ),
         (
             va::comfyui_data::ComfySocketType::Model,
-            "`comfyui-data` + `comfyui-models`",
+            "`moritzbrantner-comfyui-data` + `moritzbrantner-comfyui-models`",
         ),
-        (va::comfyui_data::ComfySocketType::Clip, "`comfyui-data`"),
+        (
+            va::comfyui_data::ComfySocketType::Clip,
+            "`moritzbrantner-comfyui-data`",
+        ),
         (
             va::comfyui_data::ComfySocketType::Vae,
-            "`comfyui-data` + `comfyui-models`",
+            "`moritzbrantner-comfyui-data` + `moritzbrantner-comfyui-models`",
         ),
         (
             va::comfyui_data::ComfySocketType::Conditioning,
@@ -64,7 +67,7 @@ fn observed_comfyui_types_map_to_matrix_rows() {
         ),
         (
             va::comfyui_data::ComfySocketType::UpscaleModel,
-            "`comfyui-data` + `comfyui-models`",
+            "`moritzbrantner-comfyui-data` + `moritzbrantner-comfyui-models`",
         ),
     ];
 

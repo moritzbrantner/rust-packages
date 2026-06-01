@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-io-wasm
+# @moritzbrantner/image-analysis-io-wasm
 
 WASM package for `image-analysis-io`.
 

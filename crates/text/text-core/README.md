@@ -1,6 +1,6 @@
 # text-core
 
-Shared text documents, tokenization, spans, and statistics for `video-analysis`.
+Shared text documents, tokenization, spans, and statistics for `moritzbrantner-video-analysis`.
 
 Default builds are deterministic, local-first, and do not download models or
 invoke native inference/runtime tools.

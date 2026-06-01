@@ -1,5 +1,5 @@
 [package]
-name = "math-sparse-data-wasm"
+name = "moritzbrantner-math-sparse-data-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

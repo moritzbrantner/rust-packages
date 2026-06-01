@@ -6,7 +6,7 @@ const uiSourceRoot = fileURLToPath(new URL("../video-analysis-ui/src", import.me
 
 export default defineConfig({
   optimizeDeps: {
-    exclude: ["@mb-rust/geo-io-geojson-wasm"],
+    exclude: ["@moritzbrantner/geo-io-geojson-wasm"],
   },
   plugins: [react()],
   resolve: {

@@ -5,7 +5,10 @@ fn cli_adapter_reports_wrapped_library() {
         "text-generation-linguistics"
     );
     let surface = text_generation_linguistics_cli::package_surface();
-    assert_eq!(surface.library, "text-generation-linguistics");
+    assert_eq!(
+        surface.library,
+        "moritzbrantner-text-generation-linguistics"
+    );
     assert!(!surface.operations.is_empty());
 }
 

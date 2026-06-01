@@ -1,5 +1,5 @@
 {
-  "name": "geo-io-geojson-app",
+  "name": "@moritzbrantner/geo-io-geojson-app",
   "version": "0.1.0",
   "description": "React app for geo-io-geojson: GeoJSON import and export adapters for geo-core.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/geo-io-geojson-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/geo-io-geojson-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

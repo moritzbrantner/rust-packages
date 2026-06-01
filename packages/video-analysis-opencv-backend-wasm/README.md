@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-opencv-backend-wasm
+# @moritzbrantner/video-analysis-opencv-backend-wasm
 
 WASM package for `video-analysis-opencv-backend`.
 

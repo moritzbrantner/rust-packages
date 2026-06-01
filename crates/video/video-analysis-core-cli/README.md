@@ -1,6 +1,6 @@
 # video-analysis-core-cli
 
-Thin command-line adapter for `video-analysis-core`.
+Thin command-line adapter for `moritzbrantner-video-analysis-core`.
 
 Run:
 

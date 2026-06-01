@@ -1,5 +1,5 @@
 [package]
-name = "geo-viz-server"
+name = "moritzbrantner-geo-viz-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 default-run = "geo-viz-server"
+
+[lib]
+name = "geo_viz_server"
 
 [[bin]]
 name = "geo-viz-server"

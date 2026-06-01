@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-radiance-io-wasm"
+name = "moritzbrantner-video-analysis-radiance-io-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

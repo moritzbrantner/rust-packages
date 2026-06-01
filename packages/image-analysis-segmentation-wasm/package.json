@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/image-analysis-segmentation-wasm",
+  "name": "@moritzbrantner/image-analysis-segmentation-wasm",
   "version": "0.1.0",
   "description": "WASM package for image-analysis-segmentation.",
   "license": "MIT OR Apache-2.0",

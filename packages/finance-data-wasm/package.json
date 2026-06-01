@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/finance-data-wasm",
+  "name": "@moritzbrantner/finance-data-wasm",
   "version": "0.1.0",
   "description": "WASM package for finance-data.",
   "license": "MIT OR Apache-2.0",

@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/comfyui-models-wasm",
+  "name": "@moritzbrantner/comfyui-models-wasm",
   "version": "0.1.0",
   "description": "WASM package for comfyui-models.",
   "license": "MIT OR Apache-2.0",

@@ -1,11 +1,11 @@
 # API Contracts
 
 This document describes the inter-package contracts that let the Rust crates and
-the `@video-analysis/ui` package work together. It is intentionally not an
+the `@moritzbrantner/video-analysis-ui` package work together. It is intentionally not an
 exhaustive rustdoc inventory. It focuses on shared types, traits, serialized
 formats, file formats, package exports, and dependency boundaries.
 
-`video-analysis-core` owns the canonical runtime contracts for time, media
+`moritzbrantner-video-analysis-core` owns the canonical runtime contracts for time, media
 samples, scene detection, metrics, observations, analyzers, and pipelines. Other
 crates should compose around those contracts instead of defining parallel types.
 
@@ -38,9 +38,9 @@ Every non-wrapper library crate owns its operation metadata and execution in
 library-owned surface instead of implementing package behavior in wrapper code.
 The shared `PackageSurface`, `SurfaceOperation`, `SurfaceRequest`, and
 `SurfaceResponse` DTOs live in `video-analysis-core::runtime`. Generic job
-envelopes and artifact storage live in `jobs-core`; model-specific artifact
-metadata, bundle manifests, and Hugging Face downloads stay in `model-runtime`.
-`jobs-core` owns only generic job state, cancellation, progress, diagnostics,
+envelopes and artifact storage live in `moritzbrantner-jobs-core`; model-specific artifact
+metadata, bundle manifests, and Hugging Face downloads stay in `moritzbrantner-model-runtime`.
+`moritzbrantner-jobs-core` owns only generic job state, cancellation, progress, diagnostics,
 and artifact contracts. It must not gain model semantics, Hugging Face concepts,
 ONNX/Candle/tokenizer dependencies, or domain media dependencies.
 
@@ -48,7 +48,7 @@ Model catalogs, model specs, preset metadata, schema validation, and determinist
 fallback planning may run synchronously. Model downloads, bundle
 materialization, runtime warmup, native inference, external model commands, and
 batch inference must be exposed through `model-runtime::jobs` and therefore
-tracked by `jobs-core` job state and artifact paths.
+tracked by `moritzbrantner-jobs-core` job state and artifact paths.
 
 The current workspace-wide baseline operation is `describe`; crates should add
 richer representative operations in their own surface module as library
@@ -100,13 +100,13 @@ The crate that owns the most general semantic form owns the stable contract.
 Specialized crates may add domain fields, but they must expose conversion back
 to the general contract instead of creating unrelated parallel DTOs.
 
-For the first enforced boundary, `text-core` owns generic text contracts such as
-`TextDocumentContract` and `TextSegmentContract`. `text-transcripts` owns
+For the first enforced boundary, `moritzbrantner-text-core` owns generic text contracts such as
+`TextDocumentContract` and `TextSegmentContract`. `moritzbrantner-text-transcripts` owns
 `TranscriptSegmentContract` and `TranscriptionContract` as timed/speaker-aware
 text specializations. Audio ASR surfaces consume and return those transcript
-contracts through `audio-analysis-recognition`. Speaker diarization may enrich an existing
+contracts through `moritzbrantner-audio-analysis-recognition`. Speaker diarization may enrich an existing
 `TranscriptionContract` with speaker labels and scores, but transcript DTOs
-remain owned by `text-transcripts`.
+remain owned by `moritzbrantner-text-transcripts`.
 
 UI and report types are projections of these contracts. A `*Report` type may
 drop fields that are not needed for presentation, but shared fields should be
@@ -137,94 +137,94 @@ Runtime and external integration crates use a shared feature policy:
 
 | Package | Role | Depends on | Exposes | Consumed by |
 | --- | --- | --- | --- | --- |
-| `video-analysis` | Root facade crate | Library crates except CLI and use cases | Re-exports core items, detector items, and package modules | Applications that want one import surface |
-| `comfyui-data` | ComfyUI workflow and socket typing contracts | `serde`, `serde_json`, `tensor-data`, `thiserror` | Workflow JSON nodes, links, groups, validation helpers, prompt nodes/links, normalized `ComfySocketType`, workflow socket inventories, `ConditioningItem`, `ConditioningBatch` | Applications importing, validating, inventorying, or emitting ComfyUI graphs |
-| `comfyui-latents` | ComfyUI latent-space contracts | `tensor-data`, `video-analysis-core`, `serde` | `LatentBatch`, `LatentMask`, `LatentImageSize`, mask compatibility checks | Applications or integrations that need stable latent-space data contracts |
-| `comfyui-models` | ComfyUI model folder, inventory, and reference contracts | `serde`, `thiserror` | Core model folder keys, default relative paths, inventory scanning, extra model paths YAML generation, `ComfyModelRole`, `ComfyModelRef` | Applications managing shared ComfyUI model libraries |
-| `data-inversion-core` | Shared lossy inverse-conversion metadata | `video-analysis-core` | `InformationFidelity`, `InversionMethod`, `InversionTrace`, generated value wrappers | Synthesis crates and applications that need explicit interpolation/assumption metadata |
-| `animation-core` | Shared animation timeline contracts | `three-d-processing-core`, `video-analysis-core`, `serde` | Time values, interpolation modes, keyframes, typed tracks, transform tracks, joints, skeletons, and animation clips | Future 2D/3D animation workflows, posture sequence interop, mesh/skinning work |
-| `numbers-core` | Shared scalar numeric summaries and ranges | `video-analysis-core` | Running stats, weighted summaries, quantiles, histograms, numeric range helpers | `dense-data`, `video-analysis-data`, analytics workflows, and reporting utilities |
-| `tensor-data` | Generic finite `f32` tensor contracts | `video-analysis-core`, `serde`, `serde_json` | `TensorShape`, `F32Tensor`, `F32TensorView`, shape/element validation, metadata | `comfyui-latents`, audio/image bridges, and future tensor-oriented interop crates |
-| `finance-statistics` | Finance-oriented return and risk statistics | `video-analysis-core`, `numbers-core` | Simple/log returns, cumulative and annualized return, volatility, Sharpe, Sortino, beta/alpha, drawdown, historical VaR/CVaR, tracking error, rolling windows | Finance analytics, portfolio reporting, and future market-data workflows |
-| `math-geometry-2d` | Shared 2D geometry primitives | `video-analysis-core`, `serde` | Checked 2D points, vectors, rectangles, normalized coordinates, segments, circles, polygons, bounds, affine transforms, and `BoundingBox` interop | Image/video/posture crates and UI-adjacent layout workflows |
-| `math-linear` | Shared dense matrix and kernel contracts | `video-analysis-core`, `tensor-data`, `vector-analysis-core` | Matrix shapes/views, matrix multiply, row/column helpers, tensor/vector bridges, `Kernel1d`, `Kernel2d` | Image/video preprocessing, text model utilities, dense/statistical workflows |
-| `math-signal-core` | Shared signal-domain math | `video-analysis-core`, `numbers-core` | Sample-rate/resampling descriptors, windows, frame strides, interpolation, FIR kernels, and biquad design helpers | Audio crates and future time-series/video transform workflows |
-| `math-sparse-data` | Shared sparse vector and matrix contracts | `video-analysis-core`, `vector-analysis-core`, `numbers-core` | Sparse vectors, COO/CSR matrices, sparse similarities, dense bridges | Text corpus/semantic crates and future retrieval/index workflows |
-| `math-statistics` | Shared multivariate statistics | `video-analysis-core`, `numbers-core`, `math-linear` | Running covariance, covariance matrices, normalizers, PCA-lite, weighted observations | Dense-data, feature extraction, and analytics workflows |
-| `audio-analysis-core` | Shared audio analysis utilities | `video-analysis-core`, `tensor-data`, `math-signal-core` | Normalized sample conversion, mono mixing, shared window functions, frame iteration, streaming frame windows, level helpers, waveform batch contracts | Audio analysis crates and applications |
-| `audio-analysis-fourier` | Frequency-domain audio analysis | `audio-analysis-core`, `video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
-| `audio-analysis-io` | Audio input convenience facade | `audio-analysis-core`, `video-analysis-core`, `video-analysis-ingest`, `video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, WAV export for single-item waveform batches | Applications that want audio-specific input APIs |
-| `audio-analysis-pitch` | Pitch estimation | `audio-analysis-core`, `video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
-| `audio-analysis-processing` | Realtime-safe audio processing | `audio-analysis-core`, `math-signal-core`, `video-analysis-core`, `video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources | Applications, preprocessing workflows, audio pipelines |
-| `audio-analysis-recognition` | Audio similarity and recognition | `audio-analysis-core`, `audio-analysis-fourier`, `video-analysis-core` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events | Applications, audio pipelines, reference matching workflows |
-| `audio-analysis-rhythm` | Rhythm and tempo analysis | `audio-analysis-core`, `video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
-| `audio-analysis-separation` | Instrument stem separation command wrapper | `video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
-| `audio-analysis-synthesis` | Deterministic inverse audio generation | `data-inversion-core`, `video-analysis-core` | Tone specs, tone timelines, pitch/onset event to tone conversion, synthesized `OwnedAudioFrame` values | Applications prototyping audio from symbolic or analyzed events |
-| `audio-analysis-test-support` | Shared audio fixtures and test helpers | `audio-analysis-core`, `video-analysis-core` | Synthetic waveform frames, deterministic audio buffers, fixture builders, assertion helpers | Audio crate tests, smoke tests, and package surface checks |
-| `image-analysis-core` | Shared image contracts and statistics | `video-analysis-core`, `tensor-data` | Borrowed/owned image views, image batches, pixel formats, compacting, mean color, luma histograms, mask tensor bridge helpers | Image processing crates, applications, video frame preprocessing |
-| `image-analysis-processing` | CPU image processing primitives | `image-analysis-core`, `math-geometry-2d`, `math-linear`, `video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains, shared `RectU32`/`Kernel2d` bridges | Applications, preprocessing workflows |
-| `image-analysis-ocr` | OCR presets and rich text extraction contracts | `image-analysis-core`, `video-analysis-core`, `model-runtime` | Hugging Face OCR presets, OCR technique metadata, rich text documents/blocks/lines/tokens, image and video-frame OCR backend traits | Applications extracting text from images or sampled video frames |
-| `image-analysis-captioning` | Image caption model surface | `image-analysis-core`, `model-runtime`, `video-analysis-core` | Caption model presets, caption request/result DTOs, deterministic fallback captions, image caption backend traits | Applications describing images or sampled video frames |
-| `image-analysis-classification` | Image classification model surface | `image-analysis-core`, `model-runtime`, `video-analysis-core` | Classification model presets, class score DTOs, deterministic fallback classifiers, image classification backend traits | Applications labeling images or sampled video frames |
-| `image-analysis-embeddings` | Image embedding model surface | `image-analysis-core`, `model-runtime`, `vector-analysis-core`, `video-analysis-core` | Embedding model presets, image embedding request/result DTOs, deterministic fallback embeddings, vector bridges | Search, recognition, clustering, and multimodal retrieval workflows |
-| `image-analysis-synthesis` | Deterministic inverse image generation | `data-inversion-core`, `image-analysis-core`, `video-analysis-core` | Solid images, gradients, luma-histogram expansion, region painting | Applications reconstructing approximate image buffers from summaries or regions |
-| `text-analysis` | Unified text analysis orchestration | `text-core`, `text-lexical`, `text-linguistics`, `text-embeddings`, `text-retrieval`, `video-analysis-core`, optional `model-runtime` | Document and corpus analysis reports combining core text stats, lexical features, similarity, linguistic summaries, embeddings, retrieval, diagnostics, and reusable report DTOs | Text applications, transcript analysis, search prototypes, and package overview demos |
-| `text-core` | Shared text analysis utilities | `video-analysis-core`, `unicode-normalization`, `unicode-segmentation` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, Unicode word/grapheme spans, script profiles, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
-| `text-lexical` | Lexical features and classical corpus statistics | `text-core`, `math-sparse-data`, `video-analysis-core`, `serde` | Stop words, keywords, n-grams, shingles, readability, stemming, extractive summaries, sentiment, reusable text analyzers, TF-IDF, BM25, sparse term matrices/vectors | Applications, text analytics, semantic indexing |
-| `text-linguistics` | Local model-backed linguistic interpretation | `jobs-core`, `model-runtime`, `text-core`, `text-lexical`, `text-transcripts`, `video-analysis-core`, optional `tokenizers`/Candle crates | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
-| `text-embeddings` | Embedding traits and lightweight semantic text analysis | `text-core`, `text-lexical`, `math-sparse-data`, `vector-analysis-core`, `vector-analysis-index`, `video-analysis-core`, optional `tokenizers`/`ort`/Candle crates | `TextEmbeddingBackend`, `TextEmbedderBackend`, `EmbeddingModelInfo`, hashed dense/sparse embeddings, optional ONNX/Candle text embedders, semantic indexes, text similarity, co-occurrence graphs, related-term scoring | Retrieval, applications, semantic analysis prototypes |
-| `text-retrieval` | Text ingestion, search, and persisted retrieval indexes | `text-core`, `text-lexical`, `text-embeddings`, `vector-analysis-index`, `serde`, `serde_json`, `thiserror`, `video-analysis-core` | Search documents/chunks, chunking options, full-text/semantic/hybrid query/ranking, metadata filters, search results, related-chunk lookup, manifests, chunk/vector JSONL snapshots, corpus metadata, rehydration helpers | Applications, search prototypes, local retrieval snapshots |
-| `text-generation` | Deterministic text prediction and synthesis | `data-inversion-core`, `text-core`, `video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring, weighted term prompts, generated text segments | Applications, text pipelines, prototyping |
-| `text-generation-linguistics` | Linguistic adapters for deterministic generation | `data-inversion-core`, `text-core`, `text-generation`, `text-linguistics`, `video-analysis-core` | Linguistic-analysis term prompts, analysis-to-document synthesis, and Markov training modes for surface, normalized, lemma, and entity-aware tokens | Applications, text pipelines, prototyping |
-| `text-model-runtime` | Text model runtime helper contracts | `video-analysis-core`, optional `model-runtime`/tokenizer/inference backends | Tokenization summaries, softmax helpers, text runtime request DTOs, non-executing local model helpers | Text model-backed crates, CLI model utilities, package UI runtime probes |
-| `text-question-answering` | Question answering surface contracts | `text-model-runtime`, `video-analysis-core` | QA model presets, question/context request DTOs, answer span responses, deterministic lexical fallback answers | Applications adding local-first question answering over documents and transcripts |
-| `text-transcripts` | Reusable transcript parsing and ASR command wrappers | `audio-analysis-core`, `audio-analysis-io`, `video-analysis-core`, `video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, waveform-batch transcription bridge, text segment source adapter | Use cases, applications, text pipelines |
-| `dense-data` | Generic dense point aggregation and clustering | `numbers-core`, `math-linear`, `math-statistics`, `video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, per-dimension summaries, bounds, fixed-grid buckets, deterministic k-means clusters, covariance, and PCA helpers | Tables, graphs, charts, maps, media features, and analytics workflows |
-| `moritzbrantner-geo-core` | Geospatial domain contracts and transforms | `video-analysis-core`, `serde` | Coordinates, bounding boxes, feature records, geometry transforms, distance and bounds utilities | Map views, location-aware reports, and future geospatial analytics workflows |
+| `moritzbrantner-video-analysis` | Root facade crate | Library crates except CLI and use cases | Re-exports core items, detector items, and package modules | Applications that want one import surface |
+| `moritzbrantner-comfyui-data` | ComfyUI workflow and socket typing contracts | `serde`, `serde_json`, `moritzbrantner-tensor-data`, `thiserror` | Workflow JSON nodes, links, groups, validation helpers, prompt nodes/links, normalized `ComfySocketType`, workflow socket inventories, `ConditioningItem`, `ConditioningBatch` | Applications importing, validating, inventorying, or emitting ComfyUI graphs |
+| `moritzbrantner-comfyui-latents` | ComfyUI latent-space contracts | `moritzbrantner-tensor-data`, `moritzbrantner-video-analysis-core`, `serde` | `LatentBatch`, `LatentMask`, `LatentImageSize`, mask compatibility checks | Applications or integrations that need stable latent-space data contracts |
+| `moritzbrantner-comfyui-models` | ComfyUI model folder, inventory, and reference contracts | `serde`, `thiserror` | Core model folder keys, default relative paths, inventory scanning, extra model paths YAML generation, `ComfyModelRole`, `ComfyModelRef` | Applications managing shared ComfyUI model libraries |
+| `moritzbrantner-data-inversion-core` | Shared lossy inverse-conversion metadata | `moritzbrantner-video-analysis-core` | `InformationFidelity`, `InversionMethod`, `InversionTrace`, generated value wrappers | Synthesis crates and applications that need explicit interpolation/assumption metadata |
+| `moritzbrantner-animation-core` | Shared animation timeline contracts | `moritzbrantner-three-d-processing-core`, `moritzbrantner-video-analysis-core`, `serde` | Time values, interpolation modes, keyframes, typed tracks, transform tracks, joints, skeletons, and animation clips | Future 2D/3D animation workflows, posture sequence interop, mesh/skinning work |
+| `moritzbrantner-numbers-core` | Shared scalar numeric summaries and ranges | `moritzbrantner-video-analysis-core` | Running stats, weighted summaries, quantiles, histograms, numeric range helpers | `moritzbrantner-dense-data`, `moritzbrantner-video-analysis-data`, analytics workflows, and reporting utilities |
+| `moritzbrantner-tensor-data` | Generic finite `f32` tensor contracts | `moritzbrantner-video-analysis-core`, `serde`, `serde_json` | `TensorShape`, `F32Tensor`, `F32TensorView`, shape/element validation, metadata | `moritzbrantner-comfyui-latents`, audio/image bridges, and future tensor-oriented interop crates |
+| `moritzbrantner-finance-statistics` | Finance-oriented return and risk statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core` | Simple/log returns, cumulative and annualized return, volatility, Sharpe, Sortino, beta/alpha, drawdown, historical VaR/CVaR, tracking error, rolling windows | Finance analytics, portfolio reporting, and future market-data workflows |
+| `moritzbrantner-math-geometry-2d` | Shared 2D geometry primitives | `moritzbrantner-video-analysis-core`, `serde` | Checked 2D points, vectors, rectangles, normalized coordinates, segments, circles, polygons, bounds, affine transforms, and `BoundingBox` interop | Image/video/posture crates and UI-adjacent layout workflows |
+| `moritzbrantner-math-linear` | Shared dense matrix and kernel contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data`, `moritzbrantner-vector-analysis-core` | Matrix shapes/views, matrix multiply, row/column helpers, tensor/vector bridges, `Kernel1d`, `Kernel2d` | Image/video preprocessing, text model utilities, dense/statistical workflows |
+| `moritzbrantner-math-signal-core` | Shared signal-domain math | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core` | Sample-rate/resampling descriptors, windows, frame strides, interpolation, FIR kernels, and biquad design helpers | Audio crates and future time-series/video transform workflows |
+| `moritzbrantner-math-sparse-data` | Shared sparse vector and matrix contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-numbers-core` | Sparse vectors, COO/CSR matrices, sparse similarities, dense bridges | Text corpus/semantic crates and future retrieval/index workflows |
+| `moritzbrantner-math-statistics` | Shared multivariate statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core`, `moritzbrantner-math-linear` | Running covariance, covariance matrices, normalizers, PCA-lite, weighted observations | Dense-data, feature extraction, and analytics workflows |
+| `moritzbrantner-audio-analysis-core` | Shared audio analysis utilities | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data`, `moritzbrantner-math-signal-core` | Normalized sample conversion, mono mixing, shared window functions, frame iteration, streaming frame windows, level helpers, waveform batch contracts | Audio analysis crates and applications |
+| `moritzbrantner-audio-analysis-fourier` | Frequency-domain audio analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, dominant-frequency analyzer | Applications and audio pipelines |
+| `moritzbrantner-audio-analysis-io` | Audio input convenience facade | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest`, `moritzbrantner-video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, WAV export for single-item waveform batches | Applications that want audio-specific input APIs |
+| `moritzbrantner-audio-analysis-pitch` | Pitch estimation | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | Autocorrelation pitch detector and pitch analyzer events | Applications and audio pipelines |
+| `moritzbrantner-audio-analysis-processing` | Realtime-safe audio processing | `moritzbrantner-audio-analysis-core`, `moritzbrantner-math-signal-core`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources | Applications, preprocessing workflows, audio pipelines |
+| `moritzbrantner-audio-analysis-recognition` | Audio similarity and recognition | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-fourier`, `moritzbrantner-video-analysis-core` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events | Applications, audio pipelines, reference matching workflows |
+| `moritzbrantner-audio-analysis-rhythm` | Rhythm and tempo analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
+| `moritzbrantner-audio-analysis-separation` | Instrument stem separation command wrapper | `moritzbrantner-video-analysis-core` | HTDemucs/Demucs options, command execution, expected stem paths | Applications and preprocessing workflows |
+| `moritzbrantner-audio-analysis-synthesis` | Deterministic inverse audio generation | `moritzbrantner-data-inversion-core`, `moritzbrantner-video-analysis-core` | Tone specs, tone timelines, pitch/onset event to tone conversion, synthesized `OwnedAudioFrame` values | Applications prototyping audio from symbolic or analyzed events |
+| `moritzbrantner-audio-analysis-test-support` | Shared audio fixtures and test helpers | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | Synthetic waveform frames, deterministic audio buffers, fixture builders, assertion helpers | Audio crate tests, smoke tests, and package surface checks |
+| `moritzbrantner-image-analysis-core` | Shared image contracts and statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data` | Borrowed/owned image views, image batches, pixel formats, compacting, mean color, luma histograms, mask tensor bridge helpers | Image processing crates, applications, video frame preprocessing |
+| `moritzbrantner-image-analysis-processing` | CPU image processing primitives | `moritzbrantner-image-analysis-core`, `moritzbrantner-math-geometry-2d`, `moritzbrantner-math-linear`, `moritzbrantner-video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains, shared `RectU32`/`Kernel2d` bridges | Applications, preprocessing workflows |
+| `moritzbrantner-image-analysis-ocr` | OCR presets and rich text extraction contracts | `moritzbrantner-image-analysis-core`, `moritzbrantner-video-analysis-core`, `moritzbrantner-model-runtime` | Hugging Face OCR presets, OCR technique metadata, rich text documents/blocks/lines/tokens, image and video-frame OCR backend traits | Applications extracting text from images or sampled video frames |
+| `moritzbrantner-image-analysis-captioning` | Image caption model surface | `moritzbrantner-image-analysis-core`, `moritzbrantner-model-runtime`, `moritzbrantner-video-analysis-core` | Caption model presets, caption request/result DTOs, deterministic fallback captions, image caption backend traits | Applications describing images or sampled video frames |
+| `moritzbrantner-image-analysis-classification` | Image classification model surface | `moritzbrantner-image-analysis-core`, `moritzbrantner-model-runtime`, `moritzbrantner-video-analysis-core` | Classification model presets, class score DTOs, deterministic fallback classifiers, image classification backend traits | Applications labeling images or sampled video frames |
+| `moritzbrantner-image-analysis-embeddings` | Image embedding model surface | `moritzbrantner-image-analysis-core`, `moritzbrantner-model-runtime`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-video-analysis-core` | Embedding model presets, image embedding request/result DTOs, deterministic fallback embeddings, vector bridges | Search, recognition, clustering, and multimodal retrieval workflows |
+| `moritzbrantner-image-analysis-synthesis` | Deterministic inverse image generation | `moritzbrantner-data-inversion-core`, `moritzbrantner-image-analysis-core`, `moritzbrantner-video-analysis-core` | Solid images, gradients, luma-histogram expansion, region painting | Applications reconstructing approximate image buffers from summaries or regions |
+| `moritzbrantner-text-analysis` | Unified text analysis orchestration | `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-text-linguistics`, `moritzbrantner-text-embeddings`, `moritzbrantner-text-retrieval`, `moritzbrantner-video-analysis-core`, optional `moritzbrantner-model-runtime` | Document and corpus analysis reports combining core text stats, lexical features, similarity, linguistic summaries, embeddings, retrieval, diagnostics, and reusable report DTOs | Text applications, transcript analysis, search prototypes, and package overview demos |
+| `moritzbrantner-text-core` | Shared text analysis utilities | `moritzbrantner-video-analysis-core`, `unicode-normalization`, `unicode-segmentation` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, Unicode word/grapheme spans, script profiles, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
+| `moritzbrantner-text-lexical` | Lexical features and classical corpus statistics | `moritzbrantner-text-core`, `moritzbrantner-math-sparse-data`, `moritzbrantner-video-analysis-core`, `serde` | Stop words, keywords, n-grams, shingles, readability, stemming, extractive summaries, sentiment, reusable text analyzers, TF-IDF, BM25, sparse term matrices/vectors | Applications, text analytics, semantic indexing |
+| `moritzbrantner-text-linguistics` | Local model-backed linguistic interpretation | `moritzbrantner-jobs-core`, `moritzbrantner-model-runtime`, `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-text-transcripts`, `moritzbrantner-video-analysis-core`, optional `tokenizers`/Candle crates | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
+| `moritzbrantner-text-embeddings` | Embedding traits and lightweight semantic text analysis | `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-math-sparse-data`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-vector-analysis-index`, `moritzbrantner-video-analysis-core`, optional `tokenizers`/`ort`/Candle crates | `TextEmbeddingBackend`, `TextEmbedderBackend`, `EmbeddingModelInfo`, hashed dense/sparse embeddings, optional ONNX/Candle text embedders, semantic indexes, text similarity, co-occurrence graphs, related-term scoring | Retrieval, applications, semantic analysis prototypes |
+| `moritzbrantner-text-retrieval` | Text ingestion, search, and persisted retrieval indexes | `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-text-embeddings`, `moritzbrantner-vector-analysis-index`, `serde`, `serde_json`, `thiserror`, `moritzbrantner-video-analysis-core` | Search documents/chunks, chunking options, full-text/semantic/hybrid query/ranking, metadata filters, search results, related-chunk lookup, manifests, chunk/vector JSONL snapshots, corpus metadata, rehydration helpers | Applications, search prototypes, local retrieval snapshots |
+| `moritzbrantner-text-generation` | Deterministic text prediction and synthesis | `moritzbrantner-data-inversion-core`, `moritzbrantner-text-core`, `moritzbrantner-video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring, weighted term prompts, generated text segments | Applications, text pipelines, prototyping |
+| `moritzbrantner-text-generation-linguistics` | Linguistic adapters for deterministic generation | `moritzbrantner-data-inversion-core`, `moritzbrantner-text-core`, `moritzbrantner-text-generation`, `moritzbrantner-text-linguistics`, `moritzbrantner-video-analysis-core` | Linguistic-analysis term prompts, analysis-to-document synthesis, and Markov training modes for surface, normalized, lemma, and entity-aware tokens | Applications, text pipelines, prototyping |
+| `moritzbrantner-text-model-runtime` | Text model runtime helper contracts | `moritzbrantner-video-analysis-core`, optional `moritzbrantner-model-runtime`/tokenizer/inference backends | Tokenization summaries, softmax helpers, text runtime request DTOs, non-executing local model helpers | Text model-backed crates, CLI model utilities, package UI runtime probes |
+| `moritzbrantner-text-question-answering` | Question answering surface contracts | `moritzbrantner-text-model-runtime`, `moritzbrantner-video-analysis-core` | QA model presets, question/context request DTOs, answer span responses, deterministic lexical fallback answers | Applications adding local-first question answering over documents and transcripts |
+| `moritzbrantner-text-transcripts` | Reusable transcript parsing and ASR command wrappers | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-io`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, waveform-batch transcription bridge, text segment source adapter | Use cases, applications, text pipelines |
+| `moritzbrantner-dense-data` | Generic dense point aggregation and clustering | `moritzbrantner-numbers-core`, `moritzbrantner-math-linear`, `moritzbrantner-math-statistics`, `moritzbrantner-video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, per-dimension summaries, bounds, fixed-grid buckets, deterministic k-means clusters, covariance, and PCA helpers | Tables, graphs, charts, maps, media features, and analytics workflows |
+| `moritzbrantner-geo-core` | Geospatial domain contracts and transforms | `moritzbrantner-video-analysis-core`, `serde` | Coordinates, bounding boxes, feature records, geometry transforms, distance and bounds utilities | Map views, location-aware reports, and future geospatial analytics workflows |
 | `moritzbrantner-geo-io-geojson` | GeoJSON import/export boundary | `moritzbrantner-geo-core`, `geojson`, `serde` | GeoJSON parsing and serialization for `geo-core` geometry, feature, and collection types | File and API interchange without leaking wire-format types into algorithm crates |
 | `moritzbrantner-geo-io-osm` | OpenStreetMap PBF import boundary | `moritzbrantner-geo-core`, `moritzbrantner-geo-io-geojson`, `osmpbfreader`, `regex`, optional `redb` | OSM PBF filtering, node coordinate indexing, way geometry resolution, area relation assembly, and conversion to `geo-core` feature collections | Local OSM extract workflows and map data ingestion without network fetch/cache concerns |
 | `moritzbrantner-geo-clustering` | Geospatial clustering algorithms | `moritzbrantner-geo-core`, `serde` | Internal point and cluster types, viewport cluster queries | Map aggregation and analytics without exposing external GeoJSON versions |
-| `moritzbrantner-geo-viz` | Geospatial visualization models | `moritzbrantner-geo-core`, `moritzbrantner-geo-io-geojson`, `moritzbrantner-geo-clustering`, `maps-kernels-core`, `rstar` | Viewport models, heat and flow features, map-oriented summaries, GeoJSON viewport output | Renderer adapters and map UI workflows |
-| `vector-analysis-core` | Dense vector contracts and metrics | `video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
-| `vector-analysis-index` | Exact vector search and assignment | `vector-analysis-core`, `video-analysis-core`, `serde` | In-memory vector index, filtered search, metadata payloads, serializable vector records, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
-| `three-d-processing-core` | Generic 3D processing primitives | `video-analysis-core` | 3D vectors, points, bounds, transforms, quaternions, rigid transforms, line segments, rays, planes, spheres, point clouds, centroids, voxel downsampling, nearest-point lookup, and basic bounds/sphere/ray collision helpers | Mesh processing, applications, future 3D workflows |
-| `three-d-processing-io` | 3D interchange formats | `three-d-processing-core`, `three-d-processing-mesh`, `video-analysis-core`, `serde_json`, `base64` | `OBJ`, `PLY`, and minimal embedded `.gltf` mesh/point-cloud I/O | Applications, CLI workflows, posture export |
-| `three-d-processing-mesh` | Triangle mesh processing | `three-d-processing-core`, `video-analysis-core` | Mesh validation, topology, diagnostics, repair helpers, triangle normals, vertex normals, bounds, surface area, volume, transforms, smoothing, deterministic sampling | Applications and future 3D workflows |
-| `video-analysis-core` | Canonical shared contracts, runtime DTOs, and pipelines | External utility crates only | Time/frame types, media samples, runtime diagnostics/capabilities/surface DTOs, detection traits/results, analyzer traits/results, observations, metrics, pipeline builders | All functional Rust crates and transport wrappers |
-| `video-analysis-data` | Online stream normalization and aggregation | `numbers-core`, `video-analysis-core` | `DataRecord`, `DataPayload`, bucket configuration, bucket summaries, stream summaries | Use cases, reporting, UI JSON generation |
-| `video-analysis-dataset` | Retained analysis dataset records | `video-analysis-core`, `video-analysis-posture`, `serde` | Serializable owned records for scenes, cuts, media metadata, observations, events, metrics, tracks, features, and structured 2D/3D pose records | Transform, feature, storage, analytics workflows |
-| `video-analysis-transform` | Deterministic dataset transformations | `video-analysis-dataset` | Filtering, time windows, scene grouping, time/frame joins, dedupe, merge, numeric feature resampling | Feature extraction and applications |
-| `video-analysis-features` | Reusable feature extraction over retained datasets | `video-analysis-core`, `video-analysis-dataset`, `video-analysis-transform` | Scene stats, label histograms, transcript stats, audio event stats, track summaries, vector means | Applications and downstream ML/analytics workflows |
-| `video-analysis-storage` | Retained dataset persistence | `video-analysis-dataset`, `serde`, `serde_json`, `thiserror` | JSON/JSONL writers and readers plus dataset manifests | Applications and automation |
-| `video-analysis-synthesis` | Deterministic inverse video frame/storyboard generation | `data-inversion-core`, `num-rational`, `video-analysis-core` | Frame synthesis specs, region outlines, observation storyboards, generated `OwnedVideoFrame` values | Applications visualizing analyzed observations as approximate frames |
-| `video-analysis-detectors` | Scene detector implementations | `video-analysis-core` | `SceneDetector` implementations, scoring algorithms, composite detector contracts | CLI, use cases, applications |
-| `video-analysis-editing` | Classic CPU media editing primitives | `video-analysis-core` | Frame crop, blur, grayscale, inversion, brightness/contrast, 3x3 filters, and `FrameEditor` chains | Applications, preprocessing workflows, future media export flows |
-| `video-analysis-ingest` | Source abstraction layer | `video-analysis-core` | Media/source metadata, source traits, source-to-pipeline adapter helpers, text line source | FFmpeg crate, use cases, applications |
-| `video-analysis-ffmpeg` | FFmpeg-backed media probing and decoding | `video-analysis-core`, `video-analysis-ingest` | FFmpeg video/audio sources, metadata, probe helpers, source options | CLI, use cases, applications |
-| `model-runtime` | Model-specific specs, bundles, downloads, and validators | `jobs-core`, `video-analysis-core`, `hf-hub` | Model specs, sources, tasks, presets, bundle manifests, Hugging Face download/cache/store helpers, model metadata projection into generic artifact refs, and conformance helpers | Model-backed capability crates and CLI model commands |
-| `jobs-core` | Reusable job state, progress, result envelopes, and generic artifacts | `serde`, `serde_json`, `sha2`, `video-analysis-core` | Job IDs, specs, status transitions, progress snapshots, event records, `OperationResult<T>`, `JobResult<T>`, artifact refs, memory/local stores, checksum validation, downloader/validator traits | Model materialization, asynchronous package operations, and artifact-producing workflows |
-| `video-analysis-onnx` | Optional ONNX vision model backend adapters | `model-runtime`, `video-analysis-core`, `video-analysis-posture`, `video-analysis-recognition`, image crates, optional `ort` | Object-detection plus posture bundle validation, image preprocessing, fake-runner seams, optional runtime execution | Native vision inference experiments and CLI feature builds |
-| `video-analysis-colmap-backend` | COLMAP command and data compatibility backend | `video-analysis-core`, `video-analysis-reconstruction`, `video-analysis-radiance-fields` | Native server-only video reconstruction plus advanced dry-run command previews, inline image-list JSON summaries, sparse-model JSON summaries, sparse reconstruction import helpers, and camera/image/point conversions | SfM, MVS, radiance-field conversion, and external-tool workflows |
-| `video-analysis-mvs` | Multi-view stereo contracts | `video-analysis-core`, `video-analysis-reconstruction`, `three-d-processing-core` | Depth maps, view-pair records, dense reconstruction options, point-cloud conversion helpers | Reconstruction, radiance, and 3D processing workflows |
-| `video-analysis-opencv-backend` | OpenCV command/backend compatibility layer | `video-analysis-core`, `video-analysis-posture`, `video-analysis-recognition` | OpenCV detector options, process wrappers, detection/posture adapter contracts | Native vision experiments and optional external-tool workflows |
-| `video-analysis-tracking` | Object tracking over frame detections | `video-analysis-core` | `TrackedDetection`, `IouTracker`, tracking options, object-detection backend trait, analyzer adapter | Applications, use cases, model-backed detection pipelines |
-| `video-analysis-posture` | Pose and posture estimation contracts | `video-analysis-core`, `three-d-processing-core` | 2D/3D keypoints, skeletons, pose estimates, stick figures, posture backend traits, analyzer adapter, joint angle helpers, smoothing/interpolation | Applications, use cases, model-backed posture workflows |
-| `video-analysis-posture-io` | Posture interchange and preview export | `video-analysis-core`, `video-analysis-posture`, `three-d-processing-core`, `serde_json`, `base64` | COCO-style keypoint JSON, 3D stick-figure `.ply`, 3D stick-figure `.gltf` | CLI workflows, applications, dataset export |
-| `video-analysis-recognition` | Reference-embedding identity matching | `video-analysis-core` | Reference libraries, normalized embeddings, recognition candidates/matches, temporal aggregation, video analyzer adapter | Applications, use cases, model-backed face/object recognition |
-| `video-analysis-output` | Detection output writers | `video-analysis-core` | Scene CSV, stats CSV, simple HTML, combined detection writers | CLI, applications |
-| `video-analysis-split` | Scene-based media splitting | `video-analysis-core` | Split options, template variables, FFmpeg split function | CLI, applications |
-| `video-analysis-radiance-fields` | Shared 3D geometry, camera, ray, and volume contracts | `video-analysis-core` | Vector/color/ray types, camera intrinsics/pose, radiance field trait, rendering/grid specs | Gaussian splatting, reconstruction, applications |
-| `video-analysis-gaussian-splatting` | 3D Gaussian primitive projection and CPU compositing | `video-analysis-core`, `video-analysis-radiance-fields` | Gaussian primitives, projection config/results, splat rendering helpers | Applications and future 3D workflows |
-| `video-analysis-radiance-io` | Radiance-field and 3DGS interchange formats | `video-analysis-core`, `video-analysis-radiance-fields`, `video-analysis-gaussian-splatting`, `video-analysis-reconstruction` | COLMAP text, Nerfstudio transforms, Gaussian splat PLY, preview PLY | Conversion tools and applications |
-| `video-analysis-radiance-pipeline` | Radiance-field workflow composition | `video-analysis-core`, `video-analysis-radiance-fields`, `video-analysis-radiance-io`, `video-analysis-reconstruction` | Pipeline stage descriptors, reconstruction-to-radiance handoff records, preview artifact metadata | End-to-end radiance experiments and conversion tools |
-| `video-analysis-reconstruction` | Sparse reconstruction and triangulation contracts | `video-analysis-core`, `video-analysis-radiance-fields` | Camera/image/point IDs, features, matches, tracks, sparse reconstruction, triangulation/projection helpers | Applications and future 3D workflows |
-| `video-analysis-sfm` | Structure-from-motion workflow contracts | `video-analysis-core`, `video-analysis-reconstruction`, `video-analysis-radiance-fields` | SfM image/camera inputs, feature/match pipeline records, reconstruction summaries, backend trait adapters | Reconstruction, COLMAP/Rust backends, and radiance workflows |
-| `video-analysis-sfm-rust-backend` | Pure-Rust SfM backend primitives | `video-analysis-core`, `video-analysis-reconstruction`, `video-analysis-sfm` | Deterministic feature matching, track building, triangulation helpers, backend result DTOs | SfM tests, reconstruction workflows, and non-native fallback paths |
-| `video-analysis-test-support` | Shared video workspace test helpers | `video-analysis-core`, `video-analysis-dataset` | Synthetic frames, timestamps, observations, fixture builders, assertion helpers | Video crate tests, integration smoke tests, and package surface checks |
-| `video-analysis-cli` | `vanalyze` command-line composition | Core, detectors, FFmpeg, models, output, split | CLI commands, package catalog metadata, file outputs, and primitive JSON analysis reports | End users and automation |
-| `video-analysis-use-cases` | Prototype runnable end-to-end workflows | Core, data, detectors, FFmpeg, ingest, models, audio/image helpers | `youtube-video`, `video-red-cars`, `audio-voice-analysis`, and `image-person-edit` workflow/report surfaces | End users, `@video-analysis/ui`, prototype web app |
-| `@video-analysis/ui` | React/Tailwind views for analysis data | React peer deps and generated report/data shapes | TypeScript report types, package-surface workbench components, optional operation-group tabs, shared sample-video registry, component subpath exports, Tailwind content export | Web apps and report viewers |
-| `@video-analysis/web` | Prototype app for local workflows, endpoints, and package UI | `@video-analysis/ui`, Vite, React | `/api/run-youtube-video`, `/api/workspace-architecture`, `/api/packages`, architecture and workflow pages | Developers exploring package behavior locally |
+| `moritzbrantner-geo-viz` | Geospatial visualization models | `moritzbrantner-geo-core`, `moritzbrantner-geo-io-geojson`, `moritzbrantner-geo-clustering`, `moritzbrantner-maps-kernels-core`, `rstar` | Viewport models, heat and flow features, map-oriented summaries, GeoJSON viewport output | Renderer adapters and map UI workflows |
+| `moritzbrantner-vector-analysis-core` | Dense vector contracts and metrics | `moritzbrantner-video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
+| `moritzbrantner-vector-analysis-index` | Exact vector search and assignment | `moritzbrantner-vector-analysis-core`, `moritzbrantner-video-analysis-core`, `serde` | In-memory vector index, filtered search, metadata payloads, serializable vector records, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
+| `moritzbrantner-three-d-processing-core` | Generic 3D processing primitives | `moritzbrantner-video-analysis-core` | 3D vectors, points, bounds, transforms, quaternions, rigid transforms, line segments, rays, planes, spheres, point clouds, centroids, voxel downsampling, nearest-point lookup, and basic bounds/sphere/ray collision helpers | Mesh processing, applications, future 3D workflows |
+| `moritzbrantner-three-d-processing-io` | 3D interchange formats | `moritzbrantner-three-d-processing-core`, `moritzbrantner-three-d-processing-mesh`, `moritzbrantner-video-analysis-core`, `serde_json`, `base64` | `OBJ`, `PLY`, and minimal embedded `.gltf` mesh/point-cloud I/O | Applications, CLI workflows, posture export |
+| `moritzbrantner-three-d-processing-mesh` | Triangle mesh processing | `moritzbrantner-three-d-processing-core`, `moritzbrantner-video-analysis-core` | Mesh validation, topology, diagnostics, repair helpers, triangle normals, vertex normals, bounds, surface area, volume, transforms, smoothing, deterministic sampling | Applications and future 3D workflows |
+| `moritzbrantner-video-analysis-core` | Canonical shared contracts, runtime DTOs, and pipelines | External utility crates only | Time/frame types, media samples, runtime diagnostics/capabilities/surface DTOs, detection traits/results, analyzer traits/results, observations, metrics, pipeline builders | All functional Rust crates and transport wrappers |
+| `moritzbrantner-video-analysis-data` | Online stream normalization and aggregation | `moritzbrantner-numbers-core`, `moritzbrantner-video-analysis-core` | `DataRecord`, `DataPayload`, bucket configuration, bucket summaries, stream summaries | Use cases, reporting, UI JSON generation |
+| `moritzbrantner-video-analysis-dataset` | Retained analysis dataset records | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-posture`, `serde` | Serializable owned records for scenes, cuts, media metadata, observations, events, metrics, tracks, features, and structured 2D/3D pose records | Transform, feature, storage, analytics workflows |
+| `moritzbrantner-video-analysis-transform` | Deterministic dataset transformations | `moritzbrantner-video-analysis-dataset` | Filtering, time windows, scene grouping, time/frame joins, dedupe, merge, numeric feature resampling | Feature extraction and applications |
+| `moritzbrantner-video-analysis-features` | Reusable feature extraction over retained datasets | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-dataset`, `moritzbrantner-video-analysis-transform` | Scene stats, label histograms, transcript stats, audio event stats, track summaries, vector means | Applications and downstream ML/analytics workflows |
+| `moritzbrantner-video-analysis-storage` | Retained dataset persistence | `moritzbrantner-video-analysis-dataset`, `serde`, `serde_json`, `thiserror` | JSON/JSONL writers and readers plus dataset manifests | Applications and automation |
+| `moritzbrantner-video-analysis-synthesis` | Deterministic inverse video frame/storyboard generation | `moritzbrantner-data-inversion-core`, `num-rational`, `moritzbrantner-video-analysis-core` | Frame synthesis specs, region outlines, observation storyboards, generated `OwnedVideoFrame` values | Applications visualizing analyzed observations as approximate frames |
+| `moritzbrantner-video-analysis-detectors` | Scene detector implementations | `moritzbrantner-video-analysis-core` | `SceneDetector` implementations, scoring algorithms, composite detector contracts | CLI, use cases, applications |
+| `moritzbrantner-video-analysis-editing` | Classic CPU media editing primitives | `moritzbrantner-video-analysis-core` | Frame crop, blur, grayscale, inversion, brightness/contrast, 3x3 filters, and `FrameEditor` chains | Applications, preprocessing workflows, future media export flows |
+| `moritzbrantner-video-analysis-ingest` | Source abstraction layer | `moritzbrantner-video-analysis-core` | Media/source metadata, source traits, source-to-pipeline adapter helpers, text line source | FFmpeg crate, use cases, applications |
+| `moritzbrantner-video-analysis-ffmpeg` | FFmpeg-backed media probing and decoding | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest` | FFmpeg video/audio sources, metadata, probe helpers, source options | CLI, use cases, applications |
+| `moritzbrantner-model-runtime` | Model-specific specs, bundles, downloads, and validators | `moritzbrantner-jobs-core`, `moritzbrantner-video-analysis-core`, `hf-hub` | Model specs, sources, tasks, presets, bundle manifests, Hugging Face download/cache/store helpers, model metadata projection into generic artifact refs, and conformance helpers | Model-backed capability crates and CLI model commands |
+| `moritzbrantner-jobs-core` | Reusable job state, progress, result envelopes, and generic artifacts | `serde`, `serde_json`, `sha2`, `moritzbrantner-video-analysis-core` | Job IDs, specs, status transitions, progress snapshots, event records, `OperationResult<T>`, `JobResult<T>`, artifact refs, memory/local stores, checksum validation, downloader/validator traits | Model materialization, asynchronous package operations, and artifact-producing workflows |
+| `moritzbrantner-video-analysis-onnx` | Optional ONNX vision model backend adapters | `moritzbrantner-model-runtime`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-posture`, `moritzbrantner-video-analysis-recognition`, image crates, optional `ort` | Object-detection plus posture bundle validation, image preprocessing, fake-runner seams, optional runtime execution | Native vision inference experiments and CLI feature builds |
+| `moritzbrantner-video-analysis-colmap-backend` | COLMAP command and data compatibility backend | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-reconstruction`, `moritzbrantner-video-analysis-radiance-fields` | Native server-only video reconstruction plus advanced dry-run command previews, inline image-list JSON summaries, sparse-model JSON summaries, sparse reconstruction import helpers, and camera/image/point conversions | SfM, MVS, radiance-field conversion, and external-tool workflows |
+| `moritzbrantner-video-analysis-mvs` | Multi-view stereo contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-reconstruction`, `moritzbrantner-three-d-processing-core` | Depth maps, view-pair records, dense reconstruction options, point-cloud conversion helpers | Reconstruction, radiance, and 3D processing workflows |
+| `moritzbrantner-video-analysis-opencv-backend` | OpenCV command/backend compatibility layer | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-posture`, `moritzbrantner-video-analysis-recognition` | OpenCV detector options, process wrappers, detection/posture adapter contracts | Native vision experiments and optional external-tool workflows |
+| `moritzbrantner-video-analysis-tracking` | Object tracking over frame detections | `moritzbrantner-video-analysis-core` | `TrackedDetection`, `IouTracker`, tracking options, object-detection backend trait, analyzer adapter | Applications, use cases, model-backed detection pipelines |
+| `moritzbrantner-video-analysis-posture` | Pose and posture estimation contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-three-d-processing-core` | 2D/3D keypoints, skeletons, pose estimates, stick figures, posture backend traits, analyzer adapter, joint angle helpers, smoothing/interpolation | Applications, use cases, model-backed posture workflows |
+| `moritzbrantner-video-analysis-posture-io` | Posture interchange and preview export | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-posture`, `moritzbrantner-three-d-processing-core`, `serde_json`, `base64` | COCO-style keypoint JSON, 3D stick-figure `.ply`, 3D stick-figure `.gltf` | CLI workflows, applications, dataset export |
+| `moritzbrantner-video-analysis-recognition` | Reference-embedding identity matching | `moritzbrantner-video-analysis-core` | Reference libraries, normalized embeddings, recognition candidates/matches, temporal aggregation, video analyzer adapter | Applications, use cases, model-backed face/object recognition |
+| `moritzbrantner-video-analysis-output` | Detection output writers | `moritzbrantner-video-analysis-core` | Scene CSV, stats CSV, simple HTML, combined detection writers | CLI, applications |
+| `moritzbrantner-video-analysis-split` | Scene-based media splitting | `moritzbrantner-video-analysis-core` | Split options, template variables, FFmpeg split function | CLI, applications |
+| `moritzbrantner-video-analysis-radiance-fields` | Shared 3D geometry, camera, ray, and volume contracts | `moritzbrantner-video-analysis-core` | Vector/color/ray types, camera intrinsics/pose, radiance field trait, rendering/grid specs | Gaussian splatting, reconstruction, applications |
+| `moritzbrantner-video-analysis-gaussian-splatting` | 3D Gaussian primitive projection and CPU compositing | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-radiance-fields` | Gaussian primitives, projection config/results, splat rendering helpers | Applications and future 3D workflows |
+| `moritzbrantner-video-analysis-radiance-io` | Radiance-field and 3DGS interchange formats | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-radiance-fields`, `moritzbrantner-video-analysis-gaussian-splatting`, `moritzbrantner-video-analysis-reconstruction` | COLMAP text, Nerfstudio transforms, Gaussian splat PLY, preview PLY | Conversion tools and applications |
+| `moritzbrantner-video-analysis-radiance-pipeline` | Radiance-field workflow composition | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-radiance-fields`, `moritzbrantner-video-analysis-radiance-io`, `moritzbrantner-video-analysis-reconstruction` | Pipeline stage descriptors, reconstruction-to-radiance handoff records, preview artifact metadata | End-to-end radiance experiments and conversion tools |
+| `moritzbrantner-video-analysis-reconstruction` | Sparse reconstruction and triangulation contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-radiance-fields` | Camera/image/point IDs, features, matches, tracks, sparse reconstruction, triangulation/projection helpers | Applications and future 3D workflows |
+| `moritzbrantner-video-analysis-sfm` | Structure-from-motion workflow contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-reconstruction`, `moritzbrantner-video-analysis-radiance-fields` | SfM image/camera inputs, feature/match pipeline records, reconstruction summaries, backend trait adapters | Reconstruction, COLMAP/Rust backends, and radiance workflows |
+| `moritzbrantner-video-analysis-sfm-rust-backend` | Pure-Rust SfM backend primitives | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-reconstruction`, `moritzbrantner-video-analysis-sfm` | Deterministic feature matching, track building, triangulation helpers, backend result DTOs | SfM tests, reconstruction workflows, and non-native fallback paths |
+| `moritzbrantner-video-analysis-test-support` | Shared video workspace test helpers | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-dataset` | Synthetic frames, timestamps, observations, fixture builders, assertion helpers | Video crate tests, integration smoke tests, and package surface checks |
+| `moritzbrantner-video-analysis-cli` | `vanalyze` command-line composition | Core, detectors, FFmpeg, models, output, split | CLI commands, package catalog metadata, file outputs, and primitive JSON analysis reports | End users and automation |
+| `moritzbrantner-video-analysis-use-cases` | Prototype runnable end-to-end workflows | Core, data, detectors, FFmpeg, ingest, models, audio/image helpers | `youtube-video`, `video-red-cars`, `audio-voice-analysis`, and `image-person-edit` workflow/report surfaces | End users, `@moritzbrantner/video-analysis-ui`, prototype web app |
+| `@moritzbrantner/video-analysis-ui` | React/Tailwind views for analysis data | React peer deps and generated report/data shapes | TypeScript report types, package-surface workbench components, optional operation-group tabs, shared sample-video registry, component subpath exports, Tailwind content export | Web apps and report viewers |
+| `@moritzbrantner/video-analysis-web` | Prototype app for local workflows, endpoints, and package UI | `@moritzbrantner/video-analysis-ui`, Vite, React | `/api/run-youtube-video`, `/api/workspace-architecture`, `/api/packages`, architecture and workflow pages | Developers exploring package behavior locally |
 
 ## Shared Sample Videos
 
@@ -307,7 +307,7 @@ and future enrichment packages should emit these core records.
 
 The `audio-analysis-*` crates build on the canonical `AudioFrame`,
 `AudioBuffer`, `AudioAnalyzer`, and `AnalysisEvent` contracts from
-`video-analysis-core`.
+`moritzbrantner-video-analysis-core`.
 
 Audio package-surface operations return structured JSON values with `title`,
 `operation`, `message`, `summary`, and `result` fields while preserving their
@@ -317,36 +317,36 @@ lookup, timestamp, model inventory, and command-preview operations are Debug UI
 operations and must state when they do not scan files, decode media, write
 outputs, or execute external tools.
 
-- `audio-analysis-core` converts supported `AudioBuffer` formats into
+- `moritzbrantner-audio-analysis-core` converts supported `AudioBuffer` formats into
   normalized `f32` samples, mixes interleaved channels to mono, applies common
   windows, iterates fixed-size analysis frames, and provides
   `StreamingFrameBuffer` for overlap-preserving windows across incoming chunks.
   `WindowFunction` and related window/frame-stride math are shared with
-  `math-signal-core`.
-- `audio-analysis-fourier` provides FFT spectra, STFT spectrogram frames,
+  `moritzbrantner-math-signal-core`.
+- `moritzbrantner-audio-analysis-fourier` provides FFT spectra, STFT spectrogram frames,
   spectral centroid/bandwidth/rolloff/flatness features, and an
   `AudioAnalyzer` that emits dominant-frequency events.
-- `audio-analysis-io` re-exports the shared audio ingest traits and FFmpeg
+- `moritzbrantner-audio-analysis-io` re-exports the shared audio ingest traits and FFmpeg
   source types behind audio-named `AudioInput`, `AudioInputOptions`, and
   `open_audio_input` conveniences. FFmpeg remains the only default decode
   backend. It also owns `decode_audio_to_waveform_batch` and
   `write_waveform_batch_as_wav` for bridging decoded audio into portable
   waveform contracts and file-based tools.
-- `audio-analysis-pitch` estimates fundamental frequency with normalized
+- `moritzbrantner-audio-analysis-pitch` estimates fundamental frequency with normalized
   autocorrelation and emits pitch events when confidence crosses the configured
   threshold.
-- `audio-analysis-processing` owns frame-based audio transforms and source
+- `moritzbrantner-audio-analysis-processing` owns frame-based audio transforms and source
   adapters. Built-in transforms include gain, hard clipping, mono conversion,
   DC blocking, biquad low/high/band/notch filters, and noise gates.
   Transformed frames are emitted as `OwnedAudioFrame` values with
   `AudioBuffer::F32` payloads in the first milestone.
-- `audio-analysis-recognition` turns audio samples or frames into normalized
+- `moritzbrantner-audio-analysis-recognition` turns audio samples or frames into normalized
   spectral embeddings, stores multiple sample embeddings per reference, searches
   references by cosine similarity, and provides an `AudioAnalyzer` that emits
   `audio:recognized:<reference_id>:<label>` events over streaming windows.
-- `audio-analysis-rhythm` detects onset events from energy changes, estimates
+- `moritzbrantner-audio-analysis-rhythm` detects onset events from energy changes, estimates
   BPM from onset intervals, and can emit both onset and tempo events.
-- `audio-analysis-separation` owns deterministic Demucs/HTDemucs command
+- `moritzbrantner-audio-analysis-separation` owns deterministic Demucs/HTDemucs command
   previews and expected stem-path contracts for the package surface. The
   surface preview does not decode audio, run Demucs, or write stems; any native
   execution path must report missing tools before spawning the external process.
@@ -361,45 +361,45 @@ surface returns processed frames for callers to analyze, stream, or encode later
 The `image-analysis-*` crates provide still-image contracts and processing
 helpers without requiring video timeline semantics.
 
-- `image-analysis-core` owns `ImageView<'_>`, `OwnedImage`,
+- `moritzbrantner-image-analysis-core` owns `ImageView<'_>`, `OwnedImage`,
   `ImagePixelFormat`, image compacting, mean RGB, and luma histograms.
 - `ImageView::from_video_frame` and `OwnedImage::from_video_frame` bridge core
   `VideoFrame<'_>` values into still-image workflows.
-- `image-analysis-io` owns PNG/JPEG/WebP file loading and saving for
+- `moritzbrantner-image-analysis-io` owns PNG/JPEG/WebP file loading and saving for
   `OwnedImage` buffers. Its runtime surface exposes format support, extension
   inference, and read/write planning without touching the filesystem.
-- `image-analysis-processing` owns `ImageOperation`, `ImageProcessor`,
+- `moritzbrantner-image-analysis-processing` owns `ImageOperation`, `ImageProcessor`,
   `ImageRegion`, crop, nearest-neighbor resize, grayscale, invert, threshold,
   convolution, and sharpen helpers. New shared geometry and kernel entrypoints
   prefer `math-geometry-2d::RectU32` and `math-linear::Kernel2d` while keeping
   `ImageRegion` and `[f32; 9]` compatibility shims.
-- `image-analysis-segmentation` owns still-image prompts, binary masks,
+- `moritzbrantner-image-analysis-segmentation` owns still-image prompts, binary masks,
   segments, SAM presets, and segmentation backend contracts with explicit
   opt-in automatic mask generation helpers. Its runtime surface exposes SAM
   model metadata, prompt summaries, and imported binary mask summaries without
   running SAM.
-- `image-analysis-detection` owns canonical still-image detections,
+- `moritzbrantner-image-analysis-detection` owns canonical still-image detections,
   mask-proposal adapters over segmentation backends, native color-blob
   detection for simple object workflows such as red-car detection, face
   detection DTOs, face detection presets, and face detector backend traits. Its
   runtime surface additionally exposes non-executing model metadata and
   imported box summaries.
-- `image-analysis-synthesis` owns deterministic, non-AI image generation from
+- `moritzbrantner-image-analysis-synthesis` owns deterministic, non-AI image generation from
   colors, histograms, and regions. Its runtime surface returns summary
   statistics and inversion traces, not encoded image bytes.
 - Image classification, embeddings, and captioning are owned by
-  `image-analysis-classification`, `image-analysis-embeddings`, and
-  `image-analysis-captioning`; their runtime surfaces expose catalog/schema and
+  `moritzbrantner-image-analysis-classification`, `moritzbrantner-image-analysis-embeddings`, and
+  `moritzbrantner-image-analysis-captioning`; their runtime surfaces expose catalog/schema and
   imported value validation, not fake inference.
-- `image-analysis-ocr` owns OCR model presets, rich text layout contracts, and
+- `moritzbrantner-image-analysis-ocr` owns OCR model presets, rich text layout contracts, and
   image/video-frame backend traits for model, command, or heuristic recognizers.
   Its runtime surface summarizes presets, requests, and imported OCR documents
   without recognizing images.
-- `image-analysis-onnx` owns still-image ONNX preprocessing and optional
+- `moritzbrantner-image-analysis-onnx` owns still-image ONNX preprocessing and optional
   runtime-backed image model adapters. It now exposes batch preprocessing as
   `OnnxImageBatchTensor`, `image_batch_to_tensor`, and
   `preprocess_image_batch`.
-- `image-analysis-comfyui` owns ComfyUI workflow builders and a lightweight
+- `moritzbrantner-image-analysis-comfyui` owns ComfyUI workflow builders and a lightweight
   HTTP client/executor for AI image generation and manipulation.
   `ImageGenerationRequest` now prefers typed `ComfyModelRef` values for
   checkpoint and upscale model selection while keeping string builder shims for
@@ -415,7 +415,7 @@ image model/runtime/orchestration crates.
 The `text-*` crates provide reusable text processing separate from video use
 cases and model adapters.
 
-- `text-core` owns `TextDocument<'_>`, `OwnedTextDocument`,
+- `moritzbrantner-text-core` owns `TextDocument<'_>`, `OwnedTextDocument`,
   `TextStats`, `TextSpan`, `Token`, `Sentence`, `Paragraph`,
   `TextProcessingOptions`, `TextBoundaryOptions`, `WordSegment`,
   `GraphemeSpan`, `ScriptProfile`, whitespace normalization, word
@@ -423,7 +423,7 @@ cases and model adapters.
   script profiling, sentence/paragraph splitting, and detailed stats.
 - `TextDocument::from_segment` and `OwnedTextDocument::from_segment` bridge core
   `TextSegment` and `OwnedTextSegment` values into text-only workflows.
-- `text-lexical` owns `TermFrequency`, `TextFeatureSummary`,
+- `moritzbrantner-text-lexical` owns `TermFrequency`, `TextFeatureSummary`,
   `StopWords`, `KeywordOptions`, `Keyword`, `NgramFrequency`,
   `ReadabilitySummary`, `StemOptions`, `ExtractiveSummaryOptions`,
   `SummarySentence`, `SentimentLexicon`, `SentimentSummary`, top terms,
@@ -432,26 +432,26 @@ cases and model adapters.
   `TextStatsAnalyzer`, `KeywordAnalyzer`, `ExtractiveSummaryAnalyzer`,
   `SentimentAnalyzer`, `EntityRuleAnalyzer`, `PatternAnalyzer`, and
   `TranscriptHeuristicAnalyzer` for `TextPipeline`.
-- `text-lexical` keeps `TfIdfCorpus` stable and adds `Bm25Corpus` for
+- `moritzbrantner-text-lexical` keeps `TfIdfCorpus` stable and adds `Bm25Corpus` for
   BM25 document ranking with duplicate-id rejection and empty-query handling.
   It now also exposes optional sparse term matrices and vectors backed by
-  `math-sparse-data`.
-- `text-linguistics` owns language detection, tokenization policy/alignment,
+  `moritzbrantner-math-sparse-data`.
+- `moritzbrantner-text-linguistics` owns language detection, tokenization policy/alignment,
   local tokenizer loading, local BERT NER execution, lemmatization,
   POS/morphology, phrase chunks, dependency trees, named entities, rule
   entities, coreference, relations, events, discourse, topics, style, and
   `TextNlpPipeline`.
-- `text-embeddings` keeps `HashedTextEmbedder` and `SemanticTextIndex`
+- `moritzbrantner-text-embeddings` keeps `HashedTextEmbedder` and `SemanticTextIndex`
   while adding `TextEmbeddingBackend` and `EmbeddingSearchIndex<E>`. Embedding
   APIs return `DenseVector` directly instead of encoding vectors into
   `AnalysisEvent` values, and can optionally emit sparse hashed embeddings
-  backed by `math-sparse-data`. Optional native embedding runtimes now live
+  backed by `moritzbrantner-math-sparse-data`. Optional native embedding runtimes now live
   here through `OnnxTextEmbedder` and `CandleTextEmbedder`; model acquisition
-  uses `model-runtime`.
-- `text-retrieval` owns `SearchDocument`, `DocumentChunk`, `RetrievalIndex`,
+  uses `moritzbrantner-model-runtime`.
+- `moritzbrantner-text-retrieval` owns `SearchDocument`, `DocumentChunk`, `RetrievalIndex`,
   `SearchQuery`, `SearchFilter`, `HybridConfig`, `SearchResult`, retrieval
   manifests, persisted chunk/vector JSONL snapshots, and index rehydration.
-- `text-transcripts` owns `TranscriptFormat`, `TranscriptSegment`,
+- `moritzbrantner-text-transcripts` owns `TranscriptFormat`, `TranscriptSegment`,
   `TranscriptSegmentContract`, `TranscriptionResult`, `TranscriptionContract`,
   `Transcriber`, `CommandTranscriber`, `WhisperCliTranscriber`,
   `transcribe_waveform_batch`, and `TranscriptSegmentSource`. It parses Whisper
@@ -460,8 +460,8 @@ cases and model adapters.
   batches into the existing file-based transcription path. It also owns
   transcript contract normalization, strict validation, and aggregate text
   fallback helpers used by audio ASR and transcript-aware text analysis.
-- `text-generation` owns deterministic Markov prediction and deterministic
-  synthesis from weighted terms and text events. `text-generation-linguistics`
+- `moritzbrantner-text-generation` owns deterministic Markov prediction and deterministic
+  synthesis from weighted terms and text events. `moritzbrantner-text-generation-linguistics`
   owns the adapters that turn linguistic analyses into term prompts, generated
   documents, or Markov training inputs.
 
@@ -475,10 +475,10 @@ separate but composable through `TextModelBackend`, `ModelTextAnalyzer`, and
 The `vector-analysis-*` crates standardize dense vector handling for embedding,
 recognition, search, and analytics workflows.
 
-- `vector-analysis-core` owns `DenseVector`, `VectorMetric`, finite validation,
+- `moritzbrantner-vector-analysis-core` owns `DenseVector`, `VectorMetric`, finite validation,
   L2 normalization, dot product, cosine similarity, Euclidean distance,
   Manhattan distance, mean vectors, and per-dimension stats.
-- `vector-analysis-index` owns `VectorRecord`, `VectorSearchIndex`,
+- `moritzbrantner-vector-analysis-index` owns `VectorRecord`, `VectorSearchIndex`,
   `SearchConfig`, `SearchResult`, exact in-memory search, and nearest-centroid
   assignment.
 
@@ -488,7 +488,7 @@ without changing the core vector contracts.
 
 ## Numbers Contracts
 
-`numbers-core` provides reusable scalar numeric building blocks for analytics
+`moritzbrantner-numbers-core` provides reusable scalar numeric building blocks for analytics
 and reporting code that should not reimplement one-off min/max/mean, weighted
 stats, quantiles, or histograms.
 
@@ -505,7 +505,7 @@ stats, quantiles, or histograms.
 
 ## Finance Statistics Contracts
 
-`finance-statistics` builds on `numbers-core` for finance-specific return
+`moritzbrantner-finance-statistics` builds on `moritzbrantner-numbers-core` for finance-specific return
 analytics without adding market-data or brokerage assumptions to the generic
 math crates.
 
@@ -521,13 +521,13 @@ math crates.
 
 ## Dense Data Contracts
 
-`dense-data` provides generic dense numeric point processing for UI and media
+`moritzbrantner-dense-data` provides generic dense numeric point processing for UI and media
 workflows that need the same aggregation shape across tables, graphs, charts,
 maps, and feature-derived media timelines.
 
 - `DenseDataset` keeps its summary, bounds, bucket, and k-means APIs while now
-  exposing matrix, covariance, and PCA helpers built on `math-linear` and
-  `math-statistics`.
+  exposing matrix, covariance, and PCA helpers built on `moritzbrantner-math-linear` and
+  `moritzbrantner-math-statistics`.
 
 - `DensePoint` stores finite coordinates, a positive weight, an optional scalar
   value, and an optional id.
@@ -552,32 +552,32 @@ The synthesis crates cover inverse directions where analysis has discarded
 detail. They should expose that loss explicitly instead of presenting generated
 data as recovered source material.
 
-- `data-inversion-core` owns `InformationFidelity`, `InversionMethod`,
+- `moritzbrantner-data-inversion-core` owns `InformationFidelity`, `InversionMethod`,
   `InversionTrace`, and `Generated<T>`. Synthesis crates should attach traces
   that identify source and target types, confidence, assumptions, and fields
   that were preserved, inferred, interpolated, templated, or defaulted. Its
   runtime surface validates confidence, compares fidelity, and builds trace
   summaries from JSON inputs.
-- `audio-analysis-synthesis` turns tone timelines and supported
+- `moritzbrantner-audio-analysis-synthesis` turns tone timelines and supported
   `AnalysisEvent` labels such as pitch and onset events into `OwnedAudioFrame`
   values. It uses deterministic analytic waveforms and records that samples are
   interpolated from symbolic data.
-- `image-analysis-synthesis` turns colors, color stops, luma histograms, and
+- `moritzbrantner-image-analysis-synthesis` turns colors, color stops, luma histograms, and
   regions into `OwnedImage` buffers. Histogram and region layouts are
   deterministic approximations because the original spatial detail is not
   recoverable.
-- `text-generation` turns weighted terms or analyzer events into
+- `moritzbrantner-text-generation` turns weighted terms or analyzer events into
   `OwnedTextDocument` and `OwnedTextSegment` values using deterministic
   templates. It preserves term prominence but treats syntax and term
   relationships as inferred.
-- `video-analysis-synthesis` turns frame specs or observations into
+- `moritzbrantner-video-analysis-synthesis` turns frame specs or observations into
   `OwnedVideoFrame` storyboards. It preserves frame positions and regions when
   available, while labels, missing regions, and pixels are heuristic visual
   encodings.
 
 ## Ingest Contracts
 
-`video-analysis-ingest` is the source abstraction layer. It lets source
+`moritzbrantner-video-analysis-ingest` is the source abstraction layer. It lets source
 implementations feed core pipelines without coupling those sources to detectors,
 output writers, splitters, or CLI code.
 
@@ -608,7 +608,7 @@ crates.
 
 ## FFmpeg Contracts
 
-`video-analysis-ffmpeg` is an implementation crate for FFmpeg-backed media
+`moritzbrantner-video-analysis-ffmpeg` is an implementation crate for FFmpeg-backed media
 probing and decoding.
 
 It exposes:
@@ -1195,7 +1195,7 @@ The command contracts are:
 The YouTube video workflow accepts a URL or local video input. It can use
 optional external transcriber, object, OCR, and text model commands. Its primary
 interoperability output is a JSON report consumed by applications and
-`@video-analysis/ui`.
+`@moritzbrantner/video-analysis-ui`.
 
 The reusable Rust API is exposed through
 `video_analysis_use_cases::youtube`:
@@ -1291,18 +1291,18 @@ binaries as library modules.
 
 The UI package exposes these subpaths:
 
-- `@video-analysis/ui`
-- `@video-analysis/ui/core`
-- `@video-analysis/ui/data`
-- `@video-analysis/ui/cli`
-- `@video-analysis/ui/detectors`
-- `@video-analysis/ui/ffmpeg`
-- `@video-analysis/ui/ingest`
-- `@video-analysis/ui/models`
-- `@video-analysis/ui/output`
-- `@video-analysis/ui/split`
-- `@video-analysis/ui/use-cases`
-- `@video-analysis/ui/tailwind-content`
+- `@moritzbrantner/video-analysis-ui`
+- `@moritzbrantner/video-analysis-ui/core`
+- `@moritzbrantner/video-analysis-ui/data`
+- `@moritzbrantner/video-analysis-ui/cli`
+- `@moritzbrantner/video-analysis-ui/detectors`
+- `@moritzbrantner/video-analysis-ui/ffmpeg`
+- `@moritzbrantner/video-analysis-ui/ingest`
+- `@moritzbrantner/video-analysis-ui/models`
+- `@moritzbrantner/video-analysis-ui/output`
+- `@moritzbrantner/video-analysis-ui/split`
+- `@moritzbrantner/video-analysis-ui/use-cases`
+- `@moritzbrantner/video-analysis-ui/tailwind-content`
 
 The root UI export re-exports shared types and all component packs. Subpath
 exports should remain aligned with package boundaries so applications can import
@@ -1396,7 +1396,7 @@ Forbidden or discouraged internal dependencies:
 - Data, output, and split crates should not depend on detector implementations,
   source implementations, CLI, or the root facade.
 - No library crate should depend on `video-analysis-cli`.
-- `@video-analysis/ui` consumes generated data/report shapes and should not
+- `@moritzbrantner/video-analysis-ui` consumes generated data/report shapes and should not
   require Rust runtime packages.
 
 ## Compatibility Checklist

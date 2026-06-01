@@ -1,4 +1,4 @@
-# @mb-rust/vector-analysis-index-wasm
+# @moritzbrantner/vector-analysis-index-wasm
 
 WASM package for `vector-analysis-index`.
 

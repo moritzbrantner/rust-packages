@@ -1,6 +1,6 @@
 # video-analysis-editing
 
-CPU video frame editing primitives for `video-analysis`.
+CPU video frame editing primitives for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

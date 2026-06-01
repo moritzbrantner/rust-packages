@@ -1,6 +1,6 @@
 # text-model-runtime-cli
 
-Thin command-line adapter for `text-model-runtime`.
+Thin command-line adapter for `moritzbrantner-text-model-runtime`.
 
 Run:
 

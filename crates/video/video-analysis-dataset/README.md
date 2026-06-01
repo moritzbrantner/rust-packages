@@ -1,6 +1,6 @@
 # video-analysis-dataset
 
-Serializable retained analysis records for `video-analysis`.
+Serializable retained analysis records for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

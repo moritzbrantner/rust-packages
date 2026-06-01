@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = math_sparse_data::surface::package_surface();
-        assert_eq!(surface.library, "math-sparse-data");
+        assert_eq!(surface.library, "moritzbrantner-math-sparse-data");
         assert!(!surface.operations.is_empty());
     }
 }

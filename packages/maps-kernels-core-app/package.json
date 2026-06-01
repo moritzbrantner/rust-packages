@@ -1,5 +1,5 @@
 {
-  "name": "maps-kernels-core-app",
+  "name": "@moritzbrantner/maps-kernels-core-app",
   "version": "0.1.0",
   "description": "React app for maps-kernels-core: Numeric kernels for map and temporal GeoJSON processing.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/maps-kernels-core-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/maps-kernels-core-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

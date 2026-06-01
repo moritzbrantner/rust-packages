@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/finance-data-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/finance-data-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

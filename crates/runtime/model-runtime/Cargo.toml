@@ -1,5 +1,5 @@
 [package]
-name = "model-runtime"
+name = "moritzbrantner-model-runtime"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "model_runtime"
 
 [dependencies]
 hf-hub.workspace = true

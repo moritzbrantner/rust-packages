@@ -15,7 +15,7 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import type { YoutubeVideoReport } from "@video-analysis/ui";
+import type { YoutubeVideoReport } from "@moritzbrantner/video-analysis-ui";
 
 type SourceMode = "url" | "file";
 
@@ -110,7 +110,7 @@ const executionTemplates: ExecutionNodeTemplate[] = [
     x: 0,
     y: 210,
     title: "Workflow Inputs",
-    packageName: "@video-analysis/web",
+    packageName: "@moritzbrantner/video-analysis-web",
     description: "Validated run parameters and the selected media source.",
     tone: "sky",
     inputs: [],

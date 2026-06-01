@@ -1,4 +1,4 @@
-# @mb-rust/jobs-core-wasm
+# @moritzbrantner/jobs-core-wasm
 
 WASM package for `jobs-core`.
 

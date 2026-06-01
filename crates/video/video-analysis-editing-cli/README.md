@@ -1,6 +1,6 @@
 # video-analysis-editing-cli
 
-Thin command-line adapter for `video-analysis-editing`.
+Thin command-line adapter for `moritzbrantner-video-analysis-editing`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # video-analysis-radiance-io
 
-COLMAP, Nerfstudio, and PLY I/O for `video-analysis` radiance workflows.
+COLMAP, Nerfstudio, and PLY I/O for `moritzbrantner-video-analysis` radiance workflows.
 
 ## Feature flags
 

@@ -1,5 +1,5 @@
 [package]
-name = "audio-analysis-test-support-server"
+name = "moritzbrantner-audio-analysis-test-support-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,6 +13,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "audio-analysis-test-support-server"
 
+[lib]
+name = "audio_analysis_test_support_server"
+
 [[bin]]
 name = "audio-analysis-test-support-server"
 path = "src/main.rs"
@@ -21,4 +24,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-audio-analysis-test-support = { version = "0.1.0", path = "../audio-analysis-test-support" }
+audio-analysis-test-support = { package = "moritzbrantner-audio-analysis-test-support", version = "0.1.0", path = "../audio-analysis-test-support" }

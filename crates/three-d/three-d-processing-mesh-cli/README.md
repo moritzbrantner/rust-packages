@@ -1,6 +1,6 @@
 # three-d-processing-mesh-cli
 
-Thin command-line adapter for `three-d-processing-mesh`.
+Thin command-line adapter for `moritzbrantner-three-d-processing-mesh`.
 
 Run:
 

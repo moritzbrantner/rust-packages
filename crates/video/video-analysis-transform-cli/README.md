@@ -1,6 +1,6 @@
 # video-analysis-transform-cli
 
-Thin command-line adapter for `video-analysis-transform`.
+Thin command-line adapter for `moritzbrantner-video-analysis-transform`.
 
 Run:
 

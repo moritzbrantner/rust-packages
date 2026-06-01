@@ -1,5 +1,5 @@
 [package]
-name = "image-analysis-io-server"
+name = "moritzbrantner-image-analysis-io-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "image-analysis-io-server"
 
+[lib]
+name = "image_analysis_io_server"
+
 [[bin]]
 name = "image-analysis-io-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-image-analysis-io = { version = "0.1.0", path = "../image-analysis-io" }
+image-analysis-io = { package = "moritzbrantner-image-analysis-io", version = "0.1.0", path = "../image-analysis-io" }

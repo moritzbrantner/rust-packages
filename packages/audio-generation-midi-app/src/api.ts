@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/audio-generation-midi-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/audio-generation-midi-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

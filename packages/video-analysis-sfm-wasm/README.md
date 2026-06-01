@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-sfm-wasm
+# @moritzbrantner/video-analysis-sfm-wasm
 
 WASM package for `video-analysis-sfm`.
 

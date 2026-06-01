@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/image-analysis-captioning-wasm",
+  "name": "@moritzbrantner/image-analysis-captioning-wasm",
   "version": "0.1.0",
   "description": "WASM package for image-analysis-captioning.",
   "license": "MIT OR Apache-2.0",

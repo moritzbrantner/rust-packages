@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { PackageSurfaceWorkbench } from "./index";
+import { createTextResultTabs, ModelSelector, PackageSurfaceWorkbench, ResultViewer } from "./index";
 import type { PackageAppConfig, SurfaceResponse } from "./types";
 
 const operationResponse: SurfaceResponse = {
@@ -421,6 +421,130 @@ describe("PackageSurfaceWorkbench", () => {
 
     expect(await screen.findByText("No runnable runtime is available for this package.")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Run" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("createTextResultTabs", () => {
+  const tabs = createTextResultTabs({
+    library: "text-demo",
+    primaryOperations: {
+      "text.demo": {
+        title: "Demo text operation",
+        summaryFields: ["count", "score"],
+        listFields: ["predictions", "keywords", "results", "segments", "tokens"],
+        objectFields: ["model", "metadata"],
+        explanation: () => "The text operation scored the sample input and exposed focused result sections.",
+      },
+    },
+  });
+
+  test("renders title, message, and scalar summary cards", () => {
+    render(
+      <ResultViewer
+        response={{
+          operation: "text.demo",
+          value: {
+            title: "Configured result",
+            message: "Completed the text run.",
+            summary: { count: 3, score: 0.75 },
+          },
+          diagnostics: [],
+          artifacts: [],
+        }}
+        resultTabs={tabs}
+      />,
+    );
+
+    expect(screen.getByText("Configured result")).toBeTruthy();
+    expect(screen.getByText("Completed the text run.")).toBeTruthy();
+    expect(screen.getByText("Count")).toBeTruthy();
+    expect(screen.getByText("0.750")).toBeTruthy();
+    expect(screen.getByText("The text operation scored the sample input and exposed focused result sections.")).toBeTruthy();
+  });
+
+  test("renders configured list fields and keeps the raw JSON tab available", () => {
+    render(
+      <ResultViewer
+        response={{
+          operation: "text.demo",
+          value: {
+            operation: "text.demo",
+            title: "Lists",
+            message: "Lists returned.",
+            summary: { count: 2 },
+            predictions: [{ label: "positive", score: 0.9 }],
+            keywords: [{ term: "rust", score: 0.8 }],
+            results: [{ id: "doc-1", score: 0.7 }],
+            segments: [{ text: "Hello", startSeconds: 1 }],
+            tokens: [{ text: "Hello" }],
+          },
+          diagnostics: [],
+          artifacts: [],
+        }}
+        resultTabs={tabs}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Predictions" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Keywords" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Results" })).toBeTruthy();
+    expect(screen.getByText("positive")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /JSON/ }));
+
+    expect(screen.getByText(/"operation": "text.demo"/)).toBeTruthy();
+  });
+
+  test("handles missing configured fields without crashing", () => {
+    render(
+      <ResultViewer
+        response={{
+          operation: "text.demo",
+          value: {
+            title: "Sparse",
+            message: "Sparse response.",
+            summary: {},
+          },
+          diagnostics: [],
+          artifacts: [],
+        }}
+        resultTabs={tabs}
+      />,
+    );
+
+    expect(screen.getByText("Sparse")).toBeTruthy();
+    expect(screen.getByText("Sparse response.")).toBeTruthy();
+  });
+});
+
+describe("ModelSelector", () => {
+  test("displays reference-only fallback messaging and metadata", () => {
+    render(
+      <ModelSelector
+        models={[
+          {
+            id: "reference-model",
+            label: "Reference model",
+            task: "classification",
+            runtime: "onnx",
+            supported: false,
+            loadable: false,
+            fallback: "lexical_fallback",
+            requiredFeature: "onnx",
+            requiredSetup: "Download model weights",
+            smokeOperation: "classification.classify",
+            source: "overview-server",
+          },
+        ]}
+        selectedModel="reference-model"
+        onSelectModel={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Catalog metadata only; this page will use the fallback or deterministic operation.")).toBeTruthy();
+    expect(screen.getByText("overview-server")).toBeTruthy();
+    expect(screen.getByText("lexical_fallback")).toBeTruthy();
+    expect(screen.getByText("Download model weights")).toBeTruthy();
   });
 });
 

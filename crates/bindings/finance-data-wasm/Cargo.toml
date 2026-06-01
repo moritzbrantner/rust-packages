@@ -1,5 +1,5 @@
 [package]
-name = "finance-data-wasm"
+name = "moritzbrantner-finance-data-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/image-analysis-onnx-wasm",
+  "name": "@moritzbrantner/image-analysis-onnx-wasm",
   "version": "0.1.0",
   "description": "WASM package for image-analysis-onnx.",
   "license": "MIT OR Apache-2.0",

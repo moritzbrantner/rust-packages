@@ -1,6 +1,6 @@
 # video-analysis-features-cli
 
-Thin command-line adapter for `video-analysis-features`.
+Thin command-line adapter for `moritzbrantner-video-analysis-features`.
 
 Run:
 

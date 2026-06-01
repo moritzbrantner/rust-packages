@@ -1,6 +1,6 @@
 # three-d-processing-core-server
 
-Thin HTTP API adapter for `three-d-processing-core`.
+Thin HTTP API adapter for `moritzbrantner-three-d-processing-core`.
 
 Run:
 

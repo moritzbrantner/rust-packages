@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = comfyui_models::surface::package_surface();
-        assert_eq!(surface.library, "comfyui-models");
+        assert_eq!(surface.library, "moritzbrantner-comfyui-models");
         assert!(!surface.operations.is_empty());
     }
 }

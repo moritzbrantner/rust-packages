@@ -1,5 +1,5 @@
 [package]
-name = "runtime-jobs-wasm"
+name = "moritzbrantner-runtime-jobs-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [lib]
+name = "runtime_jobs_wasm"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]

@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/vector-analysis-index-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/vector-analysis-index-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

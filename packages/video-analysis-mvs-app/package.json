@@ -1,5 +1,5 @@
 {
-  "name": "video-analysis-mvs-app",
+  "name": "@moritzbrantner/video-analysis-mvs-app",
   "version": "0.1.0",
   "description": "React app for video-analysis-mvs: Multi-View Stereo backend contracts and dense reconstruction outputs for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/video-analysis-mvs-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/video-analysis-mvs-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

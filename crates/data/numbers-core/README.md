@@ -1,6 +1,6 @@
 # numbers-core
 
-Deterministic scalar numeric summaries, quantiles, ranges, and histograms for `video-analysis`.
+Deterministic scalar numeric summaries, quantiles, ranges, and histograms for `moritzbrantner-video-analysis`.
 
 ## Highlights
 

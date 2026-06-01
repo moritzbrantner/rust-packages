@@ -1,6 +1,6 @@
 # video-analysis-storage
 
-Dataset persistence for `video-analysis`.
+Dataset persistence for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

@@ -1,7 +1,7 @@
 # math-linear
 
-Dense matrix and kernel contracts bridging `tensor-data` and
-`vector-analysis-core`.
+Dense matrix and kernel contracts bridging `moritzbrantner-tensor-data` and
+`moritzbrantner-vector-analysis-core`.
 
 ## Highlights
 

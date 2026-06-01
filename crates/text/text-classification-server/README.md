@@ -1,6 +1,6 @@
 # text-classification-server
 
-Thin HTTP API adapter for `text-classification`.
+Thin HTTP API adapter for `moritzbrantner-text-classification`.
 
 Run:
 

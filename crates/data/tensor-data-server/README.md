@@ -1,6 +1,6 @@
 # tensor-data-server
 
-Thin HTTP API adapter for `tensor-data`.
+Thin HTTP API adapter for `moritzbrantner-tensor-data`.
 
 Run:
 

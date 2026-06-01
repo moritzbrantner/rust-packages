@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_ffmpeg::surface::package_surface();
-        assert_eq!(surface.library, "video-analysis-ffmpeg");
+        assert_eq!(surface.library, "moritzbrantner-video-analysis-ffmpeg");
         assert!(!surface.operations.is_empty());
     }
 }

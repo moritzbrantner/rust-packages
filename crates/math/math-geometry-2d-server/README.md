@@ -1,6 +1,6 @@
 # math-geometry-2d-server
 
-Thin HTTP API adapter for `math-geometry-2d`.
+Thin HTTP API adapter for `moritzbrantner-math-geometry-2d`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # image-analysis-detection-server
 
-Thin HTTP API adapter for `image-analysis-detection`.
+Thin HTTP API adapter for `moritzbrantner-image-analysis-detection`.
 
 Run:
 

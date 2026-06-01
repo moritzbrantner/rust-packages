@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = runtime_artifacts::surface::package_surface();
-        assert_eq!(surface.library, "runtime-artifacts");
+        assert_eq!(surface.library, "moritzbrantner-runtime-artifacts");
         assert!(!surface.operations.is_empty());
     }
 }

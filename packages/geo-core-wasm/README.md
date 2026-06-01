@@ -1,4 +1,4 @@
-# @mb-rust/geo-core-wasm
+# @moritzbrantner/geo-core-wasm
 
 WASM package for `geo-core`.
 

@@ -1,4 +1,4 @@
-# @mb-rust/audio-analysis-io-wasm
+# @moritzbrantner/audio-analysis-io-wasm
 
 WASM package for `audio-analysis-io`.
 

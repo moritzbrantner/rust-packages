@@ -12,7 +12,7 @@ Text package model catalogs distinguish deterministic, loadable, and reference-o
 - `supported: true, loadable: false` means the crate has an implemented opt-in native path, but the local bundle must be materialized first.
 - `supported: false, loadable: false` means the entry is reference metadata only. Classification sequence models and extractive QA models remain in this state until native runners are implemented.
 
-`text-model-runtime` owns the shared conformance report types: `TextModelLoadReport`, `TextModelRunReport`, `TextModelCapability`, `validate_text_model_bundle`, and `validate_tokenizer_bundle`.
+`moritzbrantner-text-model-runtime` owns the shared conformance report types: `TextModelLoadReport`, `TextModelRunReport`, `TextModelCapability`, `validate_text_model_bundle`, and `validate_tokenizer_bundle`.
 
 Default builds remain deterministic and network-free. Native tokenizers, Candle, ONNX, model bundles, and whisper.cpp paths are opt-in through feature gates such as `tokenizers`, `candle`, `onnx`, `model-bundles`, `native`, and `external-tests`.
 

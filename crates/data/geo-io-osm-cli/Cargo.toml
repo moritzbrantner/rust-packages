@@ -1,5 +1,5 @@
 [package]
-name = "geo-io-osm-cli"
+name = "moritzbrantner-geo-io-osm-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 default-run = "geo-io-osm-cli"
+
+[lib]
+name = "geo_io_osm_cli"
 
 [[bin]]
 name = "geo-io-osm-cli"

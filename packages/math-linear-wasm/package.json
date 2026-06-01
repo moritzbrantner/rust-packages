@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/math-linear-wasm",
+  "name": "@moritzbrantner/math-linear-wasm",
   "version": "0.1.0",
   "description": "WASM package for math-linear.",
   "license": "MIT OR Apache-2.0",

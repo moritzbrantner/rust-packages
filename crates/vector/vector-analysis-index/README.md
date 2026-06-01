@@ -1,6 +1,6 @@
 # vector-analysis-index
 
-Exact in-memory vector search for `video-analysis`.
+Exact in-memory vector search for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

@@ -1,6 +1,6 @@
 # image-analysis-io
 
-Still-image PNG/JPEG/WebP loading and saving for `video-analysis`.
+Still-image PNG/JPEG/WebP loading and saving for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-core-wasm
+# @moritzbrantner/image-analysis-core-wasm
 
 WASM package for `image-analysis-core`.
 

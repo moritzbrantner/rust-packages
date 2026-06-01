@@ -1,6 +1,6 @@
 # three-d-processing-io-cli
 
-Thin command-line adapter for `three-d-processing-io`.
+Thin command-line adapter for `moritzbrantner-three-d-processing-io`.
 
 Run:
 

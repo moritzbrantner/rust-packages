@@ -1,6 +1,6 @@
 # video-analysis-recognition-server
 
-Thin HTTP API adapter for `video-analysis-recognition`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-recognition`.
 
 Run:
 

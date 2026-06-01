@@ -1,6 +1,6 @@
 # image-analysis-onnx
 
-ONNX-backed still-image preprocessing and inference adapters for `video-analysis`.
+ONNX-backed still-image preprocessing and inference adapters for `moritzbrantner-video-analysis`.
 
 ## Runtime Surface
 

@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/runtime-jobs-wasm",
+  "name": "@moritzbrantner/runtime-jobs-wasm",
   "version": "0.1.0",
   "description": "WASM package for runtime-jobs.",
   "license": "MIT OR Apache-2.0",

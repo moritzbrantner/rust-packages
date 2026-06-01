@@ -1,6 +1,6 @@
 # text-embeddings-cli
 
-Thin command-line adapter for `text-embeddings`.
+Thin command-line adapter for `moritzbrantner-text-embeddings`.
 
 Run:
 

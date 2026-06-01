@@ -1,7 +1,7 @@
 # image-analysis-comfyui
 
 ComfyUI workflow builders and a small HTTP client for image generation and
-manipulation in `video-analysis`.
+manipulation in `moritzbrantner-video-analysis`.
 
 ## Runtime Surface
 

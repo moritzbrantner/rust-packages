@@ -1,6 +1,6 @@
 # video-analysis-split
 
-FFmpeg-backed scene splitting utilities for `video-analysis`.
+FFmpeg-backed scene splitting utilities for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

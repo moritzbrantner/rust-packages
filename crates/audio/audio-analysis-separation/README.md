@@ -1,6 +1,6 @@
 # audio-analysis-separation
 
-HTDemucs/Demucs-based audio stem separation for `video-analysis`.
+HTDemucs/Demucs-based audio stem separation for `moritzbrantner-video-analysis`.
 
 This crate is a Rust-first wrapper around the external `demucs` command. It does
 not run native inference itself; instead it builds typed separation commands,

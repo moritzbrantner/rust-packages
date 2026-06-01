@@ -1,6 +1,6 @@
 # animation-core-cli
 
-Thin command-line adapter for `animation-core`.
+Thin command-line adapter for `moritzbrantner-animation-core`.
 
 Run:
 

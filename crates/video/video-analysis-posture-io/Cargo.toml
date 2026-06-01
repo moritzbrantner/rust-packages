@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-posture-io"
+name = "moritzbrantner-video-analysis-posture-io"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "video_analysis_posture_io"
 
 [dependencies]
 base64.workspace = true

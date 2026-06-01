@@ -1,4 +1,4 @@
-# @mb-rust/runtime-jobs-wasm
+# @moritzbrantner/runtime-jobs-wasm
 
 WASM package for `runtime-jobs`.
 

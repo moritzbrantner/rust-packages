@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-core-server"
+name = "moritzbrantner-video-analysis-core-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "video-analysis-core-server"
 
+[lib]
+name = "video_analysis_core_server"
+
 [[bin]]
 name = "video-analysis-core-server"
 path = "src/main.rs"
@@ -19,4 +22,4 @@ path = "src/main.rs"
 [dependencies]
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-core = { version = "0.1.1", path = "../video-analysis-core" }
+video-analysis-core = { package = "moritzbrantner-video-analysis-core", version = "0.1.1", path = "../video-analysis-core" }

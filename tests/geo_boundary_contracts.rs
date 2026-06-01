@@ -10,17 +10,23 @@ fn geo_crates_keep_dependency_boundaries() {
     assert_normal_deps_are_subset(
         &metadata,
         "moritzbrantner-geo-core",
-        &["serde", "serde_json", "video-analysis-core"],
+        &[
+            "serde",
+            "serde_json",
+            "moritzbrantner-video-analysis-core",
+            "video-analysis-core",
+        ],
     );
     assert_normal_deps_are_subset(
         &metadata,
         "moritzbrantner-geo-io-geojson",
         &[
-            "geo-core",
             "geojson",
+            "geo-core",
             "moritzbrantner-geo-core",
             "serde",
             "serde_json",
+            "moritzbrantner-video-analysis-core",
             "video-analysis-core",
         ],
     );
@@ -35,11 +41,13 @@ fn geo_crates_keep_dependency_boundaries() {
             "moritzbrantner-geo-core",
             "moritzbrantner-geo-io-geojson",
             "osmpbfreader",
+            "protobuf",
             "redb",
             "regex",
             "serde",
             "serde_json",
             "tempfile",
+            "moritzbrantner-video-analysis-core",
             "video-analysis-core",
         ],
     );
@@ -51,6 +59,7 @@ fn geo_crates_keep_dependency_boundaries() {
             "moritzbrantner-geo-core",
             "serde",
             "serde_json",
+            "moritzbrantner-video-analysis-core",
             "video-analysis-core",
         ],
     );
@@ -65,29 +74,55 @@ fn geo_crates_keep_dependency_boundaries() {
             "moritzbrantner-geo-clustering",
             "moritzbrantner-geo-core",
             "moritzbrantner-geo-io-geojson",
+            "moritzbrantner-maps-kernels-core",
             "rstar",
             "serde",
             "serde_json",
+            "moritzbrantner-video-analysis-core",
             "video-analysis-core",
         ],
     );
 
     for (adapter, library) in [
-        ("geo-core-cli", "moritzbrantner-geo-core"),
-        ("geo-core-server", "moritzbrantner-geo-core"),
-        ("geo-core-wasm", "moritzbrantner-geo-core"),
-        ("geo-io-geojson-cli", "moritzbrantner-geo-io-geojson"),
-        ("geo-io-geojson-server", "moritzbrantner-geo-io-geojson"),
-        ("geo-io-geojson-wasm", "moritzbrantner-geo-io-geojson"),
-        ("geo-io-osm-cli", "moritzbrantner-geo-io-osm"),
-        ("geo-io-osm-server", "moritzbrantner-geo-io-osm"),
-        ("geo-io-osm-wasm", "moritzbrantner-geo-io-osm"),
-        ("geo-clustering-cli", "moritzbrantner-geo-clustering"),
-        ("geo-clustering-server", "moritzbrantner-geo-clustering"),
-        ("geo-clustering-wasm", "moritzbrantner-geo-clustering"),
-        ("geo-viz-cli", "moritzbrantner-geo-viz"),
-        ("geo-viz-server", "moritzbrantner-geo-viz"),
-        ("geo-viz-wasm", "moritzbrantner-geo-viz"),
+        ("moritzbrantner-geo-core-cli", "moritzbrantner-geo-core"),
+        ("moritzbrantner-geo-core-server", "moritzbrantner-geo-core"),
+        ("moritzbrantner-geo-core-wasm", "moritzbrantner-geo-core"),
+        (
+            "moritzbrantner-geo-io-geojson-cli",
+            "moritzbrantner-geo-io-geojson",
+        ),
+        (
+            "moritzbrantner-geo-io-geojson-server",
+            "moritzbrantner-geo-io-geojson",
+        ),
+        (
+            "moritzbrantner-geo-io-geojson-wasm",
+            "moritzbrantner-geo-io-geojson",
+        ),
+        ("moritzbrantner-geo-io-osm-cli", "moritzbrantner-geo-io-osm"),
+        (
+            "moritzbrantner-geo-io-osm-server",
+            "moritzbrantner-geo-io-osm",
+        ),
+        (
+            "moritzbrantner-geo-io-osm-wasm",
+            "moritzbrantner-geo-io-osm",
+        ),
+        (
+            "moritzbrantner-geo-clustering-cli",
+            "moritzbrantner-geo-clustering",
+        ),
+        (
+            "moritzbrantner-geo-clustering-server",
+            "moritzbrantner-geo-clustering",
+        ),
+        (
+            "moritzbrantner-geo-clustering-wasm",
+            "moritzbrantner-geo-clustering",
+        ),
+        ("moritzbrantner-geo-viz-cli", "moritzbrantner-geo-viz"),
+        ("moritzbrantner-geo-viz-server", "moritzbrantner-geo-viz"),
+        ("moritzbrantner-geo-viz-wasm", "moritzbrantner-geo-viz"),
     ] {
         assert_adapter_depends_on_library_only(&metadata, adapter, library);
     }
@@ -125,8 +160,11 @@ fn assert_adapter_depends_on_library_only(metadata: &Value, adapter: &str, libra
     );
 
     for dep in deps {
-        let is_geo_adapter = dep.starts_with("geo-")
-            && (dep.ends_with("-cli") || dep.ends_with("-server") || dep.ends_with("-wasm"));
+        let short_dep = dep.strip_prefix("moritzbrantner-").unwrap_or(&dep);
+        let is_geo_adapter = short_dep.starts_with("geo-")
+            && (short_dep.ends_with("-cli")
+                || short_dep.ends_with("-server")
+                || short_dep.ends_with("-wasm"));
         assert!(
             !is_geo_adapter,
             "{adapter} must not depend on sibling adapter crate `{dep}`"

@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/text-classification-wasm";
+import { createTextResultTabs, PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/text-classification-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "text-classification",
@@ -34,17 +34,35 @@ const packageAppConfig: PackageAppConfig = {
   presets: [
     {
       id: "classify",
-      label: "Classify",
+      label: "Classify reliability feedback",
       operation: "classification.classify",
       description: "Classify text with lexical fallback behavior.",
-      input: { text: "rust is reliable", labels: ["positive", "negative"], model: { fallbackPolicy: "lexical_fallback" } },
+      input: {
+        text: "The Rust transcript workflow is reliable, fast, and clear enough for editorial review.",
+        labels: ["positive", "negative", "technical feedback"],
+        model: { fallbackPolicy: "lexical_fallback" },
+      },
+    },
+    {
+      id: "sentiment",
+      label: "Analyze support sentiment",
+      operation: "classification.sentiment",
+      description: "Score positive and negative sentiment with deterministic lexical fallback.",
+      input: {
+        text: "The caption search results were accurate and the reviewer felt confident approving the cut.",
+        model: { fallbackPolicy: "lexical_fallback" },
+      },
     },
     {
       id: "zero-shot",
-      label: "Zero-shot",
+      label: "Zero-shot topic labels",
       operation: "classification.zeroShot",
       description: "Score candidate labels for short text.",
-      input: { text: "rust text", labels: ["code", "music"], model: { fallbackPolicy: "lexical_fallback" } },
+      input: {
+        text: "A Rust package ranks transcript passages for semantic search and editorial evidence review.",
+        labels: ["software engineering", "sports recap", "music metadata", "legal transcript"],
+        model: { fallbackPolicy: "lexical_fallback" },
+      },
     },
   ],
   benchmarkScenarios: [
@@ -76,6 +94,32 @@ const packageAppConfig: PackageAppConfig = {
       outputCountPath: ["predictions"],
     },
   ],
+  resultTabs: createTextResultTabs({
+    library: "text-classification",
+    primaryOperations: {
+      "classification.classify": {
+        title: "Text classification",
+        summaryFields: ["predictionCount", "topLabel", "topScore", "fallbackUsed"],
+        listFields: ["predictions", "labels"],
+        objectFields: ["model", "metadata", "result"],
+        explanation: () => "The classifier used imported predictions when supplied; otherwise the configured lexical fallback scored each candidate label.",
+      },
+      "classification.sentiment": {
+        title: "Sentiment analysis",
+        summaryFields: ["predictionCount", "topLabel", "topScore", "fallbackUsed"],
+        listFields: ["predictions"],
+        objectFields: ["model", "metadata", "result"],
+        explanation: () => "The sentiment workflow maps the text onto sentiment labels and reports the fallback/model metadata that governed the run.",
+      },
+      "classification.zeroShot": {
+        title: "Zero-shot classification",
+        summaryFields: ["predictionCount", "topLabel", "topScore", "fallbackUsed"],
+        listFields: ["predictions", "labels"],
+        objectFields: ["model", "metadata", "result"],
+        explanation: () => "The zero-shot path scores the supplied labels directly, so the result explains which candidate matched the text best.",
+      },
+    },
+  }),
 };
 
 export function App() {

@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/text-model-runtime-wasm";
+import { createTextResultTabs, PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/text-model-runtime-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "text-model-runtime",
@@ -40,10 +40,17 @@ const packageAppConfig: PackageAppConfig = {
   presets: [
     {
       id: "tokenize-summary",
-      label: "Tokenize",
+      label: "Summarize tokenizer offsets",
       operation: "runtime.tokenizeSummary",
       description: "Build a deterministic whitespace-token summary.",
-      input: { text: "Rust text runtime", maxTokens: 8 },
+      input: { text: "Rust text runtime summarizes token offsets for transcript package surfaces.", maxTokens: 12 },
+    },
+    {
+      id: "softmax",
+      label: "Normalize logits",
+      operation: "runtime.softmax",
+      description: "Normalize support logits into a probability distribution.",
+      input: { logits: [0.1, 0.3, 1.2, -0.7, 2.4, 0.0] },
     },
   ],
   benchmarkScenarios: [
@@ -66,6 +73,25 @@ const packageAppConfig: PackageAppConfig = {
       outputCountPath: ["probabilities"],
     },
   ],
+  resultTabs: createTextResultTabs({
+    library: "text-model-runtime",
+    primaryOperations: {
+      "runtime.tokenizeSummary": {
+        title: "Tokenizer summary",
+        summaryFields: ["tokenCount", "maxTokens", "truncated"],
+        listFields: ["tokens"],
+        objectFields: ["offsets", "metadata", "result"],
+        explanation: () => "The runtime helper split text deterministically and reported token offsets/counts without invoking an optional native model runtime.",
+      },
+      "runtime.softmax": {
+        title: "Softmax probabilities",
+        summaryFields: ["probabilityCount", "maxProbability"],
+        listFields: ["probabilities"],
+        objectFields: ["result"],
+        explanation: () => "The support helper normalized logits with a stable softmax pass so downstream model wrappers can present probabilities.",
+      },
+    },
+  }),
 };
 
 export function App() {

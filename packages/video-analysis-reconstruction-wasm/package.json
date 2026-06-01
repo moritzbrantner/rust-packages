@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-reconstruction-wasm",
+  "name": "@moritzbrantner/video-analysis-reconstruction-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-reconstruction.",
   "license": "MIT OR Apache-2.0",

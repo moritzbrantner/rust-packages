@@ -6,23 +6,23 @@ fn prioritized_crates_expose_more_than_describe() {
     let matrix = fs::read_to_string("docs/PACKAGE_SURFACE_MATRIX.md").unwrap();
     let operations_by_crate = parse_matrix(&matrix);
     let prioritized = [
-        "numbers-core",
-        "tensor-data",
-        "vector-analysis-core",
-        "vector-analysis-index",
-        "graph-analysis-core",
+        "moritzbrantner-numbers-core",
+        "moritzbrantner-tensor-data",
+        "moritzbrantner-vector-analysis-core",
+        "moritzbrantner-vector-analysis-index",
+        "moritzbrantner-graph-analysis-core",
         "moritzbrantner-geo-core",
         "moritzbrantner-geo-io-geojson",
         "moritzbrantner-geo-io-osm",
         "moritzbrantner-geo-clustering",
         "moritzbrantner-geo-viz",
-        "math-geometry-2d",
-        "math-linear",
-        "math-signal-core",
-        "math-sparse-data",
-        "math-statistics",
-        "finance-statistics",
-        "maps-kernels-core",
+        "moritzbrantner-math-geometry-2d",
+        "moritzbrantner-math-linear",
+        "moritzbrantner-math-signal-core",
+        "moritzbrantner-math-sparse-data",
+        "moritzbrantner-math-statistics",
+        "moritzbrantner-finance-statistics",
+        "moritzbrantner-maps-kernels-core",
     ];
 
     for crate_name in prioritized {

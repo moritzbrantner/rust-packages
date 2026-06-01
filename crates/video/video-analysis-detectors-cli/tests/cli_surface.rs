@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-detectors"
     );
     let surface = video_analysis_detectors_cli::package_surface();
-    assert_eq!(surface.library, "video-analysis-detectors");
+    assert_eq!(surface.library, "moritzbrantner-video-analysis-detectors");
     assert!(!surface.operations.is_empty());
 }

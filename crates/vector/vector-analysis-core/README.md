@@ -1,6 +1,6 @@
 # vector-analysis-core
 
-Dense vector validation and metrics for `video-analysis`.
+Dense vector validation and metrics for `moritzbrantner-video-analysis`.
 
 ## Highlights
 

@@ -1,6 +1,6 @@
 # image-analysis-captioning-server
 
-Thin HTTP API adapter for `image-analysis-captioning`.
+Thin HTTP API adapter for `moritzbrantner-image-analysis-captioning`.
 
 Run:
 

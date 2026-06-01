@@ -1,4 +1,4 @@
-# @mb-rust/image-analysis-ocr-wasm
+# @moritzbrantner/image-analysis-ocr-wasm
 
 WASM package for `image-analysis-ocr`.
 

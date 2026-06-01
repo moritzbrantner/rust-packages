@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-tracking-wasm
+# @moritzbrantner/video-analysis-tracking-wasm
 
 WASM package for `video-analysis-tracking`.
 

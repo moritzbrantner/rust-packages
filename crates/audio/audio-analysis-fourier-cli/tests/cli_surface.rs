@@ -5,7 +5,7 @@ fn cli_adapter_reports_wrapped_library() {
         "audio-analysis-fourier"
     );
     let surface = audio_analysis_fourier_cli::package_surface();
-    assert_eq!(surface.library, "audio-analysis-fourier");
+    assert_eq!(surface.library, "moritzbrantner-audio-analysis-fourier");
     assert!(!surface.operations.is_empty());
 }
 

@@ -1,5 +1,5 @@
 [package]
-name = "three-d-processing-io"
+name = "moritzbrantner-three-d-processing-io"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "three_d_processing_io"
 
 [dependencies]
 base64.workspace = true

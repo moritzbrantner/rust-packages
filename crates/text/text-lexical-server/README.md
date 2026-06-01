@@ -1,6 +1,6 @@
 # text-lexical-server
 
-Thin HTTP API adapter for `text-lexical`.
+Thin HTTP API adapter for `moritzbrantner-text-lexical`.
 
 Run:
 

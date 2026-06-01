@@ -1,6 +1,6 @@
 # three-d-processing-core-cli
 
-Thin command-line adapter for `three-d-processing-core`.
+Thin command-line adapter for `moritzbrantner-three-d-processing-core`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # tensor-data-cli
 
-Thin command-line adapter for `tensor-data`.
+Thin command-line adapter for `moritzbrantner-tensor-data`.
 
 Run:
 

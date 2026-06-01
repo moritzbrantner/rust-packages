@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-sfm-rust-backend-wasm
+# @moritzbrantner/video-analysis-sfm-rust-backend-wasm
 
 WASM package for `video-analysis-sfm-rust-backend`.
 

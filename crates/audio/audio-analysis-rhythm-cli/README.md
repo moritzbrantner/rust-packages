@@ -1,6 +1,6 @@
 # audio-analysis-rhythm-cli
 
-Thin command-line adapter for `audio-analysis-rhythm`.
+Thin command-line adapter for `moritzbrantner-audio-analysis-rhythm`.
 
 Run:
 

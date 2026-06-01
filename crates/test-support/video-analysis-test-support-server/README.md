@@ -1,6 +1,6 @@
 # video-analysis-test-support-server
 
-Thin HTTP API adapter for `video-analysis-test-support`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-test-support`.
 
 Run:
 

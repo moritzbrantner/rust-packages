@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/video-analysis-sfm-rust-backend-wasm";
+import { PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/video-analysis-sfm-rust-backend-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "video-analysis-sfm-rust-backend",

@@ -1,6 +1,6 @@
 # video-analysis-detectors
 
-Scene detection algorithms and detector adapters for `video-analysis`.
+Scene detection algorithms and detector adapters for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

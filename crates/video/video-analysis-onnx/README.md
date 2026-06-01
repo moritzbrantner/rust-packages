@@ -1,6 +1,6 @@
 # video-analysis-onnx
 
-ONNX-backed video model inference adapters for `video-analysis`.
+ONNX-backed video model inference adapters for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

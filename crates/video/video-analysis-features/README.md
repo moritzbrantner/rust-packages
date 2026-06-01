@@ -1,6 +1,6 @@
 # video-analysis-features
 
-Feature extraction over retained `video-analysis` datasets.
+Feature extraction over retained `moritzbrantner-video-analysis` datasets.
 
 ## Feature flags
 

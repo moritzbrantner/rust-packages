@@ -1,6 +1,6 @@
 # text-classification-cli
 
-Thin command-line adapter for `text-classification`.
+Thin command-line adapter for `moritzbrantner-text-classification`.
 
 Run:
 

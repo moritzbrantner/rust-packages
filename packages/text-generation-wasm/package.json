@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/text-generation-wasm",
+  "name": "@moritzbrantner/text-generation-wasm",
   "version": "0.1.0",
   "description": "WASM package for text-generation.",
   "license": "MIT OR Apache-2.0",

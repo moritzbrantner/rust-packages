@@ -1,6 +1,6 @@
 # video-analysis-gaussian-splatting-cli
 
-Thin command-line adapter for `video-analysis-gaussian-splatting`.
+Thin command-line adapter for `moritzbrantner-video-analysis-gaussian-splatting`.
 
 Run:
 

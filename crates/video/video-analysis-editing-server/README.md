@@ -1,6 +1,6 @@
 # video-analysis-editing-server
 
-Thin HTTP API adapter for `video-analysis-editing`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-editing`.
 
 Run:
 

@@ -1,4 +1,4 @@
-# @mb-rust/math-linear-wasm
+# @moritzbrantner/math-linear-wasm
 
 WASM package for `math-linear`.
 

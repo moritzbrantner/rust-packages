@@ -1,3 +1,3 @@
 # text-analysis-cli
 
-Command-line adapter for `text-analysis`.
+Command-line adapter for `moritzbrantner-text-analysis`.

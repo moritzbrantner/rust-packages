@@ -11,14 +11,14 @@ describe("workspace architecture server helpers", () => {
 | Package | Role | Depends on | Exposes | Consumed by |
 | --- | --- | --- | --- | --- |
 | \`video-analysis-core\` | Canonical shared contracts | External utility crates only | Time/frame types, observations, metrics | All functional Rust crates |
-| \`@video-analysis/ui\` | React views | React peer deps | Report types and component exports | Web apps |
+| \`@moritzbrantner/video-analysis-ui\` | React views | React peer deps | Report types and component exports | Web apps |
 
 ## Canonical Core Contracts
 `);
 
     expect(rows).toHaveLength(2);
     expect(rows[0]?.name).toBe("video-analysis-core");
-    expect(rows[1]?.name).toBe("@video-analysis/ui");
+    expect(rows[1]?.name).toBe("@moritzbrantner/video-analysis-ui");
   });
 
   it("extracts contract tags from exposed surfaces", () => {

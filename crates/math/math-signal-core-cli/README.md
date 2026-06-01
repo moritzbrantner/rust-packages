@@ -1,6 +1,6 @@
 # math-signal-core-cli
 
-Thin command-line adapter for `math-signal-core`.
+Thin command-line adapter for `moritzbrantner-math-signal-core`.
 
 Run:
 

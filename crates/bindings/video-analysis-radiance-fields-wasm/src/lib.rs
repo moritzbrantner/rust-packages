@@ -26,7 +26,10 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_radiance_fields::surface::package_surface();
-        assert_eq!(surface.library, "video-analysis-radiance-fields");
+        assert_eq!(
+            surface.library,
+            "moritzbrantner-video-analysis-radiance-fields"
+        );
         assert!(!surface.operations.is_empty());
     }
 }

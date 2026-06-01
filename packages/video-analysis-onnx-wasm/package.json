@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/video-analysis-onnx-wasm",
+  "name": "@moritzbrantner/video-analysis-onnx-wasm",
   "version": "0.1.0",
   "description": "WASM package for video-analysis-onnx.",
   "license": "MIT OR Apache-2.0",

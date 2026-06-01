@@ -1,6 +1,6 @@
 # image-analysis-synthesis-server
 
-Thin HTTP API adapter for `image-analysis-synthesis`.
+Thin HTTP API adapter for `moritzbrantner-image-analysis-synthesis`.
 
 Run:
 

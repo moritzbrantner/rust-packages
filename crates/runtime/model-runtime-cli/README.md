@@ -1,6 +1,6 @@
 # model-runtime-cli
 
-Thin command-line adapter for `model-runtime`.
+Thin command-line adapter for `moritzbrantner-model-runtime`.
 
 Run:
 

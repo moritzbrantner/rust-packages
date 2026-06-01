@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-editing-wasm
+# @moritzbrantner/video-analysis-editing-wasm
 
 WASM package for `video-analysis-editing`.
 

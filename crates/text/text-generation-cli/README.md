@@ -1,6 +1,6 @@
 # text-generation-cli
 
-Thin command-line adapter for `text-generation`.
+Thin command-line adapter for `moritzbrantner-text-generation`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # video-analysis-sfm-rust-backend-server
 
-Thin HTTP API adapter for `video-analysis-sfm-rust-backend`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-sfm-rust-backend`.
 
 Run:
 

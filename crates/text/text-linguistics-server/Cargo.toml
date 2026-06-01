@@ -1,5 +1,5 @@
 [package]
-name = "text-linguistics-server"
+name = "moritzbrantner-text-linguistics-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "text-linguistics-server"
 
+[lib]
+name = "text_linguistics_server"
+
 [[bin]]
 name = "text-linguistics-server"
 path = "src/main.rs"
@@ -20,9 +23,8 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-text-linguistics = { version = "0.1.0", path = "../text-linguistics" }
-text-model-runtime = { version = "0.1.0", path = "../text-model-runtime", features = ["candle"] }
-
+text-linguistics = { package = "moritzbrantner-text-linguistics", version = "0.1.0", path = "../text-linguistics" }
+text-model-runtime = { package = "moritzbrantner-text-model-runtime", version = "0.1.0", path = "../text-model-runtime", features = ["candle"] }
 [features]
 default = []
 cuda = ["text-linguistics/cuda", "text-model-runtime/cuda"]

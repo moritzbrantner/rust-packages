@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/text-retrieval-wasm",
+  "name": "@moritzbrantner/text-retrieval-wasm",
   "version": "0.1.0",
   "description": "WASM package for text-retrieval.",
   "license": "MIT OR Apache-2.0",

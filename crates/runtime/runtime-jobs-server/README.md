@@ -1,6 +1,6 @@
 # runtime-jobs-server
 
-Thin HTTP API adapter for `runtime-jobs`.
+Thin HTTP API adapter for `moritzbrantner-runtime-jobs`.
 
 Run:
 

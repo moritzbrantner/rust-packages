@@ -1,6 +1,6 @@
 # jobs-core-server
 
-Thin HTTP API adapter for `jobs-core`.
+Thin HTTP API adapter for `moritzbrantner-jobs-core`.
 
 Run:
 

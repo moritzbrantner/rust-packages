@@ -1,4 +1,4 @@
-# @mb-rust/audio-analysis-rhythm-wasm
+# @moritzbrantner/audio-analysis-rhythm-wasm
 
 WASM package for `audio-analysis-rhythm`.
 

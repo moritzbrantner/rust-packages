@@ -1,6 +1,6 @@
 # text-linguistics-server
 
-Thin HTTP API adapter for `text-linguistics`.
+Thin HTTP API adapter for `moritzbrantner-text-linguistics`.
 
 Run:
 

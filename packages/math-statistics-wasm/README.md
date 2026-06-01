@@ -1,4 +1,4 @@
-# @mb-rust/math-statistics-wasm
+# @moritzbrantner/math-statistics-wasm
 
 WASM package for `math-statistics`.
 

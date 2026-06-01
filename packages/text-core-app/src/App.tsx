@@ -3,8 +3,8 @@ import {
   PackageSurfaceWorkbench,
   type PackageAppConfig,
   type SurfaceResponse,
-} from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/text-core-wasm";
+} from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/text-core-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "text-core",
@@ -36,6 +36,36 @@ const packageAppConfig: PackageAppConfig = {
   ],
   defaultOperation: "text.tokenize",
   featuredOperations: ["text.tokenize", "text.statistics", "text.normalize", "text.boundaries", "describe"],
+  presets: [
+    {
+      id: "tokenize-transcript-notes",
+      label: "Tokenize transcript notes",
+      operation: "text.tokenize",
+      description: "Return tokens, spans, normalized forms, and token statistics.",
+      input: { text: "Rust analyzes transcripts, captions, and scene notes.", includeStats: true },
+    },
+    {
+      id: "statistics-scene-summary",
+      label: "Count document statistics",
+      operation: "text.statistics",
+      description: "Count bytes, characters, words, lines, and sentence boundaries.",
+      input: { text: "Scene one opens in Berlin.\nRust text packages summarize transcript evidence." },
+    },
+    {
+      id: "normalize-noisy-caption",
+      label: "Normalize noisy caption",
+      operation: "text.normalize",
+      description: "Trim, collapse whitespace, and lowercase a caption-like string.",
+      input: { text: "  RUST   Text   WORKFLOWS  ", lowercase: true, collapseWhitespace: true, trim: true },
+    },
+    {
+      id: "boundaries-review-copy",
+      label: "Find word and sentence boundaries",
+      operation: "text.boundaries",
+      description: "Split a short review note into word, sentence, paragraph, and grapheme spans.",
+      input: { text: "Alice reviewed the tokenizer roadmap. Bob checked transcript retrieval.\n\nThe release note stayed concise." },
+    },
+  ],
   benchmarkScenarios: [
     {
       id: "tokenize",

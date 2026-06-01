@@ -1,7 +1,7 @@
 # audio-analysis-processing
 
 Realtime-safe audio transforms, named effect presets, and deterministic
-whole-clip offline edits for `video-analysis`.
+whole-clip offline edits for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

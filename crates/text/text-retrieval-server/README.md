@@ -1,6 +1,6 @@
 # text-retrieval-server
 
-Thin HTTP API adapter for `text-retrieval`.
+Thin HTTP API adapter for `moritzbrantner-text-retrieval`.
 
 Run:
 

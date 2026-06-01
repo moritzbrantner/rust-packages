@@ -1,6 +1,6 @@
 # three-d-processing-io
 
-OBJ, PLY, and minimal embedded glTF mesh I/O plus PLY point-cloud I/O for `video-analysis`.
+OBJ, PLY, and minimal embedded glTF mesh I/O plus PLY point-cloud I/O for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

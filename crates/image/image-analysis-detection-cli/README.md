@@ -1,6 +1,6 @@
 # image-analysis-detection-cli
 
-Thin command-line adapter for `image-analysis-detection`.
+Thin command-line adapter for `moritzbrantner-image-analysis-detection`.
 
 Run:
 

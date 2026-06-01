@@ -1,4 +1,4 @@
-# @mb-rust/geo-clustering-wasm
+# @moritzbrantner/geo-clustering-wasm
 
 WASM package for `geo-clustering`.
 

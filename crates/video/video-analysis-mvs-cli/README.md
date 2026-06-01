@@ -1,6 +1,6 @@
 # video-analysis-mvs-cli
 
-Thin command-line adapter for `video-analysis-mvs`.
+Thin command-line adapter for `moritzbrantner-video-analysis-mvs`.
 
 Run:
 

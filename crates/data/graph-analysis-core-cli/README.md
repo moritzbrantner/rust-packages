@@ -1,6 +1,6 @@
 # graph-analysis-core-cli
 
-Thin command-line adapter for `graph-analysis-core`.
+Thin command-line adapter for `moritzbrantner-graph-analysis-core`.
 
 Run:
 

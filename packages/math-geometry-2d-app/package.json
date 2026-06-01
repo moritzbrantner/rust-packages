@@ -1,5 +1,5 @@
 {
-  "name": "math-geometry-2d-app",
+  "name": "@moritzbrantner/math-geometry-2d-app",
   "version": "0.1.0",
   "description": "React app for math-geometry-2d: Shared 2D geometry contracts for multimodal image, video, and layout processing.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/math-geometry-2d-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/math-geometry-2d-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

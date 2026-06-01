@@ -1,3 +1,3 @@
-# @mb-rust/geo-io-osm-wasm
+# @moritzbrantner/geo-io-osm-wasm
 
 WASM package wrapper for `geo-io-osm`.

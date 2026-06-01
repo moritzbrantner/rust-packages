@@ -1,4 +1,4 @@
-# @mb-rust/model-runtime-wasm
+# @moritzbrantner/model-runtime-wasm
 
 WASM package for `model-runtime`.
 

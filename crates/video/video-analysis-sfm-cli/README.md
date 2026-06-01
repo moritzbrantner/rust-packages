@@ -1,6 +1,6 @@
 # video-analysis-sfm-cli
 
-Thin command-line adapter for `video-analysis-sfm`.
+Thin command-line adapter for `moritzbrantner-video-analysis-sfm`.
 
 Run:
 

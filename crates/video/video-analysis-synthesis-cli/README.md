@@ -1,6 +1,6 @@
 # video-analysis-synthesis-cli
 
-Thin command-line adapter for `video-analysis-synthesis`.
+Thin command-line adapter for `moritzbrantner-video-analysis-synthesis`.
 
 Run:
 

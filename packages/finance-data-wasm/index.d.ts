@@ -33,10 +33,23 @@ export interface FinanceDataSeriesIndex {
   getBars(query: { startMs: number; endMs: number }): unknown;
   getDownsampledBars(query: { startMs: number; endMs: number; targetCount: number }): unknown;
   getReturns(query: { adjusted?: boolean; method?: "simple" | "log" }): unknown;
+  getCompactReturns(query: {
+    adjusted?: boolean;
+    endMs: number;
+    method?: "simple" | "log";
+    startMs: number;
+    targetCount?: number;
+  }): unknown;
   getRiskSummary(query: unknown): unknown;
+  free(): void;
 }
 
 export function init(): Promise<unknown>;
 export function packageSurface(): Promise<PackageSurface>;
 export function runOperation(request: SurfaceRequest): Promise<SurfaceResponse>;
 export function createSeriesIndex(series: unknown): Promise<FinanceDataSeriesIndex>;
+export const FinanceDataSeriesIndex: {
+  new (series: unknown): FinanceDataSeriesIndex;
+};
+export function packageSurfaceSync(): PackageSurface;
+export function runOperationSync(request: SurfaceRequest): SurfaceResponse;

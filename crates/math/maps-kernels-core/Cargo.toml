@@ -1,5 +1,5 @@
 [package]
-name = "maps-kernels-core"
+name = "moritzbrantner-maps-kernels-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,6 +10,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+
+[lib]
+name = "maps_kernels_core"
 
 [dependencies]
 serde.workspace = true

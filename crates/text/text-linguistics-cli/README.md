@@ -1,6 +1,6 @@
 # text-linguistics-cli
 
-Thin command-line adapter for `text-linguistics`.
+Thin command-line adapter for `moritzbrantner-text-linguistics`.
 
 Run:
 

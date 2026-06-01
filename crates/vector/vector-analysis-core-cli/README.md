@@ -1,6 +1,6 @@
 # vector-analysis-core-cli
 
-Thin command-line adapter for `vector-analysis-core`.
+Thin command-line adapter for `moritzbrantner-vector-analysis-core`.
 
 Run:
 

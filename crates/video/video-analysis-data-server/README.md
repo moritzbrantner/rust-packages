@@ -1,6 +1,6 @@
 # video-analysis-data-server
 
-Thin HTTP API adapter for `video-analysis-data`.
+Thin HTTP API adapter for `moritzbrantner-video-analysis-data`.
 
 Run:
 

@@ -1,6 +1,6 @@
 # image-analysis-onnx-cli
 
-Thin command-line adapter for `image-analysis-onnx`.
+Thin command-line adapter for `moritzbrantner-image-analysis-onnx`.
 
 Run:
 

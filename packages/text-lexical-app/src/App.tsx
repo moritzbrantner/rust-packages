@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/text-lexical-wasm";
+import { createTextResultTabs, PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/text-lexical-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "text-lexical",
@@ -34,22 +34,36 @@ const packageAppConfig: PackageAppConfig = {
   presets: [
     {
       id: "lexical-analysis",
-      label: "Analyze",
+      label: "Analyze release note",
       operation: "lexical.analyze",
       description: "Compute deterministic lexical features for a short text.",
-      input: { text: "Rust crates make text analysis reliable.", maxTerms: 5 },
+      input: {
+        text: "Rust crates make transcript analysis reliable. Editors search captions, inspect keywords, and compare scene summaries before publishing.",
+        maxTerms: 10,
+      },
+    },
+    {
+      id: "keywords",
+      label: "Extract transcript keywords",
+      operation: "lexical.keywords",
+      description: "Rank deterministic lexical keywords.",
+      input: {
+        text: "Transcript search highlights transcript evidence, caption keywords, Rust analysis crates, and retrieval workflows.",
+        limit: 8,
+      },
     },
     {
       id: "corpus-search",
-      label: "Corpus",
+      label: "Search support corpus",
       operation: "lexical.corpusSearch",
       description: "Search a transient BM25 corpus.",
       input: {
         documents: [
-          { id: "doc-1", text: "rust text analysis" },
-          { id: "doc-2", text: "video scene analysis" },
+          { id: "doc-1", text: "rust text analysis supports transcript keyword extraction" },
+          { id: "doc-2", text: "video scene analysis summarizes shot boundaries" },
+          { id: "doc-3", text: "caption retrieval and lexical search help editors find evidence" },
         ],
-        query: "text",
+        query: "transcript keyword search",
         mode: "bm25",
       },
     },
@@ -82,6 +96,31 @@ const packageAppConfig: PackageAppConfig = {
       outputCountPath: ["results"],
     },
   ],
+  resultTabs: createTextResultTabs({
+    library: "text-lexical",
+    primaryOperations: {
+      "lexical.analyze": {
+        title: "Lexical analysis",
+        summaryFields: ["keywordCount", "entityCount", "wordCount", "sentenceCount"],
+        listFields: ["keywords", "entities"],
+        objectFields: ["readability", "sentiment", "summary", "statistics"],
+        explanation: () => "The lexical pipeline computed keywords, readability, sentiment-style cues, rule entities, and a compact summary from the sample text.",
+      },
+      "lexical.keywords": {
+        title: "Keyword ranking",
+        summaryFields: ["keywordCount"],
+        listFields: ["keywords"],
+        explanation: () => "The keyword extractor ranked terms by deterministic lexical frequency and weighting, without loading an external model.",
+      },
+      "lexical.corpusSearch": {
+        title: "Lexical corpus search",
+        summaryFields: ["resultCount", "mode"],
+        listFields: ["results"],
+        objectFields: ["corpus", "metadata"],
+        explanation: () => "The app built a transient TF-IDF or BM25 index from the sample corpus and returned the highest scoring documents.",
+      },
+    },
+  }),
 };
 
 export function App() {

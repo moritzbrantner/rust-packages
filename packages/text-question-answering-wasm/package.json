@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/text-question-answering-wasm",
+  "name": "@moritzbrantner/text-question-answering-wasm",
   "version": "0.1.0",
   "description": "WASM package for text-question-answering.",
   "license": "MIT OR Apache-2.0",

@@ -1,5 +1,5 @@
 [package]
-name = "text-analysis-cli"
+name = "moritzbrantner-text-analysis-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "text-analysis-cli"
 
+[lib]
+name = "text_analysis_cli"
+
 [[bin]]
 name = "text-analysis-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-text-analysis = { version = "0.1.0", path = "../text-analysis", features = ["candle"] }
+text-analysis = { package = "moritzbrantner-text-analysis", version = "0.1.0", path = "../text-analysis", features = ["candle"] }

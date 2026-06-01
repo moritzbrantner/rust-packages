@@ -29,6 +29,35 @@ struct ReturnsQuery {
     method: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CompactReturnsQuery {
+    start_ms: i64,
+    end_ms: i64,
+    #[serde(default)]
+    adjusted: bool,
+    #[serde(default = "default_returns_method")]
+    method: String,
+    target_count: Option<usize>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CompactReturns {
+    point_count: Vec<u32>,
+    x: Vec<f64>,
+    y: Vec<f64>,
+    summary: CompactReturnsSummary,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CompactReturnsSummary {
+    point_count: usize,
+    sample_count: usize,
+    x_domain: [f64; 2],
+}
+
 #[wasm_bindgen(js_name = packageSurface)]
 pub fn package_surface() -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(&finance_data::surface::package_surface()).map_err(into_js_error)
@@ -92,6 +121,68 @@ impl FinanceDataWasmSeriesIndex {
         serde_wasm_bindgen::to_value(&returns).map_err(into_js_error)
     }
 
+    #[wasm_bindgen(js_name = getCompactReturns)]
+    pub fn get_compact_returns(&self, query: JsValue) -> Result<JsValue, JsValue> {
+        let query: CompactReturnsQuery =
+            serde_wasm_bindgen::from_value(query).map_err(into_js_error)?;
+        let series = self.index.series();
+        let start = lower_bound_timestamp(&series.bars, query.start_ms);
+        let end = upper_bound_timestamp(&series.bars, query.end_ms);
+        let return_count = end.saturating_sub(start).saturating_sub(1);
+        let target_count = query
+            .target_count
+            .unwrap_or_else(|| return_count.max(1))
+            .max(1);
+        let bucket_count = return_count.min(target_count);
+        let mut point_count = vec![0_u32; bucket_count];
+        let mut x = vec![0.0_f64; bucket_count];
+        let mut y = vec![f64::NAN; bucket_count];
+        let mut sums = vec![0.0_f64; bucket_count];
+        let mut bucket_index = 0;
+        let mut bucket_end = return_bucket_end(bucket_index, return_count, bucket_count);
+
+        for return_index in 0..return_count {
+            let previous = return_price(&series.bars[start + return_index], query.adjusted);
+            let current = return_price(&series.bars[start + return_index + 1], query.adjusted);
+            let value = match query.method.as_str() {
+                "simple" => current / previous - 1.0,
+                "log" => (current / previous).ln(),
+                method => {
+                    return Err(into_js_error(video_analysis_error(format!(
+                        "unsupported returns method `{method}`"
+                    ))));
+                }
+            };
+
+            while return_index >= bucket_end && bucket_index < bucket_count.saturating_sub(1) {
+                bucket_index += 1;
+                bucket_end = return_bucket_end(bucket_index, return_count, bucket_count);
+            }
+
+            x[bucket_index] = series.bars[start + return_index + 1].timestamp_ms as f64;
+            point_count[bucket_index] += 1;
+            sums[bucket_index] += value;
+        }
+
+        for index in 0..bucket_count {
+            if point_count[index] > 0 {
+                y[index] = sums[index] / f64::from(point_count[index]);
+            }
+        }
+
+        serde_wasm_bindgen::to_value(&CompactReturns {
+            point_count,
+            x,
+            y,
+            summary: CompactReturnsSummary {
+                point_count: return_count,
+                sample_count: bucket_count,
+                x_domain: [query.start_ms as f64, query.end_ms as f64],
+            },
+        })
+        .map_err(into_js_error)
+    }
+
     #[wasm_bindgen(js_name = getRiskSummary)]
     pub fn get_risk_summary(&self, query: JsValue) -> Result<JsValue, JsValue> {
         let query: RiskSummaryOptions =
@@ -103,6 +194,55 @@ impl FinanceDataWasmSeriesIndex {
 
 fn default_returns_method() -> String {
     "simple".to_string()
+}
+
+fn lower_bound_timestamp(bars: &[finance_data::OhlcvBar], timestamp_ms: i64) -> usize {
+    let mut low = 0;
+    let mut high = bars.len();
+
+    while low < high {
+        let mid = low + (high - low) / 2;
+        if bars[mid].timestamp_ms < timestamp_ms {
+            low = mid + 1;
+        } else {
+            high = mid;
+        }
+    }
+
+    low
+}
+
+fn upper_bound_timestamp(bars: &[finance_data::OhlcvBar], timestamp_ms: i64) -> usize {
+    let mut low = 0;
+    let mut high = bars.len();
+
+    while low < high {
+        let mid = low + (high - low) / 2;
+        if bars[mid].timestamp_ms <= timestamp_ms {
+            low = mid + 1;
+        } else {
+            high = mid;
+        }
+    }
+
+    low
+}
+
+fn return_bucket_end(bucket_index: usize, return_count: usize, bucket_count: usize) -> usize {
+    if bucket_count == 0 {
+        return 0;
+    }
+
+    let start = bucket_index * return_count / bucket_count;
+    (((bucket_index + 1) * return_count) / bucket_count).max(start + 1)
+}
+
+fn return_price(bar: &finance_data::OhlcvBar, adjusted: bool) -> f64 {
+    if adjusted {
+        bar.adjusted_close.unwrap_or(bar.close)
+    } else {
+        bar.close
+    }
 }
 
 fn video_analysis_error(message: String) -> video_analysis_core::DetectError {
@@ -155,7 +295,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = finance_data::surface::package_surface();
-        assert_eq!(surface.library, "finance-data");
+        assert_eq!(surface.library, "moritzbrantner-finance-data");
         assert!(surface
             .operations
             .iter()

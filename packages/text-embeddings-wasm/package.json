@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/text-embeddings-wasm",
+  "name": "@moritzbrantner/text-embeddings-wasm",
   "version": "0.1.0",
   "description": "WASM package for text-embeddings.",
   "license": "MIT OR Apache-2.0",

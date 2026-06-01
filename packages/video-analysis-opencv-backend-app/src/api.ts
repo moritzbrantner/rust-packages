@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/video-analysis-opencv-backend-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/video-analysis-opencv-backend-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

@@ -1,10 +1,10 @@
 # comfyui-latents
 
-ComfyUI-oriented latent-space contracts for `video-analysis`.
+ComfyUI-oriented latent-space contracts for `moritzbrantner-video-analysis`.
 
 ## Highlights
 
-- Validated latent batches over shared `tensor-data`
+- Validated latent batches over shared `moritzbrantner-tensor-data`
 - Explicit latent mask compatibility checks
 - Image-size helpers for ComfyUI-style 1/8 latent scaling
 

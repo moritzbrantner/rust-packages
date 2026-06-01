@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = maps_kernels_core::surface::package_surface();
-        assert_eq!(surface.library, "maps-kernels-core");
+        assert_eq!(surface.library, "moritzbrantner-maps-kernels-core");
         assert!(!surface.operations.is_empty());
     }
 }

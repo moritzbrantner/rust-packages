@@ -1,4 +1,4 @@
-# @mb-rust/video-analysis-segmentation-wasm
+# @moritzbrantner/video-analysis-segmentation-wasm
 
 WASM package for `video-analysis-segmentation`.
 

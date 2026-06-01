@@ -1,4 +1,4 @@
-# @mb-rust/text-classification-wasm
+# @moritzbrantner/text-classification-wasm
 
 WASM package for `text-classification`.
 

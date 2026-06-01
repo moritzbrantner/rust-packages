@@ -1,6 +1,6 @@
 # video-analysis-segmentation-cli
 
-Thin command-line adapter for `video-analysis-segmentation`.
+Thin command-line adapter for `moritzbrantner-video-analysis-segmentation`.
 
 Run:
 

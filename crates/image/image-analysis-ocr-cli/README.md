@@ -1,6 +1,6 @@
 # image-analysis-ocr-cli
 
-Thin command-line adapter for `image-analysis-ocr`.
+Thin command-line adapter for `moritzbrantner-image-analysis-ocr`.
 
 Run:
 

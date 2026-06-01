@@ -1,6 +1,6 @@
 # graph-analysis-core
 
-Deterministic graph and tree analysis primitives for `video-analysis`.
+Deterministic graph and tree analysis primitives for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

@@ -24,7 +24,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = runtime_jobs::surface::package_surface();
-        assert_eq!(surface.library, "runtime-jobs");
+        assert_eq!(surface.library, "moritzbrantner-runtime-jobs");
         assert!(!surface.operations.is_empty());
     }
 }

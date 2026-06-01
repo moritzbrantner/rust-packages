@@ -24,7 +24,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = tensor_data::surface::package_surface();
-        assert_eq!(surface.library, "tensor-data");
+        assert_eq!(surface.library, "moritzbrantner-tensor-data");
         assert!(!surface.operations.is_empty());
     }
 }

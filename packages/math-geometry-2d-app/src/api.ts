@@ -1,4 +1,4 @@
-import { init, packageSurface, runOperation as runWasmOperation } from "@mb-rust/math-geometry-2d-wasm";
+import { init, packageSurface, runOperation as runWasmOperation } from "@moritzbrantner/math-geometry-2d-wasm";
 
 export type RuntimeMode = "client-wasm" | "server";
 

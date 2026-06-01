@@ -1,5 +1,5 @@
 {
-  "name": "image-analysis-core-app",
+  "name": "@moritzbrantner/image-analysis-core-app",
   "version": "0.1.0",
   "description": "React app for image-analysis-core: Shared image views, pixel formats, and image statistics for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/image-analysis-core-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/image-analysis-core-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

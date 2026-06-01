@@ -1,5 +1,5 @@
 {
-  "name": "math-statistics-app",
+  "name": "@moritzbrantner/math-statistics-app",
   "version": "0.1.0",
   "description": "React app for math-statistics: Shared multivariate statistics for dense matrix inputs and streaming observations.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/math-statistics-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/math-statistics-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

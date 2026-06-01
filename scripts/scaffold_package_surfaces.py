@@ -12,6 +12,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
+OWNER_PREFIX = "moritzbrantner-"
+NPM_SCOPE = "@moritzbrantner"
+UI_PACKAGE = f"{NPM_SCOPE}/video-analysis-ui"
 WRITE_FORCE = False
 SKIPPED_WRITES: list[Path] = []
 
@@ -36,14 +39,15 @@ def main() -> None:
     metadata = cargo_metadata()
     workspace_members = set(metadata["workspace_members"])
     selected = set(args.only)
+    selected_public = {public_crate_name(name) for name in selected}
     packages = [
         pkg
         for pkg in metadata["packages"]
         if pkg["id"] in workspace_members and is_library_crate(pkg)
-        and pkg["name"] in selected
+        and pkg["name"] in selected_public
     ]
     packages.sort(key=lambda pkg: pkg["name"])
-    missing = selected - {pkg["name"] for pkg in packages}
+    missing = selected_public - {pkg["name"] for pkg in packages}
     if missing:
         raise SystemExit(f"unknown library crate(s): {', '.join(sorted(missing))}")
 
@@ -51,9 +55,10 @@ def main() -> None:
         manifest = Path(package["manifest_path"])
         crate_dir = manifest.parent
         name = package["name"]
+        base_name = companion_package_base_name(name)
         description = package.get("description") or f"Runtime surface for the {name} library crate."
 
-        if name != "video-analysis-core":
+        if base_name != "video-analysis-core":
             add_dependency(manifest, "video-analysis-core.workspace = true")
         add_dependency(manifest, "serde_json.workspace = true")
         write_surface_module(crate_dir, name, description)
@@ -234,8 +239,10 @@ mod tests {{
 
 
 def write_cli(crate_dir: Path, name: str) -> None:
-    package_name = f"{name}-cli"
-    wrapper_dir = crate_dir.parent / package_name
+    base_name = companion_package_base_name(name)
+    package_name = public_crate_name(f"{base_name}-cli")
+    command_name = f"{base_name}-cli"
+    wrapper_dir = crate_dir.parent / command_name
     src_dir = wrapper_dir / "src"
     tests_dir = wrapper_dir / "tests"
     src_dir.mkdir(parents=True, exist_ok=True)
@@ -255,17 +262,17 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
-default-run = "{package_name}"
+default-run = "{command_name}"
 
 [[bin]]
-name = "{package_name}"
+name = "{command_name}"
 path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
-{"" if name == "video-analysis-core" else "video-analysis-core.workspace = true"}
+{"" if base_name == "video-analysis-core" else "video-analysis-core.workspace = true"}
 serde_json.workspace = true
-{name} = {{ path = "../{name}" }}
+{base_name} = {{ package = "{name}", path = "../{base_name}" }}
 """,
     )
     write(src_dir / "lib.rs", cli_lib_source(name))
@@ -274,8 +281,8 @@ serde_json.workspace = true
         tests_dir / "cli_surface.rs",
         f"""#[test]
 fn cli_adapter_reports_wrapped_library() {{
-    assert_eq!({rust_ident(package_name)}::LIBRARY_CRATE, "{name}");
-    let surface = {rust_ident(package_name)}::package_surface();
+    assert_eq!({rust_ident(command_name)}::LIBRARY_CRATE, "{name}");
+    let surface = {rust_ident(command_name)}::package_surface();
     assert_eq!(surface.library, "{name}");
     assert!(!surface.operations.is_empty());
 }}
@@ -283,7 +290,7 @@ fn cli_adapter_reports_wrapped_library() {{
     )
     write(
         wrapper_dir / "README.md",
-        f"""# {package_name}
+        f"""# {command_name}
 
 Thin command-line adapter for `{name}`.
 
@@ -298,6 +305,10 @@ cargo run -p {package_name} -- run --operation describe --json '{{"includeOperat
 
 
 def cli_lib_source(name: str) -> str:
+    base_name = companion_package_base_name(name)
+    server_package = public_crate_name(f"{base_name}-server")
+    app_package = public_npm_package_name(f"{base_name}-app")
+    wasm_package = public_npm_package_name(f"{base_name}-wasm")
     return f"""use video_analysis_core::runtime::{{
     ensure_structured_surface_value, OperationId, PackageSurface, SurfaceRequest, SurfaceResponse,
 }};
@@ -307,16 +318,16 @@ pub const LIBRARY_CRATE: &str = "{name}";
 /// Adapter surface kind.
 pub const SURFACE_KIND: &str = "cli";
 /// Rust import path for the wrapped crate.
-pub const LIBRARY_IMPORT: &str = "use {rust_ident(name)}";
+pub const LIBRARY_IMPORT: &str = "use {rust_ident(base_name)}";
 /// Companion server package name.
-pub const SERVER_PACKAGE: &str = "{name}-server";
+pub const SERVER_PACKAGE: &str = "{server_package}";
 /// Companion React app package name.
-pub const APP_PACKAGE: &str = "{name}-app";
+pub const APP_PACKAGE: &str = "{app_package}";
 /// Companion WASM package name.
-pub const WASM_PACKAGE: &str = "{name}-wasm";
+pub const WASM_PACKAGE: &str = "{wasm_package}";
 
 pub fn package_surface() -> PackageSurface {{
-    {rust_ident(name)}::surface::package_surface()
+    {rust_ident(base_name)}::surface::package_surface()
 }}
 
 pub fn package_metadata_json() -> String {{
@@ -346,7 +357,7 @@ pub fn command_schema_json() -> String {{
 }}
 
 pub fn run_operation(operation: &str, input: serde_json::Value) -> Result<SurfaceResponse, String> {{
-    let mut response = {rust_ident(name)}::surface::run_surface_operation(SurfaceRequest {{
+    let mut response = {rust_ident(base_name)}::surface::run_surface_operation(SurfaceRequest {{
         operation: OperationId::new(operation),
         input,
     }})?;
@@ -378,7 +389,8 @@ mod tests {{
 
 
 def cli_main_source(name: str) -> str:
-    package_name = f"{name}-cli"
+    base_name = companion_package_base_name(name)
+    package_name = f"{base_name}-cli"
     ident = rust_ident(package_name)
     return f"""use std::fs;
 use std::io::Read;
@@ -473,8 +485,10 @@ fn print_payload(json: bool, title: &str, payload: &str) {{
 
 
 def write_server(crate_dir: Path, name: str) -> None:
-    package_name = f"{name}-server"
-    wrapper_dir = crate_dir.parent / package_name
+    base_name = companion_package_base_name(name)
+    package_name = public_crate_name(f"{base_name}-server")
+    command_name = f"{base_name}-server"
+    wrapper_dir = crate_dir.parent / command_name
     src_dir = wrapper_dir / "src"
     tests_dir = wrapper_dir / "tests"
     src_dir.mkdir(parents=True, exist_ok=True)
@@ -494,17 +508,17 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
-default-run = "{package_name}"
+default-run = "{command_name}"
 
 [[bin]]
-name = "{package_name}"
+name = "{command_name}"
 path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
-{"" if name == "video-analysis-core" else "video-analysis-core.workspace = true"}
+{"" if base_name == "video-analysis-core" else "video-analysis-core.workspace = true"}
 serde_json.workspace = true
-{name} = {{ path = "../{name}" }}
+{base_name} = {{ package = "{name}", path = "../{base_name}" }}
 """,
     )
     write(src_dir / "lib.rs", server_lib_source(name))
@@ -513,14 +527,14 @@ serde_json.workspace = true
         tests_dir / "server_surface.rs",
         f"""#[test]
 fn package_endpoint_reports_wrapped_library() {{
-    let response = {rust_ident(package_name)}::response_for("GET", "/api/package", "");
+    let response = {rust_ident(command_name)}::response_for("GET", "/api/package", "");
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains("{name}"));
 }}
 
 #[test]
 fn run_endpoint_calls_library_surface() {{
-    let response = {rust_ident(package_name)}::response_for(
+    let response = {rust_ident(command_name)}::response_for(
         "POST",
         "/api/run",
         r#"{{"operation":"describe","input":{{"includeOperations":true}}}}"#,
@@ -532,7 +546,7 @@ fn run_endpoint_calls_library_surface() {{
     )
     write(
         wrapper_dir / "README.md",
-        f"""# {package_name}
+        f"""# {command_name}
 
 Thin HTTP API adapter for `{name}`.
 
@@ -555,6 +569,10 @@ Endpoints:
 
 
 def server_lib_source(name: str) -> str:
+    base_name = companion_package_base_name(name)
+    cli_package = public_crate_name(f"{base_name}-cli")
+    app_package = public_npm_package_name(f"{base_name}-app")
+    wasm_package = public_npm_package_name(f"{base_name}-wasm")
     return f"""use std::io::{{self, BufRead, BufReader, Read, Write}};
 use std::net::{{TcpListener, TcpStream}};
 
@@ -565,13 +583,13 @@ pub const LIBRARY_CRATE: &str = "{name}";
 /// Adapter surface kind.
 pub const SURFACE_KIND: &str = "api";
 /// Rust import path for the wrapped crate.
-pub const LIBRARY_IMPORT: &str = "use {rust_ident(name)}";
+pub const LIBRARY_IMPORT: &str = "use {rust_ident(base_name)}";
 /// Companion CLI package name.
-pub const CLI_PACKAGE: &str = "{name}-cli";
+pub const CLI_PACKAGE: &str = "{cli_package}";
 /// Companion React app package name.
-pub const APP_PACKAGE: &str = "{name}-app";
+pub const APP_PACKAGE: &str = "{app_package}";
 /// Companion WASM package name.
-pub const WASM_PACKAGE: &str = "{name}-wasm";
+pub const WASM_PACKAGE: &str = "{wasm_package}";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpResponse {{
@@ -607,7 +625,7 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {{
         ("GET", "/api/operations") => json_response(
             200,
             "OK",
-            serde_json::json!({rust_ident(name)}::surface::package_surface().operations),
+            serde_json::json!({rust_ident(base_name)}::surface::package_surface().operations),
         ),
         ("POST", "/api/run") => run_response(body),
         ("POST", path) if path.starts_with("/api/") => {{
@@ -629,7 +647,7 @@ pub fn package_metadata_json() -> String {{
 }}
 
 fn package_metadata_value() -> serde_json::Value {{
-    let surface = {rust_ident(name)}::surface::package_surface();
+    let surface = {rust_ident(base_name)}::surface::package_surface();
     serde_json::json!({{
         "package": format!("{{}}-server", LIBRARY_CRATE),
         "surface": SURFACE_KIND,
@@ -651,7 +669,7 @@ fn package_metadata_value() -> serde_json::Value {{
 }}
 
 fn schema_value() -> serde_json::Value {{
-    let operations = {rust_ident(name)}::surface::package_surface()
+    let operations = {rust_ident(base_name)}::surface::package_surface()
         .operations
         .into_iter()
         .map(|operation| {{
@@ -697,7 +715,7 @@ fn run_response(body: &str) -> HttpResponse {{
 }}
 
 fn run_request(request: SurfaceRequest) -> HttpResponse {{
-    match {rust_ident(name)}::surface::run_surface_operation(request) {{
+    match {rust_ident(base_name)}::surface::run_surface_operation(request) {{
         Ok(response) => json_response(200, "OK", serde_json::json!(response)),
         Err(error) => diagnostic_response(400, "Bad Request", "operation_failed", &error),
     }}
@@ -796,7 +814,8 @@ mod tests {{
 
 
 def server_main_source(name: str) -> str:
-    package_name = f"{name}-server"
+    base_name = companion_package_base_name(name)
+    package_name = f"{base_name}-server"
     return f"""use clap::Parser;
 
 #[derive(Debug, Parser)]
@@ -816,8 +835,10 @@ fn main() -> std::io::Result<()> {{
 
 
 def write_wasm_crate(name: str) -> None:
-    package_name = f"{name}-wasm"
-    crate_dir = ROOT / "crates" / "bindings" / package_name
+    base_name = companion_package_base_name(name)
+    crate_name = f"{base_name}-wasm"
+    package_name = public_crate_name(crate_name)
+    crate_dir = ROOT / "crates" / "bindings" / crate_name
     src_dir = crate_dir / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
     write(
@@ -836,16 +857,17 @@ keywords.workspace = true
 categories.workspace = true
 
 [lib]
+name = "{rust_ident(crate_name)}"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 js-sys = "0.3.82"
-{"" if name == "video-analysis-core" else "video-analysis-core.workspace = true"}
+{"" if base_name == "video-analysis-core" else "video-analysis-core.workspace = true"}
 serde.workspace = true
 serde_json.workspace = true
 serde-wasm-bindgen = "0.6.5"
 wasm-bindgen = "0.2.105"
-{name}.workspace = true
+{base_name}.workspace = true
 """,
     )
     write(
@@ -857,13 +879,13 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = packageSurface)]
 pub fn package_surface() -> Result<JsValue, JsValue> {{
-    serde_wasm_bindgen::to_value(&{rust_ident(name)}::surface::package_surface()).map_err(into_js_error)
+    serde_wasm_bindgen::to_value(&{rust_ident(base_name)}::surface::package_surface()).map_err(into_js_error)
 }}
 
 #[wasm_bindgen(js_name = runOperation)]
 pub fn run_operation(request: JsValue) -> Result<JsValue, JsValue> {{
     let request: SurfaceRequest = serde_wasm_bindgen::from_value(request).map_err(into_js_error)?;
-    let response = {rust_ident(name)}::surface::run_surface_operation(request).map_err(into_js_error)?;
+    let response = {rust_ident(base_name)}::surface::run_surface_operation(request).map_err(into_js_error)?;
     serde_wasm_bindgen::to_value(&response).map_err(into_js_error)
 }}
 
@@ -875,7 +897,7 @@ fn into_js_error(error: impl std::fmt::Display) -> JsValue {{
 mod tests {{
     #[test]
     fn wrapped_surface_has_operations() {{
-        let surface = {rust_ident(name)}::surface::package_surface();
+        let surface = {rust_ident(base_name)}::surface::package_surface();
         assert_eq!(surface.library, "{name}");
         assert!(!surface.operations.is_empty());
     }}
@@ -885,13 +907,14 @@ mod tests {{
 
 
 def write_wasm_package(name: str) -> None:
-    package_name = f"{name}-wasm"
+    base_name = companion_package_base_name(name)
+    package_name = f"{base_name}-wasm"
     package_dir = ROOT / "packages" / package_name
     scripts_dir = package_dir / "scripts"
     tests_dir = package_dir / "tests"
     scripts_dir.mkdir(parents=True, exist_ok=True)
     tests_dir.mkdir(parents=True, exist_ok=True)
-    scoped = f"@mb-rust/{package_name}"
+    scoped = public_npm_package_name(package_name)
     write(
         package_dir / "package.json",
         json.dumps(
@@ -1020,19 +1043,20 @@ bun run --cwd packages/{package_name} build
 
 
 def write_app(name: str, description: str) -> None:
-    package_name = f"{name}-app"
+    base_name = companion_package_base_name(name)
+    package_name = f"{base_name}-app"
     app_dir = ROOT / "packages" / package_name
     src_dir = app_dir / "src"
     if src_dir.exists() and WRITE_FORCE:
         shutil.rmtree(src_dir)
     src_dir.mkdir(parents=True, exist_ok=True)
-    title = title_case(name)
-    wasm_package = f"@mb-rust/{name}-wasm"
+    title = title_case(base_name)
+    wasm_package = public_npm_package_name(f"{base_name}-wasm")
     write(
         app_dir / "package.json",
         json.dumps(
             {
-                "name": package_name,
+                "name": public_npm_package_name(package_name),
                 "version": "0.1.0",
                 "description": f"React app for {name}: {description}",
                 "private": True,
@@ -1046,7 +1070,7 @@ def write_app(name: str, description: str) -> None:
                     "preview": "vite preview --host 0.0.0.0",
                 },
                 "dependencies": {
-                    "@video-analysis/ui": "workspace:*",
+                    UI_PACKAGE: "workspace:*",
                     wasm_package: "workspace:*",
                     "@vitejs/plugin-react": "^5.1.2",
                     "react": "^19.2.5",
@@ -1097,7 +1121,8 @@ bun run --cwd packages/{package_name} dev
 
 
 def app_api_source(name: str) -> str:
-    wasm_package = f"@mb-rust/{name}-wasm"
+    base_name = companion_package_base_name(name)
+    wasm_package = public_npm_package_name(f"{base_name}-wasm")
     return f"""import {{ init, packageSurface, runOperation as runWasmOperation }} from "{wasm_package}";
 
 export type RuntimeMode = "client-wasm" | "server";
@@ -1183,9 +1208,11 @@ async function fetchJson<T>(path: string): Promise<T> {{
 
 
 def app_component_source(name: str, title: str, description: str) -> str:
-    domain = package_domain(name)
-    return f"""import {{ PackageSurfaceWorkbench, type PackageAppConfig }} from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/{name}-wasm";
+    base_name = companion_package_base_name(name)
+    domain = package_domain(base_name)
+    wasm_package = public_npm_package_name(f"{base_name}-wasm")
+    return f"""import {{ PackageSurfaceWorkbench, type PackageAppConfig }} from "{UI_PACKAGE}/package-surface";
+import * as wasm from "{wasm_package}";
 
 const packageAppConfig: PackageAppConfig = {{
   library: "{name}",
@@ -1198,7 +1225,7 @@ const packageAppConfig: PackageAppConfig = {{
     runOperation: wasm.runOperation,
   }},
   server: {{
-    scopedRoute: "/api/rust/packages/{name}",
+    scopedRoute: "/api/rust/packages/{base_name}",
     standaloneRoute: "",
   }},
   defaultOperation: "describe",
@@ -1262,9 +1289,9 @@ def app_tsconfig() -> str:
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@video-analysis/ui": ["../video-analysis-ui/src/index.ts"],
-      "@video-analysis/ui/tailwind-content": ["../video-analysis-ui/src/tailwind-content.ts"],
-      "@video-analysis/ui/*": ["../video-analysis-ui/src/*/index.tsx"]
+      "@moritzbrantner/video-analysis-ui": ["../video-analysis-ui/src/index.ts"],
+      "@moritzbrantner/video-analysis-ui/tailwind-content": ["../video-analysis-ui/src/tailwind-content.ts"],
+      "@moritzbrantner/video-analysis-ui/*": ["../video-analysis-ui/src/*/index.tsx"]
     }
   },
   "include": ["src"],
@@ -1274,6 +1301,8 @@ def app_tsconfig() -> str:
 
 
 def app_vite_config(name: str) -> str:
+    base_name = companion_package_base_name(name)
+    wasm_package = public_npm_package_name(f"{base_name}-wasm")
     return f"""import react from "@vitejs/plugin-react";
 import {{ fileURLToPath }} from "node:url";
 import {{ defineConfig }} from "vite";
@@ -1282,14 +1311,14 @@ const uiSourceRoot = fileURLToPath(new URL("../video-analysis-ui/src", import.me
 
 export default defineConfig({{
   optimizeDeps: {{
-    exclude: ["@mb-rust/{name}-wasm"],
+    exclude: ["{wasm_package}"],
   }},
   plugins: [react()],
   resolve: {{
     alias: [
-      {{ find: /^@video-analysis\\/ui$/, replacement: `${{uiSourceRoot}}/index.ts` }},
-      {{ find: /^@video-analysis\\/ui\\/tailwind-content$/, replacement: `${{uiSourceRoot}}/tailwind-content.ts` }},
-      {{ find: /^@video-analysis\\/ui\\/([^/]+)$/, replacement: `${{uiSourceRoot}}/$1/index.tsx` }},
+      {{ find: /^@moritzbrantner\\/video-analysis-ui$/, replacement: `${{uiSourceRoot}}/index.ts` }},
+      {{ find: /^@moritzbrantner\\/video-analysis-ui\\/tailwind-content$/, replacement: `${{uiSourceRoot}}/tailwind-content.ts` }},
+      {{ find: /^@moritzbrantner\\/video-analysis-ui\\/([^/]+)$/, replacement: `${{uiSourceRoot}}/$1/index.tsx` }},
     ],
   }},
 }});
@@ -1421,6 +1450,18 @@ def title_case(name: str) -> str:
 
 def rust_ident(name: str) -> str:
     return name.replace("-", "_")
+
+
+def companion_package_base_name(package_name: str) -> str:
+    return package_name.removeprefix(OWNER_PREFIX)
+
+
+def public_crate_name(package_name: str) -> str:
+    return package_name if package_name.startswith(OWNER_PREFIX) else f"{OWNER_PREFIX}{package_name}"
+
+
+def public_npm_package_name(package_name: str) -> str:
+    return f"{NPM_SCOPE}/{companion_package_base_name(package_name)}"
 
 
 def write(path: Path, content: str) -> None:

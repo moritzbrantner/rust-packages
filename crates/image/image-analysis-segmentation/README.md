@@ -1,6 +1,6 @@
 # image-analysis-segmentation
 
-Image segmentation primitives and SAM model defaults for `video-analysis`.
+Image segmentation primitives and SAM model defaults for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 

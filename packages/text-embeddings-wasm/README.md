@@ -1,4 +1,4 @@
-# @mb-rust/text-embeddings-wasm
+# @moritzbrantner/text-embeddings-wasm
 
 WASM package for `text-embeddings`.
 

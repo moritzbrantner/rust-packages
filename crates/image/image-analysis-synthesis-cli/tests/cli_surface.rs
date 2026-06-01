@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "image-analysis-synthesis"
     );
     let surface = image_analysis_synthesis_cli::package_surface();
-    assert_eq!(surface.library, "image-analysis-synthesis");
+    assert_eq!(surface.library, "moritzbrantner-image-analysis-synthesis");
     assert!(!surface.operations.is_empty());
 }

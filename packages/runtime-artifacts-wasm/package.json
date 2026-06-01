@@ -1,5 +1,5 @@
 {
-  "name": "@mb-rust/runtime-artifacts-wasm",
+  "name": "@moritzbrantner/runtime-artifacts-wasm",
   "version": "0.1.0",
   "description": "WASM package for runtime-artifacts.",
   "license": "MIT OR Apache-2.0",

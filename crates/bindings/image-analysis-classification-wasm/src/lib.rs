@@ -26,7 +26,10 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = image_analysis_classification::surface::package_surface();
-        assert_eq!(surface.library, "image-analysis-classification");
+        assert_eq!(
+            surface.library,
+            "moritzbrantner-image-analysis-classification"
+        );
         assert!(!surface.operations.is_empty());
     }
 }

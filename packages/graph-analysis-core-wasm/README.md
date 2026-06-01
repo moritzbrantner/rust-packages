@@ -1,4 +1,4 @@
-# @mb-rust/graph-analysis-core-wasm
+# @moritzbrantner/graph-analysis-core-wasm
 
 WASM package for `graph-analysis-core`.
 

@@ -1,5 +1,5 @@
 [package]
-name = "video-analysis-data-wasm"
+name = "moritzbrantner-video-analysis-data-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -5,8 +5,8 @@ import {
   PackageSurfaceWorkbench,
   type PackageAppConfig,
   type SurfaceResponse,
-} from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/video-analysis-colmap-backend-wasm";
+} from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/video-analysis-colmap-backend-wasm";
 
 import { ColmapSceneViewer } from "./ColmapSceneViewer";
 

@@ -1,6 +1,6 @@
 # image-analysis-comfyui-cli
 
-Thin command-line adapter for `image-analysis-comfyui`.
+Thin command-line adapter for `moritzbrantner-image-analysis-comfyui`.
 
 Run:
 

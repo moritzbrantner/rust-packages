@@ -1,6 +1,6 @@
 # tensor-data
 
-Small finite `f32` tensor contracts and metadata for `video-analysis`.
+Small finite `f32` tensor contracts and metadata for `moritzbrantner-video-analysis`.
 
 ## Highlights
 

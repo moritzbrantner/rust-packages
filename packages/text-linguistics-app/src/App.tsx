@@ -1,5 +1,5 @@
-import { PackageSurfaceWorkbench, type PackageAppConfig } from "@video-analysis/ui/package-surface";
-import * as wasm from "@mb-rust/text-linguistics-wasm";
+import { createTextResultTabs, PackageSurfaceWorkbench, type PackageAppConfig } from "@moritzbrantner/video-analysis-ui/package-surface";
+import * as wasm from "@moritzbrantner/text-linguistics-wasm";
 
 const packageAppConfig: PackageAppConfig = {
   library: "text-linguistics",
@@ -33,18 +33,38 @@ const packageAppConfig: PackageAppConfig = {
   ],
   presets: [
     {
-      id: "linguistic-analysis",
-      label: "Analyze",
+      id: "fast-analysis",
+      label: "Fast linguistic pass",
       operation: "linguistics.analyze",
       description: "Run the fast deterministic linguistic profile.",
       input: { text: "Alice presented the tokenizer roadmap in Berlin.", profile: "fast" },
     },
     {
+      id: "balanced-analysis",
+      label: "Balanced linguistic pass",
+      operation: "linguistics.analyze",
+      description: "Run balanced token, lemma, POS, entity, and relation extraction.",
+      input: {
+        text: "Alice presented the tokenizer roadmap in Berlin. Bob reviewed transcript retrieval evidence for the release notes.",
+        profile: "balanced",
+      },
+    },
+    {
+      id: "rich-analysis",
+      label: "Rich linguistic report",
+      operation: "linguistics.analyze",
+      description: "Run the richest deterministic linguistic projection exposed by the surface.",
+      input: {
+        text: "Alice presented the tokenizer roadmap in Berlin. The editorial team connected transcript retrieval, scene summaries, and Rust package APIs.",
+        profile: "rich",
+      },
+    },
+    {
       id: "entities",
-      label: "Entities",
+      label: "Extract named entities",
       operation: "linguistics.entities",
       description: "Extract entities and relations from a short sentence.",
-      input: { text: "Alice presented the tokenizer roadmap in Berlin." },
+      input: { text: "Alice presented the tokenizer roadmap in Berlin while Bob reviewed transcript retrieval in Paris." },
     },
   ],
   benchmarkScenarios: [
@@ -76,6 +96,25 @@ const packageAppConfig: PackageAppConfig = {
       outputCountPath: ["entities"],
     },
   ],
+  resultTabs: createTextResultTabs({
+    library: "text-linguistics",
+    primaryOperations: {
+      "linguistics.analyze": {
+        title: "Linguistic analysis",
+        summaryFields: ["profile", "language", "tokenCount", "entityCount", "relationCount", "eventCount"],
+        listFields: ["tokens", "lemmas", "posTags", "entities", "relations", "events", "topics"],
+        objectFields: ["language", "style", "syntax", "model"],
+        explanation: () => "The WASM path runs the deterministic linguistic pipeline; the overview server can also expose model catalog metadata without forcing optional native model execution.",
+      },
+      "linguistics.entities": {
+        title: "Entity extraction",
+        summaryFields: ["entityCount", "relationCount", "eventCount"],
+        listFields: ["entities", "canonicalEntities", "relations", "events"],
+        objectFields: ["language", "model"],
+        explanation: () => "The entity workflow focuses the linguistic projection on named entities, canonical forms, relations, and event-style facts.",
+      },
+    },
+  }),
 };
 
 export function App() {

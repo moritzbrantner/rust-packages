@@ -783,14 +783,18 @@ function wrapperAppModulePath(library: string): keyof typeof wrapperAppModules {
 }
 
 function serviceLibraryName(wrapper: WorkspaceArchitecturePackage): string {
-  return wrapper.name.replace(/-server$/, "");
+  return wrapper.name.replace(/^moritzbrantner-/, "").replace(/-server$/, "");
 }
 
 function relatedSurfaces(library: string, packages: WorkspaceArchitecturePackage[]) {
-  const wasmNames = new Set([`${library}-wasm`, `@mb-rust/${library}-wasm`]);
+  const wasmNames = new Set([
+    `${library}-wasm`,
+    `moritzbrantner-${library}-wasm`,
+    `@moritzbrantner/${library}-wasm`,
+  ]);
   return {
-    app: packages.find((pkg) => pkg.name === `${library}-app`),
-    server: packages.find((pkg) => pkg.name === `${library}-server`),
+    app: packages.find((pkg) => pkg.name === `@moritzbrantner/${library}-app`),
+    server: packages.find((pkg) => pkg.name === `moritzbrantner-${library}-server`),
     wasm: packages.find((pkg) => wasmNames.has(pkg.name)),
   };
 }

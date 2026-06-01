@@ -1,6 +1,6 @@
 # image-analysis-segmentation-cli
 
-Thin command-line adapter for `image-analysis-segmentation`.
+Thin command-line adapter for `moritzbrantner-image-analysis-segmentation`.
 
 Run:
 

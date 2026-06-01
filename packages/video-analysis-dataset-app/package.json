@@ -1,5 +1,5 @@
 {
-  "name": "video-analysis-dataset-app",
+  "name": "@moritzbrantner/video-analysis-dataset-app",
   "version": "0.1.0",
   "description": "React app for video-analysis-dataset: Serializable retained analysis records for video-analysis.",
   "private": true,
@@ -13,8 +13,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@video-analysis/ui": "workspace:*",
-    "@mb-rust/video-analysis-dataset-wasm": "workspace:*",
+    "@moritzbrantner/video-analysis-ui": "workspace:*",
+    "@moritzbrantner/video-analysis-dataset-wasm": "workspace:*",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

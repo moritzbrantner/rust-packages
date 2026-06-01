@@ -1,6 +1,6 @@
 # math-statistics-cli
 
-Thin command-line adapter for `math-statistics`.
+Thin command-line adapter for `moritzbrantner-math-statistics`.
 
 Run:
 

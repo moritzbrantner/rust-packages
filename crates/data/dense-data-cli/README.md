@@ -1,6 +1,6 @@
 # dense-data-cli
 
-Thin command-line adapter for `dense-data`.
+Thin command-line adapter for `moritzbrantner-dense-data`.
 
 Run:
 

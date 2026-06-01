@@ -1,5 +1,5 @@
 [package]
-name = "audio-analysis-core-cli"
+name = "moritzbrantner-audio-analysis-core-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "audio-analysis-core-cli"
 
+[lib]
+name = "audio_analysis_core_cli"
+
 [[bin]]
 name = "audio-analysis-core-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-audio-analysis-core = { version = "0.1.0", path = "../audio-analysis-core" }
+audio-analysis-core = { package = "moritzbrantner-audio-analysis-core", version = "0.1.0", path = "../audio-analysis-core" }

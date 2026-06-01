@@ -1,5 +1,5 @@
 [package]
-name = "finance-statistics-server"
+name = "moritzbrantner-finance-statistics-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "finance-statistics-server"
 
+[lib]
+name = "finance_statistics_server"
+
 [[bin]]
 name = "finance-statistics-server"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-finance-statistics = { version = "0.1.0", path = "../finance-statistics" }
+finance-statistics = { package = "moritzbrantner-finance-statistics", version = "0.1.0", path = "../finance-statistics" }

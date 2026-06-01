@@ -26,7 +26,10 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_colmap_backend::surface::package_surface();
-        assert_eq!(surface.library, "video-analysis-colmap-backend");
+        assert_eq!(
+            surface.library,
+            "moritzbrantner-video-analysis-colmap-backend"
+        );
         assert!(!surface.operations.is_empty());
     }
 }

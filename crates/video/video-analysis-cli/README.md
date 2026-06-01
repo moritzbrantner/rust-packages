@@ -1,6 +1,6 @@
 # video-analysis-cli
 
-Command-line entry point for `video-analysis` workflows.
+Command-line entry point for `moritzbrantner-video-analysis` workflows.
 
 ## Feature flags
 

@@ -1,5 +1,5 @@
 [package]
-name = "image-analysis-classification-cli"
+name = "moritzbrantner-image-analysis-classification-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ keywords.workspace = true
 categories.workspace = true
 default-run = "image-analysis-classification-cli"
 
+[lib]
+name = "image_analysis_classification_cli"
+
 [[bin]]
 name = "image-analysis-classification-cli"
 path = "src/main.rs"
@@ -20,4 +23,4 @@ path = "src/main.rs"
 video-analysis-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-image-analysis-classification = { version = "0.1.0", path = "../image-analysis-classification" }
+image-analysis-classification = { package = "moritzbrantner-image-analysis-classification", version = "0.1.0", path = "../image-analysis-classification" }

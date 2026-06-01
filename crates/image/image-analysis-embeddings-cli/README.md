@@ -1,6 +1,6 @@
 # image-analysis-embeddings-cli
 
-Thin command-line adapter for `image-analysis-embeddings`.
+Thin command-line adapter for `moritzbrantner-image-analysis-embeddings`.
 
 Run:
 
