@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import { Button, CopyButton } from "@moritzbrantner/ui";
 
-import { Badge, EmptyState, StatCard } from "../shared/primitives";
+import { Badge, Button, CopyButton, EmptyState, StatCard } from "../shared/primitives";
 import type { ResultTabDefinition, SurfaceResponse } from "./types";
 
 type ResultTab = ResultTabDefinition & { description?: string };

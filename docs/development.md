@@ -16,9 +16,6 @@ Install the Bun workspace dependencies:
 bun install
 ```
 
-The workspace uses GitHub Packages for `@moritzbrantner/ui`; set
-`GH_PACKAGES_TOKEN` if Bun cannot read that package.
-
 ## Daily Commands
 
 ```bash
@@ -100,8 +97,6 @@ publish wave. Do not publish `audio-analysis-test-support`,
 
 ## Troubleshooting
 
-- If Bun install fails against `npm.pkg.github.com`, verify `GH_PACKAGES_TOKEN`
-  and `.npmrc`.
 - If browser tests fail because Chromium is missing, run
   `bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium`.
 - If `scripts/check.sh` fails before tests run, verify external prerequisites

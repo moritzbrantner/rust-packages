@@ -54,9 +54,6 @@ cargo install wasm-pack --locked --version 0.14.0
 bun install
 ```
 
-`bun install` needs access to the configured GitHub Packages registry for
-`@moritzbrantner/ui`; set `GH_PACKAGES_TOKEN` when required.
-
 Standard root commands:
 
 ```bash

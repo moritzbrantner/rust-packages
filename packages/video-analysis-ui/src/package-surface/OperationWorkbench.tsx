@@ -8,7 +8,7 @@ import {
   FieldLabel,
   Input,
   Textarea,
-} from "@moritzbrantner/ui";
+} from "../shared/primitives";
 
 import type { PackageAppPreset, SurfaceOperation } from "./types";
 

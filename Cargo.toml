@@ -198,6 +198,31 @@ onnx = ["dep:image-analysis-onnx", "dep:video-analysis-onnx"]
 ffmpeg-backend = ["video-analysis-ffmpeg/ffmpeg-backend"]
 ffmpeg-tests = ["ffmpeg-backend"]
 onnx-backend = ["onnx"]
+text-tokenizers = [
+    "text-analysis/tokenizers",
+    "text-embeddings/tokenizers",
+    "text-linguistics/tokenizers",
+    "text-model-runtime/tokenizers",
+]
+text-candle = [
+    "text-analysis/candle",
+    "text-embeddings/candle",
+    "text-linguistics/candle",
+    "text-model-runtime/candle",
+]
+text-model-bundles = [
+    "text-analysis/model-bundles",
+    "text-embeddings/model-bundles",
+    "text-linguistics/model-bundles",
+    "text-model-runtime/model-bundles",
+]
+text-cuda = [
+    "text-candle",
+    "text-analysis/cuda",
+    "text-embeddings/cuda",
+    "text-linguistics/cuda",
+    "text-model-runtime/cuda",
+]
 
 [dependencies]
 animation-core.workspace = true
@@ -276,10 +301,10 @@ image-analysis-processing.workspace = true
 image-analysis-segmentation.workspace = true
 image-analysis-synthesis.workspace = true
 text-core.workspace = true
-text-analysis = { workspace = true, features = ["candle", "model-bundles"] }
+text-analysis.workspace = true
 text-classification.workspace = true
 text-lexical.workspace = true
-text-linguistics = { workspace = true, features = ["candle", "model-bundles", "transcripts"] }
+text-linguistics = { workspace = true, features = ["transcripts"] }
 text-model-runtime.workspace = true
 text-question-answering.workspace = true
 text-generation.workspace = true

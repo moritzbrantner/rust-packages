@@ -1,25 +1,10 @@
-import type { KeyboardEvent, ReactNode } from "react";
 import {
-  Badge as UiBadge,
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  Stat,
-  StatDescription,
-  StatLabel,
-  StatValue,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@moritzbrantner/ui";
+  useState,
+  type ComponentPropsWithoutRef,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 
 import { cn } from "./utils";
 
@@ -48,27 +33,27 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <Card
+    <section
       className={cn(
         "gap-0 rounded-lg border border-zinc-200 bg-white py-0 text-zinc-950 shadow-sm ring-0",
         className,
       )}
     >
       {(title || description || actions) && (
-        <CardHeader className="flex flex-col gap-3 border-b border-zinc-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-3 border-b border-zinc-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             {title && <h2 className="text-sm font-semibold text-zinc-950">{title}</h2>}
             {description && (
-              <CardDescription className="mt-1 text-sm text-zinc-600">
+              <p className="mt-1 text-sm text-zinc-600">
                 {description}
-              </CardDescription>
+              </p>
             )}
           </div>
-          {actions && <CardAction className="flex items-center gap-2">{actions}</CardAction>}
-        </CardHeader>
+          {actions && <div className="flex items-center gap-2">{actions}</div>}
+        </header>
       )}
-      <CardContent className="p-4">{children}</CardContent>
-    </Card>
+      <div className="p-4">{children}</div>
+    </section>
   );
 }
 
@@ -82,8 +67,7 @@ export function Badge({
   className?: string;
 }) {
   return (
-    <UiBadge
-      variant="outline"
+    <span
       className={cn(
         "inline-flex min-h-6 rounded-md border px-2 py-0.5 text-xs font-medium shadow-none",
         toneClasses[tone],
@@ -91,7 +75,7 @@ export function Badge({
       )}
     >
       {children}
-    </UiBadge>
+    </span>
   );
 }
 
@@ -107,27 +91,25 @@ export function StatCard({
   tone?: Tone;
 }) {
   return (
-    <Stat className={cn("gap-1 rounded-lg border p-3 shadow-none", toneClasses[tone])}>
-      <StatLabel className="text-xs font-medium uppercase tracking-normal opacity-75">
+    <div className={cn("gap-1 rounded-lg border p-3 shadow-none", toneClasses[tone])}>
+      <p className="text-xs font-medium uppercase tracking-normal opacity-75">
         {label}
-      </StatLabel>
-      <StatValue className="mt-1 text-xl font-semibold text-zinc-950">{value}</StatValue>
+      </p>
+      <p className="mt-1 text-xl font-semibold text-zinc-950">{value}</p>
       {detail && (
-        <StatDescription className="mt-1 text-xs leading-normal opacity-75">
+        <p className="mt-1 text-xs leading-normal opacity-75">
           {detail}
-        </StatDescription>
+        </p>
       )}
-    </Stat>
+    </div>
   );
 }
 
 export function EmptyState({ children = "No results" }: { children?: ReactNode }) {
   return (
-    <Empty className="min-h-24 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-sm text-zinc-500">
-      <EmptyHeader>
-        <EmptyDescription className="text-sm text-zinc-500">{children}</EmptyDescription>
-      </EmptyHeader>
-    </Empty>
+    <div className="min-h-24 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-sm text-zinc-500">
+      <p className="text-sm text-zinc-500">{children}</p>
+    </div>
   );
 }
 
@@ -167,22 +149,22 @@ export function DataTable<T>({
   };
 
   return (
-    <Table className="min-w-full text-left text-sm">
-      <TableHeader className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-        <TableRow className="border-zinc-200 hover:bg-transparent">
+    <table className="min-w-full text-left text-sm">
+      <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
+        <tr className="border-zinc-200 hover:bg-transparent">
           {columns.map((column) => (
-            <TableHead
+            <th
               key={column.key}
               className={cn("px-3 py-2 font-medium text-zinc-500", column.headerClassName)}
             >
               {column.header}
-            </TableHead>
+            </th>
           ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody className="divide-y divide-zinc-100">
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-zinc-100">
         {rows.map((row, index) => (
-          <TableRow
+          <tr
             key={getRowKey(row, index)}
             className={cn(
               "border-zinc-100 hover:bg-zinc-50",
@@ -195,14 +177,14 @@ export function DataTable<T>({
             onKeyDown={(event) => handleRowKeyDown(event, row, index)}
           >
             {columns.map((column) => (
-              <TableCell key={column.key} className={cn("px-3 py-2", column.className)}>
+              <td key={column.key} className={cn("px-3 py-2", column.className)}>
                 {column.cell(row, index)}
-              </TableCell>
+              </td>
             ))}
-          </TableRow>
+          </tr>
         ))}
-      </TableBody>
-    </Table>
+      </tbody>
+    </table>
   );
 }
 
@@ -217,5 +199,106 @@ export function ScoreMeter({ value }: { value?: number | null }) {
         {value == null ? "n/a" : value <= 1 ? `${Math.round(value * 100)}%` : value.toFixed(1)}
       </span>
     </div>
+  );
+}
+
+type ButtonProps = ComponentPropsWithoutRef<"button"> & {
+  variant?: string;
+};
+
+export function Button({
+  className,
+  type = "button",
+  variant: _variant,
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      className={cn("inline-flex items-center justify-center", className)}
+      type={type}
+      {...props}
+    />
+  );
+}
+
+type CopyButtonProps = ButtonProps & {
+  value: string;
+  copyLabel?: string;
+  copiedLabel?: string;
+};
+
+export function CopyButton({
+  value,
+  copyLabel = "Copy",
+  copiedLabel = "Copied",
+  className,
+  onClick,
+  ...props
+}: CopyButtonProps) {
+  const [label, setLabel] = useState(copyLabel);
+
+  async function copyToClipboard(event: MouseEvent<HTMLButtonElement>) {
+    onClick?.(event);
+    if (event.defaultPrevented) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      setLabel(copiedLabel);
+      window.setTimeout(() => setLabel(copyLabel), 1200);
+    } catch {
+      setLabel("Copy failed");
+      window.setTimeout(() => setLabel(copyLabel), 1600);
+    }
+  }
+
+  return (
+    <Button className={className} onClick={(event) => void copyToClipboard(event)} {...props}>
+      {label}
+    </Button>
+  );
+}
+
+export function FieldGroup({ className, ...props }: ComponentPropsWithoutRef<"div">) {
+  return <div className={cn("grid", className)} {...props} />;
+}
+
+export function Field({ className, ...props }: ComponentPropsWithoutRef<"div">) {
+  return <div className={cn("grid gap-2", className)} {...props} />;
+}
+
+export function FieldContent({ className, ...props }: ComponentPropsWithoutRef<"div">) {
+  return <div className={cn("grid gap-1", className)} {...props} />;
+}
+
+export function FieldLabel({ className, ...props }: ComponentPropsWithoutRef<"label">) {
+  return <label className={cn("text-sm font-medium text-zinc-950", className)} {...props} />;
+}
+
+export function FieldDescription({ className, ...props }: ComponentPropsWithoutRef<"p">) {
+  return <p className={cn("text-sm leading-6 text-zinc-600", className)} {...props} />;
+}
+
+export function Input({ className, ...props }: ComponentPropsWithoutRef<"input">) {
+  return (
+    <input
+      className={cn(
+        "min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function Textarea({ className, ...props }: ComponentPropsWithoutRef<"textarea">) {
+  return (
+    <textarea
+      className={cn(
+        "w-full rounded-md border border-zinc-300 bg-white p-3 text-sm text-zinc-950 outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200",
+        className,
+      )}
+      {...props}
+    />
   );
 }

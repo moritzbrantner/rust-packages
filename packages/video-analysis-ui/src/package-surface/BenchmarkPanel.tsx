@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import { Button, CopyButton } from "@moritzbrantner/ui";
 
-import { EmptyState, StatCard } from "../shared/primitives";
+import { Button, CopyButton, EmptyState, StatCard } from "../shared/primitives";
 import { runOperation } from "./runtime";
 import type { BenchmarkScenario, PackageAppConfig, RuntimeMode } from "./types";
 

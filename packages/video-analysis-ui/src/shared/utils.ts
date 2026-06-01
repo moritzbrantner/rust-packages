@@ -1,8 +1,7 @@
 import type { Scene, SceneReport, Timestamp, TimelineScene } from "../types";
-import { cn as mergeClassNames } from "@moritzbrantner/ui/lib/cn";
 
 export function cn(...classes: Array<string | false | null | undefined>): string {
-  return mergeClassNames(classes);
+  return classes.filter(Boolean).join(" ");
 }
 
 export function timestampSeconds(timestamp?: Timestamp | null): number | null {

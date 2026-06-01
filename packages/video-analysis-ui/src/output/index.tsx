@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { Input } from "@moritzbrantner/ui";
 
-import { Panel } from "../shared/primitives";
+import { Input, Panel } from "../shared/primitives";
 
 export function ReportShell({
   title = "Analysis Results",
