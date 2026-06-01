@@ -2,8 +2,6 @@ name: external-ci
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "45 4 * * 1"
 
 permissions:
   contents: read

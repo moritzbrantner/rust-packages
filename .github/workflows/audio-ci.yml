@@ -2,8 +2,6 @@ name: audio-ci
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "17 3 * * 1"
 
 permissions:
   contents: read
@@ -167,7 +165,6 @@ jobs:
 
   audio-perf:
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(join(github.event.pull_request.labels.*.name, ','), 'audio-perf')
     steps:
       - name: Install Bun
         env:
@@ -241,7 +238,6 @@ jobs:
 
   audio-demucs-smoke:
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     continue-on-error: true
     steps:
       - name: Install Bun
