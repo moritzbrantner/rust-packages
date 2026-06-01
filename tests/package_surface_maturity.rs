@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
-use video_analysis_core::runtime::{PackageSurface, SurfaceOperation};
+use runtime_core::{PackageSurface, SurfaceOperation};
 
 #[derive(Debug)]
 struct MatrixRow {
@@ -80,17 +80,15 @@ fn migrated_tranche_operation_metadata_is_complete() {
             finance_data::surface::package_surface(),
             finance_data::surface::run_surface_operation
                 as fn(
-                    video_analysis_core::runtime::SurfaceRequest,
-                )
-                    -> Result<video_analysis_core::runtime::SurfaceResponse, String>,
+                    runtime_core::SurfaceRequest,
+                ) -> Result<runtime_core::SurfaceResponse, String>,
         ),
         (
             video_analysis_detectors::surface::package_surface(),
             video_analysis_detectors::surface::run_surface_operation
                 as fn(
-                    video_analysis_core::runtime::SurfaceRequest,
-                )
-                    -> Result<video_analysis_core::runtime::SurfaceResponse, String>,
+                    runtime_core::SurfaceRequest,
+                ) -> Result<runtime_core::SurfaceResponse, String>,
         ),
         (
             video_analysis_output::surface::package_surface(),
@@ -153,16 +151,14 @@ fn assert_operation_metadata(library: &str, operation: &SurfaceOperation) {
 
 fn assert_surface_operations_are_not_scaffold(
     surface: PackageSurface,
-    runner: fn(
-        video_analysis_core::runtime::SurfaceRequest,
-    ) -> Result<video_analysis_core::runtime::SurfaceResponse, String>,
+    runner: fn(runtime_core::SurfaceRequest) -> Result<runtime_core::SurfaceResponse, String>,
 ) {
     for operation in surface
         .operations
         .iter()
         .filter(|operation| operation.id.as_str() != "describe")
     {
-        let response = runner(video_analysis_core::runtime::SurfaceRequest {
+        let response = runner(runtime_core::SurfaceRequest {
             operation: operation.id.clone(),
             input: operation.example_request.clone(),
         })

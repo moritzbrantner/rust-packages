@@ -1,4 +1,4 @@
-use video_analysis_core::runtime::{PackageSurface, SurfaceRequest, SurfaceResponse};
+use runtime_core::{PackageSurface, SurfaceRequest, SurfaceResponse};
 
 type SurfaceFn = fn() -> PackageSurface;
 type RunFn = fn(SurfaceRequest) -> Result<SurfaceResponse, String>;

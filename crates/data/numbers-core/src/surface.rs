@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `numbers-core`.
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{histogram, quantile, quartiles, summarize_numbers, HistogramConfig, NumberRange};
 

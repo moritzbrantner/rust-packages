@@ -1,11 +1,11 @@
 //! Library-owned runtime surface for `video-analysis-storage`.
 
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use video_analysis_dataset::AnalysisDataset;
 
 use crate::build_manifest;

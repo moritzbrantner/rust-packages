@@ -1,5 +1,5 @@
+use runtime_core::{OperationId, SurfaceRequest};
 use text_analysis::surface::{package_surface, run_surface_operation};
-use video_analysis_core::runtime::{OperationId, SurfaceRequest};
 
 fn run(operation: &str, input: serde_json::Value) -> Result<serde_json::Value, String> {
     run_surface_operation(SurfaceRequest {

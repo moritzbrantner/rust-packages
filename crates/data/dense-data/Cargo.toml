@@ -16,6 +16,7 @@ categories.workspace = true
 name = "dense_data"
 
 [dependencies]
+runtime-core.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 math-linear.workspace = true

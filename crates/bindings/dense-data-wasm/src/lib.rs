@@ -1,7 +1,7 @@
 //! WASM bindings for `dense-data`.
 
+use runtime_core::SurfaceRequest;
 use serde::Serialize;
-use video_analysis_core::runtime::SurfaceRequest;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = NumericSeriesIndex)]

@@ -7,5 +7,5 @@ RUST_TEST_THREADS="${RUST_TEST_THREADS:-${TEST_MAX_WORKERS:-2}}"
 export RUST_TEST_THREADS
 
 "$ROOT_DIR/scripts/check-fast.sh"
-cargo test --jobs "$CARGO_BUILD_JOBS" -p video-analysis-ffmpeg --features ffmpeg-tests
+cargo test --jobs "$CARGO_BUILD_JOBS" -p moritzbrantner-video-analysis-ffmpeg --features ffmpeg-tests
 "$ROOT_DIR/scripts/check-e2e.sh"

@@ -16,6 +16,7 @@ categories.workspace = true
 name = "audio_analysis_synthesis"
 
 [dependencies]
+runtime-core.workspace = true
 serde_json.workspace = true
 audio-analysis-recognition.workspace = true
 data-inversion-core.workspace = true

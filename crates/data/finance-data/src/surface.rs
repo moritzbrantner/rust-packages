@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `finance-data`.
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     describe_surface_response, structured_surface_response, surface_operation, OperationId,
     PackageSurface, RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{FinanceSeries, FinanceSeriesIndex, RiskSummaryOptions};
 

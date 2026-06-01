@@ -3,11 +3,11 @@
 use serde::de::DeserializeOwned;
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
 use video_analysis_dataset::{AnalysisDataset, DatasetRecord, FeatureRecord, FeatureValue};
 
 use crate::{

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use runtime_core::{Diagnostic, DiagnosticSeverity, OperationId, SurfaceResponse};
 use serde::{Deserialize, Serialize};
-use video_analysis_core::runtime::{Diagnostic, DiagnosticSeverity, OperationId, SurfaceResponse};
 use video_analysis_radiance_io::read_colmap_text_dir;
 
 use crate::scene::{

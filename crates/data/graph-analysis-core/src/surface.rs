@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `graph-analysis-core`.
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{
     analyze_tree, connected_components, shortest_path, strongly_connected_components,

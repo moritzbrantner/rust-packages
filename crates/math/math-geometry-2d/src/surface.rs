@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `math-geometry-2d`.
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{Affine2, Bounds2f, Point2f, RectF32};
 

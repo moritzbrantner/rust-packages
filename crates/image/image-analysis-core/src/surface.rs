@@ -1,11 +1,11 @@
 //! Library-owned runtime surface for `image-analysis-core`.
 
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     describe_surface_response, structured_operation_response, OperationId, PackageSurface,
     RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
 
 use crate::{luma_histogram, mask_tensor_from_luma, mean_rgb, ImagePixelFormat, ImageView};
 

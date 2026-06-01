@@ -67,7 +67,8 @@ CLI, HTTP, WASM, and Vite app packages may translate transport concerns, but
 they must not own operation behavior. Library crates own operation metadata,
 example requests, validation, and execution.
 
-The shared DTOs live in `video-analysis-core::runtime`:
+The shared DTOs live in `runtime-core` and are re-exported for compatibility
+from `video-analysis-core::runtime`:
 
 - `PackageSurface`
 - `SurfaceOperation`
@@ -86,12 +87,12 @@ work routed through `model-runtime::jobs`.
 
 ## Retired Runtime Surfaces
 
-The older `runtime-artifacts` and `runtime-jobs` crates are intentionally
-excluded from the active workspace while their responsibilities are consolidated
-into the current ownership model. Generic job state, results, artifact
-references, checksum validation, and artifact stores live in `jobs-core`.
-Model-specific bundle metadata, model sources, downloads, and validators live in
-`model-runtime`.
+The older `runtime-artifacts` and `runtime-jobs` crates and their CLI, server,
+Rust WASM, and Bun WASM surfaces were removed from the active repository. Their
+responsibilities are consolidated into the current ownership model. Generic job
+state, results, artifact references, checksum validation, and artifact stores
+live in `jobs-core`. Model-specific bundle metadata, model sources, downloads,
+and validators live in `model-runtime`.
 
 Do not add new dependencies on the retired runtime crates. Do not recreate the
 retired frontend app packages; route generic job concepts to `jobs-core` and

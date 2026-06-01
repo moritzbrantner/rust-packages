@@ -14,9 +14,9 @@ use std::sync::{
 use std::thread::{self, JoinHandle};
 
 use chrono::{DateTime, Utc};
+pub use runtime_core::ArtifactId;
+use runtime_core::{Diagnostic, OperationId};
 use serde::{Deserialize, Serialize};
-pub use video_analysis_core::runtime::ArtifactId;
-use video_analysis_core::runtime::{Diagnostic, OperationId};
 
 /// Result type used by this crate.
 pub type Result<T> = std::result::Result<T, JobError>;

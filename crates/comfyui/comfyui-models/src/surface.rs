@@ -3,12 +3,12 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
 
 use crate::{
     ComfyModelKind, ComfyModelRef, ComfyModelRole, ExtraModelPathSection, ExtraModelPathsConfig,

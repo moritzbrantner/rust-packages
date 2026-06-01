@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `video-analysis-editing`.
 
-use video_analysis_core::runtime::{
+use runtime_core::{
     describe_surface_response, structured_operation_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
@@ -85,7 +85,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use video_analysis_core::runtime::OperationId;
+    use runtime_core::OperationId;
 
     #[test]
     fn package_surface_has_multiple_operations() {

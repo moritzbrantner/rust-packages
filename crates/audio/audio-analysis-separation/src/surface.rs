@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use video_analysis_core::runtime::{
+use runtime_core::{
     structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
     SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };

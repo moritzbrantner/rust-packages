@@ -1,9 +1,9 @@
-use video_analysis_core::runtime::{OperationId, SurfaceRequest};
+use runtime_core::{OperationId, SurfaceRequest};
 
 fn run(
     operation: &str,
     input: serde_json::Value,
-    runner: fn(SurfaceRequest) -> Result<video_analysis_core::runtime::SurfaceResponse, String>,
+    runner: fn(SurfaceRequest) -> Result<runtime_core::SurfaceResponse, String>,
 ) -> serde_json::Value {
     runner(SurfaceRequest {
         operation: OperationId::new(operation),

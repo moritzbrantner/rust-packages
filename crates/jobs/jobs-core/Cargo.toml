@@ -16,8 +16,8 @@ categories.workspace = true
 name = "jobs_core"
 
 [dependencies]
+runtime-core.workspace = true
 chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-video-analysis-core.workspace = true

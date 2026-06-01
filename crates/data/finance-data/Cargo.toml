@@ -16,6 +16,7 @@ categories = ["data-structures", "science", "algorithms"]
 name = "finance_data"
 
 [dependencies]
+runtime-core.workspace = true
 finance-statistics.workspace = true
 serde.workspace = true
 serde_json.workspace = true

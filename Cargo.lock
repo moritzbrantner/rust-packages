@@ -1913,6 +1913,7 @@ dependencies = [
 name = "moritzbrantner-animation-core"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-video-analysis-core",
  "serde",
@@ -1925,7 +1926,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-animation-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -1935,7 +1936,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-animation-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -1945,7 +1946,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-animation-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -1958,6 +1959,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moritzbrantner-math-signal-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-tensor-data",
  "moritzbrantner-video-analysis-core",
  "proptest",
@@ -1970,7 +1972,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -1980,7 +1982,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -1990,7 +1992,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-analysis-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2003,6 +2005,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "rustfft",
  "serde_json",
@@ -2014,7 +2017,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-fourier",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2024,7 +2027,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-fourier",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2034,7 +2037,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-analysis-fourier",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2047,6 +2050,7 @@ version = "0.1.0"
 dependencies = [
  "hound",
  "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-ffmpeg",
  "moritzbrantner-video-analysis-ingest",
@@ -2060,7 +2064,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-io",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2070,7 +2074,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-io",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2080,7 +2084,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-analysis-io",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2093,6 +2097,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
@@ -2103,7 +2108,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-pitch",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2113,7 +2118,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-pitch",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2123,7 +2128,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-analysis-pitch",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2137,6 +2142,7 @@ dependencies = [
  "criterion",
  "moritzbrantner-audio-analysis-core",
  "moritzbrantner-math-signal-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-ingest",
  "proptest",
@@ -2150,7 +2156,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-processing",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2160,7 +2166,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-processing",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2170,7 +2176,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-analysis-processing",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2185,6 +2191,7 @@ dependencies = [
  "moritzbrantner-audio-analysis-core",
  "moritzbrantner-audio-analysis-fourier",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-transcripts",
  "moritzbrantner-video-analysis-core",
  "serde",
@@ -2197,7 +2204,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-recognition",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2207,7 +2214,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-recognition",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2217,7 +2224,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-analysis-recognition",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2230,6 +2237,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
@@ -2240,7 +2248,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-rhythm",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2250,7 +2258,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-rhythm",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2260,7 +2268,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-analysis-rhythm",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2273,6 +2281,7 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-audio-analysis-recognition",
  "moritzbrantner-jobs-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -2285,7 +2294,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-separation",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2295,7 +2304,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-separation",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2305,7 +2314,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-analysis-separation",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2318,6 +2327,7 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-audio-analysis-core",
  "moritzbrantner-audio-analysis-recognition",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -2329,7 +2339,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-speakers",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2339,7 +2349,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-speakers",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2349,7 +2359,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-analysis-speakers",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2362,6 +2372,7 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-audio-analysis-recognition",
  "moritzbrantner-data-inversion-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -2373,7 +2384,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-synthesis",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2383,7 +2394,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-analysis-synthesis",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2393,7 +2404,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-analysis-synthesis",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2404,42 +2415,10 @@ dependencies = [
 name = "moritzbrantner-audio-analysis-test-support"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde_json",
  "tempfile",
-]
-
-[[package]]
-name = "moritzbrantner-audio-analysis-test-support-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-audio-analysis-test-support",
- "moritzbrantner-video-analysis-core",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-audio-analysis-test-support-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-audio-analysis-test-support",
- "moritzbrantner-video-analysis-core",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-audio-analysis-test-support-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-audio-analysis-test-support",
- "moritzbrantner-video-analysis-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2448,6 +2427,7 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-audio-analysis-synthesis",
  "moritzbrantner-data-inversion-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
@@ -2458,7 +2438,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-generation-midi",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2468,7 +2448,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-audio-generation-midi",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2478,7 +2458,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-audio-generation-midi",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2489,8 +2469,8 @@ dependencies = [
 name = "moritzbrantner-comfyui-data"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-tensor-data",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -2502,7 +2482,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-comfyui-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2512,7 +2492,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-comfyui-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2522,7 +2502,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-comfyui-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2533,6 +2513,7 @@ dependencies = [
 name = "moritzbrantner-comfyui-latents"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-tensor-data",
  "moritzbrantner-video-analysis-core",
  "serde",
@@ -2545,7 +2526,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-comfyui-latents",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2555,7 +2536,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-comfyui-latents",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2565,7 +2546,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-comfyui-latents",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2576,7 +2557,7 @@ dependencies = [
 name = "moritzbrantner-comfyui-models"
 version = "0.1.0"
 dependencies = [
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde_json",
  "tempfile",
@@ -2589,7 +2570,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-comfyui-models",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2599,7 +2580,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-comfyui-models",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2609,7 +2590,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-comfyui-models",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2620,6 +2601,7 @@ dependencies = [
 name = "moritzbrantner-data-inversion-core"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -2631,7 +2613,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-data-inversion-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2641,7 +2623,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-data-inversion-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2651,7 +2633,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-data-inversion-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2666,6 +2648,7 @@ dependencies = [
  "moritzbrantner-math-linear",
  "moritzbrantner-math-statistics",
  "moritzbrantner-numbers-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -2677,7 +2660,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-dense-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2687,7 +2670,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-dense-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2697,7 +2680,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-dense-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2709,6 +2692,7 @@ name = "moritzbrantner-finance-data"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-finance-statistics",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -2720,7 +2704,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-finance-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2730,7 +2714,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-finance-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2740,7 +2724,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-finance-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2752,6 +2736,7 @@ name = "moritzbrantner-finance-statistics"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-numbers-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -2763,7 +2748,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-finance-statistics",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2773,7 +2758,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-finance-statistics",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2783,7 +2768,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-finance-statistics",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2795,6 +2780,7 @@ name = "moritzbrantner-geo-clustering"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-geo-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -2806,7 +2792,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-geo-clustering",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2816,7 +2802,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-geo-clustering",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2826,7 +2812,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-geo-clustering",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2837,6 +2823,7 @@ dependencies = [
 name = "moritzbrantner-geo-core"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -2848,7 +2835,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-geo-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2858,7 +2845,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-geo-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2868,7 +2855,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-geo-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2881,6 +2868,7 @@ version = "0.1.0"
 dependencies = [
  "geojson",
  "moritzbrantner-geo-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -2892,7 +2880,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-geo-io-geojson",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2902,7 +2890,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-geo-io-geojson",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2912,7 +2900,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-geo-io-geojson",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2927,6 +2915,7 @@ dependencies = [
  "geo-types",
  "moritzbrantner-geo-core",
  "moritzbrantner-geo-io-geojson",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "osmpbfreader",
  "protobuf",
@@ -2944,7 +2933,7 @@ dependencies = [
  "clap",
  "moritzbrantner-geo-io-geojson",
  "moritzbrantner-geo-io-osm",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "osmpbfreader",
  "protobuf",
  "serde_json",
@@ -2957,7 +2946,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-geo-io-osm",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -2967,7 +2956,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-geo-io-osm",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2982,6 +2971,7 @@ dependencies = [
  "moritzbrantner-geo-core",
  "moritzbrantner-geo-io-geojson",
  "moritzbrantner-maps-kernels-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "rstar 0.13.0",
  "serde",
@@ -2994,7 +2984,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-geo-viz",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3004,7 +2994,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-geo-viz",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3015,7 +3005,7 @@ dependencies = [
  "getrandom 0.3.4",
  "js-sys",
  "moritzbrantner-geo-viz",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3026,6 +3016,7 @@ dependencies = [
 name = "moritzbrantner-graph-analysis-core"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3037,7 +3028,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-graph-analysis-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3047,7 +3038,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-graph-analysis-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3057,7 +3048,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-graph-analysis-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3074,6 +3065,7 @@ dependencies = [
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-image-analysis-synthesis",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3085,7 +3077,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-captioning",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3095,7 +3087,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-captioning",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3105,7 +3097,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-captioning",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3122,6 +3114,7 @@ dependencies = [
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-image-analysis-synthesis",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3133,7 +3126,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-classification",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3143,7 +3136,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-classification",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3153,7 +3146,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-classification",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3166,6 +3159,7 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-comfyui-data",
  "moritzbrantner-comfyui-models",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde_json",
  "tempfile",
@@ -3177,7 +3171,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-comfyui",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3187,7 +3181,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-comfyui",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3197,7 +3191,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-comfyui",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3208,6 +3202,7 @@ dependencies = [
 name = "moritzbrantner-image-analysis-core"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-tensor-data",
  "moritzbrantner-video-analysis-core",
  "serde",
@@ -3220,7 +3215,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3230,7 +3225,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3240,7 +3235,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3254,6 +3249,7 @@ dependencies = [
  "moritzbrantner-image-analysis-core",
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3265,7 +3261,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-detection",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3275,7 +3271,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-detection",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3285,7 +3281,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-detection",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3302,6 +3298,7 @@ dependencies = [
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-image-analysis-synthesis",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3313,7 +3310,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-embeddings",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3323,7 +3320,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-embeddings",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3333,7 +3330,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-embeddings",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3346,6 +3343,7 @@ version = "0.1.0"
 dependencies = [
  "image",
  "moritzbrantner-image-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3358,7 +3356,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-io",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3368,7 +3366,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-io",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3378,7 +3376,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-io",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3391,6 +3389,7 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-image-analysis-core",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3402,7 +3401,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-ocr",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3412,7 +3411,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-ocr",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3422,7 +3421,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-ocr",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3439,6 +3438,7 @@ dependencies = [
  "moritzbrantner-image-analysis-embeddings",
  "moritzbrantner-image-analysis-processing",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "ort",
  "serde",
@@ -3452,7 +3452,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-onnx",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3462,7 +3462,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-onnx",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3472,7 +3472,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-onnx",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3488,6 +3488,7 @@ dependencies = [
  "moritzbrantner-image-analysis-core",
  "moritzbrantner-math-geometry-2d",
  "moritzbrantner-math-linear",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3499,7 +3500,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-processing",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3509,7 +3510,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-processing",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3519,7 +3520,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-processing",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3532,6 +3533,7 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-image-analysis-core",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3543,7 +3545,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-segmentation",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3553,7 +3555,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-segmentation",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3563,7 +3565,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-segmentation",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3576,6 +3578,7 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-data-inversion-core",
  "moritzbrantner-image-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3587,7 +3590,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-synthesis",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3597,7 +3600,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-image-analysis-synthesis",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3607,7 +3610,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-synthesis",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3619,7 +3622,7 @@ name = "moritzbrantner-jobs-core"
 version = "0.1.1"
 dependencies = [
  "chrono",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde_json",
  "sha2",
@@ -3631,7 +3634,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-jobs-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3641,7 +3644,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-jobs-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3651,7 +3654,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-jobs-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3663,6 +3666,7 @@ name = "moritzbrantner-maps-kernels-core"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-numbers-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3674,7 +3678,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-maps-kernels-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3684,7 +3688,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-maps-kernels-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3694,7 +3698,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-maps-kernels-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3706,6 +3710,7 @@ name = "moritzbrantner-math-geometry-2d"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3717,7 +3722,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-math-geometry-2d",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3727,7 +3732,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-math-geometry-2d",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3737,7 +3742,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-math-geometry-2d",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3749,6 +3754,7 @@ name = "moritzbrantner-math-linear"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-tensor-data",
  "moritzbrantner-vector-analysis-core",
  "moritzbrantner-video-analysis-core",
@@ -3762,7 +3768,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-math-linear",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3772,7 +3778,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-math-linear",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3782,7 +3788,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-math-linear",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3794,6 +3800,7 @@ name = "moritzbrantner-math-signal-core"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-numbers-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3805,7 +3812,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-math-signal-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3815,7 +3822,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-math-signal-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3825,7 +3832,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-math-signal-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3838,6 +3845,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moritzbrantner-numbers-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-vector-analysis-core",
  "moritzbrantner-video-analysis-core",
  "serde",
@@ -3850,7 +3858,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-math-sparse-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3860,7 +3868,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-math-sparse-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3870,7 +3878,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-math-sparse-data",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3884,6 +3892,7 @@ dependencies = [
  "criterion",
  "moritzbrantner-math-linear",
  "moritzbrantner-numbers-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3895,7 +3904,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-math-statistics",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3905,7 +3914,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-math-statistics",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3915,7 +3924,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-math-statistics",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3928,7 +3937,7 @@ version = "0.1.0"
 dependencies = [
  "hf-hub",
  "moritzbrantner-jobs-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde_json",
  "tempfile",
@@ -3940,7 +3949,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-model-runtime",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3950,7 +3959,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-model-runtime",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3960,7 +3969,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-model-runtime",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -3972,6 +3981,7 @@ name = "moritzbrantner-numbers-core"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3983,7 +3993,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-numbers-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -3993,7 +4003,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moritzbrantner-numbers-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde_json",
 ]
 
@@ -4003,7 +4013,7 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-numbers-core",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4011,9 +4021,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "moritzbrantner-runtime-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "moritzbrantner-tensor-data"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -4024,8 +4043,8 @@ name = "moritzbrantner-tensor-data-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-tensor-data",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4034,8 +4053,8 @@ name = "moritzbrantner-tensor-data-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-tensor-data",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4044,8 +4063,8 @@ name = "moritzbrantner-tensor-data-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-tensor-data",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4058,6 +4077,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
  "moritzbrantner-text-embeddings",
  "moritzbrantner-text-lexical",
@@ -4073,8 +4093,8 @@ name = "moritzbrantner-text-analysis-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-analysis",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4083,9 +4103,9 @@ name = "moritzbrantner-text-analysis-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-analysis",
  "moritzbrantner-text-model-runtime",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4094,8 +4114,8 @@ name = "moritzbrantner-text-analysis-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-analysis",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4106,6 +4126,7 @@ dependencies = [
 name = "moritzbrantner-text-classification"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
  "moritzbrantner-text-lexical",
  "moritzbrantner-text-model-runtime",
@@ -4119,8 +4140,8 @@ name = "moritzbrantner-text-classification-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-classification",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4129,8 +4150,8 @@ name = "moritzbrantner-text-classification-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-classification",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4139,8 +4160,8 @@ name = "moritzbrantner-text-classification-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-classification",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4153,6 +4174,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moritzbrantner-jobs-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -4165,8 +4187,8 @@ name = "moritzbrantner-text-core-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4175,8 +4197,8 @@ name = "moritzbrantner-text-core-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4185,8 +4207,8 @@ name = "moritzbrantner-text-core-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4203,6 +4225,7 @@ dependencies = [
  "criterion",
  "moritzbrantner-math-sparse-data",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
  "moritzbrantner-text-lexical",
  "moritzbrantner-text-model-runtime",
@@ -4221,8 +4244,8 @@ name = "moritzbrantner-text-embeddings-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-embeddings",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4231,9 +4254,9 @@ name = "moritzbrantner-text-embeddings-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-embeddings",
  "moritzbrantner-text-model-runtime",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4242,8 +4265,8 @@ name = "moritzbrantner-text-embeddings-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-embeddings",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4255,6 +4278,7 @@ name = "moritzbrantner-text-generation"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-data-inversion-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
  "moritzbrantner-video-analysis-core",
  "serde",
@@ -4266,8 +4290,8 @@ name = "moritzbrantner-text-generation-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-generation",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4276,6 +4300,7 @@ name = "moritzbrantner-text-generation-linguistics"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-data-inversion-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
  "moritzbrantner-text-generation",
  "moritzbrantner-text-linguistics",
@@ -4289,8 +4314,8 @@ name = "moritzbrantner-text-generation-linguistics-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-generation-linguistics",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4299,8 +4324,8 @@ name = "moritzbrantner-text-generation-linguistics-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-generation-linguistics",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4309,8 +4334,8 @@ name = "moritzbrantner-text-generation-linguistics-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-generation-linguistics",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4322,8 +4347,8 @@ name = "moritzbrantner-text-generation-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-generation",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4332,8 +4357,8 @@ name = "moritzbrantner-text-generation-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-generation",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4346,6 +4371,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moritzbrantner-math-sparse-data",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
  "moritzbrantner-video-analysis-core",
  "serde",
@@ -4357,8 +4383,8 @@ name = "moritzbrantner-text-lexical-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-lexical",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4367,8 +4393,8 @@ name = "moritzbrantner-text-lexical-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-lexical",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4377,8 +4403,8 @@ name = "moritzbrantner-text-lexical-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-lexical",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4395,6 +4421,7 @@ dependencies = [
  "criterion",
  "moritzbrantner-jobs-core",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
  "moritzbrantner-text-lexical",
  "moritzbrantner-text-model-runtime",
@@ -4411,8 +4438,8 @@ name = "moritzbrantner-text-linguistics-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-linguistics",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4421,9 +4448,9 @@ name = "moritzbrantner-text-linguistics-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-linguistics",
  "moritzbrantner-text-model-runtime",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4432,8 +4459,8 @@ name = "moritzbrantner-text-linguistics-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-linguistics",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4449,6 +4476,7 @@ dependencies = [
  "candle-transformers",
  "moritzbrantner-jobs-core",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "ndarray",
  "ort",
@@ -4462,8 +4490,8 @@ name = "moritzbrantner-text-model-runtime-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-model-runtime",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4472,8 +4500,8 @@ name = "moritzbrantner-text-model-runtime-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-model-runtime",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4482,8 +4510,8 @@ name = "moritzbrantner-text-model-runtime-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-model-runtime",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4494,6 +4522,7 @@ dependencies = [
 name = "moritzbrantner-text-question-answering"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-model-runtime",
  "moritzbrantner-video-analysis-core",
  "serde",
@@ -4505,8 +4534,8 @@ name = "moritzbrantner-text-question-answering-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-question-answering",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4515,8 +4544,8 @@ name = "moritzbrantner-text-question-answering-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-question-answering",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4525,8 +4554,8 @@ name = "moritzbrantner-text-question-answering-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-question-answering",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4538,6 +4567,7 @@ name = "moritzbrantner-text-retrieval"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
  "moritzbrantner-text-embeddings",
  "moritzbrantner-text-lexical",
@@ -4555,8 +4585,8 @@ name = "moritzbrantner-text-retrieval-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-retrieval",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4565,8 +4595,8 @@ name = "moritzbrantner-text-retrieval-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-retrieval",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4575,8 +4605,8 @@ name = "moritzbrantner-text-retrieval-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-retrieval",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4590,6 +4620,7 @@ dependencies = [
  "cmake",
  "hound",
  "moritzbrantner-audio-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-ingest",
@@ -4606,8 +4637,8 @@ name = "moritzbrantner-text-transcripts-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-transcripts",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4616,8 +4647,8 @@ name = "moritzbrantner-text-transcripts-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-transcripts",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4626,8 +4657,8 @@ name = "moritzbrantner-text-transcripts-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-text-transcripts",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4639,6 +4670,7 @@ name = "moritzbrantner-three-d-processing-core"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -4649,8 +4681,8 @@ name = "moritzbrantner-three-d-processing-core-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4659,8 +4691,8 @@ name = "moritzbrantner-three-d-processing-core-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4669,8 +4701,8 @@ name = "moritzbrantner-three-d-processing-core-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4682,6 +4714,7 @@ name = "moritzbrantner-three-d-processing-io"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-three-d-processing-mesh",
  "moritzbrantner-video-analysis-core",
@@ -4695,8 +4728,8 @@ name = "moritzbrantner-three-d-processing-io-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-io",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4705,8 +4738,8 @@ name = "moritzbrantner-three-d-processing-io-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-io",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4715,8 +4748,8 @@ name = "moritzbrantner-three-d-processing-io-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-io",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4727,6 +4760,7 @@ dependencies = [
 name = "moritzbrantner-three-d-processing-mesh"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-video-analysis-core",
  "serde",
@@ -4738,8 +4772,8 @@ name = "moritzbrantner-three-d-processing-mesh-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-mesh",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4748,8 +4782,8 @@ name = "moritzbrantner-three-d-processing-mesh-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-mesh",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4758,8 +4792,8 @@ name = "moritzbrantner-three-d-processing-mesh-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-mesh",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4770,6 +4804,7 @@ dependencies = [
 name = "moritzbrantner-three-d-scene-svg"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-three-d-processing-mesh",
  "moritzbrantner-video-analysis-core",
@@ -4782,8 +4817,8 @@ name = "moritzbrantner-three-d-scene-svg-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-scene-svg",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4792,8 +4827,8 @@ name = "moritzbrantner-three-d-scene-svg-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-scene-svg",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4802,8 +4837,8 @@ name = "moritzbrantner-three-d-scene-svg-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-scene-svg",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4815,6 +4850,7 @@ name = "moritzbrantner-vector-analysis-core"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -4825,8 +4861,8 @@ name = "moritzbrantner-vector-analysis-core-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-vector-analysis-core",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4835,8 +4871,8 @@ name = "moritzbrantner-vector-analysis-core-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-vector-analysis-core",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4845,8 +4881,8 @@ name = "moritzbrantner-vector-analysis-core-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-vector-analysis-core",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4858,6 +4894,7 @@ name = "moritzbrantner-vector-analysis-index"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-vector-analysis-core",
  "moritzbrantner-video-analysis-core",
  "serde",
@@ -4869,8 +4906,8 @@ name = "moritzbrantner-vector-analysis-index-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-vector-analysis-index",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4879,8 +4916,8 @@ name = "moritzbrantner-vector-analysis-index-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-vector-analysis-index",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -4889,8 +4926,8 @@ name = "moritzbrantner-vector-analysis-index-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-vector-analysis-index",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -4948,6 +4985,7 @@ dependencies = [
  "moritzbrantner-math-statistics",
  "moritzbrantner-model-runtime",
  "moritzbrantner-numbers-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-tensor-data",
  "moritzbrantner-text-analysis",
  "moritzbrantner-text-classification",
@@ -5039,6 +5077,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-colmap-backend"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-radiance-fields",
  "moritzbrantner-video-analysis-radiance-io",
@@ -5054,8 +5093,8 @@ name = "moritzbrantner-video-analysis-colmap-backend-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-colmap-backend",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -5064,8 +5103,8 @@ name = "moritzbrantner-video-analysis-colmap-backend-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-colmap-backend",
- "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
 
@@ -5074,8 +5113,8 @@ name = "moritzbrantner-video-analysis-colmap-backend-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-colmap-backend",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -5086,6 +5125,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-core"
 version = "0.1.1"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "num-rational",
  "num-traits",
  "serde",
@@ -5098,6 +5138,7 @@ name = "moritzbrantner-video-analysis-core-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
@@ -5107,6 +5148,7 @@ name = "moritzbrantner-video-analysis-core-server"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
@@ -5116,6 +5158,7 @@ name = "moritzbrantner-video-analysis-core-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde-wasm-bindgen",
@@ -5128,6 +5171,7 @@ name = "moritzbrantner-video-analysis-data"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-numbers-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
@@ -5137,7 +5181,7 @@ name = "moritzbrantner-video-analysis-data-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-data",
  "serde_json",
 ]
@@ -5147,7 +5191,7 @@ name = "moritzbrantner-video-analysis-data-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-data",
  "serde_json",
 ]
@@ -5157,7 +5201,7 @@ name = "moritzbrantner-video-analysis-data-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-data",
  "serde",
  "serde-wasm-bindgen",
@@ -5169,6 +5213,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-dataset"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-posture",
@@ -5182,7 +5227,7 @@ name = "moritzbrantner-video-analysis-dataset-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-dataset",
  "serde_json",
 ]
@@ -5192,7 +5237,7 @@ name = "moritzbrantner-video-analysis-dataset-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-dataset",
  "serde_json",
 ]
@@ -5202,7 +5247,7 @@ name = "moritzbrantner-video-analysis-dataset-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-dataset",
  "serde",
  "serde-wasm-bindgen",
@@ -5214,6 +5259,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-detectors"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-ffmpeg",
  "moritzbrantner-video-analysis-ingest",
@@ -5227,7 +5273,7 @@ name = "moritzbrantner-video-analysis-detectors-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-detectors",
  "serde_json",
 ]
@@ -5237,7 +5283,7 @@ name = "moritzbrantner-video-analysis-detectors-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-detectors",
  "serde_json",
 ]
@@ -5247,7 +5293,7 @@ name = "moritzbrantner-video-analysis-detectors-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-detectors",
  "serde",
  "serde-wasm-bindgen",
@@ -5262,6 +5308,7 @@ dependencies = [
  "criterion",
  "moritzbrantner-math-geometry-2d",
  "moritzbrantner-math-linear",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "num-rational",
  "serde",
@@ -5273,7 +5320,7 @@ name = "moritzbrantner-video-analysis-editing-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-editing",
  "serde_json",
 ]
@@ -5283,7 +5330,7 @@ name = "moritzbrantner-video-analysis-editing-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-editing",
  "serde_json",
 ]
@@ -5293,7 +5340,7 @@ name = "moritzbrantner-video-analysis-editing-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-editing",
  "serde",
  "serde-wasm-bindgen",
@@ -5305,6 +5352,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-features"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-dataset",
  "moritzbrantner-video-analysis-transform",
@@ -5318,7 +5366,7 @@ name = "moritzbrantner-video-analysis-features-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-features",
  "serde_json",
 ]
@@ -5328,7 +5376,7 @@ name = "moritzbrantner-video-analysis-features-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-features",
  "serde_json",
 ]
@@ -5338,7 +5386,7 @@ name = "moritzbrantner-video-analysis-features-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-features",
  "serde",
  "serde-wasm-bindgen",
@@ -5350,6 +5398,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-ffmpeg"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-ingest",
  "num-rational",
@@ -5363,7 +5412,7 @@ name = "moritzbrantner-video-analysis-ffmpeg-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-ffmpeg",
  "serde_json",
 ]
@@ -5373,7 +5422,7 @@ name = "moritzbrantner-video-analysis-ffmpeg-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-ffmpeg",
  "serde_json",
 ]
@@ -5383,7 +5432,7 @@ name = "moritzbrantner-video-analysis-ffmpeg-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-ffmpeg",
  "serde",
  "serde-wasm-bindgen",
@@ -5395,6 +5444,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-gaussian-splatting"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-radiance-fields",
  "serde_json",
@@ -5405,7 +5455,7 @@ name = "moritzbrantner-video-analysis-gaussian-splatting-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-gaussian-splatting",
  "serde_json",
 ]
@@ -5415,7 +5465,7 @@ name = "moritzbrantner-video-analysis-gaussian-splatting-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-gaussian-splatting",
  "serde_json",
 ]
@@ -5425,7 +5475,7 @@ name = "moritzbrantner-video-analysis-gaussian-splatting-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-gaussian-splatting",
  "serde",
  "serde-wasm-bindgen",
@@ -5437,6 +5487,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-ingest"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "num-rational",
  "serde_json",
@@ -5447,7 +5498,7 @@ name = "moritzbrantner-video-analysis-ingest-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-ingest",
  "serde_json",
 ]
@@ -5457,7 +5508,7 @@ name = "moritzbrantner-video-analysis-ingest-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-ingest",
  "serde_json",
 ]
@@ -5467,7 +5518,7 @@ name = "moritzbrantner-video-analysis-ingest-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-ingest",
  "serde",
  "serde-wasm-bindgen",
@@ -5479,6 +5530,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-mvs"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-three-d-processing-mesh",
  "moritzbrantner-video-analysis-core",
@@ -5492,7 +5544,7 @@ name = "moritzbrantner-video-analysis-mvs-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-mvs",
  "serde_json",
 ]
@@ -5502,7 +5554,7 @@ name = "moritzbrantner-video-analysis-mvs-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-mvs",
  "serde_json",
 ]
@@ -5512,7 +5564,7 @@ name = "moritzbrantner-video-analysis-mvs-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-mvs",
  "serde",
  "serde-wasm-bindgen",
@@ -5527,6 +5579,7 @@ dependencies = [
  "moritzbrantner-image-analysis-core",
  "moritzbrantner-image-analysis-onnx",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-posture",
  "moritzbrantner-video-analysis-recognition",
@@ -5541,7 +5594,7 @@ name = "moritzbrantner-video-analysis-onnx-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-onnx",
  "serde_json",
 ]
@@ -5551,7 +5604,7 @@ name = "moritzbrantner-video-analysis-onnx-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-onnx",
  "serde_json",
 ]
@@ -5561,7 +5614,7 @@ name = "moritzbrantner-video-analysis-onnx-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-onnx",
  "serde",
  "serde-wasm-bindgen",
@@ -5573,6 +5626,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-opencv-backend"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-mvs",
  "moritzbrantner-video-analysis-sfm",
@@ -5584,7 +5638,7 @@ name = "moritzbrantner-video-analysis-opencv-backend-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-opencv-backend",
  "serde_json",
 ]
@@ -5594,7 +5648,7 @@ name = "moritzbrantner-video-analysis-opencv-backend-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-opencv-backend",
  "serde_json",
 ]
@@ -5604,7 +5658,7 @@ name = "moritzbrantner-video-analysis-opencv-backend-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-opencv-backend",
  "serde",
  "serde-wasm-bindgen",
@@ -5616,6 +5670,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-output"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "num-rational",
  "serde",
@@ -5627,7 +5682,7 @@ name = "moritzbrantner-video-analysis-output-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-output",
  "serde_json",
 ]
@@ -5637,7 +5692,7 @@ name = "moritzbrantner-video-analysis-output-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-output",
  "serde_json",
 ]
@@ -5647,7 +5702,7 @@ name = "moritzbrantner-video-analysis-output-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-output",
  "serde",
  "serde-wasm-bindgen",
@@ -5660,6 +5715,7 @@ name = "moritzbrantner-video-analysis-posture"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-video-analysis-core",
  "num-rational",
@@ -5672,7 +5728,7 @@ name = "moritzbrantner-video-analysis-posture-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-posture",
  "serde_json",
 ]
@@ -5682,6 +5738,7 @@ name = "moritzbrantner-video-analysis-posture-io"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-posture",
@@ -5695,7 +5752,7 @@ name = "moritzbrantner-video-analysis-posture-io-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-posture-io",
  "serde_json",
 ]
@@ -5705,7 +5762,7 @@ name = "moritzbrantner-video-analysis-posture-io-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-posture-io",
  "serde_json",
 ]
@@ -5715,7 +5772,7 @@ name = "moritzbrantner-video-analysis-posture-io-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-posture-io",
  "serde",
  "serde-wasm-bindgen",
@@ -5728,7 +5785,7 @@ name = "moritzbrantner-video-analysis-posture-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-posture",
  "serde_json",
 ]
@@ -5738,7 +5795,7 @@ name = "moritzbrantner-video-analysis-posture-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-posture",
  "serde",
  "serde-wasm-bindgen",
@@ -5750,6 +5807,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-radiance-fields"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "serde_json",
 ]
@@ -5759,7 +5817,7 @@ name = "moritzbrantner-video-analysis-radiance-fields-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-radiance-fields",
  "serde_json",
 ]
@@ -5769,7 +5827,7 @@ name = "moritzbrantner-video-analysis-radiance-fields-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-radiance-fields",
  "serde_json",
 ]
@@ -5779,7 +5837,7 @@ name = "moritzbrantner-video-analysis-radiance-fields-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-radiance-fields",
  "serde",
  "serde-wasm-bindgen",
@@ -5791,6 +5849,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-radiance-io"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-gaussian-splatting",
  "moritzbrantner-video-analysis-radiance-fields",
@@ -5806,7 +5865,7 @@ name = "moritzbrantner-video-analysis-radiance-io-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-radiance-io",
  "serde_json",
 ]
@@ -5816,7 +5875,7 @@ name = "moritzbrantner-video-analysis-radiance-io-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-radiance-io",
  "serde_json",
 ]
@@ -5826,7 +5885,7 @@ name = "moritzbrantner-video-analysis-radiance-io-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-radiance-io",
  "serde",
  "serde-wasm-bindgen",
@@ -5838,6 +5897,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-radiance-pipeline"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-gaussian-splatting",
  "moritzbrantner-video-analysis-radiance-fields",
@@ -5853,7 +5913,7 @@ name = "moritzbrantner-video-analysis-radiance-pipeline-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-radiance-pipeline",
  "serde_json",
 ]
@@ -5863,7 +5923,7 @@ name = "moritzbrantner-video-analysis-radiance-pipeline-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-radiance-pipeline",
  "serde_json",
 ]
@@ -5873,7 +5933,7 @@ name = "moritzbrantner-video-analysis-radiance-pipeline-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-radiance-pipeline",
  "serde",
  "serde-wasm-bindgen",
@@ -5887,6 +5947,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-posture",
@@ -5900,7 +5961,7 @@ name = "moritzbrantner-video-analysis-recognition-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-recognition",
  "serde_json",
 ]
@@ -5910,7 +5971,7 @@ name = "moritzbrantner-video-analysis-recognition-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-recognition",
  "serde_json",
 ]
@@ -5920,7 +5981,7 @@ name = "moritzbrantner-video-analysis-recognition-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-recognition",
  "serde",
  "serde-wasm-bindgen",
@@ -5932,6 +5993,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-reconstruction"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-radiance-fields",
  "serde_json",
@@ -5942,7 +6004,7 @@ name = "moritzbrantner-video-analysis-reconstruction-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-reconstruction",
  "serde_json",
 ]
@@ -5952,7 +6014,7 @@ name = "moritzbrantner-video-analysis-reconstruction-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-reconstruction",
  "serde_json",
 ]
@@ -5962,7 +6024,7 @@ name = "moritzbrantner-video-analysis-reconstruction-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-reconstruction",
  "serde",
  "serde-wasm-bindgen",
@@ -5976,6 +6038,7 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-ffmpeg",
  "moritzbrantner-video-analysis-ingest",
@@ -5988,7 +6051,7 @@ name = "moritzbrantner-video-analysis-segmentation-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-segmentation",
  "serde_json",
 ]
@@ -5998,7 +6061,7 @@ name = "moritzbrantner-video-analysis-segmentation-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-segmentation",
  "serde_json",
 ]
@@ -6008,7 +6071,7 @@ name = "moritzbrantner-video-analysis-segmentation-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-segmentation",
  "serde",
  "serde-wasm-bindgen",
@@ -6020,6 +6083,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-sfm"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-radiance-fields",
  "moritzbrantner-video-analysis-reconstruction",
@@ -6031,7 +6095,7 @@ name = "moritzbrantner-video-analysis-sfm-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-sfm",
  "serde_json",
 ]
@@ -6040,6 +6104,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-sfm-rust-backend"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-radiance-fields",
  "moritzbrantner-video-analysis-reconstruction",
@@ -6052,7 +6117,7 @@ name = "moritzbrantner-video-analysis-sfm-rust-backend-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-sfm-rust-backend",
  "serde_json",
 ]
@@ -6062,7 +6127,7 @@ name = "moritzbrantner-video-analysis-sfm-rust-backend-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-sfm-rust-backend",
  "serde_json",
 ]
@@ -6072,7 +6137,7 @@ name = "moritzbrantner-video-analysis-sfm-rust-backend-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-sfm-rust-backend",
  "serde",
  "serde-wasm-bindgen",
@@ -6085,7 +6150,7 @@ name = "moritzbrantner-video-analysis-sfm-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-sfm",
  "serde_json",
 ]
@@ -6095,7 +6160,7 @@ name = "moritzbrantner-video-analysis-sfm-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-sfm",
  "serde",
  "serde-wasm-bindgen",
@@ -6107,6 +6172,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-split"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-ffmpeg",
  "num-rational",
@@ -6120,7 +6186,7 @@ name = "moritzbrantner-video-analysis-split-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-split",
  "serde_json",
 ]
@@ -6130,7 +6196,7 @@ name = "moritzbrantner-video-analysis-split-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-split",
  "serde_json",
 ]
@@ -6140,7 +6206,7 @@ name = "moritzbrantner-video-analysis-split-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-split",
  "serde",
  "serde-wasm-bindgen",
@@ -6152,6 +6218,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-storage"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-dataset",
  "num-rational",
@@ -6166,7 +6233,7 @@ name = "moritzbrantner-video-analysis-storage-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-storage",
  "serde_json",
 ]
@@ -6176,7 +6243,7 @@ name = "moritzbrantner-video-analysis-storage-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-storage",
  "serde_json",
 ]
@@ -6186,7 +6253,7 @@ name = "moritzbrantner-video-analysis-storage-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-storage",
  "serde",
  "serde-wasm-bindgen",
@@ -6199,6 +6266,7 @@ name = "moritzbrantner-video-analysis-synthesis"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-data-inversion-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "num-rational",
  "serde",
@@ -6210,7 +6278,7 @@ name = "moritzbrantner-video-analysis-synthesis-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-synthesis",
  "serde_json",
 ]
@@ -6220,7 +6288,7 @@ name = "moritzbrantner-video-analysis-synthesis-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-synthesis",
  "serde_json",
 ]
@@ -6230,7 +6298,7 @@ name = "moritzbrantner-video-analysis-synthesis-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-synthesis",
  "serde",
  "serde-wasm-bindgen",
@@ -6242,6 +6310,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-test-support"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-dataset",
  "moritzbrantner-video-analysis-radiance-fields",
@@ -6251,44 +6320,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "moritzbrantner-video-analysis-test-support-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-video-analysis-core",
- "moritzbrantner-video-analysis-test-support",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-test-support-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-video-analysis-core",
- "moritzbrantner-video-analysis-test-support",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-test-support-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-video-analysis-core",
- "moritzbrantner-video-analysis-test-support",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moritzbrantner-video-analysis-tracking"
 version = "0.1.0"
 dependencies = [
  "criterion",
  "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "num-rational",
  "serde",
@@ -6300,7 +6337,7 @@ name = "moritzbrantner-video-analysis-tracking-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-tracking",
  "serde_json",
 ]
@@ -6310,7 +6347,7 @@ name = "moritzbrantner-video-analysis-tracking-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-tracking",
  "serde_json",
 ]
@@ -6320,7 +6357,7 @@ name = "moritzbrantner-video-analysis-tracking-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-tracking",
  "serde",
  "serde-wasm-bindgen",
@@ -6332,6 +6369,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-transform"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-dataset",
  "num-rational",
@@ -6344,7 +6382,7 @@ name = "moritzbrantner-video-analysis-transform-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-transform",
  "serde_json",
 ]
@@ -6354,7 +6392,7 @@ name = "moritzbrantner-video-analysis-transform-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-transform",
  "serde_json",
 ]
@@ -6364,7 +6402,7 @@ name = "moritzbrantner-video-analysis-transform-wasm"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "moritzbrantner-video-analysis-core",
+ "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-transform",
  "serde",
  "serde-wasm-bindgen",

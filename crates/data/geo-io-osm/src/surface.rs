@@ -1,11 +1,11 @@
 //! Library-owned runtime surface for `geo-io-osm`.
 
 use base64::prelude::*;
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{
     collect_osm_pbf_bytes, CollectOsmBytesOptions, IndexMode, IndexOptions, OsmFilterSpec,

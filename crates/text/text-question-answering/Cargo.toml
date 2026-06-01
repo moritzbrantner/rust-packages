@@ -16,6 +16,7 @@ categories.workspace = true
 name = "text_question_answering"
 
 [dependencies]
+runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 text-model-runtime.workspace = true

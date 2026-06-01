@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `vector-analysis-core`.
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{
     cosine_similarity, dot, euclidean_distance, l2_norm, manhattan_distance, vector_stats,

@@ -20,7 +20,7 @@ name = "audio-analysis-synthesis-cli"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 audio-analysis-synthesis = { package = "moritzbrantner-audio-analysis-synthesis", version = "0.1.0", path = "../audio-analysis-synthesis" }

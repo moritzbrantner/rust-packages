@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `image-analysis-comfyui`.
 
-use video_analysis_core::runtime::{
+use runtime_core::{
     describe_surface_response, structured_operation_response, OperationId, PackageSurface,
     RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };

@@ -16,6 +16,7 @@ categories = ["science::geo", "visualization", "algorithms"]
 name = "geo_viz"
 
 [dependencies]
+runtime-core.workspace = true
 geo-clustering.workspace = true
 geo-core.workspace = true
 geo-io-geojson.workspace = true

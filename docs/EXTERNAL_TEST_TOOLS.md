@@ -56,10 +56,10 @@ Default text tests do not download model files or require native runtimes. Opt-i
 
 ```bash
 scripts/sync_model_bundles.sh
-cargo test -p text-model-runtime --features external-tests -- --ignored
-cargo test -p text-linguistics --features external-tests -- --ignored
-cargo test -p text-embeddings --features external-tests -- --ignored
-cargo test -p text-transcripts --features native,external-tests -- --ignored
+cargo test -p moritzbrantner-text-model-runtime --features external-tests -- --ignored
+cargo test -p moritzbrantner-text-linguistics --features external-tests -- --ignored
+cargo test -p moritzbrantner-text-embeddings --features external-tests -- --ignored
+cargo test -p moritzbrantner-text-transcripts --features native,external-tests -- --ignored
 ```
 
 These tests reuse `.model-runtime` and report whether required tokenizer, Candle, ONNX, or whisper.cpp files are locally present. Classification and question-answering model entries are reference-only until native runners are added.

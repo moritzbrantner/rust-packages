@@ -23,4 +23,4 @@ path = "src/main.rs"
 clap.workspace = true
 geo-io-osm = { package = "moritzbrantner-geo-io-osm", version = "0.1.0", path = "../geo-io-osm" }
 serde_json.workspace = true
-video-analysis-core.workspace = true
+runtime-core.workspace = true

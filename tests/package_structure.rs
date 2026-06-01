@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 #[test]
 fn library_manifests_do_not_embed_generic_runtime_surfaces() {
@@ -234,10 +235,10 @@ fn library_crates_have_complete_runtime_surfaces() {
                     "{surface_name}: app does not depend on matching wasm package"
                 ));
             }
-            let api_ts = fs::read_to_string(app_dir.join("src/api.ts")).unwrap();
-            if !api_ts.contains("runWasmOperation") || !api_ts.contains("serverBaseUrl") {
+            let app_tsx = fs::read_to_string(app_dir.join("src/App.tsx")).unwrap();
+            if !app_tsx.contains("PackageSurfaceWorkbench") {
                 missing.push(format!(
-                    "{surface_name}: app does not expose both wasm and server runtimes"
+                    "{surface_name}: app does not render the shared package surface workbench"
                 ));
             }
         }
@@ -286,16 +287,18 @@ fn representative_adapters_delegate_to_library_owned_surfaces() {
 }
 
 #[test]
-fn retired_runtime_surfaces_are_documented_while_tracked() {
+fn retired_runtime_surfaces_are_removed_and_documented() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let docs = fs::read_to_string(root.join("docs/runtime-surfaces.md")).unwrap();
     for retired in ["runtime-artifacts", "runtime-jobs"] {
-        if root.join("crates/runtime").join(retired).exists() {
-            assert!(
-                docs.contains(retired),
-                "tracked retired runtime surface {retired} must be documented"
-            );
-        }
+        assert!(
+            !root.join("crates/runtime").join(retired).exists(),
+            "retired runtime surface {retired} must not be an active crate"
+        );
+        assert!(
+            docs.contains(retired),
+            "removed runtime surface {retired} must remain documented"
+        );
     }
 }
 
@@ -313,35 +316,204 @@ fn retired_runtime_frontend_apps_do_not_return() {
     }
 }
 
+#[test]
+fn cargo_package_selectors_use_active_prefixed_names() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let packages = active_workspace_packages(root);
+    let names = packages
+        .iter()
+        .filter_map(|package| package["name"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let unprefixed = names
+        .iter()
+        .filter_map(|name| {
+            name.strip_prefix("moritzbrantner-")
+                .map(|short| (short, *name))
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let mut failures = Vec::new();
+
+    for file in tracked_command_files(root) {
+        let relative = file.strip_prefix(root).unwrap_or(&file);
+        let Ok(text) = fs::read_to_string(&file) else {
+            continue;
+        };
+        for (line_index, line) in text.lines().enumerate() {
+            if !line.contains("cargo") || !line.contains("-p") {
+                continue;
+            }
+            for package in cargo_package_selectors(line) {
+                if package.starts_with("moritzbrantner-") {
+                    if !names.contains(package.as_str())
+                        && !line.contains('<')
+                        && !line.contains('{')
+                    {
+                        failures.push(format!(
+                            "{}:{} uses unknown package selector `-p {package}`",
+                            relative.display(),
+                            line_index + 1
+                        ));
+                    }
+                } else if let Some(expected) = unprefixed.get(package.as_str()) {
+                    failures.push(format!(
+                        "{}:{} uses `-p {package}`; use `-p {expected}`",
+                        relative.display(),
+                        line_index + 1
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "Cargo package selectors must use active prefixed package names: {}",
+        failures.join(", ")
+    );
+}
+
+#[test]
+fn generated_server_wrappers_delegate_to_runtime_core() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let offenders = active_workspace_packages(root)
+        .into_iter()
+        .filter_map(|package| {
+            let name = package["name"].as_str()?;
+            if !name.ends_with("-server") {
+                return None;
+            }
+            let manifest = PathBuf::from(package["manifest_path"].as_str()?);
+            let source = fs::read_to_string(manifest.parent()?.join("src/lib.rs")).ok()?;
+            let reimplements_http = source.contains("fn run_request")
+                || source.contains("TcpListener")
+                || source.contains("DiagnosticSeverity")
+                || source.contains("Content-Length");
+            reimplements_http.then(|| name.to_string())
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        offenders.is_empty(),
+        "server wrappers must delegate HTTP routing to runtime_core::server: {}",
+        offenders.join(", ")
+    );
+}
+
 fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
-    let mut manifests = Vec::new();
-    collect_manifests(root, &mut manifests);
-    manifests
+    active_workspace_packages(root)
+        .into_iter()
+        .map(|package| PathBuf::from(package["manifest_path"].as_str().expect("manifest path")))
+        .collect()
 }
 
 fn library_manifests(root: &Path) -> Vec<PathBuf> {
-    workspace_manifests(root)
+    active_workspace_packages(root)
         .into_iter()
-        .filter(|manifest| {
-            let relative = manifest.strip_prefix(root).unwrap_or(manifest);
-            let parts = relative.components().collect::<Vec<_>>();
-            if parts.len() < 4 {
-                return false;
-            }
+        .filter_map(|package| {
+            let manifest = PathBuf::from(package["manifest_path"].as_str().expect("manifest path"));
+            let package_name = package["name"].as_str().expect("package name");
+            let relative = manifest.strip_prefix(root).unwrap_or(&manifest);
             let path = relative.to_string_lossy();
-            path.starts_with("crates/")
-                && !path.starts_with("crates/bindings/")
-                && manifest
-                    .parent()
-                    .and_then(|parent| parent.file_name())
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| {
-                        !name.ends_with("-cli")
-                            && !name.ends_with("-server")
-                            && !name.ends_with("-wasm")
-                    })
+            if !path.starts_with("crates/")
+                || path.starts_with("crates/bindings/")
+                || package_name.ends_with("-cli")
+                || package_name.ends_with("-server")
+                || package_name.ends_with("-wasm")
+                || package_name == "moritzbrantner-audio-analysis-test-support"
+                || package_name == "moritzbrantner-runtime-core"
+                || package_name == "moritzbrantner-video-analysis-test-support"
+            {
+                return None;
+            }
+            has_library_target(&package).then_some(manifest)
         })
         .collect()
+}
+
+fn active_workspace_packages(root: &Path) -> Vec<serde_json::Value> {
+    let output = Command::new("cargo")
+        .args(["metadata", "--format-version", "1", "--no-deps"])
+        .current_dir(root)
+        .output()
+        .expect("run cargo metadata");
+    assert!(
+        output.status.success(),
+        "cargo metadata failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("parse cargo metadata");
+    let members = metadata["workspace_members"]
+        .as_array()
+        .expect("workspace members")
+        .iter()
+        .filter_map(|member| member.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    metadata["packages"]
+        .as_array()
+        .expect("packages")
+        .iter()
+        .filter(|package| {
+            package["id"]
+                .as_str()
+                .is_some_and(|id| members.contains(id))
+        })
+        .cloned()
+        .collect()
+}
+
+fn has_library_target(package: &serde_json::Value) -> bool {
+    package["targets"].as_array().is_some_and(|targets| {
+        targets.iter().any(|target| {
+            target["kind"]
+                .as_array()
+                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "lib"))
+        })
+    })
+}
+
+fn cargo_package_selectors(line: &str) -> Vec<String> {
+    line.split_whitespace()
+        .collect::<Vec<_>>()
+        .windows(2)
+        .filter(|window| window[0] == "-p")
+        .map(|window| {
+            window[1]
+                .trim_matches(|ch: char| ch == '\'' || ch == '"' || ch == ',' || ch == ';')
+                .to_string()
+        })
+        .collect()
+}
+
+fn tracked_command_files(root: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    for relative in ["package.json", "scripts", "docs", ".github"] {
+        let path = root.join(relative);
+        if path.is_file() {
+            files.push(path);
+        } else {
+            collect_command_files(&path, &mut files);
+        }
+    }
+    files
+}
+
+fn collect_command_files(dir: &Path, files: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_command_files(&path, files);
+        } else if path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| matches!(ext, "json" | "md" | "sh" | "yml" | "yaml"))
+        {
+            files.push(path);
+        }
+    }
 }
 
 fn package_name(manifest: &Path) -> String {
@@ -518,32 +690,6 @@ fn has_file_matching(dir: &Path, predicate: impl Fn(&Path) -> bool + Copy) -> bo
     false
 }
 
-fn collect_manifests(dir: &Path, manifests: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let file_name = entry.file_name();
-        let file_name = file_name.to_string_lossy();
-        if file_name == ".git"
-            || file_name == ".cargo-target"
-            || file_name == "target"
-            || file_name == "vendor"
-            || file_name == "node_modules"
-            || is_retired_runtime_surface(&path)
-        {
-            continue;
-        }
-        if path.is_dir() {
-            collect_manifests(&path, manifests);
-        } else if file_name == "Cargo.toml" {
-            manifests.push(path);
-        }
-    }
-}
-
 fn tracked_identifier_files(root: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
     collect_identifier_files(root, &mut files);
@@ -600,22 +746,4 @@ fn is_identifier_file(path: &Path) -> bool {
                 "rs" | "ts" | "tsx" | "js" | "mjs" | "json" | "md" | "py" | "sh"
             )
         })
-}
-
-fn is_retired_runtime_surface(path: &Path) -> bool {
-    path.components().any(|component| {
-        component.as_os_str().to_str().is_some_and(|name| {
-            matches!(
-                name,
-                "runtime-artifacts"
-                    | "runtime-artifacts-cli"
-                    | "runtime-artifacts-server"
-                    | "runtime-artifacts-wasm"
-                    | "runtime-jobs"
-                    | "runtime-jobs-cli"
-                    | "runtime-jobs-server"
-                    | "runtime-jobs-wasm"
-            )
-        })
-    })
 }

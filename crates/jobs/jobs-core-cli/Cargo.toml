@@ -20,7 +20,7 @@ name = "jobs-core-cli"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 jobs-core = { package = "moritzbrantner-jobs-core", version = "0.1.1", path = "../jobs-core" }

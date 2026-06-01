@@ -3,9 +3,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use runtime_core::{ArtifactId, Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use video_analysis_core::runtime::{ArtifactId, Diagnostic, DiagnosticCode, DiagnosticSeverity};
 
 use crate::{JobError, JobId, Result};
 

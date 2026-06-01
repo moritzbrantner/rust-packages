@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `text-core`.
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{
     detailed_text_stats, detect_script_profile, normalize_text, normalize_whitespace,
@@ -231,7 +231,7 @@ fn default_true() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use video_analysis_core::runtime::OperationId;
+    use runtime_core::OperationId;
 
     #[test]
     fn package_surface_lists_text_operations() {

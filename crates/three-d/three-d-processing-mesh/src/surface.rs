@@ -1,12 +1,12 @@
 //! Library-owned runtime surface for `three-d-processing-mesh`.
 
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use three_d_processing_core::Point3;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use three_d_processing_core::Point3;
 
 use crate::{
     is_manifold, is_watertight, mesh_diagnostics, mesh_topology, remove_degenerate_triangles,

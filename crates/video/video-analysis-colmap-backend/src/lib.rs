@@ -226,8 +226,8 @@ pub fn compare_reports(
 mod tests {
     use std::fs;
 
+    use runtime_core::DiagnosticSeverity;
     use tempfile::tempdir;
-    use video_analysis_core::runtime::DiagnosticSeverity;
 
     use super::*;
 

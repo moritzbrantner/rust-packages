@@ -81,23 +81,23 @@ jobs:
           cargo clippy
           -p audio-analysis-core
           -p audio-analysis-fourier
-          -p audio-analysis-io
+          -p moritzbrantner-audio-analysis-io
           -p audio-analysis-pitch
           -p audio-analysis-processing
           -p audio-analysis-recognition
           -p audio-analysis-rhythm
-          -p audio-analysis-separation
+          -p moritzbrantner-audio-analysis-separation
           --all-targets -- -D warnings
       - run: >
           PROPTEST_CASES=128 cargo test --jobs "$CARGO_BUILD_JOBS"
           -p audio-analysis-core
           -p audio-analysis-fourier
-          -p audio-analysis-io
+          -p moritzbrantner-audio-analysis-io
           -p audio-analysis-pitch
           -p audio-analysis-processing
           -p audio-analysis-recognition
           -p audio-analysis-rhythm
-          -p audio-analysis-separation
+          -p moritzbrantner-audio-analysis-separation
 
   audio-ffmpeg:
     runs-on: ubuntu-latest
@@ -163,7 +163,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: bash scripts/setup_audio_external_tools.sh ffmpeg
-      - run: FFMPEG_EXTERNAL_TESTS=1 cargo test --jobs "$CARGO_BUILD_JOBS" -p audio-analysis-io --test ffmpeg_decode
+      - run: FFMPEG_EXTERNAL_TESTS=1 cargo test --jobs "$CARGO_BUILD_JOBS" -p moritzbrantner-audio-analysis-io --test ffmpeg_decode
 
   audio-perf:
     runs-on: ubuntu-latest
@@ -308,5 +308,5 @@ jobs:
         env:
           AUDIO_DEMUCS_INSTALLER: auto
       - run: >
-          RUN_REAL_DEMUCS_TESTS=1 cargo test --jobs "$CARGO_BUILD_JOBS" -p audio-analysis-separation
+          RUN_REAL_DEMUCS_TESTS=1 cargo test --jobs "$CARGO_BUILD_JOBS" -p moritzbrantner-audio-analysis-separation
           real_demucs_smoke_test_when_requested -- --ignored --nocapture

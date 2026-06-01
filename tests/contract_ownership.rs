@@ -140,8 +140,12 @@ fn generic_model_runtime_stays_domain_independent() {
         "model-runtime should build model artifact handling on jobs-core generics"
     );
     assert!(
-        manifest.contains("video-analysis-core.workspace = true"),
-        "model-runtime surfaces should use video-analysis-core runtime DTOs"
+        manifest.contains("runtime-core.workspace = true"),
+        "model-runtime surfaces should use runtime-core DTOs"
+    );
+    assert!(
+        !manifest.contains("video-analysis-core.workspace = true"),
+        "model-runtime must not depend on video-analysis-core for runtime DTOs"
     );
 }
 

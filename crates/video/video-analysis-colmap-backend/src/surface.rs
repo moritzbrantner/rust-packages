@@ -3,11 +3,11 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     ensure_structured_surface_value, Diagnostic, DiagnosticSeverity, OperationId, PackageSurface,
     RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{
     default_reconstruct_video_request, ReconstructVideoRequest, COLMAP_TEST_VIDEO_PATH,
@@ -226,7 +226,7 @@ fn native_operation_diagnostic(operation: OperationId) -> SurfaceResponse {
         "nextStep": "Run the package server or overview server dispatch path to execute native reconstruction.",
     });
     SurfaceResponse {
-        value: video_analysis_core::runtime::structured_surface_value(
+        value: runtime_core::structured_surface_value(
             &operation,
             "COLMAP native reconstruction unavailable in library runner",
             &message,

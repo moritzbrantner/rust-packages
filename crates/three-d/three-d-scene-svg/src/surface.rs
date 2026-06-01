@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `three-d-scene-svg`.
 
-use video_analysis_core::runtime::{
+use runtime_core::{
     structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
     SurfaceRequest, SurfaceResponse,
 };

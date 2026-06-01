@@ -269,30 +269,6 @@
       "name": "@moritzbrantner/audio-analysis-synthesis-wasm",
       "version": "0.1.0",
     },
-    "packages/audio-analysis-test-support-app": {
-      "name": "@moritzbrantner/audio-analysis-test-support-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/audio-analysis-test-support-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/audio-analysis-test-support-wasm": {
-      "name": "@moritzbrantner/audio-analysis-test-support-wasm",
-      "version": "0.1.0",
-    },
     "packages/audio-generation-midi-app": {
       "name": "@moritzbrantner/audio-generation-midi-app",
       "version": "0.1.0",
@@ -1131,14 +1107,6 @@
     },
     "packages/numbers-core-wasm": {
       "name": "@moritzbrantner/numbers-core-wasm",
-      "version": "0.1.0",
-    },
-    "packages/runtime-artifacts-wasm": {
-      "name": "@moritzbrantner/runtime-artifacts-wasm",
-      "version": "0.1.0",
-    },
-    "packages/runtime-jobs-wasm": {
-      "name": "@moritzbrantner/runtime-jobs-wasm",
       "version": "0.1.0",
     },
     "packages/tensor-data-app": {
@@ -2254,30 +2222,6 @@
       "name": "@moritzbrantner/video-analysis-synthesis-wasm",
       "version": "0.1.0",
     },
-    "packages/video-analysis-test-support-app": {
-      "name": "@moritzbrantner/video-analysis-test-support-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/video-analysis-test-support-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/video-analysis-test-support-wasm": {
-      "name": "@moritzbrantner/video-analysis-test-support-wasm",
-      "version": "0.1.0",
-    },
     "packages/video-analysis-tracking-app": {
       "name": "@moritzbrantner/video-analysis-tracking-app",
       "version": "0.1.0",
@@ -2556,10 +2500,6 @@
 
     "@moritzbrantner/audio-analysis-synthesis-wasm": ["@moritzbrantner/audio-analysis-synthesis-wasm@workspace:packages/audio-analysis-synthesis-wasm"],
 
-    "@moritzbrantner/audio-analysis-test-support-app": ["@moritzbrantner/audio-analysis-test-support-app@workspace:packages/audio-analysis-test-support-app"],
-
-    "@moritzbrantner/audio-analysis-test-support-wasm": ["@moritzbrantner/audio-analysis-test-support-wasm@workspace:packages/audio-analysis-test-support-wasm"],
-
     "@moritzbrantner/audio-generation-midi-app": ["@moritzbrantner/audio-generation-midi-app@workspace:packages/audio-generation-midi-app"],
 
     "@moritzbrantner/audio-generation-midi-wasm": ["@moritzbrantner/audio-generation-midi-wasm@workspace:packages/audio-generation-midi-wasm"],
@@ -2699,10 +2639,6 @@
     "@moritzbrantner/numbers-core-app": ["@moritzbrantner/numbers-core-app@workspace:packages/numbers-core-app"],
 
     "@moritzbrantner/numbers-core-wasm": ["@moritzbrantner/numbers-core-wasm@workspace:packages/numbers-core-wasm"],
-
-    "@moritzbrantner/runtime-artifacts-wasm": ["@moritzbrantner/runtime-artifacts-wasm@workspace:packages/runtime-artifacts-wasm"],
-
-    "@moritzbrantner/runtime-jobs-wasm": ["@moritzbrantner/runtime-jobs-wasm@workspace:packages/runtime-jobs-wasm"],
 
     "@moritzbrantner/tensor-data-app": ["@moritzbrantner/tensor-data-app@workspace:packages/tensor-data-app"],
 
@@ -2889,10 +2825,6 @@
     "@moritzbrantner/video-analysis-synthesis-app": ["@moritzbrantner/video-analysis-synthesis-app@workspace:packages/video-analysis-synthesis-app"],
 
     "@moritzbrantner/video-analysis-synthesis-wasm": ["@moritzbrantner/video-analysis-synthesis-wasm@workspace:packages/video-analysis-synthesis-wasm"],
-
-    "@moritzbrantner/video-analysis-test-support-app": ["@moritzbrantner/video-analysis-test-support-app@workspace:packages/video-analysis-test-support-app"],
-
-    "@moritzbrantner/video-analysis-test-support-wasm": ["@moritzbrantner/video-analysis-test-support-wasm@workspace:packages/video-analysis-test-support-wasm"],
 
     "@moritzbrantner/video-analysis-tracking-app": ["@moritzbrantner/video-analysis-tracking-app@workspace:packages/video-analysis-tracking-app"],
 

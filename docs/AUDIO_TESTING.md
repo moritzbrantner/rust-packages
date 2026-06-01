@@ -12,23 +12,23 @@ cargo fmt --all --check
 cargo clippy \
   -p audio-analysis-core \
   -p audio-analysis-fourier \
-  -p audio-analysis-io \
+  -p moritzbrantner-audio-analysis-io \
   -p audio-analysis-pitch \
   -p audio-analysis-processing \
   -p audio-analysis-recognition \
   -p audio-analysis-rhythm \
-  -p audio-analysis-separation \
+  -p moritzbrantner-audio-analysis-separation \
   --all-targets -- -D warnings
 
 PROPTEST_CASES=128 cargo test \
   -p audio-analysis-core \
   -p audio-analysis-fourier \
-  -p audio-analysis-io \
+  -p moritzbrantner-audio-analysis-io \
   -p audio-analysis-pitch \
   -p audio-analysis-processing \
   -p audio-analysis-recognition \
   -p audio-analysis-rhythm \
-  -p audio-analysis-separation
+  -p moritzbrantner-audio-analysis-separation
 ```
 
 These tests are deterministic and do not require FFmpeg, Demucs, GPUs, network,
@@ -54,7 +54,7 @@ FFmpeg decode coverage is gated because it requires external binaries:
 
 ```bash
 bash scripts/setup_audio_external_tools.sh ffmpeg
-FFMPEG_EXTERNAL_TESTS=1 cargo test -p audio-analysis-io --test ffmpeg_decode
+FFMPEG_EXTERNAL_TESTS=1 cargo test -p moritzbrantner-audio-analysis-io --test ffmpeg_decode
 ```
 
 If `FFMPEG_EXTERNAL_TESTS` is not set, the test skips. If the variable is set,
@@ -69,7 +69,7 @@ into the ignored local tools directory first:
 ```bash
 bash scripts/setup_audio_external_tools.sh demucs
 export PATH="$PWD/.audio-tools/bin:$PATH"
-RUN_REAL_DEMUCS_TESTS=1 cargo test -p audio-analysis-separation \
+RUN_REAL_DEMUCS_TESTS=1 cargo test -p moritzbrantner-audio-analysis-separation \
   real_demucs_smoke_test_when_requested -- --ignored --nocapture
 ```
 

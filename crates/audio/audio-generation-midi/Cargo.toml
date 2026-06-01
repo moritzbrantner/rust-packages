@@ -16,6 +16,7 @@ categories.workspace = true
 name = "audio_generation_midi"
 
 [dependencies]
+runtime-core.workspace = true
 serde_json.workspace = true
 audio-analysis-synthesis.workspace = true
 data-inversion-core.workspace = true

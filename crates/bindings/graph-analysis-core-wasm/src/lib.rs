@@ -1,6 +1,6 @@
 //! WASM bindings for `graph-analysis-core`.
 
-use video_analysis_core::runtime::SurfaceRequest;
+use runtime_core::SurfaceRequest;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = packageSurface)]

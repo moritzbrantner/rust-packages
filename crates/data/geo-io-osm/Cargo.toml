@@ -21,6 +21,7 @@ disk-index = ["dep:redb", "dep:tempfile"]
 geo-types = ["dep:geo-types"]
 
 [dependencies]
+runtime-core.workspace = true
 base64.workspace = true
 geo-core.workspace = true
 geo-io-geojson.workspace = true

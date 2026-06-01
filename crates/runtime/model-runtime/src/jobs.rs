@@ -6,8 +6,8 @@ use std::sync::{Arc, Mutex};
 use jobs_core::{
     ArtifactKind, ArtifactRef, BackgroundJobRunner, JobArtifact, JobError, JobProgress, JobSpec,
 };
+use runtime_core::Diagnostic;
 use serde::{Deserialize, Serialize};
-use video_analysis_core::runtime::Diagnostic;
 
 use crate::{ModelBundle, ModelBundleStore, ModelRuntimeBackend, ModelSource, ModelSpec};
 
@@ -539,7 +539,7 @@ fn artifact_id(request: &ModelAccessJobRequest, suffix: &str) -> String {
 }
 
 fn artifact_ref_for_path(
-    id: impl Into<video_analysis_core::runtime::ArtifactId>,
+    id: impl Into<runtime_core::ArtifactId>,
     kind: ArtifactKind,
     media_type: impl Into<String>,
     path: &Path,

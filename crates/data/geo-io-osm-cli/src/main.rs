@@ -1,8 +1,7 @@
-use std::fs;
-use std::io::Read;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use runtime_core::cli::read_json_input;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -87,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             json,
             file,
         } => {
-            let input = read_input(json, file)?;
+            let input = read_json_input(json, file)?;
             let response =
                 geo_io_osm_cli::run_operation(&operation, input).map_err(std::io::Error::other)?;
             println!("{}", serde_json::to_string(&response)?);
@@ -109,26 +108,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     Ok(())
-}
-
-fn read_input(
-    json: Option<String>,
-    file: Option<String>,
-) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    let input = if let Some(json) = json {
-        json
-    } else if let Some(file) = file {
-        fs::read_to_string(file)?
-    } else {
-        let mut buffer = String::new();
-        std::io::stdin().read_to_string(&mut buffer)?;
-        if buffer.trim().is_empty() {
-            "{}".to_string()
-        } else {
-            buffer
-        }
-    };
-    Ok(serde_json::from_str(&input)?)
 }
 
 fn print_payload(json: bool, title: &str, payload: &str) {

@@ -16,6 +16,7 @@ categories.workspace = true
 name = "video_analysis_mvs"
 
 [dependencies]
+runtime-core.workspace = true
 serde_json.workspace = true
 three-d-processing-core.workspace = true
 three-d-processing-mesh.workspace = true

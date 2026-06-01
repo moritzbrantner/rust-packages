@@ -132,8 +132,6 @@ flowchart LR
     crate_moritzbrantner_audio_analysis_synthesis_cli["moritzbrantner-audio-analysis-synthesis-cli"]:::crate
     crate_moritzbrantner_audio_analysis_synthesis_server["moritzbrantner-audio-analysis-synthesis-server"]:::crate
     crate_moritzbrantner_audio_analysis_test_support["moritzbrantner-audio-analysis-test-support"]:::crate
-    crate_moritzbrantner_audio_analysis_test_support_cli["moritzbrantner-audio-analysis-test-support-cli"]:::crate
-    crate_moritzbrantner_audio_analysis_test_support_server["moritzbrantner-audio-analysis-test-support-server"]:::crate
     crate_moritzbrantner_audio_generation_midi["moritzbrantner-audio-generation-midi"]:::crate
     crate_moritzbrantner_audio_generation_midi_cli["moritzbrantner-audio-generation-midi-cli"]:::crate
     crate_moritzbrantner_audio_generation_midi_server["moritzbrantner-audio-generation-midi-server"]:::crate
@@ -363,7 +361,6 @@ flowchart LR
     crate_moritzbrantner_audio_analysis_separation_wasm["moritzbrantner-audio-analysis-separation-wasm"]:::crate
     crate_moritzbrantner_audio_analysis_speakers_wasm["moritzbrantner-audio-analysis-speakers-wasm"]:::crate
     crate_moritzbrantner_audio_analysis_synthesis_wasm["moritzbrantner-audio-analysis-synthesis-wasm"]:::crate
-    crate_moritzbrantner_audio_analysis_test_support_wasm["moritzbrantner-audio-analysis-test-support-wasm"]:::crate
     crate_moritzbrantner_audio_generation_midi_wasm["moritzbrantner-audio-generation-midi-wasm"]:::crate
     crate_moritzbrantner_comfyui_data_wasm["moritzbrantner-comfyui-data-wasm"]:::crate
     crate_moritzbrantner_comfyui_latents_wasm["moritzbrantner-comfyui-latents-wasm"]:::crate
@@ -445,7 +442,6 @@ flowchart LR
     crate_moritzbrantner_video_analysis_split_wasm["moritzbrantner-video-analysis-split-wasm"]:::crate
     crate_moritzbrantner_video_analysis_storage_wasm["moritzbrantner-video-analysis-storage-wasm"]:::crate
     crate_moritzbrantner_video_analysis_synthesis_wasm["moritzbrantner-video-analysis-synthesis-wasm"]:::crate
-    crate_moritzbrantner_video_analysis_test_support_wasm["moritzbrantner-video-analysis-test-support-wasm"]:::crate
     crate_moritzbrantner_video_analysis_tracking_wasm["moritzbrantner-video-analysis-tracking-wasm"]:::crate
     crate_moritzbrantner_video_analysis_transform_wasm["moritzbrantner-video-analysis-transform-wasm"]:::crate
   end
@@ -453,8 +449,6 @@ flowchart LR
   subgraph group_test_support["Test Support"]
     direction TB
     crate_moritzbrantner_video_analysis_test_support["moritzbrantner-video-analysis-test-support"]:::crate
-    crate_moritzbrantner_video_analysis_test_support_cli["moritzbrantner-video-analysis-test-support-cli"]:::crate
-    crate_moritzbrantner_video_analysis_test_support_server["moritzbrantner-video-analysis-test-support-server"]:::crate
   end
 
   subgraph group_prototypes["Prototypes"]
@@ -481,305 +475,333 @@ flowchart LR
     crate_moritzbrantner_model_runtime["moritzbrantner-model-runtime"]:::crate
     crate_moritzbrantner_model_runtime_cli["moritzbrantner-model-runtime-cli"]:::crate
     crate_moritzbrantner_model_runtime_server["moritzbrantner-model-runtime-server"]:::crate
+    crate_moritzbrantner_runtime_core["moritzbrantner-runtime-core"]:::crate
   end
 
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_data_inversion_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_dense_data
-  crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_finance_data
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_geo_clustering
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_geo_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_geo_io_geojson
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_geo_io_osm
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_geo_viz
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_graph_analysis_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_numbers_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_tensor_data
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_finance_statistics
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_maps_kernels_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_math_geometry_2d
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_math_linear
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_math_signal_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_math_sparse_data
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_math_statistics
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_analysis_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_analysis_fourier
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_analysis_io
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_analysis_pitch
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_analysis_processing
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_analysis_recognition
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_analysis_rhythm
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_analysis_separation
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_analysis_speakers
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_analysis_synthesis
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_audio_generation_midi
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_captioning
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_classification
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_comfyui
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_detection
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_embeddings
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_io
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_ocr
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_data_inversion_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_dense_data
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_finance_data
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_geo_clustering
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_geo_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_geo_io_geojson
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_geo_io_osm
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_geo_viz
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_graph_analysis_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_numbers_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_tensor_data
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_finance_statistics
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_maps_kernels_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_math_geometry_2d
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_math_linear
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_math_signal_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_math_sparse_data
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_math_statistics
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_fourier
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_io
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_pitch
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_processing
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_recognition
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_rhythm
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_separation
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_speakers
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_synthesis
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_generation_midi
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_captioning
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_classification
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_comfyui
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_detection
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_embeddings
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_io
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_ocr
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_onnx
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_processing
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_segmentation
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_image_analysis_synthesis
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_analysis
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_classification
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_processing
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_segmentation
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_synthesis
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_analysis
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_classification
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_core
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_core_cli
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_core_server
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_embeddings
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_embeddings
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_embeddings_cli
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_embeddings_server
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_generation
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_generation_linguistics
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_lexical
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_linguistics
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_model_runtime
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_question_answering
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_retrieval
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_generation
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_generation_linguistics
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_lexical
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_linguistics
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_model_runtime
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_question_answering
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_retrieval
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_retrieval_cli
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_retrieval_server
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_text_transcripts
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_transcripts
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_transcripts_cli
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_transcripts_server
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_vector_analysis_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_vector_analysis_index
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_three_d_processing_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_three_d_processing_io
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_three_d_processing_mesh
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_three_d_scene_svg
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_colmap_backend
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_data
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_dataset
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_detectors
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_editing
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_features
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_ffmpeg
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_gaussian_splatting
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_ingest
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_mvs
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_vector_analysis_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_vector_analysis_index
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_three_d_processing_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_three_d_processing_io
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_three_d_processing_mesh
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_three_d_scene_svg
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_colmap_backend
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_data
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_dataset
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_detectors
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_editing
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_features
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_ffmpeg
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_gaussian_splatting
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_ingest
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_mvs
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_onnx
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_opencv_backend
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_output
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_posture
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_posture_io
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_radiance_fields
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_radiance_io
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_radiance_pipeline
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_recognition
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_reconstruction
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_segmentation
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_sfm
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_sfm_rust_backend
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_split
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_storage
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_synthesis
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_tracking
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_video_analysis_transform
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_comfyui_data
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_comfyui_latents
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_comfyui_models
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_animation_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_jobs_core
-  crate_moritzbrantner_video_analysis --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_opencv_backend
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_output
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_posture
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_posture_io
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_radiance_fields
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_radiance_io
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_radiance_pipeline
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_recognition
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_reconstruction
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_segmentation
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_sfm
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_sfm_rust_backend
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_split
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_storage
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_synthesis
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_tracking
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_transform
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_comfyui_data
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_comfyui_latents
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_comfyui_models
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_animation_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_jobs_core
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_data_inversion_core --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_data_inversion_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_data_inversion_core_cli --> crate_moritzbrantner_data_inversion_core
-  crate_moritzbrantner_data_inversion_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_data_inversion_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_data_inversion_core_server --> crate_moritzbrantner_data_inversion_core
-  crate_moritzbrantner_data_inversion_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_data_inversion_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_dense_data --> crate_moritzbrantner_numbers_core
   crate_moritzbrantner_dense_data --> crate_moritzbrantner_math_linear
   crate_moritzbrantner_dense_data --> crate_moritzbrantner_math_statistics
   crate_moritzbrantner_dense_data --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_dense_data --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_dense_data_cli --> crate_moritzbrantner_dense_data
-  crate_moritzbrantner_dense_data_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_dense_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_dense_data_server --> crate_moritzbrantner_dense_data
-  crate_moritzbrantner_dense_data_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_dense_data_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_finance_data --> crate_moritzbrantner_finance_statistics
   crate_moritzbrantner_finance_data --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_finance_data --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_finance_data_cli --> crate_moritzbrantner_finance_data
-  crate_moritzbrantner_finance_data_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_finance_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_finance_data_server --> crate_moritzbrantner_finance_data
-  crate_moritzbrantner_finance_data_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_finance_data_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_clustering --> crate_moritzbrantner_geo_core
   crate_moritzbrantner_geo_clustering --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_clustering --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_clustering_cli --> crate_moritzbrantner_geo_clustering
-  crate_moritzbrantner_geo_clustering_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_clustering_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_clustering_server --> crate_moritzbrantner_geo_clustering
-  crate_moritzbrantner_geo_clustering_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_clustering_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_core --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_core_cli --> crate_moritzbrantner_geo_core
-  crate_moritzbrantner_geo_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_core_server --> crate_moritzbrantner_geo_core
-  crate_moritzbrantner_geo_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_geojson --> crate_moritzbrantner_geo_core
   crate_moritzbrantner_geo_io_geojson --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_io_geojson --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_geojson_cli --> crate_moritzbrantner_geo_io_geojson
-  crate_moritzbrantner_geo_io_geojson_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_io_geojson_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_geojson_server --> crate_moritzbrantner_geo_io_geojson
-  crate_moritzbrantner_geo_io_geojson_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_io_geojson_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_osm --> crate_moritzbrantner_geo_core
   crate_moritzbrantner_geo_io_osm --> crate_moritzbrantner_geo_io_geojson
   crate_moritzbrantner_geo_io_osm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_io_osm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_osm_cli --> crate_moritzbrantner_geo_io_geojson
   crate_moritzbrantner_geo_io_osm_cli --> crate_moritzbrantner_geo_io_osm
-  crate_moritzbrantner_geo_io_osm_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_io_osm_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_osm_server --> crate_moritzbrantner_geo_io_osm
-  crate_moritzbrantner_geo_io_osm_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_io_osm_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_clustering
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_core
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_io_geojson
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_maps_kernels_core
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_viz --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_viz_cli --> crate_moritzbrantner_geo_viz
-  crate_moritzbrantner_geo_viz_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_viz_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_viz_server --> crate_moritzbrantner_geo_viz
-  crate_moritzbrantner_geo_viz_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_viz_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_graph_analysis_core --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_graph_analysis_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_graph_analysis_core_cli --> crate_moritzbrantner_graph_analysis_core
-  crate_moritzbrantner_graph_analysis_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_graph_analysis_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_graph_analysis_core_server --> crate_moritzbrantner_graph_analysis_core
-  crate_moritzbrantner_graph_analysis_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_graph_analysis_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_numbers_core --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_numbers_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_numbers_core_cli --> crate_moritzbrantner_numbers_core
-  crate_moritzbrantner_numbers_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_numbers_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_numbers_core_server --> crate_moritzbrantner_numbers_core
-  crate_moritzbrantner_numbers_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_numbers_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_tensor_data --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_tensor_data --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_tensor_data_cli --> crate_moritzbrantner_tensor_data
-  crate_moritzbrantner_tensor_data_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_tensor_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_tensor_data
-  crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_numbers_core
   crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_finance_statistics_cli --> crate_moritzbrantner_finance_statistics
-  crate_moritzbrantner_finance_statistics_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_finance_statistics_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_finance_statistics_server --> crate_moritzbrantner_finance_statistics
-  crate_moritzbrantner_finance_statistics_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_finance_statistics_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_maps_kernels_core --> crate_moritzbrantner_numbers_core
   crate_moritzbrantner_maps_kernels_core --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_maps_kernels_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_maps_kernels_core_cli --> crate_moritzbrantner_maps_kernels_core
-  crate_moritzbrantner_maps_kernels_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_maps_kernels_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_maps_kernels_core_server --> crate_moritzbrantner_maps_kernels_core
-  crate_moritzbrantner_maps_kernels_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_maps_kernels_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_geometry_2d --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_geometry_2d --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_geometry_2d_cli --> crate_moritzbrantner_math_geometry_2d
-  crate_moritzbrantner_math_geometry_2d_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_geometry_2d_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_geometry_2d_server --> crate_moritzbrantner_math_geometry_2d
-  crate_moritzbrantner_math_geometry_2d_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_geometry_2d_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_linear --> crate_moritzbrantner_tensor_data
   crate_moritzbrantner_math_linear --> crate_moritzbrantner_vector_analysis_core
   crate_moritzbrantner_math_linear --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_linear --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_linear_cli --> crate_moritzbrantner_math_linear
-  crate_moritzbrantner_math_linear_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_linear_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_linear_server --> crate_moritzbrantner_math_linear
-  crate_moritzbrantner_math_linear_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_linear_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_signal_core --> crate_moritzbrantner_numbers_core
   crate_moritzbrantner_math_signal_core --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_signal_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_signal_core_cli --> crate_moritzbrantner_math_signal_core
-  crate_moritzbrantner_math_signal_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_signal_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_signal_core_server --> crate_moritzbrantner_math_signal_core
-  crate_moritzbrantner_math_signal_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_signal_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_sparse_data --> crate_moritzbrantner_numbers_core
   crate_moritzbrantner_math_sparse_data --> crate_moritzbrantner_vector_analysis_core
   crate_moritzbrantner_math_sparse_data --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_sparse_data --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_sparse_data_cli --> crate_moritzbrantner_math_sparse_data
-  crate_moritzbrantner_math_sparse_data_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_sparse_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_sparse_data_server --> crate_moritzbrantner_math_sparse_data
-  crate_moritzbrantner_math_sparse_data_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_sparse_data_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_statistics --> crate_moritzbrantner_numbers_core
   crate_moritzbrantner_math_statistics --> crate_moritzbrantner_math_linear
   crate_moritzbrantner_math_statistics --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_statistics --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_statistics_cli --> crate_moritzbrantner_math_statistics
-  crate_moritzbrantner_math_statistics_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_statistics_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_statistics_server --> crate_moritzbrantner_math_statistics
-  crate_moritzbrantner_math_statistics_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_statistics_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_core --> crate_moritzbrantner_tensor_data
   crate_moritzbrantner_audio_analysis_core --> crate_moritzbrantner_math_signal_core
   crate_moritzbrantner_audio_analysis_core --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_core_cli --> crate_moritzbrantner_audio_analysis_core
-  crate_moritzbrantner_audio_analysis_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_core_server --> crate_moritzbrantner_audio_analysis_core
-  crate_moritzbrantner_audio_analysis_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_fourier --> crate_moritzbrantner_audio_analysis_core
   crate_moritzbrantner_audio_analysis_fourier --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_fourier --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_fourier_cli --> crate_moritzbrantner_audio_analysis_fourier
-  crate_moritzbrantner_audio_analysis_fourier_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_fourier_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_fourier_server --> crate_moritzbrantner_audio_analysis_fourier
-  crate_moritzbrantner_audio_analysis_fourier_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_fourier_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_io --> crate_moritzbrantner_audio_analysis_core
   crate_moritzbrantner_audio_analysis_io --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_audio_analysis_io --> crate_moritzbrantner_video_analysis_ffmpeg
   crate_moritzbrantner_audio_analysis_io --> crate_moritzbrantner_video_analysis_ingest
+  crate_moritzbrantner_audio_analysis_io --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_io_cli --> crate_moritzbrantner_audio_analysis_io
-  crate_moritzbrantner_audio_analysis_io_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_io_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_io_server --> crate_moritzbrantner_audio_analysis_io
-  crate_moritzbrantner_audio_analysis_io_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_io_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_pitch --> crate_moritzbrantner_audio_analysis_core
   crate_moritzbrantner_audio_analysis_pitch --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_pitch --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_pitch_cli --> crate_moritzbrantner_audio_analysis_pitch
-  crate_moritzbrantner_audio_analysis_pitch_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_pitch_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_pitch_server --> crate_moritzbrantner_audio_analysis_pitch
-  crate_moritzbrantner_audio_analysis_pitch_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_pitch_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_processing --> crate_moritzbrantner_math_signal_core
   crate_moritzbrantner_audio_analysis_processing --> crate_moritzbrantner_audio_analysis_core
   crate_moritzbrantner_audio_analysis_processing --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_audio_analysis_processing --> crate_moritzbrantner_video_analysis_ingest
+  crate_moritzbrantner_audio_analysis_processing --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_processing_cli --> crate_moritzbrantner_audio_analysis_processing
-  crate_moritzbrantner_audio_analysis_processing_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_processing_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_processing_server --> crate_moritzbrantner_audio_analysis_processing
-  crate_moritzbrantner_audio_analysis_processing_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_processing_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_recognition --> crate_moritzbrantner_audio_analysis_core
   crate_moritzbrantner_audio_analysis_recognition --> crate_moritzbrantner_audio_analysis_fourier
   crate_moritzbrantner_audio_analysis_recognition --> crate_moritzbrantner_text_transcripts
   crate_moritzbrantner_audio_analysis_recognition --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_audio_analysis_recognition --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_audio_analysis_recognition --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_recognition_cli --> crate_moritzbrantner_audio_analysis_recognition
-  crate_moritzbrantner_audio_analysis_recognition_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_recognition_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_recognition_server --> crate_moritzbrantner_audio_analysis_recognition
-  crate_moritzbrantner_audio_analysis_recognition_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_recognition_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_rhythm --> crate_moritzbrantner_audio_analysis_core
   crate_moritzbrantner_audio_analysis_rhythm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_rhythm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_rhythm_cli --> crate_moritzbrantner_audio_analysis_rhythm
-  crate_moritzbrantner_audio_analysis_rhythm_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_rhythm_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_rhythm_server --> crate_moritzbrantner_audio_analysis_rhythm
-  crate_moritzbrantner_audio_analysis_rhythm_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_rhythm_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_separation --> crate_moritzbrantner_audio_analysis_recognition
   crate_moritzbrantner_audio_analysis_separation --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_audio_analysis_separation -. optional .-> crate_moritzbrantner_jobs_core
+  crate_moritzbrantner_audio_analysis_separation --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_separation_cli --> crate_moritzbrantner_audio_analysis_separation
-  crate_moritzbrantner_audio_analysis_separation_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_separation_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_separation_server --> crate_moritzbrantner_audio_analysis_separation
-  crate_moritzbrantner_audio_analysis_separation_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_separation_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_speakers --> crate_moritzbrantner_audio_analysis_core
   crate_moritzbrantner_audio_analysis_speakers --> crate_moritzbrantner_audio_analysis_recognition
   crate_moritzbrantner_audio_analysis_speakers --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_speakers --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_speakers_cli --> crate_moritzbrantner_audio_analysis_speakers
-  crate_moritzbrantner_audio_analysis_speakers_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_speakers_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_speakers_server --> crate_moritzbrantner_audio_analysis_speakers
-  crate_moritzbrantner_audio_analysis_speakers_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_speakers_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_synthesis --> crate_moritzbrantner_data_inversion_core
   crate_moritzbrantner_audio_analysis_synthesis --> crate_moritzbrantner_audio_analysis_recognition
   crate_moritzbrantner_audio_analysis_synthesis --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_synthesis --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_synthesis_cli --> crate_moritzbrantner_audio_analysis_synthesis
-  crate_moritzbrantner_audio_analysis_synthesis_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_synthesis_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_synthesis_server --> crate_moritzbrantner_audio_analysis_synthesis
-  crate_moritzbrantner_audio_analysis_synthesis_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_synthesis_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_test_support --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_audio_analysis_test_support_cli --> crate_moritzbrantner_audio_analysis_test_support
-  crate_moritzbrantner_audio_analysis_test_support_cli --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_audio_analysis_test_support_server --> crate_moritzbrantner_audio_analysis_test_support
-  crate_moritzbrantner_audio_analysis_test_support_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_test_support --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_generation_midi --> crate_moritzbrantner_data_inversion_core
   crate_moritzbrantner_audio_generation_midi --> crate_moritzbrantner_audio_analysis_synthesis
   crate_moritzbrantner_audio_generation_midi --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_generation_midi --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_generation_midi_cli --> crate_moritzbrantner_audio_generation_midi
-  crate_moritzbrantner_audio_generation_midi_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_generation_midi_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_generation_midi_server --> crate_moritzbrantner_audio_generation_midi
-  crate_moritzbrantner_audio_generation_midi_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_generation_midi_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_captioning --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_captioning --> crate_moritzbrantner_image_analysis_detection
   crate_moritzbrantner_image_analysis_captioning --> crate_moritzbrantner_image_analysis_ocr
@@ -787,10 +809,11 @@ flowchart LR
   crate_moritzbrantner_image_analysis_captioning --> crate_moritzbrantner_image_analysis_synthesis
   crate_moritzbrantner_image_analysis_captioning --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_image_analysis_captioning --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_image_analysis_captioning --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_captioning_cli --> crate_moritzbrantner_image_analysis_captioning
-  crate_moritzbrantner_image_analysis_captioning_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_captioning_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_captioning_server --> crate_moritzbrantner_image_analysis_captioning
-  crate_moritzbrantner_image_analysis_captioning_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_captioning_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_classification --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_classification --> crate_moritzbrantner_image_analysis_detection
   crate_moritzbrantner_image_analysis_classification --> crate_moritzbrantner_image_analysis_ocr
@@ -798,31 +821,35 @@ flowchart LR
   crate_moritzbrantner_image_analysis_classification --> crate_moritzbrantner_image_analysis_synthesis
   crate_moritzbrantner_image_analysis_classification --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_image_analysis_classification --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_image_analysis_classification --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_classification_cli --> crate_moritzbrantner_image_analysis_classification
-  crate_moritzbrantner_image_analysis_classification_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_classification_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_classification_server --> crate_moritzbrantner_image_analysis_classification
-  crate_moritzbrantner_image_analysis_classification_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_classification_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_comfyui --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_image_analysis_comfyui --> crate_moritzbrantner_comfyui_data
   crate_moritzbrantner_image_analysis_comfyui --> crate_moritzbrantner_comfyui_models
+  crate_moritzbrantner_image_analysis_comfyui --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_comfyui_cli --> crate_moritzbrantner_image_analysis_comfyui
-  crate_moritzbrantner_image_analysis_comfyui_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_comfyui_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_comfyui_server --> crate_moritzbrantner_image_analysis_comfyui
-  crate_moritzbrantner_image_analysis_comfyui_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_comfyui_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_core --> crate_moritzbrantner_tensor_data
   crate_moritzbrantner_image_analysis_core --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_core_cli --> crate_moritzbrantner_image_analysis_core
-  crate_moritzbrantner_image_analysis_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_core_server --> crate_moritzbrantner_image_analysis_core
-  crate_moritzbrantner_image_analysis_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_detection --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_detection --> crate_moritzbrantner_image_analysis_segmentation
   crate_moritzbrantner_image_analysis_detection --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_image_analysis_detection --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_image_analysis_detection --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_detection_cli --> crate_moritzbrantner_image_analysis_detection
-  crate_moritzbrantner_image_analysis_detection_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_detection_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_detection_server --> crate_moritzbrantner_image_analysis_detection
-  crate_moritzbrantner_image_analysis_detection_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_detection_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_image_analysis_detection
   crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_image_analysis_ocr
@@ -830,23 +857,26 @@ flowchart LR
   crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_image_analysis_synthesis
   crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_embeddings_cli --> crate_moritzbrantner_image_analysis_embeddings
-  crate_moritzbrantner_image_analysis_embeddings_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_embeddings_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_embeddings_server --> crate_moritzbrantner_image_analysis_embeddings
-  crate_moritzbrantner_image_analysis_embeddings_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_embeddings_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_io --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_io --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_io --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_io_cli --> crate_moritzbrantner_image_analysis_io
-  crate_moritzbrantner_image_analysis_io_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_io_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_io_server --> crate_moritzbrantner_image_analysis_io
-  crate_moritzbrantner_image_analysis_io_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_io_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_ocr_cli --> crate_moritzbrantner_image_analysis_ocr
-  crate_moritzbrantner_image_analysis_ocr_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_ocr_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_ocr_server --> crate_moritzbrantner_image_analysis_ocr
-  crate_moritzbrantner_image_analysis_ocr_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_ocr_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_onnx --> crate_moritzbrantner_image_analysis_classification
   crate_moritzbrantner_image_analysis_onnx --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_onnx --> crate_moritzbrantner_image_analysis_detection
@@ -854,32 +884,36 @@ flowchart LR
   crate_moritzbrantner_image_analysis_onnx --> crate_moritzbrantner_image_analysis_processing
   crate_moritzbrantner_image_analysis_onnx --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_image_analysis_onnx --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_image_analysis_onnx --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_onnx_cli --> crate_moritzbrantner_image_analysis_onnx
-  crate_moritzbrantner_image_analysis_onnx_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_onnx_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_onnx_server --> crate_moritzbrantner_image_analysis_onnx
-  crate_moritzbrantner_image_analysis_onnx_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_onnx_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_processing --> crate_moritzbrantner_math_geometry_2d
   crate_moritzbrantner_image_analysis_processing --> crate_moritzbrantner_math_linear
   crate_moritzbrantner_image_analysis_processing --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_processing --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_processing --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_processing_cli --> crate_moritzbrantner_image_analysis_processing
-  crate_moritzbrantner_image_analysis_processing_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_processing_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_processing_server --> crate_moritzbrantner_image_analysis_processing
-  crate_moritzbrantner_image_analysis_processing_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_processing_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_segmentation --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_segmentation --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_image_analysis_segmentation --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_image_analysis_segmentation --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_segmentation_cli --> crate_moritzbrantner_image_analysis_segmentation
-  crate_moritzbrantner_image_analysis_segmentation_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_segmentation_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_segmentation_server --> crate_moritzbrantner_image_analysis_segmentation
-  crate_moritzbrantner_image_analysis_segmentation_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_segmentation_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_synthesis --> crate_moritzbrantner_data_inversion_core
   crate_moritzbrantner_image_analysis_synthesis --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_synthesis --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_synthesis --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_synthesis_cli --> crate_moritzbrantner_image_analysis_synthesis
-  crate_moritzbrantner_image_analysis_synthesis_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_synthesis_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_synthesis_server --> crate_moritzbrantner_image_analysis_synthesis
-  crate_moritzbrantner_image_analysis_synthesis_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_synthesis_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_embeddings
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_lexical
@@ -887,25 +921,28 @@ flowchart LR
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_retrieval
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_text_analysis -. optional .-> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_text_analysis --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_analysis_cli --> crate_moritzbrantner_text_analysis
-  crate_moritzbrantner_text_analysis_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_analysis_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_analysis_server --> crate_moritzbrantner_text_analysis
   crate_moritzbrantner_text_analysis_server --> crate_moritzbrantner_text_model_runtime
-  crate_moritzbrantner_text_analysis_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_analysis_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_classification --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_classification --> crate_moritzbrantner_text_lexical
   crate_moritzbrantner_text_classification --> crate_moritzbrantner_text_model_runtime
   crate_moritzbrantner_text_classification --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_classification --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_classification_cli --> crate_moritzbrantner_text_classification
-  crate_moritzbrantner_text_classification_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_classification_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_classification_server --> crate_moritzbrantner_text_classification
-  crate_moritzbrantner_text_classification_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_classification_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_core --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_text_core --> crate_moritzbrantner_jobs_core
+  crate_moritzbrantner_text_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_core_cli --> crate_moritzbrantner_text_core
-  crate_moritzbrantner_text_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_core_server --> crate_moritzbrantner_text_core
-  crate_moritzbrantner_text_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_embeddings --> crate_moritzbrantner_math_sparse_data
   crate_moritzbrantner_text_embeddings --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_embeddings --> crate_moritzbrantner_text_lexical
@@ -914,34 +951,38 @@ flowchart LR
   crate_moritzbrantner_text_embeddings --> crate_moritzbrantner_vector_analysis_index
   crate_moritzbrantner_text_embeddings --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_text_embeddings -. optional .-> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_text_embeddings --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_embeddings_cli --> crate_moritzbrantner_text_embeddings
-  crate_moritzbrantner_text_embeddings_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_embeddings_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_embeddings_server --> crate_moritzbrantner_text_embeddings
   crate_moritzbrantner_text_embeddings_server --> crate_moritzbrantner_text_model_runtime
-  crate_moritzbrantner_text_embeddings_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_embeddings_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_generation --> crate_moritzbrantner_data_inversion_core
   crate_moritzbrantner_text_generation --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_generation --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_generation --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_generation_cli --> crate_moritzbrantner_text_generation
-  crate_moritzbrantner_text_generation_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_generation_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_generation_linguistics --> crate_moritzbrantner_data_inversion_core
   crate_moritzbrantner_text_generation_linguistics --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_generation_linguistics --> crate_moritzbrantner_text_generation
   crate_moritzbrantner_text_generation_linguistics --> crate_moritzbrantner_text_linguistics
   crate_moritzbrantner_text_generation_linguistics --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_generation_linguistics --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_generation_linguistics_cli --> crate_moritzbrantner_text_generation_linguistics
-  crate_moritzbrantner_text_generation_linguistics_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_generation_linguistics_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_generation_linguistics_server --> crate_moritzbrantner_text_generation_linguistics
-  crate_moritzbrantner_text_generation_linguistics_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_generation_linguistics_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_generation_server --> crate_moritzbrantner_text_generation
-  crate_moritzbrantner_text_generation_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_generation_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_lexical --> crate_moritzbrantner_math_sparse_data
   crate_moritzbrantner_text_lexical --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_lexical --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_lexical --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_lexical_cli --> crate_moritzbrantner_text_lexical
-  crate_moritzbrantner_text_lexical_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_lexical_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_lexical_server --> crate_moritzbrantner_text_lexical
-  crate_moritzbrantner_text_lexical_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_lexical_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_linguistics --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_linguistics --> crate_moritzbrantner_text_lexical
   crate_moritzbrantner_text_linguistics --> crate_moritzbrantner_text_model_runtime
@@ -949,78 +990,89 @@ flowchart LR
   crate_moritzbrantner_text_linguistics --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_text_linguistics -. optional .-> crate_moritzbrantner_jobs_core
   crate_moritzbrantner_text_linguistics -. optional .-> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_text_linguistics --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_linguistics_cli --> crate_moritzbrantner_text_linguistics
-  crate_moritzbrantner_text_linguistics_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_linguistics_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_linguistics_server --> crate_moritzbrantner_text_linguistics
   crate_moritzbrantner_text_linguistics_server --> crate_moritzbrantner_text_model_runtime
-  crate_moritzbrantner_text_linguistics_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_linguistics_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_model_runtime --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_text_model_runtime -. optional .-> crate_moritzbrantner_jobs_core
   crate_moritzbrantner_text_model_runtime -. optional .-> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_text_model_runtime --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_model_runtime_cli --> crate_moritzbrantner_text_model_runtime
-  crate_moritzbrantner_text_model_runtime_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_model_runtime_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_model_runtime_server --> crate_moritzbrantner_text_model_runtime
-  crate_moritzbrantner_text_model_runtime_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_model_runtime_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_text_model_runtime
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_question_answering_cli --> crate_moritzbrantner_text_question_answering
-  crate_moritzbrantner_text_question_answering_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_question_answering_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_question_answering_server --> crate_moritzbrantner_text_question_answering
-  crate_moritzbrantner_text_question_answering_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_question_answering_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_embeddings
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_lexical
   crate_moritzbrantner_text_retrieval -. optional .-> crate_moritzbrantner_text_transcripts
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_vector_analysis_index
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_retrieval_cli --> crate_moritzbrantner_text_retrieval
-  crate_moritzbrantner_text_retrieval_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_retrieval_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_retrieval_server --> crate_moritzbrantner_text_retrieval
-  crate_moritzbrantner_text_retrieval_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_retrieval_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_transcripts --> crate_moritzbrantner_audio_analysis_core
   crate_moritzbrantner_text_transcripts --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_transcripts --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_text_transcripts --> crate_moritzbrantner_video_analysis_ingest
+  crate_moritzbrantner_text_transcripts --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_transcripts_cli --> crate_moritzbrantner_text_transcripts
-  crate_moritzbrantner_text_transcripts_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_transcripts_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_transcripts_server --> crate_moritzbrantner_text_transcripts
-  crate_moritzbrantner_text_transcripts_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_transcripts_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_vector_analysis_core --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_vector_analysis_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_vector_analysis_core_cli --> crate_moritzbrantner_vector_analysis_core
-  crate_moritzbrantner_vector_analysis_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_vector_analysis_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_vector_analysis_core_server --> crate_moritzbrantner_vector_analysis_core
-  crate_moritzbrantner_vector_analysis_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_vector_analysis_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_vector_analysis_index --> crate_moritzbrantner_vector_analysis_core
   crate_moritzbrantner_vector_analysis_index --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_vector_analysis_index --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_vector_analysis_index_cli --> crate_moritzbrantner_vector_analysis_index
-  crate_moritzbrantner_vector_analysis_index_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_vector_analysis_index_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_vector_analysis_index_server --> crate_moritzbrantner_vector_analysis_index
-  crate_moritzbrantner_vector_analysis_index_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_vector_analysis_index_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_core --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_core_cli --> crate_moritzbrantner_three_d_processing_core
-  crate_moritzbrantner_three_d_processing_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_core_server --> crate_moritzbrantner_three_d_processing_core
-  crate_moritzbrantner_three_d_processing_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_io --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_three_d_processing_io --> crate_moritzbrantner_three_d_processing_mesh
   crate_moritzbrantner_three_d_processing_io --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_io --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_io_cli --> crate_moritzbrantner_three_d_processing_io
-  crate_moritzbrantner_three_d_processing_io_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_io_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_io_server --> crate_moritzbrantner_three_d_processing_io
-  crate_moritzbrantner_three_d_processing_io_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_io_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_mesh --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_three_d_processing_mesh --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_mesh --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_mesh_cli --> crate_moritzbrantner_three_d_processing_mesh
-  crate_moritzbrantner_three_d_processing_mesh_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_mesh_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_mesh_server --> crate_moritzbrantner_three_d_processing_mesh
-  crate_moritzbrantner_three_d_processing_mesh_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_mesh_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_scene_svg --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_three_d_scene_svg --> crate_moritzbrantner_three_d_processing_mesh
   crate_moritzbrantner_three_d_scene_svg --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_scene_svg --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_scene_svg_cli --> crate_moritzbrantner_three_d_scene_svg
-  crate_moritzbrantner_three_d_scene_svg_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_scene_svg_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_scene_svg_server --> crate_moritzbrantner_three_d_scene_svg
-  crate_moritzbrantner_three_d_scene_svg_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_scene_svg_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_cli --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_video_analysis_cli --> crate_moritzbrantner_three_d_processing_io
   crate_moritzbrantner_video_analysis_cli --> crate_moritzbrantner_video_analysis_core
@@ -1040,415 +1092,441 @@ flowchart LR
   crate_moritzbrantner_video_analysis_colmap_backend --> crate_moritzbrantner_video_analysis_radiance_io
   crate_moritzbrantner_video_analysis_colmap_backend --> crate_moritzbrantner_video_analysis_reconstruction
   crate_moritzbrantner_video_analysis_colmap_backend --> crate_moritzbrantner_video_analysis_sfm
+  crate_moritzbrantner_video_analysis_colmap_backend --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_colmap_backend_cli --> crate_moritzbrantner_video_analysis_colmap_backend
-  crate_moritzbrantner_video_analysis_colmap_backend_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_colmap_backend_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_colmap_backend_server --> crate_moritzbrantner_video_analysis_colmap_backend
-  crate_moritzbrantner_video_analysis_colmap_backend_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_colmap_backend_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_video_analysis_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_data --> crate_moritzbrantner_numbers_core
   crate_moritzbrantner_video_analysis_data --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_data_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_data --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_data_cli --> crate_moritzbrantner_video_analysis_data
-  crate_moritzbrantner_video_analysis_data_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_data_server --> crate_moritzbrantner_video_analysis_data
+  crate_moritzbrantner_video_analysis_data_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_dataset -. dev .-> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_video_analysis_dataset --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_dataset --> crate_moritzbrantner_video_analysis_posture
-  crate_moritzbrantner_video_analysis_dataset_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_dataset --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_dataset_cli --> crate_moritzbrantner_video_analysis_dataset
-  crate_moritzbrantner_video_analysis_dataset_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_dataset_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_dataset_server --> crate_moritzbrantner_video_analysis_dataset
+  crate_moritzbrantner_video_analysis_dataset_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_detectors --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_detectors -. dev .-> crate_moritzbrantner_video_analysis_ffmpeg
   crate_moritzbrantner_video_analysis_detectors -. dev .-> crate_moritzbrantner_video_analysis_ingest
-  crate_moritzbrantner_video_analysis_detectors_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_detectors --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_detectors_cli --> crate_moritzbrantner_video_analysis_detectors
-  crate_moritzbrantner_video_analysis_detectors_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_detectors_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_detectors_server --> crate_moritzbrantner_video_analysis_detectors
+  crate_moritzbrantner_video_analysis_detectors_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_editing --> crate_moritzbrantner_math_geometry_2d
   crate_moritzbrantner_video_analysis_editing --> crate_moritzbrantner_math_linear
   crate_moritzbrantner_video_analysis_editing --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_editing_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_editing --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_editing_cli --> crate_moritzbrantner_video_analysis_editing
-  crate_moritzbrantner_video_analysis_editing_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_editing_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_editing_server --> crate_moritzbrantner_video_analysis_editing
+  crate_moritzbrantner_video_analysis_editing_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_features --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_features --> crate_moritzbrantner_video_analysis_dataset
   crate_moritzbrantner_video_analysis_features --> crate_moritzbrantner_video_analysis_transform
-  crate_moritzbrantner_video_analysis_features_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_features --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_features_cli --> crate_moritzbrantner_video_analysis_features
-  crate_moritzbrantner_video_analysis_features_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_features_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_features_server --> crate_moritzbrantner_video_analysis_features
+  crate_moritzbrantner_video_analysis_features_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_ffmpeg --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_ffmpeg --> crate_moritzbrantner_video_analysis_ingest
-  crate_moritzbrantner_video_analysis_ffmpeg_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_ffmpeg --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_ffmpeg_cli --> crate_moritzbrantner_video_analysis_ffmpeg
-  crate_moritzbrantner_video_analysis_ffmpeg_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_ffmpeg_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_ffmpeg_server --> crate_moritzbrantner_video_analysis_ffmpeg
+  crate_moritzbrantner_video_analysis_ffmpeg_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_gaussian_splatting --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_gaussian_splatting --> crate_moritzbrantner_video_analysis_radiance_fields
-  crate_moritzbrantner_video_analysis_gaussian_splatting_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_gaussian_splatting --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_gaussian_splatting_cli --> crate_moritzbrantner_video_analysis_gaussian_splatting
-  crate_moritzbrantner_video_analysis_gaussian_splatting_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_gaussian_splatting_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_gaussian_splatting_server --> crate_moritzbrantner_video_analysis_gaussian_splatting
+  crate_moritzbrantner_video_analysis_gaussian_splatting_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_ingest --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_ingest_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_ingest --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_ingest_cli --> crate_moritzbrantner_video_analysis_ingest
-  crate_moritzbrantner_video_analysis_ingest_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_ingest_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_ingest_server --> crate_moritzbrantner_video_analysis_ingest
+  crate_moritzbrantner_video_analysis_ingest_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_three_d_processing_mesh
   crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_video_analysis_radiance_fields
   crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_video_analysis_reconstruction
-  crate_moritzbrantner_video_analysis_mvs_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_mvs_cli --> crate_moritzbrantner_video_analysis_mvs
-  crate_moritzbrantner_video_analysis_mvs_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_mvs_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_mvs_server --> crate_moritzbrantner_video_analysis_mvs
+  crate_moritzbrantner_video_analysis_mvs_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_onnx --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_video_analysis_onnx --> crate_moritzbrantner_image_analysis_onnx
   crate_moritzbrantner_video_analysis_onnx --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_onnx --> crate_moritzbrantner_video_analysis_posture
   crate_moritzbrantner_video_analysis_onnx --> crate_moritzbrantner_video_analysis_recognition
   crate_moritzbrantner_video_analysis_onnx --> crate_moritzbrantner_model_runtime
-  crate_moritzbrantner_video_analysis_onnx_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_onnx --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_onnx_cli --> crate_moritzbrantner_video_analysis_onnx
-  crate_moritzbrantner_video_analysis_onnx_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_onnx_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_onnx_server --> crate_moritzbrantner_video_analysis_onnx
+  crate_moritzbrantner_video_analysis_onnx_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_opencv_backend --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_opencv_backend --> crate_moritzbrantner_video_analysis_mvs
   crate_moritzbrantner_video_analysis_opencv_backend --> crate_moritzbrantner_video_analysis_sfm
-  crate_moritzbrantner_video_analysis_opencv_backend_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_opencv_backend --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_opencv_backend_cli --> crate_moritzbrantner_video_analysis_opencv_backend
-  crate_moritzbrantner_video_analysis_opencv_backend_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_opencv_backend_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_opencv_backend_server --> crate_moritzbrantner_video_analysis_opencv_backend
+  crate_moritzbrantner_video_analysis_opencv_backend_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_output --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_output_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_output --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_output_cli --> crate_moritzbrantner_video_analysis_output
-  crate_moritzbrantner_video_analysis_output_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_output_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_output_server --> crate_moritzbrantner_video_analysis_output
+  crate_moritzbrantner_video_analysis_output_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_posture --> crate_moritzbrantner_math_geometry_2d
   crate_moritzbrantner_video_analysis_posture --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_video_analysis_posture --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_posture_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_posture --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_posture_cli --> crate_moritzbrantner_video_analysis_posture
+  crate_moritzbrantner_video_analysis_posture_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_posture_io --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_video_analysis_posture_io --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_posture_io --> crate_moritzbrantner_video_analysis_posture
-  crate_moritzbrantner_video_analysis_posture_io_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_posture_io --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_posture_io_cli --> crate_moritzbrantner_video_analysis_posture_io
-  crate_moritzbrantner_video_analysis_posture_io_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_posture_io_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_posture_io_server --> crate_moritzbrantner_video_analysis_posture_io
-  crate_moritzbrantner_video_analysis_posture_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_posture_io_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_posture_server --> crate_moritzbrantner_video_analysis_posture
+  crate_moritzbrantner_video_analysis_posture_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_fields --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_radiance_fields_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_radiance_fields --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_fields_cli --> crate_moritzbrantner_video_analysis_radiance_fields
-  crate_moritzbrantner_video_analysis_radiance_fields_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_radiance_fields_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_fields_server --> crate_moritzbrantner_video_analysis_radiance_fields
+  crate_moritzbrantner_video_analysis_radiance_fields_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_io --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_radiance_io --> crate_moritzbrantner_video_analysis_gaussian_splatting
   crate_moritzbrantner_video_analysis_radiance_io --> crate_moritzbrantner_video_analysis_radiance_fields
   crate_moritzbrantner_video_analysis_radiance_io --> crate_moritzbrantner_video_analysis_reconstruction
-  crate_moritzbrantner_video_analysis_radiance_io_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_radiance_io --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_io_cli --> crate_moritzbrantner_video_analysis_radiance_io
-  crate_moritzbrantner_video_analysis_radiance_io_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_radiance_io_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_io_server --> crate_moritzbrantner_video_analysis_radiance_io
+  crate_moritzbrantner_video_analysis_radiance_io_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_pipeline --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_radiance_pipeline --> crate_moritzbrantner_video_analysis_gaussian_splatting
   crate_moritzbrantner_video_analysis_radiance_pipeline --> crate_moritzbrantner_video_analysis_radiance_fields
   crate_moritzbrantner_video_analysis_radiance_pipeline --> crate_moritzbrantner_video_analysis_radiance_io
   crate_moritzbrantner_video_analysis_radiance_pipeline --> crate_moritzbrantner_video_analysis_reconstruction
-  crate_moritzbrantner_video_analysis_radiance_pipeline_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_radiance_pipeline --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_pipeline_cli --> crate_moritzbrantner_video_analysis_radiance_pipeline
-  crate_moritzbrantner_video_analysis_radiance_pipeline_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_radiance_pipeline_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_pipeline_server --> crate_moritzbrantner_video_analysis_radiance_pipeline
+  crate_moritzbrantner_video_analysis_radiance_pipeline_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_recognition --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_video_analysis_recognition --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_recognition --> crate_moritzbrantner_video_analysis_posture
   crate_moritzbrantner_video_analysis_recognition --> crate_moritzbrantner_model_runtime
-  crate_moritzbrantner_video_analysis_recognition_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_recognition --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_recognition_cli --> crate_moritzbrantner_video_analysis_recognition
-  crate_moritzbrantner_video_analysis_recognition_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_recognition_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_recognition_server --> crate_moritzbrantner_video_analysis_recognition
+  crate_moritzbrantner_video_analysis_recognition_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_reconstruction --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_reconstruction --> crate_moritzbrantner_video_analysis_radiance_fields
-  crate_moritzbrantner_video_analysis_reconstruction_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_reconstruction --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_reconstruction_cli --> crate_moritzbrantner_video_analysis_reconstruction
-  crate_moritzbrantner_video_analysis_reconstruction_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_reconstruction_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_reconstruction_server --> crate_moritzbrantner_video_analysis_reconstruction
+  crate_moritzbrantner_video_analysis_reconstruction_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_segmentation --> crate_moritzbrantner_image_analysis_segmentation
   crate_moritzbrantner_video_analysis_segmentation --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_segmentation -. dev .-> crate_moritzbrantner_video_analysis_ffmpeg
   crate_moritzbrantner_video_analysis_segmentation -. dev .-> crate_moritzbrantner_video_analysis_ingest
   crate_moritzbrantner_video_analysis_segmentation -. dev .-> crate_moritzbrantner_video_analysis_recognition
   crate_moritzbrantner_video_analysis_segmentation --> crate_moritzbrantner_model_runtime
-  crate_moritzbrantner_video_analysis_segmentation_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_segmentation --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_segmentation_cli --> crate_moritzbrantner_video_analysis_segmentation
-  crate_moritzbrantner_video_analysis_segmentation_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_segmentation_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_segmentation_server --> crate_moritzbrantner_video_analysis_segmentation
+  crate_moritzbrantner_video_analysis_segmentation_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_sfm --> crate_moritzbrantner_video_analysis_radiance_fields
   crate_moritzbrantner_video_analysis_sfm --> crate_moritzbrantner_video_analysis_reconstruction
-  crate_moritzbrantner_video_analysis_sfm_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_sfm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm_cli --> crate_moritzbrantner_video_analysis_sfm
+  crate_moritzbrantner_video_analysis_sfm_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm_rust_backend --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_sfm_rust_backend --> crate_moritzbrantner_video_analysis_radiance_fields
   crate_moritzbrantner_video_analysis_sfm_rust_backend --> crate_moritzbrantner_video_analysis_reconstruction
   crate_moritzbrantner_video_analysis_sfm_rust_backend --> crate_moritzbrantner_video_analysis_sfm
-  crate_moritzbrantner_video_analysis_sfm_rust_backend_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_sfm_rust_backend --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm_rust_backend_cli --> crate_moritzbrantner_video_analysis_sfm_rust_backend
-  crate_moritzbrantner_video_analysis_sfm_rust_backend_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_sfm_rust_backend_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm_rust_backend_server --> crate_moritzbrantner_video_analysis_sfm_rust_backend
-  crate_moritzbrantner_video_analysis_sfm_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_sfm_rust_backend_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm_server --> crate_moritzbrantner_video_analysis_sfm
+  crate_moritzbrantner_video_analysis_sfm_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_split --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_split -. dev .-> crate_moritzbrantner_video_analysis_ffmpeg
-  crate_moritzbrantner_video_analysis_split_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_split --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_split_cli --> crate_moritzbrantner_video_analysis_split
-  crate_moritzbrantner_video_analysis_split_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_split_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_split_server --> crate_moritzbrantner_video_analysis_split
+  crate_moritzbrantner_video_analysis_split_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_storage --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_storage --> crate_moritzbrantner_video_analysis_dataset
-  crate_moritzbrantner_video_analysis_storage_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_storage --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_storage_cli --> crate_moritzbrantner_video_analysis_storage
-  crate_moritzbrantner_video_analysis_storage_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_storage_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_storage_server --> crate_moritzbrantner_video_analysis_storage
+  crate_moritzbrantner_video_analysis_storage_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_synthesis --> crate_moritzbrantner_data_inversion_core
   crate_moritzbrantner_video_analysis_synthesis --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_synthesis_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_synthesis --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_synthesis_cli --> crate_moritzbrantner_video_analysis_synthesis
-  crate_moritzbrantner_video_analysis_synthesis_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_synthesis_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_synthesis_server --> crate_moritzbrantner_video_analysis_synthesis
+  crate_moritzbrantner_video_analysis_synthesis_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_tracking --> crate_moritzbrantner_math_geometry_2d
   crate_moritzbrantner_video_analysis_tracking --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_tracking_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_tracking --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_tracking_cli --> crate_moritzbrantner_video_analysis_tracking
-  crate_moritzbrantner_video_analysis_tracking_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_tracking_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_tracking_server --> crate_moritzbrantner_video_analysis_tracking
+  crate_moritzbrantner_video_analysis_tracking_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_transform --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_transform --> crate_moritzbrantner_video_analysis_dataset
-  crate_moritzbrantner_video_analysis_transform_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_transform --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_transform_cli --> crate_moritzbrantner_video_analysis_transform
-  crate_moritzbrantner_video_analysis_transform_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_transform_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_transform_server --> crate_moritzbrantner_video_analysis_transform
+  crate_moritzbrantner_video_analysis_transform_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_data --> crate_moritzbrantner_tensor_data
-  crate_moritzbrantner_comfyui_data --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_comfyui_data_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_comfyui_data --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_data_cli --> crate_moritzbrantner_comfyui_data
-  crate_moritzbrantner_comfyui_data_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_comfyui_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_data_server --> crate_moritzbrantner_comfyui_data
+  crate_moritzbrantner_comfyui_data_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_latents --> crate_moritzbrantner_tensor_data
   crate_moritzbrantner_comfyui_latents --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_comfyui_latents_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_comfyui_latents --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_latents_cli --> crate_moritzbrantner_comfyui_latents
-  crate_moritzbrantner_comfyui_latents_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_comfyui_latents_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_latents_server --> crate_moritzbrantner_comfyui_latents
-  crate_moritzbrantner_comfyui_models --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_comfyui_models_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_comfyui_latents_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_comfyui_models --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_models_cli --> crate_moritzbrantner_comfyui_models
-  crate_moritzbrantner_comfyui_models_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_comfyui_models_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_models_server --> crate_moritzbrantner_comfyui_models
-  crate_moritzbrantner_animation_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_comfyui_models_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_animation_core_wasm --> crate_moritzbrantner_animation_core
+  crate_moritzbrantner_animation_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_core_wasm --> crate_moritzbrantner_audio_analysis_core
-  crate_moritzbrantner_audio_analysis_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_fourier_wasm --> crate_moritzbrantner_audio_analysis_fourier
-  crate_moritzbrantner_audio_analysis_fourier_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_fourier_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_io_wasm --> crate_moritzbrantner_audio_analysis_io
-  crate_moritzbrantner_audio_analysis_io_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_io_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_pitch_wasm --> crate_moritzbrantner_audio_analysis_pitch
-  crate_moritzbrantner_audio_analysis_pitch_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_pitch_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_processing_wasm --> crate_moritzbrantner_audio_analysis_processing
-  crate_moritzbrantner_audio_analysis_processing_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_processing_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_recognition_wasm --> crate_moritzbrantner_audio_analysis_recognition
-  crate_moritzbrantner_audio_analysis_recognition_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_recognition_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_rhythm_wasm --> crate_moritzbrantner_audio_analysis_rhythm
-  crate_moritzbrantner_audio_analysis_rhythm_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_rhythm_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_separation_wasm --> crate_moritzbrantner_audio_analysis_separation
-  crate_moritzbrantner_audio_analysis_separation_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_separation_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_speakers_wasm --> crate_moritzbrantner_audio_analysis_speakers
-  crate_moritzbrantner_audio_analysis_speakers_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_speakers_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_synthesis_wasm --> crate_moritzbrantner_audio_analysis_synthesis
-  crate_moritzbrantner_audio_analysis_synthesis_wasm --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_audio_analysis_test_support_wasm --> crate_moritzbrantner_audio_analysis_test_support
-  crate_moritzbrantner_audio_analysis_test_support_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_synthesis_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_generation_midi_wasm --> crate_moritzbrantner_audio_generation_midi
-  crate_moritzbrantner_audio_generation_midi_wasm --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_comfyui_data_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_generation_midi_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_data_wasm --> crate_moritzbrantner_comfyui_data
-  crate_moritzbrantner_comfyui_latents_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_comfyui_data_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_latents_wasm --> crate_moritzbrantner_comfyui_latents
-  crate_moritzbrantner_comfyui_models_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_comfyui_latents_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_models_wasm --> crate_moritzbrantner_comfyui_models
+  crate_moritzbrantner_comfyui_models_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_data_inversion_core_wasm --> crate_moritzbrantner_data_inversion_core
-  crate_moritzbrantner_data_inversion_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_data_inversion_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_dense_data_wasm --> crate_moritzbrantner_dense_data
-  crate_moritzbrantner_dense_data_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_dense_data_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_finance_data_wasm --> crate_moritzbrantner_finance_data
-  crate_moritzbrantner_finance_data_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_finance_data_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_finance_statistics_wasm --> crate_moritzbrantner_finance_statistics
-  crate_moritzbrantner_finance_statistics_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_finance_statistics_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_clustering_wasm --> crate_moritzbrantner_geo_clustering
-  crate_moritzbrantner_geo_clustering_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_clustering_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_core_wasm --> crate_moritzbrantner_geo_core
-  crate_moritzbrantner_geo_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_geojson_wasm --> crate_moritzbrantner_geo_io_geojson
-  crate_moritzbrantner_geo_io_geojson_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_io_geojson_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_osm_wasm --> crate_moritzbrantner_geo_io_osm
-  crate_moritzbrantner_geo_io_osm_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_io_osm_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_viz_wasm --> crate_moritzbrantner_geo_viz
-  crate_moritzbrantner_geo_viz_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_geo_viz_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_graph_analysis_core_wasm --> crate_moritzbrantner_graph_analysis_core
-  crate_moritzbrantner_graph_analysis_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_graph_analysis_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_captioning_wasm --> crate_moritzbrantner_image_analysis_captioning
-  crate_moritzbrantner_image_analysis_captioning_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_captioning_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_classification_wasm --> crate_moritzbrantner_image_analysis_classification
-  crate_moritzbrantner_image_analysis_classification_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_classification_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_comfyui_wasm --> crate_moritzbrantner_image_analysis_comfyui
-  crate_moritzbrantner_image_analysis_comfyui_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_comfyui_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_core_wasm --> crate_moritzbrantner_image_analysis_core
-  crate_moritzbrantner_image_analysis_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_detection_wasm --> crate_moritzbrantner_image_analysis_detection
-  crate_moritzbrantner_image_analysis_detection_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_detection_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_embeddings_wasm --> crate_moritzbrantner_image_analysis_embeddings
-  crate_moritzbrantner_image_analysis_embeddings_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_embeddings_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_io_wasm --> crate_moritzbrantner_image_analysis_io
-  crate_moritzbrantner_image_analysis_io_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_io_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_ocr_wasm --> crate_moritzbrantner_image_analysis_ocr
-  crate_moritzbrantner_image_analysis_ocr_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_ocr_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_onnx_wasm --> crate_moritzbrantner_image_analysis_onnx
-  crate_moritzbrantner_image_analysis_onnx_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_onnx_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_processing_wasm --> crate_moritzbrantner_image_analysis_processing
-  crate_moritzbrantner_image_analysis_processing_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_processing_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_segmentation_wasm --> crate_moritzbrantner_image_analysis_segmentation
-  crate_moritzbrantner_image_analysis_segmentation_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_segmentation_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_synthesis_wasm --> crate_moritzbrantner_image_analysis_synthesis
-  crate_moritzbrantner_image_analysis_synthesis_wasm --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_jobs_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_image_analysis_synthesis_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_jobs_core_wasm --> crate_moritzbrantner_jobs_core
+  crate_moritzbrantner_jobs_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_maps_kernels_core_wasm --> crate_moritzbrantner_maps_kernels_core
-  crate_moritzbrantner_maps_kernels_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_maps_kernels_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_geometry_2d_wasm --> crate_moritzbrantner_math_geometry_2d
-  crate_moritzbrantner_math_geometry_2d_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_geometry_2d_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_linear_wasm --> crate_moritzbrantner_math_linear
-  crate_moritzbrantner_math_linear_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_linear_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_signal_core_wasm --> crate_moritzbrantner_math_signal_core
-  crate_moritzbrantner_math_signal_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_signal_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_sparse_data_wasm --> crate_moritzbrantner_math_sparse_data
-  crate_moritzbrantner_math_sparse_data_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_sparse_data_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_statistics_wasm --> crate_moritzbrantner_math_statistics
-  crate_moritzbrantner_math_statistics_wasm --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_model_runtime_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_math_statistics_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_model_runtime_wasm --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_model_runtime_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_numbers_core_wasm --> crate_moritzbrantner_numbers_core
-  crate_moritzbrantner_numbers_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_numbers_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_tensor_data_wasm --> crate_moritzbrantner_tensor_data
-  crate_moritzbrantner_tensor_data_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_tensor_data_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_analysis_wasm --> crate_moritzbrantner_text_analysis
-  crate_moritzbrantner_text_analysis_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_analysis_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_classification_wasm --> crate_moritzbrantner_text_classification
-  crate_moritzbrantner_text_classification_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_classification_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_core_wasm --> crate_moritzbrantner_text_core
-  crate_moritzbrantner_text_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_embeddings_wasm --> crate_moritzbrantner_text_embeddings
-  crate_moritzbrantner_text_embeddings_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_embeddings_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_generation_linguistics_wasm --> crate_moritzbrantner_text_generation_linguistics
-  crate_moritzbrantner_text_generation_linguistics_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_generation_linguistics_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_generation_wasm --> crate_moritzbrantner_text_generation
-  crate_moritzbrantner_text_generation_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_generation_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_lexical_wasm --> crate_moritzbrantner_text_lexical
-  crate_moritzbrantner_text_lexical_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_lexical_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_linguistics_wasm --> crate_moritzbrantner_text_linguistics
-  crate_moritzbrantner_text_linguistics_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_linguistics_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_model_runtime_wasm --> crate_moritzbrantner_text_model_runtime
-  crate_moritzbrantner_text_model_runtime_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_model_runtime_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_question_answering_wasm --> crate_moritzbrantner_text_question_answering
-  crate_moritzbrantner_text_question_answering_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_question_answering_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_retrieval_wasm --> crate_moritzbrantner_text_retrieval
-  crate_moritzbrantner_text_retrieval_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_retrieval_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_transcripts_wasm --> crate_moritzbrantner_text_transcripts
-  crate_moritzbrantner_text_transcripts_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_transcripts_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_core_wasm --> crate_moritzbrantner_three_d_processing_core
-  crate_moritzbrantner_three_d_processing_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_io_wasm --> crate_moritzbrantner_three_d_processing_io
-  crate_moritzbrantner_three_d_processing_io_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_io_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_processing_mesh_wasm --> crate_moritzbrantner_three_d_processing_mesh
-  crate_moritzbrantner_three_d_processing_mesh_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_processing_mesh_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_three_d_scene_svg_wasm --> crate_moritzbrantner_three_d_scene_svg
-  crate_moritzbrantner_three_d_scene_svg_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_three_d_scene_svg_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_vector_analysis_core_wasm --> crate_moritzbrantner_vector_analysis_core
-  crate_moritzbrantner_vector_analysis_core_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_vector_analysis_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_vector_analysis_index_wasm --> crate_moritzbrantner_vector_analysis_index
-  crate_moritzbrantner_vector_analysis_index_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_vector_analysis_index_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_colmap_backend_wasm --> crate_moritzbrantner_video_analysis_colmap_backend
-  crate_moritzbrantner_video_analysis_colmap_backend_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_colmap_backend_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_core_wasm --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_data_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_data_wasm --> crate_moritzbrantner_video_analysis_data
-  crate_moritzbrantner_video_analysis_dataset_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_data_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_dataset_wasm --> crate_moritzbrantner_video_analysis_dataset
-  crate_moritzbrantner_video_analysis_detectors_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_dataset_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_detectors_wasm --> crate_moritzbrantner_video_analysis_detectors
-  crate_moritzbrantner_video_analysis_editing_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_detectors_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_editing_wasm --> crate_moritzbrantner_video_analysis_editing
-  crate_moritzbrantner_video_analysis_features_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_editing_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_features_wasm --> crate_moritzbrantner_video_analysis_features
-  crate_moritzbrantner_video_analysis_ffmpeg_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_features_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_ffmpeg_wasm --> crate_moritzbrantner_video_analysis_ffmpeg
-  crate_moritzbrantner_video_analysis_gaussian_splatting_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_ffmpeg_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_gaussian_splatting_wasm --> crate_moritzbrantner_video_analysis_gaussian_splatting
-  crate_moritzbrantner_video_analysis_ingest_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_gaussian_splatting_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_ingest_wasm --> crate_moritzbrantner_video_analysis_ingest
-  crate_moritzbrantner_video_analysis_mvs_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_ingest_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_mvs_wasm --> crate_moritzbrantner_video_analysis_mvs
-  crate_moritzbrantner_video_analysis_onnx_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_mvs_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_onnx_wasm --> crate_moritzbrantner_video_analysis_onnx
-  crate_moritzbrantner_video_analysis_opencv_backend_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_onnx_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_opencv_backend_wasm --> crate_moritzbrantner_video_analysis_opencv_backend
-  crate_moritzbrantner_video_analysis_output_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_opencv_backend_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_output_wasm --> crate_moritzbrantner_video_analysis_output
-  crate_moritzbrantner_video_analysis_posture_io_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_output_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_posture_io_wasm --> crate_moritzbrantner_video_analysis_posture_io
-  crate_moritzbrantner_video_analysis_posture_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_posture_io_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_posture_wasm --> crate_moritzbrantner_video_analysis_posture
-  crate_moritzbrantner_video_analysis_radiance_fields_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_posture_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_fields_wasm --> crate_moritzbrantner_video_analysis_radiance_fields
-  crate_moritzbrantner_video_analysis_radiance_io_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_radiance_fields_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_io_wasm --> crate_moritzbrantner_video_analysis_radiance_io
-  crate_moritzbrantner_video_analysis_radiance_pipeline_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_radiance_io_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_pipeline_wasm --> crate_moritzbrantner_video_analysis_radiance_pipeline
-  crate_moritzbrantner_video_analysis_recognition_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_radiance_pipeline_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_recognition_wasm --> crate_moritzbrantner_video_analysis_recognition
-  crate_moritzbrantner_video_analysis_reconstruction_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_recognition_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_reconstruction_wasm --> crate_moritzbrantner_video_analysis_reconstruction
-  crate_moritzbrantner_video_analysis_segmentation_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_reconstruction_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_segmentation_wasm --> crate_moritzbrantner_video_analysis_segmentation
-  crate_moritzbrantner_video_analysis_sfm_rust_backend_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_segmentation_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm_rust_backend_wasm --> crate_moritzbrantner_video_analysis_sfm_rust_backend
-  crate_moritzbrantner_video_analysis_sfm_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_sfm_rust_backend_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm_wasm --> crate_moritzbrantner_video_analysis_sfm
-  crate_moritzbrantner_video_analysis_split_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_sfm_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_split_wasm --> crate_moritzbrantner_video_analysis_split
-  crate_moritzbrantner_video_analysis_storage_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_split_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_storage_wasm --> crate_moritzbrantner_video_analysis_storage
-  crate_moritzbrantner_video_analysis_synthesis_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_storage_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_synthesis_wasm --> crate_moritzbrantner_video_analysis_synthesis
-  crate_moritzbrantner_video_analysis_test_support_wasm --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_test_support_wasm --> crate_moritzbrantner_video_analysis_test_support
-  crate_moritzbrantner_video_analysis_tracking_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_synthesis_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_tracking_wasm --> crate_moritzbrantner_video_analysis_tracking
-  crate_moritzbrantner_video_analysis_transform_wasm --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_video_analysis_tracking_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_transform_wasm --> crate_moritzbrantner_video_analysis_transform
+  crate_moritzbrantner_video_analysis_transform_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_test_support --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_test_support --> crate_moritzbrantner_video_analysis_dataset
   crate_moritzbrantner_video_analysis_test_support --> crate_moritzbrantner_video_analysis_radiance_fields
   crate_moritzbrantner_video_analysis_test_support --> crate_moritzbrantner_video_analysis_radiance_io
-  crate_moritzbrantner_video_analysis_test_support_cli --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_test_support_cli --> crate_moritzbrantner_video_analysis_test_support
-  crate_moritzbrantner_video_analysis_test_support_server --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_test_support_server --> crate_moritzbrantner_video_analysis_test_support
+  crate_moritzbrantner_video_analysis_test_support --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_use_cases --> crate_moritzbrantner_audio_analysis_core
   crate_moritzbrantner_video_analysis_use_cases --> crate_moritzbrantner_audio_analysis_io
   crate_moritzbrantner_video_analysis_use_cases --> crate_moritzbrantner_audio_analysis_pitch
@@ -1476,19 +1554,20 @@ flowchart LR
   crate_moritzbrantner_video_analysis_use_cases --> crate_moritzbrantner_model_runtime
   crate_moritzbrantner_animation_core --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_animation_core --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_animation_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_animation_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_animation_core_cli --> crate_moritzbrantner_animation_core
-  crate_moritzbrantner_animation_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_animation_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_animation_core_server --> crate_moritzbrantner_animation_core
-  crate_moritzbrantner_jobs_core --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_jobs_core_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_animation_core_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_jobs_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_jobs_core_cli --> crate_moritzbrantner_jobs_core
-  crate_moritzbrantner_jobs_core_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_jobs_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_jobs_core_server --> crate_moritzbrantner_jobs_core
-  crate_moritzbrantner_model_runtime --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_jobs_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_model_runtime --> crate_moritzbrantner_jobs_core
-  crate_moritzbrantner_model_runtime_cli --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_model_runtime --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_model_runtime_cli --> crate_moritzbrantner_model_runtime
-  crate_moritzbrantner_model_runtime_server --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_model_runtime_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_model_runtime_server --> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_model_runtime_server --> crate_moritzbrantner_runtime_core
 ```

@@ -2,12 +2,12 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use video_analysis_core::{BoundingBox, FramePosition, ObservationKind, Timebase, Timestamp};
 
 use crate::{bbox_iou, IouTracker, TrackedDetection, TrackingOptions};

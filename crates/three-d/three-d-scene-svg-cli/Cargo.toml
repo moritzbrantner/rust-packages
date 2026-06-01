@@ -20,7 +20,7 @@ name = "three-d-scene-svg-cli"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 three-d-scene-svg = { package = "moritzbrantner-three-d-scene-svg", version = "0.1.0", path = "../three-d-scene-svg" }

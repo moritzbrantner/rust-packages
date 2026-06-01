@@ -1,5 +1,5 @@
+use runtime_core::{OperationId, SurfaceRequest};
 use text_transcripts::surface::run_surface_operation;
-use video_analysis_core::runtime::{OperationId, SurfaceRequest};
 
 fn main() {
     let parsed = run_surface_operation(SurfaceRequest {

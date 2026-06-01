@@ -16,6 +16,7 @@ categories.workspace = true
 name = "text_transcripts"
 
 [dependencies]
+runtime-core.workspace = true
 audio-analysis-core.workspace = true
 hound.workspace = true
 serde.workspace = true

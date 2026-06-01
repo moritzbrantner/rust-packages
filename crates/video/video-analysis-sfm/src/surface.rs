@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `video-analysis-sfm`.
 
-use video_analysis_core::runtime::{
+use runtime_core::{
     structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
     SurfaceRequest, SurfaceResponse,
 };

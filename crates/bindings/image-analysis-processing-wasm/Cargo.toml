@@ -15,7 +15,7 @@ categories.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 js-sys = "0.3.82"
 serde.workspace = true
 serde_json.workspace = true

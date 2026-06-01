@@ -1,11 +1,11 @@
 //! Library-owned runtime surface for `math-linear`.
 
-use serde::Deserialize;
-use tensor_data::F32Tensor;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
+use tensor_data::F32Tensor;
 
 use crate::{F32Matrix, Kernel1d, MatrixShape};
 

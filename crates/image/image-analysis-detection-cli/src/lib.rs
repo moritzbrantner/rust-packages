@@ -1,5 +1,6 @@
-use video_analysis_core::runtime::{
-    ensure_structured_surface_value, OperationId, PackageSurface, SurfaceRequest, SurfaceResponse,
+use runtime_core::{
+    cli::{self, CliAdapterMetadata},
+    PackageSurface, SurfaceResponse,
 };
 
 /// Wrapped library crate name.
@@ -15,49 +16,33 @@ pub const APP_PACKAGE: &str = "image-analysis-detection-app";
 /// Companion WASM package name.
 pub const WASM_PACKAGE: &str = "image-analysis-detection-wasm";
 
+const METADATA: CliAdapterMetadata = CliAdapterMetadata {
+    library_crate: LIBRARY_CRATE,
+    surface_kind: SURFACE_KIND,
+    library_import: LIBRARY_IMPORT,
+    server_package: SERVER_PACKAGE,
+    app_package: APP_PACKAGE,
+    wasm_package: WASM_PACKAGE,
+};
+
 pub fn package_surface() -> PackageSurface {
     image_analysis_detection::surface::package_surface()
 }
 
 pub fn package_metadata_json() -> String {
-    serde_json::json!({
-        "package": format!("{}-cli", LIBRARY_CRATE),
-        "surface": SURFACE_KIND,
-        "library": LIBRARY_CRATE,
-        "libraryImport": LIBRARY_IMPORT,
-        "serverPackage": SERVER_PACKAGE,
-        "appPackage": APP_PACKAGE,
-        "wasmPackage": WASM_PACKAGE,
-        "operations": package_surface().operations
-    })
-    .to_string()
+    cli::package_metadata_json(METADATA, package_surface())
 }
 
 pub fn command_schema_json() -> String {
-    serde_json::json!({
-        "commands": [
-            {"name": "info", "description": "Print package and adapter metadata."},
-            {"name": "schema", "description": "Print the CLI command schema."},
-            {"name": "operations", "description": "Print library operations."},
-            {"name": "run", "description": "Run one library-owned operation."}
-        ]
-    })
-    .to_string()
+    cli::command_schema_json()
 }
 
 pub fn run_operation(operation: &str, input: serde_json::Value) -> Result<SurfaceResponse, String> {
-    let mut response = image_analysis_detection::surface::run_surface_operation(SurfaceRequest {
-        operation: OperationId::new(operation),
+    cli::run_wrapped_operation(
+        operation,
         input,
-    })?;
-    let value = std::mem::take(&mut response.value);
-    response.value = ensure_structured_surface_value(
-        &response.operation,
-        operation.to_string(),
-        format!("Ran package-surface operation `{}`.", operation),
-        value,
-    );
-    Ok(response)
+        image_analysis_detection::surface::run_surface_operation,
+    )
 }
 
 #[cfg(test)]

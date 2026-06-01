@@ -20,7 +20,7 @@ name = "video-analysis-segmentation-server"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 video-analysis-segmentation = { package = "moritzbrantner-video-analysis-segmentation", version = "0.1.0", path = "../video-analysis-segmentation" }

@@ -1,11 +1,11 @@
 //! Library-owned runtime surface for `geo-viz`.
 
 use maps_kernels_core::{resample_line_flat, resample_ring_flat};
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{
     create_scalar_field_grid, GeoFlowIndex, GeoJsonIndex, GeoPointIndex, GeoVizAggregationOptions,

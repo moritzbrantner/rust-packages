@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `dense-data`.
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{
     BucketGrid, DenseBounds, DensePoint, KMeansConfig, NumericSeriesBinQuery, NumericSeriesIndex,

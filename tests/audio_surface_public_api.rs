@@ -1,5 +1,5 @@
+use runtime_core::{OperationId, SurfaceRequest};
 use video_analysis as va;
-use video_analysis_core::runtime::{OperationId, SurfaceRequest};
 
 #[test]
 fn audio_surfaces_expose_cross_crate_deterministic_flow() {

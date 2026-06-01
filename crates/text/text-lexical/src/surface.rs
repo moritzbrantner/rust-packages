@@ -1,11 +1,11 @@
 //! Library-owned runtime surface for `text-lexical`.
 
-use serde::Deserialize;
-use text_core::TextDocument;
-use video_analysis_core::runtime::{
+use runtime_core::{
     structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
     SurfaceRequest, SurfaceResponse,
 };
+use serde::Deserialize;
+use text_core::TextDocument;
 
 use crate::{
     diverse_extractive_summary, english_stop_words, extractive_summary, keywords, phrase_keywords,

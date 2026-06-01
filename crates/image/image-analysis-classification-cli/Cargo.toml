@@ -20,7 +20,7 @@ name = "image-analysis-classification-cli"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 image-analysis-classification = { package = "moritzbrantner-image-analysis-classification", version = "0.1.0", path = "../image-analysis-classification" }

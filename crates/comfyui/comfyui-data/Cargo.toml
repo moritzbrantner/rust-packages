@@ -16,7 +16,7 @@ categories.workspace = true
 name = "comfyui_data"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tensor-data.workspace = true

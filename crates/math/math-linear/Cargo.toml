@@ -22,6 +22,7 @@ faer-backend = []
 nalgebra-backend = []
 
 [dependencies]
+runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tensor-data.workspace = true

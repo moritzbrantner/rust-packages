@@ -20,7 +20,7 @@ name = "text-classification-server"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 text-classification = { package = "moritzbrantner-text-classification", version = "0.1.0", path = "../text-classification" }

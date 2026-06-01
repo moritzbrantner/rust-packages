@@ -26,6 +26,7 @@ external-tests = ["ffmpeg-tests"]
 test-utils = []
 
 [dependencies]
+runtime-core.workspace = true
 serde_json.workspace = true
 num-rational.workspace = true
 thiserror.workspace = true

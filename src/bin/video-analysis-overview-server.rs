@@ -1,11 +1,11 @@
 use clap::Parser;
+use runtime_core::{
+    Diagnostic, DiagnosticSeverity, OperationId, PackageSurface, SurfaceRequest, SurfaceResponse,
+};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use video_analysis_core::runtime::{
-    Diagnostic, DiagnosticSeverity, OperationId, PackageSurface, SurfaceRequest, SurfaceResponse,
-};
 
 #[allow(unused_imports)]
 use video_analysis::{

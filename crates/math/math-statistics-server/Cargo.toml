@@ -20,7 +20,7 @@ name = "math-statistics-server"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 math-statistics = { package = "moritzbrantner-math-statistics", version = "0.1.0", path = "../math-statistics" }

@@ -20,7 +20,7 @@ name = "video-analysis-gaussian-splatting-cli"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 video-analysis-gaussian-splatting = { package = "moritzbrantner-video-analysis-gaussian-splatting", version = "0.1.0", path = "../video-analysis-gaussian-splatting" }

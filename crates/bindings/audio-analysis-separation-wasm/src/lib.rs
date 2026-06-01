@@ -1,6 +1,6 @@
 //! WASM bindings for `audio-analysis-separation`.
 
-use video_analysis_core::runtime::SurfaceRequest;
+use runtime_core::SurfaceRequest;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = packageSurface)]
@@ -34,7 +34,7 @@ mod tests {
             .find(|operation| operation.id.as_str() != "describe")
             .unwrap();
         let response = audio_analysis_separation::surface::run_surface_operation(
-            video_analysis_core::runtime::SurfaceRequest {
+            runtime_core::SurfaceRequest {
                 operation: operation.id.clone(),
                 input: operation.example_request.clone(),
             },

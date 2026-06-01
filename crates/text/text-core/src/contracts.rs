@@ -1,9 +1,7 @@
 use std::collections::BTreeMap;
 
+use runtime_core::{MobileCapability, OperationId, OperationMetadata, RuntimeCapabilities};
 use serde::{Deserialize, Serialize};
-use video_analysis_core::runtime::{
-    MobileCapability, OperationId, OperationMetadata, RuntimeCapabilities,
-};
 use video_analysis_core::{OwnedTextSegment, TextSegment, Timebase, Timestamp};
 
 use crate::{segment_document_id, OwnedTextDocument, TextDocument};

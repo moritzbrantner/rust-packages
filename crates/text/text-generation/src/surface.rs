@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `text-generation`.
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
     SurfaceRequest, SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{synthesize_from_terms, MarkovChain, TermPrompt, TextSynthesisOptions};
 

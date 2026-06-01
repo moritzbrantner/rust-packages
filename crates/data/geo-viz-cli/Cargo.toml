@@ -21,6 +21,6 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 serde_json.workspace = true
 geo-viz = { package = "moritzbrantner-geo-viz", version = "0.1.0", path = "../geo-viz" }

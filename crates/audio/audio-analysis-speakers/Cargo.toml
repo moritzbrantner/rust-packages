@@ -16,6 +16,7 @@ categories.workspace = true
 name = "audio_analysis_speakers"
 
 [dependencies]
+runtime-core.workspace = true
 audio-analysis-core.workspace = true
 audio-analysis-recognition.workspace = true
 serde.workspace = true

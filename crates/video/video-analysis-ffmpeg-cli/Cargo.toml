@@ -20,7 +20,7 @@ name = "video-analysis-ffmpeg-cli"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 video-analysis-ffmpeg = { package = "moritzbrantner-video-analysis-ffmpeg", version = "0.1.0", path = "../video-analysis-ffmpeg" }

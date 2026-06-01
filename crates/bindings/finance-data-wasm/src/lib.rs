@@ -1,8 +1,8 @@
 //! WASM bindings for `finance-data`.
 
 use finance_data::{FinanceSeries, FinanceSeriesIndex, RiskSummaryOptions};
+use runtime_core::SurfaceRequest;
 use serde::Deserialize;
-use video_analysis_core::runtime::SurfaceRequest;
 use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Deserialize)]
@@ -111,13 +111,20 @@ impl FinanceDataWasmSeriesIndex {
     pub fn get_returns(&self, query: JsValue) -> Result<JsValue, JsValue> {
         let query: ReturnsQuery = serde_wasm_bindgen::from_value(query).map_err(into_js_error)?;
         let returns = match query.method.as_str() {
-            "simple" => self.index.simple_returns(query.adjusted),
-            "log" => self.index.log_returns(query.adjusted),
-            method => Err(video_analysis_error(format!(
-                "unsupported returns method `{method}`"
-            ))),
-        }
-        .map_err(into_js_error)?;
+            "simple" => self
+                .index
+                .simple_returns(query.adjusted)
+                .map_err(into_js_error)?,
+            "log" => self
+                .index
+                .log_returns(query.adjusted)
+                .map_err(into_js_error)?,
+            method => {
+                return Err(into_js_error(format!(
+                    "unsupported returns method `{method}`"
+                )))
+            }
+        };
         serde_wasm_bindgen::to_value(&returns).map_err(into_js_error)
     }
 
@@ -148,9 +155,9 @@ impl FinanceDataWasmSeriesIndex {
                 "simple" => current / previous - 1.0,
                 "log" => (current / previous).ln(),
                 method => {
-                    return Err(into_js_error(video_analysis_error(format!(
+                    return Err(into_js_error(format!(
                         "unsupported returns method `{method}`"
-                    ))));
+                    )));
                 }
             };
 
@@ -243,10 +250,6 @@ fn return_price(bar: &finance_data::OhlcvBar, adjusted: bool) -> f64 {
     } else {
         bar.close
     }
-}
-
-fn video_analysis_error(message: String) -> video_analysis_core::DetectError {
-    video_analysis_core::DetectError::InvalidArgument(message)
 }
 
 fn into_js_error(error: impl std::fmt::Display) -> JsValue {

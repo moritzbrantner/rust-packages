@@ -17,13 +17,13 @@ members = [
     ".",
     "crates/animation/*",
     "crates/audio/*",
-    "crates/bindings/[a-q]*",
-    "crates/bindings/[s-z]*",
+    "crates/bindings/*",
     "crates/comfyui/*",
     "crates/data/*",
     "crates/image/*",
     "crates/jobs/*",
     "crates/math/*",
+    "crates/runtime/runtime-core",
     "crates/runtime/model-runtime",
     "crates/runtime/model-runtime-cli",
     "crates/runtime/model-runtime-server",
@@ -33,16 +33,6 @@ members = [
     "crates/vector/*",
     "crates/video/*",
     "prototypes/rust/video-analysis-use-cases",
-]
-exclude = [
-    "crates/runtime/runtime-artifacts",
-    "crates/runtime/runtime-artifacts-cli",
-    "crates/runtime/runtime-artifacts-server",
-    "crates/runtime/runtime-jobs",
-    "crates/runtime/runtime-jobs-cli",
-    "crates/runtime/runtime-jobs-server",
-    "crates/bindings/runtime-artifacts-wasm",
-    "crates/bindings/runtime-jobs-wasm",
 ]
 resolver = "2"
 
@@ -106,6 +96,7 @@ numbers-core = { package = "moritzbrantner-numbers-core", version = "0.1.0", pat
 tensor-data = { package = "moritzbrantner-tensor-data", version = "0.1.0", path = "crates/data/tensor-data" }
 jobs-core = { package = "moritzbrantner-jobs-core", version = "0.1.1", path = "crates/jobs/jobs-core" }
 model-runtime = { package = "moritzbrantner-model-runtime", version = "0.1.0", path = "crates/runtime/model-runtime" }
+runtime-core = { package = "moritzbrantner-runtime-core", version = "0.1.0", path = "crates/runtime/runtime-core" }
 finance-statistics = { package = "moritzbrantner-finance-statistics", version = "0.1.0", path = "crates/math/finance-statistics" }
 finance-data = { package = "moritzbrantner-finance-data", version = "0.1.0", path = "crates/data/finance-data" }
 finance-data-wasm = { package = "moritzbrantner-finance-data-wasm", version = "0.1.0", path = "crates/bindings/finance-data-wasm" }
@@ -193,24 +184,142 @@ video-analysis-use-cases = { package = "moritzbrantner-video-analysis-use-cases"
 name = "video_analysis"
 
 [features]
-default = []
+default = ["full"]
+full = [
+    "animation",
+    "audio",
+    "image",
+    "text",
+    "video",
+    "data",
+    "math",
+    "vector",
+    "three-d",
+    "comfyui",
+    "runtime",
+]
+animation = ["dep:animation-core"]
+audio = [
+    "dep:audio-analysis-core",
+    "dep:audio-generation-midi",
+    "dep:audio-analysis-fourier",
+    "dep:audio-analysis-io",
+    "dep:audio-analysis-pitch",
+    "dep:audio-analysis-processing",
+    "dep:audio-analysis-recognition",
+    "dep:audio-analysis-rhythm",
+    "dep:audio-analysis-separation",
+    "dep:audio-analysis-speakers",
+    "dep:audio-analysis-synthesis",
+]
+image = [
+    "dep:image-analysis-comfyui",
+    "dep:image-analysis-captioning",
+    "dep:image-analysis-classification",
+    "dep:image-analysis-core",
+    "dep:image-analysis-detection",
+    "dep:image-analysis-embeddings",
+    "dep:image-analysis-io",
+    "dep:image-analysis-ocr",
+    "dep:image-analysis-processing",
+    "dep:image-analysis-segmentation",
+    "dep:image-analysis-synthesis",
+]
+text = [
+    "dep:text-core",
+    "dep:text-analysis",
+    "dep:text-classification",
+    "dep:text-lexical",
+    "dep:text-linguistics",
+    "dep:text-model-runtime",
+    "dep:text-question-answering",
+    "dep:text-generation",
+    "dep:text-generation-linguistics",
+    "dep:text-retrieval",
+    "dep:text-embeddings",
+    "dep:text-transcripts",
+]
+video = [
+    "dep:video-analysis-core",
+    "dep:video-analysis-data",
+    "dep:video-analysis-dataset",
+    "dep:video-analysis-detectors",
+    "dep:video-analysis-editing",
+    "dep:video-analysis-features",
+    "dep:video-analysis-ffmpeg",
+    "dep:video-analysis-gaussian-splatting",
+    "dep:video-analysis-ingest",
+    "dep:video-analysis-colmap-backend",
+    "dep:video-analysis-mvs",
+    "dep:video-analysis-opencv-backend",
+    "dep:video-analysis-output",
+    "dep:video-analysis-posture",
+    "dep:video-analysis-posture-io",
+    "dep:video-analysis-radiance-fields",
+    "dep:video-analysis-radiance-io",
+    "dep:video-analysis-radiance-pipeline",
+    "dep:video-analysis-recognition",
+    "dep:video-analysis-reconstruction",
+    "dep:video-analysis-sfm",
+    "dep:video-analysis-sfm-rust-backend",
+    "dep:video-analysis-split",
+    "dep:video-analysis-storage",
+    "dep:video-analysis-synthesis",
+    "dep:video-analysis-segmentation",
+    "dep:video-analysis-tracking",
+    "dep:video-analysis-transform",
+]
+data = [
+    "dep:data-inversion-core",
+    "dep:graph-analysis-core",
+    "dep:geo-core",
+    "dep:geo-io-geojson",
+    "dep:geo-io-osm",
+    "dep:geo-clustering",
+    "dep:geo-viz",
+    "dep:dense-data",
+    "dep:finance-data",
+    "dep:numbers-core",
+    "dep:tensor-data",
+]
+math = [
+    "dep:finance-statistics",
+    "dep:maps-kernels-core",
+    "dep:math-geometry-2d",
+    "dep:math-linear",
+    "dep:math-signal-core",
+    "dep:math-sparse-data",
+    "dep:math-statistics",
+]
+vector = ["dep:vector-analysis-core", "dep:vector-analysis-index"]
+three-d = [
+    "dep:three-d-processing-core",
+    "dep:three-d-processing-io",
+    "dep:three-d-processing-mesh",
+    "dep:three-d-scene-svg",
+]
+comfyui = ["dep:comfyui-data", "dep:comfyui-latents", "dep:comfyui-models"]
+runtime = ["dep:runtime-core", "dep:jobs-core", "dep:model-runtime"]
 onnx = ["dep:image-analysis-onnx", "dep:video-analysis-onnx"]
-ffmpeg-backend = ["video-analysis-ffmpeg/ffmpeg-backend"]
+ffmpeg-backend = ["dep:video-analysis-ffmpeg", "video-analysis-ffmpeg/ffmpeg-backend"]
 ffmpeg-tests = ["ffmpeg-backend"]
 onnx-backend = ["onnx"]
 text-tokenizers = [
+    "text",
     "text-analysis/tokenizers",
     "text-embeddings/tokenizers",
     "text-linguistics/tokenizers",
     "text-model-runtime/tokenizers",
 ]
 text-candle = [
+    "text",
     "text-analysis/candle",
     "text-embeddings/candle",
     "text-linguistics/candle",
     "text-model-runtime/candle",
 ]
 text-model-bundles = [
+    "text",
     "text-analysis/model-bundles",
     "text-embeddings/model-bundles",
     "text-linguistics/model-bundles",
@@ -224,101 +333,108 @@ text-cuda = [
     "text-model-runtime/cuda",
 ]
 
+[[bin]]
+name = "video-analysis-overview-server"
+path = "src/bin/video-analysis-overview-server.rs"
+required-features = ["full"]
+
 [dependencies]
-animation-core.workspace = true
+animation-core = { workspace = true, optional = true }
 clap.workspace = true
-video-analysis-core.workspace = true
-video-analysis-data.workspace = true
-video-analysis-dataset.workspace = true
-video-analysis-detectors.workspace = true
-video-analysis-editing.workspace = true
-video-analysis-features.workspace = true
-video-analysis-ffmpeg.workspace = true
-video-analysis-gaussian-splatting.workspace = true
-video-analysis-ingest.workspace = true
-video-analysis-colmap-backend.workspace = true
-video-analysis-mvs.workspace = true
+runtime-core = { workspace = true, optional = true }
+video-analysis-core = { workspace = true, optional = true }
+video-analysis-data = { workspace = true, optional = true }
+video-analysis-dataset = { workspace = true, optional = true }
+video-analysis-detectors = { workspace = true, optional = true }
+video-analysis-editing = { workspace = true, optional = true }
+video-analysis-features = { workspace = true, optional = true }
+video-analysis-ffmpeg = { workspace = true, optional = true }
+video-analysis-gaussian-splatting = { workspace = true, optional = true }
+video-analysis-ingest = { workspace = true, optional = true }
+video-analysis-colmap-backend = { workspace = true, optional = true }
+video-analysis-mvs = { workspace = true, optional = true }
 video-analysis-onnx = { workspace = true, optional = true }
-video-analysis-opencv-backend.workspace = true
-video-analysis-output.workspace = true
-video-analysis-posture.workspace = true
-video-analysis-radiance-fields.workspace = true
-video-analysis-radiance-io.workspace = true
-video-analysis-radiance-pipeline.workspace = true
-video-analysis-recognition.workspace = true
-video-analysis-reconstruction.workspace = true
-video-analysis-sfm.workspace = true
-video-analysis-sfm-rust-backend.workspace = true
-video-analysis-split.workspace = true
-video-analysis-storage.workspace = true
-video-analysis-synthesis.workspace = true
-video-analysis-segmentation.workspace = true
-video-analysis-tracking.workspace = true
-video-analysis-transform.workspace = true
-audio-analysis-core.workspace = true
-audio-generation-midi.workspace = true
-audio-analysis-fourier.workspace = true
-audio-analysis-io.workspace = true
-audio-analysis-pitch.workspace = true
-audio-analysis-processing.workspace = true
-audio-analysis-recognition.workspace = true
-audio-analysis-rhythm.workspace = true
-audio-analysis-separation.workspace = true
-audio-analysis-speakers.workspace = true
-audio-analysis-synthesis.workspace = true
-data-inversion-core.workspace = true
-graph-analysis-core.workspace = true
-geo-core.workspace = true
-geo-io-geojson.workspace = true
-geo-io-osm.workspace = true
-geo-clustering.workspace = true
-geo-viz.workspace = true
-dense-data.workspace = true
-numbers-core.workspace = true
-tensor-data.workspace = true
-jobs-core.workspace = true
-model-runtime.workspace = true
-finance-statistics.workspace = true
-maps-kernels-core.workspace = true
-math-geometry-2d.workspace = true
-math-linear.workspace = true
-math-signal-core.workspace = true
-math-sparse-data.workspace = true
-math-statistics.workspace = true
-comfyui-data.workspace = true
-comfyui-latents.workspace = true
-comfyui-models.workspace = true
-image-analysis-comfyui.workspace = true
-image-analysis-captioning.workspace = true
-image-analysis-classification.workspace = true
-image-analysis-core.workspace = true
-image-analysis-detection.workspace = true
-image-analysis-embeddings.workspace = true
-image-analysis-io.workspace = true
+video-analysis-opencv-backend = { workspace = true, optional = true }
+video-analysis-output = { workspace = true, optional = true }
+video-analysis-posture = { workspace = true, optional = true }
+video-analysis-radiance-fields = { workspace = true, optional = true }
+video-analysis-radiance-io = { workspace = true, optional = true }
+video-analysis-radiance-pipeline = { workspace = true, optional = true }
+video-analysis-recognition = { workspace = true, optional = true }
+video-analysis-reconstruction = { workspace = true, optional = true }
+video-analysis-sfm = { workspace = true, optional = true }
+video-analysis-sfm-rust-backend = { workspace = true, optional = true }
+video-analysis-split = { workspace = true, optional = true }
+video-analysis-storage = { workspace = true, optional = true }
+video-analysis-synthesis = { workspace = true, optional = true }
+video-analysis-segmentation = { workspace = true, optional = true }
+video-analysis-tracking = { workspace = true, optional = true }
+video-analysis-transform = { workspace = true, optional = true }
+audio-analysis-core = { workspace = true, optional = true }
+audio-generation-midi = { workspace = true, optional = true }
+audio-analysis-fourier = { workspace = true, optional = true }
+audio-analysis-io = { workspace = true, optional = true }
+audio-analysis-pitch = { workspace = true, optional = true }
+audio-analysis-processing = { workspace = true, optional = true }
+audio-analysis-recognition = { workspace = true, optional = true }
+audio-analysis-rhythm = { workspace = true, optional = true }
+audio-analysis-separation = { workspace = true, optional = true }
+audio-analysis-speakers = { workspace = true, optional = true }
+audio-analysis-synthesis = { workspace = true, optional = true }
+data-inversion-core = { workspace = true, optional = true }
+graph-analysis-core = { workspace = true, optional = true }
+geo-core = { workspace = true, optional = true }
+geo-io-geojson = { workspace = true, optional = true }
+geo-io-osm = { workspace = true, optional = true }
+geo-clustering = { workspace = true, optional = true }
+geo-viz = { workspace = true, optional = true }
+dense-data = { workspace = true, optional = true }
+numbers-core = { workspace = true, optional = true }
+tensor-data = { workspace = true, optional = true }
+jobs-core = { workspace = true, optional = true }
+model-runtime = { workspace = true, optional = true }
+finance-statistics = { workspace = true, optional = true }
+finance-data = { workspace = true, optional = true }
+maps-kernels-core = { workspace = true, optional = true }
+math-geometry-2d = { workspace = true, optional = true }
+math-linear = { workspace = true, optional = true }
+math-signal-core = { workspace = true, optional = true }
+math-sparse-data = { workspace = true, optional = true }
+math-statistics = { workspace = true, optional = true }
+comfyui-data = { workspace = true, optional = true }
+comfyui-latents = { workspace = true, optional = true }
+comfyui-models = { workspace = true, optional = true }
+image-analysis-comfyui = { workspace = true, optional = true }
+image-analysis-captioning = { workspace = true, optional = true }
+image-analysis-classification = { workspace = true, optional = true }
+image-analysis-core = { workspace = true, optional = true }
+image-analysis-detection = { workspace = true, optional = true }
+image-analysis-embeddings = { workspace = true, optional = true }
+image-analysis-io = { workspace = true, optional = true }
 image-analysis-onnx = { workspace = true, optional = true }
-image-analysis-ocr.workspace = true
-image-analysis-processing.workspace = true
-image-analysis-segmentation.workspace = true
-image-analysis-synthesis.workspace = true
-text-core.workspace = true
-text-analysis.workspace = true
-text-classification.workspace = true
-text-lexical.workspace = true
-text-linguistics = { workspace = true, features = ["transcripts"] }
-text-model-runtime.workspace = true
-text-question-answering.workspace = true
-text-generation.workspace = true
-text-generation-linguistics.workspace = true
-text-retrieval.workspace = true
-text-embeddings.workspace = true
-text-transcripts.workspace = true
-vector-analysis-core.workspace = true
-vector-analysis-index.workspace = true
-three-d-processing-core.workspace = true
-three-d-processing-io.workspace = true
-three-d-processing-mesh.workspace = true
-three-d-scene-svg.workspace = true
-video-analysis-posture-io.workspace = true
+image-analysis-ocr = { workspace = true, optional = true }
+image-analysis-processing = { workspace = true, optional = true }
+image-analysis-segmentation = { workspace = true, optional = true }
+image-analysis-synthesis = { workspace = true, optional = true }
+text-core = { workspace = true, optional = true }
+text-analysis = { workspace = true, optional = true }
+text-classification = { workspace = true, optional = true }
+text-lexical = { workspace = true, optional = true }
+text-linguistics = { workspace = true, features = ["transcripts"], optional = true }
+text-model-runtime = { workspace = true, optional = true }
+text-question-answering = { workspace = true, optional = true }
+text-generation = { workspace = true, optional = true }
+text-generation-linguistics = { workspace = true, optional = true }
+text-retrieval = { workspace = true, optional = true }
+text-embeddings = { workspace = true, optional = true }
+text-transcripts = { workspace = true, optional = true }
+vector-analysis-core = { workspace = true, optional = true }
+vector-analysis-index = { workspace = true, optional = true }
+three-d-processing-core = { workspace = true, optional = true }
+three-d-processing-io = { workspace = true, optional = true }
+three-d-processing-mesh = { workspace = true, optional = true }
+three-d-scene-svg = { workspace = true, optional = true }
+video-analysis-posture-io = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 

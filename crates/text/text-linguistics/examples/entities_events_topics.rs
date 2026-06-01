@@ -1,5 +1,5 @@
+use runtime_core::{OperationId, SurfaceRequest};
 use text_linguistics::surface::run_surface_operation;
-use video_analysis_core::runtime::{OperationId, SurfaceRequest};
 
 fn main() {
     let response = run_surface_operation(SurfaceRequest {

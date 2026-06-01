@@ -16,6 +16,7 @@ categories.workspace = true
 name = "vector_analysis_index"
 
 [dependencies]
+runtime-core.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 vector-analysis-core.workspace = true

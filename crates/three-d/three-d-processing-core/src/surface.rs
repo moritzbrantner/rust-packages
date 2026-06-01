@@ -1,11 +1,11 @@
 //! Library-owned runtime surface for `three-d-processing-core`.
 
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
 
 use crate::{
     centroid, collision_sphere_sphere, intersect_ray_bounds, intersect_ray_sphere,

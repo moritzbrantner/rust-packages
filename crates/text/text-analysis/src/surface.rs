@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
+use runtime_core::{
+    structured_surface_value, Diagnostic, DiagnosticCode, DiagnosticSeverity, OperationId,
+    PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
+};
 use serde::Deserialize;
 use text_core::TextDocument;
 use text_embeddings::PoolingStrategy;
 use text_lexical::{character_shingle_similarity, token_shingle_similarity};
-use video_analysis_core::runtime::{
-    structured_surface_value, Diagnostic, DiagnosticCode, DiagnosticSeverity, OperationId,
-    PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
-};
 
 use crate::{
     analyze_corpus, analyze_text, AnalysisProfile, CorpusAnalysisOptions, DocumentAnalysisOptions,

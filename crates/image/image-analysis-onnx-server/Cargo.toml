@@ -20,7 +20,7 @@ name = "image-analysis-onnx-server"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 image-analysis-onnx = { package = "moritzbrantner-image-analysis-onnx", version = "0.1.0", path = "../image-analysis-onnx" }

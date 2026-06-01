@@ -1,6 +1,6 @@
 //! WASM bindings for `audio-analysis-pitch`.
 
-use video_analysis_core::runtime::SurfaceRequest;
+use runtime_core::SurfaceRequest;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = packageSurface)]
@@ -33,13 +33,12 @@ mod tests {
             .iter()
             .find(|operation| operation.id.as_str() != "describe")
             .unwrap();
-        let response = audio_analysis_pitch::surface::run_surface_operation(
-            video_analysis_core::runtime::SurfaceRequest {
+        let response =
+            audio_analysis_pitch::surface::run_surface_operation(runtime_core::SurfaceRequest {
                 operation: operation.id.clone(),
                 input: operation.example_request.clone(),
-            },
-        )
-        .expect("run default wasm operation");
+            })
+            .expect("run default wasm operation");
         assert!(response.value["title"].is_string());
         assert!(response.value["summary"].is_object());
     }

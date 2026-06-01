@@ -82,8 +82,8 @@ pub fn frame_apply_value(input: serde_json::Value) -> Result<serde_json::Value, 
 }
 
 pub fn deterministic_operation_value(
-    surface: &video_analysis_core::runtime::PackageSurface,
-    operation: &video_analysis_core::runtime::SurfaceOperation,
+    surface: &runtime_core::PackageSurface,
+    operation: &runtime_core::SurfaceOperation,
     input: serde_json::Value,
 ) -> serde_json::Value {
     let operation_id = operation.id.as_str();
@@ -102,7 +102,7 @@ pub fn deterministic_operation_value(
             "artifactMode": "inline-json"
         }
     });
-    video_analysis_core::runtime::structured_surface_value(
+    runtime_core::structured_surface_value(
         &operation.id,
         operation.name.clone(),
         operation

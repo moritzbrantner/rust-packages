@@ -186,7 +186,7 @@ if [[ -n "${MODEL_CLI_BIN:-}" ]]; then
 elif command -v vanalyze >/dev/null 2>&1; then
   MODEL_CLI=(vanalyze)
 else
-  MODEL_CLI=(cargo run -q -p video-analysis-cli --)
+  MODEL_CLI=(cargo run -q -p moritzbrantner-video-analysis-cli --)
 fi
 
 if [[ "${#MODEL_SPECS[@]}" -eq 0 ]]; then

@@ -14,8 +14,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = ROOT / "docs" / "PACKAGE_SURFACE_MATRIX.md"
 EXCLUDED_LIBRARY_CRATES = {
-    "moritzbrantner-runtime-artifacts",
-    "moritzbrantner-runtime-jobs",
+    "moritzbrantner-audio-analysis-test-support",
+    "moritzbrantner-runtime-core",
+    "moritzbrantner-video-analysis-test-support",
 }
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
 SCAFFOLD_STRINGS = [
@@ -34,7 +35,6 @@ LEGACY_WASM_TEST_ALLOWLIST = {
     "crates/bindings/audio-analysis-separation-wasm/src/lib.rs",
     "crates/bindings/audio-analysis-speakers-wasm/src/lib.rs",
     "crates/bindings/audio-analysis-synthesis-wasm/src/lib.rs",
-    "crates/bindings/audio-analysis-test-support-wasm/src/lib.rs",
     "crates/bindings/audio-generation-midi-wasm/src/lib.rs",
 }
 MOD_DECLARATION_RE = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;")
@@ -314,7 +314,7 @@ def read_cli_operations(package: LibraryPackage, failures: list[str]) -> list[di
         "run",
         "--quiet",
         "-p",
-        f"{companion_base}-cli",
+        public_package_name(f"{companion_base}-cli"),
         "--",
         "operations",
         "--json",
@@ -360,7 +360,7 @@ def run_operation_example(crate: str, operation: dict, failures: list[str]) -> N
         "run",
         "--quiet",
         "-p",
-        f"{companion_base}-cli",
+        public_package_name(f"{companion_base}-cli"),
         "--",
         "run",
         "--operation",
@@ -417,7 +417,7 @@ def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
             "run",
             "--quiet",
             "-p",
-            f"{companion_base}-cli",
+            public_package_name(f"{companion_base}-cli"),
             "--",
             "run",
             "--operation",
@@ -440,7 +440,7 @@ def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
             "run",
             "--quiet",
             "-p",
-            f"{companion_base}-cli",
+            public_package_name(f"{companion_base}-cli"),
             "--",
             "run",
             "--operation",

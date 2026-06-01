@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `text-model-runtime`.
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
     SurfaceRequest, SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{softmax, TokenizedText};
 

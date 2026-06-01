@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use runtime_core::{OperationId, SurfaceRequest};
 use text_lexical::surface::run_surface_operation;
-use video_analysis_core::runtime::{OperationId, SurfaceRequest};
 
 fn bench_lexical_corpus(c: &mut Criterion) {
     let keyword_input = serde_json::json!({

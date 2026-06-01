@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `finance-statistics`.
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{
     annualized_return, annualized_volatility, beta_alpha, cumulative_return,

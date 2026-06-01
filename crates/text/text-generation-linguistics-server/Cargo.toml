@@ -20,7 +20,7 @@ name = "text-generation-linguistics-server"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 text-generation-linguistics = { package = "moritzbrantner-text-generation-linguistics", version = "0.1.0", path = "../text-generation-linguistics" }

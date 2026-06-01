@@ -20,7 +20,7 @@ name = "video-analysis-radiance-pipeline-cli"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 video-analysis-radiance-pipeline = { package = "moritzbrantner-video-analysis-radiance-pipeline", version = "0.1.0", path = "../video-analysis-radiance-pipeline" }

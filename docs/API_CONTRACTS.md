@@ -639,7 +639,7 @@ Generated media fixture helpers are behind the `test-utils` feature. Opt-in
 decode coverage is available with:
 
 ```bash
-cargo test -p video-analysis-ffmpeg --features ffmpeg-tests
+cargo test -p moritzbrantner-video-analysis-ffmpeg --features ffmpeg-tests
 ```
 
 ## Detector Contracts

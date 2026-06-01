@@ -9,6 +9,7 @@ publish = false
 name = "video_analysis_test_support"
 
 [dependencies]
+runtime-core.workspace = true
 serde_json.workspace = true
 num-rational.workspace = true
 video-analysis-core.workspace = true

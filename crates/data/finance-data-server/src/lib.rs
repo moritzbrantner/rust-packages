@@ -1,6 +1,6 @@
 use std::io;
 
-use video_analysis_core::runtime::{
+use runtime_core::{
     server::{self, ServerAdapterMetadata},
     PackageSurface,
 };

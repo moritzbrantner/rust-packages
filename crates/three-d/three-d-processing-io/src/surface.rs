@@ -1,12 +1,12 @@
 //! Library-owned runtime surface for `three-d-processing-io`.
 
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use three_d_processing_mesh::Mesh;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use three_d_processing_mesh::Mesh;
 
 use crate::{mesh_to_obj_string, mesh_to_ply_string};
 

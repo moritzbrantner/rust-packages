@@ -20,6 +20,7 @@ default = []
 opencv-backend = []
 
 [dependencies]
+runtime-core.workspace = true
 serde_json.workspace = true
 video-analysis-core.workspace = true
 video-analysis-mvs.workspace = true

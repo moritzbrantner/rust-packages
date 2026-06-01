@@ -1,7 +1,7 @@
 //! Library-owned runtime surface for `audio-analysis-rhythm`.
 
 use audio_analysis_core::FrameSpec;
-use video_analysis_core::runtime::{
+use runtime_core::{
     structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
     SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };

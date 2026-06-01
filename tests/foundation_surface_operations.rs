@@ -1,4 +1,4 @@
-use video_analysis_core::runtime::{OperationId, SurfaceRequest};
+use runtime_core::{OperationId, SurfaceRequest};
 
 #[test]
 fn data_inversion_jobs_and_model_runtime_surfaces_accept_valid_inputs() {

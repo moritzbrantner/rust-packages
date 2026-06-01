@@ -1,12 +1,12 @@
 //! Library-owned runtime surface for `text-generation-linguistics`.
 
-use serde::Deserialize;
-use text_generation::{MarkovChain, MarkovInputMode, TextSynthesisOptions};
-use text_linguistics::{analyze_text, LinguisticAnalysisOptions};
-use video_analysis_core::runtime::{
+use runtime_core::{
     structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
     SurfaceRequest, SurfaceResponse,
 };
+use serde::Deserialize;
+use text_generation::{MarkovChain, MarkovInputMode, TextSynthesisOptions};
+use text_linguistics::{analyze_text, LinguisticAnalysisOptions};
 
 use crate::{
     analysis_tokens, synthesize_from_analysis, terms_from_analysis, LinguisticMarkovTraining,

@@ -20,7 +20,7 @@ name = "geo-clustering-server"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 geo-clustering = { package = "moritzbrantner-geo-clustering", version = "0.1.0", path = "../geo-clustering" }

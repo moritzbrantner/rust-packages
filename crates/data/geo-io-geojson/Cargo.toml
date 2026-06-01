@@ -16,6 +16,7 @@ categories = ["science::geo", "parser-implementations", "encoding"]
 name = "geo_io_geojson"
 
 [dependencies]
+runtime-core.workspace = true
 geo-core.workspace = true
 geojson.workspace = true
 serde.workspace = true

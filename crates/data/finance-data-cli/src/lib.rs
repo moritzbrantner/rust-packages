@@ -1,4 +1,4 @@
-use video_analysis_core::runtime::{
+use runtime_core::{
     cli::{self, CliAdapterMetadata},
     PackageSurface, SurfaceResponse,
 };

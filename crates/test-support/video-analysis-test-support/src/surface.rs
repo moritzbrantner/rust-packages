@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `video-analysis-test-support`.
 
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };

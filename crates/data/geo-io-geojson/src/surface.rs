@@ -1,11 +1,11 @@
 //! Library-owned runtime surface for `geo-io-geojson`.
 
 use geo_core::{Coordinate, GeoFeature, GeoFeatureCollection, Geometry};
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
     SurfaceResponse,
 };
+use serde::Deserialize;
 
 use crate::{parse_geojson, to_geojson_geometry, GeoJsonDocument};
 

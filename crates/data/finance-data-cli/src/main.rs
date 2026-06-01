@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use video_analysis_core::runtime::cli::read_json_input;
+use runtime_core::cli::read_json_input;
 
 #[derive(Debug, Parser)]
 #[command(

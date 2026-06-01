@@ -16,6 +16,7 @@ categories.workspace = true
 name = "three_d_scene_svg"
 
 [dependencies]
+runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 three-d-processing-core.workspace = true

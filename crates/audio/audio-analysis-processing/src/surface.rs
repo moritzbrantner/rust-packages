@@ -1,7 +1,7 @@
 //! Library-owned runtime surface for `audio-analysis-processing`.
 
 use audio_analysis_core::{mean_absolute, peak, rms, AudioClip, ChannelMix, FadeCurve};
-use video_analysis_core::runtime::{
+use runtime_core::{
     describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
@@ -99,10 +99,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     Ok(response(operation, value))
 }
 
-fn response(
-    operation: video_analysis_core::runtime::OperationId,
-    value: serde_json::Value,
-) -> SurfaceResponse {
+fn response(operation: runtime_core::OperationId, value: serde_json::Value) -> SurfaceResponse {
     let (title, message, summary) = match operation.as_str() {
         "audio.processing.apply" => (
             "Audio processing result",
@@ -734,7 +731,7 @@ fn preview(samples: &[f32], limit: usize) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use video_analysis_core::runtime::OperationId;
+    use runtime_core::OperationId;
 
     #[test]
     fn package_surface_lists_processing_operations() {

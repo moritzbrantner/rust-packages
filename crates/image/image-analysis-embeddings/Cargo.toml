@@ -16,6 +16,7 @@ categories.workspace = true
 name = "image_analysis_embeddings"
 
 [dependencies]
+runtime-core.workspace = true
 image-analysis-core.workspace = true
 image-analysis-detection.workspace = true
 image-analysis-ocr.workspace = true

@@ -3,12 +3,12 @@
 use std::collections::BTreeMap;
 
 use image_analysis_core::{ImagePixelFormat, ImageView};
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     describe_surface_response, structured_operation_response, OperationId, PackageSurface,
     RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
 
 use crate::{
     decode_object_detections, preprocess_image, preprocessing_from_config, BoxFormat, ChannelOrder,

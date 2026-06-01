@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `image-analysis-processing`.
 
-use video_analysis_core::runtime::{
+use runtime_core::{
     describe_surface_response, structured_operation_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
@@ -73,7 +73,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use video_analysis_core::runtime::OperationId;
+    use runtime_core::OperationId;
 
     #[test]
     fn grayscale_and_invert_return_expected_preview() {

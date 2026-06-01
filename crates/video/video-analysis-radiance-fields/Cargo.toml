@@ -16,5 +16,6 @@ categories.workspace = true
 name = "video_analysis_radiance_fields"
 
 [dependencies]
+runtime-core.workspace = true
 serde_json.workspace = true
 video-analysis-core.workspace = true

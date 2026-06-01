@@ -14,10 +14,10 @@ done
 
 "$ROOT_DIR/scripts/check_e2e_external_tools.sh"
 
-FFMPEG_EXTERNAL_TESTS=1 cargo test --jobs "$CARGO_BUILD_JOBS" -p audio-analysis-io --test ffmpeg_decode
-cargo test --jobs "$CARGO_BUILD_JOBS" -p video-analysis-ffmpeg --features ffmpeg-tests
-RUN_REAL_DEMUCS_TESTS=1 cargo test --jobs "$CARGO_BUILD_JOBS" -p audio-analysis-separation --features external-tests real_demucs_smoke_test_when_requested -- --ignored
-cargo test --jobs "$CARGO_BUILD_JOBS" -p text-analysis-transcription --features external-tests --test whisper_cli -- --ignored
-cargo test --jobs "$CARGO_BUILD_JOBS" -p video-analysis-split --features external-tests --test ffmpeg_split -- --ignored
-cargo test --jobs "$CARGO_BUILD_JOBS" -p video-analysis-cli --test cli_smoke vanalyze_detect_writes_scene_csv_for_generated_video -- --ignored
-cargo test --jobs "$CARGO_BUILD_JOBS" -p video-analysis-use-cases --test external_tools -- --ignored
+FFMPEG_EXTERNAL_TESTS=1 cargo test --jobs "$CARGO_BUILD_JOBS" -p moritzbrantner-audio-analysis-io --test ffmpeg_decode
+cargo test --jobs "$CARGO_BUILD_JOBS" -p moritzbrantner-video-analysis-ffmpeg --features ffmpeg-tests
+RUN_REAL_DEMUCS_TESTS=1 cargo test --jobs "$CARGO_BUILD_JOBS" -p moritzbrantner-audio-analysis-separation --features external-tests real_demucs_smoke_test_when_requested -- --ignored
+cargo test --jobs "$CARGO_BUILD_JOBS" -p moritzbrantner-text-transcripts --features native,external-tests --test whisper_cli -- --ignored
+cargo test --jobs "$CARGO_BUILD_JOBS" -p moritzbrantner-video-analysis-split --features external-tests --test ffmpeg_split -- --ignored
+cargo test --jobs "$CARGO_BUILD_JOBS" -p moritzbrantner-video-analysis-cli --test cli_smoke vanalyze_detect_writes_scene_csv_for_generated_video -- --ignored
+cargo test --jobs "$CARGO_BUILD_JOBS" -p moritzbrantner-video-analysis-use-cases --test external_tools -- --ignored

@@ -1,6 +1,6 @@
 //! WASM bindings for `geo-io-geojson`.
 
-use video_analysis_core::runtime::SurfaceRequest;
+use runtime_core::SurfaceRequest;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = packageSurface)]
@@ -27,7 +27,7 @@ fn into_js_error(error: impl std::fmt::Display) -> JsValue {
 
 #[cfg(test)]
 mod tests {
-    use video_analysis_core::runtime::{OperationId, SurfaceRequest};
+    use runtime_core::{OperationId, SurfaceRequest};
 
     #[test]
     fn wrapped_surface_has_operations() {

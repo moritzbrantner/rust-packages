@@ -20,7 +20,7 @@ name = "animation-core-server"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 animation-core = { package = "moritzbrantner-animation-core", version = "0.1.0", path = "../animation-core" }

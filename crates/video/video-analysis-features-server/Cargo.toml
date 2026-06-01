@@ -20,7 +20,7 @@ name = "video-analysis-features-server"
 path = "src/main.rs"
 
 [dependencies]
-video-analysis-core.workspace = true
+runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 video-analysis-features = { package = "moritzbrantner-video-analysis-features", version = "0.1.0", path = "../video-analysis-features" }

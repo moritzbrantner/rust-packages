@@ -16,6 +16,7 @@ categories.workspace = true
 name = "image_analysis_comfyui"
 
 [dependencies]
+runtime-core.workspace = true
 comfyui-data.workspace = true
 comfyui-models.workspace = true
 serde_json.workspace = true

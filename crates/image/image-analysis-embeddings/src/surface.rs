@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
-use video_analysis_core::runtime::{
+use runtime_core::{
     describe_surface_response, structured_operation_response, OperationId, PackageSurface,
     RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
+use serde::Deserialize;
 use video_analysis_core::BoundingBox;
 
 use crate::{image_embedding_catalog, parse_task, schema_summary, FaceEmbedding, ImageEmbedding};
