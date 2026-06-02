@@ -216,6 +216,20 @@ fn new_release_text_operations_have_app_presets_and_benchmarks() {
     let lexical = app_source("text-lexical");
     assert_operation_has_app_preset(&lexical, "lexical.corpusStats");
     assert_operation_has_benchmark(&lexical, "lexical.corpusStats");
+
+    let linguistics = app_source("text-linguistics");
+    assert_operation_has_app_preset(&linguistics, "linguistics.language");
+    assert_operation_has_benchmark(&linguistics, "linguistics.language");
+
+    let retrieval = app_source("text-retrieval");
+    assert_operation_has_app_preset(&retrieval, "retrieval.snapshotPlan");
+    assert_operation_has_benchmark(&retrieval, "retrieval.snapshotPlan");
+
+    let transcripts = app_source("text-transcripts");
+    assert_operation_has_app_preset(&transcripts, "transcripts.formatWebVtt");
+    assert_operation_has_app_preset(&transcripts, "transcripts.toTextSegments");
+    assert_operation_has_benchmark(&transcripts, "transcripts.formatWebVtt");
+    assert_operation_has_benchmark(&transcripts, "transcripts.toTextSegments");
 }
 
 fn assert_structured_response(crate_name: &str, operation: &str, response: &SurfaceResponse) {
@@ -328,8 +342,17 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
             crate_name: "text-linguistics",
             package_surface: text_linguistics::surface::package_surface,
             run: text_linguistics::surface::run_surface_operation,
-            operations: &["describe", "linguistics.analyze", "linguistics.entities"],
-            workflow: &["linguistics.analyze", "linguistics.entities"],
+            operations: &[
+                "describe",
+                "linguistics.analyze",
+                "linguistics.entities",
+                "linguistics.language",
+            ],
+            workflow: &[
+                "linguistics.analyze",
+                "linguistics.entities",
+                "linguistics.language",
+            ],
             debug: &["describe"],
             support: &[],
             invalid_operation: "linguistics.analyze",
@@ -367,8 +390,14 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
                 "retrieval.chunk",
                 "retrieval.search",
                 "retrieval.rerank",
+                "retrieval.snapshotPlan",
             ],
-            workflow: &["retrieval.search", "retrieval.chunk", "retrieval.rerank"],
+            workflow: &[
+                "retrieval.search",
+                "retrieval.chunk",
+                "retrieval.rerank",
+                "retrieval.snapshotPlan",
+            ],
             debug: &["describe"],
             support: &[],
             invalid_operation: "retrieval.search",
@@ -490,11 +519,15 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
                 "transcripts.parse",
                 "transcripts.normalize",
                 "transcripts.formatSrt",
+                "transcripts.formatWebVtt",
+                "transcripts.toTextSegments",
             ],
             workflow: &[
                 "transcripts.parse",
                 "transcripts.normalize",
                 "transcripts.formatSrt",
+                "transcripts.formatWebVtt",
+                "transcripts.toTextSegments",
             ],
             debug: &["describe"],
             support: &[],

@@ -16,13 +16,13 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "retrieval.search",
-  featuredOperations: ["retrieval.search", "retrieval.chunk", "retrieval.rerank", "describe"],
+  featuredOperations: ["retrieval.search", "retrieval.chunk", "retrieval.rerank", "retrieval.snapshotPlan", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
-      description: "Run transient retrieval chunking, search, and reranking workflows.",
-      operations: ["retrieval.search", "retrieval.chunk", "retrieval.rerank"],
+      description: "Run transient retrieval chunking, search, reranking, and snapshot planning workflows.",
+      operations: ["retrieval.search", "retrieval.chunk", "retrieval.rerank", "retrieval.snapshotPlan"],
     },
     {
       id: "debug",
@@ -97,6 +97,20 @@ const packageAppConfig: PackageAppConfig = {
         topK: 3,
       },
     },
+    {
+      id: "snapshot-plan",
+      label: "Plan retrieval snapshot",
+      operation: "retrieval.snapshotPlan",
+      description: "Build a transient index and preview persistence manifest records without writing files.",
+      input: {
+        documents: [
+          { id: "doc-1", title: "Rust transcript search", body: "rust text retrieval supports transcript keyword search", metadata: { type: "caption" } },
+          { id: "doc-2", title: "Scene reports", body: "video scene reports summarize shot boundaries", metadata: { type: "scene" } },
+        ],
+        dimensions: 96,
+        previewLimit: 3,
+      },
+    },
   ],
   benchmarkScenarios: [
     {
@@ -142,6 +156,23 @@ const packageAppConfig: PackageAppConfig = {
       warmupIterations: 5,
       outputCountPath: ["results"],
     },
+    {
+      id: "snapshot-plan",
+      label: "Snapshot Plan",
+      operation: "retrieval.snapshotPlan",
+      input: {
+        documents: [
+          { id: "doc-1", body: "rust text retrieval" },
+          { id: "doc-2", body: "video scene reports" },
+          { id: "doc-3", body: "transcript search and chunks" },
+        ],
+        dimensions: 64,
+        previewLimit: 3,
+      },
+      iterations: 60,
+      warmupIterations: 5,
+      outputCountPath: ["files"],
+    },
   ],
   resultTabs: createTextResultTabs({
     library: "text-retrieval",
@@ -166,6 +197,13 @@ const packageAppConfig: PackageAppConfig = {
         listFields: ["results"],
         objectFields: ["result"],
         explanation: () => "The reranker sorted candidate passages with caller-supplied scores when present or deterministic lexical overlap otherwise.",
+      },
+      "retrieval.snapshotPlan": {
+        title: "Retrieval snapshot plan",
+        summaryFields: ["chunkCount", "vectorCount", "dimensions", "fileCount"],
+        listFields: ["files", "chunksPreview", "vectorsPreview"],
+        objectFields: ["manifest", "corpus", "report"],
+        explanation: () => "The snapshot planner builds the same transient index as search, then returns manifest and preview records for persistence files without touching the filesystem.",
       },
     },
   }),

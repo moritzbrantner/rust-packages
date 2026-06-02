@@ -6,7 +6,10 @@ use runtime_core::{
 };
 use serde::Deserialize;
 
-use crate::{LinguisticAnalysis, TextNlpConfig, TextNlpPipeline};
+use crate::{
+    LanguageDetectionOptions, LanguageDetector, LanguagePrediction, LanguageProfile,
+    LinguisticAnalysis, TextNlpConfig, TextNlpPipeline,
+};
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -18,6 +21,7 @@ pub fn package_surface() -> PackageSurface {
             operation("describe", "Inspect package metadata", "Local model-backed linguistic analysis pipeline for video-analysis.", serde_json::json!({"includeOperations": true})),
             operation("linguistics.analyze", "Analyze text", "Runs the deterministic linguistic pipeline and returns a serializable analysis projection.", serde_json::json!({"text": "Alice presented the tokenizer roadmap in Berlin.", "profile": "fast"})),
             operation("linguistics.entities", "Extract linguistic entities", "Returns entities, canonical entities, relations, and events from the pipeline.", serde_json::json!({"text": "Alice presented the tokenizer roadmap in Berlin."})),
+            operation("linguistics.language", "Detect language", "Runs focused deterministic language detection without the full NLP pipeline.", serde_json::json!({"text": "This is a simple English sentence.", "sentenceLevel": true, "maxAlternatives": 3})),
         ],
     }
 }
@@ -38,6 +42,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "describe" => describe_value(request.input),
         "linguistics.analyze" => analyze_value(parse_input(request.input)?)?,
         "linguistics.entities" => entities_value(parse_input(request.input)?)?,
+        "linguistics.language" => language_detection_value(parse_input(request.input)?)?,
         operation => {
             return Err(runtime_core::SurfaceError::unsupported_operation(
                 operation,
@@ -97,6 +102,17 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
                 "eventCount": value["events"].as_array().map(Vec::len).unwrap_or(0)
             }),
         ),
+        "linguistics.language" => (
+            "Language detection result",
+            "Detected primary language, alternatives, script, and optional sentence-level predictions without running the full NLP pipeline.",
+            serde_json::json!({
+                "status": "ok",
+                "language": value["primary"]["language"],
+                "confidence": value["primary"]["confidence"],
+                "isMixed": value["isMixed"],
+                "tokenCount": value["tokenCount"]
+            }),
+        ),
         _ => (
             "Text linguistics result",
             "Ran a text-linguistics package operation.",
@@ -115,9 +131,43 @@ struct AnalyzeRequest {
     language_hint: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LanguageRequest {
+    text: String,
+    #[serde(default = "default_true")]
+    sentence_level: bool,
+    #[serde(default = "default_max_alternatives")]
+    max_alternatives: usize,
+    min_tokens_for_decision: Option<usize>,
+}
+
 fn analyze_value(request: AnalyzeRequest) -> Result<serde_json::Value, String> {
     let analysis = analyze_request(&request)?;
     Ok(analysis_projection(analysis))
+}
+
+fn language_detection_value(request: LanguageRequest) -> Result<serde_json::Value, String> {
+    if request.text.trim().is_empty() {
+        return Err(runtime_core::SurfaceError::invalid_request(
+            Some(OperationId::new("linguistics.language")),
+            "invalid request: text must not be empty",
+        )
+        .to_error_string());
+    }
+    let mut options = LanguageDetectionOptions {
+        sentence_level: request.sentence_level,
+        max_alternatives: request.max_alternatives,
+        ..LanguageDetectionOptions::default()
+    };
+    if let Some(min_tokens) = request.min_tokens_for_decision {
+        options.min_tokens_for_decision = min_tokens;
+    }
+    let detector = LanguageDetector {
+        options,
+        ..LanguageDetector::default()
+    };
+    Ok(language_profile_value(detector.detect_text(&request.text)))
 }
 
 fn entities_value(request: AnalyzeRequest) -> Result<serde_json::Value, String> {
@@ -232,6 +282,28 @@ fn language_value(analysis: &LinguisticAnalysis) -> serde_json::Value {
     })
 }
 
+fn language_profile_value(profile: LanguageProfile) -> serde_json::Value {
+    serde_json::json!({
+        "primary": profile.primary.as_ref().map(language_prediction_value),
+        "alternatives": profile.alternatives.iter().map(language_prediction_value).collect::<Vec<_>>(),
+        "dominantScript": profile.dominant_script,
+        "isMixed": profile.is_mixed,
+        "sentencePredictions": profile.sentence_predictions.iter().map(|prediction| {
+            prediction.as_ref().map(language_prediction_value)
+        }).collect::<Vec<_>>(),
+        "tokenCount": profile.token_count
+    })
+}
+
+fn language_prediction_value(prediction: &LanguagePrediction) -> serde_json::Value {
+    serde_json::json!({
+        "language": prediction.language,
+        "confidence": prediction.confidence,
+        "script": prediction.script,
+        "reason": prediction.reason
+    })
+}
+
 fn entity_values(analysis: &LinguisticAnalysis) -> Vec<serde_json::Value> {
     analysis
         .entities
@@ -259,6 +331,12 @@ fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result
 fn default_profile() -> String {
     "standard".to_string()
 }
+fn default_true() -> bool {
+    true
+}
+fn default_max_alternatives() -> usize {
+    3
+}
 
 #[cfg(test)]
 mod tests {
@@ -273,6 +351,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"linguistics.analyze".to_string()));
         assert!(ids.contains(&"linguistics.entities".to_string()));
+        assert!(ids.contains(&"linguistics.language".to_string()));
     }
 
     #[test]
@@ -293,5 +372,46 @@ mod tests {
         })
         .expect_err("invalid profile");
         assert!(error.contains("unsupported linguistic profile"));
+    }
+
+    #[test]
+    fn language_operation_detects_english() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linguistics.language"),
+            input: serde_json::json!({
+                "text": "This is a simple English sentence.",
+                "sentenceLevel": true,
+                "maxAlternatives": 3
+            }),
+        })
+        .expect("language");
+        assert_eq!(response.value["result"]["primary"]["language"], "en");
+        assert!(response.value["result"]["tokenCount"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn language_operation_rejects_empty_text() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linguistics.language"),
+            input: serde_json::json!({"text": "  "}),
+        })
+        .expect_err("invalid request");
+        assert!(error.contains("invalid_request"));
+    }
+
+    #[test]
+    fn language_operation_can_skip_sentence_predictions() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linguistics.language"),
+            input: serde_json::json!({
+                "text": "This is English. This is still English.",
+                "sentenceLevel": false
+            }),
+        })
+        .expect("language");
+        assert!(response.value["result"]["sentencePredictions"]
+            .as_array()
+            .unwrap()
+            .is_empty());
     }
 }

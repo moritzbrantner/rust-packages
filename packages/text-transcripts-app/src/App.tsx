@@ -16,13 +16,13 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "transcripts.parse",
-  featuredOperations: ["transcripts.parse", "transcripts.normalize", "transcripts.formatSrt", "describe"],
+  featuredOperations: ["transcripts.parse", "transcripts.normalize", "transcripts.formatSrt", "transcripts.formatWebVtt", "transcripts.toTextSegments", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
-      description: "Run transcript parsing, normalization, and SRT formatting workflows.",
-      operations: ["transcripts.parse", "transcripts.normalize", "transcripts.formatSrt"],
+      description: "Run transcript parsing, normalization, caption formatting, and text segment conversion workflows.",
+      operations: ["transcripts.parse", "transcripts.normalize", "transcripts.formatSrt", "transcripts.formatWebVtt", "transcripts.toTextSegments"],
     },
     {
       id: "debug",
@@ -83,6 +83,31 @@ const packageAppConfig: PackageAppConfig = {
         ],
       },
     },
+    {
+      id: "format-webvtt",
+      label: "Format WebVTT",
+      operation: "transcripts.formatWebVtt",
+      description: "Format a transcript contract as WebVTT.",
+      input: {
+        segments: [
+          { index: 0, startSeconds: 1.0, endSeconds: 2.2, text: "Alice presented the tokenizer roadmap.", isFinal: true },
+          { index: 1, startSeconds: 2.5, endSeconds: 4.0, text: "Bob reviewed transcript retrieval evidence.", isFinal: true },
+        ],
+      },
+    },
+    {
+      id: "to-text-segments",
+      label: "To text segments",
+      operation: "transcripts.toTextSegments",
+      description: "Convert timed transcript segments into shared text segment and document contracts.",
+      input: {
+        streamId: "transcript-1",
+        segments: [
+          { index: 0, startSeconds: 1.0, endSeconds: 2.2, text: "Alice presented the tokenizer roadmap.", language: "en", speaker: "A", confidence: 0.92, isFinal: true },
+          { index: 1, startSeconds: 2.5, endSeconds: 4.0, text: "Bob reviewed transcript retrieval evidence.", language: "en", speaker: "B", confidence: 0.88, isFinal: true },
+        ],
+      },
+    },
   ],
   benchmarkScenarios: [
     {
@@ -112,6 +137,24 @@ const packageAppConfig: PackageAppConfig = {
       warmupIterations: 5,
       outputCountPath: ["content"],
     },
+    {
+      id: "format-webvtt",
+      label: "Format WebVTT",
+      operation: "transcripts.formatWebVtt",
+      input: { segments: [{ index: 0, startSeconds: 1.0, endSeconds: 2.0, text: "Hello.", isFinal: true }] },
+      iterations: 120,
+      warmupIterations: 5,
+      outputCountPath: ["webVtt"],
+    },
+    {
+      id: "to-text-segments",
+      label: "To Text Segments",
+      operation: "transcripts.toTextSegments",
+      input: { streamId: "transcript-1", segments: [{ index: 0, startSeconds: 1.0, endSeconds: 2.0, text: "Hello.", language: "en", speaker: "A", confidence: 0.9, isFinal: true }] },
+      iterations: 120,
+      warmupIterations: 5,
+      outputCountPath: ["segments"],
+    },
   ],
   resultTabs: createTextResultTabs({
     library: "text-transcripts",
@@ -135,6 +178,19 @@ const packageAppConfig: PackageAppConfig = {
         summaryFields: ["bytes"],
         objectFields: ["result"],
         explanation: () => "The formatter normalized the transcript contract and emitted SRT caption text with stable timing.",
+      },
+      "transcripts.formatWebVtt": {
+        title: "WebVTT formatting",
+        summaryFields: ["bytes"],
+        objectFields: ["result"],
+        explanation: () => "The formatter normalized the transcript contract and emitted WebVTT caption text with stable timing.",
+      },
+      "transcripts.toTextSegments": {
+        title: "Text segment conversion",
+        summaryFields: ["segmentCount", "documentCount", "streamId"],
+        listFields: ["segments", "documents"],
+        objectFields: ["result"],
+        explanation: () => "The converter mapped transcript timing, language, speaker, and confidence fields into shared text segment contracts and document records.",
       },
     },
   }),

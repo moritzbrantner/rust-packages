@@ -16,13 +16,13 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "linguistics.analyze",
-  featuredOperations: ["linguistics.analyze", "linguistics.entities", "describe"],
+  featuredOperations: ["linguistics.analyze", "linguistics.entities", "linguistics.language", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
-      description: "Run deterministic linguistic analysis and entity extraction.",
-      operations: ["linguistics.analyze", "linguistics.entities"],
+      description: "Run deterministic linguistic analysis, entity extraction, and focused language detection.",
+      operations: ["linguistics.analyze", "linguistics.entities", "linguistics.language"],
     },
     {
       id: "debug",
@@ -66,6 +66,13 @@ const packageAppConfig: PackageAppConfig = {
       description: "Extract entities and relations from a short sentence.",
       input: { text: "Alice presented the tokenizer roadmap in Berlin while Bob reviewed transcript retrieval in Paris." },
     },
+    {
+      id: "language",
+      label: "Detect language",
+      operation: "linguistics.language",
+      description: "Detect language and script signals without running the full NLP pipeline.",
+      input: { text: "This is a simple English sentence.", sentenceLevel: true, maxAlternatives: 3 },
+    },
   ],
   benchmarkScenarios: [
     {
@@ -95,6 +102,15 @@ const packageAppConfig: PackageAppConfig = {
       warmupIterations: 3,
       outputCountPath: ["entities"],
     },
+    {
+      id: "language",
+      label: "Language",
+      operation: "linguistics.language",
+      input: { text: "This is a simple English sentence.", sentenceLevel: true, maxAlternatives: 3 },
+      iterations: 100,
+      warmupIterations: 5,
+      outputCountPath: ["alternatives"],
+    },
   ],
   resultTabs: createTextResultTabs({
     library: "text-linguistics",
@@ -112,6 +128,13 @@ const packageAppConfig: PackageAppConfig = {
         listFields: ["entities", "canonicalEntities", "relations", "events"],
         objectFields: ["language", "model"],
         explanation: () => "The entity workflow focuses the linguistic projection on named entities, canonical forms, relations, and event-style facts.",
+      },
+      "linguistics.language": {
+        title: "Language detection",
+        summaryFields: ["language", "confidence", "isMixed", "tokenCount"],
+        listFields: ["alternatives", "sentencePredictions"],
+        objectFields: ["primary", "result"],
+        explanation: () => "The language workflow runs the focused detector only, returning primary language, script signals, alternatives, and optional sentence-level predictions.",
       },
     },
   }),

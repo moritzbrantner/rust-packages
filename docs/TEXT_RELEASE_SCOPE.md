@@ -90,9 +90,9 @@ Start with the smallest crate that owns the capability you need:
 | Deterministic lexical analysis, stop words, keywords, n-grams, shingles, readability, stemming, sentiment, extractive summaries, TF-IDF, or BM25 | `moritzbrantner-text-lexical` |
 | High-level document or corpus reports that orchestrate the focused text crates | `moritzbrantner-text-analysis` |
 | Deterministic hashed embeddings, embedding backend traits, or backend catalog metadata | `moritzbrantner-text-embeddings` |
-| Chunking, metadata-aware search, full-text/semantic/hybrid retrieval, or persistence helpers | `moritzbrantner-text-retrieval` |
-| Heuristic-first linguistic analysis, with optional model-backed paths | `moritzbrantner-text-linguistics` |
-| Transcript parsing, normalization, or formatting | `moritzbrantner-text-transcripts` |
+| Chunking, metadata-aware search, full-text/semantic/hybrid retrieval, persistence helpers, or snapshot planning | `moritzbrantner-text-retrieval` |
+| Heuristic-first linguistic analysis, focused language detection, with optional model-backed paths | `moritzbrantner-text-linguistics` |
+| Transcript parsing, normalization, SRT/WebVTT formatting, or transcript-to-text-segment conversion | `moritzbrantner-text-transcripts` |
 | Text classification or zero-shot classification contracts and deterministic fallbacks | `moritzbrantner-text-classification` |
 | Extractive question-answering contracts and deterministic/imported span handling | `moritzbrantner-text-question-answering` |
 | Deterministic generation contracts, Markov scoring, and template fallbacks | `moritzbrantner-text-generation` |
@@ -127,12 +127,12 @@ The intended stable surface for `0.1` is:
 - `moritzbrantner-text-lexical` deterministic lexical feature APIs, `TextCorpus` builders,
   reproducible lexical corpus snapshots, TF-IDF/BM25 scoring APIs, and corpus
   statistics where outputs are derived from local text inputs.
-- `moritzbrantner-text-transcripts` transcript contracts, parsers, formatters, and conversion
-  into generic text segments.
+- `moritzbrantner-text-transcripts` transcript contracts, parsers, SRT/WebVTT formatters, and
+  conversion into generic text segments.
 - `moritzbrantner-text-embeddings` embedding backend traits and deterministic hashed embedding
   APIs.
 - `moritzbrantner-text-retrieval` chunking, retrieval request/result contracts, metadata
-  filters, and persistence DTOs.
+  filters, snapshot planning, and persistence DTOs.
 - Concrete task request/response structs in `moritzbrantner-text-classification`,
   `moritzbrantner-text-question-answering`, and `moritzbrantner-text-generation`.
 - Feature policy: default builds stay local, deterministic, and free of native

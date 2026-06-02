@@ -520,6 +520,27 @@ pub fn format_srt(segments: &[TranscriptSegment]) -> String {
     output
 }
 
+/// Returns format webvtt.
+pub fn format_webvtt(segments: &[TranscriptSegment]) -> String {
+    let mut output = String::from("WEBVTT\n\n");
+    for (index, segment) in segments.iter().enumerate() {
+        if index > 0 {
+            output.push('\n');
+        }
+        let start = segment.start_seconds.unwrap_or(0.0);
+        let end = segment
+            .end_seconds
+            .unwrap_or_else(|| (start + 2.0).max(start));
+        output.push_str(&format_webvtt_timestamp(start));
+        output.push_str(" --> ");
+        output.push_str(&format_webvtt_timestamp(end.max(start)));
+        output.push('\n');
+        output.push_str(segment.text.trim());
+        output.push('\n');
+    }
+    output
+}
+
 /// Writes srt.
 pub fn write_srt(path: impl AsRef<Path>, segments: &[TranscriptSegment]) -> Result<()> {
     let path = path.as_ref();
@@ -597,6 +618,10 @@ pub fn format_srt_timestamp(seconds: f64) -> String {
     let minutes = total_minutes % 60;
     let hours = total_minutes / 60;
     format!("{hours:02}:{minutes:02}:{secs:02},{millis:03}")
+}
+
+fn format_webvtt_timestamp(seconds: f64) -> String {
+    format_srt_timestamp(seconds).replace(',', ".")
 }
 
 /// Returns segment to owned text segment.
@@ -830,6 +855,22 @@ mod tests {
             text,
             "1\n00:00:01,250 --> 00:00:03,500\nHello\n\n2\n00:01:03,000 --> 00:01:05,125\nWorld\n\n"
         );
+    }
+
+    #[test]
+    fn formats_webvtt() {
+        let text = format_webvtt(&[TranscriptSegment {
+            index: 0,
+            start_seconds: Some(1.0),
+            end_seconds: Some(0.5),
+            text: "Hello.".to_string(),
+            language: None,
+            speaker: None,
+            confidence: None,
+            is_final: true,
+        }]);
+
+        assert_eq!(text, "WEBVTT\n\n00:00:01.000 --> 00:00:01.000\nHello.\n");
     }
 
     #[test]

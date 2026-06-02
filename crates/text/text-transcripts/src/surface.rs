@@ -5,9 +5,10 @@ use runtime_core::{
     SurfaceRequest, SurfaceResponse,
 };
 use serde::Deserialize;
+use text_core::TextSegmentContract;
 
 use crate::{
-    format_srt, parse_plain_lines, parse_srt, parse_webvtt, parse_whisper_json,
+    format_srt, format_webvtt, parse_plain_lines, parse_srt, parse_webvtt, parse_whisper_json,
     TranscriptionContract, TranscriptionResult,
 };
 
@@ -42,6 +43,18 @@ pub fn package_surface() -> PackageSurface {
                 "Formats a transcript contract as SRT text.",
                 serde_json::json!({"segments": [{"index": 0, "startSeconds": 1.0, "endSeconds": 2.0, "text": "Hello.", "isFinal": true}]}),
             ),
+            operation(
+                "transcripts.formatWebVtt",
+                "Format WebVTT",
+                "Formats a transcript contract as WebVTT text.",
+                serde_json::json!({"segments": [{"index": 0, "startSeconds": 1.0, "endSeconds": 2.0, "text": "Hello.", "isFinal": true}]}),
+            ),
+            operation(
+                "transcripts.toTextSegments",
+                "Convert to text segments",
+                "Converts transcript segments into shared text segment contracts and document records.",
+                serde_json::json!({"streamId": "transcript-1", "segments": [{"index": 0, "startSeconds": 1.0, "endSeconds": 2.0, "text": "Hello.", "language": "en", "speaker": "A", "confidence": 0.9, "isFinal": true}]}),
+            ),
         ],
     }
 }
@@ -63,6 +76,8 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "transcripts.parse" => parse_value(parse_input(request.input)?)?,
         "transcripts.normalize" => normalize_value(parse_input(request.input)?)?,
         "transcripts.formatSrt" => format_srt_value(parse_input(request.input)?)?,
+        "transcripts.formatWebVtt" => format_webvtt_value(parse_input(request.input)?)?,
+        "transcripts.toTextSegments" => to_text_segments_value(parse_input(request.input)?)?,
         operation => {
             return Err(runtime_core::SurfaceError::unsupported_operation(
                 operation,
@@ -127,6 +142,24 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
                 "bytes": value["srt"].as_str().map(str::len).unwrap_or(0)
             }),
         ),
+        "transcripts.formatWebVtt" => (
+            "WebVTT formatting result",
+            "Formatted a normalized transcript contract as WebVTT text.",
+            serde_json::json!({
+                "status": "ok",
+                "bytes": value["webVtt"].as_str().map(str::len).unwrap_or(0)
+            }),
+        ),
+        "transcripts.toTextSegments" => (
+            "Text segment conversion result",
+            "Converted normalized transcript segments into shared text segment and document contracts.",
+            serde_json::json!({
+                "status": "ok",
+                "segmentCount": value["segments"].as_array().map(Vec::len).unwrap_or(0),
+                "documentCount": value["documents"].as_array().map(Vec::len).unwrap_or(0),
+                "streamId": value["streamId"]
+            }),
+        ),
         _ => (
             "Transcript result",
             "Ran a text-transcripts package operation.",
@@ -141,6 +174,14 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
 struct ParseRequest {
     format: String,
     content: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ToTextSegmentsRequest {
+    stream_id: Option<String>,
+    #[serde(flatten)]
+    contract: TranscriptionContract,
 }
 
 fn parse_value(request: ParseRequest) -> Result<serde_json::Value, String> {
@@ -177,6 +218,46 @@ fn format_srt_value(contract: TranscriptionContract) -> Result<serde_json::Value
     Ok(serde_json::json!({ "srt": format_srt(&result.segments) }))
 }
 
+fn format_webvtt_value(contract: TranscriptionContract) -> Result<serde_json::Value, String> {
+    let normalized = contract.normalized().map_err(|error| error.to_string())?;
+    let result = TranscriptionResult::from(normalized);
+    Ok(serde_json::json!({ "webVtt": format_webvtt(&result.segments) }))
+}
+
+fn to_text_segments_value(request: ToTextSegmentsRequest) -> Result<serde_json::Value, String> {
+    let normalized = request
+        .contract
+        .normalized()
+        .map_err(|error| error.to_string())?;
+    let segments = normalized
+        .segments
+        .iter()
+        .map(|segment| {
+            let mut text_segment = TextSegmentContract::from(segment);
+            if let Some(stream_id) = &request.stream_id {
+                text_segment.stream_id = Some(stream_id.clone());
+            }
+            text_segment
+        })
+        .collect::<Vec<_>>();
+    let documents = segments
+        .iter()
+        .filter_map(|segment| {
+            segment.document_id().map(|id| {
+                serde_json::json!({
+                    "id": id,
+                    "text": segment.text
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(serde_json::json!({
+        "streamId": request.stream_id,
+        "segments": segments,
+        "documents": documents
+    }))
+}
+
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
     runtime_core::parse_surface_input(None, input)
 }
@@ -194,6 +275,8 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"transcripts.parse".to_string()));
         assert!(ids.contains(&"transcripts.formatSrt".to_string()));
+        assert!(ids.contains(&"transcripts.formatWebVtt".to_string()));
+        assert!(ids.contains(&"transcripts.toTextSegments".to_string()));
     }
 
     #[test]
@@ -215,5 +298,46 @@ mod tests {
         })
         .expect_err("invalid request");
         assert!(error.contains("invalid request"));
+    }
+
+    #[test]
+    fn format_webvtt_operation_returns_cue_text() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("transcripts.formatWebVtt"),
+            input: serde_json::json!({"segments": [{"index": 0, "startSeconds": 1.0, "endSeconds": 2.0, "text": "Hello.", "isFinal": true}]}),
+        })
+        .expect("format webvtt");
+        let webvtt = response.value["result"]["webVtt"].as_str().unwrap();
+        assert!(webvtt.starts_with("WEBVTT"));
+        assert!(webvtt.contains("Hello."));
+    }
+
+    #[test]
+    fn to_text_segments_sets_stream_and_documents() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("transcripts.toTextSegments"),
+            input: serde_json::json!({
+                "streamId": "transcript-1",
+                "segments": [{
+                    "index": 0,
+                    "startSeconds": 1.0,
+                    "endSeconds": 2.0,
+                    "text": "Hello.",
+                    "language": "en",
+                    "speaker": "A",
+                    "confidence": 0.9,
+                    "isFinal": true
+                }]
+            }),
+        })
+        .expect("to text segments");
+        assert_eq!(
+            response.value["result"]["segments"][0]["streamId"],
+            "transcript-1"
+        );
+        assert_eq!(
+            response.value["result"]["documents"][0]["id"],
+            "transcript-1:0"
+        );
     }
 }
