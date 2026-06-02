@@ -6,7 +6,9 @@ use runtime_core::{
 };
 use serde::Deserialize;
 
-use crate::{analyze_sentiment, classify_text, model_catalog, parse_task, zero_shot_classify};
+use crate::{
+    analyze_sentiment, classify_text, model_catalog, parse_task, schema_summary, zero_shot_classify,
+};
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -17,6 +19,7 @@ pub fn package_surface() -> PackageSurface {
         operations: vec![
             operation("describe", "Inspect package metadata", "Text classification, sentiment, and zero-shot classification contracts with imported prediction handling and deterministic fallbacks.", serde_json::json!({"includeOperations": true})),
             operation("classification.models", "Inspect classification model catalog", "Lists registered text classification presets.", serde_json::json!({})),
+            operation("classification.schema", "Inspect classification schema", "Returns task schemas, registered presets, and model catalog metadata without executing classification.", serde_json::json!({})),
             operation("classification.classify", "Classify text", "Runs imported-prediction or explicit fallback text classification.", serde_json::json!({"text": "rust is reliable", "labels": ["positive", "negative"], "model": {"fallbackPolicy": "lexical_fallback"}})),
             operation("classification.sentiment", "Analyze sentiment", "Runs imported-prediction or explicit fallback sentiment analysis.", serde_json::json!({"text": "rust is reliable", "model": {"fallbackPolicy": "lexical_fallback"}})),
             operation("classification.zeroShot", "Zero-shot classify", "Runs imported-prediction or explicit fallback zero-shot classification.", serde_json::json!({"text": "rust text", "labels": ["code", "music"], "model": {"fallbackPolicy": "lexical_fallback"}})),
@@ -30,16 +33,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
+    runtime_core::surface_operation(id, name, description, example_request)
 }
 
 /// Runs one library-owned operation.
@@ -48,6 +42,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let value = match request.operation.as_str() {
         "describe" => describe_value(request.input),
         "classification.models" => models_value(parse_input(request.input)?)?,
+        "classification.schema" => schema_value(),
         "classification.classify" => serde_json::to_value(
             classify_text(parse_input(request.input)?).map_err(|error| error.to_string())?,
         )
@@ -61,10 +56,11 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         )
         .map_err(|error| error.to_string())?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ))
+            return Err(runtime_core::SurfaceError::unsupported_operation(
+                operation,
+                env!("CARGO_PKG_NAME"),
+            )
+            .to_error_string())
         }
     };
     let value = annotated_value(&operation, value);
@@ -103,6 +99,16 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
             serde_json::json!({
                 "status": "ok",
                 "modelCount": value["models"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "classification.schema" => (
+            "Classification schema",
+            "Inspected text classification task schemas, presets, and model metadata.",
+            serde_json::json!({
+                "status": "ok",
+                "taskCount": value["tasks"].as_array().map(Vec::len).unwrap_or(0),
+                "modelCount": value["models"].as_array().map(Vec::len).unwrap_or(0),
+                "presetCount": value["registeredPresets"].as_array().map(Vec::len).unwrap_or(0)
             }),
         ),
         "classification.classify" => (
@@ -158,8 +164,12 @@ fn models_value(request: ModelsRequest) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "models": model_catalog(task) }))
 }
 
+fn schema_value() -> serde_json::Value {
+    schema_summary()
+}
+
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+    runtime_core::parse_surface_input(None, input)
 }
 
 #[cfg(test)]
@@ -174,6 +184,7 @@ mod tests {
             .map(|operation| operation.id.0)
             .collect::<Vec<_>>();
         assert!(ids.contains(&"classification.models".to_string()));
+        assert!(ids.contains(&"classification.schema".to_string()));
         assert!(ids.contains(&"classification.sentiment".to_string()));
         assert!(!ids.contains(&"embeddings.embed".to_string()));
     }
@@ -186,6 +197,27 @@ mod tests {
         })
         .expect("models");
         assert!(!response.value["models"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn schema_operation_returns_tasks_models_and_presets() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("classification.schema"),
+            input: serde_json::json!({}),
+        })
+        .expect("schema");
+        let task_count = response.value["tasks"].as_array().unwrap().len();
+        let model_count = response.value["models"].as_array().unwrap().len();
+        let preset_count = response.value["registeredPresets"]
+            .as_array()
+            .unwrap()
+            .len();
+        assert_eq!(task_count, 3);
+        assert!(model_count >= 3);
+        assert!(preset_count >= 3);
+        assert_eq!(response.value["summary"]["taskCount"], task_count);
+        assert_eq!(response.value["summary"]["modelCount"], model_count);
+        assert_eq!(response.value["summary"]["presetCount"], preset_count);
     }
 
     #[test]

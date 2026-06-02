@@ -194,6 +194,146 @@ pub struct SurfaceResponse {
     pub artifacts: Vec<serde_json::Value>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceError {
+    pub code: String,
+    pub message: String,
+    pub operation: Option<OperationId>,
+    pub details: serde_json::Value,
+}
+
+impl SurfaceError {
+    pub fn invalid_request(
+        operation: Option<impl Into<OperationId>>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::new("invalid_request", operation, message, serde_json::json!({}))
+    }
+
+    pub fn unsupported_operation(
+        operation: impl Into<OperationId>,
+        package: impl Into<String>,
+    ) -> Self {
+        let operation = operation.into();
+        let package = package.into();
+        Self::new(
+            "unsupported_operation",
+            Some(operation.clone()),
+            format!(
+                "unsupported operation `{}` for {}",
+                operation.as_str(),
+                package
+            ),
+            serde_json::json!({"package": package}),
+        )
+    }
+
+    pub fn unsupported_value(
+        operation: Option<impl Into<OperationId>>,
+        field: impl Into<String>,
+        value: impl Into<String>,
+        allowed: &[&str],
+    ) -> Self {
+        let field = field.into();
+        let value = value.into();
+        Self::new(
+            "unsupported_value",
+            operation,
+            format!("unsupported value `{value}` for `{field}`"),
+            serde_json::json!({
+                "field": field,
+                "value": value,
+                "allowed": allowed
+            }),
+        )
+    }
+
+    pub fn resource_limit(
+        operation: Option<impl Into<OperationId>>,
+        field: impl Into<String>,
+        limit: usize,
+        actual: usize,
+    ) -> Self {
+        let field = field.into();
+        Self::new(
+            "resource_limit",
+            operation,
+            format!("`{field}` exceeds the maximum supported size of {limit}"),
+            serde_json::json!({
+                "field": field,
+                "limit": limit,
+                "actual": actual
+            }),
+        )
+    }
+
+    pub fn missing_dependency(
+        operation: Option<impl Into<OperationId>>,
+        dependency: impl Into<String>,
+        setup: impl Into<String>,
+    ) -> Self {
+        let dependency = dependency.into();
+        let setup = setup.into();
+        Self::new(
+            "missing_dependency",
+            operation,
+            format!("missing required dependency `{dependency}`"),
+            serde_json::json!({
+                "dependency": dependency,
+                "setup": setup
+            }),
+        )
+    }
+
+    pub fn new(
+        code: impl Into<String>,
+        operation: Option<impl Into<OperationId>>,
+        message: impl Into<String>,
+        details: serde_json::Value,
+    ) -> Self {
+        Self {
+            code: code.into(),
+            message: message.into(),
+            operation: operation.map(Into::into),
+            details,
+        }
+    }
+
+    pub fn to_error_string(&self) -> String {
+        serde_json::to_string(self).unwrap_or_else(|_| self.message.clone())
+    }
+}
+
+pub fn parse_surface_error(error: &str) -> Option<SurfaceError> {
+    serde_json::from_str(error).ok()
+}
+
+pub fn parse_surface_input<T: for<'de> Deserialize<'de>>(
+    operation: Option<&str>,
+    input: serde_json::Value,
+) -> Result<T, String> {
+    serde_json::from_value(input).map_err(|error| {
+        SurfaceError::invalid_request(
+            operation.map(OperationId::new),
+            format!("invalid request: {error}"),
+        )
+        .to_error_string()
+    })
+}
+
+pub fn require_non_empty<T>(operation: &str, field: &str, values: &[T]) -> Result<(), String> {
+    if values.is_empty() {
+        Err(SurfaceError::invalid_request(
+            Some(OperationId::new(operation)),
+            format!("invalid request: {field} must not be empty"),
+        )
+        .to_error_string())
+    } else {
+        Ok(())
+    }
+}
+
 /// Builds the standard package-surface operation metadata used by library
 /// crates and transport adapters.
 pub fn surface_operation(
@@ -202,16 +342,158 @@ pub fn surface_operation(
     description: impl Into<String>,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
+    let id = id.into();
     SurfaceOperation {
-        id: OperationId::new(id),
+        id: OperationId::new(id.clone()),
         name: name.into(),
         description: Some(description.into()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
+        input_schema: surface_input_schema(&id, &example_request),
+        output_schema: surface_output_schema(&id),
         example_request,
         wasm_supported: true,
         server_supported: true,
     }
+}
+
+pub fn surface_input_schema(
+    operation: &str,
+    example_request: &serde_json::Value,
+) -> serde_json::Value {
+    let properties = match example_request {
+        serde_json::Value::Object(object) => object
+            .iter()
+            .map(|(key, value)| (key.clone(), infer_schema_for_value(key, value)))
+            .collect::<serde_json::Map<_, _>>(),
+        _ => serde_json::Map::new(),
+    };
+    let required = required_fields_for_operation(operation, example_request);
+    serde_json::json!({
+        "type": "object",
+        "additionalProperties": false,
+        "properties": properties,
+        "required": required,
+        "xOperationCategory": operation_category(operation),
+        "xReleaseStability": "stable",
+        "xContractPolicy": "additiveOnly",
+        "xErrorShape": {
+            "code": "string",
+            "message": "string",
+            "operation": "string|null",
+            "details": "object"
+        },
+        "xResourceLimits": {
+            "maxRecommendedInputBytes": 1048576,
+            "largePayloadBehavior": "reject or deterministically truncate by operation-specific limit"
+        }
+    })
+}
+
+pub fn surface_output_schema(operation: &str) -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "required": ["operation", "title", "message", "summary", "result"],
+        "properties": {
+            "operation": {"type": "string", "const": operation},
+            "title": {"type": "string", "minLength": 1},
+            "message": {"type": "string", "minLength": 1},
+            "summary": {"type": "object"},
+            "result": {}
+        },
+        "additionalProperties": true
+    })
+}
+
+pub fn operation_category(operation: &str) -> &'static str {
+    match operation {
+        "describe"
+        | "analysis.describe"
+        | "classification.models"
+        | "classification.schema"
+        | "embeddings.backends"
+        | "qa.models" => "debug",
+        "runtime.softmax" => "support",
+        _ => "workflow",
+    }
+}
+
+fn required_fields_for_operation(
+    operation: &str,
+    example_request: &serde_json::Value,
+) -> Vec<String> {
+    if operation == "describe" || operation.ends_with(".models") || operation.ends_with(".describe")
+    {
+        return Vec::new();
+    }
+    let optional = [
+        "dimensions",
+        "embedding",
+        "id",
+        "includeNearDuplicates",
+        "includePunctuation",
+        "includeSemanticNeighbors",
+        "keywordLimit",
+        "linguistics",
+        "lowercase",
+        "maxTokens",
+        "mode",
+        "model",
+        "n",
+        "ngramSizes",
+        "normalizeWhitespace",
+        "options",
+        "order",
+        "profile",
+        "seed",
+        "shingleSizes",
+        "summarySentences",
+        "topK",
+        "truncation",
+    ];
+    match example_request {
+        serde_json::Value::Object(object) => object
+            .keys()
+            .filter(|key| !optional.contains(&key.as_str()))
+            .cloned()
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn infer_schema_for_value(key: &str, value: &serde_json::Value) -> serde_json::Value {
+    let mut schema = match value {
+        serde_json::Value::Bool(_) => serde_json::json!({"type": "boolean"}),
+        serde_json::Value::Number(number) if number.is_i64() || number.is_u64() => {
+            serde_json::json!({"type": "integer", "minimum": 0})
+        }
+        serde_json::Value::Number(_) => serde_json::json!({"type": "number"}),
+        serde_json::Value::String(_) => serde_json::json!({"type": "string", "minLength": 1}),
+        serde_json::Value::Array(values) => {
+            let item_schema = values
+                .first()
+                .map(|value| infer_schema_for_value("item", value))
+                .unwrap_or_else(|| serde_json::json!({}));
+            serde_json::json!({"type": "array", "items": item_schema, "minItems": 1})
+        }
+        serde_json::Value::Object(object) => serde_json::json!({
+            "type": "object",
+            "additionalProperties": true,
+            "properties": object
+                .iter()
+                .map(|(key, value)| (key.clone(), infer_schema_for_value(key, value)))
+                .collect::<serde_json::Map<_, _>>()
+        }),
+        serde_json::Value::Null => serde_json::json!({}),
+    };
+    if matches!(
+        key,
+        "topK" | "top_k" | "maxTokens" | "max_tokens" | "order" | "dimensions" | "n"
+    ) {
+        if let serde_json::Value::Object(object) = &mut schema {
+            object.insert("minimum".to_string(), serde_json::json!(1));
+            object.insert("maximum".to_string(), serde_json::json!(4096));
+        }
+    }
+    schema
 }
 
 /// Builds the standard `describe` response without changing the shared
@@ -490,8 +772,8 @@ pub mod server {
     use std::net::{TcpListener, TcpStream};
 
     use super::{
-        Diagnostic, DiagnosticSeverity, OperationId, PackageSurface, SurfaceRequest,
-        SurfaceResponse,
+        parse_surface_error, Diagnostic, DiagnosticSeverity, OperationId, PackageSurface,
+        SurfaceRequest, SurfaceResponse,
     };
 
     /// Static package metadata for one server adapter.
@@ -614,6 +896,9 @@ pub mod server {
                 "POST /api/run",
                 "POST /api/<operation-id>"
             ],
+            "runtimeMetadata": {
+                "candleDevice": serde_json::Value::Null
+            },
             "operations": surface.operations
         })
     }
@@ -704,17 +989,35 @@ pub mod server {
         message: &str,
         metadata: ServerAdapterMetadata,
     ) -> HttpResponse {
+        let parsed = parse_surface_error(message);
+        let diagnostic_code = parsed
+            .as_ref()
+            .map(|error| error.code.as_str())
+            .unwrap_or(code);
+        let diagnostic_message = parsed
+            .as_ref()
+            .map(|error| error.message.as_str())
+            .unwrap_or(message);
+        let details = parsed
+            .as_ref()
+            .map(|error| error.details.clone())
+            .unwrap_or_else(|| serde_json::json!({}));
         json_response(
             status_code,
             reason,
             serde_json::json!({
                 "diagnostics": [Diagnostic {
                     severity: DiagnosticSeverity::Error,
-                    code: code.into(),
-                    message: message.to_string(),
+                    code: diagnostic_code.into(),
+                    message: diagnostic_message.to_string(),
                     source: Some(format!("{}-server", metadata.library_crate)),
                     help: None,
-                }]
+                }],
+                "error": {
+                    "code": diagnostic_code,
+                    "message": diagnostic_message,
+                    "details": details
+                }
             }),
         )
     }
@@ -931,5 +1234,36 @@ mod tests {
         assert_eq!(response.value["operationCount"], 1);
         assert_eq!(response.diagnostics, Vec::new());
         assert_eq!(response.artifacts, Vec::<serde_json::Value>::new());
+    }
+
+    #[test]
+    fn surface_operation_declares_release_contract_schema() {
+        let operation = surface_operation(
+            "demo.run",
+            "Run demo",
+            "Run a demo workflow",
+            serde_json::json!({"text": "hello", "topK": 3}),
+        );
+
+        assert_eq!(operation.input_schema["additionalProperties"], false);
+        assert_eq!(operation.input_schema["xOperationCategory"], "workflow");
+        assert_eq!(operation.input_schema["xReleaseStability"], "stable");
+        assert_eq!(
+            operation.input_schema["required"],
+            serde_json::json!(["text"])
+        );
+        assert_eq!(operation.input_schema["properties"]["topK"]["minimum"], 1);
+        assert_eq!(operation.output_schema["required"][0], "operation");
+    }
+
+    #[test]
+    fn typed_surface_errors_roundtrip_for_transport_adapters() {
+        let error = SurfaceError::unsupported_operation("demo.missing", "demo-package");
+        let serialized = error.to_error_string();
+        let parsed = parse_surface_error(&serialized).expect("typed surface error");
+
+        assert_eq!(parsed.code, "unsupported_operation");
+        assert_eq!(parsed.operation.unwrap().as_str(), "demo.missing");
+        assert!(parsed.message.contains("unsupported operation"));
     }
 }

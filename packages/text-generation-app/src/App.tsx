@@ -16,13 +16,13 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "generation.markovGenerate",
-  featuredOperations: ["generation.markovGenerate", "generation.markovPredict", "generation.synthesizeTerms", "describe"],
+  featuredOperations: ["generation.markovGenerate", "generation.markovPredict", "generation.perplexity", "generation.synthesizeTerms", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
-      description: "Run deterministic Markov prediction, generation, and term synthesis workflows.",
-      operations: ["generation.markovGenerate", "generation.markovPredict", "generation.synthesizeTerms"],
+      description: "Run deterministic Markov prediction, generation, perplexity scoring, and term synthesis workflows.",
+      operations: ["generation.markovGenerate", "generation.markovPredict", "generation.perplexity", "generation.synthesizeTerms"],
     },
     {
       id: "debug",
@@ -79,6 +79,21 @@ const packageAppConfig: PackageAppConfig = {
         ],
       },
     },
+    {
+      id: "markov-perplexity",
+      label: "Score caption perplexity",
+      operation: "generation.perplexity",
+      description: "Train a transient Markov chain and score held-out text.",
+      input: {
+        trainingTexts: [
+          "rust text analysis supports transcript search",
+          "rust text analysis supports caption review",
+          "caption review supports editorial text workflows",
+        ],
+        text: "rust text analysis",
+        order: 2,
+      },
+    },
   ],
   benchmarkScenarios: [
     {
@@ -99,6 +114,15 @@ const packageAppConfig: PackageAppConfig = {
       warmupIterations: 5,
       outputCountPath: ["tokens"],
     },
+    {
+      id: "markov-perplexity",
+      label: "Markov Perplexity",
+      operation: "generation.perplexity",
+      input: { trainingTexts: ["rust text analysis supports crates", "rust text analysis supports captions"], text: "rust text analysis", order: 2 },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["perplexity"],
+    },
   ],
   resultTabs: createTextResultTabs({
     library: "text-generation",
@@ -116,6 +140,12 @@ const packageAppConfig: PackageAppConfig = {
         listFields: ["generation.tokens"],
         objectFields: ["generation", "result"],
         explanation: () => "The generator used a deterministic Markov chain and seed tokens to produce a repeatable token sequence.",
+      },
+      "generation.perplexity": {
+        title: "Markov perplexity",
+        summaryFields: ["order", "contexts", "transitions", "isInfinite"],
+        objectFields: ["result"],
+        explanation: () => "The scorer trained a transient deterministic Markov chain and measured how expected the evaluation text is under that chain.",
       },
       "generation.synthesizeTerms": {
         title: "Term synthesis",

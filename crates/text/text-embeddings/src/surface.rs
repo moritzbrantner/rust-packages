@@ -26,6 +26,12 @@ pub fn package_surface() -> PackageSurface {
                 serde_json::json!({"includeOperations": true}),
             ),
             operation(
+                "embeddings.backends",
+                "Inspect embedding backends",
+                "Lists deterministic and feature-gated embedding backend availability without loading models.",
+                serde_json::json!({"dimensions": 128}),
+            ),
+            operation(
                 "embeddings.embed",
                 "Embed text",
                 "Builds deterministic hashed text embeddings.",
@@ -59,16 +65,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
+    runtime_core::surface_operation(id, name, description, example_request)
 }
 
 /// Runs one library-owned operation.
@@ -76,15 +73,17 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
         "describe" => describe_value(request.input),
+        "embeddings.backends" => backends_value(parse_input(request.input)?)?,
         "embeddings.embed" => embed_value(parse_input(request.input)?)?,
         "embeddings.similarity" => similarity_value(parse_input(request.input)?)?,
         "embeddings.semanticSearch" => semantic_search_value(parse_input(request.input)?)?,
         "embeddings.relatedTerms" => related_terms_value(parse_input(request.input)?)?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ))
+            return Err(runtime_core::SurfaceError::unsupported_operation(
+                operation,
+                env!("CARGO_PKG_NAME"),
+            )
+            .to_error_string())
         }
     };
     let value = annotated_value(&operation, value);
@@ -115,6 +114,15 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
             serde_json::json!({
                 "status": "ok",
                 "operationCount": value["operationCount"]
+            }),
+        ),
+        "embeddings.backends" => (
+            "Embedding backend catalog",
+            "Inspected deterministic and feature-gated embedding backends without loading models.",
+            serde_json::json!({
+                "status": "ok",
+                "defaultBackend": value["defaultBackend"],
+                "backendCount": value["backends"].as_array().map(Vec::len).unwrap_or(0)
             }),
         ),
         "embeddings.embed" => (
@@ -174,6 +182,13 @@ struct EmbedRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct BackendsRequest {
+    #[serde(default = "default_dimensions")]
+    dimensions: usize,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SimilarityRequest {
     left: String,
     right: String,
@@ -211,9 +226,7 @@ struct RelatedTermsRequest {
 }
 
 fn embed_value(request: EmbedRequest) -> Result<serde_json::Value, String> {
-    if request.texts.is_empty() {
-        return Err("invalid request: texts must not be empty".to_string());
-    }
+    runtime_core::require_non_empty("embeddings.embed", "texts", &request.texts)?;
     let embedder = embedder(request.dimensions);
     let refs = request.texts.iter().map(String::as_str).collect::<Vec<_>>();
     let mut vectors = embedder
@@ -230,6 +243,51 @@ fn embed_value(request: EmbedRequest) -> Result<serde_json::Value, String> {
     }))
 }
 
+fn backends_value(request: BackendsRequest) -> Result<serde_json::Value, String> {
+    let hashed = embedder(request.dimensions);
+    Ok(serde_json::json!({
+        "defaultBackend": "hashed",
+        "backends": [
+            {
+                "backend": "hashed",
+                "loadable": true,
+                "default": true,
+                "requiredFeature": null,
+                "requiredSetup": null,
+                "model": hashed.model_info()
+            },
+            {
+                "backend": "onnx",
+                "loadable": false,
+                "default": false,
+                "requiredFeature": "onnx,model-bundles",
+                "requiredSetup": "Provide a local model bundle and enable ONNX runtime features.",
+                "model": {
+                    "modelName": "feature-gated-onnx-text-embedding",
+                    "backend": "onnx",
+                    "dimensions": 0,
+                    "normalized": true,
+                    "maxTokens": null
+                }
+            },
+            {
+                "backend": "candle",
+                "loadable": false,
+                "default": false,
+                "requiredFeature": "candle,model-bundles",
+                "requiredSetup": "Provide a local model bundle and enable Candle features.",
+                "model": {
+                    "modelName": "feature-gated-candle-text-embedding",
+                    "backend": "candle",
+                    "dimensions": 0,
+                    "normalized": true,
+                    "maxTokens": null
+                }
+            }
+        ]
+    }))
+}
+
 fn similarity_value(request: SimilarityRequest) -> Result<serde_json::Value, String> {
     let embedder = embedder(request.dimensions);
     Ok(serde_json::json!({
@@ -239,6 +297,7 @@ fn similarity_value(request: SimilarityRequest) -> Result<serde_json::Value, Str
 }
 
 fn semantic_search_value(request: SemanticSearchRequest) -> Result<serde_json::Value, String> {
+    runtime_core::require_non_empty("embeddings.semanticSearch", "documents", &request.documents)?;
     let embedder = embedder(request.dimensions);
     let mut index = SemanticTextIndex::new(embedder);
     let ids = request
@@ -319,7 +378,7 @@ fn embedder(dimensions: usize) -> HashedTextEmbedder {
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+    runtime_core::parse_surface_input(None, input)
 }
 
 fn default_dimensions() -> usize {
@@ -347,6 +406,7 @@ mod tests {
             .map(|operation| operation.id.0)
             .collect::<Vec<_>>();
         assert!(ids.contains(&"embeddings.embed".to_string()));
+        assert!(ids.contains(&"embeddings.backends".to_string()));
         assert!(ids.contains(&"embeddings.semanticSearch".to_string()));
     }
 
@@ -362,6 +422,53 @@ mod tests {
             response.value["embeddings"][0].as_array().unwrap().len(),
             16
         );
+    }
+
+    #[test]
+    fn backends_operation_lists_release_safe_backends() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("embeddings.backends"),
+            input: serde_json::json!({"dimensions": 32}),
+        })
+        .expect("backends");
+        assert_eq!(response.value["defaultBackend"], "hashed");
+        let backends = response.value["backends"].as_array().unwrap();
+        let names = backends
+            .iter()
+            .map(|backend| backend["backend"].as_str().unwrap())
+            .collect::<Vec<_>>();
+        assert!(names.contains(&"hashed"));
+        assert!(names.contains(&"onnx"));
+        assert!(names.contains(&"candle"));
+        let hashed = backends
+            .iter()
+            .find(|backend| backend["backend"] == "hashed")
+            .unwrap();
+        assert_eq!(hashed["loadable"], true);
+        assert_eq!(hashed["model"]["dimensions"], 32);
+        let onnx = backends
+            .iter()
+            .find(|backend| backend["backend"] == "onnx")
+            .unwrap();
+        assert_eq!(onnx["loadable"], false);
+        assert_eq!(onnx["requiredFeature"], "onnx,model-bundles");
+        let candle = backends
+            .iter()
+            .find(|backend| backend["backend"] == "candle")
+            .unwrap();
+        assert_eq!(candle["loadable"], false);
+        assert_eq!(candle["requiredFeature"], "candle,model-bundles");
+        assert_eq!(response.value["summary"]["backendCount"], 3);
+    }
+
+    #[test]
+    fn backends_operation_clamps_hashed_dimensions() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("embeddings.backends"),
+            input: serde_json::json!({"dimensions": 0}),
+        })
+        .expect("backends");
+        assert_eq!(response.value["backends"][0]["model"]["dimensions"], 1);
     }
 
     #[test]

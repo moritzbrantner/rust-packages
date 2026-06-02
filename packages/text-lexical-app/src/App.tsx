@@ -16,13 +16,13 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "lexical.analyze",
-  featuredOperations: ["lexical.analyze", "lexical.keywords", "lexical.corpusSearch", "describe"],
+  featuredOperations: ["lexical.analyze", "lexical.keywords", "lexical.corpusSearch", "lexical.corpusStats", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
-      description: "Run lexical analysis, keyword extraction, and transient corpus search.",
-      operations: ["lexical.analyze", "lexical.keywords", "lexical.corpusSearch"],
+      description: "Run lexical analysis, keyword extraction, transient corpus search, and corpus statistics.",
+      operations: ["lexical.analyze", "lexical.keywords", "lexical.corpusSearch", "lexical.corpusStats"],
     },
     {
       id: "debug",
@@ -67,6 +67,22 @@ const packageAppConfig: PackageAppConfig = {
         mode: "bm25",
       },
     },
+    {
+      id: "corpus-stats",
+      label: "Inspect corpus statistics",
+      operation: "lexical.corpusStats",
+      description: "Build a transient TF-IDF corpus and report term, document, and sparse-matrix statistics.",
+      input: {
+        documents: [
+          { id: "doc-1", text: "rust text analysis supports transcript keyword extraction" },
+          { id: "doc-2", text: "video scene analysis summarizes shot boundaries" },
+          { id: "doc-3", text: "caption retrieval and lexical search help editors find evidence" },
+        ],
+        documentId: "doc-1",
+        limit: 8,
+        includeSparseMatrix: true,
+      },
+    },
   ],
   benchmarkScenarios: [
     {
@@ -95,6 +111,23 @@ const packageAppConfig: PackageAppConfig = {
       warmupIterations: 5,
       outputCountPath: ["results"],
     },
+    {
+      id: "corpus-stats",
+      label: "Corpus Stats",
+      operation: "lexical.corpusStats",
+      input: {
+        documents: [
+          { id: "doc-1", text: "rust text analysis" },
+          { id: "doc-2", text: "video scene analysis" },
+          { id: "doc-3", text: "transcript retrieval and search" },
+        ],
+        documentId: "doc-1",
+        limit: 8,
+      },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["terms"],
+    },
   ],
   resultTabs: createTextResultTabs({
     library: "text-lexical",
@@ -118,6 +151,13 @@ const packageAppConfig: PackageAppConfig = {
         listFields: ["results"],
         objectFields: ["corpus", "metadata"],
         explanation: () => "The app built a transient TF-IDF or BM25 index from the sample corpus and returned the highest scoring documents.",
+      },
+      "lexical.corpusStats": {
+        title: "Corpus statistics",
+        summaryFields: ["documentCount", "uniqueTerms", "termCount", "documentTfidfCount"],
+        listFields: ["terms", "documentTfidf"],
+        objectFields: ["stats", "sparseMatrix", "result"],
+        explanation: () => "The app built a transient TF-IDF corpus and reported corpus, term, document, and sparse matrix statistics without writing artifacts.",
       },
     },
   }),

@@ -66,10 +66,11 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "text.tokenize" => tokenize_value(parse_input(request.input)?)?,
         "text.boundaries" => boundaries_value(parse_input(request.input)?)?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ));
+            return Err(runtime_core::SurfaceError::unsupported_operation(
+                operation,
+                env!("CARGO_PKG_NAME"),
+            )
+            .to_error_string());
         }
     };
     Ok(structured_surface_response(
@@ -221,7 +222,7 @@ fn boundaries_value(request: BoundariesRequest) -> Result<serde_json::Value, Str
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+    runtime_core::parse_surface_input(None, input)
 }
 
 fn default_true() -> bool {

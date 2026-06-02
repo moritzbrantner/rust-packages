@@ -150,10 +150,11 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
             (value, Vec::new())
         }
         other => {
-            return Err(format!(
-                "unsupported operation `{other}` for {}",
-                env!("CARGO_PKG_NAME")
-            ));
+            return Err(runtime_core::SurfaceError::unsupported_operation(
+                other,
+                env!("CARGO_PKG_NAME"),
+            )
+            .to_error_string());
         }
     };
     let value = annotated_value(&operation, value);
@@ -171,16 +172,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
+    runtime_core::surface_operation(id, name, description, example_request)
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -467,7 +459,7 @@ fn runtime_diagnostics(diagnostics: &[TextAnalysisDiagnostic]) -> Vec<Diagnostic
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+    runtime_core::parse_surface_input(None, input)
 }
 
 fn default_similarity_n() -> usize {

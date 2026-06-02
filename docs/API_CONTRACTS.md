@@ -71,6 +71,19 @@ non-executing runtime helpers. These operations must continue to return
 must not silently download models, run native inference, invoke ASR commands, or
 write retrieval persistence files through default surface calls.
 
+Text package operations declare release contract metadata in their
+`SurfaceOperation` schemas. Top-level request fields are explicit
+(`additionalProperties: false`), outputs preserve the structured
+`operation`/`title`/`message`/`summary`/`result` shape, and schema extensions
+record `xOperationCategory`, `xReleaseStability`, `xContractPolicy`, resource
+limits, and the typed error shape. During the release train, operation IDs and
+declared fields are additive-only unless a versioned migration is documented.
+Malformed JSON shapes and unknown operations should use the shared
+`SurfaceError` envelope with `code`, `message`, `operation`, and `details`;
+server adapters expose the same code and message in their HTTP diagnostics.
+Server `/api/package` metadata also exposes `runtimeMetadata.candleDevice`,
+using `null` when the package has no Candle-backed runtime preference.
+
 Audited text and image package operations return structured JSON values with
 `operation`, `title`, `message`, `summary`, and `result` fields. Concrete domain
 fields remain at the top level for compatibility, while `result` carries the

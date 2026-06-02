@@ -27,16 +27,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
+    runtime_core::surface_operation(id, name, description, example_request)
 }
 
 /// Runs one library-owned operation.
@@ -46,18 +37,16 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "describe" => describe_value(request.input),
         "qa.models" => serde_json::json!({ "models": model_catalog() }),
         "qa.answer" => serde_json::to_value(
-            answer_question(
-                serde_json::from_value(request.input)
-                    .map_err(|error| format!("invalid request: {error}"))?,
-            )
-            .map_err(|error| error.to_string())?,
+            answer_question(runtime_core::parse_surface_input(None, request.input)?)
+                .map_err(|error| error.to_string())?,
         )
         .map_err(|error| error.to_string())?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ))
+            return Err(runtime_core::SurfaceError::unsupported_operation(
+                operation,
+                env!("CARGO_PKG_NAME"),
+            )
+            .to_error_string())
         }
     };
     let value = annotated_value(&operation, value);

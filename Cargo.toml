@@ -448,8 +448,14 @@ num-rational.workspace = true
 tensor-data.workspace = true
 text-core-cli = { package = "moritzbrantner-text-core-cli", path = "crates/text/text-core-cli" }
 text-core-server = { package = "moritzbrantner-text-core-server", path = "crates/text/text-core-server" }
+text-classification-cli = { package = "moritzbrantner-text-classification-cli", path = "crates/text/text-classification-cli" }
+text-classification-server = { package = "moritzbrantner-text-classification-server", path = "crates/text/text-classification-server" }
 text-embeddings-cli = { package = "moritzbrantner-text-embeddings-cli", path = "crates/text/text-embeddings-cli" }
 text-embeddings-server = { package = "moritzbrantner-text-embeddings-server", path = "crates/text/text-embeddings-server" }
+text-generation-cli = { package = "moritzbrantner-text-generation-cli", path = "crates/text/text-generation-cli" }
+text-generation-server = { package = "moritzbrantner-text-generation-server", path = "crates/text/text-generation-server" }
+text-lexical-cli = { package = "moritzbrantner-text-lexical-cli", path = "crates/text/text-lexical-cli" }
+text-lexical-server = { package = "moritzbrantner-text-lexical-server", path = "crates/text/text-lexical-server" }
 text-retrieval-cli = { package = "moritzbrantner-text-retrieval-cli", path = "crates/text/text-retrieval-cli" }
 text-retrieval-server = { package = "moritzbrantner-text-retrieval-server", path = "crates/text/text-retrieval-server" }
 text-transcripts-cli = { package = "moritzbrantner-text-transcripts-cli", path = "crates/text/text-transcripts-cli" }

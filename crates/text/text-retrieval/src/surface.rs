@@ -54,16 +54,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
+    runtime_core::surface_operation(id, name, description, example_request)
 }
 
 /// Runs one library-owned operation.
@@ -73,16 +64,14 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "describe" => describe_value(request.input),
         "retrieval.chunk" => chunk_value(parse_input(request.input)?)?,
         "retrieval.search" => search_value(parse_input(request.input)?)?,
-        "retrieval.rerank" => serde_json::to_value(
-            rerank_documents(parse_input::<RerankRequest>(request.input)?)
-                .map_err(|error| error.to_string())?,
-        )
-        .map_err(|error| error.to_string())?,
+        "retrieval.rerank" => serde_json::to_value(rerank_value(parse_input(request.input)?)?)
+            .map_err(|error| error.to_string())?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ))
+            return Err(runtime_core::SurfaceError::unsupported_operation(
+                operation,
+                env!("CARGO_PKG_NAME"),
+            )
+            .to_error_string())
         }
     };
     let value = annotated_value(&operation, value);
@@ -176,6 +165,7 @@ struct RetrievalSearchRequest {
 }
 
 fn chunk_value(request: ChunkRequest) -> Result<serde_json::Value, String> {
+    runtime_core::require_non_empty("retrieval.chunk", "documents", &request.documents)?;
     let processing = TextProcessingOptions::default();
     let mut chunks = Vec::new();
     for document in &request.documents {
@@ -198,6 +188,7 @@ fn chunk_value(request: ChunkRequest) -> Result<serde_json::Value, String> {
 }
 
 fn search_value(request: RetrievalSearchRequest) -> Result<serde_json::Value, String> {
+    runtime_core::require_non_empty("retrieval.search", "documents", &request.documents)?;
     let mut index = RetrievalIndex::new(HashedTextEmbedder {
         config: TextEmbeddingConfig {
             dimensions: request.dimensions.max(1),
@@ -220,6 +211,11 @@ fn search_value(request: RetrievalSearchRequest) -> Result<serde_json::Value, St
     }))
 }
 
+fn rerank_value(request: RerankRequest) -> Result<crate::RerankResponse, String> {
+    runtime_core::require_non_empty("retrieval.rerank", "documents", &request.documents)?;
+    rerank_documents(request).map_err(|error| error.to_string())
+}
+
 fn parse_mode(mode: &str) -> Result<RetrievalMode, String> {
     match mode {
         "full_text" | "fullText" | "full-text" => Ok(RetrievalMode::FullText),
@@ -230,7 +226,7 @@ fn parse_mode(mode: &str) -> Result<RetrievalMode, String> {
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+    runtime_core::parse_surface_input(None, input)
 }
 
 fn default_mode() -> String {

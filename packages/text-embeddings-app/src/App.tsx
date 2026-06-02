@@ -16,7 +16,7 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "embeddings.embed",
-  featuredOperations: ["embeddings.embed", "embeddings.similarity", "embeddings.semanticSearch", "embeddings.relatedTerms", "describe"],
+  featuredOperations: ["embeddings.embed", "embeddings.backends", "embeddings.similarity", "embeddings.semanticSearch", "embeddings.relatedTerms", "describe"],
   operationGroups: [
     {
       id: "workflow",
@@ -27,8 +27,8 @@ const packageAppConfig: PackageAppConfig = {
     {
       id: "debug",
       label: "Debug",
-      description: "Inspect package metadata and operation support.",
-      operations: ["describe"],
+      description: "Inspect package metadata, operation support, and backend availability.",
+      operations: ["embeddings.backends", "describe"],
     },
   ],
   presets: [
@@ -85,6 +85,15 @@ const packageAppConfig: PackageAppConfig = {
         limit: 8,
       },
     },
+    {
+      id: "backends",
+      label: "Inspect backend catalog",
+      operation: "embeddings.backends",
+      description: "List deterministic and feature-gated embedding backends without loading models.",
+      input: {
+        dimensions: 128,
+      },
+    },
   ],
   benchmarkScenarios: [
     {
@@ -122,6 +131,13 @@ const packageAppConfig: PackageAppConfig = {
         listFields: ["embeddings"],
         objectFields: ["model"],
         explanation: () => "The deterministic hashed embedder converted each input text into a fixed-size vector that can run in WASM or on the overview server.",
+      },
+      "embeddings.backends": {
+        title: "Embedding backends",
+        summaryFields: ["defaultBackend", "backendCount"],
+        listFields: ["backends"],
+        objectFields: ["result"],
+        explanation: () => "The backend catalog shows the always-available hashed backend and feature-gated native backends without loading model bundles.",
       },
       "embeddings.similarity": {
         title: "Embedding similarity",

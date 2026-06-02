@@ -14,6 +14,65 @@ fn selected_text_cli_surfaces_passthrough_library_operations() {
     .expect("text embeddings cli");
     assert!(embeddings.value["similarity"].as_f64().unwrap().is_finite());
 
+    let embedding_backends = text_embeddings_cli::run_operation(
+        "embeddings.backends",
+        serde_json::json!({"dimensions": 16}),
+    )
+    .expect("text embeddings backend cli");
+    assert_eq!(embedding_backends.value["defaultBackend"], "hashed");
+    assert_eq!(
+        embedding_backends.value["backends"][0]["model"]["dimensions"],
+        16
+    );
+
+    let classification_schema =
+        text_classification_cli::run_operation("classification.schema", serde_json::json!({}))
+            .expect("text classification schema cli");
+    assert!(!classification_schema.value["tasks"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert!(!classification_schema.value["models"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert!(!classification_schema.value["registeredPresets"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+
+    let generation_perplexity = text_generation_cli::run_operation(
+        "generation.perplexity",
+        serde_json::json!({
+            "trainingTexts": ["rust text analysis rust text analysis"],
+            "text": "rust text analysis",
+            "order": 2
+        }),
+    )
+    .expect("text generation perplexity cli");
+    assert!(generation_perplexity.value["perplexity"]
+        .as_f64()
+        .unwrap()
+        .is_finite());
+
+    let lexical_corpus_stats = text_lexical_cli::run_operation(
+        "lexical.corpusStats",
+        serde_json::json!({
+            "documents": [
+                {"id": "doc-1", "text": "rust text analysis"},
+                {"id": "doc-2", "text": "video scene analysis"}
+            ],
+            "documentId": "doc-1",
+            "limit": 8
+        }),
+    )
+    .expect("text lexical corpus stats cli");
+    assert_eq!(lexical_corpus_stats.value["stats"]["documents"], 2);
+    assert!(!lexical_corpus_stats.value["terms"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+
     let retrieval = text_retrieval_cli::run_operation(
         "retrieval.chunk",
         serde_json::json!({"documents": [{"id": "doc-1", "body": "Rust text retrieval."}]}),
@@ -47,6 +106,67 @@ fn selected_text_server_surfaces_passthrough_library_operations() {
     assert_eq!(embeddings.status_code, 200);
     assert!(embeddings.body.contains("embedding"));
 
+    let embedding_backends = text_embeddings_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"embeddings.backends","input":{"dimensions":16}}"#,
+    );
+    assert_eq!(embedding_backends.status_code, 200);
+    let embedding_backends = response_json(&embedding_backends);
+    assert_eq!(embedding_backends["value"]["defaultBackend"], "hashed");
+    assert_eq!(
+        embedding_backends["value"]["summary"]["backendCount"],
+        serde_json::json!(3)
+    );
+
+    let classification_schema = text_classification_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"classification.schema","input":{}}"#,
+    );
+    assert_eq!(classification_schema.status_code, 200);
+    let classification_schema = response_json(&classification_schema);
+    assert!(!classification_schema["value"]["tasks"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        classification_schema["value"]["summary"]["taskCount"],
+        serde_json::json!(3)
+    );
+
+    let generation_perplexity = text_generation_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"generation.perplexity","input":{"trainingTexts":["rust text analysis rust text analysis"],"text":"rust text analysis","order":2}}"#,
+    );
+    assert_eq!(generation_perplexity.status_code, 200);
+    let generation_perplexity = response_json(&generation_perplexity);
+    assert!(generation_perplexity["value"]["perplexity"]
+        .as_f64()
+        .unwrap()
+        .is_finite());
+    assert_eq!(
+        generation_perplexity["value"]["summary"]["isInfinite"],
+        serde_json::json!(false)
+    );
+
+    let lexical_corpus_stats = text_lexical_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"lexical.corpusStats","input":{"documents":[{"id":"doc-1","text":"rust text analysis"},{"id":"doc-2","text":"video scene analysis"}],"documentId":"doc-1","limit":8}}"#,
+    );
+    assert_eq!(lexical_corpus_stats.status_code, 200);
+    let lexical_corpus_stats = response_json(&lexical_corpus_stats);
+    assert_eq!(
+        lexical_corpus_stats["value"]["stats"]["documents"],
+        serde_json::json!(2)
+    );
+    assert!(!lexical_corpus_stats["value"]["documentTfidf"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+
     let retrieval = text_retrieval_server::response_for(
         "POST",
         "/api/run",
@@ -62,4 +182,8 @@ fn selected_text_server_surfaces_passthrough_library_operations() {
     );
     assert_eq!(transcripts.status_code, 200);
     assert!(transcripts.body.contains("Hello"));
+}
+
+fn response_json(response: &runtime_core::server::HttpResponse) -> serde_json::Value {
+    serde_json::from_str(&response.body).expect("server response JSON")
 }

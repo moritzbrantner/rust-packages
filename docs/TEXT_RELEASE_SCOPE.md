@@ -25,6 +25,24 @@ Classification and question-answering catalogs keep their upstream metadata but 
 
 Release checks should include the default deterministic suite plus opt-in ignored tests only on machines with model bundles or native runtimes installed.
 
+## Release Hardening Gates
+
+The text package surfaces are considered releasable only when the shared audit
+tests pass these gates:
+
+- Operation IDs remain stable and match `docs/PACKAGE_SURFACE_MATRIX.md`.
+- Each operation declares an explicit top-level request schema, required-field
+  list, stable/additive release markers, resource-limit metadata, and a
+  `workflow`, `debug`, or `support` category.
+- Each operation returns the structured package-surface value shape:
+  `operation`, `title`, `message`, `summary`, and `result`.
+- Malformed request shapes and unknown operations return the shared typed
+  `SurfaceError` envelope, and server adapters surface the same code/message in
+  diagnostics.
+- Default package-surface calls remain deterministic, local-first, in-memory,
+  and free of downloads, native inference, network calls, and persistence
+  writes.
+
 ## What This Release Provides
 
 - Shared text document, segment, span, token, sentence, and paragraph contracts.
@@ -34,8 +52,8 @@ Release checks should include the default deterministic suite plus opt-in ignore
   corpus assembly, reproducible corpus snapshots, TF-IDF, and BM25.
 - High-level document and corpus report orchestration built from the focused
   text crates.
-- Deterministic hashed embeddings, vector similarity helpers, and embedding
-  backend traits.
+- Deterministic hashed embeddings, vector similarity helpers, embedding backend
+  traits, and backend catalog metadata that does not load model bundles.
 - Local chunking, metadata-aware retrieval, full-text search, semantic search
   over supplied embeddings, hybrid retrieval, and JSON/JSONL persistence
   helpers.
@@ -44,7 +62,7 @@ Release checks should include the default deterministic suite plus opt-in ignore
 - Transcript parsing, normalization, formatting, and conversion into generic
   text segments.
 - Concrete task contracts for classification, extractive question answering,
-  and deterministic generation fallbacks.
+  and deterministic generation/scoring fallbacks.
 
 ## What This Release Does Not Claim
 
@@ -71,13 +89,13 @@ Start with the smallest crate that owns the capability you need:
 | Contracts, document/segment types, spans, normalization, tokenization, sentence boundaries, or paragraph boundaries | `moritzbrantner-text-core` |
 | Deterministic lexical analysis, stop words, keywords, n-grams, shingles, readability, stemming, sentiment, extractive summaries, TF-IDF, or BM25 | `moritzbrantner-text-lexical` |
 | High-level document or corpus reports that orchestrate the focused text crates | `moritzbrantner-text-analysis` |
-| Deterministic hashed embeddings or embedding backend traits | `moritzbrantner-text-embeddings` |
+| Deterministic hashed embeddings, embedding backend traits, or backend catalog metadata | `moritzbrantner-text-embeddings` |
 | Chunking, metadata-aware search, full-text/semantic/hybrid retrieval, or persistence helpers | `moritzbrantner-text-retrieval` |
 | Heuristic-first linguistic analysis, with optional model-backed paths | `moritzbrantner-text-linguistics` |
 | Transcript parsing, normalization, or formatting | `moritzbrantner-text-transcripts` |
 | Text classification or zero-shot classification contracts and deterministic fallbacks | `moritzbrantner-text-classification` |
 | Extractive question-answering contracts and deterministic/imported span handling | `moritzbrantner-text-question-answering` |
-| Deterministic generation contracts and Markov/template fallbacks | `moritzbrantner-text-generation` |
+| Deterministic generation contracts, Markov scoring, and template fallbacks | `moritzbrantner-text-generation` |
 | Linguistic-analysis adapters for deterministic generation workflows | `moritzbrantner-text-generation-linguistics` |
 
 Use `moritzbrantner-text-core` when you are defining data boundaries or passing text between

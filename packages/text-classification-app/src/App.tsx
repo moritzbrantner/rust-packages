@@ -16,7 +16,7 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "classification.classify",
-  featuredOperations: ["classification.classify", "classification.sentiment", "classification.zeroShot", "classification.models", "describe"],
+  featuredOperations: ["classification.classify", "classification.sentiment", "classification.zeroShot", "classification.models", "classification.schema", "describe"],
   operationGroups: [
     {
       id: "workflow",
@@ -27,8 +27,8 @@ const packageAppConfig: PackageAppConfig = {
     {
       id: "debug",
       label: "Debug",
-      description: "Inspect package metadata and model catalog helpers.",
-      operations: ["classification.models", "describe"],
+      description: "Inspect package metadata, schema metadata, and model catalog helpers.",
+      operations: ["classification.models", "classification.schema", "describe"],
     },
   ],
   presets: [
@@ -63,6 +63,13 @@ const packageAppConfig: PackageAppConfig = {
         labels: ["software engineering", "sports recap", "music metadata", "legal transcript"],
         model: { fallbackPolicy: "lexical_fallback" },
       },
+    },
+    {
+      id: "schema",
+      label: "Inspect classification schema",
+      operation: "classification.schema",
+      description: "Inspect task schemas, registered presets, and model metadata.",
+      input: {},
     },
   ],
   benchmarkScenarios: [
@@ -117,6 +124,13 @@ const packageAppConfig: PackageAppConfig = {
         listFields: ["predictions", "labels"],
         objectFields: ["model", "metadata", "result"],
         explanation: () => "The zero-shot path scores the supplied labels directly, so the result explains which candidate matched the text best.",
+      },
+      "classification.schema": {
+        title: "Classification schema",
+        summaryFields: ["taskCount", "modelCount", "presetCount"],
+        listFields: ["tasks", "models", "registeredPresets"],
+        objectFields: ["result"],
+        explanation: () => "The schema view reports available task schemas, presets, and model catalog metadata without running classification.",
       },
     },
   }),

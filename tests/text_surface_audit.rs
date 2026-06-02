@@ -48,6 +48,64 @@ fn text_surfaces_expose_expected_operations_and_run_examples() {
 }
 
 #[test]
+fn text_surfaces_declare_release_contracts() {
+    for case in text_surface_cases() {
+        let surface = (case.package_surface)();
+        for operation in &surface.operations {
+            let id = operation.id.as_str();
+            assert_eq!(
+                operation.input_schema["type"], "object",
+                "{} {id} input schema must be an object",
+                case.crate_name
+            );
+            assert_eq!(
+                operation.input_schema["additionalProperties"], false,
+                "{} {id} input schema must reject undeclared top-level fields",
+                case.crate_name
+            );
+            assert_eq!(
+                operation.input_schema["xReleaseStability"], "stable",
+                "{} {id} missing stable release marker",
+                case.crate_name
+            );
+            assert_eq!(
+                operation.input_schema["xContractPolicy"], "additiveOnly",
+                "{} {id} missing additive-only contract policy",
+                case.crate_name
+            );
+            assert_eq!(
+                operation.input_schema["xOperationCategory"],
+                expected_category(&case, id),
+                "{} {id} has the wrong operation category",
+                case.crate_name
+            );
+            assert!(
+                operation.input_schema["properties"].is_object(),
+                "{} {id} missing input properties",
+                case.crate_name
+            );
+            assert!(
+                operation.input_schema["required"].is_array(),
+                "{} {id} missing required-field list",
+                case.crate_name
+            );
+            assert_eq!(
+                operation.output_schema["required"],
+                serde_json::json!(["operation", "title", "message", "summary", "result"]),
+                "{} {id} output schema must preserve the structured response shape",
+                case.crate_name
+            );
+
+            let roundtrip = serde_json::from_value::<runtime_core::SurfaceOperation>(
+                serde_json::to_value(operation).expect("serialize operation"),
+            )
+            .expect("deserialize operation");
+            assert_eq!(roundtrip.id.as_str(), id);
+        }
+    }
+}
+
+#[test]
 fn text_surfaces_fail_clearly_on_invalid_input() {
     for case in text_surface_cases() {
         let error = (case.run)(SurfaceRequest {
@@ -63,6 +121,21 @@ fn text_surfaces_fail_clearly_on_invalid_input() {
             "{} returned unclear invalid-input error: {error}",
             case.crate_name
         );
+    }
+}
+
+#[test]
+fn text_surfaces_return_typed_unknown_operation_errors() {
+    for case in text_surface_cases() {
+        let error = (case.run)(SurfaceRequest {
+            operation: "missing.operation".into(),
+            input: serde_json::json!({}),
+        })
+        .expect_err(case.crate_name);
+        let parsed = runtime_core::parse_surface_error(&error)
+            .unwrap_or_else(|| panic!("{} returned untyped error: {error}", case.crate_name));
+        assert_eq!(parsed.code, "unsupported_operation");
+        assert_eq!(parsed.operation.unwrap().as_str(), "missing.operation");
     }
 }
 
@@ -128,6 +201,23 @@ fn text_package_apps_define_audited_operation_groups() {
     }
 }
 
+#[test]
+fn new_release_text_operations_have_app_presets_and_benchmarks() {
+    let generation = app_source("text-generation");
+    assert_operation_has_app_preset(&generation, "generation.perplexity");
+    assert_operation_has_benchmark(&generation, "generation.perplexity");
+
+    let classification = app_source("text-classification");
+    assert_operation_has_app_preset(&classification, "classification.schema");
+
+    let embeddings = app_source("text-embeddings");
+    assert_operation_has_app_preset(&embeddings, "embeddings.backends");
+
+    let lexical = app_source("text-lexical");
+    assert_operation_has_app_preset(&lexical, "lexical.corpusStats");
+    assert_operation_has_benchmark(&lexical, "lexical.corpusStats");
+}
+
 fn assert_structured_response(crate_name: &str, operation: &str, response: &SurfaceResponse) {
     assert_eq!(response.operation.as_str(), operation);
     assert_eq!(
@@ -154,6 +244,38 @@ fn assert_structured_response(crate_name: &str, operation: &str, response: &Surf
         !response.value["result"].is_null(),
         "{crate_name} {operation} missing nested result"
     );
+}
+
+fn app_source(crate_name: &str) -> String {
+    std::fs::read_to_string(format!("packages/{crate_name}-app/src/App.tsx"))
+        .unwrap_or_else(|error| panic!("{crate_name} app config missing: {error}"))
+}
+
+fn assert_operation_has_app_preset(app: &str, operation: &str) {
+    assert!(
+        app.contains(&format!("operation: \"{operation}\"")),
+        "app missing preset for {operation}"
+    );
+}
+
+fn assert_operation_has_benchmark(app: &str, operation: &str) {
+    let benchmark_start = app
+        .find("benchmarkScenarios:")
+        .expect("app missing benchmark scenarios");
+    assert!(
+        app[benchmark_start..].contains(&format!("operation: \"{operation}\"")),
+        "app missing benchmark scenario for {operation}"
+    );
+}
+
+fn expected_category(case: &TextSurfaceCase, operation: &str) -> &'static str {
+    if case.debug.contains(&operation) {
+        "debug"
+    } else if case.support.contains(&operation) {
+        "support"
+    } else {
+        "workflow"
+    }
 }
 
 fn text_surface_cases() -> Vec<TextSurfaceCase> {
@@ -189,11 +311,13 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
                 "lexical.analyze",
                 "lexical.keywords",
                 "lexical.corpusSearch",
+                "lexical.corpusStats",
             ],
             workflow: &[
                 "lexical.analyze",
                 "lexical.keywords",
                 "lexical.corpusSearch",
+                "lexical.corpusStats",
             ],
             debug: &["describe"],
             support: &[],
@@ -217,6 +341,7 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
             run: text_embeddings::surface::run_surface_operation,
             operations: &[
                 "describe",
+                "embeddings.backends",
                 "embeddings.embed",
                 "embeddings.similarity",
                 "embeddings.semanticSearch",
@@ -228,7 +353,7 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
                 "embeddings.semanticSearch",
                 "embeddings.relatedTerms",
             ],
-            debug: &["describe"],
+            debug: &["embeddings.backends", "describe"],
             support: &[],
             invalid_operation: "embeddings.embed",
             invalid_input: serde_json::json!({"texts": []}),
@@ -277,6 +402,7 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
             operations: &[
                 "describe",
                 "classification.models",
+                "classification.schema",
                 "classification.classify",
                 "classification.sentiment",
                 "classification.zeroShot",
@@ -286,7 +412,7 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
                 "classification.sentiment",
                 "classification.zeroShot",
             ],
-            debug: &["classification.models", "describe"],
+            debug: &["classification.models", "classification.schema", "describe"],
             support: &[],
             invalid_operation: "classification.models",
             invalid_input: serde_json::json!({"task": "missing"}),
@@ -310,11 +436,13 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
                 "describe",
                 "generation.markovPredict",
                 "generation.markovGenerate",
+                "generation.perplexity",
                 "generation.synthesizeTerms",
             ],
             workflow: &[
                 "generation.markovGenerate",
                 "generation.markovPredict",
+                "generation.perplexity",
                 "generation.synthesizeTerms",
             ],
             debug: &["describe"],

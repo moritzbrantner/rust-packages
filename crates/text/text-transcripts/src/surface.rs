@@ -52,16 +52,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
+    runtime_core::surface_operation(id, name, description, example_request)
 }
 
 /// Runs one library-owned operation.
@@ -73,10 +64,11 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "transcripts.normalize" => normalize_value(parse_input(request.input)?)?,
         "transcripts.formatSrt" => format_srt_value(parse_input(request.input)?)?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ))
+            return Err(runtime_core::SurfaceError::unsupported_operation(
+                operation,
+                env!("CARGO_PKG_NAME"),
+            )
+            .to_error_string())
         }
     };
     let value = annotated_value(&operation, value);
@@ -186,7 +178,7 @@ fn format_srt_value(contract: TranscriptionContract) -> Result<serde_json::Value
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+    runtime_core::parse_surface_input(None, input)
 }
 
 #[cfg(test)]

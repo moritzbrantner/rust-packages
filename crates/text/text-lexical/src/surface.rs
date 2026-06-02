@@ -25,6 +25,13 @@ pub fn package_surface() -> PackageSurface {
             operation("lexical.analyze", "Analyze lexical features", "Returns deterministic keywords, summaries, readability, sentiment, and rule entities.", serde_json::json!({"text": "Rust crates make text analysis reliable.", "maxTerms": 5})),
             operation("lexical.keywords", "Extract keywords", "Ranks deterministic lexical keywords.", serde_json::json!({"text": "Rust text crates analyze text text.", "limit": 3})),
             operation("lexical.corpusSearch", "Search corpus", "Searches a transient TF-IDF or BM25 corpus.", serde_json::json!({"documents": [{"id": "doc-1", "text": "rust text analysis"}, {"id": "doc-2", "text": "video scene analysis"}], "query": "text", "mode": "bm25"})),
+            operation("lexical.corpusStats", "Corpus statistics", "Builds a transient TF-IDF corpus and reports corpus, term, document, and sparse-matrix statistics.", serde_json::json!({
+                "documents": [
+                    {"id": "doc-1", "text": "rust text analysis"},
+                    {"id": "doc-2", "text": "video scene analysis"}
+                ],
+                "limit": 10
+            })),
         ],
     }
 }
@@ -35,16 +42,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
+    runtime_core::surface_operation(id, name, description, example_request)
 }
 
 /// Runs one library-owned operation.
@@ -55,11 +53,13 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "lexical.analyze" => lexical_analyze(parse_input(request.input)?)?,
         "lexical.keywords" => lexical_keywords(parse_input(request.input)?)?,
         "lexical.corpusSearch" => corpus_search(parse_input(request.input)?)?,
+        "lexical.corpusStats" => corpus_stats(parse_input(request.input)?)?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ));
+            return Err(runtime_core::SurfaceError::unsupported_operation(
+                operation,
+                env!("CARGO_PKG_NAME"),
+            )
+            .to_error_string());
         }
     };
     let value = annotated_value(&operation, value);
@@ -119,6 +119,17 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
                 "resultCount": value["results"].as_array().map(Vec::len).unwrap_or(0)
             }),
         ),
+        "lexical.corpusStats" => (
+            "Corpus statistics result",
+            "Built a transient lexical corpus and reported term/document statistics without writing artifacts.",
+            serde_json::json!({
+                "status": "ok",
+                "documentCount": value["stats"]["documents"],
+                "uniqueTerms": value["stats"]["uniqueTerms"],
+                "termCount": value["terms"].as_array().map(Vec::len).unwrap_or(0),
+                "documentTfidfCount": value["documentTfidf"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
         _ => (
             "Text lexical result",
             "Ran a text-lexical package operation.",
@@ -159,6 +170,17 @@ struct CorpusSearchRequest {
     mode: String,
     #[serde(default = "default_top_k")]
     top_k: usize,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CorpusStatsRequest {
+    documents: Vec<CorpusDocument>,
+    #[serde(default = "default_top_k")]
+    limit: usize,
+    document_id: Option<String>,
+    #[serde(default = "default_true")]
+    include_sparse_matrix: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -223,6 +245,62 @@ fn lexical_keywords(request: LexicalKeywordsRequest) -> Result<serde_json::Value
     Ok(serde_json::json!({ "keywords": ranked }))
 }
 
+fn corpus_stats(request: CorpusStatsRequest) -> Result<serde_json::Value, String> {
+    runtime_core::require_non_empty("lexical.corpusStats", "documents", &request.documents)?;
+
+    let ids = request
+        .documents
+        .iter()
+        .enumerate()
+        .map(|(index, document)| {
+            document
+                .id
+                .clone()
+                .unwrap_or_else(|| format!("doc-{index}"))
+        })
+        .collect::<Vec<_>>();
+    let docs = request
+        .documents
+        .iter()
+        .enumerate()
+        .map(|(index, document)| TextDocument::new(ids[index].as_str(), &document.text))
+        .collect::<Vec<_>>();
+
+    let corpus =
+        TfIdfCorpus::from_documents(docs, Default::default()).map_err(|error| error.to_string())?;
+    let selected_document = request
+        .document_id
+        .clone()
+        .unwrap_or_else(|| ids[0].clone());
+    let sparse_matrix = if request.include_sparse_matrix {
+        let matrix = corpus
+            .sparse_term_matrix()
+            .map_err(|error| error.to_string())?;
+        serde_json::json!({
+            "rows": matrix.matrix.rows(),
+            "columns": matrix.matrix.cols(),
+            "nonZeros": matrix
+                .matrix
+                .rows_iter()
+                .map(|row| row.values().len())
+                .sum::<usize>(),
+            "vocabularySize": matrix.vocabulary.len()
+        })
+    } else {
+        serde_json::Value::Null
+    };
+
+    Ok(serde_json::json!({
+        "stats": corpus.stats(),
+        "terms": corpus.term_stats(request.limit),
+        "documentId": selected_document,
+        "documentTfidf": corpus
+            .document_tfidf(&selected_document, request.limit)
+            .map_err(|error| error.to_string())?,
+        "sparseMatrix": sparse_matrix
+    }))
+}
+
 fn corpus_search(request: CorpusSearchRequest) -> Result<serde_json::Value, String> {
     let ids = request
         .documents
@@ -261,7 +339,7 @@ fn corpus_search(request: CorpusSearchRequest) -> Result<serde_json::Value, Stri
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+    runtime_core::parse_surface_input(None, input)
 }
 
 fn default_terms() -> usize {
@@ -275,6 +353,9 @@ fn default_top_k() -> usize {
 }
 fn default_corpus_mode() -> String {
     "bm25".to_string()
+}
+fn default_true() -> bool {
+    true
 }
 
 #[cfg(test)]
@@ -290,6 +371,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"lexical.analyze".to_string()));
         assert!(ids.contains(&"lexical.corpusSearch".to_string()));
+        assert!(ids.contains(&"lexical.corpusStats".to_string()));
     }
 
     #[test]
@@ -300,6 +382,74 @@ mod tests {
         })
         .expect("keywords");
         assert_eq!(response.value["keywords"][0]["text"], "text");
+    }
+
+    #[test]
+    fn corpus_stats_operation_returns_document_and_term_stats() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("lexical.corpusStats"),
+            input: serde_json::json!({
+                "documents": [
+                    {"id": "doc-1", "text": "rust text analysis"},
+                    {"id": "doc-2", "text": "video scene analysis"}
+                ],
+                "documentId": "doc-1",
+                "limit": 10
+            }),
+        })
+        .expect("corpus stats");
+        assert_eq!(response.value["stats"]["documents"], 2);
+        assert!(!response.value["terms"].as_array().unwrap().is_empty());
+        assert!(!response.value["documentTfidf"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        assert_eq!(response.value["sparseMatrix"]["rows"], 2);
+        assert!(response.value["sparseMatrix"]["nonZeros"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn corpus_stats_defaults_to_first_document_and_can_skip_sparse_matrix() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("lexical.corpusStats"),
+            input: serde_json::json!({
+                "documents": [
+                    {"id": "doc-1", "text": "rust text analysis"},
+                    {"id": "doc-2", "text": "video scene analysis"}
+                ],
+                "limit": 10,
+                "includeSparseMatrix": false
+            }),
+        })
+        .expect("corpus stats");
+        assert_eq!(response.value["documentId"], "doc-1");
+        assert!(response.value["sparseMatrix"].is_null());
+    }
+
+    #[test]
+    fn corpus_stats_rejects_unknown_document_id() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("lexical.corpusStats"),
+            input: serde_json::json!({
+                "documents": [
+                    {"id": "doc-1", "text": "rust text analysis"}
+                ],
+                "documentId": "missing"
+            }),
+        })
+        .expect_err("invalid request");
+        assert!(error.contains("document `missing` was not indexed"));
+    }
+
+    #[test]
+    fn corpus_stats_requires_documents() {
+        let error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("lexical.corpusStats"),
+            input: serde_json::json!({"documents": []}),
+        })
+        .expect_err("invalid request");
+        assert!(error.contains("documents"));
+        assert!(error.contains("invalid request"));
     }
 
     #[test]
