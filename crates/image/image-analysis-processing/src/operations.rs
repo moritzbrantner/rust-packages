@@ -133,6 +133,14 @@ impl OperationRequest {
             "rotate90" => Ok(ImageOperation::Rotate90 {
                 clockwise_turns: self.clockwise_turns.unwrap_or(1),
             }),
+            "blueNoise" => Ok(ImageOperation::BlueNoise {
+                amount: self.amount.unwrap_or(8),
+                seed: self.seed.unwrap_or(0),
+            }),
+            "poissonNoise" => Ok(ImageOperation::PoissonNoise {
+                scale: self.scale.unwrap_or(64.0),
+                seed: self.seed.unwrap_or(0),
+            }),
             "sharpen" => Ok(ImageOperation::Grayscale),
             other => Err(format!("unsupported image operation `{other}`")),
         }

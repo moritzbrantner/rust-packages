@@ -87,3 +87,31 @@ fn image_detection_surface_summarizes_boxes() {
     assert_eq!(value["count"], 1);
     assert_eq!(value["unionBounds"]["height"], 3);
 }
+
+#[test]
+fn image_processing_surface_accepts_seeded_noise_operations() {
+    let image = serde_json::json!({
+        "width": 2,
+        "height": 2,
+        "pixelFormat": "rgb24",
+        "stride": null,
+        "data": [32, 64, 96, 128, 160, 192, 255, 255, 255, 0, 0, 0]
+    });
+    let value = run(
+        "image.processing.pipeline",
+        serde_json::json!({
+            "image": image,
+            "operations": [
+                {"type": "blueNoise", "amount": 6, "seed": 3},
+                {"type": "poissonNoise", "scale": 48.0, "seed": 4}
+            ],
+            "previewLimit": 12
+        }),
+        image_analysis_processing::surface::run_surface_operation,
+    );
+    assert_eq!(value["pixelFormat"], "rgb24");
+    assert_eq!(value["dataLength"], 12);
+    assert!(value["dataPreview"]
+        .as_array()
+        .is_some_and(|data| data.len() == 12));
+}

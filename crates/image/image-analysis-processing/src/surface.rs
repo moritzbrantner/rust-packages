@@ -32,7 +32,7 @@ pub fn package_surface() -> PackageSurface {
                 "image.processing.pipeline",
                 "Apply pipeline",
                 "Applies an ordered deterministic CPU image operation pipeline and returns a capped output preview.",
-                serde_json::json!({"image": sample_image_json(), "operations": [{"type": "flipHorizontal"}, {"type": "brightnessContrast", "brightness": 12, "contrast": 1.1}]}),
+                serde_json::json!({"image": sample_image_json(), "operations": [{"type": "flipHorizontal"}, {"type": "blueNoise", "amount": 8, "seed": 42}, {"type": "brightnessContrast", "brightness": 12, "contrast": 1.1}]}),
             ),
             surface_operation(
                 "image.processing.composite",
@@ -135,6 +135,36 @@ mod tests {
         })
         .expect_err("bad crop");
         assert!(error.contains("crop") || error.contains("region"));
+    }
+
+    #[test]
+    fn noise_operations_return_seeded_previews() {
+        let blue = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.processing.apply"),
+            input: serde_json::json!({
+                "image": sample_image_json(),
+                "operation": {"type": "blueNoise", "amount": 12, "seed": 7},
+                "previewLimit": 12
+            }),
+        })
+        .expect("blue noise");
+        assert_eq!(blue.value["pixelFormat"], "rgb24");
+        assert_ne!(
+            blue.value["dataPreview"],
+            serde_json::json!([255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255])
+        );
+
+        let poisson = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.processing.apply"),
+            input: serde_json::json!({
+                "image": sample_image_json(),
+                "operation": {"type": "poissonNoise", "scale": 32.0, "seed": 9},
+                "previewLimit": 12
+            }),
+        })
+        .expect("poisson noise");
+        assert_eq!(poisson.value["pixelFormat"], "rgb24");
+        assert_eq!(poisson.value["dataLength"], 12);
     }
 
     #[test]

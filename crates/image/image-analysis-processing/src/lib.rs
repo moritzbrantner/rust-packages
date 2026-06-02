@@ -182,6 +182,20 @@ pub enum ImageOperation {
         /// Number of clockwise quarter turns.
         clockwise_turns: u8,
     },
+    /// Adds deterministic high-frequency blue-noise-like channel variation.
+    BlueNoise {
+        /// Maximum absolute channel delta.
+        amount: u8,
+        /// Seed for deterministic noise generation.
+        seed: u64,
+    },
+    /// Adds deterministic shot-noise-like Poisson variation.
+    PoissonNoise {
+        /// Expected photon count represented by a full-intensity channel.
+        scale: f32,
+        /// Seed for deterministic noise generation.
+        seed: u64,
+    },
     /// The convolve3x3 variant.
     Convolve3x3 {
         /// The kernel value for this variant.
@@ -311,6 +325,8 @@ pub fn apply_operation(image: &ImageView<'_>, operation: &ImageOperation) -> Res
         ImageOperation::FlipHorizontal => flip_horizontal_image(image),
         ImageOperation::FlipVertical => flip_vertical_image(image),
         ImageOperation::Rotate90 { clockwise_turns } => rotate_image_90(image, *clockwise_turns),
+        ImageOperation::BlueNoise { amount, seed } => add_blue_noise(image, *amount, *seed),
+        ImageOperation::PoissonNoise { scale, seed } => add_poisson_noise(image, *scale, *seed),
         ImageOperation::Convolve3x3 {
             kernel,
             divisor,
@@ -513,6 +529,41 @@ pub fn rotate_image_90(image: &ImageView<'_>, clockwise_turns: u8) -> Result<Own
     OwnedImage::new(width, height, image.pixel_format, data, stride)
 }
 
+/// Adds deterministic high-frequency blue-noise-like variation to each channel.
+pub fn add_blue_noise(image: &ImageView<'_>, amount: u8, seed: u64) -> Result<OwnedImage> {
+    if amount == 0 {
+        return compact_image(image);
+    }
+    map_pixels(image, image.pixel_format, |source, x, y| {
+        let pixel = source.pixel_rgb(x, y);
+        [
+            add_blue_noise_channel(pixel[0], amount, seed, x, y, 0),
+            add_blue_noise_channel(pixel[1], amount, seed, x, y, 1),
+            add_blue_noise_channel(pixel[2], amount, seed, x, y, 2),
+        ]
+    })
+}
+
+/// Adds deterministic shot-noise-like Poisson variation to each channel.
+///
+/// `scale` is the expected sample count for a full-intensity channel. Larger
+/// values produce lower relative noise.
+pub fn add_poisson_noise(image: &ImageView<'_>, scale: f32, seed: u64) -> Result<OwnedImage> {
+    if !scale.is_finite() || scale <= 0.0 {
+        return Err(DetectError::InvalidArgument(
+            "poisson noise scale must be finite and greater than zero".to_string(),
+        ));
+    }
+    map_pixels(image, image.pixel_format, |source, x, y| {
+        let pixel = source.pixel_rgb(x, y);
+        [
+            add_poisson_noise_channel(pixel[0], scale, seed, x, y, 0),
+            add_poisson_noise_channel(pixel[1], scale, seed, x, y, 1),
+            add_poisson_noise_channel(pixel[2], scale, seed, x, y, 2),
+        ]
+    })
+}
+
 /// Returns convolve 3x3.
 pub fn convolve_3x3(
     image: &ImageView<'_>,
@@ -693,6 +744,69 @@ fn blend_rgb(base: [u8; 3], overlay: [u8; 3], mode: BlendMode) -> [u8; 3] {
     output
 }
 
+fn add_blue_noise_channel(value: u8, amount: u8, seed: u64, x: u32, y: u32, channel: u8) -> u8 {
+    let x = i64::from(x);
+    let y = i64::from(y);
+    let center = signed_noise(seed, x, y, channel, 0);
+    let neighbor_mean = (signed_noise(seed, x - 1, y, channel, 0)
+        + signed_noise(seed, x + 1, y, channel, 0)
+        + signed_noise(seed, x, y - 1, channel, 0)
+        + signed_noise(seed, x, y + 1, channel, 0))
+        * 0.25;
+    let high_frequency = (center - neighbor_mean).clamp(-1.0, 1.0);
+    clamp_u8(value as f32 + high_frequency * amount as f32)
+}
+
+fn add_poisson_noise_channel(value: u8, scale: f32, seed: u64, x: u32, y: u32, channel: u8) -> u8 {
+    if value == 0 {
+        return 0;
+    }
+    let lambda = value as f32 / 255.0 * scale;
+    let sampled = sample_poisson(lambda, seed, x, y, channel);
+    clamp_u8(sampled / scale * 255.0)
+}
+
+fn sample_poisson(lambda: f32, seed: u64, x: u32, y: u32, channel: u8) -> f32 {
+    if lambda <= 64.0 {
+        let limit = (-lambda).exp();
+        let mut product = 1.0_f32;
+        let mut count = 0_u32;
+        loop {
+            product *= uniform01(seed, i64::from(x), i64::from(y), channel, count);
+            if product <= limit {
+                return count as f32;
+            }
+            count += 1;
+        }
+    }
+
+    let u1 = uniform01(seed, i64::from(x), i64::from(y), channel, 0).max(f32::MIN_POSITIVE);
+    let u2 = uniform01(seed, i64::from(x), i64::from(y), channel, 1);
+    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
+    (lambda + lambda.sqrt() * z).round().max(0.0)
+}
+
+fn signed_noise(seed: u64, x: i64, y: i64, channel: u8, sample: u32) -> f32 {
+    uniform01(seed, x, y, channel, sample) * 2.0 - 1.0
+}
+
+fn uniform01(seed: u64, x: i64, y: i64, channel: u8, sample: u32) -> f32 {
+    let state = seed
+        ^ (x as u64).wrapping_mul(0x9e3779b97f4a7c15)
+        ^ (y as u64).wrapping_mul(0xbf58476d1ce4e5b9)
+        ^ u64::from(channel).wrapping_mul(0x94d049bb133111eb)
+        ^ u64::from(sample).wrapping_mul(0xd6e8feb86659fd93);
+    let mixed = splitmix64(state);
+    (((mixed >> 32) as u32) as f32 + 0.5) / (u32::MAX as f32 + 1.0)
+}
+
+fn splitmix64(mut value: u64) -> u64 {
+    value = value.wrapping_add(0x9e3779b97f4a7c15);
+    value = (value ^ (value >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+    value = (value ^ (value >> 27)).wrapping_mul(0x94d049bb133111eb);
+    value ^ (value >> 31)
+}
+
 fn clamp_u8(value: f32) -> u8 {
     value.round().clamp(0.0, 255.0) as u8
 }
@@ -860,6 +974,31 @@ mod tests {
             ImageOperation::Convolve3x3 { kernel, .. } => assert_eq!(kernel[4], 1.0),
             _ => panic!("expected convolve operation"),
         }
+    }
+
+    #[test]
+    fn blue_noise_is_seeded_and_preserves_dimensions() {
+        let source = image();
+        let first = add_blue_noise(&source.as_view(), 12, 7).unwrap();
+        let second = add_blue_noise(&source.as_view(), 12, 7).unwrap();
+        assert_eq!(first, second);
+        assert_eq!((first.width, first.height), (2, 2));
+        assert_eq!(first.pixel_format, ImagePixelFormat::Rgb24);
+        assert_ne!(first.data, source.data);
+
+        let unchanged = add_blue_noise(&source.as_view(), 0, 7).unwrap();
+        assert_eq!(unchanged, source);
+    }
+
+    #[test]
+    fn poisson_noise_is_seeded_and_validates_scale() {
+        let source = image();
+        let first = add_poisson_noise(&source.as_view(), 32.0, 11).unwrap();
+        let second = add_poisson_noise(&source.as_view(), 32.0, 11).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(&first.data[0..3], &[0, 0, 0]);
+        assert_ne!(first.data, source.data);
+        assert!(add_poisson_noise(&source.as_view(), 0.0, 11).is_err());
     }
 
     #[test]

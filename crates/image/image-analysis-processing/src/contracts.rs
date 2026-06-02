@@ -61,4 +61,7 @@ pub struct OperationRequest {
     pub saturation: Option<f32>,
     pub clockwise_turns: Option<u8>,
     pub level: Option<u8>,
+    pub amount: Option<u8>,
+    pub scale: Option<f32>,
+    pub seed: Option<u64>,
 }
