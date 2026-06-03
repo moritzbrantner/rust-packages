@@ -1,0 +1,99 @@
+# Text Workspace Guide
+
+`text-analysis::TextWorkspace` is the high-level deterministic workflow for
+text documents, transcript segments, lexical corpus analysis, retrieval, and
+report generation.
+
+Default workspace execution is pure Rust. It uses `TextCorpus`, hashed
+embeddings, and in-memory `RetrievalIndex` state. It does not download model
+bundles or execute native model runtimes unless callers explicitly choose
+model-backed lower-level APIs.
+
+## Primary Workflow
+
+```rust,no_run
+use text_analysis::{
+    ClassificationDepth, TextWorkspace, TextWorkspaceOptions, WorkspaceDocument,
+};
+use text_core::{AsTextSegmentContract, TextSegmentContract};
+use text_retrieval::{HybridConfig, SearchQuery};
+use text_transcripts::{parse_srt, TranscriptSegmentContract};
+
+let transcript = parse_srt(
+    "1\n00:00:03,000 --> 00:00:05,000\nRust retrieval cites timed transcript chunks.\n",
+)?;
+let mut segment = TranscriptSegmentContract::from(transcript.segments[0].clone())
+    .as_text_segment_contract();
+segment.stream_id = Some("subs".to_string());
+
+let mut options = TextWorkspaceOptions::default();
+options.document_analysis.classification_depth = ClassificationDepth::LexicalFallback;
+options.corpus_analysis.document.classification_depth = ClassificationDepth::LexicalFallback;
+
+let mut workspace = TextWorkspace::new(options);
+workspace.ingest_documents([WorkspaceDocument::SegmentContract(segment)])?;
+
+let document = workspace.analyze_document("subs:0")?;
+let corpus = workspace.analyze_corpus()?;
+workspace.build_retrieval_index()?;
+let search = workspace.search(SearchQuery::hybrid(
+    "timed transcript citations",
+    5,
+    HybridConfig::default(),
+))?;
+let snapshot = workspace.snapshot();
+
+assert!(document.classification.is_some());
+assert!(corpus.classification.is_some());
+assert_eq!(search.results[0].document_id, "subs:0");
+assert_eq!(snapshot.documents[0].timestamp.unwrap().seconds(), 3.0);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+## Rich Text Contracts
+
+`TextDocumentContract` and `TextSegmentContract` preserve:
+
+- `language`, `timestamp`, and string `attributes`
+- `source` with source id/kind, URI, media timestamp, and duration
+- `provenance` records for crate, operation, model, runtime, and confidence
+- `annotations` with spans, token indexes, and source segment ids
+
+Transcript segment conversion fills typed timing fields:
+
+```rust,no_run
+use text_core::AsTextSegmentContract;
+use text_transcripts::TranscriptSegmentContract;
+
+let mut transcript_segment = TranscriptSegmentContract::new(7, "Timed subtitle text.");
+transcript_segment.start_seconds = Some(12.5);
+transcript_segment.end_seconds = Some(14.0);
+
+let mut segment = transcript_segment.as_text_segment_contract();
+segment.stream_id = Some("subs".to_string());
+let document = segment.to_text_document_contract();
+
+assert_eq!(document.id, "subs:7");
+assert_eq!(document.timestamp.unwrap().seconds(), 12.5);
+assert_eq!(
+    document.source.as_ref().and_then(|source| source.duration_seconds),
+    Some(1.5)
+);
+```
+
+## Lower-Level Escape Hatches
+
+Use `text-lexical::TextCorpus` directly when you only need corpus ownership,
+TF-IDF, BM25, snapshots, or full-fidelity export with
+`text_document_contracts()`.
+
+Use `text-retrieval::RetrievalIndex` directly when you need explicit chunking,
+metadata filters, persistence DTOs, related chunks, or runtime-backed reranking
+through `rerank_documents_with_context`.
+
+Use `text-question-answering::answer_question_with_retrieval` for deterministic
+retrieval-backed cited answers, or
+`answer_question_with_retrieval_index` when you already own a retrieval index.
+
+Use `text-classification` directly for imported predictions or caller-supplied
+classification backends.

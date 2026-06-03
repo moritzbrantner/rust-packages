@@ -55,6 +55,37 @@ fn transcript_parsers_convert_to_generic_text_contracts_without_losing_core_fiel
 }
 
 #[test]
+fn transcript_timing_survives_rich_text_contract_round_trip() {
+    let mut segment = TranscriptSegmentContract::new(4, "camera pans across Berlin");
+    segment.start_seconds = Some(12.5);
+    segment.end_seconds = Some(15.0);
+    segment.language = Some("en".to_string());
+    segment
+        .attributes
+        .insert("speaker".to_string(), "narrator".to_string());
+
+    let mut text_segment = segment.as_text_segment_contract();
+    text_segment.stream_id = Some("video-subtitles".to_string());
+    let document = text_segment.to_text_document_contract();
+    let restored_segment = document.to_text_segment_contract(4);
+
+    assert_eq!(document.id, "video-subtitles:4");
+    assert_eq!(document.language.as_deref(), Some("en"));
+    assert_eq!(document.timestamp.unwrap().seconds(), 12.5);
+    assert_eq!(
+        document
+            .source
+            .as_ref()
+            .and_then(|source| source.duration_seconds),
+        Some(2.5)
+    );
+    assert_eq!(document.attributes["speaker"], "narrator");
+    assert_eq!(restored_segment.timestamp.unwrap().seconds(), 12.5);
+    assert_eq!(restored_segment.duration_seconds, Some(2.5));
+    assert_eq!(restored_segment.attributes["speaker"], "narrator");
+}
+
+#[test]
 fn transcript_contract_validation_rejects_invalid_ranges() {
     let mut segment = TranscriptSegmentContract::new(0, "invalid");
     segment.start_seconds = Some(3.0);

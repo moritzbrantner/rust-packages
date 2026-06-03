@@ -6,8 +6,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use math_sparse_data::{CooMatrix, CsrMatrix, SparseVector};
 use serde::{Deserialize, Serialize};
 use text_core::{
-    segment_document_id, tokenize, TextDocument, TextDocumentContract, TextProcessingOptions,
-    TextSegmentContract, TokenKind,
+    segment_document_id, tokenize, TextAnnotationSpan, TextDocument, TextDocumentContract,
+    TextProcessingOptions, TextProvenance, TextSegmentContract, TextSourceRef, TimestampContract,
+    TokenKind,
 };
 use video_analysis_core::{DetectError, Result, TextSegment};
 
@@ -37,7 +38,7 @@ impl Default for CorpusOptions {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for user-facing lexical text corpus.
 pub struct TextCorpus {
     /// Options used when deriving lexical indexes from this corpus.
@@ -46,7 +47,7 @@ pub struct TextCorpus {
     pub documents: Vec<TextCorpusDocument>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for a text corpus document.
 pub struct TextCorpusDocument {
     /// Identifier for this value.
@@ -55,7 +56,20 @@ pub struct TextCorpusDocument {
     pub text: String,
     /// Language tag for this value.
     pub language: Option<String>,
+    /// Optional timestamp associated with this document.
+    #[serde(default)]
+    pub timestamp: Option<TimestampContract>,
+    /// Optional rich source reference.
+    #[serde(default)]
+    pub source: Option<TextSourceRef>,
+    /// Provenance records for this document.
+    #[serde(default)]
+    pub provenance: Vec<TextProvenance>,
+    /// Annotation spans associated with this document.
+    #[serde(default)]
+    pub annotations: Vec<TextAnnotationSpan>,
     /// Metadata associated with this value.
+    #[serde(default)]
     pub metadata: BTreeMap<String, String>,
 }
 
@@ -87,7 +101,20 @@ pub struct TextCorpusSnapshotDocument {
     pub id: String,
     /// Language tag for this value.
     pub language: Option<String>,
+    /// Optional timestamp associated with this document.
+    #[serde(default)]
+    pub timestamp: Option<TimestampContract>,
+    /// Optional rich source reference.
+    #[serde(default)]
+    pub source: Option<TextSourceRef>,
+    /// Provenance records for this document.
+    #[serde(default)]
+    pub provenance: Vec<TextProvenance>,
+    /// Annotation spans associated with this document.
+    #[serde(default)]
+    pub annotations: Vec<TextAnnotationSpan>,
     /// Metadata associated with this value.
+    #[serde(default)]
     pub metadata: BTreeMap<String, String>,
     /// Total terms in this document.
     pub total_terms: usize,
@@ -102,6 +129,10 @@ impl TextCorpusDocument {
             id: id.into(),
             text: text.into(),
             language: None,
+            timestamp: None,
+            source: None,
+            provenance: Vec::new(),
+            annotations: Vec::new(),
             metadata: BTreeMap::new(),
         }
     }
@@ -191,6 +222,16 @@ impl TextCorpus {
             id: document.id.to_string(),
             text: document.text.to_string(),
             language: document.language.map(ToString::to_string),
+            timestamp: document.timestamp.map(Into::into),
+            source: document.timestamp.map(|timestamp| TextSourceRef {
+                source_id: None,
+                source_kind: Some("text_document".to_string()),
+                uri: None,
+                media_timestamp: Some(timestamp.into()),
+                duration_seconds: None,
+            }),
+            provenance: Vec::new(),
+            annotations: Vec::new(),
             metadata: BTreeMap::new(),
         })
     }
@@ -257,8 +298,25 @@ impl TextCorpus {
             id: &document.id,
             text: &document.text,
             language: document.language.as_deref(),
-            timestamp: None,
+            timestamp: document.timestamp.map(Into::into),
         })
+    }
+
+    /// Returns full-fidelity portable text document contracts.
+    pub fn text_document_contracts(&self) -> Vec<TextDocumentContract> {
+        self.documents
+            .iter()
+            .map(|document| TextDocumentContract {
+                id: document.id.clone(),
+                text: document.text.clone(),
+                language: document.language.clone(),
+                timestamp: document.timestamp,
+                attributes: document.metadata.clone(),
+                source: document.source.clone(),
+                provenance: document.provenance.clone(),
+                annotations: document.annotations.clone(),
+            })
+            .collect()
     }
 
     /// Builds a TF-IDF scoring corpus from this value.
@@ -277,6 +335,10 @@ impl TextCorpus {
         for snapshot_document in &mut snapshot.documents {
             if let Some(document) = self.document(&snapshot_document.id) {
                 snapshot_document.language = document.language.clone();
+                snapshot_document.timestamp = document.timestamp;
+                snapshot_document.source = document.source.clone();
+                snapshot_document.provenance = document.provenance.clone();
+                snapshot_document.annotations = document.annotations.clone();
                 snapshot_document.metadata = document.metadata.clone();
             }
         }
@@ -868,6 +930,10 @@ impl TfIdfCorpus {
                 .map(|document| TextCorpusSnapshotDocument {
                     id: document.id.clone(),
                     language: None,
+                    timestamp: None,
+                    source: None,
+                    provenance: Vec::new(),
+                    annotations: Vec::new(),
                     metadata: BTreeMap::new(),
                     total_terms: document.total_terms,
                     term_counts: document.term_counts.clone(),
@@ -1106,6 +1172,10 @@ fn text_corpus_document_from_contract(document: &TextDocumentContract) -> TextCo
         id: document.id.clone(),
         text: document.text.clone(),
         language: document.language.clone(),
+        timestamp: document.timestamp,
+        source: document.source.clone(),
+        provenance: document.provenance.clone(),
+        annotations: document.annotations.clone(),
         metadata,
     }
 }
@@ -1127,6 +1197,20 @@ fn text_corpus_document_from_segment_contract(segment: &TextSegmentContract) -> 
             .unwrap_or_else(|| segment.segment_index.to_string()),
         text: segment.text.clone(),
         language: segment.language.clone(),
+        timestamp: segment.timestamp,
+        source: segment.source.clone().or_else(|| {
+            (segment.timestamp.is_some() || segment.duration_seconds.is_some()).then(|| {
+                TextSourceRef {
+                    source_id: segment.stream_id.clone(),
+                    source_kind: Some("text_segment".to_string()),
+                    uri: None,
+                    media_timestamp: segment.timestamp,
+                    duration_seconds: segment.duration_seconds,
+                }
+            })
+        }),
+        provenance: segment.provenance.clone(),
+        annotations: segment.annotations.clone(),
         metadata,
     }
 }

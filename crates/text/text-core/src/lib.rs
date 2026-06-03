@@ -5,8 +5,8 @@ pub mod operations;
 pub mod surface;
 
 pub use contracts::{
-    AsTextSegmentContract, IntoTextDocumentContract, TextDocumentContract, TextSegmentContract,
-    TimebaseContract, TimestampContract,
+    AsTextSegmentContract, IntoTextDocumentContract, TextAnnotationSpan, TextDocumentContract,
+    TextProvenance, TextSegmentContract, TextSourceRef, TimebaseContract, TimestampContract,
 };
 
 use std::collections::BTreeMap;

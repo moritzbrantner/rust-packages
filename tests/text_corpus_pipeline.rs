@@ -129,6 +129,7 @@ fn text_corpus_flows_through_lexical_semantic_retrieval_and_analysis() {
                 semantic_weight: 0.6,
                 lexical_weight: 0.4,
                 rerank_window: 8,
+                rerank: false,
             },
         ))
         .unwrap();
@@ -158,6 +159,45 @@ fn text_corpus_flows_through_lexical_semantic_retrieval_and_analysis() {
         .unwrap()
         .iter()
         .any(|result| result.id == "doc-retrieval" || result.id == "doc-lexical"));
+}
+
+#[test]
+fn transcript_segment_corpus_export_preserves_retrieval_metadata() {
+    let mut segment =
+        va::text_core::TextSegmentContract::new(2, "retrieval cites transcript timing");
+    segment.stream_id = Some("subs".to_string());
+    segment.language = Some("en".to_string());
+    segment.timestamp = Some(va::text_core::TimestampContract {
+        pts: 3_500,
+        timebase: va::text_core::TimebaseContract { num: 1, den: 1_000 },
+    });
+    segment.duration_seconds = Some(1.75);
+    segment
+        .attributes
+        .insert("speaker".to_string(), "host".to_string());
+
+    let corpus = va::text_lexical::TextCorpus::from_segment_contracts(
+        [&segment],
+        va::text_lexical::CorpusOptions::default(),
+    )
+    .unwrap();
+    let contracts = corpus.text_document_contracts();
+    let search_documents = va::text_retrieval::SearchDocument::from_text_corpus(&corpus);
+
+    assert_eq!(contracts[0].id, "subs:2");
+    assert_eq!(contracts[0].timestamp.unwrap().seconds(), 3.5);
+    assert_eq!(contracts[0].attributes["speaker"], "host");
+    assert_eq!(search_documents[0].metadata["timestamp_seconds"], "3.5");
+    assert_eq!(search_documents[0].metadata["duration_seconds"], "1.75");
+    assert_eq!(search_documents[0].metadata["language"], "en");
+    assert_eq!(
+        search_documents[0]
+            .source
+            .as_ref()
+            .unwrap()
+            .duration_seconds,
+        Some(1.75)
+    );
 }
 
 fn corpus_document(

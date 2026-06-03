@@ -6,10 +6,11 @@ use text_lexical::{
 };
 use video_analysis_core::Result;
 
-use crate::document::embedding_section;
+use crate::document::{classification_section, embedding_section};
 use crate::{
-    invalid_argument, CorpusAnalysisOptions, CorpusAnalysisReport, CorpusDocumentAnalysis,
-    DocumentSimilarityPair, EmbeddingDepth, TextAnalysisDiagnostic,
+    invalid_argument, ClassificationAnalysisSection, CorpusAnalysisOptions, CorpusAnalysisReport,
+    CorpusClassificationSection, CorpusDocumentAnalysis, DocumentSimilarityPair, EmbeddingDepth,
+    LabelDistribution, TextAnalysisDiagnostic,
 };
 
 pub fn analyze_corpus<'a, I>(
@@ -45,6 +46,8 @@ where
             &mut diagnostics,
         )
         .map(|embedding| embedding.preview);
+        let classification =
+            classification_section(document.text, &document_options, &mut diagnostics);
         document_reports.push(CorpusDocumentAnalysis {
             id: document.id.to_string(),
             stats: detailed_text_stats(document.text, &options.document.processing),
@@ -57,6 +60,7 @@ where
                 },
             ),
             embedding_preview,
+            classification,
         });
     }
     let tfidf_search = options
@@ -79,6 +83,7 @@ where
     } else {
         Vec::new()
     };
+    let classification = corpus_classification_section(&document_reports);
 
     Ok(CorpusAnalysisReport {
         stats,
@@ -88,6 +93,7 @@ where
         bm25_search,
         near_duplicates,
         semantic_neighbors,
+        classification,
         diagnostics,
     })
 }
@@ -131,40 +137,11 @@ fn semantic_neighbor_pairs(
     corpus: &TfIdfCorpus,
     diagnostics: &mut Vec<TextAnalysisDiagnostic>,
 ) -> Result<Vec<DocumentSimilarityPair>> {
-    let (dimensions, use_idf) = match options.document.embedding_depth {
-        EmbeddingDepth::Hashed {
-            dimensions,
-            use_idf,
-        } => (dimensions.max(1), use_idf),
-        EmbeddingDepth::Off => return Ok(Vec::new()),
-        _ => {
-            diagnostics.push(TextAnalysisDiagnostic::warning(
-                "semantic_neighbors_unavailable",
-                "semantic corpus neighbors currently use hashed embeddings",
-            ));
-            return Ok(Vec::new());
-        }
+    let provider = selected_corpus_embedding_provider(options, corpus, diagnostics)?;
+    let Some(provider) = provider else {
+        return Ok(Vec::new());
     };
-    let embedder = HashedTextEmbedder::new(
-        TextEmbeddingConfig {
-            dimensions,
-            use_idf,
-        },
-        CorpusOptions::default(),
-    )?;
-    let mut vectors = Vec::new();
-    for document in documents {
-        match embedder.embed_text_with_corpus(document.text, Some(corpus)) {
-            Ok(vector) => vectors.push(Some(vector)),
-            Err(error) => {
-                diagnostics.push(TextAnalysisDiagnostic::warning(
-                    "semantic_neighbor_embedding_unavailable",
-                    format!("{}: {error}", document.id),
-                ));
-                vectors.push(None);
-            }
-        }
-    }
+    let vectors = provider.embed_documents(documents, options, diagnostics);
     let mut pairs = Vec::new();
     for left_index in 0..documents.len() {
         for right_index in (left_index + 1)..documents.len() {
@@ -178,7 +155,7 @@ fn semantic_neighbor_pairs(
                 left_id: documents[left_index].id.to_string(),
                 right_id: documents[right_index].id.to_string(),
                 score: cosine(left.as_slice(), right.as_slice()),
-                metric: "hashed_embedding_cosine".to_string(),
+                metric: provider.metric().to_string(),
             });
         }
     }
@@ -191,6 +168,150 @@ fn semantic_neighbor_pairs(
     });
     pairs.truncate(options.top_k);
     Ok(pairs)
+}
+
+trait CorpusEmbeddingProvider<'a> {
+    fn metric(&self) -> &'static str;
+
+    fn embed_documents(
+        &self,
+        documents: &[TextDocument<'_>],
+        options: &CorpusAnalysisOptions,
+        diagnostics: &mut Vec<TextAnalysisDiagnostic>,
+    ) -> Vec<Option<Vec<f32>>>;
+}
+
+struct HashedCorpusEmbeddingProvider<'a> {
+    embedder: HashedTextEmbedder,
+    corpus: &'a TfIdfCorpus,
+}
+
+impl CorpusEmbeddingProvider<'_> for HashedCorpusEmbeddingProvider<'_> {
+    fn metric(&self) -> &'static str {
+        "hashed_embedding_cosine"
+    }
+
+    fn embed_documents(
+        &self,
+        documents: &[TextDocument<'_>],
+        _options: &CorpusAnalysisOptions,
+        diagnostics: &mut Vec<TextAnalysisDiagnostic>,
+    ) -> Vec<Option<Vec<f32>>> {
+        documents
+            .iter()
+            .map(|document| {
+                match self
+                    .embedder
+                    .embed_text_with_corpus(document.text, Some(self.corpus))
+                {
+                    Ok(vector) => Some(vector.as_slice().to_vec()),
+                    Err(error) => {
+                        diagnostics.push(TextAnalysisDiagnostic::warning(
+                            "semantic_neighbor_embedding_unavailable",
+                            format!("{}: {error}", document.id),
+                        ));
+                        None
+                    }
+                }
+            })
+            .collect()
+    }
+}
+
+struct AnalysisSectionEmbeddingProvider;
+
+impl CorpusEmbeddingProvider<'_> for AnalysisSectionEmbeddingProvider {
+    fn metric(&self) -> &'static str {
+        "model_embedding_cosine"
+    }
+
+    fn embed_documents(
+        &self,
+        documents: &[TextDocument<'_>],
+        options: &CorpusAnalysisOptions,
+        diagnostics: &mut Vec<TextAnalysisDiagnostic>,
+    ) -> Vec<Option<Vec<f32>>> {
+        documents
+            .iter()
+            .map(|document| {
+                embedding_section(document.text, &options.document, None, diagnostics)
+                    .map(|embedding| embedding.vector)
+            })
+            .collect()
+    }
+}
+
+fn selected_corpus_embedding_provider<'a>(
+    options: &CorpusAnalysisOptions,
+    corpus: &'a TfIdfCorpus,
+    diagnostics: &mut Vec<TextAnalysisDiagnostic>,
+) -> Result<Option<Box<dyn CorpusEmbeddingProvider<'a> + 'a>>> {
+    match options.document.embedding_depth {
+        EmbeddingDepth::Off => Ok(None),
+        EmbeddingDepth::Hashed {
+            dimensions,
+            use_idf,
+        } => Ok(Some(Box::new(HashedCorpusEmbeddingProvider {
+            embedder: HashedTextEmbedder::new(
+                TextEmbeddingConfig {
+                    dimensions: dimensions.max(1),
+                    use_idf,
+                },
+                CorpusOptions::default(),
+            )?,
+            corpus,
+        }))),
+        EmbeddingDepth::CandleBundle { .. } | EmbeddingDepth::OnnxBundle { .. } => {
+            diagnostics.push(TextAnalysisDiagnostic::warning(
+                "semantic_neighbors_model_provider",
+                "semantic corpus neighbors are using the selected document embedding provider",
+            ));
+            Ok(Some(Box::new(AnalysisSectionEmbeddingProvider)))
+        }
+    }
+}
+
+fn corpus_classification_section(
+    documents: &[CorpusDocumentAnalysis],
+) -> Option<CorpusClassificationSection> {
+    let mut counts = std::collections::BTreeMap::<String, (usize, f32)>::new();
+    for section in documents
+        .iter()
+        .filter_map(|document| document.classification.as_ref())
+    {
+        collect_top_label(&mut counts, section);
+    }
+    if counts.is_empty() {
+        return None;
+    }
+    let mut label_distribution = counts
+        .into_iter()
+        .map(|(label, (count, score_sum))| LabelDistribution {
+            label,
+            count,
+            score_sum,
+            score_mean: score_sum / count.max(1) as f32,
+        })
+        .collect::<Vec<_>>();
+    label_distribution.sort_by(|left, right| {
+        right
+            .count
+            .cmp(&left.count)
+            .then_with(|| right.score_mean.total_cmp(&left.score_mean))
+            .then_with(|| left.label.cmp(&right.label))
+    });
+    Some(CorpusClassificationSection { label_distribution })
+}
+
+fn collect_top_label(
+    counts: &mut std::collections::BTreeMap<String, (usize, f32)>,
+    section: &ClassificationAnalysisSection,
+) {
+    if let Some(prediction) = section.classification.predictions.first() {
+        let entry = counts.entry(prediction.label.clone()).or_insert((0, 0.0));
+        entry.0 += 1;
+        entry.1 += prediction.score;
+    }
 }
 
 fn cosine(left: &[f32], right: &[f32]) -> f32 {

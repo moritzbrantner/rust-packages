@@ -5,6 +5,7 @@ pub mod document;
 pub mod fingerprint;
 pub mod stats;
 pub mod surface;
+pub mod workspace;
 
 use std::path::PathBuf;
 
@@ -22,6 +23,10 @@ use text_lexical::{
     Bm25SearchResult, CorpusStats, CorpusTermStats, DocumentSearchResult, EntityMention, Keyword,
     ReadabilitySummary, SentimentSummary, SummarySentence, TermFrequency, TextFeatureSummary,
     TfIdfTerm,
+};
+pub use workspace::{
+    TextWorkspace, TextWorkspaceOptions, WorkspaceDocument, WorkspaceIngestReport,
+    WorkspaceSearchReport, WorkspaceSnapshot,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,6 +66,15 @@ pub enum EmbeddingDepth {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ClassificationDepth {
+    Off,
+    LexicalFallback,
+    Imported,
+    Backend,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct DocumentAnalysisOptions {
     pub profile: AnalysisProfile,
@@ -74,6 +88,9 @@ pub struct DocumentAnalysisOptions {
     pub linguistic_depth: LinguisticDepth,
     pub embedding_depth: EmbeddingDepth,
     pub include_sparse_embedding: bool,
+    pub classification_depth: ClassificationDepth,
+    pub classification_labels: Vec<String>,
+    pub zero_shot_labels: Vec<String>,
 }
 
 impl Default for DocumentAnalysisOptions {
@@ -93,6 +110,17 @@ impl Default for DocumentAnalysisOptions {
                 use_idf: false,
             },
             include_sparse_embedding: false,
+            classification_depth: ClassificationDepth::Off,
+            classification_labels: vec![
+                "technical".to_string(),
+                "media".to_string(),
+                "documentation".to_string(),
+            ],
+            zero_shot_labels: vec![
+                "workflow".to_string(),
+                "reference".to_string(),
+                "analysis".to_string(),
+            ],
         }
     }
 }
@@ -188,6 +216,8 @@ pub struct DocumentAnalysisReport {
     pub similarity: SimilarityAnalysisSection,
     pub linguistic: Option<LinguisticAnalysisSection>,
     pub embedding: Option<EmbeddingAnalysisSection>,
+    #[serde(default)]
+    pub classification: Option<ClassificationAnalysisSection>,
     pub diagnostics: Vec<TextAnalysisDiagnostic>,
 }
 
@@ -201,6 +231,8 @@ pub struct CorpusAnalysisReport {
     pub bm25_search: Option<Vec<Bm25SearchResult>>,
     pub near_duplicates: Vec<DocumentSimilarityPair>,
     pub semantic_neighbors: Vec<DocumentSimilarityPair>,
+    #[serde(default)]
+    pub classification: Option<CorpusClassificationSection>,
     pub diagnostics: Vec<TextAnalysisDiagnostic>,
 }
 
@@ -317,12 +349,37 @@ pub struct EmbeddingAnalysisSection {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ClassificationAnalysisSection {
+    pub sentiment: text_classification::SentimentResponse,
+    pub classification: text_classification::TextClassificationResponse,
+    pub zero_shot: text_classification::ZeroShotClassificationResponse,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LabelDistribution {
+    pub label: String,
+    pub count: usize,
+    pub score_sum: f32,
+    pub score_mean: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CorpusClassificationSection {
+    pub label_distribution: Vec<LabelDistribution>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CorpusDocumentAnalysis {
     pub id: String,
     pub stats: DetailedTextStats,
     pub tfidf_terms: Vec<TfIdfTerm>,
     pub keywords: Vec<Keyword>,
     pub embedding_preview: Option<Vec<f32>>,
+    #[serde(default)]
+    pub classification: Option<ClassificationAnalysisSection>,
 }
 
 pub fn document_from_text<'a>(id: &'a str, text: &'a str) -> TextDocument<'a> {

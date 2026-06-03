@@ -20,10 +20,12 @@ runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 text-core.workspace = true
+text-classification.workspace = true
 text-lexical.workspace = true
 text-linguistics.workspace = true
 text-embeddings.workspace = true
 text-retrieval.workspace = true
+text-transcripts = { workspace = true, optional = true }
 video-analysis-core.workspace = true
 model-runtime = { workspace = true, optional = true }
 [features]
@@ -34,6 +36,7 @@ model-bundles = ["dep:model-runtime", "model-runtime/jobs", "text-linguistics/mo
 onnx = ["text-embeddings/onnx", "dep:model-runtime"]
 tokenizers = ["text-embeddings/tokenizers", "text-linguistics/tokenizers"]
 external-tests = ["candle", "model-bundles", "onnx"]
+transcripts = ["dep:text-transcripts"]
 
 [dev-dependencies]
 criterion.workspace = true

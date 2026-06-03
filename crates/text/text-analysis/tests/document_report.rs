@@ -1,6 +1,6 @@
 use text_analysis::{
-    analyze_text, document_from_text, AnalysisProfile, DocumentAnalysisOptions, EmbeddingDepth,
-    LinguisticDepth,
+    analyze_text, document_from_text, AnalysisProfile, ClassificationDepth,
+    DocumentAnalysisOptions, EmbeddingDepth, LinguisticDepth,
 };
 
 #[test]
@@ -50,6 +50,35 @@ fn optional_sections_can_be_disabled() {
     let report = analyze_text("doc", "Rust crates analyze text.", &options).unwrap();
     assert!(report.linguistic.is_none());
     assert!(report.embedding.is_none());
+}
+
+#[test]
+fn lexical_fallback_classification_is_included_when_requested() {
+    let options = DocumentAnalysisOptions {
+        classification_depth: ClassificationDepth::LexicalFallback,
+        classification_labels: vec!["rust".to_string(), "travel".to_string()],
+        zero_shot_labels: vec!["code".to_string(), "holiday".to_string()],
+        ..DocumentAnalysisOptions::default()
+    };
+
+    let report = analyze_text(
+        "doc-classification",
+        "Rust cargo crates provide reliable code workflows.",
+        &options,
+    )
+    .unwrap();
+    let classification = report.classification.expect("classification section");
+
+    assert_eq!(
+        classification.sentiment.runtime,
+        text_classification::TextClassificationRuntime::Lexical
+    );
+    assert!(classification
+        .classification
+        .predictions
+        .iter()
+        .any(|prediction| prediction.label == "rust"));
+    assert!(!classification.zero_shot.predictions.is_empty());
 }
 
 #[test]

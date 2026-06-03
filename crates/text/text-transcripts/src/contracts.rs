@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use text_core::{AsTextSegmentContract, TextSegmentContract, TimestampContract};
+use text_core::{AsTextSegmentContract, TextSegmentContract, TextSourceRef, TimestampContract};
 use video_analysis_core::{Timebase, Timestamp};
 
 use crate::{TranscriptSegment, TranscriptWord, TranscriptionError, TranscriptionResult};
@@ -150,6 +150,15 @@ impl AsTextSegmentContract for TranscriptSegmentContract {
             duration_seconds: self.duration_seconds(),
             is_final: self.is_final,
             attributes,
+            source: Some(TextSourceRef {
+                source_id: None,
+                source_kind: Some("transcript_segment".to_string()),
+                uri: None,
+                media_timestamp: self.start_seconds.map(seconds_to_timestamp_contract),
+                duration_seconds: self.duration_seconds(),
+            }),
+            provenance: Vec::new(),
+            annotations: Vec::new(),
         }
     }
 }

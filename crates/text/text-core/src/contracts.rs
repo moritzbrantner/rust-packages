@@ -4,7 +4,7 @@ use runtime_core::{MobileCapability, OperationId, OperationMetadata, RuntimeCapa
 use serde::{Deserialize, Serialize};
 use video_analysis_core::{OwnedTextSegment, TextSegment, Timebase, Timestamp};
 
-use crate::{segment_document_id, OwnedTextDocument, TextDocument};
+use crate::{segment_document_id, OwnedTextDocument, TextDocument, TextSpan};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -58,6 +58,48 @@ impl From<TimestampContract> for Timestamp {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct TextSourceRef {
+    #[serde(default)]
+    pub source_id: Option<String>,
+    #[serde(default)]
+    pub source_kind: Option<String>,
+    #[serde(default)]
+    pub uri: Option<String>,
+    #[serde(default)]
+    pub media_timestamp: Option<TimestampContract>,
+    #[serde(default)]
+    pub duration_seconds: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TextProvenance {
+    #[serde(default)]
+    pub crate_name: Option<String>,
+    #[serde(default)]
+    pub operation: Option<String>,
+    #[serde(default)]
+    pub model_id: Option<String>,
+    #[serde(default)]
+    pub runtime: Option<String>,
+    #[serde(default)]
+    pub confidence: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TextAnnotationSpan {
+    pub span: TextSpan,
+    #[serde(default)]
+    pub token_start: Option<usize>,
+    #[serde(default)]
+    pub token_end: Option<usize>,
+    #[serde(default)]
+    pub source_segment_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct TextDocumentContract {
     pub id: String,
     pub text: String,
@@ -67,6 +109,12 @@ pub struct TextDocumentContract {
     pub timestamp: Option<TimestampContract>,
     #[serde(default)]
     pub attributes: BTreeMap<String, String>,
+    #[serde(default)]
+    pub source: Option<TextSourceRef>,
+    #[serde(default)]
+    pub provenance: Vec<TextProvenance>,
+    #[serde(default)]
+    pub annotations: Vec<TextAnnotationSpan>,
 }
 
 impl TextDocumentContract {
@@ -77,7 +125,18 @@ impl TextDocumentContract {
             language: None,
             timestamp: None,
             attributes: BTreeMap::new(),
+            source: None,
+            provenance: Vec::new(),
+            annotations: Vec::new(),
         }
+    }
+
+    pub fn from_segment_contract(segment: &TextSegmentContract) -> Self {
+        segment.to_text_document_contract()
+    }
+
+    pub fn to_text_segment_contract(&self, segment_index: u64) -> TextSegmentContract {
+        TextSegmentContract::from_document_contract(self, segment_index)
     }
 }
 
@@ -93,6 +152,9 @@ impl IntoTextDocumentContract for TextDocument<'_> {
             language: self.language.map(ToString::to_string),
             timestamp: self.timestamp.map(Into::into),
             attributes: BTreeMap::new(),
+            source: None,
+            provenance: Vec::new(),
+            annotations: Vec::new(),
         }
     }
 }
@@ -105,6 +167,9 @@ impl IntoTextDocumentContract for OwnedTextDocument {
             language: self.language,
             timestamp: self.timestamp.map(Into::into),
             attributes: BTreeMap::new(),
+            source: None,
+            provenance: Vec::new(),
+            annotations: Vec::new(),
         }
     }
 }
@@ -143,6 +208,12 @@ pub struct TextSegmentContract {
     pub is_final: bool,
     #[serde(default)]
     pub attributes: BTreeMap<String, String>,
+    #[serde(default)]
+    pub source: Option<TextSourceRef>,
+    #[serde(default)]
+    pub provenance: Vec<TextProvenance>,
+    #[serde(default)]
+    pub annotations: Vec<TextAnnotationSpan>,
 }
 
 impl TextSegmentContract {
@@ -156,6 +227,9 @@ impl TextSegmentContract {
             duration_seconds: None,
             is_final: true,
             attributes: BTreeMap::new(),
+            source: None,
+            provenance: Vec::new(),
+            annotations: Vec::new(),
         }
     }
 
@@ -176,6 +250,55 @@ impl TextSegmentContract {
         }
         segment
     }
+
+    pub fn to_text_document_contract(&self) -> TextDocumentContract {
+        TextDocumentContract {
+            id: self
+                .document_id()
+                .unwrap_or_else(|| self.segment_index.to_string()),
+            text: self.text.clone(),
+            language: self.language.clone(),
+            timestamp: self.timestamp,
+            attributes: self.attributes.clone(),
+            source: self.source.clone().or_else(|| {
+                (self.timestamp.is_some() || self.duration_seconds.is_some()).then(|| {
+                    TextSourceRef {
+                        source_id: self.stream_id.clone(),
+                        source_kind: Some("text_segment".to_string()),
+                        uri: None,
+                        media_timestamp: self.timestamp,
+                        duration_seconds: self.duration_seconds,
+                    }
+                })
+            }),
+            provenance: self.provenance.clone(),
+            annotations: self.annotations.clone(),
+        }
+    }
+
+    pub fn from_document_contract(document: &TextDocumentContract, segment_index: u64) -> Self {
+        Self {
+            stream_id: None,
+            segment_index,
+            text: document.text.clone(),
+            language: document.language.clone(),
+            timestamp: document.timestamp.or_else(|| {
+                document
+                    .source
+                    .as_ref()
+                    .and_then(|source| source.media_timestamp)
+            }),
+            duration_seconds: document
+                .source
+                .as_ref()
+                .and_then(|source| source.duration_seconds),
+            is_final: true,
+            attributes: document.attributes.clone(),
+            source: document.source.clone(),
+            provenance: document.provenance.clone(),
+            annotations: document.annotations.clone(),
+        }
+    }
 }
 
 pub trait AsTextSegmentContract {
@@ -193,6 +316,9 @@ impl AsTextSegmentContract for TextSegment<'_> {
             duration_seconds: None,
             is_final: self.is_final,
             attributes: BTreeMap::new(),
+            source: None,
+            provenance: Vec::new(),
+            annotations: Vec::new(),
         }
     }
 }

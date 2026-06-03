@@ -68,6 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 semantic_weight: 0.65,
                 lexical_weight: 0.35,
                 rerank_window: 8,
+                rerank: false,
             },
         ))?,
     );
@@ -81,6 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             semantic_weight: 0.5,
             lexical_weight: 0.5,
             rerank_window: 8,
+            rerank: false,
         },
     )
     .filter(SearchFilter {

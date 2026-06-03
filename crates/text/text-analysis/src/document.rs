@@ -1,5 +1,9 @@
 use std::path::PathBuf;
 
+use text_classification::{
+    analyze_sentiment, classify_text, zero_shot_classify, FallbackPolicy, ModelSelection,
+    SentimentRequest, TextClassificationRequest, ZeroShotClassificationRequest,
+};
 use text_core::{
     build_annotation_graph_from_parts, detailed_text_stats, detect_script_profile,
     split_paragraphs, split_sentence_spans, tokenize, TextDocument, TextProcessingOptions,
@@ -22,10 +26,10 @@ use video_analysis_core::Result;
 use crate::fingerprint::{character_shingle_simhash, token_shingle_simhash};
 use crate::stats::enriched_text_stats_from_tokens;
 use crate::{
-    invalid_argument, CoreAnalysisSection, DocumentAnalysisOptions, DocumentAnalysisReport,
-    EmbeddingAnalysisSection, EmbeddingDepth, LexicalAnalysisSection, LinguisticAnalysisSection,
-    LinguisticDepth, NgramFrequencyReport, ShingleCountReport, SimilarityAnalysisSection,
-    SparseEmbeddingReport, TextAnalysisDiagnostic,
+    invalid_argument, ClassificationAnalysisSection, ClassificationDepth, CoreAnalysisSection,
+    DocumentAnalysisOptions, DocumentAnalysisReport, EmbeddingAnalysisSection, EmbeddingDepth,
+    LexicalAnalysisSection, LinguisticAnalysisSection, LinguisticDepth, NgramFrequencyReport,
+    ShingleCountReport, SimilarityAnalysisSection, SparseEmbeddingReport, TextAnalysisDiagnostic,
 };
 
 pub fn analyze_text(
@@ -64,6 +68,7 @@ pub fn analyze_document(
     let similarity = similarity_section(document.text, options, &processing)?;
     let linguistic = linguistic_section(document.text, options, &processing, &mut diagnostics);
     let embedding = embedding_section(document.text, options, None, &mut diagnostics);
+    let classification = classification_section(document.text, options, &mut diagnostics);
     let language = document
         .language
         .map(ToString::to_string)
@@ -86,8 +91,91 @@ pub fn analyze_document(
         similarity,
         linguistic,
         embedding,
+        classification,
         diagnostics,
     })
+}
+
+pub(crate) fn classification_section(
+    text: &str,
+    options: &DocumentAnalysisOptions,
+    diagnostics: &mut Vec<TextAnalysisDiagnostic>,
+) -> Option<ClassificationAnalysisSection> {
+    match options.classification_depth {
+        ClassificationDepth::Off => None,
+        ClassificationDepth::Imported => {
+            diagnostics.push(TextAnalysisDiagnostic::warning(
+                "classification_unavailable",
+                "imported classification depth requires imported predictions supplied to text-classification directly",
+            ));
+            None
+        }
+        ClassificationDepth::Backend => {
+            diagnostics.push(TextAnalysisDiagnostic::warning(
+                "classification_unavailable",
+                "backend classification depth requires text-classification context APIs",
+            ));
+            None
+        }
+        ClassificationDepth::LexicalFallback => {
+            let model = ModelSelection {
+                fallback_policy: FallbackPolicy::LexicalFallback,
+                ..ModelSelection::default()
+            };
+            let sentiment = match analyze_sentiment(SentimentRequest {
+                text: text.to_string(),
+                model: model.clone(),
+                imported_predictions: Vec::new(),
+            }) {
+                Ok(response) => response,
+                Err(error) => {
+                    diagnostics.push(TextAnalysisDiagnostic::warning(
+                        "classification_unavailable",
+                        error.to_string(),
+                    ));
+                    return None;
+                }
+            };
+            let classification = match classify_text(TextClassificationRequest {
+                text: text.to_string(),
+                labels: options.classification_labels.clone(),
+                top_k: options.classification_labels.len().max(1),
+                multi_label: false,
+                model: model.clone(),
+                imported_predictions: Vec::new(),
+            }) {
+                Ok(response) => response,
+                Err(error) => {
+                    diagnostics.push(TextAnalysisDiagnostic::warning(
+                        "classification_unavailable",
+                        error.to_string(),
+                    ));
+                    return None;
+                }
+            };
+            let zero_shot = match zero_shot_classify(ZeroShotClassificationRequest {
+                text: text.to_string(),
+                labels: options.zero_shot_labels.clone(),
+                hypothesis_template: "This text is about {}.".to_string(),
+                model,
+                imported_predictions: Vec::new(),
+            }) {
+                Ok(response) => response,
+                Err(error) => {
+                    diagnostics.push(TextAnalysisDiagnostic::warning(
+                        "classification_unavailable",
+                        error.to_string(),
+                    ));
+                    return None;
+                }
+            };
+            Some(ClassificationAnalysisSection {
+                sentiment,
+                classification,
+                zero_shot,
+            })
+        }
+    }
 }
 
 pub(crate) fn embedding_section(

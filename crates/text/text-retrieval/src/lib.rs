@@ -7,11 +7,13 @@ mod storage;
 
 use serde::{Deserialize, Serialize};
 use text_core::{
-    split_paragraphs, split_sentence_spans, tokenize, TextDocument, TextDocumentContract,
-    TextProcessingOptions, TextSegmentContract, TextSpan, TokenKind,
+    split_paragraphs, split_sentence_spans, tokenize, TextAnnotationSpan, TextDocument,
+    TextDocumentContract, TextProcessingOptions, TextProvenance, TextSegmentContract,
+    TextSourceRef, TextSpan, TokenKind,
 };
 use text_embeddings::{EmbeddingModelInfo, TextEmbedderBackend};
-use text_lexical::{Bm25Corpus, Bm25Options, CorpusOptions};
+use text_lexical::{Bm25Corpus, Bm25Options, CorpusOptions, TextCorpus, TextCorpusDocument};
+use text_model_runtime::{TextReranker, TextRuntimeBackend};
 use vector_analysis_index::{
     SerializableVectorRecord, VectorRecord, VectorRecordMetadata, VectorSearchFilter,
     VectorSearchIndex,
@@ -22,7 +24,7 @@ pub use storage::*;
 
 const TITLE_METADATA_KEY: &str = "__title";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for search document.
 pub struct SearchDocument {
     /// Identifier for this value.
@@ -35,6 +37,15 @@ pub struct SearchDocument {
     /// Metadata associated with this value.
     #[serde(default)]
     pub metadata: BTreeMap<String, String>,
+    /// Optional rich source reference.
+    #[serde(default)]
+    pub source: Option<TextSourceRef>,
+    /// Provenance records for this document.
+    #[serde(default)]
+    pub provenance: Vec<TextProvenance>,
+    /// Annotation spans associated with this document.
+    #[serde(default)]
+    pub annotations: Vec<TextAnnotationSpan>,
 }
 
 impl SearchDocument {
@@ -45,6 +56,9 @@ impl SearchDocument {
             title: None,
             body: body.into(),
             metadata: BTreeMap::new(),
+            source: None,
+            provenance: Vec::new(),
+            annotations: Vec::new(),
         }
     }
 
@@ -65,6 +79,15 @@ impl SearchDocument {
             title: None,
             body: document.text.to_string(),
             metadata,
+            source: document.timestamp.map(|timestamp| TextSourceRef {
+                source_id: None,
+                source_kind: Some("text_document".to_string()),
+                uri: None,
+                media_timestamp: Some(timestamp.into()),
+                duration_seconds: None,
+            }),
+            provenance: Vec::new(),
+            annotations: Vec::new(),
         }
     }
 
@@ -85,6 +108,9 @@ impl SearchDocument {
             title: None,
             body: document.text.clone(),
             metadata,
+            source: document.source.clone(),
+            provenance: document.provenance.clone(),
+            annotations: document.annotations.clone(),
         }
     }
 
@@ -110,7 +136,59 @@ impl SearchDocument {
             title: None,
             body: segment.text.clone(),
             metadata,
+            source: segment.source.clone().or_else(|| {
+                (segment.timestamp.is_some() || segment.duration_seconds.is_some()).then(|| {
+                    TextSourceRef {
+                        source_id: segment.stream_id.clone(),
+                        source_kind: Some("text_segment".to_string()),
+                        uri: None,
+                        media_timestamp: segment.timestamp,
+                        duration_seconds: segment.duration_seconds,
+                    }
+                })
+            }),
+            provenance: segment.provenance.clone(),
+            annotations: segment.annotations.clone(),
         }
+    }
+
+    /// Builds this value from a lexical corpus document without losing rich metadata.
+    pub fn from_text_corpus_document(document: &TextCorpusDocument) -> Self {
+        let mut metadata = document.metadata.clone();
+        if let Some(language) = &document.language {
+            metadata.insert("language".to_string(), language.clone());
+        }
+        if let Some(timestamp) = document.timestamp {
+            metadata.insert(
+                "timestamp_seconds".to_string(),
+                timestamp.seconds().to_string(),
+            );
+        }
+        if let Some(duration_seconds) = document
+            .source
+            .as_ref()
+            .and_then(|source| source.duration_seconds)
+        {
+            metadata.insert("duration_seconds".to_string(), duration_seconds.to_string());
+        }
+        Self {
+            id: document.id.clone(),
+            title: None,
+            body: document.text.clone(),
+            metadata,
+            source: document.source.clone(),
+            provenance: document.provenance.clone(),
+            annotations: document.annotations.clone(),
+        }
+    }
+
+    /// Builds retrieval documents from a lexical corpus.
+    pub fn from_text_corpus(corpus: &TextCorpus) -> Vec<Self> {
+        corpus
+            .documents
+            .iter()
+            .map(Self::from_text_corpus_document)
+            .collect()
     }
 }
 
@@ -154,7 +232,7 @@ impl IntoSearchDocument for &TextSegmentContract {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for document chunk.
 pub struct DocumentChunk {
     /// The chunk identifier value.
@@ -167,6 +245,57 @@ pub struct DocumentChunk {
     pub ordinal: usize,
     /// Metadata associated with this value.
     pub metadata: BTreeMap<String, String>,
+    /// Optional rich source reference.
+    #[serde(default)]
+    pub source: Option<TextSourceRef>,
+    /// Provenance records for this chunk.
+    #[serde(default)]
+    pub provenance: Vec<TextProvenance>,
+    /// Annotation spans associated with this chunk.
+    #[serde(default)]
+    pub annotations: Vec<TextAnnotationSpan>,
+}
+
+impl DocumentChunk {
+    /// Converts this retrieval chunk into a portable document contract.
+    pub fn to_text_document_contract(&self) -> TextDocumentContract {
+        TextDocumentContract {
+            id: self.chunk_id.clone(),
+            text: self.text.clone(),
+            language: self.metadata.get("language").cloned(),
+            timestamp: self
+                .source
+                .as_ref()
+                .and_then(|source| source.media_timestamp),
+            attributes: self.metadata.clone(),
+            source: self.source.clone(),
+            provenance: self.provenance.clone(),
+            annotations: self.annotations.clone(),
+        }
+    }
+
+    /// Converts this retrieval chunk into a portable segment contract.
+    pub fn to_text_segment_contract(&self) -> TextSegmentContract {
+        TextSegmentContract {
+            stream_id: Some(self.document_id.clone()),
+            segment_index: self.ordinal as u64,
+            text: self.text.clone(),
+            language: self.metadata.get("language").cloned(),
+            timestamp: self
+                .source
+                .as_ref()
+                .and_then(|source| source.media_timestamp),
+            duration_seconds: self
+                .source
+                .as_ref()
+                .and_then(|source| source.duration_seconds),
+            is_final: true,
+            attributes: self.metadata.clone(),
+            source: self.source.clone(),
+            provenance: self.provenance.clone(),
+            annotations: self.annotations.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -276,6 +405,8 @@ pub struct HybridConfig {
     pub lexical_weight: f32,
     /// The rerank window value.
     pub rerank_window: usize,
+    /// Whether search results should be reranked after initial retrieval.
+    pub rerank: bool,
 }
 
 impl Default for HybridConfig {
@@ -284,6 +415,7 @@ impl Default for HybridConfig {
             semantic_weight: 0.8,
             lexical_weight: 0.2,
             rerank_window: 64,
+            rerank: false,
         }
     }
 }
@@ -399,6 +531,12 @@ pub struct RerankResult {
     pub document: String,
     /// Relevance score.
     pub score: f32,
+    /// Optional runtime used to produce this score.
+    #[serde(default)]
+    pub runtime: Option<String>,
+    /// Optional model identifier used to produce this score.
+    #[serde(default)]
+    pub model_id: Option<String>,
 }
 
 /// Response for query/document reranking.
@@ -413,10 +551,33 @@ pub struct RerankResponse {
     pub query: String,
     /// Ranked documents.
     pub results: Vec<RerankResult>,
+    /// Optional runtime used by a rerank backend.
+    #[serde(default)]
+    pub runtime: Option<String>,
+    /// Optional model identifier used by a rerank backend.
+    #[serde(default)]
+    pub model_id: Option<String>,
+}
+
+/// Caller-supplied runtime context for reranking.
+#[derive(Default)]
+pub struct RerankExecutionContext<'a> {
+    /// Optional reranker backend.
+    pub reranker: Option<&'a mut dyn TextReranker>,
+    /// Optional model identifier for response metadata.
+    pub model_id: Option<String>,
 }
 
 /// Reranks documents from imported scores or deterministic lexical overlap.
 pub fn rerank_documents(request: RerankRequest) -> CoreResult<RerankResponse> {
+    rerank_documents_with_context(request, &mut RerankExecutionContext::default())
+}
+
+/// Reranks documents using a runtime backend when supplied, otherwise falls back.
+pub fn rerank_documents_with_context(
+    request: RerankRequest,
+    context: &mut RerankExecutionContext<'_>,
+) -> CoreResult<RerankResponse> {
     if request.query.trim().is_empty() {
         return Err(DetectError::InvalidArgument(
             "rerank request must include a non-empty query".to_string(),
@@ -427,20 +588,41 @@ pub fn rerank_documents(request: RerankRequest) -> CoreResult<RerankResponse> {
             "rerank request must include at least one document".to_string(),
         ));
     }
+    let backend_scores = if let Some(reranker) = context.reranker.as_deref_mut() {
+        let runtime = rerank_runtime_name(reranker.runtime_backend());
+        Some((
+            runtime,
+            reranker.rerank(&request.query, &request.documents)?,
+        ))
+    } else {
+        None
+    };
     let mut results = request
         .documents
         .iter()
         .enumerate()
         .map(|(index, document)| {
-            let score = request
-                .imported_scores
-                .get(index)
-                .copied()
-                .unwrap_or_else(|| lexical_overlap_score(&request.query, document));
+            let (score, runtime) = if let Some((runtime, scores)) = &backend_scores {
+                (
+                    scores.get(index).copied().unwrap_or(0.0),
+                    Some(runtime.clone()),
+                )
+            } else {
+                (
+                    request
+                        .imported_scores
+                        .get(index)
+                        .copied()
+                        .unwrap_or_else(|| lexical_overlap_score(&request.query, document)),
+                    None,
+                )
+            };
             RerankResult {
                 index,
                 document: document.clone(),
                 score,
+                runtime,
+                model_id: context.model_id.clone(),
             }
         })
         .collect::<Vec<_>>();
@@ -456,7 +638,21 @@ pub fn rerank_documents(request: RerankRequest) -> CoreResult<RerankResponse> {
         operation: "rerank".to_string(),
         query: request.query,
         results,
+        runtime: backend_scores.map(|(runtime, _)| runtime),
+        model_id: context.model_id.clone(),
     })
+}
+
+fn rerank_runtime_name(runtime: TextRuntimeBackend) -> String {
+    match runtime {
+        TextRuntimeBackend::Candle => "candle",
+        TextRuntimeBackend::Onnx => "onnx",
+        TextRuntimeBackend::Tokenizers => "tokenizers",
+        TextRuntimeBackend::CudaOxide => "cuda_oxide",
+        TextRuntimeBackend::External => "external",
+        TextRuntimeBackend::Heuristic => "heuristic",
+    }
+    .to_string()
 }
 
 fn lexical_overlap_score(query: &str, document: &str) -> f32 {
@@ -483,6 +679,50 @@ fn lexical_overlap_score(query: &str, document: &str) -> f32 {
         .filter(|term| document_terms.contains(term.as_str()))
         .count();
     overlap as f32 / query_terms.len() as f32
+}
+
+fn rerank_search_results(
+    query: &str,
+    results: &mut Vec<SearchResult>,
+    top_k: usize,
+    context: &mut RerankExecutionContext<'_>,
+) -> CoreResult<()> {
+    let candidate_count = results.len();
+    if candidate_count == 0 {
+        return Ok(());
+    }
+    let request = RerankRequest {
+        query: query.to_string(),
+        documents: results
+            .iter()
+            .map(|result| result.snippet.clone())
+            .collect(),
+        top_k: top_k.max(1),
+        imported_scores: results.iter().map(|result| result.score).collect(),
+    };
+    let response = rerank_documents_with_context(request, context)?;
+    let mut ranked = Vec::new();
+    for reranked in response.results {
+        if let Some(mut result) = results.get(reranked.index).cloned() {
+            result.score = reranked.score;
+            if let Some(runtime) = reranked.runtime {
+                result
+                    .metadata
+                    .insert("rerank_runtime".to_string(), runtime);
+            }
+            if let Some(model_id) = reranked.model_id {
+                result
+                    .metadata
+                    .insert("rerank_model_id".to_string(), model_id);
+            }
+            ranked.push(result);
+        }
+    }
+    *results = ranked;
+    if results.len() > candidate_count {
+        results.truncate(candidate_count);
+    }
+    Ok(())
 }
 
 fn default_rerank_top_k() -> usize {
@@ -666,6 +906,15 @@ impl<B: TextEmbedderBackend> RetrievalIndex<B> {
 
     /// Returns search.
     pub fn search(&self, query: &SearchQuery) -> CoreResult<Vec<SearchResult>> {
+        self.search_with_context(query, &mut RerankExecutionContext::default())
+    }
+
+    /// Returns search, optionally reranking the initial candidates with context.
+    pub fn search_with_context(
+        &self,
+        query: &SearchQuery,
+        context: &mut RerankExecutionContext<'_>,
+    ) -> CoreResult<Vec<SearchResult>> {
         validate_query(query)?;
         self.ensure_non_empty()?;
 
@@ -744,7 +993,11 @@ impl<B: TextEmbedderBackend> RetrievalIndex<B> {
                 .then_with(|| right.lexical_score.total_cmp(&left.lexical_score))
                 .then_with(|| left.chunk_id.cmp(&right.chunk_id))
         });
-        results.truncate(query.top_k);
+        if query.hybrid.rerank {
+            rerank_search_results(&query.text, &mut results, query.top_k, context)?;
+        } else {
+            results.truncate(query.top_k);
+        }
         Ok(results)
     }
 
@@ -1043,6 +1296,9 @@ fn chunk_document(
                 text,
                 ordinal,
                 metadata: metadata.clone(),
+                source: document.source.clone(),
+                provenance: document.provenance.clone(),
+                annotations: document.annotations.clone(),
             });
             ordinal += 1;
         }
@@ -1076,6 +1332,9 @@ fn chunk_spans(
             text,
             ordinal,
             metadata: metadata.clone(),
+            source: document.source.clone(),
+            provenance: document.provenance.clone(),
+            annotations: document.annotations.clone(),
         });
     }
     Ok(chunks)
@@ -1252,6 +1511,31 @@ mod tests {
         }
     }
 
+    struct FakeReranker;
+
+    impl TextReranker for FakeReranker {
+        fn rerank(
+            &mut self,
+            _query: &str,
+            documents: &[String],
+        ) -> video_analysis_core::Result<Vec<f32>> {
+            Ok(documents
+                .iter()
+                .map(|document| {
+                    if document.contains("second") {
+                        0.95
+                    } else {
+                        0.1
+                    }
+                })
+                .collect())
+        }
+
+        fn runtime_backend(&self) -> TextRuntimeBackend {
+            TextRuntimeBackend::External
+        }
+    }
+
     fn query(text: &str) -> SearchQuery {
         SearchQuery {
             text: text.to_string(),
@@ -1271,6 +1555,9 @@ mod tests {
                 .collect::<Vec<_>>()
                 .join(" "),
             metadata: BTreeMap::new(),
+            source: None,
+            provenance: Vec::new(),
+            annotations: Vec::new(),
         };
 
         let chunks = chunk_document(
@@ -1306,6 +1593,33 @@ mod tests {
         assert_eq!(chunks.len(), 2);
         assert_eq!(chunks[0].text, "First sentence.");
         assert_eq!(chunks[1].text, "Second sentence.");
+    }
+
+    #[test]
+    fn rerank_context_uses_backend_scores() {
+        let mut reranker = FakeReranker;
+        let mut context = RerankExecutionContext {
+            reranker: Some(&mut reranker),
+            model_id: Some("fake-reranker".to_string()),
+        };
+
+        let response = rerank_documents_with_context(
+            RerankRequest {
+                query: "pick second".to_string(),
+                documents: vec!["first document".to_string(), "second document".to_string()],
+                top_k: 2,
+                imported_scores: Vec::new(),
+            },
+            &mut context,
+        )
+        .unwrap();
+
+        assert_eq!(response.results[0].index, 1);
+        assert_eq!(response.results[0].runtime.as_deref(), Some("external"));
+        assert_eq!(
+            response.results[0].model_id.as_deref(),
+            Some("fake-reranker")
+        );
     }
 
     #[test]
@@ -1345,6 +1659,19 @@ mod tests {
         assert_eq!(document.metadata["timestamp_seconds"], "1.25");
         assert_eq!(document.metadata["duration_seconds"], "1.25");
         assert_eq!(document.metadata["source"], "fixture.srt");
+
+        let chunk = chunk_search_document(
+            &document,
+            &ChunkingOptions::default(),
+            &TextProcessingOptions::default(),
+        )
+        .unwrap()
+        .remove(0);
+        let chunk_document = chunk.to_text_document_contract();
+        let chunk_segment = chunk.to_text_segment_contract();
+        assert_eq!(chunk_document.source.unwrap().duration_seconds, Some(1.25));
+        assert_eq!(chunk_segment.duration_seconds, Some(1.25));
+        assert_eq!(chunk_segment.attributes["speaker"], "narrator");
     }
 
     #[test]
@@ -1363,6 +1690,9 @@ mod tests {
                     title: None,
                     body: "rust cargo crates docs search".to_string(),
                     metadata: BTreeMap::new(),
+                    source: None,
+                    provenance: Vec::new(),
+                    annotations: Vec::new(),
                 }],
                 &options,
             )
@@ -1380,6 +1710,9 @@ mod tests {
                     title: None,
                     body: "music playlists and recommendations".to_string(),
                     metadata: BTreeMap::new(),
+                    source: None,
+                    provenance: Vec::new(),
+                    annotations: Vec::new(),
                 }],
                 &options,
             )
@@ -1410,12 +1743,18 @@ mod tests {
                             ("lang".to_string(), "en".to_string()),
                             ("tags".to_string(), "docs rust".to_string()),
                         ]),
+                        source: None,
+                        provenance: Vec::new(),
+                        annotations: Vec::new(),
                     },
                     SearchDocument {
                         id: "doc-2".to_string(),
                         title: None,
                         body: "Berlin travel plans and restaurant notes.".to_string(),
                         metadata: BTreeMap::from([("lang".to_string(), "en".to_string())]),
+                        source: None,
+                        provenance: Vec::new(),
+                        annotations: Vec::new(),
                     },
                 ],
                 &IngestionOptions::default(),
@@ -1438,6 +1777,9 @@ mod tests {
                     title: None,
                     body: "rust cargo full text search".to_string(),
                     metadata: BTreeMap::new(),
+                    source: None,
+                    provenance: Vec::new(),
+                    annotations: Vec::new(),
                 }],
                 &IngestionOptions::default(),
             )
@@ -1463,6 +1805,9 @@ mod tests {
                     title: None,
                     body: "alpha beta gamma".to_string(),
                     metadata: BTreeMap::new(),
+                    source: None,
+                    provenance: Vec::new(),
+                    annotations: Vec::new(),
                 }],
                 &IngestionOptions::default(),
             )
@@ -1494,6 +1839,9 @@ mod tests {
                         "ordinary".to_string()
                     },
                 )]),
+                source: None,
+                provenance: Vec::new(),
+                annotations: Vec::new(),
             });
         }
         index
@@ -1527,6 +1875,9 @@ mod tests {
                             ("lang".to_string(), "en".to_string()),
                             ("tags".to_string(), "docs".to_string()),
                         ]),
+                        source: None,
+                        provenance: Vec::new(),
+                        annotations: Vec::new(),
                     },
                     SearchDocument {
                         id: "doc-2".to_string(),
@@ -1536,6 +1887,9 @@ mod tests {
                             ("lang".to_string(), "de".to_string()),
                             ("tags".to_string(), "docs".to_string()),
                         ]),
+                        source: None,
+                        provenance: Vec::new(),
+                        annotations: Vec::new(),
                     },
                 ],
                 &IngestionOptions::default(),
@@ -1566,6 +1920,9 @@ mod tests {
                     body: "rust cargo crates semantic search documentation indexing retrieval"
                         .to_string(),
                     metadata: BTreeMap::new(),
+                    source: None,
+                    provenance: Vec::new(),
+                    annotations: Vec::new(),
                 }],
                 &IngestionOptions {
                     chunk_tokens: 4,
@@ -1587,6 +1944,9 @@ mod tests {
             text: "rust cargo docs".to_string(),
             ordinal: 0,
             metadata: BTreeMap::new(),
+            source: None,
+            provenance: Vec::new(),
+            annotations: Vec::new(),
         }];
         let records = vec![SerializableVectorRecord {
             id: "doc:0".into(),

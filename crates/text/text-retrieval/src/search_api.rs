@@ -362,6 +362,7 @@ fn to_hybrid_config(mode: SearchMode, candidate_limit: usize) -> Result<HybridCo
         semantic_weight,
         lexical_weight,
         rerank_window: candidate_limit,
+        rerank: false,
     })
 }
 

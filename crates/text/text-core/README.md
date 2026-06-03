@@ -13,7 +13,9 @@ invoke native inference/runtime tools.
 
 `TextDocument`, `OwnedTextDocument`, `TextSpan`, token/sentence/paragraph
 records, text processing options, and the portable document/segment contracts
-are the stable data boundary for other crates.
+are the stable data boundary for other crates. The portable contracts also
+carry optional rich metadata: source references, media timing, provenance, and
+annotation spans.
 
 ## Quality and limits
 

@@ -71,7 +71,7 @@ pub struct PersistedCorpusMetadata {
     pub bm25_options: text_lexical::Bm25Options,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Data type for persisted chunk record.
 pub struct PersistedChunkRecord {
     /// The chunk value.
@@ -347,12 +347,18 @@ mod tests {
                         body: "Rust cargo crates enable semantic search over documentation."
                             .to_string(),
                         metadata: BTreeMap::from([("lang".to_string(), "en".to_string())]),
+                        source: None,
+                        provenance: Vec::new(),
+                        annotations: Vec::new(),
                     },
                     SearchDocument {
                         id: "doc-2".to_string(),
                         title: None,
                         body: "Music playlists and recommendation notes.".to_string(),
                         metadata: BTreeMap::from([("lang".to_string(), "en".to_string())]),
+                        source: None,
+                        provenance: Vec::new(),
+                        annotations: Vec::new(),
                     },
                 ],
                 &IngestionOptions::default(),
@@ -408,6 +414,9 @@ mod tests {
                     title: None,
                     body: "rust cargo crates".to_string(),
                     metadata: BTreeMap::new(),
+                    source: None,
+                    provenance: Vec::new(),
+                    annotations: Vec::new(),
                 }],
                 &IngestionOptions::default(),
             )
