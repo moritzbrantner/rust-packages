@@ -408,8 +408,8 @@ fn parse_linguistic_depth(request: &ModeRequest) -> LinguisticDepth {
                 .as_deref()
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from(".model-runtime")),
-            auto_download: request.auto_download.unwrap_or(true),
-            download_progress: request.download_progress.unwrap_or(true),
+            auto_download: request.auto_download.unwrap_or(false),
+            download_progress: request.download_progress.unwrap_or(false),
         },
         _ => LinguisticDepth::HeuristicBalanced,
     }
@@ -468,4 +468,53 @@ fn default_similarity_n() -> usize {
 
 fn default_similarity_mode() -> String {
     "token".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn local_model_request_defaults_do_not_auto_download() {
+        let depth = parse_linguistic_depth(&ModeRequest {
+            mode: "localModel".to_string(),
+            bundle_dir: None,
+            auto_download: None,
+            download_progress: None,
+        });
+
+        match depth {
+            LinguisticDepth::LocalModel {
+                auto_download,
+                download_progress,
+                ..
+            } => {
+                assert!(!auto_download);
+                assert!(!download_progress);
+            }
+            other => panic!("expected local model depth, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn local_model_request_accepts_explicit_auto_download() {
+        let depth = parse_linguistic_depth(&ModeRequest {
+            mode: "localModel".to_string(),
+            bundle_dir: Some(".model-runtime".to_string()),
+            auto_download: Some(true),
+            download_progress: Some(true),
+        });
+
+        match depth {
+            LinguisticDepth::LocalModel {
+                auto_download,
+                download_progress,
+                ..
+            } => {
+                assert!(auto_download);
+                assert!(download_progress);
+            }
+            other => panic!("expected local model depth, got {other:?}"),
+        }
+    }
 }

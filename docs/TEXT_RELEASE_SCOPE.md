@@ -11,6 +11,20 @@ claims of production-grade NLP quality. Model-backed paths may exist behind
 features or caller-supplied backends, but they are not the default experience
 and are not required to use the text crates.
 
+## Major Release Contract
+
+- Default builds are deterministic, local-first, and network-free.
+- Package-surface operations do not download models, call network services,
+  invoke native inference, or write persistence artifacts by default.
+- Model-backed behavior requires explicit feature flags and explicit caller
+  configuration.
+- Model downloads require explicit `auto_download: true`, `autoDownload: true`,
+  or an equivalent setup command.
+- Classification and question-answering model catalogs may include reference
+  metadata, but reference-only models must not be presented as runnable.
+- Hashed embeddings and heuristic NLP are deterministic baselines, not quality
+  claims.
+
 ## Text Model Release Scope
 
 The text release surface treats user-visible model entries as either loadable or reference-only. Deterministic fallback models remain available in default builds. Native model loads require explicit feature gates and local setup:

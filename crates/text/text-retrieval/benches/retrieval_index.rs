@@ -4,9 +4,20 @@ use text_retrieval::surface::run_surface_operation;
 
 fn bench_retrieval_index(c: &mut Criterion) {
     let chunk_input = serde_json::json!({
-        "text": "Rust text retrieval chunks transcript content for search. ".repeat(64),
-        "maxChunkTokens": 32,
-        "overlapTokens": 4
+        "documents": [
+            {
+                "id": "doc-1",
+                "body": "Rust text retrieval chunks transcript content for search. ".repeat(64)
+            }
+        ],
+        "options": {
+            "strategy": "TokenWindow",
+            "ingestion": {
+                "chunk_tokens": 32,
+                "chunk_overlap_tokens": 4,
+                "store_raw_text": true
+            }
+        }
     });
     let search_input = serde_json::json!({
         "documents": [

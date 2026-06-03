@@ -1,6 +1,7 @@
 # text-linguistics
 
-Local model-backed linguistic analysis pipeline for `moritzbrantner-video-analysis`.
+Heuristic-first, local-first linguistic analysis pipeline for
+`moritzbrantner-video-analysis`.
 
 ## Highlights
 
@@ -31,18 +32,19 @@ assert_eq!(analysis.graph.tokens.len(), analysis.tokens.len());
 ```
 
 When the `candle` feature is enabled, rich profiles can use a local
-`bert-base-ner` token-classification model. The public Hugging Face bundle is
-materialized into `.model-runtime` on first use through a `jobs-core`
-download job and then runs locally through Candle; no OpenAI, Claude, or hosted
-LLM token is required. Transcript-specific analysis is available behind the
-`transcripts` feature. For deterministic offline tests or constrained
+`bert-base-ner` token-classification model. That model-backed NER path is
+opt-in and only materializes bundles when callers run explicit setup or request
+download behavior through model-runtime configuration. No OpenAI, Claude, or
+hosted LLM token is required. Transcript-specific analysis is available behind
+the `transcripts` feature. For deterministic offline tests or constrained
 environments, use `LinguisticAnalysisOptions::heuristic()`.
 
 ## Package surface
 
 - Primary workflow: `linguistics.analyze` runs the deterministic linguistic
   pipeline and returns tokens, language, entities, topics, and style signals.
-- Workflow operations: `linguistics.analyze` and `linguistics.entities`.
+- Workflow operations: `linguistics.analyze`, `linguistics.entities`, and
+  `linguistics.language`.
 - Debug operations: `describe` inspects package metadata and operation support.
 - Runtime support: deterministic package-surface operations are pure Rust and
   available through library, CLI, server, and WASM wrappers; richer model-backed

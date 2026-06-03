@@ -45,6 +45,23 @@ fn text_retrieval_transcript_ingestion_is_feature_gated() {
 }
 
 #[test]
+fn text_analysis_model_backed_defaults_do_not_auto_download() {
+    let options = text_analysis::DocumentAnalysisOptions::model_backed();
+
+    match options.linguistic_depth {
+        text_analysis::LinguisticDepth::LocalModel {
+            auto_download,
+            download_progress,
+            ..
+        } => {
+            assert!(!auto_download);
+            assert!(!download_progress);
+        }
+        other => panic!("expected local model depth, got {other:?}"),
+    }
+}
+
+#[test]
 fn native_text_model_runtime_dependencies_are_feature_gated() {
     for path in [
         "crates/text/text-analysis/Cargo.toml",

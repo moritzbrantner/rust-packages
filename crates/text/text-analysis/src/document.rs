@@ -526,8 +526,8 @@ fn effective_linguistic_depth(options: &DocumentAnalysisOptions) -> LinguisticDe
     {
         LinguisticDepth::LocalModel {
             bundle_dir: PathBuf::from(".model-runtime"),
-            auto_download: true,
-            download_progress: true,
+            auto_download: false,
+            download_progress: false,
         }
     } else {
         options.linguistic_depth.clone()

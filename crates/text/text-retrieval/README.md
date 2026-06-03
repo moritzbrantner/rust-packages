@@ -22,15 +22,17 @@ lexical scoring, hashed semantic search, and corpus analysis reports, see
 
 - Primary workflow: `retrieval.search` builds a transient in-memory retrieval
   index and searches it.
-- Workflow operations: `retrieval.chunk`, `retrieval.search`, and
-  `retrieval.rerank`.
+- Workflow operations: `retrieval.chunk`, `retrieval.search`,
+  `retrieval.rerank`, and `retrieval.snapshotPlan`.
 - Debug operations: `describe` inspects package metadata and operation support.
 - Runtime support: pure Rust, available through library, CLI, server, and WASM
   wrappers.
 - Sample output includes `title`, `message`, `summary`, `result`, and
-  operation-specific fields such as `chunks`, `report`, `mode`, or `results`.
+  operation-specific fields such as `chunks`, `report`, `mode`, `results`, or
+  snapshot planning details.
 - Package-surface operations do not write persistence artifacts or run native
-  model inference.
+  model inference; `retrieval.snapshotPlan` plans in-memory persistence work but
+  does not write files.
 
 ## Related crates
 

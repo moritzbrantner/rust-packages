@@ -136,6 +136,59 @@ fn invalid_keyword_and_shingle_options_are_rejected() {
 }
 
 #[test]
+fn model_backed_helper_does_not_auto_download_by_default() {
+    let options = DocumentAnalysisOptions::model_backed();
+
+    assert_eq!(options.profile, AnalysisProfile::ModelBacked);
+    match options.linguistic_depth {
+        LinguisticDepth::LocalModel {
+            auto_download,
+            download_progress,
+            ..
+        } => {
+            assert!(!auto_download);
+            assert!(!download_progress);
+        }
+        other => panic!("expected local model depth, got {other:?}"),
+    }
+}
+
+#[test]
+fn model_backed_with_downloads_is_explicit_download_opt_in() {
+    let options = DocumentAnalysisOptions::model_backed_with_downloads();
+
+    assert_eq!(options.profile, AnalysisProfile::ModelBacked);
+    match options.linguistic_depth {
+        LinguisticDepth::LocalModel {
+            auto_download,
+            download_progress,
+            ..
+        } => {
+            assert!(auto_download);
+            assert!(download_progress);
+        }
+        other => panic!("expected local model depth, got {other:?}"),
+    }
+}
+
+#[test]
+fn model_backed_profile_upgrade_does_not_auto_download() {
+    let options = DocumentAnalysisOptions {
+        profile: AnalysisProfile::ModelBacked,
+        linguistic_depth: LinguisticDepth::HeuristicBalanced,
+        ..DocumentAnalysisOptions::default()
+    };
+
+    let report = analyze_text("doc", "Alice works at OpenAI in Berlin.", &options).unwrap();
+
+    assert!(report.linguistic.is_none());
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "linguistics_unavailable"));
+}
+
+#[test]
 fn model_backed_profile_uses_local_model_options_or_reports_diagnostic() {
     let options = DocumentAnalysisOptions {
         profile: AnalysisProfile::ModelBacked,

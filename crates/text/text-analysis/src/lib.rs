@@ -103,6 +103,18 @@ impl DocumentAnalysisOptions {
             profile: AnalysisProfile::ModelBacked,
             linguistic_depth: LinguisticDepth::LocalModel {
                 bundle_dir: PathBuf::from(".model-runtime"),
+                auto_download: false,
+                download_progress: false,
+            },
+            ..Self::default()
+        }
+    }
+
+    pub fn model_backed_with_downloads() -> Self {
+        Self {
+            profile: AnalysisProfile::ModelBacked,
+            linguistic_depth: LinguisticDepth::LocalModel {
+                bundle_dir: PathBuf::from(".model-runtime"),
                 auto_download: true,
                 download_progress: true,
             },

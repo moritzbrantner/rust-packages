@@ -521,6 +521,8 @@ flowchart LR
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_synthesis
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_analysis
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_classification
+  crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_classification_cli
+  crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_classification_server
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_core
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_core_cli
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_core_server
@@ -528,8 +530,12 @@ flowchart LR
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_embeddings_cli
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_embeddings_server
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_generation
+  crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_generation_cli
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_generation_linguistics
+  crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_generation_server
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_lexical
+  crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_lexical_cli
+  crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_lexical_server
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_linguistics
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_model_runtime
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_question_answering

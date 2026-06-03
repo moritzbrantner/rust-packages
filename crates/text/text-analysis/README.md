@@ -33,6 +33,14 @@ assert!(!report.lexical.keywords.is_empty());
 - `onnx`: enables local ONNX-backed embedding integration.
 - `external-tests`: enables model/runtime integration test features.
 
+## Model-backed analysis
+
+`DocumentAnalysisOptions::model_backed()` selects local-model analysis but does
+not auto-download model bundles. Use
+`DocumentAnalysisOptions::model_backed_with_downloads()` only when download
+behavior is explicitly desired. Package-surface callers must pass
+`autoDownload: true` in the `linguistics` request to request model downloads.
+
 ## Package surface
 
 - Primary workflow: `analysis.document` analyzes one text with core, lexical,

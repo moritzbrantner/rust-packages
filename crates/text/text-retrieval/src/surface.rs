@@ -261,7 +261,7 @@ fn snapshot_plan_value(request: SnapshotPlanRequest) -> Result<serde_json::Value
         .ingest_documents(&request.documents, &IngestionOptions::default())
         .map_err(|error| error.to_string())?;
     let persisted = PersistedSearchIndex::from_index(&index);
-    let preview_limit = request.preview_limit.max(1).min(25);
+    let preview_limit = request.preview_limit.clamp(1, 25);
     let files = serde_json::json!([
         {"path": "manifest.json", "records": 1, "kind": "json"},
         {"path": persisted.manifest.corpus_file.clone(), "records": 1, "kind": "json"},

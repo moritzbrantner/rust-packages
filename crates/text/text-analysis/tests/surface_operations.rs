@@ -50,6 +50,34 @@ fn document_surface_parses_modes_and_option_overrides() {
 }
 
 #[test]
+fn local_model_surface_defaults_do_not_auto_download() {
+    let value = run(
+        "analysis.document",
+        serde_json::json!({
+            "id": "doc",
+            "text": "Alice works at OpenAI in Berlin.",
+            "profile": "modelBacked",
+            "linguistics": {
+                "mode": "localModel",
+                "bundleDir": std::env::temp_dir()
+                    .join("text-analysis-missing-ner-bundle")
+                    .to_string_lossy()
+                    .to_string()
+            },
+            "embedding": {"mode": "off"}
+        }),
+    )
+    .unwrap();
+
+    assert!(value["linguistic"].is_null());
+    assert!(value["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == "linguistics_unavailable"));
+}
+
+#[test]
 fn corpus_surface_generates_missing_ids_and_honors_toggles() {
     let value = run(
         "analysis.corpus",

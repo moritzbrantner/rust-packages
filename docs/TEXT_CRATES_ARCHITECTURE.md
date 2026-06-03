@@ -14,7 +14,13 @@ Text package model catalogs distinguish deterministic, loadable, and reference-o
 
 `moritzbrantner-text-model-runtime` owns the shared conformance report types: `TextModelLoadReport`, `TextModelRunReport`, `TextModelCapability`, `validate_text_model_bundle`, and `validate_tokenizer_bundle`.
 
-Default builds remain deterministic and network-free. Native tokenizers, Candle, ONNX, model bundles, and whisper.cpp paths are opt-in through feature gates such as `tokenizers`, `candle`, `onnx`, `model-bundles`, `native`, and `external-tests`.
+Default builds remain deterministic and network-free. Native tokenizers,
+Candle, ONNX, model bundles, and whisper.cpp paths are opt-in through feature
+gates such as `tokenizers`, `candle`, `onnx`, `model-bundles`, `native`, and
+`external-tests`. Feature gates make native/model paths available; callers must
+still explicitly select model-backed behavior. Downloads never happen through
+default helpers or omitted package-surface fields, and text package-surface
+`autoDownload` fields default to `false`.
 
 Use the existing bundle sync flow before running native smoke tests:
 
@@ -131,8 +137,10 @@ mandatory; reusable model acquisition belongs in `model-runtime`.
 
 Default features are deterministic and network-free. Optional runtime features
 may enable tokenizers, ONNX Runtime, or Candle, but callers must still select or
-provide the runtime explicitly. External tests that require real tools, models,
-or network access remain behind `external-tests`.
+provide the runtime explicitly. Omitted download fields are treated as
+`autoDownload: false`; model materialization requires an explicit setup command
+or caller opt-in. External tests that require real tools, models, or network
+access remain behind `external-tests`.
 
 Text Candle server binaries default to CPU. Native CUDA execution is opt-in with
 the server `cuda` feature and startup flags:

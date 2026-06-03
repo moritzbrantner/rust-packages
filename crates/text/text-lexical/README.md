@@ -75,14 +75,14 @@ let _ = (segment, tfidf.search("cargo", 5)?, bm25.search("cargo", 5)?, snapshot_
 
 - Primary workflow: `lexical.analyze` computes deterministic lexical features,
   summaries, readability, sentiment, and rule entities.
-- Workflow operations: `lexical.analyze`, `lexical.keywords`, and
-  `lexical.corpusSearch`.
+- Workflow operations: `lexical.analyze`, `lexical.keywords`,
+  `lexical.corpusSearch`, and `lexical.corpusStats`.
 - Debug operations: `describe` inspects package metadata and operation support.
 - Runtime support: pure Rust, available through library, CLI, server, and WASM
   wrappers.
 - Sample output includes `title`, `message`, `summary`, `result`, and
-  operation-specific fields such as `keywords`, `phraseKeywords`, `mode`, or
-  `results`.
+  operation-specific fields such as `keywords`, `phraseKeywords`, `mode`,
+  `results`, `stats`, `terms`, `documentTfidf`, or sparse matrix previews.
 - This crate does not download models, execute native inference, or persist
   corpus indexes from package-surface operations.
 

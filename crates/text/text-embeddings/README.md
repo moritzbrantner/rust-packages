@@ -39,7 +39,8 @@ assert_eq!(matches[0].metadata.model_name.as_deref(), Some("hashed-text-embedder
 - Primary workflow: `embeddings.embed` builds deterministic hashed embeddings.
 - Workflow operations: `embeddings.embed`, `embeddings.similarity`,
   `embeddings.semanticSearch`, and `embeddings.relatedTerms`.
-- Debug operations: `describe` inspects package metadata and operation support.
+- Debug operations: `embeddings.backends` inspects backend catalog metadata, and
+  `describe` inspects package metadata and operation support.
 - Runtime support: default package-surface operations are pure Rust and
   available through library, CLI, server, and WASM wrappers; tokenizer, ONNX, and
   Candle runtime paths remain opt-in library features.
@@ -47,7 +48,8 @@ assert_eq!(matches[0].metadata.model_name.as_deref(), Some("hashed-text-embedder
   operation-specific fields such as `embeddings`, `similarity`, `results`, or
   `relatedTerms`.
 - The package surface does not download model bundles or invoke native ONNX or
-  Candle inference.
+  Candle inference. Backend catalog inspection reports support metadata without
+  loading model bundles.
 
 ## Model Loading
 

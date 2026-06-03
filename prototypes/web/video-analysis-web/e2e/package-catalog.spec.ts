@@ -129,7 +129,7 @@ async function fetchWrappers(page: Page): Promise<string[]> {
   const architecture = (await response.json()) as WorkspaceArchitectureResponse;
   return architecture.packages
     .filter((pkg) => pkg.kind === "rust" && pkg.name.endsWith("-server"))
-    .map((pkg) => pkg.name.replace(/-server$/, ""))
+    .map((pkg) => pkg.name.replace(/^moritzbrantner-/, "").replace(/-server$/, ""))
     .sort((left, right) => left.localeCompare(right));
 }
 
