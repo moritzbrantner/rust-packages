@@ -118,6 +118,14 @@ pub struct FfmpegSourceOptions {
     pub realtime: bool,
     /// The extra input args value.
     pub extra_input_args: Vec<String>,
+    /// The extra output args value.
+    pub extra_output_args: Vec<String>,
+    /// Resize output to this width while preserving aspect ratio.
+    pub resize_width: Option<u32>,
+    /// Output width override after output-side filters.
+    pub output_width: Option<u32>,
+    /// Output height override after output-side filters.
+    pub output_height: Option<u32>,
     /// Runtime options.
     pub runtime: FfmpegRuntimeOptions,
 }
@@ -129,6 +137,10 @@ impl FfmpegSourceOptions {
             mode: SourceMode::Recorded,
             realtime: false,
             extra_input_args: Vec::new(),
+            extra_output_args: Vec::new(),
+            resize_width: None,
+            output_width: None,
+            output_height: None,
             runtime: FfmpegRuntimeOptions::command(),
         }
     }
@@ -139,6 +151,10 @@ impl FfmpegSourceOptions {
             mode: SourceMode::Live,
             realtime: true,
             extra_input_args: Vec::new(),
+            extra_output_args: Vec::new(),
+            resize_width: None,
+            output_width: None,
+            output_height: None,
             runtime: FfmpegRuntimeOptions::command(),
         }
     }
@@ -146,6 +162,25 @@ impl FfmpegSourceOptions {
     /// Returns extra input arg.
     pub fn extra_input_arg(mut self, arg: impl Into<String>) -> Self {
         self.extra_input_args.push(arg.into());
+        self
+    }
+
+    /// Returns extra output arg.
+    pub fn extra_output_arg(mut self, arg: impl Into<String>) -> Self {
+        self.extra_output_args.push(arg.into());
+        self
+    }
+
+    /// Returns resize width.
+    pub fn resize_width(mut self, width: u32) -> Self {
+        self.resize_width = Some(width);
+        self
+    }
+
+    /// Returns output dimensions.
+    pub fn output_dimensions(mut self, width: u32, height: u32) -> Self {
+        self.output_width = Some(width);
+        self.output_height = Some(height);
         self
     }
 
@@ -264,12 +299,26 @@ impl FfmpegVideoSource {
 
     fn spawn(input: String, metadata: VideoMetadata, options: FfmpegSourceOptions) -> Result<Self> {
         reject_native_runtime(&options.runtime)?;
+        let resized = options.resize_width.map(|width| {
+            (
+                width,
+                scaled_even_height(metadata.width, metadata.height, width),
+            )
+        });
+        let output_width = options
+            .output_width
+            .or_else(|| resized.map(|(width, _)| width))
+            .unwrap_or(metadata.width);
+        let output_height = options
+            .output_height
+            .or_else(|| resized.map(|(_, height)| height))
+            .unwrap_or(metadata.height);
         let source_info = MediaSourceInfo {
             input: metadata.input.clone(),
             mode: metadata.mode,
             video: Some(VideoStreamInfo {
-                width: metadata.width,
-                height: metadata.height,
+                width: output_width,
+                height: output_height,
                 frame_rate: Some(metadata.frame_rate),
                 pixel_format: PixelFormat::Rgb24,
             }),
@@ -293,7 +342,17 @@ impl FfmpegVideoSource {
             .arg(&input)
             .arg("-map")
             .arg("0:v:0")
-            .arg("-an")
+            .arg("-an");
+        let resize_filter = options
+            .resize_width
+            .map(|width| format!("scale={width}:-2"));
+        if let Some(filter) = resize_filter {
+            command.arg("-vf").arg(filter);
+        }
+        for arg in &options.extra_output_args {
+            command.arg(arg);
+        }
+        command
             .arg("-f")
             .arg("rawvideo")
             .arg("-pix_fmt")
@@ -317,7 +376,7 @@ impl FfmpegVideoSource {
         let stdout = child.stdout.take().ok_or_else(|| {
             DetectError::Source("ffmpeg stdout pipe was not available".to_string())
         })?;
-        let frame_size = metadata.width as usize * metadata.height as usize * 3;
+        let frame_size = output_width as usize * output_height as usize * 3;
         Ok(Self {
             metadata,
             source_info,
@@ -359,13 +418,20 @@ impl FfmpegVideoSource {
         self.next_frame_index += 1;
         Ok(Some(OwnedVideoFrame {
             position,
-            width: self.metadata.width,
-            height: self.metadata.height,
+            width: self.source_info.video.as_ref().unwrap().width,
+            height: self.source_info.video.as_ref().unwrap().height,
             pixel_format: PixelFormat::Rgb24,
             data,
-            stride: self.metadata.width as usize * 3,
+            stride: self.source_info.video.as_ref().unwrap().width as usize * 3,
         }))
     }
+}
+
+fn scaled_even_height(input_width: u32, input_height: u32, output_width: u32) -> u32 {
+    let scaled = (u64::from(input_height) * u64::from(output_width) + u64::from(input_width) / 2)
+        / u64::from(input_width);
+    let even = if scaled % 2 == 0 { scaled } else { scaled + 1 };
+    even.max(2) as u32
 }
 
 impl Drop for FfmpegVideoSource {
@@ -1014,11 +1080,28 @@ mod tests {
         assert!(matches!(
             FfmpegSourceOptions::live()
                 .extra_input_arg("-nostdin")
+                .extra_output_arg("-vf")
+                .extra_output_arg("scale=320:-2")
+                .resize_width(320)
+                .output_dimensions(320, 180)
                 .runtime(FfmpegRuntimeOptions::native())
                 .runtime
                 .backend,
             FfmpegRuntimeBackend::Native
         ));
+        assert_eq!(
+            FfmpegSourceOptions::recorded()
+                .extra_output_arg("-vf")
+                .extra_output_arg("scale=320:-2")
+                .extra_output_args,
+            vec!["-vf".to_string(), "scale=320:-2".to_string()]
+        );
+        assert_eq!(
+            FfmpegSourceOptions::recorded()
+                .resize_width(320)
+                .resize_width,
+            Some(320)
+        );
         assert!(matches!(
             FfmpegAudioSourceOptions::recorded()
                 .samples_per_chunk(0)

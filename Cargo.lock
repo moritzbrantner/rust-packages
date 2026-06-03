@@ -5055,6 +5055,7 @@ dependencies = [
  "moritzbrantner-video-analysis-split",
  "moritzbrantner-video-analysis-storage",
  "moritzbrantner-video-analysis-synthesis",
+ "moritzbrantner-video-analysis-test-support",
  "moritzbrantner-video-analysis-tracking",
  "moritzbrantner-video-analysis-transform",
  "num-rational",
@@ -5274,10 +5275,12 @@ dependencies = [
 name = "moritzbrantner-video-analysis-detectors"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-ffmpeg",
  "moritzbrantner-video-analysis-ingest",
+ "moritzbrantner-video-analysis-test-support",
  "num-rational",
  "serde",
  "serde_json",

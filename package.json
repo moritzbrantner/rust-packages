@@ -21,6 +21,7 @@
     "setup:colmap-video": "scripts/setup_colmap_test_video.sh",
     "check": "scripts/check.sh",
     "bench": "bash -lc 'cargo bench --jobs \"${CARGO_BUILD_JOBS:-${TEST_MAX_WORKERS:-2}}\" --workspace'",
+    "video-native:bench": "cargo bench -p moritzbrantner-video-analysis-detectors",
     "maps-wasm:bench": "bun run --cwd packages/maps-kernels-core-wasm bench:browser",
     "maps-wasm:test": "bun run --cwd packages/maps-kernels-core-wasm test",
     "dense-wasm:build": "bun run --cwd packages/dense-data-wasm build",

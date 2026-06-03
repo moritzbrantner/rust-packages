@@ -446,6 +446,7 @@ comfyui-models.workspace = true
 finance-data.workspace = true
 num-rational.workspace = true
 tensor-data.workspace = true
+video-analysis-test-support.workspace = true
 text-core-cli = { package = "moritzbrantner-text-core-cli", path = "crates/text/text-core-cli" }
 text-core-server = { package = "moritzbrantner-text-core-server", path = "crates/text/text-core-server" }
 text-classification-cli = { package = "moritzbrantner-text-classification-cli", path = "crates/text/text-classification-cli" }

@@ -944,7 +944,11 @@ impl<R: OnnxFaceEmbeddingRunner> FaceEmbedderBackend for OnnxFaceEmbedder<R> {
 /// Validates ONNX vision bundle.
 pub fn validate_onnx_vision_bundle(bundle: &ModelBundle) -> Result<OnnxVisionBundleInfo> {
     match bundle.manifest.task {
-        ModelTask::ObjectDetection | ModelTask::ImageClassification => {}
+        ModelTask::ObjectDetection
+        | ModelTask::ImageClassification
+        | ModelTask::ImageEmbedding
+        | ModelTask::FaceDetection
+        | ModelTask::FaceEmbedding => {}
         ModelTask::Custom(ref task)
             if task == "image_embedding" || task == "face_detection" || task == "face_embedding" => {}
         ref task => {
@@ -1033,7 +1037,7 @@ pub fn classification_options_from_bundle(
 pub fn image_embedding_options_from_bundle(
     bundle: &ModelBundle,
 ) -> Result<OnnxImageEmbeddingOptions> {
-    if bundle.manifest.task != ModelTask::Custom("image_embedding".to_string()) {
+    if !is_image_embedding_task(&bundle.manifest.task) {
         return Err(DetectError::InvalidArgument(format!(
             "ONNX image embedding bundle task must be image_embedding, got {:?}",
             bundle.manifest.task
@@ -1057,7 +1061,7 @@ pub fn image_embedding_options_from_bundle(
 pub fn face_detection_options_from_bundle(
     bundle: &ModelBundle,
 ) -> Result<OnnxFaceDetectionOptions> {
-    if bundle.manifest.task != ModelTask::Custom("face_detection".to_string()) {
+    if !is_face_detection_task(&bundle.manifest.task) {
         return Err(DetectError::InvalidArgument(format!(
             "ONNX face detection bundle task must be face_detection, got {:?}",
             bundle.manifest.task
@@ -1071,7 +1075,7 @@ pub fn face_detection_options_from_bundle(
 pub fn face_embedding_options_from_bundle(
     bundle: &ModelBundle,
 ) -> Result<OnnxFaceEmbeddingOptions> {
-    if bundle.manifest.task != ModelTask::Custom("face_embedding".to_string()) {
+    if !is_face_embedding_task(&bundle.manifest.task) {
         return Err(DetectError::InvalidArgument(format!(
             "ONNX face embedding bundle task must be face_embedding, got {:?}",
             bundle.manifest.task
@@ -1079,6 +1083,30 @@ pub fn face_embedding_options_from_bundle(
     }
     validate_onnx_vision_bundle(bundle)?;
     Ok(OnnxFaceEmbeddingOptions::default())
+}
+
+fn is_image_embedding_task(task: &ModelTask) -> bool {
+    match task {
+        ModelTask::ImageEmbedding => true,
+        ModelTask::Custom(value) => value == "image_embedding",
+        _ => false,
+    }
+}
+
+fn is_face_detection_task(task: &ModelTask) -> bool {
+    match task {
+        ModelTask::FaceDetection => true,
+        ModelTask::Custom(value) => value == "face_detection",
+        _ => false,
+    }
+}
+
+fn is_face_embedding_task(task: &ModelTask) -> bool {
+    match task {
+        ModelTask::FaceEmbedding => true,
+        ModelTask::Custom(value) => value == "face_embedding",
+        _ => false,
+    }
 }
 
 /// Returns preprocess image.
@@ -1937,6 +1965,30 @@ mod tests {
                 task,
                 files: manifest_files,
             },
+        }
+    }
+
+    #[test]
+    fn onnx_bundle_accepts_image_task_variants_and_protocol_strings() {
+        for (index, task) in [
+            ModelTask::ImageEmbedding,
+            ModelTask::Custom("image_embedding".to_string()),
+            ModelTask::FaceDetection,
+            ModelTask::Custom("face_detection".to_string()),
+            ModelTask::FaceEmbedding,
+            ModelTask::Custom("face_embedding".to_string()),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let dir = tempdir().unwrap();
+            let bundle = fake_bundle_with_task(
+                &dir.path().join(index.to_string()),
+                task,
+                &[("config.json", "{}"), ("model.onnx", "fake")],
+            );
+
+            validate_onnx_vision_bundle(&bundle).unwrap();
         }
     }
 

@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 use num_rational::Rational64;
 use video_analysis_core::{
     AnalysisEvent, FramePosition, Observation, ObservationKind, OwnedTextSegment, OwnedVideoFrame,
-    PixelFormat, Scene, TextSegment, Timebase, Timestamp,
+    PixelFormat, Scene, SceneDetector, ScenePipeline, TextSegment, Timebase, Timestamp,
 };
 use video_analysis_dataset::{
     AnalysisDataset, DatasetRecord, FeatureRecord, FeatureValue, SceneRecord, TextSegmentRecord,
@@ -87,6 +87,278 @@ pub fn checkerboard_frame(width: u32, height: u32, frame_index: u64) -> OwnedVid
         stride: width as usize * 3,
         data,
     }
+}
+
+/// Specification for deterministic synthetic video fixtures.
+#[derive(Debug, Clone)]
+pub struct SyntheticVideoSpec {
+    /// Frames per second.
+    pub fps: Rational64,
+    /// Frame width in pixels.
+    pub width: u32,
+    /// Frame height in pixels.
+    pub height: u32,
+    /// Number of frames to generate.
+    pub frame_count: u64,
+    /// Ordered scene patterns. Later patterns override earlier pixels.
+    pub patterns: Vec<ScenePattern>,
+}
+
+impl SyntheticVideoSpec {
+    /// Creates a new synthetic video spec with a dark base frame.
+    pub fn new(width: u32, height: u32, frame_count: u64, fps: Rational64) -> Self {
+        Self {
+            fps,
+            width,
+            height,
+            frame_count,
+            patterns: vec![ScenePattern::SolidColor {
+                start_frame: 0,
+                end_frame: frame_count,
+                rgb: [32, 32, 32],
+            }],
+        }
+    }
+
+    /// Adds a pattern to this spec.
+    pub fn pattern(mut self, pattern: ScenePattern) -> Self {
+        self.patterns.push(pattern);
+        self
+    }
+}
+
+/// Deterministic frame patterns for scene-detection tests and benchmarks.
+#[derive(Debug, Clone)]
+pub enum ScenePattern {
+    /// Fills a frame range with one color.
+    SolidColor {
+        /// Inclusive start frame.
+        start_frame: u64,
+        /// Exclusive end frame.
+        end_frame: u64,
+        /// RGB color.
+        rgb: [u8; 3],
+    },
+    /// Applies a two-color hard cut at `at_frame`.
+    HardCut {
+        /// Cut frame.
+        at_frame: u64,
+        /// Color before the cut.
+        before: [u8; 3],
+        /// Color from the cut onward.
+        after: [u8; 3],
+    },
+    /// Applies a temporary flash.
+    Flash {
+        /// Inclusive start frame.
+        start_frame: u64,
+        /// Flash length in frames.
+        length: u64,
+        /// Flash color.
+        rgb: [u8; 3],
+    },
+    /// Creates a fade out/in around the darkest midpoint.
+    FadeOutIn {
+        /// Inclusive start frame.
+        start_frame: u64,
+        /// Exclusive end frame.
+        end_frame: u64,
+        /// Bright scene color.
+        high: u8,
+        /// Dark fade color.
+        low: u8,
+    },
+    /// Applies a luminance ramp.
+    LuminanceRamp {
+        /// Inclusive start frame.
+        start_frame: u64,
+        /// Exclusive end frame.
+        end_frame: u64,
+        /// Starting luma.
+        from: u8,
+        /// Ending luma.
+        to: u8,
+    },
+    /// Applies a deterministic stripe pattern with shifted luma distribution.
+    HistogramShift {
+        /// Inclusive start frame.
+        start_frame: u64,
+        /// Exclusive end frame.
+        end_frame: u64,
+    },
+    /// Applies a deterministic checker texture offset that changes perceptual hashes.
+    TextureShift {
+        /// Inclusive start frame.
+        start_frame: u64,
+        /// Exclusive end frame.
+        end_frame: u64,
+        /// Checker offset.
+        offset: u32,
+    },
+}
+
+/// Generates deterministic synthetic video frames.
+pub fn synthetic_frames(spec: &SyntheticVideoSpec) -> Vec<OwnedVideoFrame> {
+    (0..spec.frame_count)
+        .map(|frame_index| {
+            let mut frame =
+                rgb_frame_at_rate(spec.width, spec.height, frame_index, spec.fps, [32, 32, 32]);
+            for pattern in &spec.patterns {
+                apply_pattern(&mut frame, spec.frame_count, pattern);
+            }
+            frame
+        })
+        .collect()
+}
+
+/// Runs a scene detector on pre-generated frames using the public scene pipeline.
+pub fn run_detector_on_frames<D: SceneDetector + 'static>(
+    detector: D,
+    frames: &[OwnedVideoFrame],
+) -> video_analysis_core::Result<video_analysis_core::DetectionResult> {
+    let mut pipeline = ScenePipeline::builder()
+        .detector(detector)
+        .start_in_scene(true)
+        .build()?;
+    for frame in frames {
+        pipeline.process_frame(frame.clone())?;
+    }
+    pipeline.finish_detection()
+}
+
+/// Asserts scene start boundaries by frame index.
+pub fn assert_scene_boundaries(
+    result: &video_analysis_core::DetectionResult,
+    expected_start_frames: &[u64],
+) {
+    let actual = result
+        .scenes
+        .iter()
+        .map(|scene| scene.start.frame_index)
+        .collect::<Vec<_>>();
+    assert_eq!(actual, expected_start_frames);
+}
+
+/// Asserts a metric row contains a key.
+pub fn assert_metric_present(metrics: &video_analysis_core::MetricsStore, frame: u64, key: &str) {
+    let row = metrics
+        .rows()
+        .get(&frame)
+        .unwrap_or_else(|| panic!("missing metric row for frame {frame}"));
+    assert!(
+        row.contains_key(key),
+        "missing metric key `{key}` for frame {frame}; row keys: {:?}",
+        row.keys().collect::<Vec<_>>()
+    );
+}
+
+fn rgb_frame_at_rate(
+    width: u32,
+    height: u32,
+    frame_index: u64,
+    fps: Rational64,
+    rgb: [u8; 3],
+) -> OwnedVideoFrame {
+    let mut frame = rgb_frame(width, height, frame_index, rgb);
+    frame.position = FramePosition::from_frame_index(frame_index, fps);
+    frame
+}
+
+fn apply_pattern(frame: &mut OwnedVideoFrame, frame_count: u64, pattern: &ScenePattern) {
+    let frame_index = frame.position.frame_index;
+    match *pattern {
+        ScenePattern::SolidColor {
+            start_frame,
+            end_frame,
+            rgb,
+        } if in_range(frame_index, start_frame, end_frame) => fill_frame(frame, rgb),
+        ScenePattern::HardCut {
+            at_frame,
+            before,
+            after,
+        } => {
+            if frame_index < at_frame {
+                fill_frame(frame, before);
+            } else if frame_index < frame_count {
+                fill_frame(frame, after);
+            }
+        }
+        ScenePattern::Flash {
+            start_frame,
+            length,
+            rgb,
+        } if in_range(frame_index, start_frame, start_frame.saturating_add(length)) => {
+            fill_frame(frame, rgb);
+        }
+        ScenePattern::FadeOutIn {
+            start_frame,
+            end_frame,
+            high,
+            low,
+        } if in_range(frame_index, start_frame, end_frame) => {
+            let len = end_frame.saturating_sub(start_frame).max(1);
+            let local = frame_index.saturating_sub(start_frame);
+            let midpoint = len / 2;
+            let edge_weight = if local <= midpoint {
+                1.0 - (local as f32 / midpoint.max(1) as f32)
+            } else {
+                (local.saturating_sub(midpoint)) as f32 / (len - midpoint).max(1) as f32
+            };
+            let value = low as f32 + (high as f32 - low as f32) * edge_weight.clamp(0.0, 1.0);
+            fill_frame(frame, [value as u8, value as u8, value as u8]);
+        }
+        ScenePattern::LuminanceRamp {
+            start_frame,
+            end_frame,
+            from,
+            to,
+        } if in_range(frame_index, start_frame, end_frame) => {
+            let len = end_frame.saturating_sub(start_frame).max(1);
+            let local = frame_index.saturating_sub(start_frame);
+            let t = local as f32 / len as f32;
+            let value = from as f32 + (to as f32 - from as f32) * t;
+            fill_frame(frame, [value as u8, value as u8, value as u8]);
+        }
+        ScenePattern::HistogramShift {
+            start_frame,
+            end_frame,
+        } if in_range(frame_index, start_frame, end_frame) => {
+            for y in 0..frame.height {
+                for x in 0..frame.width {
+                    let value = if (x / 4 + y / 4) % 3 == 0 { 16 } else { 236 };
+                    set_pixel(frame, x, y, [value, value, value]);
+                }
+            }
+        }
+        ScenePattern::TextureShift {
+            start_frame,
+            end_frame,
+            offset,
+        } if in_range(frame_index, start_frame, end_frame) => {
+            for y in 0..frame.height {
+                for x in 0..frame.width {
+                    let value = ((x * 5 + y * 3 + offset * 17) % 256) as u8;
+                    set_pixel(frame, x, y, [value, value, value]);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn in_range(frame_index: u64, start_frame: u64, end_frame: u64) -> bool {
+    frame_index >= start_frame && frame_index < end_frame
+}
+
+fn fill_frame(frame: &mut OwnedVideoFrame, rgb: [u8; 3]) {
+    for pixel in frame.data.chunks_exact_mut(3) {
+        pixel.copy_from_slice(&rgb);
+    }
+}
+
+fn set_pixel(frame: &mut OwnedVideoFrame, x: u32, y: u32, rgb: [u8; 3]) {
+    let offset = y as usize * frame.stride + x as usize * 3;
+    frame.data[offset..offset + 3].copy_from_slice(&rgb);
 }
 
 /// Returns owned text segment.

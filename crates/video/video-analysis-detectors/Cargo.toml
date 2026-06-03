@@ -22,6 +22,12 @@ serde_json.workspace = true
 video-analysis-core.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 num-rational.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-ingest.workspace = true
+video-analysis-test-support.workspace = true
+
+[[bench]]
+name = "scene_detectors"
+harness = false
