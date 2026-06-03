@@ -12,8 +12,6 @@ use text_core::{
 };
 use text_embeddings::{EmbeddingModelInfo, TextEmbedderBackend};
 use text_lexical::{Bm25Corpus, Bm25Options, CorpusOptions};
-#[cfg(feature = "transcripts")]
-use text_transcripts::TranscriptSegment;
 use vector_analysis_index::{
     SerializableVectorRecord, VectorRecord, VectorRecordMetadata, VectorSearchFilter,
     VectorSearchIndex,
@@ -109,42 +107,6 @@ impl SearchDocument {
             id: segment
                 .document_id()
                 .unwrap_or_else(|| segment.segment_index.to_string()),
-            title: None,
-            body: segment.text.clone(),
-            metadata,
-        }
-    }
-
-    /// Builds this value from transcript segment.
-    #[cfg(feature = "transcripts")]
-    #[deprecated(
-        note = "use text-retrieval with TextSegmentContract or enable the transcript adapter"
-    )]
-    pub fn from_transcript_segment(stream_id: &str, segment: &TranscriptSegment) -> Self {
-        Self::from_transcript_segment_with_source(stream_id, segment, None)
-    }
-
-    /// Builds this value from transcript segment with source.
-    #[cfg(feature = "transcripts")]
-    #[deprecated(
-        note = "use text-retrieval with TextSegmentContract or enable the transcript adapter"
-    )]
-    pub fn from_transcript_segment_with_source(
-        stream_id: &str,
-        segment: &TranscriptSegment,
-        source: impl Into<Option<String>>,
-    ) -> Self {
-        let mut metadata = segment.metadata();
-        if let Some(source) = source.into() {
-            if !source.is_empty() {
-                metadata.insert("source".to_string(), source);
-            }
-        }
-        if let Some(start_seconds) = segment.start_seconds {
-            metadata.insert("timestamp_seconds".to_string(), start_seconds.to_string());
-        }
-        Self {
-            id: text_core::segment_document_id(stream_id, segment.index),
             title: None,
             body: segment.text.clone(),
             metadata,
@@ -1353,35 +1315,35 @@ mod tests {
         assert!(matches!(err, DetectError::InvalidArgument(message) if message.contains("query")));
     }
 
-    #[cfg(feature = "transcripts")]
-    #[allow(deprecated)]
     #[test]
-    fn search_document_from_transcript_segment_preserves_metadata() {
-        let segment = TranscriptSegment {
-            index: 7,
-            start_seconds: Some(1.25),
-            end_seconds: Some(2.5),
-            text: "hello retrieval".to_string(),
-            language: Some("en".to_string()),
-            speaker: Some("narrator".to_string()),
-            confidence: Some(0.8),
-            is_final: true,
-        };
-
-        let document = SearchDocument::from_transcript_segment_with_source(
-            "subs",
-            &segment,
-            Some("fixture.srt".to_string()),
+    fn search_document_from_text_segment_contract_preserves_metadata() {
+        let mut segment = TextSegmentContract::new(7, "hello retrieval");
+        segment.stream_id = Some("subs".to_string());
+        segment.language = Some("en".to_string());
+        segment.timestamp = Some(
+            video_analysis_core::Timestamp::new(1250, video_analysis_core::Timebase::new(1, 1000))
+                .into(),
         );
+        segment.duration_seconds = Some(1.25);
+        segment
+            .attributes
+            .insert("speaker".to_string(), "narrator".to_string());
+        segment
+            .attributes
+            .insert("confidence".to_string(), "0.8".to_string());
+        segment
+            .attributes
+            .insert("source".to_string(), "fixture.srt".to_string());
+
+        let document = SearchDocument::from_text_segment_contract(&segment);
 
         assert_eq!(document.id, "subs:7");
         assert_eq!(document.body, "hello retrieval");
         assert_eq!(document.metadata["language"], "en");
         assert_eq!(document.metadata["speaker"], "narrator");
-        assert_eq!(document.metadata["start_seconds"], "1.25");
-        assert_eq!(document.metadata["end_seconds"], "2.5");
         assert_eq!(document.metadata["confidence"], "0.8");
         assert_eq!(document.metadata["timestamp_seconds"], "1.25");
+        assert_eq!(document.metadata["duration_seconds"], "1.25");
         assert_eq!(document.metadata["source"], "fixture.srt");
     }
 

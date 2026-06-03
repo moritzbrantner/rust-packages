@@ -33,6 +33,17 @@ assert!(!report.lexical.keywords.is_empty());
 - `onnx`: enables local ONNX-backed embedding integration.
 - `external-tests`: enables model/runtime integration test features.
 
+## Stable contract
+
+The stable surface is high-level document and corpus report orchestration over
+the focused text crates. Report sections may grow additively, but default
+analysis remains deterministic, local-first, and no-download.
+
+## Quality and limits
+
+This crate composes lower-level heuristic and hashed-vector outputs. It provides
+consistent report structure, not a production-grade NLP quality guarantee.
+
 ## Model-backed analysis
 
 `DocumentAnalysisOptions::model_backed()` selects local-model analysis but does

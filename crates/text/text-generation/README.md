@@ -8,6 +8,16 @@ open-ended generative model inference.
 
 - No optional feature flags today.
 
+## Stable contract
+
+The stable surface is deterministic Markov training, prediction, generation,
+perplexity scoring, and template synthesis from known terms/signals.
+
+## Quality and limits
+
+This crate is not an open-ended LLM interface. Generated text is a deterministic
+local fallback suitable for tests, demos, and structured synthesis workflows.
+
 ## Example
 
 ```rust,no_run

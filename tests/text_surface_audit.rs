@@ -43,6 +43,12 @@ fn text_surfaces_expose_expected_operations_and_run_examples() {
                 )
             });
             assert_structured_response(case.crate_name, operation.id.as_str(), &response);
+            assert!(
+                response.artifacts.is_empty(),
+                "{} {} emitted artifacts from a default package-surface example",
+                case.crate_name,
+                operation.id.as_str()
+            );
         }
     }
 }

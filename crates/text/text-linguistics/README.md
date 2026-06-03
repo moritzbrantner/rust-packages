@@ -9,10 +9,25 @@ Heuristic-first, local-first linguistic analysis pipeline for
 - Tokenizer routing for word, subword, and mixed analysis modes
 - Surface-to-subword alignment
 - Lemmatization, morphology, POS tagging, chunking, and dependency parsing
-- Local model-backed named entities through `CandleTokenClassifier`
+- Explicit local model-backed named entities through `CandleTokenClassifier`
 - Heuristic rule extraction remains available through `LinguisticAnalysisOptions::heuristic()`
 - Coreference, events, discourse, topics, and style analysis
 - `TextAnalyzer` adapter for text pipelines
+
+## Stable contract
+
+The stable surface is the deterministic analysis pipeline, its request options,
+serializable analysis records, tokenizer policy types, and transcript-contract
+adapters behind the `transcripts` feature. Default constructors use heuristic
+entity recognition, avoid model-bundle tokenizer alignment, and do not create or
+download model bundles.
+
+## Quality and limits
+
+Language, POS, entity, coreference, event, discourse, topic, and style outputs
+are heuristic-first and best-effort. Their data shapes are intended to remain
+stable; their labels and confidence scores should not be treated as
+production-grade NLP accuracy claims.
 
 ## Example
 
@@ -31,13 +46,16 @@ assert!(!analysis.entities.is_empty());
 assert_eq!(analysis.graph.tokens.len(), analysis.tokens.len());
 ```
 
-When the `candle` feature is enabled, rich profiles can use a local
-`bert-base-ner` token-classification model. That model-backed NER path is
-opt-in and only materializes bundles when callers run explicit setup or request
-download behavior through model-runtime configuration. No OpenAI, Claude, or
-hosted LLM token is required. Transcript-specific analysis is available behind
-the `transcripts` feature. For deterministic offline tests or constrained
-environments, use `LinguisticAnalysisOptions::heuristic()`.
+When the `candle` feature is enabled, callers can use a local `bert-base-ner`
+token-classification model by setting
+`EntityRecognitionOptions::local_model()` or
+`EntityRecognitionOptions::local_model_with_downloads()`. The no-download
+constructor expects a local bundle to already exist; the downloads constructor
+is the explicit opt-in path for materializing a missing bundle. No OpenAI,
+Claude, or hosted LLM token is required. Transcript-specific analysis is
+available behind the `transcripts` feature. Use
+`TextNlpConfig::rich_with_model_backends()` when tokenizer/model-backed rich
+analysis is explicitly desired.
 
 ## Package surface
 

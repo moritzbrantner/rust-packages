@@ -9,9 +9,22 @@ analysis; they do not download models or invoke native inference/runtime tools.
 
 - No optional feature flags today.
 
+## Stable contract
+
+The stable surface is deterministic lexical analysis, `TextCorpus`, TF-IDF and
+BM25 scoring, corpus snapshots, analyzers for generic text pipelines, and
+portable `text-core` document/segment ingestion. Transcript-specific analyzers
+live in `text-transcripts`.
+
+## Quality and limits
+
+Readability, sentiment, stemming, keyword extraction, and summaries are
+classical local heuristics. Their API shape is stable, but output quality should
+be treated as best-effort outside covered languages and fixtures.
+
 ## Example
 
-```rust,ignore
+```rust,no_run
 use text_core::TextProcessingOptions;
 use text_lexical::{keywords, token_shingle_similarity, KeywordOptions};
 
@@ -28,6 +41,7 @@ let similarity = token_shingle_similarity(
 )?;
 
 let _ = (keywords, similarity);
+# Ok::<(), video_analysis_core::DetectError>(())
 ```
 
 ## Corpus APIs
@@ -50,7 +64,7 @@ without changing the scoring behavior.
 `text-retrieval::RetrievalIndex` is separate: it owns chunked, metadata-rich
 retrieval workflows that combine full-text, vector, and hybrid search.
 
-```rust,ignore
+```rust,no_run
 use text_core::{TextDocumentContract, TextSegmentContract};
 use text_lexical::{Bm25Options, CorpusOptions, TextCorpus};
 
@@ -69,6 +83,7 @@ let bm25 = corpus.to_bm25_corpus(Bm25Options::default())?;
 let snapshot_json = serde_json::to_string_pretty(&corpus.snapshot()?)?;
 
 let _ = (segment, tfidf.search("cargo", 5)?, bm25.search("cargo", 5)?, snapshot_json);
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 ## Package surface

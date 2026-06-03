@@ -9,6 +9,17 @@ invoke native inference/runtime tools.
 
 - No optional feature flags today.
 
+## Stable contract
+
+`TextDocument`, `OwnedTextDocument`, `TextSpan`, token/sentence/paragraph
+records, text processing options, and the portable document/segment contracts
+are the stable data boundary for other crates.
+
+## Quality and limits
+
+Segmentation is deterministic and Unicode-aware, but it is not a statistical NLP
+tokenizer. Higher-level linguistic quality belongs in `text-linguistics`.
+
 ## Example
 
 ```rust,no_run

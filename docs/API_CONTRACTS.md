@@ -449,8 +449,9 @@ cases and model adapters.
   keyword extraction, lexical diversity, stemming, extractive summaries,
   lexicon sentiment, pattern detection, and character/token n-grams. It also provides
   `TextStatsAnalyzer`, `KeywordAnalyzer`, `ExtractiveSummaryAnalyzer`,
-  `SentimentAnalyzer`, `EntityRuleAnalyzer`, `PatternAnalyzer`, and
-  `TranscriptHeuristicAnalyzer` for `TextPipeline`.
+  `SentimentAnalyzer`, `EntityRuleAnalyzer`, and `PatternAnalyzer` for
+  `TextPipeline`. Transcript-specific pipeline analyzers live in
+  `moritzbrantner-text-transcripts`.
 - `moritzbrantner-text-lexical` keeps `TfIdfCorpus` stable and adds `Bm25Corpus` for
   BM25 document ranking with duplicate-id rejection and empty-query handling.
   It now also exposes optional sparse term matrices and vectors backed by

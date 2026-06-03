@@ -155,6 +155,25 @@ The intended stable surface for `0.1` is:
 Minor releases may add fields, adapters, and helper methods, but the crate
 boundaries above should remain recognizable.
 
+## Major Release Readiness
+
+For a major release, treat the reusable library crates as the primary SemVer
+contract. CLI, server, WASM, and app companions should either remain pre-1.0 or
+carry a separate explicit compatibility statement before their routes,
+operation grouping, app presets, and UI assumptions are considered stable.
+
+Before promoting the text crates to a major version:
+
+- Remove deprecated compatibility shims instead of carrying them forward.
+- Keep default library constructors deterministic, local-first, and no-download.
+- Require explicit constructors or request fields for model-backed behavior and
+  model downloads.
+- Keep transcript-specific DTOs and analyzers in `moritzbrantner-text-transcripts`;
+  other crates should consume `TextSegmentContract` or `TextDocumentContract`.
+- Keep package-surface example operations in-memory and artifact-free.
+- Make README examples compile where possible, using `no_run` only when the
+  example needs runtime setup.
+
 ## Experimental Or Best-Effort
 
 These surfaces are useful but should be treated as experimental or

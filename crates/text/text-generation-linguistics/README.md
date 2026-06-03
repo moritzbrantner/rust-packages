@@ -3,6 +3,17 @@
 Adapters from `moritzbrantner-text-linguistics` analysis outputs into `moritzbrantner-text-generation`
 Markov training and template synthesis.
 
+## Stable contract
+
+The stable surface is conversion from linguistic analysis outputs into
+generation terms, deterministic synthesis inputs, and Markov training data.
+
+## Quality and limits
+
+This crate inherits the heuristic quality limits of `text-linguistics` and the
+deterministic generation limits of `text-generation`. It does not execute hosted
+or native LLM inference.
+
 ## Package surface
 
 - Primary workflow: `generationLinguistics.synthesizeFromAnalysis` analyzes

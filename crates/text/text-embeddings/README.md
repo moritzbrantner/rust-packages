@@ -13,6 +13,18 @@ flags.
 - `candle`: Candle-backed text embedding runtime support
 - `external-tests`: opt-in model/runtime checks
 
+## Stable contract
+
+The stable surface is `TextEmbeddingBackend`, deterministic hashed embeddings,
+embedding metadata, vector search helpers, and backend catalog reporting.
+Default package operations use hashed embeddings only.
+
+## Quality and limits
+
+Hashed vectors are reproducible interoperability baselines, not production
+semantic embedding quality claims. Native ONNX and Candle embeddings remain
+feature-gated and setup-dependent.
+
 ## Example
 
 ```rust,no_run

@@ -18,6 +18,18 @@ lexical scoring, hashed semantic search, and corpus analysis reports, see
 - Hybrid weighted ranking with metadata filters
 - Related-content lookup and persistence-friendly export helpers
 
+## Stable contract
+
+The stable surface is chunk construction, `SearchDocument`,
+`TextDocumentContract`/`TextSegmentContract` ingestion, retrieval request/result
+types, metadata filters, snapshot planning, and persistence DTOs.
+
+## Quality and limits
+
+Hybrid score calibration and ranking quality are best-effort. Persistence helper
+types are stable DTOs, but default package-surface operations plan or build
+in-memory indexes and do not write files.
+
 ## Package surface
 
 - Primary workflow: `retrieval.search` builds a transient in-memory retrieval

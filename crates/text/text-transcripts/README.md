@@ -9,6 +9,18 @@ Transcript parsing, ASR command adapters, and native whisper.cpp support for `mo
   builds use `vendor/whisper.cpp`; crates.io builds must set
   `WHISPER_CPP_SOURCE_DIR` to a local whisper.cpp source checkout.
 
+## Stable contract
+
+The stable surface is transcript contracts, segment/word normalization,
+SRT/WebVTT/plain/Whisper JSON parsing, formatting, conversion to
+`TextSegmentContract`, and transcript-specific text pipeline analyzers.
+
+## Quality and limits
+
+Default package operations parse and format text only. ASR command adapters and
+native whisper.cpp transcription remain explicit runtime paths and are not
+invoked by default package-surface operations.
+
 ## Example
 
 ```rust,no_run

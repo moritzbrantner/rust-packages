@@ -6,6 +6,18 @@ Model download and bundle handling belong to `moritzbrantner-model-runtime`; thi
 the question/context request shape, answer predictions, imported span
 postprocessing, and fallback behavior.
 
+## Stable contract
+
+The stable surface is extractive QA request/response DTOs, imported span
+postprocessing, model catalog metadata, and runtime broker traits supplied by
+callers.
+
+## Quality and limits
+
+Default package operations postprocess supplied spans and do not run native QA
+models. Catalog entries that are not `loadable` are reference metadata, not
+runnable native models.
+
 ## Package surface
 
 - Primary workflow: `qa.answer` postprocesses imported extractive QA span

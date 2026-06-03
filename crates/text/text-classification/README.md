@@ -7,6 +7,18 @@ Model download and bundle handling belong to `moritzbrantner-model-runtime`; thi
 the text-facing request/response types, imported prediction handling, and
 deterministic fallback behavior.
 
+## Stable contract
+
+The stable surface is task selection, model catalog metadata, request/response
+DTOs, imported prediction postprocessing, explicit fallback policies, and
+runtime broker traits supplied by callers.
+
+## Quality and limits
+
+Default classification and sentiment fallbacks are deterministic heuristics.
+Catalog entries that are not `loadable` are reference metadata, not runnable
+native models.
+
 ## Package surface
 
 - Primary workflow: `classification.classify` runs imported-prediction or

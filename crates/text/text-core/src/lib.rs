@@ -17,15 +17,15 @@ use unicode_segmentation::UnicodeSegmentation;
 use video_analysis_core::{OwnedTextSegment, TextSegment, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Data type for text document.
+/// Borrowed text document used as the lightweight boundary between text crates.
 pub struct TextDocument<'a> {
-    /// Identifier for this value.
+    /// Stable caller-supplied document id.
     pub id: &'a str,
-    /// Text content for this value.
+    /// UTF-8 document body.
     pub text: &'a str,
-    /// Language tag for this value.
+    /// Optional BCP-47-style language hint such as `en`.
     pub language: Option<&'a str>,
-    /// Timestamp associated with this value.
+    /// Optional media timestamp when this document came from a timed segment.
     pub timestamp: Option<Timestamp>,
 }
 
@@ -71,15 +71,15 @@ impl<'a> TextDocument<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-/// Data type for owned text document.
+/// Owned text document for storage, serialization, and cross-thread workflows.
 pub struct OwnedTextDocument {
-    /// Identifier for this value.
+    /// Stable caller-supplied document id.
     pub id: String,
-    /// Text content for this value.
+    /// UTF-8 document body.
     pub text: String,
-    /// Language tag for this value.
+    /// Optional BCP-47-style language hint such as `en`.
     pub language: Option<String>,
-    /// Timestamp associated with this value.
+    /// Optional media timestamp when this document came from a timed segment.
     pub timestamp: Option<Timestamp>,
 }
 
@@ -179,15 +179,15 @@ pub struct TextStats {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-/// Data type for text span.
+/// Half-open byte and character span into a UTF-8 text buffer.
 pub struct TextSpan {
-    /// The byte start value.
+    /// Inclusive byte offset.
     pub byte_start: usize,
-    /// The byte end value.
+    /// Exclusive byte offset.
     pub byte_end: usize,
-    /// The char start value.
+    /// Inclusive Unicode scalar index.
     pub char_start: usize,
-    /// The char end value.
+    /// Exclusive Unicode scalar index.
     pub char_end: usize,
 }
 
@@ -196,11 +196,11 @@ pub struct TextSpan {
 pub struct AnnotationId(pub usize);
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-/// Data type for annotation confidence.
+/// Confidence score normalized into the inclusive range `0.0..=1.0`.
 pub struct AnnotationConfidence(f32);
 
 impl AnnotationConfidence {
-    /// Creates a new value.
+    /// Creates a clamped confidence score; non-finite inputs become `0.0`.
     pub fn new(value: f32) -> Self {
         let value = if value.is_finite() {
             value.clamp(0.0, 1.0)
@@ -210,7 +210,7 @@ impl AnnotationConfidence {
         Self(value)
     }
 
-    /// Returns get.
+    /// Returns the normalized confidence value.
     pub fn get(self) -> f32 {
         self.0
     }

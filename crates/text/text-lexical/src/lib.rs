@@ -986,40 +986,6 @@ impl TextAnalyzer for PatternAnalyzer {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-#[deprecated(note = "use text_transcripts::TranscriptHeuristicAnalyzer")]
-/// Data type for transcript heuristic analyzer.
-pub struct TranscriptHeuristicAnalyzer;
-
-#[allow(deprecated)]
-impl TextAnalyzer for TranscriptHeuristicAnalyzer {
-    fn name(&self) -> &str {
-        "transcript_heuristics"
-    }
-
-    fn process_segment(&mut self, segment: &TextSegment<'_>) -> Result<Vec<AnalysisEvent>> {
-        let mut events = Vec::new();
-        let text = segment.text.trim();
-        if text.ends_with(['?', '؟', '？']) {
-            events.push(event_at(self.name(), "speech:question", segment.timestamp));
-        }
-        if has_token_kind(text, TokenKind::Url) {
-            events.push(event_at(self.name(), "speech:url", segment.timestamp));
-        }
-        if has_token_kind(text, TokenKind::Number) {
-            events.push(event_at(self.name(), "speech:number", segment.timestamp));
-        }
-        if tokenize_words(text).len() >= 30 {
-            events.push(event_at(
-                self.name(),
-                "speech:long_segment",
-                segment.timestamp,
-            ));
-        }
-        Ok(events)
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 /// Data type for extractive summary analyzer.
 pub struct ExtractiveSummaryAnalyzer {
@@ -1190,12 +1156,6 @@ fn pattern_events(analyzer: &str, text: &str, timestamp: Option<Timestamp>) -> V
         }
     }
     events
-}
-
-fn has_token_kind(text: &str, kind: TokenKind) -> bool {
-    tokenize(text, &TextProcessingOptions::default())
-        .into_iter()
-        .any(|token| token.kind == kind)
 }
 
 fn stem_english(term: &str) -> String {
@@ -1508,12 +1468,11 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn analyzers_run_inside_text_pipeline() {
         let mut pipeline = TextPipeline::builder()
             .analyzer(TextStatsAnalyzer)
             .analyzer(KeywordAnalyzer::default())
-            .analyzer(TranscriptHeuristicAnalyzer)
+            .analyzer(PatternAnalyzer)
             .build()
             .unwrap();
 
@@ -1531,8 +1490,8 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(labels.contains(&"text:stats".to_string()));
         assert!(labels.contains(&"text:keyword:rust".to_string()));
-        assert!(labels.contains(&"speech:question".to_string()));
-        assert!(labels.contains(&"speech:url".to_string()));
+        assert!(labels.contains(&"text:pattern:question".to_string()));
+        assert!(labels.contains(&"text:pattern:url".to_string()));
     }
 
     #[test]

@@ -110,8 +110,8 @@ generic `text-core` segment contract for lexical, linguistic, retrieval, and
 pipeline consumers.
 
 Audio ASR/model crates should return `TranscriptionContract` rather than
-defining their own transcript DTO. Compatibility structs may remain temporarily
-when deprecated and converted into the transcript contract at the boundary.
+defining their own transcript DTO. Compatibility structs should not be added to
+new release surfaces; convert into the transcript contract at the boundary.
 Audio callers should use `TranscriptionContract::from_segments` for imported
 ASR segments and `text_or_joined` when they need display text, so transcript
 normalization, language propagation, confidence clamping, and validation stay

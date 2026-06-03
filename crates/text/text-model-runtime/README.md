@@ -5,6 +5,18 @@ Shared tokenizer input types and native text runtime traits for `moritzbrantner-
 Default builds are deterministic and do not execute native model runtimes. Enable
 `tokenizers`, `onnx`, or `candle` only where native runtime support is required.
 
+## Stable contract
+
+The stable surface is tokenizer input DTOs, runtime backend traits, raw
+prediction records, softmax helpers, model load/run conformance reports, and
+bundle validation without downloads.
+
+## Quality and limits
+
+This crate centralizes runtime contracts; it is not a model acquisition policy
+or hosted inference client. Feature gates expose native paths, but callers must
+explicitly select and configure them.
+
 ## Candle Devices
 
 Candle-backed text execution defaults to CPU. Native server binaries can request

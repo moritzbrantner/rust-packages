@@ -18,14 +18,53 @@ fn detects_english_text() {
 }
 
 #[test]
-fn default_options_use_local_entity_model() {
+fn default_options_use_heuristic_entity_recognition_without_downloads() {
     let options = LinguisticAnalysisOptions::default();
     assert_eq!(
         options.entity_recognition.mode,
-        EntityRecognitionMode::LocalModel
+        EntityRecognitionMode::Heuristic
     );
     assert_eq!(options.entity_recognition.preset, ModelPreset::BertBaseNer);
-    assert!(options.entity_recognition.auto_download);
+    assert!(!options.entity_recognition.auto_download);
+    assert!(!options.entity_recognition.download_progress);
+}
+
+#[test]
+fn local_model_options_are_explicit_and_do_not_download_by_default() {
+    let options = EntityRecognitionOptions::local_model();
+    assert_eq!(options.mode, EntityRecognitionMode::LocalModel);
+    assert_eq!(options.preset, ModelPreset::BertBaseNer);
+    assert!(!options.auto_download);
+    assert!(!options.download_progress);
+
+    let options = EntityRecognitionOptions::local_model_with_downloads();
+    assert_eq!(options.mode, EntityRecognitionMode::LocalModel);
+    assert!(options.auto_download);
+    assert!(options.download_progress);
+}
+
+#[test]
+fn default_analysis_does_not_create_model_runtime_state() {
+    let bundle_dir = std::env::temp_dir().join(format!(
+        "text-linguistics-no-model-write-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    assert!(!bundle_dir.exists());
+
+    let mut config = TextNlpConfig::default();
+    config.options.entity_recognition.bundle_dir = bundle_dir.clone();
+    TextNlpPipeline::new(config)
+        .analyze_text("Alice visited Berlin.")
+        .unwrap();
+
+    assert!(
+        !bundle_dir.exists(),
+        "default linguistic analysis must not materialize model-runtime state"
+    );
 }
 
 #[cfg(feature = "external-tests")]
@@ -50,7 +89,10 @@ fn downloads_default_ner_model_and_runs_local_entities() {
     let bundle_dir = std::env::var_os("TEXT_LINGUISTICS_MODEL_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(".model-runtime"));
-    let mut options = LinguisticAnalysisOptions::default();
+    let mut options = LinguisticAnalysisOptions {
+        entity_recognition: EntityRecognitionOptions::local_model_with_downloads(),
+        ..LinguisticAnalysisOptions::default()
+    };
     options.entity_recognition.bundle_dir = bundle_dir.clone();
     options.entity_recognition.download_progress = false;
     options.entity_recognition.max_retries = 1;
@@ -630,7 +672,7 @@ fn text_nlp_pipeline_exposes_rich_graph_and_profile_metadata() {
 
     assert_eq!(analysis.profile, AnalysisProfile::Rich);
     assert_eq!(analysis.graph.tokens.len(), analysis.tokens.len());
-    assert_eq!(analysis.provenance, AnnotationProvenance::Tokenizer);
+    assert_eq!(analysis.provenance, AnnotationProvenance::Heuristic);
     assert!(analysis.confidence.get() > 0.0);
     assert_eq!(analysis.token_ref(0).unwrap().text, "Alice");
 }

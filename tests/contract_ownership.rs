@@ -683,7 +683,6 @@ fn transcript_dtos_are_owned_by_text_transcripts() {
             }
             let path_text = path.to_string_lossy();
             let allowed = path_text.contains("crates/text/text-transcripts/")
-                || line.contains("TranscriptHeuristicAnalyzer")
                 || line.contains("TranscriptStatsExtractor");
             if !allowed {
                 violations.push(format!("{}:{}", path.display(), line_index + 1));

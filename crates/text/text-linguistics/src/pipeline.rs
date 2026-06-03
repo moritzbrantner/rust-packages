@@ -81,38 +81,52 @@ impl ModelPreset {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-/// Data type for entity recognition options.
+/// Entity recognition runtime selection.
+///
+/// Defaults are heuristic and no-download. Use [`EntityRecognitionOptions::local_model`]
+/// when a local bundle has already been materialized, or
+/// [`EntityRecognitionOptions::local_model_with_downloads`] for explicit
+/// download opt-in.
 pub struct EntityRecognitionOptions {
-    /// The mode value.
+    /// Whether to use deterministic rules or a local model.
     pub mode: EntityRecognitionMode,
-    /// Local model bundle directory.
+    /// Directory containing local model bundles when `mode` is `LocalModel`.
     pub bundle_dir: PathBuf,
-    /// The model preset value.
+    /// Local model preset to load.
     pub preset: ModelPreset,
-    /// Downloads the public model bundle when it is not already materialized.
+    /// Whether a missing model bundle may be downloaded.
     pub auto_download: bool,
-    /// Shows model download progress.
+    /// Whether model download progress should be printed by the downloader.
     pub download_progress: bool,
-    /// The max retries value.
+    /// Maximum retry count for explicit model downloads.
     pub max_retries: usize,
 }
 
 impl Default for EntityRecognitionOptions {
     fn default() -> Self {
-        Self::local_model()
+        Self::heuristic()
     }
 }
 
 impl EntityRecognitionOptions {
-    /// Returns local model.
+    /// Returns local model options without downloading missing bundles.
     pub fn local_model() -> Self {
         Self {
             mode: EntityRecognitionMode::LocalModel,
             bundle_dir: PathBuf::from(".model-runtime"),
             preset: ModelPreset::BertBaseNer,
+            auto_download: false,
+            download_progress: false,
+            max_retries: 1,
+        }
+    }
+
+    /// Returns local model options that may download missing bundles.
+    pub fn local_model_with_downloads() -> Self {
+        Self {
             auto_download: true,
             download_progress: true,
-            max_retries: 1,
+            ..Self::local_model()
         }
     }
 
@@ -190,15 +204,15 @@ impl LinguisticAnalysisOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data type for text nlp config.
+/// Configuration for a local linguistic analysis pipeline.
 pub struct TextNlpConfig {
-    /// The profile value.
+    /// Analysis profile controlling the amount of deterministic annotation work.
     pub profile: AnalysisProfile,
-    /// The options value.
+    /// Detailed pipeline options.
     pub options: LinguisticAnalysisOptions,
-    /// The prefer model backends value.
+    /// Whether tokenizer/model-backed metadata should influence provenance.
     pub prefer_model_backends: bool,
-    /// The model family value.
+    /// Optional tokenizer/model family override for explicit model-backed runs.
     pub model_family: Option<String>,
 }
 
@@ -224,13 +238,29 @@ impl TextNlpConfig {
         Self {
             profile: AnalysisProfile::Balanced,
             options: options_for_profile(AnalysisProfile::Balanced),
-            prefer_model_backends: true,
+            prefer_model_backends: false,
             model_family: None,
         }
     }
 
-    /// Returns rich.
+    /// Returns a rich deterministic profile without model-bundle requirements.
     pub fn rich() -> Self {
+        let mut options = options_for_profile(AnalysisProfile::Rich);
+        options.tokenizer_policy.mode = TokenizationMode::Word;
+        options.enable_alignment = false;
+        Self {
+            profile: AnalysisProfile::Rich,
+            options,
+            prefer_model_backends: false,
+            model_family: None,
+        }
+    }
+
+    /// Returns the richer tokenizer/model-backed profile.
+    ///
+    /// This constructor may require tokenizer or model-bundle setup depending
+    /// on enabled features and selected options.
+    pub fn rich_with_model_backends() -> Self {
         Self {
             profile: AnalysisProfile::Rich,
             options: options_for_profile(AnalysisProfile::Rich),
@@ -244,7 +274,7 @@ impl TextNlpConfig {
         Self {
             profile: AnalysisProfile::Balanced,
             options,
-            prefer_model_backends: true,
+            prefer_model_backends: false,
             model_family: None,
         }
     }
