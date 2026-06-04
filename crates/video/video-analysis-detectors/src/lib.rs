@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, VecDeque};
 use std::f32::consts::PI;
 
 use video_analysis_core::{
-    Cut, DetectError, FramePosition, MetricsSink, Result, SceneDetector, VideoFrame,
+    Cut, DetectError, FramePosition, MetricsSink, PixelFormat, Result, SceneDetector, VideoFrame,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -612,6 +612,7 @@ struct ContentScorer {
     weights: ContentWeights,
     kernel_size: Option<usize>,
     last: Option<FrameData>,
+    current: FrameData,
 }
 
 impl ContentScorer {
@@ -620,6 +621,7 @@ impl ContentScorer {
             weights,
             kernel_size,
             last: None,
+            current: FrameData::default(),
         }
     }
 
@@ -629,8 +631,10 @@ impl ContentScorer {
         metrics: Option<&mut dyn MetricsSink>,
     ) -> Result<f32> {
         let calculate_edges = self.weights.delta_edges > 0.0;
-        let current = FrameData::from_frame(frame, calculate_edges, self.kernel_size)?;
-        let Some(previous) = self.last.replace(current.clone()) else {
+        let Some(previous) = self.last.as_ref() else {
+            self.current
+                .fill_from_frame(frame, calculate_edges, self.kernel_size)?;
+            self.last = Some(std::mem::take(&mut self.current));
             if let Some(metrics) = metrics {
                 set_content_metrics(
                     metrics,
@@ -642,10 +646,18 @@ impl ContentScorer {
             return Ok(0.0);
         };
 
-        let dh = mean_abs_diff(&current.hue, &previous.hue);
-        let ds = mean_abs_diff(&current.sat, &previous.sat);
-        let dl = mean_abs_diff(&current.lum, &previous.lum);
-        let de = match (&current.edges, &previous.edges) {
+        let (dh, ds, dl) = if !calculate_edges && previous.pixel_count() == frame.pixel_count() {
+            self.current.fill_from_frame_and_diff(frame, previous)?
+        } else {
+            self.current
+                .fill_from_frame(frame, calculate_edges, self.kernel_size)?;
+            (
+                mean_abs_diff(&self.current.hue, &previous.hue),
+                mean_abs_diff(&self.current.sat, &previous.sat),
+                mean_abs_diff(&self.current.lum, &previous.lum),
+            )
+        };
+        let de = match (&self.current.edges, &previous.edges) {
             (Some(left), Some(right)) => mean_abs_diff(left, right),
             _ => 0.0,
         };
@@ -661,6 +673,9 @@ impl ContentScorer {
         };
         if let Some(metrics) = metrics {
             set_content_metrics(metrics, frame.position.frame_index, score, (dh, ds, dl, de));
+        }
+        if let Some(previous) = self.last.as_mut() {
+            std::mem::swap(previous, &mut self.current);
         }
         Ok(score)
     }
@@ -742,7 +757,7 @@ impl ScoreAlgorithm for ContentScoreAlgorithm {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 struct FrameData {
     hue: Vec<u8>,
     sat: Vec<u8>,
@@ -751,32 +766,173 @@ struct FrameData {
 }
 
 impl FrameData {
-    fn from_frame(
+    fn pixel_count(&self) -> usize {
+        self.lum.len()
+    }
+
+    fn fill_from_frame(
+        &mut self,
         frame: &VideoFrame<'_>,
         calculate_edges: bool,
         kernel_size: Option<usize>,
-    ) -> Result<Self> {
+    ) -> Result<()> {
         let pixels = frame.pixel_count();
-        let mut hue = Vec::with_capacity(pixels);
-        let mut sat = Vec::with_capacity(pixels);
-        let mut lum = Vec::with_capacity(pixels);
+        self.prepare_component_buffers(pixels);
+        match frame.pixel_format {
+            PixelFormat::Rgb24 => self.fill_from_rgb24(frame)?,
+            PixelFormat::Bgr24 => self.fill_from_bgr24(frame)?,
+        }
+        self.edges = calculate_edges
+            .then(|| detect_edges(&self.lum, frame.width, frame.height, kernel_size));
+        Ok(())
+    }
+
+    fn fill_from_frame_and_diff(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        previous: &FrameData,
+    ) -> Result<(f32, f32, f32)> {
+        let pixels = frame.pixel_count();
+        self.prepare_component_buffers(pixels);
+        self.edges = None;
+        let sums = match frame.pixel_format {
+            PixelFormat::Rgb24 => self.fill_from_rgb24_and_diff(frame, previous)?,
+            PixelFormat::Bgr24 => self.fill_from_bgr24_and_diff(frame, previous)?,
+        };
+        Ok((
+            sums.0 as f32 / pixels as f32,
+            sums.1 as f32 / pixels as f32,
+            sums.2 as f32 / pixels as f32,
+        ))
+    }
+
+    fn prepare_component_buffers(&mut self, pixels: usize) {
+        self.hue.clear();
+        self.sat.clear();
+        self.lum.clear();
+        if self.hue.capacity() < pixels {
+            self.hue.reserve(pixels);
+        }
+        if self.sat.capacity() < pixels {
+            self.sat.reserve(pixels);
+        }
+        if self.lum.capacity() < pixels {
+            self.lum.reserve(pixels);
+        }
+    }
+
+    fn fill_from_rgb24(&mut self, frame: &VideoFrame<'_>) -> Result<()> {
+        let row_len = frame.width as usize * 3;
         for y in 0..frame.height {
-            for x in 0..frame.width {
-                let [r, g, b] = frame.pixel_rgb(x, y);
+            let start = y as usize * frame.stride;
+            let row =
+                frame
+                    .data
+                    .get(start..start + row_len)
+                    .ok_or(DetectError::InvalidFrameBuffer {
+                        expected: start + row_len,
+                        actual: frame.data.len(),
+                    })?;
+            for pixel in row.chunks_exact(3) {
+                let (r, g, b) = (pixel[0], pixel[1], pixel[2]);
                 let (h, s, v) = rgb_to_hsv(r, g, b);
-                hue.push(h);
-                sat.push(s);
-                lum.push(v);
+                self.hue.push(h);
+                self.sat.push(s);
+                self.lum.push(v);
             }
         }
-        let edges =
-            calculate_edges.then(|| detect_edges(&lum, frame.width, frame.height, kernel_size));
-        Ok(Self {
-            hue,
-            sat,
-            lum,
-            edges,
-        })
+        Ok(())
+    }
+
+    fn fill_from_rgb24_and_diff(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        previous: &FrameData,
+    ) -> Result<(u64, u64, u64)> {
+        let row_len = frame.width as usize * 3;
+        let mut index = 0usize;
+        let mut dh = 0u64;
+        let mut ds = 0u64;
+        let mut dl = 0u64;
+        for y in 0..frame.height {
+            let start = y as usize * frame.stride;
+            let row =
+                frame
+                    .data
+                    .get(start..start + row_len)
+                    .ok_or(DetectError::InvalidFrameBuffer {
+                        expected: start + row_len,
+                        actual: frame.data.len(),
+                    })?;
+            for pixel in row.chunks_exact(3) {
+                let (h, s, v) = rgb_to_hsv(pixel[0], pixel[1], pixel[2]);
+                dh += abs_diff_u8(h, previous.hue[index]) as u64;
+                ds += abs_diff_u8(s, previous.sat[index]) as u64;
+                dl += abs_diff_u8(v, previous.lum[index]) as u64;
+                self.hue.push(h);
+                self.sat.push(s);
+                self.lum.push(v);
+                index += 1;
+            }
+        }
+        Ok((dh, ds, dl))
+    }
+
+    fn fill_from_bgr24(&mut self, frame: &VideoFrame<'_>) -> Result<()> {
+        let row_len = frame.width as usize * 3;
+        for y in 0..frame.height {
+            let start = y as usize * frame.stride;
+            let row =
+                frame
+                    .data
+                    .get(start..start + row_len)
+                    .ok_or(DetectError::InvalidFrameBuffer {
+                        expected: start + row_len,
+                        actual: frame.data.len(),
+                    })?;
+            for pixel in row.chunks_exact(3) {
+                let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
+                let (h, s, v) = rgb_to_hsv(r, g, b);
+                self.hue.push(h);
+                self.sat.push(s);
+                self.lum.push(v);
+            }
+        }
+        Ok(())
+    }
+
+    fn fill_from_bgr24_and_diff(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        previous: &FrameData,
+    ) -> Result<(u64, u64, u64)> {
+        let row_len = frame.width as usize * 3;
+        let mut index = 0usize;
+        let mut dh = 0u64;
+        let mut ds = 0u64;
+        let mut dl = 0u64;
+        for y in 0..frame.height {
+            let start = y as usize * frame.stride;
+            let row =
+                frame
+                    .data
+                    .get(start..start + row_len)
+                    .ok_or(DetectError::InvalidFrameBuffer {
+                        expected: start + row_len,
+                        actual: frame.data.len(),
+                    })?;
+            for pixel in row.chunks_exact(3) {
+                let (h, s, v) = rgb_to_hsv(pixel[2], pixel[1], pixel[0]);
+                dh += abs_diff_u8(h, previous.hue[index]) as u64;
+                ds += abs_diff_u8(s, previous.sat[index]) as u64;
+                dl += abs_diff_u8(v, previous.lum[index]) as u64;
+                self.hue.push(h);
+                self.sat.push(s);
+                self.lum.push(v);
+                index += 1;
+            }
+        }
+        Ok((dh, ds, dl))
     }
 }
 
@@ -1464,9 +1620,13 @@ fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
 fn mean_abs_diff(left: &[u8], right: &[u8]) -> f32 {
     left.iter()
         .zip(right.iter())
-        .map(|(left, right)| (*left as i16 - *right as i16).unsigned_abs() as u64)
+        .map(|(left, right)| abs_diff_u8(*left, *right) as u64)
         .sum::<u64>() as f32
         / left.len() as f32
+}
+
+fn abs_diff_u8(left: u8, right: u8) -> u16 {
+    (left as i16 - right as i16).unsigned_abs()
 }
 
 fn detect_edges(lum: &[u8], width: u32, height: u32, kernel_size: Option<usize>) -> Vec<u8> {
@@ -1645,6 +1805,21 @@ mod tests {
         }
     }
 
+    fn bgr_frame(frame_index: u64, rgb: [u8; 3]) -> video_analysis_core::OwnedVideoFrame {
+        let mut data = Vec::new();
+        for _ in 0..16 {
+            data.extend_from_slice(&[rgb[2], rgb[1], rgb[0]]);
+        }
+        video_analysis_core::OwnedVideoFrame {
+            position: FramePosition::from_frame_index(frame_index, Rational64::new(30, 1)),
+            width: 4,
+            height: 4,
+            pixel_format: video_analysis_core::PixelFormat::Bgr24,
+            data,
+            stride: 12,
+        }
+    }
+
     struct FixedScoreAlgorithm {
         name: &'static str,
         normalized: f32,
@@ -1723,6 +1898,35 @@ mod tests {
             .unwrap();
         assert_eq!(cuts.len(), 1);
         assert!(metrics.get(1, "content_val").unwrap() > 10.0);
+    }
+
+    #[test]
+    fn content_detector_scores_rgb24_and_bgr24_equivalent_frames_equally() {
+        let mut rgb_detector = ContentDetector::new(10.0, 1);
+        let mut bgr_detector = ContentDetector::new(10.0, 1);
+        let mut rgb_metrics = MetricsStore::default();
+        let mut bgr_metrics = MetricsStore::default();
+        let rgb_first = frame(0, [24, 48, 96]);
+        let rgb_second = frame(1, [160, 32, 224]);
+        let bgr_first = bgr_frame(0, [24, 48, 96]);
+        let bgr_second = bgr_frame(1, [160, 32, 224]);
+
+        rgb_detector
+            .process_frame(&rgb_first.as_frame(), Some(&mut rgb_metrics))
+            .unwrap();
+        rgb_detector
+            .process_frame(&rgb_second.as_frame(), Some(&mut rgb_metrics))
+            .unwrap();
+        bgr_detector
+            .process_frame(&bgr_first.as_frame(), Some(&mut bgr_metrics))
+            .unwrap();
+        bgr_detector
+            .process_frame(&bgr_second.as_frame(), Some(&mut bgr_metrics))
+            .unwrap();
+
+        for key in ["content_val", "delta_hue", "delta_sat", "delta_lum"] {
+            assert_eq!(rgb_metrics.get(1, key), bgr_metrics.get(1, key), "{key}");
+        }
     }
 
     #[test]

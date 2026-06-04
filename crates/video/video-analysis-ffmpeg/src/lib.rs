@@ -128,6 +128,8 @@ pub struct FfmpegSourceOptions {
     pub output_height: Option<u32>,
     /// Runtime options.
     pub runtime: FfmpegRuntimeOptions,
+    /// Packed video pixel format emitted by the rawvideo pipe.
+    pub pixel_format: PixelFormat,
 }
 
 impl FfmpegSourceOptions {
@@ -142,6 +144,7 @@ impl FfmpegSourceOptions {
             output_width: None,
             output_height: None,
             runtime: FfmpegRuntimeOptions::command(),
+            pixel_format: PixelFormat::Rgb24,
         }
     }
 
@@ -156,6 +159,7 @@ impl FfmpegSourceOptions {
             output_width: None,
             output_height: None,
             runtime: FfmpegRuntimeOptions::command(),
+            pixel_format: PixelFormat::Rgb24,
         }
     }
 
@@ -181,6 +185,12 @@ impl FfmpegSourceOptions {
     pub fn output_dimensions(mut self, width: u32, height: u32) -> Self {
         self.output_width = Some(width);
         self.output_height = Some(height);
+        self
+    }
+
+    /// Returns pixel format.
+    pub fn pixel_format(mut self, pixel_format: PixelFormat) -> Self {
+        self.pixel_format = pixel_format;
         self
     }
 
@@ -320,7 +330,7 @@ impl FfmpegVideoSource {
                 width: output_width,
                 height: output_height,
                 frame_rate: Some(metadata.frame_rate),
-                pixel_format: PixelFormat::Rgb24,
+                pixel_format: options.pixel_format,
             }),
             audio: Vec::new(),
             text: Vec::new(),
@@ -356,7 +366,7 @@ impl FfmpegVideoSource {
             .arg("-f")
             .arg("rawvideo")
             .arg("-pix_fmt")
-            .arg("rgb24")
+            .arg(ffmpeg_pixel_format(options.pixel_format))
             .arg("-vsync")
             .arg("0")
             .arg("pipe:1")
@@ -420,10 +430,17 @@ impl FfmpegVideoSource {
             position,
             width: self.source_info.video.as_ref().unwrap().width,
             height: self.source_info.video.as_ref().unwrap().height,
-            pixel_format: PixelFormat::Rgb24,
+            pixel_format: self.source_info.video.as_ref().unwrap().pixel_format,
             data,
             stride: self.source_info.video.as_ref().unwrap().width as usize * 3,
         }))
+    }
+}
+
+fn ffmpeg_pixel_format(pixel_format: PixelFormat) -> &'static str {
+    match pixel_format {
+        PixelFormat::Rgb24 => "rgb24",
+        PixelFormat::Bgr24 => "bgr24",
     }
 }
 
@@ -1101,6 +1118,12 @@ mod tests {
                 .resize_width(320)
                 .resize_width,
             Some(320)
+        );
+        assert_eq!(
+            FfmpegSourceOptions::recorded()
+                .pixel_format(PixelFormat::Bgr24)
+                .pixel_format,
+            PixelFormat::Bgr24
         );
         assert!(matches!(
             FfmpegAudioSourceOptions::recorded()

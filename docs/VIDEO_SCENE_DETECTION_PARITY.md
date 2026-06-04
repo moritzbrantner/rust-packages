@@ -72,9 +72,155 @@ python3 scripts/check_video_scene_eval.py target/video-scene/content-bbc-smoke.j
 For a broader local sample, run:
 
 ```bash
-cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- --dataset bbc --root .test-corpora/video-scene/BBC --detector content --video-id bbc_03 --video-id bbc_06 --video-id bbc_10 --resize-width 320 --progress --resume --max-runtime-seconds 3300 --output target/video-scene/content-bbc-subset.json
-python3 scripts/check_video_scene_eval.py target/video-scene/content-bbc-subset.json --allow-partial --tolerance-frames 0
+cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- --dataset bbc --root .test-corpora/video-scene/BBC --detector content --video-id bbc_03 --video-id bbc_06 --video-id bbc_10 --resize-width 320 --progress --resume --max-runtime-seconds 3300 --output target/video-scene/content-bbc-subset-broad.json
+python3 scripts/check_video_scene_eval.py target/video-scene/content-bbc-subset-broad.json --allow-partial --tolerance-frames 0
+python3 scripts/summarize_video_scene_eval.py target/video-scene/content-bbc-subset-broad.json --tolerance-frames 0 --output target/video-scene/content-bbc-subset-broad-summary.json
 ```
+
+Current strict three-video BBC subset baseline:
+
+```json
+{
+  "dataset": "bbc",
+  "detector": "content",
+  "videos": ["bbc_03", "bbc_06", "bbc_10"],
+  "resizeWidth": 320,
+  "toleranceFrames": 0,
+  "recall": 0.8505311077389985,
+  "precision": 0.7955997161107168,
+  "f1": 0.822148881554822,
+  "correct": 1121,
+  "predicted": 1409,
+  "groundTruth": 1318,
+  "falsePositives": 288,
+  "falseNegatives": 197,
+  "avgElapsedMs": 116339.26632966667,
+  "complete": true
+}
+```
+
+Per-video baseline diagnostics identify `bbc_10` as the dominant precision
+driver: it contributes 148 false positives, compared with 123 for `bbc_06` and
+17 for `bbc_03`. The baseline summary also reports false-positive distance
+buckets and clusters; for this run, `bbc_10` contributes 64 clustered false
+positives.
+
+The local improvement target for the same strict subset is `F1 >= 0.85`,
+`precision >= 0.83`, `recall >= 0.82`, `complete == true`, videos
+`bbc_03`, `bbc_06`, `bbc_10`, resize width `320`, and tolerance `0` frames.
+
+Reproduce the content/adaptive parameter sweep with:
+
+```bash
+python3 scripts/sweep_video_scene_eval.py \
+  --dataset bbc \
+  --root .test-corpora/video-scene/BBC \
+  --video-id bbc_03 \
+  --video-id bbc_06 \
+  --video-id bbc_10 \
+  --resize-width 320 \
+  --max-runtime-seconds 3300 \
+  --output target/video-scene/bbc-subset-sweep.json
+```
+
+The sweep writes one aggregate JSON file and per-trial evaluator reports under
+`target/video-scene/trials/`. Use `--resume` to reuse complete trial reports.
+Use `--detector-kind content|adaptive|all`, `--max-trials N`, and repeatable
+`--only-trial-id ID` to run long sweeps in stages. The sweep output records the
+documented `target`, `bestPassing`, and `bestOverall`. `bestPassing` is set only
+when a complete trial meets all target gates; `bestOverall` names the best
+complete trial by F1, precision, recall, elapsed time, and content-detector
+preference.
+
+`postFilterWindow` is a post-detector duplicate suppression window. A value of
+`0` disables it. A positive value retains the first predicted cut and removes
+later predicted cuts while `nextCut - keptCut < postFilterWindow`; cuts exactly
+at the window distance are retained.
+
+### Tuned BBC subset result
+
+Focused content trials improved precision but did not pass the full target. The
+best measured content trial was:
+
+```json
+{
+  "trialId": "content-th30-min15-merge-post0",
+  "recall": 0.8414264036418816,
+  "precision": 0.8300898203592815,
+  "f1": 0.8357196684250189,
+  "correct": 1109,
+  "predicted": 1336,
+  "groundTruth": 1318,
+  "complete": true
+}
+```
+
+The first adaptive precision trial passed all gates and is promoted as an
+explicit benchmark preset. The preset does not change `ContentDetector::default()`,
+`AdaptiveDetector` behavior, or any detector defaults; it only applies when
+`--preset bbc-content-tuned` is supplied.
+
+```bash
+cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- \
+  --dataset bbc \
+  --root .test-corpora/video-scene/BBC \
+  --preset bbc-content-tuned \
+  --video-id bbc_03 \
+  --video-id bbc_06 \
+  --video-id bbc_10 \
+  --resize-width 320 \
+  --progress \
+  --resume \
+  --max-runtime-seconds 3300 \
+  --output target/video-scene/bbc-content-tuned-preset.json
+
+python3 scripts/check_video_scene_eval.py \
+  target/video-scene/bbc-content-tuned-preset.json \
+  --tolerance-frames 0 \
+  --min-f1 0.85
+```
+
+Effective preset configuration:
+
+```json
+{
+  "detector": "adaptive",
+  "configuration": {
+    "preset": "bbc-content-tuned",
+    "resizeWidth": 320,
+    "adaptiveThreshold": 3.0,
+    "adaptiveWindowWidth": 2,
+    "adaptiveMinContentVal": 15.0,
+    "minSceneLen": 15,
+    "postFilterWindow": 0
+  }
+}
+```
+
+Tuned strict three-video BBC subset result:
+
+```json
+{
+  "dataset": "bbc",
+  "detector": "adaptive",
+  "videos": ["bbc_03", "bbc_06", "bbc_10"],
+  "resizeWidth": 320,
+  "toleranceFrames": 0,
+  "recall": 0.8672230652503794,
+  "precision": 0.957286432160804,
+  "f1": 0.9100318471337581,
+  "correct": 1143,
+  "predicted": 1194,
+  "groundTruth": 1318,
+  "falsePositives": 51,
+  "falseNegatives": 175,
+  "avgElapsedMs": 90989.80334166666,
+  "complete": true
+}
+```
+
+The tuned diagnostics reduce aggregate false positives from 288 to 51. `bbc_10`
+remains the hardest video, but its false positives drop from 148 to 27.
 
 The full BBC corpus remains an explicit long-running opt-in:
 
@@ -87,6 +233,62 @@ The evaluator reports recall, precision, F1, and average elapsed time. Strict
 performance thresholds are intentionally not part of default CI because machine
 variance would make them noisy.
 
+## Equal Speed Comparison
+
+Use the equal benchmark harness to compare Rust and PySceneDetect on the same
+BBC videos, resize width, detector parameters, annotation loading, frame
+numbering, and timing scope:
+
+```bash
+cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- \
+  --dataset bbc \
+  --root .test-corpora/video-scene/BBC \
+  --detector content \
+  --video-id bbc_03 \
+  --video-id bbc_06 \
+  --video-id bbc_10 \
+  --resize-width 320 \
+  --progress \
+  --resume \
+  --max-runtime-seconds 3300 \
+  --output target/video-scene/rust-content-bbc-subset-broad.json
+
+python3 scripts/pyscenedetect_scene_dataset_eval.py \
+  --dataset bbc \
+  --root .test-corpora/video-scene/BBC \
+  --detector content \
+  --video-id bbc_03 \
+  --video-id bbc_06 \
+  --video-id bbc_10 \
+  --resize-width 320 \
+  --output target/video-scene/pyscenedetect-content-bbc-subset-broad.json
+
+python3 scripts/compare_scene_detector_speed.py \
+  --rust-report target/video-scene/rust-content-bbc-subset-broad.json \
+  --pyscenedetect-report target/video-scene/pyscenedetect-content-bbc-subset-broad.json \
+  --output target/video-scene/content-bbc-speed-compare.json
+```
+
+Per-video timing fields use these scopes:
+
+- `elapsedMs`: end-to-end evaluator time for the video.
+- `decodeResizeElapsedMs`: time spent pulling decoded/resized frames.
+- `detectorElapsedMs`: time spent in detector `process_frame` and finalization.
+- `frameCount` and `effectiveFps`: processed frame count and end-to-end video
+  throughput.
+
+For Rust detector-only timing on real decoded frames, decode once and run the
+detector repeatedly:
+
+```bash
+cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_detector_real_frame_benchmark -- \
+  --input .test-corpora/video-scene/BBC/videos/bbc_03.mp4 \
+  --resize-width 320 \
+  --detector content \
+  --iterations 5 \
+  --output target/video-scene/rust-real-frame-content-bbc_03.json
+```
+
 ## Improvement Policy
 
 New Rust-native detectors or composite strategies may exceed PySceneDetect
@@ -94,3 +296,7 @@ accuracy or speed. Existing detector defaults should keep parity tests stable.
 When a deliberate improvement changes default detector output, update this
 document with the reason, expected behavior, and any compatibility setting that
 preserves PySceneDetect-like output.
+
+PySceneDetect-compatible defaults remain unchanged unless a later change
+explicitly promotes a measured tuned preset. Local benchmark outputs stay under
+`target/video-scene/` and are not committed by default.

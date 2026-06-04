@@ -4,36 +4,32 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use video_analysis_core::SceneDetector;
-use video_analysis_detectors::{
-    AdaptiveDetector, ContentDetector, HashDetector, HistogramDetector, ThresholdDetector,
-};
-use video_analysis_ffmpeg::{FfmpegSourceOptions, FfmpegVideoSource};
+use video_analysis_ffmpeg::FfmpegVideoSource;
 use video_analysis_ingest::VideoFrameSource;
 
-#[derive(Debug, Clone)]
-struct Args {
-    dataset: String,
-    root: PathBuf,
-    detector: String,
-    output: Option<PathBuf>,
-    video_ids: Vec<String>,
-    limit: Option<usize>,
-    max_runtime: Option<Duration>,
-    progress: bool,
-    resume: bool,
-    resize_width: Option<u32>,
-}
+mod scene_dataset_eval_support;
+use scene_dataset_eval_support::{
+    detector_from_args, eval_configuration, ffmpeg_options_from_args, parse_args,
+    suppress_nearby_cuts, Args, EvalConfiguration,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct EvalReport {
+pub(crate) struct EvalReport {
     dataset: String,
     detector: String,
+    #[serde(default = "default_implementation")]
+    pub(crate) implementation: String,
+    #[serde(default)]
+    configuration: EvalConfiguration,
     videos: Vec<VideoReport>,
     summary: EvalSummary,
     #[serde(skip_serializing_if = "Option::is_none")]
     mode: Option<EvalMode>,
+}
+
+pub(crate) fn default_implementation() -> String {
+    "rust".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,6 +52,14 @@ struct VideoReport {
     predicted_cuts: Vec<u64>,
     ground_truth_cuts: Vec<u64>,
     elapsed_ms: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    decode_resize_elapsed_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    detector_elapsed_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    frame_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    effective_fps: Option<f64>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -109,15 +113,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|path| load_annotation(path))
             .transpose()?
             .unwrap_or_default();
-        let video_started = Instant::now();
-        let predicted_cuts = match detect_video(
-            &video,
-            &args.detector,
-            args.resize_width,
-            started,
-            args.max_runtime,
-        ) {
-            Ok(cuts) => cuts,
+        let detection = match detect_video(&video, &args, started, args.max_runtime) {
+            Ok(detection) => detection,
             Err(error) => {
                 write_report(&args, &selected_ids, &reports, false)?;
                 return Err(error);
@@ -127,9 +124,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             id: id.clone(),
             path: video.to_string_lossy().into_owned(),
             annotation_path: annotation_path.map(|path| path.to_string_lossy().into_owned()),
-            predicted_cuts,
+            predicted_cuts: detection.predicted_cuts,
             ground_truth_cuts,
-            elapsed_ms: video_started.elapsed().as_secs_f64() * 1000.0,
+            elapsed_ms: detection.elapsed_ms,
+            decode_resize_elapsed_ms: Some(detection.decode_resize_elapsed_ms),
+            detector_elapsed_ms: Some(detection.detector_elapsed_ms),
+            frame_count: Some(detection.frame_count),
+            effective_fps: Some(detection.effective_fps),
         });
         reports.sort_by(|left, right| left.id.cmp(&right.id));
 
@@ -152,82 +153,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("scene dataset evaluation did not complete all selected videos".into());
     }
     Ok(())
-}
-
-fn parse_args() -> Result<Args, String> {
-    let mut dataset = None;
-    let mut root = None;
-    let mut detector = None;
-    let mut output = None;
-    let mut video_ids = Vec::new();
-    let mut limit = None;
-    let mut max_runtime = None;
-    let mut progress = false;
-    let mut resume = false;
-    let mut resize_width = None;
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--dataset" => dataset = Some(next_value(&mut args, "--dataset")?),
-            "--root" => root = Some(PathBuf::from(next_value(&mut args, "--root")?)),
-            "--detector" => detector = Some(next_value(&mut args, "--detector")?),
-            "--output" => output = Some(PathBuf::from(next_value(&mut args, "--output")?)),
-            "--video-id" => push_unique(&mut video_ids, next_value(&mut args, "--video-id")?),
-            "--limit" => {
-                limit = Some(
-                    next_value(&mut args, "--limit")?
-                        .parse::<usize>()
-                        .map_err(|error| format!("invalid --limit: {error}"))?,
-                );
-            }
-            "--max-runtime-seconds" => {
-                let seconds = next_value(&mut args, "--max-runtime-seconds")?
-                    .parse::<u64>()
-                    .map_err(|error| format!("invalid --max-runtime-seconds: {error}"))?;
-                max_runtime = Some(Duration::from_secs(seconds));
-            }
-            "--resize-width" => {
-                let width = next_value(&mut args, "--resize-width")?
-                    .parse::<u32>()
-                    .map_err(|error| format!("invalid --resize-width: {error}"))?;
-                if width == 0 {
-                    return Err("--resize-width must be greater than 0".to_string());
-                }
-                resize_width = Some(width);
-            }
-            "--progress" => progress = true,
-            "--resume" => resume = true,
-            "-h" | "--help" => return Err(usage()),
-            _ => return Err(format!("unknown argument `{arg}`")),
-        }
-    }
-    Ok(Args {
-        dataset: dataset.ok_or_else(|| "missing --dataset".to_string())?,
-        root: root.ok_or_else(|| "missing --root".to_string())?,
-        detector: detector.unwrap_or_else(|| "content".to_string()),
-        output,
-        video_ids,
-        limit,
-        max_runtime,
-        progress,
-        resume,
-        resize_width,
-    })
-}
-
-fn next_value(args: &mut impl Iterator<Item = String>, name: &str) -> Result<String, String> {
-    args.next()
-        .ok_or_else(|| format!("missing value for {name}"))
-}
-
-fn usage() -> String {
-    "usage: scene_dataset_eval --dataset NAME --root PATH --detector content|adaptive|threshold|histogram|hash [--video-id ID ...] [--limit N] [--resize-width PIXELS] [--progress] [--resume] [--max-runtime-seconds SECONDS] [--output PATH]".to_string()
-}
-
-fn push_unique(values: &mut Vec<String>, value: String) {
-    if !values.iter().any(|existing| existing == &value) {
-        values.push(value);
-    }
 }
 
 fn select_videos(
@@ -292,43 +217,78 @@ fn resumed_reports(
     Ok(reports)
 }
 
+#[derive(Debug)]
+struct DetectionReport {
+    predicted_cuts: Vec<u64>,
+    elapsed_ms: f64,
+    decode_resize_elapsed_ms: f64,
+    detector_elapsed_ms: f64,
+    frame_count: u64,
+    effective_fps: f64,
+}
+
 fn detect_video(
     path: &Path,
-    detector: &str,
-    resize_width: Option<u32>,
+    args: &Args,
     started: Instant,
     max_runtime: Option<Duration>,
-) -> Result<Vec<u64>, Box<dyn std::error::Error>> {
-    let options = resize_width
-        .map(|width| FfmpegSourceOptions::recorded().resize_width(width))
-        .unwrap_or_else(FfmpegSourceOptions::recorded);
+) -> Result<DetectionReport, Box<dyn std::error::Error>> {
+    let video_started = Instant::now();
+    let options = ffmpeg_options_from_args(args);
     let mut source = FfmpegVideoSource::open_path_with_options(path, options)?;
-    let mut detector = detector_by_name(detector)?;
+    let mut detector = detector_from_args(args)?;
     let mut cuts = Vec::new();
     let mut last_position = None;
-    while let Some(frame) = source.next_video_frame()? {
+    let mut decode_resize_elapsed = Duration::ZERO;
+    let mut detector_elapsed = Duration::ZERO;
+    let mut frame_count = 0_u64;
+    loop {
+        let decode_started = Instant::now();
+        let frame = source.next_video_frame()?;
+        decode_resize_elapsed += decode_started.elapsed();
+        let Some(frame) = frame else {
+            break;
+        };
         if runtime_exceeded(started, max_runtime) {
             return Err(runtime_error(max_runtime));
         }
+        frame_count += 1;
         last_position = Some(frame.position);
+        let detector_started = Instant::now();
         cuts.extend(
             detector
                 .process_frame(&frame.as_frame(), None)?
                 .into_iter()
                 .map(|cut| cut.position.frame_index),
         );
+        detector_elapsed += detector_started.elapsed();
     }
     if let Some(last_position) = last_position {
+        let detector_started = Instant::now();
         cuts.extend(
             detector
                 .finish(last_position, None)?
                 .into_iter()
                 .map(|cut| cut.position.frame_index),
         );
+        detector_elapsed += detector_started.elapsed();
     }
     cuts.sort_unstable();
     cuts.dedup();
-    Ok(cuts)
+    let cuts = suppress_nearby_cuts(cuts, args.config.post_filter_window);
+    let elapsed_ms = video_started.elapsed().as_secs_f64() * 1000.0;
+    Ok(DetectionReport {
+        predicted_cuts: cuts,
+        elapsed_ms,
+        decode_resize_elapsed_ms: decode_resize_elapsed.as_secs_f64() * 1000.0,
+        detector_elapsed_ms: detector_elapsed.as_secs_f64() * 1000.0,
+        frame_count,
+        effective_fps: if elapsed_ms > 0.0 {
+            frame_count as f64 / (elapsed_ms / 1000.0)
+        } else {
+            0.0
+        },
+    })
 }
 
 fn runtime_exceeded(started: Instant, max_runtime: Option<Duration>) -> bool {
@@ -345,21 +305,6 @@ fn runtime_error(max_runtime: Option<Duration>) -> Box<dyn std::error::Error> {
         )
         .into(),
         None => "scene dataset evaluation exceeded max runtime".into(),
-    }
-}
-
-fn detector_by_name(name: &str) -> video_analysis_core::Result<Box<dyn SceneDetector>> {
-    match name {
-        "content" | "detect-content" => Ok(Box::new(ContentDetector::default())),
-        "adaptive" | "detect-adaptive" => Ok(Box::new(AdaptiveDetector::default())),
-        "threshold" | "detect-threshold" => Ok(Box::new(ThresholdDetector::default())),
-        "histogram" | "detect-hist" | "detect-histogram" => {
-            Ok(Box::new(HistogramDetector::default()))
-        }
-        "hash" | "detect-hash" => Ok(Box::new(HashDetector::default())),
-        _ => Err(video_analysis_core::DetectError::InvalidArgument(format!(
-            "unsupported detector `{name}`"
-        ))),
     }
 }
 
@@ -460,6 +405,8 @@ fn write_report(
     let report = EvalReport {
         dataset: args.dataset.clone(),
         detector: args.detector.clone(),
+        implementation: "rust".to_string(),
+        configuration: eval_configuration(args),
         summary: summarize(reports),
         videos: reports.to_vec(),
         mode: Some(EvalMode {

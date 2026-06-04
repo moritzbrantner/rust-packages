@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use num_rational::Rational64;
-use video_analysis_core::{OwnedVideoFrame, SceneDetector, ScenePipeline};
+use video_analysis_core::{OwnedVideoFrame, PixelFormat, SceneDetector, ScenePipeline, VideoFrame};
 use video_analysis_detectors::{
     AdaptiveDetector, ContentDetector, ContentScoreAlgorithm, HashDetector, HistogramDetector,
     HistogramScoreAlgorithm, ThresholdDetector, WeightedComponent, WeightedCompositeDetector,
@@ -12,6 +12,8 @@ use video_analysis_test_support::{synthetic_frames, ScenePattern, SyntheticVideo
 fn bench_scene_detectors(c: &mut Criterion) {
     bench_group(c, 64, 64, 120, "smoke");
     bench_group(c, 640, 360, 600, "640x360");
+    bench_content_hot_paths(c, 320, 180);
+    bench_content_hot_paths(c, 640, 360);
 }
 
 fn bench_group(c: &mut Criterion, width: u32, height: u32, frame_count: u64, suffix: &str) {
@@ -113,6 +115,61 @@ fn frames(width: u32, height: u32, frame_count: u64) -> SyntheticVideoSpec {
     SyntheticVideoSpec::new(width, height, frame_count, Rational64::new(30, 1))
 }
 
+fn bench_content_hot_paths(c: &mut Criterion, width: u32, height: u32) {
+    let suffix = format!("{width}x{height}");
+    let frame_count = 2;
+    let frames = synthetic_frames(
+        &frames(width, height, frame_count)
+            .pattern(ScenePattern::TextureShift {
+                start_frame: 0,
+                end_frame: 1,
+                offset: 0,
+            })
+            .pattern(ScenePattern::TextureShift {
+                start_frame: 1,
+                end_frame: 2,
+                offset: 7,
+            }),
+    );
+    let first = frames[0].as_frame();
+    let second = frames[1].as_frame();
+    let mut group = c.benchmark_group(format!("content_hot_path_{suffix}"));
+    group.sample_size(10);
+    group.warm_up_time(Duration::from_millis(300));
+    group.measurement_time(Duration::from_secs(1));
+
+    group.bench_function(format!("rgb_to_hsv_{suffix}"), |b| {
+        b.iter(|| {
+            let mut total = 0usize;
+            for pixel in first.data.chunks_exact(3) {
+                let (h, s, v) = rgb_to_hsv_compat(pixel[0], pixel[1], pixel[2]);
+                total += h as usize + s as usize + v as usize;
+            }
+            black_box(total)
+        })
+    });
+    group.bench_function(
+        format!("content_score_frame_data_from_frame_{suffix}"),
+        |b| b.iter(|| black_box(frame_data_from_frame(first))),
+    );
+    group.bench_function(format!("content_score_mean_abs_diff_{suffix}"), |b| {
+        let left = frame_data_from_frame(first);
+        let right = frame_data_from_frame(second);
+        b.iter(|| black_box(mean_abs_diff_compat(&left.2, &right.2)))
+    });
+    group.bench_function(format!("content_detector_process_frame_{suffix}"), |b| {
+        b.iter_batched(
+            || ContentDetector::new(27.0, 15),
+            |mut detector| {
+                detector.process_frame(&first, None).unwrap();
+                black_box(detector.process_frame(&second, None).unwrap().len())
+            },
+            BatchSize::SmallInput,
+        )
+    });
+    group.finish();
+}
+
 fn run_detector<D: SceneDetector>(mut detector: D, frames: &[OwnedVideoFrame]) -> usize {
     let mut cuts = 0usize;
     for frame in frames {
@@ -138,6 +195,61 @@ fn run_pipeline<D: SceneDetector + 'static>(detector: D, frames: &[OwnedVideoFra
     }
     let result = pipeline.finish_detection().unwrap();
     black_box(result.cuts.len() + result.metrics.rows().len())
+}
+
+fn frame_data_from_frame(frame: VideoFrame<'_>) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+    let mut hue = Vec::with_capacity(frame.pixel_count());
+    let mut sat = Vec::with_capacity(frame.pixel_count());
+    let mut lum = Vec::with_capacity(frame.pixel_count());
+    let row_len = frame.width as usize * 3;
+    for y in 0..frame.height {
+        let start = y as usize * frame.stride;
+        let row = &frame.data[start..start + row_len];
+        for pixel in row.chunks_exact(3) {
+            let (r, g, b) = match frame.pixel_format {
+                PixelFormat::Rgb24 => (pixel[0], pixel[1], pixel[2]),
+                PixelFormat::Bgr24 => (pixel[2], pixel[1], pixel[0]),
+            };
+            let (h, s, v) = rgb_to_hsv_compat(r, g, b);
+            hue.push(h);
+            sat.push(s);
+            lum.push(v);
+        }
+    }
+    (hue, sat, lum)
+}
+
+fn rgb_to_hsv_compat(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
+    let r = r as f32 / 255.0;
+    let g = g as f32 / 255.0;
+    let b = b as f32 / 255.0;
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let delta = max - min;
+    let hue = if delta == 0.0 {
+        0.0
+    } else if max == r {
+        60.0 * (((g - b) / delta) % 6.0)
+    } else if max == g {
+        60.0 * (((b - r) / delta) + 2.0)
+    } else {
+        60.0 * (((r - g) / delta) + 4.0)
+    };
+    let hue = if hue < 0.0 { hue + 360.0 } else { hue };
+    let sat = if max == 0.0 { 0.0 } else { delta / max };
+    (
+        (hue / 360.0 * 255.0) as u8,
+        (sat * 255.0) as u8,
+        (max * 255.0) as u8,
+    )
+}
+
+fn mean_abs_diff_compat(left: &[u8], right: &[u8]) -> f32 {
+    left.iter()
+        .zip(right.iter())
+        .map(|(left, right)| (*left as i16 - *right as i16).unsigned_abs() as u64)
+        .sum::<u64>() as f32
+        / left.len() as f32
 }
 
 criterion_group!(benches, bench_scene_detectors);
