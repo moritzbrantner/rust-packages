@@ -15,3 +15,14 @@ fn run_endpoint_calls_library_surface() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""operation""#));
 }
+
+#[test]
+fn run_endpoint_calls_new_operation() {
+    let response = math_linear_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"linear.cholesky","input":{"matrix":{"rows":2,"cols":2,"values":[4.0,2.0,2.0,3.0]}}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains(r#""method":"cholesky""#));
+}

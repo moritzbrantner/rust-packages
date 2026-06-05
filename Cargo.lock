@@ -3668,6 +3668,7 @@ dependencies = [
 name = "moritzbrantner-maps-kernels-core"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "moritzbrantner-numbers-core",
  "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
@@ -3802,6 +3803,7 @@ dependencies = [
 name = "moritzbrantner-math-signal-core"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "moritzbrantner-numbers-core",
  "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",

@@ -16,13 +16,28 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "geometry.bounds",
-  featuredOperations: ["geometry.bounds", "geometry.transform", "geometry.intersections", "describe"],
+  featuredOperations: [
+    "geometry.bounds",
+    "geometry.transform",
+    "geometry.intersections",
+    "geometry.overlap",
+    "geometry.segmentIntersection",
+    "geometry.polygonSummary",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["geometry.bounds", "geometry.transform", "geometry.intersections"],
+      operations: [
+        "geometry.bounds",
+        "geometry.transform",
+        "geometry.intersections",
+        "geometry.overlap",
+        "geometry.segmentIntersection",
+        "geometry.polygonSummary",
+      ],
     },
     {
       id: "debug",

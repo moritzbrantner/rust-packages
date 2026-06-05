@@ -50,6 +50,16 @@ fn bench_sparse(c: &mut Criterion) {
     c.bench_function("coo_to_csr_100k_entries", |b| {
         b.iter(|| coo.to_csr().unwrap())
     });
+
+    let csr = coo.to_csr().unwrap();
+    let dense = vec![0.5; 4_096];
+    c.bench_function("csr_matvec_100k_entries", |b| {
+        b.iter(|| csr.mul_dense_vector(black_box(&dense)).unwrap())
+    });
+
+    c.bench_function("csr_transpose_100k_entries", |b| {
+        b.iter(|| csr.transpose().unwrap())
+    });
 }
 
 criterion_group!(benches, bench_sparse);

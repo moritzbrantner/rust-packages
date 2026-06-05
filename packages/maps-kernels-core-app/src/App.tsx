@@ -16,13 +16,20 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "maps.kernelSummary",
-  featuredOperations: ["maps.kernelSummary", "maps.applyKernel", "describe"],
+  featuredOperations: [
+    "maps.kernelSummary",
+    "maps.applyKernel",
+    "maps.pathSummary",
+    "maps.simplifyLine",
+    "maps.densifyLine",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["maps.kernelSummary", "maps.applyKernel"],
+      operations: ["maps.kernelSummary", "maps.applyKernel", "maps.pathSummary", "maps.simplifyLine", "maps.densifyLine"],
     },
     {
       id: "debug",

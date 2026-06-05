@@ -16,13 +16,21 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "sparse.similarity",
-  featuredOperations: ["sparse.similarity", "sparse.toDense", "sparse.matrixSummary", "describe"],
+  featuredOperations: [
+    "sparse.similarity",
+    "sparse.toDense",
+    "sparse.vectorOps",
+    "sparse.matrixVector",
+    "sparse.transpose",
+    "sparse.matrixSummary",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["sparse.similarity", "sparse.toDense"],
+      operations: ["sparse.similarity", "sparse.toDense", "sparse.vectorOps", "sparse.matrixVector", "sparse.transpose"],
     },
     {
       id: "debug",

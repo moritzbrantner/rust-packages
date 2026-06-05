@@ -9,6 +9,7 @@ design.
 - Shared window functions and frame/hop sizing
 - Interpolation helpers for signal-domain consumers
 - Reusable FIR and biquad coefficient contracts
+- Signal level summaries, centered FIR application, and peak normalization
 
 ## Example
 

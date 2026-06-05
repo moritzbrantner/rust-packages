@@ -15,3 +15,14 @@ fn run_endpoint_calls_library_surface() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""operation""#));
 }
+
+#[test]
+fn run_endpoint_calls_new_operation() {
+    let response = math_signal_core_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"signal.levels","input":{"samples":[0.0,0.5,-1.0]}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains(r#""count":3"#));
+}

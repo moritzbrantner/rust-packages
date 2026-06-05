@@ -15,3 +15,14 @@ fn run_endpoint_calls_library_surface() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""operation""#));
 }
+
+#[test]
+fn run_endpoint_calls_new_operation() {
+    let response = maps_kernels_core_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"maps.pathSummary","input":{"coordinates":[0.0,0.0,3.0,4.0]}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains(r#""pointCount":2"#));
+}

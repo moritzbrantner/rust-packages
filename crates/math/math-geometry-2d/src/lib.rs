@@ -339,6 +339,32 @@ impl RectU32 {
         Self::new(x, y, max_x - x, max_y - y).map(Some)
     }
 
+    /// Returns intersection-over-union for two rectangles.
+    pub fn iou(self, other: Self) -> Result<f32> {
+        let intersection_area = self
+            .intersection(other)?
+            .map(|rect| rect.area())
+            .transpose()?
+            .unwrap_or(0) as f32;
+        let union_area = self.area()? as f32 + other.area()? as f32 - intersection_area;
+        if union_area <= f32::EPSILON {
+            return Err(invalid_argument(
+                "rectangle union area must be greater than zero",
+            ));
+        }
+        Ok(intersection_area / union_area)
+    }
+
+    /// Returns the intersection area divided by this rectangle area.
+    pub fn overlap_ratio(self, other: Self) -> Result<f32> {
+        let intersection_area = self
+            .intersection(other)?
+            .map(|rect| rect.area())
+            .transpose()?
+            .unwrap_or(0) as f32;
+        Ok(intersection_area / self.area()? as f32)
+    }
+
     /// Returns union.
     pub fn union(self, other: Self) -> Result<Self> {
         self.validate()?;
@@ -1026,6 +1052,32 @@ impl RectF32 {
         Self::new(x, y, max_x - x, max_y - y).map(Some)
     }
 
+    /// Returns intersection-over-union for two rectangles.
+    pub fn iou(self, other: Self) -> Result<f32> {
+        let intersection_area = self
+            .intersection(other)?
+            .map(|rect| rect.area())
+            .transpose()?
+            .unwrap_or(0.0);
+        let union_area = self.area()? + other.area()? - intersection_area;
+        if union_area <= f32::EPSILON {
+            return Err(invalid_argument(
+                "rectangle union area must be greater than zero",
+            ));
+        }
+        Ok(intersection_area / union_area)
+    }
+
+    /// Returns the intersection area divided by this rectangle area.
+    pub fn overlap_ratio(self, other: Self) -> Result<f32> {
+        let intersection_area = self
+            .intersection(other)?
+            .map(|rect| rect.area())
+            .transpose()?
+            .unwrap_or(0.0);
+        Ok(intersection_area / self.area()?)
+    }
+
     /// Returns union.
     pub fn union(self, other: Self) -> Result<Self> {
         self.validate()?;
@@ -1258,6 +1310,17 @@ pub struct LineSegment2 {
     pub end: Point2f,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Intersection details for two finite 2D line segments.
+pub struct LineIntersection2 {
+    /// Intersection point.
+    pub point: Point2f,
+    /// Parametric position on the left segment in `[0, 1]`.
+    pub left_t: f32,
+    /// Parametric position on the right segment in `[0, 1]`.
+    pub right_t: f32,
+}
+
 impl LineSegment2 {
     /// Creates a new value.
     pub fn new(start: Point2f, end: Point2f) -> Result<Self> {
@@ -1284,6 +1347,34 @@ impl LineSegment2 {
     /// Returns direction.
     pub fn direction(self) -> Result<Vector2f> {
         (self.end - self.start).normalize()
+    }
+
+    /// Returns the finite segment intersection, if present.
+    pub fn intersection(self, other: Self) -> Result<Option<LineIntersection2>> {
+        let p = self.start;
+        let r = self.end - self.start;
+        let q = other.start;
+        let s = other.end - other.start;
+        p.validate()?;
+        q.validate()?;
+        let denominator = r.cross(s)?;
+        let q_minus_p = q - p;
+        if denominator.abs() <= f32::EPSILON {
+            return Ok(None);
+        }
+        let left_t = q_minus_p.cross(s)? / denominator;
+        let right_t = q_minus_p.cross(r)? / denominator;
+        if !(-f32::EPSILON..=1.0 + f32::EPSILON).contains(&left_t)
+            || !(-f32::EPSILON..=1.0 + f32::EPSILON).contains(&right_t)
+        {
+            return Ok(None);
+        }
+        let point = p + r * left_t.clamp(0.0, 1.0);
+        Ok(Some(LineIntersection2 {
+            point,
+            left_t,
+            right_t,
+        }))
     }
 }
 
@@ -1471,6 +1562,56 @@ impl Bounds2f {
             return Err(invalid_argument("bounds min must not exceed max"));
         }
         Ok(Self { min, max })
+    }
+
+    /// Creates bounds from one or more finite points.
+    pub fn from_points(points: &[Point2f]) -> Result<Self> {
+        if points.is_empty() {
+            return Err(invalid_argument("bounds require at least one point"));
+        }
+        let mut min_x = points[0].x;
+        let mut min_y = points[0].y;
+        let mut max_x = points[0].x;
+        let mut max_y = points[0].y;
+        for point in points {
+            point.validate()?;
+            min_x = min_x.min(point.x);
+            min_y = min_y.min(point.y);
+            max_x = max_x.max(point.x);
+            max_y = max_y.max(point.y);
+        }
+        Self::new(Point2f::new(min_x, min_y)?, Point2f::new(max_x, max_y)?)
+    }
+
+    /// Returns bounds width.
+    pub fn width(self) -> f32 {
+        self.max.x - self.min.x
+    }
+
+    /// Returns bounds height.
+    pub fn height(self) -> f32 {
+        self.max.y - self.min.y
+    }
+
+    /// Returns bounds center.
+    pub fn center(self) -> Result<Point2f> {
+        Point2f::new(
+            self.min.x + self.width() / 2.0,
+            self.min.y + self.height() / 2.0,
+        )
+    }
+
+    /// Expands bounds by a finite non-negative padding in all directions.
+    pub fn expand(self, padding: f32) -> Result<Self> {
+        if !padding.is_finite() || padding < 0.0 {
+            return Err(invalid_argument(
+                "bounds padding must be finite and non-negative",
+            ));
+        }
+        Self::new(
+            Point2f::new(self.min.x - padding, self.min.y - padding)?,
+            Point2f::new(self.max.x + padding, self.max.y + padding)?,
+        )
     }
 
     /// Returns contains.

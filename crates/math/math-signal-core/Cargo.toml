@@ -21,3 +21,10 @@ serde.workspace = true
 serde_json.workspace = true
 numbers-core.workspace = true
 video-analysis-core.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "signal"
+harness = false

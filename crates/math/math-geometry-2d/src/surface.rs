@@ -6,7 +6,7 @@ use runtime_core::{
 };
 use serde::Deserialize;
 
-use crate::{Affine2, Bounds2f, Point2f, RectF32};
+use crate::{Affine2, Bounds2f, LineSegment2, Point2f, Polygon2f, RectF32};
 
 const MAX_VALUES: usize = 100_000;
 
@@ -44,6 +44,24 @@ pub fn package_surface() -> PackageSurface {
                 "Checks every rectangle pair and returns intersection rectangles when present.",
                 serde_json::json!({"rects": [{"x": 0.0, "y": 0.0, "width": 2.0, "height": 2.0}]}),
             ),
+            operation(
+                "geometry.overlap",
+                "Rectangle overlap",
+                "Computes intersection area, IoU, and directional overlap ratios for two rectangles.",
+                serde_json::json!({"left": {"x": 0.0, "y": 0.0, "width": 2.0, "height": 2.0}, "right": {"x": 1.0, "y": 1.0, "width": 2.0, "height": 2.0}}),
+            ),
+            operation(
+                "geometry.segmentIntersection",
+                "Segment intersection",
+                "Computes the point and segment parameters for two finite 2D segment intersections.",
+                serde_json::json!({"left": {"start": [0.0, 0.0], "end": [2.0, 2.0]}, "right": {"start": [0.0, 2.0], "end": [2.0, 0.0]}}),
+            ),
+            operation(
+                "geometry.polygonSummary",
+                "Polygon summary",
+                "Reports area, winding, centroid, and bounds for a finite 2D polygon.",
+                serde_json::json!({"points": [[0.0, 0.0], [2.0, 0.0], [2.0, 1.0], [0.0, 1.0]]}),
+            ),
         ],
     }
 }
@@ -74,6 +92,9 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "geometry.bounds" => bounds_value(parse_input(request.input)?)?,
         "geometry.transform" => transform_value(parse_input(request.input)?)?,
         "geometry.intersections" => intersections_value(parse_input(request.input)?)?,
+        "geometry.overlap" => overlap_value(parse_input(request.input)?)?,
+        "geometry.segmentIntersection" => segment_intersection_value(parse_input(request.input)?)?,
+        "geometry.polygonSummary" => polygon_summary_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -125,6 +146,27 @@ struct TransformRequest {
 #[serde(rename_all = "camelCase")]
 struct IntersectionsRequest {
     rects: Vec<RectF32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OverlapRequest {
+    left: RectF32,
+    right: RectF32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SegmentEndpointRequest {
+    start: [f32; 2],
+    end: [f32; 2],
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SegmentIntersectionRequest {
+    left: SegmentEndpointRequest,
+    right: SegmentEndpointRequest,
 }
 
 fn bounds_value(request: PointsRequest) -> Result<serde_json::Value, String> {
@@ -179,6 +221,62 @@ fn intersections_value(request: IntersectionsRequest) -> Result<serde_json::Valu
     }))
 }
 
+fn overlap_value(request: OverlapRequest) -> Result<serde_json::Value, String> {
+    request.left.validate().map_err(|error| error.to_string())?;
+    request
+        .right
+        .validate()
+        .map_err(|error| error.to_string())?;
+    let intersection = request
+        .left
+        .intersection(request.right)
+        .map_err(|error| error.to_string())?;
+    let intersection_area = intersection
+        .map(|rect| rect.area())
+        .transpose()
+        .map_err(|error| error.to_string())?
+        .unwrap_or(0.0);
+    Ok(serde_json::json!({
+        "intersects": intersection.is_some(),
+        "intersection": intersection.map(rect_json),
+        "intersectionArea": intersection_area,
+        "iou": request.left.iou(request.right).map_err(|error| error.to_string())?,
+        "leftOverlapRatio": request.left.overlap_ratio(request.right).map_err(|error| error.to_string())?,
+        "rightOverlapRatio": request.right.overlap_ratio(request.left).map_err(|error| error.to_string())?
+    }))
+}
+
+fn segment_intersection_value(
+    request: SegmentIntersectionRequest,
+) -> Result<serde_json::Value, String> {
+    let left = segment_from_request(request.left)?;
+    let right = segment_from_request(request.right)?;
+    let intersection = left
+        .intersection(right)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "intersects": intersection.is_some(),
+        "intersection": intersection.map(|value| serde_json::json!({
+            "point": point_array(&value.point),
+            "leftT": value.left_t,
+            "rightT": value.right_t
+        }))
+    }))
+}
+
+fn polygon_summary_value(request: PointsRequest) -> Result<serde_json::Value, String> {
+    let polygon =
+        Polygon2f::new(points_from_arrays(request.points)?).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "pointCount": polygon.points().len(),
+        "area": polygon.area().map_err(|error| error.to_string())?,
+        "signedArea": polygon.signed_area().map_err(|error| error.to_string())?,
+        "clockwise": polygon.is_clockwise().map_err(|error| error.to_string())?,
+        "centroid": point_array(&polygon.centroid().map_err(|error| error.to_string())?),
+        "bounds": bounds_json(polygon.bounds().map_err(|error| error.to_string())?)?
+    }))
+}
+
 fn points_from_arrays(points: Vec<[f32; 2]>) -> Result<Vec<Point2f>, String> {
     if points.is_empty() {
         return Err("points must not be empty".to_string());
@@ -194,33 +292,25 @@ fn points_from_arrays(points: Vec<[f32; 2]>) -> Result<Vec<Point2f>, String> {
 }
 
 fn bounds_for_points(points: &[Point2f]) -> Result<Bounds2f, String> {
-    let mut min_x = points[0].x;
-    let mut min_y = points[0].y;
-    let mut max_x = points[0].x;
-    let mut max_y = points[0].y;
-    for point in &points[1..] {
-        min_x = min_x.min(point.x);
-        min_y = min_y.min(point.y);
-        max_x = max_x.max(point.x);
-        max_y = max_y.max(point.y);
-    }
-    Bounds2f::new(
-        Point2f { x: min_x, y: min_y },
-        Point2f { x: max_x, y: max_y },
-    )
-    .map_err(|error| error.to_string())
+    Bounds2f::from_points(points).map_err(|error| error.to_string())
 }
 
 fn bounds_json(bounds: Bounds2f) -> Result<serde_json::Value, String> {
-    let width = bounds.max.x - bounds.min.x;
-    let height = bounds.max.y - bounds.min.y;
     Ok(serde_json::json!({
         "min": point_array(&bounds.min),
         "max": point_array(&bounds.max),
-        "width": width,
-        "height": height,
-        "center": [bounds.min.x + width / 2.0, bounds.min.y + height / 2.0]
+        "width": bounds.width(),
+        "height": bounds.height(),
+        "center": point_array(&bounds.center().map_err(|error| error.to_string())?)
     }))
+}
+
+fn segment_from_request(request: SegmentEndpointRequest) -> Result<LineSegment2, String> {
+    LineSegment2::new(
+        Point2f::new(request.start[0], request.start[1]).map_err(|error| error.to_string())?,
+        Point2f::new(request.end[0], request.end[1]).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn point_array(point: &Point2f) -> [f32; 2] {
@@ -285,5 +375,26 @@ mod tests {
 
         assert_eq!(response.value["rectCount"], 2);
         assert_eq!(response.value["pairs"][0]["intersects"], true);
+    }
+
+    #[test]
+    fn overlap_segment_and_polygon_operations_run() {
+        for operation in [
+            "geometry.overlap",
+            "geometry.segmentIntersection",
+            "geometry.polygonSummary",
+        ] {
+            let surface_operation = package_surface()
+                .operations
+                .into_iter()
+                .find(|candidate| candidate.id.as_str() == operation)
+                .expect("operation metadata");
+            let response = run_surface_operation(SurfaceRequest {
+                operation: surface_operation.id,
+                input: surface_operation.example_request,
+            })
+            .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
+            assert!(response.value.is_object());
+        }
     }
 }

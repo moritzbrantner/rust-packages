@@ -6,7 +6,10 @@ use runtime_core::{
 };
 use serde::Deserialize;
 
-use crate::{resample_line_flat, resample_ring_flat};
+use crate::{
+    densify_line_flat, path_summary_flat, resample_line_flat, resample_ring_flat,
+    simplify_line_flat,
+};
 
 const MAX_VALUES: usize = 100_000;
 
@@ -34,6 +37,24 @@ pub fn package_surface() -> PackageSurface {
                 "Apply map kernel",
                 "Resamples flat 2D coordinates as an open line or closed ring.",
                 serde_json::json!({"coordinates": [0.0, 0.0, 10.0, 0.0], "coordinateCount": 3, "closed": false}),
+            ),
+            operation(
+                "maps.pathSummary",
+                "Path summary",
+                "Reports point count, segment count, length, and bounds for a flat 2D path.",
+                serde_json::json!({"coordinates": [0.0, 0.0, 3.0, 4.0], "closed": false}),
+            ),
+            operation(
+                "maps.simplifyLine",
+                "Simplify line",
+                "Simplifies a flat open 2D line with deterministic Douglas-Peucker simplification.",
+                serde_json::json!({"coordinates": [0.0, 0.0, 1.0, 0.01, 2.0, 0.0], "tolerance": 0.05}),
+            ),
+            operation(
+                "maps.densifyLine",
+                "Densify line",
+                "Inserts flat 2D line points so no segment exceeds the requested length.",
+                serde_json::json!({"coordinates": [0.0, 0.0, 3.0, 0.0], "maxSegmentLength": 1.0}),
             ),
         ],
     }
@@ -64,6 +85,9 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "describe" => describe_value(request.input),
         "maps.kernelSummary" => summary_value(parse_input(request.input)?)?,
         "maps.applyKernel" => apply_value(parse_input(request.input)?)?,
+        "maps.pathSummary" => path_summary_value(parse_input(request.input)?)?,
+        "maps.simplifyLine" => simplify_line_value(parse_input(request.input)?)?,
+        "maps.densifyLine" => densify_line_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -111,6 +135,20 @@ struct ApplyRequest {
     closed: bool,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SimplifyRequest {
+    coordinates: Vec<f64>,
+    tolerance: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DensifyRequest {
+    coordinates: Vec<f64>,
+    max_segment_length: f64,
+}
+
 fn summary_value(request: SummaryRequest) -> Result<serde_json::Value, String> {
     validate_coordinates(&request.coordinates, request.closed)?;
     let coordinate_count = request.coordinates.len() / 2;
@@ -129,6 +167,19 @@ fn summary_value(request: SummaryRequest) -> Result<serde_json::Value, String> {
     }))
 }
 
+fn path_summary_value(request: SummaryRequest) -> Result<serde_json::Value, String> {
+    validate_coordinates(&request.coordinates, request.closed)?;
+    let summary = path_summary_flat(&request.coordinates, request.closed)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "pointCount": summary.point_count,
+        "segmentCount": summary.segment_count,
+        "closed": summary.closed,
+        "length": summary.length,
+        "bounds": summary.bounds
+    }))
+}
+
 fn apply_value(request: ApplyRequest) -> Result<serde_json::Value, String> {
     validate_coordinates(&request.coordinates, request.closed)?;
     let coordinates = if request.closed {
@@ -140,6 +191,30 @@ fn apply_value(request: ApplyRequest) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({
         "closed": request.closed,
         "coordinateCount": coordinates.len() / 2,
+        "coordinates": coordinates
+    }))
+}
+
+fn simplify_line_value(request: SimplifyRequest) -> Result<serde_json::Value, String> {
+    validate_coordinates(&request.coordinates, false)?;
+    let coordinates = simplify_line_flat(&request.coordinates, request.tolerance)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "inputPointCount": request.coordinates.len() / 2,
+        "outputPointCount": coordinates.len() / 2,
+        "tolerance": request.tolerance,
+        "coordinates": coordinates
+    }))
+}
+
+fn densify_line_value(request: DensifyRequest) -> Result<serde_json::Value, String> {
+    validate_coordinates(&request.coordinates, false)?;
+    let coordinates = densify_line_flat(&request.coordinates, request.max_segment_length)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "inputPointCount": request.coordinates.len() / 2,
+        "outputPointCount": coordinates.len() / 2,
+        "maxSegmentLength": request.max_segment_length,
         "coordinates": coordinates
     }))
 }
@@ -227,5 +302,22 @@ mod tests {
             response.value["coordinates"],
             serde_json::json!([0.0, 0.0, 5.0, 0.0, 10.0, 0.0])
         );
+    }
+
+    #[test]
+    fn new_path_operations_run() {
+        for operation in ["maps.pathSummary", "maps.simplifyLine", "maps.densifyLine"] {
+            let surface_operation = package_surface()
+                .operations
+                .into_iter()
+                .find(|candidate| candidate.id.as_str() == operation)
+                .expect("operation metadata");
+            let response = run_surface_operation(SurfaceRequest {
+                operation: surface_operation.id,
+                input: surface_operation.example_request,
+            })
+            .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
+            assert!(response.value.is_object());
+        }
     }
 }

@@ -24,6 +24,10 @@ const packageAppConfig: PackageAppConfig = {
     "linear.inverse",
     "linear.kernel1d",
     "linear.tensorBridge",
+    "linear.gram",
+    "linear.cholesky",
+    "linear.qr",
+    "linear.center",
     "describe",
   ],
   operationGroups: [
@@ -39,6 +43,10 @@ const packageAppConfig: PackageAppConfig = {
         "linear.inverse",
         "linear.kernel1d",
         "linear.tensorBridge",
+        "linear.gram",
+        "linear.cholesky",
+        "linear.qr",
+        "linear.center",
       ],
     },
     {

@@ -4,7 +4,7 @@ mod backend;
 pub mod surface;
 
 use tensor_data::{F32Tensor, F32TensorView, TensorShape};
-use vector_analysis_core::{cosine_similarity, dot, DenseVector};
+use vector_analysis_core::{cosine_similarity, dot, l2_norm, DenseVector};
 use video_analysis_core::{DetectError, Result};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
@@ -101,6 +101,21 @@ impl F32Matrix {
         Self::new(MatrixShape::new(R, C)?, values)
     }
 
+    /// Creates a square matrix with the supplied finite diagonal values.
+    pub fn from_diag(diagonal: &[f32]) -> Result<Self> {
+        if diagonal.is_empty() {
+            return Err(invalid_argument("matrix diagonal must not be empty"));
+        }
+        if diagonal.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument("matrix diagonal values must be finite"));
+        }
+        let mut matrix = Self::zeros(diagonal.len(), diagonal.len())?;
+        for (index, value) in diagonal.iter().copied().enumerate() {
+            matrix.values[index * diagonal.len() + index] = value;
+        }
+        Ok(matrix)
+    }
+
     /// Returns the checked row and column dimensions.
     pub fn shape(&self) -> MatrixShape {
         self.shape
@@ -175,9 +190,49 @@ impl F32Matrix {
         self.as_view().pairwise_row_cosine(right)
     }
 
+    /// Returns this matrix diagonal values.
+    pub fn diagonal(&self) -> Result<Vec<f32>> {
+        self.as_view().diagonal()
+    }
+
+    /// Computes `self * self^T`.
+    pub fn gram_rows(&self) -> Result<Self> {
+        self.as_view().gram_rows()
+    }
+
+    /// Computes `self^T * self`.
+    pub fn gram_columns(&self) -> Result<Self> {
+        self.as_view().gram_columns()
+    }
+
+    /// Returns a row-major matrix with column means subtracted.
+    pub fn center_columns(&self) -> Result<Self> {
+        self.as_view().center_columns()
+    }
+
+    /// Returns a row-major matrix with row means subtracted.
+    pub fn center_rows(&self) -> Result<Self> {
+        self.as_view().center_rows()
+    }
+
     /// Decomposes this square matrix using LU factorization with partial pivoting.
     pub fn lu_decompose(&self) -> Result<LuDecomposition> {
         self.as_view().lu_decompose()
+    }
+
+    /// Decomposes this symmetric positive definite matrix using Cholesky factorization.
+    pub fn cholesky_decompose(&self) -> Result<CholeskyDecomposition> {
+        self.as_view().cholesky_decompose()
+    }
+
+    /// Decomposes this matrix with modified Gram-Schmidt QR factorization.
+    pub fn qr_decompose(&self) -> Result<QrDecomposition> {
+        self.as_view().qr_decompose()
+    }
+
+    /// Returns simple determinant and diagonal magnitude diagnostics.
+    pub fn condition_estimate(&self) -> Result<MatrixConditionEstimate> {
+        self.as_view().condition_estimate()
     }
 
     /// Computes this square matrix determinant through LU decomposition.
@@ -449,6 +504,47 @@ impl<'a> F32MatrixView<'a> {
             .collect()
     }
 
+    /// Returns this matrix diagonal values.
+    pub fn diagonal(&self) -> Result<Vec<f32>> {
+        self.validate()?;
+        let len = self.shape.rows.min(self.shape.cols);
+        (0..len).map(|index| self.get(index, index)).collect()
+    }
+
+    /// Computes `self * self^T`.
+    pub fn gram_rows(&self) -> Result<F32Matrix> {
+        self.matmul(&self.transpose())
+    }
+
+    /// Computes `self^T * self`.
+    pub fn gram_columns(&self) -> Result<F32Matrix> {
+        self.transpose().matmul(self)
+    }
+
+    /// Returns a row-major matrix with column means subtracted.
+    pub fn center_columns(&self) -> Result<F32Matrix> {
+        let means = self.column_means()?;
+        let mut values = Vec::with_capacity(self.shape.element_count()?);
+        for row in 0..self.shape.rows {
+            for (col, mean) in means.iter().enumerate().take(self.shape.cols) {
+                values.push(self.get(row, col)? - mean);
+            }
+        }
+        F32Matrix::new(self.shape, values)
+    }
+
+    /// Returns a row-major matrix with row means subtracted.
+    pub fn center_rows(&self) -> Result<F32Matrix> {
+        let means = self.row_means()?;
+        let mut values = Vec::with_capacity(self.shape.element_count()?);
+        for (row, mean) in means.iter().enumerate().take(self.shape.rows) {
+            for col in 0..self.shape.cols {
+                values.push(self.get(row, col)? - mean);
+            }
+        }
+        F32Matrix::new(self.shape, values)
+    }
+
     /// Returns a row-major matrix whose rows have unit L2 norm.
     pub fn l2_normalize_rows(self) -> Result<F32Matrix> {
         let mut values = Vec::with_capacity(self.values.len());
@@ -519,6 +615,104 @@ impl<'a> F32MatrixView<'a> {
         self.validate()?;
         self.require_square("LU decomposition")?;
         backend::pure::lu_decompose(*self)
+    }
+
+    /// Decomposes this symmetric positive definite matrix using Cholesky factorization.
+    pub fn cholesky_decompose(&self) -> Result<CholeskyDecomposition> {
+        self.validate()?;
+        self.require_square("Cholesky decomposition")?;
+        let size = self.shape.rows;
+        let mut lower = vec![0.0; self.shape.element_count()?];
+        for row in 0..size {
+            for col in 0..=row {
+                let mut sum = self.get(row, col)?;
+                for inner in 0..col {
+                    sum -= lower[row * size + inner] * lower[col * size + inner];
+                }
+                if row == col {
+                    if sum <= f32::EPSILON {
+                        return Err(invalid_argument(
+                            "Cholesky decomposition requires a positive definite matrix",
+                        ));
+                    }
+                    lower[row * size + col] = sum.sqrt();
+                } else {
+                    let pivot = lower[col * size + col];
+                    if pivot.abs() <= f32::EPSILON {
+                        return Err(invalid_argument(
+                            "Cholesky decomposition encountered a zero pivot",
+                        ));
+                    }
+                    lower[row * size + col] = sum / pivot;
+                }
+            }
+        }
+        Ok(CholeskyDecomposition {
+            lower: F32Matrix::new(self.shape, lower)?,
+        })
+    }
+
+    /// Decomposes this matrix with modified Gram-Schmidt QR factorization.
+    pub fn qr_decompose(&self) -> Result<QrDecomposition> {
+        self.validate()?;
+        if self.shape.rows < self.shape.cols {
+            return Err(invalid_argument("QR decomposition requires rows >= cols"));
+        }
+        let rows = self.shape.rows;
+        let cols = self.shape.cols;
+        let mut q_columns = Vec::<Vec<f32>>::with_capacity(cols);
+        let mut r_values = vec![0.0; cols * cols];
+        for col in 0..cols {
+            let mut v = self.column(col)?.as_slice();
+            for prev in 0..col {
+                let q = &q_columns[prev];
+                let r = dot(q, &v)?;
+                r_values[prev * cols + col] = r;
+                for row in 0..rows {
+                    v[row] -= r * q[row];
+                }
+            }
+            let norm = l2_norm(&v)?;
+            if norm <= f32::EPSILON {
+                return Err(invalid_argument(
+                    "QR decomposition requires full column rank",
+                ));
+            }
+            r_values[col * cols + col] = norm;
+            for value in &mut v {
+                *value /= norm;
+            }
+            q_columns.push(v);
+        }
+        let mut q_values = vec![0.0; rows * cols];
+        for row in 0..rows {
+            for col in 0..cols {
+                q_values[row * cols + col] = q_columns[col][row];
+            }
+        }
+        Ok(QrDecomposition {
+            q: F32Matrix::new(MatrixShape::new(rows, cols)?, q_values)?,
+            r: F32Matrix::new(MatrixShape::new(cols, cols)?, r_values)?,
+        })
+    }
+
+    /// Returns simple determinant and diagonal magnitude diagnostics.
+    pub fn condition_estimate(&self) -> Result<MatrixConditionEstimate> {
+        self.validate()?;
+        self.require_square("condition estimate")?;
+        let decomposition = self.lu_decompose()?;
+        let diagonal = decomposition.upper_matrix()?.diagonal()?;
+        let mut diagonal_min_abs = f32::INFINITY;
+        let mut diagonal_max_abs = 0.0_f32;
+        for value in diagonal {
+            diagonal_min_abs = diagonal_min_abs.min(value.abs());
+            diagonal_max_abs = diagonal_max_abs.max(value.abs());
+        }
+        Ok(MatrixConditionEstimate {
+            determinant: decomposition.determinant()?,
+            diagonal_min_abs,
+            diagonal_max_abs,
+        })
     }
 
     /// Computes this square matrix determinant through LU decomposition.
@@ -614,6 +808,33 @@ pub struct LuDecomposition {
     lu: Vec<f32>,
     pivots: Vec<usize>,
     swap_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Cholesky decomposition `A = L * L^T`.
+pub struct CholeskyDecomposition {
+    /// Lower triangular factor.
+    pub lower: F32Matrix,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Thin QR decomposition `A = Q * R`.
+pub struct QrDecomposition {
+    /// Matrix with orthonormal columns.
+    pub q: F32Matrix,
+    /// Upper triangular factor.
+    pub r: F32Matrix,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Simple square-matrix determinant and diagonal magnitude diagnostics.
+pub struct MatrixConditionEstimate {
+    /// Determinant computed through LU decomposition.
+    pub determinant: f32,
+    /// Smallest absolute upper-triangular diagonal entry.
+    pub diagonal_min_abs: f32,
+    /// Largest absolute upper-triangular diagonal entry.
+    pub diagonal_max_abs: f32,
 }
 
 impl LuDecomposition {
@@ -1227,5 +1448,66 @@ mod tests {
         assert_close(decomposition.determinant().unwrap(), -2.0);
         assert_close(solution[0], -1.0);
         assert_close(solution[1], 2.0);
+    }
+
+    #[test]
+    fn diagonal_centering_and_gram_helpers_work() {
+        let diag = F32Matrix::from_diag(&[2.0, 3.0]).unwrap();
+        assert_eq!(diag.values(), &[2.0, 0.0, 0.0, 3.0]);
+        assert_eq!(diag.diagonal().unwrap(), vec![2.0, 3.0]);
+
+        let matrix = F32Matrix::from_rows([[1.0, 2.0], [3.0, 4.0]]).unwrap();
+        assert_eq!(
+            matrix.gram_rows().unwrap().values(),
+            &[5.0, 11.0, 11.0, 25.0]
+        );
+        assert_eq!(
+            matrix.gram_columns().unwrap().values(),
+            &[10.0, 14.0, 14.0, 20.0]
+        );
+        assert_eq!(
+            matrix.center_columns().unwrap().values(),
+            &[-1.0, -1.0, 1.0, 1.0]
+        );
+        assert_eq!(
+            matrix.center_rows().unwrap().values(),
+            &[-0.5, 0.5, -0.5, 0.5]
+        );
+    }
+
+    #[test]
+    fn cholesky_reconstructs_spd_matrix() {
+        let matrix = F32Matrix::from_rows([[4.0, 2.0], [2.0, 3.0]]).unwrap();
+        let decomposition = matrix.cholesky_decompose().unwrap();
+        let reconstructed = decomposition
+            .lower
+            .matmul(&decomposition.lower.transpose_view())
+            .unwrap();
+        for (actual, expected) in reconstructed.values().iter().zip(matrix.values()) {
+            assert_close(*actual, *expected);
+        }
+    }
+
+    #[test]
+    fn qr_reconstructs_and_q_is_orthogonal() {
+        let matrix = F32Matrix::from_rows([[1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]).unwrap();
+        let decomposition = matrix.qr_decompose().unwrap();
+        let reconstructed = decomposition.q.matmul(&decomposition.r.as_view()).unwrap();
+        for (actual, expected) in reconstructed.values().iter().zip(matrix.values()) {
+            assert_close(*actual, *expected);
+        }
+        let q_t_q = decomposition.q.as_view().gram_columns().unwrap();
+        assert_close(q_t_q.as_view().get(0, 0).unwrap(), 1.0);
+        assert_close(q_t_q.as_view().get(1, 1).unwrap(), 1.0);
+        assert_close(q_t_q.as_view().get(0, 1).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn condition_estimate_reports_diagonal_range() {
+        let matrix = F32Matrix::from_rows([[2.0, 1.0], [1.0, 3.0]]).unwrap();
+        let estimate = matrix.condition_estimate().unwrap();
+        assert_close(estimate.determinant, 5.0);
+        assert!(estimate.diagonal_min_abs > 0.0);
+        assert!(estimate.diagonal_max_abs >= estimate.diagonal_min_abs);
     }
 }

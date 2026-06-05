@@ -63,10 +63,10 @@ fn bench_group(c: &mut Criterion, width: u32, height: u32, frame_count: u64, suf
             }),
     );
 
-    group.bench_function(&format!("content_{suffix}_{frame_count}_frames"), |b| {
+    group.bench_function(format!("content_{suffix}_{frame_count}_frames"), |b| {
         b.iter(|| run_detector(ContentDetector::new(27.0, 15), black_box(&hard_cut)))
     });
-    group.bench_function(&format!("adaptive_{suffix}_{frame_count}_frames"), |b| {
+    group.bench_function(format!("adaptive_{suffix}_{frame_count}_frames"), |b| {
         b.iter(|| {
             run_detector(
                 AdaptiveDetector::new(3.0, 15, 2, 15.0),
@@ -75,17 +75,17 @@ fn bench_group(c: &mut Criterion, width: u32, height: u32, frame_count: u64, suf
         })
     });
     group.bench_function(
-        &format!("threshold_fade_{suffix}_{frame_count}_frames"),
+        format!("threshold_fade_{suffix}_{frame_count}_frames"),
         |b| b.iter(|| run_detector(ThresholdDetector::new(12.0, 15), black_box(&fade))),
     );
-    group.bench_function(&format!("histogram_{suffix}_{frame_count}_frames"), |b| {
+    group.bench_function(format!("histogram_{suffix}_{frame_count}_frames"), |b| {
         b.iter(|| run_detector(HistogramDetector::new(0.05, 256, 15), black_box(&hard_cut)))
     });
-    group.bench_function(&format!("hash_{suffix}_{frame_count}_frames"), |b| {
+    group.bench_function(format!("hash_{suffix}_{frame_count}_frames"), |b| {
         b.iter(|| run_detector(HashDetector::new(0.395, 16, 2, 15), black_box(&texture)))
     });
     group.bench_function(
-        &format!("weighted_composite_content_histogram_{suffix}_{frame_count}_frames"),
+        format!("weighted_composite_content_histogram_{suffix}_{frame_count}_frames"),
         |b| {
             b.iter(|| {
                 let detector = WeightedCompositeDetector::builder()
@@ -105,7 +105,7 @@ fn bench_group(c: &mut Criterion, width: u32, height: u32, frame_count: u64, suf
         },
     );
     group.bench_function(
-        &format!("pipeline_content_metrics_{suffix}_{frame_count}_frames"),
+        format!("pipeline_content_metrics_{suffix}_{frame_count}_frames"),
         |b| b.iter(|| run_pipeline(ContentDetector::new(27.0, 15), black_box(&hard_cut))),
     );
     group.finish();

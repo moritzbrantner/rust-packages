@@ -7,6 +7,8 @@ Sparse vector and matrix contracts for text, retrieval, and feature indexing.
 - Checked sparse vectors and COO/CSR matrix formats
 - Canonicalization of unsorted indices
 - Sparse dot and cosine similarity helpers
+- Sparse vector norms, scaling, addition, and top-k entries
+- CSR row counts, matrix-vector multiply, COO/CSR transpose, and COO round trips
 - Dense and sparse conversion bridges
 
 ## Example

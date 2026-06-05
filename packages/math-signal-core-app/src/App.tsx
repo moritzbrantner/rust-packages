@@ -16,13 +16,21 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "signal.frames",
-  featuredOperations: ["signal.frames", "signal.filterDesign", "signal.resamplePlan", "describe"],
+  featuredOperations: [
+    "signal.frames",
+    "signal.filterDesign",
+    "signal.levels",
+    "signal.filterApply",
+    "signal.normalizePeak",
+    "signal.resamplePlan",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["signal.frames", "signal.filterDesign"],
+      operations: ["signal.frames", "signal.filterDesign", "signal.levels", "signal.filterApply", "signal.normalizePeak"],
     },
     {
       id: "debug",

@@ -10,6 +10,8 @@ vocabulary and market-specific wrappers.
 - Simple and log return generation from price series
 - Sample and population volatility, covariance, and correlation
 - Annualized return, volatility, Sharpe, Sortino, beta, alpha, and tracking error
+- Portfolio weight validation, weighted portfolio returns, and portfolio risk summaries
+- Calmar ratio, Omega ratio, and drawdown duration helpers
 - Historical VaR/CVaR and maximum drawdown helpers
 - Rolling mean, standard deviation, and correlation windows
 

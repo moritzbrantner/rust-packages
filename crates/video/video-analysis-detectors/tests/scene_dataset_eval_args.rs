@@ -1,4 +1,5 @@
 #[path = "../examples/scene_dataset_eval.rs"]
+#[allow(clippy::duplicate_mod)]
 #[allow(dead_code)]
 mod scene_dataset_eval;
 #[path = "../examples/scene_dataset_eval_support/mod.rs"]

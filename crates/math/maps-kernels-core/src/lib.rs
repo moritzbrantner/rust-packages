@@ -8,6 +8,35 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
 }
 
+#[derive(Debug, Clone, PartialEq)]
+/// Summary for a flat 2D open path or closed ring.
+pub struct PathSummary {
+    /// Number of 2D points in the path.
+    pub point_count: usize,
+    /// Number of path segments.
+    pub segment_count: usize,
+    /// Whether the final point is connected back to the first point.
+    pub closed: bool,
+    /// Total Euclidean path length.
+    pub length: f64,
+    /// Bounds as `[min_x, min_y, max_x, max_y]`.
+    pub bounds: [f64; 4],
+}
+
+/// Summarizes a flat `[x0, y0, x1, y1, ...]` 2D path.
+pub fn path_summary_flat(coordinates: &[f64], closed: bool) -> Result<PathSummary> {
+    validate_flat_coordinates(coordinates, if closed { 3 } else { 2 }, "path coordinates")?;
+    let point_count = coordinates.len() / 2;
+    let segment_count = if closed { point_count } else { point_count - 1 };
+    Ok(PathSummary {
+        point_count,
+        segment_count,
+        closed,
+        length: path_length_flat(coordinates, closed)?,
+        bounds: bounds_flat(coordinates),
+    })
+}
+
 /// Resamples an open line represented as flat `[x0, y0, x1, y1, ...]` coordinates.
 pub fn resample_line_flat(coordinates: &[f64], coordinate_count: usize) -> Result<Vec<f64>> {
     validate_flat_coordinates(coordinates, 2, "line coordinates")?;
@@ -83,6 +112,58 @@ pub fn resample_ring_flat(open_ring: &[f64], coordinate_count: usize) -> Result<
     Ok(samples)
 }
 
+/// Simplifies an open line with deterministic Douglas-Peucker simplification.
+pub fn simplify_line_flat(coordinates: &[f64], tolerance: f64) -> Result<Vec<f64>> {
+    validate_flat_coordinates(coordinates, 2, "line coordinates")?;
+    if !tolerance.is_finite() || tolerance < 0.0 {
+        return Err(invalid_argument(
+            "simplification tolerance must be finite and non-negative",
+        ));
+    }
+    let point_count = coordinates.len() / 2;
+    if point_count <= 2 || tolerance == 0.0 {
+        return Ok(coordinates.to_vec());
+    }
+
+    let mut keep = vec![false; point_count];
+    keep[0] = true;
+    keep[point_count - 1] = true;
+    simplify_range(coordinates, 0, point_count - 1, tolerance, &mut keep);
+
+    let mut output = Vec::with_capacity(coordinates.len());
+    for (index, keep_point) in keep.into_iter().enumerate() {
+        if keep_point {
+            output.extend_from_slice(&coordinates[index * 2..index * 2 + 2]);
+        }
+    }
+    Ok(output)
+}
+
+/// Inserts evenly spaced points so every open-line segment is at most `max_segment_length`.
+pub fn densify_line_flat(coordinates: &[f64], max_segment_length: f64) -> Result<Vec<f64>> {
+    validate_flat_coordinates(coordinates, 2, "line coordinates")?;
+    if !max_segment_length.is_finite() || max_segment_length <= 0.0 {
+        return Err(invalid_argument(
+            "max segment length must be finite and greater than zero",
+        ));
+    }
+
+    let point_count = coordinates.len() / 2;
+    let mut output = Vec::with_capacity(coordinates.len());
+    output.extend_from_slice(&coordinates[0..2]);
+    for index in 0..point_count - 1 {
+        let start = position_at(coordinates, index);
+        let end = position_at(coordinates, index + 1);
+        let length = distance(start, end);
+        let pieces = (length / max_segment_length).ceil().max(1.0) as usize;
+        for piece in 1..=pieces {
+            let progress = piece as f64 / pieces as f64;
+            output.extend_from_slice(&interpolate_position(start, end, progress));
+        }
+    }
+    Ok(output)
+}
+
 fn validate_flat_coordinates(coordinates: &[f64], min_points: usize, label: &str) -> Result<()> {
     if coordinates.len() < min_points * 2 {
         return Err(invalid_argument(format!(
@@ -109,6 +190,27 @@ fn validate_coordinate_count(coordinate_count: usize, minimum: usize) -> Result<
     }
 
     Ok(())
+}
+
+fn path_length_flat(coordinates: &[f64], closed: bool) -> Result<f64> {
+    Ok(cumulative_distances(coordinates, closed)?
+        .last()
+        .copied()
+        .unwrap_or(0.0))
+}
+
+fn bounds_flat(coordinates: &[f64]) -> [f64; 4] {
+    let mut min_x = coordinates[0];
+    let mut min_y = coordinates[1];
+    let mut max_x = coordinates[0];
+    let mut max_y = coordinates[1];
+    for point in coordinates.chunks_exact(2).skip(1) {
+        min_x = min_x.min(point[0]);
+        min_y = min_y.min(point[1]);
+        max_x = max_x.max(point[0]);
+        max_y = max_y.max(point[1]);
+    }
+    [min_x, min_y, max_x, max_y]
 }
 
 fn cumulative_distances(coordinates: &[f64], closed: bool) -> Result<Vec<f64>> {
@@ -203,6 +305,48 @@ fn distance(start: [f64; 2], end: [f64; 2]) -> f64 {
     (end[0] - start[0]).hypot(end[1] - start[1])
 }
 
+fn simplify_range(
+    coordinates: &[f64],
+    start_index: usize,
+    end_index: usize,
+    tolerance: f64,
+    keep: &mut [bool],
+) {
+    if end_index <= start_index + 1 {
+        return;
+    }
+    let start = position_at(coordinates, start_index);
+    let end = position_at(coordinates, end_index);
+    let mut max_distance = -1.0;
+    let mut max_index = start_index + 1;
+    for index in start_index + 1..end_index {
+        let point = position_at(coordinates, index);
+        let distance = perpendicular_distance(point, start, end);
+        if distance > max_distance {
+            max_distance = distance;
+            max_index = index;
+        }
+    }
+    if max_distance > tolerance {
+        keep[max_index] = true;
+        simplify_range(coordinates, start_index, max_index, tolerance, keep);
+        simplify_range(coordinates, max_index, end_index, tolerance, keep);
+    }
+}
+
+fn perpendicular_distance(point: [f64; 2], start: [f64; 2], end: [f64; 2]) -> f64 {
+    let dx = end[0] - start[0];
+    let dy = end[1] - start[1];
+    let length_squared = dx * dx + dy * dy;
+    if length_squared == 0.0 {
+        return distance(point, start);
+    }
+    let t = (((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / length_squared)
+        .clamp(0.0, 1.0);
+    let projection = [start[0] + t * dx, start[1] + t * dy];
+    distance(point, projection)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,5 +393,21 @@ mod tests {
     fn rejects_invalid_coordinate_count() {
         assert!(resample_line_flat(&[0.0, 0.0, 1.0, 1.0], 1).is_err());
         assert!(resample_ring_flat(&[0.0, 0.0, 1.0, 0.0, 1.0, 1.0], 2).is_err());
+    }
+
+    #[test]
+    fn summarizes_simplifies_and_densifies_paths() {
+        let coordinates = [0.0, 0.0, 1.0, 0.01, 2.0, 0.0, 4.0, 0.0];
+        let summary = path_summary_flat(&coordinates, false).unwrap();
+        assert_eq!(summary.point_count, 4);
+        assert_eq!(summary.segment_count, 3);
+        assert_eq!(summary.bounds, [0.0, 0.0, 4.0, 0.01]);
+
+        let simplified = simplify_line_flat(&coordinates, 0.1).unwrap();
+        assert_eq!(&simplified[0..2], &[0.0, 0.0]);
+        assert_eq!(&simplified[simplified.len() - 2..], &[4.0, 0.0]);
+
+        let densified = densify_line_flat(&[0.0, 0.0, 3.0, 0.0], 1.0).unwrap();
+        assert_eq!(densified, vec![0.0, 0.0, 1.0, 0.0, 2.0, 0.0, 3.0, 0.0]);
     }
 }

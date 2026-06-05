@@ -26,6 +26,9 @@ const packageAppConfig: PackageAppConfig = {
     "stats.normalize",
     "stats.covariance",
     "stats.pca",
+    "stats.series.rankCorrelation",
+    "stats.regression.linear",
+    "stats.regression.ols",
     "describe",
   ],
   operationGroups: [
@@ -43,6 +46,9 @@ const packageAppConfig: PackageAppConfig = {
         "stats.normalize",
         "stats.covariance",
         "stats.pca",
+        "stats.series.rankCorrelation",
+        "stats.regression.linear",
+        "stats.regression.ols",
       ],
     },
     {

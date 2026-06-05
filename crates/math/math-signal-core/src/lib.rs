@@ -73,6 +73,21 @@ pub enum InterpolationMode {
     Linear,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Basic finite mono signal level summary.
+pub struct SignalLevels {
+    /// Number of samples summarized.
+    pub count: usize,
+    /// Maximum absolute sample value.
+    pub peak: f32,
+    /// Root mean square amplitude.
+    pub rms: f32,
+    /// Arithmetic mean sample value.
+    pub mean: f32,
+    /// Alias for mean, named for audio DC offset workflows.
+    pub dc_offset: f32,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Data type for resample spec.
 pub struct ResampleSpec {
@@ -616,12 +631,99 @@ fn interpolate_interleaved_channel(
     })
 }
 
+/// Computes peak, RMS, mean, and DC offset for a finite mono signal.
+pub fn signal_levels(samples: &[f32]) -> Result<SignalLevels> {
+    validate_samples(samples, "samples")?;
+    if samples.is_empty() {
+        return Err(invalid_argument("samples must not be empty"));
+    }
+    let count = samples.len();
+    let peak = samples
+        .iter()
+        .map(|sample| sample.abs())
+        .fold(0.0, f32::max);
+    let mean = samples.iter().sum::<f32>() / count as f32;
+    let rms = (samples.iter().map(|sample| sample * sample).sum::<f32>() / count as f32).sqrt();
+    Ok(SignalLevels {
+        count,
+        peak,
+        rms,
+        mean,
+        dc_offset: mean,
+    })
+}
+
+/// Applies a centered FIR kernel to mono samples, zero-padding beyond boundaries.
+pub fn apply_fir_mono(samples: &[f32], kernel: &FirKernel1d) -> Result<Vec<f32>> {
+    validate_samples(samples, "samples")?;
+    kernel.validate()?;
+    let center = kernel.values().len() / 2;
+    let mut output = Vec::with_capacity(samples.len());
+    for index in 0..samples.len() {
+        let mut acc = 0.0;
+        for (tap_index, coefficient) in kernel.values().iter().copied().enumerate() {
+            let sample_index = index as isize + tap_index as isize - center as isize;
+            if (0..samples.len() as isize).contains(&sample_index) {
+                acc += samples[sample_index as usize] * coefficient;
+            }
+        }
+        if !acc.is_finite() {
+            return Err(invalid_argument("FIR filtering produced non-finite values"));
+        }
+        output.push(acc);
+    }
+    Ok(output)
+}
+
+/// Scales a finite mono signal to a target peak amplitude.
+pub fn normalize_peak(samples: &[f32], target_peak: f32) -> Result<Vec<f32>> {
+    validate_samples(samples, "samples")?;
+    if !target_peak.is_finite() || target_peak < 0.0 {
+        return Err(invalid_argument(
+            "target peak must be finite and non-negative",
+        ));
+    }
+    if samples.is_empty() {
+        return Ok(Vec::new());
+    }
+    let peak = signal_levels(samples)?.peak;
+    if peak <= f32::EPSILON {
+        if target_peak == 0.0 {
+            return Ok(samples.to_vec());
+        }
+        return Err(invalid_argument(
+            "cannot normalize a silent signal to a non-zero peak",
+        ));
+    }
+    let scale = target_peak / peak;
+    samples
+        .iter()
+        .map(|sample| {
+            let value = sample * scale;
+            if value.is_finite() {
+                Ok(value)
+            } else {
+                Err(invalid_argument(
+                    "peak normalization produced non-finite values",
+                ))
+            }
+        })
+        .collect()
+}
+
 /// Converts decibels to a linear amplitude ratio.
 pub fn db_to_linear(db: f32) -> Result<f32> {
     if !db.is_finite() {
         return Err(invalid_argument("dB value must be finite"));
     }
     Ok(10.0_f32.powf(db / 20.0))
+}
+
+fn validate_samples(samples: &[f32], label: &str) -> Result<()> {
+    if samples.iter().any(|sample| !sample.is_finite()) {
+        return Err(invalid_argument(format!("{label} must be finite")));
+    }
+    Ok(())
 }
 
 /// Converts a linear amplitude ratio to decibels.

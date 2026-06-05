@@ -583,6 +583,7 @@ flowchart LR
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_comfyui_data
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_comfyui_latents
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_comfyui_models
+  crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_video_analysis_test_support
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_animation_core
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_jobs_core
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_model_runtime
@@ -920,11 +921,13 @@ flowchart LR
   crate_moritzbrantner_image_analysis_synthesis_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_synthesis_server --> crate_moritzbrantner_image_analysis_synthesis
   crate_moritzbrantner_image_analysis_synthesis_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_classification
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_embeddings
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_lexical
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_linguistics
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_retrieval
+  crate_moritzbrantner_text_analysis -. optional .-> crate_moritzbrantner_text_transcripts
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_text_analysis -. optional .-> crate_moritzbrantner_model_runtime
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_runtime_core
@@ -1010,7 +1013,10 @@ flowchart LR
   crate_moritzbrantner_text_model_runtime_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_model_runtime_server --> crate_moritzbrantner_text_model_runtime
   crate_moritzbrantner_text_model_runtime_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_text_embeddings
+  crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_text_lexical
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_text_model_runtime
+  crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_text_retrieval
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_question_answering_cli --> crate_moritzbrantner_text_question_answering
@@ -1020,6 +1026,7 @@ flowchart LR
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_embeddings
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_lexical
+  crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_model_runtime
   crate_moritzbrantner_text_retrieval -. optional .-> crate_moritzbrantner_text_transcripts
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_vector_analysis_index
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_video_analysis_core
@@ -1126,6 +1133,7 @@ flowchart LR
   crate_moritzbrantner_video_analysis_detectors --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_detectors -. dev .-> crate_moritzbrantner_video_analysis_ffmpeg
   crate_moritzbrantner_video_analysis_detectors -. dev .-> crate_moritzbrantner_video_analysis_ingest
+  crate_moritzbrantner_video_analysis_detectors -. dev .-> crate_moritzbrantner_video_analysis_test_support
   crate_moritzbrantner_video_analysis_detectors --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_detectors_cli --> crate_moritzbrantner_video_analysis_detectors
   crate_moritzbrantner_video_analysis_detectors_cli --> crate_moritzbrantner_runtime_core

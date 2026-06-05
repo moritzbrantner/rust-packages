@@ -7,8 +7,8 @@ use runtime_core::{
 use serde::Deserialize;
 
 use crate::{
-    design_parametric_biquad, resample_indices, FrameStride, InterpolationMode,
-    ParametricBiquadDesign, ResampleSpec, SampleRate,
+    apply_fir_mono, design_parametric_biquad, normalize_peak, resample_indices, signal_levels,
+    FirKernel1d, FrameStride, InterpolationMode, ParametricBiquadDesign, ResampleSpec, SampleRate,
 };
 
 const DEFAULT_PREVIEW: usize = 16;
@@ -46,6 +46,24 @@ pub fn package_surface() -> PackageSurface {
                 "Designs normalized biquad coefficients for supported filter kinds.",
                 serde_json::json!({"kind": "lowPass", "sampleRate": 48_000, "frequencyHz": 1_000.0, "q": 0.707}),
             ),
+            operation(
+                "signal.levels",
+                "Signal levels",
+                "Computes peak, RMS, mean, and DC offset for a finite mono sample buffer.",
+                serde_json::json!({"samples": [0.0, 0.5, -1.0, 0.25]}),
+            ),
+            operation(
+                "signal.filterApply",
+                "Apply FIR filter",
+                "Applies a centered FIR kernel to a finite mono sample buffer.",
+                serde_json::json!({"samples": [0.0, 1.0, 0.0], "kernel": [0.25, 0.5, 0.25]}),
+            ),
+            operation(
+                "signal.normalizePeak",
+                "Normalize peak",
+                "Scales a finite mono sample buffer to a requested peak amplitude.",
+                serde_json::json!({"samples": [0.0, 0.5, -1.0], "targetPeak": 0.5}),
+            ),
         ],
     }
 }
@@ -76,6 +94,9 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "signal.frames" => frames_value(parse_input(request.input)?)?,
         "signal.resamplePlan" => resample_plan_value(parse_input(request.input)?)?,
         "signal.filterDesign" => filter_design_value(parse_input(request.input)?)?,
+        "signal.levels" => levels_value(parse_input(request.input)?)?,
+        "signal.filterApply" => filter_apply_value(parse_input(request.input)?)?,
+        "signal.normalizePeak" => normalize_peak_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -141,6 +162,26 @@ struct FilterDesignRequest {
     q: f32,
     #[serde(default)]
     gain_db: Option<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SamplesRequest {
+    samples: Vec<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FilterApplyRequest {
+    samples: Vec<f32>,
+    kernel: Vec<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NormalizePeakRequest {
+    samples: Vec<f32>,
+    target_peak: f32,
 }
 
 fn frames_value(request: FramesRequest) -> Result<serde_json::Value, String> {
@@ -218,6 +259,56 @@ fn filter_design_value(request: FilterDesignRequest) -> Result<serde_json::Value
             "a1": coefficients.a1,
             "a2": coefficients.a2
         }
+    }))
+}
+
+fn levels_value(request: SamplesRequest) -> Result<serde_json::Value, String> {
+    validate_values(&request.samples)?;
+    let levels = signal_levels(&request.samples).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "count": levels.count,
+        "peak": levels.peak,
+        "rms": levels.rms,
+        "mean": levels.mean,
+        "dcOffset": levels.dc_offset
+    }))
+}
+
+fn filter_apply_value(request: FilterApplyRequest) -> Result<serde_json::Value, String> {
+    validate_values(&request.samples)?;
+    validate_values(&request.kernel)?;
+    let kernel = FirKernel1d::new(request.kernel).map_err(|error| error.to_string())?;
+    let samples = apply_fir_mono(&request.samples, &kernel).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "sampleCount": samples.len(),
+        "kernelLen": kernel.values().len(),
+        "samples": samples
+    }))
+}
+
+fn normalize_peak_value(request: NormalizePeakRequest) -> Result<serde_json::Value, String> {
+    validate_values(&request.samples)?;
+    let input_peak = if request.samples.is_empty() {
+        0.0
+    } else {
+        signal_levels(&request.samples)
+            .map_err(|error| error.to_string())?
+            .peak
+    };
+    let samples =
+        normalize_peak(&request.samples, request.target_peak).map_err(|error| error.to_string())?;
+    let output_peak = if samples.is_empty() {
+        0.0
+    } else {
+        signal_levels(&samples)
+            .map_err(|error| error.to_string())?
+            .peak
+    };
+    Ok(serde_json::json!({
+        "inputPeak": input_peak,
+        "targetPeak": request.target_peak,
+        "outputPeak": output_peak,
+        "samples": samples
     }))
 }
 
@@ -321,5 +412,26 @@ mod tests {
 
         assert_eq!(response.value["kind"], "lowPass");
         assert!(response.value["coefficients"]["b0"].is_number());
+    }
+
+    #[test]
+    fn new_signal_operations_run() {
+        for operation in [
+            "signal.levels",
+            "signal.filterApply",
+            "signal.normalizePeak",
+        ] {
+            let surface_operation = package_surface()
+                .operations
+                .into_iter()
+                .find(|candidate| candidate.id.as_str() == operation)
+                .expect("operation metadata");
+            let response = run_surface_operation(SurfaceRequest {
+                operation: surface_operation.id,
+                input: surface_operation.example_request,
+            })
+            .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
+            assert!(response.value.is_object());
+        }
     }
 }

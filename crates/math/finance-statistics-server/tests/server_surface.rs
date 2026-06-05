@@ -15,3 +15,14 @@ fn run_endpoint_calls_library_surface() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""operation""#));
 }
+
+#[test]
+fn run_endpoint_calls_new_operation() {
+    let response = finance_statistics_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"finance.performanceRatios","input":{"returns":[0.1,-0.2,0.05,0.3]}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains(r#""drawdownDuration""#));
+}

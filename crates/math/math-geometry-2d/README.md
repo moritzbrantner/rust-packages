@@ -7,7 +7,10 @@ processing.
 
 - Checked pixel and normalized 2D primitives
 - Rectangle intersection, union, and clamping helpers
+- Rectangle IoU and directional overlap ratios
+- Finite line-segment intersection parameters
 - Affine transforms with compose and invert support
+- Polygon area, centroid, winding, containment, and bounds helpers
 - Normalized and pixel coordinate conversion helpers
 
 ## Example

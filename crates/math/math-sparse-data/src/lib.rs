@@ -153,6 +153,110 @@ impl SparseVector {
         Ok(self.dot(other)? / (left_norm * right_norm))
     }
 
+    /// Returns the L1 norm.
+    pub fn l1_norm(&self) -> Result<f32> {
+        self.validate()?;
+        Ok(self.values.iter().map(|value| value.abs()).sum())
+    }
+
+    /// Returns the L2 norm.
+    pub fn l2_norm(&self) -> Result<f32> {
+        self.validate()?;
+        Ok(self
+            .values
+            .iter()
+            .map(|value| value * value)
+            .sum::<f32>()
+            .sqrt())
+    }
+
+    /// Scales all sparse values by a finite factor.
+    pub fn scale(&self, factor: f32) -> Result<Self> {
+        self.validate()?;
+        if !factor.is_finite() {
+            return Err(invalid_argument(
+                "sparse vector scale factor must be finite",
+            ));
+        }
+        Self::new(
+            self.dimensions,
+            self.indices.clone(),
+            self.values.iter().map(|value| value * factor).collect(),
+        )?
+        .canonicalized()
+    }
+
+    /// Adds two sparse vectors with matching dimensions.
+    pub fn add(&self, other: &Self) -> Result<Self> {
+        let left = self.canonicalized()?;
+        let right = other.canonicalized()?;
+        if left.dimensions != right.dimensions {
+            return Err(invalid_argument("sparse vector dimensions must match"));
+        }
+        let mut indices = Vec::new();
+        let mut values = Vec::new();
+        let mut left_index = 0;
+        let mut right_index = 0;
+        while left_index < left.indices.len() || right_index < right.indices.len() {
+            match (
+                left.indices.get(left_index).copied(),
+                right.indices.get(right_index).copied(),
+            ) {
+                (Some(left_col), Some(right_col)) if left_col == right_col => {
+                    let value = left.values[left_index] + right.values[right_index];
+                    if value != 0.0 {
+                        indices.push(left_col);
+                        values.push(value);
+                    }
+                    left_index += 1;
+                    right_index += 1;
+                }
+                (Some(left_col), Some(right_col)) if left_col < right_col => {
+                    indices.push(left_col);
+                    values.push(left.values[left_index]);
+                    left_index += 1;
+                }
+                (Some(_), Some(right_col)) => {
+                    indices.push(right_col);
+                    values.push(right.values[right_index]);
+                    right_index += 1;
+                }
+                (Some(left_col), None) => {
+                    indices.push(left_col);
+                    values.push(left.values[left_index]);
+                    left_index += 1;
+                }
+                (None, Some(right_col)) => {
+                    indices.push(right_col);
+                    values.push(right.values[right_index]);
+                    right_index += 1;
+                }
+                (None, None) => break,
+            }
+        }
+        Self::new(left.dimensions, indices, values)
+    }
+
+    /// Returns the top `k` entries sorted by descending absolute value, then index.
+    pub fn top_k_by_abs(&self, k: usize) -> Result<Vec<(usize, f32)>> {
+        let canonical = self.canonicalized()?;
+        let mut pairs = canonical
+            .indices
+            .into_iter()
+            .zip(canonical.values)
+            .collect::<Vec<_>>();
+        pairs.sort_by(|left, right| {
+            right
+                .1
+                .abs()
+                .partial_cmp(&left.1.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| left.0.cmp(&right.0))
+        });
+        pairs.truncate(k);
+        Ok(pairs)
+    }
+
     /// Returns normalize l2.
     pub fn normalize_l2(&self) -> Result<Self> {
         let norm = self
@@ -292,6 +396,20 @@ impl CooMatrix {
     pub fn to_csr(&self) -> Result<CsrMatrix> {
         CsrMatrix::from_coo(self)
     }
+
+    /// Returns a transposed COO matrix.
+    pub fn transpose(&self) -> Result<Self> {
+        self.validate()?;
+        Self::new(
+            self.cols,
+            self.rows,
+            self.entries
+                .iter()
+                .map(|(row, col, value)| (*col, *row, *value))
+                .collect(),
+        )
+        .and_then(|matrix| matrix.canonicalized())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -379,6 +497,54 @@ impl CsrMatrix {
     /// Returns rows iter.
     pub fn rows_iter(&self) -> impl Iterator<Item = SparseRow<'_>> {
         (0..self.rows).map(|index| self.row(index).expect("indices are validated"))
+    }
+
+    /// Returns the non-zero count for each row.
+    pub fn row_nnz(&self) -> Vec<usize> {
+        self.row_offsets
+            .windows(2)
+            .map(|window| window[1] - window[0])
+            .collect()
+    }
+
+    /// Multiplies this CSR matrix by a dense finite vector.
+    pub fn mul_dense_vector(&self, vector: &[f32]) -> Result<Vec<f32>> {
+        self.validate()?;
+        if vector.len() != self.cols {
+            return Err(invalid_argument(
+                "sparse matrix/vector dimensions are incompatible",
+            ));
+        }
+        if vector.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument("dense vector values must be finite"));
+        }
+        let mut output = vec![0.0; self.rows];
+        for (row_index, row) in self.rows_iter().enumerate() {
+            output[row_index] = row
+                .indices()
+                .iter()
+                .zip(row.values())
+                .map(|(col, value)| vector[*col] * value)
+                .sum();
+        }
+        Ok(output)
+    }
+
+    /// Converts this CSR matrix to COO entries.
+    pub fn to_coo(&self) -> Result<CooMatrix> {
+        self.validate()?;
+        let mut entries = Vec::with_capacity(self.values.len());
+        for row in 0..self.rows {
+            for index in self.row_offsets[row]..self.row_offsets[row + 1] {
+                entries.push((row, self.column_indices[index], self.values[index]));
+            }
+        }
+        CooMatrix::new(self.rows, self.cols, entries)
+    }
+
+    /// Returns the matrix transpose.
+    pub fn transpose(&self) -> Result<Self> {
+        self.to_coo()?.transpose()?.to_csr()
     }
 
     /// Validates this value.
@@ -478,5 +644,32 @@ mod tests {
         let dense = [0.0, 1.0, 0.0, 2.0];
         let sparse = SparseVector::from_dense(&dense).unwrap();
         assert_eq!(sparse.to_dense(), dense);
+    }
+
+    #[test]
+    fn vector_ops_and_sparse_matrix_transpose_work() {
+        let left = SparseVector::new(4, vec![0, 2], vec![1.0, -3.0]).unwrap();
+        let right = SparseVector::new(4, vec![2, 3], vec![1.0, 2.0]).unwrap();
+        let added = left.add(&right).unwrap();
+        assert_eq!(added.indices(), &[0, 2, 3]);
+        assert_eq!(added.values(), &[1.0, -2.0, 2.0]);
+        assert_eq!(left.top_k_by_abs(1).unwrap(), vec![(2, -3.0)]);
+
+        let matrix = CooMatrix::new(2, 3, vec![(0, 1, 2.0), (1, 2, 3.0)])
+            .unwrap()
+            .to_csr()
+            .unwrap();
+        assert_eq!(matrix.row_nnz(), vec![1, 1]);
+        assert_eq!(
+            matrix.mul_dense_vector(&[1.0, 2.0, 3.0]).unwrap(),
+            vec![4.0, 9.0]
+        );
+        let transposed = matrix.transpose().unwrap();
+        assert_eq!(transposed.rows(), 3);
+        assert_eq!(transposed.cols(), 2);
+        assert_eq!(
+            transposed.transpose().unwrap().to_coo().unwrap().entries(),
+            matrix.to_coo().unwrap().entries()
+        );
     }
 }

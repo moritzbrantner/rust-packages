@@ -35,6 +35,63 @@ pub struct BetaAlpha {
     pub benchmark_mean: f64,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+/// Validated portfolio weights.
+pub struct PortfolioWeights {
+    weights: Vec<f64>,
+}
+
+impl PortfolioWeights {
+    /// Creates finite non-negative weights that sum to 1 within a small tolerance.
+    pub fn new(weights: Vec<f64>) -> Result<Self> {
+        if weights.is_empty() {
+            return Err(invalid_argument("portfolio weights must not be empty"));
+        }
+        if weights
+            .iter()
+            .any(|value| !value.is_finite() || *value < 0.0)
+        {
+            return Err(invalid_argument(
+                "portfolio weights must be finite and non-negative",
+            ));
+        }
+        let sum = weights.iter().sum::<f64>();
+        if (sum - 1.0).abs() > 1.0e-6 {
+            return Err(invalid_argument("portfolio weights must sum to 1"));
+        }
+        Ok(Self { weights })
+    }
+
+    /// Borrows validated weights.
+    pub fn weights(&self) -> &[f64] {
+        &self.weights
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Portfolio risk summary.
+pub struct PortfolioRiskSummary {
+    /// Mean portfolio return per period.
+    pub mean_return: f64,
+    /// Annualized sample volatility.
+    pub volatility: f64,
+    /// Annualized Sharpe ratio when non-zero volatility is available.
+    pub sharpe: Option<f64>,
+    /// Maximum drawdown depth.
+    pub max_drawdown: f64,
+    /// Historical positive value at risk.
+    pub value_at_risk: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Drawdown duration summary for a compounded return path.
+pub struct DrawdownDuration {
+    /// Maximum number of periods spent below the prior equity peak.
+    pub max_duration: usize,
+    /// Current drawdown duration at the end of the series.
+    pub current_duration: usize,
+}
+
 /// Returns simple period returns from strictly positive prices.
 pub fn simple_returns(prices: &[f64]) -> Result<Vec<f64>> {
     math_statistics::changes(prices, math_statistics::ChangeMethod::Relative)
@@ -236,6 +293,113 @@ pub fn information_ratio(
     Ok(mean_return(&active)? / tracking_error_per_period * periods_per_year.sqrt())
 }
 
+/// Computes weighted portfolio returns from aligned asset return series.
+pub fn portfolio_returns(asset_returns: &[Vec<f64>], weights: &[f64]) -> Result<Vec<f64>> {
+    let weights = PortfolioWeights::new(weights.to_vec())?;
+    if asset_returns.len() != weights.weights().len() {
+        return Err(invalid_argument(
+            "asset return series count must match weight count",
+        ));
+    }
+    let periods = asset_returns
+        .first()
+        .ok_or_else(|| invalid_argument("asset returns must not be empty"))?
+        .len();
+    if periods == 0 {
+        return Err(invalid_argument("asset return series must not be empty"));
+    }
+    for returns in asset_returns {
+        validate_returns(returns)?;
+        if returns.len() != periods {
+            return Err(invalid_argument("asset return series lengths must match"));
+        }
+    }
+    let mut portfolio = vec![0.0; periods];
+    for (returns, weight) in asset_returns.iter().zip(weights.weights()) {
+        for (index, value) in returns.iter().copied().enumerate() {
+            portfolio[index] += value * weight;
+        }
+    }
+    Ok(portfolio)
+}
+
+/// Computes a compact portfolio risk summary.
+pub fn portfolio_risk_summary(
+    asset_returns: &[Vec<f64>],
+    weights: &[f64],
+    periods_per_year: f64,
+    risk_free_return_per_period: f64,
+    confidence: f64,
+) -> Result<PortfolioRiskSummary> {
+    let returns = portfolio_returns(asset_returns, weights)?;
+    let risk = historical_value_at_risk(&returns, confidence)?;
+    Ok(PortfolioRiskSummary {
+        mean_return: mean_return(&returns)?,
+        volatility: annualized_volatility(&returns, periods_per_year)?,
+        sharpe: sharpe_ratio(&returns, risk_free_return_per_period, periods_per_year).ok(),
+        max_drawdown: max_drawdown(&returns)?.depth,
+        value_at_risk: risk.value_at_risk,
+    })
+}
+
+/// Returns annualized return divided by maximum drawdown.
+pub fn calmar_ratio(returns: &[f64], periods_per_year: f64) -> Result<f64> {
+    let annualized = annualized_return(returns, periods_per_year)?;
+    let drawdown = max_drawdown(returns)?.depth;
+    if drawdown <= f64::EPSILON {
+        return Err(invalid_argument("Calmar ratio requires non-zero drawdown"));
+    }
+    Ok(annualized / drawdown)
+}
+
+/// Returns gains above a threshold divided by losses below the threshold.
+pub fn omega_ratio(returns: &[f64], threshold_return_per_period: f64) -> Result<f64> {
+    validate_returns(returns)?;
+    if !threshold_return_per_period.is_finite() {
+        return Err(invalid_argument("Omega threshold must be finite"));
+    }
+    let gains = returns
+        .iter()
+        .map(|value| (value - threshold_return_per_period).max(0.0))
+        .sum::<f64>();
+    let losses = returns
+        .iter()
+        .map(|value| (threshold_return_per_period - value).max(0.0))
+        .sum::<f64>();
+    if losses <= f64::EPSILON {
+        return Err(invalid_argument("Omega ratio requires non-zero losses"));
+    }
+    Ok(gains / losses)
+}
+
+/// Summarizes drawdown durations for a compounded return path.
+pub fn drawdown_duration(returns: &[f64]) -> Result<DrawdownDuration> {
+    validate_returns(returns)?;
+    let mut equity = 1.0;
+    let mut peak = 1.0;
+    let mut current_duration = 0;
+    let mut max_duration = 0;
+    for value in returns {
+        if *value < -1.0 {
+            return Err(invalid_argument(
+                "compound values must be greater than or equal to -1",
+            ));
+        }
+        equity *= 1.0 + value;
+        if equity >= peak {
+            peak = equity;
+            current_duration = 0;
+        } else {
+            current_duration += 1;
+            max_duration = max_duration.max(current_duration);
+        }
+    }
+    Ok(DrawdownDuration {
+        max_duration,
+        current_duration,
+    })
+}
+
 /// Returns portfolio minus benchmark returns.
 pub fn active_returns(portfolio_returns: &[f64], benchmark_returns: &[f64]) -> Result<Vec<f64>> {
     validate_pair(portfolio_returns, benchmark_returns)?;
@@ -396,6 +560,28 @@ mod tests {
             rolling_mean(&returns, 2).unwrap(),
             math_statistics::rolling_mean(&returns, 2).unwrap()
         );
+    }
+
+    #[test]
+    fn portfolio_and_performance_helpers_work() {
+        let assets = vec![vec![0.02, -0.01, 0.03, 0.01], vec![0.01, 0.00, 0.02, -0.01]];
+        let returns = portfolio_returns(&assets, &[0.6, 0.4]).unwrap();
+        assert_eq!(returns.len(), 4);
+        assert_close(returns[0], 0.016);
+
+        let summary = portfolio_risk_summary(&assets, &[0.6, 0.4], 252.0, 0.0, 0.8).unwrap();
+        assert!(summary.volatility > 0.0);
+        assert!(summary.value_at_risk >= 0.0);
+
+        assert!(calmar_ratio(&[0.1, -0.2, 0.3], 252.0).unwrap().is_finite());
+        assert!(omega_ratio(&[0.1, -0.2, 0.3], 0.0).unwrap().is_finite());
+        assert!(
+            drawdown_duration(&[0.1, -0.2, 0.05, 0.3])
+                .unwrap()
+                .max_duration
+                > 0
+        );
+        assert!(PortfolioWeights::new(vec![0.8, 0.3]).is_err());
     }
 
     #[test]

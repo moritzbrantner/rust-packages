@@ -7,10 +7,10 @@ use runtime_core::{
 use serde::Deserialize;
 
 use crate::{
-    annualized_return, annualized_volatility, beta_alpha, cumulative_return,
-    historical_value_at_risk, log_returns, max_drawdown, mean_return, rolling_correlation,
-    rolling_mean, rolling_std_dev, sharpe_ratio, simple_returns, sortino_ratio, std_dev,
-    VarianceMode,
+    annualized_return, annualized_volatility, beta_alpha, calmar_ratio, cumulative_return,
+    drawdown_duration, historical_value_at_risk, log_returns, max_drawdown, mean_return,
+    omega_ratio, portfolio_returns, portfolio_risk_summary, rolling_correlation, rolling_mean,
+    rolling_std_dev, sharpe_ratio, simple_returns, sortino_ratio, std_dev, VarianceMode,
 };
 
 const MAX_VALUES: usize = 100_000;
@@ -52,6 +52,18 @@ pub fn package_surface() -> PackageSurface {
                 "Computes rolling mean, sample volatility, and optional benchmark correlation.",
                 serde_json::json!({"returns": [0.1, -0.2, 0.05, 0.3], "window": 2}),
             ),
+            operation(
+                "finance.portfolio",
+                "Portfolio returns",
+                "Computes weighted portfolio returns and compact portfolio risk metrics.",
+                serde_json::json!({"assetReturns": [[0.02, -0.01, 0.03], [0.01, 0.0, 0.02]], "weights": [0.6, 0.4], "confidence": 0.8}),
+            ),
+            operation(
+                "finance.performanceRatios",
+                "Performance ratios",
+                "Computes Calmar ratio, Omega ratio, and drawdown duration for a return series.",
+                serde_json::json!({"returns": [0.1, -0.2, 0.05, 0.3], "thresholdReturnPerPeriod": 0.0}),
+            ),
         ],
     }
 }
@@ -83,6 +95,8 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "finance.risk" => risk_value(parse_input(request.input)?)?,
         "finance.drawdown" => drawdown_value(parse_input(request.input)?)?,
         "finance.rolling" => rolling_value(parse_input(request.input)?)?,
+        "finance.portfolio" => portfolio_value(parse_input(request.input)?)?,
+        "finance.performanceRatios" => performance_ratios_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -148,6 +162,29 @@ struct RollingRequest {
     window: usize,
     #[serde(default)]
     benchmark_returns: Option<Vec<f64>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PortfolioRequest {
+    asset_returns: Vec<Vec<f64>>,
+    weights: Vec<f64>,
+    #[serde(default = "default_periods_per_year")]
+    periods_per_year: f64,
+    #[serde(default = "default_confidence")]
+    confidence: f64,
+    #[serde(default)]
+    risk_free_return_per_period: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PerformanceRatiosRequest {
+    returns: Vec<f64>,
+    #[serde(default = "default_periods_per_year")]
+    periods_per_year: f64,
+    #[serde(default)]
+    threshold_return_per_period: f64,
 }
 
 fn returns_value(request: ReturnsRequest) -> Result<serde_json::Value, String> {
@@ -240,6 +277,49 @@ fn rolling_value(request: RollingRequest) -> Result<serde_json::Value, String> {
     Ok(value)
 }
 
+fn portfolio_value(request: PortfolioRequest) -> Result<serde_json::Value, String> {
+    validate_value_count(request.weights.len())?;
+    for returns in &request.asset_returns {
+        validate_value_count(returns.len())?;
+    }
+    let returns = portfolio_returns(&request.asset_returns, &request.weights)
+        .map_err(|error| error.to_string())?;
+    let summary = portfolio_risk_summary(
+        &request.asset_returns,
+        &request.weights,
+        request.periods_per_year,
+        request.risk_free_return_per_period,
+        request.confidence,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "weights": request.weights,
+        "returns": returns,
+        "summary": {
+            "meanReturn": summary.mean_return,
+            "volatility": summary.volatility,
+            "sharpe": summary.sharpe,
+            "maxDrawdown": summary.max_drawdown,
+            "valueAtRisk": summary.value_at_risk
+        }
+    }))
+}
+
+fn performance_ratios_value(
+    request: PerformanceRatiosRequest,
+) -> Result<serde_json::Value, String> {
+    validate_value_count(request.returns.len())?;
+    let duration = drawdown_duration(&request.returns).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "calmarRatio": calmar_ratio(&request.returns, request.periods_per_year).ok(),
+        "omegaRatio": omega_ratio(&request.returns, request.threshold_return_per_period).ok(),
+        "drawdownDuration": {
+            "maxDuration": duration.max_duration,
+            "currentDuration": duration.current_duration
+        }
+    }))
+}
+
 fn validate_value_count(count: usize) -> Result<(), String> {
     if count > MAX_VALUES {
         return Err(format!("values must not exceed {MAX_VALUES}"));
@@ -308,5 +388,22 @@ mod tests {
         .expect("rolling");
         assert_eq!(response.value["meanReturn"].as_array().unwrap().len(), 3);
         assert_eq!(response.value["correlation"].as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn portfolio_and_performance_operations_run() {
+        for operation in ["finance.portfolio", "finance.performanceRatios"] {
+            let surface_operation = package_surface()
+                .operations
+                .into_iter()
+                .find(|candidate| candidate.id.as_str() == operation)
+                .expect("operation metadata");
+            let response = run_surface_operation(SurfaceRequest {
+                operation: surface_operation.id,
+                input: surface_operation.example_request,
+            })
+            .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
+            assert!(response.value.is_object());
+        }
     }
 }

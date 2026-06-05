@@ -55,6 +55,24 @@ fn bench_matrix(c: &mut Criterion) {
         b.iter(|| small.inverse().unwrap())
     });
 
+    c.bench_function("matrix_cholesky_4x4", |b| {
+        b.iter(|| {
+            F32Matrix::from_rows([
+                [6.0, 1.0, 1.0, 1.0],
+                [1.0, 5.0, 1.0, 1.0],
+                [1.0, 1.0, 4.0, 1.0],
+                [1.0, 1.0, 1.0, 3.0],
+            ])
+            .unwrap()
+            .cholesky_decompose()
+            .unwrap()
+        })
+    });
+
+    c.bench_function("matrix_qr_512x128", |b| {
+        b.iter(|| tall.qr_decompose().unwrap())
+    });
+
     c.bench_function("matrix_l2_normalize_rows_512x128", |b| {
         b.iter(|| tall.l2_normalize_rows().unwrap())
     });

@@ -1,7 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use math_linear::{F32Matrix, MatrixShape};
 use math_statistics::{
-    PrincipalComponents, RunningCovariance, WeightedObservation, ZScoreNormalizer,
+    ordinary_least_squares, PrincipalComponents, RunningCovariance, WeightedObservation,
+    ZScoreNormalizer,
 };
 
 fn matrix(rows: usize, cols: usize) -> F32Matrix {
@@ -54,6 +55,13 @@ fn bench_multivariate(c: &mut Criterion) {
             let pca = PrincipalComponents::fit(black_box(&view), black_box(4)).unwrap();
             pca.transform(black_box(&view)).unwrap()
         })
+    });
+
+    let target = (0..matrix.shape().rows)
+        .map(|index| (index as f32 * 0.011).sin())
+        .collect::<Vec<_>>();
+    c.bench_function("ols_2048x16", |b| {
+        b.iter(|| ordinary_least_squares(black_box(&view), black_box(&target)).unwrap())
     });
 }
 

@@ -8,6 +8,8 @@ finite local inputs.
 - Streaming covariance accumulation
 - Scalar series summaries, sample/population variance, and z-scores
 - Pairwise covariance and correlation
+- Average ranks, Spearman correlation, simple linear regression, and OLS
+  regression over dense design matrices
 - Difference, relative-change, and log-ratio derived series
 - Rolling mean, standard deviation, min/max ranges, and correlation
 - Empirical tail risk and compounded-path drawdown helpers
@@ -70,6 +72,9 @@ components from the covariance matrix with a fixed 32-step power iteration and
 simple deflation. It is intended for predictable package workflows, not as a
 replacement for a full numerical linear algebra backend on ill-conditioned or
 large matrices.
+
+OLS uses the `math-linear` QR path for full-column-rank designs and falls back
+to normal equations when QR cannot be applied.
 
 ## Related crates
 

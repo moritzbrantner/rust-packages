@@ -8,9 +8,12 @@ Dense matrix and kernel contracts bridging `moritzbrantner-tensor-data` and
 - Checked small dense matrix shapes and views
 - Row and column iteration with transpose views
 - Identity, zero, transpose, add, subtract, scale, trace, and mean utilities
+- Diagonal construction, Gram matrices, and row/column centering
 - Matrix multiply, matrix-vector multiply, and row cosine helpers
 - Pure Rust LU decomposition with partial pivoting, determinant, solve, and
   inverse helpers
+- Pure Rust Cholesky and modified Gram-Schmidt QR decomposition for
+  deterministic small and medium matrix workflows
 - Shared `Kernel2d` and `Kernel1d` types for image and video processing
 - Bridges between rank-2 tensors, dense vectors, and matrices
 
@@ -59,6 +62,10 @@ singular or near-singular matrices, and powers determinant, vector solve, matrix
 solve, and inverse helpers. This crate is intended as an internal matrix backend
 layer for workspace packages, not as a full replacement for specialized
 numerical linear algebra backends.
+
+Cholesky decomposition requires a symmetric positive definite square matrix. QR
+decomposition currently computes a thin factorization and requires
+`rows >= cols` with full column rank.
 
 Future adapters for libraries such as faer or nalgebra can be added behind
 private feature-gated backend modules while keeping the public API owned by

@@ -161,6 +161,7 @@ fn eval_args(args: &Args) -> EvalArgs {
         limit: None,
         max_runtime: None,
         progress: false,
+        preset: None,
         resume: false,
         resize_width: args.resize_width,
         pixel_format: video_analysis_core::PixelFormat::Rgb24,

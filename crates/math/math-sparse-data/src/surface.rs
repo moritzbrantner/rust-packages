@@ -41,6 +41,24 @@ pub fn package_surface() -> PackageSurface {
                 "Summarizes COO or CSR sparse matrix shape, nnz, density, and row nnz.",
                 serde_json::json!({"format": "coo", "rows": 2, "cols": 2, "entries": [[0, 1, 2.0]]}),
             ),
+            operation(
+                "sparse.vectorOps",
+                "Sparse vector operations",
+                "Computes sparse vector norms, optional scaling, optional addition, and top-k entries.",
+                serde_json::json!({"vector": {"dimensions": 4, "indices": [0, 2], "values": [1.0, -3.0]}, "scale": 0.5, "topK": 1}),
+            ),
+            operation(
+                "sparse.matrixVector",
+                "Sparse matrix vector multiply",
+                "Multiplies a COO or CSR sparse matrix by a finite dense vector.",
+                serde_json::json!({"format": "coo", "rows": 2, "cols": 3, "entries": [[0, 1, 2.0], [1, 2, 3.0]], "vector": [1.0, 2.0, 3.0]}),
+            ),
+            operation(
+                "sparse.transpose",
+                "Sparse transpose",
+                "Transposes a COO or CSR sparse matrix and returns canonical COO entries.",
+                serde_json::json!({"format": "coo", "rows": 2, "cols": 3, "entries": [[0, 1, 2.0], [1, 2, 3.0]]}),
+            ),
         ],
     }
 }
@@ -71,6 +89,9 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "sparse.similarity" => similarity_value(parse_input(request.input)?)?,
         "sparse.toDense" => to_dense_value(parse_input(request.input)?)?,
         "sparse.matrixSummary" => matrix_summary_value(parse_input(request.input)?)?,
+        "sparse.vectorOps" => vector_ops_value(parse_input(request.input)?)?,
+        "sparse.matrixVector" => matrix_vector_value(parse_input(request.input)?)?,
+        "sparse.transpose" => transpose_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -133,6 +154,26 @@ struct MatrixSummaryRequest {
     values: Vec<f32>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VectorOpsRequest {
+    vector: SparseVectorRequest,
+    #[serde(default)]
+    scale: Option<f32>,
+    #[serde(default)]
+    add: Option<SparseVectorRequest>,
+    #[serde(default)]
+    top_k: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MatrixVectorRequest {
+    #[serde(flatten)]
+    matrix: MatrixSummaryRequest,
+    vector: Vec<f32>,
+}
+
 fn similarity_value(request: SimilarityRequest) -> Result<serde_json::Value, String> {
     let left = sparse_vector(request.left)?;
     let right = sparse_vector(request.right)?;
@@ -156,28 +197,62 @@ fn to_dense_value(request: SparseVectorRequest) -> Result<serde_json::Value, Str
 }
 
 fn matrix_summary_value(request: MatrixSummaryRequest) -> Result<serde_json::Value, String> {
-    match request.format.as_str() {
-        "coo" => {
-            validate_value_count(request.entries.len())?;
-            let coo = CooMatrix::new(request.rows, request.cols, request.entries)
-                .map_err(|error| error.to_string())?;
-            let csr = coo.to_csr().map_err(|error| error.to_string())?;
-            matrix_json("coo", csr)
-        }
-        "csr" => {
-            validate_value_count(request.values.len())?;
-            let csr = CsrMatrix::new(
-                request.rows,
-                request.cols,
-                request.row_offsets,
-                request.column_indices,
-                request.values,
-            )
-            .map_err(|error| error.to_string())?;
-            matrix_json("csr", csr)
-        }
-        format => Err(format!("unsupported sparse matrix format `{format}`")),
+    let format = request.format.clone();
+    matrix_json(&format, matrix_from_request(request)?)
+}
+
+fn vector_ops_value(request: VectorOpsRequest) -> Result<serde_json::Value, String> {
+    let vector = sparse_vector(request.vector)?;
+    let mut value = serde_json::json!({
+        "dimensions": vector.dimensions(),
+        "nnz": vector.nnz(),
+        "l1Norm": vector.l1_norm().map_err(|error| error.to_string())?,
+        "l2Norm": vector.l2_norm().map_err(|error| error.to_string())?
+    });
+    if let Some(scale) = request.scale {
+        let scaled = vector.scale(scale).map_err(|error| error.to_string())?;
+        value["scaled"] = vector_json(&scaled);
     }
+    if let Some(add) = request.add {
+        let added = vector
+            .add(&sparse_vector(add)?)
+            .map_err(|error| error.to_string())?;
+        value["added"] = vector_json(&added);
+    }
+    if let Some(top_k) = request.top_k {
+        value["topK"] = serde_json::json!(vector
+            .top_k_by_abs(top_k)
+            .map_err(|error| error.to_string())?
+            .into_iter()
+            .map(|(index, value)| serde_json::json!({"index": index, "value": value}))
+            .collect::<Vec<_>>());
+    }
+    Ok(value)
+}
+
+fn matrix_vector_value(request: MatrixVectorRequest) -> Result<serde_json::Value, String> {
+    validate_value_count(request.vector.len())?;
+    let matrix = matrix_from_request(request.matrix)?;
+    let result = matrix
+        .mul_dense_vector(&request.vector)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "rows": matrix.rows(),
+        "cols": matrix.cols(),
+        "values": result
+    }))
+}
+
+fn transpose_value(request: MatrixSummaryRequest) -> Result<serde_json::Value, String> {
+    let matrix = matrix_from_request(request)?;
+    let transposed = matrix.transpose().map_err(|error| error.to_string())?;
+    let coo = transposed.to_coo().map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "format": "coo",
+        "rows": coo.rows(),
+        "cols": coo.cols(),
+        "entries": coo.entries()
+    }))
 }
 
 fn matrix_json(format: &str, matrix: CsrMatrix) -> Result<serde_json::Value, String> {
@@ -194,6 +269,38 @@ fn matrix_json(format: &str, matrix: CsrMatrix) -> Result<serde_json::Value, Str
         "density": nnz as f64 / (matrix.rows() * matrix.cols()) as f64,
         "rowNnz": row_nnz
     }))
+}
+
+fn matrix_from_request(request: MatrixSummaryRequest) -> Result<CsrMatrix, String> {
+    match request.format.as_str() {
+        "coo" => {
+            validate_value_count(request.entries.len())?;
+            CooMatrix::new(request.rows, request.cols, request.entries)
+                .and_then(|coo| coo.to_csr())
+                .map_err(|error| error.to_string())
+        }
+        "csr" => {
+            validate_value_count(request.values.len())?;
+            CsrMatrix::new(
+                request.rows,
+                request.cols,
+                request.row_offsets,
+                request.column_indices,
+                request.values,
+            )
+            .map_err(|error| error.to_string())
+        }
+        format => Err(format!("unsupported sparse matrix format `{format}`")),
+    }
+}
+
+fn vector_json(vector: &SparseVector) -> serde_json::Value {
+    serde_json::json!({
+        "dimensions": vector.dimensions(),
+        "indices": vector.indices(),
+        "values": vector.values(),
+        "nnz": vector.nnz()
+    })
 }
 
 fn sparse_vector(request: SparseVectorRequest) -> Result<SparseVector, String> {
@@ -244,5 +351,26 @@ mod tests {
         }).expect("matrix summary");
         assert_eq!(response.value["nnz"], 2);
         assert_eq!(response.value["rowNnz"], serde_json::json!([1, 1]));
+    }
+
+    #[test]
+    fn new_sparse_operations_run() {
+        for operation in [
+            "sparse.vectorOps",
+            "sparse.matrixVector",
+            "sparse.transpose",
+        ] {
+            let surface_operation = package_surface()
+                .operations
+                .into_iter()
+                .find(|candidate| candidate.id.as_str() == operation)
+                .expect("operation metadata");
+            let response = run_surface_operation(SurfaceRequest {
+                operation: surface_operation.id,
+                input: surface_operation.example_request,
+            })
+            .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
+            assert!(response.value.is_object());
+        }
     }
 }

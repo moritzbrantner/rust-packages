@@ -78,6 +78,30 @@ pub fn package_surface() -> PackageSurface {
                 "Projects rank-2 tensor payloads to matrix shape or matrix-shaped payloads to tensor shape.",
                 serde_json::json!({"shape": [2, 2], "values": [1.0, 2.0, 3.0, 4.0], "direction": "tensorToMatrix"}),
             ),
+            operation(
+                "linear.gram",
+                "Gram matrix",
+                "Computes row or column Gram matrices for a finite f32 matrix.",
+                serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [1.0, 2.0, 3.0, 4.0]}, "axis": "rows"}),
+            ),
+            operation(
+                "linear.cholesky",
+                "Cholesky decomposition",
+                "Factors a symmetric positive definite matrix into lower-triangular Cholesky form.",
+                serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [4.0, 2.0, 2.0, 3.0]}}),
+            ),
+            operation(
+                "linear.qr",
+                "QR decomposition",
+                "Factors a full-column-rank matrix with deterministic modified Gram-Schmidt QR.",
+                serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 0.0, 1.0, 1.0, 0.0, 1.0]}}),
+            ),
+            operation(
+                "linear.center",
+                "Center matrix",
+                "Subtracts row or column means from a finite f32 matrix.",
+                serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [1.0, 2.0, 3.0, 4.0]}, "axis": "columns"}),
+            ),
         ],
     }
 }
@@ -112,6 +136,10 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "linear.inverse" => inverse_value(parse_input(request.input)?)?,
         "linear.kernel1d" => kernel1d_value(parse_input(request.input)?)?,
         "linear.tensorBridge" => tensor_bridge_value(parse_input(request.input)?)?,
+        "linear.gram" => gram_value(parse_input(request.input)?)?,
+        "linear.cholesky" => cholesky_value(parse_input(request.input)?)?,
+        "linear.qr" => qr_value(parse_input(request.input)?)?,
+        "linear.center" => center_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -157,6 +185,14 @@ struct MatmulRequest {
 #[serde(rename_all = "camelCase")]
 struct UnaryMatrixRequest {
     matrix: MatrixRequest,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MatrixAxisRequest {
+    matrix: MatrixRequest,
+    #[serde(default = "default_columns_axis")]
+    axis: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -362,6 +398,71 @@ fn tensor_bridge_value(request: TensorBridgeRequest) -> Result<serde_json::Value
     }
 }
 
+fn gram_value(request: MatrixAxisRequest) -> Result<serde_json::Value, String> {
+    let matrix = matrix_from_request(request.matrix)?;
+    let gram = match request.axis.as_str() {
+        "rows" => matrix.gram_rows(),
+        "columns" | "cols" => matrix.gram_columns(),
+        axis => return Err(format!("unsupported Gram axis `{axis}`")),
+    }
+    .map_err(|error| error.to_string())?;
+    let mut value = matrix_json(gram)?;
+    value["axis"] = serde_json::json!(request.axis);
+    Ok(value)
+}
+
+fn cholesky_value(request: UnaryMatrixRequest) -> Result<serde_json::Value, String> {
+    let matrix = matrix_from_request(request.matrix)?;
+    let decomposition = matrix
+        .cholesky_decompose()
+        .map_err(|error| error.to_string())?;
+    let reconstructed = decomposition
+        .lower
+        .matmul(&decomposition.lower.transpose_view())
+        .map_err(|error| error.to_string())?;
+    let condition = matrix
+        .condition_estimate()
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "method": "cholesky",
+        "lower": matrix_projection(&decomposition.lower),
+        "reconstructed": matrix_projection(&reconstructed),
+        "condition": {
+            "determinant": condition.determinant,
+            "diagonalMinAbs": condition.diagonal_min_abs,
+            "diagonalMaxAbs": condition.diagonal_max_abs
+        }
+    }))
+}
+
+fn qr_value(request: UnaryMatrixRequest) -> Result<serde_json::Value, String> {
+    let matrix = matrix_from_request(request.matrix)?;
+    let decomposition = matrix.qr_decompose().map_err(|error| error.to_string())?;
+    let reconstructed = decomposition
+        .q
+        .matmul(&decomposition.r.as_view())
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "method": "qr",
+        "q": matrix_projection(&decomposition.q),
+        "r": matrix_projection(&decomposition.r),
+        "reconstructed": matrix_projection(&reconstructed)
+    }))
+}
+
+fn center_value(request: MatrixAxisRequest) -> Result<serde_json::Value, String> {
+    let matrix = matrix_from_request(request.matrix)?;
+    let centered = match request.axis.as_str() {
+        "rows" => matrix.center_rows(),
+        "columns" | "cols" => matrix.center_columns(),
+        axis => return Err(format!("unsupported center axis `{axis}`")),
+    }
+    .map_err(|error| error.to_string())?;
+    let mut value = matrix_json(centered)?;
+    value["axis"] = serde_json::json!(request.axis);
+    Ok(value)
+}
+
 fn matrix_from_request(request: MatrixRequest) -> Result<F32Matrix, String> {
     validate_value_count(request.values.len())?;
     F32Matrix::new(
@@ -380,6 +481,15 @@ fn matrix_json(matrix: F32Matrix) -> Result<serde_json::Value, String> {
     }))
 }
 
+fn matrix_projection(matrix: &F32Matrix) -> serde_json::Value {
+    let shape = matrix.shape();
+    serde_json::json!({
+        "rows": shape.rows,
+        "cols": shape.cols,
+        "values": matrix.values()
+    })
+}
+
 fn validate_value_count(count: usize) -> Result<(), String> {
     if count > MAX_VALUES {
         return Err(format!("values must not exceed {MAX_VALUES}"));
@@ -389,6 +499,10 @@ fn validate_value_count(count: usize) -> Result<(), String> {
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
     serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+}
+
+fn default_columns_axis() -> String {
+    "columns".to_string()
 }
 
 #[cfg(test)]
@@ -537,5 +651,27 @@ mod tests {
         assert_close(values[1], -0.2);
         assert_close(values[2], -0.2);
         assert_close(values[3], 0.4);
+    }
+
+    #[test]
+    fn new_linear_operations_run() {
+        for operation in [
+            "linear.gram",
+            "linear.cholesky",
+            "linear.qr",
+            "linear.center",
+        ] {
+            let surface_operation = package_surface()
+                .operations
+                .into_iter()
+                .find(|candidate| candidate.id.as_str() == operation)
+                .expect("operation metadata");
+            let response = run_surface_operation(SurfaceRequest {
+                operation: surface_operation.id,
+                input: surface_operation.example_request,
+            })
+            .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
+            assert!(response.value.is_object());
+        }
     }
 }

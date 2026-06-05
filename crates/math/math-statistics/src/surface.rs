@@ -9,9 +9,10 @@ use serde::Deserialize;
 use math_linear::{F32Matrix, MatrixShape};
 
 use crate::{
-    changes, rolling_correlation, rolling_mean, rolling_min_max, rolling_std_dev, summarize_pair,
-    summarize_series, tail_risk, z_scores, ChangeMethod, MinMaxNormalizer, PrincipalComponents,
-    RunningCovariance, VarianceMode, ZScoreNormalizer,
+    changes, ordinary_least_squares, rank_values, rolling_correlation, rolling_mean,
+    rolling_min_max, rolling_std_dev, simple_linear_regression, spearman_correlation,
+    summarize_pair, summarize_series, tail_risk, z_scores, ChangeMethod, MinMaxNormalizer,
+    PrincipalComponents, RunningCovariance, VarianceMode, ZScoreNormalizer,
 };
 
 const MAX_VALUES: usize = 100_000;
@@ -33,6 +34,9 @@ pub fn package_surface() -> PackageSurface {
             operation("stats.normalize", "Normalize matrix", "Applies z-score or min-max column normalization to a finite f32 matrix.", serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [0.0, 1.0, 2.0, 3.0]}, "method": "minMax"})),
             operation("stats.covariance", "Covariance matrix", "Computes covariance and optional correlation for matrix rows as observations.", serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 0.0, 0.0, 1.0, 1.0, 1.0]}, "correlation": true})),
             operation("stats.pca", "PCA", "Fits PCA-lite components and optionally transforms rows into component space.", serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 2.0, 2.0, 3.0, 3.0]}, "componentCount": 1, "transform": true})),
+            operation("stats.series.rankCorrelation", "Rank correlation", "Computes average ranks and Spearman correlation for finite paired scalar series.", serde_json::json!({"left": [1.0, 2.0, 2.0, 4.0], "right": [10.0, 20.0, 20.0, 40.0]})),
+            operation("stats.regression.linear", "Linear regression", "Fits a simple y = intercept + slope * x regression for paired finite scalar observations.", serde_json::json!({"x": [1.0, 2.0, 3.0], "y": [3.0, 5.0, 7.0]})),
+            operation("stats.regression.ols", "OLS regression", "Fits ordinary least squares from a finite dense design matrix and target vector.", serde_json::json!({"design": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0]}, "target": [3.0, 5.0, 7.0]})),
         ],
     }
 }
@@ -69,6 +73,9 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "stats.normalize" => normalize_value(parse_input(request.input)?)?,
         "stats.covariance" => covariance_value(parse_input(request.input)?)?,
         "stats.pca" => pca_value(parse_input(request.input)?)?,
+        "stats.series.rankCorrelation" => rank_correlation_value(parse_input(request.input)?)?,
+        "stats.regression.linear" => regression_linear_value(parse_input(request.input)?)?,
+        "stats.regression.ols" => regression_ols_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -173,6 +180,27 @@ struct PcaRequest {
     component_count: usize,
     #[serde(default)]
     transform: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RankCorrelationRequest {
+    left: Vec<f64>,
+    right: Vec<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LinearRegressionRequest {
+    x: Vec<f64>,
+    y: Vec<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OlsRequest {
+    design: MatrixRequest,
+    target: Vec<f32>,
 }
 
 fn series_describe_value(request: SeriesRequest) -> Result<serde_json::Value, String> {
@@ -342,6 +370,46 @@ fn pca_value(request: PcaRequest) -> Result<serde_json::Value, String> {
     Ok(value)
 }
 
+fn rank_correlation_value(request: RankCorrelationRequest) -> Result<serde_json::Value, String> {
+    validate_value_count(request.left.len())?;
+    validate_value_count(request.right.len())?;
+    Ok(serde_json::json!({
+        "leftRanks": rank_values(&request.left).map_err(|error| error.to_string())?,
+        "rightRanks": rank_values(&request.right).map_err(|error| error.to_string())?,
+        "spearmanCorrelation": spearman_correlation(&request.left, &request.right).map_err(|error| error.to_string())?,
+        "observations": request.left.len()
+    }))
+}
+
+fn regression_linear_value(request: LinearRegressionRequest) -> Result<serde_json::Value, String> {
+    validate_value_count(request.x.len())?;
+    validate_value_count(request.y.len())?;
+    let summary =
+        simple_linear_regression(&request.x, &request.y).map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "slope": summary.slope,
+        "intercept": summary.intercept,
+        "rSquared": summary.r_squared,
+        "residualStdError": summary.residual_std_error,
+        "observations": summary.observations
+    }))
+}
+
+fn regression_ols_value(request: OlsRequest) -> Result<serde_json::Value, String> {
+    validate_value_count(request.target.len())?;
+    let design = matrix_from_request(request.design)?;
+    let regression = ordinary_least_squares(&design.as_view(), &request.target)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "coefficients": regression.coefficients,
+        "fitted": regression.fitted,
+        "residuals": regression.residuals,
+        "rSquared": regression.r_squared,
+        "observations": regression.observations,
+        "predictors": regression.predictors
+    }))
+}
+
 fn matrix_from_request(request: MatrixRequest) -> Result<F32Matrix, String> {
     validate_value_count(request.values.len())?;
     F32Matrix::new(
@@ -469,5 +537,26 @@ mod tests {
         }).expect("pca");
         assert_eq!(response.value["components"]["rows"], 1);
         assert!(response.value["transformed"].is_object());
+    }
+
+    #[test]
+    fn regression_operations_run() {
+        for operation in [
+            "stats.series.rankCorrelation",
+            "stats.regression.linear",
+            "stats.regression.ols",
+        ] {
+            let surface_operation = package_surface()
+                .operations
+                .into_iter()
+                .find(|candidate| candidate.id.as_str() == operation)
+                .expect("operation metadata");
+            let response = run_surface_operation(SurfaceRequest {
+                operation: surface_operation.id,
+                input: surface_operation.example_request,
+            })
+            .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
+            assert!(response.value.is_object());
+        }
     }
 }

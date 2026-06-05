@@ -326,7 +326,7 @@ pub fn suppress_nearby_cuts(cuts: Vec<u64>, window: u64) -> Vec<u64> {
     for cut in cuts {
         if kept
             .last()
-            .map_or(true, |last| cut.saturating_sub(*last) >= window)
+            .is_none_or(|last| cut.saturating_sub(*last) >= window)
         {
             kept.push(cut);
         }

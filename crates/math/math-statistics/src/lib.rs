@@ -29,6 +29,13 @@ pub enum ChangeMethod {
     LogRatio,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Method used to assign ranks to tied values.
+pub enum RankMethod {
+    /// Tied values receive the average of their one-based rank positions.
+    Average,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Summary statistics for a finite scalar series.
 pub struct SeriesSummary {
@@ -99,6 +106,38 @@ pub struct Drawdown {
     pub trough_index: usize,
     /// First index where equity recovered to the prior peak, if any.
     pub recovery_index: Option<usize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Simple linear regression summary for paired scalar observations.
+pub struct LinearRegressionSummary {
+    /// Slope coefficient.
+    pub slope: f64,
+    /// Intercept coefficient.
+    pub intercept: f64,
+    /// Coefficient of determination.
+    pub r_squared: f64,
+    /// Residual standard error.
+    pub residual_std_error: f64,
+    /// Number of paired observations.
+    pub observations: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Ordinary least-squares regression result for a dense design matrix.
+pub struct OlsRegression {
+    /// Fitted coefficients, one per design column.
+    pub coefficients: Vec<f32>,
+    /// Fitted target values.
+    pub fitted: Vec<f32>,
+    /// Residuals as `target - fitted`.
+    pub residuals: Vec<f32>,
+    /// Coefficient of determination.
+    pub r_squared: f32,
+    /// Number of observations.
+    pub observations: usize,
+    /// Number of predictors/design columns.
+    pub predictors: usize,
 }
 
 /// Returns summary statistics for a finite scalar series.
@@ -331,6 +370,141 @@ pub fn z_scores(values: &[f64], mode: VarianceMode) -> Result<Vec<f64>> {
         return Err(invalid_argument("z-scores require non-zero variance"));
     }
     Ok(values.iter().map(|value| (value - mean) / std).collect())
+}
+
+/// Returns one-based average ranks for finite scalar values.
+pub fn rank_values(values: &[f64]) -> Result<Vec<f64>> {
+    validate_series(values, "series")?;
+    let mut indexed = values
+        .iter()
+        .copied()
+        .enumerate()
+        .collect::<Vec<(usize, f64)>>();
+    indexed.sort_by(|left, right| {
+        left.1
+            .partial_cmp(&right.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    let mut ranks = vec![0.0; values.len()];
+    let mut start = 0;
+    while start < indexed.len() {
+        let mut end = start + 1;
+        while end < indexed.len() && indexed[end].1 == indexed[start].1 {
+            end += 1;
+        }
+        let average_rank = (start + 1 + end) as f64 / 2.0;
+        for index in start..end {
+            ranks[indexed[index].0] = average_rank;
+        }
+        start = end;
+    }
+    Ok(ranks)
+}
+
+/// Computes Spearman rank correlation using average ranks for ties.
+pub fn spearman_correlation(left: &[f64], right: &[f64]) -> Result<f64> {
+    validate_pair(left, right)?;
+    correlation(&rank_values(left)?, &rank_values(right)?)
+}
+
+/// Fits `y = intercept + slope * x` for paired finite scalar observations.
+pub fn simple_linear_regression(x: &[f64], y: &[f64]) -> Result<LinearRegressionSummary> {
+    validate_pair(x, y)?;
+    let x_mean = mean(x)?;
+    let y_mean = mean(y)?;
+    let ss_xx = x.iter().map(|value| (value - x_mean).powi(2)).sum::<f64>();
+    if ss_xx <= f64::EPSILON {
+        return Err(invalid_argument(
+            "linear regression requires non-zero x variance",
+        ));
+    }
+    let ss_xy = x
+        .iter()
+        .zip(y)
+        .map(|(x_value, y_value)| (x_value - x_mean) * (y_value - y_mean))
+        .sum::<f64>();
+    let slope = ss_xy / ss_xx;
+    let intercept = y_mean - slope * x_mean;
+    let fitted = x
+        .iter()
+        .map(|value| intercept + slope * value)
+        .collect::<Vec<_>>();
+    let ss_res = y
+        .iter()
+        .zip(&fitted)
+        .map(|(actual, fitted)| (actual - fitted).powi(2))
+        .sum::<f64>();
+    let ss_tot = y.iter().map(|value| (value - y_mean).powi(2)).sum::<f64>();
+    let r_squared = if ss_tot <= f64::EPSILON {
+        if ss_res <= f64::EPSILON {
+            1.0
+        } else {
+            0.0
+        }
+    } else {
+        1.0 - ss_res / ss_tot
+    };
+    let residual_std_error = if x.len() > 2 {
+        (ss_res / (x.len() - 2) as f64).sqrt()
+    } else {
+        0.0
+    };
+    Ok(LinearRegressionSummary {
+        slope,
+        intercept,
+        r_squared,
+        residual_std_error,
+        observations: x.len(),
+    })
+}
+
+/// Fits ordinary least squares using QR, falling back to normal equations.
+pub fn ordinary_least_squares(design: &F32MatrixView<'_>, target: &[f32]) -> Result<OlsRegression> {
+    design.validate()?;
+    if target.len() != design.shape().rows {
+        return Err(invalid_argument("OLS target length must match design rows"));
+    }
+    if target.iter().any(|value| !value.is_finite()) {
+        return Err(invalid_argument("OLS target values must be finite"));
+    }
+    let coefficients = match design.qr_decompose() {
+        Ok(qr) => solve_qr(&qr.q, &qr.r, target)?,
+        Err(_) => {
+            let xtx = design.gram_columns()?;
+            let xty = design.transpose().matvec(target)?.into_values();
+            xtx.solve_vector(&xty)?
+        }
+    };
+    let fitted = design.matvec(&coefficients)?.into_values();
+    let residuals = target
+        .iter()
+        .zip(&fitted)
+        .map(|(actual, fitted)| actual - fitted)
+        .collect::<Vec<_>>();
+    let mean_target = target.iter().sum::<f32>() / target.len() as f32;
+    let ss_res = residuals.iter().map(|value| value * value).sum::<f32>();
+    let ss_tot = target
+        .iter()
+        .map(|value| (value - mean_target).powi(2))
+        .sum::<f32>();
+    let r_squared = if ss_tot <= f32::EPSILON {
+        if ss_res <= f32::EPSILON {
+            1.0
+        } else {
+            0.0
+        }
+    } else {
+        1.0 - ss_res / ss_tot
+    };
+    Ok(OlsRegression {
+        coefficients,
+        fitted,
+        residuals,
+        r_squared,
+        observations: design.shape().rows,
+        predictors: design.shape().cols,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -743,6 +917,24 @@ fn power_iteration(values: &[f32], dims: usize) -> Result<(f32, Vec<f32>)> {
     Ok((eigenvalue, vector))
 }
 
+fn solve_qr(q: &F32Matrix, r: &F32Matrix, target: &[f32]) -> Result<Vec<f32>> {
+    let q_t_y = q.as_view().transpose().matvec(target)?.into_values();
+    let cols = r.shape().cols;
+    let mut coefficients = vec![0.0; cols];
+    for row in (0..cols).rev() {
+        let mut sum = q_t_y[row];
+        for (col, coefficient) in coefficients.iter().enumerate().take(cols).skip(row + 1) {
+            sum -= r.as_view().get(row, col)? * coefficient;
+        }
+        let pivot = r.as_view().get(row, row)?;
+        if pivot.abs() <= f32::EPSILON {
+            return Err(invalid_argument("OLS QR solve encountered a zero pivot"));
+        }
+        coefficients[row] = sum / pivot;
+    }
+    Ok(coefficients)
+}
+
 fn higher_moments(values: &[f64], mean: f64, std_dev: f64) -> (Option<f64>, Option<f64>) {
     if std_dev <= f64::EPSILON {
         return (None, None);
@@ -965,5 +1157,38 @@ mod tests {
         assert_eq!(pca.components().shape().rows, 1);
         assert_eq!(pca.explained_variance().len(), 1);
         assert!(pca.explained_variance()[0] >= 0.0);
+    }
+
+    #[test]
+    fn ranks_and_spearman_handle_ties() {
+        assert_eq!(
+            rank_values(&[3.0, 1.0, 1.0, 2.0]).unwrap(),
+            vec![4.0, 1.5, 1.5, 3.0]
+        );
+        assert_close(
+            spearman_correlation(&[1.0, 2.0, 3.0], &[2.0, 4.0, 6.0]).unwrap(),
+            1.0,
+        );
+    }
+
+    #[test]
+    fn simple_regression_fits_line() {
+        let summary = simple_linear_regression(&[1.0, 2.0, 3.0], &[3.0, 5.0, 7.0]).unwrap();
+        assert_close(summary.slope, 2.0);
+        assert_close(summary.intercept, 1.0);
+        assert_close(summary.r_squared, 1.0);
+        assert_eq!(summary.observations, 3);
+        assert!(simple_linear_regression(&[1.0, 1.0], &[2.0, 3.0]).is_err());
+    }
+
+    #[test]
+    fn ordinary_least_squares_fits_dense_design() {
+        let design = F32Matrix::from_rows([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]).unwrap();
+        let regression = ordinary_least_squares(&design.as_view(), &[3.0, 5.0, 7.0]).unwrap();
+        assert!((regression.coefficients[0] - 1.0).abs() < 1.0e-4);
+        assert!((regression.coefficients[1] - 2.0).abs() < 1.0e-4);
+        assert!((regression.r_squared - 1.0).abs() < 1.0e-4);
+        assert_eq!(regression.observations, 3);
+        assert_eq!(regression.predictors, 2);
     }
 }
