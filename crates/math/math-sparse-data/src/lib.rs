@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
+use math_linear::{F32Matrix, F32MatrixView, MatrixShape};
 use vector_analysis_core::DenseVector;
 use video_analysis_core::{DetectError, Result};
 
@@ -23,6 +24,31 @@ pub struct SparseVector {
     dimensions: usize,
     indices: Vec<usize>,
     values: Vec<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Summary statistics for a validated CSR sparse matrix.
+pub struct SparseMatrixSummary {
+    /// Number of rows.
+    pub rows: usize,
+    /// Number of columns.
+    pub cols: usize,
+    /// Number of canonical stored entries.
+    pub nnz: usize,
+    /// Stored-entry density.
+    pub density: f32,
+    /// Minimum row non-zero count.
+    pub row_nnz_min: usize,
+    /// Maximum row non-zero count.
+    pub row_nnz_max: usize,
+    /// Mean row non-zero count.
+    pub row_nnz_mean: f32,
+    /// Minimum column non-zero count.
+    pub column_nnz_min: usize,
+    /// Maximum column non-zero count.
+    pub column_nnz_max: usize,
+    /// Mean column non-zero count.
+    pub column_nnz_mean: f32,
 }
 
 impl SparseVector {
@@ -235,6 +261,54 @@ impl SparseVector {
             }
         }
         Self::new(left.dimensions, indices, values)
+    }
+
+    /// Returns the sparse Hadamard product, keeping only overlapping indices.
+    pub fn hadamard(&self, other: &Self) -> Result<Self> {
+        let left = self.canonicalized()?;
+        let right = other.canonicalized()?;
+        if left.dimensions != right.dimensions {
+            return Err(invalid_argument("sparse vector dimensions must match"));
+        }
+        let mut indices = Vec::new();
+        let mut values = Vec::new();
+        let mut i = 0;
+        let mut j = 0;
+        while i < left.indices.len() && j < right.indices.len() {
+            match left.indices[i].cmp(&right.indices[j]) {
+                std::cmp::Ordering::Less => i += 1,
+                std::cmp::Ordering::Greater => j += 1,
+                std::cmp::Ordering::Equal => {
+                    let value = left.values[i] * right.values[j];
+                    if value != 0.0 {
+                        indices.push(left.indices[i]);
+                        values.push(value);
+                    }
+                    i += 1;
+                    j += 1;
+                }
+            }
+        }
+        Self::new(left.dimensions, indices, values)
+    }
+
+    /// Removes entries whose absolute value is below a finite non-negative threshold.
+    pub fn prune_abs_below(&self, threshold: f32) -> Result<Self> {
+        let canonical = self.canonicalized()?;
+        if !threshold.is_finite() || threshold < 0.0 {
+            return Err(invalid_argument(
+                "sparse prune threshold must be finite and non-negative",
+            ));
+        }
+        let mut indices = Vec::new();
+        let mut values = Vec::new();
+        for (index, value) in canonical.indices.iter().copied().zip(canonical.values) {
+            if value.abs() >= threshold {
+                indices.push(index);
+                values.push(value);
+            }
+        }
+        Self::new(canonical.dimensions, indices, values)
     }
 
     /// Returns the top `k` entries sorted by descending absolute value, then index.
@@ -507,6 +581,132 @@ impl CsrMatrix {
             .collect()
     }
 
+    /// Returns stored-entry matrix density.
+    pub fn density(&self) -> Result<f32> {
+        self.validate()?;
+        let elements = self
+            .rows
+            .checked_mul(self.cols)
+            .ok_or_else(|| invalid_argument("CSR matrix element count overflowed usize"))?;
+        Ok(self.values.len() as f32 / elements as f32)
+    }
+
+    /// Returns the non-zero count for each column.
+    pub fn column_nnz(&self) -> Vec<usize> {
+        let mut counts = vec![0usize; self.cols];
+        for col in &self.column_indices {
+            if let Some(count) = counts.get_mut(*col) {
+                *count += 1;
+            }
+        }
+        counts
+    }
+
+    /// Returns sums of stored values by row.
+    pub fn row_sums(&self) -> Result<Vec<f32>> {
+        self.validate()?;
+        Ok(self
+            .rows_iter()
+            .map(|row| row.values().iter().sum::<f32>())
+            .collect())
+    }
+
+    /// Returns sums of stored values by column.
+    pub fn column_sums(&self) -> Result<Vec<f32>> {
+        self.validate()?;
+        let mut sums = vec![0.0; self.cols];
+        for (col, value) in self.column_indices.iter().zip(&self.values) {
+            sums[*col] += value;
+        }
+        Ok(sums)
+    }
+
+    /// Returns compact shape, density, row nnz, and column nnz statistics.
+    pub fn summary(&self) -> Result<SparseMatrixSummary> {
+        self.validate()?;
+        let row_nnz = self.row_nnz();
+        let column_nnz = self.column_nnz();
+        let row_nnz_min = row_nnz.iter().copied().min().unwrap_or(0);
+        let row_nnz_max = row_nnz.iter().copied().max().unwrap_or(0);
+        let column_nnz_min = column_nnz.iter().copied().min().unwrap_or(0);
+        let column_nnz_max = column_nnz.iter().copied().max().unwrap_or(0);
+        Ok(SparseMatrixSummary {
+            rows: self.rows,
+            cols: self.cols,
+            nnz: self.values.len(),
+            density: self.density()?,
+            row_nnz_min,
+            row_nnz_max,
+            row_nnz_mean: row_nnz.iter().sum::<usize>() as f32 / self.rows as f32,
+            column_nnz_min,
+            column_nnz_max,
+            column_nnz_mean: column_nnz.iter().sum::<usize>() as f32 / self.cols as f32,
+        })
+    }
+
+    /// Returns a CSR matrix whose non-zero rows have unit L2 norm.
+    pub fn l2_normalize_rows(&self) -> Result<Self> {
+        self.validate()?;
+        let mut values = self.values.clone();
+        for row in 0..self.rows {
+            let start = self.row_offsets[row];
+            let end = self.row_offsets[row + 1];
+            let norm = values[start..end]
+                .iter()
+                .map(|value| value * value)
+                .sum::<f32>()
+                .sqrt();
+            if norm > f32::EPSILON {
+                for value in &mut values[start..end] {
+                    *value /= norm;
+                }
+            }
+        }
+        Self::new(
+            self.rows,
+            self.cols,
+            self.row_offsets.clone(),
+            self.column_indices.clone(),
+            values,
+        )
+    }
+
+    /// Multiplies this CSR matrix by a dense finite matrix.
+    pub fn mul_dense_matrix(&self, right: &F32MatrixView<'_>) -> Result<F32Matrix> {
+        self.validate()?;
+        right.validate()?;
+        if self.cols != right.shape().rows {
+            return Err(invalid_argument(
+                "sparse matrix/dense matrix dimensions are incompatible",
+            ));
+        }
+        let shape = MatrixShape::new(self.rows, right.shape().cols)?;
+        let mut values = vec![0.0; shape.element_count()?];
+        for row in 0..self.rows {
+            for entry in self.row_offsets[row]..self.row_offsets[row + 1] {
+                let sparse_col = self.column_indices[entry];
+                let sparse_value = self.values[entry];
+                for col in 0..right.shape().cols {
+                    values[row * shape.cols + col] += sparse_value * right.get(sparse_col, col)?;
+                }
+            }
+        }
+        F32Matrix::new(shape, values)
+    }
+
+    /// Converts this CSR matrix into a row-major dense matrix.
+    pub fn to_dense_matrix(&self) -> Result<F32Matrix> {
+        self.validate()?;
+        let shape = MatrixShape::new(self.rows, self.cols)?;
+        let mut values = vec![0.0; shape.element_count()?];
+        for row in 0..self.rows {
+            for index in self.row_offsets[row]..self.row_offsets[row + 1] {
+                values[row * self.cols + self.column_indices[index]] = self.values[index];
+            }
+        }
+        F32Matrix::new(shape, values)
+    }
+
     /// Multiplies this CSR matrix by a dense finite vector.
     pub fn mul_dense_vector(&self, vector: &[f32]) -> Result<Vec<f32>> {
         self.validate()?;
@@ -671,5 +871,83 @@ mod tests {
             transposed.transpose().unwrap().to_coo().unwrap().entries(),
             matrix.to_coo().unwrap().entries()
         );
+    }
+
+    #[test]
+    fn matrix_summary_reports_density_and_nnz_stats() {
+        let matrix = CooMatrix::new(3, 4, vec![(0, 1, 2.0), (1, 3, 4.0), (2, 1, -1.0)])
+            .unwrap()
+            .to_csr()
+            .unwrap();
+        let summary = matrix.summary().unwrap();
+
+        assert_eq!(summary.rows, 3);
+        assert_eq!(summary.cols, 4);
+        assert_eq!(summary.nnz, 3);
+        assert!((summary.density - 0.25).abs() < 1.0e-6);
+        assert_eq!(summary.row_nnz_min, 1);
+        assert_eq!(summary.row_nnz_max, 1);
+        assert_eq!(summary.column_nnz_min, 0);
+        assert_eq!(summary.column_nnz_max, 2);
+        assert_eq!(matrix.column_nnz(), vec![0, 2, 0, 1]);
+        assert_eq!(matrix.row_sums().unwrap(), vec![2.0, 4.0, -1.0]);
+        assert_eq!(matrix.column_sums().unwrap(), vec![0.0, 1.0, 0.0, 4.0]);
+    }
+
+    #[test]
+    fn row_normalization_unit_norms_non_zero_rows() {
+        let matrix = CooMatrix::new(3, 3, vec![(0, 0, 3.0), (0, 1, 4.0), (2, 2, 5.0)])
+            .unwrap()
+            .to_csr()
+            .unwrap();
+        let normalized = matrix.l2_normalize_rows().unwrap();
+
+        assert!((normalized.row(0).unwrap().values()[0] - 0.6).abs() < 1.0e-6);
+        assert!((normalized.row(0).unwrap().values()[1] - 0.8).abs() < 1.0e-6);
+        assert!(normalized.row(1).unwrap().values().is_empty());
+        assert!((normalized.row(2).unwrap().values()[0] - 1.0).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn sparse_dense_matrix_multiply_matches_dense_result() {
+        let sparse = CooMatrix::new(2, 3, vec![(0, 1, 2.0), (1, 0, 1.0), (1, 2, 3.0)])
+            .unwrap()
+            .to_csr()
+            .unwrap();
+        let right = F32Matrix::from_rows([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]).unwrap();
+        let product = sparse.mul_dense_matrix(&right.as_view()).unwrap();
+
+        assert_eq!(product.values(), &[6.0, 8.0, 16.0, 20.0]);
+    }
+
+    #[test]
+    fn dense_matrix_conversion_round_trips_through_coo_csr() {
+        let coo = CooMatrix::new(2, 3, vec![(0, 1, 2.0), (1, 2, 3.0)]).unwrap();
+        let csr = coo.to_csr().unwrap();
+        let dense = csr.to_dense_matrix().unwrap();
+
+        assert_eq!(dense.values(), &[0.0, 2.0, 0.0, 0.0, 0.0, 3.0]);
+        assert_eq!(csr.to_coo().unwrap().entries(), coo.entries());
+    }
+
+    #[test]
+    fn hadamard_keeps_only_overlapping_indices() {
+        let left = SparseVector::new(5, vec![0, 2, 4], vec![1.0, 2.0, 3.0]).unwrap();
+        let right = SparseVector::new(5, vec![1, 2, 4], vec![5.0, 7.0, 11.0]).unwrap();
+        let product = left.hadamard(&right).unwrap();
+
+        assert_eq!(product.indices(), &[2, 4]);
+        assert_eq!(product.values(), &[14.0, 33.0]);
+    }
+
+    #[test]
+    fn pruning_removes_small_values_and_rejects_invalid_thresholds() {
+        let vector = SparseVector::new(4, vec![0, 1, 2], vec![0.01, -0.5, 2.0]).unwrap();
+        let pruned = vector.prune_abs_below(0.1).unwrap();
+
+        assert_eq!(pruned.indices(), &[1, 2]);
+        assert_eq!(pruned.values(), &[-0.5, 2.0]);
+        assert!(vector.prune_abs_below(-0.1).is_err());
+        assert!(vector.prune_abs_below(f32::NAN).is_err());
     }
 }

@@ -9,10 +9,10 @@ use serde::Deserialize;
 use math_linear::{F32Matrix, MatrixShape};
 
 use crate::{
-    changes, ordinary_least_squares, rank_values, rolling_correlation, rolling_mean,
-    rolling_min_max, rolling_std_dev, simple_linear_regression, spearman_correlation,
-    summarize_pair, summarize_series, tail_risk, z_scores, ChangeMethod, MinMaxNormalizer,
-    PrincipalComponents, RunningCovariance, VarianceMode, ZScoreNormalizer,
+    changes, ordinary_least_squares, ordinary_least_squares_diagnostics, rank_values,
+    rolling_correlation, rolling_mean, rolling_min_max, rolling_std_dev, simple_linear_regression,
+    spearman_correlation, summarize_pair, summarize_series, tail_risk, z_scores, ChangeMethod,
+    MinMaxNormalizer, PrincipalComponents, RunningCovariance, VarianceMode, ZScoreNormalizer,
 };
 
 const MAX_VALUES: usize = 100_000;
@@ -37,6 +37,7 @@ pub fn package_surface() -> PackageSurface {
             operation("stats.series.rankCorrelation", "Rank correlation", "Computes average ranks and Spearman correlation for finite paired scalar series.", serde_json::json!({"left": [1.0, 2.0, 2.0, 4.0], "right": [10.0, 20.0, 20.0, 40.0]})),
             operation("stats.regression.linear", "Linear regression", "Fits a simple y = intercept + slope * x regression for paired finite scalar observations.", serde_json::json!({"x": [1.0, 2.0, 3.0], "y": [3.0, 5.0, 7.0]})),
             operation("stats.regression.ols", "OLS regression", "Fits ordinary least squares from a finite dense design matrix and target vector.", serde_json::json!({"design": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0]}, "target": [3.0, 5.0, 7.0]})),
+            operation("stats.regression.diagnostics", "Regression diagnostics", "Fits full-column-rank OLS and returns residual, adjusted R-squared, standard-error, and t-statistic diagnostics.", serde_json::json!({"design": {"rows": 4, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 4.0]}, "target": [3.0, 5.0, 7.0, 9.0], "tolerance": 0.0})),
         ],
     }
 }
@@ -76,6 +77,9 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "stats.series.rankCorrelation" => rank_correlation_value(parse_input(request.input)?)?,
         "stats.regression.linear" => regression_linear_value(parse_input(request.input)?)?,
         "stats.regression.ols" => regression_ols_value(parse_input(request.input)?)?,
+        "stats.regression.diagnostics" => {
+            regression_diagnostics_value(parse_input(request.input)?)?
+        }
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -201,6 +205,8 @@ struct LinearRegressionRequest {
 struct OlsRequest {
     design: MatrixRequest,
     target: Vec<f32>,
+    #[serde(default)]
+    tolerance: f32,
 }
 
 fn series_describe_value(request: SeriesRequest) -> Result<serde_json::Value, String> {
@@ -410,6 +416,23 @@ fn regression_ols_value(request: OlsRequest) -> Result<serde_json::Value, String
     }))
 }
 
+fn regression_diagnostics_value(request: OlsRequest) -> Result<serde_json::Value, String> {
+    validate_value_count(request.target.len())?;
+    let design = matrix_from_request(request.design)?;
+    let diagnostics =
+        ordinary_least_squares_diagnostics(&design.as_view(), &request.target, request.tolerance)
+            .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "coefficients": diagnostics.regression.coefficients,
+        "rSquared": diagnostics.regression.r_squared,
+        "adjustedRSquared": diagnostics.adjusted_r_squared,
+        "rootMeanSquaredError": diagnostics.root_mean_squared_error,
+        "degreesOfFreedom": diagnostics.degrees_of_freedom,
+        "standardErrors": diagnostics.standard_errors,
+        "tStatistics": diagnostics.t_statistics
+    }))
+}
+
 fn matrix_from_request(request: MatrixRequest) -> Result<F32Matrix, String> {
     validate_value_count(request.values.len())?;
     F32Matrix::new(
@@ -545,6 +568,7 @@ mod tests {
             "stats.series.rankCorrelation",
             "stats.regression.linear",
             "stats.regression.ols",
+            "stats.regression.diagnostics",
         ] {
             let surface_operation = package_surface()
                 .operations
@@ -558,5 +582,22 @@ mod tests {
             .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
             assert!(response.value.is_object());
         }
+    }
+
+    #[test]
+    fn regression_diagnostics_return_expected_payload() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("stats.regression.diagnostics"),
+            input: serde_json::json!({
+                "design": {"rows": 4, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 4.0]},
+                "target": [3.0, 5.0, 7.0, 9.0],
+                "tolerance": 0.0
+            }),
+        })
+        .expect("diagnostics");
+        assert_eq!(response.value["coefficients"].as_array().unwrap().len(), 2);
+        assert_eq!(response.value["degreesOfFreedom"], 2);
+        assert!(response.value["standardErrors"].is_array());
+        assert!(response.value["tStatistics"].is_array());
     }
 }

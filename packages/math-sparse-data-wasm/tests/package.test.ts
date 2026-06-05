@@ -11,10 +11,20 @@ test("math-sparse-data-wasm exposes new operations when generated pkg is present
   const entry = await import("../index.js");
   try {
     const surface = await entry.packageSurface();
-    expect(surface.operations.map((operation) => operation.id)).toContain("sparse.vectorOps");
+    expect(surface.operations.map((operation) => operation.id)).toContain("sparse.matrixStats");
     const response = await entry.runOperation({
-      operation: "sparse.vectorOps",
-      input: { vector: { dimensions: 3, indices: [0, 2], values: [1, -2] }, topK: 1 },
+      operation: "sparse.matrixStats",
+      input: {
+        matrix: {
+          rows: 3,
+          cols: 4,
+          entries: [
+            [0, 1, 2],
+            [1, 3, 4],
+            [2, 1, -1],
+          ],
+        },
+      },
     });
     expect(typeof response.value).toBe("object");
   } catch (error) {

@@ -9,9 +9,13 @@ fn cli_adapter_reports_wrapped_library() {
 #[test]
 fn cli_adapter_runs_new_operation() {
     let response = finance_statistics_cli::run_operation(
-        "finance.performanceRatios",
-        serde_json::json!({"returns": [0.1, -0.2, 0.05, 0.3]}),
+        "finance.riskContribution",
+        serde_json::json!({
+            "assetReturns": [[0.02, -0.01, 0.03], [0.01, 0.0, 0.02]],
+            "weights": [0.6, 0.4],
+            "periodsPerYear": 252.0
+        }),
     )
     .expect("run operation");
-    assert!(response.value["drawdownDuration"].is_object());
+    assert!(response.value["volatility"].as_f64().unwrap() > 0.0);
 }

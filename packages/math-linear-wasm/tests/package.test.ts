@@ -11,10 +11,14 @@ test("math-linear-wasm exposes new operations when generated pkg is present", as
   const entry = await import("../index.js");
   try {
     const surface = await entry.packageSurface();
-    expect(surface.operations.map((operation) => operation.id)).toContain("linear.cholesky");
+    expect(surface.operations.map((operation) => operation.id)).toContain("linear.leastSquares");
     const response = await entry.runOperation({
-      operation: "linear.cholesky",
-      input: { matrix: { rows: 2, cols: 2, values: [4, 2, 2, 3] } },
+      operation: "linear.leastSquares",
+      input: {
+        matrix: { rows: 3, cols: 2, values: [1, 1, 1, 2, 1, 3] },
+        target: [3, 5, 7],
+        tolerance: 0,
+      },
     });
     expect(typeof response.value).toBe("object");
   } catch (error) {

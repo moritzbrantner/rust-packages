@@ -21,8 +21,8 @@ fn run_endpoint_calls_new_operation() {
     let response = math_linear_server::response_for(
         "POST",
         "/api/run",
-        r#"{"operation":"linear.cholesky","input":{"matrix":{"rows":2,"cols":2,"values":[4.0,2.0,2.0,3.0]}}}"#,
+        r#"{"operation":"linear.leastSquares","input":{"matrix":{"rows":3,"cols":2,"values":[1.0,1.0,1.0,2.0,1.0,3.0]},"target":[3.0,5.0,7.0],"tolerance":0.0}}"#,
     );
     assert_eq!(response.status_code, 200);
-    assert!(response.body.contains(r#""method":"cholesky""#));
+    assert!(response.body.contains(r#""rank":2"#));
 }

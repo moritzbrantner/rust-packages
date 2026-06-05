@@ -42,6 +42,12 @@ pub fn package_surface() -> PackageSurface {
                 serde_json::json!({"format": "coo", "rows": 2, "cols": 2, "entries": [[0, 1, 2.0]]}),
             ),
             operation(
+                "sparse.matrixStats",
+                "Sparse matrix stats",
+                "Summarizes sparse matrix density, row/column nnz, row/column sums, and compact nnz statistics.",
+                serde_json::json!({"matrix": {"rows": 3, "cols": 4, "entries": [[0, 1, 2.0], [1, 3, 4.0], [2, 1, -1.0]]}}),
+            ),
+            operation(
                 "sparse.vectorOps",
                 "Sparse vector operations",
                 "Computes sparse vector norms, optional scaling, optional addition, and top-k entries.",
@@ -89,6 +95,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "sparse.similarity" => similarity_value(parse_input(request.input)?)?,
         "sparse.toDense" => to_dense_value(parse_input(request.input)?)?,
         "sparse.matrixSummary" => matrix_summary_value(parse_input(request.input)?)?,
+        "sparse.matrixStats" => matrix_stats_value(parse_input(request.input)?)?,
         "sparse.vectorOps" => vector_ops_value(parse_input(request.input)?)?,
         "sparse.matrixVector" => matrix_vector_value(parse_input(request.input)?)?,
         "sparse.transpose" => transpose_value(parse_input(request.input)?)?,
@@ -141,6 +148,7 @@ struct SimilarityRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct MatrixSummaryRequest {
+    #[serde(default = "default_sparse_format")]
     format: String,
     rows: usize,
     cols: usize,
@@ -152,6 +160,12 @@ struct MatrixSummaryRequest {
     column_indices: Vec<usize>,
     #[serde(default)]
     values: Vec<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MatrixStatsRequest {
+    matrix: MatrixSummaryRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -199,6 +213,33 @@ fn to_dense_value(request: SparseVectorRequest) -> Result<serde_json::Value, Str
 fn matrix_summary_value(request: MatrixSummaryRequest) -> Result<serde_json::Value, String> {
     let format = request.format.clone();
     matrix_json(&format, matrix_from_request(request)?)
+}
+
+fn matrix_stats_value(request: MatrixStatsRequest) -> Result<serde_json::Value, String> {
+    let matrix = matrix_from_request(request.matrix)?;
+    let summary = matrix.summary().map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "rows": matrix.rows(),
+        "cols": matrix.cols(),
+        "nnz": summary.nnz,
+        "density": summary.density,
+        "rowNnz": matrix.row_nnz(),
+        "columnNnz": matrix.column_nnz(),
+        "rowSums": matrix.row_sums().map_err(|error| error.to_string())?,
+        "columnSums": matrix.column_sums().map_err(|error| error.to_string())?,
+        "summary": {
+            "rows": summary.rows,
+            "cols": summary.cols,
+            "nnz": summary.nnz,
+            "density": summary.density,
+            "rowNnzMin": summary.row_nnz_min,
+            "rowNnzMax": summary.row_nnz_max,
+            "rowNnzMean": summary.row_nnz_mean,
+            "columnNnzMin": summary.column_nnz_min,
+            "columnNnzMax": summary.column_nnz_max,
+            "columnNnzMean": summary.column_nnz_mean
+        }
+    }))
 }
 
 fn vector_ops_value(request: VectorOpsRequest) -> Result<serde_json::Value, String> {
@@ -320,6 +361,10 @@ fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result
     serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
 }
 
+fn default_sparse_format() -> String {
+    "coo".to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -359,6 +404,7 @@ mod tests {
             "sparse.vectorOps",
             "sparse.matrixVector",
             "sparse.transpose",
+            "sparse.matrixStats",
         ] {
             let surface_operation = package_surface()
                 .operations
@@ -372,5 +418,27 @@ mod tests {
             .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
             assert!(response.value.is_object());
         }
+    }
+
+    #[test]
+    fn sparse_matrix_stats_reports_columns_and_sums() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("sparse.matrixStats"),
+            input: serde_json::json!({
+                "matrix": {
+                    "rows": 3,
+                    "cols": 4,
+                    "entries": [[0, 1, 2.0], [1, 3, 4.0], [2, 1, -1.0]]
+                }
+            }),
+        })
+        .expect("matrix stats");
+        assert_eq!(response.value["nnz"], 3);
+        assert_eq!(response.value["rowNnz"], serde_json::json!([1, 1, 1]));
+        assert_eq!(response.value["columnNnz"], serde_json::json!([0, 2, 0, 1]));
+        assert_eq!(
+            response.value["rowSums"],
+            serde_json::json!([2.0, 4.0, -1.0])
+        );
     }
 }

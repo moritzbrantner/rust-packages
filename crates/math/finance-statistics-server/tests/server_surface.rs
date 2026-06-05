@@ -21,8 +21,8 @@ fn run_endpoint_calls_new_operation() {
     let response = finance_statistics_server::response_for(
         "POST",
         "/api/run",
-        r#"{"operation":"finance.performanceRatios","input":{"returns":[0.1,-0.2,0.05,0.3]}}"#,
+        r#"{"operation":"finance.riskContribution","input":{"assetReturns":[[0.02,-0.01,0.03],[0.01,0.0,0.02]],"weights":[0.6,0.4],"periodsPerYear":252.0}}"#,
     );
     assert_eq!(response.status_code, 200);
-    assert!(response.body.contains(r#""drawdownDuration""#));
+    assert!(response.body.contains(r#""volatility""#));
 }

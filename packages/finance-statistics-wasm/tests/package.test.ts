@@ -11,16 +11,16 @@ test("finance-statistics-wasm exposes new operations when generated pkg is prese
   const entry = await import("../index.js");
   try {
     const surface = await entry.packageSurface();
-    expect(surface.operations.map((operation) => operation.id)).toContain("finance.portfolio");
+    expect(surface.operations.map((operation) => operation.id)).toContain("finance.riskContribution");
     const response = await entry.runOperation({
-      operation: "finance.portfolio",
+      operation: "finance.riskContribution",
       input: {
         assetReturns: [
           [0.02, -0.01, 0.03],
           [0.01, 0, 0.02],
         ],
         weights: [0.6, 0.4],
-        confidence: 0.8,
+        periodsPerYear: 252,
       },
     });
     expect(typeof response.value).toBe("object");

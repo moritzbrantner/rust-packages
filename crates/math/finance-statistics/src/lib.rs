@@ -68,6 +68,54 @@ impl PortfolioWeights {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+/// Historical covariance matrix for aligned asset return series.
+pub struct PortfolioCovariance {
+    /// Number of assets.
+    pub asset_count: usize,
+    /// Number of aligned observations per asset.
+    pub observations: usize,
+    /// Variance normalization mode.
+    pub mode: VarianceMode,
+    /// Row-major `asset_count x asset_count` covariance values.
+    pub values: Vec<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Portfolio volatility attribution by marginal, component, and percent risk.
+pub struct PortfolioRiskContribution {
+    /// Annualized portfolio variance.
+    pub portfolio_variance: f64,
+    /// Annualized portfolio volatility.
+    pub volatility: f64,
+    /// Marginal volatility contributions.
+    pub marginal_contributions: Vec<f64>,
+    /// Weighted component volatility contributions.
+    pub component_contributions: Vec<f64>,
+    /// Component contributions divided by total volatility.
+    pub percent_contributions: Vec<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Expected return attribution by asset.
+pub struct PortfolioReturnContribution {
+    /// Mean asset return multiplied by asset weight.
+    pub weighted_returns: Vec<f64>,
+    /// Percent contributions, absent when expected return is effectively zero.
+    pub percent_contributions: Vec<Option<f64>>,
+    /// Sum of weighted mean returns.
+    pub expected_portfolio_return: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Portfolio rebalance turnover summary.
+pub struct PortfolioTurnover {
+    /// Sum of absolute target/current weight differences.
+    pub gross_turnover: f64,
+    /// One-way turnover equal to half the gross turnover.
+    pub one_way_turnover: f64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Portfolio risk summary.
 pub struct PortfolioRiskSummary {
@@ -323,6 +371,168 @@ pub fn portfolio_returns(asset_returns: &[Vec<f64>], weights: &[f64]) -> Result<
     Ok(portfolio)
 }
 
+/// Computes historical covariance between aligned asset return series.
+pub fn portfolio_covariance(
+    asset_returns: &[Vec<f64>],
+    mode: VarianceMode,
+) -> Result<PortfolioCovariance> {
+    let observations = validate_asset_returns(asset_returns, mode)?;
+    let asset_count = asset_returns.len();
+    let mut values = vec![0.0; asset_count * asset_count];
+    for row in 0..asset_count {
+        for col in 0..asset_count {
+            values[row * asset_count + col] =
+                covariance(&asset_returns[row], &asset_returns[col], mode)?;
+        }
+    }
+    Ok(PortfolioCovariance {
+        asset_count,
+        observations,
+        mode,
+        values,
+    })
+}
+
+/// Computes `w^T covariance w`.
+pub fn portfolio_variance(covariance: &PortfolioCovariance, weights: &[f64]) -> Result<f64> {
+    validate_portfolio_covariance(covariance)?;
+    let weights = PortfolioWeights::new(weights.to_vec())?;
+    if weights.weights().len() != covariance.asset_count {
+        return Err(invalid_argument(
+            "portfolio covariance asset count must match weight count",
+        ));
+    }
+    let mut variance = 0.0;
+    for row in 0..covariance.asset_count {
+        for col in 0..covariance.asset_count {
+            variance += weights.weights()[row]
+                * covariance.values[row * covariance.asset_count + col]
+                * weights.weights()[col];
+        }
+    }
+    if !variance.is_finite() {
+        return Err(invalid_argument("portfolio variance must be finite"));
+    }
+    Ok(variance)
+}
+
+/// Computes historical covariance-based annualized portfolio risk contributions.
+pub fn portfolio_risk_contribution(
+    asset_returns: &[Vec<f64>],
+    weights: &[f64],
+    periods_per_year: f64,
+) -> Result<PortfolioRiskContribution> {
+    validate_periods_per_year(periods_per_year)?;
+    let weights = PortfolioWeights::new(weights.to_vec())?;
+    if asset_returns.len() != weights.weights().len() {
+        return Err(invalid_argument(
+            "asset return series count must match weight count",
+        ));
+    }
+    let covariance = portfolio_covariance(asset_returns, VarianceMode::Sample)?;
+    let annualized_values = covariance
+        .values
+        .iter()
+        .map(|value| value * periods_per_year)
+        .collect::<Vec<_>>();
+    let annualized = PortfolioCovariance {
+        asset_count: covariance.asset_count,
+        observations: covariance.observations,
+        mode: covariance.mode,
+        values: annualized_values,
+    };
+    let portfolio_variance = portfolio_variance(&annualized, weights.weights())?;
+    if portfolio_variance <= f64::EPSILON {
+        return Err(invalid_argument(
+            "risk contribution requires positive portfolio variance",
+        ));
+    }
+    let volatility = portfolio_variance.sqrt();
+    let mut covariance_times_weights = vec![0.0; annualized.asset_count];
+    for (row, value) in covariance_times_weights.iter_mut().enumerate() {
+        for col in 0..annualized.asset_count {
+            *value +=
+                annualized.values[row * annualized.asset_count + col] * weights.weights()[col];
+        }
+    }
+    let marginal_contributions = covariance_times_weights
+        .iter()
+        .map(|value| value / volatility)
+        .collect::<Vec<_>>();
+    let component_contributions = weights
+        .weights()
+        .iter()
+        .zip(&marginal_contributions)
+        .map(|(weight, marginal)| weight * marginal)
+        .collect::<Vec<_>>();
+    let percent_contributions = component_contributions
+        .iter()
+        .map(|value| value / volatility)
+        .collect::<Vec<_>>();
+    Ok(PortfolioRiskContribution {
+        portfolio_variance,
+        volatility,
+        marginal_contributions,
+        component_contributions,
+        percent_contributions,
+    })
+}
+
+/// Computes expected return attribution from aligned asset return series.
+pub fn portfolio_return_contribution(
+    asset_returns: &[Vec<f64>],
+    weights: &[f64],
+) -> Result<PortfolioReturnContribution> {
+    let _ = validate_asset_returns(asset_returns, VarianceMode::Population)?;
+    let weights = PortfolioWeights::new(weights.to_vec())?;
+    if asset_returns.len() != weights.weights().len() {
+        return Err(invalid_argument(
+            "asset return series count must match weight count",
+        ));
+    }
+    let weighted_returns = asset_returns
+        .iter()
+        .zip(weights.weights())
+        .map(|(returns, weight)| Ok(mean_return(returns)? * weight))
+        .collect::<Result<Vec<_>>>()?;
+    let expected_portfolio_return = weighted_returns.iter().sum::<f64>();
+    let percent_contributions = if expected_portfolio_return.abs() <= f64::EPSILON {
+        vec![None; weighted_returns.len()]
+    } else {
+        weighted_returns
+            .iter()
+            .map(|value| Some(value / expected_portfolio_return))
+            .collect()
+    };
+    Ok(PortfolioReturnContribution {
+        weighted_returns,
+        percent_contributions,
+        expected_portfolio_return,
+    })
+}
+
+/// Computes gross and one-way rebalance turnover between two validated portfolios.
+pub fn portfolio_turnover(
+    current_weights: &[f64],
+    target_weights: &[f64],
+) -> Result<PortfolioTurnover> {
+    let current = PortfolioWeights::new(current_weights.to_vec())?;
+    let target = PortfolioWeights::new(target_weights.to_vec())?;
+    if current.weights().len() != target.weights().len() {
+        return Err(invalid_argument("portfolio weight lengths must match"));
+    }
+    let gross_turnover = current
+        .weights()
+        .iter()
+        .zip(target.weights())
+        .map(|(current, target)| (target - current).abs())
+        .sum::<f64>();
+    Ok(PortfolioTurnover {
+        gross_turnover,
+        one_way_turnover: gross_turnover / 2.0,
+    })
+}
+
 /// Computes a compact portfolio risk summary.
 pub fn portfolio_risk_summary(
     asset_returns: &[Vec<f64>],
@@ -440,6 +650,47 @@ fn validate_pair(left: &[f64], right: &[f64]) -> Result<()> {
     validate_returns(right)?;
     if left.len() != right.len() {
         return Err(invalid_argument("return series lengths must match"));
+    }
+    Ok(())
+}
+
+fn validate_asset_returns(asset_returns: &[Vec<f64>], mode: VarianceMode) -> Result<usize> {
+    if asset_returns.is_empty() {
+        return Err(invalid_argument("asset returns must not be empty"));
+    }
+    let observations = asset_returns[0].len();
+    if observations == 0 {
+        return Err(invalid_argument("asset return series must not be empty"));
+    }
+    if matches!(mode, VarianceMode::Sample) && observations < 2 {
+        return Err(invalid_argument(
+            "sample portfolio covariance requires at least two observations per asset",
+        ));
+    }
+    for returns in asset_returns {
+        validate_returns(returns)?;
+        if returns.len() != observations {
+            return Err(invalid_argument("asset return series lengths must match"));
+        }
+    }
+    Ok(observations)
+}
+
+fn validate_portfolio_covariance(covariance: &PortfolioCovariance) -> Result<()> {
+    if covariance.asset_count == 0 {
+        return Err(invalid_argument(
+            "portfolio covariance asset count must be greater than zero",
+        ));
+    }
+    if covariance.values.len() != covariance.asset_count * covariance.asset_count {
+        return Err(invalid_argument(
+            "portfolio covariance values must match asset count",
+        ));
+    }
+    if covariance.values.iter().any(|value| !value.is_finite()) {
+        return Err(invalid_argument(
+            "portfolio covariance values must be finite",
+        ));
     }
     Ok(())
 }
@@ -582,6 +833,98 @@ mod tests {
                 > 0
         );
         assert!(PortfolioWeights::new(vec![0.8, 0.3]).is_err());
+    }
+
+    #[test]
+    fn portfolio_covariance_matrix_is_symmetric() {
+        let assets = vec![vec![0.02, -0.01, 0.03], vec![0.01, 0.0, 0.02]];
+        let covariance = portfolio_covariance(&assets, VarianceMode::Sample).unwrap();
+
+        assert_eq!(covariance.asset_count, 2);
+        assert_eq!(covariance.observations, 3);
+        assert_close(covariance.values[1], covariance.values[2]);
+    }
+
+    #[test]
+    fn portfolio_variance_matches_manual_two_asset_calculation() {
+        let covariance = PortfolioCovariance {
+            asset_count: 2,
+            observations: 3,
+            mode: VarianceMode::Sample,
+            values: vec![0.04, 0.01, 0.01, 0.09],
+        };
+        let variance = portfolio_variance(&covariance, &[0.6, 0.4]).unwrap();
+
+        assert_close(
+            variance,
+            0.6 * 0.6 * 0.04 + 2.0 * 0.6 * 0.4 * 0.01 + 0.4 * 0.4 * 0.09,
+        );
+    }
+
+    #[test]
+    fn risk_contributions_sum_to_annualized_volatility() {
+        let assets = vec![vec![0.02, -0.01, 0.03, 0.01], vec![0.01, 0.0, 0.02, -0.01]];
+        let risk = portfolio_risk_contribution(&assets, &[0.6, 0.4], 252.0).unwrap();
+
+        assert!(risk.portfolio_variance > 0.0);
+        assert!(risk.volatility > 0.0);
+        assert_close(
+            risk.component_contributions.iter().sum::<f64>(),
+            risk.volatility,
+        );
+        assert_close(risk.percent_contributions.iter().sum::<f64>(), 1.0);
+    }
+
+    #[test]
+    fn return_contributions_sum_to_expected_portfolio_return() {
+        let assets = vec![vec![0.02, -0.01, 0.03], vec![0.01, 0.0, 0.02]];
+        let contribution = portfolio_return_contribution(&assets, &[0.6, 0.4]).unwrap();
+
+        assert_close(
+            contribution.weighted_returns.iter().sum::<f64>(),
+            contribution.expected_portfolio_return,
+        );
+        assert!(contribution
+            .percent_contributions
+            .iter()
+            .all(Option::is_some));
+    }
+
+    #[test]
+    fn turnover_handles_identical_and_changed_portfolios() {
+        let unchanged = portfolio_turnover(&[0.6, 0.4], &[0.6, 0.4]).unwrap();
+        let changed = portfolio_turnover(&[0.6, 0.4], &[0.5, 0.5]).unwrap();
+
+        assert_close(unchanged.gross_turnover, 0.0);
+        assert_close(unchanged.one_way_turnover, 0.0);
+        assert_close(changed.gross_turnover, 0.2);
+        assert_close(changed.one_way_turnover, 0.1);
+    }
+
+    #[test]
+    fn risk_attribution_rejects_invalid_inputs() {
+        assert!(portfolio_risk_contribution(
+            &[vec![0.01, 0.01], vec![0.02, 0.02]],
+            &[0.5, 0.5],
+            252.0
+        )
+        .is_err());
+        assert!(
+            portfolio_risk_contribution(&[vec![0.01, 0.02], vec![0.02]], &[0.5, 0.5], 252.0)
+                .is_err()
+        );
+        assert!(portfolio_risk_contribution(
+            &[vec![0.01, 0.02], vec![0.0, 0.03]],
+            &[0.7, 0.7],
+            252.0
+        )
+        .is_err());
+        assert!(portfolio_risk_contribution(
+            &[vec![0.01, 0.02], vec![0.0, 0.03]],
+            &[0.5, 0.5],
+            0.0
+        )
+        .is_err());
     }
 
     #[test]

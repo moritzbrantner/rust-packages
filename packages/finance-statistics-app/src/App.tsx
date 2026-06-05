@@ -23,6 +23,7 @@ const packageAppConfig: PackageAppConfig = {
     "finance.rolling",
     "finance.portfolio",
     "finance.performanceRatios",
+    "finance.riskContribution",
     "describe",
   ],
   operationGroups: [
@@ -37,6 +38,7 @@ const packageAppConfig: PackageAppConfig = {
         "finance.rolling",
         "finance.portfolio",
         "finance.performanceRatios",
+        "finance.riskContribution",
       ],
     },
     {

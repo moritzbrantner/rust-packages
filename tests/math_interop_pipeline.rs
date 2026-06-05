@@ -70,3 +70,48 @@ fn expanded_math_apis_interoperate_through_facade() {
         va::finance::portfolio_returns(&[vec![0.02, -0.01], vec![0.01, 0.0]], &[0.5, 0.5]).unwrap();
     assert_eq!(portfolio.len(), 2);
 }
+
+#[test]
+fn analytical_spine_connects_sparse_linear_statistics_and_finance() {
+    let coo = va::sparse::CooMatrix::new(
+        4,
+        2,
+        vec![
+            (0, 0, 1.0),
+            (0, 1, 1.0),
+            (1, 0, 1.0),
+            (1, 1, 2.0),
+            (2, 0, 1.0),
+            (2, 1, 3.0),
+            (3, 0, 1.0),
+            (3, 1, 4.0),
+        ],
+    )
+    .unwrap();
+    let csr = coo.to_csr().unwrap();
+    let summary = csr.summary().unwrap();
+    assert_eq!(summary.rows, 4);
+    assert_eq!(summary.cols, 2);
+    assert_eq!(summary.nnz, 8);
+
+    let dense = csr.to_dense_matrix().unwrap();
+    let target = [3.0, 5.0, 7.0, 9.0];
+    let least_squares = dense.least_squares(&target, 0.0).unwrap();
+    assert_eq!(least_squares.coefficients.len(), 2);
+    assert!(least_squares.residual_sum_squares < 1.0e-6);
+
+    let diagnostics =
+        va::stats::ordinary_least_squares_diagnostics(&dense.as_view(), &target, 0.0).unwrap();
+    assert_eq!(diagnostics.degrees_of_freedom, 2);
+    assert!(diagnostics.root_mean_squared_error.is_finite());
+
+    let risk = va::finance::portfolio_risk_contribution(
+        &[vec![0.02, -0.01, 0.03, 0.01], vec![0.01, 0.0, 0.02, -0.01]],
+        &[0.6, 0.4],
+        252.0,
+    )
+    .unwrap();
+    assert_eq!(risk.marginal_contributions.len(), 2);
+    assert!(risk.volatility.is_finite());
+    assert!((risk.component_contributions.iter().sum::<f64>() - risk.volatility).abs() < 1.0e-10);
+}

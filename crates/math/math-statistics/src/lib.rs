@@ -140,6 +140,48 @@ pub struct OlsRegression {
     pub predictors: usize,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+/// OLS regression result with residual and coefficient diagnostics.
+pub struct OlsRegressionDiagnostics {
+    /// Base OLS regression payload.
+    pub regression: OlsRegression,
+    /// Sum of squared residuals.
+    pub residual_sum_squares: f32,
+    /// Total target sum of squares.
+    pub total_sum_squares: f32,
+    /// Mean squared error when degrees of freedom are available.
+    pub mean_squared_error: f32,
+    /// Square root of mean squared error.
+    pub root_mean_squared_error: f32,
+    /// Adjusted coefficient of determination.
+    pub adjusted_r_squared: f32,
+    /// Residual degrees of freedom.
+    pub degrees_of_freedom: usize,
+    /// Per-coefficient standard errors when finite and positive.
+    pub standard_errors: Vec<Option<f32>>,
+    /// Per-coefficient t-statistics when standard errors are available.
+    pub t_statistics: Vec<Option<f32>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Deterministic ridge regression result from regularized normal equations.
+pub struct RidgeRegression {
+    /// Fitted coefficients, one per design column.
+    pub coefficients: Vec<f32>,
+    /// Fitted target values.
+    pub fitted: Vec<f32>,
+    /// Residuals as `target - fitted`.
+    pub residuals: Vec<f32>,
+    /// Coefficient of determination.
+    pub r_squared: f32,
+    /// Regularization strength.
+    pub lambda: f32,
+    /// Number of observations.
+    pub observations: usize,
+    /// Number of predictors/design columns.
+    pub predictors: usize,
+}
+
 /// Returns summary statistics for a finite scalar series.
 pub fn summarize_series(values: &[f64], mode: VarianceMode) -> Result<SeriesSummary> {
     validate_series(values, "series")?;
@@ -505,6 +547,179 @@ pub fn ordinary_least_squares(design: &F32MatrixView<'_>, target: &[f32]) -> Res
         observations: design.shape().rows,
         predictors: design.shape().cols,
     })
+}
+
+/// Fits full-column-rank OLS and returns residual and coefficient diagnostics.
+pub fn ordinary_least_squares_diagnostics(
+    design: &F32MatrixView<'_>,
+    target: &[f32],
+    tolerance: f32,
+) -> Result<OlsRegressionDiagnostics> {
+    let solution = design.least_squares(target, tolerance)?;
+    let residual_sum_squares = solution.residual_sum_squares;
+    let observations = solution.observations;
+    let predictors = solution.predictors;
+    let mean_target = target.iter().sum::<f32>() / target.len() as f32;
+    let total_sum_squares = target
+        .iter()
+        .map(|value| (value - mean_target).powi(2))
+        .sum::<f32>();
+    let r_squared = r_squared_from_sums(residual_sum_squares, total_sum_squares);
+    let regression = OlsRegression {
+        coefficients: solution.coefficients,
+        fitted: solution.fitted,
+        residuals: solution.residuals,
+        r_squared,
+        observations,
+        predictors,
+    };
+    let effective_residual_sum_squares = if residual_sum_squares.abs() <= 1.0e-10 {
+        0.0
+    } else {
+        residual_sum_squares
+    };
+    let degrees_of_freedom = regression
+        .observations
+        .saturating_sub(regression.predictors);
+    let mean_squared_error = if degrees_of_freedom > 0 {
+        effective_residual_sum_squares / degrees_of_freedom as f32
+    } else {
+        0.0
+    };
+    let root_mean_squared_error = mean_squared_error.sqrt();
+    let adjusted_r_squared = if regression.observations > regression.predictors + 1 {
+        1.0 - (1.0 - r_squared) * (regression.observations - 1) as f32
+            / (regression.observations - regression.predictors - 1) as f32
+    } else {
+        r_squared
+    };
+    let (standard_errors, t_statistics) = if degrees_of_freedom == 0 {
+        (
+            vec![None; regression.predictors],
+            vec![None; regression.predictors],
+        )
+    } else {
+        regression_standard_errors(design, mean_squared_error, regression.predictors)?
+            .map(|standard_errors| {
+                let t_statistics = regression
+                    .coefficients
+                    .iter()
+                    .zip(&standard_errors)
+                    .map(|(coefficient, standard_error)| {
+                        standard_error.and_then(|se| {
+                            if se > 0.0 {
+                                Some(coefficient / se)
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                (standard_errors, t_statistics)
+            })
+            .unwrap_or_else(|| {
+                (
+                    vec![None; regression.predictors],
+                    vec![None; regression.predictors],
+                )
+            })
+    };
+    Ok(OlsRegressionDiagnostics {
+        regression,
+        residual_sum_squares: effective_residual_sum_squares,
+        total_sum_squares,
+        mean_squared_error,
+        root_mean_squared_error,
+        adjusted_r_squared,
+        degrees_of_freedom,
+        standard_errors,
+        t_statistics,
+    })
+}
+
+/// Fits deterministic ridge regression by solving `(X^T X + lambda I) beta = X^T y`.
+pub fn ridge_regression(
+    design: &F32MatrixView<'_>,
+    target: &[f32],
+    lambda: f32,
+) -> Result<RidgeRegression> {
+    design.validate()?;
+    if target.len() != design.shape().rows {
+        return Err(invalid_argument(
+            "ridge regression target length must match design rows",
+        ));
+    }
+    if target.iter().any(|value| !value.is_finite()) {
+        return Err(invalid_argument(
+            "ridge regression target values must be finite",
+        ));
+    }
+    if !lambda.is_finite() || lambda < 0.0 {
+        return Err(invalid_argument(
+            "ridge regression lambda must be finite and non-negative",
+        ));
+    }
+    let xtx = design.gram_columns()?;
+    let mut values = xtx.values().to_vec();
+    let predictors = design.shape().cols;
+    for index in 0..predictors {
+        values[index * predictors + index] += lambda;
+    }
+    let regularized = F32Matrix::new(MatrixShape::new(predictors, predictors)?, values)?;
+    let xty = design.transpose().matvec(target)?.into_values();
+    let coefficients = regularized.solve_vector(&xty)?;
+    let fitted = design.matvec(&coefficients)?.into_values();
+    let residuals = target
+        .iter()
+        .zip(&fitted)
+        .map(|(actual, fitted)| actual - fitted)
+        .collect::<Vec<_>>();
+    let residual_sum_squares = residuals.iter().map(|value| value * value).sum::<f32>();
+    let mean_target = target.iter().sum::<f32>() / target.len() as f32;
+    let total_sum_squares = target
+        .iter()
+        .map(|value| (value - mean_target).powi(2))
+        .sum::<f32>();
+    Ok(RidgeRegression {
+        coefficients,
+        fitted,
+        residuals,
+        r_squared: r_squared_from_sums(residual_sum_squares, total_sum_squares),
+        lambda,
+        observations: design.shape().rows,
+        predictors,
+    })
+}
+
+/// Computes a correlation matrix treating rows as observations and columns as variables.
+pub fn correlation_matrix_from_rows(matrix: &F32MatrixView<'_>) -> Result<F32Matrix> {
+    matrix.validate()?;
+    let cols = matrix.shape().cols;
+    let columns = matrix_columns_as_f64(matrix)?;
+    let mut values = vec![0.0; cols * cols];
+    for row in 0..cols {
+        for col in 0..cols {
+            values[row * cols + col] = correlation(&columns[row], &columns[col])? as f32;
+        }
+    }
+    F32Matrix::new(MatrixShape::new(cols, cols)?, values)
+}
+
+/// Computes a covariance matrix treating rows as observations and columns as variables.
+pub fn covariance_matrix_from_rows(
+    matrix: &F32MatrixView<'_>,
+    mode: VarianceMode,
+) -> Result<F32Matrix> {
+    matrix.validate()?;
+    let cols = matrix.shape().cols;
+    let columns = matrix_columns_as_f64(matrix)?;
+    let mut values = vec![0.0; cols * cols];
+    for row in 0..cols {
+        for col in 0..cols {
+            values[row * cols + col] = covariance(&columns[row], &columns[col], mode)? as f32;
+        }
+    }
+    F32Matrix::new(MatrixShape::new(cols, cols)?, values)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -935,6 +1150,56 @@ fn solve_qr(q: &F32Matrix, r: &F32Matrix, target: &[f32]) -> Result<Vec<f32>> {
     Ok(coefficients)
 }
 
+fn regression_standard_errors(
+    design: &F32MatrixView<'_>,
+    mean_squared_error: f32,
+    predictors: usize,
+) -> Result<Option<Vec<Option<f32>>>> {
+    if mean_squared_error <= 0.0 || !mean_squared_error.is_finite() {
+        return Ok(Some(vec![None; predictors]));
+    }
+    let inverse = match design.gram_columns()?.inverse() {
+        Ok(inverse) => inverse,
+        Err(_) => return Ok(None),
+    };
+    let standard_errors = (0..predictors)
+        .map(|index| {
+            let variance = inverse.values()[index * predictors + index] * mean_squared_error;
+            if variance.is_finite() && variance > 0.0 {
+                Some(variance.sqrt())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    Ok(Some(standard_errors))
+}
+
+fn matrix_columns_as_f64(matrix: &F32MatrixView<'_>) -> Result<Vec<Vec<f64>>> {
+    (0..matrix.shape().cols)
+        .map(|col| {
+            Ok(matrix
+                .column(col)?
+                .as_slice()
+                .into_iter()
+                .map(|value| value as f64)
+                .collect::<Vec<_>>())
+        })
+        .collect()
+}
+
+fn r_squared_from_sums(residual_sum_squares: f32, total_sum_squares: f32) -> f32 {
+    if total_sum_squares <= f32::EPSILON {
+        if residual_sum_squares <= f32::EPSILON {
+            1.0
+        } else {
+            0.0
+        }
+    } else {
+        1.0 - residual_sum_squares / total_sum_squares
+    }
+}
+
 fn higher_moments(values: &[f64], mean: f64, std_dev: f64) -> (Option<f64>, Option<f64>) {
     if std_dev <= f64::EPSILON {
         return (None, None);
@@ -1190,5 +1455,85 @@ mod tests {
         assert!((regression.r_squared - 1.0).abs() < 1.0e-4);
         assert_eq!(regression.observations, 3);
         assert_eq!(regression.predictors, 2);
+    }
+
+    #[test]
+    fn ols_diagnostics_report_coefficients_and_standard_errors() {
+        let design =
+            F32Matrix::from_rows([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0], [1.0, 4.0], [1.0, 5.0]])
+                .unwrap();
+        let diagnostics =
+            ordinary_least_squares_diagnostics(&design.as_view(), &[3.1, 4.9, 7.2, 8.8, 11.1], 0.0)
+                .unwrap();
+
+        assert!((diagnostics.regression.coefficients[0] - 1.0).abs() < 0.25);
+        assert!((diagnostics.regression.coefficients[1] - 2.0).abs() < 0.1);
+        assert!(diagnostics.root_mean_squared_error < 0.25);
+        assert_eq!(diagnostics.degrees_of_freedom, 3);
+        assert!(diagnostics.standard_errors.iter().all(Option::is_some));
+        assert!(diagnostics.t_statistics.iter().all(Option::is_some));
+    }
+
+    #[test]
+    fn ols_diagnostics_handle_exact_fit() {
+        let design =
+            F32Matrix::from_rows([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0], [1.0, 4.0]]).unwrap();
+        let diagnostics =
+            ordinary_least_squares_diagnostics(&design.as_view(), &[3.0, 5.0, 7.0, 9.0], 0.0)
+                .unwrap();
+
+        assert!(diagnostics.residual_sum_squares < 1.0e-8);
+        assert!(diagnostics.root_mean_squared_error < 1.0e-4);
+        assert_eq!(diagnostics.standard_errors, vec![None, None]);
+    }
+
+    #[test]
+    fn diagnostics_reject_invalid_inputs() {
+        let design = F32Matrix::from_rows([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]).unwrap();
+
+        assert!(ordinary_least_squares_diagnostics(&design.as_view(), &[1.0, 2.0], 0.0).is_err());
+        assert!(
+            ordinary_least_squares_diagnostics(&design.as_view(), &[1.0, f32::NAN, 3.0], 0.0)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn ridge_regression_handles_rank_deficient_design() {
+        let design =
+            F32Matrix::from_rows([[1.0, 2.0], [2.0, 4.0], [3.0, 6.0], [4.0, 8.0]]).unwrap();
+        let regression = ridge_regression(&design.as_view(), &[1.0, 2.0, 3.0, 4.0], 1.0).unwrap();
+
+        assert_eq!(regression.coefficients.len(), 2);
+        assert_eq!(regression.fitted.len(), 4);
+        assert!(regression.r_squared.is_finite());
+    }
+
+    #[test]
+    fn ridge_rejects_invalid_lambda() {
+        let design = F32Matrix::from_rows([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]).unwrap();
+
+        assert!(ridge_regression(&design.as_view(), &[3.0, 5.0, 7.0], -1.0).is_err());
+        assert!(ridge_regression(&design.as_view(), &[3.0, 5.0, 7.0], f32::NAN).is_err());
+    }
+
+    #[test]
+    fn row_correlation_and_covariance_matrices_have_expected_shape() {
+        let matrix = F32Matrix::from_rows([[1.0, 2.0], [2.0, 4.0], [3.0, 6.0]]).unwrap();
+        let correlation = correlation_matrix_from_rows(&matrix.as_view()).unwrap();
+        let covariance =
+            covariance_matrix_from_rows(&matrix.as_view(), VarianceMode::Sample).unwrap();
+
+        assert_eq!(correlation.shape().rows, 2);
+        assert_eq!(correlation.shape().cols, 2);
+        assert!((correlation.as_view().get(0, 0).unwrap() - 1.0).abs() < 1.0e-6);
+        assert!((correlation.as_view().get(1, 1).unwrap() - 1.0).abs() < 1.0e-6);
+        assert!(
+            (correlation.as_view().get(0, 1).unwrap() - correlation.as_view().get(1, 0).unwrap())
+                .abs()
+                < 1.0e-6
+        );
+        assert_eq!(covariance.shape().rows, 2);
+        assert_eq!(covariance.shape().cols, 2);
     }
 }

@@ -158,12 +158,12 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-animation-core` | Shared animation timeline contracts | `moritzbrantner-three-d-processing-core`, `moritzbrantner-video-analysis-core`, `serde` | Time values, interpolation modes, keyframes, typed tracks, transform tracks, joints, skeletons, and animation clips | Future 2D/3D animation workflows, posture sequence interop, mesh/skinning work |
 | `moritzbrantner-numbers-core` | Shared scalar numeric summaries and ranges | `moritzbrantner-video-analysis-core` | Running stats, weighted summaries, quantiles, histograms, numeric range helpers | `moritzbrantner-dense-data`, `moritzbrantner-video-analysis-data`, analytics workflows, and reporting utilities |
 | `moritzbrantner-tensor-data` | Generic finite `f32` tensor contracts | `moritzbrantner-video-analysis-core`, `serde`, `serde_json` | `TensorShape`, `F32Tensor`, `F32TensorView`, shape/element validation, metadata | `moritzbrantner-comfyui-latents`, audio/image bridges, and future tensor-oriented interop crates |
-| `moritzbrantner-finance-statistics` | Finance-oriented return and risk statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-math-statistics` | Simple/log returns, cumulative and annualized return, volatility, Sharpe, Sortino, beta/alpha, drawdown wrappers, drawdown duration, historical VaR/CVaR wrappers, tracking error, information/Calmar/Omega ratios, portfolio weights/returns/risk summaries, rolling windows | Finance analytics, portfolio reporting, and future market-data workflows |
+| `moritzbrantner-finance-statistics` | Finance-oriented return and risk statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-math-statistics` | Simple/log returns, cumulative and annualized return, volatility, Sharpe, Sortino, beta/alpha, drawdown wrappers, drawdown duration, historical VaR/CVaR wrappers, tracking error, information/Calmar/Omega ratios, portfolio weights/returns/risk summaries, historical covariance, risk/return contribution, turnover, rolling windows | Finance analytics, portfolio reporting, and future market-data workflows |
 | `moritzbrantner-math-geometry-2d` | Shared 2D geometry primitives | `moritzbrantner-video-analysis-core`, `serde` | Checked 2D points, vectors, rectangles, IoU/overlap ratios, normalized coordinates, segments and segment intersections, circles, polygons, bounds, affine transforms, and `BoundingBox` interop | Image/video/posture crates and UI-adjacent layout workflows |
-| `moritzbrantner-math-linear` | Shared dense matrix and kernel contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data`, `moritzbrantner-vector-analysis-core` | Matrix shapes/views, matrix multiply, row/column helpers, centering, Gram matrices, LU/Cholesky/QR decomposition, determinant/condition diagnostics, tensor/vector bridges, `Kernel1d`, `Kernel2d` | Image/video preprocessing, text model utilities, dense/statistical workflows |
+| `moritzbrantner-math-linear` | Shared dense matrix and kernel contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data`, `moritzbrantner-vector-analysis-core` | Matrix shapes/views, matrix multiply, row/column helpers, centering, Gram matrices, rank estimates, QR least-squares, LU/Cholesky/QR decomposition, determinant/condition diagnostics, Cholesky solve/log determinant, tensor/vector bridges, `Kernel1d`, `Kernel2d` | Image/video preprocessing, text model utilities, dense/statistical workflows |
 | `moritzbrantner-math-signal-core` | Shared signal-domain math | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core` | Sample-rate/resampling descriptors, windows, frame strides, interpolation, signal level summaries, FIR kernels/application, peak normalization, and biquad design helpers | Audio crates and future time-series/video transform workflows |
-| `moritzbrantner-math-sparse-data` | Shared sparse vector and matrix contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-numbers-core` | Sparse vectors, vector norms/add/scale/top-k, COO/CSR matrices, transpose, row nnz, matrix-vector multiply, sparse similarities, dense bridges | Text corpus/semantic crates and future retrieval/index workflows |
-| `moritzbrantner-math-statistics` | Shared scalar, pairwise, rolling, multivariate, and matrix statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core`, `moritzbrantner-math-linear` | Series summaries, sample/population variance, changes, pairwise covariance/correlation, ranks/Spearman correlation, simple and OLS regression, rolling windows, z-scores, tail risk, drawdown, running covariance, covariance matrices, normalizers, PCA-lite, weighted observations | Dense-data, feature extraction, finance wrappers, and analytics workflows |
+| `moritzbrantner-math-sparse-data` | Shared sparse vector and matrix contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-numbers-core`, `moritzbrantner-math-linear` | Sparse vectors, vector norms/add/scale/hadamard/prune/top-k, COO/CSR matrices, transpose, row/column nnz and sums, matrix summaries, row normalization, matrix-vector and matrix-matrix dense products, sparse similarities, dense bridges | Text corpus/semantic crates and future retrieval/index workflows |
+| `moritzbrantner-math-statistics` | Shared scalar, pairwise, rolling, multivariate, and matrix statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core`, `moritzbrantner-math-linear` | Series summaries, sample/population variance, changes, pairwise covariance/correlation, ranks/Spearman correlation, simple and OLS regression, OLS diagnostics, ridge regression, row-wise covariance/correlation matrices, rolling windows, z-scores, tail risk, drawdown, running covariance, covariance matrices, normalizers, PCA-lite, weighted observations | Dense-data, feature extraction, finance wrappers, and analytics workflows |
 | `moritzbrantner-audio-analysis-core` | Shared audio analysis utilities | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data`, `moritzbrantner-math-signal-core` | Normalized sample conversion, mono mixing, shared window functions, frame iteration, streaming frame windows, feature-series contracts, level helpers, waveform batch contracts | Audio analysis crates and applications |
 | `moritzbrantner-audio-analysis-fourier` | Frequency-domain audio analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, mel-style band summaries, dominant-frequency analyzer | Applications and audio pipelines |
 | `moritzbrantner-audio-analysis-io` | Audio input convenience facade | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest`, `moritzbrantner-video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, pure WAV read/write helpers, WAV/probe plan surfaces | Applications that want audio-specific input APIs |
@@ -523,6 +523,24 @@ stats, quantiles, or histograms.
 - `quantile` and `quartiles` provide deterministic percentile interpolation
   over finite copied inputs.
 
+## Analytical Math Spine Contracts
+
+The `math-linear`, `math-statistics`, `math-sparse-data`, and
+`finance-statistics` crates provide deterministic small/medium local analytical
+helpers without external numerical backends.
+
+- `math-linear` least-squares is QR-based, requires full column rank, rejects
+  non-finite inputs and invalid tolerances, and uses an automatic tolerance when
+  callers pass `0.0`.
+- `math-statistics` OLS diagnostics use the strict QR least-squares path.
+  Ridge regression solves regularized normal equations deterministically and is
+  not a full optimizer or numerical backend.
+- `math-sparse-data` can summarize CSR matrices and convert or multiply sparse
+  feature matrices into `math-linear::F32Matrix` for downstream dense workflows.
+- `finance-statistics` portfolio risk attribution is historical
+  covariance-based and assumes aligned, finite, equal-length asset return
+  series.
+
 ## Finance Statistics Contracts
 
 `moritzbrantner-finance-statistics` builds on `moritzbrantner-numbers-core` for finance-specific return
@@ -536,6 +554,8 @@ math crates.
   beta/alpha, tracking error, and information ratio.
 - Risk helpers expose maximum drawdown and historical VaR/CVaR as positive loss
   values.
+- Portfolio attribution helpers expose historical covariance, variance, risk
+  contribution, return contribution, and turnover for validated weights.
 - Rolling helpers expose fixed-window mean, standard deviation, and
   correlation.
 

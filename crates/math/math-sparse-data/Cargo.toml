@@ -16,6 +16,7 @@ categories.workspace = true
 name = "math_sparse_data"
 
 [dependencies]
+math-linear.workspace = true
 runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true

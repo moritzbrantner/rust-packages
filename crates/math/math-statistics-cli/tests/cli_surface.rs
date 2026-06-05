@@ -9,9 +9,13 @@ fn cli_adapter_reports_wrapped_library() {
 #[test]
 fn cli_adapter_runs_new_operation() {
     let response = math_statistics_cli::run_operation(
-        "stats.regression.linear",
-        serde_json::json!({"x": [1.0, 2.0, 3.0], "y": [3.0, 5.0, 7.0]}),
+        "stats.regression.diagnostics",
+        serde_json::json!({
+            "design": {"rows": 4, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 4.0]},
+            "target": [3.0, 5.0, 7.0, 9.0],
+            "tolerance": 0.0
+        }),
     )
     .expect("run operation");
-    assert_eq!(response.value["slope"], 2.0);
+    assert_eq!(response.value["degreesOfFreedom"], 2);
 }

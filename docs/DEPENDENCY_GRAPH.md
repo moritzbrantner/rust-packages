@@ -703,6 +703,7 @@ flowchart LR
   crate_moritzbrantner_math_signal_core_server --> crate_moritzbrantner_math_signal_core
   crate_moritzbrantner_math_signal_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_math_sparse_data --> crate_moritzbrantner_numbers_core
+  crate_moritzbrantner_math_sparse_data --> crate_moritzbrantner_math_linear
   crate_moritzbrantner_math_sparse_data --> crate_moritzbrantner_vector_analysis_core
   crate_moritzbrantner_math_sparse_data --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_math_sparse_data --> crate_moritzbrantner_runtime_core

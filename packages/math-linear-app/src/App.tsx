@@ -28,6 +28,7 @@ const packageAppConfig: PackageAppConfig = {
     "linear.cholesky",
     "linear.qr",
     "linear.center",
+    "linear.leastSquares",
     "describe",
   ],
   operationGroups: [
@@ -47,6 +48,7 @@ const packageAppConfig: PackageAppConfig = {
         "linear.cholesky",
         "linear.qr",
         "linear.center",
+        "linear.leastSquares",
       ],
     },
     {

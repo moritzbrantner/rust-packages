@@ -21,8 +21,8 @@ fn run_endpoint_calls_new_operation() {
     let response = math_statistics_server::response_for(
         "POST",
         "/api/run",
-        r#"{"operation":"stats.regression.linear","input":{"x":[1.0,2.0,3.0],"y":[3.0,5.0,7.0]}}"#,
+        r#"{"operation":"stats.regression.diagnostics","input":{"design":{"rows":4,"cols":2,"values":[1.0,1.0,1.0,2.0,1.0,3.0,1.0,4.0]},"target":[3.0,5.0,7.0,9.0],"tolerance":0.0}}"#,
     );
     assert_eq!(response.status_code, 200);
-    assert!(response.body.contains(r#""slope":2.0"#));
+    assert!(response.body.contains(r#""degreesOfFreedom":2"#));
 }

@@ -102,6 +102,16 @@ pub fn package_surface() -> PackageSurface {
                 "Subtracts row or column means from a finite f32 matrix.",
                 serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [1.0, 2.0, 3.0, 4.0]}, "axis": "columns"}),
             ),
+            operation(
+                "linear.leastSquares",
+                "Least squares",
+                "Fits a full-column-rank QR least-squares model for a finite f32 design matrix.",
+                serde_json::json!({
+                    "matrix": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0]},
+                    "target": [3.0, 5.0, 7.0],
+                    "tolerance": 0.0
+                }),
+            ),
         ],
     }
 }
@@ -140,6 +150,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "linear.cholesky" => cholesky_value(parse_input(request.input)?)?,
         "linear.qr" => qr_value(parse_input(request.input)?)?,
         "linear.center" => center_value(parse_input(request.input)?)?,
+        "linear.leastSquares" => least_squares_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -193,6 +204,15 @@ struct MatrixAxisRequest {
     matrix: MatrixRequest,
     #[serde(default = "default_columns_axis")]
     axis: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LeastSquaresRequest {
+    matrix: MatrixRequest,
+    target: Vec<f32>,
+    #[serde(default)]
+    tolerance: f32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -463,6 +483,23 @@ fn center_value(request: MatrixAxisRequest) -> Result<serde_json::Value, String>
     Ok(value)
 }
 
+fn least_squares_value(request: LeastSquaresRequest) -> Result<serde_json::Value, String> {
+    validate_value_count(request.target.len())?;
+    let matrix = matrix_from_request(request.matrix)?;
+    let solution = matrix
+        .least_squares(&request.target, request.tolerance)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "coefficients": solution.coefficients,
+        "fitted": solution.fitted,
+        "residuals": solution.residuals,
+        "residualSumSquares": solution.residual_sum_squares,
+        "rank": solution.rank,
+        "observations": solution.observations,
+        "predictors": solution.predictors
+    }))
+}
+
 fn matrix_from_request(request: MatrixRequest) -> Result<F32Matrix, String> {
     validate_value_count(request.values.len())?;
     F32Matrix::new(
@@ -660,6 +697,7 @@ mod tests {
             "linear.cholesky",
             "linear.qr",
             "linear.center",
+            "linear.leastSquares",
         ] {
             let surface_operation = package_surface()
                 .operations
@@ -673,5 +711,22 @@ mod tests {
             .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
             assert!(response.value.is_object());
         }
+    }
+
+    #[test]
+    fn least_squares_returns_coefficients() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linear.leastSquares"),
+            input: serde_json::json!({
+                "matrix": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0]},
+                "target": [3.0, 5.0, 7.0],
+                "tolerance": 0.0
+            }),
+        })
+        .expect("least squares");
+        let coefficients = f32_array(&response.value["coefficients"]);
+        assert_close(coefficients[0], 1.0);
+        assert_close(coefficients[1], 2.0);
+        assert_eq!(response.value["rank"], 2);
     }
 }

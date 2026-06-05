@@ -10,6 +10,7 @@ Dense matrix and kernel contracts bridging `moritzbrantner-tensor-data` and
 - Identity, zero, transpose, add, subtract, scale, trace, and mean utilities
 - Diagonal construction, Gram matrices, and row/column centering
 - Matrix multiply, matrix-vector multiply, and row cosine helpers
+- Tolerance-aware rank estimates and QR-based least-squares fits
 - Pure Rust LU decomposition with partial pivoting, determinant, solve, and
   inverse helpers
 - Pure Rust Cholesky and modified Gram-Schmidt QR decomposition for
@@ -27,10 +28,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let product = matrix.matmul(&matrix.as_view())?;
     let solution = matrix.solve_vector(&[1.0, 2.0])?;
     let inverse = matrix.inverse()?;
+    let design = F32Matrix::from_rows([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]])?;
+    let least_squares = design.least_squares(&[3.0, 5.0, 7.0], 0.0)?;
     let kernel = Kernel2d::sharpen_3x3();
     assert_eq!(product.shape().rows, 2);
     assert_eq!(solution.len(), 2);
     assert_eq!(inverse.shape().cols, 2);
+    assert_eq!(least_squares.coefficients.len(), 2);
     assert_eq!(kernel.as_array_3x3()?, [0.0, -1.0, 0.0, -1.0, 5.0, -1.0, 0.0, -1.0, 0.0]);
     Ok(())
 }
@@ -66,6 +70,12 @@ numerical linear algebra backends.
 Cholesky decomposition requires a symmetric positive definite square matrix. QR
 decomposition currently computes a thin factorization and requires
 `rows >= cols` with full column rank.
+
+Least-squares fitting is QR-based and deterministic for small and medium local
+matrices. It requires full column rank, rejects non-finite inputs and invalid
+tolerances, and treats `tolerance == 0.0` as an automatic tolerance derived from
+matrix size and maximum column L2 norm. This crate intentionally does not expose
+a full SVD/eigendecomposition suite or external numerical backend.
 
 Future adapters for libraries such as faer or nalgebra can be added behind
 private feature-gated backend modules while keeping the public API owned by

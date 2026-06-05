@@ -10,6 +10,8 @@ finite local inputs.
 - Pairwise covariance and correlation
 - Average ranks, Spearman correlation, simple linear regression, and OLS
   regression over dense design matrices
+- OLS diagnostics, deterministic ridge regression, and row-wise covariance and
+  correlation matrices
 - Difference, relative-change, and log-ratio derived series
 - Rolling mean, standard deviation, min/max ranges, and correlation
 - Empirical tail risk and compounded-path drawdown helpers
@@ -22,7 +24,7 @@ finite local inputs.
 
 ```rust,no_run
 use math_linear::F32Matrix;
-use math_statistics::{changes, summarize_series, ChangeMethod, PrincipalComponents, RunningCovariance, VarianceMode};
+use math_statistics::{changes, ordinary_least_squares_diagnostics, summarize_series, ChangeMethod, PrincipalComponents, RunningCovariance, VarianceMode};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let returns = changes(&[100.0, 102.0, 99.0], ChangeMethod::Relative)?;
@@ -31,9 +33,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matrix = F32Matrix::from_rows([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])?;
     let covariance = RunningCovariance::from_matrix(&matrix.as_view())?.covariance_matrix()?;
     let pca = PrincipalComponents::fit(&matrix.as_view(), 1)?;
+    let design = F32Matrix::from_rows([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0], [1.0, 4.0]])?;
+    let diagnostics = ordinary_least_squares_diagnostics(&design.as_view(), &[3.0, 5.0, 7.0, 9.0], 0.0)?;
     assert_eq!(summary.count, 2);
     assert_eq!(covariance.matrix.shape().rows, 2);
     assert_eq!(pca.components().shape().rows, 1);
+    assert_eq!(diagnostics.degrees_of_freedom, 2);
     Ok(())
 }
 ```
@@ -74,7 +79,13 @@ replacement for a full numerical linear algebra backend on ill-conditioned or
 large matrices.
 
 OLS uses the `math-linear` QR path for full-column-rank designs and falls back
-to normal equations when QR cannot be applied.
+to normal equations when QR cannot be applied. OLS diagnostics use the stricter
+QR least-squares path and require full column rank.
+
+Ridge regression is a deterministic regularized normal-equation helper for
+small and medium local matrices: it solves `(X^T X + lambda I) beta = X^T y`
+with finite, non-negative `lambda`. It is not a full numerical backend or
+optimizer suite.
 
 ## Related crates
 

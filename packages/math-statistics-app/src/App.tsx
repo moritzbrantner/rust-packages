@@ -29,6 +29,7 @@ const packageAppConfig: PackageAppConfig = {
     "stats.series.rankCorrelation",
     "stats.regression.linear",
     "stats.regression.ols",
+    "stats.regression.diagnostics",
     "describe",
   ],
   operationGroups: [
@@ -49,6 +50,7 @@ const packageAppConfig: PackageAppConfig = {
         "stats.series.rankCorrelation",
         "stats.regression.linear",
         "stats.regression.ols",
+        "stats.regression.diagnostics",
       ],
     },
     {

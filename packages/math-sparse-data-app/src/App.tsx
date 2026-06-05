@@ -22,6 +22,7 @@ const packageAppConfig: PackageAppConfig = {
     "sparse.vectorOps",
     "sparse.matrixVector",
     "sparse.transpose",
+    "sparse.matrixStats",
     "sparse.matrixSummary",
     "describe",
   ],
@@ -30,7 +31,14 @@ const packageAppConfig: PackageAppConfig = {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["sparse.similarity", "sparse.toDense", "sparse.vectorOps", "sparse.matrixVector", "sparse.transpose"],
+      operations: [
+        "sparse.similarity",
+        "sparse.toDense",
+        "sparse.vectorOps",
+        "sparse.matrixVector",
+        "sparse.transpose",
+        "sparse.matrixStats",
+      ],
     },
     {
       id: "debug",

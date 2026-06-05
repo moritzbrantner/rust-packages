@@ -9,8 +9,9 @@ use serde::Deserialize;
 use crate::{
     annualized_return, annualized_volatility, beta_alpha, calmar_ratio, cumulative_return,
     drawdown_duration, historical_value_at_risk, log_returns, max_drawdown, mean_return,
-    omega_ratio, portfolio_returns, portfolio_risk_summary, rolling_correlation, rolling_mean,
-    rolling_std_dev, sharpe_ratio, simple_returns, sortino_ratio, std_dev, VarianceMode,
+    omega_ratio, portfolio_returns, portfolio_risk_contribution, portfolio_risk_summary,
+    rolling_correlation, rolling_mean, rolling_std_dev, sharpe_ratio, simple_returns,
+    sortino_ratio, std_dev, VarianceMode,
 };
 
 const MAX_VALUES: usize = 100_000;
@@ -64,6 +65,12 @@ pub fn package_surface() -> PackageSurface {
                 "Computes Calmar ratio, Omega ratio, and drawdown duration for a return series.",
                 serde_json::json!({"returns": [0.1, -0.2, 0.05, 0.3], "thresholdReturnPerPeriod": 0.0}),
             ),
+            operation(
+                "finance.riskContribution",
+                "Portfolio risk contribution",
+                "Computes annualized historical covariance-based portfolio volatility contributions.",
+                serde_json::json!({"assetReturns": [[0.02, -0.01, 0.03], [0.01, 0.0, 0.02]], "weights": [0.6, 0.4], "periodsPerYear": 252.0}),
+            ),
         ],
     }
 }
@@ -97,6 +104,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "finance.rolling" => rolling_value(parse_input(request.input)?)?,
         "finance.portfolio" => portfolio_value(parse_input(request.input)?)?,
         "finance.performanceRatios" => performance_ratios_value(parse_input(request.input)?)?,
+        "finance.riskContribution" => risk_contribution_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -305,6 +313,26 @@ fn portfolio_value(request: PortfolioRequest) -> Result<serde_json::Value, Strin
     }))
 }
 
+fn risk_contribution_value(request: PortfolioRequest) -> Result<serde_json::Value, String> {
+    validate_value_count(request.weights.len())?;
+    for returns in &request.asset_returns {
+        validate_value_count(returns.len())?;
+    }
+    let contribution = portfolio_risk_contribution(
+        &request.asset_returns,
+        &request.weights,
+        request.periods_per_year,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({
+        "portfolioVariance": contribution.portfolio_variance,
+        "volatility": contribution.volatility,
+        "marginalContributions": contribution.marginal_contributions,
+        "componentContributions": contribution.component_contributions,
+        "percentContributions": contribution.percent_contributions
+    }))
+}
+
 fn performance_ratios_value(
     request: PerformanceRatiosRequest,
 ) -> Result<serde_json::Value, String> {
@@ -392,7 +420,11 @@ mod tests {
 
     #[test]
     fn portfolio_and_performance_operations_run() {
-        for operation in ["finance.portfolio", "finance.performanceRatios"] {
+        for operation in [
+            "finance.portfolio",
+            "finance.performanceRatios",
+            "finance.riskContribution",
+        ] {
             let surface_operation = package_surface()
                 .operations
                 .into_iter()
@@ -405,5 +437,27 @@ mod tests {
             .unwrap_or_else(|error| panic!("{operation} failed: {error}"));
             assert!(response.value.is_object());
         }
+    }
+
+    #[test]
+    fn risk_contribution_returns_domain_payload() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("finance.riskContribution"),
+            input: serde_json::json!({
+                "assetReturns": [[0.02, -0.01, 0.03], [0.01, 0.0, 0.02]],
+                "weights": [0.6, 0.4],
+                "periodsPerYear": 252.0
+            }),
+        })
+        .expect("risk contribution");
+        assert!(response.value["portfolioVariance"].as_f64().unwrap() > 0.0);
+        assert!(response.value["volatility"].as_f64().unwrap() > 0.0);
+        assert_eq!(
+            response.value["percentContributions"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
     }
 }

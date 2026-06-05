@@ -3849,6 +3849,7 @@ name = "moritzbrantner-math-sparse-data"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moritzbrantner-math-linear",
  "moritzbrantner-numbers-core",
  "moritzbrantner-runtime-core",
  "moritzbrantner-vector-analysis-core",

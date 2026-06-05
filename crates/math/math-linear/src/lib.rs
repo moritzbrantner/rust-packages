@@ -64,6 +64,40 @@ pub struct F32Matrix {
     values: Vec<f32>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+/// Least-squares solution and residual diagnostics for a full-column-rank design.
+pub struct LeastSquaresSolution {
+    /// Fitted coefficients, one per design column.
+    pub coefficients: Vec<f32>,
+    /// Fitted target values.
+    pub fitted: Vec<f32>,
+    /// Residuals as `target - fitted`.
+    pub residuals: Vec<f32>,
+    /// Sum of squared residuals.
+    pub residual_sum_squares: f32,
+    /// Estimated matrix rank.
+    pub rank: usize,
+    /// Number of design rows.
+    pub observations: usize,
+    /// Number of design columns.
+    pub predictors: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Deterministic solve diagnostics for dense finite matrices.
+pub struct LinearSolveDiagnostics {
+    /// Determinant when the matrix is square.
+    pub determinant: Option<f32>,
+    /// Tolerance-aware rank estimate.
+    pub rank: usize,
+    /// Ratio of smallest to largest LU diagonal pivot magnitude, when available.
+    pub pivot_ratio: Option<f32>,
+    /// Number of matrix rows.
+    pub observations: usize,
+    /// Number of matrix columns.
+    pub predictors: usize,
+}
+
 impl F32Matrix {
     /// Creates a row-major matrix after shape and finite-value validation.
     pub fn new(shape: MatrixShape, values: Vec<f32>) -> Result<Self> {
@@ -233,6 +267,21 @@ impl F32Matrix {
     /// Returns simple determinant and diagonal magnitude diagnostics.
     pub fn condition_estimate(&self) -> Result<MatrixConditionEstimate> {
         self.as_view().condition_estimate()
+    }
+
+    /// Returns a deterministic modified Gram-Schmidt rank estimate.
+    pub fn rank_estimate(&self, tolerance: f32) -> Result<usize> {
+        self.as_view().rank_estimate(tolerance)
+    }
+
+    /// Fits a full-column-rank least-squares model with QR factorization.
+    pub fn least_squares(&self, target: &[f32], tolerance: f32) -> Result<LeastSquaresSolution> {
+        self.as_view().least_squares(target, tolerance)
+    }
+
+    /// Returns deterministic linear solve diagnostics.
+    pub fn solve_diagnostics(&self, tolerance: f32) -> Result<LinearSolveDiagnostics> {
+        self.as_view().solve_diagnostics(tolerance)
     }
 
     /// Computes this square matrix determinant through LU decomposition.
@@ -715,6 +764,95 @@ impl<'a> F32MatrixView<'a> {
         })
     }
 
+    /// Returns a deterministic modified Gram-Schmidt rank estimate.
+    pub fn rank_estimate(&self, tolerance: f32) -> Result<usize> {
+        self.validate()?;
+        let tolerance = resolve_rank_tolerance(self, tolerance)?;
+        let rows = self.shape.rows;
+        let cols = self.shape.cols;
+        let mut basis = Vec::<Vec<f32>>::with_capacity(rows.min(cols));
+        for col in 0..cols {
+            let mut residual = self.column(col)?.as_slice();
+            for q in &basis {
+                let projection = dot(q, &residual)?;
+                for row in 0..rows {
+                    residual[row] -= projection * q[row];
+                }
+            }
+            let norm = l2_norm(&residual)?;
+            if norm > tolerance {
+                for value in &mut residual {
+                    *value /= norm;
+                }
+                basis.push(residual);
+            }
+        }
+        Ok(basis.len())
+    }
+
+    /// Fits a full-column-rank least-squares model with QR factorization.
+    pub fn least_squares(&self, target: &[f32], tolerance: f32) -> Result<LeastSquaresSolution> {
+        self.validate()?;
+        if target.len() != self.shape.rows {
+            return Err(invalid_argument(
+                "least-squares target length must match matrix rows",
+            ));
+        }
+        if target.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument(
+                "least-squares target values must be finite",
+            ));
+        }
+        let rank = self.rank_estimate(tolerance)?;
+        if rank < self.shape.cols {
+            return Err(invalid_argument(
+                "least-squares requires a full-column-rank matrix",
+            ));
+        }
+        let qr = self.qr_decompose()?;
+        let coefficients = qr.solve_least_squares(target)?;
+        let fitted = self.matvec(&coefficients)?.into_values();
+        let residuals = target
+            .iter()
+            .zip(&fitted)
+            .map(|(actual, fitted)| actual - fitted)
+            .collect::<Vec<_>>();
+        let residual_sum_squares = residuals.iter().map(|value| value * value).sum::<f32>();
+        if !residual_sum_squares.is_finite() {
+            return Err(invalid_argument(
+                "least-squares residual sum of squares is non-finite",
+            ));
+        }
+        Ok(LeastSquaresSolution {
+            coefficients,
+            fitted,
+            residuals,
+            residual_sum_squares,
+            rank,
+            observations: self.shape.rows,
+            predictors: self.shape.cols,
+        })
+    }
+
+    /// Returns deterministic linear solve diagnostics.
+    pub fn solve_diagnostics(&self, tolerance: f32) -> Result<LinearSolveDiagnostics> {
+        self.validate()?;
+        let rank = self.rank_estimate(tolerance)?;
+        let (determinant, pivot_ratio) = if self.is_square() {
+            let condition = self.condition_estimate()?;
+            (Some(condition.determinant), condition.pivot_ratio())
+        } else {
+            (None, None)
+        };
+        Ok(LinearSolveDiagnostics {
+            determinant,
+            rank,
+            pivot_ratio,
+            observations: self.shape.rows,
+            predictors: self.shape.cols,
+        })
+    }
+
     /// Computes this square matrix determinant through LU decomposition.
     pub fn determinant(&self) -> Result<f32> {
         self.lu_decompose()?.determinant()
@@ -997,6 +1135,168 @@ impl LuDecomposition {
             return Err(invalid_argument("LU decomposition values must be finite"));
         }
         Ok(())
+    }
+}
+
+impl CholeskyDecomposition {
+    /// Solves `A x = b` using `A = L * L^T`.
+    pub fn solve_vector(&self, b: &[f32]) -> Result<Vec<f32>> {
+        self.lower.validate()?;
+        let shape = self.lower.shape();
+        if shape.rows != shape.cols {
+            return Err(invalid_argument(
+                "Cholesky solve requires a square lower factor",
+            ));
+        }
+        if b.len() != shape.rows {
+            return Err(invalid_argument(
+                "Cholesky solve vector length is incompatible",
+            ));
+        }
+        if b.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument("Cholesky solve values must be finite"));
+        }
+        let size = shape.rows;
+        let lower = self.lower.as_view();
+        let mut y = vec![0.0; size];
+        for row in 0..size {
+            let mut sum = b[row];
+            for (col, value) in y.iter().enumerate().take(row) {
+                sum -= lower.get(row, col)? * value;
+            }
+            let pivot = lower.get(row, row)?;
+            if pivot <= f32::EPSILON {
+                return Err(invalid_argument(
+                    "Cholesky solve requires positive diagonal pivots",
+                ));
+            }
+            y[row] = sum / pivot;
+        }
+        let mut x = vec![0.0; size];
+        for row in (0..size).rev() {
+            let mut sum = y[row];
+            for (col, value) in x.iter().enumerate().take(size).skip(row + 1) {
+                sum -= lower.get(col, row)? * value;
+            }
+            let pivot = lower.get(row, row)?;
+            if pivot <= f32::EPSILON {
+                return Err(invalid_argument(
+                    "Cholesky solve requires positive diagonal pivots",
+                ));
+            }
+            x[row] = sum / pivot;
+        }
+        if x.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument(
+                "Cholesky solve produced non-finite values",
+            ));
+        }
+        Ok(x)
+    }
+
+    /// Solves `A X = B` using `A = L * L^T`.
+    pub fn solve_matrix(&self, b: &F32MatrixView<'_>) -> Result<F32Matrix> {
+        self.lower.validate()?;
+        b.validate()?;
+        let shape = self.lower.shape();
+        if b.shape.rows != shape.rows {
+            return Err(invalid_argument(
+                "Cholesky solve matrix rows are incompatible",
+            ));
+        }
+        let output_shape = MatrixShape::new(shape.rows, b.shape.cols)?;
+        let mut values = vec![0.0; output_shape.element_count()?];
+        for col in 0..b.shape.cols {
+            let rhs = b.column(col)?.as_slice();
+            let solution = self.solve_vector(&rhs)?;
+            for row in 0..output_shape.rows {
+                values[row * output_shape.cols + col] = solution[row];
+            }
+        }
+        F32Matrix::new(output_shape, values)
+    }
+
+    /// Computes `ln(det(A))` from `A = L * L^T`.
+    pub fn log_determinant(&self) -> Result<f32> {
+        self.lower.validate()?;
+        let shape = self.lower.shape();
+        if shape.rows != shape.cols {
+            return Err(invalid_argument(
+                "Cholesky log determinant requires a square lower factor",
+            ));
+        }
+        let mut sum = 0.0;
+        for index in 0..shape.rows {
+            let diagonal = self.lower.as_view().get(index, index)?;
+            if diagonal <= 0.0 {
+                return Err(invalid_argument(
+                    "Cholesky log determinant requires positive diagonal entries",
+                ));
+            }
+            sum += diagonal.ln();
+        }
+        let log_determinant = 2.0 * sum;
+        if !log_determinant.is_finite() {
+            return Err(invalid_argument(
+                "Cholesky log determinant produced a non-finite value",
+            ));
+        }
+        Ok(log_determinant)
+    }
+}
+
+impl QrDecomposition {
+    /// Solves a full-column-rank least-squares target with this QR factorization.
+    pub fn solve_least_squares(&self, target: &[f32]) -> Result<Vec<f32>> {
+        self.q.validate()?;
+        self.r.validate()?;
+        if target.len() != self.q.shape().rows {
+            return Err(invalid_argument(
+                "QR least-squares target length must match Q rows",
+            ));
+        }
+        if target.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument(
+                "QR least-squares target values must be finite",
+            ));
+        }
+        if self.r.shape().rows != self.r.shape().cols || self.r.shape().cols != self.q.shape().cols
+        {
+            return Err(invalid_argument("QR least-squares shapes are incompatible"));
+        }
+        let q_t_y = self.q.as_view().transpose().matvec(target)?.into_values();
+        let cols = self.r.shape().cols;
+        let mut coefficients = vec![0.0; cols];
+        for row in (0..cols).rev() {
+            let mut sum = q_t_y[row];
+            for (col, coefficient) in coefficients.iter().enumerate().take(cols).skip(row + 1) {
+                sum -= self.r.as_view().get(row, col)? * coefficient;
+            }
+            let pivot = self.r.as_view().get(row, row)?;
+            if pivot.abs() <= f32::EPSILON {
+                return Err(invalid_argument(
+                    "QR least-squares encountered a zero pivot",
+                ));
+            }
+            coefficients[row] = sum / pivot;
+        }
+        if coefficients.iter().any(|value| !value.is_finite()) {
+            return Err(invalid_argument(
+                "QR least-squares produced non-finite coefficients",
+            ));
+        }
+        Ok(coefficients)
+    }
+}
+
+impl MatrixConditionEstimate {
+    /// Returns `min_abs_pivot / max_abs_pivot` when a non-zero pivot range is available.
+    pub fn pivot_ratio(&self) -> Option<f32> {
+        if self.diagonal_max_abs > 0.0 && self.diagonal_min_abs.is_finite() {
+            Some(self.diagonal_min_abs / self.diagonal_max_abs)
+        } else {
+            None
+        }
     }
 }
 
@@ -1300,6 +1600,22 @@ impl TryFrom<&DenseVector> for F32Matrix {
     }
 }
 
+fn resolve_rank_tolerance(matrix: &F32MatrixView<'_>, tolerance: f32) -> Result<f32> {
+    if !tolerance.is_finite() || tolerance < 0.0 {
+        return Err(invalid_argument(
+            "rank tolerance must be finite and non-negative",
+        ));
+    }
+    if tolerance > 0.0 {
+        return Ok(tolerance);
+    }
+    let mut max_column_l2_norm = 0.0_f32;
+    for col in 0..matrix.shape.cols {
+        max_column_l2_norm = max_column_l2_norm.max(l2_norm(&matrix.column(col)?.as_slice())?);
+    }
+    Ok(f32::EPSILON * matrix.shape.rows.max(matrix.shape.cols) as f32 * max_column_l2_norm)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1503,11 +1819,76 @@ mod tests {
     }
 
     #[test]
+    fn qr_least_squares_recovers_exact_coefficients() {
+        let design =
+            F32Matrix::from_rows([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0], [1.0, 4.0]]).unwrap();
+        let solution = design.least_squares(&[3.0, 5.0, 7.0, 9.0], 0.0).unwrap();
+
+        assert_close(solution.coefficients[0], 1.0);
+        assert_close(solution.coefficients[1], 2.0);
+        assert!(solution.residual_sum_squares < 1.0e-8);
+        assert_eq!(solution.rank, 2);
+        assert_eq!(solution.observations, 4);
+        assert_eq!(solution.predictors, 2);
+    }
+
+    #[test]
+    fn least_squares_rejects_rank_deficient_design() {
+        let design =
+            F32Matrix::from_rows([[1.0, 2.0], [2.0, 4.0], [3.0, 6.0], [4.0, 8.0]]).unwrap();
+
+        assert!(design.least_squares(&[1.0, 2.0, 3.0, 4.0], 0.0).is_err());
+    }
+
+    #[test]
+    fn rank_estimate_handles_full_and_dependent_columns() {
+        let full_rank = F32Matrix::from_rows([[1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]).unwrap();
+        let dependent =
+            F32Matrix::from_rows([[1.0, 2.0], [2.0, 4.0], [3.0, 6.0], [4.0, 8.0]]).unwrap();
+
+        assert_eq!(full_rank.rank_estimate(0.0).unwrap(), 2);
+        assert_eq!(dependent.rank_estimate(0.0).unwrap(), 1);
+    }
+
+    #[test]
+    fn cholesky_solve_reconstructs_rhs() {
+        let matrix = F32Matrix::from_rows([[4.0, 2.0], [2.0, 3.0]]).unwrap();
+        let decomposition = matrix.cholesky_decompose().unwrap();
+        let solution = decomposition.solve_vector(&[6.0, 5.0]).unwrap();
+        let reconstructed = matrix.matvec(&solution).unwrap().into_values();
+
+        assert_close(reconstructed[0], 6.0);
+        assert_close(reconstructed[1], 5.0);
+    }
+
+    #[test]
+    fn cholesky_log_determinant_matches_determinant() {
+        let matrix = F32Matrix::from_rows([[4.0, 2.0], [2.0, 3.0]]).unwrap();
+        let decomposition = matrix.cholesky_decompose().unwrap();
+        let log_determinant = decomposition.log_determinant().unwrap();
+
+        assert_close(log_determinant.exp(), matrix.determinant().unwrap());
+    }
+
+    #[test]
+    fn least_squares_rejects_invalid_inputs() {
+        let design = F32Matrix::from_rows([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]).unwrap();
+
+        assert!(design.least_squares(&[1.0, 2.0], 0.0).is_err());
+        assert!(design.least_squares(&[1.0, f32::NAN, 3.0], 0.0).is_err());
+        assert!(design.least_squares(&[1.0, 2.0, 3.0], -1.0).is_err());
+        assert!(design
+            .least_squares(&[1.0, 2.0, 3.0], f32::INFINITY)
+            .is_err());
+    }
+
+    #[test]
     fn condition_estimate_reports_diagonal_range() {
         let matrix = F32Matrix::from_rows([[2.0, 1.0], [1.0, 3.0]]).unwrap();
         let estimate = matrix.condition_estimate().unwrap();
         assert_close(estimate.determinant, 5.0);
         assert!(estimate.diagonal_min_abs > 0.0);
         assert!(estimate.diagonal_max_abs >= estimate.diagonal_min_abs);
+        assert!(estimate.pivot_ratio().unwrap() > 0.0);
     }
 }

@@ -21,8 +21,8 @@ fn run_endpoint_calls_new_operation() {
     let response = math_sparse_data_server::response_for(
         "POST",
         "/api/run",
-        r#"{"operation":"sparse.vectorOps","input":{"vector":{"dimensions":3,"indices":[0,2],"values":[1.0,-2.0]},"topK":1}}"#,
+        r#"{"operation":"sparse.matrixStats","input":{"matrix":{"rows":3,"cols":4,"entries":[[0,1,2.0],[1,3,4.0],[2,1,-1.0]]}}}"#,
     );
     assert_eq!(response.status_code, 200);
-    assert!(response.body.contains(r#""nnz":2"#));
+    assert!(response.body.contains(r#""nnz":3"#));
 }

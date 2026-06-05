@@ -9,9 +9,13 @@ fn cli_adapter_reports_wrapped_library() {
 #[test]
 fn cli_adapter_runs_new_operation() {
     let response = math_linear_cli::run_operation(
-        "linear.cholesky",
-        serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [4.0, 2.0, 2.0, 3.0]}}),
+        "linear.leastSquares",
+        serde_json::json!({
+            "matrix": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0]},
+            "target": [3.0, 5.0, 7.0],
+            "tolerance": 0.0
+        }),
     )
     .expect("run operation");
-    assert_eq!(response.value["method"], "cholesky");
+    assert_eq!(response.value["rank"], 2);
 }
