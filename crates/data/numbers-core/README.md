@@ -47,6 +47,16 @@ sorted ranks. Histograms use fixed-width bins over either an explicit range or
 the derived finite-value range. Degenerate ranges are valid; all matching values
 land in the last bin.
 
+## Runtime Surface
+
+The package surface exposes `numbers.summary`, `numbers.histogram`, and
+`numbers.quantiles`. Successful responses preserve numeric result fields and add
+the shared `operation`, `title`, `message`, `summary`, and `result` fields.
+
+Default surface calls are deterministic and in-memory. They reject more than
+100,000 input values, more than 4,096 histogram bins, and more than 1,024
+requested quantile levels with typed `runtime_core::SurfaceError` JSON.
+
 ## Related crates
 
 - `dense-data`

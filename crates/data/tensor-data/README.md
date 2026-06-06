@@ -40,6 +40,17 @@ Metadata is optional JSON metadata carried alongside tensors for transport and
 interop. It is not interpreted by this crate and is preserved when converting a
 view into an owned tensor.
 
+## Runtime Surface
+
+The package surface exposes `tensor.validate`, `tensor.summary`, and
+`tensor.reshapePlan`. Successful responses preserve tensor-specific fields and
+add the shared `operation`, `title`, `message`, `summary`, and `result` fields.
+
+Default surface calls are deterministic and in-memory. They reject tensors with
+more than 100,000 elements and previews larger than 256 values with typed
+`runtime_core::SurfaceError` JSON. Tensor validation and summary requests accept
+optional JSON `metadata` and report sorted metadata keys.
+
 ## Related crates
 
 - `comfyui-latents`

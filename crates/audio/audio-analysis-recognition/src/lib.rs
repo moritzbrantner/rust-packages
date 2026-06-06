@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
+pub mod transcription;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -15,6 +16,12 @@ use serde::Deserialize;
 pub use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
 use video_analysis_core::{
     AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result, Timestamp,
+};
+
+pub use transcription::{
+    transcribe, transcription_plan, AudioTranscriptionProvider, ImportedTranscriptionProvider,
+    TranscriptionBackendPlan, TranscriptionInput, TranscriptionProviderKind, TranscriptionRequest,
+    TranscriptionResponse, TranscriptionRuntimeSelection, WhisperCppTranscriptionPlan,
 };
 
 /// Runtime families for audio execution and postprocessing.
@@ -1501,27 +1508,20 @@ pub fn embed_audio(request: AudioEmbeddingRequest) -> Result<AudioEmbeddingRespo
 
 /// Handles ASR from imported transcript segments.
 pub fn transcribe_audio(request: SpeechRecognitionRequest) -> Result<SpeechRecognitionResponse> {
-    let model_id = selected_model_id(&request.model, "whisper-tiny-en");
-
-    if !request.imported_segments.is_empty() {
-        let transcript = TranscriptionContract::from_segments(
-            request.source,
-            request.language,
-            request.imported_segments,
-        )
-        .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
-        return Ok(SpeechRecognitionResponse {
-            accepted: true,
-            operation: "transcribe".to_string(),
-            model_id,
-            runtime: AudioRuntime::Imported,
-            transcript,
-        });
+    if request.imported_segments.is_empty() {
+        return unsupported_runtime(
+            "native speech recognition requires text-transcripts native whisper.cpp execution or imported segments",
+        );
     }
 
-    unsupported_runtime(
-        "native speech recognition requires text-transcripts native whisper.cpp execution or imported segments",
-    )
+    let response = transcribe(request.into())?;
+    Ok(SpeechRecognitionResponse {
+        accepted: response.accepted,
+        operation: response.operation,
+        model_id: response.model_id,
+        runtime: transcription::model_backend_to_audio_runtime(&response.backend),
+        transcript: response.transcript,
+    })
 }
 
 /// Builds a speech recognition response from a full transcript contract.
@@ -1529,18 +1529,18 @@ pub fn speech_recognition_response_from_transcription(
     model: &AudioRuntimeSelection,
     transcript: TranscriptionContract,
 ) -> Result<SpeechRecognitionResponse> {
-    let transcript = transcript
-        .normalized()
-        .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
-    transcript
-        .validate_strict()
-        .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+    let response = transcribe(TranscriptionRequest {
+        source: None,
+        language: None,
+        input: TranscriptionInput::ImportedContract { transcript },
+        runtime: model.clone().into(),
+    })?;
     Ok(SpeechRecognitionResponse {
-        accepted: true,
-        operation: "transcribe".to_string(),
-        model_id: selected_model_id(model, "whisper-tiny-en"),
-        runtime: AudioRuntime::Imported,
-        transcript,
+        accepted: response.accepted,
+        operation: response.operation,
+        model_id: response.model_id,
+        runtime: transcription::model_backend_to_audio_runtime(&response.backend),
+        transcript: response.transcript,
     })
 }
 
@@ -1761,6 +1761,21 @@ mod tests {
 
         assert_eq!(response.runtime, AudioRuntime::Imported);
         assert_eq!(response.text(), "hello");
+    }
+
+    #[test]
+    fn speech_recognition_request_delegates_to_generic_transcription() {
+        let response = transcribe_audio(SpeechRecognitionRequest {
+            source: Some("clip.wav".to_string()),
+            language: Some("en".to_string()),
+            model: AudioRuntimeSelection::default(),
+            imported_segments: vec![TranscriptSegmentContract::new(0, "delegated")],
+        })
+        .unwrap();
+
+        assert_eq!(response.runtime, AudioRuntime::Imported);
+        assert_eq!(response.text(), "delegated");
+        assert_eq!(response.transcript.source.as_deref(), Some("clip.wav"));
     }
 
     fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {

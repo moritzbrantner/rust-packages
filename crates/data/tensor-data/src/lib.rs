@@ -248,6 +248,11 @@ mod tests {
     }
 
     #[test]
+    fn rejects_overflowing_shape_element_counts() {
+        assert!(TensorShape::new([usize::MAX, 2]).is_err());
+    }
+
+    #[test]
     fn rejects_wrong_element_count() {
         let error = F32Tensor::from_dims([2, 2], vec![0.0; 3]).unwrap_err();
         assert!(matches!(error, DetectError::InvalidArgument(_)));
@@ -264,6 +269,13 @@ mod tests {
         let tensor = F32Tensor::from_dims([1, 4], vec![0.0; 4]).unwrap();
         let reshaped = tensor.reshape([2, 2]).unwrap();
         assert_eq!(reshaped.shape().dimensions(), &[2, 2]);
+        assert_eq!(reshaped.values(), &[0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn reshape_rejects_changed_element_count() {
+        let tensor = F32Tensor::from_dims([1, 4], vec![0.0; 4]).unwrap();
+        assert!(tensor.reshape([3, 2]).is_err());
     }
 
     #[test]

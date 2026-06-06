@@ -61,6 +61,19 @@ crate-specific operations through the same library-owned surface. Image model
 task surfaces may expose catalog, schema, import, and validation operations, but
 default calls must not download models or run native inference.
 
+Foundation package surfaces (`jobs-core`, `model-runtime`,
+`video-analysis-core`, `numbers-core`, `tensor-data`, `vector-analysis-core`,
+and `math-sparse-data`) use strict release metadata for operation schemas,
+preserve the structured
+`operation`/`title`/`message`/`summary`/`result` response shape, and return
+typed `SurfaceError` JSON strings for invalid requests, unsupported operations,
+unsupported values, and resource-limit failures. Default foundation operations
+remain deterministic and in-memory; they cap lifecycle scripts, numeric/tensor
+payloads, vector previews, and sparse matrix entries before doing work.
+Runtime/job planning metadata is exposed through `xExecutionPlan` schema
+extensions, including mode, side effects, cancellation, progress units, expected
+artifacts, requirements, and recommended input size.
+
 The text crate surfaces now expose deterministic, local-first operations for
 core statistics/tokenization/boundaries, lexical analysis and corpus search,
 linguistic analysis/entity projection, hashed embeddings and transient search,
@@ -116,8 +129,9 @@ to the general contract instead of creating unrelated parallel DTOs.
 For the first enforced boundary, `moritzbrantner-text-core` owns generic text contracts such as
 `TextDocumentContract` and `TextSegmentContract`. `moritzbrantner-text-transcripts` owns
 `TranscriptSegmentContract` and `TranscriptionContract` as timed/speaker-aware
-text specializations. Audio ASR surfaces consume and return those transcript
-contracts through `moritzbrantner-audio-analysis-recognition`. Speaker diarization may enrich an existing
+text specializations. Audio transcription surfaces consume and return those
+transcript contracts through `moritzbrantner-audio-analysis-recognition`.
+Speaker diarization may enrich an existing
 `TranscriptionContract` with speaker labels and scores, but transcript DTOs
 remain owned by `moritzbrantner-text-transcripts`.
 
@@ -169,7 +183,7 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-audio-analysis-io` | Audio input convenience facade | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest`, `moritzbrantner-video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, pure WAV read/write helpers, WAV/probe plan surfaces | Applications that want audio-specific input APIs |
 | `moritzbrantner-audio-analysis-pitch` | Pitch estimation | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | Autocorrelation pitch detector, pitch analyzer events, note projection, chroma and pitch-class summaries | Applications and audio pipelines |
 | `moritzbrantner-audio-analysis-processing` | Realtime-safe audio processing | `moritzbrantner-audio-analysis-core`, `moritzbrantner-math-signal-core`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources, deterministic loudness-oriented reports | Applications, preprocessing workflows, audio pipelines |
-| `moritzbrantner-audio-analysis-recognition` | Audio similarity and recognition | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-fourier`, `moritzbrantner-video-analysis-core`, `moritzbrantner-text-transcripts` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events, imported transcript contracts, ASR runtime planning | Applications, audio pipelines, reference matching workflows, imported-ASR workflows |
+| `moritzbrantner-audio-analysis-recognition` | Audio similarity, recognition, and transcription orchestration | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-fourier`, `moritzbrantner-video-analysis-core`, `moritzbrantner-text-transcripts` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events, generic transcription request/response contracts, imported transcript normalization, transcription provider planning | Applications, audio pipelines, reference matching workflows, generic transcription workflows |
 | `moritzbrantner-audio-analysis-speakers` | Speaker analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-recognition`, `moritzbrantner-video-analysis-core` | Speaker embeddings, enrollment, thresholded identification, deterministic VAD, baseline diarization, transcript speaker assignment with majority, nearest-start, and strict-contained policies | Speaker-aware audio and transcript workflows |
 | `moritzbrantner-audio-analysis-rhythm` | Rhythm and tempo analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `moritzbrantner-audio-analysis-separation` | Instrument stem separation command wrapper | `moritzbrantner-video-analysis-core` | HTDemucs/Demucs options, command previews, opt-in Demucs execution, expected stem paths and output layouts | Applications and preprocessing workflows |
@@ -359,9 +373,9 @@ outputs, or execute external tools.
   spectral embeddings, stores multiple sample embeddings per reference, searches
   references by cosine similarity, and provides an `AudioAnalyzer` that emits
   `audio:recognized:<reference_id>:<label>` events over streaming windows. It
-  also exposes deterministic imported-ASR transcript contract conversion and a
-  metadata-only transcription plan that points native Whisper execution to
-  `moritzbrantner-text-transcripts`.
+  also owns audio-facing generic transcription requests, imported transcript
+  normalization, and metadata-only provider plans. Native Whisper execution and
+  transcript parsing/formatting remain owned by `moritzbrantner-text-transcripts`.
 - `moritzbrantner-audio-analysis-rhythm` detects onset events from energy changes, estimates
   BPM from onset intervals, and can emit both onset and tempo events.
 - `moritzbrantner-audio-analysis-separation` owns deterministic Demucs/HTDemucs command
@@ -478,8 +492,9 @@ cases and model adapters.
   JSON, SRT, WebVTT, and plain line transcripts, converts transcript segments
   into `TextSegmentContract` and `OwnedTextSegment` values, and bridges waveform
   batches into the existing file-based transcription path. It also owns
-  transcript contract normalization, strict validation, and aggregate text
-  fallback helpers used by audio ASR and transcript-aware text analysis.
+  transcript contract normalization, strict validation, aggregate text fallback
+  helpers, and native Whisper implementation details used by audio transcription
+  orchestration and transcript-aware text analysis.
 - `moritzbrantner-text-generation` owns deterministic Markov prediction and deterministic
   synthesis from weighted terms and text events. `moritzbrantner-text-generation-linguistics`
   owns the adapters that turn linguistic analyses into term prompts, generated

@@ -15,20 +15,20 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/model-runtime",
     standaloneRoute: "",
   },
-  defaultOperation: "model.presets",
-  featuredOperations: ["model.presets", "model.spec", "model.bundlePlan", "describe"],
+  defaultOperation: "model.executionPlan",
+  featuredOperations: ["model.executionPlan", "model.bundlePlan", "model.jobManifest", "model.presets", "model.spec", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["model.presets", "model.spec"],
+      operations: ["model.executionPlan", "model.bundlePlan", "model.jobManifest"],
     },
     {
       id: "debug",
       label: "Debug",
       description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
-      operations: ["describe", "model.bundlePlan"],
+      operations: ["describe", "model.presets", "model.spec"],
     },
   ],
 };

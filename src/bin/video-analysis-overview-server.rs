@@ -942,13 +942,31 @@ fn audio_model_catalog(task: Option<&str>) -> Vec<Value> {
             Some("Builds deterministic vectors from feature summaries."),
         ),
         audio_model_entry(
-            "whisper-tiny-en",
+            "imported-transcript",
+            "imported-transcript",
+            "transcribe",
+            "imported",
+            true,
+            None,
+            Some("Normalizes caller-supplied transcript segments or transcript contracts without native ASR."),
+        ),
+        audio_model_entry(
+            "whisper-cpp",
             "openai/whisper-tiny.en",
             "transcribe",
             "whisper_cpp",
             false,
-            None,
-            Some("Use text-transcripts native whisper.cpp support or imported segments for execution."),
+            Some("imported-transcript"),
+            Some("Planned native provider through text-transcripts; default audio surfaces do not download models or execute Whisper."),
+        ),
+        audio_model_entry(
+            "external-transcriber",
+            "external-command",
+            "transcribe",
+            "external",
+            false,
+            Some("imported-transcript"),
+            Some("Reference provider family for explicit external transcription tools; not executed by default routes."),
         ),
         audio_model_entry(
             "wav2vec2-base-960h",
@@ -956,8 +974,8 @@ fn audio_model_catalog(task: Option<&str>) -> Vec<Value> {
             "transcribe",
             "onnx",
             false,
-            Some("whisper-tiny-en"),
-            Some("ASR schema and imported transcript support are available; native ONNX decoding is not wired."),
+            Some("imported-transcript"),
+            Some("Generic transcription schema is available; native ONNX decoding is not wired."),
         ),
         audio_model_entry(
             "pyannote-speaker-diarization-3.1",
@@ -1577,17 +1595,25 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             }
         }
         "/api/transcribe" => {
-            match serde_json::from_str::<audio_analysis_recognition::SpeechRecognitionRequest>(body)
-            {
-                Ok(request) => audio_model_result_response(
-                    audio_analysis_recognition::transcribe_audio(request),
-                ),
-                Err(error) => audio_model_error_response(
-                    400,
-                    "Bad Request",
-                    "invalid_request",
-                    &error.to_string(),
-                ),
+            match serde_json::from_str::<audio_recognition::TranscriptionRequest>(body) {
+                Ok(request) => audio_model_result_response(audio_recognition::transcribe(request)),
+                Err(generic_error) => {
+                    match serde_json::from_str::<audio_analysis_recognition::SpeechRecognitionRequest>(
+                        body,
+                    ) {
+                        Ok(request) => audio_model_result_response(
+                            audio_analysis_recognition::transcribe_audio(request),
+                        ),
+                        Err(compat_error) => audio_model_error_response(
+                            400,
+                            "Bad Request",
+                            "invalid_request",
+                            &format!(
+                                "invalid generic transcription request: {generic_error}; invalid speech compatibility request: {compat_error}"
+                            ),
+                        ),
+                    }
+                }
             }
         }
         "/api/diarize" => {
@@ -3269,6 +3295,22 @@ mod tests {
         assert_eq!(response.status_code, 200);
         assert!(response.body.contains("\"operation\":\"classify\""));
         assert!(response.body.contains("\"runtime\":\"spectral\""));
+    }
+
+    #[test]
+    fn serves_generic_audio_transcription_request_from_package_route() {
+        let request = Request {
+            method: "POST".to_string(),
+            path: "/api/rust/packages/audio-analysis-recognition/api/transcribe".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: r#"{"source":"fixture.wav","language":"en","input":{"kind":"imported_segments","segments":[{"index":0,"startSeconds":0.0,"endSeconds":1.0,"text":" hello ","isFinal":true}]}}"#
+                .to_string(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("\"operation\":\"transcribe\""));
+        assert!(response.body.contains("\"backend\":\"imported\""));
     }
 
     #[test]

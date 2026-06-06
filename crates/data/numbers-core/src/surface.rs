@@ -1,12 +1,17 @@
 //! Library-owned runtime surface for `numbers-core`.
 
 use runtime_core::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    describe_surface_response, parse_surface_input, structured_operation_response,
+    surface_operation, validate_matching_lengths, validate_max_items, OperationId, PackageSurface,
+    RuntimeCapabilities, SurfaceError, SurfaceRequest, SurfaceResponse,
 };
 use serde::Deserialize;
 
 use crate::{histogram, quantile, quartiles, summarize_numbers, HistogramConfig, NumberRange};
+
+const MAX_VALUES: usize = 100_000;
+const MAX_HISTOGRAM_BINS: usize = 4_096;
+const MAX_QUANTILES: usize = 1_024;
 
 /// Describes the scalar numeric operations exposed by transport wrappers.
 pub fn package_surface() -> PackageSurface {
@@ -15,25 +20,25 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation(
+            surface_operation(
                 "describe",
                 "Describe package",
                 "Deterministic scalar numeric summaries, quantiles, ranges, and histograms for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            operation(
+            surface_operation(
                 "numbers.summary",
                 "Number summary",
                 "Returns finite/non-finite counts and weighted scalar summary statistics.",
                 serde_json::json!({"values": [1.0, 2.0, 3.0, 4.0]}),
             ),
-            operation(
+            surface_operation(
                 "numbers.histogram",
                 "Number histogram",
                 "Builds fixed-width histogram bins over finite numeric values.",
                 serde_json::json!({"values": [0.0, 0.5, 1.0], "bins": 2}),
             ),
-            operation(
+            surface_operation(
                 "numbers.quantiles",
                 "Number quantiles",
                 "Returns interpolated quantiles and quartile summary values.",
@@ -43,64 +48,32 @@ pub fn package_surface() -> PackageSurface {
     }
 }
 
-fn operation(
-    id: &str,
-    name: &str,
-    description: &str,
-    example_request: serde_json::Value,
-) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
-}
-
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    let surface = package_surface();
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => describe_value(request.input),
-        "numbers.summary" => summary_value(parse_input(request.input)?)?,
-        "numbers.histogram" => histogram_value(parse_input(request.input)?)?,
-        "numbers.quantiles" => quantiles_value(parse_input(request.input)?)?,
+        "describe" => return Ok(describe_surface_response(&surface, request)),
+        "numbers.summary" => summary_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "numbers.histogram" => histogram_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "numbers.quantiles" => quantiles_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ));
+            return Err(
+                SurfaceError::unsupported_operation(operation, env!("CARGO_PKG_NAME"))
+                    .to_error_string(),
+            );
         }
     };
-    Ok(response(operation, value))
-}
-
-fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
-}
-
-fn describe_value(input: serde_json::Value) -> serde_json::Value {
-    let surface = package_surface();
-    serde_json::json!({
-        "library": surface.library,
-        "version": surface.version,
-        "operationCount": surface.operations.len(),
-        "operations": surface
-            .operations
-            .iter()
-            .map(|operation| operation.id.as_str())
-            .collect::<Vec<_>>(),
-        "input": input
-    })
+    Ok(structured_operation_response(&surface, operation, value))
 }
 
 #[derive(Debug, Deserialize)]
@@ -136,16 +109,21 @@ struct RangeRequest {
     max: f64,
 }
 
-fn summary_value(request: SummaryRequest) -> Result<serde_json::Value, String> {
+fn summary_value(operation: &str, request: SummaryRequest) -> Result<serde_json::Value, String> {
+    validate_max_items(operation, "values", request.values.len(), MAX_VALUES)?;
     if let Some(weights) = request.weights {
-        if weights.len() != request.values.len() {
-            return Err("weights length must match values length".to_string());
-        }
+        validate_matching_lengths(
+            operation,
+            "weights",
+            weights.len(),
+            "values",
+            request.values.len(),
+        )?;
         let mut stats = crate::RunningStats::new();
         for (value, weight) in request.values.into_iter().zip(weights) {
             stats
                 .push_weighted(value, weight)
-                .map_err(|error| error.to_string())?;
+                .map_err(|error| invalid_request(operation, error.to_string()))?;
         }
         Ok(summary_json(stats.summary()))
     } else {
@@ -168,13 +146,22 @@ fn summary_json(summary: crate::NumberSummary) -> serde_json::Value {
     })
 }
 
-fn histogram_value(request: HistogramRequest) -> Result<serde_json::Value, String> {
-    let mut config = HistogramConfig::new(request.bins).map_err(|error| error.to_string())?;
+fn histogram_value(
+    operation: &str,
+    request: HistogramRequest,
+) -> Result<serde_json::Value, String> {
+    validate_max_items(operation, "values", request.values.len(), MAX_VALUES)?;
+    validate_max_items(operation, "bins", request.bins, MAX_HISTOGRAM_BINS)?;
+    let mut config = HistogramConfig::new(request.bins)
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     if let Some(range) = request.range {
-        config = config
-            .with_range(NumberRange::new(range.min, range.max).map_err(|error| error.to_string())?);
+        config = config.with_range(
+            NumberRange::new(range.min, range.max)
+                .map_err(|error| invalid_request(operation, error.to_string()))?,
+        );
     }
-    let histogram = histogram(&request.values, config).map_err(|error| error.to_string())?;
+    let histogram = histogram(&request.values, config)
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     Ok(serde_json::json!({
         "count": histogram.count,
         "min": histogram.min,
@@ -187,17 +174,28 @@ fn histogram_value(request: HistogramRequest) -> Result<serde_json::Value, Strin
     }))
 }
 
-fn quantiles_value(request: QuantilesRequest) -> Result<serde_json::Value, String> {
+fn quantiles_value(
+    operation: &str,
+    request: QuantilesRequest,
+) -> Result<serde_json::Value, String> {
+    validate_max_items(operation, "values", request.values.len(), MAX_VALUES)?;
+    validate_max_items(
+        operation,
+        "quantiles",
+        request.quantiles.len(),
+        MAX_QUANTILES,
+    )?;
     let quantile_values = request
         .quantiles
         .iter()
         .map(|level| {
             quantile(&request.values, *level)
                 .map(|value| serde_json::json!({"quantile": level, "value": value}))
-                .map_err(|error| error.to_string())
+                .map_err(|error| invalid_request(operation, error.to_string()))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let quartiles = quartiles(&request.values).map_err(|error| error.to_string())?;
+    let quartiles = quartiles(&request.values)
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     Ok(serde_json::json!({
         "quantiles": quantile_values,
         "quartiles": {
@@ -209,8 +207,8 @@ fn quantiles_value(request: QuantilesRequest) -> Result<serde_json::Value, Strin
     }))
 }
 
-fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+fn invalid_request(operation: &str, message: impl Into<String>) -> String {
+    SurfaceError::invalid_request(Some(OperationId::new(operation)), message).to_error_string()
 }
 
 fn default_bins() -> usize {

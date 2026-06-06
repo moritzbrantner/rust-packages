@@ -832,11 +832,39 @@ mod tests {
     }
 
     #[test]
+    fn sparse_dot_matches_dense_dot() {
+        let left = SparseVector::new(5, vec![0, 3, 4], vec![1.5, -2.0, 3.0]).unwrap();
+        let right = SparseVector::new(5, vec![1, 3, 4], vec![8.0, 4.0, -1.0]).unwrap();
+        let dense_dot = left
+            .to_dense()
+            .iter()
+            .zip(right.to_dense())
+            .map(|(left, right)| *left * right)
+            .sum::<f32>();
+
+        assert_eq!(left.dot(&right).unwrap(), dense_dot);
+    }
+
+    #[test]
     fn csr_and_coo_invariants_hold() {
         let coo = CooMatrix::new(2, 3, vec![(1, 2, 2.0), (0, 0, 1.0), (1, 2, 1.0)]).unwrap();
         let csr = coo.to_csr().unwrap();
         assert_eq!(csr.row(0).unwrap().indices(), &[0]);
         assert_eq!(csr.row(1).unwrap().values(), &[3.0]);
+    }
+
+    #[test]
+    fn coo_csr_round_trip_preserves_canonical_entries() {
+        let coo = CooMatrix::new(
+            3,
+            3,
+            vec![(2, 1, 1.0), (0, 2, 5.0), (2, 1, 2.0), (1, 0, 0.0)],
+        )
+        .unwrap();
+        let canonical = coo.canonicalized().unwrap();
+        let round_trip = canonical.to_csr().unwrap().to_coo().unwrap();
+
+        assert_eq!(round_trip.entries(), canonical.entries());
     }
 
     #[test]

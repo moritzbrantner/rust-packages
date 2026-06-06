@@ -15,20 +15,20 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/jobs-core",
     standaloneRoute: "",
   },
-  defaultOperation: "jobs.spec",
-  featuredOperations: ["jobs.spec", "jobs.progress", "jobs.lifecycle", "describe"],
+  defaultOperation: "jobs.lifecycle",
+  featuredOperations: ["jobs.lifecycle", "jobs.manifest", "jobs.spec", "jobs.progress", "jobs.events", "jobs.artifactValidate", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run the main package workflow.",
-      operations: ["jobs.spec", "jobs.progress", "jobs.lifecycle"],
+      operations: ["jobs.lifecycle", "jobs.manifest"],
     },
     {
       id: "debug",
       label: "Debug",
       description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
-      operations: ["describe"],
+      operations: ["describe", "jobs.spec", "jobs.progress", "jobs.events", "jobs.artifactValidate"],
     },
   ],
 };

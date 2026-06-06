@@ -683,7 +683,8 @@ fn transcript_dtos_are_owned_by_text_transcripts() {
             }
             let path_text = path.to_string_lossy();
             let allowed = path_text.contains("crates/text/text-transcripts/")
-                || line.contains("TranscriptStatsExtractor");
+                || line.contains("TranscriptStatsExtractor")
+                || is_audio_transcription_surface_type(&path_text, line);
             if !allowed {
                 violations.push(format!("{}:{}", path.display(), line_index + 1));
             }
@@ -704,7 +705,10 @@ fn audio_crates_do_not_define_transcript_dtos() {
     collect_rust_sources(&root, &mut |path| {
         let source = fs::read_to_string(path).expect("read Rust source");
         for (line_index, line) in source.lines().enumerate() {
-            if line.contains("pub struct Transcript") || line.contains("pub enum Transcript") {
+            let path_text = path.to_string_lossy();
+            if (line.contains("pub struct Transcript") || line.contains("pub enum Transcript"))
+                && !is_audio_transcription_surface_type(&path_text, line)
+            {
                 violations.push(format!("{}:{}", path.display(), line_index + 1));
             }
         }
@@ -715,6 +719,17 @@ fn audio_crates_do_not_define_transcript_dtos() {
         "audio crates must consume/re-export text-transcripts contracts instead of defining transcript DTOs: {}",
         violations.join(", ")
     );
+}
+
+fn is_audio_transcription_surface_type(path: &str, line: &str) -> bool {
+    path.contains("crates/audio/audio-analysis-recognition/src/transcription.rs")
+        && (line.contains("pub enum TranscriptionInput")
+            || line.contains("pub struct TranscriptionRuntimeSelection")
+            || line.contains("pub struct TranscriptionRequest")
+            || line.contains("pub struct TranscriptionResponse")
+            || line.contains("pub enum TranscriptionProviderKind")
+            || line.contains("pub struct TranscriptionBackendPlan")
+            || line.contains("pub struct WhisperCppTranscriptionPlan"))
 }
 
 fn collect_text_sources(dir: &Path, visit: &mut impl FnMut(&Path)) {

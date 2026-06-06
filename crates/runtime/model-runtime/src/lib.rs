@@ -4,7 +4,6 @@
 mod bundles;
 mod conformance;
 mod download;
-#[cfg(feature = "jobs")]
 pub mod jobs;
 mod predictions;
 mod presets;
@@ -14,6 +13,10 @@ pub mod surface;
 pub use bundles::*;
 pub use conformance::*;
 pub use download::*;
+pub use jobs::{
+    plan_model_access, plan_model_bundle, ModelAccessJobRequest, ModelAccessPlan, ModelBundlePlan,
+    ModelBundlePlanFile, ModelJobInput, ModelJobKind,
+};
 pub use predictions::*;
 pub use presets::*;
 pub use spec::*;

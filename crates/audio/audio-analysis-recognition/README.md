@@ -1,7 +1,7 @@
 # audio-analysis-recognition
 
-Deterministic audio embeddings, similarity search, and contract-first speech
-recognition surfaces for `moritzbrantner-video-analysis`.
+Deterministic audio embeddings, similarity search, and generic transcription
+contracts for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 
@@ -11,19 +11,31 @@ recognition surfaces for `moritzbrantner-video-analysis`.
 
 ```rust,ignore
 use audio_analysis_recognition::{
-    transcribe_audio, AudioRuntimeSelection, SpeechRecognitionRequest,
-    TranscriptSegmentContract,
+    transcribe, TranscriptSegmentContract, TranscriptionInput, TranscriptionRequest,
+    TranscriptionRuntimeSelection,
 };
 
-let response = transcribe_audio(SpeechRecognitionRequest {
+let response = transcribe(TranscriptionRequest {
     source: Some("fixture.wav".to_string()),
     language: Some("en".to_string()),
-    model: AudioRuntimeSelection::default(),
-    imported_segments: vec![TranscriptSegmentContract::new(0, "hello world")],
+    input: TranscriptionInput::ImportedSegments {
+        segments: vec![TranscriptSegmentContract::new(0, "hello world")],
+    },
+    runtime: TranscriptionRuntimeSelection::default(),
 })?;
 
-assert_eq!(response.text(), "hello world");
+assert_eq!(response.transcript.text_or_joined(), "hello world");
 ```
+
+`SpeechRecognitionRequest` and `transcribe_audio` remain available as
+compatibility shims for existing callers. New transcription integrations should
+prefer `TranscriptionRequest`, `TranscriptionInput`, and `transcribe`.
+
+Default builds do not run native ASR, download models, call network services, or
+spawn external transcription commands. They normalize imported transcript
+segments or transcript contracts. Native whisper.cpp execution remains owned by
+`text-transcripts`; this crate exposes generic audio-facing transcription
+contracts and runtime plans.
 
 ## Related crates
 

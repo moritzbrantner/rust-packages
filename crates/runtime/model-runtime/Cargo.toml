@@ -17,6 +17,7 @@ name = "model_runtime"
 
 [dependencies]
 runtime-core.workspace = true
+chrono.workspace = true
 hf-hub.workspace = true
 jobs-core.workspace = true
 serde.workspace = true

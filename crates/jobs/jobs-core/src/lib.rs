@@ -168,6 +168,19 @@ impl JobStatus {
     }
 }
 
+/// Filter used to list matching job snapshots.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JobListFilter {
+    /// Optional lifecycle status filter.
+    pub status: Option<JobStatus>,
+    /// Optional job kind filter.
+    pub kind: Option<String>,
+    /// Metadata key/value pairs that must all match.
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
+}
+
 /// A structured failure record.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobFailure {
@@ -278,6 +291,32 @@ pub struct JobManifest {
     pub created_at: Option<String>,
     /// Last update timestamp for lightweight manifests.
     pub updated_at: Option<String>,
+}
+
+impl JobManifest {
+    /// Builds a manifest projection from a tracked job snapshot.
+    pub fn from_snapshot(
+        operation_id: OperationId,
+        snapshot: JobSnapshot,
+        artifacts: Vec<ArtifactRef>,
+        metadata: serde_json::Value,
+    ) -> Self {
+        Self {
+            job_id: snapshot.spec.id.clone(),
+            operation_id,
+            status: snapshot.status,
+            progress: snapshot.progress,
+            diagnostics: Vec::new(),
+            artifacts,
+            metadata,
+            created_at: Some(snapshot.created_at.to_rfc3339()),
+            updated_at: snapshot
+                .finished_at
+                .or(snapshot.started_at)
+                .map(|timestamp| timestamp.to_rfc3339())
+                .or_else(|| Some(snapshot.created_at.to_rfc3339())),
+        }
+    }
 }
 
 /// Serializable operation result envelope.
@@ -402,6 +441,17 @@ impl JobArtifact {
         }
     }
 
+    /// Creates a lightweight job artifact from a generic artifact reference.
+    pub fn from_artifact_ref(reference: &ArtifactRef) -> Self {
+        let mut artifact = Self::new(reference.id.as_str(), reference.id.as_str())
+            .kind(artifact_kind_name(&reference.kind))
+            .uri(reference.uri.clone())
+            .content_type(reference.media_type.clone());
+        artifact.bytes = reference.size_bytes;
+        artifact.metadata = reference.metadata.clone();
+        artifact
+    }
+
     /// Sets the artifact kind.
     pub fn kind(mut self, kind: impl Into<String>) -> Self {
         self.kind = Some(kind.into());
@@ -485,6 +535,16 @@ pub struct JobEvent {
     pub timestamp: DateTime<Utc>,
     /// Event payload.
     pub kind: JobEventKind,
+}
+
+/// Filter used to replay a subset of a job event stream.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JobEventFilter {
+    /// Return events after this sequence number.
+    pub after_sequence: Option<u64>,
+    /// Optional event kind name such as `status`, `progress`, `log`, `artifact`, or `metadata`.
+    pub kind: Option<String>,
 }
 
 /// Snapshot of tracked job state.
@@ -633,6 +693,17 @@ impl JobTracker {
             .collect())
     }
 
+    /// Lists snapshots matching a status, kind, and metadata filter.
+    pub fn query_snapshots(&self, filter: JobListFilter) -> Result<Vec<JobSnapshot>> {
+        Ok(self
+            .lock()?
+            .jobs
+            .values()
+            .filter(|record| snapshot_matches_filter(&record.snapshot, &filter))
+            .map(|record| record.snapshot.clone())
+            .collect())
+    }
+
     /// Returns the ordered event history for a job.
     pub fn events(&self, id: &JobId) -> Result<Vec<JobEvent>> {
         Ok(self
@@ -641,6 +712,25 @@ impl JobTracker {
             .get(id)
             .map(|record| record.events.clone())
             .unwrap_or_default())
+    }
+
+    /// Returns a filtered ordered event history for a job.
+    pub fn events_filtered(&self, id: &JobId, filter: JobEventFilter) -> Result<Vec<JobEvent>> {
+        Ok(self
+            .events(id)?
+            .into_iter()
+            .filter(|event| {
+                filter
+                    .after_sequence
+                    .is_none_or(|sequence| event.sequence > sequence)
+            })
+            .filter(|event| {
+                filter
+                    .kind
+                    .as_deref()
+                    .is_none_or(|kind| event_kind_name(&event.kind) == kind)
+            })
+            .collect())
     }
 
     fn emit(&self, id: &JobId, kind: JobEventKind) -> Result<()> {
@@ -977,6 +1067,53 @@ fn apply_event(
         }
     }
     Ok(())
+}
+
+fn snapshot_matches_filter(snapshot: &JobSnapshot, filter: &JobListFilter) -> bool {
+    if filter
+        .status
+        .is_some_and(|status| snapshot.status != status)
+    {
+        return false;
+    }
+    if filter
+        .kind
+        .as_deref()
+        .is_some_and(|kind| snapshot.spec.kind.as_deref() != Some(kind))
+    {
+        return false;
+    }
+    filter
+        .metadata
+        .iter()
+        .all(|(key, value)| snapshot.metadata.get(key) == Some(value))
+}
+
+fn event_kind_name(kind: &JobEventKind) -> &'static str {
+    match kind {
+        JobEventKind::StatusChanged { .. } => "status",
+        JobEventKind::Progress(_) => "progress",
+        JobEventKind::Log(_) => "log",
+        JobEventKind::Artifact(_) => "artifact",
+        JobEventKind::Metadata { .. } => "metadata",
+    }
+}
+
+fn artifact_kind_name(kind: &ArtifactKind) -> String {
+    match kind {
+        ArtifactKind::File => "file",
+        ArtifactKind::Directory => "directory",
+        ArtifactKind::Image => "image",
+        ArtifactKind::Audio => "audio",
+        ArtifactKind::Video => "video",
+        ArtifactKind::Text => "text",
+        ArtifactKind::Json => "json",
+        ArtifactKind::Log => "log",
+        ArtifactKind::Archive => "archive",
+        ArtifactKind::Binary => "binary",
+        ArtifactKind::Other(value) => value.as_str(),
+    }
+    .to_string()
 }
 
 fn insert_metadata(

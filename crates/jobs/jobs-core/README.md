@@ -21,6 +21,19 @@ applications.
 - `jobs.progress` validates progress and returns fraction/percent.
 - `jobs.lifecycle` applies a short in-memory lifecycle script without spawning
   background threads.
+- `jobs.manifest` builds deterministic `JobManifest` values from inline spec,
+  progress, artifact, and metadata input.
+- `jobs.events` replays and filters a short inline lifecycle script into compact
+  ordered events.
+- `jobs.artifactValidate` checks inline artifact metadata, size, media type, and
+  checksum expectations without reading files.
+
+Surface responses keep the operation-specific fields at the top level and add
+the shared `operation`, `title`, `message`, `summary`, and `result` fields for
+generic package UIs. Invalid requests, unknown operations, unsupported lifecycle
+steps, artifact mismatches, and lifecycle scripts longer than 32 steps return
+typed `runtime_core::SurfaceError` JSON. Runtime execution metadata is exposed
+through `xExecutionPlan` schema extensions.
 
 ## Example
 

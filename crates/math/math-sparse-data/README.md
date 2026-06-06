@@ -42,6 +42,18 @@ matrices. Dense matrix outputs use `math-linear::F32Matrix`, allowing sparse
 feature workflows to move into linear algebra and statistics without adding an
 external math backend.
 
+## Runtime Surface
+
+The package surface exposes sparse vector similarity, dense conversion, matrix
+summary/statistics, vector operations, matrix-vector multiplication, and
+transpose operations. Successful responses preserve sparse result fields and add
+the shared `operation`, `title`, `message`, `summary`, and `result` fields.
+
+Default surface calls are deterministic and in-memory. They reject more than
+100,000 vector values or 100,000 COO matrix entries with typed
+`runtime_core::SurfaceError` JSON. Unsupported sparse metrics and matrix formats
+also return typed surface errors.
+
 ## Related crates
 
 - `text-lexical`

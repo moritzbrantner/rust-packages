@@ -36,16 +36,22 @@ Workflow operations:
 
 - `video.core.frameSummary`
 - `video.core.timecode`
+- `video.core.sceneSummary`
 
 Debug operations:
 
 - `describe`
-- `video.core.sceneSummary`
 
 Runtime limits:
 
-Operations are deterministic, local-first, and side-effect free. They return inline JSON reports and do not download models, write files, or run native tools.
+Operations are deterministic, local-first, and side-effect free. They return
+inline JSON reports and do not download models, write files, or run native
+tools. Timecode operations convert frames, seconds, display timecodes, and
+timestamps. Frame summaries validate dimensions, pixel formats, strides, and
+buffer sizes. Scene summaries compute counts, cuts, timeline bounds, and
+per-scene durations from frame ranges.
 
-Invalid input returns a clear error through `run_surface_operation`; successful
-responses include `operation`, `title`, `message`, `summary`, and `result` while
-keeping existing top-level domain fields for compatibility.
+Invalid input returns typed `runtime_core::SurfaceError` JSON through
+`run_surface_operation`; successful responses include `operation`, `title`,
+`message`, `summary`, and `result` while keeping existing top-level domain
+fields for compatibility.

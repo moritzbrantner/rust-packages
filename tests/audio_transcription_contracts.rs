@@ -1,9 +1,53 @@
 use std::collections::BTreeMap;
 
 use audio_analysis_recognition::{
-    transcribe_audio, AudioRuntime, AudioRuntimeSelection, SpeechRecognitionRequest,
+    transcribe, transcribe_audio, AudioRuntime, AudioRuntimeSelection, SpeechRecognitionRequest,
+    TranscriptionInput, TranscriptionRequest, TranscriptionRuntimeSelection,
 };
 use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
+
+#[test]
+fn generic_audio_transcription_returns_transcription_contract_from_imported_segments(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let response = transcribe(TranscriptionRequest {
+        source: Some("fixture.wav".to_string()),
+        language: Some("en".to_string()),
+        input: TranscriptionInput::ImportedSegments {
+            segments: vec![TranscriptSegmentContract {
+                index: 0,
+                start_seconds: Some(0.0),
+                end_seconds: Some(1.25),
+                text: " hello ".to_string(),
+                language: None,
+                speaker: Some("speaker_0".to_string()),
+                confidence: Some(2.0),
+                is_final: true,
+                words: Vec::new(),
+                attributes: BTreeMap::from([("channel".to_string(), "left".to_string())]),
+            }],
+        },
+        runtime: TranscriptionRuntimeSelection::default(),
+    })?;
+
+    assert!(response.accepted);
+    assert_eq!(response.operation, "transcribe");
+    assert_eq!(
+        response.backend,
+        model_runtime::ModelRuntimeBackend::Imported
+    );
+    assert_eq!(response.transcript.text.as_deref(), Some("hello"));
+    assert_eq!(response.transcript.source.as_deref(), Some("fixture.wav"));
+    assert_eq!(response.transcript.language.as_deref(), Some("en"));
+    assert_eq!(response.transcript.segments.len(), 1);
+    assert_eq!(response.transcript.segments[0].text, "hello");
+    assert_eq!(
+        response.transcript.segments[0].language.as_deref(),
+        Some("en")
+    );
+    assert_eq!(response.transcript.segments[0].confidence, Some(1.0));
+
+    Ok(())
+}
 
 #[test]
 fn audio_asr_returns_transcription_contract_from_imported_segments(

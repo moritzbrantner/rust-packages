@@ -7,103 +7,20 @@ permissions:
   contents: read
   packages: read
 
-env:
-  CARGO_BUILD_JOBS: "2"
-  RUST_TEST_THREADS: "2"
-  TEST_MAX_WORKERS: "2"
-  PLAYWRIGHT_WORKERS: "2"
-
 jobs:
   e2e-external:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: Install Bun
-        env:
-          BUN_VERSION: 1.3.14
-        run: |
-          set -euo pipefail
-          case "$(uname -m)" in
-            x86_64) bun_target=bun-linux-x64 ;;
-            aarch64|arm64) bun_target=bun-linux-aarch64 ;;
-            *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
-          esac
-          curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_target}.zip" -o "$RUNNER_TEMP/bun.zip"
-          unzip -q "$RUNNER_TEMP/bun.zip" -d "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/${bun_target}" >> "$GITHUB_PATH"
-      - name: Checkout repository with Bun
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          cat > "$RUNNER_TEMP/bun-checkout.ts" <<'BUN'
-          const workspace = process.env.GITHUB_WORKSPACE;
-          const repository = process.env.GITHUB_REPOSITORY;
-          const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
-          const ref = process.env.GITHUB_REF;
-          const sha = process.env.GITHUB_SHA;
-          const token = process.env.GITHUB_TOKEN;
-
-          if (!workspace || !repository || !ref) {
-            throw new Error("GITHUB_WORKSPACE, GITHUB_REPOSITORY, and GITHUB_REF are required");
-          }
-
-          const remote = new URL(`${serverUrl.replace(/\/$/, "")}/${repository}.git`);
-          if (remote.protocol === "https:" && token) {
-            remote.username = "x-access-token";
-            remote.password = token;
-          }
-
-          function git(...args: string[]) {
-            const result = Bun.spawnSync(["git", ...args], {
-              env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-              stdin: "inherit",
-              stdout: "inherit",
-              stderr: "inherit",
-            });
-            if (result.exitCode !== 0) {
-              throw new Error(`git ${args.join(" ")} failed with status ${result.exitCode}`);
-            }
-          }
-
-          git("init", workspace);
-          git("-C", workspace, "config", "--global", "--add", "safe.directory", workspace);
-          git("-C", workspace, "config", "--local", "gc.auto", "0");
-          git("-C", workspace, "config", "--local", "advice.detachedHead", "false");
-          Bun.spawnSync(["git", "-C", workspace, "remote", "remove", "origin"], { stdout: "ignore", stderr: "ignore" });
-          git("-C", workspace, "remote", "add", "origin", remote.toString());
-          git("-C", workspace, "fetch", "--force", "--no-tags", "--prune", "--no-recurse-submodules", "--depth=1", "origin", `+${ref}:refs/github-actions/checkout`);
-          git("-C", workspace, "checkout", "--force", "--detach", sha ?? "refs/github-actions/checkout");
-          BUN
-          bun "$RUNNER_TEMP/bun-checkout.ts"
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: wasm-pack@0.14.0
-      - name: Verify GitHub Packages token
-        env:
-          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN || github.token }}
-        run: |
-          set -euo pipefail
-          if [ -z "${GH_PACKAGES_TOKEN:-}" ]; then
-            echo "::error::GH_PACKAGES_TOKEN is empty; configure a token with read access to @moritzbrantner/ui."
-            exit 1
-          fi
-          status="$(curl -sS -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer ${GH_PACKAGES_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://npm.pkg.github.com/@moritzbrantner%2Fui")"
-          if [ "${status}" != "200" ]; then
-            echo "::error::GH_PACKAGES_TOKEN cannot read @moritzbrantner/ui from GitHub Packages (HTTP ${status})."
-            exit 1
-          fi
-      - run: bun install --frozen-lockfile
-        env:
-          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN || github.token }}
-      - run: bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium
-      - run: bash scripts/setup_e2e_external_tools.sh fast
-      - run: bash scripts/check_e2e_external_tools.sh
-      - run: bash scripts/check-e2e.sh
+    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@workflow-standard-v1
+    with:
+      bun_version: "1.3.14"
+      node_version: ""
+      install_command: bun install --frozen-lockfile
+      pre_command: rustup toolchain install 1.95.0 --profile minimal && rustup default 1.95.0 && rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0 && bash scripts/setup_e2e_external_tools.sh fast && bash scripts/check_e2e_external_tools.sh
+      e2e_command: bash scripts/check-e2e.sh
+      install_playwright: true
+      cache_cargo: true
+      timeout_minutes: 90
+      artifact_paths: |
+        packages/video-analysis-ui/playwright-report
+        packages/video-analysis-ui/test-results
+        prototypes/web/video-analysis-web/playwright-report
+        prototypes/web/video-analysis-web/test-results

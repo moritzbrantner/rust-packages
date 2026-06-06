@@ -1,8 +1,9 @@
 //! Library-owned runtime surface for `vector-analysis-core`.
 
 use runtime_core::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    describe_surface_response, parse_surface_input, structured_operation_response,
+    surface_operation, validate_matching_lengths, validate_max_items, OperationId, PackageSurface,
+    RuntimeCapabilities, SurfaceError, SurfaceRequest, SurfaceResponse,
 };
 use serde::Deserialize;
 
@@ -22,25 +23,25 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation(
+            surface_operation(
                 "describe",
                 "Describe package",
                 "Dense vector validation and metrics for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            operation(
+            surface_operation(
                 "vector.normalize",
                 "Normalize vector",
                 "Returns the L2 norm and normalized dense vector values.",
                 serde_json::json!({"values": [3.0, 4.0]}),
             ),
-            operation(
+            surface_operation(
                 "vector.distance",
                 "Vector distance",
                 "Computes cosine, euclidean, manhattan, or dot distance between two dense vectors.",
                 serde_json::json!({"left": [1.0, 0.0], "right": [0.5, 0.5], "metric": "cosine"}),
             ),
-            operation(
+            surface_operation(
                 "vector.summary",
                 "Vector summary",
                 "Returns per-dimension mean, min, max, and preview values for dense vectors.",
@@ -50,64 +51,32 @@ pub fn package_surface() -> PackageSurface {
     }
 }
 
-fn operation(
-    id: &str,
-    name: &str,
-    description: &str,
-    example_request: serde_json::Value,
-) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
-}
-
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    let surface = package_surface();
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => describe_value(request.input),
-        "vector.normalize" => normalize_value(parse_input(request.input)?)?,
-        "vector.distance" => distance_value(parse_input(request.input)?)?,
-        "vector.summary" => summary_value(parse_input(request.input)?)?,
+        "describe" => return Ok(describe_surface_response(&surface, request)),
+        "vector.normalize" => normalize_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "vector.distance" => distance_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "vector.summary" => summary_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ));
+            return Err(
+                SurfaceError::unsupported_operation(operation, env!("CARGO_PKG_NAME"))
+                    .to_error_string(),
+            );
         }
     };
-    Ok(response(operation, value))
-}
-
-fn describe_value(input: serde_json::Value) -> serde_json::Value {
-    let surface = package_surface();
-    serde_json::json!({
-        "library": surface.library,
-        "version": surface.version,
-        "operationCount": surface.operations.len(),
-        "operations": surface
-            .operations
-            .iter()
-            .map(|operation| operation.id.as_str())
-            .collect::<Vec<_>>(),
-        "input": input
-    })
-}
-
-fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    Ok(structured_operation_response(&surface, operation, value))
 }
 
 #[derive(Debug, Deserialize)]
@@ -132,13 +101,18 @@ struct SummaryRequest {
     preview_values: usize,
 }
 
-fn normalize_value(request: NormalizeRequest) -> Result<serde_json::Value, String> {
-    validate_value_count(request.values.len())?;
-    let vector = DenseVector::new(request.values).map_err(|error| error.to_string())?;
-    let norm = l2_norm(vector.as_slice()).map_err(|error| error.to_string())?;
+fn normalize_value(
+    operation: &str,
+    request: NormalizeRequest,
+) -> Result<serde_json::Value, String> {
+    validate_value_count(operation, "values", request.values.len())?;
+    let vector = DenseVector::new(request.values)
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
+    let norm = l2_norm(vector.as_slice())
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     let normalized = vector
         .l2_normalized()
-        .map_err(|error| error.to_string())?
+        .map_err(|error| invalid_request(operation, error.to_string()))?
         .into_values();
     Ok(serde_json::json!({
         "dimensions": normalized.len(),
@@ -147,24 +121,29 @@ fn normalize_value(request: NormalizeRequest) -> Result<serde_json::Value, Strin
     }))
 }
 
-fn distance_value(request: DistanceRequest) -> Result<serde_json::Value, String> {
-    validate_value_count(request.left.len())?;
-    validate_value_count(request.right.len())?;
-    let metric = parse_metric(&request.metric)?;
-    let distance =
-        match metric {
-            VectorMetric::Cosine => {
-                1.0 - cosine_similarity(&request.left, &request.right)
-                    .map_err(|error| error.to_string())?
-            }
-            VectorMetric::Euclidean => euclidean_distance(&request.left, &request.right)
-                .map_err(|error| error.to_string())?,
-            VectorMetric::Manhattan => manhattan_distance(&request.left, &request.right)
-                .map_err(|error| error.to_string())?,
-            VectorMetric::Dot => {
-                -dot(&request.left, &request.right).map_err(|error| error.to_string())?
-            }
-        };
+fn distance_value(operation: &str, request: DistanceRequest) -> Result<serde_json::Value, String> {
+    validate_value_count(operation, "left", request.left.len())?;
+    validate_value_count(operation, "right", request.right.len())?;
+    validate_matching_lengths(
+        operation,
+        "left",
+        request.left.len(),
+        "right",
+        request.right.len(),
+    )?;
+    let metric = parse_metric(operation, &request.metric)?;
+    let distance = match metric {
+        VectorMetric::Cosine => {
+            1.0 - cosine_similarity(&request.left, &request.right)
+                .map_err(|error| invalid_request(operation, error.to_string()))?
+        }
+        VectorMetric::Euclidean => euclidean_distance(&request.left, &request.right)
+            .map_err(|error| invalid_request(operation, error.to_string()))?,
+        VectorMetric::Manhattan => manhattan_distance(&request.left, &request.right)
+            .map_err(|error| invalid_request(operation, error.to_string()))?,
+        VectorMetric::Dot => -dot(&request.left, &request.right)
+            .map_err(|error| invalid_request(operation, error.to_string()))?,
+    };
     let mut value = serde_json::json!({
         "metric": request.metric,
         "distance": distance
@@ -172,27 +151,33 @@ fn distance_value(request: DistanceRequest) -> Result<serde_json::Value, String>
     if metric == VectorMetric::Cosine {
         value["similarity"] =
             serde_json::json!(cosine_similarity(&request.left, &request.right)
-                .map_err(|error| error.to_string())?);
+                .map_err(|error| invalid_request(operation, error.to_string()))?);
     }
     if metric == VectorMetric::Dot {
-        value["dot"] = serde_json::json!(
-            dot(&request.left, &request.right).map_err(|error| error.to_string())?
-        );
+        value["dot"] = serde_json::json!(dot(&request.left, &request.right)
+            .map_err(|error| invalid_request(operation, error.to_string()))?);
     }
     Ok(value)
 }
 
-fn summary_value(request: SummaryRequest) -> Result<serde_json::Value, String> {
+fn summary_value(operation: &str, request: SummaryRequest) -> Result<serde_json::Value, String> {
     let total_values = request.vectors.iter().map(Vec::len).sum::<usize>();
-    validate_value_count(total_values)?;
+    validate_value_count(operation, "vectors", total_values)?;
+    validate_max_items(
+        operation,
+        "previewValues",
+        request.preview_values,
+        MAX_PREVIEW,
+    )?;
     let vectors = request
         .vectors
         .into_iter()
         .map(DenseVector::new)
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| error.to_string())?;
-    let stats = vector_stats(&vectors).map_err(|error| error.to_string())?;
-    let preview_values = request.preview_values.min(MAX_PREVIEW);
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
+    let stats =
+        vector_stats(&vectors).map_err(|error| invalid_request(operation, error.to_string()))?;
+    let preview_values = request.preview_values;
     Ok(serde_json::json!({
         "count": vectors.len(),
         "dimensions": stats.dimensions,
@@ -203,25 +188,28 @@ fn summary_value(request: SummaryRequest) -> Result<serde_json::Value, String> {
     }))
 }
 
-fn parse_metric(metric: &str) -> Result<VectorMetric, String> {
+fn parse_metric(operation: &str, metric: &str) -> Result<VectorMetric, String> {
     match metric {
         "cosine" => Ok(VectorMetric::Cosine),
         "euclidean" => Ok(VectorMetric::Euclidean),
         "manhattan" => Ok(VectorMetric::Manhattan),
         "dot" => Ok(VectorMetric::Dot),
-        _ => Err(format!("unsupported vector metric `{metric}`")),
+        _ => Err(SurfaceError::unsupported_value(
+            Some(OperationId::new(operation)),
+            "metric",
+            metric,
+            &["cosine", "euclidean", "manhattan", "dot"],
+        )
+        .to_error_string()),
     }
 }
 
-fn validate_value_count(count: usize) -> Result<(), String> {
-    if count > MAX_VALUES {
-        return Err(format!("vector values must not exceed {MAX_VALUES}"));
-    }
-    Ok(())
+fn validate_value_count(operation: &str, field: &str, count: usize) -> Result<(), String> {
+    validate_max_items(operation, field, count, MAX_VALUES)
 }
 
-fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+fn invalid_request(operation: &str, message: impl Into<String>) -> String {
+    SurfaceError::invalid_request(Some(OperationId::new(operation)), message).to_error_string()
 }
 
 fn default_preview() -> usize {
@@ -307,7 +295,10 @@ mod tests {
         })
         .expect_err("dimension mismatch");
 
-        assert!(error.contains("same dimensions"));
+        let parsed = runtime_core::parse_surface_error(&error).expect("typed surface error");
+        assert_eq!(parsed.code, "invalid_request");
+        assert!(parsed.message.contains("left"));
+        assert!(parsed.message.contains("right"));
     }
 
     #[test]

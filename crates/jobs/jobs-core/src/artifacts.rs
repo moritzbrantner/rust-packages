@@ -25,12 +25,16 @@ pub struct ArtifactRef {
     /// Local or remote URI.
     pub uri: String,
     /// Optional byte size.
+    #[serde(default)]
     pub size_bytes: Option<u64>,
     /// SHA-256 checksum as lowercase hex when known.
+    #[serde(default)]
     pub sha256: Option<String>,
     /// Creation timestamp for lightweight manifests.
+    #[serde(default)]
     pub created_at: Option<String>,
     /// Domain-specific metadata stored as stable string keys.
+    #[serde(default)]
     pub metadata: BTreeMap<String, String>,
 }
 

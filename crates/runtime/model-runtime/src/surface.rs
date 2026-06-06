@@ -1,12 +1,17 @@
 //! Library-owned runtime surface for `model-runtime`.
 
 use runtime_core::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    describe_surface_response, parse_surface_input, structured_operation_response,
+    surface_operation, surface_operation_with_execution_plan, OperationId, PackageSurface,
+    RuntimeCapabilities, SurfaceError, SurfaceExecutionMode, SurfaceExecutionPlan, SurfaceRequest,
+    SurfaceResponse, SurfaceSideEffect,
 };
 use serde::Deserialize;
 
-use crate::{ModelFileRequest, ModelPreset, ModelSource, ModelSpec};
+use crate::{
+    plan_model_access, plan_model_bundle, ModelAccessJobRequest, ModelBundlePlan, ModelFileRequest,
+    ModelPreset, ModelSource, ModelSpec,
+};
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -15,88 +20,93 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation(
+            surface_operation(
                 "describe",
                 "Describe package",
                 "Generic model specs, bundle plans, presets, and job helpers for multimodal runtimes.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            operation(
+            surface_operation_with_execution_plan(
+                "model.executionPlan",
+                "Model execution plan",
+                "Validates a model access job request and returns a pure execution plan without spawning jobs or running inference.",
+                serde_json::json!({"id": "model-job-1", "kind": "Inference", "spec": {"name": "demo-model", "task": "text_embedding", "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"}, "files": [{"required": "config.json"}]}, "backend": "heuristic", "inputs": [{"kind": "json", "value": {"text": "hello"}}], "outputArtifactPrefix": "prediction"}),
+                surface_plan("model.executionPlan"),
+            ),
+            surface_operation_with_execution_plan(
+                "model.bundlePlan",
+                "Model bundle plan",
+                "Plans manifest layout and artifact references for a model spec and optional local file list without network or materialization.",
+                serde_json::json!({"spec": {"name": "demo-model", "task": "text_embedding", "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"}, "files": [{"required": "config.json"}]}, "localFiles": ["config.json"]}),
+                surface_plan("model.bundlePlan"),
+            ),
+            surface_operation_with_execution_plan(
+                "model.jobManifest",
+                "Model job manifest",
+                "Projects a planned model access job into a deterministic JobManifest without starting a job.",
+                serde_json::json!({"id": "model-job-1", "kind": "Inference", "spec": {"name": "demo-model", "task": "text_embedding", "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"}, "files": [{"required": "config.json"}]}, "backend": "heuristic", "outputArtifactPrefix": "prediction"}),
+                surface_plan("model.jobManifest"),
+            ),
+            surface_operation(
                 "model.presets",
                 "Model presets",
                 "Lists model preset ids and derived model spec summaries without downloading models.",
                 serde_json::json!({}),
             ),
-            operation(
+            surface_operation(
                 "model.spec",
                 "Model spec",
                 "Validates a ModelSpec-shaped input and returns safe name, task, source, files, and revision.",
                 serde_json::json!({"name": "demo-model", "task": "text_embedding", "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"}, "files": [{"required": "config.json"}]}),
             ),
-            operation(
-                "model.bundlePlan",
-                "Model bundle plan",
-                "Plans manifest layout and artifact references for a model spec and optional local file list without network or materialization.",
-                serde_json::json!({"spec": {"name": "demo-model", "task": "text_embedding", "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"}, "files": [{"required": "config.json"}]}, "localFiles": ["config.json"]}),
-            ),
         ],
     }
 }
 
-fn operation(
-    id: &str,
-    name: &str,
-    description: &str,
-    example_request: serde_json::Value,
-) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
+fn surface_plan(operation: &str) -> SurfaceExecutionPlan {
+    SurfaceExecutionPlan {
+        operation: OperationId::new(operation),
+        mode: SurfaceExecutionMode::PlannedJob,
+        side_effects: vec![SurfaceSideEffect::None],
+        cancellable: false,
+        progress_unit: Some("steps".to_string()),
+        expected_artifacts: Vec::new(),
+        requirements: Vec::new(),
+        max_recommended_input_bytes: Some(1_048_576),
     }
 }
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    let surface = package_surface();
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => describe_value(request.input),
+        "describe" => return Ok(describe_surface_response(&surface, request)),
+        "model.executionPlan" => execution_plan_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "model.bundlePlan" => bundle_plan_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "model.jobManifest" => job_manifest_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
         "model.presets" => presets_value(),
-        "model.spec" => spec_value(parse_input(request.input)?)?,
-        "model.bundlePlan" => bundle_plan_value(parse_input(request.input)?)?,
+        "model.spec" => spec_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ));
+            return Err(
+                SurfaceError::unsupported_operation(operation, env!("CARGO_PKG_NAME"))
+                    .to_error_string(),
+            );
         }
     };
-    Ok(response(operation, value))
-}
-
-fn describe_value(input: serde_json::Value) -> serde_json::Value {
-    let surface = package_surface();
-    serde_json::json!({
-        "library": surface.library,
-        "version": surface.version,
-        "operationCount": surface.operations.len(),
-        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
-        "input": input
-    })
-}
-
-fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    Ok(structured_operation_response(&surface, operation, value))
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,6 +115,73 @@ struct BundlePlanRequest {
     spec: ModelSpec,
     #[serde(default)]
     local_files: Vec<String>,
+}
+
+fn execution_plan_value(
+    operation: &str,
+    request: ModelAccessJobRequest,
+) -> Result<serde_json::Value, String> {
+    let plan = plan_model_access(&request)
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
+    Ok(serde_json::json!({
+        "plan": plan,
+        "jobSpec": plan.job_spec,
+        "executionPlan": plan.execution_plan,
+        "expectedArtifacts": plan.expected_artifacts,
+        "kind": plan.kind.as_str(),
+        "backend": plan.backend.as_str(),
+        "sideEffects": plan.execution_plan.side_effects
+    }))
+}
+
+fn bundle_plan_value(
+    operation: &str,
+    request: BundlePlanRequest,
+) -> Result<serde_json::Value, String> {
+    let plan = plan_model_bundle(&request.spec, &request.local_files)
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
+    Ok(bundle_plan_json(plan))
+}
+
+fn job_manifest_value(
+    operation: &str,
+    request: ModelAccessJobRequest,
+) -> Result<serde_json::Value, String> {
+    let plan = plan_model_access(&request)
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
+    let timestamp = chrono_like_epoch();
+    let snapshot = jobs_core::JobSnapshot {
+        metadata: plan.job_spec.metadata.clone(),
+        spec: plan.job_spec.clone(),
+        status: jobs_core::JobStatus::Queued,
+        progress: None,
+        logs: Vec::new(),
+        artifacts: plan
+            .expected_artifacts
+            .iter()
+            .map(jobs_core::JobArtifact::from_artifact_ref)
+            .collect(),
+        created_at: timestamp,
+        started_at: None,
+        finished_at: None,
+        failure: None,
+    };
+    let manifest = jobs_core::JobManifest::from_snapshot(
+        OperationId::new("model.executionPlan"),
+        snapshot,
+        plan.expected_artifacts.clone(),
+        serde_json::json!({
+            "kind": plan.kind.as_str(),
+            "backend": plan.backend.as_str(),
+            "model": plan.job_spec.metadata.get("model.name")
+        }),
+    );
+    Ok(serde_json::json!({
+        "manifest": manifest,
+        "artifactCount": manifest.artifacts.len(),
+        "jobKind": plan.kind.as_str(),
+        "status": "queued"
+    }))
 }
 
 fn presets_value() -> serde_json::Value {
@@ -124,47 +201,29 @@ fn presets_value() -> serde_json::Value {
     })
 }
 
-fn spec_value(spec: ModelSpec) -> Result<serde_json::Value, String> {
-    validate_spec(&spec)?;
+fn spec_value(operation: &str, spec: ModelSpec) -> Result<serde_json::Value, String> {
+    validate_spec(operation, &spec)?;
     Ok(spec_summary_json(&spec))
 }
 
-fn bundle_plan_value(request: BundlePlanRequest) -> Result<serde_json::Value, String> {
-    validate_spec(&request.spec)?;
-    let safe_name = request.spec.safe_name();
-    let revision = request.spec.revision_value().unwrap_or("main");
-    let expected_files = resolve_requested_files(&request.spec.files, &request.local_files);
-    let bundle_root = format!("{safe_name}/{revision}");
-    let manifest_files = expected_files
-        .iter()
-        .map(|remote_path| {
-            serde_json::json!({
-                "remotePath": remote_path,
-                "localPath": format!("files/{remote_path}"),
-                "presentLocally": request.local_files.iter().any(|path| path == remote_path)
-            })
-        })
-        .collect::<Vec<_>>();
-    Ok(serde_json::json!({
-        "spec": spec_summary_json(&request.spec),
-        "manifestPath": format!("{bundle_root}/manifest.json"),
-        "filesDirectory": format!("{bundle_root}/files"),
+fn bundle_plan_json(plan: ModelBundlePlan) -> serde_json::Value {
+    let files = plan.files.clone();
+    serde_json::json!({
+        "spec": spec_summary_json(&plan.spec),
+        "manifestPath": plan.manifest_path,
+        "filesDirectory": plan.files_directory,
+        "files": files,
         "manifest": {
             "schemaVersion": 1,
-            "name": request.spec.name,
-            "repoId": request.spec.repo_id_value(),
-            "revision": request.spec.revision_value(),
-            "task": request.spec.task.as_protocol_str(),
-            "files": manifest_files
+            "name": plan.spec.name,
+            "repoId": plan.spec.repo_id_value(),
+            "revision": plan.spec.revision_value(),
+            "task": plan.spec.task.as_protocol_str(),
+            "files": plan.files
         },
-        "artifactRefs": expected_files.iter().map(|remote_path| serde_json::json!({
-            "id": format!("model:{}", remote_path.replace(['/', '\\'], "_")),
-            "kind": model_file_kind(remote_path),
-            "mediaType": model_file_media_type(remote_path),
-            "uri": format!("{bundle_root}/files/{remote_path}")
-        })).collect::<Vec<_>>(),
-        "downloadsRequired": false
-    }))
+        "artifactRefs": plan.artifact_refs,
+        "downloadsRequired": plan.downloads_required
+    })
 }
 
 fn spec_summary_json(spec: &ModelSpec) -> serde_json::Value {
@@ -180,9 +239,9 @@ fn spec_summary_json(spec: &ModelSpec) -> serde_json::Value {
     })
 }
 
-fn validate_spec(spec: &ModelSpec) -> Result<(), String> {
+fn validate_spec(operation: &str, spec: &ModelSpec) -> Result<(), String> {
     if spec.name.trim().is_empty() {
-        return Err("model name must not be empty".to_string());
+        return Err(invalid_request(operation, "model name must not be empty"));
     }
     Ok(())
 }
@@ -229,44 +288,14 @@ fn file_requests_json(files: &[ModelFileRequest]) -> Vec<serde_json::Value> {
         .collect()
 }
 
-fn resolve_requested_files(files: &[ModelFileRequest], local_files: &[String]) -> Vec<String> {
-    files
-        .iter()
-        .filter_map(|request| match request {
-            ModelFileRequest::Required(path) | ModelFileRequest::Optional(path) => {
-                Some(path.clone())
-            }
-            ModelFileRequest::FirstAvailable(paths) => paths
-                .iter()
-                .find(|path| local_files.iter().any(|local| local == *path))
-                .cloned()
-                .or_else(|| paths.first().cloned()),
-        })
-        .collect()
+fn invalid_request(operation: &str, message: impl Into<String>) -> String {
+    SurfaceError::invalid_request(Some(OperationId::new(operation)), message).to_error_string()
 }
 
-fn model_file_kind(remote_path: &str) -> &'static str {
-    if remote_path.ends_with(".json") {
-        "json"
-    } else if remote_path.ends_with(".txt") || remote_path.ends_with(".md") {
-        "text"
-    } else {
-        "binary"
-    }
-}
-
-fn model_file_media_type(remote_path: &str) -> &'static str {
-    if remote_path.ends_with(".json") {
-        "application/json"
-    } else if remote_path.ends_with(".txt") {
-        "text/plain"
-    } else {
-        "application/octet-stream"
-    }
-}
-
-fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+fn chrono_like_epoch() -> chrono::DateTime<chrono::Utc> {
+    chrono::DateTime::parse_from_rfc3339("1970-01-01T00:00:00Z")
+        .expect("valid timestamp")
+        .with_timezone(&chrono::Utc)
 }
 
 #[cfg(test)]
@@ -280,24 +309,37 @@ mod tests {
             .into_iter()
             .map(|operation| operation.id.0)
             .collect::<Vec<_>>();
+        assert!(ids.contains(&"model.executionPlan".to_string()));
+        assert!(ids.contains(&"model.bundlePlan".to_string()));
+        assert!(ids.contains(&"model.jobManifest".to_string()));
         assert!(ids.contains(&"model.presets".to_string()));
         assert!(ids.contains(&"model.spec".to_string()));
-        assert!(ids.contains(&"model.bundlePlan".to_string()));
     }
 
     #[test]
-    fn spec_operation_returns_safe_name() {
+    fn execution_plan_operation_returns_structured_plan() {
         let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("model.spec"),
+            operation: OperationId::new("model.executionPlan"),
             input: serde_json::json!({
-                "name": "demo/model",
-                "task": "text_embedding",
-                "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"},
-                "files": [{"required": "config.json"}]
+                "id": "model-job-1",
+                "kind": "Inference",
+                "spec": {
+                    "name": "demo/model",
+                    "task": "text_embedding",
+                    "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"},
+                    "files": [{"required": "config.json"}]
+                },
+                "backend": "heuristic",
+                "inputs": [{"kind": "json", "value": {"text": "hello"}}],
+                "outputArtifactPrefix": "prediction"
             }),
         })
-        .expect("spec");
-        assert_eq!(response.value["safeName"], "demo_model");
+        .expect("execution plan");
+
+        assert_eq!(response.value["operation"], "model.executionPlan");
+        assert_eq!(response.value["jobSpec"]["id"], "model-job-1");
+        assert_eq!(response.value["executionPlan"]["mode"], "plannedJob");
+        assert_eq!(response.value["kind"], "model-inference");
     }
 
     #[test]
@@ -323,7 +365,29 @@ mod tests {
     }
 
     #[test]
-    fn spec_operation_rejects_empty_name() {
+    fn job_manifest_operation_returns_manifest_projection() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("model.jobManifest"),
+            input: serde_json::json!({
+                "id": "model-job-1",
+                "kind": "Inference",
+                "spec": {
+                    "name": "demo/model",
+                    "task": "text_embedding",
+                    "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"},
+                    "files": [{"required": "config.json"}]
+                },
+                "backend": "heuristic",
+                "outputArtifactPrefix": "prediction"
+            }),
+        })
+        .expect("job manifest");
+        assert_eq!(response.value["status"], "queued");
+        assert_eq!(response.value["manifest"]["jobId"], "model-job-1");
+    }
+
+    #[test]
+    fn spec_operation_rejects_empty_name_with_typed_error() {
         let error = run_surface_operation(SurfaceRequest {
             operation: OperationId::new("model.spec"),
             input: serde_json::json!({
@@ -334,6 +398,7 @@ mod tests {
             }),
         })
         .expect_err("empty name");
-        assert!(error.contains("model name"));
+        let parsed = runtime_core::parse_surface_error(&error).expect("typed error");
+        assert_eq!(parsed.code, "invalid_request");
     }
 }

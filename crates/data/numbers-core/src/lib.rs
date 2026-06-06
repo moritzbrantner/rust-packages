@@ -471,9 +471,48 @@ mod tests {
     }
 
     #[test]
+    fn merged_running_stats_match_single_pass_stats() {
+        let mut left = RunningStats::new();
+        left.push_weighted(1.0, 2.0).unwrap();
+        left.push(f64::NAN);
+
+        let mut right = RunningStats::new();
+        right.push_weighted(3.0, 4.0).unwrap();
+        right.push(f64::INFINITY);
+
+        let mut merged = left.clone();
+        merged.merge(&right);
+
+        let mut single_pass = RunningStats::new();
+        single_pass.push_weighted(1.0, 2.0).unwrap();
+        single_pass.push(f64::NAN);
+        single_pass.push_weighted(3.0, 4.0).unwrap();
+        single_pass.push(f64::INFINITY);
+
+        let merged = merged.summary();
+        let single = single_pass.summary();
+        assert_eq!(merged.count, single.count);
+        assert_eq!(merged.finite_count, single.finite_count);
+        assert_eq!(merged.non_finite_count, single.non_finite_count);
+        assert_close(merged.mean.unwrap(), single.mean.unwrap());
+        assert_close(merged.variance.unwrap(), single.variance.unwrap());
+    }
+
+    #[test]
     fn quantile_interpolates_even_sized_inputs() {
         assert_eq!(quantile(&[1.0, 2.0, 3.0, 4.0], 0.5).unwrap(), 2.5);
         assert_eq!(quartiles(&[1.0, 2.0, 3.0, 4.0]).unwrap().q1, 1.75);
+    }
+
+    #[test]
+    fn quantiles_are_monotonic() {
+        let values = [10.0, -2.0, 4.0, 4.0, 9.0, f64::NAN];
+        let q10 = quantile(&values, 0.10).unwrap();
+        let q50 = quantile(&values, 0.50).unwrap();
+        let q90 = quantile(&values, 0.90).unwrap();
+
+        assert!(q10 <= q50);
+        assert!(q50 <= q90);
     }
 
     #[test]
@@ -482,6 +521,23 @@ mod tests {
         assert_eq!(histogram.count, 3);
         assert_eq!(histogram.bins[0].count, 1);
         assert_eq!(histogram.bins[1].count, 2);
+    }
+
+    #[test]
+    fn histogram_counts_only_finite_values_inside_explicit_range() {
+        let histogram = histogram(
+            &[-10.0, 0.0, 0.25, 0.75, 1.0, 10.0, f64::NAN],
+            HistogramConfig::new(4)
+                .unwrap()
+                .with_range(NumberRange::new(0.0, 1.0).unwrap()),
+        )
+        .unwrap();
+
+        assert_eq!(histogram.count, 4);
+        assert_eq!(
+            histogram.bins.iter().map(|bin| bin.count).sum::<u64>(),
+            histogram.count
+        );
     }
 
     #[test]

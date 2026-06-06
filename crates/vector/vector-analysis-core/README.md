@@ -44,6 +44,17 @@ with no weighting.
 `VectorMetric::Dot` returns the negative dot product so callers that sort by
 ascending distance can still rank larger dot products first.
 
+## Runtime Surface
+
+The package surface exposes `vector.normalize`, `vector.distance`, and
+`vector.summary`. Successful responses preserve vector-specific fields and add
+the shared `operation`, `title`, `message`, `summary`, and `result` fields.
+
+Default surface calls are deterministic and in-memory. They reject more than
+100,000 vector values and previews larger than 256 values with typed
+`runtime_core::SurfaceError` JSON. Unsupported metric names also return typed
+surface errors.
+
 ## Related crates
 
 - `vector-analysis-index`

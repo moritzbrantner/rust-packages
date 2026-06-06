@@ -3941,6 +3941,7 @@ dependencies = [
 name = "moritzbrantner-model-runtime"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "hf-hub",
  "moritzbrantner-jobs-core",
  "moritzbrantner-runtime-core",

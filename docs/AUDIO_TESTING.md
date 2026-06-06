@@ -96,10 +96,11 @@ before tests run. You can override the command with
 
 ## Native Whisper Smoke Test
 
-Audio recognition keeps native ASR out of default tests. The deterministic
-workflow is `audio.recognition.transcribeImported`; real Whisper execution
-belongs to `moritzbrantner-text-transcripts` and is only tested when explicitly
-requested.
+Audio recognition keeps native ASR out of default tests. The primary
+deterministic workflow is `audio.recognition.transcribe`; the compatibility
+operation is `audio.recognition.transcribeImported`. Real Whisper execution is
+one provider path owned by `moritzbrantner-text-transcripts` and is only tested
+when explicitly requested.
 
 Prepare a local 16 kHz mono WAV fixture and a cached whisper.cpp model first.
 The smoke test checks that the model already exists before calling the native

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
@@ -178,6 +179,48 @@ pub struct SurfaceOperation {
     pub server_supported: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SurfaceExecutionMode {
+    InMemory,
+    PlannedJob,
+    BackgroundJob,
+    ExternalCommand,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SurfaceSideEffect {
+    None,
+    ReadsFiles,
+    WritesFiles,
+    Network,
+    ExternalProcess,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceArtifactExpectation {
+    pub id: String,
+    pub kind: String,
+    pub media_type: String,
+    pub required: bool,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceExecutionPlan {
+    pub operation: OperationId,
+    pub mode: SurfaceExecutionMode,
+    pub side_effects: Vec<SurfaceSideEffect>,
+    pub cancellable: bool,
+    pub progress_unit: Option<String>,
+    pub expected_artifacts: Vec<SurfaceArtifactExpectation>,
+    pub requirements: Vec<RuntimeRequirement>,
+    pub max_recommended_input_bytes: Option<u64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SurfaceRequest {
@@ -268,6 +311,26 @@ impl SurfaceError {
         )
     }
 
+    pub fn cancelled(operation: impl Into<OperationId>, message: impl Into<String>) -> Self {
+        Self::new("cancelled", Some(operation), message, serde_json::json!({}))
+    }
+
+    pub fn execution_failed(
+        operation: impl Into<OperationId>,
+        message: impl Into<String>,
+        details: serde_json::Value,
+    ) -> Self {
+        Self::new("execution_failed", Some(operation), message, details)
+    }
+
+    pub fn artifact_error(
+        operation: impl Into<OperationId>,
+        message: impl Into<String>,
+        details: serde_json::Value,
+    ) -> Self {
+        Self::new("artifact_error", Some(operation), message, details)
+    }
+
     pub fn missing_dependency(
         operation: Option<impl Into<OperationId>>,
         dependency: impl Into<String>,
@@ -305,6 +368,14 @@ impl SurfaceError {
     }
 }
 
+impl fmt::Display for SurfaceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for SurfaceError {}
+
 pub fn parse_surface_error(error: &str) -> Option<SurfaceError> {
     serde_json::from_str(error).ok()
 }
@@ -334,6 +405,42 @@ pub fn require_non_empty<T>(operation: &str, field: &str, values: &[T]) -> Resul
     }
 }
 
+pub fn validate_max_items(
+    operation: &str,
+    field: &str,
+    actual: usize,
+    limit: usize,
+) -> Result<(), String> {
+    if actual > limit {
+        Err(
+            SurfaceError::resource_limit(Some(OperationId::new(operation)), field, limit, actual)
+                .to_error_string(),
+        )
+    } else {
+        Ok(())
+    }
+}
+
+pub fn validate_matching_lengths(
+    operation: &str,
+    left_field: &str,
+    left_len: usize,
+    right_field: &str,
+    right_len: usize,
+) -> Result<(), String> {
+    if left_len != right_len {
+        Err(SurfaceError::invalid_request(
+            Some(OperationId::new(operation)),
+            format!(
+                "invalid request: `{left_field}` length {left_len} must match `{right_field}` length {right_len}"
+            ),
+        )
+        .to_error_string())
+    } else {
+        Ok(())
+    }
+}
+
 /// Builds the standard package-surface operation metadata used by library
 /// crates and transport adapters.
 pub fn surface_operation(
@@ -352,6 +459,38 @@ pub fn surface_operation(
         example_request,
         wasm_supported: true,
         server_supported: true,
+    }
+}
+
+pub fn surface_operation_with_execution_plan(
+    id: impl Into<String>,
+    name: impl Into<String>,
+    description: impl Into<String>,
+    example_request: serde_json::Value,
+    execution_plan: SurfaceExecutionPlan,
+) -> SurfaceOperation {
+    let mut operation = surface_operation(id, name, description, example_request);
+    let execution_plan = surface_execution_plan_value(&execution_plan);
+    insert_schema_extension(
+        &mut operation.input_schema,
+        "xExecutionPlan",
+        execution_plan.clone(),
+    );
+    insert_schema_extension(
+        &mut operation.output_schema,
+        "xExecutionPlan",
+        execution_plan,
+    );
+    operation
+}
+
+pub fn surface_execution_plan_value(plan: &SurfaceExecutionPlan) -> serde_json::Value {
+    serde_json::to_value(plan).unwrap_or_else(|_| serde_json::json!({}))
+}
+
+fn insert_schema_extension(schema: &mut serde_json::Value, key: &str, value: serde_json::Value) {
+    if let serde_json::Value::Object(object) = schema {
+        object.insert(key.to_string(), value);
     }
 }
 
@@ -1270,5 +1409,131 @@ mod tests {
         assert_eq!(parsed.code, "unsupported_operation");
         assert_eq!(parsed.operation.unwrap().as_str(), "demo.missing");
         assert!(parsed.message.contains("unsupported operation"));
+    }
+
+    #[test]
+    fn surface_error_is_standard_error_type() {
+        let error = SurfaceError::invalid_request(Some("demo.run"), "invalid request: missing id");
+        let boxed: Box<dyn std::error::Error> = Box::new(error.clone());
+
+        assert_eq!(boxed.to_string(), "invalid request: missing id");
+        assert_eq!(error.to_string(), "invalid request: missing id");
+    }
+
+    #[test]
+    fn validation_helpers_return_typed_errors() {
+        let limit = validate_max_items("demo.run", "values", 3, 2).expect_err("limit error");
+        let parsed = parse_surface_error(&limit).expect("typed resource error");
+        assert_eq!(parsed.code, "resource_limit");
+        assert_eq!(parsed.details["field"], "values");
+        assert_eq!(parsed.details["actual"], 3);
+
+        let length =
+            validate_matching_lengths("demo.run", "left", 2, "right", 3).expect_err("length");
+        let parsed = parse_surface_error(&length).expect("typed length error");
+        assert_eq!(parsed.code, "invalid_request");
+        assert!(parsed.message.contains("left"));
+        assert!(parsed.message.contains("right"));
+    }
+
+    #[test]
+    fn execution_plan_serializes_to_schema_extension() {
+        let plan = SurfaceExecutionPlan {
+            operation: OperationId::new("demo.run"),
+            mode: SurfaceExecutionMode::PlannedJob,
+            side_effects: vec![SurfaceSideEffect::None],
+            cancellable: true,
+            progress_unit: Some("items".to_string()),
+            expected_artifacts: vec![SurfaceArtifactExpectation {
+                id: "report".to_string(),
+                kind: "json".to_string(),
+                media_type: "application/json".to_string(),
+                required: true,
+                description: Some("Structured report".to_string()),
+            }],
+            requirements: vec![RuntimeRequirement {
+                name: "runtime-core".to_string(),
+                description: Some("Pure Rust planner".to_string()),
+                required: true,
+            }],
+            max_recommended_input_bytes: Some(1024),
+        };
+
+        let operation = surface_operation_with_execution_plan(
+            "demo.run",
+            "Run demo",
+            "Build a deterministic demo plan",
+            serde_json::json!({"items": [1]}),
+            plan,
+        );
+
+        assert_eq!(
+            operation.input_schema["xExecutionPlan"]["mode"],
+            serde_json::json!("plannedJob")
+        );
+        assert_eq!(
+            operation.output_schema["xExecutionPlan"]["expectedArtifacts"][0]["id"],
+            serde_json::json!("report")
+        );
+        assert_eq!(
+            operation.input_schema["xExecutionPlan"]["sideEffects"],
+            serde_json::json!(["none"])
+        );
+    }
+
+    #[test]
+    fn new_surface_error_constructors_are_typed_json() {
+        let cancelled = SurfaceError::cancelled("demo.run", "cancelled by request");
+        assert_eq!(cancelled.code, "cancelled");
+        assert_eq!(cancelled.operation.unwrap().as_str(), "demo.run");
+
+        let execution = SurfaceError::execution_failed(
+            "demo.run",
+            "execution failed",
+            serde_json::json!({
+                "stage": "prepare"
+            }),
+        );
+        assert_eq!(execution.code, "execution_failed");
+        assert_eq!(execution.details["stage"], "prepare");
+
+        let artifact = SurfaceError::artifact_error(
+            "demo.run",
+            "artifact invalid",
+            serde_json::json!({
+                "artifact": "report"
+            }),
+        );
+        assert_eq!(artifact.code, "artifact_error");
+        assert_eq!(artifact.details["artifact"], "report");
+    }
+
+    #[test]
+    fn structured_operation_response_preserves_result_fields() {
+        let surface = PackageSurface {
+            library: "demo".to_string(),
+            version: "0.1.0".to_string(),
+            capabilities: RuntimeCapabilities::pure_rust(),
+            operations: vec![surface_operation(
+                "demo.run",
+                "Run demo",
+                "Run a demo workflow",
+                serde_json::json!({"values": [1, 2]}),
+            )],
+        };
+        let response = structured_operation_response(
+            &surface,
+            OperationId::new("demo.run"),
+            serde_json::json!({"count": 2, "values": [1, 2]}),
+        );
+
+        assert_eq!(response.value["count"], 2);
+        assert_eq!(response.value["operation"], "demo.run");
+        assert_eq!(response.value["title"], "Run demo");
+        assert_eq!(response.value["summary"]["count"], 2);
+        assert_eq!(
+            response.value["result"]["values"],
+            serde_json::json!([1, 2])
+        );
     }
 }

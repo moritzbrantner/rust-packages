@@ -240,6 +240,39 @@ mod tests {
     }
 
     #[test]
+    fn euclidean_and_manhattan_distances_are_symmetric() {
+        let left = [1.0, -2.0, 3.0];
+        let right = [4.0, 0.5, -1.0];
+
+        assert_eq!(
+            euclidean_distance(&left, &right).unwrap(),
+            euclidean_distance(&right, &left).unwrap()
+        );
+        assert_eq!(
+            manhattan_distance(&left, &right).unwrap(),
+            manhattan_distance(&right, &left).unwrap()
+        );
+    }
+
+    #[test]
+    fn cosine_metric_matches_similarity_relationship() {
+        let left = [1.0, 1.0];
+        let right = [1.0, 0.0];
+        let similarity = cosine_similarity(&left, &right).unwrap();
+        let distance = metric_distance(VectorMetric::Cosine, &left, &right).unwrap();
+
+        assert!((distance - (1.0 - similarity)).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn zero_vectors_fail_normalization_and_cosine() {
+        let zero = DenseVector::new([0.0, 0.0]).unwrap();
+
+        assert!(zero.l2_normalized().is_err());
+        assert!(cosine_similarity(zero.as_slice(), &[1.0, 0.0]).is_err());
+    }
+
+    #[test]
     fn computes_mean_vector() {
         let mean = mean_vector(&[
             DenseVector::new([1.0, 3.0]).unwrap(),

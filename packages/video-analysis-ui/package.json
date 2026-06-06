@@ -85,7 +85,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun run test:unit && bun run test:e2e",
     "test:unit": "bash -lc 'vitest --run --maxWorkers \"${VITEST_MAX_WORKERS:-${TEST_MAX_WORKERS:-2}}\" --maxConcurrency \"${VITEST_MAX_CONCURRENCY:-${TEST_MAX_CONCURRENCY:-2}}\" --environment jsdom src'",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build",
+    "storybook:test": "bun scripts/run-storybook-test.ts --url http://127.0.0.1:6006",
+    "storybook:test:ci": "concurrently -k -s first -n storybook,test \"bun run storybook:build && bun scripts/serve-storybook-static.ts\" \"wait-on tcp:6006 && bun run storybook:test\""
   },
   "peerDependencies": {
     "react": ">=19.0.0",
@@ -94,13 +98,22 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
+    "@storybook/addon-a11y": "8.6.14",
+    "@storybook/addon-essentials": "8.6.14",
+    "@storybook/react": "8.6.14",
+    "@storybook/react-vite": "8.6.14",
+    "@storybook/test-runner": "^0.24.4",
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
+    "concurrently": "^10.0.3",
+    "http-server": "^14.1.1",
     "jsdom": "^27.0.1",
+    "storybook": "8.6.14",
     "typescript": "^6.0.2",
     "vite": "^7.3.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "wait-on": "^9.0.10"
   }
 }

@@ -14,7 +14,7 @@ free of model downloads or external command execution.
 | `audio-analysis-pitch` | Pitch, note tracking, chroma and pitch-class summaries |
 | `audio-analysis-rhythm` | Onsets, tempo, beat grids, music timing |
 | `audio-analysis-processing` | Realtime/offline transforms, effects, mixdown, loudness metrics |
-| `audio-analysis-recognition` | Generic audio embeddings, similarity, recognition, ASR contracts |
+| `audio-analysis-recognition` | Generic audio embeddings, similarity, recognition, transcription contracts |
 | `audio-analysis-speakers` | Speaker enrollment, VAD, diarization, transcript speaker assignment |
 | `audio-analysis-separation` | Demucs/HTDemucs planning and opt-in execution |
 | `audio-analysis-synthesis` | Deterministic audio generation from events and timelines |
@@ -29,8 +29,9 @@ free of model downloads or external command execution.
 | `audio.pitch.chroma` | `audio-analysis-pitch` | Pure Rust, WASM-safe |
 | `audio.speakers.vad` | `audio-analysis-speakers` | Pure Rust, WASM-safe |
 | `audio.speakers.diarize` | `audio-analysis-speakers` | Pure Rust baseline, imported segments supported |
-| `audio.recognition.transcriptionPlan` | `audio-analysis-recognition` | Debug-only plan, no execution |
+| `audio.recognition.transcribe` | `audio-analysis-recognition` | Imported transcript workflow, no native ASR execution |
 | `audio.recognition.transcribeImported` | `audio-analysis-recognition` | Imported transcript contract conversion |
+| `audio.recognition.transcriptionPlan` | `audio-analysis-recognition` | Debug-only provider plan, no execution |
 | `audio.io.wavSummary` | `audio-analysis-io` | Inline pure summary; path reads are native/server only |
 | `audio.io.probePlan` | `audio-analysis-io` | Debug-only plan, no FFprobe execution |
 | `audio.separation.runDemucs` | `audio-analysis-separation` | Server/native only, external-test gated |
@@ -94,7 +95,7 @@ bun run --cwd packages/<crate-name>-app typecheck
 | 4.2 deterministic diarization surface operation | done |
 | 4.3 transcript speaker assignment policies | done |
 | 5.1 ASR planning operation | done |
-| 5.2 imported-ASR workflow operation | done |
+| 5.2 generic imported-transcription workflow operation | done |
 | 5.3 optional native Whisper smoke path | done |
 | 6.1 pure WAV decode and summary | done |
 | 6.2 audio probe plan | done |
