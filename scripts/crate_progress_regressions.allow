@@ -1,0 +1,3 @@
+# Temporary crate progress regression exceptions.
+# Format:
+# crate<TAB>metric<TAB>expires<TAB>reason

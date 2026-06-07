@@ -38,6 +38,19 @@ LEGACY_WASM_TEST_ALLOWLIST = {
     "crates/bindings/audio-generation-midi-wasm/src/lib.rs",
 }
 MOD_DECLARATION_RE = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;")
+DEBUG_OPERATION_KEYWORDS = (
+    "describe",
+    "plan",
+    "inspect",
+    "validate",
+    "catalog",
+    "schema",
+    "models",
+    "defaults",
+    "reference",
+    "inventory",
+    "providers",
+)
 
 
 @dataclass(frozen=True)
@@ -245,8 +258,24 @@ def audit_one_package_quality(package: LibraryPackage, failures: list[str]) -> N
             continue
         run_operation_example(package.name, operation, failures)
 
+    operation_categories = {
+        operation["id"]: classify_operation(operation)
+        for operation in operations
+        if isinstance(operation.get("id"), str)
+    }
+    for operation_id in app_workflow_operation_ids(package):
+        if operation_id != "describe" and operation_id in operation_categories:
+            operation_categories[operation_id] = "workflow"
+    if any(operation_id != "describe" for operation_id in operation_ids) and not any(
+        category == "workflow"
+        for operation_id, category in operation_categories.items()
+        if operation_id != "describe"
+    ):
+        failures.append(f"{package.name}: no non-debug workflow operation classified")
+
     validate_cli_invalid_behavior(package.name, failures)
-    validate_app_config(package.name, operation_ids, failures)
+    validate_app_config(package.name, operation_ids, operation_categories, failures)
+    validate_readme_quickstart(package, operation_ids, failures)
 
 
 def audit_repository_quality(failures: list[str]) -> None:
@@ -277,12 +306,21 @@ def validate_no_dangling_mod_declarations(failures: list[str]) -> None:
 
 def has_cfg_attribute(lines: list[str], line_number: int) -> bool:
     index = line_number - 2
+    saw_attribute = False
     while index >= 0:
         previous = lines[index].strip()
         if not previous:
             index -= 1
             continue
-        return previous.startswith("#[cfg") or previous.startswith("#[path")
+        if previous.startswith("#["):
+            saw_attribute = True
+            if previous.startswith("#[cfg") or previous.startswith("#[path"):
+                return True
+            index -= 1
+            continue
+        if saw_attribute:
+            return False
+        return False
     return False
 
 
@@ -292,7 +330,12 @@ def module_file_candidates(path: Path, module_name: str) -> bool:
         base = path.parent
     else:
         base = path.parent / stem
-    return (base / f"{module_name}.rs").is_file() or (base / module_name / "mod.rs").is_file()
+    return (
+        (base / f"{module_name}.rs").is_file()
+        or (base / module_name / "mod.rs").is_file()
+        or (path.parent / f"{module_name}.rs").is_file()
+        or (path.parent / module_name / "mod.rs").is_file()
+    )
 
 
 def validate_no_new_legacy_wasm_tests(failures: list[str]) -> None:
@@ -349,6 +392,8 @@ def validate_operation_metadata(crate: str, operation: dict, failures: list[str]
     for field in ["wasmSupported", "serverSupported"]:
         if not isinstance(operation.get(field), bool):
             failures.append(f"{crate}:{operation_id}: `{field}` must be boolean")
+    if classify_operation(operation) not in {"workflow", "debug", "support"}:
+        failures.append(f"{crate}:{operation_id}: operation category could not be classified")
 
 
 def run_operation_example(crate: str, operation: dict, failures: list[str]) -> None:
@@ -461,7 +506,12 @@ def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
         failures.append(f"{crate}: malformed JSON error is unclear")
 
 
-def validate_app_config(crate: str, operation_ids: list[str], failures: list[str]) -> None:
+def validate_app_config(
+    crate: str,
+    operation_ids: list[str],
+    operation_categories: dict[str, str],
+    failures: list[str],
+) -> None:
     companion_base = companion_package_base_name(crate)
     app_path = ROOT / "packages" / f"{companion_base}-app" / "src" / "App.tsx"
     if not app_path.is_file():
@@ -476,6 +526,16 @@ def validate_app_config(crate: str, operation_ids: list[str], failures: list[str
     if 'label: "Debug"' not in text and "label: 'Debug'" not in text:
         failures.append(f"{crate}: app config missing Debug operation group")
 
+    workflow_operations = [
+        operation_id
+        for operation_id, category in operation_categories.items()
+        if operation_id != "describe" and category == "workflow"
+    ]
+    workflow_group = operations_for_group_label(text, "Workflow")
+    featured = array_property(text, "featuredOperations")
+    if featured and featured[0] == "describe" and workflow_operations:
+        failures.append(f"{crate}: featured operations start with describe instead of workflow")
+
     default_match = re.search(r"defaultOperation:\s*[\"']([^\"']+)[\"']", text)
     if not default_match:
         return
@@ -486,6 +546,80 @@ def validate_app_config(crate: str, operation_ids: list[str], failures: list[str
         )
     if default_operation == "describe" and any(operation != "describe" for operation in operation_ids):
         failures.append(f"{crate}: app defaults to describe instead of the primary workflow")
+    if workflow_operations and workflow_group and default_operation not in workflow_group:
+        failures.append(f"{crate}: default operation `{default_operation}` is outside Workflow group")
+
+
+def app_workflow_operation_ids(package: LibraryPackage) -> set[str]:
+    companion_base = companion_package_base_name(package.name)
+    app_path = ROOT / "packages" / f"{companion_base}-app" / "src" / "App.tsx"
+    if not app_path.is_file():
+        return set()
+    return set(operations_for_group_label(app_path.read_text(encoding="utf-8"), "Workflow"))
+
+
+def validate_readme_quickstart(
+    package: LibraryPackage,
+    operation_ids: list[str],
+    failures: list[str],
+) -> None:
+    readme_path = package.manifest_path.parent / "README.md"
+    if not readme_path.is_file():
+        failures.append(f"{package.name}: missing README.md")
+        return
+    text = readme_path.read_text(encoding="utf-8").lower()
+    if text.strip():
+        return
+    failures.append(f"{package.name}: README is empty")
+
+
+def classify_operation(operation: dict) -> str:
+    schema_category = schema_category_value(operation.get("inputSchema")) or schema_category_value(
+        operation.get("outputSchema")
+    )
+    if schema_category in {"workflow", "debug", "support"}:
+        return schema_category
+    operation_id = str(operation.get("id", "")).lower()
+    name = str(operation.get("name", "")).lower()
+    if operation_id == "describe":
+        return "debug"
+    if any(keyword in operation_id or keyword in name for keyword in DEBUG_OPERATION_KEYWORDS):
+        return "debug"
+    return "workflow"
+
+
+def schema_category_value(schema: object) -> str | None:
+    if not isinstance(schema, dict):
+        return None
+    value = schema.get("xOperationCategory")
+    if isinstance(value, str):
+        return value.lower()
+    for nested in schema.values():
+        if isinstance(nested, dict):
+            found = schema_category_value(nested)
+            if found:
+                return found
+    return None
+
+
+def operations_for_group_label(text: str, label: str) -> list[str]:
+    match = re.search(
+        r"\{[^{}]*label:\s*[\"']" + re.escape(label) + r"[\"'][^{}]*operations:\s*\[([^\]]*)\]",
+        text,
+        re.DOTALL,
+    )
+    if not match:
+        return []
+    return quoted_values(match.group(1))
+
+
+def array_property(text: str, property_name: str) -> list[str]:
+    match = re.search(rf"{re.escape(property_name)}:\s*\[([^\]]*)\]", text, re.DOTALL)
+    return quoted_values(match.group(1)) if match else []
+
+
+def quoted_values(text: str) -> list[str]:
+    return re.findall(r"[\"']([^\"']+)[\"']", text)
 
 
 def compact_process_output(completed: subprocess.CompletedProcess[str]) -> str:
