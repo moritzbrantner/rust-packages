@@ -29,6 +29,7 @@ const packageAppConfig: PackageAppConfig = {
         "audio.processing.mixdown",
         "audio.processing.loudness",
         "audio.processing.preset",
+        "audio.processing.energy",
       ],
     },
     {

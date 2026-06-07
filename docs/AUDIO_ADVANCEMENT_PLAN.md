@@ -105,3 +105,21 @@ bun run --cwd packages/<crate-name>-app typecheck
 | 8.2 click-track synthesis workflow | done |
 | 9 package app workflow/debug grouping | done |
 | 10 integration tests and docs | done |
+| 11 release surface audit | done |
+| 12 all audio WASM package tests | done |
+| 13 all audio app typechecks | done |
+| 14 audio package dry-runs | blocked until prerequisite crates are published |
+
+## Release Hardening
+
+Capability work is complete for the current audio slice. Remaining release work
+is hardening and verification:
+
+- Keep `tests/audio_surface_audit.rs` green for every audio package surface.
+- Run `bun run audio-wasm:test` across every `packages/audio-*-wasm` package.
+- Run `bun run audio-app:typecheck` across every `packages/audio-*-app` package.
+- Run `cargo package --allow-dirty -p <crate-name>` for every publishable audio
+  library, CLI wrapper, server wrapper, and Rust WASM binding crate after the
+  prerequisite crates listed in `docs/RELEASE_CHECKLIST.md` are available from
+  crates.io at the required versions.
+- Keep Demucs, FFmpeg, and Whisper execution in explicit external-tool tiers.

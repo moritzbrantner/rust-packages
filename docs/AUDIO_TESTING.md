@@ -10,25 +10,43 @@ Run these for normal development:
 cargo fmt --all --check
 
 cargo clippy \
-  -p audio-analysis-core \
-  -p audio-analysis-fourier \
+  -p moritzbrantner-audio-analysis-core \
+  -p moritzbrantner-audio-analysis-fourier \
   -p moritzbrantner-audio-analysis-io \
-  -p audio-analysis-pitch \
-  -p audio-analysis-processing \
-  -p audio-analysis-recognition \
-  -p audio-analysis-rhythm \
+  -p moritzbrantner-audio-analysis-pitch \
+  -p moritzbrantner-audio-analysis-processing \
+  -p moritzbrantner-audio-analysis-recognition \
+  -p moritzbrantner-audio-analysis-rhythm \
   -p moritzbrantner-audio-analysis-separation \
+  -p moritzbrantner-audio-analysis-speakers \
+  -p moritzbrantner-audio-analysis-synthesis \
+  -p moritzbrantner-audio-generation-midi \
   --all-targets -- -D warnings
 
 PROPTEST_CASES=128 cargo test \
-  -p audio-analysis-core \
-  -p audio-analysis-fourier \
+  -p moritzbrantner-audio-analysis-core \
+  -p moritzbrantner-audio-analysis-fourier \
   -p moritzbrantner-audio-analysis-io \
-  -p audio-analysis-pitch \
-  -p audio-analysis-processing \
-  -p audio-analysis-recognition \
-  -p audio-analysis-rhythm \
-  -p moritzbrantner-audio-analysis-separation
+  -p moritzbrantner-audio-analysis-pitch \
+  -p moritzbrantner-audio-analysis-processing \
+  -p moritzbrantner-audio-analysis-recognition \
+  -p moritzbrantner-audio-analysis-rhythm \
+  -p moritzbrantner-audio-analysis-separation \
+  -p moritzbrantner-audio-analysis-speakers \
+  -p moritzbrantner-audio-analysis-synthesis \
+  -p moritzbrantner-audio-generation-midi
+
+cargo test \
+  --test audio_surface_audit \
+  --test audio_surface_public_api \
+  --test audio_feature_contracts \
+  --test audio_music_pipeline \
+  --test audio_voice_pipeline \
+  --test audio_transcription_contracts \
+  --test audio_pipeline
+
+bun run audio-wasm:test
+bun run audio-app:typecheck
 ```
 
 These tests are deterministic and do not require FFmpeg, Demucs, GPUs, network,
@@ -135,12 +153,12 @@ Compute-heavy crates have Criterion benchmarks:
 
 ```bash
 cargo bench \
-  -p audio-analysis-core \
-  -p audio-analysis-fourier \
-  -p audio-analysis-pitch \
-  -p audio-analysis-processing \
-  -p audio-analysis-recognition \
-  -p audio-analysis-rhythm
+  -p moritzbrantner-audio-analysis-core \
+  -p moritzbrantner-audio-analysis-fourier \
+  -p moritzbrantner-audio-analysis-pitch \
+  -p moritzbrantner-audio-analysis-processing \
+  -p moritzbrantner-audio-analysis-recognition \
+  -p moritzbrantner-audio-analysis-rhythm
 
 python3 scripts/check_audio_bench.py
 ```
