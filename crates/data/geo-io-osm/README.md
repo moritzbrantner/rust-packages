@@ -28,3 +28,33 @@ let geo = collected.into_geo_feature_collection();
 # Ok(())
 # }
 ```
+
+## Package surface
+
+Primary workflow: `osm.filterPbfBase64`.
+
+Workflow operations:
+
+- `osm.filterSummary`: Summarizes the effective OSM PBF filter configuration.
+- `osm.filterPbfBase64`: Filters base64-encoded OSM PBF bytes into GeoJSON-shaped features.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+- `osm.validateSpec`: Validates an OSM PBF filter specification.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-geo-io-osm-cli -- run \
+  --operation osm.filterPbfBase64 \
+  --json '{"pbfBase64":"","spec":{"filter":{"include":{"any":[{"key":"amenity","values":["school","hospital"]}]},"types":["node","way"]},"output":{"geometry":"full"}}}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.

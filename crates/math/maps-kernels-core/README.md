@@ -10,3 +10,35 @@ TypeScript and WASM implementations can be A/B tested against each other.
 - Flat 2D line and ring path summaries
 - Deterministic line resampling, simplification, and densification
 - Bounds and path-length calculations for map-oriented geometry payloads
+
+## Package surface
+
+Primary workflow: `maps.kernelSummary`.
+
+Workflow operations:
+
+- `maps.kernelSummary`: Summarizes flat 2D coordinates as an open line or closed ring.
+- `maps.applyKernel`: Resamples flat 2D coordinates as an open line or closed ring.
+- `maps.pathSummary`: Reports point count, segment count, length, and bounds for a flat 2D path.
+- `maps.simplifyLine`: Simplifies a flat open 2D line with deterministic Douglas-Peucker simplification.
+- `maps.densifyLine`: Inserts flat 2D line points so no segment exceeds the requested length.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-maps-kernels-core-cli -- run \
+  --operation maps.kernelSummary \
+  --json '{"closed":false,"coordinates":[0.0,0.0,1.0,0.0]}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.

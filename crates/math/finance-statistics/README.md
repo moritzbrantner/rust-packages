@@ -51,6 +51,40 @@ dividing by volatility. These helpers are deterministic local portfolio
 analytics, not optimizer-heavy portfolio construction or efficient-frontier
 tools.
 
+## Package surface
+
+Primary workflow: `finance.returns`.
+
+Workflow operations:
+
+- `finance.returns`: Computes simple or log returns from strictly positive prices.
+- `finance.risk`: Computes return, volatility, VaR/CVaR, ratios, and optional beta/alpha.
+- `finance.drawdown`: Computes maximum drawdown details from a return series.
+- `finance.rolling`: Computes rolling mean, sample volatility, and optional benchmark correlation.
+- `finance.portfolio`: Computes weighted portfolio returns and compact portfolio risk metrics.
+- `finance.performanceRatios`: Computes Calmar ratio, Omega ratio, and drawdown duration for a return series.
+- `finance.riskContribution`: Computes annualized historical covariance-based portfolio volatility contributions.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-finance-statistics-cli -- run \
+  --operation finance.returns \
+  --json '{"method":"simple","prices":[100.0,110.0,99.0]}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.
+
 ## Related crates
 
 - `math-statistics`

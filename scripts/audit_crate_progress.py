@@ -745,9 +745,7 @@ def run_json(root: Path, command: list[str]) -> dict:
 
 
 def cargo_env() -> dict[str, str]:
-    env = os.environ.copy()
-    env.setdefault("CARGO_TARGET_DIR", str(DEFAULT_ROOT / "target"))
-    return env
+    return os.environ.copy()
 
 
 def git_output(root: Path, command: list[str]) -> str:

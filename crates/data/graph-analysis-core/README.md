@@ -32,6 +32,36 @@ assert_eq!(strongly_connected_components(&directed).len(), 1);
 # }
 ```
 
+## Package surface
+
+Primary workflow: `graph.components`.
+
+Workflow operations:
+
+- `graph.components`: Returns connected, weakly connected, or strongly connected graph components.
+- `graph.shortestPath`: Returns the shortest weighted path between two graph nodes when reachable.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+- `graph.validateTree`: Analyzes an undirected graph as a tree or forest.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-graph-analysis-core-cli -- run \
+  --operation graph.components \
+  --json '{"edges":[{"source":"a","target":"b"},{"source":"c","target":"d"}],"kind":"undirected","mode":"connected"}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.
+
 ## Related crates
 
 - `dense-data`

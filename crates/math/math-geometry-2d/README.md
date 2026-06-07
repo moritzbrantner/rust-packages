@@ -28,6 +28,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Package surface
+
+Primary workflow: `geometry.bounds`.
+
+Workflow operations:
+
+- `geometry.bounds`: Computes 2D bounds, dimensions, and center for finite points.
+- `geometry.transform`: Applies an affine transform to finite 2D points and returns transformed bounds.
+- `geometry.intersections`: Checks every rectangle pair and returns intersection rectangles when present.
+- `geometry.overlap`: Computes intersection area, IoU, and directional overlap ratios for two rectangles.
+- `geometry.segmentIntersection`: Computes the point and segment parameters for two finite 2D segment intersections.
+- `geometry.polygonSummary`: Reports area, winding, centroid, and bounds for a finite 2D polygon.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-math-geometry-2d-cli -- run \
+  --operation geometry.bounds \
+  --json '{"points":[[0.0,1.0],[2.0,3.0]]}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.
+
 ## Related crates
 
 - `video-analysis-core`

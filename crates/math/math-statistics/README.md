@@ -87,6 +87,46 @@ small and medium local matrices: it solves `(X^T X + lambda I) beta = X^T y`
 with finite, non-negative `lambda`. It is not a full numerical backend or
 optimizer suite.
 
+## Package surface
+
+Primary workflow: `stats.series.describe`.
+
+Workflow operations:
+
+- `stats.series.describe`: Computes summary statistics for a finite scalar series.
+- `stats.series.changes`: Converts adjacent values into differences, relative changes, or log-ratios.
+- `stats.series.compare`: Computes pairwise covariance and correlation for two finite scalar series.
+- `stats.series.rolling`: Computes rolling mean, standard deviation, ranges, and optional paired correlations.
+- `stats.series.tailRisk`: Computes empirical VaR/CVaR style tail-risk statistics.
+- `stats.series.zScores`: Standardizes a finite scalar series into z-scores.
+- `stats.normalize`: Applies z-score or min-max column normalization to a finite f32 matrix.
+- `stats.covariance`: Computes covariance and optional correlation for matrix rows as observations.
+- `stats.pca`: Fits PCA-lite components and optionally transforms rows into component space.
+- `stats.series.rankCorrelation`: Computes average ranks and Spearman correlation for finite paired scalar series.
+- `stats.regression.linear`: Fits a simple y = intercept + slope * x regression for paired finite scalar observations.
+- `stats.regression.ols`: Fits ordinary least squares from a finite dense design matrix and target vector.
+- `stats.regression.diagnostics`: Fits full-column-rank OLS and returns residual, adjusted R-squared, standard-error, and t-statistic diagnostics.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-math-statistics-cli -- run \
+  --operation stats.series.describe \
+  --json '{"values":[1.0,2.0,3.0,4.0],"varianceMode":"sample"}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.
+
 ## Related crates
 
 - `dense-data`

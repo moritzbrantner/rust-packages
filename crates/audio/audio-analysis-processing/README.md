@@ -62,6 +62,41 @@ let _ = realtime;
   FFmpeg-backed file output should be preferred when production pitch/time
   quality is required.
 
+## Package surface
+
+Primary workflow: `audio.processing.apply`.
+
+Workflow operations:
+
+- `audio.processing.apply`: Applies an in-memory streaming chain to normalized samples.
+- `audio.processing.effectsCatalog`: Inspects supported streaming and offline audio processing operations without applying them.
+- `audio.processing.offlineEdit`: Applies deterministic whole-clip edits such as trim, reverse, fade, normalize, speed, and pitch shift.
+- `audio.processing.mixdown`: Mixes multiple whole-clip placements onto one deterministic output timeline.
+- `audio.processing.preset`: Applies or describes a named audio effect preset.
+- `audio.processing.energy`: Returns RMS, peak, mean absolute value, and silence/loud labels.
+- `audio.processing.loudness`: Computes deterministic loudness-oriented peak, RMS, crest factor, and approximate LUFS metrics.
+- `audio.processing.chainSummary`: Inspects the deterministic transform chain that would be applied.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-audio-analysis-processing-cli -- run \
+  --operation audio.processing.apply \
+  --json '{"chain":[{"linear":0.8,"type":"gain"},{"driveDb":12.0,"mix":0.5,"mode":"tanh","type":"distortion"}],"channels":1,"sampleRate":48000,"samples":[0.0,0.5,-0.5]}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.
+
 ## Related crates
 
 - `audio-analysis-core`

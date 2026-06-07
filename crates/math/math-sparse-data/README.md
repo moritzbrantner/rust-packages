@@ -42,17 +42,39 @@ matrices. Dense matrix outputs use `math-linear::F32Matrix`, allowing sparse
 feature workflows to move into linear algebra and statistics without adding an
 external math backend.
 
-## Runtime Surface
+## Package surface
 
-The package surface exposes sparse vector similarity, dense conversion, matrix
-summary/statistics, vector operations, matrix-vector multiplication, and
-transpose operations. Successful responses preserve sparse result fields and add
-the shared `operation`, `title`, `message`, `summary`, and `result` fields.
+Primary workflow: `sparse.similarity`.
 
-Default surface calls are deterministic and in-memory. They reject more than
-100,000 vector values or 100,000 COO matrix entries with typed
-`runtime_core::SurfaceError` JSON. Unsupported sparse metrics and matrix formats
-also return typed surface errors.
+Workflow operations:
+
+- `sparse.similarity`: Computes sparse dot product or cosine similarity.
+- `sparse.toDense`: Converts sparse vector coordinates into a dense f32 array.
+- `sparse.matrixSummary`: Summarizes COO or CSR sparse matrix shape, nnz, density, and row nnz.
+- `sparse.matrixStats`: Summarizes sparse matrix density, row/column nnz, row/column sums, and compact nnz statistics.
+- `sparse.vectorOps`: Computes sparse vector norms, optional scaling, optional addition, and top-k entries.
+- `sparse.matrixVector`: Multiplies a COO or CSR sparse matrix by a finite dense vector.
+- `sparse.transpose`: Transposes a COO or CSR sparse matrix and returns canonical COO entries.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-math-sparse-data-cli -- run \
+  --operation sparse.similarity \
+  --json '{"left":{"dimensions":3,"indices":[0,2],"values":[1.0,2.0]},"metric":"dot","right":{"dimensions":3,"indices":[2],"values":[3.0]}}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.
 
 ## Related crates
 

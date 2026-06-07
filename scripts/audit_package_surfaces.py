@@ -568,9 +568,16 @@ def validate_readme_quickstart(
         failures.append(f"{package.name}: missing README.md")
         return
     text = readme_path.read_text(encoding="utf-8").lower()
-    if text.strip():
+    if not text.strip():
+        failures.append(f"{package.name}: README is empty")
         return
-    failures.append(f"{package.name}: README is empty")
+    if "package surface" in text and ("workflow operation" in text or "primary workflow" in text):
+        return
+    if "run_surface_operation" in text or "package_surface" in text:
+        return
+    if any(operation_id.lower() in text for operation_id in operation_ids if operation_id != "describe"):
+        return
+    failures.append(f"{package.name}: README missing package-surface quickstart")
 
 
 def classify_operation(operation: dict) -> str:

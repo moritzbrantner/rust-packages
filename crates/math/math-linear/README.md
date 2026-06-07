@@ -93,6 +93,45 @@ averaging blur.
 Rank-2 `tensor-data::F32Tensor` values can be converted to matrices, and
 matrices can be converted back to tensors with shape `[rows, cols]`.
 
+## Package surface
+
+Primary workflow: `linear.matmul`.
+
+Workflow operations:
+
+- `linear.matmul`: Multiplies two finite f32 row-major matrices.
+- `linear.transpose`: Returns a row-major owned transpose of a finite f32 matrix.
+- `linear.solve`: Solves a square finite f32 matrix against a vector or matrix right-hand side.
+- `linear.decompose`: Decomposes a square finite f32 matrix with partial-pivoted LU.
+- `linear.inverse`: Returns the inverse of a finite square f32 matrix.
+- `linear.kernel1d`: Validates and optionally normalizes a finite 1D f32 kernel.
+- `linear.tensorBridge`: Projects rank-2 tensor payloads to matrix shape or matrix-shaped payloads to tensor shape.
+- `linear.gram`: Computes row or column Gram matrices for a finite f32 matrix.
+- `linear.cholesky`: Factors a symmetric positive definite matrix into lower-triangular Cholesky form.
+- `linear.qr`: Factors a full-column-rank matrix with deterministic modified Gram-Schmidt QR.
+- `linear.center`: Subtracts row or column means from a finite f32 matrix.
+- `linear.leastSquares`: Fits a full-column-rank QR least-squares model for a finite f32 design matrix.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-math-linear-cli -- run \
+  --operation linear.matmul \
+  --json '{"left":{"cols":2,"rows":2,"values":[1.0,2.0,3.0,4.0]},"right":{"cols":1,"rows":2,"values":[5.0,6.0]}}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.
+
 ## Related crates
 
 - `tensor-data`

@@ -41,6 +41,36 @@ assert_eq!(optimized, collisions);
 let _tracker = IouTracker::new(Default::default())?;
 ```
 
+## Package surface
+
+Primary workflow: `video.tracking.trackSummary`.
+
+Workflow operations:
+
+- `video.tracking.trackSummary`: Runs IoU tracking over frame detections and summarizes resulting tracks.
+- `video.tracking.smoothPath`: Applies deterministic moving-average smoothing to ordered track points.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+- `video.tracking.assignmentPlan`: Builds a deterministic IoU association plan between previous and next detections.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-video-analysis-tracking-cli -- run \
+  --operation video.tracking.trackSummary \
+  --json '{"frames":[{"detections":[{"label":"person","region":{"height":8,"width":8,"x":0,"y":0}}],"frameIndex":0},{"detections":[{"label":"person","region":{"height":8,"width":8,"x":1,"y":0}}],"frameIndex":1}],"options":{"maxMissedFrames":15,"minIou":0.3}}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.
+
 ## Related crates
 
 - `video-analysis-recognition`

@@ -124,6 +124,37 @@ updates. K-means is deterministic for the same input: initial centroids are
 chosen from the validated point order and clusters are returned in stable index
 order.
 
+## Package surface
+
+Primary workflow: `summarizeDensePoints`.
+
+Workflow operations:
+
+- `summarizeDensePoints`: Returns weighted per-dimension stats, bounds, and optional scalar value stats.
+- `bucketDensePoints`: Groups dense points into deterministic fixed-grid buckets.
+- `clusterDensePoints`: Runs deterministic weighted k-means over dense points.
+- `binNumericSeries`: Bins numeric points into display-sized summaries with metric totals.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-dense-data-cli -- run \
+  --operation summarizeDensePoints \
+  --json '{"points":[{"coordinates":[0,1],"weight":1},{"coordinates":[2,3],"value":4,"weight":2}]}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.
+
 ## Related crates
 
 - `math-linear`

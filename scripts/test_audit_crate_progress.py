@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 import tempfile
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "audit_crate_progress.py"
@@ -21,6 +23,16 @@ spec.loader.exec_module(audit)
 
 
 class CrateProgressAuditTests(unittest.TestCase):
+    def test_cargo_env_does_not_force_target_dir(self) -> None:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            env = audit.cargo_env()
+        self.assertNotIn("CARGO_TARGET_DIR", env)
+
+    def test_cargo_env_preserves_explicit_target_dir(self) -> None:
+        with mock.patch.dict(os.environ, {"CARGO_TARGET_DIR": "/tmp/custom-target"}, clear=True):
+            env = audit.cargo_env()
+        self.assertEqual(env["CARGO_TARGET_DIR"], "/tmp/custom-target")
+
     def test_generated_ledger_is_stable(self) -> None:
         first = audit.render_ledger(audit.audit_records(ROOT, "moritzbrantner-text-core"))
         second = audit.render_ledger(audit.audit_records(ROOT, "moritzbrantner-text-core"))

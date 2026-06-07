@@ -39,6 +39,36 @@ metadata. It supports sample/second slicing, timeline splitting, concat, and
 mixing. Format-changing concat is explicit through `ConcatPolicy::ResampleToFirst`;
 mixing still requires matching sample rate and channels.
 
+## Package surface
+
+Primary workflow: `audio.levels`.
+
+Workflow operations:
+
+- `audio.levels`: Returns deterministic level metrics for normalized audio samples.
+- `audio.frames`: Summarizes fixed-size analysis frames over normalized samples.
+- `audio.timestamps`: Converts between seconds, samples, and timestamp ticks for a sample rate.
+
+Debug operations:
+
+- `describe`: inspect package metadata and runtime support.
+
+Runtime support: library, CLI, server, and WASM wrappers expose these operations.
+
+Run the primary workflow through the CLI:
+
+```bash
+cargo run -p moritzbrantner-audio-analysis-core-cli -- run \
+  --operation audio.levels \
+  --json '{"channels":1,"sampleRate":48000,"samples":[0.0,0.5,-0.5]}'
+```
+
+Successful responses use the shared package-surface shape with `operation`,
+`title`, `message`, `summary`, and `result`. Default surface calls are
+deterministic, local-first, and do not download models, write persistent files,
+or execute external tools unless an operation explicitly documents native or
+external-tool execution.
+
 ## Related crates
 
 - `video-analysis-core`
