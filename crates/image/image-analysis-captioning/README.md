@@ -8,7 +8,9 @@ caption outputs, captioner backend traits, and captioning catalog metadata.
 ## Runtime Surface
 
 - Workflow operations: `image.captioning.imported` validates caller-supplied
-  captions and scores into normalized caption values.
+  captions and scores, `image.captioning.rankCaptions` ranks normalized
+  captions, and `image.captioning.captionReport` summarizes caption-set
+  quality fields.
 - Debug operations: `image.captioning.models`, `image.captioning.schema`, and
   `describe` inspect catalogs, schemas, and package metadata.
 - The surface does not download models or run captioning inference.

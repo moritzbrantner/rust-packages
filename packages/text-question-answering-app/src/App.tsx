@@ -16,13 +16,13 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "qa.answer",
-  featuredOperations: ["qa.answer", "qa.models", "describe"],
+  featuredOperations: ["qa.answer", "qa.answerWithRetrieval", "qa.answerBatch", "qa.models", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
-      description: "Run extractive question-answering postprocessing.",
-      operations: ["qa.answer"],
+      description: "Run extractive question-answering and document QA workflows.",
+      operations: ["qa.answer", "qa.answerWithRetrieval", "qa.answerBatch"],
     },
     {
       id: "debug",
@@ -60,6 +60,36 @@ const packageAppConfig: PackageAppConfig = {
         ],
       },
     },
+    {
+      id: "retrieval-answer",
+      label: "Answer from documents",
+      operation: "qa.answerWithRetrieval",
+      description: "Build a deterministic retrieval index and return cited answers.",
+      input: {
+        question: "What language has ownership?",
+        documents: [
+          { id: "doc-rust", body: "Rust has ownership and deterministic package workflows." },
+          { id: "doc-python", body: "Python has a large package ecosystem." },
+        ],
+        topKChunks: 2,
+        topKAnswers: 1,
+      },
+    },
+    {
+      id: "batch-answer",
+      label: "Answer a batch",
+      operation: "qa.answerBatch",
+      description: "Run multiple imported-span QA requests with item-level results.",
+      input: {
+        requests: [
+          {
+            question: "Who presented the roadmap?",
+            context: "Alice presented the roadmap.",
+            importedPredictions: [{ text: "Alice", score: 0.94 }],
+          },
+        ],
+      },
+    },
   ],
   benchmarkScenarios: [
     {
@@ -75,6 +105,20 @@ const packageAppConfig: PackageAppConfig = {
       warmupIterations: 5,
       outputCountPath: ["answers"],
     },
+    {
+      id: "retrieval-answer",
+      label: "Retrieval Answer",
+      operation: "qa.answerWithRetrieval",
+      input: {
+        question: "What language has ownership?",
+        documents: [{ id: "doc-rust", body: "Rust has ownership and deterministic package workflows." }],
+        topKChunks: 2,
+        topKAnswers: 1,
+      },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["answers"],
+    },
   ],
   resultTabs: createTextResultTabs({
     library: "text-question-answering",
@@ -85,6 +129,20 @@ const packageAppConfig: PackageAppConfig = {
         listFields: ["answers"],
         objectFields: ["model", "result"],
         explanation: () => "The current browser-safe workflow postprocesses supplied extractive span predictions and reports question, answer, score, span, and runtime metadata.",
+      },
+      "qa.answerWithRetrieval": {
+        title: "Retrieval QA",
+        summaryFields: ["retrievedChunkCount", "answerCount"],
+        listFields: ["answers", "retrievedChunks"],
+        objectFields: ["result"],
+        explanation: () => "The workflow builds a deterministic in-memory retrieval index from supplied documents and returns cited answers.",
+      },
+      "qa.answerBatch": {
+        title: "Batch QA",
+        summaryFields: ["successes", "failures"],
+        listFields: ["results"],
+        objectFields: ["result"],
+        explanation: () => "The workflow runs imported-span QA requests in order and preserves item-level successes and validation errors.",
       },
     },
   }),

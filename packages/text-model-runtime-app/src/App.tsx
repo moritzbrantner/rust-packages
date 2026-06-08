@@ -16,13 +16,19 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "runtime.tokenizeSummary",
-  featuredOperations: ["runtime.tokenizeSummary", "runtime.softmax", "describe"],
+  featuredOperations: [
+    "runtime.tokenizeSummary",
+    "runtime.bundleCheck",
+    "runtime.tokenizerProbe",
+    "runtime.softmax",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
-      description: "Run deterministic tokenizer summary workflows.",
-      operations: ["runtime.tokenizeSummary"],
+      description: "Run deterministic tokenizer and local bundle readiness workflows.",
+      operations: ["runtime.tokenizeSummary", "runtime.bundleCheck", "runtime.tokenizerProbe"],
     },
     {
       id: "support",
@@ -52,6 +58,29 @@ const packageAppConfig: PackageAppConfig = {
       description: "Normalize support logits into a probability distribution.",
       input: { logits: [0.1, 0.3, 1.2, -0.7, 2.4, 0.0] },
     },
+    {
+      id: "bundle-check",
+      label: "Check tokenizer bundle files",
+      operation: "runtime.bundleCheck",
+      description: "Validate required local tokenizer files without downloads.",
+      input: {
+        modelId: "demo-tokenizer",
+        capability: "tokenizer",
+        bundleRoot: ".model-runtime/demo-tokenizer",
+        requiredFiles: ["tokenizer.json"],
+      },
+    },
+    {
+      id: "tokenizer-probe",
+      label: "Probe tokenizer bundle",
+      operation: "runtime.tokenizerProbe",
+      description: "Report tokenizer load/run readiness for a local tokenizer file.",
+      input: {
+        modelId: "demo-tokenizer",
+        tokenizerPath: ".model-runtime/demo-tokenizer/tokenizer.json",
+        sample: "Rust text runtime",
+      },
+    },
   ],
   benchmarkScenarios: [
     {
@@ -72,6 +101,20 @@ const packageAppConfig: PackageAppConfig = {
       warmupIterations: 10,
       outputCountPath: ["probabilities"],
     },
+    {
+      id: "bundle-check",
+      label: "Bundle Check",
+      operation: "runtime.bundleCheck",
+      input: {
+        modelId: "demo-tokenizer",
+        capability: "tokenizer",
+        bundleRoot: ".model-runtime/demo-tokenizer",
+        requiredFiles: ["tokenizer.json"],
+      },
+      iterations: 100,
+      warmupIterations: 5,
+      outputCountPath: ["missingFiles"],
+    },
   ],
   resultTabs: createTextResultTabs({
     library: "text-model-runtime",
@@ -82,6 +125,20 @@ const packageAppConfig: PackageAppConfig = {
         listFields: ["tokens"],
         objectFields: ["offsets", "metadata", "result"],
         explanation: () => "The runtime helper split text deterministically and reported token offsets/counts without invoking an optional native model runtime.",
+      },
+      "runtime.bundleCheck": {
+        title: "Bundle readiness",
+        summaryFields: ["loadable", "missingFileCount"],
+        listFields: ["missingFiles", "presentFiles", "requiredFiles"],
+        objectFields: ["report", "result"],
+        explanation: () => "The runtime helper checked local bundle files only and reported whether the configured model assets are present.",
+      },
+      "runtime.tokenizerProbe": {
+        title: "Tokenizer probe",
+        summaryFields: ["loadable", "ran"],
+        listFields: ["diagnostics"],
+        objectFields: ["report", "run", "result"],
+        explanation: () => "The runtime helper inspected a local tokenizer path and only runs sample tokenization when the optional tokenizer feature is available.",
       },
       "runtime.softmax": {
         title: "Softmax probabilities",

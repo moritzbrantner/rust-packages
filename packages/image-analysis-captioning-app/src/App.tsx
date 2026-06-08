@@ -16,13 +16,24 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "image.captioning.imported",
-  featuredOperations: ["image.captioning.imported", "image.captioning.models", "image.captioning.schema", "describe"],
+  featuredOperations: [
+    "image.captioning.imported",
+    "image.captioning.rankCaptions",
+    "image.captioning.captionReport",
+    "image.captioning.models",
+    "image.captioning.schema",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
-      description: "Validate and normalize imported caption results.",
-      operations: ["image.captioning.imported"],
+      description: "Validate, rank, and summarize imported caption results.",
+      operations: [
+        "image.captioning.imported",
+        "image.captioning.rankCaptions",
+        "image.captioning.captionReport",
+      ],
     },
     {
       id: "debug",

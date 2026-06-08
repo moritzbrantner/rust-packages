@@ -22,12 +22,13 @@ runnable native models.
 
 - Primary workflow: `qa.answer` postprocesses imported extractive QA span
   predictions for a supplied question and context.
-- Workflow operations: `qa.answer`.
+- Workflow operations: `qa.answer`, `qa.answerWithRetrieval`, and
+  `qa.answerBatch`.
 - Debug operations: `qa.models` inspects the model catalog, and `describe`
   inspects package metadata and operation support.
 - Runtime support: pure Rust default behavior is available through library, CLI,
   server, and WASM wrappers.
 - Sample output includes `title`, `message`, `summary`, `result`, and
-  operation-specific answer fields.
+  operation-specific answer, citation, batch-result, and retrieval fields.
 - The package surface does not download model bundles or execute native QA
   runtimes.

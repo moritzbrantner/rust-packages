@@ -191,8 +191,14 @@ fn image_surface_cases() -> Vec<ImageSurfaceCase> {
                 "image.captioning.models",
                 "image.captioning.schema",
                 "image.captioning.imported",
+                "image.captioning.rankCaptions",
+                "image.captioning.captionReport",
             ],
-            workflow: &["image.captioning.imported"],
+            workflow: &[
+                "image.captioning.imported",
+                "image.captioning.rankCaptions",
+                "image.captioning.captionReport",
+            ],
             debug: &[
                 "image.captioning.models",
                 "image.captioning.schema",
@@ -211,8 +217,14 @@ fn image_surface_cases() -> Vec<ImageSurfaceCase> {
                 "image.classification.models",
                 "image.classification.schema",
                 "image.classification.imported",
+                "image.classification.topLabels",
+                "image.classification.thresholdLabels",
             ],
-            workflow: &["image.classification.imported"],
+            workflow: &[
+                "image.classification.imported",
+                "image.classification.topLabels",
+                "image.classification.thresholdLabels",
+            ],
             debug: &[
                 "image.classification.models",
                 "image.classification.schema",

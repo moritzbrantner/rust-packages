@@ -227,6 +227,46 @@ pub struct RetrievalQuestionAnsweringResponse {
     pub answers: Vec<CitedAnswer>,
 }
 
+/// Request for running multiple imported-span QA requests in one call.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionAnsweringBatchRequest {
+    /// Question-answering requests to run.
+    pub requests: Vec<QuestionAnsweringRequest>,
+}
+
+/// One item result from a batch QA run.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionAnsweringBatchItemResult {
+    /// Zero-based request index.
+    pub index: usize,
+    /// Whether the item succeeded.
+    pub accepted: bool,
+    /// Successful item response.
+    #[serde(default)]
+    pub response: Option<QuestionAnsweringResponse>,
+    /// Item-level error message.
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+/// Response for a batch QA run.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionAnsweringBatchResponse {
+    /// Accepted flag for generated package surfaces.
+    pub accepted: bool,
+    /// Operation name.
+    pub operation: String,
+    /// Successful item count.
+    pub successes: usize,
+    /// Failed item count.
+    pub failures: usize,
+    /// Per-item results in request order.
+    pub results: Vec<QuestionAnsweringBatchItemResult>,
+}
+
 /// Returns the question-answering model catalog.
 pub fn model_catalog() -> Vec<QuestionAnsweringModelMetadata> {
     vec![QuestionAnsweringModelMetadata {
@@ -329,6 +369,53 @@ pub fn answer_question(request: QuestionAnsweringRequest) -> Result<QuestionAnsw
     unsupported_runtime(
         "native question answering requires imported span predictions until ONNX QA span extraction is wired",
     )
+}
+
+/// Runs multiple imported-span QA requests and returns item-level errors.
+pub fn answer_question_batch(
+    request: QuestionAnsweringBatchRequest,
+) -> Result<QuestionAnsweringBatchResponse> {
+    if request.requests.is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "batch QA request must include at least one request".to_string(),
+        ));
+    }
+
+    let mut successes = 0;
+    let mut failures = 0;
+    let results = request
+        .requests
+        .into_iter()
+        .enumerate()
+        .map(|(index, item)| match answer_question(item) {
+            Ok(response) => {
+                successes += 1;
+                QuestionAnsweringBatchItemResult {
+                    index,
+                    accepted: true,
+                    response: Some(response),
+                    error: None,
+                }
+            }
+            Err(error) => {
+                failures += 1;
+                QuestionAnsweringBatchItemResult {
+                    index,
+                    accepted: false,
+                    response: None,
+                    error: Some(error.to_string()),
+                }
+            }
+        })
+        .collect();
+
+    Ok(QuestionAnsweringBatchResponse {
+        accepted: true,
+        operation: "question-answer-batch".to_string(),
+        successes,
+        failures,
+        results,
+    })
 }
 
 /// Answers a question by building a deterministic retrieval index from documents.
@@ -741,5 +828,39 @@ mod tests {
         assert_eq!(response.answers[0].answer, "Rust");
         assert_eq!(response.answers[0].citations[0].document_id, "doc-rust");
         assert!(response.answers[0].citations[0].span.is_some());
+    }
+
+    #[test]
+    fn batch_qa_returns_item_level_results() {
+        let response = answer_question_batch(QuestionAnsweringBatchRequest {
+            requests: vec![
+                QuestionAnsweringRequest {
+                    question: "Who?".to_string(),
+                    context: "Alice wrote it.".to_string(),
+                    top_k: 1,
+                    model: ModelSelection::default(),
+                    imported_predictions: vec![ImportedAnswerPrediction {
+                        text: Some("Alice".to_string()),
+                        score: 0.9,
+                        kind: None,
+                        label: None,
+                        attributes: BTreeMap::new(),
+                    }],
+                },
+                QuestionAnsweringRequest {
+                    question: "".to_string(),
+                    context: "Missing question.".to_string(),
+                    top_k: 1,
+                    model: ModelSelection::default(),
+                    imported_predictions: Vec::new(),
+                },
+            ],
+        })
+        .expect("batch");
+
+        assert_eq!(response.successes, 1);
+        assert_eq!(response.failures, 1);
+        assert!(response.results[0].accepted);
+        assert!(!response.results[1].accepted);
     }
 }

@@ -35,16 +35,19 @@ device cannot be initialized. WASM Candle bindings remain CPU-only.
 
 - Primary workflow: `runtime.tokenizeSummary` builds a deterministic
   whitespace-token summary without downloads or native model execution.
-- Workflow operations: `runtime.tokenizeSummary`.
+- Workflow operations: `runtime.tokenizeSummary`, `runtime.bundleCheck`, and
+  `runtime.tokenizerProbe`.
 - Support operations: `runtime.softmax` exposes the shared stable softmax
   helper.
 - Debug operations: `describe` inspects package metadata and operation support.
 - Runtime support: pure Rust package-surface helpers are available through
   library, CLI, server, and WASM wrappers.
 - Sample output includes `title`, `message`, `summary`, `result`, and
-  operation-specific fields such as `tokens`, `tokenized`, or `probabilities`.
+  operation-specific fields such as `tokens`, `tokenized`, readiness reports,
+  or `probabilities`.
 - The package surface does not load tokenizers or execute ONNX/Candle runtimes;
-  those paths remain feature-gated library/server concerns.
+  those paths remain feature-gated library/server concerns. Readiness workflows
+  inspect local paths only and never download model files.
 
 ## Model Conformance
 

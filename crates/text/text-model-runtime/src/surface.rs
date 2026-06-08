@@ -6,7 +6,12 @@ use runtime_core::{
 };
 use serde::Deserialize;
 
-use crate::{softmax, TokenizedText};
+use std::path::PathBuf;
+
+use crate::{
+    softmax, validate_text_model_bundle, validate_tokenizer_bundle, TextModelBundleCheck,
+    TextModelCapability, TokenizedText,
+};
 
 /// Returns the package surface exposed by every transport wrapper.
 pub fn package_surface() -> PackageSurface {
@@ -17,6 +22,8 @@ pub fn package_surface() -> PackageSurface {
         operations: vec![
             operation("describe", "Inspect package metadata", "Shared tokenizer and native text model runtime traits for video-analysis.", serde_json::json!({"includeOperations": true})),
             operation("runtime.tokenizeSummary", "Tokenize summary", "Builds a deterministic TokenizedText-like whitespace-token summary without downloads or native runtime execution.", serde_json::json!({"text": "Rust text runtime", "maxTokens": 8})),
+            operation("runtime.bundleCheck", "Check model bundle", "Validates required local model bundle files without downloads or native runtime execution.", serde_json::json!({"modelId": "demo-tokenizer", "capability": "tokenizer", "bundleRoot": ".model-runtime/demo-tokenizer", "requiredFiles": ["tokenizer.json"]})),
+            operation("runtime.tokenizerProbe", "Probe tokenizer bundle", "Validates a local tokenizer file and performs a sample tokenization only when the tokenizers feature is available.", serde_json::json!({"modelId": "demo-tokenizer", "tokenizerPath": ".model-runtime/demo-tokenizer/tokenizer.json", "sample": "Rust text runtime"})),
             operation("runtime.softmax", "Normalize logits", "Normalizes logits with a stable softmax helper.", serde_json::json!({"logits": [0.0, 1.0]})),
         ],
     }
@@ -37,6 +44,8 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let value = match request.operation.as_str() {
         "describe" => describe_value(request.input),
         "runtime.tokenizeSummary" => tokenize_summary_value(parse_input(request.input)?)?,
+        "runtime.bundleCheck" => bundle_check_value(parse_input(request.input)?)?,
+        "runtime.tokenizerProbe" => tokenizer_probe_value(parse_input(request.input)?)?,
         "runtime.softmax" => softmax_value(parse_input(request.input)?)?,
         operation => {
             return Err(runtime_core::SurfaceError::unsupported_operation(
@@ -85,6 +94,26 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
                 "tokenCount": value["tokens"].as_array().map(Vec::len).unwrap_or(0)
             }),
         ),
+        "runtime.bundleCheck" => (
+            "Model bundle readiness result",
+            "Validated required local model bundle files without downloads or native runtime execution.",
+            serde_json::json!({
+                "status": "ok",
+                "modelId": value["modelId"],
+                "loadable": value["loadable"],
+                "missingFileCount": value["missingFiles"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "runtime.tokenizerProbe" => (
+            "Tokenizer probe result",
+            "Validated a local tokenizer bundle and reported whether a sample tokenization could run.",
+            serde_json::json!({
+                "status": "ok",
+                "modelId": value["report"]["modelId"],
+                "loadable": value["report"]["loadable"],
+                "ran": value["run"].is_object()
+            }),
+        ),
         "runtime.softmax" => (
             "Softmax support result",
             "Normalized logits with the shared stable softmax helper.",
@@ -114,6 +143,28 @@ struct TokenizeSummaryRequest {
 #[derive(Debug, Deserialize)]
 struct SoftmaxRequest {
     logits: Vec<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BundleCheckRequest {
+    model_id: String,
+    capability: TextModelCapability,
+    bundle_root: PathBuf,
+    required_files: Vec<String>,
+    required_feature: Option<String>,
+    required_setup: Option<String>,
+    smoke_operation: Option<String>,
+    #[serde(default = "default_supported")]
+    supported: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TokenizerProbeRequest {
+    model_id: String,
+    tokenizer_path: PathBuf,
+    sample: String,
 }
 
 fn tokenize_summary_value(request: TokenizeSummaryRequest) -> Result<serde_json::Value, String> {
@@ -156,6 +207,57 @@ fn softmax_value(request: SoftmaxRequest) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "probabilities": softmax(&request.logits) }))
 }
 
+fn bundle_check_value(request: BundleCheckRequest) -> Result<serde_json::Value, String> {
+    require_non_empty_string("runtime.bundleCheck", "modelId", &request.model_id)?;
+    require_non_empty_path("runtime.bundleCheck", "bundleRoot", &request.bundle_root)?;
+    runtime_core::require_non_empty(
+        "runtime.bundleCheck",
+        "requiredFiles",
+        &request.required_files,
+    )?;
+    for file in &request.required_files {
+        require_non_empty_string("runtime.bundleCheck", "requiredFiles[]", file)?;
+    }
+
+    let mut check = TextModelBundleCheck::new(
+        request.model_id,
+        request.capability,
+        request.bundle_root,
+        request.required_files,
+    );
+    if let Some(feature) = request.required_feature {
+        check = check.required_feature(feature);
+    }
+    if let Some(setup) = request.required_setup {
+        check = check.required_setup(setup);
+    }
+    if let Some(operation) = request.smoke_operation {
+        check = check.smoke_operation(operation);
+    }
+    if !request.supported {
+        check = check.reference_only();
+    }
+
+    serde_json::to_value(validate_text_model_bundle(check)).map_err(|error| error.to_string())
+}
+
+fn tokenizer_probe_value(request: TokenizerProbeRequest) -> Result<serde_json::Value, String> {
+    require_non_empty_string("runtime.tokenizerProbe", "modelId", &request.model_id)?;
+    require_non_empty_path(
+        "runtime.tokenizerProbe",
+        "tokenizerPath",
+        &request.tokenizer_path,
+    )?;
+    require_non_empty_string("runtime.tokenizerProbe", "sample", &request.sample)?;
+
+    let (report, run) =
+        validate_tokenizer_bundle(request.model_id, request.tokenizer_path, &request.sample);
+    Ok(serde_json::json!({
+        "report": report,
+        "run": run
+    }))
+}
+
 fn whitespace_tokens(text: &str) -> Vec<(String, usize, usize)> {
     let mut tokens = Vec::new();
     let mut start = None;
@@ -182,6 +284,32 @@ fn default_truncation() -> String {
     "head".to_string()
 }
 
+fn default_supported() -> bool {
+    true
+}
+
+fn require_non_empty_string(operation: &str, field: &str, value: &str) -> Result<(), String> {
+    if value.trim().is_empty() {
+        return Err(format!(
+            "invalid request for `{operation}`: `{field}` must not be empty"
+        ));
+    }
+    Ok(())
+}
+
+fn require_non_empty_path(
+    operation: &str,
+    field: &str,
+    value: &std::path::Path,
+) -> Result<(), String> {
+    if value.as_os_str().is_empty() {
+        return Err(format!(
+            "invalid request for `{operation}`: `{field}` must not be empty"
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,7 +322,25 @@ mod tests {
             .map(|operation| operation.id.0)
             .collect::<Vec<_>>();
         assert!(ids.contains(&"runtime.tokenizeSummary".to_string()));
+        assert!(ids.contains(&"runtime.bundleCheck".to_string()));
+        assert!(ids.contains(&"runtime.tokenizerProbe".to_string()));
         assert!(ids.contains(&"runtime.softmax".to_string()));
+    }
+
+    #[test]
+    fn bundle_check_reports_missing_files_without_downloads() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("runtime.bundleCheck"),
+            input: serde_json::json!({
+                "modelId": "missing-tokenizer",
+                "capability": "tokenizer",
+                "bundleRoot": ".model-runtime/missing-tokenizer",
+                "requiredFiles": ["tokenizer.json"]
+            }),
+        })
+        .expect("bundle check");
+        assert_eq!(response.value["loadable"], false);
+        assert_eq!(response.value["missingFiles"].as_array().unwrap().len(), 1);
     }
 
     #[test]

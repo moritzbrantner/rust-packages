@@ -9,7 +9,8 @@ classification catalog metadata.
 ## Runtime Surface
 
 - Workflow operations: `image.classification.imported` validates caller-supplied
-  labels and scores into normalized classification values.
+  labels and scores, `image.classification.topLabels` ranks normalized labels,
+  and `image.classification.thresholdLabels` splits labels by minimum score.
 - Debug operations: `image.classification.models`,
   `image.classification.schema`, and `describe` inspect catalogs, schemas, and
   package metadata.

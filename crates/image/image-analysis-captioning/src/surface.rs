@@ -41,6 +41,18 @@ pub fn package_surface() -> PackageSurface {
                 "Validates caller-supplied caption strings and scores into normalized captions.",
                 serde_json::json!({"captions": [{"text": "a red cube", "score": 0.8}]}),
             ),
+            operation(
+                "image.captioning.rankCaptions",
+                "Rank captions",
+                "Ranks normalized imported captions by score and returns the best caption.",
+                serde_json::json!({"captions": [{"text": "a red cube", "score": 0.8}, {"text": "a studio object", "score": 0.5}], "limit": 2}),
+            ),
+            operation(
+                "image.captioning.captionReport",
+                "Caption report",
+                "Summarizes a normalized caption set with score, length, and attribute-key statistics.",
+                serde_json::json!({"captions": [{"text": "a red cube", "score": 0.8, "attributes": {"source": "fixture"}}]}),
+            ),
         ],
     }
 }
@@ -72,6 +84,8 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "image.captioning.models" => models_value(parse_input(request.input)?)?,
         "image.captioning.schema" => schema_summary(),
         "image.captioning.imported" => imported_value(parse_input(request.input)?)?,
+        "image.captioning.rankCaptions" => rank_captions_value(parse_input(request.input)?)?,
+        "image.captioning.captionReport" => caption_report_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -93,6 +107,8 @@ struct ModelsRequest {
 struct ImportedRequest {
     #[serde(default, alias = "items")]
     captions: Vec<ImportedCaption>,
+    limit: Option<usize>,
+    min_score: Option<f32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -102,6 +118,14 @@ struct ImportedCaption {
     text: String,
     score: Option<f32>,
     #[serde(default)]
+    attributes: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NormalizedCaption {
+    text: String,
+    score: Option<f32>,
     attributes: BTreeMap<String, String>,
 }
 
@@ -117,8 +141,79 @@ fn models_value(request: ModelsRequest) -> Result<serde_json::Value, String> {
 }
 
 fn imported_value(request: ImportedRequest) -> Result<serde_json::Value, String> {
-    let captions = request
-        .captions
+    let captions = normalize_captions(request.captions)?;
+    Ok(serde_json::json!({
+        "count": captions.len(),
+        "captions": captions
+    }))
+}
+
+fn rank_captions_value(request: ImportedRequest) -> Result<serde_json::Value, String> {
+    let mut captions = normalize_captions(request.captions)?;
+    if let Some(limit) = request.limit {
+        if limit == 0 {
+            return Err("caption rank limit must be greater than zero".to_string());
+        }
+    }
+    if let Some(min_score) = request.min_score {
+        if !min_score.is_finite() {
+            return Err("caption minScore must be finite".to_string());
+        }
+        captions.retain(|caption| caption.score.is_some_and(|score| score >= min_score));
+    }
+    captions.sort_by(|left, right| compare_scores_desc(left.score, right.score));
+    let filtered_count = captions.len();
+    if let Some(limit) = request.limit {
+        captions.truncate(limit);
+    }
+    Ok(serde_json::json!({
+        "count": captions.len(),
+        "filteredCount": filtered_count,
+        "bestCaption": captions.first(),
+        "captions": captions
+    }))
+}
+
+fn caption_report_value(request: ImportedRequest) -> Result<serde_json::Value, String> {
+    let mut captions = normalize_captions(request.captions)?;
+    captions.sort_by(|left, right| compare_scores_desc(left.score, right.score));
+    let scores = captions
+        .iter()
+        .filter_map(|caption| caption.score)
+        .collect::<Vec<_>>();
+    let lengths = captions
+        .iter()
+        .map(|caption| caption.text.chars().count())
+        .collect::<Vec<_>>();
+    let attribute_keys = captions
+        .iter()
+        .flat_map(|caption| caption.attributes.keys().cloned())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let average_score = if scores.is_empty() {
+        None
+    } else {
+        Some(scores.iter().sum::<f32>() / scores.len() as f32)
+    };
+    Ok(serde_json::json!({
+        "count": captions.len(),
+        "scoredCount": scores.len(),
+        "unscoredCount": captions.len().saturating_sub(scores.len()),
+        "bestCaption": captions.first(),
+        "averageScore": average_score,
+        "length": {
+            "min": lengths.iter().min().copied().unwrap_or(0),
+            "max": lengths.iter().max().copied().unwrap_or(0),
+            "average": if lengths.is_empty() { 0.0 } else { lengths.iter().sum::<usize>() as f32 / lengths.len() as f32 }
+        },
+        "attributeKeys": attribute_keys,
+        "captions": captions
+    }))
+}
+
+fn normalize_captions(captions: Vec<ImportedCaption>) -> Result<Vec<NormalizedCaption>, String> {
+    captions
         .into_iter()
         .map(|item| {
             if item.text.trim().is_empty() {
@@ -136,17 +231,22 @@ fn imported_value(request: ImportedRequest) -> Result<serde_json::Value, String>
             for (key, value) in item.attributes {
                 caption = caption.attribute(key, value);
             }
-            Ok(serde_json::json!({
-                "text": caption.text,
-                "score": caption.score,
-                "attributes": caption.attributes
-            }))
+            Ok(NormalizedCaption {
+                text: caption.text,
+                score: caption.score,
+                attributes: caption.attributes,
+            })
         })
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(serde_json::json!({
-        "count": captions.len(),
-        "captions": captions
-    }))
+        .collect()
+}
+
+fn compare_scores_desc(left: Option<f32>, right: Option<f32>) -> std::cmp::Ordering {
+    match (left, right) {
+        (Some(left), Some(right)) => right.total_cmp(&left),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    }
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
@@ -166,6 +266,8 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"image.captioning.models".to_string()));
         assert!(ids.contains(&"image.captioning.imported".to_string()));
+        assert!(ids.contains(&"image.captioning.rankCaptions".to_string()));
+        assert!(ids.contains(&"image.captioning.captionReport".to_string()));
     }
 
     #[test]
@@ -187,5 +289,18 @@ mod tests {
         })
         .expect_err("empty caption");
         assert!(error.contains("caption text"));
+    }
+
+    #[test]
+    fn rank_operation_returns_best_caption() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.captioning.rankCaptions"),
+            input: serde_json::json!({"captions": [
+                {"text": "low", "score": 0.1},
+                {"text": "high", "score": 0.9}
+            ]}),
+        })
+        .expect("rank");
+        assert_eq!(response.value["bestCaption"]["text"], "high");
     }
 }

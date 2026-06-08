@@ -25,10 +25,42 @@ fn image_catalog_and_import_surfaces_accept_valid_inputs() {
     );
     assert_eq!(
         run(
+            "image.classification.topLabels",
+            serde_json::json!({"labels": [{"label": "cat", "score": 0.7}, {"label": "dog", "score": 0.2}]}),
+            image_analysis_classification::surface::run_surface_operation,
+        )["topLabel"]["label"],
+        "cat"
+    );
+    assert_eq!(
+        run(
+            "image.classification.thresholdLabels",
+            serde_json::json!({"labels": [{"label": "cat", "score": 0.7}, {"label": "dog", "score": 0.2}], "minScore": 0.5}),
+            image_analysis_classification::surface::run_surface_operation,
+        )["rejectedCount"],
+        1
+    );
+    assert_eq!(
+        run(
             "image.captioning.imported",
             serde_json::json!({"captions": [{"text": "a cat", "score": 0.8}]}),
             image_analysis_captioning::surface::run_surface_operation,
         )["count"],
+        1
+    );
+    assert_eq!(
+        run(
+            "image.captioning.rankCaptions",
+            serde_json::json!({"captions": [{"text": "a cat", "score": 0.8}, {"text": "an animal", "score": 0.4}]}),
+            image_analysis_captioning::surface::run_surface_operation,
+        )["bestCaption"]["text"],
+        "a cat"
+    );
+    assert_eq!(
+        run(
+            "image.captioning.captionReport",
+            serde_json::json!({"captions": [{"text": "a cat", "score": 0.8}]}),
+            image_analysis_captioning::surface::run_surface_operation,
+        )["scoredCount"],
         1
     );
     assert_eq!(

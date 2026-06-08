@@ -18,6 +18,8 @@ const packageAppConfig: PackageAppConfig = {
   defaultOperation: "image.classification.imported",
   featuredOperations: [
     "image.classification.imported",
+    "image.classification.topLabels",
+    "image.classification.thresholdLabels",
     "image.classification.models",
     "image.classification.schema",
     "describe",
@@ -26,8 +28,12 @@ const packageAppConfig: PackageAppConfig = {
     {
       id: "workflow",
       label: "Workflow",
-      description: "Validate and normalize imported classification results.",
-      operations: ["image.classification.imported"],
+      description: "Validate, rank, and threshold imported classification results.",
+      operations: [
+        "image.classification.imported",
+        "image.classification.topLabels",
+        "image.classification.thresholdLabels",
+      ],
     },
     {
       id: "debug",
