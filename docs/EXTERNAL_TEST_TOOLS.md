@@ -79,6 +79,19 @@ cargo test -p moritzbrantner-image-analysis-classification --features external-t
 cargo test -p moritzbrantner-image-analysis-captioning --features external-tests -- --ignored
 ```
 
+The native ONNX smoke suite can be run explicitly with:
+
+```bash
+scripts/check_onnx_external_smoke.sh
+```
+
+This helper prints the expected `.model-runtime/<bundle>/main/manifest.json`
+paths before running the ignored classification, captioning, detection,
+embedding, and text QA/runtime-helper commands. It is opt-in only and is not
+called by `bun run test`, `scripts/check-fast.sh`, or default CI. Missing
+bundles should skip or fail only according to the ignored test's own semantics;
+default tests do not download or execute live models.
+
 The multimodal workflow smoke tests still include optional command adapters
 under `scripts/`, but image/video workflows now prefer Rust-side adapters when
 configured without commands:

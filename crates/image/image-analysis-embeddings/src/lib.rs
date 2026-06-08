@@ -614,13 +614,15 @@ fn validate_onnx_embedding_bundle(
         (EmbeddingBundleKind::Face, ModelTask::Custom(task)) if task == "face_embedding" => {}
         (EmbeddingBundleKind::Image, task) => {
             return Err(DetectError::InvalidArgument(format!(
-                "ONNX image embedding bundle task must be image_embedding, got {:?}",
+                "ONNX image embedding bundle {} task must be image_embedding, got {:?}",
+                bundle_descriptor(bundle),
                 task
             )))
         }
         (EmbeddingBundleKind::Face, task) => {
             return Err(DetectError::InvalidArgument(format!(
-                "ONNX face embedding bundle task must be face_embedding, got {:?}",
+                "ONNX face embedding bundle {} task must be face_embedding, got {:?}",
+                bundle_descriptor(bundle),
                 task
             )))
         }
@@ -629,13 +631,15 @@ fn validate_onnx_embedding_bundle(
     let model_path = match onnx_files.as_slice() {
         [path] => path.clone(),
         [] => {
-            return Err(DetectError::InvalidArgument(
-                "ONNX embedding bundle must contain exactly one `.onnx` model file".to_string(),
-            ))
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX embedding bundle {} must contain exactly one `.onnx` model file selected by extension, found 0",
+                bundle_descriptor(bundle)
+            )))
         }
         files => {
             return Err(DetectError::InvalidArgument(format!(
-                "ONNX embedding bundle must contain exactly one `.onnx` model file, found {}",
+                "ONNX embedding bundle {} must contain exactly one `.onnx` model file selected by extension, found {}",
+                bundle_descriptor(bundle),
                 files.len()
             )))
         }
@@ -645,6 +649,13 @@ fn validate_onnx_embedding_bundle(
         preprocessor_config_path: bundle.file_path("preprocessor_config.json"),
         model_path,
     })
+}
+
+fn bundle_descriptor(bundle: &model_runtime::ModelBundle) -> String {
+    format!(
+        "`{}` (task {:?})",
+        bundle.manifest.name, bundle.manifest.task
+    )
 }
 
 fn preprocessing_from_bundle(
@@ -1027,6 +1038,16 @@ mod tests {
     }
 
     #[test]
+    fn named_pooler_output_wins_over_fallback() {
+        let outputs = vec![
+            named_tensor("last_hidden_state", vec![9.0, 9.0]),
+            named_tensor("pooler_output", vec![5.0, 12.0]),
+        ];
+        let vector = select_embedding_vector_from_named_outputs(&outputs, Some(2)).unwrap();
+        assert_eq!(vector, vec![5.0, 12.0]);
+    }
+
+    #[test]
     fn embedding_output_falls_back_to_first_f32_tensor() {
         let outputs = vec![named_tensor("last_hidden_state", vec![1.0, 2.0])];
         let vector = select_embedding_vector_from_named_outputs(&outputs, None).unwrap();
@@ -1072,6 +1093,17 @@ mod tests {
         let message = err.to_string();
         assert!(message.contains("expected vector size 3"));
         assert!(message.contains("2"));
+    }
+
+    #[test]
+    fn image_embedder_rejects_empty_output_vector() {
+        let runner = FakeImageRunner {
+            outputs: vec![runtime_onnx::OnnxF32Tensor::new(vec![1, 0], vec![]).unwrap()],
+        };
+        let mut embedder =
+            OnnxImageEmbedder::with_options(OnnxImageEmbeddingOptions::default(), runner).unwrap();
+        let err = embedder.embed_image(&image().as_view()).unwrap_err();
+        assert!(err.to_string().contains("must not be empty"));
     }
 
     #[test]
@@ -1174,12 +1206,32 @@ mod tests {
             ModelTask::ImageEmbedding,
             &[("config.json", "config.json", "{}")],
         );
-        assert!(image_embedding_options_from_bundle(&missing).is_err());
+        let err = image_embedding_options_from_bundle(&missing).unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("test"));
+        assert!(message.contains("ImageEmbedding"));
+        assert!(message.contains("found 0"));
 
         let (_temp, invalid) = test_bundle(
             ModelTask::FaceDetection,
             &[("model.onnx", "model.onnx", "model")],
         );
-        assert!(image_embedding_options_from_bundle(&invalid).is_err());
+        let err = image_embedding_options_from_bundle(&invalid).unwrap_err();
+        assert!(err.to_string().contains("test"));
+    }
+
+    #[test]
+    fn embedding_bundle_rejects_multiple_onnx_files_with_count() {
+        let (_temp, bundle) = test_bundle(
+            ModelTask::ImageEmbedding,
+            &[
+                ("model-a.onnx", "model-a.onnx", "a"),
+                ("model-b.onnx", "model-b.onnx", "b"),
+            ],
+        );
+        let err = image_embedding_options_from_bundle(&bundle).unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("found 2"));
+        assert!(message.contains("selected by extension"));
     }
 }

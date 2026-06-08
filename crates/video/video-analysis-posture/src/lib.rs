@@ -1474,8 +1474,10 @@ pub fn validate_onnx_pose_bundle(
 ) -> Result<OnnxPoseBundleInfo> {
     if bundle.manifest.task != task {
         return Err(DetectError::InvalidArgument(format!(
-            "ONNX pose bundle task must be {:?}, got {:?}",
-            task, bundle.manifest.task
+            "ONNX pose bundle {} task must be {:?}, got {:?}",
+            bundle_descriptor(bundle),
+            task,
+            bundle.manifest.task
         )));
     }
     let config_path = required_bundle_file(bundle, "config.json")?;
@@ -1484,13 +1486,15 @@ pub fn validate_onnx_pose_bundle(
     let model_path = match onnx_files.as_slice() {
         [path] => path.clone(),
         [] => {
-            return Err(DetectError::InvalidArgument(
-                "ONNX pose bundle must contain exactly one `.onnx` model file".to_string(),
-            ))
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX pose bundle {} must contain exactly one `.onnx` model file selected by extension, found 0",
+                bundle_descriptor(bundle)
+            )))
         }
         files => {
             return Err(DetectError::InvalidArgument(format!(
-                "ONNX pose bundle must contain exactly one `.onnx` model file, found {}",
+                "ONNX pose bundle {} must contain exactly one `.onnx` model file selected by extension, found {}",
+                bundle_descriptor(bundle),
                 files.len()
             )))
         }
@@ -1554,10 +1558,17 @@ fn validate_threshold(value: f32) -> Result<()> {
 fn required_bundle_file(bundle: &model_runtime::ModelBundle, remote_path: &str) -> Result<PathBuf> {
     bundle.file_path(remote_path).ok_or_else(|| {
         DetectError::InvalidArgument(format!(
-            "model bundle `{}` is missing required file `{remote_path}`",
-            bundle.manifest.name
+            "model bundle {} is missing required file `{remote_path}`",
+            bundle_descriptor(bundle)
         ))
     })
+}
+
+fn bundle_descriptor(bundle: &model_runtime::ModelBundle) -> String {
+    format!(
+        "`{}` (task {:?})",
+        bundle.manifest.name, bundle.manifest.task
+    )
 }
 
 fn bundle_files_with_extension(

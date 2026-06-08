@@ -959,12 +959,11 @@ pub fn validate_onnx_vision_bundle(
     match bundle.manifest.task {
         ModelTask::ObjectDetection | ModelTask::FaceDetection => {}
         ModelTask::Custom(ref task) if task == "face_detection" => {}
-        ref task => {
-            return Err(DetectError::InvalidArgument(format!(
-                "ONNX detection bundle task must be object_detection or face_detection, got {:?}",
-                task
-            )))
-        }
+        ref task => return Err(DetectError::InvalidArgument(format!(
+            "ONNX detection bundle {} task must be object_detection or face_detection, got {:?}",
+            bundle_descriptor(bundle),
+            task
+        ))),
     }
     let config_path = required_bundle_file(bundle, "config.json")?;
     let preprocessor_config_path = bundle.file_path("preprocessor_config.json");
@@ -972,13 +971,15 @@ pub fn validate_onnx_vision_bundle(
     let model_path = match onnx_files.as_slice() {
         [path] => path.clone(),
         [] => {
-            return Err(DetectError::InvalidArgument(
-                "ONNX detection bundle must contain exactly one `.onnx` model file".to_string(),
-            ))
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX detection bundle {} must contain exactly one `.onnx` model file selected by extension, found 0",
+                bundle_descriptor(bundle)
+            )))
         }
         files => {
             return Err(DetectError::InvalidArgument(format!(
-                "ONNX detection bundle must contain exactly one `.onnx` model file, found {}",
+                "ONNX detection bundle {} must contain exactly one `.onnx` model file selected by extension, found {}",
+                bundle_descriptor(bundle),
                 files.len()
             )))
         }
@@ -1228,7 +1229,8 @@ fn validate_onnx_face_detection_bundle(
         ModelTask::Custom(task) if task == "face_detection" => {}
         _ => {
             return Err(DetectError::InvalidArgument(format!(
-                "ONNX face detection bundle task must be face_detection, got {:?}",
+                "ONNX face detection bundle {} task must be face_detection, got {:?}",
+                bundle_descriptor(bundle),
                 bundle.manifest.task
             )))
         }
@@ -1237,14 +1239,15 @@ fn validate_onnx_face_detection_bundle(
     let model_path = match onnx_files.as_slice() {
         [path] => path.clone(),
         [] => {
-            return Err(DetectError::InvalidArgument(
-                "ONNX face detection bundle must contain exactly one `.onnx` model file"
-                    .to_string(),
-            ))
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX face detection bundle {} must contain exactly one `.onnx` model file selected by extension, found 0",
+                bundle_descriptor(bundle)
+            )))
         }
         files => {
             return Err(DetectError::InvalidArgument(format!(
-                "ONNX face detection bundle must contain exactly one `.onnx` model file, found {}",
+                "ONNX face detection bundle {} must contain exactly one `.onnx` model file selected by extension, found {}",
+                bundle_descriptor(bundle),
                 files.len()
             )))
         }
@@ -1710,10 +1713,17 @@ fn validate_threshold(value: f32) -> Result<()> {
 fn required_bundle_file(bundle: &model_runtime::ModelBundle, remote_path: &str) -> Result<PathBuf> {
     bundle.file_path(remote_path).ok_or_else(|| {
         DetectError::InvalidArgument(format!(
-            "model bundle `{}` is missing required file `{remote_path}`",
-            bundle.manifest.name
+            "model bundle {} is missing required file `{remote_path}`",
+            bundle_descriptor(bundle)
         ))
     })
+}
+
+fn bundle_descriptor(bundle: &model_runtime::ModelBundle) -> String {
+    format!(
+        "`{}` (task {:?})",
+        bundle.manifest.name, bundle.manifest.task
+    )
 }
 
 fn bundle_files_with_extension(
@@ -2165,6 +2175,29 @@ mod tests {
         ]);
         let err = decode_yunet_face_detections(&output, &options, (8, 8)).unwrap_err();
         assert!(err.to_string().contains("prior count"));
+    }
+
+    #[test]
+    fn yunet_decode_rejects_missing_stride_group() {
+        let options = OnnxFaceDetectionOptions {
+            score_threshold: 0.5,
+            nms_threshold: 0.3,
+            preprocessing: ImageModelPreprocessing {
+                input_width: 8,
+                input_height: 8,
+                ..OnnxFaceDetectionOptions::default().preprocessing
+            },
+            ..OnnxFaceDetectionOptions::default()
+        };
+        let output = face_output([
+            ("loc_8", f32_tensor(vec![1, 14], vec![0.0; 14])),
+            ("conf_8", f32_tensor(vec![1, 2], vec![0.0, 0.81])),
+            ("iou_8", f32_tensor(vec![1, 1], vec![1.0])),
+        ]);
+        let err = decode_yunet_face_detections(&output, &options, (8, 8)).unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("stride 16"));
+        assert!(message.contains("loc"));
     }
 
     #[test]

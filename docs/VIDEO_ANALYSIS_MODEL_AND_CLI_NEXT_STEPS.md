@@ -64,6 +64,27 @@ Workspace shape:
   because it is intentionally domain-neutral and library-only; user-facing
   workflows live in the owning task crates.
 
+### Native ONNX Compatibility Inventory
+
+Default tests do not download bundles or execute live ONNX models. The live
+compatibility checks are ignored, feature-gated, and runnable through
+`scripts/check_onnx_external_smoke.sh` after bundles have been materialized
+under `.model-runtime/`. `runtime-onnx` remains excluded from package-surface
+wrapper requirements because it is intentionally domain-neutral and
+library-only.
+
+| Task crate | Adapter | Feature flag | Expected bundle task | Required files | Supported output shapes/names | Current ignored smoke bundle name | Known unsupported variants |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `image-analysis-classification` | `OnnxImageClassifier` | `local-onnx` / `external-tests` | `image_classification` | `config.json`, at least one `.onnx`; `preprocessor_config.json` optional | logits as `[classes]` or `[1, classes]`; first f32 output is used | `vit-base-patch16-224` | multi-output classifier heads that need non-first output selection |
+| `image-analysis-embeddings` | `OnnxImageEmbedder` | `onnx` / `external-tests` | `image_embedding` | exactly one `.onnx`; `config.json` and `preprocessor_config.json` optional | preferred f32 names containing `image_embeds`, `embeds`, `embedding`, or `pooler_output`; otherwise first f32 output; vector must be non-empty, finite, and match configured size when present | `xenova-clip-vit-base-patch32-onnx` | multiple model files in one bundle; non-f32 embedding outputs |
+| `image-analysis-embeddings` | `OnnxFaceEmbedder` | `onnx` | `face_embedding` or custom `face_embedding` | exactly one `.onnx`; `config.json` and `preprocessor_config.json` optional | same embedding vector selection as image embeddings | none; deterministic unit coverage only | multi-file face bundles; detector-plus-embedder combo bundles |
+| `image-analysis-detection` | `OnnxFaceDetector` | `onnx` | `face_detection` or custom `face_detection` | exactly one `.onnx`; `preprocessor_config.json` optional | YuNet single `[N, 15]` or `[1, N, 15]`; split `loc/conf/iou`; split per stride with `8`, `16`, and `32` in output names | none; deterministic YuNet unit coverage only | missing stride groups; prior-count mismatches; non-YuNet face detector heads |
+| `image-analysis-detection` | `OnnxObjectDetector` | `onnx` / `external-tests` | `object_detection` | `config.json`, exactly one `.onnx`; `preprocessor_config.json` optional | DETR/YOLOS-style one boxes tensor ending in 4 values plus one logits tensor; accepted ranks `[queries, dim]` and `[1, queries, dim]` | `xenova-detr-resnet-50-onnx` | YOLO grid/anchor heads; segmentation outputs; multiple model files |
+| `image-analysis-captioning` | `OnnxImageCaptioner` | `local-onnx` / `external-tests` | custom `image_captioning` | `config.json`, `tokenizer.json`, encoder `.onnx`, decoder `.onnx`; `generation_config.json`, `tokenizer_config.json`, `preprocessor_config.json`, `vocab.json`, and `merges.txt` optional when tokenizer can load without them | encoder hidden states `[1, sequence, hidden]`; decoder logits named `logits` preferred, fallback first f32; logits `[1, sequence, vocab]` or `[sequence, vocab]` | `vit-gpt2-image-captioning` or `vit-gpt2-image-captioning-onnx` | beam search, cached KV decoder-only exports, BLIP/safetensors-only bundles |
+| `video-analysis-posture` | `OnnxPose2dEstimator` | `onnx` | `pose_estimation_2d` | `config.json`, exactly one `.onnx`; `preprocessor_config.json` optional | pose tensor names containing `keypoints`, `poses`, or `output`; shapes `[poses, joints, 3]` or `[1, poses, joints, 3]`; optional `scores` f32 output | none; deterministic unit coverage only | batch sizes greater than one; heatmap-only outputs requiring argmax decoding |
+| `video-analysis-posture` | `OnnxPoseLifter` | `onnx` | `pose_lifting_3d` | `config.json`, exactly one `.onnx`; `preprocessor_config.json` optional | output tensor names containing `keypoints`, `poses`, or `output`; shapes `[frames, joints, 3]` or `[1, frames, joints, 3]`; source pose metadata is preserved | none; deterministic unit coverage only | batch sizes greater than one; lifters requiring camera calibration inputs |
+| `text-question-answering` / `runtime-onnx` | text QA/runtime helper regression | `external-tests` | `question_answering` | local QA bundle with tokenizer/config and at least one `.onnx` | helper lookup by exact name, preferred name, and fallback index for f32 outputs | `roberta-base-squad2-onnx` | full QA ONNX adapter execution is not part of the image/video consolidation |
+
 Suggested dependencies:
 
 - `video-analysis-core`

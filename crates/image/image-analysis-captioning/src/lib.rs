@@ -382,7 +382,8 @@ fn validate_onnx_captioning_bundle(
         ModelTask::Custom(task) if task == "image_captioning" => {}
         task => {
             return Err(DetectError::InvalidArgument(format!(
-                "ONNX image captioning bundle task must be image_captioning, got {:?}",
+                "ONNX image captioning bundle {} task must be image_captioning, got {:?}",
+                bundle_descriptor(bundle),
                 task
             )))
         }
@@ -398,9 +399,10 @@ fn validate_onnx_captioning_bundle(
         .find(|file| file.remote_path.ends_with(".onnx") && file.remote_path.contains("encoder"))
         .map(|file| bundle.root.join(&file.local_path))
         .ok_or_else(|| {
-            DetectError::InvalidArgument(
-                "ONNX image captioning bundle must contain an encoder `.onnx` model".to_string(),
-            )
+            DetectError::InvalidArgument(format!(
+                "ONNX image captioning bundle {} must contain an encoder `.onnx` model selected by remote path containing `encoder`",
+                bundle_descriptor(bundle)
+            ))
         })?;
     let decoder_path = bundle
         .manifest
@@ -409,9 +411,10 @@ fn validate_onnx_captioning_bundle(
         .find(|file| file.remote_path.ends_with(".onnx") && file.remote_path.contains("decoder"))
         .map(|file| bundle.root.join(&file.local_path))
         .ok_or_else(|| {
-            DetectError::InvalidArgument(
-                "ONNX image captioning bundle must contain a decoder `.onnx` model".to_string(),
-            )
+            DetectError::InvalidArgument(format!(
+                "ONNX image captioning bundle {} must contain a decoder `.onnx` model selected by remote path containing `decoder`",
+                bundle_descriptor(bundle)
+            ))
         })?;
     Ok(OnnxCaptioningBundleInfo {
         config_path,
@@ -755,10 +758,17 @@ fn runtime_onnx_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
 fn required_bundle_file(bundle: &model_runtime::ModelBundle, remote_path: &str) -> Result<PathBuf> {
     bundle.file_path(remote_path).ok_or_else(|| {
         DetectError::InvalidArgument(format!(
-            "model bundle `{}` is missing required file `{remote_path}`",
-            bundle.manifest.name
+            "model bundle {} is missing required file `{remote_path}`",
+            bundle_descriptor(bundle)
         ))
     })
+}
+
+fn bundle_descriptor(bundle: &model_runtime::ModelBundle) -> String {
+    format!(
+        "`{}` (task {:?})",
+        bundle.manifest.name, bundle.manifest.task
+    )
 }
 
 fn read_json(path: &Path) -> Result<serde_json::Value> {
@@ -912,6 +922,63 @@ mod tests {
         assert_eq!(options.max_new_tokens, 12);
         assert_eq!(options.preprocessing.input_width, 128);
         assert_eq!(options.preprocessing.input_height, 96);
+    }
+
+    #[test]
+    fn captioning_bundle_allows_missing_preprocessor_config() {
+        let (_temp, bundle) = test_bundle(&[
+            (
+                "config.json",
+                "config.json",
+                r#"{"decoder_start_token_id":1,"eos_token_id":2}"#,
+            ),
+            ("tokenizer.json", "tokenizer.json", "{}"),
+            (
+                "onnx/encoder_model.onnx",
+                "onnx/encoder_model.onnx",
+                "encoder",
+            ),
+            (
+                "onnx/decoder_model.onnx",
+                "onnx/decoder_model.onnx",
+                "decoder",
+            ),
+        ]);
+        let options = captioning_options_from_bundle(&bundle).unwrap();
+        assert_eq!(options.preprocessing.input_width, 224);
+        assert_eq!(options.preprocessing.input_height, 224);
+    }
+
+    #[test]
+    fn captioning_bundle_missing_tokenizer_reports_required_filename() {
+        let (_temp, bundle) = test_bundle(&[
+            (
+                "config.json",
+                "config.json",
+                r#"{"decoder_start_token_id":1,"eos_token_id":2}"#,
+            ),
+            (
+                "onnx/encoder_model.onnx",
+                "onnx/encoder_model.onnx",
+                "encoder",
+            ),
+            (
+                "onnx/decoder_model.onnx",
+                "onnx/decoder_model.onnx",
+                "decoder",
+            ),
+        ]);
+        let err = captioning_options_from_bundle(&bundle).unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("caption-test"));
+        assert!(message.contains("tokenizer.json"));
+        assert!(message.contains("image_captioning"));
+    }
+
+    #[test]
+    fn encoder_hidden_states_accepts_rank_three() {
+        let tensor = runtime_onnx::OnnxF32Tensor::new(vec![1, 2, 3], vec![0.0; 6]).unwrap();
+        validate_encoder_hidden_states(&tensor).unwrap();
     }
 
     #[test]
