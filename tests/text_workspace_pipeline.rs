@@ -123,6 +123,8 @@ fn sophisticated_text_workspace_flow_preserves_metadata_and_citations() {
                 attributes: Default::default(),
             }],
             model: Default::default(),
+            local_model: None,
+            fallback_policy: None,
         },
     )
     .unwrap();

@@ -15,6 +15,79 @@ pub use external_command::*;
 pub use model_analyzers::*;
 pub use model_predictions::*;
 
+#[cfg(feature = "onnx")]
+#[derive(Debug)]
+/// ONNX object detector backend for video frames.
+pub struct OnnxObjectDetectorBackend<R = runtime_onnx::OnnxSession> {
+    detector: image_analysis_detection::OnnxObjectDetector<R>,
+}
+
+#[cfg(feature = "onnx")]
+/// Compatibility alias for the video ONNX object detector name.
+pub type OnnxObjectDetector<R = runtime_onnx::OnnxSession> = OnnxObjectDetectorBackend<R>;
+
+#[cfg(feature = "onnx")]
+impl OnnxObjectDetectorBackend<runtime_onnx::OnnxSession> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
+        Ok(Self {
+            detector: image_analysis_detection::OnnxObjectDetector::from_bundle(bundle)?,
+        })
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl<R: image_analysis_detection::OnnxObjectDetectionRunner> OnnxObjectDetectorBackend<R> {
+    /// Builds this value from runner.
+    pub fn from_runner(bundle: model_runtime::ModelBundle, runner: R) -> Result<Self> {
+        Ok(Self {
+            detector: image_analysis_detection::OnnxObjectDetector::from_runner(bundle, runner)?,
+        })
+    }
+
+    /// Returns predict frame with original size.
+    pub fn predict_frame_with_original_size(
+        &mut self,
+        frame: &VideoFrame<'_>,
+    ) -> Result<Vec<RawPrediction>> {
+        let image = image_analysis_core::ImageView::from_video_frame(frame)?;
+        let detections = self.detector.detect_image(&image)?;
+        Ok(detections
+            .into_iter()
+            .map(|detection| RawPrediction {
+                kind: Some("object".to_string()),
+                label: Some(detection.label),
+                text: None,
+                score: detection.score,
+                region: Some(RawBoundingBox::xywh(
+                    detection.region.x as f32,
+                    detection.region.y as f32,
+                    detection.region.width as f32,
+                    detection.region.height as f32,
+                )),
+                attributes: detection.attributes,
+            })
+            .collect())
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl<R: image_analysis_detection::OnnxObjectDetectionRunner> VisionModelBackend
+    for OnnxObjectDetectorBackend<R>
+{
+    fn task(&self) -> model_runtime::ModelTask {
+        model_runtime::ModelTask::ObjectDetection
+    }
+
+    fn runtime_backend(&self) -> model_runtime::ModelRuntimeBackend {
+        model_runtime::ModelRuntimeBackend::Onnx
+    }
+
+    fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<RawPrediction>> {
+        self.predict_frame_with_original_size(frame)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for embedding.
 pub struct Embedding {

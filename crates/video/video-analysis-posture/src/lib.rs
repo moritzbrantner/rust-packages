@@ -2,7 +2,13 @@
 
 pub mod surface;
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
+use image_analysis_core::ImageView;
+use image_analysis_processing::{
+    image_model_preprocessing_from_config, preprocess_image_for_model,
+    validate_image_model_preprocessing, ImageModelPreprocessing, ImageModelTensor,
+};
 use math_geometry_2d::{NormalizedPoint2, Point2f, Size2u};
 use serde::{Deserialize, Serialize};
 use three_d_processing_core::{LineSegment3, Point3, Vector3};
@@ -939,6 +945,337 @@ fn encode_keypoints(keypoints: &[Keypoint]) -> String {
         })
         .collect::<Vec<_>>()
         .join("|")
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX pose bundle info.
+pub struct OnnxPoseBundleInfo {
+    /// The config path value.
+    pub config_path: PathBuf,
+    /// The preprocessor config path value.
+    pub preprocessor_config_path: Option<PathBuf>,
+    /// The model path value.
+    pub model_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX pose2d options.
+pub struct OnnxPose2dOptions {
+    /// The preprocessing value.
+    pub preprocessing: ImageModelPreprocessing,
+    /// The skeleton value.
+    pub skeleton: Skeleton,
+    /// The output space value.
+    pub output_space: KeypointSpace,
+    /// The min pose score value.
+    pub min_pose_score: f32,
+    /// The min keypoint score value.
+    pub min_keypoint_score: f32,
+}
+
+impl Default for OnnxPose2dOptions {
+    fn default() -> Self {
+        Self {
+            preprocessing: ImageModelPreprocessing::default(),
+            skeleton: Skeleton::coco_17(),
+            output_space: KeypointSpace::Normalized,
+            min_pose_score: 0.0,
+            min_keypoint_score: 0.0,
+        }
+    }
+}
+
+/// Trait for ONNX pose2d runner implementations.
+pub trait OnnxPose2dRunner {
+    /// Runs pose 2d.
+    fn run_pose_2d(&mut self, input: &ImageModelTensor) -> Result<Vec<PoseEstimate>>;
+}
+
+#[derive(Debug, Clone, Default)]
+/// Data type for unavailable pose2d runner.
+pub struct UnavailablePose2dRunner;
+
+impl OnnxPose2dRunner for UnavailablePose2dRunner {
+    fn run_pose_2d(&mut self, _input: &ImageModelTensor) -> Result<Vec<PoseEstimate>> {
+        Err(DetectError::Source(
+            "native ONNX 2D pose execution is unavailable; construct with a runner or enable an executor"
+                .to_string(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Data type for ONNX pose2d estimator.
+pub struct OnnxPose2dEstimator<R = UnavailablePose2dRunner> {
+    options: OnnxPose2dOptions,
+    runner: R,
+}
+
+impl OnnxPose2dEstimator<UnavailablePose2dRunner> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
+        Ok(Self {
+            options: pose_2d_options_from_bundle(&bundle)?,
+            runner: UnavailablePose2dRunner,
+        })
+    }
+}
+
+impl<R: OnnxPose2dRunner> OnnxPose2dEstimator<R> {
+    /// Builds this value from runner.
+    pub fn from_runner(bundle: model_runtime::ModelBundle, runner: R) -> Result<Self> {
+        Ok(Self {
+            options: pose_2d_options_from_bundle(&bundle)?,
+            runner,
+        })
+    }
+
+    /// Returns this value with options.
+    pub fn with_options(options: OnnxPose2dOptions, runner: R) -> Result<Self> {
+        validate_image_model_preprocessing(&options.preprocessing)?;
+        validate_threshold(options.min_pose_score)?;
+        validate_threshold(options.min_keypoint_score)?;
+        Ok(Self { options, runner })
+    }
+
+    /// Returns options.
+    pub fn options(&self) -> &OnnxPose2dOptions {
+        &self.options
+    }
+
+    /// Predicts poses from a video frame.
+    pub fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<PoseEstimate>> {
+        let input = preprocess_frame_for_model(frame, &self.options.preprocessing)?;
+        let mut poses = self.runner.run_pose_2d(&input)?;
+        poses.retain(|pose| pose.score.unwrap_or(1.0) >= self.options.min_pose_score);
+        for pose in &mut poses {
+            pose.keypoints.retain(|keypoint| {
+                keypoint.score.unwrap_or(1.0) >= self.options.min_keypoint_score
+            });
+        }
+        Ok(poses)
+    }
+}
+
+impl<R: OnnxPose2dRunner> PostureBackend for OnnxPose2dEstimator<R> {
+    fn estimate_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<PoseEstimate>> {
+        self.predict_frame(frame)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX pose lifter options.
+pub struct OnnxPoseLifterOptions {
+    /// The min pose score value.
+    pub min_pose_score: f32,
+}
+
+impl Default for OnnxPoseLifterOptions {
+    fn default() -> Self {
+        Self {
+            min_pose_score: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+/// Data type for unavailable pose lift runner.
+pub struct UnavailablePoseLiftRunner;
+
+/// Trait for ONNX pose lift runner implementations.
+pub trait OnnxPoseLiftRunner {
+    /// Runs pose lift.
+    fn run_pose_lift(
+        &mut self,
+        sequence: &PoseSequence<PoseEstimate>,
+    ) -> Result<PoseSequence<Pose3dEstimate>>;
+}
+
+impl OnnxPoseLiftRunner for UnavailablePoseLiftRunner {
+    fn run_pose_lift(
+        &mut self,
+        _sequence: &PoseSequence<PoseEstimate>,
+    ) -> Result<PoseSequence<Pose3dEstimate>> {
+        Err(DetectError::Source(
+            "native ONNX pose lifting execution is unavailable; construct with a runner or enable an executor"
+                .to_string(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Data type for ONNX pose lifter.
+pub struct OnnxPoseLifter<R = UnavailablePoseLiftRunner> {
+    options: OnnxPoseLifterOptions,
+    runner: R,
+}
+
+impl OnnxPoseLifter<UnavailablePoseLiftRunner> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
+        validate_onnx_pose_bundle(&bundle, model_runtime::ModelTask::PoseLifting3d)?;
+        Ok(Self {
+            options: OnnxPoseLifterOptions::default(),
+            runner: UnavailablePoseLiftRunner,
+        })
+    }
+}
+
+impl<R: OnnxPoseLiftRunner> OnnxPoseLifter<R> {
+    /// Builds this value from runner.
+    pub fn from_runner(bundle: model_runtime::ModelBundle, runner: R) -> Result<Self> {
+        validate_onnx_pose_bundle(&bundle, model_runtime::ModelTask::PoseLifting3d)?;
+        Ok(Self {
+            options: OnnxPoseLifterOptions::default(),
+            runner,
+        })
+    }
+
+    /// Returns this value with options.
+    pub fn with_options(options: OnnxPoseLifterOptions, runner: R) -> Result<Self> {
+        validate_threshold(options.min_pose_score)?;
+        Ok(Self { options, runner })
+    }
+}
+
+impl<R: OnnxPoseLiftRunner> PostureLiftBackend for OnnxPoseLifter<R> {
+    fn lift_sequence(
+        &mut self,
+        sequence: &PoseSequence<PoseEstimate>,
+    ) -> Result<PoseSequence<Pose3dEstimate>> {
+        let mut lifted = self.runner.run_pose_lift(sequence)?;
+        lifted
+            .frames
+            .retain(|pose| pose.score.unwrap_or(1.0) >= self.options.min_pose_score);
+        Ok(lifted)
+    }
+}
+
+/// Returns preprocess frame.
+pub fn preprocess_frame_for_model(
+    frame: &VideoFrame<'_>,
+    options: &ImageModelPreprocessing,
+) -> Result<ImageModelTensor> {
+    let image = ImageView::from_video_frame(frame)?;
+    preprocess_image_for_model(&image, options)
+}
+
+/// Validates ONNX pose bundle.
+pub fn validate_onnx_pose_bundle(
+    bundle: &model_runtime::ModelBundle,
+    task: model_runtime::ModelTask,
+) -> Result<OnnxPoseBundleInfo> {
+    if bundle.manifest.task != task {
+        return Err(DetectError::InvalidArgument(format!(
+            "ONNX pose bundle task must be {:?}, got {:?}",
+            task, bundle.manifest.task
+        )));
+    }
+    let config_path = required_bundle_file(bundle, "config.json")?;
+    let preprocessor_config_path = bundle.file_path("preprocessor_config.json");
+    let onnx_files = bundle_files_with_extension(bundle, "onnx");
+    let model_path = match onnx_files.as_slice() {
+        [path] => path.clone(),
+        [] => {
+            return Err(DetectError::InvalidArgument(
+                "ONNX pose bundle must contain exactly one `.onnx` model file".to_string(),
+            ))
+        }
+        files => {
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX pose bundle must contain exactly one `.onnx` model file, found {}",
+                files.len()
+            )))
+        }
+    };
+    Ok(OnnxPoseBundleInfo {
+        config_path,
+        preprocessor_config_path,
+        model_path,
+    })
+}
+
+/// Returns pose 2d options from bundle.
+pub fn pose_2d_options_from_bundle(
+    bundle: &model_runtime::ModelBundle,
+) -> Result<OnnxPose2dOptions> {
+    let info = validate_onnx_pose_bundle(bundle, model_runtime::ModelTask::PoseEstimation2d)?;
+    let config = read_json(&info.config_path)?;
+    let preprocessing = if let Some(path) = &info.preprocessor_config_path {
+        image_model_preprocessing_from_config(&read_json(path)?)?
+    } else {
+        ImageModelPreprocessing::default()
+    };
+    validate_image_model_preprocessing(&preprocessing)?;
+    Ok(OnnxPose2dOptions {
+        preprocessing,
+        skeleton: skeleton_from_config(&config),
+        output_space: KeypointSpace::Normalized,
+        min_pose_score: 0.0,
+        min_keypoint_score: 0.0,
+    })
+}
+
+fn skeleton_from_config(config: &serde_json::Value) -> Skeleton {
+    if let Some(names) = config
+        .get("video_analysis")
+        .and_then(|value| value.get("keypoint_names"))
+        .or_else(|| config.get("keypoint_names"))
+        .and_then(serde_json::Value::as_array)
+    {
+        let keypoints = names
+            .iter()
+            .filter_map(serde_json::Value::as_str)
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if !keypoints.is_empty() {
+            return Skeleton::new(keypoints);
+        }
+    }
+    Skeleton::coco_17()
+}
+
+fn validate_threshold(value: f32) -> Result<()> {
+    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+        return Err(DetectError::InvalidArgument(
+            "ONNX score threshold must be finite and in the range 0..=1".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn required_bundle_file(bundle: &model_runtime::ModelBundle, remote_path: &str) -> Result<PathBuf> {
+    bundle.file_path(remote_path).ok_or_else(|| {
+        DetectError::InvalidArgument(format!(
+            "model bundle `{}` is missing required file `{remote_path}`",
+            bundle.manifest.name
+        ))
+    })
+}
+
+fn bundle_files_with_extension(
+    bundle: &model_runtime::ModelBundle,
+    extension: &str,
+) -> Vec<PathBuf> {
+    bundle
+        .manifest
+        .files
+        .values()
+        .filter(|file| {
+            Path::new(&file.remote_path)
+                .extension()
+                .and_then(|value| value.to_str())
+                == Some(extension)
+        })
+        .map(|file| bundle.root.join(&file.local_path))
+        .collect()
+}
+
+fn read_json(path: &Path) -> Result<serde_json::Value> {
+    let data = std::fs::read(path)?;
+    serde_json::from_slice(&data).map_err(|err| {
+        DetectError::Source(format!("failed to parse JSON `{}`: {err}", path.display()))
+    })
 }
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {

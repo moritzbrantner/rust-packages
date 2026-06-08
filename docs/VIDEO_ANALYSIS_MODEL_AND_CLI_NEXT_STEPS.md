@@ -17,9 +17,11 @@ Current state:
 - Text model execution is owned by the text crates that use it:
   `moritzbrantner-text-linguistics` owns tokenizer alignment and local Candle-backed NER,
   while `moritzbrantner-text-embeddings` owns optional ONNX/Candle embedding runtimes.
-- `moritzbrantner-video-analysis-onnx` now owns the first native vision backend surface:
-  object-detection bundle validation, image preprocessing, fake-runner decoding
-  tests, and optional `onnxruntime` execution for DETR/YOLOS-style outputs.
+- Native ONNX session mechanics live in `moritzbrantner-runtime-onnx`.
+  Video object-detection adaptation is owned by
+  `moritzbrantner-video-analysis-recognition`, pose adaptation is owned by
+  `moritzbrantner-video-analysis-posture`, and image preprocessing/decoding is
+  owned by the image task crates.
 - Optional Python dependencies for model-backend experiments can be installed
   idempotently with `scripts/setup_model_external_tools.sh`.
 
@@ -43,19 +45,18 @@ Rationale:
 
 ### Thread A: Backend Crate Skeleton
 
-Status: implemented as `moritzbrantner-video-analysis-onnx`.
+Status: implemented through `moritzbrantner-runtime-onnx` plus owning task
+crates.
 
-Add a new crate:
+Workspace shape:
 
-```text
-crates/video/video-analysis-onnx
-```
-
-Workspace updates:
-
-- Add `video-analysis-onnx` to `Cargo.toml` workspace members.
-- Add `video-analysis-onnx.workspace = true` under workspace dependencies.
-- Add an optional root facade re-export if the crate is stable enough.
+- `runtime-onnx` owns only typed ONNX tensors, session metadata, and session
+  execution.
+- `image-analysis-detection` owns object-detection bundle validation and
+  DETR/YOLOS-style decoding.
+- `video-analysis-recognition` maps image detections back to `RawPrediction`
+  values for video frames.
+- `video-analysis-posture` owns pose model contracts and fake-runner seams.
 
 Suggested dependencies:
 
@@ -64,7 +65,7 @@ Suggested dependencies:
 - `serde`
 - `serde_json`
 - Runtime dependency behind a feature:
-  - `ort` or another maintained ONNX Runtime crate.
+  - `runtime-onnx`.
 - Image preprocessing dependency behind a feature if needed:
   - prefer an existing local image crate if possible.
 
@@ -88,7 +89,7 @@ Initial feature shape:
 ```toml
 [features]
 default = []
-onnxruntime = ["dep:ort"]
+onnxruntime = ["runtime-onnx/onnxruntime"]
 external-tests = ["onnxruntime"]
 ```
 

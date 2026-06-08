@@ -24,6 +24,7 @@ members = [
     "crates/jobs/*",
     "crates/math/*",
     "crates/runtime/runtime-core",
+    "crates/runtime/runtime-onnx",
     "crates/runtime/model-runtime",
     "crates/runtime/model-runtime-cli",
     "crates/runtime/model-runtime-server",
@@ -97,6 +98,7 @@ tensor-data = { package = "moritzbrantner-tensor-data", version = "0.1.0", path 
 jobs-core = { package = "moritzbrantner-jobs-core", version = "0.1.1", path = "crates/jobs/jobs-core" }
 model-runtime = { package = "moritzbrantner-model-runtime", version = "0.1.0", path = "crates/runtime/model-runtime" }
 runtime-core = { package = "moritzbrantner-runtime-core", version = "0.1.0", path = "crates/runtime/runtime-core" }
+runtime-onnx = { package = "moritzbrantner-runtime-onnx", version = "0.1.0", path = "crates/runtime/runtime-onnx" }
 finance-statistics = { package = "moritzbrantner-finance-statistics", version = "0.1.0", path = "crates/math/finance-statistics" }
 finance-data = { package = "moritzbrantner-finance-data", version = "0.1.0", path = "crates/data/finance-data" }
 finance-data-wasm = { package = "moritzbrantner-finance-data-wasm", version = "0.1.0", path = "crates/bindings/finance-data-wasm" }
@@ -126,7 +128,6 @@ image-analysis-comfyui = { package = "moritzbrantner-image-analysis-comfyui", ve
 image-analysis-detection = { package = "moritzbrantner-image-analysis-detection", version = "0.1.0", path = "crates/image/image-analysis-detection" }
 image-analysis-embeddings = { package = "moritzbrantner-image-analysis-embeddings", version = "0.1.0", path = "crates/image/image-analysis-embeddings" }
 image-analysis-io = { package = "moritzbrantner-image-analysis-io", version = "0.1.0", path = "crates/image/image-analysis-io" }
-image-analysis-onnx = { package = "moritzbrantner-image-analysis-onnx", version = "0.1.0", path = "crates/image/image-analysis-onnx" }
 image-analysis-ocr = { package = "moritzbrantner-image-analysis-ocr", version = "0.1.0", path = "crates/image/image-analysis-ocr" }
 image-analysis-processing = { package = "moritzbrantner-image-analysis-processing", version = "0.1.0", path = "crates/image/image-analysis-processing" }
 image-analysis-segmentation = { package = "moritzbrantner-image-analysis-segmentation", version = "0.1.0", path = "crates/image/image-analysis-segmentation" }
@@ -160,7 +161,6 @@ video-analysis-gaussian-splatting = { package = "moritzbrantner-video-analysis-g
 video-analysis-ingest = { package = "moritzbrantner-video-analysis-ingest", version = "0.1.0", path = "crates/video/video-analysis-ingest" }
 video-analysis-colmap-backend = { package = "moritzbrantner-video-analysis-colmap-backend", version = "0.1.0", path = "crates/video/video-analysis-colmap-backend" }
 video-analysis-mvs = { package = "moritzbrantner-video-analysis-mvs", version = "0.1.0", path = "crates/video/video-analysis-mvs" }
-video-analysis-onnx = { package = "moritzbrantner-video-analysis-onnx", version = "0.1.0", path = "crates/video/video-analysis-onnx" }
 video-analysis-opencv-backend = { package = "moritzbrantner-video-analysis-opencv-backend", version = "0.1.0", path = "crates/video/video-analysis-opencv-backend" }
 video-analysis-output = { package = "moritzbrantner-video-analysis-output", version = "0.1.0", path = "crates/video/video-analysis-output" }
 video-analysis-posture = { package = "moritzbrantner-video-analysis-posture", version = "0.1.0", path = "crates/video/video-analysis-posture" }
@@ -300,7 +300,18 @@ three-d = [
 ]
 comfyui = ["dep:comfyui-data", "dep:comfyui-latents", "dep:comfyui-models"]
 runtime = ["dep:runtime-core", "dep:jobs-core", "dep:model-runtime"]
-onnx = ["dep:image-analysis-onnx", "dep:video-analysis-onnx"]
+onnx = [
+    "dep:runtime-onnx",
+    "image-analysis-captioning/local-onnx",
+    "image-analysis-classification/local-onnx",
+    "image-analysis-detection/onnx",
+    "image-analysis-embeddings/onnx",
+    "text-embeddings/onnx",
+    "text-model-runtime/onnx",
+    "text-question-answering/local-onnx",
+    "video-analysis-posture/onnx",
+    "video-analysis-recognition/onnx",
+]
 ffmpeg-backend = ["dep:video-analysis-ffmpeg", "video-analysis-ffmpeg/ffmpeg-backend"]
 ffmpeg-tests = ["ffmpeg-backend"]
 onnx-backend = ["onnx"]
@@ -342,6 +353,7 @@ required-features = ["full"]
 animation-core = { workspace = true, optional = true }
 clap.workspace = true
 runtime-core = { workspace = true, optional = true }
+runtime-onnx = { workspace = true, optional = true }
 video-analysis-core = { workspace = true, optional = true }
 video-analysis-data = { workspace = true, optional = true }
 video-analysis-dataset = { workspace = true, optional = true }
@@ -353,7 +365,6 @@ video-analysis-gaussian-splatting = { workspace = true, optional = true }
 video-analysis-ingest = { workspace = true, optional = true }
 video-analysis-colmap-backend = { workspace = true, optional = true }
 video-analysis-mvs = { workspace = true, optional = true }
-video-analysis-onnx = { workspace = true, optional = true }
 video-analysis-opencv-backend = { workspace = true, optional = true }
 video-analysis-output = { workspace = true, optional = true }
 video-analysis-posture = { workspace = true, optional = true }
@@ -411,7 +422,6 @@ image-analysis-core = { workspace = true, optional = true }
 image-analysis-detection = { workspace = true, optional = true }
 image-analysis-embeddings = { workspace = true, optional = true }
 image-analysis-io = { workspace = true, optional = true }
-image-analysis-onnx = { workspace = true, optional = true }
 image-analysis-ocr = { workspace = true, optional = true }
 image-analysis-processing = { workspace = true, optional = true }
 image-analysis-segmentation = { workspace = true, optional = true }

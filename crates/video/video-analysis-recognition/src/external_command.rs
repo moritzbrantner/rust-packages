@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
@@ -66,10 +66,15 @@ impl ExternalCommandModel {
             .stdin
             .take()
             .ok_or_else(|| DetectError::Source("model command stdin is unavailable".to_string()))?;
-        stdin.write_all(&payload)?;
+        let write_result = stdin.write_all(&payload);
         drop(stdin);
 
         let output = child.wait_with_output()?;
+        if let Err(err) = write_result {
+            if err.kind() != io::ErrorKind::BrokenPipe {
+                return Err(err.into());
+            }
+        }
         if !output.status.success() {
             return Err(DetectError::Source(format!(
                 "model command `{}` failed with status {}: {}",

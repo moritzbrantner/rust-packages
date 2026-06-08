@@ -62,7 +62,22 @@ cargo test -p moritzbrantner-text-embeddings --features external-tests -- --igno
 cargo test -p moritzbrantner-text-transcripts --features native,external-tests -- --ignored
 ```
 
-These tests reuse `.model-runtime` and report whether required tokenizer, Candle, ONNX, or whisper.cpp files are locally present. Classification and question-answering model entries are reference-only until native runners are added.
+These tests reuse `.model-runtime` and report whether required tokenizer,
+Candle, ONNX, or whisper.cpp files are locally present. The local ONNX defaults
+for extractive QA, image classification, and image captioning are materialized
+through `moritzbrantner-model-runtime`:
+
+- `onnx-community/roberta-base-squad2-ONNX`
+- `Xenova/vit-base-patch16-224`
+- `Xenova/vit-gpt2-image-captioning`
+
+Live download/inference checks stay ignored and feature-gated:
+
+```bash
+cargo test -p moritzbrantner-text-question-answering --features external-tests -- --ignored
+cargo test -p moritzbrantner-image-analysis-classification --features external-tests -- --ignored
+cargo test -p moritzbrantner-image-analysis-captioning --features external-tests -- --ignored
+```
 
 The multimodal workflow smoke tests still include optional command adapters
 under `scripts/`, but image/video workflows now prefer Rust-side adapters when

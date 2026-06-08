@@ -408,7 +408,7 @@ fn detect_people(
     let raw = match config {
         PersonDetectorConfig::Onnx { bundle_dir } => {
             let bundle = ModelBundle::load(bundle_dir).map_err(model_runtime_error)?;
-            let mut detector = video_analysis_onnx::OnnxObjectDetector::from_bundle(bundle)?;
+            let mut detector = video_analysis_recognition::OnnxObjectDetector::from_bundle(bundle)?;
             detector.predict_frame(&frame.as_frame())?
         }
         PersonDetectorConfig::ExternalCommand { command, args } => {

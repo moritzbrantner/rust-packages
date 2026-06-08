@@ -4,7 +4,7 @@ The first text release is a deterministic, local-first toolkit for text
 contracts, lexical analysis, transcript handling, retrieval, and task-specific
 request/response surfaces. It is designed to be useful without network access,
 model downloads, hosted AI credentials, or native inference runtimes in default
-builds.
+builds, except for explicitly marked native server QA workflows.
 
 This release favors explicit contracts and reproducible fallback behavior over
 claims of production-grade NLP quality. Model-backed paths may exist behind
@@ -13,13 +13,16 @@ and are not required to use the text crates.
 
 ## Major Release Contract
 
-- Default builds are deterministic, local-first, and network-free.
+- Default builds are deterministic, local-first, and network-free, except where
+  a model-backed server operation declares filesystem/network side effects.
 - Package-surface operations do not download models, call network services,
   invoke native inference, or write persistence artifacts by default.
-- Model-backed behavior requires explicit feature flags and explicit caller
-  configuration.
-- Model downloads require explicit `auto_download: true`, `autoDownload: true`,
-  or an equivalent setup command.
+- Model-backed behavior requires explicit feature flags. For
+  `moritzbrantner-text-question-answering` with `local-onnx`, `qa.answer` uses
+  the local RoBERTa SQuAD2 ONNX model when no imported predictions or backend
+  are supplied.
+- Model downloads require explicit model-backed workflow selection,
+  `auto_download: true`, `autoDownload: true`, or an equivalent setup command.
 - Classification and question-answering model catalogs may include reference
   metadata, but reference-only models must not be presented as runnable.
 - Hashed embeddings and heuristic NLP are deterministic baselines, not quality
@@ -35,7 +38,9 @@ The text release surface treats user-visible model entries as either loadable or
 - whisper.cpp transcription: `native`
 - External smoke tests: `external-tests`
 
-Classification and question-answering catalogs keep their upstream metadata but are not presented as runnable native models until sequence-classification and extractive-QA runners exist.
+Question-answering catalogs now expose
+`onnx-community/roberta-base-squad2-ONNX` as runnable when built with
+`local-onnx`. Classification remains outside the text release scope.
 
 Release checks should include the default deterministic suite plus opt-in ignored tests only on machines with model bundles or native runtimes installed.
 
@@ -55,7 +60,8 @@ tests pass these gates:
   diagnostics.
 - Default package-surface calls remain deterministic, local-first, in-memory,
   and free of downloads, native inference, network calls, and persistence
-  writes.
+  writes unless the operation is explicitly model-backed and declares those
+  side effects.
 
 ## What This Release Provides
 
@@ -81,7 +87,8 @@ tests pass these gates:
 ## What This Release Does Not Claim
 
 - It is not a hosted LLM client layer.
-- It does not download models or call network services in default builds.
+- It does not download models or call network services in default builds outside
+  the explicit server-only local QA workflow.
 - It does not require ONNX Runtime, Candle, tokenizers, whisper.cpp, or other
   native inference dependencies in default builds.
 - It does not claim production-grade semantic embeddings by default; hashed
@@ -108,7 +115,7 @@ Start with the smallest crate that owns the capability you need:
 | Heuristic-first linguistic analysis, focused language detection, with optional model-backed paths | `moritzbrantner-text-linguistics` |
 | Transcript parsing, normalization, SRT/WebVTT formatting, or transcript-to-text-segment conversion | `moritzbrantner-text-transcripts` |
 | Text classification or zero-shot classification contracts and deterministic fallbacks | `moritzbrantner-text-classification` |
-| Extractive question-answering contracts and deterministic/imported span handling | `moritzbrantner-text-question-answering` |
+| Extractive question-answering contracts, deterministic/imported span handling, and optional local ONNX QA | `moritzbrantner-text-question-answering` |
 | Deterministic generation contracts, Markov scoring, and template fallbacks | `moritzbrantner-text-generation` |
 | Linguistic-analysis adapters for deterministic generation workflows | `moritzbrantner-text-generation-linguistics` |
 

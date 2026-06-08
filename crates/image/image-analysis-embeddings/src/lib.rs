@@ -6,6 +6,10 @@ use std::collections::BTreeMap;
 
 use image_analysis_core::ImageView;
 use image_analysis_detection::FaceDetection;
+use image_analysis_processing::{
+    preprocess_image_for_model, validate_image_model_preprocessing, ChannelOrder,
+    ImageModelPreprocessing, ImageModelTensor,
+};
 use model_runtime::{HuggingFaceModelSpec, ModelRuntimeBackend, ModelTask};
 use serde::{Deserialize, Serialize};
 use video_analysis_core::{BoundingBox, DetectError, Result};
@@ -299,6 +303,296 @@ fn validate_vector(vector: &[f32]) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX image embedding options.
+pub struct OnnxImageEmbeddingOptions {
+    /// The preprocessing value.
+    pub preprocessing: ImageModelPreprocessing,
+    /// Expected vector size.
+    pub expected_vector_size: Option<usize>,
+    /// Whether to L2 normalize output.
+    pub normalize: bool,
+}
+
+impl Default for OnnxImageEmbeddingOptions {
+    fn default() -> Self {
+        Self {
+            preprocessing: ImageModelPreprocessing {
+                input_width: 224,
+                input_height: 224,
+                rescale_factor: 1.0 / 255.0,
+                mean: [0.48145466, 0.4578275, 0.40821073],
+                std: [0.26862954, 0.261_302_6, 0.275_777_1],
+                channel_order: ChannelOrder::Rgb,
+            },
+            expected_vector_size: None,
+            normalize: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Data type for ONNX face embedding options.
+pub struct OnnxFaceEmbeddingOptions {
+    /// The preprocessing value.
+    pub preprocessing: ImageModelPreprocessing,
+    /// Expected vector size.
+    pub expected_vector_size: Option<usize>,
+    /// Whether to L2 normalize output.
+    pub normalize: bool,
+}
+
+impl Default for OnnxFaceEmbeddingOptions {
+    fn default() -> Self {
+        Self {
+            preprocessing: ImageModelPreprocessing {
+                input_width: 112,
+                input_height: 112,
+                rescale_factor: 1.0,
+                mean: [0.0, 0.0, 0.0],
+                std: [1.0, 1.0, 1.0],
+                channel_order: ChannelOrder::Rgb,
+            },
+            expected_vector_size: None,
+            normalize: true,
+        }
+    }
+}
+
+/// Trait for ONNX image embedding runner implementations.
+pub trait OnnxImageEmbeddingRunner {
+    /// Runs image embedding.
+    fn run_image_embedding(
+        &mut self,
+        input: &ImageModelTensor,
+    ) -> Result<Vec<runtime_onnx::OnnxF32Tensor>>;
+}
+
+/// Trait for ONNX face embedding runner implementations.
+pub trait OnnxFaceEmbeddingRunner {
+    /// Runs face embedding.
+    fn run_face_embedding(
+        &mut self,
+        input: &ImageModelTensor,
+    ) -> Result<Vec<runtime_onnx::OnnxF32Tensor>>;
+}
+
+#[derive(Debug, Clone, Default)]
+/// Data type for unavailable ONNX image embedding runner.
+pub struct UnavailableOnnxImageEmbeddingRunner;
+
+impl OnnxImageEmbeddingRunner for UnavailableOnnxImageEmbeddingRunner {
+    fn run_image_embedding(
+        &mut self,
+        _input: &ImageModelTensor,
+    ) -> Result<Vec<runtime_onnx::OnnxF32Tensor>> {
+        Err(DetectError::Source(
+            "native ONNX image embedding execution is unavailable; construct with a runner or enable `onnx`"
+                .to_string(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+/// Data type for unavailable ONNX face embedding runner.
+pub struct UnavailableOnnxFaceEmbeddingRunner;
+
+impl OnnxFaceEmbeddingRunner for UnavailableOnnxFaceEmbeddingRunner {
+    fn run_face_embedding(
+        &mut self,
+        _input: &ImageModelTensor,
+    ) -> Result<Vec<runtime_onnx::OnnxF32Tensor>> {
+        Err(DetectError::Source(
+            "native ONNX face embedding execution is unavailable; construct with a runner or enable `onnx`"
+                .to_string(),
+        ))
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl OnnxImageEmbeddingRunner for runtime_onnx::OnnxSession {
+    fn run_image_embedding(
+        &mut self,
+        input: &ImageModelTensor,
+    ) -> Result<Vec<runtime_onnx::OnnxF32Tensor>> {
+        run_session_f32_outputs(self, input)
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl OnnxFaceEmbeddingRunner for runtime_onnx::OnnxSession {
+    fn run_face_embedding(
+        &mut self,
+        input: &ImageModelTensor,
+    ) -> Result<Vec<runtime_onnx::OnnxF32Tensor>> {
+        run_session_f32_outputs(self, input)
+    }
+}
+
+#[derive(Debug)]
+/// Data type for ONNX image embedder.
+pub struct OnnxImageEmbedder<R = UnavailableOnnxImageEmbeddingRunner> {
+    options: OnnxImageEmbeddingOptions,
+    runner: R,
+}
+
+impl OnnxImageEmbedder<UnavailableOnnxImageEmbeddingRunner> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(_bundle: model_runtime::ModelBundle) -> Result<Self> {
+        Ok(Self {
+            options: OnnxImageEmbeddingOptions::default(),
+            runner: UnavailableOnnxImageEmbeddingRunner,
+        })
+    }
+}
+
+impl<R: OnnxImageEmbeddingRunner> OnnxImageEmbedder<R> {
+    /// Returns this value with options.
+    pub fn with_options(options: OnnxImageEmbeddingOptions, runner: R) -> Result<Self> {
+        validate_image_model_preprocessing(&options.preprocessing)?;
+        validate_expected_size(options.expected_vector_size, "image")?;
+        Ok(Self { options, runner })
+    }
+}
+
+impl<R: OnnxImageEmbeddingRunner> ImageEmbedderBackend for OnnxImageEmbedder<R> {
+    fn embed_image(&mut self, image: &ImageView<'_>) -> Result<ImageEmbedding> {
+        let input = preprocess_image_for_model(image, &self.options.preprocessing)?;
+        let output = self.runner.run_image_embedding(&input)?;
+        let mut vector = select_embedding_vector(&output, self.options.expected_vector_size)?;
+        if self.options.normalize {
+            normalize_vector(&mut vector);
+        }
+        ImageEmbedding::new(vector)
+    }
+}
+
+#[derive(Debug)]
+/// Data type for ONNX face embedder.
+pub struct OnnxFaceEmbedder<R = UnavailableOnnxFaceEmbeddingRunner> {
+    options: OnnxFaceEmbeddingOptions,
+    runner: R,
+}
+
+impl OnnxFaceEmbedder<UnavailableOnnxFaceEmbeddingRunner> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(_bundle: model_runtime::ModelBundle) -> Result<Self> {
+        Ok(Self {
+            options: OnnxFaceEmbeddingOptions::default(),
+            runner: UnavailableOnnxFaceEmbeddingRunner,
+        })
+    }
+}
+
+impl<R: OnnxFaceEmbeddingRunner> OnnxFaceEmbedder<R> {
+    /// Returns this value with options.
+    pub fn with_options(options: OnnxFaceEmbeddingOptions, runner: R) -> Result<Self> {
+        validate_image_model_preprocessing(&options.preprocessing)?;
+        validate_expected_size(options.expected_vector_size, "face")?;
+        Ok(Self { options, runner })
+    }
+}
+
+impl<R: OnnxFaceEmbeddingRunner> FaceEmbedderBackend for OnnxFaceEmbedder<R> {
+    fn embed_face(
+        &mut self,
+        image: &ImageView<'_>,
+        _detection: Option<&FaceDetection>,
+    ) -> Result<FaceEmbedding> {
+        let input = preprocess_image_for_model(image, &self.options.preprocessing)?;
+        let output = self.runner.run_face_embedding(&input)?;
+        let mut vector = select_embedding_vector(&output, self.options.expected_vector_size)?;
+        if self.options.normalize {
+            normalize_vector(&mut vector);
+        }
+        FaceEmbedding::new(vector)
+    }
+}
+
+fn validate_expected_size(size: Option<usize>, kind: &str) -> Result<()> {
+    if let Some(size) = size {
+        if size == 0 {
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX {kind} embedding expected vector size must be greater than zero"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn select_embedding_vector(
+    outputs: &[runtime_onnx::OnnxF32Tensor],
+    expected_size: Option<usize>,
+) -> Result<Vec<f32>> {
+    outputs
+        .iter()
+        .find(|tensor| expected_size.is_none_or(|size| tensor.values.len() == size))
+        .map(|tensor| tensor.values.clone())
+        .ok_or_else(|| {
+            DetectError::InvalidArgument("ONNX embedding output was missing".to_string())
+        })
+}
+
+fn normalize_vector(vector: &mut [f32]) {
+    let norm = vector.iter().map(|value| value * value).sum::<f32>().sqrt();
+    if norm > f32::EPSILON && norm.is_finite() {
+        for value in vector {
+            *value /= norm;
+        }
+    }
+}
+
+#[cfg(feature = "onnx")]
+fn run_session_f32_outputs(
+    session: &mut runtime_onnx::OnnxSession,
+    input: &ImageModelTensor,
+) -> Result<Vec<runtime_onnx::OnnxF32Tensor>> {
+    use runtime_onnx::{OnnxRunner, OnnxTensor, OnnxTensorValue};
+
+    let metadata = session.metadata().map_err(runtime_onnx_error)?;
+    let input_name = runtime_onnx::input_name(&metadata, 0)
+        .map_err(runtime_onnx_error)?
+        .to_string();
+    let outputs = session
+        .run(vec![runtime_onnx::OnnxNamedTensor {
+            name: input_name,
+            tensor: OnnxTensorValue::F32(
+                OnnxTensor::new(
+                    vec![
+                        1,
+                        input.channels,
+                        input.height as usize,
+                        input.width as usize,
+                    ],
+                    input.values.clone(),
+                )
+                .map_err(runtime_onnx_error)?,
+            ),
+        }])
+        .map_err(runtime_onnx_error)?;
+    outputs
+        .iter()
+        .enumerate()
+        .map(|(index, output)| {
+            runtime_onnx::f32_output_by_name_or_index(&outputs, &output.name, index)
+                .map(Clone::clone)
+                .map_err(runtime_onnx_error)
+        })
+        .collect()
+}
+
+#[cfg(feature = "onnx")]
+fn runtime_onnx_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
+    match error {
+        runtime_onnx::OnnxRuntimeError::InvalidArgument(message)
+        | runtime_onnx::OnnxRuntimeError::InvalidTensorShape(message) => {
+            DetectError::InvalidArgument(message)
+        }
+        runtime_onnx::OnnxRuntimeError::Io(error) => DetectError::Io(error),
+        other => DetectError::Source(other.to_string()),
+    }
 }
 
 #[cfg(test)]

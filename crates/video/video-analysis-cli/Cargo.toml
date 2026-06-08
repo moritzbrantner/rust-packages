@@ -23,8 +23,8 @@ path = "src/main.rs"
 [features]
 default = []
 ffmpeg-tests = []
-onnx = ["dep:video-analysis-onnx"]
-onnxruntime = ["onnx", "video-analysis-onnx/onnxruntime"]
+onnx = ["video-analysis-recognition/onnx", "video-analysis-posture/onnx"]
+onnxruntime = ["onnx"]
 
 [dependencies]
 clap.workspace = true
@@ -39,7 +39,6 @@ video-analysis-core.workspace = true
 video-analysis-dataset.workspace = true
 video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
-video-analysis-onnx = { workspace = true, optional = true }
 video-analysis-output.workspace = true
 video-analysis-posture.workspace = true
 video-analysis-posture-io.workspace = true

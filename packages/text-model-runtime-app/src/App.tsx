@@ -15,8 +15,10 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/text-model-runtime",
     standaloneRoute: "",
   },
-  defaultOperation: "runtime.tokenizeSummary",
+  defaultOperation: "runtime.onnxQaProbe",
   featuredOperations: [
+    "runtime.onnxQaProbe",
+    "runtime.downloadBundle",
     "runtime.tokenizeSummary",
     "runtime.bundleCheck",
     "runtime.tokenizerProbe",
@@ -28,7 +30,7 @@ const packageAppConfig: PackageAppConfig = {
       id: "workflow",
       label: "Workflow",
       description: "Run deterministic tokenizer and local bundle readiness workflows.",
-      operations: ["runtime.tokenizeSummary", "runtime.bundleCheck", "runtime.tokenizerProbe"],
+      operations: ["runtime.onnxQaProbe", "runtime.downloadBundle", "runtime.tokenizeSummary", "runtime.bundleCheck", "runtime.tokenizerProbe"],
     },
     {
       id: "support",
@@ -44,6 +46,17 @@ const packageAppConfig: PackageAppConfig = {
     },
   ],
   presets: [
+    {
+      id: "onnx-qa-probe",
+      label: "Probe local QA",
+      operation: "runtime.onnxQaProbe",
+      description: "Resolve the default RoBERTa SQuAD2 ONNX bundle and run one local QA inference on the server.",
+      input: {
+        question: "What language is reliable?",
+        context: "Rust is reliable for systems programming.",
+        topK: 1,
+      },
+    },
     {
       id: "tokenize-summary",
       label: "Summarize tokenizer offsets",

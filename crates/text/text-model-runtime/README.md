@@ -33,21 +33,25 @@ device cannot be initialized. WASM Candle bindings remain CPU-only.
 
 ## Package surface
 
-- Primary workflow: `runtime.tokenizeSummary` builds a deterministic
-  whitespace-token summary without downloads or native model execution.
+- Primary workflow: `runtime.onnxQaProbe` is the native server/CLI probe for
+  the default RoBERTa SQuAD2 ONNX bundle. It resolves an existing bundle from
+  `.model-runtime` or auto-downloads it through `moritzbrantner-model-runtime`.
 - Workflow operations: `runtime.tokenizeSummary`, `runtime.bundleCheck`, and
   `runtime.tokenizerProbe`.
-- Support operations: `runtime.softmax` exposes the shared stable softmax
-  helper.
+- Model operations: `runtime.downloadBundle` materializes a preset bundle, and
+  `runtime.onnxQaProbe` runs one local extractive-QA inference when built with
+  `local-onnx`.
+- Support operations: `runtime.softmax` exposes the shared stable softmax helper.
 - Debug operations: `describe` inspects package metadata and operation support.
-- Runtime support: pure Rust package-surface helpers are available through
-  library, CLI, server, and WASM wrappers.
+- Runtime support: deterministic/imported helpers are available through
+  library, CLI, server, and WASM wrappers. Model-backed operations are
+  server/CLI-only and report unsupported/server-only in WASM.
 - Sample output includes `title`, `message`, `summary`, `result`, and
   operation-specific fields such as `tokens`, `tokenized`, readiness reports,
   or `probabilities`.
-- The package surface does not load tokenizers or execute ONNX/Candle runtimes;
-  those paths remain feature-gated library/server concerns. Readiness workflows
-  inspect local paths only and never download model files.
+- `runtime.onnxQaProbe` and `runtime.downloadBundle` are explicit side-effectful
+  exceptions to the no-download surface policy. Their execution plans declare
+  filesystem reads, filesystem writes, and network access.
 
 ## Model Conformance
 

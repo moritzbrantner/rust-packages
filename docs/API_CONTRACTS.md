@@ -47,8 +47,12 @@ ONNX/Candle/tokenizer dependencies, or domain media dependencies.
 Model catalogs, model specs, preset metadata, schema validation, and deterministic
 fallback planning may run synchronously. Model downloads, bundle
 materialization, runtime warmup, native inference, external model commands, and
-batch inference must be exposed through `model-runtime::jobs` and therefore
-tracked by `moritzbrantner-jobs-core` job state and artifact paths.
+batch inference must declare execution metadata and side effects. The
+server-only local ONNX defaults for text QA, image classification, and image
+captioning are explicit exceptions to the no-download package-surface policy:
+they use `moritzbrantner-model-runtime` to resolve or materialize bundles under
+`.model-runtime`, declare filesystem/network side effects through
+`xExecutionPlan`, and stay unsupported in WASM.
 
 The current workspace-wide baseline operation is `describe`; crates should add
 richer representative operations in their own surface module as library
@@ -79,10 +83,14 @@ core statistics/tokenization/boundaries, lexical analysis and corpus search,
 linguistic analysis/entity projection, hashed embeddings and transient search,
 in-memory retrieval, transcript parsing/formatting, fallback/imported NLP
 tasks, Markov/template generation, generation-from-linguistics adapters, and
-non-executing runtime helpers. These operations must continue to return
+runtime helpers. `runtime.onnxQaProbe`, `runtime.downloadBundle`, and
+`qa.answer` without imported predictions/backend are native server-side model
+workflows when built with `local-onnx`; all other default text surface calls
+remain no-download unless documented otherwise. These operations must continue to return
 `SurfaceResponse` values with JSON payloads and typed error strings, and they
 must not silently download models, run native inference, invoke ASR commands, or
-write retrieval persistence files through default surface calls.
+write retrieval persistence files through default surface calls outside the
+documented model-backed operation exceptions.
 
 Text package operations declare release contract metadata in their
 `SurfaceOperation` schemas. Top-level request fields are explicit
@@ -200,7 +208,7 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-text-core` | Shared text analysis utilities | `moritzbrantner-video-analysis-core`, `unicode-normalization`, `unicode-segmentation` | Text document contracts, text segment bridging, whitespace normalization, span-aware tokens, Unicode word/grapheme spans, script profiles, sentences, paragraphs, counts | Text feature crates, text pipelines, applications |
 | `moritzbrantner-text-lexical` | Lexical features and classical corpus statistics | `moritzbrantner-text-core`, `moritzbrantner-math-sparse-data`, `moritzbrantner-video-analysis-core`, `serde` | Stop words, keywords, n-grams, shingles, readability, stemming, extractive summaries, sentiment, reusable text analyzers, TF-IDF, BM25, sparse term matrices/vectors | Applications, text analytics, semantic indexing |
 | `moritzbrantner-text-linguistics` | Local model-backed linguistic interpretation | `moritzbrantner-jobs-core`, `moritzbrantner-model-runtime`, `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-text-transcripts`, `moritzbrantner-video-analysis-core`, optional `tokenizers`/Candle crates | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
-| `moritzbrantner-text-embeddings` | Embedding traits and lightweight semantic text analysis | `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-math-sparse-data`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-vector-analysis-index`, `moritzbrantner-video-analysis-core`, optional `tokenizers`/`ort`/Candle crates | `TextEmbeddingBackend`, `TextEmbedderBackend`, `EmbeddingModelInfo`, hashed dense/sparse embeddings, optional ONNX/Candle text embedders, semantic indexes, text similarity, co-occurrence graphs, related-term scoring | Retrieval, applications, semantic analysis prototypes |
+| `moritzbrantner-text-embeddings` | Embedding traits and lightweight semantic text analysis | `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-math-sparse-data`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-vector-analysis-index`, `moritzbrantner-video-analysis-core`, optional `tokenizers`/`runtime-onnx`/Candle crates | `TextEmbeddingBackend`, `TextEmbedderBackend`, `EmbeddingModelInfo`, hashed dense/sparse embeddings, optional ONNX/Candle text embedders, semantic indexes, text similarity, co-occurrence graphs, related-term scoring | Retrieval, applications, semantic analysis prototypes |
 | `moritzbrantner-text-retrieval` | Text ingestion, search, and persisted retrieval indexes | `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-text-embeddings`, `moritzbrantner-vector-analysis-index`, `serde`, `serde_json`, `thiserror`, `moritzbrantner-video-analysis-core` | Search documents/chunks, chunking options, full-text/semantic/hybrid query/ranking, metadata filters, search results, related-chunk lookup, manifests, chunk/vector JSONL snapshots, corpus metadata, rehydration helpers | Applications, search prototypes, local retrieval snapshots |
 | `moritzbrantner-text-generation` | Deterministic text prediction and synthesis | `moritzbrantner-data-inversion-core`, `moritzbrantner-text-core`, `moritzbrantner-video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring, weighted term prompts, generated text segments | Applications, text pipelines, prototyping |
 | `moritzbrantner-text-generation-linguistics` | Linguistic adapters for deterministic generation | `moritzbrantner-data-inversion-core`, `moritzbrantner-text-core`, `moritzbrantner-text-generation`, `moritzbrantner-text-linguistics`, `moritzbrantner-video-analysis-core` | Linguistic-analysis term prompts, analysis-to-document synthesis, and Markov training modes for surface, normalized, lemma, and entity-aware tokens | Applications, text pipelines, prototyping |
@@ -230,8 +238,8 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-video-analysis-ingest` | Source abstraction layer | `moritzbrantner-video-analysis-core` | Media/source metadata, source traits, source-to-pipeline adapter helpers, text line source | FFmpeg crate, use cases, applications |
 | `moritzbrantner-video-analysis-ffmpeg` | FFmpeg-backed media probing and decoding | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest` | FFmpeg video/audio sources, metadata, probe helpers, source options | CLI, use cases, applications |
 | `moritzbrantner-model-runtime` | Model-specific specs, bundles, downloads, and validators | `moritzbrantner-jobs-core`, `moritzbrantner-video-analysis-core`, `hf-hub` | Model specs, sources, tasks, presets, bundle manifests, Hugging Face download/cache/store helpers, model metadata projection into generic artifact refs, and conformance helpers | Model-backed capability crates and CLI model commands |
+| `moritzbrantner-runtime-onnx` | Domain-neutral ONNX Runtime session wrapper | optional `ort`/`ndarray`, `serde`, `thiserror` | Typed ONNX tensors, named inputs/outputs, session metadata, CPU session construction, and low-level run helpers | Task crates that own model-specific preprocessing and decoding |
 | `moritzbrantner-jobs-core` | Reusable job state, progress, result envelopes, and generic artifacts | `serde`, `serde_json`, `sha2`, `moritzbrantner-video-analysis-core` | Job IDs, specs, status transitions, progress snapshots, event records, `OperationResult<T>`, `JobResult<T>`, artifact refs, memory/local stores, checksum validation, downloader/validator traits | Model materialization, asynchronous package operations, and artifact-producing workflows |
-| `moritzbrantner-video-analysis-onnx` | Optional ONNX vision model backend adapters | `moritzbrantner-model-runtime`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-posture`, `moritzbrantner-video-analysis-recognition`, image crates, optional `ort` | Object-detection plus posture bundle validation, image preprocessing, fake-runner seams, optional runtime execution | Native vision inference experiments and CLI feature builds |
 | `moritzbrantner-video-analysis-colmap-backend` | COLMAP command and data compatibility backend | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-reconstruction`, `moritzbrantner-video-analysis-radiance-fields` | Native server-only video reconstruction plus advanced dry-run command previews, inline image-list JSON summaries, sparse-model JSON summaries, sparse reconstruction import helpers, and camera/image/point conversions | SfM, MVS, radiance-field conversion, and external-tool workflows |
 | `moritzbrantner-video-analysis-mvs` | Multi-view stereo contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-reconstruction`, `moritzbrantner-three-d-processing-core` | Depth maps, view-pair records, dense reconstruction options, point-cloud conversion helpers | Reconstruction, radiance, and 3D processing workflows |
 | `moritzbrantner-video-analysis-opencv-backend` | OpenCV command/backend compatibility layer | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-posture`, `moritzbrantner-video-analysis-recognition` | OpenCV detector options, process wrappers, detection/posture adapter contracts | Native vision experiments and optional external-tool workflows |
@@ -428,10 +436,10 @@ helpers without requiring video timeline semantics.
   image/video-frame backend traits for model, command, or heuristic recognizers.
   Its runtime surface summarizes presets, requests, and imported OCR documents
   without recognizing images.
-- `moritzbrantner-image-analysis-onnx` owns still-image ONNX preprocessing and optional
-  runtime-backed image model adapters. It now exposes batch preprocessing as
-  `OnnxImageBatchTensor`, `image_batch_to_tensor`, and
-  `preprocess_image_batch`.
+- `moritzbrantner-image-analysis-processing` owns image model preprocessing and
+  batch tensor conversion. Image classification, captioning, detection, and
+  embedding crates own their ONNX adapters and use `moritzbrantner-runtime-onnx`
+  only for low-level session execution.
 - `moritzbrantner-image-analysis-comfyui` owns ComfyUI workflow builders and a lightweight
   HTTP client/executor for AI image generation and manipulation.
   `ImageGenerationRequest` now prefers typed `ComfyModelRef` values for
@@ -838,14 +846,12 @@ Text model presets include ONNX-friendly Hugging Face repos:
   `tokenizer_config.json`, and the first available ONNX file from
   `onnx/model.onnx` or `onnx/model_quantized.onnx`.
 
-`video-analysis-onnx` owns native vision-model bundle adaptation. Its default
-build validates object-detection bundles, reads `id2label`, parses
-preprocessor size/rescale/mean/std metadata, converts frames into NCHW tensors,
-and decodes runner outputs into `RawPrediction::object` values. The
-`onnxruntime` feature gates the optional `ort` dependency and executes
-DETR/YOLOS-style ONNX sessions that return logits plus center-format boxes.
-Deterministic tests inject a fake runner so normal workspace checks do not
-download or execute model artifacts.
+`video-analysis-recognition` owns native video object-detection adaptation by
+composing `image-analysis-detection` ONNX adapters. `video-analysis-posture`
+owns pose ONNX options and fake-runner seams. `runtime-onnx/onnxruntime` gates
+the optional `ort` dependency and executes DETR/YOLOS-style ONNX sessions that
+return logits plus center-format boxes. Deterministic tests inject fake runners
+so normal workspace checks do not download or execute model artifacts.
 
 ## Recognition Contracts
 

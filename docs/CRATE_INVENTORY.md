@@ -19,39 +19,39 @@ python3 scripts/audit_workspace_crates.py --check
 
 ## Counts
 
-- Active workspace packages: 382
+- Active workspace packages: 375
 
 ### Domains
 
 - `animation`: 3
 - `audio`: 34
-- `bindings`: 94
+- `bindings`: 92
 - `comfyui`: 9
 - `data`: 33
-- `image`: 36
+- `image`: 33
 - `jobs`: 3
 - `math`: 21
 - `prototype`: 1
 - `root`: 1
-- `runtime`: 4
+- `runtime`: 5
 - `test-support`: 1
 - `text`: 36
 - `three-d`: 12
 - `vector`: 6
-- `video`: 88
+- `video`: 85
 
 ### Kinds
 
-- `cli`: 95
-- `library`: 98
+- `cli`: 93
+- `library`: 97
 - `prototype`: 1
-- `server`: 94
-- `wasm`: 94
+- `server`: 92
+- `wasm`: 92
 
 ### Publish classes
 
 - `internal-test`: 2
-- `public`: 380
+- `public`: 373
 
 | Package | Domain | Kind | Publish | Surface required | Facade expected | Path |
 |---|---|---|---|---|---|---|
@@ -125,7 +125,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-image-analysis-embeddings-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-embeddings-wasm` |
 | `moritzbrantner-image-analysis-io-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-io-wasm` |
 | `moritzbrantner-image-analysis-ocr-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-ocr-wasm` |
-| `moritzbrantner-image-analysis-onnx-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-onnx-wasm` |
 | `moritzbrantner-image-analysis-processing-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-processing-wasm` |
 | `moritzbrantner-image-analysis-segmentation-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-segmentation-wasm` |
 | `moritzbrantner-image-analysis-synthesis-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-synthesis-wasm` |
@@ -168,7 +167,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-gaussian-splatting-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-gaussian-splatting-wasm` |
 | `moritzbrantner-video-analysis-ingest-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-ingest-wasm` |
 | `moritzbrantner-video-analysis-mvs-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-mvs-wasm` |
-| `moritzbrantner-video-analysis-onnx-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-onnx-wasm` |
 | `moritzbrantner-video-analysis-opencv-backend-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-opencv-backend-wasm` |
 | `moritzbrantner-video-analysis-output-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-output-wasm` |
 | `moritzbrantner-video-analysis-posture-io-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-posture-io-wasm` |
@@ -236,7 +234,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-image-analysis-embeddings-cli` | image | cli | public | no | no | `crates/image/image-analysis-embeddings-cli` |
 | `moritzbrantner-image-analysis-io-cli` | image | cli | public | no | no | `crates/image/image-analysis-io-cli` |
 | `moritzbrantner-image-analysis-ocr-cli` | image | cli | public | no | no | `crates/image/image-analysis-ocr-cli` |
-| `moritzbrantner-image-analysis-onnx-cli` | image | cli | public | no | no | `crates/image/image-analysis-onnx-cli` |
 | `moritzbrantner-image-analysis-processing-cli` | image | cli | public | no | no | `crates/image/image-analysis-processing-cli` |
 | `moritzbrantner-image-analysis-segmentation-cli` | image | cli | public | no | no | `crates/image/image-analysis-segmentation-cli` |
 | `moritzbrantner-image-analysis-synthesis-cli` | image | cli | public | no | no | `crates/image/image-analysis-synthesis-cli` |
@@ -248,7 +245,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-image-analysis-embeddings` | image | library | public | yes | yes | `crates/image/image-analysis-embeddings` |
 | `moritzbrantner-image-analysis-io` | image | library | public | yes | yes | `crates/image/image-analysis-io` |
 | `moritzbrantner-image-analysis-ocr` | image | library | public | yes | yes | `crates/image/image-analysis-ocr` |
-| `moritzbrantner-image-analysis-onnx` | image | library | public | yes | yes | `crates/image/image-analysis-onnx` |
 | `moritzbrantner-image-analysis-processing` | image | library | public | yes | yes | `crates/image/image-analysis-processing` |
 | `moritzbrantner-image-analysis-segmentation` | image | library | public | yes | yes | `crates/image/image-analysis-segmentation` |
 | `moritzbrantner-image-analysis-synthesis` | image | library | public | yes | yes | `crates/image/image-analysis-synthesis` |
@@ -260,7 +256,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-image-analysis-embeddings-server` | image | server | public | no | no | `crates/image/image-analysis-embeddings-server` |
 | `moritzbrantner-image-analysis-io-server` | image | server | public | no | no | `crates/image/image-analysis-io-server` |
 | `moritzbrantner-image-analysis-ocr-server` | image | server | public | no | no | `crates/image/image-analysis-ocr-server` |
-| `moritzbrantner-image-analysis-onnx-server` | image | server | public | no | no | `crates/image/image-analysis-onnx-server` |
 | `moritzbrantner-image-analysis-processing-server` | image | server | public | no | no | `crates/image/image-analysis-processing-server` |
 | `moritzbrantner-image-analysis-segmentation-server` | image | server | public | no | no | `crates/image/image-analysis-segmentation-server` |
 | `moritzbrantner-image-analysis-synthesis-server` | image | server | public | no | no | `crates/image/image-analysis-synthesis-server` |
@@ -293,6 +288,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-model-runtime-cli` | runtime | cli | public | no | no | `crates/runtime/model-runtime-cli` |
 | `moritzbrantner-model-runtime` | runtime | library | public | yes | yes | `crates/runtime/model-runtime` |
 | `moritzbrantner-runtime-core` | runtime | library | public | no | yes | `crates/runtime/runtime-core` |
+| `moritzbrantner-runtime-onnx` | runtime | library | public | yes | yes | `crates/runtime/runtime-onnx` |
 | `moritzbrantner-model-runtime-server` | runtime | server | public | no | no | `crates/runtime/model-runtime-server` |
 | `moritzbrantner-video-analysis-test-support` | test-support | library | internal-test | no | no | `crates/test-support/video-analysis-test-support` |
 | `moritzbrantner-text-analysis-cli` | text | cli | public | no | no | `crates/text/text-analysis-cli` |
@@ -361,7 +357,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-gaussian-splatting-cli` | video | cli | public | no | no | `crates/video/video-analysis-gaussian-splatting-cli` |
 | `moritzbrantner-video-analysis-ingest-cli` | video | cli | public | no | no | `crates/video/video-analysis-ingest-cli` |
 | `moritzbrantner-video-analysis-mvs-cli` | video | cli | public | no | no | `crates/video/video-analysis-mvs-cli` |
-| `moritzbrantner-video-analysis-onnx-cli` | video | cli | public | no | no | `crates/video/video-analysis-onnx-cli` |
 | `moritzbrantner-video-analysis-opencv-backend-cli` | video | cli | public | no | no | `crates/video/video-analysis-opencv-backend-cli` |
 | `moritzbrantner-video-analysis-output-cli` | video | cli | public | no | no | `crates/video/video-analysis-output-cli` |
 | `moritzbrantner-video-analysis-posture-cli` | video | cli | public | no | no | `crates/video/video-analysis-posture-cli` |
@@ -390,7 +385,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-gaussian-splatting` | video | library | public | yes | yes | `crates/video/video-analysis-gaussian-splatting` |
 | `moritzbrantner-video-analysis-ingest` | video | library | public | yes | yes | `crates/video/video-analysis-ingest` |
 | `moritzbrantner-video-analysis-mvs` | video | library | public | yes | yes | `crates/video/video-analysis-mvs` |
-| `moritzbrantner-video-analysis-onnx` | video | library | public | yes | yes | `crates/video/video-analysis-onnx` |
 | `moritzbrantner-video-analysis-opencv-backend` | video | library | public | yes | yes | `crates/video/video-analysis-opencv-backend` |
 | `moritzbrantner-video-analysis-output` | video | library | public | yes | yes | `crates/video/video-analysis-output` |
 | `moritzbrantner-video-analysis-posture` | video | library | public | yes | yes | `crates/video/video-analysis-posture` |
@@ -419,7 +413,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-gaussian-splatting-server` | video | server | public | no | no | `crates/video/video-analysis-gaussian-splatting-server` |
 | `moritzbrantner-video-analysis-ingest-server` | video | server | public | no | no | `crates/video/video-analysis-ingest-server` |
 | `moritzbrantner-video-analysis-mvs-server` | video | server | public | no | no | `crates/video/video-analysis-mvs-server` |
-| `moritzbrantner-video-analysis-onnx-server` | video | server | public | no | no | `crates/video/video-analysis-onnx-server` |
 | `moritzbrantner-video-analysis-opencv-backend-server` | video | server | public | no | no | `crates/video/video-analysis-opencv-backend-server` |
 | `moritzbrantner-video-analysis-output-server` | video | server | public | no | no | `crates/video/video-analysis-output-server` |
 | `moritzbrantner-video-analysis-posture-io-server` | video | server | public | no | no | `crates/video/video-analysis-posture-io-server` |

@@ -150,3 +150,15 @@ impl HuggingFaceDownloader {
         })
     }
 }
+
+/// Minimal downloader seam for bundle resolution tests and alternate materializers.
+pub trait ModelDownloader {
+    /// Downloads or otherwise stages the requested model files.
+    fn download_model(&self, spec: &HuggingFaceModelSpec) -> Result<DownloadedModel>;
+}
+
+impl ModelDownloader for HuggingFaceDownloader {
+    fn download_model(&self, spec: &HuggingFaceModelSpec) -> Result<DownloadedModel> {
+        self.download(spec)
+    }
+}

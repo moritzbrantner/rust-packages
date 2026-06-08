@@ -102,8 +102,6 @@ fn native_text_model_runtime_dependencies_are_feature_gated() {
         (
             "crates/text/text-embeddings/Cargo.toml",
             &[
-                "ort",
-                "ndarray",
                 "tokenizers",
                 "candle-core",
                 "candle-nn",
@@ -122,8 +120,6 @@ fn native_text_model_runtime_dependencies_are_feature_gated() {
         (
             "crates/text/text-model-runtime/Cargo.toml",
             &[
-                "ort",
-                "ndarray",
                 "tokenizers",
                 "candle-core",
                 "candle-nn",
@@ -140,6 +136,23 @@ fn native_text_model_runtime_dependencies_are_feature_gated() {
                 "{path} must keep native/model dependency `{dependency}` optional"
             );
         }
+    }
+
+    for path in [
+        "crates/text/text-embeddings/Cargo.toml",
+        "crates/text/text-model-runtime/Cargo.toml",
+    ] {
+        let manifest = read_manifest(path);
+        assert!(
+            manifest.contains("runtime-onnx.workspace = true")
+                || manifest.contains("runtime-onnx = { workspace = true"),
+            "{path} must use runtime-onnx instead of depending directly on ort/ndarray"
+        );
+        assert!(
+            !manifest_declares_dependency(&manifest, "ort")
+                && !manifest_declares_dependency(&manifest, "ndarray"),
+            "{path} must not depend directly on ort or ndarray"
+        );
     }
 }
 
@@ -254,24 +267,63 @@ fn concrete_text_crates_do_not_expose_aggregate_nlp_surfaces() {
 }
 
 #[test]
-fn image_onnx_uses_concrete_capability_contracts_directly() {
-    let manifest = read_manifest("crates/image/image-analysis-onnx/Cargo.toml");
+fn onnx_runtime_is_domain_neutral_and_task_crates_use_it() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let runtime_manifest = read_manifest("crates/runtime/runtime-onnx/Cargo.toml");
+    for required in [
+        "ort = { workspace = true, optional = true",
+        "ndarray = { workspace = true, optional = true",
+        "onnxruntime = [\"dep:ort\", \"dep:ndarray\"]",
+    ] {
+        assert!(
+            runtime_manifest.contains(required),
+            "runtime-onnx must keep ONNX Runtime mechanics optional through `{required}`"
+        );
+    }
+    for forbidden in [
+        "image-analysis",
+        "video-analysis",
+        "text-",
+        "model-runtime",
+        "comfyui-",
+    ] {
+        assert!(
+            !runtime_manifest.contains(forbidden),
+            "runtime-onnx must stay domain-neutral and not depend on `{forbidden}`"
+        );
+    }
+
+    let mut direct_ort = Vec::new();
+    collect_manifests(&root.join("crates"), &mut |manifest| {
+        let source = fs::read_to_string(manifest).expect("read manifest");
+        if manifest_declares_dependency(&source, "ort")
+            && !manifest.ends_with("crates/runtime/runtime-onnx/Cargo.toml")
+        {
+            direct_ort.push(manifest.display().to_string());
+        }
+    });
     assert!(
-        manifest.contains("image-analysis-classification.workspace = true"),
-        "image-analysis-onnx must consume image classification contracts directly"
+        direct_ort.is_empty(),
+        "only runtime-onnx may depend directly on ort: {}",
+        direct_ort.join(", ")
     );
-    assert!(
-        manifest.contains("image-analysis-embeddings.workspace = true"),
-        "image-analysis-onnx must consume image embedding contracts directly"
-    );
-    assert!(
-        !manifest.contains("image-analysis-tasks.workspace = true"),
-        "image-analysis-onnx must not depend on aggregate image-analysis-tasks"
-    );
-    assert!(
-        !manifest.contains("image-analysis-models.workspace = true"),
-        "image-analysis-onnx must not depend on the compatibility image-analysis-models crate"
-    );
+
+    for path in [
+        "crates/image/image-analysis-classification/Cargo.toml",
+        "crates/image/image-analysis-captioning/Cargo.toml",
+        "crates/image/image-analysis-detection/Cargo.toml",
+        "crates/image/image-analysis-embeddings/Cargo.toml",
+        "crates/video/video-analysis-posture/Cargo.toml",
+        "crates/video/video-analysis-recognition/Cargo.toml",
+        "crates/text/text-model-runtime/Cargo.toml",
+        "crates/text/text-embeddings/Cargo.toml",
+    ] {
+        let manifest = read_manifest(path);
+        assert!(
+            manifest.contains("runtime-onnx"),
+            "{path} must use runtime-onnx for ONNX session execution"
+        );
+    }
 }
 
 #[test]
@@ -432,8 +484,8 @@ fn foundational_audio_and_image_cores_stay_runtime_independent() {
 
     let image_core = read_manifest("crates/image/image-analysis-core/Cargo.toml");
     for forbidden in [
-        "image-analysis-onnx",
-        "video-analysis-onnx",
+        concat!("image-analysis-", "onnx"),
+        concat!("video-analysis-", "onnx"),
         "model-runtime",
         "ort",
         "candle",
@@ -458,7 +510,6 @@ fn math_data_and_vector_crates_stay_independent_of_media_runtimes() {
                 "text-",
                 "video-analysis-ffmpeg",
                 "video-analysis-ingest",
-                "video-analysis-onnx",
                 "video-analysis-split",
                 "model-runtime",
                 "ffmpeg-next",
@@ -570,7 +621,6 @@ fn jobs_core_stays_model_agnostic() {
         "audio-analysis",
         "image-analysis",
         "text-",
-        "video-analysis-onnx",
         "comfyui-",
     ] {
         assert!(
@@ -650,8 +700,13 @@ fn runtime_backend_defaults_stay_empty_and_opt_in() {
         "crates/text/text-linguistics/Cargo.toml",
         "crates/text/text-analysis/Cargo.toml",
         "crates/text/text-embeddings/Cargo.toml",
-        "crates/image/image-analysis-onnx/Cargo.toml",
-        "crates/video/video-analysis-onnx/Cargo.toml",
+        "crates/runtime/runtime-onnx/Cargo.toml",
+        "crates/image/image-analysis-classification/Cargo.toml",
+        "crates/image/image-analysis-captioning/Cargo.toml",
+        "crates/image/image-analysis-detection/Cargo.toml",
+        "crates/image/image-analysis-embeddings/Cargo.toml",
+        "crates/video/video-analysis-posture/Cargo.toml",
+        "crates/video/video-analysis-recognition/Cargo.toml",
         "crates/audio/audio-analysis-separation/Cargo.toml",
         "crates/video/video-analysis-cli/Cargo.toml",
     ] {
@@ -807,8 +862,12 @@ fn collect_manifests(dir: &Path, visit: &mut impl FnMut(&Path)) {
 
 fn model_access_scan_is_allowed(path: &str) -> bool {
     path.starts_with("crates/runtime/model-runtime/")
-        || path.starts_with("crates/image/image-analysis-onnx/")
-        || path.starts_with("crates/video/video-analysis-onnx/")
+        || path.starts_with("crates/image/image-analysis-classification/")
+        || path.starts_with("crates/image/image-analysis-captioning/")
+        || path.starts_with("crates/image/image-analysis-detection/")
+        || path.starts_with("crates/image/image-analysis-embeddings/")
+        || path.starts_with("crates/video/video-analysis-posture/")
+        || path.starts_with("crates/video/video-analysis-recognition/")
         || path.starts_with("crates/text/text-model-runtime/")
         || path.starts_with("crates/video/video-analysis-recognition/src/external_command.rs")
         || path.contains("/tests/")

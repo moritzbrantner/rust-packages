@@ -421,6 +421,7 @@ fn library_manifests(root: &Path) -> Vec<PathBuf> {
                 || package_name.ends_with("-wasm")
                 || package_name == "moritzbrantner-audio-analysis-test-support"
                 || package_name == "moritzbrantner-runtime-core"
+                || package_name == "moritzbrantner-runtime-onnx"
                 || package_name == "moritzbrantner-video-analysis-test-support"
             {
                 return None;

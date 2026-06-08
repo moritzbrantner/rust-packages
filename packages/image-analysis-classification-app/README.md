@@ -13,3 +13,8 @@ Run the app:
 ```bash
 bun run --cwd packages/image-analysis-classification-app dev
 ```
+
+The default app operation is `image.classification.classify`, a server-only
+local ViT ONNX workflow that may materialize `Xenova/vit-base-patch16-224`
+under `.model-runtime`. Imported label workflows remain available for client
+and WASM use.

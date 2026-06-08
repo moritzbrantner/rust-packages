@@ -188,6 +188,7 @@ fn image_surface_cases() -> Vec<ImageSurfaceCase> {
             run: image_analysis_captioning::surface::run_surface_operation,
             operations: &[
                 "describe",
+                "image.captioning.caption",
                 "image.captioning.models",
                 "image.captioning.schema",
                 "image.captioning.imported",
@@ -195,6 +196,7 @@ fn image_surface_cases() -> Vec<ImageSurfaceCase> {
                 "image.captioning.captionReport",
             ],
             workflow: &[
+                "image.captioning.caption",
                 "image.captioning.imported",
                 "image.captioning.rankCaptions",
                 "image.captioning.captionReport",
@@ -214,6 +216,7 @@ fn image_surface_cases() -> Vec<ImageSurfaceCase> {
             run: image_analysis_classification::surface::run_surface_operation,
             operations: &[
                 "describe",
+                "image.classification.classify",
                 "image.classification.models",
                 "image.classification.schema",
                 "image.classification.imported",
@@ -221,6 +224,7 @@ fn image_surface_cases() -> Vec<ImageSurfaceCase> {
                 "image.classification.thresholdLabels",
             ],
             workflow: &[
+                "image.classification.classify",
                 "image.classification.imported",
                 "image.classification.topLabels",
                 "image.classification.thresholdLabels",
@@ -393,24 +397,6 @@ fn image_surface_cases() -> Vec<ImageSurfaceCase> {
             invalid_input: serde_json::json!({"width": 0, "height": 1, "color": {"red": 0, "green": 0, "blue": 0}}),
         },
     ];
-
-    #[cfg(feature = "onnx")]
-    cases.push(ImageSurfaceCase {
-        crate_name: "image-analysis-onnx",
-        package_surface: image_analysis_onnx::surface::package_surface,
-        run: image_analysis_onnx::surface::run_surface_operation,
-        operations: &[
-            "describe",
-            "image.onnx.preprocessing",
-            "image.onnx.preprocess",
-            "image.onnx.decodeDetections",
-        ],
-        workflow: &["image.onnx.preprocess", "image.onnx.decodeDetections"],
-        debug: &["image.onnx.preprocessing", "describe"],
-        support: &[],
-        invalid_operation: "image.onnx.preprocess",
-        invalid_input: serde_json::json!({}),
-    });
 
     cases
 }

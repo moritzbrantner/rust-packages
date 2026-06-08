@@ -31,6 +31,12 @@ pub enum ModelPreset {
     XenovaMsMarcoMiniLmL6V2Onnx,
     /// The RoBERTa SQuAD2 QA ONNX variant.
     XenovaRobertaBaseSquad2Onnx,
+    /// The onnx-community RoBERTa SQuAD2 QA ONNX variant.
+    OnnxCommunityRobertaBaseSquad2,
+    /// The Xenova ViT base patch16 224 image classification ONNX variant.
+    XenovaVitBasePatch16_224Onnx,
+    /// The Xenova ViT-GPT2 image captioning ONNX variant.
+    XenovaVitGpt2ImageCaptioningOnnx,
     /// The xenova DETR ResNet-50 ONNX variant.
     XenovaDetrResnet50Onnx,
     /// The AST AudioSet classification variant.
@@ -67,6 +73,9 @@ impl ModelPreset {
         Self::XenovaBartLargeCnnOnnx,
         Self::XenovaMsMarcoMiniLmL6V2Onnx,
         Self::XenovaRobertaBaseSquad2Onnx,
+        Self::OnnxCommunityRobertaBaseSquad2,
+        Self::XenovaVitBasePatch16_224Onnx,
+        Self::XenovaVitGpt2ImageCaptioningOnnx,
         Self::XenovaDetrResnet50Onnx,
         Self::AstAudioset,
         Self::XenovaAstAudiosetOnnx,
@@ -96,6 +105,9 @@ impl ModelPreset {
             Self::XenovaBartLargeCnnOnnx => "xenova-bart-large-cnn-onnx",
             Self::XenovaMsMarcoMiniLmL6V2Onnx => "xenova-ms-marco-minilm-l6-v2-onnx",
             Self::XenovaRobertaBaseSquad2Onnx => "xenova-roberta-base-squad2-onnx",
+            Self::OnnxCommunityRobertaBaseSquad2 => "roberta-base-squad2-onnx",
+            Self::XenovaVitBasePatch16_224Onnx => "vit-base-patch16-224-onnx",
+            Self::XenovaVitGpt2ImageCaptioningOnnx => "vit-gpt2-image-captioning-onnx",
             Self::XenovaDetrResnet50Onnx => "xenova-detr-resnet-50-onnx",
             Self::AstAudioset => "ast-audioset",
             Self::XenovaAstAudiosetOnnx => "xenova-ast-audioset-onnx",
@@ -237,6 +249,50 @@ impl ModelPreset {
             .file("tokenizer.json")
             .file("tokenizer_config.json")
             .first_available_file(["onnx/model.onnx", "onnx/model_quantized.onnx"]),
+            Self::OnnxCommunityRobertaBaseSquad2 => HuggingFaceModelSpec::new(
+                "onnx-community/roberta-base-squad2-ONNX",
+                ModelTask::QuestionAnswering,
+            )
+            .name(self.as_str())
+            .file("config.json")
+            .file("tokenizer.json")
+            .file("tokenizer_config.json")
+            .optional_file("vocab.json")
+            .optional_file("merges.txt")
+            .optional_file("special_tokens_map.json")
+            .first_available_file([
+                "onnx/model_quantized.onnx",
+                "onnx/model.onnx",
+                "onnx/model_uint8.onnx",
+            ]),
+            Self::XenovaVitBasePatch16_224Onnx => HuggingFaceModelSpec::new(
+                "Xenova/vit-base-patch16-224",
+                ModelTask::ImageClassification,
+            )
+            .name(self.as_str())
+            .file("config.json")
+            .file("preprocessor_config.json")
+            .first_available_file(["onnx/model_quantized.onnx", "onnx/model.onnx"]),
+            Self::XenovaVitGpt2ImageCaptioningOnnx => HuggingFaceModelSpec::new(
+                "Xenova/vit-gpt2-image-captioning",
+                ModelTask::Custom("image_captioning".to_string()),
+            )
+            .name(self.as_str())
+            .file("config.json")
+            .file("generation_config.json")
+            .file("preprocessor_config.json")
+            .file("tokenizer.json")
+            .file("tokenizer_config.json")
+            .file("vocab.json")
+            .file("merges.txt")
+            .first_available_file([
+                "onnx/encoder_model_quantized.onnx",
+                "onnx/encoder_model.onnx",
+            ])
+            .first_available_file([
+                "onnx/decoder_model_quantized.onnx",
+                "onnx/decoder_model.onnx",
+            ]),
             Self::XenovaDetrResnet50Onnx => {
                 HuggingFaceModelSpec::new("Xenova/detr-resnet-50", ModelTask::ObjectDetection)
                     .name(self.as_str())

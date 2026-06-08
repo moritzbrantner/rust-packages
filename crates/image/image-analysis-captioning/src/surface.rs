@@ -4,7 +4,8 @@ use std::collections::BTreeMap;
 
 use runtime_core::{
     describe_surface_response, structured_operation_response, OperationId, PackageSurface,
-    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
+    RuntimeCapabilities, RuntimeRequirement, SurfaceExecutionMode, SurfaceExecutionPlan,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse, SurfaceSideEffect,
 };
 use serde::Deserialize;
 
@@ -22,6 +23,12 @@ pub fn package_surface() -> PackageSurface {
                 "Describe package",
                 "Image captioning catalogs, schemas, and imported caption validation.",
                 serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "image.captioning.caption",
+                "Caption image",
+                "Server-only local ONNX image captioning workflow. Backend construction lives in this task crate and uses runtime-onnx for session execution.",
+                serde_json::json!({"image": sample_image_json(), "model": "vit-gpt2-image-captioning-onnx", "maxNewTokens": 32}),
             ),
             operation(
                 "image.captioning.models",
@@ -63,7 +70,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
+    let mut operation = SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
         description: Some(description.to_string()),
@@ -72,6 +79,48 @@ fn operation(
         example_request,
         wasm_supported: true,
         server_supported: true,
+    };
+    if id == "image.captioning.caption" {
+        let plan = model_execution_plan(id);
+        operation.input_schema["xExecutionPlan"] =
+            runtime_core::surface_execution_plan_value(&plan);
+        operation.output_schema["xExecutionPlan"] =
+            runtime_core::surface_execution_plan_value(&plan);
+        operation.wasm_supported = false;
+    }
+    operation
+}
+
+fn model_execution_plan(operation: &str) -> SurfaceExecutionPlan {
+    SurfaceExecutionPlan {
+        operation: OperationId::new(operation),
+        mode: SurfaceExecutionMode::InMemory,
+        side_effects: vec![
+            SurfaceSideEffect::ReadsFiles,
+            SurfaceSideEffect::WritesFiles,
+            SurfaceSideEffect::Network,
+        ],
+        cancellable: false,
+        progress_unit: Some("tokens".to_string()),
+        expected_artifacts: Vec::new(),
+        requirements: vec![
+            RuntimeRequirement {
+                name: "onnxruntime".to_string(),
+                description: Some("ONNX Runtime CPU execution via runtime-onnx".to_string()),
+                required: true,
+            },
+            RuntimeRequirement {
+                name: "local-filesystem".to_string(),
+                description: Some("Readable and writable .model-runtime bundle root".to_string()),
+                required: true,
+            },
+            RuntimeRequirement {
+                name: "hugging-face-access".to_string(),
+                description: Some("Network access for first-run model downloads".to_string()),
+                required: true,
+            },
+        ],
+        max_recommended_input_bytes: Some(16_777_216),
     }
 }
 
@@ -81,6 +130,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
         "describe" => return Ok(describe_surface_response(&surface, request)),
+        "image.captioning.caption" => caption_value(parse_input(request.input)?)?,
         "image.captioning.models" => models_value(parse_input(request.input)?)?,
         "image.captioning.schema" => schema_summary(),
         "image.captioning.imported" => imported_value(parse_input(request.input)?)?,
@@ -113,6 +163,16 @@ struct ImportedRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct CaptionRequest {
+    image: Option<serde_json::Value>,
+    model: Option<String>,
+    max_new_tokens: Option<usize>,
+    min_score: Option<f32>,
+    auto_download: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ImportedCaption {
     #[serde(alias = "caption")]
     text: String,
@@ -138,6 +198,45 @@ fn models_value(request: ModelsRequest) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({
         "models": image_captioning_catalog(task)
     }))
+}
+
+fn caption_value(request: CaptionRequest) -> Result<serde_json::Value, String> {
+    if request.image.is_none() {
+        return Err("image.captioning.caption requires an image payload".to_string());
+    }
+    let max_new_tokens = request.max_new_tokens.unwrap_or(32);
+    if max_new_tokens == 0 {
+        return Err("caption maxNewTokens must be greater than zero".to_string());
+    }
+    if let Some(min_score) = request.min_score {
+        if !min_score.is_finite() {
+            return Err("caption minScore must be finite".to_string());
+        }
+    }
+    Ok(serde_json::json!({
+        "executed": false,
+        "serverOnly": true,
+        "wasmSupported": false,
+        "serverSupported": true,
+        "captions": [],
+        "bestCaption": null,
+        "modelId": request.model.unwrap_or_else(|| "Xenova/vit-gpt2-image-captioning".to_string()),
+        "bundlePath": ".model-runtime",
+        "runtime": "onnx",
+        "generatedTokenCount": 0,
+        "autoDownload": request.auto_download.unwrap_or(true),
+        "diagnostics": ["ONNX captioning execution is implemented by image-analysis-captioning with runtime-onnx; call the native server/backend wrapper for model execution."]
+    }))
+}
+
+fn sample_image_json() -> serde_json::Value {
+    serde_json::json!({
+        "width": 2,
+        "height": 2,
+        "pixelFormat": "rgb24",
+        "stride": null,
+        "data": [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255]
+    })
 }
 
 fn imported_value(request: ImportedRequest) -> Result<serde_json::Value, String> {
@@ -264,10 +363,32 @@ mod tests {
             .into_iter()
             .map(|operation| operation.id.0)
             .collect::<Vec<_>>();
+        assert!(ids.contains(&"image.captioning.caption".to_string()));
         assert!(ids.contains(&"image.captioning.models".to_string()));
         assert!(ids.contains(&"image.captioning.imported".to_string()));
         assert!(ids.contains(&"image.captioning.rankCaptions".to_string()));
         assert!(ids.contains(&"image.captioning.captionReport".to_string()));
+    }
+
+    #[test]
+    fn caption_operation_is_server_only_and_structured() {
+        let surface = package_surface();
+        let operation = surface
+            .operations
+            .iter()
+            .find(|operation| operation.id.as_str() == "image.captioning.caption")
+            .expect("caption operation");
+        assert!(!operation.wasm_supported);
+        assert!(operation.server_supported);
+        assert!(!operation.input_schema["xExecutionPlan"].is_null());
+
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.captioning.caption"),
+            input: operation.example_request.clone(),
+        })
+        .expect("caption");
+        assert_eq!(response.value["executed"], false);
+        assert_eq!(response.value["runtime"], "onnx");
     }
 
     #[test]

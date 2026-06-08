@@ -15,8 +15,9 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-captioning",
     standaloneRoute: "",
   },
-  defaultOperation: "image.captioning.imported",
+  defaultOperation: "image.captioning.caption",
   featuredOperations: [
+    "image.captioning.caption",
     "image.captioning.imported",
     "image.captioning.rankCaptions",
     "image.captioning.captionReport",
@@ -28,8 +29,9 @@ const packageAppConfig: PackageAppConfig = {
     {
       id: "workflow",
       label: "Workflow",
-      description: "Validate, rank, and summarize imported caption results.",
+      description: "Run server-side captioning or validate imported caption results.",
       operations: [
+        "image.captioning.caption",
         "image.captioning.imported",
         "image.captioning.rankCaptions",
         "image.captioning.captionReport",

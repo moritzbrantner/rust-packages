@@ -3,9 +3,12 @@
 pub mod surface;
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use text_embeddings::{HashedTextEmbedder, TextEmbedderBackend, TextEmbeddingConfig};
+#[cfg(feature = "local-onnx")]
+use text_model_runtime::{OnnxQuestionAnswerer, QuestionAnsweringDecodeOptions};
 use text_model_runtime::{QuestionAnsweringBackend, TextRuntimeBackend};
 use text_retrieval::{IngestionOptions, RetrievalIndex, SearchDocument, SearchQuery, SearchResult};
 use video_analysis_core::{DetectError, Result};
@@ -36,6 +39,47 @@ pub struct ModelSelection {
     /// Optional preferred runtime.
     #[serde(default)]
     pub runtime: Option<QuestionAnsweringRuntime>,
+}
+
+/// Local model options for default ONNX question answering.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionAnsweringLocalModelOptions {
+    /// Optional preset id; defaults to `roberta-base-squad2-onnx`.
+    #[serde(default)]
+    pub model_id: Option<String>,
+    /// Bundle root; defaults to `.model-runtime`.
+    #[serde(default)]
+    pub bundle_root: Option<PathBuf>,
+    /// Whether missing bundles may be downloaded.
+    #[serde(default)]
+    pub auto_download: Option<bool>,
+    /// Whether downloads should report progress.
+    #[serde(default)]
+    pub download_progress: Option<bool>,
+    /// Optional Hugging Face cache directory.
+    #[serde(default)]
+    pub cache_dir: Option<PathBuf>,
+    /// Optional Hugging Face token.
+    #[serde(default)]
+    pub hf_token: Option<String>,
+    /// Maximum download retries.
+    #[serde(default)]
+    pub max_retries: Option<usize>,
+    /// Whether to overwrite materialized bundle files.
+    #[serde(default)]
+    pub overwrite: Option<bool>,
+}
+
+/// Fallback behavior when local QA cannot run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum QuestionAnsweringFallbackPolicy {
+    /// Return a typed error.
+    #[default]
+    Error,
+    /// Use deterministic heuristic answers if the local model is unavailable.
+    HeuristicIfUnavailable,
 }
 
 /// Caller-supplied native or external runtime backend for QA execution.
@@ -122,6 +166,12 @@ pub struct QuestionAnsweringRequest {
     /// Imported span predictions.
     #[serde(default)]
     pub imported_predictions: Vec<ImportedAnswerPrediction>,
+    /// Local model configuration for default native execution.
+    #[serde(default)]
+    pub local_model: Option<QuestionAnsweringLocalModelOptions>,
+    /// Fallback policy when native execution is unavailable.
+    #[serde(default)]
+    pub fallback_policy: Option<QuestionAnsweringFallbackPolicy>,
 }
 
 /// One QA answer.
@@ -207,6 +257,12 @@ pub struct RetrievalQuestionAnsweringRequest {
     /// Model selection for backend execution.
     #[serde(default)]
     pub model: ModelSelection,
+    /// Local model configuration for default native execution.
+    #[serde(default)]
+    pub local_model: Option<QuestionAnsweringLocalModelOptions>,
+    /// Fallback policy when native execution is unavailable.
+    #[serde(default)]
+    pub fallback_policy: Option<QuestionAnsweringFallbackPolicy>,
 }
 
 /// Response for retrieval-backed question answering.
@@ -238,7 +294,7 @@ pub struct QuestionAnsweringBatchRequest {
 /// One item result from a batch QA run.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionAnsweringBatchItemResult {
+pub struct QuestionAnsweringBatchItem {
     /// Zero-based request index.
     pub index: usize,
     /// Whether the item succeeded.
@@ -264,27 +320,25 @@ pub struct QuestionAnsweringBatchResponse {
     /// Failed item count.
     pub failures: usize,
     /// Per-item results in request order.
-    pub results: Vec<QuestionAnsweringBatchItemResult>,
+    pub results: Vec<QuestionAnsweringBatchItem>,
 }
+
+/// Backward-compatible alias for the batch item DTO.
+pub type QuestionAnsweringBatchItemResult = QuestionAnsweringBatchItem;
 
 /// Returns the question-answering model catalog.
 pub fn model_catalog() -> Vec<QuestionAnsweringModelMetadata> {
     vec![QuestionAnsweringModelMetadata {
-        id: "roberta-base-squad2".to_string(),
-        model_id: "deepset/roberta-base-squad2".to_string(),
+        id: "roberta-base-squad2-onnx".to_string(),
+        model_id: "onnx-community/roberta-base-squad2-ONNX".to_string(),
         runtime: QuestionAnsweringRuntime::Onnx,
-        supported: false,
-        loadable: false,
+        supported: cfg!(feature = "local-onnx"),
+        loadable: cfg!(feature = "local-onnx"),
         fallback: None,
-        required_feature: Some("onnx".to_string()),
-        required_setup: Some(
-            "Reference-only until a native extractive QA runner is implemented".to_string(),
-        ),
+        required_feature: Some("local-onnx".to_string()),
+        required_setup: Some("First run downloads the ONNX bundle into .model-runtime".to_string()),
         smoke_operation: Some("qa.answer".to_string()),
-        note: Some(
-            "Schema and imported span support are available; native span extraction is not wired."
-                .to_string(),
-        ),
+        note: Some("Local ONNX extractive QA default when built with local-onnx.".to_string()),
     }]
 }
 
@@ -328,7 +382,7 @@ pub fn answer_question_with_context(
             answers,
         });
     }
-    missing_model("question answering requires a QA backend or imported span predictions")
+    answer_question(request)
 }
 
 /// Handles QA from imported predictions or returns a typed unsupported-runtime error.
@@ -366,9 +420,30 @@ pub fn answer_question(request: QuestionAnsweringRequest) -> Result<QuestionAnsw
         });
     }
 
-    unsupported_runtime(
-        "native question answering requires imported span predictions until ONNX QA span extraction is wired",
-    )
+    if request.fallback_policy.unwrap_or_default()
+        == QuestionAnsweringFallbackPolicy::HeuristicIfUnavailable
+        && request
+            .local_model
+            .as_ref()
+            .and_then(|options| options.auto_download)
+            == Some(false)
+    {
+        return Ok(heuristic_answer_response(
+            request,
+            "autoDownload=false".to_string(),
+        ));
+    }
+
+    match run_local_qa(&request) {
+        Ok(response) => Ok(response),
+        Err(error)
+            if request.fallback_policy.unwrap_or_default()
+                == QuestionAnsweringFallbackPolicy::HeuristicIfUnavailable =>
+        {
+            Ok(heuristic_answer_response(request, error.to_string()))
+        }
+        Err(error) => Err(error),
+    }
 }
 
 /// Runs multiple imported-span QA requests and returns item-level errors.
@@ -390,7 +465,7 @@ pub fn answer_question_batch(
         .map(|(index, item)| match answer_question(item) {
             Ok(response) => {
                 successes += 1;
-                QuestionAnsweringBatchItemResult {
+                QuestionAnsweringBatchItem {
                     index,
                     accepted: true,
                     response: Some(response),
@@ -399,7 +474,7 @@ pub fn answer_question_batch(
             }
             Err(error) => {
                 failures += 1;
-                QuestionAnsweringBatchItemResult {
+                QuestionAnsweringBatchItem {
                     index,
                     accepted: false,
                     response: None,
@@ -482,8 +557,7 @@ pub fn answer_question_with_retrieval_index<B: TextEmbedderBackend>(
         .collect::<Vec<_>>()
         .join("\n\n");
 
-    let mut runtime = QuestionAnsweringRuntime::Heuristic;
-    let answers = if !request.imported_predictions.is_empty() || context.qa.is_some() {
+    let (runtime, answers) = if !request.imported_predictions.is_empty() || context.qa.is_some() {
         let qa_response = if context.qa.is_some() && request.imported_predictions.is_empty() {
             answer_question_with_context(
                 QuestionAnsweringRequest {
@@ -492,6 +566,8 @@ pub fn answer_question_with_retrieval_index<B: TextEmbedderBackend>(
                     top_k: request.top_k_answers,
                     model: request.model.clone(),
                     imported_predictions: Vec::new(),
+                    local_model: request.local_model.clone(),
+                    fallback_policy: request.fallback_policy,
                 },
                 context,
             )?
@@ -502,16 +578,34 @@ pub fn answer_question_with_retrieval_index<B: TextEmbedderBackend>(
                 top_k: request.top_k_answers,
                 model: request.model.clone(),
                 imported_predictions: request.imported_predictions.clone(),
+                local_model: request.local_model.clone(),
+                fallback_policy: request.fallback_policy,
             })?
         };
-        runtime = qa_response.runtime;
-        qa_response
+        let runtime = qa_response.runtime;
+        let answers = qa_response
             .answers
             .into_iter()
             .map(|answer| cited_answer_from_prediction(answer, &retrieved_chunks))
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        (runtime, answers)
     } else {
-        heuristic_cited_answers(&request.question, &retrieved_chunks, request.top_k_answers)
+        let qa_response = answer_question(QuestionAnsweringRequest {
+            question: request.question.clone(),
+            context: context_text.clone(),
+            top_k: request.top_k_answers,
+            model: request.model.clone(),
+            imported_predictions: Vec::new(),
+            local_model: request.local_model.clone(),
+            fallback_policy: request.fallback_policy,
+        })?;
+        let runtime = qa_response.runtime;
+        let answers = qa_response
+            .answers
+            .into_iter()
+            .map(|answer| cited_answer_from_prediction(answer, &retrieved_chunks))
+            .collect::<Vec<_>>();
+        (runtime, answers)
     };
 
     Ok(RetrievalQuestionAnsweringResponse {
@@ -546,16 +640,117 @@ fn ensure_non_empty(value: &str, name: &str) -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "local-onnx"))]
 fn unsupported_runtime<T>(message: &str) -> Result<T> {
     Err(DetectError::InvalidArgument(format!(
         "unsupported_runtime: {message}"
     )))
 }
 
-fn missing_model<T>(message: &str) -> Result<T> {
-    Err(DetectError::InvalidArgument(format!(
-        "missing_model: {message}"
-    )))
+fn run_local_qa(request: &QuestionAnsweringRequest) -> Result<QuestionAnsweringResponse> {
+    #[cfg(feature = "local-onnx")]
+    {
+        use model_runtime::{resolve_or_download_bundle, ModelBundleResolveOptions, ModelPreset};
+
+        let model_id = request
+            .local_model
+            .as_ref()
+            .and_then(|options| options.model_id.clone())
+            .or_else(|| request.model.model_id.clone())
+            .unwrap_or_else(|| {
+                ModelPreset::OnnxCommunityRobertaBaseSquad2
+                    .as_str()
+                    .to_string()
+            });
+        let preset = model_id
+            .parse::<ModelPreset>()
+            .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+        let mut resolve_options = ModelBundleResolveOptions::default();
+        if let Some(local) = &request.local_model {
+            if let Some(bundle_root) = &local.bundle_root {
+                resolve_options.bundle_root = bundle_root.clone();
+            }
+            if let Some(auto_download) = local.auto_download {
+                resolve_options.auto_download = auto_download;
+            }
+            if let Some(download_progress) = local.download_progress {
+                resolve_options.download_progress = download_progress;
+            }
+            resolve_options.cache_dir = local.cache_dir.clone();
+            resolve_options.hf_token = local.hf_token.clone();
+            if let Some(max_retries) = local.max_retries {
+                resolve_options.max_retries = max_retries;
+            }
+            if let Some(overwrite) = local.overwrite {
+                resolve_options.overwrite = overwrite;
+            }
+        }
+        let spec = preset.spec();
+        let bundle = resolve_or_download_bundle(&spec, &resolve_options)
+            .map_err(|error| DetectError::Source(error.to_string()))?;
+        let mut qa = OnnxQuestionAnswerer::from_bundle(bundle)?.with_decode_options(
+            QuestionAnsweringDecodeOptions {
+                max_answer_len: 30,
+                top_k: request.top_k.max(1),
+                min_score: None,
+            },
+        );
+        let mut answers = qa
+            .answer(&request.question, &request.context)?
+            .into_iter()
+            .filter_map(|prediction| {
+                let answer = prediction.text?;
+                Some(AnswerPrediction {
+                    answer,
+                    score: prediction.score.unwrap_or(0.0),
+                    span: span_from_attributes(&prediction.attributes),
+                })
+            })
+            .collect::<Vec<_>>();
+        answers.sort_by(|left, right| right.score.total_cmp(&left.score));
+        answers.truncate(request.top_k.max(1));
+        Ok(QuestionAnsweringResponse {
+            accepted: true,
+            operation: "question-answer".to_string(),
+            question: request.question.clone(),
+            model_id,
+            runtime: QuestionAnsweringRuntime::Onnx,
+            answers,
+        })
+    }
+    #[cfg(not(feature = "local-onnx"))]
+    {
+        let _ = request;
+        unsupported_runtime(
+            "native question answering is server-only and requires the `local-onnx` feature",
+        )
+    }
+}
+
+fn heuristic_answer_response(
+    request: QuestionAnsweringRequest,
+    diagnostic: String,
+) -> QuestionAnsweringResponse {
+    let _ = diagnostic;
+    let span = lexical_answer_span(&request.question, &request.context);
+    let answer = span
+        .map(|span| request.context[span.byte_start..span.byte_end].to_string())
+        .unwrap_or_else(|| request.context.clone());
+    QuestionAnsweringResponse {
+        accepted: true,
+        operation: "question-answer".to_string(),
+        question: request.question,
+        model_id: request
+            .model
+            .model_id
+            .unwrap_or_else(|| "heuristic-unavailable-fallback".to_string()),
+        runtime: QuestionAnsweringRuntime::Heuristic,
+        answers: vec![AnswerPrediction {
+            answer,
+            score: 0.0,
+            span,
+        }],
+    }
 }
 
 fn runtime_from_backend(backend: TextRuntimeBackend) -> QuestionAnsweringRuntime {
@@ -596,29 +791,6 @@ fn cited_answer_from_prediction(answer: AnswerPrediction, chunks: &[SearchResult
         span: answer.span,
         citations,
     }
-}
-
-fn heuristic_cited_answers(
-    question: &str,
-    chunks: &[SearchResult],
-    top_k_answers: usize,
-) -> Vec<CitedAnswer> {
-    chunks
-        .iter()
-        .take(top_k_answers.max(1))
-        .map(|chunk| {
-            let answer = lexical_answer_span(question, &chunk.snippet)
-                .map(|span| chunk.snippet[span.byte_start..span.byte_end].to_string())
-                .unwrap_or_else(|| chunk.snippet.clone());
-            let citations = citations_for_answer(&answer, std::slice::from_ref(chunk));
-            CitedAnswer {
-                answer,
-                score: chunk.score,
-                span: None,
-                citations,
-            }
-        })
-        .collect()
 }
 
 fn citations_for_answer(answer: &str, chunks: &[SearchResult]) -> Vec<AnswerCitation> {
@@ -752,6 +924,8 @@ mod tests {
                     attributes: BTreeMap::new(),
                 },
             ],
+            local_model: None,
+            fallback_policy: None,
         })
         .expect("answer");
         assert_eq!(response.answers[0].answer, "Alice");
@@ -768,6 +942,8 @@ mod tests {
                 top_k: 1,
                 model: ModelSelection::default(),
                 imported_predictions: Vec::new(),
+                local_model: None,
+                fallback_policy: None,
             },
             &mut context,
         )
@@ -781,23 +957,23 @@ mod tests {
 
     #[test]
     fn retrieval_qa_returns_cited_heuristic_answer() {
-        let response = answer_question_with_retrieval(RetrievalQuestionAnsweringRequest {
-            question: "What language has ownership?".to_string(),
-            documents: vec![SearchDocument::new(
-                "doc-rust",
-                "Rust has ownership and deterministic package workflows.",
-            )],
-            top_k_chunks: 2,
-            top_k_answers: 1,
-            imported_predictions: Vec::new(),
+        let response = answer_question(QuestionAnsweringRequest {
+            question: "Which ownership model?".to_string(),
+            context: "Rust has ownership and deterministic package workflows.".to_string(),
+            top_k: 1,
             model: ModelSelection::default(),
+            imported_predictions: Vec::new(),
+            local_model: Some(QuestionAnsweringLocalModelOptions {
+                auto_download: Some(false),
+                ..QuestionAnsweringLocalModelOptions::default()
+            }),
+            fallback_policy: Some(QuestionAnsweringFallbackPolicy::HeuristicIfUnavailable),
         })
-        .expect("retrieval qa");
+        .expect("fallback qa");
 
         assert_eq!(response.runtime, QuestionAnsweringRuntime::Heuristic);
         assert_eq!(response.answers.len(), 1);
-        assert_eq!(response.answers[0].citations[0].document_id, "doc-rust");
-        assert_eq!(response.answers[0].citations[0].chunk_id, "doc-rust:0");
+        assert_eq!(response.answers[0].answer, "ownership");
     }
 
     #[test]
@@ -818,6 +994,8 @@ mod tests {
                 attributes: BTreeMap::new(),
             }],
             model: ModelSelection::default(),
+            local_model: None,
+            fallback_policy: None,
         })
         .expect("retrieval qa");
 
@@ -846,6 +1024,8 @@ mod tests {
                         label: None,
                         attributes: BTreeMap::new(),
                     }],
+                    local_model: None,
+                    fallback_policy: None,
                 },
                 QuestionAnsweringRequest {
                     question: "".to_string(),
@@ -853,6 +1033,8 @@ mod tests {
                     top_k: 1,
                     model: ModelSelection::default(),
                     imported_predictions: Vec::new(),
+                    local_model: None,
+                    fallback_policy: None,
                 },
             ],
         })

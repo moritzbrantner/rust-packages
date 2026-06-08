@@ -3065,13 +3065,16 @@ dependencies = [
  "moritzbrantner-image-analysis-core",
  "moritzbrantner-image-analysis-detection",
  "moritzbrantner-image-analysis-ocr",
+ "moritzbrantner-image-analysis-processing",
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-image-analysis-synthesis",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
+ "tokenizers",
 ]
 
 [[package]]
@@ -3114,10 +3117,12 @@ dependencies = [
  "moritzbrantner-image-analysis-core",
  "moritzbrantner-image-analysis-detection",
  "moritzbrantner-image-analysis-ocr",
+ "moritzbrantner-image-analysis-processing",
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-image-analysis-synthesis",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3250,9 +3255,11 @@ name = "moritzbrantner-image-analysis-detection"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-processing",
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3298,10 +3305,12 @@ dependencies = [
  "moritzbrantner-image-analysis-core",
  "moritzbrantner-image-analysis-detection",
  "moritzbrantner-image-analysis-ocr",
+ "moritzbrantner-image-analysis-processing",
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-image-analysis-synthesis",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
@@ -3424,57 +3433,6 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moritzbrantner-image-analysis-ocr",
- "moritzbrantner-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moritzbrantner-image-analysis-onnx"
-version = "0.1.0"
-dependencies = [
- "moritzbrantner-image-analysis-classification",
- "moritzbrantner-image-analysis-core",
- "moritzbrantner-image-analysis-detection",
- "moritzbrantner-image-analysis-embeddings",
- "moritzbrantner-image-analysis-processing",
- "moritzbrantner-model-runtime",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
- "ort",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moritzbrantner-image-analysis-onnx-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-image-analysis-onnx",
- "moritzbrantner-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-image-analysis-onnx-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-image-analysis-onnx",
- "moritzbrantner-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-image-analysis-onnx-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-image-analysis-onnx",
  "moritzbrantner-runtime-core",
  "serde",
  "serde-wasm-bindgen",
@@ -4036,6 +3994,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "moritzbrantner-runtime-onnx"
+version = "0.1.0"
+dependencies = [
+ "ndarray",
+ "ort",
+ "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "moritzbrantner-tensor-data"
 version = "0.1.0"
 dependencies = [
@@ -4235,14 +4203,13 @@ dependencies = [
  "moritzbrantner-math-sparse-data",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-text-core",
  "moritzbrantner-text-lexical",
  "moritzbrantner-text-model-runtime",
  "moritzbrantner-vector-analysis-core",
  "moritzbrantner-vector-analysis-index",
  "moritzbrantner-video-analysis-core",
- "ndarray",
- "ort",
  "serde",
  "serde_json",
  "tokenizers",
@@ -4486,9 +4453,8 @@ dependencies = [
  "moritzbrantner-jobs-core",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-video-analysis-core",
- "ndarray",
- "ort",
  "serde",
  "serde_json",
  "tokenizers",
@@ -4531,6 +4497,7 @@ dependencies = [
 name = "moritzbrantner-text-question-answering"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
  "moritzbrantner-text-embeddings",
  "moritzbrantner-text-lexical",
@@ -4985,7 +4952,6 @@ dependencies = [
  "moritzbrantner-image-analysis-embeddings",
  "moritzbrantner-image-analysis-io",
  "moritzbrantner-image-analysis-ocr",
- "moritzbrantner-image-analysis-onnx",
  "moritzbrantner-image-analysis-processing",
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-image-analysis-synthesis",
@@ -4999,6 +4965,7 @@ dependencies = [
  "moritzbrantner-model-runtime",
  "moritzbrantner-numbers-core",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-tensor-data",
  "moritzbrantner-text-analysis",
  "moritzbrantner-text-classification",
@@ -5043,7 +5010,6 @@ dependencies = [
  "moritzbrantner-video-analysis-gaussian-splatting",
  "moritzbrantner-video-analysis-ingest",
  "moritzbrantner-video-analysis-mvs",
- "moritzbrantner-video-analysis-onnx",
  "moritzbrantner-video-analysis-opencv-backend",
  "moritzbrantner-video-analysis-output",
  "moritzbrantner-video-analysis-posture",
@@ -5081,7 +5047,6 @@ dependencies = [
  "moritzbrantner-video-analysis-dataset",
  "moritzbrantner-video-analysis-detectors",
  "moritzbrantner-video-analysis-ffmpeg",
- "moritzbrantner-video-analysis-onnx",
  "moritzbrantner-video-analysis-output",
  "moritzbrantner-video-analysis-posture",
  "moritzbrantner-video-analysis-posture-io",
@@ -5595,56 +5560,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "moritzbrantner-video-analysis-onnx"
-version = "0.1.0"
-dependencies = [
- "moritzbrantner-image-analysis-core",
- "moritzbrantner-image-analysis-onnx",
- "moritzbrantner-model-runtime",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
- "moritzbrantner-video-analysis-posture",
- "moritzbrantner-video-analysis-recognition",
- "num-rational",
- "ort",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-onnx-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-onnx",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-onnx-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-onnx",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-onnx-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-onnx",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moritzbrantner-video-analysis-opencv-backend"
 version = "0.1.0"
 dependencies = [
@@ -5736,8 +5651,12 @@ dependencies = [
 name = "moritzbrantner-video-analysis-posture"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-processing",
  "moritzbrantner-math-geometry-2d",
+ "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-video-analysis-core",
  "num-rational",
@@ -5968,8 +5887,11 @@ name = "moritzbrantner-video-analysis-recognition"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "moritzbrantner-image-analysis-core",
+ "moritzbrantner-image-analysis-detection",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-three-d-processing-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-posture",
@@ -6460,7 +6382,6 @@ dependencies = [
  "moritzbrantner-video-analysis-detectors",
  "moritzbrantner-video-analysis-ffmpeg",
  "moritzbrantner-video-analysis-ingest",
- "moritzbrantner-video-analysis-onnx",
  "moritzbrantner-video-analysis-recognition",
  "moritzbrantner-video-analysis-test-support",
  "rusqlite",

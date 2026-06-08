@@ -16,6 +16,7 @@ MATRIX_PATH = ROOT / "docs" / "PACKAGE_SURFACE_MATRIX.md"
 EXCLUDED_LIBRARY_CRATES = {
     "moritzbrantner-audio-analysis-test-support",
     "moritzbrantner-runtime-core",
+    "moritzbrantner-runtime-onnx",
     "moritzbrantner-video-analysis-test-support",
 }
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")

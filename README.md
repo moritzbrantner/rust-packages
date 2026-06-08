@@ -26,10 +26,10 @@ Package README index:
 - Data: [`moritzbrantner-data-inversion-core`](crates/data/data-inversion-core/README.md), [`moritzbrantner-graph-analysis-core`](crates/data/graph-analysis-core/README.md), [`moritzbrantner-numbers-core`](crates/data/numbers-core/README.md), [`moritzbrantner-tensor-data`](crates/data/tensor-data/README.md), [`moritzbrantner-dense-data`](crates/data/dense-data/README.md)
 - Animation: [`moritzbrantner-animation-core`](crates/animation/animation-core/README.md)
 - Math: [`moritzbrantner-finance-statistics`](crates/math/finance-statistics/README.md), [`moritzbrantner-math-geometry-2d`](crates/math/math-geometry-2d/README.md), [`moritzbrantner-math-linear`](crates/math/math-linear/README.md), [`moritzbrantner-math-signal-core`](crates/math/math-signal-core/README.md), [`moritzbrantner-math-sparse-data`](crates/math/math-sparse-data/README.md), [`moritzbrantner-math-statistics`](crates/math/math-statistics/README.md)
-- Image: [`moritzbrantner-image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`moritzbrantner-image-analysis-core`](crates/image/image-analysis-core/README.md), [`moritzbrantner-image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`moritzbrantner-image-analysis-classification`](crates/image/image-analysis-classification/README.md), [`moritzbrantner-image-analysis-embeddings`](crates/image/image-analysis-embeddings/README.md), [`moritzbrantner-image-analysis-captioning`](crates/image/image-analysis-captioning/README.md), [`moritzbrantner-image-analysis-io`](crates/image/image-analysis-io/README.md), [`moritzbrantner-image-analysis-ocr`](crates/image/image-analysis-ocr/README.md), [`moritzbrantner-image-analysis-onnx`](crates/image/image-analysis-onnx/README.md), [`moritzbrantner-image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`moritzbrantner-image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`moritzbrantner-image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
+- Image: [`moritzbrantner-image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`moritzbrantner-image-analysis-core`](crates/image/image-analysis-core/README.md), [`moritzbrantner-image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`moritzbrantner-image-analysis-classification`](crates/image/image-analysis-classification/README.md), [`moritzbrantner-image-analysis-embeddings`](crates/image/image-analysis-embeddings/README.md), [`moritzbrantner-image-analysis-captioning`](crates/image/image-analysis-captioning/README.md), [`moritzbrantner-image-analysis-io`](crates/image/image-analysis-io/README.md), [`moritzbrantner-image-analysis-ocr`](crates/image/image-analysis-ocr/README.md), [`moritzbrantner-image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`moritzbrantner-image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`moritzbrantner-image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
 - Text: [release scope](docs/TEXT_RELEASE_SCOPE.md), [workspace guide](docs/TEXT_WORKSPACE_GUIDE.md), [corpus guide](docs/TEXT_CORPUS_GUIDE.md), [`moritzbrantner-text-analysis`](crates/text/text-analysis/README.md), [`moritzbrantner-text-core`](crates/text/text-core/README.md), [`moritzbrantner-text-lexical`](crates/text/text-lexical/README.md), [`moritzbrantner-text-linguistics`](crates/text/text-linguistics/README.md), [`moritzbrantner-text-classification`](crates/text/text-classification/README.md), [`moritzbrantner-text-question-answering`](crates/text/text-question-answering/README.md), [`moritzbrantner-text-embeddings`](crates/text/text-embeddings/README.md), [`moritzbrantner-text-retrieval`](crates/text/text-retrieval/README.md), [`moritzbrantner-text-model-runtime`](crates/text/text-model-runtime/README.md), [`moritzbrantner-text-transcripts`](crates/text/text-transcripts/README.md), [`moritzbrantner-text-generation`](crates/text/text-generation/README.md), [`moritzbrantner-text-generation-linguistics`](crates/text/text-generation-linguistics/README.md)
 - Vector and 3D: [`moritzbrantner-vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`moritzbrantner-vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`moritzbrantner-three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`moritzbrantner-three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`moritzbrantner-three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md), [`moritzbrantner-three-d-scene-svg`](crates/three-d/three-d-scene-svg/README.md)
-- Video: [`moritzbrantner-video-analysis-core`](crates/video/video-analysis-core/README.md), [`moritzbrantner-video-analysis-data`](crates/video/video-analysis-data/README.md), [`moritzbrantner-video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`moritzbrantner-video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`moritzbrantner-video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`moritzbrantner-video-analysis-features`](crates/video/video-analysis-features/README.md), [`moritzbrantner-video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`moritzbrantner-video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`moritzbrantner-video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`moritzbrantner-video-analysis-onnx`](crates/video/video-analysis-onnx/README.md), [`moritzbrantner-video-analysis-output`](crates/video/video-analysis-output/README.md), [`moritzbrantner-video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`moritzbrantner-video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`moritzbrantner-video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`moritzbrantner-video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`moritzbrantner-video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`moritzbrantner-video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`moritzbrantner-video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`moritzbrantner-video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`moritzbrantner-video-analysis-split`](crates/video/video-analysis-split/README.md), [`moritzbrantner-video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`moritzbrantner-video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`moritzbrantner-video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`moritzbrantner-video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`moritzbrantner-video-analysis-cli`](crates/video/video-analysis-cli/README.md)
+- Video: [`moritzbrantner-video-analysis-core`](crates/video/video-analysis-core/README.md), [`moritzbrantner-video-analysis-data`](crates/video/video-analysis-data/README.md), [`moritzbrantner-video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`moritzbrantner-video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`moritzbrantner-video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`moritzbrantner-video-analysis-features`](crates/video/video-analysis-features/README.md), [`moritzbrantner-video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`moritzbrantner-video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`moritzbrantner-video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`moritzbrantner-video-analysis-output`](crates/video/video-analysis-output/README.md), [`moritzbrantner-video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`moritzbrantner-video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`moritzbrantner-video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`moritzbrantner-video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`moritzbrantner-video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`moritzbrantner-video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`moritzbrantner-video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`moritzbrantner-video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`moritzbrantner-video-analysis-split`](crates/video/video-analysis-split/README.md), [`moritzbrantner-video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`moritzbrantner-video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`moritzbrantner-video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`moritzbrantner-video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`moritzbrantner-video-analysis-cli`](crates/video/video-analysis-cli/README.md)
 - Prototypes: [`moritzbrantner-video-analysis-use-cases`](prototypes/rust/video-analysis-use-cases/README.md), `@moritzbrantner/video-analysis-web` in `prototypes/web/video-analysis-web`
 
 - `moritzbrantner-video-analysis`: umbrella re-export crate.
@@ -101,8 +101,8 @@ Package README index:
   contracts, catalog metadata, and backend traits.
 - `moritzbrantner-image-analysis-captioning`: image captioning request/response contracts,
   catalog metadata, and backend traits.
-- `moritzbrantner-image-analysis-onnx`: still-image ONNX preprocessing, bundle validation,
-  fake-runner seams, and optional native object-detection execution.
+- `moritzbrantner-runtime-onnx`: domain-neutral ONNX Runtime session, tensor,
+  metadata, and named input/output helpers. Domain crates own model decoding.
 - `moritzbrantner-image-analysis-processing`: deterministic CPU image crop, resize, grayscale,
   inversion, thresholding, and 3x3 convolution pipelines.
 - `moritzbrantner-image-analysis-segmentation`: prompt, binary-mask, and image-segment
@@ -185,8 +185,8 @@ Package README index:
 - `moritzbrantner-video-analysis-ffmpeg`: FFmpeg-backed video and audio ingest implementations.
 - `moritzbrantner-model-runtime`: generic model specs, Hugging Face downloads, bundle
   manifests, preset metadata, and runtime conformance helpers.
-- `moritzbrantner-video-analysis-onnx`: ONNX object-detection and posture bundle validation,
-  preprocessing, fake-runner seams, and optional native runtime adapters.
+- `moritzbrantner-video-analysis-recognition`: reference-embedding matching and optional
+  ONNX object-detection adapters through `moritzbrantner-runtime-onnx`.
 - `moritzbrantner-video-analysis-tracking`: IoU-based object tracking contracts and a
   `VideoAnalyzer` adapter that emits tracked object observations.
 - `moritzbrantner-video-analysis-posture`: 2D/3D pose contracts, COCO-17 skeleton helpers,
@@ -354,13 +354,14 @@ and stays outside the default contributor gate.
 
 - `video-analysis`: `onnx` for the optional ONNX facade re-export, with
   `onnx-backend` kept as a compatibility alias.
-- `video-analysis-cli`: `onnx` enables the ONNX crate dependency and
+- `video-analysis-cli`: `onnx` enables task-level ONNX adapters and
   `onnxruntime` enables native runtime execution.
 - `text-model-runtime` and `text-embeddings`: `onnx`, `candle`, and
   `external-tests`.
 - `text-linguistics`: `candle` and `external-tests`.
-- `image-analysis-onnx`: `onnxruntime` and `external-tests`.
-- `video-analysis-onnx`: `onnxruntime` and `external-tests`.
+- `runtime-onnx`: `onnxruntime` and `external-tests`.
+- Image and video task crates expose `local-onnx` or `onnx` features for their
+  model-backed adapters.
 - `video-analysis-ffmpeg`: `ffmpeg-backend`, `ffmpeg-tests`, and
   `external-tests`.
 - `audio-analysis-separation`, `text-transcripts`, and
@@ -746,11 +747,11 @@ non-maximum suppression. `ModelVideoAnalyzer` emits core `Observation` values;
 `ModelTextAnalyzer` emits core `AnalysisEvent` values with dynamic semantic
 labels.
 
-`video-analysis-onnx` provides the first native vision backend surface for
-object-detection bundles. Default builds keep runtime execution optional:
-deterministic tests use an injected runner, while `onnxruntime` gates native
-ONNX execution for models that return DETR/YOLOS-style logits plus
-center-format boxes.
+`video-analysis-recognition` provides the native video object-detection backend
+surface by composing image detection adapters. Default builds keep runtime
+execution optional: deterministic tests use injected runners, while
+`runtime-onnx/onnxruntime` gates native ONNX execution for models that return
+DETR/YOLOS-style logits plus center-format boxes.
 
 For model APIs that do not have a native Rust runtime yet, `ExternalCommandModel`
 passes a JSON request to any executable over stdin and expects normalized JSON

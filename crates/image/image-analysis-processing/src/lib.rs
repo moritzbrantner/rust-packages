@@ -5,7 +5,9 @@ pub mod operations;
 pub mod surface;
 use image::imageops::FilterType;
 use image::{DynamicImage, GrayImage, RgbImage};
-use image_analysis_core::{compact_image, ImagePixelFormat, ImageView, OwnedImage};
+use image_analysis_core::{
+    compact_image, ImageBatchView, ImagePixelFormat, ImageView, OwnedImage, OwnedImageBatch,
+};
 use math_geometry_2d::RectU32;
 use math_linear::Kernel2d;
 use video_analysis_core::{DetectError, Result};
@@ -15,6 +17,274 @@ pub const PERCEPTUAL_HASH_SIZE: u32 = 8;
 
 /// Default perceptual hash input scaling factor before DCT.
 pub const PERCEPTUAL_HASH_HIGHFREQ_FACTOR: u32 = 4;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing model tensor channel order.
+pub enum ChannelOrder {
+    /// RGB channel order.
+    Rgb,
+    /// BGR channel order.
+    Bgr,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Image preprocessing settings for local model tensors.
+pub struct ImageModelPreprocessing {
+    /// Model input width.
+    pub input_width: u32,
+    /// Model input height.
+    pub input_height: u32,
+    /// Pixel rescale factor applied before normalization.
+    pub rescale_factor: f32,
+    /// Channel mean.
+    pub mean: [f32; 3],
+    /// Channel standard deviation.
+    pub std: [f32; 3],
+    /// Tensor channel order.
+    pub channel_order: ChannelOrder,
+}
+
+impl Default for ImageModelPreprocessing {
+    fn default() -> Self {
+        Self {
+            input_width: 640,
+            input_height: 640,
+            rescale_factor: 1.0 / 255.0,
+            mean: [0.0, 0.0, 0.0],
+            std: [1.0, 1.0, 1.0],
+            channel_order: ChannelOrder::Rgb,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Channel-first f32 tensor for one image.
+pub struct ImageModelTensor {
+    /// Channel count.
+    pub channels: usize,
+    /// Tensor width.
+    pub width: u32,
+    /// Tensor height.
+    pub height: u32,
+    /// Channel-first tensor values.
+    pub values: Vec<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Channel-first f32 tensor for an image batch.
+pub struct ImageModelBatchTensor {
+    /// Batch size.
+    pub batch_size: usize,
+    /// Channel count.
+    pub channels: usize,
+    /// Tensor width.
+    pub width: u32,
+    /// Tensor height.
+    pub height: u32,
+    /// Batch tensor values.
+    pub values: Vec<f32>,
+}
+
+/// Compatibility alias for callers migrating from older ONNX-specific names.
+pub type OnnxImagePreprocessing = ImageModelPreprocessing;
+/// Compatibility alias for callers migrating from older ONNX-specific names.
+pub type OnnxImageTensor = ImageModelTensor;
+/// Compatibility alias for callers migrating from older ONNX-specific names.
+pub type OnnxImageBatchTensor = ImageModelBatchTensor;
+
+/// Returns a model-ready tensor for one image.
+pub fn image_to_model_tensor(
+    image: &ImageView<'_>,
+    options: &ImageModelPreprocessing,
+) -> Result<ImageModelTensor> {
+    validate_image_model_preprocessing(options)?;
+    image.validate()?;
+    let width = image.width;
+    let height = image.height;
+    let pixels = width as usize * height as usize;
+    let mut values = vec![0.0_f32; 3 * pixels];
+    for y in 0..height {
+        for x in 0..width {
+            let rgb = image.pixel_rgb(x, y);
+            let channels = match options.channel_order {
+                ChannelOrder::Rgb => [rgb[0], rgb[1], rgb[2]],
+                ChannelOrder::Bgr => [rgb[2], rgb[1], rgb[0]],
+            };
+            let pixel_index = y as usize * width as usize + x as usize;
+            for channel in 0..3 {
+                let value = channels[channel] as f32 * options.rescale_factor;
+                values[channel * pixels + pixel_index] =
+                    (value - options.mean[channel]) / options.std[channel];
+            }
+        }
+    }
+    Ok(ImageModelTensor {
+        channels: 3,
+        width,
+        height,
+        values,
+    })
+}
+
+/// Returns a resized and model-ready tensor for one image.
+pub fn preprocess_image_for_model(
+    image: &ImageView<'_>,
+    options: &ImageModelPreprocessing,
+) -> Result<ImageModelTensor> {
+    validate_image_model_preprocessing(options)?;
+    image.validate()?;
+    let resized = if image.width == options.input_width && image.height == options.input_height {
+        compact_image(image)?
+    } else {
+        resize_nearest(image, options.input_width, options.input_height)?
+    };
+    image_to_model_tensor(&resized.as_view(), options)
+}
+
+/// Returns a model-ready tensor for an image batch.
+pub fn image_batch_to_model_tensor(
+    batch: ImageBatchView<'_>,
+    options: &ImageModelPreprocessing,
+) -> Result<ImageModelBatchTensor> {
+    validate_image_model_preprocessing(options)?;
+    batch.validate()?;
+    let pixels_per_image = batch.width as usize * batch.height as usize;
+    let mut values = Vec::with_capacity(batch.batch_size * 3 * pixels_per_image);
+    for index in 0..batch.batch_size {
+        let image = batch.image(index)?;
+        let tensor = image_to_model_tensor(&image, options)?;
+        values.extend(tensor.values);
+    }
+    Ok(ImageModelBatchTensor {
+        batch_size: batch.batch_size,
+        channels: 3,
+        width: batch.width,
+        height: batch.height,
+        values,
+    })
+}
+
+/// Returns a resized and model-ready tensor for an image batch.
+pub fn preprocess_image_batch_for_model(
+    batch: ImageBatchView<'_>,
+    options: &ImageModelPreprocessing,
+) -> Result<ImageModelBatchTensor> {
+    validate_image_model_preprocessing(options)?;
+    batch.validate()?;
+    if batch.width == options.input_width && batch.height == options.input_height {
+        return image_batch_to_model_tensor(batch, options);
+    }
+
+    let mut resized = Vec::with_capacity(batch.batch_size);
+    for index in 0..batch.batch_size {
+        let image = batch.image(index)?;
+        resized.push(resize_nearest(
+            &image,
+            options.input_width,
+            options.input_height,
+        )?);
+    }
+    let resized_batch = OwnedImageBatch::from_images(&resized)?;
+    image_batch_to_model_tensor(resized_batch.as_view(), options)
+}
+
+/// Returns model preprocessing settings from a Hugging Face-style preprocessor config.
+pub fn image_model_preprocessing_from_config(
+    config: &serde_json::Value,
+) -> Result<ImageModelPreprocessing> {
+    let mut options = ImageModelPreprocessing::default();
+    if let Some(size) = config.get("size") {
+        if let Some(shortest) = get_u32(size, "shortest_edge") {
+            options.input_width = shortest;
+            options.input_height = shortest;
+        }
+        if let Some(width) = get_u32(size, "width") {
+            options.input_width = width;
+        }
+        if let Some(height) = get_u32(size, "height") {
+            options.input_height = height;
+        }
+    }
+    if let Some(value) = config
+        .get("rescale_factor")
+        .and_then(serde_json::Value::as_f64)
+    {
+        options.rescale_factor = value as f32;
+    }
+    if let Some(values) = get_f32_array(config, "image_mean") {
+        options.mean = values;
+    }
+    if let Some(values) = get_f32_array(config, "image_std") {
+        options.std = values;
+    }
+    if let Some(order) = config
+        .get("channel_order")
+        .and_then(serde_json::Value::as_str)
+    {
+        options.channel_order = match order {
+            "rgb" | "RGB" => ChannelOrder::Rgb,
+            "bgr" | "BGR" => ChannelOrder::Bgr,
+            other => {
+                return Err(DetectError::InvalidArgument(format!(
+                    "unsupported model channel order `{other}`"
+                )))
+            }
+        };
+    }
+    Ok(options)
+}
+
+/// Compatibility wrapper for older preprocessing config helper names.
+pub fn preprocessing_from_config(config: &serde_json::Value) -> Result<ImageModelPreprocessing> {
+    image_model_preprocessing_from_config(config)
+}
+
+/// Validates model preprocessing settings.
+pub fn validate_image_model_preprocessing(options: &ImageModelPreprocessing) -> Result<()> {
+    if options.input_width == 0 || options.input_height == 0 {
+        return Err(DetectError::InvalidDimensions {
+            width: options.input_width,
+            height: options.input_height,
+        });
+    }
+    if !options.rescale_factor.is_finite() || options.rescale_factor <= 0.0 {
+        return Err(DetectError::InvalidArgument(
+            "image model rescale factor must be finite and greater than zero".to_string(),
+        ));
+    }
+    if options
+        .mean
+        .iter()
+        .chain(options.std.iter())
+        .any(|value| !value.is_finite())
+        || options.std.contains(&0.0)
+    {
+        return Err(DetectError::InvalidArgument(
+            "image model mean/std values must be finite and std values must be non-zero"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn get_u32(value: &serde_json::Value, key: &str) -> Option<u32> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| u32::try_from(value).ok())
+}
+
+fn get_f32_array(value: &serde_json::Value, key: &str) -> Option<[f32; 3]> {
+    let array = value.get(key)?.as_array()?;
+    if array.len() != 3 {
+        return None;
+    }
+    Some([
+        array[0].as_f64()? as f32,
+        array[1].as_f64()? as f32,
+        array[2].as_f64()? as f32,
+    ])
+}
 
 /// Computes a compact DCT-based perceptual hash for an RGB image.
 pub fn perceptual_hash_rgb(image: &RgbImage) -> String {

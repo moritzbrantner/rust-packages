@@ -21,8 +21,7 @@ candle-core = { workspace = true, optional = true }
 candle-nn = { workspace = true, optional = true }
 candle-transformers = { workspace = true, optional = true }
 math-sparse-data.workspace = true
-ndarray = { workspace = true, optional = true }
-ort = { workspace = true, optional = true }
+runtime-onnx.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 text-core.workspace = true
@@ -37,7 +36,7 @@ model-runtime = { workspace = true, optional = true }
 default = []
 model-bundles = ["dep:model-runtime", "tokenizers", "text-model-runtime/model-bundles"]
 tokenizers = ["dep:tokenizers", "text-model-runtime/tokenizers"]
-onnx = ["tokenizers", "model-bundles", "dep:ort", "dep:ndarray", "text-model-runtime/onnx"]
+onnx = ["tokenizers", "model-bundles", "runtime-onnx/onnxruntime", "text-model-runtime/onnx"]
 candle = ["tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "text-model-runtime/candle"]
 cuda = ["candle", "text-model-runtime/cuda", "candle-core/cuda"]
 external-tests = ["onnx", "candle", "model-bundles"]

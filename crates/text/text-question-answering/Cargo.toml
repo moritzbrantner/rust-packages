@@ -24,3 +24,9 @@ text-lexical.workspace = true
 text-model-runtime.workspace = true
 text-retrieval.workspace = true
 video-analysis-core.workspace = true
+model-runtime = { workspace = true, optional = true }
+
+[features]
+default = []
+local-onnx = ["text-model-runtime/local-onnx", "dep:model-runtime"]
+external-tests = ["local-onnx"]

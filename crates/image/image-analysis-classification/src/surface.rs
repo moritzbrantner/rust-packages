@@ -4,7 +4,8 @@ use std::collections::BTreeMap;
 
 use runtime_core::{
     describe_surface_response, structured_operation_response, OperationId, PackageSurface,
-    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
+    RuntimeCapabilities, RuntimeRequirement, SurfaceExecutionMode, SurfaceExecutionPlan,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse, SurfaceSideEffect,
 };
 use serde::Deserialize;
 
@@ -22,6 +23,12 @@ pub fn package_surface() -> PackageSurface {
                 "Describe package",
                 "Image classification catalogs, schemas, and imported prediction validation.",
                 serde_json::json!({"includeOperations": true}),
+            ),
+            operation(
+                "image.classification.classify",
+                "Classify image",
+                "Server-only local ONNX classification workflow. Backend construction lives in this task crate and uses runtime-onnx for session execution.",
+                serde_json::json!({"image": sample_image_json(), "model": "vit-base-patch16-224-onnx", "limit": 5, "minScore": 0.0}),
             ),
             operation(
                 "image.classification.models",
@@ -63,7 +70,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
+    let mut operation = SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
         description: Some(description.to_string()),
@@ -72,6 +79,48 @@ fn operation(
         example_request,
         wasm_supported: true,
         server_supported: true,
+    };
+    if id == "image.classification.classify" {
+        let plan = model_execution_plan(id);
+        operation.input_schema["xExecutionPlan"] =
+            runtime_core::surface_execution_plan_value(&plan);
+        operation.output_schema["xExecutionPlan"] =
+            runtime_core::surface_execution_plan_value(&plan);
+        operation.wasm_supported = false;
+    }
+    operation
+}
+
+fn model_execution_plan(operation: &str) -> SurfaceExecutionPlan {
+    SurfaceExecutionPlan {
+        operation: OperationId::new(operation),
+        mode: SurfaceExecutionMode::InMemory,
+        side_effects: vec![
+            SurfaceSideEffect::ReadsFiles,
+            SurfaceSideEffect::WritesFiles,
+            SurfaceSideEffect::Network,
+        ],
+        cancellable: false,
+        progress_unit: Some("files".to_string()),
+        expected_artifacts: Vec::new(),
+        requirements: vec![
+            RuntimeRequirement {
+                name: "onnxruntime".to_string(),
+                description: Some("ONNX Runtime CPU execution via runtime-onnx".to_string()),
+                required: true,
+            },
+            RuntimeRequirement {
+                name: "local-filesystem".to_string(),
+                description: Some("Readable and writable .model-runtime bundle root".to_string()),
+                required: true,
+            },
+            RuntimeRequirement {
+                name: "hugging-face-access".to_string(),
+                description: Some("Network access for first-run model downloads".to_string()),
+                required: true,
+            },
+        ],
+        max_recommended_input_bytes: Some(16_777_216),
     }
 }
 
@@ -81,6 +130,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
         "describe" => return Ok(describe_surface_response(&surface, request)),
+        "image.classification.classify" => classify_value(parse_input(request.input)?)?,
         "image.classification.models" => models_value(parse_input(request.input)?)?,
         "image.classification.schema" => schema_summary(),
         "image.classification.imported" => imported_value(parse_input(request.input)?)?,
@@ -115,6 +165,16 @@ struct ImportedRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ClassifyRequest {
+    image: Option<serde_json::Value>,
+    model: Option<String>,
+    min_score: Option<f32>,
+    limit: Option<usize>,
+    auto_download: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ImportedClassification {
     label: String,
     score: Option<f32>,
@@ -143,8 +203,48 @@ fn models_value(request: ModelsRequest) -> Result<serde_json::Value, String> {
     }))
 }
 
+fn classify_value(request: ClassifyRequest) -> Result<serde_json::Value, String> {
+    if request.image.is_none() {
+        return Err("image.classification.classify requires an image payload".to_string());
+    }
+    if let Some(limit) = request.limit {
+        if limit == 0 {
+            return Err("classification label limit must be greater than zero".to_string());
+        }
+    }
+    let min_score = request.min_score.unwrap_or(0.0);
+    if !min_score.is_finite() {
+        return Err("classification minScore must be finite".to_string());
+    }
+    Ok(serde_json::json!({
+        "executed": false,
+        "serverOnly": true,
+        "wasmSupported": false,
+        "serverSupported": true,
+        "labels": [],
+        "topLabel": null,
+        "count": 0,
+        "modelId": request.model.unwrap_or_else(|| "Xenova/vit-base-patch16-224".to_string()),
+        "bundlePath": ".model-runtime",
+        "runtime": "onnx",
+        "autoDownload": request.auto_download.unwrap_or(true),
+        "diagnostics": ["ONNX classification execution is implemented by image-analysis-classification with runtime-onnx; call the native server/backend wrapper for model execution."]
+    }))
+}
+
+fn sample_image_json() -> serde_json::Value {
+    serde_json::json!({
+        "width": 2,
+        "height": 2,
+        "pixelFormat": "rgb24",
+        "stride": null,
+        "data": [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255]
+    })
+}
+
 fn imported_value(request: ImportedRequest) -> Result<serde_json::Value, String> {
-    let classifications = normalize_classifications(request.labels)?;
+    let classifications =
+        normalize_classifications("image.classification.imported", request.labels)?;
     Ok(serde_json::json!({
         "count": classifications.len(),
         "classifications": classifications
@@ -152,7 +252,8 @@ fn imported_value(request: ImportedRequest) -> Result<serde_json::Value, String>
 }
 
 fn top_labels_value(request: ImportedRequest) -> Result<serde_json::Value, String> {
-    let mut classifications = normalize_classifications(request.labels)?;
+    let mut classifications =
+        normalize_classifications("image.classification.topLabels", request.labels)?;
     if let Some(limit) = request.limit {
         if limit == 0 {
             return Err("classification label limit must be greater than zero".to_string());
@@ -179,7 +280,8 @@ fn threshold_labels_value(request: ImportedRequest) -> Result<serde_json::Value,
             return Err("classification label limit must be greater than zero".to_string());
         }
     }
-    let mut classifications = normalize_classifications(request.labels)?;
+    let mut classifications =
+        normalize_classifications("image.classification.thresholdLabels", request.labels)?;
     classifications.sort_by(|left, right| compare_scores_desc(left.score, right.score));
     let mut accepted = classifications
         .iter()
@@ -204,8 +306,10 @@ fn threshold_labels_value(request: ImportedRequest) -> Result<serde_json::Value,
 }
 
 fn normalize_classifications(
+    operation: &str,
     labels: Vec<ImportedClassification>,
 ) -> Result<Vec<NormalizedClassification>, String> {
+    runtime_core::require_non_empty(operation, "labels", &labels)?;
     labels
         .into_iter()
         .map(|item| {
@@ -258,10 +362,32 @@ mod tests {
             .map(|operation| operation.id.0)
             .collect::<Vec<_>>();
         assert!(ids.contains(&"describe".to_string()));
+        assert!(ids.contains(&"image.classification.classify".to_string()));
         assert!(ids.contains(&"image.classification.models".to_string()));
         assert!(ids.contains(&"image.classification.imported".to_string()));
         assert!(ids.contains(&"image.classification.topLabels".to_string()));
         assert!(ids.contains(&"image.classification.thresholdLabels".to_string()));
+    }
+
+    #[test]
+    fn classify_operation_is_server_only_and_structured() {
+        let surface = package_surface();
+        let operation = surface
+            .operations
+            .iter()
+            .find(|operation| operation.id.as_str() == "image.classification.classify")
+            .expect("classify operation");
+        assert!(!operation.wasm_supported);
+        assert!(operation.server_supported);
+        assert!(!operation.input_schema["xExecutionPlan"].is_null());
+
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.classification.classify"),
+            input: operation.example_request.clone(),
+        })
+        .expect("classify");
+        assert_eq!(response.value["executed"], false);
+        assert_eq!(response.value["runtime"], "onnx");
     }
 
     #[test]
@@ -296,5 +422,22 @@ mod tests {
         })
         .expect("top labels");
         assert_eq!(response.value["topLabel"]["label"], "high");
+    }
+
+    #[test]
+    fn ranking_operations_reject_empty_labels() {
+        let top_error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.classification.topLabels"),
+            input: serde_json::json!({"labels": []}),
+        })
+        .expect_err("empty labels");
+        assert!(top_error.contains("labels"));
+
+        let threshold_error = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("image.classification.thresholdLabels"),
+            input: serde_json::json!({"labels": []}),
+        })
+        .expect_err("empty labels");
+        assert!(threshold_error.contains("labels"));
     }
 }

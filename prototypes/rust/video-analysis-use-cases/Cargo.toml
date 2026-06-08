@@ -48,8 +48,7 @@ video-analysis-data.workspace = true
 video-analysis-detectors.workspace = true
 video-analysis-ffmpeg.workspace = true
 video-analysis-ingest.workspace = true
-video-analysis-onnx.workspace = true
-video-analysis-recognition.workspace = true
+video-analysis-recognition = { workspace = true, features = ["onnx"] }
 
 [dev-dependencies]
 audio-analysis-test-support.workspace = true

@@ -15,8 +15,9 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-classification",
     standaloneRoute: "",
   },
-  defaultOperation: "image.classification.imported",
+  defaultOperation: "image.classification.classify",
   featuredOperations: [
+    "image.classification.classify",
     "image.classification.imported",
     "image.classification.topLabels",
     "image.classification.thresholdLabels",
@@ -28,8 +29,9 @@ const packageAppConfig: PackageAppConfig = {
     {
       id: "workflow",
       label: "Workflow",
-      description: "Validate, rank, and threshold imported classification results.",
+      description: "Run server-side classification or validate imported classification results.",
       operations: [
+        "image.classification.classify",
         "image.classification.imported",
         "image.classification.topLabels",
         "image.classification.thresholdLabels",

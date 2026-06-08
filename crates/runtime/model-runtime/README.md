@@ -23,3 +23,19 @@ detection, transcription, OCR, segmentation, embeddings, and classification.
 Default surface operations are deterministic and planning-only. They do not
 download models, spawn background jobs, run native inference, execute external
 commands, write files, or access the network.
+
+## Local ONNX Defaults
+
+`moritzbrantner-model-runtime` owns materialization for the server-only local
+model workflows used by text QA, image classification, and image captioning.
+The current ONNX-first presets are:
+
+- `roberta-base-squad2-onnx`:
+  `onnx-community/roberta-base-squad2-ONNX`.
+- `vit-base-patch16-224-onnx`: `Xenova/vit-base-patch16-224`.
+- `vit-gpt2-image-captioning-onnx`:
+  `Xenova/vit-gpt2-image-captioning`.
+
+Use `resolve_or_download_bundle` when a workflow should load an existing
+bundle first and auto-download missing files into `.model-runtime` on native
+server/CLI runtimes. WASM callers should keep using validation/import paths.

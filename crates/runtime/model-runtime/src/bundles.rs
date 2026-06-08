@@ -2,21 +2,33 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 
 use crate::{ModelRuntimeError, Result};
 use jobs_core::{ArtifactKind, ArtifactRef};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DownloadedModel, HuggingFaceDownloader, HuggingFaceModelSpec, ModelFileRequest, ModelTask,
+    DownloadedModel, HuggingFaceDownloader, HuggingFaceModelSpec, ModelDownloader,
+    ModelFileRequest, ModelTask,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 /// Data type for model bundle store.
 pub struct ModelBundleStore {
     root: PathBuf,
-    downloader: HuggingFaceDownloader,
+    downloader: Arc<dyn ModelDownloader + Send + Sync>,
     overwrite: bool,
+}
+
+impl std::fmt::Debug for ModelBundleStore {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ModelBundleStore")
+            .field("root", &self.root)
+            .field("overwrite", &self.overwrite)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,14 +73,23 @@ impl ModelBundleStore {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self {
             root: root.into(),
-            downloader: HuggingFaceDownloader::new(),
+            downloader: Arc::new(HuggingFaceDownloader::new()),
             overwrite: false,
         }
     }
 
     /// Returns downloader.
     pub fn downloader(mut self, downloader: HuggingFaceDownloader) -> Self {
-        self.downloader = downloader;
+        self.downloader = Arc::new(downloader);
+        self
+    }
+
+    /// Sets a custom downloader implementation.
+    pub fn model_downloader(
+        mut self,
+        downloader: impl ModelDownloader + Send + Sync + 'static,
+    ) -> Self {
+        self.downloader = Arc::new(downloader);
         self
     }
 
@@ -92,7 +113,7 @@ impl ModelBundleStore {
 
     /// Returns download.
     pub fn download(&self, spec: &HuggingFaceModelSpec) -> Result<ModelBundle> {
-        let downloaded = self.downloader.download(spec)?;
+        let downloaded = self.downloader.download_model(spec)?;
         self.materialize(&downloaded)
     }
 
@@ -183,6 +204,86 @@ impl ModelBundleStore {
                 .join("manifest.json"),
         )
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Options for resolving a local bundle, downloading it when allowed.
+pub struct ModelBundleResolveOptions {
+    /// Root directory containing model bundles.
+    pub bundle_root: PathBuf,
+    /// Whether missing bundles may be downloaded.
+    pub auto_download: bool,
+    /// Whether downloads should report progress.
+    pub download_progress: bool,
+    /// Optional Hugging Face token.
+    pub hf_token: Option<String>,
+    /// Optional Hugging Face cache directory.
+    pub cache_dir: Option<PathBuf>,
+    /// Maximum download retries.
+    pub max_retries: usize,
+    /// Whether materialization should overwrite existing files.
+    pub overwrite: bool,
+}
+
+impl Default for ModelBundleResolveOptions {
+    fn default() -> Self {
+        Self {
+            bundle_root: PathBuf::from(".model-runtime"),
+            auto_download: true,
+            download_progress: true,
+            hf_token: None,
+            cache_dir: None,
+            max_retries: 1,
+            overwrite: false,
+        }
+    }
+}
+
+impl ModelBundleResolveOptions {
+    /// Builds the configured Hugging Face downloader.
+    pub fn downloader(&self) -> HuggingFaceDownloader {
+        let mut downloader = HuggingFaceDownloader::new()
+            .progress(self.download_progress)
+            .max_retries(self.max_retries);
+        if let Some(cache_dir) = &self.cache_dir {
+            downloader = downloader.cache_dir(cache_dir.clone());
+        }
+        if let Some(token) = &self.hf_token {
+            downloader = downloader.token(token.clone());
+        }
+        downloader
+    }
+}
+
+/// Resolves a bundle from disk, optionally downloading and materializing it first.
+pub fn resolve_or_download_bundle(
+    spec: &HuggingFaceModelSpec,
+    options: &ModelBundleResolveOptions,
+) -> Result<ModelBundle> {
+    resolve_or_download_bundle_with_downloader(spec, options, options.downloader())
+}
+
+/// Resolves a bundle with a caller-provided downloader seam.
+pub fn resolve_or_download_bundle_with_downloader(
+    spec: &HuggingFaceModelSpec,
+    options: &ModelBundleResolveOptions,
+    downloader: impl ModelDownloader + Send + Sync + 'static,
+) -> Result<ModelBundle> {
+    let store = ModelBundleStore::new(options.bundle_root.clone())
+        .model_downloader(downloader)
+        .overwrite(options.overwrite);
+    if let Ok(bundle) = store.load(&spec.name, &spec.revision) {
+        return Ok(bundle);
+    }
+    if !options.auto_download {
+        let expected_path = store.bundle_dir(spec).join("manifest.json");
+        return Err(ModelRuntimeError::InvalidArgument(format!(
+            "missing model bundle `{}` at `{}` and autoDownload is false",
+            spec.name,
+            expected_path.display()
+        )));
+    }
+    store.download(spec)
 }
 
 impl ModelBundle {

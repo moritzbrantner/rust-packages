@@ -14,21 +14,27 @@ callers.
 
 ## Quality and limits
 
-Default package operations postprocess supplied spans and do not run native QA
-models. Catalog entries that are not `loadable` are reference metadata, not
-runnable native models.
+Imported span workflows remain deterministic and WASM-compatible. Native
+server/CLI builds with `local-onnx` use
+`onnx-community/roberta-base-squad2-ONNX` by default when no imported
+predictions or caller backend are supplied. Missing bundles are resolved through
+`moritzbrantner-model-runtime` and materialized under `.model-runtime` unless
+the request disables `auto_download`.
 
 ## Package surface
 
-- Primary workflow: `qa.answer` postprocesses imported extractive QA span
-  predictions for a supplied question and context.
+- Primary workflow: `qa.answer` postprocesses imported extractive QA spans when
+  supplied, uses a caller backend when provided, otherwise runs the default
+  local ONNX QA model on native server/CLI builds with `local-onnx`.
 - Workflow operations: `qa.answer`, `qa.answerWithRetrieval`, and
   `qa.answerBatch`.
 - Debug operations: `qa.models` inspects the model catalog, and `describe`
   inspects package metadata and operation support.
-- Runtime support: pure Rust default behavior is available through library, CLI,
-  server, and WASM wrappers.
+- Runtime support: imported/fallback behavior is available through library,
+  CLI, server, and WASM wrappers. Local ONNX execution is server/CLI-only.
 - Sample output includes `title`, `message`, `summary`, `result`, and
   operation-specific answer, citation, batch-result, and retrieval fields.
-- The package surface does not download model bundles or execute native QA
-  runtimes.
+- Model-backed calls declare filesystem reads, filesystem writes, and network
+  access in their execution plan. Use `fallbackPolicy:
+  "heuristicIfUnavailable"` only when deterministic heuristic fallback is
+  explicitly acceptable.

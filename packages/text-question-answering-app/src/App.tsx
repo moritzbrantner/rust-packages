@@ -33,17 +33,13 @@ const packageAppConfig: PackageAppConfig = {
   ],
   presets: [
     {
-      id: "imported-span-answer",
-      label: "Use imported span answer",
+      id: "local-model-answer",
+      label: "Run local QA",
       operation: "qa.answer",
-      description: "Postprocess imported span predictions for a short context.",
+      description: "Use the default local RoBERTa SQuAD2 ONNX model on the server.",
       input: {
         question: "Who presented the tokenizer roadmap?",
         context: "Alice presented the tokenizer roadmap in Berlin while Bob reviewed transcript retrieval evidence.",
-        importedPredictions: [
-          { text: "Alice", score: 0.94, attributes: { byte_start: "0", byte_end: "5" } },
-          { text: "Bob", score: 0.21, attributes: { byte_start: "55", byte_end: "58" } },
-        ],
         topK: 2,
       },
     },

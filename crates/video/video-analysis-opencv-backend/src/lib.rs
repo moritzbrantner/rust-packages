@@ -7,7 +7,7 @@ use video_analysis_sfm::{SfmBackend, SfmPipelineOutput, SfmRequest};
 
 fn unavailable() -> DetectError {
     DetectError::InvalidArgument(
-        "OpenCV backend is intentionally optional and has no command adapter; use image-analysis-detection for color/object heuristics, video-analysis-onnx for learned detectors, or video-analysis-sfm-rust-backend for Rust SfM"
+        "OpenCV backend is intentionally optional and has no command adapter; use image-analysis-detection for color/object heuristics, video-analysis-recognition for learned detectors, or video-analysis-sfm-rust-backend for Rust SfM"
             .to_string(),
     )
 }

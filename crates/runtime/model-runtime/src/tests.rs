@@ -3,9 +3,35 @@ use std::collections::BTreeMap;
 use tempfile::tempdir;
 
 use crate::{
-    DownloadedModel, ModelBundle, ModelBundleStore, ModelFileRequest, ModelRuntimeBackend,
-    ModelSource, ModelSpec, ModelTask, RawPrediction,
+    resolve_or_download_bundle_with_downloader, DownloadedModel, HuggingFaceModelSpec, ModelBundle,
+    ModelBundleResolveOptions, ModelBundleStore, ModelDownloader, ModelFileRequest, ModelPreset,
+    ModelRuntimeBackend, ModelSource, ModelSpec, ModelTask, RawPrediction,
 };
+
+#[derive(Debug, Clone)]
+struct FakeDownloader {
+    root: std::path::PathBuf,
+}
+
+impl ModelDownloader for FakeDownloader {
+    fn download_model(&self, spec: &HuggingFaceModelSpec) -> crate::Result<DownloadedModel> {
+        std::fs::create_dir_all(&self.root)?;
+        let mut files = BTreeMap::new();
+        for request in &spec.files {
+            let remote_path = match request {
+                ModelFileRequest::Required(path) | ModelFileRequest::Optional(path) => path.clone(),
+                ModelFileRequest::FirstAvailable(paths) => paths[0].clone(),
+            };
+            let local = self.root.join(remote_path.replace('/', "_"));
+            std::fs::write(&local, b"fake")?;
+            files.insert(remote_path, local);
+        }
+        Ok(DownloadedModel {
+            spec: spec.clone(),
+            files,
+        })
+    }
+}
 
 #[test]
 fn model_spec_records_generic_source_and_compat_fields() {
@@ -51,6 +77,96 @@ fn model_bundle_store_materializes_generic_manifest() {
 
     let loaded = ModelBundle::load(bundle.manifest_path()).unwrap();
     assert_eq!(loaded.manifest, bundle.manifest);
+}
+
+#[test]
+fn model_presets_include_local_onnx_defaults() {
+    let ids = ModelPreset::ALL
+        .iter()
+        .map(|preset| preset.as_str())
+        .collect::<Vec<_>>();
+
+    assert!(ids.contains(&"roberta-base-squad2-onnx"));
+    assert!(ids.contains(&"vit-base-patch16-224-onnx"));
+    assert!(ids.contains(&"vit-gpt2-image-captioning-onnx"));
+}
+
+#[test]
+fn resolver_loads_existing_bundle_before_download() {
+    let temp = tempdir().unwrap();
+    let spec = ModelPreset::OnnxCommunityRobertaBaseSquad2.spec();
+    let store =
+        ModelBundleStore::new(temp.path().join("bundles")).model_downloader(FakeDownloader {
+            root: temp.path().join("cache"),
+        });
+    let existing = store.download(&spec).unwrap();
+
+    let bundle = resolve_or_download_bundle_with_downloader(
+        &spec,
+        &ModelBundleResolveOptions {
+            bundle_root: temp.path().join("bundles"),
+            auto_download: true,
+            ..ModelBundleResolveOptions::default()
+        },
+        FakeDownloader {
+            root: temp.path().join("unused-cache"),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(bundle.manifest_path(), existing.manifest_path());
+}
+
+#[test]
+fn resolver_reports_missing_bundle_when_download_disabled() {
+    let temp = tempdir().unwrap();
+    let spec = ModelPreset::XenovaVitBasePatch16_224Onnx.spec();
+
+    let error = resolve_or_download_bundle_with_downloader(
+        &spec,
+        &ModelBundleResolveOptions {
+            bundle_root: temp.path().join("bundles"),
+            auto_download: false,
+            ..ModelBundleResolveOptions::default()
+        },
+        FakeDownloader {
+            root: temp.path().join("cache"),
+        },
+    )
+    .expect_err("missing bundle");
+
+    assert!(error.to_string().contains("autoDownload is false"));
+    assert!(error.to_string().contains(spec.name.as_str()));
+}
+
+#[test]
+fn resolver_fake_downloader_materializes_expected_manifest() {
+    let temp = tempdir().unwrap();
+    let spec = ModelPreset::XenovaVitGpt2ImageCaptioningOnnx.spec();
+
+    let bundle = resolve_or_download_bundle_with_downloader(
+        &spec,
+        &ModelBundleResolveOptions {
+            bundle_root: temp.path().join("bundles"),
+            auto_download: true,
+            ..ModelBundleResolveOptions::default()
+        },
+        FakeDownloader {
+            root: temp.path().join("cache"),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(bundle.manifest.repo_id, "Xenova/vit-gpt2-image-captioning");
+    assert!(bundle.file_path("config.json").unwrap().exists());
+    assert!(bundle
+        .file_path("onnx/encoder_model_quantized.onnx")
+        .unwrap()
+        .exists());
+    assert!(bundle
+        .file_path("onnx/decoder_model_quantized.onnx")
+        .unwrap()
+        .exists());
 }
 
 #[cfg(feature = "jobs")]

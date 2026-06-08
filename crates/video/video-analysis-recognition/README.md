@@ -50,4 +50,4 @@ external-tool execution.
 
 - `video-analysis-tracking`
 - `model-runtime`
-- `video-analysis-onnx`
+- `runtime-onnx` through the optional `onnx` feature

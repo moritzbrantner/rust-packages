@@ -9,8 +9,6 @@ use std::path::Path;
 #[cfg(feature = "tokenizers")]
 use std::path::PathBuf;
 #[cfg(feature = "onnx")]
-use std::sync::atomic::{AtomicBool, Ordering};
-#[cfg(feature = "onnx")]
 use std::sync::{Mutex, OnceLock};
 #[cfg(feature = "onnx")]
 use std::time::Instant;
@@ -213,9 +211,8 @@ pub enum PoolingStrategy {
 #[derive(Debug)]
 /// Data type for native ONNX runner.
 pub struct NativeOnnxRunner {
-    session: Mutex<ort::session::Session>,
+    session: Mutex<runtime_onnx::OnnxSession>,
     model_path: PathBuf,
-    first_run_observed: AtomicBool,
 }
 
 #[cfg(feature = "onnx")]
@@ -225,21 +222,13 @@ impl NativeOnnxRunner {
         let model_path = model_path.as_ref().to_path_buf();
         let timing_enabled = onnx_timing_enabled();
         let started = timing_enabled.then(Instant::now);
-        let builder = ort::session::Session::builder().map_err(ort_error)?;
-        let mut builder = builder
-            .with_no_environment_execution_providers()
-            .and_then(|builder| {
-                builder.with_execution_providers([ort::ep::CPUExecutionProvider::default().build()])
-            })
-            .and_then(|builder| {
-                builder
-                    .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Disable)
-            })
-            .and_then(|builder| builder.with_parallel_execution(false))
-            .and_then(|builder| builder.with_intra_threads(1))
-            .and_then(|builder| builder.with_inter_threads(1))
-            .map_err(ort_error)?;
-        let session = builder.commit_from_file(&model_path);
+        let session = runtime_onnx::OnnxSession::from_file_with_options(
+            &model_path,
+            runtime_onnx::OnnxSessionOptions {
+                graph_optimization: runtime_onnx::OnnxGraphOptimization::Disable,
+                execution_provider: runtime_onnx::OnnxExecutionProvider::Cpu,
+            },
+        );
         if let Some(started) = started {
             log_onnx_stage_timing(
                 "NativeOnnxRunner::new",
@@ -249,53 +238,53 @@ impl NativeOnnxRunner {
             );
         }
         Ok(Self {
-            session: Mutex::new(session.map_err(ort_error)?),
+            session: Mutex::new(session.map_err(runtime_onnx_error)?),
             model_path,
-            first_run_observed: AtomicBool::new(false),
         })
     }
 
     fn run_first_f32_output(&self, tokens: &TokenizedText) -> Result<(Vec<f32>, Vec<usize>)> {
-        use std::borrow::Cow;
-
-        use ort::session::SessionInputValue;
-        use ort::value::Tensor;
+        use runtime_onnx::{OnnxRunner, OnnxTensor, OnnxTensorValue};
 
         let mut session = self
             .session
             .lock()
             .map_err(|_| DetectError::Source("ONNX session mutex was poisoned".to_string()))?;
-        let input_names = session
-            .inputs()
+        let metadata = session.metadata().map_err(runtime_onnx_error)?;
+        let input_names = metadata
+            .inputs
             .iter()
-            .map(|input| input.name().to_string())
+            .map(|input| input.name.clone())
             .collect::<Vec<_>>();
-        let shape = vec![1_i64, tokens.input_ids.len() as i64];
-        let mut inputs = Vec::<(Cow<'_, str>, SessionInputValue<'_>)>::new();
+        let shape = vec![1, tokens.input_ids.len()];
+        let mut inputs = Vec::new();
         if input_names.iter().any(|name| name == "input_ids") {
-            inputs.push((
-                Cow::from("input_ids"),
-                Tensor::<i64>::from_array((shape.clone(), tokens.input_ids.clone()))
-                    .map_err(ort_error)?
-                    .into(),
-            ));
+            inputs.push(runtime_onnx::OnnxNamedTensor {
+                name: "input_ids".to_string(),
+                tensor: OnnxTensorValue::I64(
+                    OnnxTensor::new(shape.clone(), tokens.input_ids.clone())
+                        .map_err(runtime_onnx_error)?,
+                ),
+            });
         }
         if input_names.iter().any(|name| name == "attention_mask") {
-            inputs.push((
-                Cow::from("attention_mask"),
-                Tensor::<i64>::from_array((shape.clone(), tokens.attention_mask.clone()))
-                    .map_err(ort_error)?
-                    .into(),
-            ));
+            inputs.push(runtime_onnx::OnnxNamedTensor {
+                name: "attention_mask".to_string(),
+                tensor: OnnxTensorValue::I64(
+                    OnnxTensor::new(shape.clone(), tokens.attention_mask.clone())
+                        .map_err(runtime_onnx_error)?,
+                ),
+            });
         }
         if input_names.iter().any(|name| name == "token_type_ids") {
             if let Some(token_type_ids) = &tokens.token_type_ids {
-                inputs.push((
-                    Cow::from("token_type_ids"),
-                    Tensor::<i64>::from_array((shape, token_type_ids.clone()))
-                        .map_err(ort_error)?
-                        .into(),
-                ));
+                inputs.push(runtime_onnx::OnnxNamedTensor {
+                    name: "token_type_ids".to_string(),
+                    tensor: OnnxTensorValue::I64(
+                        OnnxTensor::new(shape, token_type_ids.clone())
+                            .map_err(runtime_onnx_error)?,
+                    ),
+                });
             }
         }
         if inputs.is_empty() {
@@ -303,22 +292,12 @@ impl NativeOnnxRunner {
                 "ONNX text model does not expose a supported text input",
             ));
         }
-        let log_first_run =
-            onnx_timing_enabled() && !self.first_run_observed.swap(true, Ordering::Relaxed);
-        if log_first_run {
+        if onnx_timing_enabled() {
             log_onnx_stage_event("NativeOnnxRunner::session.run", &self.model_path, "start");
         }
-        let outputs = session.run(inputs).map_err(ort_error)?;
-        let (shape, values) = outputs[0].try_extract_tensor::<f32>().map_err(ort_error)?;
-        let shape = shape
-            .iter()
-            .map(|dim| {
-                usize::try_from(*dim).map_err(|_| {
-                    invalid_argument("ONNX output shape contains a negative dimension")
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        Ok((values.to_vec(), shape))
+        let outputs = session.run(inputs).map_err(runtime_onnx_error)?;
+        let output = runtime_onnx::first_f32_output(&outputs).map_err(runtime_onnx_error)?;
+        Ok((output.values.clone(), output.shape.clone()))
     }
 }
 
@@ -1557,8 +1536,13 @@ fn candle_attention_mask_distil(
 }
 
 #[cfg(feature = "onnx")]
-fn ort_error<T>(error: ort::Error<T>) -> DetectError {
-    DetectError::Source(format!("ONNX runtime error: {error}"))
+fn runtime_onnx_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
+    match error {
+        runtime_onnx::OnnxRuntimeError::InvalidArgument(message)
+        | runtime_onnx::OnnxRuntimeError::InvalidTensorShape(message) => invalid_argument(message),
+        runtime_onnx::OnnxRuntimeError::Io(error) => DetectError::Io(error),
+        other => DetectError::Source(other.to_string()),
+    }
 }
 
 #[cfg(feature = "onnx")]

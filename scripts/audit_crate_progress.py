@@ -20,6 +20,7 @@ ALLOW_PATH = Path("scripts/crate_progress_regressions.allow")
 EXCLUDED_LIBRARY_CRATES = {
     "moritzbrantner-audio-analysis-test-support",
     "moritzbrantner-runtime-core",
+    "moritzbrantner-runtime-onnx",
     "moritzbrantner-video-analysis-test-support",
 }
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")

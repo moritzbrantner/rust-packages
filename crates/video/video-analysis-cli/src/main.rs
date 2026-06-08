@@ -31,8 +31,6 @@ use video_analysis_posture_io::{
     read_coco_keypoints_json, write_coco_keypoints_json, write_stick_figure_gltf,
     write_stick_figure_ply,
 };
-#[cfg(feature = "onnx")]
-use video_analysis_recognition::PoseModelBackend;
 use video_analysis_recognition::RawPose2dPrediction;
 #[cfg(feature = "onnx")]
 use video_analysis_recognition::VisionModelBackend;
@@ -894,7 +892,7 @@ fn run_onnx_model(args: ModelRunArgs) -> Result<()> {
         &data,
         args.width as usize * 3,
     )?;
-    let mut backend = video_analysis_onnx::OnnxObjectDetector::from_bundle(bundle)?;
+    let mut backend = video_analysis_recognition::OnnxObjectDetector::from_bundle(bundle)?;
     let predictions = VisionModelBackend::predict_frame(&mut backend, &frame)?;
     if let Some(path) = args.output {
         if let Some(parent) = path.parent().filter(|path| !path.as_os_str().is_empty()) {
@@ -946,12 +944,8 @@ fn run_onnx_posture_estimate(
         &data,
         width as usize * 3,
     )?;
-    let mut backend = video_analysis_onnx::OnnxPose2dEstimator::from_bundle(bundle)?;
-    let predictions = backend.predict_frame(&frame)?;
-    predictions
-        .iter()
-        .map(|prediction| prediction.to_pose_estimate(Some((width, height))))
-        .collect()
+    let mut backend = video_analysis_posture::OnnxPose2dEstimator::from_bundle(bundle)?;
+    backend.predict_frame(&frame)
 }
 
 #[cfg(not(feature = "onnx"))]
@@ -1037,7 +1031,7 @@ fn build_analyze_report(args: &AnalyzeReportArgs) -> Result<AnalyzeReport> {
     #[cfg(feature = "onnx")]
     let mut model_backend = if let Some(manifest) = &args.model_manifest {
         let bundle = ModelBundle::load(manifest).map_err(model_runtime_error)?;
-        Some(video_analysis_onnx::OnnxObjectDetector::from_bundle(
+        Some(video_analysis_recognition::OnnxObjectDetector::from_bundle(
             bundle,
         )?)
     } else {

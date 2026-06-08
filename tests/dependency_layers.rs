@@ -14,6 +14,14 @@ fn active_metadata_has_no_retired_runtime_crates() {
         "moritzbrantner-runtime-jobs-cli",
         "moritzbrantner-runtime-jobs-server",
         "moritzbrantner-runtime-jobs-wasm",
+        concat!("moritzbrantner-image-analysis-", "onnx"),
+        concat!("moritzbrantner-image-analysis-", "onnx-cli"),
+        concat!("moritzbrantner-image-analysis-", "onnx-server"),
+        concat!("moritzbrantner-image-analysis-", "onnx-wasm"),
+        concat!("moritzbrantner-video-analysis-", "onnx"),
+        concat!("moritzbrantner-video-analysis-", "onnx-cli"),
+        concat!("moritzbrantner-video-analysis-", "onnx-server"),
+        concat!("moritzbrantner-video-analysis-", "onnx-wasm"),
     ] {
         assert!(
             !graph.packages.contains_key(retired),
@@ -77,6 +85,7 @@ fn foundation_crates_do_not_depend_on_domain_crates() {
     let graph = MetadataGraph::load();
     let foundation = BTreeSet::from([
         "moritzbrantner-runtime-core",
+        "moritzbrantner-runtime-onnx",
         "moritzbrantner-jobs-core",
         "moritzbrantner-numbers-core",
         "moritzbrantner-tensor-data",
