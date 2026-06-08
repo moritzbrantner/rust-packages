@@ -60,6 +60,7 @@ rusqlite = "0.32.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 sha2 = "0.10.9"
+uuid = { version = "1.11", features = ["v5", "serde"] }
 geojson = "1"
 osmpbfreader = "0.16"
 regex = "1"
@@ -159,6 +160,7 @@ video-analysis-features = { package = "moritzbrantner-video-analysis-features", 
 video-analysis-ffmpeg = { package = "moritzbrantner-video-analysis-ffmpeg", version = "0.1.0", path = "crates/video/video-analysis-ffmpeg" }
 video-analysis-gaussian-splatting = { package = "moritzbrantner-video-analysis-gaussian-splatting", version = "0.1.0", path = "crates/video/video-analysis-gaussian-splatting" }
 video-analysis-ingest = { package = "moritzbrantner-video-analysis-ingest", version = "0.1.0", path = "crates/video/video-analysis-ingest" }
+video-analysis-youtube = { package = "moritzbrantner-video-analysis-youtube", version = "0.1.0", path = "crates/video/video-analysis-youtube" }
 video-analysis-mvs = { package = "moritzbrantner-video-analysis-mvs", version = "0.1.0", path = "crates/video/video-analysis-mvs" }
 video-analysis-output = { package = "moritzbrantner-video-analysis-output", version = "0.1.0", path = "crates/video/video-analysis-output" }
 video-analysis-posture = { package = "moritzbrantner-video-analysis-posture", version = "0.1.0", path = "crates/video/video-analysis-posture" }
@@ -246,6 +248,7 @@ video = [
     "dep:video-analysis-ffmpeg",
     "dep:video-analysis-gaussian-splatting",
     "dep:video-analysis-ingest",
+    "dep:video-analysis-youtube",
     "dep:video-analysis-mvs",
     "dep:video-analysis-output",
     "dep:video-analysis-posture",
@@ -357,6 +360,7 @@ video-analysis-features = { workspace = true, optional = true }
 video-analysis-ffmpeg = { workspace = true, optional = true }
 video-analysis-gaussian-splatting = { workspace = true, optional = true }
 video-analysis-ingest = { workspace = true, optional = true }
+video-analysis-youtube = { workspace = true, optional = true }
 video-analysis-mvs = { workspace = true, optional = true }
 video-analysis-output = { workspace = true, optional = true }
 video-analysis-posture = { workspace = true, optional = true }

@@ -17,6 +17,7 @@ name = "video_analysis_segmentation"
 
 [dependencies]
 runtime-core.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 image-analysis-segmentation.workspace = true
 video-analysis-core.workspace = true

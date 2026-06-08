@@ -9,9 +9,9 @@ Video segmentation primitives and SAM 2 defaults for `moritzbrantner-video-analy
 ## Example
 
 ```rust,ignore
-use video_analysis_segmentation::{default_sam_video_model_spec, VideoSegmentationRequest};
+use video_analysis_segmentation::{default_sam2_model_spec, VideoSegmentationRequest};
 
-let _ = default_sam_video_model_spec();
+let _ = default_sam2_model_spec();
 let _ = VideoSegmentationRequest::default();
 ```
 
@@ -25,16 +25,18 @@ let _ = VideoSegmentationRequest::default();
 Workflow operations:
 
 - `video.segmentation.maskSummary`
+- `video.segmentation.promptPlan`
+- `video.segmentation.trackPlan`
 
 Debug operations:
 
 - `describe`
-- `video.segmentation.promptPlan`
-- `video.segmentation.trackPlan`
 
 Runtime limits:
 
-Operations are deterministic, local-first, and side-effect free. They return inline JSON reports and do not download models, write files, or run native tools.
+Operations are deterministic, local-first, and side-effect free. They summarize
+binary masks, normalize SAM-style prompts, and associate masks across frames
+with IoU without downloading models, writing files, or running native tools.
 
 Invalid input returns a clear error through `run_surface_operation`; successful
 responses include `operation`, `title`, `message`, `summary`, and `result` while

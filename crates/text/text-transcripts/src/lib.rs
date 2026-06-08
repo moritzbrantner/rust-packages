@@ -5,7 +5,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::time::Duration;
 
 use audio_analysis_core::OwnedAudioWaveformBatch;
 use serde::Deserialize;
@@ -43,6 +44,14 @@ pub enum TranscriptionError {
     #[error("transcriber command `{0}` failed")]
     /// The command failed variant.
     CommandFailed(String),
+    #[error("transcriber command `{command}` timed out after {seconds} seconds")]
+    /// The command timeout variant.
+    CommandTimeout {
+        /// Command that timed out.
+        command: String,
+        /// Timeout in seconds.
+        seconds: u64,
+    },
     #[error("{0}")]
     /// The detect variant.
     Detect(#[from] video_analysis_core::DetectError),
@@ -145,6 +154,55 @@ pub trait Transcriber {
     fn transcribe(&mut self, input: &Path) -> Result<TranscriptionResult>;
 }
 
+#[derive(Debug, Clone)]
+/// Options for subtitle text normalization.
+pub struct SubtitleNormalizationOptions {
+    /// Strip WebVTT/SRT markup used for subtitle rendering.
+    pub strip_markup: bool,
+    /// Decode common HTML entities used in captions.
+    pub decode_basic_entities: bool,
+    /// Collapse all whitespace runs into one ASCII space.
+    pub collapse_whitespace: bool,
+}
+
+impl Default for SubtitleNormalizationOptions {
+    fn default() -> Self {
+        Self {
+            strip_markup: true,
+            decode_basic_entities: true,
+            collapse_whitespace: true,
+        }
+    }
+}
+
+/// Normalizes subtitle cue text without parsing timing blocks.
+pub fn normalize_subtitle_text(text: &str, options: SubtitleNormalizationOptions) -> String {
+    let mut normalized = text.to_string();
+    if options.strip_markup {
+        normalized = strip_subtitle_markup(&normalized);
+    }
+    if options.decode_basic_entities {
+        normalized = decode_basic_entities(&normalized);
+    }
+    if options.collapse_whitespace {
+        normalized = collapse_whitespace(&normalized);
+    }
+    normalized
+}
+
+#[derive(Debug, Clone)]
+/// Options for command transcriber construction.
+pub struct CommandTranscriberOptions {
+    /// Command path.
+    pub command: PathBuf,
+    /// Extra command arguments.
+    pub args: Vec<String>,
+    /// Expected output format.
+    pub format: TranscriptFormat,
+    /// Optional timeout in seconds.
+    pub timeout_seconds: Option<u64>,
+}
+
 #[derive(Debug, Default, Clone)]
 /// Transcript-specific deterministic analyzer.
 pub struct TranscriptHeuristicAnalyzer;
@@ -186,6 +244,7 @@ pub struct CommandTranscriber {
     command: PathBuf,
     args: Vec<String>,
     format: TranscriptFormat,
+    timeout_seconds: Option<u64>,
 }
 
 impl CommandTranscriber {
@@ -195,6 +254,17 @@ impl CommandTranscriber {
             command: command.into(),
             args: Vec::new(),
             format,
+            timeout_seconds: None,
+        }
+    }
+
+    /// Creates from options.
+    pub fn from_options(options: CommandTranscriberOptions) -> Self {
+        Self {
+            command: options.command,
+            args: options.args,
+            format: options.format,
+            timeout_seconds: options.timeout_seconds,
         }
     }
 
@@ -203,15 +273,24 @@ impl CommandTranscriber {
         self.args.extend(args);
         self
     }
+
+    /// Returns this value with timeout.
+    pub fn timeout_seconds(mut self, timeout_seconds: Option<u64>) -> Self {
+        self.timeout_seconds = timeout_seconds;
+        self
+    }
 }
 
 impl Transcriber for CommandTranscriber {
     fn transcribe(&mut self, input: &Path) -> Result<TranscriptionResult> {
-        let output = Command::new(&self.command)
+        let child = Command::new(&self.command)
             .args(&self.args)
             .arg(input)
             .stdin(Stdio::null())
-            .output()?;
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let output = wait_with_optional_timeout(child, &self.command, self.timeout_seconds)?;
         if !output.status.success() {
             return Err(TranscriptionError::CommandFailed(
                 self.command.display().to_string(),
@@ -222,11 +301,25 @@ impl Transcriber for CommandTranscriber {
 }
 
 #[derive(Debug, Clone)]
+/// Options for whisper CLI transcriber construction.
+pub struct WhisperCliTranscriberOptions {
+    /// Command path.
+    pub command: PathBuf,
+    /// Extra command arguments.
+    pub args: Vec<String>,
+    /// Optional output directory.
+    pub output_dir: Option<PathBuf>,
+    /// Optional timeout in seconds.
+    pub timeout_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone)]
 /// Data type for whisper cli transcriber.
 pub struct WhisperCliTranscriber {
     command: PathBuf,
     args: Vec<String>,
     output_dir: Option<PathBuf>,
+    timeout_seconds: Option<u64>,
 }
 
 impl WhisperCliTranscriber {
@@ -236,6 +329,17 @@ impl WhisperCliTranscriber {
             command: command.into(),
             args: Vec::new(),
             output_dir: None,
+            timeout_seconds: None,
+        }
+    }
+
+    /// Creates from options.
+    pub fn from_options(options: WhisperCliTranscriberOptions) -> Self {
+        Self {
+            command: options.command,
+            args: options.args,
+            output_dir: options.output_dir,
+            timeout_seconds: options.timeout_seconds,
         }
     }
 
@@ -250,6 +354,12 @@ impl WhisperCliTranscriber {
         self.output_dir = Some(output_dir.into());
         self
     }
+
+    /// Returns this value with timeout.
+    pub fn timeout_seconds(mut self, timeout_seconds: Option<u64>) -> Self {
+        self.timeout_seconds = timeout_seconds;
+        self
+    }
 }
 
 impl Transcriber for WhisperCliTranscriber {
@@ -262,7 +372,7 @@ impl Transcriber for WhisperCliTranscriber {
         });
         fs::create_dir_all(&output_dir)?;
 
-        let status = Command::new(&self.command)
+        let child = Command::new(&self.command)
             .arg(input)
             .args(&self.args)
             .arg("--output_format")
@@ -270,7 +380,8 @@ impl Transcriber for WhisperCliTranscriber {
             .arg("--output_dir")
             .arg(&output_dir)
             .stdin(Stdio::null())
-            .status()?;
+            .spawn()?;
+        let status = wait_status_with_optional_timeout(child, &self.command, self.timeout_seconds)?;
         if !status.success() {
             return Err(TranscriptionError::CommandFailed(
                 self.command.display().to_string(),
@@ -639,6 +750,140 @@ fn parse_transcript_bytes(bytes: &[u8], format: TranscriptFormat) -> Result<Tran
         TranscriptFormat::Srt => parse_srt(&String::from_utf8_lossy(bytes)),
         TranscriptFormat::WebVtt => parse_webvtt(&String::from_utf8_lossy(bytes)),
     }
+}
+
+fn wait_with_optional_timeout(
+    mut child: Child,
+    command: &Path,
+    timeout_seconds: Option<u64>,
+) -> Result<Output> {
+    if let Some(seconds) = timeout_seconds {
+        let deadline = std::time::Instant::now() + Duration::from_secs(seconds);
+        loop {
+            if child.try_wait()?.is_some() {
+                return Ok(child.wait_with_output()?);
+            }
+            if std::time::Instant::now() >= deadline {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(TranscriptionError::CommandTimeout {
+                    command: command.display().to_string(),
+                    seconds,
+                });
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+    }
+    Ok(child.wait_with_output()?)
+}
+
+fn wait_status_with_optional_timeout(
+    mut child: Child,
+    command: &Path,
+    timeout_seconds: Option<u64>,
+) -> Result<ExitStatus> {
+    if let Some(seconds) = timeout_seconds {
+        let deadline = std::time::Instant::now() + Duration::from_secs(seconds);
+        loop {
+            if let Some(status) = child.try_wait()? {
+                return Ok(status);
+            }
+            if std::time::Instant::now() >= deadline {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(TranscriptionError::CommandTimeout {
+                    command: command.display().to_string(),
+                    seconds,
+                });
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+    }
+    Ok(child.wait()?)
+}
+
+fn strip_subtitle_markup(text: &str) -> String {
+    let mut output = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '<' {
+            output.push(ch);
+            continue;
+        }
+
+        let mut tag = String::new();
+        let mut closed = false;
+        for tag_ch in chars.by_ref() {
+            if tag_ch == '>' {
+                closed = true;
+                break;
+            }
+            tag.push(tag_ch);
+        }
+
+        if !closed {
+            output.push('<');
+            output.push_str(&tag);
+            break;
+        }
+
+        let tag = tag.trim();
+        if tag.is_empty() {
+            continue;
+        }
+
+        if is_subtitle_timestamp(tag) {
+            output.push(' ');
+        } else if is_subtitle_tag(tag) {
+            continue;
+        } else {
+            output.push('<');
+            output.push_str(tag);
+            output.push('>');
+        }
+    }
+    output
+}
+
+fn is_subtitle_tag(tag: &str) -> bool {
+    let tag = tag.trim_start_matches('/');
+    let name = tag
+        .split(|ch: char| ch.is_whitespace() || ch == '.')
+        .next()
+        .unwrap_or_default();
+    matches!(name, "b" | "c" | "i" | "lang" | "rt" | "ruby" | "u" | "v")
+}
+
+fn is_subtitle_timestamp(value: &str) -> bool {
+    let value = value.replace(',', ".");
+    let parts = value.split(':').collect::<Vec<_>>();
+    let [hours, minutes, seconds] = parts.as_slice() else {
+        return false;
+    };
+    is_two_digits(hours)
+        && is_two_digits(minutes)
+        && seconds.len() == 6
+        && seconds.as_bytes().get(2) == Some(&b'.')
+        && seconds[..2].bytes().all(|byte| byte.is_ascii_digit())
+        && seconds[3..].bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn is_two_digits(value: &str) -> bool {
+    value.len() == 2 && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn decode_basic_entities(text: &str) -> String {
+    text.replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&nbsp;", " ")
+}
+
+fn collapse_whitespace(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn parse_subtitle_blocks(text: &str, format: TranscriptFormat) -> Result<TranscriptionResult> {
@@ -1021,5 +1266,57 @@ mod tests {
 
         assert_eq!(parsed.segments[0].text, webvtt.segments[0].text);
         assert_eq!(plain.text.as_deref(), Some("Hello world"));
+    }
+
+    #[test]
+    fn normalizes_subtitle_markup_entities_and_whitespace() {
+        let normalized = normalize_subtitle_text(
+            "<v Speaker>Hello&nbsp; <c.yellow>Rust</c> &amp; friends <00:00:01.000>\nnow",
+            SubtitleNormalizationOptions::default(),
+        );
+
+        assert_eq!(normalized, "Hello Rust & friends now");
+    }
+
+    #[test]
+    fn preserves_unknown_markup_conservatively() {
+        let normalized = normalize_subtitle_text(
+            "look <custom value>here</custom>",
+            SubtitleNormalizationOptions::default(),
+        );
+
+        assert_eq!(normalized, "look <custom value>here</custom>");
+    }
+
+    #[test]
+    fn decodes_basic_entities() {
+        let normalized = normalize_subtitle_text(
+            "&amp; &lt; &gt; &quot; &#39; &apos; &nbsp;",
+            SubtitleNormalizationOptions {
+                strip_markup: false,
+                decode_basic_entities: true,
+                collapse_whitespace: true,
+            },
+        );
+
+        assert_eq!(normalized, "& < > \" ' '");
+    }
+
+    #[test]
+    fn parse_and_normalize_round_trip_for_subtitles() {
+        let srt = parse_srt("1\n00:00:00,000 --> 00:00:01,000\n<c>Hello&nbsp;SRT</c>\n").unwrap();
+        let vtt =
+            parse_webvtt("WEBVTT\n\n00:00:00.000 --> 00:00:01.000\n<v Speaker>Hello&nbsp;VTT\n")
+                .unwrap();
+
+        let options = SubtitleNormalizationOptions::default();
+        assert_eq!(
+            normalize_subtitle_text(&srt.segments[0].text, options.clone()),
+            "Hello SRT"
+        );
+        assert_eq!(
+            normalize_subtitle_text(&vtt.segments[0].text, options),
+            "Hello VTT"
+        );
     }
 }

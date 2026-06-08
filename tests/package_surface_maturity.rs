@@ -75,6 +75,7 @@ fn migrated_tranche_operation_metadata_is_complete() {
         video_analysis_editing::surface::package_surface(),
         video_analysis_output::surface::package_surface(),
         video_analysis_recognition::surface::package_surface(),
+        video_analysis_segmentation::surface::package_surface(),
         video_analysis_split::surface::package_surface(),
         video_analysis_synthesis::surface::package_surface(),
         video_analysis_tracking::surface::package_surface(),
@@ -155,6 +156,10 @@ fn migrated_tranche_operation_metadata_is_complete() {
             video_analysis_recognition::surface::run_surface_operation,
         ),
         (
+            video_analysis_segmentation::surface::package_surface(),
+            video_analysis_segmentation::surface::run_surface_operation,
+        ),
+        (
             video_analysis_split::surface::package_surface(),
             video_analysis_split::surface::run_surface_operation,
         ),
@@ -168,6 +173,36 @@ fn migrated_tranche_operation_metadata_is_complete() {
         ),
     ] {
         assert_surface_operations_are_not_scaffold(surface, runner);
+    }
+}
+
+#[test]
+fn video_segmentation_surface_outputs_do_not_expose_scaffold_operation_kind() {
+    let surface = video_analysis_segmentation::surface::package_surface();
+    for operation in surface
+        .operations
+        .iter()
+        .filter(|operation| operation.id.as_str() != "describe")
+    {
+        let response = video_analysis_segmentation::surface::run_surface_operation(
+            runtime_core::SurfaceRequest {
+                operation: operation.id.clone(),
+                input: operation.example_request.clone(),
+            },
+        )
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}:{} example request failed: {error}",
+                surface.library,
+                operation.id.as_str()
+            )
+        });
+        assert!(
+            !response.value.to_string().contains("operationKind"),
+            "{}:{} still exposes scaffold operationKind",
+            surface.library,
+            operation.id.as_str()
+        );
     }
 }
 

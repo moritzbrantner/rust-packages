@@ -273,6 +273,9 @@ pub use video_analysis_tracking as tracking;
 #[cfg(feature = "video")]
 /// Re-exports the transform API.
 pub use video_analysis_transform as transform;
+#[cfg(feature = "video")]
+/// Re-exports the YouTube acquisition API.
+pub use video_analysis_youtube as youtube;
 #[cfg(test)]
 mod tests {
     use super::*;
