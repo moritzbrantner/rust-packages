@@ -797,30 +797,6 @@
       "name": "@moritzbrantner/image-analysis-ocr-wasm",
       "version": "0.1.0",
     },
-    "packages/image-analysis-onnx-app": {
-      "name": "@moritzbrantner/image-analysis-onnx-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/image-analysis-onnx-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/image-analysis-onnx-wasm": {
-      "name": "@moritzbrantner/image-analysis-onnx-wasm",
-      "version": "0.1.0",
-    },
     "packages/image-analysis-processing-app": {
       "name": "@moritzbrantner/image-analysis-processing-app",
       "version": "0.1.0",
@@ -1841,30 +1817,6 @@
       "name": "@moritzbrantner/video-analysis-mvs-wasm",
       "version": "0.1.0",
     },
-    "packages/video-analysis-onnx-app": {
-      "name": "@moritzbrantner/video-analysis-onnx-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/video-analysis-onnx-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/video-analysis-onnx-wasm": {
-      "name": "@moritzbrantner/video-analysis-onnx-wasm",
-      "version": "0.1.0",
-    },
     "packages/video-analysis-opencv-backend-app": {
       "name": "@moritzbrantner/video-analysis-opencv-backend-app",
       "version": "0.1.0",
@@ -2704,10 +2656,6 @@
 
     "@moritzbrantner/image-analysis-ocr-wasm": ["@moritzbrantner/image-analysis-ocr-wasm@workspace:packages/image-analysis-ocr-wasm"],
 
-    "@moritzbrantner/image-analysis-onnx-app": ["@moritzbrantner/image-analysis-onnx-app@workspace:packages/image-analysis-onnx-app"],
-
-    "@moritzbrantner/image-analysis-onnx-wasm": ["@moritzbrantner/image-analysis-onnx-wasm@workspace:packages/image-analysis-onnx-wasm"],
-
     "@moritzbrantner/image-analysis-processing-app": ["@moritzbrantner/image-analysis-processing-app@workspace:packages/image-analysis-processing-app"],
 
     "@moritzbrantner/image-analysis-processing-wasm": ["@moritzbrantner/image-analysis-processing-wasm@workspace:packages/image-analysis-processing-wasm"],
@@ -2877,10 +2825,6 @@
     "@moritzbrantner/video-analysis-mvs-app": ["@moritzbrantner/video-analysis-mvs-app@workspace:packages/video-analysis-mvs-app"],
 
     "@moritzbrantner/video-analysis-mvs-wasm": ["@moritzbrantner/video-analysis-mvs-wasm@workspace:packages/video-analysis-mvs-wasm"],
-
-    "@moritzbrantner/video-analysis-onnx-app": ["@moritzbrantner/video-analysis-onnx-app@workspace:packages/video-analysis-onnx-app"],
-
-    "@moritzbrantner/video-analysis-onnx-wasm": ["@moritzbrantner/video-analysis-onnx-wasm@workspace:packages/video-analysis-onnx-wasm"],
 
     "@moritzbrantner/video-analysis-opencv-backend-app": ["@moritzbrantner/video-analysis-opencv-backend-app@workspace:packages/video-analysis-opencv-backend-app"],
 

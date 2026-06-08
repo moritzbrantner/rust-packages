@@ -1398,15 +1398,6 @@ fn model_catalog_for(module: ModuleInfo, task: Option<&str>) -> Vec<Value> {
                 Some("Requires ONNX backend wiring."),
             ),
         ],
-        "image-analysis-onnx" => vec![model_catalog_entry(
-            "onnx-image-runtime",
-            "ONNX image runtime",
-            "infer",
-            "onnx",
-            cfg!(feature = "onnx-backend"),
-            None,
-            Some("Feature-gated ONNX runtime surface."),
-        )],
         package if package.starts_with("image-") => vec![model_catalog_entry(
             "deterministic-image",
             "Deterministic image runtime",
@@ -1436,15 +1427,6 @@ fn model_catalog_for(module: ModuleInfo, task: Option<&str>) -> Vec<Value> {
                 Some("Local test detector preset."),
             ),
         ],
-        "video-analysis-onnx" => vec![model_catalog_entry(
-            "onnx-video-runtime",
-            "ONNX video runtime",
-            "infer",
-            "onnx",
-            cfg!(feature = "onnx-backend"),
-            None,
-            Some("Feature-gated ONNX video runtime surface."),
-        )],
         "video-analysis-recognition" => vec![
             model_catalog_entry(
                 "scene-label-heuristic",
@@ -2126,8 +2108,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "image-analysis-embeddings" => Some(image_analysis_embeddings::surface::package_surface()),
         "image-analysis-io" => Some(image_analysis_io::surface::package_surface()),
         "image-analysis-ocr" => Some(image_analysis_ocr::surface::package_surface()),
-        #[cfg(feature = "onnx-backend")]
-        "image-analysis-onnx" => Some(image_analysis_onnx::surface::package_surface()),
         "image-analysis-processing" => Some(image_analysis_processing::surface::package_surface()),
         "image-analysis-segmentation" => {
             Some(image_analysis_segmentation::surface::package_surface())
@@ -2178,8 +2158,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         }
         "video-analysis-ingest" => Some(video_analysis_ingest::surface::package_surface()),
         "video-analysis-mvs" => Some(video_analysis_mvs::surface::package_surface()),
-        #[cfg(feature = "onnx-backend")]
-        "video-analysis-onnx" => Some(video_analysis_onnx::surface::package_surface()),
         "video-analysis-opencv-backend" => {
             Some(video_analysis_opencv_backend::surface::package_surface())
         }
@@ -2293,8 +2271,6 @@ fn run_surface_operation_for(
         ),
         "image-analysis-io" => Some(image_analysis_io::surface::run_surface_operation(request)),
         "image-analysis-ocr" => Some(image_analysis_ocr::surface::run_surface_operation(request)),
-        #[cfg(feature = "onnx-backend")]
-        "image-analysis-onnx" => Some(image_analysis_onnx::surface::run_surface_operation(request)),
         "image-analysis-processing" => Some(
             image_analysis_processing::surface::run_surface_operation(request),
         ),
@@ -2379,8 +2355,6 @@ fn run_surface_operation_for(
             request,
         )),
         "video-analysis-mvs" => Some(video_analysis_mvs::surface::run_surface_operation(request)),
-        #[cfg(feature = "onnx-backend")]
-        "video-analysis-onnx" => Some(video_analysis_onnx::surface::run_surface_operation(request)),
         "video-analysis-opencv-backend" => {
             Some(video_analysis_opencv_backend::surface::run_surface_operation(request))
         }
@@ -2651,13 +2625,6 @@ const MODULES: &[ModuleInfo] = &[
         domain: "image",
         linked: true,
         required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-onnx",
-        import_path: "video_analysis::image_onnx",
-        domain: "image",
-        linked: cfg!(feature = "onnx-backend"),
-        required_feature: Some("onnx-backend"),
     },
     ModuleInfo {
         package: "image-analysis-processing",
@@ -2954,13 +2921,6 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
-        package: "video-analysis-onnx",
-        import_path: "video_analysis::onnx",
-        domain: "video",
-        linked: cfg!(feature = "onnx-backend"),
-        required_feature: Some("onnx-backend"),
-    },
-    ModuleInfo {
         package: "video-analysis-opencv-backend",
         import_path: "video_analysis::opencv_backend",
         domain: "video",
@@ -3217,20 +3177,17 @@ mod tests {
     }
 
     #[test]
-    fn onnx_model_catalog_reports_feature_gate() {
+    fn onnx_model_catalog_flows_through_task_crate() {
         let request = Request {
             method: "GET".to_string(),
-            path: "/api/rust/packages/image-analysis-onnx/api/models".to_string(),
+            path: "/api/rust/packages/image-analysis-detection/api/models".to_string(),
             query: HashMap::new(),
             headers: HashMap::new(),
             body: String::new(),
         };
         let response = response_for(&request);
         assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("onnx-image-runtime"));
-        assert!(response
-            .body
-            .contains(&format!("\"supported\":{}", cfg!(feature = "onnx-backend"))));
+        assert!(response.body.contains("mask-proposal-demo"));
     }
 
     #[test]

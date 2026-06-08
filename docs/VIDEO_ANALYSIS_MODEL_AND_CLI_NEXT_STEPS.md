@@ -52,11 +52,17 @@ Workspace shape:
 
 - `runtime-onnx` owns only typed ONNX tensors, session metadata, and session
   execution.
+- ONNX execution now flows from `model-runtime` bundle download/materialization,
+  through task-crate bundle validation and output decoding, into
+  `runtime-onnx` session execution.
 - `image-analysis-detection` owns object-detection bundle validation and
   DETR/YOLOS-style decoding.
 - `video-analysis-recognition` maps image detections back to `RawPrediction`
   values for video frames.
 - `video-analysis-posture` owns pose model contracts and fake-runner seams.
+- `runtime-onnx` remains excluded from package-surface wrapper requirements
+  because it is intentionally domain-neutral and library-only; user-facing
+  workflows live in the owning task crates.
 
 Suggested dependencies:
 

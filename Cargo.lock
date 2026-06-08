@@ -3074,6 +3074,7 @@ dependencies = [
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
+ "tempfile",
  "tokenizers",
 ]
 
@@ -3308,12 +3309,14 @@ dependencies = [
  "moritzbrantner-image-analysis-processing",
  "moritzbrantner-image-analysis-segmentation",
  "moritzbrantner-image-analysis-synthesis",
+ "moritzbrantner-math-geometry-2d",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
  "moritzbrantner-runtime-onnx",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -4499,6 +4502,7 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-text-embeddings",
  "moritzbrantner-text-lexical",
  "moritzbrantner-text-model-runtime",

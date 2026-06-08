@@ -1004,6 +1004,59 @@ impl OnnxPose2dRunner for UnavailablePose2dRunner {
     }
 }
 
+#[cfg(feature = "onnx")]
+impl OnnxPose2dRunner for runtime_onnx::OnnxSession {
+    fn run_pose_2d(&mut self, input: &ImageModelTensor) -> Result<Vec<PoseEstimate>> {
+        use runtime_onnx::{OnnxRunner, OnnxTensor, OnnxTensorValue};
+
+        let metadata = self.metadata().map_err(runtime_onnx_error)?;
+        let input_name = runtime_onnx::input_name(&metadata, 0)
+            .map_err(runtime_onnx_error)?
+            .to_string();
+        let outputs = self
+            .run(vec![runtime_onnx::OnnxNamedTensor {
+                name: input_name,
+                tensor: OnnxTensorValue::F32(
+                    OnnxTensor::new(
+                        vec![
+                            1,
+                            input.channels,
+                            input.height as usize,
+                            input.width as usize,
+                        ],
+                        input.values.clone(),
+                    )
+                    .map_err(runtime_onnx_error)?,
+                ),
+            }])
+            .map_err(runtime_onnx_error)?;
+        let pose_tensor = outputs
+            .iter()
+            .find_map(|output| match &output.tensor {
+                runtime_onnx::OnnxTensorValue::F32(tensor)
+                    if matches!(tensor.shape.as_slice(), [_, _, 3] | [1, _, _, 3]) =>
+                {
+                    Some(tensor)
+                }
+                _ => None,
+            })
+            .ok_or_else(|| {
+                invalid_argument("ONNX pose 2D output must include `[poses, joints, 3]` tensor")
+            })?;
+        let scores = outputs.iter().find_map(|output| {
+            output
+                .name
+                .contains("scores")
+                .then_some(&output.tensor)
+                .and_then(|tensor| match tensor {
+                    runtime_onnx::OnnxTensorValue::F32(tensor) => Some(tensor.values.as_slice()),
+                    _ => None,
+                })
+        });
+        decode_pose_2d_tensor(pose_tensor, None, scores)
+    }
+}
+
 #[derive(Debug, Clone)]
 /// Data type for ONNX pose2d estimator.
 pub struct OnnxPose2dEstimator<R = UnavailablePose2dRunner> {
@@ -1011,12 +1064,26 @@ pub struct OnnxPose2dEstimator<R = UnavailablePose2dRunner> {
     runner: R,
 }
 
+#[cfg(not(feature = "onnx"))]
 impl OnnxPose2dEstimator<UnavailablePose2dRunner> {
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
         Ok(Self {
             options: pose_2d_options_from_bundle(&bundle)?,
             runner: UnavailablePose2dRunner,
+        })
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl OnnxPose2dEstimator<runtime_onnx::OnnxSession> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
+        let info = validate_onnx_pose_bundle(&bundle, model_runtime::ModelTask::PoseEstimation2d)?;
+        Ok(Self {
+            options: pose_2d_options_from_bundle(&bundle)?,
+            runner: runtime_onnx::OnnxSession::from_file(info.model_path)
+                .map_err(runtime_onnx_error)?,
         })
     }
 }
@@ -1047,6 +1114,7 @@ impl<R: OnnxPose2dRunner> OnnxPose2dEstimator<R> {
     pub fn predict_frame(&mut self, frame: &VideoFrame<'_>) -> Result<Vec<PoseEstimate>> {
         let input = preprocess_frame_for_model(frame, &self.options.preprocessing)?;
         let mut poses = self.runner.run_pose_2d(&input)?;
+        validate_and_apply_pose_skeleton(&mut poses, &self.options.skeleton)?;
         poses.retain(|pose| pose.score.unwrap_or(1.0) >= self.options.min_pose_score);
         for pose in &mut poses {
             pose.keypoints.retain(|keypoint| {
@@ -1103,6 +1171,30 @@ impl OnnxPoseLiftRunner for UnavailablePoseLiftRunner {
     }
 }
 
+#[cfg(feature = "onnx")]
+impl OnnxPoseLiftRunner for runtime_onnx::OnnxSession {
+    fn run_pose_lift(
+        &mut self,
+        sequence: &PoseSequence<PoseEstimate>,
+    ) -> Result<PoseSequence<Pose3dEstimate>> {
+        use runtime_onnx::{OnnxRunner, OnnxTensorValue};
+
+        let input = pose_lift_input_tensor(sequence)?;
+        let metadata = self.metadata().map_err(runtime_onnx_error)?;
+        let input_name = runtime_onnx::input_name(&metadata, 0)
+            .map_err(runtime_onnx_error)?
+            .to_string();
+        let outputs = self
+            .run(vec![runtime_onnx::OnnxNamedTensor {
+                name: input_name,
+                tensor: OnnxTensorValue::F32(input),
+            }])
+            .map_err(runtime_onnx_error)?;
+        let output = runtime_onnx::first_f32_output(&outputs).map_err(runtime_onnx_error)?;
+        decode_pose_lift_tensor(output, sequence)
+    }
+}
+
 #[derive(Debug, Clone)]
 /// Data type for ONNX pose lifter.
 pub struct OnnxPoseLifter<R = UnavailablePoseLiftRunner> {
@@ -1110,6 +1202,7 @@ pub struct OnnxPoseLifter<R = UnavailablePoseLiftRunner> {
     runner: R,
 }
 
+#[cfg(not(feature = "onnx"))]
 impl OnnxPoseLifter<UnavailablePoseLiftRunner> {
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
@@ -1117,6 +1210,19 @@ impl OnnxPoseLifter<UnavailablePoseLiftRunner> {
         Ok(Self {
             options: OnnxPoseLifterOptions::default(),
             runner: UnavailablePoseLiftRunner,
+        })
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl OnnxPoseLifter<runtime_onnx::OnnxSession> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
+        let info = validate_onnx_pose_bundle(&bundle, model_runtime::ModelTask::PoseLifting3d)?;
+        Ok(Self {
+            options: OnnxPoseLifterOptions::default(),
+            runner: runtime_onnx::OnnxSession::from_file(info.model_path)
+                .map_err(runtime_onnx_error)?,
         })
     }
 }
@@ -1149,6 +1255,177 @@ impl<R: OnnxPoseLiftRunner> PostureLiftBackend for OnnxPoseLifter<R> {
             .retain(|pose| pose.score.unwrap_or(1.0) >= self.options.min_pose_score);
         Ok(lifted)
     }
+}
+
+#[cfg(any(feature = "onnx", test))]
+fn decode_pose_2d_tensor(
+    tensor: &runtime_onnx::OnnxF32Tensor,
+    skeleton: Option<&Skeleton>,
+    scores: Option<&[f32]>,
+) -> Result<Vec<PoseEstimate>> {
+    let (pose_count, joint_count) = match tensor.shape.as_slice() {
+        [poses, joints, 3] => (*poses, *joints),
+        [1, poses, joints, 3] => (*poses, *joints),
+        shape => {
+            return Err(invalid_argument(format!(
+                "unsupported ONNX pose 2D output shape `{shape:?}`"
+            )))
+        }
+    };
+    if let Some(skeleton) = skeleton {
+        if skeleton.keypoints.len() != joint_count {
+            return Err(invalid_argument(format!(
+                "ONNX pose 2D output joint count {joint_count} does not match skeleton joint count {}",
+                skeleton.keypoints.len()
+            )));
+        }
+    }
+    let expected = pose_count
+        .checked_mul(joint_count)
+        .and_then(|value| value.checked_mul(3))
+        .ok_or_else(|| invalid_argument("ONNX pose 2D output shape is too large"))?;
+    if tensor.values.len() != expected {
+        return Err(invalid_argument(
+            "ONNX pose 2D output values do not match shape",
+        ));
+    }
+    if let Some(scores) = scores {
+        if scores.len() < pose_count {
+            return Err(invalid_argument(
+                "ONNX pose 2D scores output is shorter than pose count",
+            ));
+        }
+    }
+
+    let mut poses = Vec::with_capacity(pose_count);
+    for pose_index in 0..pose_count {
+        let mut keypoints = Vec::with_capacity(joint_count);
+        for joint_index in 0..joint_count {
+            let start = (pose_index * joint_count + joint_index) * 3;
+            let name = skeleton
+                .and_then(|skeleton| skeleton.keypoints.get(joint_index))
+                .cloned()
+                .unwrap_or_else(|| format!("keypoint_{joint_index}"));
+            keypoints.push(
+                Keypoint::new(name, tensor.values[start], tensor.values[start + 1])?
+                    .score(tensor.values[start + 2])?,
+            );
+        }
+        let mut pose = PoseEstimate::new(keypoints)?;
+        if let Some(scores) = scores {
+            pose = pose.score(scores[pose_index])?;
+        }
+        poses.push(pose);
+    }
+    Ok(poses)
+}
+
+fn validate_and_apply_pose_skeleton(poses: &mut [PoseEstimate], skeleton: &Skeleton) -> Result<()> {
+    for pose in poses {
+        if pose.keypoints.len() != skeleton.keypoints.len() {
+            return Err(invalid_argument(format!(
+                "ONNX pose output joint count {} does not match skeleton joint count {}",
+                pose.keypoints.len(),
+                skeleton.keypoints.len()
+            )));
+        }
+        for (keypoint, name) in pose.keypoints.iter_mut().zip(&skeleton.keypoints) {
+            keypoint.name = name.clone();
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "onnx")]
+fn pose_lift_input_tensor(
+    sequence: &PoseSequence<PoseEstimate>,
+) -> Result<runtime_onnx::OnnxF32Tensor> {
+    let first = sequence
+        .frames
+        .first()
+        .ok_or_else(|| invalid_argument("ONNX pose lifter requires a non-empty sequence"))?;
+    let joint_count = first.keypoints.len();
+    if joint_count == 0 {
+        return Err(invalid_argument(
+            "ONNX pose lifter requires at least one keypoint",
+        ));
+    }
+    let mut values = Vec::with_capacity(sequence.frames.len() * joint_count * 3);
+    for pose in &sequence.frames {
+        if pose.keypoints.len() != joint_count {
+            return Err(invalid_argument(
+                "ONNX pose lifter input poses must have the same joint count",
+            ));
+        }
+        for keypoint in &pose.keypoints {
+            values.push(keypoint.x);
+            values.push(keypoint.y);
+            values.push(keypoint.score.unwrap_or(1.0));
+        }
+    }
+    runtime_onnx::OnnxF32Tensor::new(vec![sequence.frames.len(), joint_count, 3], values)
+        .map_err(runtime_onnx_error)
+}
+
+#[cfg(any(feature = "onnx", test))]
+fn decode_pose_lift_tensor(
+    tensor: &runtime_onnx::OnnxF32Tensor,
+    source: &PoseSequence<PoseEstimate>,
+) -> Result<PoseSequence<Pose3dEstimate>> {
+    let (frame_count, joint_count) = match tensor.shape.as_slice() {
+        [frames, joints, 3] => (*frames, *joints),
+        [1, frames, joints, 3] => (*frames, *joints),
+        shape => {
+            return Err(invalid_argument(format!(
+                "unsupported ONNX pose lift output shape `{shape:?}`"
+            )))
+        }
+    };
+    if frame_count != source.frames.len() {
+        return Err(invalid_argument(format!(
+            "ONNX pose lift output frame count {frame_count} does not match input frame count {}",
+            source.frames.len()
+        )));
+    }
+    let expected = frame_count
+        .checked_mul(joint_count)
+        .and_then(|value| value.checked_mul(3))
+        .ok_or_else(|| invalid_argument("ONNX pose lift output shape is too large"))?;
+    if tensor.values.len() != expected {
+        return Err(invalid_argument(
+            "ONNX pose lift output values do not match shape",
+        ));
+    }
+    let mut frames = Vec::with_capacity(frame_count);
+    for frame_index in 0..frame_count {
+        let source_pose = &source.frames[frame_index];
+        if source_pose.keypoints.len() != joint_count {
+            return Err(invalid_argument(format!(
+                "ONNX pose lift output joint count {joint_count} does not match input joint count {}",
+                source_pose.keypoints.len()
+            )));
+        }
+        let mut keypoints = Vec::with_capacity(joint_count);
+        for joint_index in 0..joint_count {
+            let start = (frame_index * joint_count + joint_index) * 3;
+            let source_keypoint = &source_pose.keypoints[joint_index];
+            keypoints.push(Keypoint3d::new(
+                source_keypoint.name.clone(),
+                Point3::new(
+                    tensor.values[start],
+                    tensor.values[start + 1],
+                    tensor.values[start + 2],
+                ),
+            )?);
+        }
+        let mut pose = Pose3dEstimate::new(keypoints)?;
+        pose.id = source_pose.id.clone();
+        pose.label = source_pose.label.clone();
+        pose.score = source_pose.score;
+        pose.attributes = source_pose.attributes.clone();
+        frames.push(pose);
+    }
+    Ok(PoseSequence::new(frames))
 }
 
 /// Returns preprocess frame.
@@ -1278,6 +1555,16 @@ fn read_json(path: &Path) -> Result<serde_json::Value> {
     })
 }
 
+#[cfg(feature = "onnx")]
+fn runtime_onnx_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
+    match error {
+        runtime_onnx::OnnxRuntimeError::InvalidArgument(message)
+        | runtime_onnx::OnnxRuntimeError::InvalidTensorShape(message) => invalid_argument(message),
+        runtime_onnx::OnnxRuntimeError::Io(error) => DetectError::Io(error),
+        other => DetectError::Source(other.to_string()),
+    }
+}
+
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
 }
@@ -1298,6 +1585,10 @@ mod tests {
             data: vec![0; 100 * 100 * 3],
             stride: 100 * 3,
         }
+    }
+
+    fn f32_tensor(shape: Vec<usize>, values: Vec<f32>) -> runtime_onnx::OnnxF32Tensor {
+        runtime_onnx::OnnxF32Tensor::new(shape, values).unwrap()
     }
 
     #[test]
@@ -1409,5 +1700,83 @@ mod tests {
         let pose = Pose3dEstimate::new([a, b, c]).unwrap();
         let lengths = bone_lengths(&pose, &skeleton).unwrap();
         assert_eq!(lengths.len(), 2);
+    }
+
+    #[test]
+    fn decodes_pose_2d_tensor_layout() {
+        let skeleton = Skeleton::new(["left", "right"]);
+        let tensor = f32_tensor(vec![1, 2, 3], vec![0.1, 0.2, 0.9, 0.3, 0.4, 0.8]);
+        let poses = decode_pose_2d_tensor(&tensor, Some(&skeleton), Some(&[0.95])).unwrap();
+        assert_eq!(poses.len(), 1);
+        assert_eq!(poses[0].score, Some(0.95));
+        assert_eq!(poses[0].keypoints[0].name, "left");
+        assert_eq!(poses[0].keypoints[1].score, Some(0.8));
+    }
+
+    #[test]
+    fn pose_estimator_validates_and_applies_skeleton() {
+        struct Backend;
+
+        impl OnnxPose2dRunner for Backend {
+            fn run_pose_2d(&mut self, _input: &ImageModelTensor) -> Result<Vec<PoseEstimate>> {
+                Ok(vec![PoseEstimate::new([
+                    Keypoint::new("a", 0.1, 0.2)?.score(0.9)?,
+                    Keypoint::new("b", 0.3, 0.4)?.score(0.8)?,
+                ])?])
+            }
+        }
+
+        let options = OnnxPose2dOptions {
+            preprocessing: ImageModelPreprocessing {
+                input_width: 100,
+                input_height: 100,
+                ..ImageModelPreprocessing::default()
+            },
+            skeleton: Skeleton::new(["hip", "knee"]),
+            ..OnnxPose2dOptions::default()
+        };
+        let owned = frame();
+        let mut estimator = OnnxPose2dEstimator::with_options(options, Backend).unwrap();
+        let poses = estimator.predict_frame(&owned.as_frame()).unwrap();
+        assert_eq!(poses[0].keypoints[0].name, "hip");
+        assert_eq!(poses[0].keypoints[1].name, "knee");
+    }
+
+    #[test]
+    fn pose_2d_tensor_rejects_unsupported_shape() {
+        let tensor = f32_tensor(vec![2, 2], vec![0.0; 4]);
+        assert!(decode_pose_2d_tensor(&tensor, None, None).is_err());
+    }
+
+    #[test]
+    fn decodes_pose_lift_tensor_and_preserves_source_metadata() {
+        let source_pose = PoseEstimate::new([
+            Keypoint::new("hip", 0.1, 0.2).unwrap().score(0.9).unwrap(),
+            Keypoint::new("knee", 0.3, 0.4).unwrap().score(0.8).unwrap(),
+        ])
+        .unwrap()
+        .id("pose-1")
+        .label("person")
+        .attribute("timestamp", "00:00:01");
+        let source = PoseSequence::new([source_pose]);
+        let tensor = f32_tensor(vec![1, 2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let lifted = decode_pose_lift_tensor(&tensor, &source).unwrap();
+        assert_eq!(lifted.frames[0].id.as_deref(), Some("pose-1"));
+        assert_eq!(lifted.frames[0].label.as_deref(), Some("person"));
+        assert_eq!(lifted.frames[0].attributes["timestamp"], "00:00:01");
+        assert_eq!(
+            lifted.frames[0].keypoint("knee").unwrap().position,
+            Point3::new(4.0, 5.0, 6.0)
+        );
+    }
+
+    #[test]
+    fn pose_lift_tensor_rejects_unsupported_shape() {
+        let source = PoseSequence::new([PoseEstimate::new([
+            Keypoint::new("hip", 0.1, 0.2).unwrap()
+        ])
+        .unwrap()]);
+        let tensor = f32_tensor(vec![1, 3], vec![0.0; 3]);
+        assert!(decode_pose_lift_tensor(&tensor, &source).is_err());
     }
 }

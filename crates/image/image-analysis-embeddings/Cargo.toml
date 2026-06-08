@@ -23,6 +23,7 @@ image-analysis-processing.workspace = true
 image-analysis-ocr.workspace = true
 image-analysis-segmentation.workspace = true
 image-analysis-synthesis.workspace = true
+math-geometry-2d.workspace = true
 model-runtime.workspace = true
 runtime-onnx.workspace = true
 serde.workspace = true
@@ -33,3 +34,6 @@ video-analysis-core.workspace = true
 default = []
 onnx = ["runtime-onnx/onnxruntime"]
 external-tests = ["onnx"]
+
+[dev-dependencies]
+tempfile.workspace = true

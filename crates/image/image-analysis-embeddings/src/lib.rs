@@ -3,13 +3,15 @@
 pub mod surface;
 
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 use image_analysis_core::ImageView;
 use image_analysis_detection::FaceDetection;
 use image_analysis_processing::{
-    preprocess_image_for_model, validate_image_model_preprocessing, ChannelOrder,
-    ImageModelPreprocessing, ImageModelTensor,
+    crop_image_rect, image_model_preprocessing_from_config, preprocess_image_for_model,
+    validate_image_model_preprocessing, ChannelOrder, ImageModelPreprocessing, ImageModelTensor,
 };
+use math_geometry_2d::RectU32;
 use model_runtime::{HuggingFaceModelSpec, ModelRuntimeBackend, ModelTask};
 use serde::{Deserialize, Serialize};
 use video_analysis_core::{BoundingBox, DetectError, Result};
@@ -361,6 +363,13 @@ impl Default for OnnxFaceEmbeddingOptions {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct OnnxEmbeddingBundleInfo {
+    config_path: Option<PathBuf>,
+    preprocessor_config_path: Option<PathBuf>,
+    model_path: PathBuf,
+}
+
 /// Trait for ONNX image embedding runner implementations.
 pub trait OnnxImageEmbeddingRunner {
     /// Runs image embedding.
@@ -438,12 +447,26 @@ pub struct OnnxImageEmbedder<R = UnavailableOnnxImageEmbeddingRunner> {
     runner: R,
 }
 
+#[cfg(not(feature = "onnx"))]
 impl OnnxImageEmbedder<UnavailableOnnxImageEmbeddingRunner> {
     /// Builds this value from bundle.
-    pub fn from_bundle(_bundle: model_runtime::ModelBundle) -> Result<Self> {
+    pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
         Ok(Self {
-            options: OnnxImageEmbeddingOptions::default(),
+            options: image_embedding_options_from_bundle(&bundle)?,
             runner: UnavailableOnnxImageEmbeddingRunner,
+        })
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl OnnxImageEmbedder<runtime_onnx::OnnxSession> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
+        let info = validate_onnx_embedding_bundle(&bundle, EmbeddingBundleKind::Image)?;
+        Ok(Self {
+            options: image_embedding_options_from_bundle(&bundle)?,
+            runner: runtime_onnx::OnnxSession::from_file(info.model_path)
+                .map_err(runtime_onnx_error)?,
         })
     }
 }
@@ -476,12 +499,26 @@ pub struct OnnxFaceEmbedder<R = UnavailableOnnxFaceEmbeddingRunner> {
     runner: R,
 }
 
+#[cfg(not(feature = "onnx"))]
 impl OnnxFaceEmbedder<UnavailableOnnxFaceEmbeddingRunner> {
     /// Builds this value from bundle.
-    pub fn from_bundle(_bundle: model_runtime::ModelBundle) -> Result<Self> {
+    pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
         Ok(Self {
-            options: OnnxFaceEmbeddingOptions::default(),
+            options: face_embedding_options_from_bundle(&bundle)?,
             runner: UnavailableOnnxFaceEmbeddingRunner,
+        })
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl OnnxFaceEmbedder<runtime_onnx::OnnxSession> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
+        let info = validate_onnx_embedding_bundle(&bundle, EmbeddingBundleKind::Face)?;
+        Ok(Self {
+            options: face_embedding_options_from_bundle(&bundle)?,
+            runner: runtime_onnx::OnnxSession::from_file(info.model_path)
+                .map_err(runtime_onnx_error)?,
         })
     }
 }
@@ -499,16 +536,189 @@ impl<R: OnnxFaceEmbeddingRunner> FaceEmbedderBackend for OnnxFaceEmbedder<R> {
     fn embed_face(
         &mut self,
         image: &ImageView<'_>,
-        _detection: Option<&FaceDetection>,
+        detection: Option<&FaceDetection>,
     ) -> Result<FaceEmbedding> {
-        let input = preprocess_image_for_model(image, &self.options.preprocessing)?;
+        let cropped;
+        let source = if let Some(detection) = detection {
+            let region = face_detection_rect(detection, image)?;
+            cropped = crop_image_rect(image, region)?;
+            cropped.as_view()
+        } else {
+            *image
+        };
+        let input = preprocess_image_for_model(&source, &self.options.preprocessing)?;
         let output = self.runner.run_face_embedding(&input)?;
         let mut vector = select_embedding_vector(&output, self.options.expected_vector_size)?;
         if self.options.normalize {
             normalize_vector(&mut vector);
         }
-        FaceEmbedding::new(vector)
+        let mut embedding = FaceEmbedding::new(vector)?;
+        if let Some(detection) = detection {
+            embedding = embedding.region(face_detection_box(detection, image)?);
+        }
+        Ok(embedding)
     }
+}
+
+/// Returns image embedding options from a model-runtime bundle.
+pub fn image_embedding_options_from_bundle(
+    bundle: &model_runtime::ModelBundle,
+) -> Result<OnnxImageEmbeddingOptions> {
+    let info = validate_onnx_embedding_bundle(bundle, EmbeddingBundleKind::Image)?;
+    let config = read_optional_json(info.config_path.as_deref())?;
+    let preprocessing = preprocessing_from_bundle(
+        info.preprocessor_config_path.as_deref(),
+        OnnxImageEmbeddingOptions::default().preprocessing,
+    )?;
+    Ok(OnnxImageEmbeddingOptions {
+        preprocessing,
+        expected_vector_size: config.as_ref().and_then(embedding_size_from_config),
+        normalize: true,
+    })
+}
+
+/// Returns face embedding options from a model-runtime bundle.
+pub fn face_embedding_options_from_bundle(
+    bundle: &model_runtime::ModelBundle,
+) -> Result<OnnxFaceEmbeddingOptions> {
+    let info = validate_onnx_embedding_bundle(bundle, EmbeddingBundleKind::Face)?;
+    let config = read_optional_json(info.config_path.as_deref())?;
+    let preprocessing = preprocessing_from_bundle(
+        info.preprocessor_config_path.as_deref(),
+        OnnxFaceEmbeddingOptions::default().preprocessing,
+    )?;
+    Ok(OnnxFaceEmbeddingOptions {
+        preprocessing,
+        expected_vector_size: config.as_ref().and_then(embedding_size_from_config),
+        normalize: true,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EmbeddingBundleKind {
+    Image,
+    Face,
+}
+
+fn validate_onnx_embedding_bundle(
+    bundle: &model_runtime::ModelBundle,
+    kind: EmbeddingBundleKind,
+) -> Result<OnnxEmbeddingBundleInfo> {
+    match (kind, &bundle.manifest.task) {
+        (EmbeddingBundleKind::Image, ModelTask::ImageEmbedding) => {}
+        (EmbeddingBundleKind::Face, ModelTask::FaceEmbedding) => {}
+        (EmbeddingBundleKind::Face, ModelTask::Custom(task)) if task == "face_embedding" => {}
+        (EmbeddingBundleKind::Image, task) => {
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX image embedding bundle task must be image_embedding, got {:?}",
+                task
+            )))
+        }
+        (EmbeddingBundleKind::Face, task) => {
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX face embedding bundle task must be face_embedding, got {:?}",
+                task
+            )))
+        }
+    }
+    let onnx_files = bundle_files_with_extension(bundle, "onnx");
+    let model_path = match onnx_files.as_slice() {
+        [path] => path.clone(),
+        [] => {
+            return Err(DetectError::InvalidArgument(
+                "ONNX embedding bundle must contain exactly one `.onnx` model file".to_string(),
+            ))
+        }
+        files => {
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX embedding bundle must contain exactly one `.onnx` model file, found {}",
+                files.len()
+            )))
+        }
+    };
+    Ok(OnnxEmbeddingBundleInfo {
+        config_path: bundle.file_path("config.json"),
+        preprocessor_config_path: bundle.file_path("preprocessor_config.json"),
+        model_path,
+    })
+}
+
+fn preprocessing_from_bundle(
+    path: Option<&Path>,
+    default: ImageModelPreprocessing,
+) -> Result<ImageModelPreprocessing> {
+    let preprocessing = if let Some(path) = path {
+        image_model_preprocessing_from_config(&read_json(path)?)?
+    } else {
+        default
+    };
+    validate_image_model_preprocessing(&preprocessing)?;
+    Ok(preprocessing)
+}
+
+fn embedding_size_from_config(config: &serde_json::Value) -> Option<usize> {
+    ["projection_dim", "hidden_size", "embedding_size"]
+        .iter()
+        .find_map(|key| {
+            config
+                .get(*key)
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|value| usize::try_from(value).ok())
+                .filter(|value| *value > 0)
+        })
+}
+
+fn bundle_files_with_extension(
+    bundle: &model_runtime::ModelBundle,
+    extension: &str,
+) -> Vec<PathBuf> {
+    bundle
+        .manifest
+        .files
+        .values()
+        .filter(|file| {
+            Path::new(&file.remote_path)
+                .extension()
+                .and_then(|value| value.to_str())
+                == Some(extension)
+        })
+        .map(|file| bundle.root.join(&file.local_path))
+        .collect()
+}
+
+fn read_optional_json(path: Option<&Path>) -> Result<Option<serde_json::Value>> {
+    path.map(read_json).transpose()
+}
+
+fn read_json(path: &Path) -> Result<serde_json::Value> {
+    let data = std::fs::read(path)?;
+    serde_json::from_slice(&data).map_err(|err| {
+        DetectError::Source(format!("failed to parse JSON `{}`: {err}", path.display()))
+    })
+}
+
+fn face_detection_rect(detection: &FaceDetection, image: &ImageView<'_>) -> Result<RectU32> {
+    let bbox = face_detection_box(detection, image)?;
+    RectU32::new(bbox.x, bbox.y, bbox.width, bbox.height)
+}
+
+fn face_detection_box(detection: &FaceDetection, image: &ImageView<'_>) -> Result<BoundingBox> {
+    let width = image.width as f32;
+    let height = image.height as f32;
+    let x = (detection.bbox.x * width).floor().clamp(0.0, width) as u32;
+    let y = (detection.bbox.y * height).floor().clamp(0.0, height) as u32;
+    let max_x = ((detection.bbox.x + detection.bbox.width) * width)
+        .ceil()
+        .clamp(0.0, width) as u32;
+    let max_y = ((detection.bbox.y + detection.bbox.height) * height)
+        .ceil()
+        .clamp(0.0, height) as u32;
+    if max_x <= x || max_y <= y {
+        return Err(DetectError::InvalidArgument(
+            "face detection crop region is empty".to_string(),
+        ));
+    }
+    BoundingBox::new(x, y, max_x - x, max_y - y)
 }
 
 fn validate_expected_size(size: Option<usize>, kind: &str) -> Result<()> {
@@ -598,6 +808,84 @@ fn runtime_onnx_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use image_analysis_core::{ImagePixelFormat, OwnedImage};
+    use image_analysis_detection::FaceBox;
+    use model_runtime::{ModelBundle, ModelBundleFile, ModelBundleManifest};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    #[derive(Debug, Clone)]
+    struct FakeImageRunner {
+        outputs: Vec<runtime_onnx::OnnxF32Tensor>,
+    }
+
+    impl OnnxImageEmbeddingRunner for FakeImageRunner {
+        fn run_image_embedding(
+            &mut self,
+            _input: &ImageModelTensor,
+        ) -> Result<Vec<runtime_onnx::OnnxF32Tensor>> {
+            Ok(self.outputs.clone())
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct FakeFaceRunner {
+        outputs: Vec<runtime_onnx::OnnxF32Tensor>,
+        last_input_size: Rc<RefCell<Option<(u32, u32)>>>,
+    }
+
+    impl OnnxFaceEmbeddingRunner for FakeFaceRunner {
+        fn run_face_embedding(
+            &mut self,
+            input: &ImageModelTensor,
+        ) -> Result<Vec<runtime_onnx::OnnxF32Tensor>> {
+            *self.last_input_size.borrow_mut() = Some((input.width, input.height));
+            Ok(self.outputs.clone())
+        }
+    }
+
+    fn tensor(values: Vec<f32>) -> runtime_onnx::OnnxF32Tensor {
+        runtime_onnx::OnnxF32Tensor::new(vec![1, values.len()], values).unwrap()
+    }
+
+    fn image() -> OwnedImage {
+        OwnedImage::new(4, 4, ImagePixelFormat::Rgb24, vec![128; 4 * 4 * 3], 4 * 3).unwrap()
+    }
+
+    fn test_bundle(
+        task: ModelTask,
+        files: &[(&str, &str, &str)],
+    ) -> (tempfile::TempDir, ModelBundle) {
+        let temp = tempfile::tempdir().unwrap();
+        let mut manifest_files = BTreeMap::new();
+        for (remote_path, local_path, contents) in files {
+            let path = temp.path().join(local_path);
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(&path, contents).unwrap();
+            manifest_files.insert(
+                (*remote_path).to_string(),
+                ModelBundleFile {
+                    remote_path: (*remote_path).to_string(),
+                    local_path: (*local_path).to_string(),
+                    size_bytes: contents.len() as u64,
+                },
+            );
+        }
+        let bundle = ModelBundle {
+            root: temp.path().to_path_buf(),
+            manifest: ModelBundleManifest {
+                schema_version: 1,
+                name: "test".to_string(),
+                repo_id: "owner/model".to_string(),
+                revision: "main".to_string(),
+                task,
+                files: manifest_files,
+            },
+        };
+        (temp, bundle)
+    }
 
     #[test]
     fn embedding_catalog_reports_presets() {
@@ -613,5 +901,113 @@ mod tests {
         assert!(ImageEmbedding::new(vec![0.0, 1.0]).is_ok());
         assert!(ImageEmbedding::new(vec![f32::NAN]).is_err());
         assert!(FaceEmbedding::new(vec![f32::INFINITY]).is_err());
+    }
+
+    #[test]
+    fn image_embedder_selects_expected_vector_and_normalizes() {
+        let options = OnnxImageEmbeddingOptions {
+            expected_vector_size: Some(2),
+            normalize: true,
+            ..OnnxImageEmbeddingOptions::default()
+        };
+        let runner = FakeImageRunner {
+            outputs: vec![tensor(vec![9.0, 9.0, 9.0]), tensor(vec![3.0, 4.0])],
+        };
+        let mut embedder = OnnxImageEmbedder::with_options(options, runner).unwrap();
+        let embedding = embedder.embed_image(&image().as_view()).unwrap();
+        assert_eq!(embedding.vector, vec![0.6, 0.8]);
+    }
+
+    #[test]
+    fn image_embedder_rejects_expected_size_mismatch() {
+        let options = OnnxImageEmbeddingOptions {
+            expected_vector_size: Some(3),
+            ..OnnxImageEmbeddingOptions::default()
+        };
+        let runner = FakeImageRunner {
+            outputs: vec![tensor(vec![1.0, 2.0])],
+        };
+        let mut embedder = OnnxImageEmbedder::with_options(options, runner).unwrap();
+        assert!(embedder.embed_image(&image().as_view()).is_err());
+    }
+
+    #[test]
+    fn face_embedder_crops_detection_region_before_preprocessing() {
+        let options = OnnxFaceEmbeddingOptions {
+            preprocessing: ImageModelPreprocessing {
+                input_width: 2,
+                input_height: 2,
+                ..OnnxFaceEmbeddingOptions::default().preprocessing
+            },
+            normalize: false,
+            ..OnnxFaceEmbeddingOptions::default()
+        };
+        let last_input_size = Rc::new(RefCell::new(None));
+        let runner = FakeFaceRunner {
+            outputs: vec![tensor(vec![1.0, 2.0])],
+            last_input_size: Rc::clone(&last_input_size),
+        };
+        let mut embedder = OnnxFaceEmbedder::with_options(options, runner).unwrap();
+        let detection =
+            FaceDetection::new(FaceBox::new(0.25, 0.25, 0.5, 0.5).unwrap(), 0.9).unwrap();
+        let embedding = embedder
+            .embed_face(&image().as_view(), Some(&detection))
+            .unwrap();
+        assert_eq!(*last_input_size.borrow(), Some((2, 2)));
+        assert_eq!(
+            embedding.region,
+            Some(BoundingBox::new(1, 1, 2, 2).unwrap())
+        );
+        assert_eq!(embedding.vector, vec![1.0, 2.0]);
+    }
+
+    #[test]
+    fn image_embedding_bundle_reads_config_and_preprocessing() {
+        let (_temp, bundle) = test_bundle(
+            ModelTask::ImageEmbedding,
+            &[
+                ("onnx/model.onnx", "onnx/model.onnx", "model"),
+                ("config.json", "config.json", r#"{"projection_dim": 512}"#),
+                (
+                    "preprocessor_config.json",
+                    "preprocessor_config.json",
+                    r#"{"size":{"width":128,"height":96},"rescale_factor":0.5,"image_mean":[0.1,0.2,0.3],"image_std":[1.0,2.0,3.0],"channel_order":"bgr"}"#,
+                ),
+            ],
+        );
+        let options = image_embedding_options_from_bundle(&bundle).unwrap();
+        assert_eq!(options.expected_vector_size, Some(512));
+        assert_eq!(options.preprocessing.input_width, 128);
+        assert_eq!(options.preprocessing.input_height, 96);
+        assert_eq!(options.preprocessing.channel_order, ChannelOrder::Bgr);
+        assert!(options.normalize);
+    }
+
+    #[test]
+    fn face_embedding_bundle_accepts_custom_task_and_hidden_size() {
+        let (_temp, bundle) = test_bundle(
+            ModelTask::Custom("face_embedding".to_string()),
+            &[
+                ("model.onnx", "model.onnx", "model"),
+                ("config.json", "config.json", r#"{"hidden_size": 128}"#),
+            ],
+        );
+        let options = face_embedding_options_from_bundle(&bundle).unwrap();
+        assert_eq!(options.expected_vector_size, Some(128));
+    }
+
+    #[test]
+    fn embedding_bundle_rejects_missing_onnx_and_invalid_task() {
+        let (_temp, missing) = test_bundle(
+            ModelTask::ImageEmbedding,
+            &[("config.json", "config.json", "{}")],
+        );
+        assert!(image_embedding_options_from_bundle(&missing).is_err());
+
+        let (_temp, invalid) = test_bundle(
+            ModelTask::FaceDetection,
+            &[("model.onnx", "model.onnx", "model")],
+        );
+        assert!(image_embedding_options_from_bundle(&invalid).is_err());
     }
 }

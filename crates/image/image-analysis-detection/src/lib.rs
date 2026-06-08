@@ -851,6 +851,44 @@ impl OnnxFaceDetectionRunner for UnavailableOnnxFaceDetectionRunner {
     }
 }
 
+#[cfg(feature = "onnx")]
+impl OnnxFaceDetectionRunner for runtime_onnx::OnnxSession {
+    fn run_face_detection(&mut self, input: &ImageModelTensor) -> Result<OnnxFaceDetectionOutput> {
+        use runtime_onnx::{OnnxRunner, OnnxTensor, OnnxTensorValue};
+
+        let metadata = self.metadata().map_err(runtime_onnx_error)?;
+        let input_name = runtime_onnx::input_name(&metadata, 0)
+            .map_err(runtime_onnx_error)?
+            .to_string();
+        let outputs = self
+            .run(vec![runtime_onnx::OnnxNamedTensor {
+                name: input_name,
+                tensor: OnnxTensorValue::F32(
+                    OnnxTensor::new(
+                        vec![
+                            1,
+                            input.channels,
+                            input.height as usize,
+                            input.width as usize,
+                        ],
+                        input.values.clone(),
+                    )
+                    .map_err(runtime_onnx_error)?,
+                ),
+            }])
+            .map_err(runtime_onnx_error)?;
+        let mut tensors = BTreeMap::new();
+        for (index, output) in outputs.iter().enumerate() {
+            if let Ok(tensor) =
+                runtime_onnx::f32_output_by_name_or_index(&outputs, &output.name, index)
+            {
+                tensors.insert(output.name.clone(), tensor.clone());
+            }
+        }
+        Ok(OnnxFaceDetectionOutput { tensors })
+    }
+}
+
 #[derive(Debug)]
 /// Data type for ONNX face detector.
 pub struct OnnxFaceDetector<R = UnavailableOnnxFaceDetectionRunner> {
@@ -858,6 +896,7 @@ pub struct OnnxFaceDetector<R = UnavailableOnnxFaceDetectionRunner> {
     runner: R,
 }
 
+#[cfg(not(feature = "onnx"))]
 impl OnnxFaceDetector<UnavailableOnnxFaceDetectionRunner> {
     /// Builds this value from bundle.
     pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
@@ -865,6 +904,19 @@ impl OnnxFaceDetector<UnavailableOnnxFaceDetectionRunner> {
         Ok(Self {
             options,
             runner: UnavailableOnnxFaceDetectionRunner,
+        })
+    }
+}
+
+#[cfg(feature = "onnx")]
+impl OnnxFaceDetector<runtime_onnx::OnnxSession> {
+    /// Builds this value from bundle.
+    pub fn from_bundle(bundle: model_runtime::ModelBundle) -> Result<Self> {
+        let info = validate_onnx_face_detection_bundle(&bundle)?;
+        Ok(Self {
+            options: face_detection_options_from_bundle(&bundle)?,
+            runner: runtime_onnx::OnnxSession::from_file(info.model_path)
+                .map_err(runtime_onnx_error)?,
         })
     }
 }
@@ -895,8 +947,8 @@ impl<R: OnnxFaceDetectionRunner> OnnxFaceDetector<R> {
 impl<R: OnnxFaceDetectionRunner> FaceDetectorBackend for OnnxFaceDetector<R> {
     fn detect_faces(&mut self, image: &ImageView<'_>) -> Result<Vec<FaceDetection>> {
         let input = preprocess_image_for_model(image, &self.options.preprocessing)?;
-        let _output = self.runner.run_face_detection(&input)?;
-        Ok(Vec::new())
+        let output = self.runner.run_face_detection(&input)?;
+        decode_yunet_face_detections(&output, &self.options, (image.width, image.height))
     }
 }
 
@@ -977,18 +1029,39 @@ pub fn options_from_bundle(
 pub fn face_detection_options_from_bundle(
     bundle: &model_runtime::ModelBundle,
 ) -> Result<OnnxFaceDetectionOptions> {
-    match &bundle.manifest.task {
-        ModelTask::FaceDetection => {}
-        ModelTask::Custom(task) if task == "face_detection" => {}
-        _ => {
-            return Err(DetectError::InvalidArgument(format!(
-                "ONNX face detection bundle task must be face_detection, got {:?}",
-                bundle.manifest.task
-            )))
-        }
+    let info = validate_onnx_face_detection_bundle(bundle)?;
+    let preprocessing = if let Some(path) = &info.preprocessor_config_path {
+        image_model_preprocessing_from_config(&read_json(path)?)?
+    } else {
+        OnnxFaceDetectionOptions::default().preprocessing
+    };
+    validate_image_model_preprocessing(&preprocessing)?;
+    Ok(OnnxFaceDetectionOptions {
+        preprocessing,
+        ..OnnxFaceDetectionOptions::default()
+    })
+}
+
+/// Returns decoded YuNet face detections from ONNX output tensors.
+pub fn decode_yunet_face_detections(
+    output: &OnnxFaceDetectionOutput,
+    options: &OnnxFaceDetectionOptions,
+    original_size: (u32, u32),
+) -> Result<Vec<FaceDetection>> {
+    let mut detections = if let Some(tensor) = output
+        .tensors
+        .values()
+        .find(|tensor| output_last_dim_any(&tensor.shape) == Some(15))
+    {
+        decode_yunet_single_tensor(tensor, options, original_size)?
+    } else {
+        decode_yunet_split_tensors(output, options, original_size)?
+    };
+    detections.sort_by(|left, right| right.confidence.total_cmp(&left.confidence));
+    if detections.len() > options.top_k {
+        detections.truncate(options.top_k);
     }
-    validate_onnx_vision_bundle(bundle)?;
-    Ok(OnnxFaceDetectionOptions::default())
+    Ok(nms_face_detections(detections, options.nms_threshold))
 }
 
 /// Returns decode object detections.
@@ -1139,6 +1212,338 @@ fn decode_bounding_box(
     let box_width = ((xmax - epsilon).ceil() as u32).saturating_sub(x);
     let box_height = ((ymax - epsilon).ceil() as u32).saturating_sub(y);
     BoundingBox::new(x, y, box_width, box_height).ok()
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct OnnxFaceDetectionBundleInfo {
+    preprocessor_config_path: Option<PathBuf>,
+    model_path: PathBuf,
+}
+
+fn validate_onnx_face_detection_bundle(
+    bundle: &model_runtime::ModelBundle,
+) -> Result<OnnxFaceDetectionBundleInfo> {
+    match &bundle.manifest.task {
+        ModelTask::FaceDetection => {}
+        ModelTask::Custom(task) if task == "face_detection" => {}
+        _ => {
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX face detection bundle task must be face_detection, got {:?}",
+                bundle.manifest.task
+            )))
+        }
+    }
+    let onnx_files = bundle_files_with_extension(bundle, "onnx");
+    let model_path = match onnx_files.as_slice() {
+        [path] => path.clone(),
+        [] => {
+            return Err(DetectError::InvalidArgument(
+                "ONNX face detection bundle must contain exactly one `.onnx` model file"
+                    .to_string(),
+            ))
+        }
+        files => {
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX face detection bundle must contain exactly one `.onnx` model file, found {}",
+                files.len()
+            )))
+        }
+    };
+    Ok(OnnxFaceDetectionBundleInfo {
+        preprocessor_config_path: bundle.file_path("preprocessor_config.json"),
+        model_path,
+    })
+}
+
+fn decode_yunet_single_tensor(
+    tensor: &runtime_onnx::OnnxF32Tensor,
+    options: &OnnxFaceDetectionOptions,
+    original_size: (u32, u32),
+) -> Result<Vec<FaceDetection>> {
+    let rows = yunet_row_count(&tensor.shape, 15)?;
+    let mut detections = Vec::new();
+    for row in 0..rows {
+        let start = row * 15;
+        let score = tensor.values[start + 4];
+        if !score.is_finite() || score < options.score_threshold {
+            continue;
+        }
+        let bbox = tensor.values[start..start + 4].try_into().unwrap();
+        if let Some(detection) = face_detection_from_xyxy(
+            bbox,
+            score,
+            &tensor.values[start + 5..start + 15],
+            options,
+            original_size,
+        )? {
+            detections.push(detection);
+        }
+    }
+    Ok(detections)
+}
+
+fn decode_yunet_split_tensors(
+    output: &OnnxFaceDetectionOutput,
+    options: &OnnxFaceDetectionOptions,
+    original_size: (u32, u32),
+) -> Result<Vec<FaceDetection>> {
+    let loc = named_yunet_tensor(output, "loc")?;
+    let conf = named_yunet_tensor(output, "conf")?;
+    let iou = named_yunet_tensor(output, "iou")?;
+    let priors = generate_yunet_priors(&options.preprocessing);
+    let count = yunet_row_count(&loc.shape, 14)?;
+    if count != priors.len() {
+        return Err(DetectError::InvalidArgument(format!(
+            "YuNet loc output count {count} does not match generated prior count {}",
+            priors.len()
+        )));
+    }
+    if yunet_row_count(&conf.shape, output_last_dim_any(&conf.shape).unwrap_or(0))? != count
+        || yunet_row_count(&iou.shape, output_last_dim_any(&iou.shape).unwrap_or(0))? != count
+    {
+        return Err(DetectError::InvalidArgument(
+            "YuNet split output tensor counts differ".to_string(),
+        ));
+    }
+    let conf_stride = output_last_dim_any(&conf.shape).unwrap_or(0);
+    let iou_stride = output_last_dim_any(&iou.shape).unwrap_or(0);
+    if conf_stride == 0 || iou_stride == 0 {
+        return Err(DetectError::InvalidArgument(
+            "YuNet conf/iou outputs must have a non-zero last dimension".to_string(),
+        ));
+    }
+
+    let mut detections = Vec::new();
+    for (index, prior) in priors.iter().enumerate() {
+        let confidence = if conf_stride >= 2 {
+            conf.values[index * conf_stride + 1]
+        } else {
+            conf.values[index * conf_stride]
+        };
+        let iou_score = iou.values[index * iou_stride].clamp(0.0, 1.0);
+        let score = (confidence.clamp(0.0, 1.0) * iou_score)
+            .sqrt()
+            .clamp(0.0, 1.0);
+        if !score.is_finite() || score < options.score_threshold {
+            continue;
+        }
+        let start = index * 14;
+        let decoded = decode_yunet_prior(prior, &loc.values[start..start + 14]);
+        if let Some(detection) = face_detection_from_xyxy(
+            decoded.box_xyxy,
+            score,
+            &decoded.landmarks,
+            options,
+            original_size,
+        )? {
+            detections.push(detection);
+        }
+    }
+    Ok(detections)
+}
+
+#[derive(Debug, Clone, Copy)]
+struct YunetPrior {
+    cx: f32,
+    cy: f32,
+    width: f32,
+    height: f32,
+}
+
+#[derive(Debug, Clone)]
+struct DecodedYunetPrior {
+    box_xyxy: [f32; 4],
+    landmarks: Vec<f32>,
+}
+
+fn generate_yunet_priors(options: &ImageModelPreprocessing) -> Vec<YunetPrior> {
+    let input_width = options.input_width as f32;
+    let input_height = options.input_height as f32;
+    let mut priors = Vec::new();
+    for stride in [8_u32, 16, 32] {
+        let feature_width = options.input_width.div_ceil(stride);
+        let feature_height = options.input_height.div_ceil(stride);
+        let prior_width = stride as f32 / input_width;
+        let prior_height = stride as f32 / input_height;
+        for y in 0..feature_height {
+            for x in 0..feature_width {
+                priors.push(YunetPrior {
+                    cx: (x as f32 + 0.5) * stride as f32 / input_width,
+                    cy: (y as f32 + 0.5) * stride as f32 / input_height,
+                    width: prior_width,
+                    height: prior_height,
+                });
+            }
+        }
+    }
+    priors
+}
+
+fn decode_yunet_prior(prior: &YunetPrior, values: &[f32]) -> DecodedYunetPrior {
+    let center_x = prior.cx + values[0] * 0.1 * prior.width;
+    let center_y = prior.cy + values[1] * 0.1 * prior.height;
+    let width = prior.width * (values[2] * 0.2).exp();
+    let height = prior.height * (values[3] * 0.2).exp();
+    let mut landmarks = Vec::with_capacity(10);
+    for pair in values[4..14].chunks_exact(2) {
+        landmarks.push(prior.cx + pair[0] * 0.1 * prior.width);
+        landmarks.push(prior.cy + pair[1] * 0.1 * prior.height);
+    }
+    DecodedYunetPrior {
+        box_xyxy: [
+            center_x - width / 2.0,
+            center_y - height / 2.0,
+            center_x + width / 2.0,
+            center_y + height / 2.0,
+        ],
+        landmarks,
+    }
+}
+
+fn named_yunet_tensor<'a>(
+    output: &'a OnnxFaceDetectionOutput,
+    needle: &str,
+) -> Result<&'a runtime_onnx::OnnxF32Tensor> {
+    output
+        .tensors
+        .iter()
+        .find(|(name, _)| name.to_ascii_lowercase().contains(needle))
+        .map(|(_, tensor)| tensor)
+        .ok_or_else(|| {
+            DetectError::InvalidArgument(format!("YuNet output is missing `{needle}` tensor"))
+        })
+}
+
+fn yunet_row_count(shape: &[usize], expected_last_dim: usize) -> Result<usize> {
+    if expected_last_dim == 0 {
+        return Err(DetectError::InvalidArgument(format!(
+            "unsupported YuNet output shape `{shape:?}`"
+        )));
+    }
+    match shape {
+        [rows, last] if *last == expected_last_dim => Ok(*rows),
+        [1, rows, last] if *last == expected_last_dim => Ok(*rows),
+        _ => Err(DetectError::InvalidArgument(format!(
+            "unsupported YuNet output shape `{shape:?}`"
+        ))),
+    }
+}
+
+fn output_last_dim_any(shape: &[usize]) -> Option<usize> {
+    shape.last().copied()
+}
+
+fn face_detection_from_xyxy(
+    bbox: [f32; 4],
+    score: f32,
+    landmarks: &[f32],
+    options: &OnnxFaceDetectionOptions,
+    original_size: (u32, u32),
+) -> Result<Option<FaceDetection>> {
+    let Some(region) = decode_yunet_box(bbox, options, original_size) else {
+        return Ok(None);
+    };
+    let face_box = FaceBox::new(
+        region.x as f32 / original_size.0 as f32,
+        region.y as f32 / original_size.1 as f32,
+        region.width as f32 / original_size.0 as f32,
+        region.height as f32 / original_size.1 as f32,
+    )?;
+    let mut detection = FaceDetection::new(face_box, score)?;
+    if landmarks.len() >= 10 {
+        let points = landmarks
+            .chunks_exact(2)
+            .take(5)
+            .map(|pair| map_yunet_point(pair[0], pair[1], options, original_size))
+            .collect::<Vec<_>>();
+        detection = detection.landmarks(FaceLandmarks::new(points)?);
+    }
+    Ok(Some(detection))
+}
+
+fn decode_yunet_box(
+    bbox: [f32; 4],
+    options: &OnnxFaceDetectionOptions,
+    original_size: (u32, u32),
+) -> Option<BoundingBox> {
+    if bbox.iter().any(|value| !value.is_finite()) {
+        return None;
+    }
+    let normalized = bbox.iter().all(|value| (-0.5..=1.5).contains(value));
+    let scale_x = if normalized {
+        original_size.0 as f32
+    } else {
+        original_size.0 as f32 / options.preprocessing.input_width as f32
+    };
+    let scale_y = if normalized {
+        original_size.1 as f32
+    } else {
+        original_size.1 as f32 / options.preprocessing.input_height as f32
+    };
+    let width = original_size.0 as f32;
+    let height = original_size.1 as f32;
+    let xmin = (bbox[0] * scale_x).clamp(0.0, width);
+    let ymin = (bbox[1] * scale_y).clamp(0.0, height);
+    let xmax = (bbox[2] * scale_x).clamp(0.0, width);
+    let ymax = (bbox[3] * scale_y).clamp(0.0, height);
+    if xmax <= xmin || ymax <= ymin {
+        return None;
+    }
+    let x = xmin.floor() as u32;
+    let y = ymin.floor() as u32;
+    let box_width = xmax.ceil() as u32 - x;
+    let box_height = ymax.ceil() as u32 - y;
+    BoundingBox::new(x, y, box_width, box_height).ok()
+}
+
+fn map_yunet_point(
+    x: f32,
+    y: f32,
+    options: &OnnxFaceDetectionOptions,
+    _original_size: (u32, u32),
+) -> [f32; 2] {
+    let normalized = (-0.5..=1.5).contains(&x) && (-0.5..=1.5).contains(&y);
+    if normalized {
+        [x.clamp(0.0, 1.0), y.clamp(0.0, 1.0)]
+    } else {
+        [
+            (x / options.preprocessing.input_width as f32).clamp(0.0, 1.0),
+            (y / options.preprocessing.input_height as f32).clamp(0.0, 1.0),
+        ]
+    }
+}
+
+fn nms_face_detections(detections: Vec<FaceDetection>, threshold: f32) -> Vec<FaceDetection> {
+    let mut kept: Vec<FaceDetection> = Vec::new();
+    for detection in detections {
+        if kept
+            .iter()
+            .all(|existing| face_iou(existing, &detection) <= threshold)
+        {
+            kept.push(detection);
+        }
+    }
+    kept
+}
+
+fn face_iou(left: &FaceDetection, right: &FaceDetection) -> f32 {
+    let left = left.bbox;
+    let right = right.bbox;
+    let left_x1 = left.x + left.width;
+    let left_y1 = left.y + left.height;
+    let right_x1 = right.x + right.width;
+    let right_y1 = right.y + right.height;
+    let ix0 = left.x.max(right.x);
+    let iy0 = left.y.max(right.y);
+    let ix1 = left_x1.min(right_x1);
+    let iy1 = left_y1.min(right_y1);
+    if ix1 <= ix0 || iy1 <= iy0 {
+        return 0.0;
+    }
+    let intersection = (ix1 - ix0) * (iy1 - iy0);
+    let left_area = left.width * left.height;
+    let right_area = right.width * right.height;
+    intersection / (left_area + right_area - intersection)
 }
 
 #[cfg(feature = "onnx")]
@@ -1294,6 +1699,34 @@ mod tests {
             _request: &ImageSegmentationRequest,
         ) -> Result<Vec<ImageSegment>> {
             Ok(self.segments.clone())
+        }
+    }
+
+    struct StubFaceRunner {
+        output: OnnxFaceDetectionOutput,
+    }
+
+    impl OnnxFaceDetectionRunner for StubFaceRunner {
+        fn run_face_detection(
+            &mut self,
+            _input: &ImageModelTensor,
+        ) -> Result<OnnxFaceDetectionOutput> {
+            Ok(self.output.clone())
+        }
+    }
+
+    fn f32_tensor(shape: Vec<usize>, values: Vec<f32>) -> runtime_onnx::OnnxF32Tensor {
+        runtime_onnx::OnnxF32Tensor::new(shape, values).unwrap()
+    }
+
+    fn face_output(
+        entries: impl IntoIterator<Item = (&'static str, runtime_onnx::OnnxF32Tensor)>,
+    ) -> OnnxFaceDetectionOutput {
+        OnnxFaceDetectionOutput {
+            tensors: entries
+                .into_iter()
+                .map(|(name, tensor)| (name.to_string(), tensor))
+                .collect(),
         }
     }
 
@@ -1471,5 +1904,98 @@ mod tests {
                 .repo_id_value(),
             Some("opencv/face_detection_yunet")
         );
+    }
+
+    #[test]
+    fn yunet_decode_supports_single_tensor_layout() {
+        let options = OnnxFaceDetectionOptions {
+            score_threshold: 0.5,
+            nms_threshold: 0.3,
+            preprocessing: ImageModelPreprocessing {
+                input_width: 100,
+                input_height: 100,
+                ..OnnxFaceDetectionOptions::default().preprocessing
+            },
+            ..OnnxFaceDetectionOptions::default()
+        };
+        let output = face_output([(
+            "faces",
+            f32_tensor(
+                vec![2, 15],
+                vec![
+                    10.0, 20.0, 30.0, 40.0, 0.8, 12.0, 22.0, 28.0, 22.0, 20.0, 30.0, 14.0, 36.0,
+                    26.0, 36.0, 50.0, 60.0, 70.0, 80.0, 0.2, 52.0, 62.0, 68.0, 62.0, 60.0, 70.0,
+                    54.0, 76.0, 66.0, 76.0,
+                ],
+            ),
+        )]);
+        let detections = decode_yunet_face_detections(&output, &options, (100, 100)).unwrap();
+        assert_eq!(detections.len(), 1);
+        assert_eq!(detections[0].confidence, 0.8);
+        assert_eq!(
+            detections[0].bbox,
+            FaceBox::new(0.1, 0.2, 0.2, 0.2).unwrap()
+        );
+        assert_eq!(detections[0].landmarks.as_ref().unwrap().points.len(), 5);
+    }
+
+    #[test]
+    fn yunet_decode_supports_split_loc_conf_iou_outputs() {
+        let options = OnnxFaceDetectionOptions {
+            score_threshold: 0.5,
+            nms_threshold: 0.3,
+            preprocessing: ImageModelPreprocessing {
+                input_width: 8,
+                input_height: 8,
+                ..OnnxFaceDetectionOptions::default().preprocessing
+            },
+            ..OnnxFaceDetectionOptions::default()
+        };
+        let output = face_output([
+            ("loc", f32_tensor(vec![3, 14], vec![0.0; 3 * 14])),
+            (
+                "conf",
+                f32_tensor(vec![3, 2], vec![0.0, 0.81, 0.0, 0.1, 0.0, 0.1]),
+            ),
+            ("iou", f32_tensor(vec![3, 1], vec![1.0, 1.0, 1.0])),
+        ]);
+        let detections = decode_yunet_face_detections(&output, &options, (8, 8)).unwrap();
+        assert_eq!(detections.len(), 1);
+        assert!((detections[0].confidence - 0.9).abs() < 0.0001);
+        assert_eq!(
+            detections[0].bbox,
+            FaceBox::new(0.0, 0.0, 1.0, 1.0).unwrap()
+        );
+    }
+
+    #[test]
+    fn face_detector_runner_decodes_and_applies_nms() {
+        let options = OnnxFaceDetectionOptions {
+            score_threshold: 0.5,
+            nms_threshold: 0.4,
+            preprocessing: ImageModelPreprocessing {
+                input_width: 16,
+                input_height: 16,
+                ..OnnxFaceDetectionOptions::default().preprocessing
+            },
+            ..OnnxFaceDetectionOptions::default()
+        };
+        let output = face_output([(
+            "faces",
+            f32_tensor(
+                vec![3, 15],
+                vec![
+                    1.0, 1.0, 9.0, 9.0, 0.9, 2.0, 2.0, 8.0, 2.0, 5.0, 5.0, 3.0, 8.0, 7.0, 8.0, 2.0,
+                    2.0, 10.0, 10.0, 0.8, 3.0, 3.0, 9.0, 3.0, 6.0, 6.0, 4.0, 9.0, 8.0, 9.0, 12.0,
+                    12.0, 15.0, 15.0, 0.7, 12.0, 12.0, 15.0, 12.0, 14.0, 14.0, 13.0, 15.0, 15.0,
+                    15.0,
+                ],
+            ),
+        )]);
+        let mut detector =
+            OnnxFaceDetector::with_options(options, StubFaceRunner { output }).unwrap();
+        let detections = detector.detect_faces(&image().as_view()).unwrap();
+        assert_eq!(detections.len(), 2);
+        assert!(detections[0].confidence > detections[1].confidence);
     }
 }

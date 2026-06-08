@@ -34,3 +34,6 @@ video-analysis-core.workspace = true
 default = []
 local-onnx = ["runtime-onnx/onnxruntime", "dep:tokenizers"]
 external-tests = ["local-onnx"]
+
+[dev-dependencies]
+tempfile.workspace = true

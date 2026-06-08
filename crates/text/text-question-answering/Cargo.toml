@@ -30,3 +30,6 @@ model-runtime = { workspace = true, optional = true }
 default = []
 local-onnx = ["text-model-runtime/local-onnx", "dep:model-runtime"]
 external-tests = ["local-onnx"]
+
+[dev-dependencies]
+runtime-onnx.workspace = true

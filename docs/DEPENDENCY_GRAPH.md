@@ -856,6 +856,7 @@ flowchart LR
   crate_moritzbrantner_image_analysis_detection_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_detection_server --> crate_moritzbrantner_image_analysis_detection
   crate_moritzbrantner_image_analysis_detection_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_math_geometry_2d
   crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_image_analysis_detection
   crate_moritzbrantner_image_analysis_embeddings --> crate_moritzbrantner_image_analysis_ocr
@@ -1011,6 +1012,7 @@ flowchart LR
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_text_question_answering -. optional .-> crate_moritzbrantner_model_runtime
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_text_question_answering -. dev .-> crate_moritzbrantner_runtime_onnx
   crate_moritzbrantner_text_question_answering_cli --> crate_moritzbrantner_text_question_answering
   crate_moritzbrantner_text_question_answering_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_question_answering_server --> crate_moritzbrantner_text_question_answering
