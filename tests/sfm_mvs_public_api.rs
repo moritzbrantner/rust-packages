@@ -19,14 +19,14 @@ fn colmap_sfm_and_mvs_surfaces_share_workspace_models() -> Result<(), Box<dyn st
         "1 0 0 3 255 255 255 0.25 1 0 2 0\n",
     )?;
 
-    let baseline = va::colmap_backend::load_colmap_text_baseline(temp.path())?;
+    let baseline = va::sfm::load_colmap_text_baseline(temp.path())?;
     assert_eq!(baseline.report.camera_count, 1);
     assert_eq!(baseline.report.registered_image_count, 2);
     assert_eq!(baseline.report.sparse_point_count, 1);
     assert_eq!(baseline.report.track_length_histogram[&2], 1);
 
     let comparison =
-        va::colmap_backend::compare_to_colmap_baseline(&baseline.sparse_reconstruction, &baseline)?;
+        va::sfm::compare_to_colmap_baseline(&baseline.sparse_reconstruction, &baseline)?;
     assert_eq!(comparison.camera_count_delta, 0);
     assert_eq!(comparison.registered_image_count_delta, 0);
     assert_eq!(comparison.sparse_point_count_delta, 0);
@@ -36,7 +36,7 @@ fn colmap_sfm_and_mvs_surfaces_share_workspace_models() -> Result<(), Box<dyn st
     let dense = mvs_pipeline.run(&mvs_request)?;
     assert_eq!(dense.report.point_count, 1);
 
-    let opencv_capabilities = va::opencv_backend::OpenCvBackendCapabilities::current();
+    let opencv_capabilities = va::sfm::OpenCvBackendCapabilities::current();
     assert!(!opencv_capabilities.sparse_sfm);
     Ok(())
 }
@@ -71,8 +71,7 @@ fn rust_sfm_backend_exposes_shared_pipeline_contract() -> Result<(), Box<dyn std
         [0_u8],
     )?])?;
     let request = va::sfm::SfmRequest::new([left, right])?;
-    let mut pipeline =
-        va::sfm::SfmPipeline::new(va::sfm_rust_backend::RustKnownPoseSfmBackend::default());
+    let mut pipeline = va::sfm::SfmPipeline::new(va::sfm::RustKnownPoseSfmBackend::default());
     let output = pipeline.run(&request)?;
     assert_eq!(output.report.backend, "rust-known-pose-sfm-backend");
     assert_eq!(output.report.registered_image_count, 2);

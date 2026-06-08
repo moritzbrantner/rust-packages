@@ -4,7 +4,7 @@ use runtime_core::{Diagnostic, DiagnosticSeverity, OperationId, SurfaceResponse}
 use serde::{Deserialize, Serialize};
 use video_analysis_radiance_io::read_colmap_text_dir;
 
-use crate::scene::{
+use crate::colmap_scene::{
     build_colmap_scene_from_dataset, empty_colmap_scene, empty_colmap_scene_summary,
     scene_summary_from_dataset, ColmapScene, ColmapSceneSummary,
 };

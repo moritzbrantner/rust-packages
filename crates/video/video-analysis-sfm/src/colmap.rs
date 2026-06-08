@@ -1,9 +1,3 @@
-#![doc = include_str!("../README.md")]
-
-mod reconstruct_video;
-mod scene;
-pub mod surface;
-
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -13,25 +7,21 @@ use video_analysis_radiance_io::{
     colmap_to_sparse_reconstruction, colmap_to_view_set, read_colmap_text_dir, ColmapDataset,
 };
 use video_analysis_reconstruction::SparseReconstruction;
-use video_analysis_sfm::{
-    reconstruction_report, SfmBackend, SfmPipelineOutput, SfmRequest, SfmRunReport,
-};
+
+use crate::{reconstruction_report, SfmBackend, SfmPipelineOutput, SfmRequest, SfmRunReport};
 
 #[cfg(test)]
-pub(crate) use reconstruct_video::find_executable;
-#[cfg(not(target_family = "wasm"))]
-pub use reconstruct_video::validate_reconstruct_video_request;
-pub use reconstruct_video::{
-    default_reconstruct_video_request, reconstruct_video_surface_operation, ReconstructVideoColmap,
-    ReconstructVideoFrames, ReconstructVideoRequest, ReconstructVideoResult, ReconstructVideoVideo,
-    COLMAP_TEST_VIDEO_PATH, COLMAP_TEST_VIDEO_URL, DEFAULT_RECONSTRUCT_OUTPUT_DIR,
-};
-pub use scene::{
-    build_colmap_scene, ColmapScene, ColmapSceneBounds, ColmapSceneCamera, ColmapScenePoint,
-    ColmapSceneSummary,
+pub(crate) use crate::colmap_reconstruct_video::find_executable;
+#[cfg(test)]
+use crate::colmap_reconstruct_video::{
+    default_reconstruct_video_request, reconstruct_video_surface_operation,
+    validate_reconstruct_video_request, COLMAP_TEST_VIDEO_PATH, COLMAP_TEST_VIDEO_URL,
+    DEFAULT_RECONSTRUCT_OUTPUT_DIR,
 };
 #[cfg(test)]
-pub(crate) use scene::{build_colmap_scene_from_dataset, scene_summary_from_dataset};
+use crate::colmap_scene::{
+    build_colmap_scene, build_colmap_scene_from_dataset, scene_summary_from_dataset,
+};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())

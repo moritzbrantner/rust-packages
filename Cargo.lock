@@ -5003,7 +5003,6 @@ dependencies = [
  "moritzbrantner-three-d-scene-svg",
  "moritzbrantner-vector-analysis-core",
  "moritzbrantner-vector-analysis-index",
- "moritzbrantner-video-analysis-colmap-backend",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-data",
  "moritzbrantner-video-analysis-dataset",
@@ -5014,7 +5013,6 @@ dependencies = [
  "moritzbrantner-video-analysis-gaussian-splatting",
  "moritzbrantner-video-analysis-ingest",
  "moritzbrantner-video-analysis-mvs",
- "moritzbrantner-video-analysis-opencv-backend",
  "moritzbrantner-video-analysis-output",
  "moritzbrantner-video-analysis-posture",
  "moritzbrantner-video-analysis-posture-io",
@@ -5025,7 +5023,6 @@ dependencies = [
  "moritzbrantner-video-analysis-reconstruction",
  "moritzbrantner-video-analysis-segmentation",
  "moritzbrantner-video-analysis-sfm",
- "moritzbrantner-video-analysis-sfm-rust-backend",
  "moritzbrantner-video-analysis-split",
  "moritzbrantner-video-analysis-storage",
  "moritzbrantner-video-analysis-synthesis",
@@ -5060,54 +5057,6 @@ dependencies = [
  "serde_json",
  "shlex",
  "tempfile",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-colmap-backend"
-version = "0.1.0"
-dependencies = [
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
- "moritzbrantner-video-analysis-radiance-fields",
- "moritzbrantner-video-analysis-radiance-io",
- "moritzbrantner-video-analysis-reconstruction",
- "moritzbrantner-video-analysis-sfm",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-colmap-backend-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-colmap-backend",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-colmap-backend-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-colmap-backend",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-colmap-backend-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-colmap-backend",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -5564,50 +5513,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "moritzbrantner-video-analysis-opencv-backend"
-version = "0.1.0"
-dependencies = [
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
- "moritzbrantner-video-analysis-mvs",
- "moritzbrantner-video-analysis-sfm",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-opencv-backend-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-opencv-backend",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-opencv-backend-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-opencv-backend",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-opencv-backend-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-opencv-backend",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moritzbrantner-video-analysis-output"
 version = "0.1.0"
 dependencies = [
@@ -6034,8 +5939,11 @@ dependencies = [
  "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-radiance-fields",
+ "moritzbrantner-video-analysis-radiance-io",
  "moritzbrantner-video-analysis-reconstruction",
+ "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -6046,51 +5954,6 @@ dependencies = [
  "moritzbrantner-runtime-core",
  "moritzbrantner-video-analysis-sfm",
  "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-sfm-rust-backend"
-version = "0.1.0"
-dependencies = [
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
- "moritzbrantner-video-analysis-radiance-fields",
- "moritzbrantner-video-analysis-reconstruction",
- "moritzbrantner-video-analysis-sfm",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-sfm-rust-backend-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-sfm-rust-backend",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-sfm-rust-backend-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-sfm-rust-backend",
- "serde_json",
-]
-
-[[package]]
-name = "moritzbrantner-video-analysis-sfm-rust-backend-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-sfm-rust-backend",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]

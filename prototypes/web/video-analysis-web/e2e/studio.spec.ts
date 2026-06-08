@@ -24,13 +24,13 @@ test("opens the direct video category route", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/video\//);
   await expect(page.getByRole("heading", { name: "Video", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: /video-analysis-colmap-backend/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /video-analysis-sfm/ })).toBeVisible();
 });
 
 test("loads the colmap backend app on its wrapper URL", async ({ page }) => {
-  await page.goto("/wrappers/video-analysis-colmap-backend/");
+  await page.goto("/wrappers/video-analysis-sfm/");
 
-  await expect(page.getByRole("heading", { name: "video-analysis-colmap-backend" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "video-analysis-sfm" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Frontend" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Video Analysis Colmap Backend" })).toBeVisible();
   await expect(page.getByRole("group", { name: "Runtime mode" })).toBeVisible();

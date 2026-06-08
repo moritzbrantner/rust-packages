@@ -959,11 +959,13 @@ pub fn validate_onnx_vision_bundle(
     match bundle.manifest.task {
         ModelTask::ObjectDetection | ModelTask::FaceDetection => {}
         ModelTask::Custom(ref task) if task == "face_detection" => {}
-        ref task => return Err(DetectError::InvalidArgument(format!(
+        ref task => {
+            return Err(DetectError::InvalidArgument(format!(
             "ONNX detection bundle {} task must be object_detection or face_detection, got {:?}",
             bundle_descriptor(bundle),
             task
-        ))),
+        )))
+        }
     }
     let config_path = required_bundle_file(bundle, "config.json")?;
     let preprocessor_config_path = bundle.file_path("preprocessor_config.json");

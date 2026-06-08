@@ -19,13 +19,13 @@ python3 scripts/audit_workspace_crates.py --check
 
 ## Counts
 
-- Active workspace packages: 375
+- Active workspace packages: 363
 
 ### Domains
 
 - `animation`: 3
 - `audio`: 34
-- `bindings`: 92
+- `bindings`: 89
 - `comfyui`: 9
 - `data`: 33
 - `image`: 33
@@ -38,20 +38,20 @@ python3 scripts/audit_workspace_crates.py --check
 - `text`: 36
 - `three-d`: 12
 - `vector`: 6
-- `video`: 85
+- `video`: 76
 
 ### Kinds
 
-- `cli`: 93
-- `library`: 97
+- `cli`: 90
+- `library`: 94
 - `prototype`: 1
-- `server`: 92
-- `wasm`: 92
+- `server`: 89
+- `wasm`: 89
 
 ### Publish classes
 
 - `internal-test`: 2
-- `public`: 373
+- `public`: 361
 
 | Package | Domain | Kind | Publish | Surface required | Facade expected | Path |
 |---|---|---|---|---|---|---|
@@ -156,7 +156,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-three-d-scene-svg-wasm` | bindings | wasm | public | no | no | `crates/bindings/three-d-scene-svg-wasm` |
 | `moritzbrantner-vector-analysis-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/vector-analysis-core-wasm` |
 | `moritzbrantner-vector-analysis-index-wasm` | bindings | wasm | public | no | no | `crates/bindings/vector-analysis-index-wasm` |
-| `moritzbrantner-video-analysis-colmap-backend-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-colmap-backend-wasm` |
 | `moritzbrantner-video-analysis-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-core-wasm` |
 | `moritzbrantner-video-analysis-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-data-wasm` |
 | `moritzbrantner-video-analysis-dataset-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-dataset-wasm` |
@@ -167,7 +166,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-gaussian-splatting-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-gaussian-splatting-wasm` |
 | `moritzbrantner-video-analysis-ingest-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-ingest-wasm` |
 | `moritzbrantner-video-analysis-mvs-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-mvs-wasm` |
-| `moritzbrantner-video-analysis-opencv-backend-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-opencv-backend-wasm` |
 | `moritzbrantner-video-analysis-output-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-output-wasm` |
 | `moritzbrantner-video-analysis-posture-io-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-posture-io-wasm` |
 | `moritzbrantner-video-analysis-posture-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-posture-wasm` |
@@ -177,7 +175,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-recognition-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-recognition-wasm` |
 | `moritzbrantner-video-analysis-reconstruction-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-reconstruction-wasm` |
 | `moritzbrantner-video-analysis-segmentation-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-segmentation-wasm` |
-| `moritzbrantner-video-analysis-sfm-rust-backend-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-sfm-rust-backend-wasm` |
 | `moritzbrantner-video-analysis-sfm-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-sfm-wasm` |
 | `moritzbrantner-video-analysis-split-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-split-wasm` |
 | `moritzbrantner-video-analysis-storage-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-storage-wasm` |
@@ -346,7 +343,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-vector-analysis-core-server` | vector | server | public | no | no | `crates/vector/vector-analysis-core-server` |
 | `moritzbrantner-vector-analysis-index-server` | vector | server | public | no | no | `crates/vector/vector-analysis-index-server` |
 | `moritzbrantner-video-analysis-cli` | video | cli | public | no | no | `crates/video/video-analysis-cli` |
-| `moritzbrantner-video-analysis-colmap-backend-cli` | video | cli | public | no | no | `crates/video/video-analysis-colmap-backend-cli` |
 | `moritzbrantner-video-analysis-core-cli` | video | cli | public | no | no | `crates/video/video-analysis-core-cli` |
 | `moritzbrantner-video-analysis-data-cli` | video | cli | public | no | no | `crates/video/video-analysis-data-cli` |
 | `moritzbrantner-video-analysis-dataset-cli` | video | cli | public | no | no | `crates/video/video-analysis-dataset-cli` |
@@ -357,7 +353,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-gaussian-splatting-cli` | video | cli | public | no | no | `crates/video/video-analysis-gaussian-splatting-cli` |
 | `moritzbrantner-video-analysis-ingest-cli` | video | cli | public | no | no | `crates/video/video-analysis-ingest-cli` |
 | `moritzbrantner-video-analysis-mvs-cli` | video | cli | public | no | no | `crates/video/video-analysis-mvs-cli` |
-| `moritzbrantner-video-analysis-opencv-backend-cli` | video | cli | public | no | no | `crates/video/video-analysis-opencv-backend-cli` |
 | `moritzbrantner-video-analysis-output-cli` | video | cli | public | no | no | `crates/video/video-analysis-output-cli` |
 | `moritzbrantner-video-analysis-posture-cli` | video | cli | public | no | no | `crates/video/video-analysis-posture-cli` |
 | `moritzbrantner-video-analysis-posture-io-cli` | video | cli | public | no | no | `crates/video/video-analysis-posture-io-cli` |
@@ -368,13 +363,11 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-reconstruction-cli` | video | cli | public | no | no | `crates/video/video-analysis-reconstruction-cli` |
 | `moritzbrantner-video-analysis-segmentation-cli` | video | cli | public | no | no | `crates/video/video-analysis-segmentation-cli` |
 | `moritzbrantner-video-analysis-sfm-cli` | video | cli | public | no | no | `crates/video/video-analysis-sfm-cli` |
-| `moritzbrantner-video-analysis-sfm-rust-backend-cli` | video | cli | public | no | no | `crates/video/video-analysis-sfm-rust-backend-cli` |
 | `moritzbrantner-video-analysis-split-cli` | video | cli | public | no | no | `crates/video/video-analysis-split-cli` |
 | `moritzbrantner-video-analysis-storage-cli` | video | cli | public | no | no | `crates/video/video-analysis-storage-cli` |
 | `moritzbrantner-video-analysis-synthesis-cli` | video | cli | public | no | no | `crates/video/video-analysis-synthesis-cli` |
 | `moritzbrantner-video-analysis-tracking-cli` | video | cli | public | no | no | `crates/video/video-analysis-tracking-cli` |
 | `moritzbrantner-video-analysis-transform-cli` | video | cli | public | no | no | `crates/video/video-analysis-transform-cli` |
-| `moritzbrantner-video-analysis-colmap-backend` | video | library | public | yes | yes | `crates/video/video-analysis-colmap-backend` |
 | `moritzbrantner-video-analysis-core` | video | library | public | yes | yes | `crates/video/video-analysis-core` |
 | `moritzbrantner-video-analysis-data` | video | library | public | yes | yes | `crates/video/video-analysis-data` |
 | `moritzbrantner-video-analysis-dataset` | video | library | public | yes | yes | `crates/video/video-analysis-dataset` |
@@ -385,7 +378,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-gaussian-splatting` | video | library | public | yes | yes | `crates/video/video-analysis-gaussian-splatting` |
 | `moritzbrantner-video-analysis-ingest` | video | library | public | yes | yes | `crates/video/video-analysis-ingest` |
 | `moritzbrantner-video-analysis-mvs` | video | library | public | yes | yes | `crates/video/video-analysis-mvs` |
-| `moritzbrantner-video-analysis-opencv-backend` | video | library | public | yes | yes | `crates/video/video-analysis-opencv-backend` |
 | `moritzbrantner-video-analysis-output` | video | library | public | yes | yes | `crates/video/video-analysis-output` |
 | `moritzbrantner-video-analysis-posture` | video | library | public | yes | yes | `crates/video/video-analysis-posture` |
 | `moritzbrantner-video-analysis-posture-io` | video | library | public | yes | yes | `crates/video/video-analysis-posture-io` |
@@ -396,13 +388,11 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-reconstruction` | video | library | public | yes | yes | `crates/video/video-analysis-reconstruction` |
 | `moritzbrantner-video-analysis-segmentation` | video | library | public | yes | yes | `crates/video/video-analysis-segmentation` |
 | `moritzbrantner-video-analysis-sfm` | video | library | public | yes | yes | `crates/video/video-analysis-sfm` |
-| `moritzbrantner-video-analysis-sfm-rust-backend` | video | library | public | yes | yes | `crates/video/video-analysis-sfm-rust-backend` |
 | `moritzbrantner-video-analysis-split` | video | library | public | yes | yes | `crates/video/video-analysis-split` |
 | `moritzbrantner-video-analysis-storage` | video | library | public | yes | yes | `crates/video/video-analysis-storage` |
 | `moritzbrantner-video-analysis-synthesis` | video | library | public | yes | yes | `crates/video/video-analysis-synthesis` |
 | `moritzbrantner-video-analysis-tracking` | video | library | public | yes | yes | `crates/video/video-analysis-tracking` |
 | `moritzbrantner-video-analysis-transform` | video | library | public | yes | yes | `crates/video/video-analysis-transform` |
-| `moritzbrantner-video-analysis-colmap-backend-server` | video | server | public | no | no | `crates/video/video-analysis-colmap-backend-server` |
 | `moritzbrantner-video-analysis-core-server` | video | server | public | no | no | `crates/video/video-analysis-core-server` |
 | `moritzbrantner-video-analysis-data-server` | video | server | public | no | no | `crates/video/video-analysis-data-server` |
 | `moritzbrantner-video-analysis-dataset-server` | video | server | public | no | no | `crates/video/video-analysis-dataset-server` |
@@ -413,7 +403,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-gaussian-splatting-server` | video | server | public | no | no | `crates/video/video-analysis-gaussian-splatting-server` |
 | `moritzbrantner-video-analysis-ingest-server` | video | server | public | no | no | `crates/video/video-analysis-ingest-server` |
 | `moritzbrantner-video-analysis-mvs-server` | video | server | public | no | no | `crates/video/video-analysis-mvs-server` |
-| `moritzbrantner-video-analysis-opencv-backend-server` | video | server | public | no | no | `crates/video/video-analysis-opencv-backend-server` |
 | `moritzbrantner-video-analysis-output-server` | video | server | public | no | no | `crates/video/video-analysis-output-server` |
 | `moritzbrantner-video-analysis-posture-io-server` | video | server | public | no | no | `crates/video/video-analysis-posture-io-server` |
 | `moritzbrantner-video-analysis-posture-server` | video | server | public | no | no | `crates/video/video-analysis-posture-server` |
@@ -423,7 +412,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-recognition-server` | video | server | public | no | no | `crates/video/video-analysis-recognition-server` |
 | `moritzbrantner-video-analysis-reconstruction-server` | video | server | public | no | no | `crates/video/video-analysis-reconstruction-server` |
 | `moritzbrantner-video-analysis-segmentation-server` | video | server | public | no | no | `crates/video/video-analysis-segmentation-server` |
-| `moritzbrantner-video-analysis-sfm-rust-backend-server` | video | server | public | no | no | `crates/video/video-analysis-sfm-rust-backend-server` |
 | `moritzbrantner-video-analysis-sfm-server` | video | server | public | no | no | `crates/video/video-analysis-sfm-server` |
 | `moritzbrantner-video-analysis-split-server` | video | server | public | no | no | `crates/video/video-analysis-split-server` |
 | `moritzbrantner-video-analysis-storage-server` | video | server | public | no | no | `crates/video/video-analysis-storage-server` |

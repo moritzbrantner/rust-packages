@@ -5,7 +5,7 @@ use video_analysis_core::Result;
 use video_analysis_radiance_fields::{CameraPose, Vec3};
 use video_analysis_radiance_io::ColmapDataset;
 
-use crate::ColmapBaseline;
+use crate::colmap::ColmapBaseline;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

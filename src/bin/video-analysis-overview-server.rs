@@ -11,18 +11,18 @@ use std::net::{TcpListener, TcpStream};
 use video_analysis::{
     animation, audio_core, audio_fourier, audio_io, audio_midi, audio_pitch, audio_processing,
     audio_recognition, audio_rhythm, audio_separation, audio_speakers, audio_synthesis,
-    colmap_backend, comfyui_data, comfyui_latents, comfyui_models, data, dataset_records, dense,
-    editing, features, ffmpeg, finance, gaussian_splatting, geo_clustering, geo_core,
-    geo_io_geojson, geo_viz, geometry2d, graph_core, image_captioning, image_classification,
-    image_comfyui, image_core, image_detection, image_embeddings, image_io, image_ocr,
-    image_processing, image_segmentation, image_synthesis, ingest, inversion, jobs, linear,
-    maps_kernels, model_runtime, mvs, numbers, opencv_backend, output, posture, posture_io,
-    radiance_fields, radiance_io, radiance_pipeline, recognition, reconstruction, sfm,
-    sfm_rust_backend, signal, sparse, split, stats, storage, synthesis, tensor_data, text_analysis,
-    text_classification, text_core, text_embeddings, text_generation, text_generation_linguistics,
-    text_lexical, text_linguistics, text_model_runtime, text_question_answering, text_retrieval,
-    text_transcripts, three_d_core, three_d_io, three_d_mesh, three_d_scene, tracking, transform,
-    vector_core, vector_index, video_segmentation, Timebase, Timestamp,
+    comfyui_data, comfyui_latents, comfyui_models, data, dataset_records, dense, editing, features,
+    ffmpeg, finance, gaussian_splatting, geo_clustering, geo_core, geo_io_geojson, geo_viz,
+    geometry2d, graph_core, image_captioning, image_classification, image_comfyui, image_core,
+    image_detection, image_embeddings, image_io, image_ocr, image_processing, image_segmentation,
+    image_synthesis, ingest, inversion, jobs, linear, maps_kernels, model_runtime, mvs, numbers,
+    output, posture, posture_io, radiance_fields, radiance_io, radiance_pipeline, recognition,
+    reconstruction, sfm, signal, sparse, split, stats, storage, synthesis, tensor_data,
+    text_analysis, text_classification, text_core, text_embeddings, text_generation,
+    text_generation_linguistics, text_lexical, text_linguistics, text_model_runtime,
+    text_question_answering, text_retrieval, text_transcripts, three_d_core, three_d_io,
+    three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
+    video_segmentation, Timebase, Timestamp,
 };
 
 #[cfg(feature = "onnx-backend")]
@@ -1407,26 +1407,6 @@ fn model_catalog_for(module: ModuleInfo, task: Option<&str>) -> Vec<Value> {
             None,
             Some("Uses local image metadata and pixel summaries."),
         )],
-        "video-analysis-opencv-backend" => vec![
-            model_catalog_entry(
-                "opencv-person-detector",
-                "OpenCV person detector",
-                "detect",
-                "opencv",
-                true,
-                None,
-                Some("Uses OpenCV-compatible backend contracts."),
-            ),
-            model_catalog_entry(
-                "opencv-red-car-detector",
-                "OpenCV red car detector",
-                "detect",
-                "opencv",
-                true,
-                None,
-                Some("Local test detector preset."),
-            ),
-        ],
         "video-analysis-recognition" => vec![
             model_catalog_entry(
                 "scene-label-heuristic",
@@ -2143,9 +2123,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "three-d-scene-svg" => Some(three_d_scene_svg::surface::package_surface()),
         "vector-analysis-core" => Some(vector_analysis_core::surface::package_surface()),
         "vector-analysis-index" => Some(vector_analysis_index::surface::package_surface()),
-        "video-analysis-colmap-backend" => {
-            Some(video_analysis_colmap_backend::surface::package_surface())
-        }
         "video-analysis-core" => Some(video_analysis_core::surface::package_surface()),
         "video-analysis-data" => Some(video_analysis_data::surface::package_surface()),
         "video-analysis-dataset" => Some(video_analysis_dataset::surface::package_surface()),
@@ -2158,9 +2135,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         }
         "video-analysis-ingest" => Some(video_analysis_ingest::surface::package_surface()),
         "video-analysis-mvs" => Some(video_analysis_mvs::surface::package_surface()),
-        "video-analysis-opencv-backend" => {
-            Some(video_analysis_opencv_backend::surface::package_surface())
-        }
         "video-analysis-output" => Some(video_analysis_output::surface::package_surface()),
         "video-analysis-posture" => Some(video_analysis_posture::surface::package_surface()),
         "video-analysis-posture-io" => Some(video_analysis_posture_io::surface::package_surface()),
@@ -2183,9 +2157,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
             Some(video_analysis_segmentation::surface::package_surface())
         }
         "video-analysis-sfm" => Some(video_analysis_sfm::surface::package_surface()),
-        "video-analysis-sfm-rust-backend" => {
-            Some(video_analysis_sfm_rust_backend::surface::package_surface())
-        }
         "video-analysis-split" => Some(video_analysis_split::surface::package_surface()),
         "video-analysis-storage" => Some(video_analysis_storage::surface::package_surface()),
         "video-analysis-synthesis" => Some(video_analysis_synthesis::surface::package_surface()),
@@ -2322,14 +2293,13 @@ fn run_surface_operation_for(
         "vector-analysis-index" => Some(vector_analysis_index::surface::run_surface_operation(
             request,
         )),
-        "video-analysis-colmap-backend"
+        "video-analysis-sfm"
             if request.operation.as_str()
-                == video_analysis_colmap_backend::surface::RECONSTRUCT_VIDEO_OPERATION =>
+                == video_analysis_sfm::surface::RECONSTRUCT_VIDEO_OPERATION =>
         {
-            Some(video_analysis_colmap_backend::reconstruct_video_surface_operation(request.input))
-        }
-        "video-analysis-colmap-backend" => {
-            Some(video_analysis_colmap_backend::surface::run_surface_operation(request))
+            Some(video_analysis_sfm::reconstruct_video_surface_operation(
+                request.input,
+            ))
         }
         "video-analysis-core" => Some(video_analysis_core::surface::run_surface_operation(request)),
         "video-analysis-data" => Some(video_analysis_data::surface::run_surface_operation(request)),
@@ -2355,9 +2325,6 @@ fn run_surface_operation_for(
             request,
         )),
         "video-analysis-mvs" => Some(video_analysis_mvs::surface::run_surface_operation(request)),
-        "video-analysis-opencv-backend" => {
-            Some(video_analysis_opencv_backend::surface::run_surface_operation(request))
-        }
         "video-analysis-output" => Some(video_analysis_output::surface::run_surface_operation(
             request,
         )),
@@ -2386,9 +2353,6 @@ fn run_surface_operation_for(
             video_analysis_segmentation::surface::run_surface_operation(request),
         ),
         "video-analysis-sfm" => Some(video_analysis_sfm::surface::run_surface_operation(request)),
-        "video-analysis-sfm-rust-backend" => {
-            Some(video_analysis_sfm_rust_backend::surface::run_surface_operation(request))
-        }
         "video-analysis-split" => Some(video_analysis_split::surface::run_surface_operation(
             request,
         )),
@@ -2844,13 +2808,6 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
-        package: "video-analysis-colmap-backend",
-        import_path: "video_analysis::colmap_backend",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
         package: "video-analysis-core",
         import_path: "video_analysis",
         domain: "video",
@@ -2921,13 +2878,6 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
-        package: "video-analysis-opencv-backend",
-        import_path: "video_analysis::opencv_backend",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
         package: "video-analysis-output",
         import_path: "video_analysis::output",
         domain: "video",
@@ -2993,13 +2943,6 @@ const MODULES: &[ModuleInfo] = &[
     ModuleInfo {
         package: "video-analysis-sfm",
         import_path: "video_analysis::sfm",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-sfm-rust-backend",
-        import_path: "video_analysis::sfm_rust_backend",
         domain: "video",
         linked: true,
         required_feature: None,
@@ -3136,7 +3079,7 @@ mod tests {
     fn serves_colmap_reconstruct_video_from_native_package_route() {
         let request = Request {
             method: "POST".to_string(),
-            path: "/api/rust/packages/video-analysis-colmap-backend/api/run".to_string(),
+            path: "/api/rust/packages/video-analysis-sfm/api/run".to_string(),
             query: HashMap::new(),
             headers: HashMap::new(),
             body: r#"{"operation":"video.colmap.reconstructVideo","input":{"videoPath":"prototypes/web/video-analysis-web/public/samples/video/missing-test-video.mp4"}}"#.to_string(),

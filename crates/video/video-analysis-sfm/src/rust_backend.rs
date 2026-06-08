@@ -1,11 +1,7 @@
-#![doc = include_str!("../README.md")]
-
-pub mod surface;
 use video_analysis_core::Result;
 use video_analysis_reconstruction::{match_binary_features, ImagePairMatches, MatchConfig};
-use video_analysis_sfm::{
-    KnownPoseSparseMapper, SfmBackend, SfmPipelineOutput, SfmRequest, SparseMapper,
-};
+
+use crate::{KnownPoseSparseMapper, SfmBackend, SfmPipelineOutput, SfmRequest, SparseMapper};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Data type for Rust-native SfM backend configuration.
@@ -76,11 +72,11 @@ impl SfmBackend for RustKnownPoseSfmBackend {
 
 #[cfg(test)]
 mod tests {
+    use crate::{SfmInputImage, SfmPipeline, SfmRequest};
     use video_analysis_radiance_fields::{CameraIntrinsics, CameraPose, Vec2, Vec3};
     use video_analysis_reconstruction::{
         BinaryFeature, CameraId, Feature2d, ImageId, ImagePairMatches,
     };
-    use video_analysis_sfm::{SfmInputImage, SfmPipeline, SfmRequest};
 
     use super::*;
 

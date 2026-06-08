@@ -243,9 +243,6 @@ flowchart LR
   subgraph group_video["Video"]
     direction TB
     crate_moritzbrantner_video_analysis_cli["moritzbrantner-video-analysis-cli"]:::crate
-    crate_moritzbrantner_video_analysis_colmap_backend["moritzbrantner-video-analysis-colmap-backend"]:::crate
-    crate_moritzbrantner_video_analysis_colmap_backend_cli["moritzbrantner-video-analysis-colmap-backend-cli"]:::crate
-    crate_moritzbrantner_video_analysis_colmap_backend_server["moritzbrantner-video-analysis-colmap-backend-server"]:::crate
     crate_moritzbrantner_video_analysis_core["moritzbrantner-video-analysis-core"]:::crate
     crate_moritzbrantner_video_analysis_core_cli["moritzbrantner-video-analysis-core-cli"]:::crate
     crate_moritzbrantner_video_analysis_core_server["moritzbrantner-video-analysis-core-server"]:::crate
@@ -276,9 +273,6 @@ flowchart LR
     crate_moritzbrantner_video_analysis_mvs["moritzbrantner-video-analysis-mvs"]:::crate
     crate_moritzbrantner_video_analysis_mvs_cli["moritzbrantner-video-analysis-mvs-cli"]:::crate
     crate_moritzbrantner_video_analysis_mvs_server["moritzbrantner-video-analysis-mvs-server"]:::crate
-    crate_moritzbrantner_video_analysis_opencv_backend["moritzbrantner-video-analysis-opencv-backend"]:::crate
-    crate_moritzbrantner_video_analysis_opencv_backend_cli["moritzbrantner-video-analysis-opencv-backend-cli"]:::crate
-    crate_moritzbrantner_video_analysis_opencv_backend_server["moritzbrantner-video-analysis-opencv-backend-server"]:::crate
     crate_moritzbrantner_video_analysis_output["moritzbrantner-video-analysis-output"]:::crate
     crate_moritzbrantner_video_analysis_output_cli["moritzbrantner-video-analysis-output-cli"]:::crate
     crate_moritzbrantner_video_analysis_output_server["moritzbrantner-video-analysis-output-server"]:::crate
@@ -308,9 +302,6 @@ flowchart LR
     crate_moritzbrantner_video_analysis_segmentation_server["moritzbrantner-video-analysis-segmentation-server"]:::crate
     crate_moritzbrantner_video_analysis_sfm["moritzbrantner-video-analysis-sfm"]:::crate
     crate_moritzbrantner_video_analysis_sfm_cli["moritzbrantner-video-analysis-sfm-cli"]:::crate
-    crate_moritzbrantner_video_analysis_sfm_rust_backend["moritzbrantner-video-analysis-sfm-rust-backend"]:::crate
-    crate_moritzbrantner_video_analysis_sfm_rust_backend_cli["moritzbrantner-video-analysis-sfm-rust-backend-cli"]:::crate
-    crate_moritzbrantner_video_analysis_sfm_rust_backend_server["moritzbrantner-video-analysis-sfm-rust-backend-server"]:::crate
     crate_moritzbrantner_video_analysis_sfm_server["moritzbrantner-video-analysis-sfm-server"]:::crate
     crate_moritzbrantner_video_analysis_split["moritzbrantner-video-analysis-split"]:::crate
     crate_moritzbrantner_video_analysis_split_cli["moritzbrantner-video-analysis-split-cli"]:::crate
@@ -408,7 +399,6 @@ flowchart LR
     crate_moritzbrantner_three_d_scene_svg_wasm["moritzbrantner-three-d-scene-svg-wasm"]:::crate
     crate_moritzbrantner_vector_analysis_core_wasm["moritzbrantner-vector-analysis-core-wasm"]:::crate
     crate_moritzbrantner_vector_analysis_index_wasm["moritzbrantner-vector-analysis-index-wasm"]:::crate
-    crate_moritzbrantner_video_analysis_colmap_backend_wasm["moritzbrantner-video-analysis-colmap-backend-wasm"]:::crate
     crate_moritzbrantner_video_analysis_core_wasm["moritzbrantner-video-analysis-core-wasm"]:::crate
     crate_moritzbrantner_video_analysis_data_wasm["moritzbrantner-video-analysis-data-wasm"]:::crate
     crate_moritzbrantner_video_analysis_dataset_wasm["moritzbrantner-video-analysis-dataset-wasm"]:::crate
@@ -419,7 +409,6 @@ flowchart LR
     crate_moritzbrantner_video_analysis_gaussian_splatting_wasm["moritzbrantner-video-analysis-gaussian-splatting-wasm"]:::crate
     crate_moritzbrantner_video_analysis_ingest_wasm["moritzbrantner-video-analysis-ingest-wasm"]:::crate
     crate_moritzbrantner_video_analysis_mvs_wasm["moritzbrantner-video-analysis-mvs-wasm"]:::crate
-    crate_moritzbrantner_video_analysis_opencv_backend_wasm["moritzbrantner-video-analysis-opencv-backend-wasm"]:::crate
     crate_moritzbrantner_video_analysis_output_wasm["moritzbrantner-video-analysis-output-wasm"]:::crate
     crate_moritzbrantner_video_analysis_posture_io_wasm["moritzbrantner-video-analysis-posture-io-wasm"]:::crate
     crate_moritzbrantner_video_analysis_posture_wasm["moritzbrantner-video-analysis-posture-wasm"]:::crate
@@ -429,7 +418,6 @@ flowchart LR
     crate_moritzbrantner_video_analysis_recognition_wasm["moritzbrantner-video-analysis-recognition-wasm"]:::crate
     crate_moritzbrantner_video_analysis_reconstruction_wasm["moritzbrantner-video-analysis-reconstruction-wasm"]:::crate
     crate_moritzbrantner_video_analysis_segmentation_wasm["moritzbrantner-video-analysis-segmentation-wasm"]:::crate
-    crate_moritzbrantner_video_analysis_sfm_rust_backend_wasm["moritzbrantner-video-analysis-sfm-rust-backend-wasm"]:::crate
     crate_moritzbrantner_video_analysis_sfm_wasm["moritzbrantner-video-analysis-sfm-wasm"]:::crate
     crate_moritzbrantner_video_analysis_split_wasm["moritzbrantner-video-analysis-split-wasm"]:::crate
     crate_moritzbrantner_video_analysis_storage_wasm["moritzbrantner-video-analysis-storage-wasm"]:::crate
@@ -543,7 +531,6 @@ flowchart LR
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_three_d_processing_io
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_three_d_processing_mesh
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_three_d_scene_svg
-  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_colmap_backend
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_data
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_dataset
@@ -554,7 +541,6 @@ flowchart LR
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_gaussian_splatting
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_ingest
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_mvs
-  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_opencv_backend
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_output
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_posture
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_posture_io
@@ -565,7 +551,6 @@ flowchart LR
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_reconstruction
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_segmentation
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_sfm
-  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_sfm_rust_backend
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_split
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_storage
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_video_analysis_synthesis
@@ -1093,16 +1078,6 @@ flowchart LR
   crate_moritzbrantner_video_analysis_cli --> crate_moritzbrantner_video_analysis_split
   crate_moritzbrantner_video_analysis_cli --> crate_moritzbrantner_jobs_core
   crate_moritzbrantner_video_analysis_cli --> crate_moritzbrantner_model_runtime
-  crate_moritzbrantner_video_analysis_colmap_backend --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_colmap_backend --> crate_moritzbrantner_video_analysis_radiance_fields
-  crate_moritzbrantner_video_analysis_colmap_backend --> crate_moritzbrantner_video_analysis_radiance_io
-  crate_moritzbrantner_video_analysis_colmap_backend --> crate_moritzbrantner_video_analysis_reconstruction
-  crate_moritzbrantner_video_analysis_colmap_backend --> crate_moritzbrantner_video_analysis_sfm
-  crate_moritzbrantner_video_analysis_colmap_backend --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_colmap_backend_cli --> crate_moritzbrantner_video_analysis_colmap_backend
-  crate_moritzbrantner_video_analysis_colmap_backend_cli --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_colmap_backend_server --> crate_moritzbrantner_video_analysis_colmap_backend
-  crate_moritzbrantner_video_analysis_colmap_backend_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_core_cli --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_core_cli --> crate_moritzbrantner_runtime_core
@@ -1178,14 +1153,6 @@ flowchart LR
   crate_moritzbrantner_video_analysis_mvs_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_mvs_server --> crate_moritzbrantner_video_analysis_mvs
   crate_moritzbrantner_video_analysis_mvs_server --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_opencv_backend --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_opencv_backend --> crate_moritzbrantner_video_analysis_mvs
-  crate_moritzbrantner_video_analysis_opencv_backend --> crate_moritzbrantner_video_analysis_sfm
-  crate_moritzbrantner_video_analysis_opencv_backend --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_opencv_backend_cli --> crate_moritzbrantner_video_analysis_opencv_backend
-  crate_moritzbrantner_video_analysis_opencv_backend_cli --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_opencv_backend_server --> crate_moritzbrantner_video_analysis_opencv_backend
-  crate_moritzbrantner_video_analysis_opencv_backend_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_output --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_output --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_output_cli --> crate_moritzbrantner_video_analysis_output
@@ -1269,19 +1236,11 @@ flowchart LR
   crate_moritzbrantner_video_analysis_segmentation_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_sfm --> crate_moritzbrantner_video_analysis_radiance_fields
+  crate_moritzbrantner_video_analysis_sfm --> crate_moritzbrantner_video_analysis_radiance_io
   crate_moritzbrantner_video_analysis_sfm --> crate_moritzbrantner_video_analysis_reconstruction
   crate_moritzbrantner_video_analysis_sfm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm_cli --> crate_moritzbrantner_video_analysis_sfm
   crate_moritzbrantner_video_analysis_sfm_cli --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_sfm_rust_backend --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_video_analysis_sfm_rust_backend --> crate_moritzbrantner_video_analysis_radiance_fields
-  crate_moritzbrantner_video_analysis_sfm_rust_backend --> crate_moritzbrantner_video_analysis_reconstruction
-  crate_moritzbrantner_video_analysis_sfm_rust_backend --> crate_moritzbrantner_video_analysis_sfm
-  crate_moritzbrantner_video_analysis_sfm_rust_backend --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_sfm_rust_backend_cli --> crate_moritzbrantner_video_analysis_sfm_rust_backend
-  crate_moritzbrantner_video_analysis_sfm_rust_backend_cli --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_sfm_rust_backend_server --> crate_moritzbrantner_video_analysis_sfm_rust_backend
-  crate_moritzbrantner_video_analysis_sfm_rust_backend_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm_server --> crate_moritzbrantner_video_analysis_sfm
   crate_moritzbrantner_video_analysis_sfm_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_split --> crate_moritzbrantner_video_analysis_core
@@ -1465,8 +1424,6 @@ flowchart LR
   crate_moritzbrantner_vector_analysis_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_vector_analysis_index_wasm --> crate_moritzbrantner_vector_analysis_index
   crate_moritzbrantner_vector_analysis_index_wasm --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_colmap_backend_wasm --> crate_moritzbrantner_video_analysis_colmap_backend
-  crate_moritzbrantner_video_analysis_colmap_backend_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_core_wasm --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_data_wasm --> crate_moritzbrantner_video_analysis_data
@@ -1487,8 +1444,6 @@ flowchart LR
   crate_moritzbrantner_video_analysis_ingest_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_mvs_wasm --> crate_moritzbrantner_video_analysis_mvs
   crate_moritzbrantner_video_analysis_mvs_wasm --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_opencv_backend_wasm --> crate_moritzbrantner_video_analysis_opencv_backend
-  crate_moritzbrantner_video_analysis_opencv_backend_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_output_wasm --> crate_moritzbrantner_video_analysis_output
   crate_moritzbrantner_video_analysis_output_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_posture_io_wasm --> crate_moritzbrantner_video_analysis_posture_io
@@ -1507,8 +1462,6 @@ flowchart LR
   crate_moritzbrantner_video_analysis_reconstruction_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_segmentation_wasm --> crate_moritzbrantner_video_analysis_segmentation
   crate_moritzbrantner_video_analysis_segmentation_wasm --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_video_analysis_sfm_rust_backend_wasm --> crate_moritzbrantner_video_analysis_sfm_rust_backend
-  crate_moritzbrantner_video_analysis_sfm_rust_backend_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_sfm_wasm --> crate_moritzbrantner_video_analysis_sfm
   crate_moritzbrantner_video_analysis_sfm_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_split_wasm --> crate_moritzbrantner_video_analysis_split

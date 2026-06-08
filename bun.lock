@@ -1551,32 +1551,6 @@
       "name": "@moritzbrantner/vector-analysis-index-wasm",
       "version": "0.1.0",
     },
-    "packages/video-analysis-colmap-backend-app": {
-      "name": "@moritzbrantner/video-analysis-colmap-backend-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/video-analysis-colmap-backend-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "three": "^0.182.0",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "@types/three": "^0.181.0",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/video-analysis-colmap-backend-wasm": {
-      "name": "@moritzbrantner/video-analysis-colmap-backend-wasm",
-      "version": "0.1.0",
-    },
     "packages/video-analysis-core-app": {
       "name": "@moritzbrantner/video-analysis-core-app",
       "version": "0.1.0",
@@ -1817,30 +1791,6 @@
       "name": "@moritzbrantner/video-analysis-mvs-wasm",
       "version": "0.1.0",
     },
-    "packages/video-analysis-opencv-backend-app": {
-      "name": "@moritzbrantner/video-analysis-opencv-backend-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/video-analysis-opencv-backend-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/video-analysis-opencv-backend-wasm": {
-      "name": "@moritzbrantner/video-analysis-opencv-backend-wasm",
-      "version": "0.1.0",
-    },
     "packages/video-analysis-output-app": {
       "name": "@moritzbrantner/video-analysis-output-app",
       "version": "0.1.0",
@@ -2076,30 +2026,6 @@
         "tailwindcss": "^3.4.18",
         "typescript": "^6.0.2",
       },
-    },
-    "packages/video-analysis-sfm-rust-backend-app": {
-      "name": "@moritzbrantner/video-analysis-sfm-rust-backend-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/video-analysis-sfm-rust-backend-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/video-analysis-sfm-rust-backend-wasm": {
-      "name": "@moritzbrantner/video-analysis-sfm-rust-backend-wasm",
-      "version": "0.1.0",
     },
     "packages/video-analysis-sfm-wasm": {
       "name": "@moritzbrantner/video-analysis-sfm-wasm",
@@ -2381,8 +2307,6 @@
     "@csstools/css-syntax-patches-for-csstree": ["@csstools/css-syntax-patches-for-csstree@1.1.3", "", { "peerDependencies": { "css-tree": "^3.2.1" }, "optionalPeers": ["css-tree"] }, "sha512-SH60bMfrRCJF3morcdk57WklujF4Jr/EsQUzqkarfHXEFcAR1gg7fS/chAE922Sehgzc1/+Tz5H3Ypa1HiEKrg=="],
 
     "@csstools/css-tokenizer": ["@csstools/css-tokenizer@4.0.0", "", {}, "sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA=="],
-
-    "@dimforge/rapier3d-compat": ["@dimforge/rapier3d-compat@0.12.0", "", {}, "sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow=="],
 
     "@emnapi/core": ["@emnapi/core@1.9.2", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "^2.4.0" } }, "sha512-UC+ZhH3XtczQYfOlu3lNEkdW/p4dsJ1r/bP7H8+rhao3TTTMO1ATq/4DdIi23XuGoFY+Cz0JmCbdVl0hz9jZcA=="],
 
@@ -2782,10 +2706,6 @@
 
     "@moritzbrantner/vector-analysis-index-wasm": ["@moritzbrantner/vector-analysis-index-wasm@workspace:packages/vector-analysis-index-wasm"],
 
-    "@moritzbrantner/video-analysis-colmap-backend-app": ["@moritzbrantner/video-analysis-colmap-backend-app@workspace:packages/video-analysis-colmap-backend-app"],
-
-    "@moritzbrantner/video-analysis-colmap-backend-wasm": ["@moritzbrantner/video-analysis-colmap-backend-wasm@workspace:packages/video-analysis-colmap-backend-wasm"],
-
     "@moritzbrantner/video-analysis-core-app": ["@moritzbrantner/video-analysis-core-app@workspace:packages/video-analysis-core-app"],
 
     "@moritzbrantner/video-analysis-core-wasm": ["@moritzbrantner/video-analysis-core-wasm@workspace:packages/video-analysis-core-wasm"],
@@ -2826,10 +2746,6 @@
 
     "@moritzbrantner/video-analysis-mvs-wasm": ["@moritzbrantner/video-analysis-mvs-wasm@workspace:packages/video-analysis-mvs-wasm"],
 
-    "@moritzbrantner/video-analysis-opencv-backend-app": ["@moritzbrantner/video-analysis-opencv-backend-app@workspace:packages/video-analysis-opencv-backend-app"],
-
-    "@moritzbrantner/video-analysis-opencv-backend-wasm": ["@moritzbrantner/video-analysis-opencv-backend-wasm@workspace:packages/video-analysis-opencv-backend-wasm"],
-
     "@moritzbrantner/video-analysis-output-app": ["@moritzbrantner/video-analysis-output-app@workspace:packages/video-analysis-output-app"],
 
     "@moritzbrantner/video-analysis-output-wasm": ["@moritzbrantner/video-analysis-output-wasm@workspace:packages/video-analysis-output-wasm"],
@@ -2867,10 +2783,6 @@
     "@moritzbrantner/video-analysis-segmentation-wasm": ["@moritzbrantner/video-analysis-segmentation-wasm@workspace:packages/video-analysis-segmentation-wasm"],
 
     "@moritzbrantner/video-analysis-sfm-app": ["@moritzbrantner/video-analysis-sfm-app@workspace:packages/video-analysis-sfm-app"],
-
-    "@moritzbrantner/video-analysis-sfm-rust-backend-app": ["@moritzbrantner/video-analysis-sfm-rust-backend-app@workspace:packages/video-analysis-sfm-rust-backend-app"],
-
-    "@moritzbrantner/video-analysis-sfm-rust-backend-wasm": ["@moritzbrantner/video-analysis-sfm-rust-backend-wasm@workspace:packages/video-analysis-sfm-rust-backend-wasm"],
 
     "@moritzbrantner/video-analysis-sfm-wasm": ["@moritzbrantner/video-analysis-sfm-wasm@workspace:packages/video-analysis-sfm-wasm"],
 
@@ -3164,8 +3076,6 @@
 
     "@testing-library/user-event": ["@testing-library/user-event@14.5.2", "", { "peerDependencies": { "@testing-library/dom": ">=7.21.4" } }, "sha512-YAh82Wh4TIrxYLmfGcixwD18oIjyC1pFQC2Y01F2lzV2HTMiYrI0nze0FD0ocB//CKS/7jIUgae+adPqxK5yCQ=="],
 
-    "@tweenjs/tween.js": ["@tweenjs/tween.js@23.1.3", "", {}, "sha512-vJmvvwFxYuGnF2axRtPYocag6Clbb5YS7kLL+SO/TeVFzHqDIWrNKYtcsPMibjDx9O+bu+psAy9NKfWklassUA=="],
-
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.2", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg=="],
 
     "@types/aria-query": ["@types/aria-query@5.0.4", "", {}, "sha512-rfT93uj5s0PRL7EzccGMs3brplhcrghnDoV26NqKhCAS1hVo+WdNsPvE/yb6ilfr5hi2MEk6d5EWJTKdxg8jVw=="],
@@ -3218,17 +3128,11 @@
 
     "@types/stack-utils": ["@types/stack-utils@2.0.3", "", {}, "sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw=="],
 
-    "@types/stats.js": ["@types/stats.js@0.17.4", "", {}, "sha512-jIBvWWShCvlBqBNIZt0KAshWpvSjhkwkEu4ZUcASoAvhmrgAUI2t1dXrjSL4xXVLB4FznPrIsX3nKXFl/Dt4vA=="],
-
     "@types/statuses": ["@types/statuses@2.0.6", "", {}, "sha512-xMAgYwceFhRA2zY+XbEA7mxYbA093wdiW8Vu6gZPGWy9cmOyU9XesH1tNcEWsKFd5Vzrqx5T3D38PWx1FIIXkA=="],
-
-    "@types/three": ["@types/three@0.181.0", "", { "dependencies": { "@dimforge/rapier3d-compat": "~0.12.0", "@tweenjs/tween.js": "~23.1.3", "@types/stats.js": "*", "@types/webxr": "*", "@webgpu/types": "*", "fflate": "~0.8.2", "meshoptimizer": "~0.22.0" } }, "sha512-MLF1ks8yRM2k71D7RprFpDb9DOX0p22DbdPqT/uAkc6AtQXjxWCVDjCy23G9t1o8HcQPk7woD2NIyiaWcWPYmA=="],
 
     "@types/uuid": ["@types/uuid@9.0.8", "", {}, "sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA=="],
 
     "@types/wait-on": ["@types/wait-on@5.3.4", "", { "dependencies": { "@types/node": "*" } }, "sha512-EBsPjFMrFlMbbUFf9D1Fp+PAB2TwmUn7a3YtHyD9RLuTIk1jDd8SxXVAoez2Ciy+8Jsceo2MYEYZzJ/DvorOKw=="],
-
-    "@types/webxr": ["@types/webxr@0.5.24", "", {}, "sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg=="],
 
     "@types/yargs": ["@types/yargs@17.0.35", "", { "dependencies": { "@types/yargs-parser": "*" } }, "sha512-qUHkeCyQFxMXg79wQfTtfndEC+N9ZZg76HJftDJp+qH2tV7Gj4OJi7l+PiWwJ+pWtW8GwSmqsDj/oymhrTWXjg=="],
 
@@ -3297,8 +3201,6 @@
     "@vitest/utils": ["@vitest/utils@3.2.4", "", { "dependencies": { "@vitest/pretty-format": "3.2.4", "loupe": "^3.1.4", "tinyrainbow": "^2.0.0" } }, "sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA=="],
 
     "@webcontainer/env": ["@webcontainer/env@1.1.1", "", {}, "sha512-6aN99yL695Hi9SuIk1oC88l9o0gmxL1nGWWQ/kNy81HigJ0FoaoTXpytCj6ItzgyCEwA9kF1wixsTuv5cjsgng=="],
-
-    "@webgpu/types": ["@webgpu/types@0.1.70", "", {}, "sha512-LFiNHHKMvmAEvwVew3JLJmTdShhbdwRFSImUshGhE2mGE8ybQzIo63l5uRp+YKnNx+8Qno8Kf6gN+DKMreIJCA=="],
 
     "@xyflow/react": ["@xyflow/react@12.10.2", "", { "dependencies": { "@xyflow/system": "0.0.76", "classcat": "^5.0.3", "zustand": "^4.4.0" }, "peerDependencies": { "react": ">=17", "react-dom": ">=17" } }, "sha512-CgIi6HwlcHXwlkTpr0fxLv/0sRVNZ8IdwKLzzeCscaYBwpvfcH1QFOCeaTCuEn1FQEs/B8CjnTSjhs8udgmBgQ=="],
 
@@ -3600,8 +3502,6 @@
 
     "fdir": ["fdir@6.5.0", "", { "peerDependencies": { "picomatch": "^3 || ^4" }, "optionalPeers": ["picomatch"] }, "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg=="],
 
-    "fflate": ["fflate@0.8.3", "", {}, "sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA=="],
-
     "fill-range": ["fill-range@7.1.1", "", { "dependencies": { "to-regex-range": "^5.0.1" } }, "sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg=="],
 
     "find-cache-dir": ["find-cache-dir@3.3.2", "", { "dependencies": { "commondir": "^1.0.1", "make-dir": "^3.0.2", "pkg-dir": "^4.1.0" } }, "sha512-wXZV5emFEjrridIgED11OoUKLxiYjAcqot/NJdAkOhlJ+vGzwhOAfcG5OX1jP+S0PcjEn8bdMJv+g2jwQ3Onig=="],
@@ -3891,8 +3791,6 @@
     "merge-stream": ["merge-stream@2.0.0", "", {}, "sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w=="],
 
     "merge2": ["merge2@1.4.1", "", {}, "sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg=="],
-
-    "meshoptimizer": ["meshoptimizer@0.22.0", "", {}, "sha512-IebiK79sqIy+E4EgOr+CAw+Ke8hAspXKzBd0JdgEmPHiAwmvEj2S4h1rfvo+o/BnfEYd/jAOg5IeeIjzlzSnDg=="],
 
     "micromatch": ["micromatch@4.0.8", "", { "dependencies": { "braces": "^3.0.3", "picomatch": "^2.3.1" } }, "sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA=="],
 
@@ -4215,8 +4113,6 @@
     "thenify": ["thenify@3.3.1", "", { "dependencies": { "any-promise": "^1.0.0" } }, "sha512-RVZSIV5IG10Hk3enotrhvz0T9em6cyHBLkH/YAZuKqd8hRkKhSfCGIcP2KUY0EPxndzANBmNllzWPwak+bheSw=="],
 
     "thenify-all": ["thenify-all@1.6.0", "", { "dependencies": { "thenify": ">= 3.1.0 < 4" } }, "sha512-RNxQH/qI8/t3thXJDwcstUO4zeqo64+Uy/+sNVRBx4Xn2OX+OZ9oP+iJnNFqplFra2ZUVeKCSa2oVWi3T4uVmA=="],
-
-    "three": ["three@0.182.0", "", {}, "sha512-GbHabT+Irv+ihI1/f5kIIsZ+Ef9Sl5A1Y7imvS5RQjWgtTPfPnZ43JmlYI7NtCRDK9zir20lQpfg8/9Yd02OvQ=="],
 
     "tiny-invariant": ["tiny-invariant@1.3.3", "", {}, "sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg=="],
 

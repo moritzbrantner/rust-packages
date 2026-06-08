@@ -7,6 +7,12 @@ This crate normalizes dense reconstruction outputs to workspace point-cloud and
 mesh types so native COLMAP/OpenCV-style backends and Rust-native backends can
 share one public API.
 
+## Modules
+
+- `opencv`: unavailable OpenCV MVS placeholder implementing `DenseReconstructor`
+  with explicit diagnostics and deterministic provider planning through the
+  package surface.
+
 ## Feature flags
 
 - No optional feature flags today.
@@ -28,6 +34,7 @@ Debug operations:
 - `describe`
 - `video.mvs.fusionPlan`
 - `video.mvs.outputSummary`
+- `video.opencv.mvsPlan`
 
 Runtime limits:
 

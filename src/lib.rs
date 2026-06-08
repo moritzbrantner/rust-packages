@@ -196,9 +196,6 @@ pub use vector_analysis_core as vector_core;
 /// Re-exports the vector index API.
 pub use vector_analysis_index as vector_index;
 #[cfg(feature = "video")]
-/// Re-exports the COLMAP compatibility backend API.
-pub use video_analysis_colmap_backend as colmap_backend;
-#[cfg(feature = "video")]
 /// Re-exports the * API.
 pub use video_analysis_core::*;
 #[cfg(feature = "video")]
@@ -232,9 +229,6 @@ pub use video_analysis_mvs as mvs;
 /// Re-exports the ONNX API.
 pub use video_analysis_onnx as onnx;
 #[cfg(feature = "video")]
-/// Re-exports the OpenCV backend API.
-pub use video_analysis_opencv_backend as opencv_backend;
-#[cfg(feature = "video")]
 /// Re-exports the output API.
 pub use video_analysis_output as output;
 #[cfg(feature = "video")]
@@ -264,9 +258,6 @@ pub use video_analysis_segmentation as video_segmentation;
 #[cfg(feature = "video")]
 /// Re-exports the SfM API.
 pub use video_analysis_sfm as sfm;
-#[cfg(feature = "video")]
-/// Re-exports the Rust-native SfM backend API.
-pub use video_analysis_sfm_rust_backend as sfm_rust_backend;
 #[cfg(feature = "video")]
 /// Re-exports the split API.
 pub use video_analysis_split as split;

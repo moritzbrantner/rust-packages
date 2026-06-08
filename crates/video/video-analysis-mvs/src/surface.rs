@@ -47,6 +47,15 @@ pub fn package_surface() -> PackageSurface {
                     "mode": "deterministic"
                 }),
             ),
+            operation(
+                "video.opencv.mvsPlan",
+                "Plan OpenCV MVS",
+                "Describes optional OpenCV dense reconstruction setup without loading native bindings.",
+                serde_json::json!({
+                    "input": {},
+                    "mode": "deterministic"
+                }),
+            ),
         ],
     }
 }
@@ -299,5 +308,17 @@ mod tests {
 
         assert_eq!(response.value["deterministic"], true);
         assert_eq!(response.value["externalToolsRequired"], false);
+    }
+
+    #[test]
+    fn opencv_mvs_surface_plan_is_deterministic() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("video.opencv.mvsPlan"),
+            input: serde_json::json!({}),
+        })
+        .expect("opencv mvs plan");
+
+        assert_eq!(response.value["result"]["deterministic"], true);
+        assert_eq!(response.value["result"]["externalToolsRequired"], false);
     }
 }

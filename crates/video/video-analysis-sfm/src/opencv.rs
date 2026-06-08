@@ -1,13 +1,10 @@
-#![doc = include_str!("../README.md")]
-
-pub mod surface;
 use video_analysis_core::{DetectError, Result};
-use video_analysis_mvs::{DenseReconstructor, MvsOutput, MvsRequest};
-use video_analysis_sfm::{SfmBackend, SfmPipelineOutput, SfmRequest};
+
+use crate::{SfmBackend, SfmPipelineOutput, SfmRequest};
 
 fn unavailable() -> DetectError {
     DetectError::InvalidArgument(
-        "OpenCV backend is intentionally optional and has no command adapter; use image-analysis-detection for color/object heuristics, video-analysis-recognition for learned detectors, or video-analysis-sfm-rust-backend for Rust SfM"
+        "OpenCV SfM execution is intentionally optional and unavailable in this build; use video-analysis-sfm provider planning or a concrete SfM backend."
             .to_string(),
     )
 }
@@ -30,25 +27,12 @@ pub struct OpenCvBackendCapabilities {
 impl OpenCvBackendCapabilities {
     /// Returns capabilities for the current build.
     pub const fn current() -> Self {
-        #[cfg(feature = "opencv-backend")]
-        {
-            Self {
-                feature_extraction: false,
-                descriptor_matching: false,
-                geometric_verification: false,
-                sparse_sfm: false,
-                dense_mvs: false,
-            }
-        }
-        #[cfg(not(feature = "opencv-backend"))]
-        {
-            Self {
-                feature_extraction: false,
-                descriptor_matching: false,
-                geometric_verification: false,
-                sparse_sfm: false,
-                dense_mvs: false,
-            }
+        Self {
+            feature_extraction: false,
+            descriptor_matching: false,
+            geometric_verification: false,
+            sparse_sfm: false,
+            dense_mvs: false,
         }
     }
 }
@@ -103,29 +87,40 @@ impl SfmBackend for OpenCvSfmBackend {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-/// Data type for OpenCV MVS backend.
-pub struct OpenCvMvsBackend;
-
-impl DenseReconstructor for OpenCvMvsBackend {
-    fn name(&self) -> &'static str {
-        "opencv-mvs-backend"
-    }
-
-    fn reconstruct_dense(&mut self, _request: &MvsRequest) -> Result<MvsOutput> {
-        Err(unavailable())
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use video_analysis_radiance_fields::CameraIntrinsics;
+    use video_analysis_reconstruction::{CameraId, ImageId};
+
     use super::*;
+    use crate::SfmInputImage;
 
     #[test]
-    fn exposes_feature_gated_capabilities_without_native_linking() {
+    fn opencv_sfm_capabilities_are_unavailable_without_native_binding() {
         let backend = OpenCvSfmBackend::default();
         let capabilities = backend.capabilities();
+        assert!(!capabilities.feature_extraction);
+        assert!(!capabilities.descriptor_matching);
+        assert!(!capabilities.geometric_verification);
         assert!(!capabilities.sparse_sfm);
-        assert_eq!(backend.config.detector, "SIFT");
+        assert!(!capabilities.dense_mvs);
+    }
+
+    #[test]
+    fn opencv_sfm_backend_returns_unavailable_error() {
+        let intrinsics = CameraIntrinsics::pinhole(16, 16, 1.0).unwrap();
+        let image = SfmInputImage::new(ImageId(1), CameraId(1), "a.png", intrinsics).unwrap();
+        let request = SfmRequest::new([image]).unwrap();
+        let mut backend = OpenCvSfmBackend::default();
+        let error = backend.reconstruct(&request).unwrap_err();
+        assert!(error.to_string().contains("OpenCV SfM execution"));
+    }
+
+    #[test]
+    fn opencv_sfm_config_defaults_to_sift_bfmatcher() {
+        let config = OpenCvSfmBackendConfig::default();
+        assert_eq!(config.detector, "SIFT");
+        assert_eq!(config.matcher, "BFMatcher");
+        assert!(config.prefer_sfm_module);
     }
 }

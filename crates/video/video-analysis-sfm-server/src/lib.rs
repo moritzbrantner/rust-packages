@@ -2,7 +2,7 @@ use std::io;
 
 use runtime_core::{
     server::{self, ServerAdapterMetadata},
-    PackageSurface,
+    PackageSurface, SurfaceRequest, SurfaceResponse,
 };
 
 /// Wrapped library crate name.
@@ -34,12 +34,7 @@ pub fn package_surface() -> PackageSurface {
 }
 
 pub fn serve(addr: &str) -> io::Result<()> {
-    server::serve(
-        addr,
-        METADATA,
-        package_surface,
-        video_analysis_sfm::surface::run_surface_operation,
-    )
+    server::serve(addr, METADATA, package_surface, run_server_operation)
 }
 
 pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
@@ -49,12 +44,19 @@ pub fn response_for(method: &str, path: &str, body: &str) -> HttpResponse {
         body,
         METADATA,
         package_surface,
-        video_analysis_sfm::surface::run_surface_operation,
+        run_server_operation,
     )
 }
 
 pub fn package_metadata_json() -> String {
     server::package_metadata_json(METADATA, package_surface())
+}
+
+fn run_server_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    if request.operation.as_str() == video_analysis_sfm::surface::RECONSTRUCT_VIDEO_OPERATION {
+        return video_analysis_sfm::reconstruct_video_surface_operation(request.input);
+    }
+    video_analysis_sfm::surface::run_surface_operation(request)
 }
 
 #[cfg(test)]

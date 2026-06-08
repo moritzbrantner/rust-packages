@@ -1,6 +1,12 @@
 #![doc = include_str!("../README.md")]
 
+pub mod colmap;
+pub mod colmap_reconstruct_video;
+pub mod colmap_scene;
+pub mod opencv;
+pub mod rust_backend;
 pub mod surface;
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use video_analysis_core::{DetectError, Result};
@@ -9,6 +15,25 @@ use video_analysis_reconstruction::{
     build_tracks, BinaryFeature, CameraId, FeatureMatch, ImageId, ImagePairMatches,
     ReconstructionCamera, ReconstructionImage, SparseReconstruction, TriangulationConfig,
 };
+
+pub use colmap::{
+    compare_reports, compare_to_colmap_baseline, load_colmap_baseline, load_colmap_text_baseline,
+    ColmapBaseline, ColmapCommandSpec, ColmapInput, ColmapModelFormat, ColmapParityComparison,
+    ColmapTextBackend,
+};
+#[cfg(not(target_family = "wasm"))]
+pub use colmap_reconstruct_video::validate_reconstruct_video_request;
+pub use colmap_reconstruct_video::{
+    default_reconstruct_video_request, reconstruct_video_surface_operation, ReconstructVideoColmap,
+    ReconstructVideoFrames, ReconstructVideoRequest, ReconstructVideoResult, ReconstructVideoVideo,
+    COLMAP_TEST_VIDEO_PATH, COLMAP_TEST_VIDEO_URL, DEFAULT_RECONSTRUCT_OUTPUT_DIR,
+};
+pub use colmap_scene::{
+    build_colmap_scene, ColmapScene, ColmapSceneBounds, ColmapSceneCamera, ColmapScenePoint,
+    ColmapSceneSummary,
+};
+pub use opencv::{OpenCvBackendCapabilities, OpenCvSfmBackend, OpenCvSfmBackendConfig};
+pub use rust_backend::{RustKnownPoseSfmBackend, RustSfmBackendConfig};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())

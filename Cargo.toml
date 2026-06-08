@@ -159,9 +159,7 @@ video-analysis-features = { package = "moritzbrantner-video-analysis-features", 
 video-analysis-ffmpeg = { package = "moritzbrantner-video-analysis-ffmpeg", version = "0.1.0", path = "crates/video/video-analysis-ffmpeg" }
 video-analysis-gaussian-splatting = { package = "moritzbrantner-video-analysis-gaussian-splatting", version = "0.1.0", path = "crates/video/video-analysis-gaussian-splatting" }
 video-analysis-ingest = { package = "moritzbrantner-video-analysis-ingest", version = "0.1.0", path = "crates/video/video-analysis-ingest" }
-video-analysis-colmap-backend = { package = "moritzbrantner-video-analysis-colmap-backend", version = "0.1.0", path = "crates/video/video-analysis-colmap-backend" }
 video-analysis-mvs = { package = "moritzbrantner-video-analysis-mvs", version = "0.1.0", path = "crates/video/video-analysis-mvs" }
-video-analysis-opencv-backend = { package = "moritzbrantner-video-analysis-opencv-backend", version = "0.1.0", path = "crates/video/video-analysis-opencv-backend" }
 video-analysis-output = { package = "moritzbrantner-video-analysis-output", version = "0.1.0", path = "crates/video/video-analysis-output" }
 video-analysis-posture = { package = "moritzbrantner-video-analysis-posture", version = "0.1.0", path = "crates/video/video-analysis-posture" }
 video-analysis-posture-io = { package = "moritzbrantner-video-analysis-posture-io", version = "0.1.0", path = "crates/video/video-analysis-posture-io" }
@@ -171,7 +169,6 @@ video-analysis-radiance-pipeline = { package = "moritzbrantner-video-analysis-ra
 video-analysis-recognition = { package = "moritzbrantner-video-analysis-recognition", version = "0.1.0", path = "crates/video/video-analysis-recognition" }
 video-analysis-reconstruction = { package = "moritzbrantner-video-analysis-reconstruction", version = "0.1.0", path = "crates/video/video-analysis-reconstruction" }
 video-analysis-sfm = { package = "moritzbrantner-video-analysis-sfm", version = "0.1.0", path = "crates/video/video-analysis-sfm" }
-video-analysis-sfm-rust-backend = { package = "moritzbrantner-video-analysis-sfm-rust-backend", version = "0.1.0", path = "crates/video/video-analysis-sfm-rust-backend" }
 video-analysis-split = { package = "moritzbrantner-video-analysis-split", version = "0.1.0", path = "crates/video/video-analysis-split" }
 video-analysis-storage = { package = "moritzbrantner-video-analysis-storage", version = "0.1.0", path = "crates/video/video-analysis-storage" }
 video-analysis-synthesis = { package = "moritzbrantner-video-analysis-synthesis", version = "0.1.0", path = "crates/video/video-analysis-synthesis" }
@@ -249,9 +246,7 @@ video = [
     "dep:video-analysis-ffmpeg",
     "dep:video-analysis-gaussian-splatting",
     "dep:video-analysis-ingest",
-    "dep:video-analysis-colmap-backend",
     "dep:video-analysis-mvs",
-    "dep:video-analysis-opencv-backend",
     "dep:video-analysis-output",
     "dep:video-analysis-posture",
     "dep:video-analysis-posture-io",
@@ -261,7 +256,6 @@ video = [
     "dep:video-analysis-recognition",
     "dep:video-analysis-reconstruction",
     "dep:video-analysis-sfm",
-    "dep:video-analysis-sfm-rust-backend",
     "dep:video-analysis-split",
     "dep:video-analysis-storage",
     "dep:video-analysis-synthesis",
@@ -363,9 +357,7 @@ video-analysis-features = { workspace = true, optional = true }
 video-analysis-ffmpeg = { workspace = true, optional = true }
 video-analysis-gaussian-splatting = { workspace = true, optional = true }
 video-analysis-ingest = { workspace = true, optional = true }
-video-analysis-colmap-backend = { workspace = true, optional = true }
 video-analysis-mvs = { workspace = true, optional = true }
-video-analysis-opencv-backend = { workspace = true, optional = true }
 video-analysis-output = { workspace = true, optional = true }
 video-analysis-posture = { workspace = true, optional = true }
 video-analysis-radiance-fields = { workspace = true, optional = true }
@@ -374,7 +366,6 @@ video-analysis-radiance-pipeline = { workspace = true, optional = true }
 video-analysis-recognition = { workspace = true, optional = true }
 video-analysis-reconstruction = { workspace = true, optional = true }
 video-analysis-sfm = { workspace = true, optional = true }
-video-analysis-sfm-rust-backend = { workspace = true, optional = true }
 video-analysis-split = { workspace = true, optional = true }
 video-analysis-storage = { workspace = true, optional = true }
 video-analysis-synthesis = { workspace = true, optional = true }

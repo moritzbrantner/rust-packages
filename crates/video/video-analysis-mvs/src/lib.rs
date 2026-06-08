@@ -1,11 +1,15 @@
 #![doc = include_str!("../README.md")]
 
+pub mod opencv;
 pub mod surface;
+
 use three_d_processing_core::{Point3, PointCloud, Vector3};
 use three_d_processing_mesh::Mesh;
 use video_analysis_core::{DetectError, Result};
 use video_analysis_radiance_fields::{CameraView, CameraViewSet};
 use video_analysis_reconstruction::SparseReconstruction;
+
+pub use opencv::OpenCvMvsBackend;
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
