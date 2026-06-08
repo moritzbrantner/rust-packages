@@ -7,15 +7,21 @@ use image_analysis_core::OwnedImage;
 use model_runtime::ModelBundle;
 
 fn bundle(names: &[&str]) -> Option<ModelBundle> {
+    let mut roots = Vec::new();
     for name in names {
         let root = PathBuf::from(".model-runtime").join(name).join("main");
         if root.join("manifest.json").is_file() {
             return Some(ModelBundle::load(Path::new(&root)).expect("load model bundle"));
         }
+        roots.push(root);
     }
     eprintln!(
-        "skipping external ONNX smoke test; missing any of {:?}",
-        names
+        "skipping external ONNX smoke test; missing any manifest at {}",
+        roots
+            .iter()
+            .map(|root| root.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
     );
     None
 }

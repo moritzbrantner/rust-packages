@@ -1030,29 +1030,8 @@ impl OnnxPose2dRunner for runtime_onnx::OnnxSession {
                 ),
             }])
             .map_err(runtime_onnx_error)?;
-        let pose_tensor = outputs
-            .iter()
-            .find_map(|output| match &output.tensor {
-                runtime_onnx::OnnxTensorValue::F32(tensor)
-                    if matches!(tensor.shape.as_slice(), [_, _, 3] | [1, _, _, 3]) =>
-                {
-                    Some(tensor)
-                }
-                _ => None,
-            })
-            .ok_or_else(|| {
-                invalid_argument("ONNX pose 2D output must include `[poses, joints, 3]` tensor")
-            })?;
-        let scores = outputs.iter().find_map(|output| {
-            output
-                .name
-                .contains("scores")
-                .then_some(&output.tensor)
-                .and_then(|tensor| match tensor {
-                    runtime_onnx::OnnxTensorValue::F32(tensor) => Some(tensor.values.as_slice()),
-                    _ => None,
-                })
-        });
+        let pose_tensor = pose_2d_output_tensor(&outputs)?;
+        let scores = pose_scores_output(&outputs).map(|tensor| tensor.values.as_slice());
         decode_pose_2d_tensor(pose_tensor, None, scores)
     }
 }
@@ -1190,7 +1169,7 @@ impl OnnxPoseLiftRunner for runtime_onnx::OnnxSession {
                 tensor: OnnxTensorValue::F32(input),
             }])
             .map_err(runtime_onnx_error)?;
-        let output = runtime_onnx::first_f32_output(&outputs).map_err(runtime_onnx_error)?;
+        let output = pose_lift_output_tensor(&outputs)?;
         decode_pose_lift_tensor(output, sequence)
     }
 }
@@ -1266,6 +1245,11 @@ fn decode_pose_2d_tensor(
     let (pose_count, joint_count) = match tensor.shape.as_slice() {
         [poses, joints, 3] => (*poses, *joints),
         [1, poses, joints, 3] => (*poses, *joints),
+        [batch, _, _, 3] => {
+            return Err(invalid_argument(format!(
+                "ONNX pose 2D output batch size must be 1, got {batch}"
+            )))
+        }
         shape => {
             return Err(invalid_argument(format!(
                 "unsupported ONNX pose 2D output shape `{shape:?}`"
@@ -1375,6 +1359,11 @@ fn decode_pose_lift_tensor(
     let (frame_count, joint_count) = match tensor.shape.as_slice() {
         [frames, joints, 3] => (*frames, *joints),
         [1, frames, joints, 3] => (*frames, *joints),
+        [batch, _, _, 3] => {
+            return Err(invalid_argument(format!(
+                "ONNX pose lift output batch size must be 1, got {batch}"
+            )))
+        }
         shape => {
             return Err(invalid_argument(format!(
                 "unsupported ONNX pose lift output shape `{shape:?}`"
@@ -1426,6 +1415,47 @@ fn decode_pose_lift_tensor(
         frames.push(pose);
     }
     Ok(PoseSequence::new(frames))
+}
+
+#[cfg(any(feature = "onnx", test))]
+fn pose_2d_output_tensor(
+    outputs: &[runtime_onnx::OnnxNamedTensor],
+) -> Result<&runtime_onnx::OnnxF32Tensor> {
+    runtime_onnx::f32_output_by_preferred_name_or_index(
+        outputs,
+        &["keypoints", "poses", "output"],
+        0,
+    )
+    .map_err(runtime_onnx_error)
+}
+
+#[cfg(any(feature = "onnx", test))]
+fn pose_scores_output(
+    outputs: &[runtime_onnx::OnnxNamedTensor],
+) -> Option<&runtime_onnx::OnnxF32Tensor> {
+    outputs.iter().find_map(|output| {
+        output
+            .name
+            .to_ascii_lowercase()
+            .contains("scores")
+            .then_some(&output.tensor)
+            .and_then(|tensor| match tensor {
+                runtime_onnx::OnnxTensorValue::F32(tensor) => Some(tensor),
+                _ => None,
+            })
+    })
+}
+
+#[cfg(any(feature = "onnx", test))]
+fn pose_lift_output_tensor(
+    outputs: &[runtime_onnx::OnnxNamedTensor],
+) -> Result<&runtime_onnx::OnnxF32Tensor> {
+    runtime_onnx::f32_output_by_preferred_name_or_index(
+        outputs,
+        &["keypoints", "poses", "output"],
+        0,
+    )
+    .map_err(runtime_onnx_error)
 }
 
 /// Returns preprocess frame.
@@ -1555,7 +1585,7 @@ fn read_json(path: &Path) -> Result<serde_json::Value> {
     })
 }
 
-#[cfg(feature = "onnx")]
+#[cfg(any(feature = "onnx", test))]
 fn runtime_onnx_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
     match error {
         runtime_onnx::OnnxRuntimeError::InvalidArgument(message)
@@ -1714,6 +1744,38 @@ mod tests {
     }
 
     #[test]
+    fn decodes_pose_2d_batched_tensor_layout() {
+        let tensor = f32_tensor(vec![1, 1, 2, 3], vec![0.1, 0.2, 0.9, 0.3, 0.4, 0.8]);
+        let poses = decode_pose_2d_tensor(&tensor, None, None).unwrap();
+        assert_eq!(poses.len(), 1);
+        assert_eq!(poses[0].keypoints.len(), 2);
+    }
+
+    #[test]
+    fn pose_2d_output_selection_prefers_named_keypoints() {
+        let outputs = vec![
+            runtime_onnx::OnnxNamedTensor {
+                name: "scores".to_string(),
+                tensor: runtime_onnx::OnnxTensorValue::F32(
+                    runtime_onnx::OnnxF32Tensor::new(vec![1], vec![0.95]).unwrap(),
+                ),
+            },
+            runtime_onnx::OnnxNamedTensor {
+                name: "keypoints".to_string(),
+                tensor: runtime_onnx::OnnxTensorValue::F32(f32_tensor(
+                    vec![1, 1, 3],
+                    vec![0.1, 0.2, 0.9],
+                )),
+            },
+        ];
+        assert_eq!(
+            pose_2d_output_tensor(&outputs).unwrap().shape,
+            vec![1, 1, 3]
+        );
+        assert_eq!(pose_scores_output(&outputs).unwrap().values, vec![0.95]);
+    }
+
+    #[test]
     fn pose_estimator_validates_and_applies_skeleton() {
         struct Backend;
 
@@ -1743,9 +1805,51 @@ mod tests {
     }
 
     #[test]
+    fn pose_estimator_applies_pose_and_keypoint_thresholds_after_validation() {
+        struct Backend;
+
+        impl OnnxPose2dRunner for Backend {
+            fn run_pose_2d(&mut self, _input: &ImageModelTensor) -> Result<Vec<PoseEstimate>> {
+                Ok(vec![
+                    PoseEstimate::new([
+                        Keypoint::new("a", 0.1, 0.2)?.score(0.9)?,
+                        Keypoint::new("b", 0.3, 0.4)?.score(0.9)?,
+                    ])?
+                    .score(0.4)?,
+                    PoseEstimate::new([
+                        Keypoint::new("a", 0.1, 0.2)?.score(0.2)?,
+                        Keypoint::new("b", 0.3, 0.4)?.score(0.8)?,
+                    ])?
+                    .score(0.9)?,
+                ])
+            }
+        }
+
+        let options = OnnxPose2dOptions {
+            skeleton: Skeleton::new(["hip", "knee"]),
+            min_pose_score: 0.5,
+            min_keypoint_score: 0.5,
+            ..OnnxPose2dOptions::default()
+        };
+        let owned = frame();
+        let mut estimator = OnnxPose2dEstimator::with_options(options, Backend).unwrap();
+        let poses = estimator.predict_frame(&owned.as_frame()).unwrap();
+        assert_eq!(poses.len(), 1);
+        assert_eq!(poses[0].keypoints.len(), 1);
+        assert_eq!(poses[0].keypoints[0].name, "knee");
+    }
+
+    #[test]
     fn pose_2d_tensor_rejects_unsupported_shape() {
         let tensor = f32_tensor(vec![2, 2], vec![0.0; 4]);
         assert!(decode_pose_2d_tensor(&tensor, None, None).is_err());
+    }
+
+    #[test]
+    fn pose_2d_tensor_rejects_batch_larger_than_one() {
+        let tensor = f32_tensor(vec![2, 1, 1, 3], vec![0.0; 6]);
+        let err = decode_pose_2d_tensor(&tensor, None, None).unwrap_err();
+        assert!(err.to_string().contains("batch size"));
     }
 
     #[test]
@@ -1771,6 +1875,44 @@ mod tests {
     }
 
     #[test]
+    fn decodes_pose_lift_batched_tensor_layout() {
+        let source = PoseSequence::new([PoseEstimate::new([
+            Keypoint::new("hip", 0.1, 0.2).unwrap(),
+            Keypoint::new("knee", 0.3, 0.4).unwrap(),
+        ])
+        .unwrap()]);
+        let tensor = f32_tensor(vec![1, 1, 2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let lifted = decode_pose_lift_tensor(&tensor, &source).unwrap();
+        assert_eq!(
+            lifted.frames[0].keypoint("knee").unwrap().position,
+            Point3::new(4.0, 5.0, 6.0)
+        );
+    }
+
+    #[test]
+    fn pose_lift_output_selection_prefers_named_output() {
+        let outputs = vec![
+            runtime_onnx::OnnxNamedTensor {
+                name: "aux".to_string(),
+                tensor: runtime_onnx::OnnxTensorValue::F32(
+                    runtime_onnx::OnnxF32Tensor::new(vec![1], vec![0.0]).unwrap(),
+                ),
+            },
+            runtime_onnx::OnnxNamedTensor {
+                name: "output_poses".to_string(),
+                tensor: runtime_onnx::OnnxTensorValue::F32(f32_tensor(
+                    vec![1, 1, 3],
+                    vec![1.0, 2.0, 3.0],
+                )),
+            },
+        ];
+        assert_eq!(
+            pose_lift_output_tensor(&outputs).unwrap().shape,
+            vec![1, 1, 3]
+        );
+    }
+
+    #[test]
     fn pose_lift_tensor_rejects_unsupported_shape() {
         let source = PoseSequence::new([PoseEstimate::new([
             Keypoint::new("hip", 0.1, 0.2).unwrap()
@@ -1778,5 +1920,16 @@ mod tests {
         .unwrap()]);
         let tensor = f32_tensor(vec![1, 3], vec![0.0; 3]);
         assert!(decode_pose_lift_tensor(&tensor, &source).is_err());
+    }
+
+    #[test]
+    fn pose_lift_tensor_rejects_batch_larger_than_one() {
+        let source = PoseSequence::new([PoseEstimate::new([
+            Keypoint::new("hip", 0.1, 0.2).unwrap()
+        ])
+        .unwrap()]);
+        let tensor = f32_tensor(vec![2, 1, 1, 3], vec![0.0; 6]);
+        let err = decode_pose_lift_tensor(&tensor, &source).unwrap_err();
+        assert!(err.to_string().contains("batch size"));
     }
 }

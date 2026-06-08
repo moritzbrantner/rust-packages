@@ -317,10 +317,30 @@ pub fn f32_output_by_name_or_index<'a>(
 ) -> Result<&'a OnnxF32Tensor> {
     match output_by_name_or_index(outputs, name, index)? {
         OnnxTensorValue::F32(tensor) => Ok(tensor),
-        other => Err(OnnxRuntimeError::UnsupportedTensorType(format!(
-            "expected f32 output `{name}`/#{index}, got {:?}",
-            other.element_type()
-        ))),
+        other => Err(output_type_error(
+            "f32",
+            name,
+            index,
+            outputs,
+            other.element_type(),
+        )),
+    }
+}
+
+pub fn f32_output_by_preferred_name_or_index<'a>(
+    outputs: &'a [OnnxNamedTensor],
+    preferred_names: &[&str],
+    index: usize,
+) -> Result<&'a OnnxF32Tensor> {
+    match output_by_preferred_name_or_index(outputs, preferred_names, index)? {
+        OnnxTensorValue::F32(tensor) => Ok(tensor),
+        other => Err(output_type_error(
+            "f32",
+            &preferred_names.join("|"),
+            index,
+            outputs,
+            other.element_type(),
+        )),
     }
 }
 
@@ -331,10 +351,13 @@ pub fn i64_output_by_name_or_index<'a>(
 ) -> Result<&'a OnnxI64Tensor> {
     match output_by_name_or_index(outputs, name, index)? {
         OnnxTensorValue::I64(tensor) => Ok(tensor),
-        other => Err(OnnxRuntimeError::UnsupportedTensorType(format!(
-            "expected i64 output `{name}`/#{index}, got {:?}",
-            other.element_type()
-        ))),
+        other => Err(output_type_error(
+            "i64",
+            name,
+            index,
+            outputs,
+            other.element_type(),
+        )),
     }
 }
 
@@ -375,9 +398,66 @@ fn output_by_name_or_index<'a>(
         .map(|output| &output.tensor)
         .ok_or_else(|| {
             OnnxRuntimeError::InvalidArgument(format!(
-                "missing ONNX output `{name}` and fallback index #{index}"
+                "missing ONNX output `{name}` and fallback index #{index}; available outputs: {}",
+                available_output_names(outputs)
             ))
         })
+}
+
+fn output_by_preferred_name_or_index<'a>(
+    outputs: &'a [OnnxNamedTensor],
+    preferred_names: &[&str],
+    index: usize,
+) -> Result<&'a OnnxTensorValue> {
+    let preferred = outputs.iter().find(|output| {
+        preferred_names.iter().any(|name| {
+            output
+                .name
+                .to_ascii_lowercase()
+                .contains(&name.to_ascii_lowercase())
+        })
+    });
+    preferred
+        .or_else(|| outputs.get(index))
+        .map(|output| &output.tensor)
+        .ok_or_else(|| {
+            OnnxRuntimeError::InvalidArgument(format!(
+                "missing ONNX output matching {:?} and fallback index #{index}; available outputs: {}",
+                preferred_names,
+                available_output_names(outputs)
+            ))
+        })
+}
+
+fn output_type_error(
+    expected: &str,
+    requested: &str,
+    fallback_index: usize,
+    outputs: &[OnnxNamedTensor],
+    actual: OnnxTensorElementType,
+) -> OnnxRuntimeError {
+    OnnxRuntimeError::UnsupportedTensorType(format!(
+        "expected {expected} output `{requested}` with fallback index #{fallback_index}, got {actual:?}; available outputs: {}",
+        available_output_names(outputs)
+    ))
+}
+
+fn available_output_names(outputs: &[OnnxNamedTensor]) -> String {
+    if outputs.is_empty() {
+        return "<none>".to_string();
+    }
+    outputs
+        .iter()
+        .map(|output| {
+            format!(
+                "{}:{:?}{:?}",
+                output.name,
+                output.tensor.element_type(),
+                output.tensor.shape()
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn element_count(shape: &[usize]) -> Result<usize> {
@@ -553,10 +633,50 @@ mod tests {
     }
 
     #[test]
+    fn preferred_output_lookup_selects_named_f32_before_fallback() {
+        let first = single_f32_input("last_hidden_state", vec![1], vec![1.0]).unwrap();
+        let second = single_f32_input("image_embeds", vec![1], vec![2.0]).unwrap();
+        let outputs = vec![first, second];
+        assert_eq!(
+            f32_output_by_preferred_name_or_index(&outputs, &["image_embeds"], 0)
+                .unwrap()
+                .values,
+            vec![2.0]
+        );
+    }
+
+    #[test]
+    fn preferred_output_lookup_falls_back_to_index() {
+        let first = single_f32_input("first", vec![1], vec![1.0]).unwrap();
+        let second = single_f32_input("second", vec![1], vec![2.0]).unwrap();
+        let outputs = vec![first, second];
+        assert_eq!(
+            f32_output_by_preferred_name_or_index(&outputs, &["missing"], 1)
+                .unwrap()
+                .values,
+            vec![2.0]
+        );
+    }
+
+    #[test]
+    fn missing_output_error_reports_available_outputs() {
+        let outputs = vec![single_f32_input("scores", vec![1], vec![1.0]).unwrap()];
+        let err = f32_output_by_preferred_name_or_index(&outputs, &["logits"], 3).unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("logits"));
+        assert!(message.contains("#3"));
+        assert!(message.contains("scores"));
+        assert!(message.contains("F32"));
+    }
+
+    #[test]
     fn unsupported_output_dtype_returns_typed_error_through_helpers() {
         let outputs = vec![single_i64_input("ids", vec![1], vec![42]).unwrap()];
         let err = f32_output_by_name_or_index(&outputs, "ids", 0).unwrap_err();
+        let message = err.to_string();
         assert!(matches!(err, OnnxRuntimeError::UnsupportedTensorType(_)));
+        assert!(message.contains("I64"));
+        assert!(message.contains("ids"));
     }
 
     #[cfg(not(feature = "onnxruntime"))]

@@ -349,6 +349,7 @@ impl ImageCaptionerBackend for OnnxImageCaptioner {
                 .map_err(|err| DetectError::Source(format!("failed to decode caption: {err}")))?
                 .trim()
                 .to_string();
+            validate_decoded_caption_text(&text)?;
             Ok(vec![ImageCaption::new(text)])
         }
 
@@ -568,12 +569,12 @@ fn tokenizer_special_id(
     config_keys: &[&str],
     fallback_tokens: &[&str],
 ) -> Option<u32> {
-    config_keys
+    fallback_tokens
         .iter()
-        .filter_map(|key| {
+        .copied()
+        .chain(config_keys.iter().filter_map(|key| {
             tokenizer_config.and_then(|config| special_token_from_config(config, key))
-        })
-        .chain(fallback_tokens.iter().copied())
+        }))
         .find_map(|token| tokenizer.token_to_id(token))
 }
 
@@ -616,6 +617,10 @@ fn run_caption_encoder(
     runtime_onnx::first_f32_output(&outputs)
         .map(Clone::clone)
         .map_err(runtime_onnx_error)
+        .and_then(|tensor| {
+            validate_encoder_hidden_states(&tensor)?;
+            Ok(tensor)
+        })
 }
 
 #[cfg(feature = "local-onnx")]
@@ -665,7 +670,7 @@ fn run_caption_decoder(
         });
     }
     let outputs = decoder.run(inputs).map_err(runtime_onnx_error)?;
-    let logits = runtime_onnx::first_f32_output(&outputs).map_err(runtime_onnx_error)?;
+    let logits = caption_logits_output(&outputs)?;
     final_token_logits(logits)
 }
 
@@ -689,11 +694,35 @@ fn find_input_name(
 }
 
 #[cfg(any(feature = "local-onnx", test))]
+fn caption_logits_output(
+    outputs: &[runtime_onnx::OnnxNamedTensor],
+) -> Result<&runtime_onnx::OnnxF32Tensor> {
+    runtime_onnx::f32_output_by_preferred_name_or_index(outputs, &["logits"], 0)
+        .map_err(runtime_onnx_error)
+}
+
+#[cfg(any(feature = "local-onnx", test))]
+fn validate_encoder_hidden_states(tensor: &runtime_onnx::OnnxF32Tensor) -> Result<()> {
+    match tensor.shape.as_slice() {
+        [batch, sequence, hidden] if *batch > 0 && *sequence > 0 && *hidden > 0 => Ok(()),
+        shape => Err(DetectError::InvalidArgument(format!(
+            "ONNX caption encoder hidden states must have shape `[batch, sequence, hidden]`, got `{shape:?}`"
+        ))),
+    }
+}
+
+#[cfg(any(feature = "local-onnx", test))]
 fn final_token_logits(tensor: &runtime_onnx::OnnxF32Tensor) -> Result<Vec<f32>> {
-    let vocab = tensor.shape.last().copied().ok_or_else(|| {
-        DetectError::InvalidArgument("ONNX caption logits must have a vocab dimension".to_string())
-    })?;
-    if vocab == 0 || tensor.values.len() < vocab {
+    let vocab = match tensor.shape.as_slice() {
+        [sequence, vocab] if *sequence > 0 && *vocab > 0 => *vocab,
+        [batch, sequence, vocab] if *batch > 0 && *sequence > 0 && *vocab > 0 => *vocab,
+        shape => {
+            return Err(DetectError::InvalidArgument(format!(
+                "ONNX caption logits must have shape `[sequence, vocab]` or `[batch, sequence, vocab]`, got `{shape:?}`"
+            )))
+        }
+    };
+    if tensor.values.len() < vocab {
         return Err(DetectError::InvalidArgument(
             "ONNX caption logits values do not match shape".to_string(),
         ));
@@ -701,7 +730,17 @@ fn final_token_logits(tensor: &runtime_onnx::OnnxF32Tensor) -> Result<Vec<f32>> 
     Ok(tensor.values[tensor.values.len() - vocab..].to_vec())
 }
 
-#[cfg(feature = "local-onnx")]
+#[cfg(any(feature = "local-onnx", test))]
+fn validate_decoded_caption_text(text: &str) -> Result<()> {
+    if text.trim().is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "ONNX image captioning decoded an empty caption".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(any(feature = "local-onnx", test))]
 fn runtime_onnx_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
     match error {
         runtime_onnx::OnnxRuntimeError::InvalidArgument(message)
@@ -809,6 +848,13 @@ mod tests {
     }
 
     #[test]
+    fn greedy_decode_excludes_eos_token_from_payload() {
+        let generated =
+            greedy_decode_token_ids(1, 2, 8, |_| Ok(vec![0.0, 0.0, 10.0, 1.0])).unwrap();
+        assert!(generated.is_empty());
+    }
+
+    #[test]
     fn greedy_decode_honors_token_limit() {
         let generated = greedy_decode_token_ids(1, 9, 3, |_| Ok(vec![0.0, 0.0, 1.0])).unwrap();
         assert_eq!(generated, vec![2, 2, 2]);
@@ -818,6 +864,13 @@ mod tests {
     fn captioning_options_validate_required_token_ids() {
         let missing = OnnxImageCaptioningOptions::default();
         assert!(validate_captioning_options(&missing).is_err());
+
+        let missing_eos = OnnxImageCaptioningOptions {
+            decoder_start_token_id: Some(1),
+            ..OnnxImageCaptioningOptions::default()
+        };
+        let err = validate_captioning_options(&missing_eos).unwrap_err();
+        assert!(err.to_string().contains("eos_token_id"));
 
         let present = OnnxImageCaptioningOptions {
             decoder_start_token_id: Some(1),
@@ -867,5 +920,55 @@ mod tests {
             runtime_onnx::OnnxF32Tensor::new(vec![1, 2, 3], vec![0.1, 0.2, 0.3, 1.0, 2.0, 3.0])
                 .unwrap();
         assert_eq!(final_token_logits(&tensor).unwrap(), vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn final_token_logits_supports_implicit_batch_shape() {
+        let tensor =
+            runtime_onnx::OnnxF32Tensor::new(vec![2, 3], vec![0.1, 0.2, 0.3, 1.0, 2.0, 3.0])
+                .unwrap();
+        assert_eq!(final_token_logits(&tensor).unwrap(), vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn caption_logits_output_prefers_logits_name() {
+        let outputs = vec![
+            runtime_onnx::OnnxNamedTensor {
+                name: "past_key_values".to_string(),
+                tensor: runtime_onnx::OnnxTensorValue::F32(
+                    runtime_onnx::OnnxF32Tensor::new(vec![1, 1, 2], vec![1.0, 2.0]).unwrap(),
+                ),
+            },
+            runtime_onnx::OnnxNamedTensor {
+                name: "logits".to_string(),
+                tensor: runtime_onnx::OnnxTensorValue::F32(
+                    runtime_onnx::OnnxF32Tensor::new(vec![1, 1, 3], vec![3.0, 4.0, 5.0]).unwrap(),
+                ),
+            },
+        ];
+        assert_eq!(
+            final_token_logits(caption_logits_output(&outputs).unwrap()).unwrap(),
+            vec![3.0, 4.0, 5.0]
+        );
+    }
+
+    #[test]
+    fn final_token_logits_rejects_unsupported_shape() {
+        let tensor = runtime_onnx::OnnxF32Tensor::new(vec![3], vec![1.0, 2.0, 3.0]).unwrap();
+        let err = final_token_logits(&tensor).unwrap_err();
+        assert!(err.to_string().contains("[3]"));
+    }
+
+    #[test]
+    fn encoder_hidden_states_rejects_unsupported_shape() {
+        let tensor = runtime_onnx::OnnxF32Tensor::new(vec![1, 3], vec![1.0, 2.0, 3.0]).unwrap();
+        let err = validate_encoder_hidden_states(&tensor).unwrap_err();
+        assert!(err.to_string().contains("hidden states"));
+    }
+
+    #[test]
+    fn empty_decoded_caption_is_rejected() {
+        let err = validate_decoded_caption_text("  ").unwrap_err();
+        assert!(err.to_string().contains("empty caption"));
     }
 }

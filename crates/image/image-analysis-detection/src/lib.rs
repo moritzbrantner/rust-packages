@@ -1287,10 +1287,78 @@ fn decode_yunet_split_tensors(
     options: &OnnxFaceDetectionOptions,
     original_size: (u32, u32),
 ) -> Result<Vec<FaceDetection>> {
-    let loc = named_yunet_tensor(output, "loc")?;
-    let conf = named_yunet_tensor(output, "conf")?;
-    let iou = named_yunet_tensor(output, "iou")?;
-    let priors = generate_yunet_priors(&options.preprocessing);
+    let loc_groups = yunet_tensor_groups(output, "loc")?;
+    let conf_groups = yunet_tensor_groups(output, "conf")?;
+    let iou_groups = yunet_tensor_groups(output, "iou")?;
+
+    if loc_groups.len() == 1
+        && conf_groups.len() == 1
+        && iou_groups.len() == 1
+        && loc_groups[0].stride.is_none()
+        && conf_groups[0].stride.is_none()
+        && iou_groups[0].stride.is_none()
+    {
+        return decode_yunet_split_group(
+            loc_groups[0].tensor,
+            conf_groups[0].tensor,
+            iou_groups[0].tensor,
+            &generate_yunet_priors(&options.preprocessing),
+            options,
+            original_size,
+        );
+    }
+
+    if loc_groups.iter().all(|group| group.stride.is_none())
+        && conf_groups.iter().all(|group| group.stride.is_none())
+        && iou_groups.iter().all(|group| group.stride.is_none())
+        && loc_groups.len() == conf_groups.len()
+        && loc_groups.len() == iou_groups.len()
+        && loc_groups.len() == 3
+    {
+        let mut detections = Vec::new();
+        for (((loc, conf), iou), stride) in loc_groups
+            .iter()
+            .zip(conf_groups.iter())
+            .zip(iou_groups.iter())
+            .zip([8_u32, 16, 32].into_iter())
+        {
+            detections.extend(decode_yunet_split_group(
+                loc.tensor,
+                conf.tensor,
+                iou.tensor,
+                &generate_yunet_priors_for_stride(&options.preprocessing, stride),
+                options,
+                original_size,
+            )?);
+        }
+        return Ok(detections);
+    }
+
+    let mut detections = Vec::new();
+    for stride in [8_u32, 16, 32] {
+        let loc = yunet_group_for_stride(&loc_groups, "loc", stride)?;
+        let conf = yunet_group_for_stride(&conf_groups, "conf", stride)?;
+        let iou = yunet_group_for_stride(&iou_groups, "iou", stride)?;
+        detections.extend(decode_yunet_split_group(
+            loc.tensor,
+            conf.tensor,
+            iou.tensor,
+            &generate_yunet_priors_for_stride(&options.preprocessing, stride),
+            options,
+            original_size,
+        )?);
+    }
+    Ok(detections)
+}
+
+fn decode_yunet_split_group(
+    loc: &runtime_onnx::OnnxF32Tensor,
+    conf: &runtime_onnx::OnnxF32Tensor,
+    iou: &runtime_onnx::OnnxF32Tensor,
+    priors: &[YunetPrior],
+    options: &OnnxFaceDetectionOptions,
+    original_size: (u32, u32),
+) -> Result<Vec<FaceDetection>> {
     let count = yunet_row_count(&loc.shape, 14)?;
     if count != priors.len() {
         return Err(DetectError::InvalidArgument(format!(
@@ -1343,6 +1411,12 @@ fn decode_yunet_split_tensors(
 }
 
 #[derive(Debug, Clone, Copy)]
+struct YunetTensorGroup<'a> {
+    stride: Option<u32>,
+    tensor: &'a runtime_onnx::OnnxF32Tensor,
+}
+
+#[derive(Debug, Clone, Copy)]
 struct YunetPrior {
     cx: f32,
     cy: f32,
@@ -1357,23 +1431,32 @@ struct DecodedYunetPrior {
 }
 
 fn generate_yunet_priors(options: &ImageModelPreprocessing) -> Vec<YunetPrior> {
-    let input_width = options.input_width as f32;
-    let input_height = options.input_height as f32;
     let mut priors = Vec::new();
     for stride in [8_u32, 16, 32] {
-        let feature_width = options.input_width.div_ceil(stride);
-        let feature_height = options.input_height.div_ceil(stride);
-        let prior_width = stride as f32 / input_width;
-        let prior_height = stride as f32 / input_height;
-        for y in 0..feature_height {
-            for x in 0..feature_width {
-                priors.push(YunetPrior {
-                    cx: (x as f32 + 0.5) * stride as f32 / input_width,
-                    cy: (y as f32 + 0.5) * stride as f32 / input_height,
-                    width: prior_width,
-                    height: prior_height,
-                });
-            }
+        priors.extend(generate_yunet_priors_for_stride(options, stride));
+    }
+    priors
+}
+
+fn generate_yunet_priors_for_stride(
+    options: &ImageModelPreprocessing,
+    stride: u32,
+) -> Vec<YunetPrior> {
+    let input_width = options.input_width as f32;
+    let input_height = options.input_height as f32;
+    let feature_width = options.input_width.div_ceil(stride);
+    let feature_height = options.input_height.div_ceil(stride);
+    let prior_width = stride as f32 / input_width;
+    let prior_height = stride as f32 / input_height;
+    let mut priors = Vec::with_capacity(feature_width as usize * feature_height as usize);
+    for y in 0..feature_height {
+        for x in 0..feature_width {
+            priors.push(YunetPrior {
+                cx: (x as f32 + 0.5) * stride as f32 / input_width,
+                cy: (y as f32 + 0.5) * stride as f32 / input_height,
+                width: prior_width,
+                height: prior_height,
+            });
         }
     }
     priors
@@ -1400,18 +1483,47 @@ fn decode_yunet_prior(prior: &YunetPrior, values: &[f32]) -> DecodedYunetPrior {
     }
 }
 
-fn named_yunet_tensor<'a>(
+fn yunet_tensor_groups<'a>(
     output: &'a OnnxFaceDetectionOutput,
     needle: &str,
-) -> Result<&'a runtime_onnx::OnnxF32Tensor> {
-    output
+) -> Result<Vec<YunetTensorGroup<'a>>> {
+    let groups = output
         .tensors
         .iter()
-        .find(|(name, _)| name.to_ascii_lowercase().contains(needle))
-        .map(|(_, tensor)| tensor)
-        .ok_or_else(|| {
-            DetectError::InvalidArgument(format!("YuNet output is missing `{needle}` tensor"))
+        .filter(|(name, _)| name.to_ascii_lowercase().contains(needle))
+        .map(|(name, tensor)| YunetTensorGroup {
+            stride: yunet_stride_from_name(name),
+            tensor,
         })
+        .collect::<Vec<_>>();
+    if groups.is_empty() {
+        Err(DetectError::InvalidArgument(format!(
+            "YuNet output is missing `{needle}` tensor"
+        )))
+    } else {
+        Ok(groups)
+    }
+}
+
+fn yunet_group_for_stride<'a>(
+    groups: &'a [YunetTensorGroup<'a>],
+    needle: &str,
+    stride: u32,
+) -> Result<&'a YunetTensorGroup<'a>> {
+    groups
+        .iter()
+        .find(|group| group.stride == Some(stride))
+        .ok_or_else(|| {
+            DetectError::InvalidArgument(format!(
+                "YuNet output is missing `{needle}` tensor for stride {stride}"
+            ))
+        })
+}
+
+fn yunet_stride_from_name(name: &str) -> Option<u32> {
+    name.split(|character: char| !character.is_ascii_digit())
+        .filter_map(|part| part.parse::<u32>().ok())
+        .find(|stride| [8_u32, 16, 32].contains(stride))
 }
 
 fn yunet_row_count(shape: &[usize], expected_last_dim: usize) -> Result<usize> {
@@ -1940,6 +2052,44 @@ mod tests {
     }
 
     #[test]
+    fn yunet_decode_supports_batched_single_tensor_layout() {
+        let options = OnnxFaceDetectionOptions {
+            score_threshold: 0.5,
+            nms_threshold: 0.3,
+            preprocessing: ImageModelPreprocessing {
+                input_width: 100,
+                input_height: 100,
+                ..OnnxFaceDetectionOptions::default().preprocessing
+            },
+            ..OnnxFaceDetectionOptions::default()
+        };
+        let output = face_output([(
+            "faces",
+            f32_tensor(
+                vec![1, 1, 15],
+                vec![
+                    -10.0, -10.0, 50.0, 50.0, 0.8, 0.0, 0.0, 60.0, 0.0, 25.0, 25.0, 0.0, 60.0,
+                    60.0, 60.0,
+                ],
+            ),
+        )]);
+        let detections = decode_yunet_face_detections(&output, &options, (100, 100)).unwrap();
+        assert_eq!(detections.len(), 1);
+        assert_eq!(
+            detections[0].bbox,
+            FaceBox::new(0.0, 0.0, 0.5, 0.5).unwrap()
+        );
+        assert!(detections[0]
+            .landmarks
+            .as_ref()
+            .unwrap()
+            .points
+            .iter()
+            .flatten()
+            .all(|value| (0.0..=1.0).contains(value)));
+    }
+
+    #[test]
     fn yunet_decode_supports_split_loc_conf_iou_outputs() {
         let options = OnnxFaceDetectionOptions {
             score_threshold: 0.5,
@@ -1966,6 +2116,55 @@ mod tests {
             detections[0].bbox,
             FaceBox::new(0.0, 0.0, 1.0, 1.0).unwrap()
         );
+    }
+
+    #[test]
+    fn yunet_decode_supports_per_stride_split_outputs() {
+        let options = OnnxFaceDetectionOptions {
+            score_threshold: 0.5,
+            nms_threshold: 0.3,
+            preprocessing: ImageModelPreprocessing {
+                input_width: 8,
+                input_height: 8,
+                ..OnnxFaceDetectionOptions::default().preprocessing
+            },
+            ..OnnxFaceDetectionOptions::default()
+        };
+        let output = face_output([
+            ("loc_8", f32_tensor(vec![1, 14], vec![0.0; 14])),
+            ("conf_8", f32_tensor(vec![1, 2], vec![0.0, 0.81])),
+            ("iou_8", f32_tensor(vec![1, 1], vec![1.0])),
+            ("loc_16", f32_tensor(vec![1, 14], vec![0.0; 14])),
+            ("conf_16", f32_tensor(vec![1, 2], vec![0.0, 0.1])),
+            ("iou_16", f32_tensor(vec![1, 1], vec![1.0])),
+            ("loc_32", f32_tensor(vec![1, 14], vec![0.0; 14])),
+            ("conf_32", f32_tensor(vec![1, 2], vec![0.0, 0.1])),
+            ("iou_32", f32_tensor(vec![1, 1], vec![1.0])),
+        ]);
+        let detections = decode_yunet_face_detections(&output, &options, (8, 8)).unwrap();
+        assert_eq!(detections.len(), 1);
+        assert!((detections[0].confidence - 0.9).abs() < 0.0001);
+    }
+
+    #[test]
+    fn yunet_decode_rejects_mismatched_prior_count() {
+        let options = OnnxFaceDetectionOptions {
+            score_threshold: 0.5,
+            nms_threshold: 0.3,
+            preprocessing: ImageModelPreprocessing {
+                input_width: 8,
+                input_height: 8,
+                ..OnnxFaceDetectionOptions::default().preprocessing
+            },
+            ..OnnxFaceDetectionOptions::default()
+        };
+        let output = face_output([
+            ("loc", f32_tensor(vec![2, 14], vec![0.0; 2 * 14])),
+            ("conf", f32_tensor(vec![2, 2], vec![0.0, 0.9, 0.0, 0.8])),
+            ("iou", f32_tensor(vec![2, 1], vec![1.0, 1.0])),
+        ]);
+        let err = decode_yunet_face_detections(&output, &options, (8, 8)).unwrap_err();
+        assert!(err.to_string().contains("prior count"));
     }
 
     #[test]

@@ -3,7 +3,10 @@
 use std::path::{Path, PathBuf};
 
 use model_runtime::ModelBundle;
-use runtime_onnx::{f32_output_by_name_or_index, OnnxNamedTensor, OnnxTensor, OnnxTensorValue};
+use runtime_onnx::{
+    f32_output_by_name_or_index, f32_output_by_preferred_name_or_index, OnnxNamedTensor,
+    OnnxTensor, OnnxTensorValue,
+};
 
 fn bundle(name: &str) -> Option<ModelBundle> {
     let root = PathBuf::from(".model-runtime").join(name).join("main");
@@ -43,6 +46,12 @@ fn roberta_onnx_bundle_and_runtime_helpers_regressions() {
     ];
     assert_eq!(
         f32_output_by_name_or_index(&outputs, "end_logits", 0)
+            .unwrap()
+            .values,
+        vec![0.3, 0.2, 0.1]
+    );
+    assert_eq!(
+        f32_output_by_preferred_name_or_index(&outputs, &["end_logits"], 0)
             .unwrap()
             .values,
         vec![0.3, 0.2, 0.1]
