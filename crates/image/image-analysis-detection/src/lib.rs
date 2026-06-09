@@ -1325,7 +1325,7 @@ fn decode_yunet_split_tensors(
             .iter()
             .zip(conf_groups.iter())
             .zip(iou_groups.iter())
-            .zip([8_u32, 16, 32].into_iter())
+            .zip([8_u32, 16, 32])
         {
             detections.extend(decode_yunet_split_group(
                 loc.tensor,

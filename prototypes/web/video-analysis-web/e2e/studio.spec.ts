@@ -27,22 +27,18 @@ test("opens the direct video category route", async ({ page }) => {
   await expect(page.getByRole("link", { name: /video-analysis-sfm/ })).toBeVisible();
 });
 
-test("loads the colmap backend app on its wrapper URL", async ({ page }) => {
+test("loads the sfm backend app on its wrapper URL", async ({ page }) => {
   await page.goto("/wrappers/video-analysis-sfm/");
 
   await expect(page.getByRole("heading", { name: "video-analysis-sfm" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Frontend" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Video Analysis Colmap Backend" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Video Analysis SFM" })).toBeVisible();
   await expect(page.getByRole("group", { name: "Runtime mode" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Client WASM" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Overview Server" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Standalone Server" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Test Pattern" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Color Bars" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Moving Box" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "COLMAP Test Video" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Test Video", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "COLMAP Run" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "3D View" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Support" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Workflow" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Debug" })).toBeVisible();
+  await expect(page.locator("select").first()).toHaveValue("video.sfm.matchPlan");
+  await expect(page.getByRole("button", { name: "Run", exact: true })).toBeVisible();
 });

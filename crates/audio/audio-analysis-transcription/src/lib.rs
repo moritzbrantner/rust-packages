@@ -763,8 +763,8 @@ pub fn run_transcription_pipeline(
     request: TranscriptionPipelineRequest,
     vad_provider: &mut dyn TranscriptionVadProvider,
     asr_provider: &mut dyn AudioTranscriptionProvider,
-    mut alignment_provider: Option<&mut dyn ForcedAlignmentProvider>,
-    mut diarization_provider: Option<&mut dyn TranscriptDiarizationProvider>,
+    alignment_provider: Option<&mut dyn ForcedAlignmentProvider>,
+    diarization_provider: Option<&mut dyn TranscriptDiarizationProvider>,
 ) -> Result<TranscriptionPipelineResponse> {
     let provider = request.provider.provider_id().to_string();
     let model_id = request.provider.model_id().to_string();
@@ -800,7 +800,7 @@ pub fn run_transcription_pipeline(
     diagnostics.extend(asr_response.diagnostics);
     let mut alignment_summary = None;
     if request.alignment.enabled {
-        let provider = alignment_provider.as_deref_mut().ok_or_else(|| {
+        let provider = alignment_provider.ok_or_else(|| {
             setup_error("alignment requested but no alignment provider is available")
         })?;
         let alignment_response = provider.align(AlignmentRequest {
@@ -820,7 +820,7 @@ pub fn run_transcription_pipeline(
 
     let mut diarization = None;
     if request.diarization.enabled {
-        let provider = diarization_provider.as_deref_mut().ok_or_else(|| {
+        let provider = diarization_provider.ok_or_else(|| {
             setup_error("diarization requested but no diarization provider is available")
         })?;
         let response = provider.diarize(audio, &transcript, &request.diarization)?;

@@ -943,14 +943,25 @@ pub fn decode_question_answering_spans(
     let top_k = options.top_k.max(1);
     let max_answer_len = options.max_answer_len.max(1);
     let mut spans = Vec::new();
-    for start in 0..tokens.input_ids.len() {
+    for (start, start_probability) in start_probabilities
+        .iter()
+        .copied()
+        .enumerate()
+        .take(tokens.input_ids.len())
+    {
         if tokens.sequence_ids.get(start).copied().flatten() != Some(1) {
             continue;
         }
         let Some((byte_start, _)) = tokens.offsets.get(start).copied().flatten() else {
             continue;
         };
-        for end in start..tokens.input_ids.len().min(start + max_answer_len) {
+        for (end, end_probability) in end_probabilities
+            .iter()
+            .copied()
+            .enumerate()
+            .take(tokens.input_ids.len().min(start + max_answer_len))
+            .skip(start)
+        {
             if tokens.sequence_ids.get(end).copied().flatten() != Some(1) {
                 continue;
             }
@@ -963,7 +974,7 @@ pub fn decode_question_answering_spans(
             if !context.is_char_boundary(byte_start) || !context.is_char_boundary(byte_end) {
                 continue;
             }
-            let score = start_probabilities[start] * end_probabilities[end];
+            let score = start_probability * end_probability;
             if options.min_score.is_some_and(|min_score| score < min_score) {
                 continue;
             }

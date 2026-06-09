@@ -206,12 +206,14 @@ fn from_file_impl(path: &Path, options: OnnxSessionOptions) -> Result<OnnxSessio
             .map_err(ort_error)?,
     };
     let mut builder = match options.execution_provider {
-        OnnxExecutionProvider::Cpu => builder
-            .with_no_environment_execution_providers()
-            .and_then(|builder| {
-                builder.with_execution_providers([ort::ep::CPUExecutionProvider::default().build()])
-            })
-            .map_err(ort_error)?,
+        OnnxExecutionProvider::Cpu => {
+            let builder = builder
+                .with_no_environment_execution_providers()
+                .map_err(ort_error)?;
+            builder
+                .with_execution_providers([ort::ep::CPUExecutionProvider::default().build()])
+                .map_err(ort_error)?
+        }
     };
     let session = builder.commit_from_file(path).map_err(ort_error)?;
     Ok(OnnxSession {

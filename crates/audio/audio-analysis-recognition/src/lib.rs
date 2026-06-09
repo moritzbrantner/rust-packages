@@ -18,6 +18,7 @@ use video_analysis_core::{
     AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result, Timestamp,
 };
 
+#[allow(deprecated)]
 pub use transcription::{
     transcribe, transcription_plan, AudioTranscriptionProvider, ImportedTranscriptionProvider,
     TranscriptionBackendPlan, TranscriptionInput, TranscriptionProviderKind, TranscriptionRequest,
@@ -340,6 +341,7 @@ pub struct SpeechRecognitionResponse {
     pub transcript: TranscriptionContract,
 }
 
+#[allow(deprecated)]
 impl SpeechRecognitionResponse {
     /// Returns the full transcript text, synthesizing it from segments when the
     /// transcript does not carry a separate aggregate text field.

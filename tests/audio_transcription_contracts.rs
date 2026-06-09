@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use std::collections::BTreeMap;
 
 use audio_analysis_recognition::{

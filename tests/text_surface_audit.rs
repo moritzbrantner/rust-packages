@@ -544,6 +544,7 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
                 "describe",
                 "transcripts.parse",
                 "transcripts.normalize",
+                "transcripts.importWhisperX",
                 "transcripts.formatSrt",
                 "transcripts.formatWebVtt",
                 "transcripts.toTextSegments",
@@ -551,6 +552,7 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
             workflow: &[
                 "transcripts.parse",
                 "transcripts.normalize",
+                "transcripts.importWhisperX",
                 "transcripts.formatSrt",
                 "transcripts.formatWebVtt",
                 "transcripts.toTextSegments",

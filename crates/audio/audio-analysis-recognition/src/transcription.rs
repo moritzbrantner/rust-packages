@@ -1,4 +1,5 @@
 //! Generic transcription contracts and deterministic providers.
+#![allow(deprecated)]
 
 use model_runtime::{FallbackPolicy, ModelRuntimeBackend, ModelSpec, ModelTask};
 use serde::{Deserialize, Serialize};

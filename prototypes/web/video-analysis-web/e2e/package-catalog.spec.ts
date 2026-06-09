@@ -58,15 +58,25 @@ test("catalog exposes every server-backed wrapper route with a mounted frontend"
     await expect(page.getByRole("button", { name: "Overview Server" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Standalone Server" })).toBeVisible();
 
-    const runButton = page.getByRole("button", { name: "Run" });
+    const runButton = page.getByRole("button", { name: "Run", exact: true });
     await expect(runButton).toBeVisible();
-    if (await runButton.isDisabled()) {
-      await expect(
-        page.getByText(
-          /No runnable runtime is available|Client WASM is unavailable|Overview Server is unavailable|No operations are available|server-only|not supported by the selected/,
-        ),
-      ).toBeVisible();
-    }
+    const disabledReason = page.getByText(
+      /No runnable runtime is available|Client WASM is unavailable|Overview Server is unavailable|No operations are available|server-only|not supported by the selected/,
+    );
+    await expect
+      .poll(
+        async () => {
+          if (await runButton.isEnabled()) {
+            return "enabled";
+          }
+          if ((await disabledReason.count()) > 0 && await disabledReason.first().isVisible()) {
+            return "disabled-with-reason";
+          }
+          return "pending";
+        },
+        { timeout: 10_000 },
+      )
+      .not.toBe("pending");
     await expect(page.getByText("Failed to fetch dynamically imported module")).toHaveCount(0);
   }
 });
@@ -142,8 +152,8 @@ function availablePackageApps(): string[] {
 
 async function runAndExpectResult(page: Page) {
   await expect(page.getByRole("group", { name: "Runtime mode" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Run" })).toBeEnabled();
-  await page.getByRole("button", { name: "Run" }).click();
+  await expect(page.getByRole("button", { name: "Run", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Run", exact: true }).click();
   await expect(page.getByRole("button", { name: /JSON/ })).toBeVisible();
   await page.getByRole("button", { name: /JSON/ }).click();
   await expect(page.locator("pre").first()).toContainText('"operation"');
@@ -151,9 +161,9 @@ async function runAndExpectResult(page: Page) {
 
 async function runAndExpectStructuredTextResult(page: Page) {
   await expect(page.getByRole("group", { name: "Runtime mode" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Run" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Run", exact: true })).toBeEnabled();
   const operation = await page.locator("select").first().inputValue();
-  await page.getByRole("button", { name: "Run" }).click();
+  await page.getByRole("button", { name: "Run", exact: true }).click();
   await expect(page.getByRole("button", { name: /JSON/ })).toBeVisible();
   await page.getByRole("button", { name: /JSON/ }).click();
   const raw = page.locator("pre").first();
