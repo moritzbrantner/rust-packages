@@ -8,9 +8,9 @@ available behind `model-bundles`. Native path decoding is WAV-only for now; pass
 samples directly or use the external compatibility provider for container or
 video inputs.
 
-Native Whisper segment timing is currently chunk/window-level. It does not yet
-perform true Whisper timestamp-token decoding, so word- or token-level native
-Whisper timestamps remain future work.
+Native Whisper segment timing remains chunk/window-level by default. A private
+timestamp-token decode path can parse Whisper timestamp tokens into segment
+timings for parity work; word-level native Whisper timing remains future work.
 
 The external WhisperX command provider remains compatibility and parity tooling.
 It keeps Python-based execution explicit for callers that still need WhisperX

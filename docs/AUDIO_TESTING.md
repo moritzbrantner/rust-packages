@@ -143,8 +143,10 @@ cargo test -p moritzbrantner-audio-analysis-transcription \
   candle_whisper_cuda_smoke_when_requested -- --ignored --nocapture
 ```
 
-The native Whisper path reports chunk/window-level segment timing only. True
-Whisper timestamp-token decoding is not implemented yet.
+The native Whisper path reports chunk/window-level segment timing by default.
+Its private timestamp-token decode path is covered by tokenizer and
+token-sequence unit tests and can map Whisper timestamp tokens to segment
+timings without requiring model files.
 
 On the RTX 3060 Ti development host used for the current smoke, the working
 local assets are:

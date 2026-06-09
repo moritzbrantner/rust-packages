@@ -14,6 +14,10 @@ use crate::{
     AsrResponse, CandleWhisperOptions, SpeechActivitySegment,
 };
 
+const WHISPER_TIMESTAMP_SECONDS_PER_TOKEN: f64 = 0.02;
+const WHISPER_TIMESTAMP_TOKEN_COUNT: u32 =
+    (whisper::CHUNK_LENGTH as f64 / WHISPER_TIMESTAMP_SECONDS_PER_TOKEN) as u32 + 1;
+
 #[derive(Debug, Clone)]
 pub(crate) struct WhisperBundlePaths {
     pub root: PathBuf,
@@ -46,6 +50,33 @@ struct GenerationConfig {
     lang_to_id: std::collections::BTreeMap<String, u32>,
     #[serde(default)]
     task_to_id: std::collections::BTreeMap<String, u32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WhisperDecodeMode {
+    WithoutTimestamps,
+    TimestampTokens,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct WhisperTimestampSpec {
+    begin_token_id: u32,
+    end_token_id: u32,
+    seconds_per_token: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct WhisperDecodedWindow {
+    text: String,
+    segments: Vec<WhisperDecodedSegment>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct WhisperDecodedSegment {
+    text: String,
+    start_seconds: f64,
+    end_seconds: f64,
+    token_ids: Vec<u32>,
 }
 
 pub(crate) fn transcribe(
@@ -171,21 +202,33 @@ impl CandleWhisperSession {
     fn transcribe_chunks(&mut self, request: AsrRequest) -> Result<AsrResponse> {
         let mut segments = Vec::new();
         let mut next_index = 0_u64;
+        let mut used_timestamp_tokens = false;
         for chunk in &request.chunks {
             for window in chunk_windows(&request.audio.samples, request.audio.sample_rate, chunk)? {
-                let text = self.decode_window(&window.samples)?;
-                let mut segment = TranscriptSegmentContract::new(next_index, text);
-                segment.start_seconds = Some(window.local_start_seconds);
-                segment.end_seconds = Some(window.local_end_seconds);
-                segment.language = self.setup.language.clone();
-                segment
-                    .attributes
-                    .insert("provider".to_string(), "candle-whisper".to_string());
-                segment
-                    .attributes
-                    .insert("timing".to_string(), "chunkLocal".to_string());
-                segments.push(segment);
-                next_index += 1;
+                let decoded =
+                    self.decode_window(&window.samples, WhisperDecodeMode::WithoutTimestamps)?;
+                if decoded.segments.is_empty() {
+                    if decoded.text.trim().is_empty() {
+                        continue;
+                    }
+                    segments.push(window_fallback_segment(
+                        next_index,
+                        decoded.text,
+                        window.local_start_seconds,
+                        window.local_end_seconds,
+                        self.setup.language.clone(),
+                    ));
+                    next_index += 1;
+                } else {
+                    used_timestamp_tokens = true;
+                    segments.extend(decoded_window_to_contract_segments(
+                        decoded,
+                        &mut next_index,
+                        window.local_start_seconds,
+                        window.local_end_seconds,
+                        self.setup.language.clone(),
+                    ));
+                }
             }
         }
         let transcript = TranscriptionContract::from_segments(
@@ -202,7 +245,11 @@ impl CandleWhisperSession {
             format!("bundle={}", self.setup.bundle.root.display()),
             format!("chunkCount={}", request.chunks.len()),
             format!("cuda={}", device_is_cuda(&self.setup.resolved_device)),
-            "timing=chunk/window".to_string(),
+            if used_timestamp_tokens {
+                "timing=whisperTimestampTokens".to_string()
+            } else {
+                "timing=chunk/window".to_string()
+            },
         ];
         if let Some(language) = &self.setup.language {
             diagnostics.push(format!("language={language}"));
@@ -215,7 +262,11 @@ impl CandleWhisperSession {
         })
     }
 
-    fn decode_window(&mut self, samples: &[f32]) -> Result<String> {
+    fn decode_window(
+        &mut self,
+        samples: &[f32],
+        mode: WhisperDecodeMode,
+    ) -> Result<WhisperDecodedWindow> {
         let mel = whisper::audio::pcm_to_mel(&self.model.config, samples, &self.mel_filters);
         let n_mel = self.model.config.num_mel_bins;
         let mel_frames = mel.len() / n_mel;
@@ -235,19 +286,31 @@ impl CandleWhisperSession {
             self.model.encoder.forward(&mel, true).map_err(|error| {
                 model_output_mismatch(format!("Whisper encoder failed: {error}"))
             })?;
-        let token_ids = self.decode_tokens(&audio_features)?;
-        self.tokenizer
-            .decode(&token_ids, true)
-            .map(|text| text.trim().to_string())
-            .map_err(|error| {
-                model_output_mismatch(format!("failed to decode Whisper tokens: {error}"))
-            })
-            .map(|text| text.replace("  ", " "))
-            .map(|text| text.trim().to_string())
+        let token_ids = self.decode_tokens(&audio_features, mode)?;
+        match mode {
+            WhisperDecodeMode::WithoutTimestamps => Ok(WhisperDecodedWindow {
+                text: decode_text_tokens(&self.tokenizer, &token_ids)?,
+                segments: Vec::new(),
+            }),
+            WhisperDecodeMode::TimestampTokens => {
+                decode_timestamp_window(&self.tokenizer, &token_ids)?
+                    .map(Ok)
+                    .unwrap_or_else(|| {
+                        Ok(WhisperDecodedWindow {
+                            text: decode_text_tokens(&self.tokenizer, &token_ids)?,
+                            segments: Vec::new(),
+                        })
+                    })
+            }
+        }
     }
 
-    fn decode_tokens(&mut self, audio_features: &Tensor) -> Result<Vec<u32>> {
-        let mut tokens = self.initial_tokens()?;
+    fn decode_tokens(
+        &mut self,
+        audio_features: &Tensor,
+        mode: WhisperDecodeMode,
+    ) -> Result<Vec<u32>> {
+        let mut tokens = self.initial_tokens(mode)?;
         let eos = self.eos_token_id()?;
         let prompt_len = tokens.len();
         let max_length = self
@@ -288,18 +351,34 @@ impl CandleWhisperSession {
         Ok(tokens.into_iter().skip(prompt_len).collect())
     }
 
-    fn initial_tokens(&self) -> Result<Vec<u32>> {
-        Self::initial_prompt_tokens(
+    fn initial_tokens(&self, mode: WhisperDecodeMode) -> Result<Vec<u32>> {
+        Self::initial_prompt_tokens_for_mode(
             &self.generation,
             &self.tokenizer,
             self.setup.language.as_deref(),
+            mode,
         )
     }
 
+    #[cfg(test)]
     fn initial_prompt_tokens(
         generation: &GenerationConfig,
         tokenizer: &Tokenizer,
         language: Option<&str>,
+    ) -> Result<Vec<u32>> {
+        Self::initial_prompt_tokens_for_mode(
+            generation,
+            tokenizer,
+            language,
+            WhisperDecodeMode::WithoutTimestamps,
+        )
+    }
+
+    fn initial_prompt_tokens_for_mode(
+        generation: &GenerationConfig,
+        tokenizer: &Tokenizer,
+        language: Option<&str>,
+        mode: WhisperDecodeMode,
     ) -> Result<Vec<u32>> {
         let decoder_start = Self::decoder_start_token_id(generation, tokenizer)?;
         let mut tokens = vec![decoder_start];
@@ -318,14 +397,22 @@ impl CandleWhisperSession {
                 )
             })?;
         tokens.push(transcribe);
-        let no_timestamps = token_id(tokenizer, whisper::NO_TIMESTAMPS_TOKEN)
-            .ok_or_else(|| invalid_request("Whisper tokenizer is missing no-timestamps token"))?;
-        tokens.push(no_timestamps);
+        let no_timestamps = token_id(tokenizer, whisper::NO_TIMESTAMPS_TOKEN);
+        if mode == WhisperDecodeMode::WithoutTimestamps {
+            tokens.push(no_timestamps.ok_or_else(|| {
+                invalid_request("Whisper tokenizer is missing no-timestamps token")
+            })?);
+        }
         if let Some(forced) = &generation.forced_decoder_ids {
             for (position, token) in forced {
                 let Some(token) = token else {
                     continue;
                 };
+                if mode == WhisperDecodeMode::TimestampTokens
+                    && no_timestamps.is_some_and(|no_timestamps| no_timestamps == *token)
+                {
+                    continue;
+                }
                 if *position < tokens.len() {
                     tokens[*position] = *token;
                 } else {
@@ -387,6 +474,169 @@ impl CandleWhisperSession {
             .copied()
             .or_else(|| token_id(tokenizer, &wrapped))
     }
+}
+
+fn decode_timestamp_window(
+    tokenizer: &Tokenizer,
+    token_ids: &[u32],
+) -> Result<Option<WhisperDecodedWindow>> {
+    let spec = whisper_timestamp_spec(tokenizer)?;
+    decode_timestamp_window_with_spec(tokenizer, token_ids, &spec)
+}
+
+fn decode_timestamp_window_with_spec(
+    tokenizer: &Tokenizer,
+    token_ids: &[u32],
+    spec: &WhisperTimestampSpec,
+) -> Result<Option<WhisperDecodedWindow>> {
+    let mut segments = Vec::new();
+    let mut pending_text_tokens = Vec::new();
+    let mut segment_start = None;
+    let mut previous_timestamp = None;
+    let mut saw_timestamp = false;
+
+    for token_id in token_ids {
+        if let Some(seconds) = timestamp_seconds(*token_id, spec) {
+            saw_timestamp = true;
+            if let Some(previous) = previous_timestamp {
+                if seconds < previous {
+                    return Err(model_output_mismatch(format!(
+                        "Whisper timestamp tokens are not monotonic: {seconds:.2} after {previous:.2}"
+                    )));
+                }
+            }
+            if !pending_text_tokens.is_empty() {
+                let start_seconds = segment_start.unwrap_or(seconds);
+                if seconds < start_seconds {
+                    return Err(model_output_mismatch(format!(
+                        "Whisper timestamp segment ends before it starts: {seconds:.2} < {start_seconds:.2}"
+                    )));
+                }
+                let text = decode_text_tokens(tokenizer, &pending_text_tokens)?;
+                if !text.is_empty() {
+                    segments.push(WhisperDecodedSegment {
+                        text,
+                        start_seconds,
+                        end_seconds: seconds,
+                        token_ids: std::mem::take(&mut pending_text_tokens),
+                    });
+                } else {
+                    pending_text_tokens.clear();
+                }
+            }
+            segment_start = Some(seconds);
+            previous_timestamp = Some(seconds);
+        } else {
+            pending_text_tokens.push(*token_id);
+        }
+    }
+
+    if !pending_text_tokens.is_empty() {
+        return Ok(None);
+    }
+    if !saw_timestamp {
+        return Ok(None);
+    }
+
+    let text = segments
+        .iter()
+        .map(|segment| segment.text.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    Ok(Some(WhisperDecodedWindow { text, segments }))
+}
+
+fn whisper_timestamp_spec(tokenizer: &Tokenizer) -> Result<WhisperTimestampSpec> {
+    let begin_token_id = token_id(tokenizer, "<|0.00|>").ok_or_else(|| {
+        invalid_request("Whisper tokenizer is missing timestamp token `<|0.00|>`")
+    })?;
+    let end_token_id = token_id(tokenizer, "<|30.00|>")
+        .map(|token| token + 1)
+        .unwrap_or(begin_token_id + WHISPER_TIMESTAMP_TOKEN_COUNT);
+    if end_token_id <= begin_token_id {
+        return Err(invalid_request(
+            "Whisper timestamp token range is empty or malformed",
+        ));
+    }
+    Ok(WhisperTimestampSpec {
+        begin_token_id,
+        end_token_id,
+        seconds_per_token: WHISPER_TIMESTAMP_SECONDS_PER_TOKEN,
+    })
+}
+
+fn timestamp_seconds(token_id: u32, spec: &WhisperTimestampSpec) -> Option<f64> {
+    (spec.begin_token_id..spec.end_token_id)
+        .contains(&token_id)
+        .then(|| (token_id - spec.begin_token_id) as f64 * spec.seconds_per_token)
+}
+
+fn decode_text_tokens(tokenizer: &Tokenizer, token_ids: &[u32]) -> Result<String> {
+    tokenizer
+        .decode(token_ids, true)
+        .map(clean_decoded_text)
+        .map_err(|error| model_output_mismatch(format!("failed to decode Whisper tokens: {error}")))
+}
+
+fn clean_decoded_text(text: String) -> String {
+    text.replace("  ", " ").trim().to_string()
+}
+
+fn window_fallback_segment(
+    index: u64,
+    text: String,
+    start_seconds: f64,
+    end_seconds: f64,
+    language: Option<String>,
+) -> TranscriptSegmentContract {
+    let mut segment = TranscriptSegmentContract::new(index, text);
+    segment.start_seconds = Some(start_seconds);
+    segment.end_seconds = Some(end_seconds);
+    segment.language = language;
+    segment
+        .attributes
+        .insert("provider".to_string(), "candle-whisper".to_string());
+    segment
+        .attributes
+        .insert("timing".to_string(), "chunkLocal".to_string());
+    segment
+}
+
+fn decoded_window_to_contract_segments(
+    decoded: WhisperDecodedWindow,
+    next_index: &mut u64,
+    window_start_seconds: f64,
+    window_end_seconds: f64,
+    language: Option<String>,
+) -> Vec<TranscriptSegmentContract> {
+    decoded
+        .segments
+        .into_iter()
+        .filter_map(|decoded_segment| {
+            let text = decoded_segment.text.trim().to_string();
+            if text.is_empty() {
+                return None;
+            }
+            let mut segment = TranscriptSegmentContract::new(*next_index, text);
+            *next_index += 1;
+            segment.start_seconds = Some(
+                (window_start_seconds + decoded_segment.start_seconds)
+                    .clamp(window_start_seconds, window_end_seconds),
+            );
+            segment.end_seconds = Some(
+                (window_start_seconds + decoded_segment.end_seconds)
+                    .clamp(window_start_seconds, window_end_seconds),
+            );
+            segment.language = language.clone();
+            segment
+                .attributes
+                .insert("provider".to_string(), "candle-whisper".to_string());
+            segment
+                .attributes
+                .insert("timing".to_string(), "whisperTimestampTokens".to_string());
+            Some(segment)
+        })
+        .collect()
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path, label: &str) -> Result<T> {
@@ -548,6 +798,29 @@ mod tests {
         Tokenizer::new(model)
     }
 
+    fn timestamp_test_tokenizer() -> Tokenizer {
+        let temp = tempfile::tempdir().unwrap();
+        let vocab = temp.path().join("vocab.json");
+        std::fs::write(
+            &vocab,
+            serde_json::json!({
+                "<unk>": 0,
+                "hello": 10,
+                "world": 11,
+                "again": 12,
+                "<|0.00|>": 100,
+                "<|1.00|>": 150,
+                "<|2.00|>": 200,
+                "<|3.00|>": 250,
+                "<|30.00|>": 1600
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let model = WordLevel::from_file(vocab.to_str().unwrap(), "<unk>".to_string()).unwrap();
+        Tokenizer::new(model)
+    }
+
     #[test]
     fn initial_prompt_uses_requested_language_and_transcribe_task() {
         let tokens = CandleWhisperSession::initial_prompt_tokens(
@@ -618,6 +891,131 @@ mod tests {
             CandleWhisperSession::initial_prompt_tokens(&generation, &test_tokenizer(), Some("en"))
                 .unwrap();
         assert_eq!(tokens, vec![1, 3, 5, 7]);
+    }
+
+    #[test]
+    fn timestamp_prompt_omits_no_timestamps_token() {
+        let mut generation = test_generation();
+        generation.forced_decoder_ids = Some(vec![(3, Some(7))]);
+        let tokens = CandleWhisperSession::initial_prompt_tokens_for_mode(
+            &generation,
+            &test_tokenizer(),
+            Some("en"),
+            WhisperDecodeMode::TimestampTokens,
+        )
+        .unwrap();
+        assert_eq!(tokens, vec![1, 3, 5]);
+        assert!(!tokens.contains(&7));
+    }
+
+    #[test]
+    fn timestamp_token_detection_uses_whisper_zero_token() {
+        let spec = whisper_timestamp_spec(&timestamp_test_tokenizer()).unwrap();
+        assert_eq!(spec.begin_token_id, 100);
+        assert_eq!(spec.end_token_id, 1601);
+        assert_eq!(timestamp_seconds(150, &spec), Some(1.0));
+        assert_eq!(timestamp_seconds(99, &spec), None);
+    }
+
+    #[test]
+    fn missing_timestamp_metadata_returns_invalid_request() {
+        let error = whisper_timestamp_spec(&test_tokenizer())
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("<|0.00|>"));
+    }
+
+    #[test]
+    fn timestamp_decode_reads_one_bounded_segment() {
+        let tokenizer = timestamp_test_tokenizer();
+        let decoded = decode_timestamp_window(&tokenizer, &[100, 10, 11, 150])
+            .unwrap()
+            .unwrap();
+        assert_eq!(decoded.text, "hello world");
+        assert_eq!(decoded.segments.len(), 1);
+        assert_eq!(decoded.segments[0].text, "hello world");
+        assert_eq!(decoded.segments[0].start_seconds, 0.0);
+        assert_eq!(decoded.segments[0].end_seconds, 1.0);
+        assert_eq!(decoded.segments[0].token_ids, vec![10, 11]);
+    }
+
+    #[test]
+    fn timestamp_decode_reads_multiple_bounded_segments() {
+        let tokenizer = timestamp_test_tokenizer();
+        let decoded = decode_timestamp_window(&tokenizer, &[100, 10, 150, 150, 11, 200])
+            .unwrap()
+            .unwrap();
+        assert_eq!(decoded.text, "hello world");
+        assert_eq!(decoded.segments.len(), 2);
+        assert_eq!(decoded.segments[0].text, "hello");
+        assert_eq!(decoded.segments[0].start_seconds, 0.0);
+        assert_eq!(decoded.segments[0].end_seconds, 1.0);
+        assert_eq!(decoded.segments[1].text, "world");
+        assert_eq!(decoded.segments[1].start_seconds, 1.0);
+        assert_eq!(decoded.segments[1].end_seconds, 2.0);
+    }
+
+    #[test]
+    fn timestamp_decode_missing_end_timestamp_falls_back() {
+        let tokenizer = timestamp_test_tokenizer();
+        let decoded = decode_timestamp_window(&tokenizer, &[100, 10, 11]).unwrap();
+        assert!(decoded.is_none());
+    }
+
+    #[test]
+    fn timestamp_decode_rejects_non_monotonic_timestamps() {
+        let tokenizer = timestamp_test_tokenizer();
+        let error = decode_timestamp_window(&tokenizer, &[150, 10, 100])
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("model_output_mismatch"));
+        assert!(error.contains("not monotonic"));
+    }
+
+    #[test]
+    fn timestamp_decode_uses_text_between_timestamp_pairs() {
+        let tokenizer = timestamp_test_tokenizer();
+        let decoded = decode_timestamp_window(&tokenizer, &[100, 150, 10, 200, 250])
+            .unwrap()
+            .unwrap();
+        assert_eq!(decoded.segments.len(), 1);
+        assert_eq!(decoded.segments[0].text, "hello");
+        assert_eq!(decoded.segments[0].start_seconds, 1.0);
+        assert_eq!(decoded.segments[0].end_seconds, 2.0);
+    }
+
+    #[test]
+    fn timestamp_decoded_segments_map_to_transcript_contracts() {
+        let decoded = WhisperDecodedWindow {
+            text: "hello".to_string(),
+            segments: vec![WhisperDecodedSegment {
+                text: "hello".to_string(),
+                start_seconds: 0.5,
+                end_seconds: 1.25,
+                token_ids: vec![10],
+            }],
+        };
+        let mut next_index = 7;
+        let segments = decoded_window_to_contract_segments(
+            decoded,
+            &mut next_index,
+            10.0,
+            12.0,
+            Some("en".to_string()),
+        );
+        assert_eq!(next_index, 8);
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0].index, 7);
+        assert_eq!(segments[0].text, "hello");
+        assert_eq!(segments[0].start_seconds, Some(10.5));
+        assert_eq!(segments[0].end_seconds, Some(11.25));
+        assert_eq!(segments[0].language.as_deref(), Some("en"));
+        assert_eq!(
+            segments[0].attributes.get("timing").map(String::as_str),
+            Some("whisperTimestampTokens")
+        );
+        TranscriptionContract::from_segments(None, Some("en".to_string()), segments).unwrap();
     }
 
     #[test]
