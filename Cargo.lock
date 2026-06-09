@@ -2328,6 +2328,7 @@ dependencies = [
 name = "moritzbrantner-audio-analysis-speakers"
 version = "0.1.0"
 dependencies = [
+ "hound",
  "moritzbrantner-audio-analysis-core",
  "moritzbrantner-audio-analysis-recognition",
  "moritzbrantner-runtime-core",

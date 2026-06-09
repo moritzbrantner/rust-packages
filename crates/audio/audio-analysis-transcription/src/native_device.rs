@@ -30,7 +30,11 @@ fn resolve_requested_cuda() -> Result<ResolvedNativeDevice> {
 fn resolve_requested_cuda() -> Result<ResolvedNativeDevice> {
     candle_core::Device::new_cuda(0)
         .map(|_| ResolvedNativeDevice::Cuda(0))
-        .map_err(|_| setup_error("CUDA was requested but no CUDA device is available"))
+        .map_err(|error| {
+            setup_error(format!(
+                "CUDA was requested but no CUDA device is available: {error}"
+            ))
+        })
 }
 
 #[cfg(not(feature = "cuda"))]

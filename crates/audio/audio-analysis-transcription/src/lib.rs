@@ -2259,7 +2259,9 @@ mod tests {
             let response = transcribe(TranscriptionPipelineRequest {
                 source: TranscriptionSource::Path { path: audio_path },
                 provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+                    model_id: "openai/whisper-tiny".to_string(),
                     device: NativeDevicePreference::Cuda,
+                    language: Some("en".to_string()),
                     model_bundle: Some(bundle),
                     ..CandleWhisperOptions::default()
                 }),
@@ -2269,7 +2271,29 @@ mod tests {
                 output: TranscriptionOutputOptions::default(),
             })
             .expect("native Candle Whisper CUDA transcription should run");
+            eprintln!("{}", response.diagnostics.join("\n"));
             assert!(response.accepted);
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "provider=candle-whisper"));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "device=cuda:0"));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item.starts_with("modelId=")));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item.starts_with("bundle=")));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item.starts_with("chunkCount=")));
+            assert!(response.diagnostics.iter().any(|item| item == "cuda=true"));
             assert!(
                 response
                     .transcript
@@ -2278,6 +2302,74 @@ mod tests {
                     .is_some_and(|text| !text.trim().is_empty())
                     || !response.transcript.segments.is_empty()
             );
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn ctc_alignment_cuda_smoke_when_requested() {
+        if std::env::var("RUN_NATIVE_ALIGNMENT_TESTS").as_deref() != Ok("1") {
+            eprintln!("skipping native alignment smoke; set RUN_NATIVE_ALIGNMENT_TESTS=1");
+            return;
+        }
+        #[cfg(not(all(
+            feature = "candle",
+            feature = "cuda",
+            feature = "alignment",
+            feature = "model-bundles"
+        )))]
+        panic!("native alignment smoke requires candle,cuda,alignment,model-bundles features");
+
+        #[cfg(all(
+            feature = "candle",
+            feature = "cuda",
+            feature = "alignment",
+            feature = "model-bundles"
+        ))]
+        {
+            let bundle = std::env::var_os("ALIGNMENT_MODEL_BUNDLE")
+                .map(PathBuf::from)
+                .expect("ALIGNMENT_MODEL_BUNDLE is required");
+            let audio_path = std::env::var_os("TRANSCRIPTION_AUDIO_PATH")
+                .map(PathBuf::from)
+                .expect("TRANSCRIPTION_AUDIO_PATH is required");
+            let transcript_text = std::env::var("ALIGNMENT_TRANSCRIPT_TEXT")
+                .unwrap_or_else(|_| "hello world".to_string());
+            let audio = LoadedAudio::mono_16khz_from_source(&TranscriptionSource::Path {
+                path: audio_path,
+            })
+            .expect("alignment smoke requires readable WAV audio");
+            let request = AlignmentRequest {
+                audio,
+                transcript: TranscriptContract {
+                    source: Some("alignment-smoke".to_string()),
+                    language: Some("en".to_string()),
+                    text: Some(transcript_text.clone()),
+                    segments: vec![TranscriptSegmentContract {
+                        index: 0,
+                        start_seconds: Some(0.0),
+                        end_seconds: Some(1.0),
+                        text: transcript_text,
+                        words: Vec::new(),
+                        speaker: None,
+                        is_final: true,
+                    }],
+                },
+                model_id: default_alignment_model(),
+            };
+            let mut aligner = CtcForcedAligner::new(AlignmentOptions {
+                enabled: true,
+                model_bundle: Some(bundle),
+                ..AlignmentOptions::default()
+            });
+            let response = aligner
+                .align(request)
+                .expect("native wav2vec2/CTC CUDA alignment should run");
+            assert!(!response.words.is_empty());
+            assert!(response
+                .words
+                .iter()
+                .all(|word| word.end_seconds >= word.start_seconds));
         }
     }
 }

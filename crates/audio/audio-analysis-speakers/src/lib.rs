@@ -2609,4 +2609,58 @@ mod tests {
         assert_eq!(response.segments[0].speaker, "speaker_0");
         assert!(response.segments[0].end_seconds > response.segments[0].start_seconds);
     }
+
+    #[test]
+    #[ignore]
+    fn native_diarization_baseline_smoke_when_requested() {
+        if std::env::var("RUN_NATIVE_DIARIZATION_TESTS").as_deref() != Ok("1") {
+            eprintln!("skipping native diarization smoke; set RUN_NATIVE_DIARIZATION_TESTS=1");
+            return;
+        }
+        let audio_path = std::env::var_os("DIARIZATION_AUDIO_PATH")
+            .map(std::path::PathBuf::from)
+            .expect("DIARIZATION_AUDIO_PATH is required");
+        let mut reader = hound::WavReader::open(&audio_path).unwrap_or_else(|error| {
+            panic!("failed to open WAV `{}`: {error}", audio_path.display())
+        });
+        let spec = reader.spec();
+        assert!(spec.sample_rate > 0, "WAV sample rate must be non-zero");
+        assert!(spec.channels > 0, "WAV channel count must be non-zero");
+        let interleaved = match spec.sample_format {
+            hound::SampleFormat::Float => {
+                assert_eq!(spec.bits_per_sample, 32, "float WAV must be 32-bit");
+                reader
+                    .samples::<f32>()
+                    .map(|sample| sample.expect("failed to read float WAV sample"))
+                    .collect::<Vec<_>>()
+            }
+            hound::SampleFormat::Int if spec.bits_per_sample <= 16 => reader
+                .samples::<i16>()
+                .map(|sample| sample.expect("failed to read int WAV sample") as f32 / 32_768.0)
+                .collect::<Vec<_>>(),
+            hound::SampleFormat::Int => reader
+                .samples::<i32>()
+                .map(|sample| {
+                    let scale = 2_f32.powi(spec.bits_per_sample as i32 - 1);
+                    sample.expect("failed to read int WAV sample") as f32 / scale
+                })
+                .collect::<Vec<_>>(),
+        };
+        let channels = spec.channels as usize;
+        let samples = if channels == 1 {
+            interleaved
+        } else {
+            interleaved
+                .chunks_exact(channels)
+                .map(|frame| frame.iter().copied().sum::<f32>() / channels as f32)
+                .collect::<Vec<_>>()
+        };
+        let response = diarize_speaker_audio_baseline(&samples, spec.sample_rate).unwrap();
+        assert!(response.accepted);
+        assert!(!response.segments.is_empty());
+        assert!(response
+            .segments
+            .iter()
+            .all(|segment| segment.end_seconds > segment.start_seconds));
+    }
 }

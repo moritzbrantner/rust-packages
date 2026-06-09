@@ -39,7 +39,7 @@ struct GenerationConfig {
     #[serde(default)]
     eos_token_id: Option<u32>,
     #[serde(default)]
-    forced_decoder_ids: Option<Vec<(usize, u32)>>,
+    forced_decoder_ids: Option<Vec<(usize, Option<u32>)>>,
     #[serde(default)]
     max_length: Option<usize>,
     #[serde(default)]
@@ -322,6 +322,9 @@ impl CandleWhisperSession {
         }
         if let Some(forced) = &self.generation.forced_decoder_ids {
             for (position, token) in forced {
+                let Some(token) = token else {
+                    continue;
+                };
                 if *position < tokens.len() {
                     tokens[*position] = *token;
                 } else {

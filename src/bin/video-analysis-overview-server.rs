@@ -3083,6 +3083,21 @@ mod tests {
     }
 
     #[test]
+    fn client_disconnect_io_errors_are_ignored() {
+        for kind in [
+            io::ErrorKind::BrokenPipe,
+            io::ErrorKind::ConnectionReset,
+            io::ErrorKind::UnexpectedEof,
+        ] {
+            let error = io::Error::new(kind, "client closed connection");
+            assert!(is_client_disconnect(&error), "{kind:?} should be ignored");
+        }
+
+        let error = io::Error::new(io::ErrorKind::PermissionDenied, "bind denied");
+        assert!(!is_client_disconnect(&error));
+    }
+
+    #[test]
     fn serves_text_linguistics_analysis_from_package_route() {
         let request = Request {
             method: "POST".to_string(),
