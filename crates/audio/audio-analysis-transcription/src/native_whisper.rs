@@ -90,48 +90,24 @@ pub(crate) fn resolve_whisper_bundle_paths(bundle: &Path) -> Result<WhisperBundl
     }
     Ok(WhisperBundlePaths {
         root: bundle.to_path_buf(),
-        config_json: resolve_bundle_file(bundle, "config.json")?,
-        generation_config_json: resolve_bundle_file(bundle, "generation_config.json")?,
-        tokenizer_json: resolve_bundle_file(bundle, "tokenizer.json")?,
-        preprocessor_config_json: resolve_bundle_file(bundle, "preprocessor_config.json")?,
-        model_safetensors: resolve_bundle_file(bundle, "model.safetensors")?,
+        config_json: crate::native_bundles::resolve_required_bundle_file(bundle, "config.json")?,
+        generation_config_json: crate::native_bundles::resolve_required_bundle_file(
+            bundle,
+            "generation_config.json",
+        )?,
+        tokenizer_json: crate::native_bundles::resolve_required_bundle_file(
+            bundle,
+            "tokenizer.json",
+        )?,
+        preprocessor_config_json: crate::native_bundles::resolve_required_bundle_file(
+            bundle,
+            "preprocessor_config.json",
+        )?,
+        model_safetensors: crate::native_bundles::resolve_required_bundle_file(
+            bundle,
+            "model.safetensors",
+        )?,
     })
-}
-
-fn resolve_bundle_file(bundle: &Path, file: &str) -> Result<PathBuf> {
-    let direct = bundle.join(file);
-    if direct.exists() {
-        return Ok(direct);
-    }
-    let files_dir = bundle.join("files").join(file);
-    if files_dir.exists() {
-        return Ok(files_dir);
-    }
-    #[cfg(feature = "model-bundles")]
-    {
-        let manifest = bundle.join("manifest.json");
-        if manifest.exists() {
-            let loaded = model_runtime::ModelBundle::load(&manifest).map_err(|error| {
-                invalid_request(format!(
-                    "failed to parse model bundle manifest `{}`: {error}",
-                    manifest.display()
-                ))
-            })?;
-            for model_file in loaded.manifest.files.values() {
-                if model_file.remote_path == file || model_file.local_path.ends_with(file) {
-                    if let Some(path) = loaded.file_path(&model_file.remote_path) {
-                        if path.exists() {
-                            return Ok(path);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    Err(setup_error(format!(
-        "required model bundle file `{file}` is missing in `{}`",
-        bundle.display()
-    )))
 }
 
 struct CandleWhisperSession {
@@ -201,7 +177,7 @@ impl CandleWhisperSession {
                 let mut segment = TranscriptSegmentContract::new(next_index, text);
                 segment.start_seconds = Some(window.local_start_seconds);
                 segment.end_seconds = Some(window.local_end_seconds);
-                segment.language = request.language.clone();
+                segment.language = self.setup.language.clone();
                 segment
                     .attributes
                     .insert("provider".to_string(), "candle-whisper".to_string());
@@ -219,18 +195,23 @@ impl CandleWhisperSession {
         )
         .map_err(|error| model_output_mismatch(error.to_string()))?;
         let device_label = device_label(&self.setup.resolved_device);
+        let mut diagnostics = vec![
+            "provider=candle-whisper".to_string(),
+            format!("device={device_label}"),
+            format!("modelId={}", self.setup.model_id),
+            format!("bundle={}", self.setup.bundle.root.display()),
+            format!("chunkCount={}", request.chunks.len()),
+            format!("cuda={}", device_is_cuda(&self.setup.resolved_device)),
+            "timing=chunk/window".to_string(),
+        ];
+        if let Some(language) = &self.setup.language {
+            diagnostics.push(format!("language={language}"));
+        }
         Ok(AsrResponse {
             model_id: request.model_id,
-            language: request.language,
+            language: self.setup.language.clone(),
             transcript,
-            diagnostics: vec![
-                "provider=candle-whisper".to_string(),
-                format!("device={device_label}"),
-                format!("modelId={}", self.setup.model_id),
-                format!("bundle={}", self.setup.bundle.root.display()),
-                format!("chunkCount={}", request.chunks.len()),
-                format!("cuda={}", device_is_cuda(&self.setup.resolved_device)),
-            ],
+            diagnostics,
         })
     }
 
@@ -308,19 +289,39 @@ impl CandleWhisperSession {
     }
 
     fn initial_tokens(&self) -> Result<Vec<u32>> {
-        let mut tokens = vec![self.decoder_start_token_id()?];
-        if let Some(language) = self.setup.language.as_deref() {
-            if let Some(token) = self.language_token_id(language) {
-                tokens.push(token);
-            }
-        }
-        if let Some(token) = self.task_token_id("transcribe") {
+        Self::initial_prompt_tokens(
+            &self.generation,
+            &self.tokenizer,
+            self.setup.language.as_deref(),
+        )
+    }
+
+    fn initial_prompt_tokens(
+        generation: &GenerationConfig,
+        tokenizer: &Tokenizer,
+        language: Option<&str>,
+    ) -> Result<Vec<u32>> {
+        let decoder_start = Self::decoder_start_token_id(generation, tokenizer)?;
+        let mut tokens = vec![decoder_start];
+        if let Some(language) = language {
+            let token = Self::language_token_id(generation, tokenizer, language).ok_or_else(|| {
+                invalid_request(format!(
+                    "Whisper generation config/tokenizer does not define language token `{language}`"
+                ))
+            })?;
             tokens.push(token);
         }
-        if let Some(token) = token_id(&self.tokenizer, whisper::NO_TIMESTAMPS_TOKEN) {
-            tokens.push(token);
-        }
-        if let Some(forced) = &self.generation.forced_decoder_ids {
+        let transcribe =
+            Self::task_token_id(generation, tokenizer, "transcribe").ok_or_else(|| {
+                invalid_request(
+                    "Whisper generation config/tokenizer is missing transcribe task token",
+                )
+            })?;
+        tokens.push(transcribe);
+        let no_timestamps = token_id(tokenizer, whisper::NO_TIMESTAMPS_TOKEN)
+            .ok_or_else(|| invalid_request("Whisper tokenizer is missing no-timestamps token"))?;
+        tokens.push(no_timestamps);
+        if let Some(forced) = &generation.forced_decoder_ids {
             for (position, token) in forced {
                 let Some(token) = token else {
                     continue;
@@ -329,7 +330,7 @@ impl CandleWhisperSession {
                     tokens[*position] = *token;
                 } else {
                     while tokens.len() < *position {
-                        tokens.push(self.decoder_start_token_id()?);
+                        tokens.push(decoder_start);
                     }
                     tokens.push(*token);
                 }
@@ -338,41 +339,53 @@ impl CandleWhisperSession {
         Ok(tokens)
     }
 
-    fn decoder_start_token_id(&self) -> Result<u32> {
-        self.generation
+    fn decoder_start_token_id(generation: &GenerationConfig, tokenizer: &Tokenizer) -> Result<u32> {
+        generation
             .decoder_start_token_id
-            .or_else(|| token_id(&self.tokenizer, whisper::SOT_TOKEN))
+            .or_else(|| token_id(tokenizer, whisper::SOT_TOKEN))
             .ok_or_else(|| {
                 invalid_request("Whisper generation config is missing decoder_start_token_id")
             })
     }
 
     fn eos_token_id(&self) -> Result<u32> {
-        self.generation
+        Self::resolve_eos_token_id(&self.generation, &self.tokenizer)
+    }
+
+    fn resolve_eos_token_id(generation: &GenerationConfig, tokenizer: &Tokenizer) -> Result<u32> {
+        generation
             .eos_token_id
-            .or_else(|| token_id(&self.tokenizer, whisper::EOT_TOKEN))
+            .or_else(|| token_id(tokenizer, whisper::EOT_TOKEN))
             .ok_or_else(|| invalid_request("Whisper generation config is missing eos_token_id"))
     }
 
-    fn language_token_id(&self, language: &str) -> Option<u32> {
+    fn language_token_id(
+        generation: &GenerationConfig,
+        tokenizer: &Tokenizer,
+        language: &str,
+    ) -> Option<u32> {
         let normalized = language.trim().to_lowercase();
         let wrapped = format!("<|{normalized}|>");
-        self.generation
+        generation
             .lang_to_id
             .get(&wrapped)
-            .or_else(|| self.generation.lang_to_id.get(&normalized))
+            .or_else(|| generation.lang_to_id.get(&normalized))
             .copied()
-            .or_else(|| token_id(&self.tokenizer, &wrapped))
+            .or_else(|| token_id(tokenizer, &wrapped))
     }
 
-    fn task_token_id(&self, task: &str) -> Option<u32> {
+    fn task_token_id(
+        generation: &GenerationConfig,
+        tokenizer: &Tokenizer,
+        task: &str,
+    ) -> Option<u32> {
         let wrapped = format!("<|{task}|>");
-        self.generation
+        generation
             .task_to_id
             .get(&wrapped)
-            .or_else(|| self.generation.task_to_id.get(task))
+            .or_else(|| generation.task_to_id.get(task))
             .copied()
-            .or_else(|| token_id(&self.tokenizer, &wrapped))
+            .or_else(|| token_id(tokenizer, &wrapped))
     }
 }
 
@@ -491,4 +504,233 @@ fn hz_to_mel(hz: f32) -> f32 {
 
 fn mel_to_hz(mel: f32) -> f32 {
     700.0 * (10_f32.powf(mel / 2595.0) - 1.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokenizers::models::wordlevel::WordLevel;
+
+    fn test_generation() -> GenerationConfig {
+        GenerationConfig {
+            decoder_start_token_id: Some(1),
+            eos_token_id: Some(2),
+            forced_decoder_ids: None,
+            max_length: Some(8),
+            lang_to_id: [("<|en|>".to_string(), 3), ("<|de|>".to_string(), 4)]
+                .into_iter()
+                .collect(),
+            task_to_id: [("transcribe".to_string(), 5), ("translate".to_string(), 6)]
+                .into_iter()
+                .collect(),
+        }
+    }
+
+    fn test_tokenizer() -> Tokenizer {
+        let temp = tempfile::tempdir().unwrap();
+        let vocab = temp.path().join("vocab.json");
+        std::fs::write(
+            &vocab,
+            serde_json::json!({
+                "<unk>": 0,
+                whisper::SOT_TOKEN: 1,
+                whisper::EOT_TOKEN: 2,
+                "<|en|>": 3,
+                "<|de|>": 4,
+                "<|transcribe|>": 5,
+                "<|translate|>": 6,
+                whisper::NO_TIMESTAMPS_TOKEN: 7
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let model = WordLevel::from_file(vocab.to_str().unwrap(), "<unk>".to_string()).unwrap();
+        Tokenizer::new(model)
+    }
+
+    #[test]
+    fn initial_prompt_uses_requested_language_and_transcribe_task() {
+        let tokens = CandleWhisperSession::initial_prompt_tokens(
+            &test_generation(),
+            &test_tokenizer(),
+            Some("en"),
+        )
+        .unwrap();
+        assert_eq!(tokens, vec![1, 3, 5, 7]);
+        assert!(!tokens.contains(&6));
+    }
+
+    #[test]
+    fn initial_prompt_uses_option_language_when_request_language_absent() {
+        let setup = WhisperRunSetup {
+            model_id: "openai/whisper-tiny".to_string(),
+            language: Some("de".to_string()),
+            bundle: WhisperBundlePaths {
+                root: PathBuf::from("bundle"),
+                config_json: PathBuf::from("config.json"),
+                generation_config_json: PathBuf::from("generation_config.json"),
+                tokenizer_json: PathBuf::from("tokenizer.json"),
+                preprocessor_config_json: PathBuf::from("preprocessor_config.json"),
+                model_safetensors: PathBuf::from("model.safetensors"),
+            },
+            resolved_device: ResolvedNativeDevice::Cpu,
+        };
+        let tokens = CandleWhisperSession::initial_prompt_tokens(
+            &test_generation(),
+            &test_tokenizer(),
+            setup.language.as_deref(),
+        )
+        .unwrap();
+        assert_eq!(tokens[1], 4);
+    }
+
+    #[test]
+    fn request_language_wins_before_prompt_construction() {
+        let request = AsrRequest {
+            audio: crate::LoadedAudio {
+                samples: vec![0.0; 16_000],
+                sample_rate: 16_000,
+                channels: 1,
+                source: None,
+            },
+            chunks: vec![SpeechActivitySegment::new(0.0, 1.0, 0.5).unwrap()],
+            language: Some("en".to_string()),
+            model_id: "openai/whisper-tiny".to_string(),
+        };
+        let options = CandleWhisperOptions {
+            language: Some("de".to_string()),
+            model_bundle: Some(PathBuf::from("missing")),
+            ..CandleWhisperOptions::default()
+        };
+        let language = request
+            .language
+            .clone()
+            .or_else(|| options.language.clone())
+            .unwrap();
+        assert_eq!(language, "en");
+    }
+
+    #[test]
+    fn nullable_forced_decoder_ids_are_skipped() {
+        let mut generation = test_generation();
+        generation.forced_decoder_ids = Some(vec![(1, None), (2, Some(5)), (3, Some(7))]);
+        let tokens =
+            CandleWhisperSession::initial_prompt_tokens(&generation, &test_tokenizer(), Some("en"))
+                .unwrap();
+        assert_eq!(tokens, vec![1, 3, 5, 7]);
+    }
+
+    #[test]
+    fn unknown_explicit_language_returns_invalid_request() {
+        let error = CandleWhisperSession::initial_prompt_tokens(
+            &test_generation(),
+            &test_tokenizer(),
+            Some("zz"),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("language token"));
+    }
+
+    #[test]
+    fn missing_eos_returns_invalid_request() {
+        let mut generation = test_generation();
+        generation.eos_token_id = None;
+        let tokenizer = test_tokenizer();
+        assert!(CandleWhisperSession::resolve_eos_token_id(&generation, &tokenizer).is_ok());
+
+        let temp = tempfile::tempdir().unwrap();
+        let vocab = temp.path().join("vocab.json");
+        std::fs::write(
+            &vocab,
+            serde_json::json!({
+                "<unk>": 0,
+                whisper::SOT_TOKEN: 1,
+                "<|en|>": 3,
+                "<|transcribe|>": 5,
+                whisper::NO_TIMESTAMPS_TOKEN: 7
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let tokenizer = Tokenizer::new(
+            WordLevel::from_file(vocab.to_str().unwrap(), "<unk>".to_string()).unwrap(),
+        );
+        let error = CandleWhisperSession::resolve_eos_token_id(&generation, &tokenizer)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("eos_token_id"));
+    }
+
+    #[test]
+    fn whisper_bundle_resolution_accepts_direct_and_files_layouts() {
+        for nested in [false, true] {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path();
+            let file_root = if nested {
+                std::fs::create_dir(root.join("files")).unwrap();
+                root.join("files")
+            } else {
+                root.to_path_buf()
+            };
+            for file in [
+                "config.json",
+                "generation_config.json",
+                "tokenizer.json",
+                "preprocessor_config.json",
+                "model.safetensors",
+            ] {
+                std::fs::write(file_root.join(file), "").unwrap();
+            }
+            let paths = resolve_whisper_bundle_paths(root).unwrap();
+            assert!(paths.config_json.exists());
+            assert!(paths.generation_config_json.exists());
+            assert!(paths.tokenizer_json.exists());
+            assert!(paths.preprocessor_config_json.exists());
+            assert!(paths.model_safetensors.exists());
+        }
+    }
+
+    #[cfg(feature = "model-bundles")]
+    #[test]
+    fn whisper_bundle_resolution_accepts_manifest_layout() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        std::fs::create_dir(root.join("snapshots")).unwrap();
+        for file in [
+            "config.json",
+            "generation_config.json",
+            "tokenizer.json",
+            "preprocessor_config.json",
+            "model.safetensors",
+        ] {
+            std::fs::write(root.join("snapshots").join(file), "").unwrap();
+        }
+        std::fs::write(
+            root.join("manifest.json"),
+            serde_json::json!({
+                "schema_version": 1,
+                "name": "whisper-test",
+                "repo_id": "openai/whisper-tiny",
+                "revision": "main",
+                "task": "speech_recognition",
+                "files": {
+                    "config.json": {"remote_path": "config.json", "local_path": "snapshots/config.json", "size_bytes": 0},
+                    "generation_config.json": {"remote_path": "generation_config.json", "local_path": "snapshots/generation_config.json", "size_bytes": 0},
+                    "tokenizer.json": {"remote_path": "tokenizer.json", "local_path": "snapshots/tokenizer.json", "size_bytes": 0},
+                    "preprocessor_config.json": {"remote_path": "preprocessor_config.json", "local_path": "snapshots/preprocessor_config.json", "size_bytes": 0},
+                    "model.safetensors": {"remote_path": "model.safetensors", "local_path": "snapshots/model.safetensors", "size_bytes": 0}
+                }
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let paths = resolve_whisper_bundle_paths(root).unwrap();
+        assert_eq!(
+            paths.model_safetensors,
+            root.join("snapshots/model.safetensors")
+        );
+    }
 }

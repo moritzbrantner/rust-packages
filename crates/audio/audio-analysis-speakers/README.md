@@ -11,11 +11,16 @@ This crate keeps `moritzbrantner-audio-analysis-recognition` focused on generic 
 - baseline energy VAD
 - diarization traits and a simple VAD/window/cluster diarizer
 
-`SpectralSpeakerEmbedder` is a deterministic baseline intended for tests and prototypes. It is not production-grade speaker verification. Production systems should use a model-backed embedder such as ECAPA-TDNN, x-vector, pyannote-style, or SpeechBrain-compatible speaker verification models.
+`SpectralSpeakerEmbedder` and the native diarization baseline are deterministic
+heuristics intended for tests and prototypes. They are not production-grade
+speaker verification or diarization. Production systems should use a
+model-backed embedder such as ECAPA-TDNN, x-vector, pyannote-style, or
+SpeechBrain-compatible speaker verification models.
 
 ## Feature flags
 
-- No optional feature flags today.
+- `external-tests`: enables ignored local smoke tests that require caller-owned
+  WAV fixtures.
 
 ## Package surface
 

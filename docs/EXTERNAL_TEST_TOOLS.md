@@ -101,6 +101,17 @@ tests also require their documented env vars before they run. External Python
 WhisperX remains compatibility/parity tooling only, and browser/WASM package
 surfaces do not run native ASR.
 
+The current local Candle Whisper smoke uses
+`/home/moenarch/.local/share/video-analysis-smoke/whisper-tiny` and
+`/home/moenarch/.local/share/video-analysis-smoke/audio/native-transcription-smoke.wav`.
+Because this machine's `/usr/local/cuda` points at CUDA 13.3, the passing smoke
+also points `RUSTFLAGS`, `LIBRARY_PATH`, and `LD_LIBRARY_PATH` at
+`/home/moenarch/.local/share/video-analysis-smoke/cuda12-libs` for CUDA 12.3
+libraries. Native Whisper timings are chunk/window-level only. wav2vec2 CTC
+bundle/config/tokenizer validation exists, but real Candle emissions currently
+return `unsupported_runtime` because `candle-transformers 0.10.2` lacks a
+wav2vec2 model implementation.
+
 The multimodal workflow smoke tests still include optional command adapters
 under `scripts/`, but image/video workflows now prefer Rust-side adapters when
 configured without commands:

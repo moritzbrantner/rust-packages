@@ -136,12 +136,26 @@ Candle Whisper CUDA smoke test:
 
 ```bash
 RUN_NATIVE_TRANSCRIPTION_TESTS=1 \
-TRANSCRIPTION_MODEL_BUNDLE=/path/to/whisper-large-v3 \
+TRANSCRIPTION_MODEL_BUNDLE=/path/to/whisper-tiny-or-base \
 TRANSCRIPTION_AUDIO_PATH=/path/to/audio.wav \
 cargo test -p moritzbrantner-audio-analysis-transcription \
   --features candle,cuda,model-bundles \
   candle_whisper_cuda_smoke_when_requested -- --ignored --nocapture
 ```
+
+The native Whisper path reports chunk/window-level segment timing only. True
+Whisper timestamp-token decoding is not implemented yet.
+
+On the RTX 3060 Ti development host used for the current smoke, the working
+local assets are:
+
+- `/home/moenarch/.local/share/video-analysis-smoke/whisper-tiny`
+- `/home/moenarch/.local/share/video-analysis-smoke/audio/native-transcription-smoke.wav`
+- `/home/moenarch/.local/share/video-analysis-smoke/cuda12-libs`
+
+That host's `/usr/local/cuda` points at CUDA 13.3, so the passing smoke points
+`RUSTFLAGS`, `LIBRARY_PATH`, and `LD_LIBRARY_PATH` at the CUDA 12.3 shim to
+avoid `CUBLAS_STATUS_NOT_INITIALIZED`.
 
 CTC alignment CUDA smoke test:
 
@@ -153,6 +167,10 @@ cargo test -p moritzbrantner-audio-analysis-transcription \
   --features candle,cuda,alignment,model-bundles \
   ctc_alignment_cuda_smoke_when_requested -- --ignored --nocapture
 ```
+
+The CTC path validates wav2vec2 bundle files, config, and tokenizer vocabulary.
+Real wav2vec2 Candle emissions are still a typed `unsupported_runtime` because
+`candle-transformers 0.10.2` does not expose a wav2vec2 model implementation.
 
 Diarization baseline smoke test:
 

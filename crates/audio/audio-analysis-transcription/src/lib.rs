@@ -5,7 +5,10 @@ pub mod surface;
 #[cfg(feature = "alignment")]
 mod ctc_alignment;
 mod native_audio;
+mod native_bundles;
 mod native_device;
+#[cfg(feature = "alignment")]
+mod native_wav2vec2;
 #[cfg(feature = "candle")]
 mod native_whisper;
 
@@ -1423,16 +1426,7 @@ fn validate_alignment_setup(options: &AlignmentOptions) -> Result<()> {
 }
 
 fn validate_model_bundle_files(bundle: &Path, files: &[&str]) -> Result<()> {
-    for file in files {
-        if !bundle.join(file).exists() && !bundle.join("files").join(file).exists() {
-            return Err(setup_error(format!(
-                "required model bundle file `{}` is missing in `{}`",
-                file,
-                bundle.display()
-            )));
-        }
-    }
-    Ok(())
+    native_bundles::validate_required_bundle_files(bundle, files)
 }
 
 fn run_whisperx_command(
@@ -1942,6 +1936,72 @@ mod tests {
             transcript.segments[0].words[0].speaker.as_deref(),
             Some("speaker_0")
         );
+        Ok(())
+    }
+
+    #[test]
+    fn segment_speaker_uses_majority_word_speaker_when_words_are_present(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let mut transcript = transcript_with_words(vec![
+            ("one", 0.0, 0.3),
+            ("two", 0.3, 0.6),
+            ("three", 0.6, 0.9),
+        ])?;
+        let diarization = diarization_response_for_tests(vec![
+            SpeakerSegmentPrediction {
+                speaker: "speaker_0".to_string(),
+                start_seconds: 0.0,
+                end_seconds: 0.65,
+                score: Some(0.9),
+            },
+            SpeakerSegmentPrediction {
+                speaker: "speaker_1".to_string(),
+                start_seconds: 0.65,
+                end_seconds: 1.0,
+                score: Some(0.9),
+            },
+        ]);
+
+        assign_speakers_from_diarization(
+            &mut transcript,
+            &diarization,
+            SpeakerAssignmentPolicy::Majority,
+        )?;
+
+        assert_eq!(transcript.segments[0].speaker.as_deref(), Some("speaker_0"));
+        Ok(())
+    }
+
+    #[test]
+    fn segment_without_words_uses_policy_fallback(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let mut segment = TranscriptSegmentContract::new(0, "hello");
+        segment.start_seconds = Some(0.5);
+        segment.end_seconds = Some(0.8);
+        let mut transcript =
+            TranscriptionContract::from_segments(None, Some("en".to_string()), vec![segment])?;
+        let diarization = diarization_response_for_tests(vec![
+            SpeakerSegmentPrediction {
+                speaker: "speaker_0".to_string(),
+                start_seconds: 0.0,
+                end_seconds: 0.2,
+                score: Some(0.9),
+            },
+            SpeakerSegmentPrediction {
+                speaker: "speaker_1".to_string(),
+                start_seconds: 0.45,
+                end_seconds: 1.0,
+                score: Some(0.9),
+            },
+        ]);
+
+        assign_speakers_from_diarization(
+            &mut transcript,
+            &diarization,
+            SpeakerAssignmentPolicy::StrictContained,
+        )?;
+
+        assert_eq!(transcript.segments[0].speaker.as_deref(), Some("speaker_1"));
         Ok(())
     }
 

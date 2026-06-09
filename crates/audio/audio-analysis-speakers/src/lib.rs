@@ -1553,7 +1553,7 @@ pub fn diarize_speaker_audio_baseline(
     let vad_config = EnergyVadConfig::default();
     let vad = EnergyVoiceActivityDetector::new(vad_config)?;
     let merge_gap_seconds = vad_config.merge_gap_seconds as f32;
-    let mut diarizer = WindowedSpeakerDiarizer::new(embedder, vad);
+    let mut diarizer = WindowedSpeakerDiarizer::new(embedder, vad).cluster_threshold(0.95)?;
     let result = diarizer.diarize(&audio)?;
     let segments = stable_speaker_predictions(result.segments, merge_gap_seconds)?;
     Ok(SpeakerDiarizationResponse {
@@ -2100,6 +2100,26 @@ mod tests {
             .collect()
     }
 
+    fn two_profile_speech_fixture(sample_rate: u32) -> Vec<f32> {
+        let mut samples = sine(220.0, sample_rate, 0.35);
+        samples.extend(vec![0.0; (sample_rate as f32 * 0.12) as usize]);
+        samples.extend(sine(1_200.0, sample_rate, 0.35));
+        samples
+    }
+
+    fn speaker_segment(
+        speaker: &str,
+        start_seconds: f32,
+        end_seconds: f32,
+    ) -> SpeakerSegmentPrediction {
+        SpeakerSegmentPrediction {
+            speaker: speaker.to_string(),
+            start_seconds,
+            end_seconds,
+            score: Some(0.8),
+        }
+    }
+
     fn test_model() -> SpeakerEmbeddingModel {
         SpeakerEmbeddingModel::new(SpeakerEmbeddingModelFamily::SpeechBrain, "spkrec", "1", 2)
             .unwrap()
@@ -2608,6 +2628,58 @@ mod tests {
         assert!(!response.segments.is_empty());
         assert_eq!(response.segments[0].speaker, "speaker_0");
         assert!(response.segments[0].end_seconds > response.segments[0].start_seconds);
+    }
+
+    #[test]
+    fn native_diarization_baseline_splits_distinct_spectral_profiles() {
+        let sample_rate = 8_000;
+        let samples = two_profile_speech_fixture(sample_rate);
+        let response = diarize_speaker_audio_baseline(&samples, sample_rate).unwrap();
+
+        assert!(response.accepted);
+        assert!(response.segments.len() >= 2, "{:?}", response.segments);
+        assert_eq!(response.segments[0].speaker, "speaker_0");
+        assert_eq!(response.segments[1].speaker, "speaker_1");
+        assert!(response.segments.windows(2).all(|pair| {
+            pair[0].start_seconds.is_finite()
+                && pair[0].end_seconds.is_finite()
+                && pair[0].end_seconds <= pair[1].start_seconds
+        }));
+    }
+
+    #[test]
+    fn speaker_prediction_merge_combines_adjacent_same_speaker_only() {
+        let merged = merge_speaker_predictions(
+            vec![
+                speaker_segment("speaker_0", 0.0, 0.4),
+                speaker_segment("speaker_0", 0.43, 0.7),
+                speaker_segment("speaker_1", 0.72, 1.0),
+            ],
+            0.05,
+        )
+        .unwrap();
+
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].speaker, "speaker_0");
+        assert_eq!(merged[0].start_seconds, 0.0);
+        assert_eq!(merged[0].end_seconds, 0.7);
+        assert_eq!(merged[1].speaker, "speaker_1");
+    }
+
+    #[test]
+    fn speaker_prediction_merge_preserves_same_speaker_after_large_gap() {
+        let merged = merge_speaker_predictions(
+            vec![
+                speaker_segment("speaker_0", 0.0, 0.4),
+                speaker_segment("speaker_0", 0.6, 0.9),
+            ],
+            0.05,
+        )
+        .unwrap();
+
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].speaker, "speaker_0");
+        assert_eq!(merged[1].speaker, "speaker_0");
     }
 
     #[test]

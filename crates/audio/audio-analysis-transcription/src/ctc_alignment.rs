@@ -1,11 +1,9 @@
-use std::path::{Path, PathBuf};
-
 use video_analysis_core::Result;
 
 use crate::native_audio::validate_loaded_audio;
 use crate::{
-    invalid_request, model_output_mismatch, setup_error, unsupported_runtime, AlignedWord,
-    AlignmentOptions, AlignmentRequest, AlignmentResponse,
+    invalid_request, model_output_mismatch, AlignedWord, AlignmentOptions, AlignmentRequest,
+    AlignmentResponse,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,14 +36,6 @@ pub(crate) struct CtcAlignedWord {
     pub confidence: Option<f32>,
 }
 
-#[derive(Debug, Clone)]
-struct AlignmentBundlePaths {
-    config_json: PathBuf,
-    tokenizer_json: PathBuf,
-    preprocessor_config_json: PathBuf,
-    model_safetensors: PathBuf,
-}
-
 pub(crate) fn align(
     options: &AlignmentOptions,
     request: AlignmentRequest,
@@ -53,13 +43,9 @@ pub(crate) fn align(
     validate_loaded_audio(&request.audio)?;
     validate_transcript_ranges(&request)?;
     if let Some(bundle) = &options.model_bundle {
-        let paths = resolve_alignment_bundle_paths(bundle)?;
-        let _ = paths.config_json;
-        let _ = paths.tokenizer_json;
-        let _ = paths.preprocessor_config_json;
-        let _ = paths.model_safetensors;
-        return Err(unsupported_runtime(
-            "wav2vec2 Candle emission execution is not available for this bundle architecture",
+        crate::native_wav2vec2::emit_wav2vec2_ctc(bundle, &request)?;
+        return Err(model_output_mismatch(
+            "wav2vec2 CTC emission provider returned without emissions",
         ));
     }
     let words = deterministic_words_from_transcript(&request)?;
@@ -298,60 +284,10 @@ fn validate_emissions(emissions: &[Vec<f32>], blank_id: usize, token_ids: &[usiz
     Ok(())
 }
 
-fn resolve_alignment_bundle_paths(bundle: &Path) -> Result<AlignmentBundlePaths> {
-    if !bundle.exists() {
-        return Err(setup_error(format!(
-            "required CTC alignment model bundle `{}` is missing",
-            bundle.display()
-        )));
-    }
-    Ok(AlignmentBundlePaths {
-        config_json: resolve_bundle_file(bundle, "config.json")?,
-        tokenizer_json: resolve_bundle_file(bundle, "tokenizer.json")?,
-        preprocessor_config_json: resolve_bundle_file(bundle, "preprocessor_config.json")?,
-        model_safetensors: resolve_bundle_file(bundle, "model.safetensors")?,
-    })
-}
-
-fn resolve_bundle_file(bundle: &Path, file: &str) -> Result<PathBuf> {
-    let direct = bundle.join(file);
-    if direct.exists() {
-        return Ok(direct);
-    }
-    let files_dir = bundle.join("files").join(file);
-    if files_dir.exists() {
-        return Ok(files_dir);
-    }
-    #[cfg(feature = "model-bundles")]
-    {
-        let manifest = bundle.join("manifest.json");
-        if manifest.exists() {
-            let loaded = model_runtime::ModelBundle::load(&manifest).map_err(|error| {
-                invalid_request(format!(
-                    "failed to parse model bundle manifest `{}`: {error}",
-                    manifest.display()
-                ))
-            })?;
-            for model_file in loaded.manifest.files.values() {
-                if model_file.remote_path == file || model_file.local_path.ends_with(file) {
-                    if let Some(path) = loaded.file_path(&model_file.remote_path) {
-                        if path.exists() {
-                            return Ok(path);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    Err(setup_error(format!(
-        "required model bundle file `{file}` is missing in `{}`",
-        bundle.display()
-    )))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
     use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
 
     #[test]
@@ -427,5 +363,102 @@ mod tests {
         assert_eq!(response.words[0].text, "hello");
         assert!(response.words[0].end_seconds <= 0.5);
         assert!(response.words[1].start_seconds >= 0.5);
+    }
+
+    fn write_valid_wav2vec2_bundle(root: &Path) {
+        std::fs::write(
+            root.join("config.json"),
+            serde_json::json!({
+                "model_type": "wav2vec2",
+                "architectures": ["Wav2Vec2ForCTC"],
+                "vocab_size": 10,
+                "word_delimiter_token": "|"
+            })
+            .to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("tokenizer.json"),
+            serde_json::json!({
+                "version": "1.0",
+                "word_delimiter_token": "|",
+                "model": {
+                    "type": "WordLevel",
+                    "vocab": {
+                        "[PAD]": 0,
+                        "H": 1,
+                        "E": 2,
+                        "L": 3,
+                        "O": 4,
+                        "|": 5,
+                        "W": 6,
+                        "R": 7,
+                        "D": 8,
+                        "<unk>": 9
+                    },
+                    "unk_token": "<unk>"
+                }
+            })
+            .to_string(),
+        )
+        .unwrap();
+        std::fs::write(root.join("preprocessor_config.json"), "{}").unwrap();
+        std::fs::write(root.join("model.safetensors"), "").unwrap();
+    }
+
+    fn alignment_request_for_tests() -> AlignmentRequest {
+        let mut segment = TranscriptSegmentContract::new(0, "hello world");
+        segment.start_seconds = Some(0.0);
+        segment.end_seconds = Some(1.0);
+        let transcript =
+            TranscriptionContract::from_segments(None, Some("en".to_string()), vec![segment])
+                .unwrap();
+        AlignmentRequest {
+            audio: crate::LoadedAudio {
+                samples: vec![0.0; 16_000],
+                sample_rate: 16_000,
+                channels: 1,
+                source: None,
+            },
+            transcript,
+            language: Some("en".to_string()),
+            model_id: "facebook/wav2vec2-base-960h".to_string(),
+        }
+    }
+
+    #[test]
+    fn alignment_with_wav2vec2_bundle_reports_typed_runtime_gap() {
+        let temp = tempfile::tempdir().unwrap();
+        write_valid_wav2vec2_bundle(temp.path());
+        let error = align(
+            &AlignmentOptions {
+                enabled: true,
+                model_bundle: Some(temp.path().to_path_buf()),
+                ..AlignmentOptions::default()
+            },
+            alignment_request_for_tests(),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("unsupported_runtime"));
+        assert!(error.contains("candle-transformers 0.10.2"));
+    }
+
+    #[test]
+    fn missing_alignment_bundle_files_return_setup_error() {
+        let temp = tempfile::tempdir().unwrap();
+        std::fs::write(temp.path().join("config.json"), "{}").unwrap();
+        let error = align(
+            &AlignmentOptions {
+                enabled: true,
+                model_bundle: Some(temp.path().to_path_buf()),
+                ..AlignmentOptions::default()
+            },
+            alignment_request_for_tests(),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("setup_error"));
+        assert!(error.contains("tokenizer.json"));
     }
 }
