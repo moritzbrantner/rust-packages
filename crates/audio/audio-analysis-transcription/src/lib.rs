@@ -2,6 +2,13 @@
 
 pub mod surface;
 
+#[cfg(feature = "alignment")]
+mod ctc_alignment;
+mod native_audio;
+mod native_device;
+#[cfg(feature = "candle")]
+mod native_whisper;
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,7 +22,7 @@ use text_transcripts::{
 use video_analysis_core::{DetectError, Result};
 
 #[cfg(feature = "diarization")]
-pub use audio_analysis_speakers::SpeakerDiarizationResponse;
+pub use audio_analysis_speakers::{SpeakerDiarizationResponse, SpeakerSegmentPrediction};
 
 #[cfg(not(feature = "diarization"))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -455,18 +462,7 @@ pub struct LoadedAudio {
 
 impl LoadedAudio {
     pub fn mono_16khz_from_source(source: &TranscriptionSource) -> Result<Self> {
-        match source {
-            TranscriptionSource::Samples {
-                samples,
-                sample_rate,
-                channels,
-                source,
-            } => normalize_samples_source(samples, *sample_rate, *channels, source.clone()),
-            TranscriptionSource::Path { path } => Err(setup_error(format!(
-                "native media decoding for `{}` is not wired yet; pass Samples or use externalWhisperX explicitly",
-                path.display()
-            ))),
-        }
+        native_audio::mono_16khz_from_source(source)
     }
 
     pub fn duration_seconds(&self) -> f64 {
@@ -624,6 +620,33 @@ pub trait TranscriptDiarizationProvider {
     ) -> Result<SpeakerDiarizationResponse>;
 }
 
+/// Native deterministic speaker diarization adapter.
+#[cfg(feature = "diarization")]
+#[derive(Debug, Clone, Default)]
+pub struct NativeSpeakerDiarizationProvider;
+
+#[cfg(feature = "diarization")]
+impl TranscriptDiarizationProvider for NativeSpeakerDiarizationProvider {
+    fn provider_id(&self) -> &str {
+        "native-speaker-diarization"
+    }
+
+    fn diarize(
+        &mut self,
+        audio: LoadedAudio,
+        _transcript: &TranscriptionContract,
+        options: &DiarizationOptions,
+    ) -> Result<SpeakerDiarizationResponse> {
+        native_audio::validate_loaded_audio(&audio)?;
+        let mut response = audio_analysis_speakers::diarize_speaker_audio_baseline(
+            &audio.samples,
+            audio.sample_rate,
+        )?;
+        response.model_id = options.model_id.clone();
+        Ok(response)
+    }
+}
+
 /// Default pure-Rust energy VAD provider.
 #[derive(Debug, Clone, Default)]
 pub struct EnergyVadTranscriptionProvider;
@@ -660,11 +683,19 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
     }
 
     fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+        validate_asr_request(&request)?;
         validate_candle_setup(&self.options)?;
-        Err(unsupported_runtime(format!(
-            "Candle Whisper execution for `{}` is planned behind the candle provider; default tests use mock ASR providers",
-            request.model_id
-        )))
+        #[cfg(feature = "candle")]
+        {
+            native_whisper::transcribe(&self.options, request)
+        }
+        #[cfg(not(feature = "candle"))]
+        {
+            Err(unsupported_runtime(format!(
+                "Candle Whisper requested for `{}` but the binary lacks the `candle` feature",
+                request.model_id
+            )))
+        }
     }
 }
 
@@ -707,11 +738,18 @@ impl ForcedAlignmentProvider for CtcForcedAligner {
     }
 
     fn align(&mut self, request: AlignmentRequest) -> Result<AlignmentResponse> {
-        validate_alignment_setup(&self.options)?;
-        Err(unsupported_runtime(format!(
+        #[cfg(feature = "alignment")]
+        {
+            ctc_alignment::align(&self.options, request)
+        }
+        #[cfg(not(feature = "alignment"))]
+        {
+            validate_alignment_setup(&self.options)?;
+            Err(unsupported_runtime(format!(
             "CTC alignment execution for `{}` is planned behind the alignment provider; default tests use mock alignment providers",
             request.model_id
         )))
+        }
     }
 }
 
@@ -746,14 +784,38 @@ pub fn transcribe(request: TranscriptionPipelineRequest) -> Result<Transcription
         TranscriptionProviderSelection::CandleWhisper(options) => {
             let mut vad = EnergyVadTranscriptionProvider;
             let mut asr = CandleWhisperTranscriber::new(options.clone());
-            run_transcription_pipeline(request, &mut vad, &mut asr, None, None)
+            #[cfg(feature = "diarization")]
+            {
+                let mut diarizer = NativeSpeakerDiarizationProvider;
+                let diarization_provider = request
+                    .diarization
+                    .enabled
+                    .then_some(&mut diarizer as &mut dyn TranscriptDiarizationProvider);
+                run_transcription_pipeline(request, &mut vad, &mut asr, None, diarization_provider)
+            }
+            #[cfg(not(feature = "diarization"))]
+            {
+                run_transcription_pipeline(request, &mut vad, &mut asr, None, None)
+            }
         }
         TranscriptionProviderSelection::WhisperCpp(options) => {
             let mut vad = EnergyVadTranscriptionProvider;
             let mut asr = WhisperCppTranscriber {
                 options: options.clone(),
             };
-            run_transcription_pipeline(request, &mut vad, &mut asr, None, None)
+            #[cfg(feature = "diarization")]
+            {
+                let mut diarizer = NativeSpeakerDiarizationProvider;
+                let diarization_provider = request
+                    .diarization
+                    .enabled
+                    .then_some(&mut diarizer as &mut dyn TranscriptDiarizationProvider);
+                run_transcription_pipeline(request, &mut vad, &mut asr, None, diarization_provider)
+            }
+            #[cfg(not(feature = "diarization"))]
+            {
+                run_transcription_pipeline(request, &mut vad, &mut asr, None, None)
+            }
         }
     }
 }
@@ -928,7 +990,28 @@ fn provider_language(provider: &TranscriptionProviderSelection) -> Option<String
     }
 }
 
-fn normalize_samples_source(
+pub(crate) fn validate_asr_request(request: &AsrRequest) -> Result<()> {
+    native_audio::validate_loaded_audio(&request.audio)?;
+    if request.chunks.is_empty() {
+        return Err(invalid_request(
+            "ASR request must contain at least one speech chunk",
+        ));
+    }
+    let duration = request.audio.duration_seconds();
+    let tolerance = 1.0 / request.audio.sample_rate as f64;
+    for chunk in &request.chunks {
+        chunk.validate()?;
+        if chunk.end_seconds > duration + tolerance {
+            return Err(invalid_request(format!(
+                "speech chunk end {:.6} exceeds audio duration {:.6}",
+                chunk.end_seconds, duration
+            )));
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn normalize_samples_source(
     samples: &[f32],
     sample_rate: u32,
     channels: u16,
@@ -972,7 +1055,7 @@ fn normalize_samples_source(
     })
 }
 
-fn resample_linear(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32> {
+pub(crate) fn resample_linear(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32> {
     if samples.is_empty() || from_rate == to_rate {
         return samples.to_vec();
     }
@@ -1291,11 +1374,7 @@ fn speaker_for_range(
 }
 
 fn validate_candle_setup(options: &CandleWhisperOptions) -> Result<()> {
-    if options.device == NativeDevicePreference::Cuda && !cfg!(feature = "cuda") {
-        return Err(setup_error(
-            "CUDA was requested but the binary lacks the `cuda` feature",
-        ));
-    }
+    native_device::resolve_native_device(options.device)?;
     if !cfg!(feature = "candle") {
         return Err(unsupported_runtime(
             "Candle Whisper requested but the binary lacks the `candle` feature",
@@ -1319,6 +1398,7 @@ fn validate_candle_setup(options: &CandleWhisperOptions) -> Result<()> {
     }
 }
 
+#[cfg(not(feature = "alignment"))]
 fn validate_alignment_setup(options: &AlignmentOptions) -> Result<()> {
     if !cfg!(feature = "alignment") {
         return Err(unsupported_runtime(
@@ -1538,15 +1618,15 @@ fn wait_with_optional_timeout(
     }
 }
 
-fn setup_error(message: impl Into<String>) -> DetectError {
+pub(crate) fn setup_error(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(format!("setup_error: {}", message.into()))
 }
 
-fn invalid_request(message: impl Into<String>) -> DetectError {
+pub(crate) fn invalid_request(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(format!("invalid_request: {}", message.into()))
 }
 
-fn model_output_mismatch(message: impl Into<String>) -> DetectError {
+pub(crate) fn model_output_mismatch(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(format!("model_output_mismatch: {}", message.into()))
 }
 
@@ -1554,7 +1634,7 @@ fn timeout_error(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(format!("timeout: {}", message.into()))
 }
 
-fn unsupported_runtime(message: impl Into<String>) -> DetectError {
+pub(crate) fn unsupported_runtime(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(format!("unsupported_runtime: {}", message.into()))
 }
 
@@ -1690,6 +1770,181 @@ mod tests {
         }
     }
 
+    fn diarization_response_for_tests(
+        segments: Vec<SpeakerSegmentPrediction>,
+    ) -> SpeakerDiarizationResponse {
+        #[cfg(not(feature = "diarization"))]
+        {
+            SpeakerDiarizationResponse {
+                accepted: true,
+                operation: "audio.speakers.diarize".to_string(),
+                model_id: "test-speakers".to_string(),
+                runtime: "mock".to_string(),
+                segments,
+            }
+        }
+        #[cfg(feature = "diarization")]
+        {
+            SpeakerDiarizationResponse {
+                accepted: true,
+                operation: "audio.speakers.diarize".to_string(),
+                model_id: "test-speakers".to_string(),
+                runtime: audio_analysis_speakers::AudioRuntime::Imported,
+                segments,
+            }
+        }
+    }
+
+    fn transcript_with_words(
+        words: Vec<(&str, f64, f64)>,
+    ) -> std::result::Result<TranscriptionContract, Box<dyn std::error::Error>> {
+        let mut segment = TranscriptSegmentContract::new(
+            0,
+            words
+                .iter()
+                .map(|(word, _, _)| *word)
+                .collect::<Vec<_>>()
+                .join(" "),
+        );
+        segment.start_seconds = Some(0.0);
+        segment.end_seconds = Some(2.0);
+        segment.words = words
+            .into_iter()
+            .map(
+                |(text, start_seconds, end_seconds)| TranscriptWordContract {
+                    text: text.to_string(),
+                    start_seconds: Some(start_seconds),
+                    end_seconds: Some(end_seconds),
+                    confidence: None,
+                    speaker: None,
+                    attributes: BTreeMap::new(),
+                },
+            )
+            .collect();
+        Ok(TranscriptionContract::from_segments(
+            None,
+            Some("en".to_string()),
+            vec![segment],
+        )?)
+    }
+
+    #[test]
+    fn majority_overlap_assigns_word_and_segment_speaker(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let mut transcript = transcript_with_words(vec![("hello", 0.1, 0.7), ("world", 0.8, 1.2)])?;
+        let diarization = diarization_response_for_tests(vec![
+            SpeakerSegmentPrediction {
+                speaker: "speaker_0".to_string(),
+                start_seconds: 0.0,
+                end_seconds: 0.75,
+                score: Some(0.9),
+            },
+            SpeakerSegmentPrediction {
+                speaker: "speaker_1".to_string(),
+                start_seconds: 0.75,
+                end_seconds: 1.5,
+                score: Some(0.8),
+            },
+        ]);
+
+        assign_speakers_from_diarization(
+            &mut transcript,
+            &diarization,
+            SpeakerAssignmentPolicy::Majority,
+        )?;
+
+        assert_eq!(
+            transcript.segments[0].words[0].speaker.as_deref(),
+            Some("speaker_0")
+        );
+        assert_eq!(
+            transcript.segments[0].words[1].speaker.as_deref(),
+            Some("speaker_1")
+        );
+        assert_eq!(transcript.segments[0].speaker.as_deref(), Some("speaker_0"));
+        Ok(())
+    }
+
+    #[test]
+    fn nearest_start_policy_assigns_nearest_speaker(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let mut transcript = transcript_with_words(vec![("hello", 0.72, 0.9)])?;
+        let diarization = diarization_response_for_tests(vec![
+            SpeakerSegmentPrediction {
+                speaker: "speaker_0".to_string(),
+                start_seconds: 0.0,
+                end_seconds: 0.4,
+                score: Some(0.9),
+            },
+            SpeakerSegmentPrediction {
+                speaker: "speaker_1".to_string(),
+                start_seconds: 0.7,
+                end_seconds: 1.0,
+                score: Some(0.9),
+            },
+        ]);
+
+        assign_speakers_from_diarization(
+            &mut transcript,
+            &diarization,
+            SpeakerAssignmentPolicy::NearestStart,
+        )?;
+
+        assert_eq!(
+            transcript.segments[0].words[0].speaker.as_deref(),
+            Some("speaker_1")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn strict_contained_policy_leaves_uncontained_words_unassigned(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let mut transcript = transcript_with_words(vec![("hello", 0.2, 0.8)])?;
+        let diarization = diarization_response_for_tests(vec![SpeakerSegmentPrediction {
+            speaker: "speaker_0".to_string(),
+            start_seconds: 0.3,
+            end_seconds: 0.7,
+            score: Some(0.9),
+        }]);
+
+        assign_speakers_from_diarization(
+            &mut transcript,
+            &diarization,
+            SpeakerAssignmentPolicy::StrictContained,
+        )?;
+
+        assert!(transcript.segments[0].words[0].speaker.is_none());
+        assert!(transcript.segments[0].speaker.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn existing_segment_speaker_is_not_overwritten(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let mut transcript = transcript_with_words(vec![("hello", 0.1, 0.4)])?;
+        transcript.segments[0].speaker = Some("manual".to_string());
+        let diarization = diarization_response_for_tests(vec![SpeakerSegmentPrediction {
+            speaker: "speaker_0".to_string(),
+            start_seconds: 0.0,
+            end_seconds: 1.0,
+            score: Some(0.9),
+        }]);
+
+        assign_speakers_from_diarization(
+            &mut transcript,
+            &diarization,
+            SpeakerAssignmentPolicy::Majority,
+        )?;
+
+        assert_eq!(transcript.segments[0].speaker.as_deref(), Some("manual"));
+        assert_eq!(
+            transcript.segments[0].words[0].speaker.as_deref(),
+            Some("speaker_0")
+        );
+        Ok(())
+    }
+
     #[test]
     fn provider_plan_reports_candle_primary_native_provider() {
         let plans = transcription_provider_plans();
@@ -1712,7 +1967,7 @@ mod tests {
         });
         let result = provider.transcribe(AsrRequest {
             audio: LoadedAudio {
-                samples: vec![0.0, 0.0],
+                samples: vec![0.0; 16],
                 sample_rate: 16_000,
                 channels: 1,
                 source: None,
@@ -1730,7 +1985,7 @@ mod tests {
         let mut provider = CandleWhisperTranscriber::default();
         let result = provider.transcribe(AsrRequest {
             audio: LoadedAudio {
-                samples: vec![0.0, 0.0],
+                samples: vec![0.0; 16],
                 sample_rate: 16_000,
                 channels: 1,
                 source: None,
@@ -1741,6 +1996,80 @@ mod tests {
         });
         let error = result.unwrap_err().to_string();
         assert!(error.contains("setup_error") || error.contains("unsupported_runtime"));
+    }
+
+    #[test]
+    fn empty_audio_returns_invalid_request() {
+        let mut provider = CandleWhisperTranscriber::default();
+        let result = provider.transcribe(AsrRequest {
+            audio: LoadedAudio {
+                samples: Vec::new(),
+                sample_rate: 16_000,
+                channels: 1,
+                source: None,
+            },
+            chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+            language: None,
+            model_id: "openai/whisper-large-v3".to_string(),
+        });
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("empty audio"));
+    }
+
+    #[test]
+    fn non_finite_audio_returns_invalid_request() {
+        let mut provider = CandleWhisperTranscriber::default();
+        let result = provider.transcribe(AsrRequest {
+            audio: LoadedAudio {
+                samples: vec![0.0, f32::NAN],
+                sample_rate: 16_000,
+                channels: 1,
+                source: None,
+            },
+            chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+            language: None,
+            model_id: "openai/whisper-large-v3".to_string(),
+        });
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("finite"));
+    }
+
+    #[test]
+    fn path_non_wav_returns_unsupported_runtime() {
+        let result = LoadedAudio::mono_16khz_from_source(&TranscriptionSource::Path {
+            path: PathBuf::from("clip.mp4"),
+        });
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("unsupported_runtime"));
+        assert!(error.contains("WAV"));
+    }
+
+    #[test]
+    fn wav_path_decodes_to_mono_16khz() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let path = temp.path().join("stereo-8khz.wav");
+        let spec = hound::WavSpec {
+            channels: 2,
+            sample_rate: 8_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(&path, spec)?;
+        for _ in 0..8_000 {
+            writer.write_sample::<i16>(16_384)?;
+            writer.write_sample::<i16>(0)?;
+        }
+        writer.finalize()?;
+
+        let audio = LoadedAudio::mono_16khz_from_source(&TranscriptionSource::Path { path })?;
+        assert_eq!(audio.sample_rate, 16_000);
+        assert_eq!(audio.channels, 1);
+        assert_eq!(audio.samples.len(), 16_000);
+        assert!(audio.samples.iter().all(|sample| sample.is_finite()));
+        assert!(audio.samples.iter().any(|sample| *sample > 0.20));
+        Ok(())
     }
 
     #[test]
@@ -1907,5 +2236,48 @@ mod tests {
         });
         assert!(result.unwrap_err().to_string().contains("timeout"));
         Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn candle_whisper_cuda_smoke_when_requested() {
+        if std::env::var("RUN_NATIVE_TRANSCRIPTION_TESTS").as_deref() != Ok("1") {
+            eprintln!("skipping native transcription smoke; set RUN_NATIVE_TRANSCRIPTION_TESTS=1");
+            return;
+        }
+        #[cfg(not(all(feature = "candle", feature = "cuda", feature = "model-bundles")))]
+        panic!("native transcription smoke requires candle,cuda,model-bundles features");
+
+        #[cfg(all(feature = "candle", feature = "cuda", feature = "model-bundles"))]
+        {
+            let bundle = std::env::var_os("TRANSCRIPTION_MODEL_BUNDLE")
+                .map(PathBuf::from)
+                .expect("TRANSCRIPTION_MODEL_BUNDLE is required");
+            let audio_path = std::env::var_os("TRANSCRIPTION_AUDIO_PATH")
+                .map(PathBuf::from)
+                .expect("TRANSCRIPTION_AUDIO_PATH is required");
+            let response = transcribe(TranscriptionPipelineRequest {
+                source: TranscriptionSource::Path { path: audio_path },
+                provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+                    device: NativeDevicePreference::Cuda,
+                    model_bundle: Some(bundle),
+                    ..CandleWhisperOptions::default()
+                }),
+                vad: VadOptions::default(),
+                alignment: AlignmentOptions::default(),
+                diarization: DiarizationOptions::default(),
+                output: TranscriptionOutputOptions::default(),
+            })
+            .expect("native Candle Whisper CUDA transcription should run");
+            assert!(response.accepted);
+            assert!(
+                response
+                    .transcript
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| !text.trim().is_empty())
+                    || !response.transcript.segments.is_empty()
+            );
+        }
     }
 }

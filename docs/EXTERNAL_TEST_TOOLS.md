@@ -92,6 +92,15 @@ called by `bun run test`, `scripts/check-fast.sh`, or default CI. Missing
 bundles should skip or fail only according to the ignored test's own semantics;
 default tests do not download or execute live models.
 
+Native transcription smoke tests follow the same opt-in rule. Candle Whisper
+CUDA is the primary native target and requires `candle,cuda,model-bundles`
+features plus `RUN_NATIVE_TRANSCRIPTION_TESTS=1`,
+`TRANSCRIPTION_MODEL_BUNDLE`, and `TRANSCRIPTION_AUDIO_PATH`. Candle CPU remains
+the local development fallback. CTC alignment and native diarization smoke
+tests also require their documented env vars before they run. External Python
+WhisperX remains compatibility/parity tooling only, and browser/WASM package
+surfaces do not run native ASR.
+
 The multimodal workflow smoke tests still include optional command adapters
 under `scripts/`, but image/video workflows now prefer Rust-side adapters when
 configured without commands:

@@ -79,9 +79,27 @@ fn main() -> io::Result<()> {
 fn serve(addr: &str) -> io::Result<()> {
     let listener = TcpListener::bind(addr)?;
     for stream in listener.incoming() {
-        handle_stream(stream?)?;
+        match stream {
+            Ok(stream) => {
+                if let Err(error) = handle_stream(stream) {
+                    if is_client_disconnect(&error) {
+                        eprintln!("ignored client disconnect: {error}");
+                    } else {
+                        return Err(error);
+                    }
+                }
+            }
+            Err(error) => return Err(error),
+        }
     }
     Ok(())
+}
+
+fn is_client_disconnect(error: &io::Error) -> bool {
+    matches!(
+        error.kind(),
+        io::ErrorKind::BrokenPipe | io::ErrorKind::ConnectionReset | io::ErrorKind::UnexpectedEof
+    )
 }
 
 fn response_for(request: &Request) -> HttpResponse {

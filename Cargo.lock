@@ -2431,6 +2431,7 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "hound",
  "moritzbrantner-audio-analysis-speakers",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",

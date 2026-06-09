@@ -62,7 +62,7 @@ pub fn package_surface() -> PackageSurface {
             operation(
                 "audio.transcription.transcribe",
                 "Transcribe audio or video",
-                "Runs real audio/video-to-text through the native transcription pipeline.",
+                "Runs transcription through native providers when built with explicit features and local bundles; WhisperX remains an external compatibility path.",
                 serde_json::json!({
                     "source": {"path": "{\"segments\":[{\"start\":0.0,\"end\":1.0,\"text\":\"Hello from offline compatibility output.\"}]}"},
                     "provider": {
@@ -116,7 +116,7 @@ pub fn package_surface() -> PackageSurface {
             operation(
                 "audio.transcription.alignmentPlan",
                 "Plan alignment",
-                "Explains wav2vec2-style CTC forced-alignment requirements.",
+                "Explains deterministic CTC alignment and opt-in wav2vec2 bundle requirements.",
                 serde_json::json!({"alignment": {"enabled": true, "modelId": "facebook/wav2vec2-base-960h"}}),
                 true,
             ),

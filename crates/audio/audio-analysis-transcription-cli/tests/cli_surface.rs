@@ -5,7 +5,10 @@ fn cli_adapter_reports_wrapped_library() {
         "audio-analysis-transcription"
     );
     let surface = audio_analysis_transcription_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-audio-analysis-transcription");
+    assert_eq!(
+        surface.library,
+        "moritzbrantner-audio-analysis-transcription"
+    );
     assert!(!surface.operations.is_empty());
 }
 

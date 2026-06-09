@@ -114,15 +114,23 @@ before tests run. You can override the command with
 
 ## Native Transcription Smoke Tests
 
-`audio-analysis-transcription` owns real audio/video-to-text execution. The
-default provider plan is Candle Whisper, with CUDA used only when the crate is
-built with the `cuda` feature and the request explicitly selects that device.
-Default tests use deterministic samples and mock providers; they do not require
-models, CUDA, Python, Hugging Face tokens, downloads, or network access.
+`audio-analysis-transcription` owns real audio/video-to-text execution. Candle
+Whisper CUDA is the primary native target, and Candle CPU is the local
+development fallback when the crate is built with `candle`. CUDA is used only
+when the crate is built with `cuda` and the request explicitly selects that
+device. Default tests use deterministic samples, WAV fixtures, CTC primitives,
+and mock providers; they do not require models, CUDA, Python, Hugging Face
+tokens, downloads, or network access.
+
+Native path decoding currently accepts WAV files only. Broader container/video
+decode remains an explicit external/runtime integration task. Browser and WASM
+package surfaces can plan or import transcript data, but they do not run native
+ASR.
 
 Imported transcript normalization belongs to `text-transcripts` through
 `transcripts.normalize` and `transcripts.importWhisperX`. Recognition package
-surfaces no longer advertise transcription operations.
+surfaces no longer advertise transcription operations. External Python
+WhisperX is compatibility/parity tooling only.
 
 Candle Whisper CUDA smoke test:
 

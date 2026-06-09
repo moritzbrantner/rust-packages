@@ -5,10 +5,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use audio_analysis_core::{interleaved_to_mono, rms, zero_pad_to, ChannelMix, FrameSpec};
+pub use audio_analysis_recognition::AudioRuntime;
 use audio_analysis_recognition::{
-    AudioEmbeddingExtractor, AudioRuntime, AudioRuntimeSelection, FallbackPolicy,
-    SpectralAudioEmbedder, SpectralEmbeddingConfig, TranscriptSegmentContract,
-    TranscriptionContract,
+    AudioEmbeddingExtractor, AudioRuntimeSelection, FallbackPolicy, SpectralAudioEmbedder,
+    SpectralEmbeddingConfig, TranscriptSegmentContract, TranscriptionContract,
 };
 use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result};
 
@@ -1543,6 +1543,91 @@ pub fn diarize_speakers(request: SpeakerDiarizationRequest) -> Result<SpeakerDia
     }
 }
 
+/// Runs the deterministic native speaker diarization baseline over mono audio.
+pub fn diarize_speaker_audio_baseline(
+    samples: &[f32],
+    sample_rate: u32,
+) -> Result<SpeakerDiarizationResponse> {
+    let audio = SpeakerAudio::mono(samples, sample_rate)?;
+    let embedder = SpectralSpeakerEmbedder::default();
+    let vad_config = EnergyVadConfig::default();
+    let vad = EnergyVoiceActivityDetector::new(vad_config)?;
+    let merge_gap_seconds = vad_config.merge_gap_seconds as f32;
+    let mut diarizer = WindowedSpeakerDiarizer::new(embedder, vad);
+    let result = diarizer.diarize(&audio)?;
+    let segments = stable_speaker_predictions(result.segments, merge_gap_seconds)?;
+    Ok(SpeakerDiarizationResponse {
+        accepted: true,
+        operation: "audio.speakers.diarize".to_string(),
+        model_id: "native-spectral-speaker-baseline".to_string(),
+        runtime: AudioRuntime::Heuristic,
+        segments,
+    })
+}
+
+fn stable_speaker_predictions(
+    segments: Vec<DiarizationSegment>,
+    merge_gap_seconds: f32,
+) -> Result<Vec<SpeakerSegmentPrediction>> {
+    let mut unknown_labels: Vec<(String, String)> = Vec::new();
+    let mut predictions = Vec::new();
+    for segment in segments {
+        let speaker = match segment.speaker {
+            DiarizedSpeaker::Known(id) => id.as_str().to_string(),
+            DiarizedSpeaker::Unknown(label) => {
+                if let Some((_, stable)) = unknown_labels
+                    .iter()
+                    .find(|(existing, _)| existing == &label)
+                {
+                    stable.clone()
+                } else {
+                    let stable = format!("speaker_{}", unknown_labels.len());
+                    unknown_labels.push((label, stable.clone()));
+                    stable
+                }
+            }
+        };
+        predictions.push(normalize_speaker_segment(SpeakerSegmentPrediction {
+            speaker,
+            start_seconds: segment.start_seconds as f32,
+            end_seconds: segment.end_seconds as f32,
+            score: Some(segment.score),
+        })?);
+    }
+    merge_speaker_predictions(predictions, merge_gap_seconds)
+}
+
+fn merge_speaker_predictions(
+    segments: Vec<SpeakerSegmentPrediction>,
+    merge_gap_seconds: f32,
+) -> Result<Vec<SpeakerSegmentPrediction>> {
+    let mut merged: Vec<SpeakerSegmentPrediction> = Vec::new();
+    for segment in segments {
+        if let Some(last) = merged.last_mut() {
+            if last.speaker == segment.speaker
+                && segment.start_seconds - last.end_seconds <= merge_gap_seconds
+            {
+                let last_duration = (last.end_seconds - last.start_seconds).max(0.0);
+                let segment_duration = (segment.end_seconds - segment.start_seconds).max(0.0);
+                let total = last_duration + segment_duration;
+                last.end_seconds = segment.end_seconds;
+                last.score = match (last.score, segment.score) {
+                    (Some(left), Some(right)) if total > f32::EPSILON => {
+                        Some(((left * last_duration) + (right * segment_duration)) / total)
+                    }
+                    (Some(left), Some(right)) => Some(left.max(right)),
+                    (Some(left), None) => Some(left),
+                    (None, Some(right)) => Some(right),
+                    (None, None) => None,
+                };
+                continue;
+            }
+        }
+        merged.push(segment);
+    }
+    Ok(merged)
+}
+
 /// Assigns speaker diarization output onto transcript segments by time overlap.
 pub fn assign_speakers_to_transcript(
     transcript: &TranscriptionContract,
@@ -2510,5 +2595,18 @@ mod tests {
             result.segments[1].speaker,
             DiarizedSpeaker::Unknown("speaker-1".to_string())
         );
+    }
+
+    #[test]
+    fn native_diarization_baseline_returns_stable_speaker_segments() {
+        let sample_rate = 8_000;
+        let samples = sine(220.0, sample_rate, 0.30);
+        let response = diarize_speaker_audio_baseline(&samples, sample_rate).unwrap();
+
+        assert!(response.accepted);
+        assert_eq!(response.runtime, AudioRuntime::Heuristic);
+        assert!(!response.segments.is_empty());
+        assert_eq!(response.segments[0].speaker, "speaker_0");
+        assert!(response.segments[0].end_seconds > response.segments[0].start_seconds);
     }
 }

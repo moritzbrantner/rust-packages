@@ -114,10 +114,16 @@ The audio crate surfaces now follow the same parity rule. Default audio
 operations expose deterministic, in-memory signal summaries, FFT/STFT features,
 pitch and rhythm projections, processing summaries, spectral recognition,
 speaker baselines, synthesis, MIDI rendering, fixture generation, and
-non-executing I/O/separation plans. They must reject invalid sample metadata and
-non-finite samples, cap preview payloads, return `SurfaceResponse` JSON values,
-and avoid FFmpeg, Demucs, model downloads, native inference, filesystem writes,
-or network access in default calls.
+non-executing I/O/separation plans. Audio transcription surfaces may run native
+Candle Whisper only when built with explicit native features and caller-provided
+local bundles; Candle Whisper CUDA is the primary native target and Candle CPU
+is the local development fallback. External Python WhisperX is
+compatibility/parity tooling only. Browser and WASM transcription package
+surfaces can plan or import transcript data, but they do not run native ASR.
+Default calls must reject invalid sample metadata and non-finite samples, cap
+preview payloads, return `SurfaceResponse` JSON values, and avoid FFmpeg,
+Demucs, model downloads, native inference, filesystem writes, or network access
+unless the operation explicitly documents native/server model execution.
 
 The first video/image/3D/ComfyUI surface parity tranche follows the same
 library-owned convention. Dataset, transform, feature, storage, detector,
@@ -192,7 +198,7 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-audio-analysis-pitch` | Pitch estimation | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | Autocorrelation pitch detector, pitch analyzer events, note projection, chroma and pitch-class summaries | Applications and audio pipelines |
 | `moritzbrantner-audio-analysis-processing` | Realtime-safe audio processing | `moritzbrantner-audio-analysis-core`, `moritzbrantner-math-signal-core`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources, deterministic loudness-oriented reports | Applications, preprocessing workflows, audio pipelines |
 | `moritzbrantner-audio-analysis-recognition` | Audio similarity and recognition | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-fourier`, `moritzbrantner-video-analysis-core`, `moritzbrantner-text-transcripts` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events, and deprecated Rust transcription compatibility wrappers only | Applications, audio pipelines, reference matching workflows |
-| `moritzbrantner-audio-analysis-transcription` | Native audio/video transcription orchestration | `moritzbrantner-video-analysis-core`, `moritzbrantner-text-transcripts`, optional `moritzbrantner-model-runtime`, optional `moritzbrantner-audio-analysis-speakers` | ASR/VAD/alignment provider traits, Candle Whisper provider planning, energy VAD chunking, CTC alignment contracts, optional speaker diarization assignment, and external WhisperX compatibility import/execution | Real ASR workflows, transcript generation, alignment, diarization, and compatibility comparison |
+| `moritzbrantner-audio-analysis-transcription` | Native audio/video transcription orchestration | `moritzbrantner-video-analysis-core`, `moritzbrantner-text-transcripts`, optional `moritzbrantner-model-runtime`, optional `moritzbrantner-audio-analysis-speakers` | ASR/VAD/alignment provider traits, Candle Whisper CPU/CUDA execution from local bundles, WAV native input normalization, energy VAD chunking, deterministic CTC alignment contracts with wav2vec2 bundle seam, optional speaker diarization assignment, and external WhisperX compatibility import/execution | Real ASR workflows, transcript generation, alignment, diarization, and compatibility comparison |
 | `moritzbrantner-audio-analysis-speakers` | Speaker analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-recognition`, `moritzbrantner-video-analysis-core` | Speaker embeddings, enrollment, thresholded identification, deterministic VAD, baseline diarization, transcript speaker assignment with majority, nearest-start, and strict-contained policies | Speaker-aware audio and transcript workflows |
 | `moritzbrantner-audio-analysis-rhythm` | Rhythm and tempo analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `moritzbrantner-audio-analysis-separation` | Instrument stem separation command wrapper | `moritzbrantner-video-analysis-core` | HTDemucs/Demucs options, command previews, opt-in Demucs execution, expected stem paths and output layouts | Applications and preprocessing workflows |
