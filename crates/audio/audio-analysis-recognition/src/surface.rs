@@ -6,9 +6,8 @@ use runtime_core::{
 };
 
 use crate::{
-    transcribe, transcribe_audio, transcription_plan, AudioEmbeddingExtractor, AudioMatchOptions,
-    AudioReferenceLibrary, SpectralAudioEmbedder, SpectralEmbeddingConfig,
-    SpeechRecognitionRequest, TranscriptionRequest, TranscriptionRuntimeSelection,
+    AudioEmbeddingExtractor, AudioMatchOptions, AudioReferenceLibrary, SpectralAudioEmbedder,
+    SpectralEmbeddingConfig,
 };
 
 const MAX_SAMPLES: usize = 192_000;
@@ -45,47 +44,6 @@ pub fn package_surface() -> PackageSurface {
                 "Builds a transient sample-backed reference library and searches it.",
                 serde_json::json!({"querySamples": [0.0, 1.0, 0.0, -1.0], "sampleRate": 48000, "references": [{"id": "ref-1", "label": "Reference", "samples": [0.0, 1.0, 0.0, -1.0]}]}),
             ),
-            operation(
-                "audio.recognition.transcribe",
-                "Transcribe audio",
-                "Normalizes generic imported transcript input into the shared transcription contract without running native ASR.",
-                serde_json::json!({
-                    "source": "fixture.wav",
-                    "language": "en",
-                    "input": {
-                        "kind": "imported_segments",
-                        "segments": [
-                            {"index": 0, "startSeconds": 0.0, "endSeconds": 1.0, "text": "hello", "confidence": 0.95, "isFinal": true}
-                        ]
-                    },
-                    "runtime": {"modelId": "imported-transcript", "backend": "imported"}
-                }),
-            ),
-            operation(
-                "audio.recognition.transcribeImported",
-                "Transcribe imported segments",
-                "Normalizes caller-supplied transcript segments into the shared transcription contract without running native ASR.",
-                serde_json::json!({
-                    "source": "fixture.wav",
-                    "language": "en",
-                    "model": {"modelId": "whisper-tiny-en", "runtime": "imported"},
-                    "importedSegments": [
-                        {"index": 0, "startSeconds": 0.0, "endSeconds": 1.0, "text": "hello", "confidence": 0.95, "isFinal": true}
-                    ]
-                }),
-            ),
-            operation(
-                "audio.recognition.transcriptionPlan",
-                "Plan transcription runtime",
-                "Explains generic transcription provider setup without running native ASR, reading files, or writing outputs.",
-                serde_json::json!({"modelId": "whisper-tiny-en", "backend": "whisper_cpp", "source": "fixture.wav"}),
-            ),
-            operation(
-                "audio.recognition.transcriptionProviders",
-                "Inspect transcription providers",
-                "Lists imported, Whisper, external, and model-runtime transcription provider support in default builds.",
-                serde_json::json!({"includePlanned": true}),
-            ),
         ],
     }
 }
@@ -116,10 +74,6 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.recognition.embed" => embed_value(request.input)?,
         "audio.recognition.compare" => compare_value(request.input)?,
         "audio.recognition.search" => search_value(request.input)?,
-        "audio.recognition.transcribe" => transcribe_value(request.input)?,
-        "audio.recognition.transcribeImported" => transcribe_imported_value(request.input)?,
-        "audio.recognition.transcriptionPlan" => transcription_plan_value(request.input),
-        "audio.recognition.transcriptionProviders" => transcription_providers_value(request.input),
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -163,43 +117,6 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
                 "sampleRate": value.get("sampleRate").cloned().unwrap_or(serde_json::Value::Null),
                 "referenceCount": value.get("referenceCount").cloned().unwrap_or(serde_json::Value::Null),
                 "matchCount": value.get("matches").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
-            }),
-        ),
-        "audio.recognition.transcribe" => (
-            "Transcription result",
-            "Normalized generic imported transcript input into the shared transcription contract.",
-            serde_json::json!({
-                "modelId": value.get("modelId").cloned().unwrap_or(serde_json::Value::Null),
-                "backend": value.get("backend").cloned().unwrap_or(serde_json::Value::Null),
-                "segmentCount": value.get("segmentCount").cloned().unwrap_or(serde_json::Value::Null)
-            }),
-        ),
-        "audio.recognition.transcribeImported" => (
-            "Imported transcription result",
-            "Normalized caller-supplied transcript segments into the shared transcription contract.",
-            serde_json::json!({
-                "modelId": value.get("modelId").cloned().unwrap_or(serde_json::Value::Null),
-                "runtime": value.get("runtime").cloned().unwrap_or(serde_json::Value::Null),
-                "segmentCount": value.get("segmentCount").cloned().unwrap_or(serde_json::Value::Null)
-            }),
-        ),
-        "audio.recognition.transcriptionPlan" => (
-            "Transcription runtime plan",
-            "Planned transcription provider setup without executing native ASR, reading files, or writing outputs.",
-            serde_json::json!({
-                "selectedModelId": value.get("selectedModelId").cloned().unwrap_or(serde_json::Value::Null),
-                "executionOwner": value.get("executionOwner").cloned().unwrap_or(serde_json::Value::Null),
-                "willExecute": value.get("willExecute").cloned().unwrap_or(serde_json::Value::Null)
-            }),
-        ),
-        "audio.recognition.transcriptionProviders" => (
-            "Transcription providers",
-            "Inspected which transcription provider families are runnable or planned in default builds.",
-            serde_json::json!({
-                "providerCount": value.get("providers").and_then(serde_json::Value::as_array).map_or(0, Vec::len),
-                "runnableCount": value.get("providers").and_then(serde_json::Value::as_array).map(|providers| {
-                    providers.iter().filter(|provider| provider.get("runnable").and_then(serde_json::Value::as_bool).unwrap_or(false)).count()
-                }).unwrap_or(0)
             }),
         ),
         _ => (
@@ -306,204 +223,6 @@ fn search_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     }))
 }
 
-fn transcribe_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
-    let request: TranscriptionRequest =
-        serde_json::from_value(input).map_err(|error| error.to_string())?;
-    let response = transcribe(request).map_err(|error| error.to_string())?;
-    let text = response.transcript.text_or_joined();
-    let segment_count = response.transcript.segments.len();
-    Ok(serde_json::json!({
-        "accepted": response.accepted,
-        "operation": "audio.recognition.transcribe",
-        "contractOperation": response.operation,
-        "modelId": response.model_id,
-        "backend": response.backend,
-        "text": text,
-        "segmentCount": segment_count,
-        "transcript": response.transcript,
-        "diagnostics": response.diagnostics
-    }))
-}
-
-fn transcribe_imported_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
-    let request: SpeechRecognitionRequest =
-        serde_json::from_value(input).map_err(|error| error.to_string())?;
-    let response = transcribe_audio(request).map_err(|error| error.to_string())?;
-    let text = response.text();
-    let segment_count = response.segments().len();
-    Ok(serde_json::json!({
-        "accepted": response.accepted,
-        "operation": "audio.recognition.transcribeImported",
-        "contractOperation": response.operation,
-        "modelId": response.model_id,
-        "runtime": response.runtime,
-        "text": text,
-        "segmentCount": segment_count,
-        "transcript": response.transcript,
-        "segments": response.segments()
-    }))
-}
-
-fn transcription_plan_value(input: serde_json::Value) -> serde_json::Value {
-    let runtime = runtime_selection_from_input(&input);
-    let plan = transcription_plan(&runtime);
-    let source_kind = if input.get("importedSegments").is_some() {
-        "importedSegments"
-    } else if input
-        .get("input")
-        .and_then(|input| input.get("kind"))
-        .and_then(serde_json::Value::as_str)
-        .is_some()
-    {
-        "genericInput"
-    } else if input.get("transcription").is_some() {
-        "transcriptionContract"
-    } else if input.get("source").is_some() {
-        "audioSource"
-    } else {
-        "unspecified"
-    };
-
-    serde_json::json!({
-        "selectedModelId": plan.selected_model_id,
-        "provider": plan.provider,
-        "backend": plan.backend,
-        "task": plan.task,
-        "executionOwner": plan.execution_owner,
-        "nativeRuntime": "whisper.cpp",
-        "requiredFeature": plan.requires_feature,
-        "requiredSetupCommand": plan.setup.join(" "),
-        "acceptedInputFormats": [
-            "importedSegments",
-            "TranscriptionRequest.input",
-            "TranscriptionContract",
-            "source paths handled by explicit native, external, or model-runtime providers"
-        ],
-        "expectedTranscriptContractShape": {
-            "source": "optional string",
-            "language": "optional BCP-47 language tag",
-            "text": "optional aggregate transcript text",
-            "segments": [
-                {
-                    "index": 0,
-                    "startSeconds": 0.0,
-                    "endSeconds": 1.0,
-                    "text": "recognized words",
-                    "speaker": "optional speaker label",
-                    "confidence": 0.95
-                }
-            ]
-        },
-        "fallbackBehavior": "Use audio.recognition.transcribe or audio.recognition.transcribeImported with imported transcript data for deterministic default builds.",
-        "sourceKind": source_kind,
-        "willExecute": plan.will_execute,
-        "filesystemAccess": false,
-        "externalProcess": false,
-        "setup": plan.setup,
-        "diagnostics": plan.diagnostics
-    })
-}
-
-fn transcription_providers_value(_input: serde_json::Value) -> serde_json::Value {
-    serde_json::json!({
-        "providers": [
-            {
-                "id": "imported-transcript",
-                "kind": "imported",
-                "backend": "imported",
-                "runnable": true,
-                "executionOwner": "moritzbrantner-audio-analysis-recognition",
-                "description": "Normalizes caller-supplied transcript segments or transcript contracts in memory."
-            },
-            {
-                "id": "whisper-cpp",
-                "kind": "whisper_cpp",
-                "backend": "whisper_cpp",
-                "runnable": false,
-                "executionOwner": "moritzbrantner-text-transcripts",
-                "requiresFeature": "native",
-                "description": "Existing native Whisper provider owned by text-transcripts; not executed by default audio package surfaces."
-            },
-            {
-                "id": "external-transcriber",
-                "kind": "external_command",
-                "backend": "external",
-                "runnable": false,
-                "executionOwner": "caller",
-                "description": "Planned adapter family for explicit external transcription commands."
-            },
-            {
-                "id": "model-runtime-transcriber",
-                "kind": "model_runtime",
-                "backend": "custom",
-                "runnable": false,
-                "executionOwner": "caller",
-                "description": "Planned adapter family for explicit model-runtime transcription providers."
-            }
-        ]
-    })
-}
-
-fn runtime_selection_from_input(input: &serde_json::Value) -> TranscriptionRuntimeSelection {
-    let runtime_object = input
-        .get("runtime")
-        .and_then(serde_json::Value::as_object)
-        .or_else(|| input.as_object());
-    let mut runtime = runtime_object
-        .and_then(|_| serde_json::from_value::<TranscriptionRuntimeSelection>(input.clone()).ok())
-        .or_else(|| {
-            input.get("runtime").cloned().and_then(|value| {
-                serde_json::from_value::<TranscriptionRuntimeSelection>(value).ok()
-            })
-        })
-        .unwrap_or_default();
-
-    if runtime.model_id.is_none() {
-        runtime.model_id = input
-            .get("modelId")
-            .and_then(serde_json::Value::as_str)
-            .or_else(|| {
-                input
-                    .get("model")
-                    .and_then(|model| model.get("modelId"))
-                    .and_then(serde_json::Value::as_str)
-            })
-            .or_else(|| {
-                input
-                    .get("model")
-                    .and_then(|model| model.get("model"))
-                    .and_then(|model| model.get("name"))
-                    .and_then(serde_json::Value::as_str)
-            })
-            .map(str::to_string);
-    }
-    if runtime.backend.is_none() {
-        runtime.backend = input
-            .get("backend")
-            .or_else(|| input.get("runtime"))
-            .and_then(serde_json::Value::as_str)
-            .and_then(parse_model_backend);
-    }
-    runtime
-}
-
-fn parse_model_backend(value: &str) -> Option<model_runtime::ModelRuntimeBackend> {
-    match value {
-        "imported" => Some(model_runtime::ModelRuntimeBackend::Imported),
-        "whisper_cpp" | "whisper-cpp" | "whisperCpp" => {
-            Some(model_runtime::ModelRuntimeBackend::WhisperCpp)
-        }
-        "external" => Some(model_runtime::ModelRuntimeBackend::External),
-        "onnx" => Some(model_runtime::ModelRuntimeBackend::Onnx),
-        "candle" => Some(model_runtime::ModelRuntimeBackend::Candle),
-        "heuristic" => Some(model_runtime::ModelRuntimeBackend::Heuristic),
-        other if !other.trim().is_empty() => Some(model_runtime::ModelRuntimeBackend::Custom(
-            other.to_string(),
-        )),
-        _ => None,
-    }
-}
-
 fn embedder_from_input(input: &serde_json::Value) -> Result<SpectralAudioEmbedder, String> {
     let fft_size = positive_usize(input, "fftSize", 512)?;
     let hop_size = positive_usize(input, "hopSize", fft_size / 2)?;
@@ -584,10 +303,10 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"audio.recognition.embed"));
         assert!(ids.contains(&"audio.recognition.search"));
-        assert!(ids.contains(&"audio.recognition.transcribe"));
-        assert!(ids.contains(&"audio.recognition.transcribeImported"));
-        assert!(ids.contains(&"audio.recognition.transcriptionPlan"));
-        assert!(ids.contains(&"audio.recognition.transcriptionProviders"));
+        assert!(!ids.contains(&"audio.recognition.transcribe"));
+        assert!(!ids.contains(&"audio.recognition.transcribeImported"));
+        assert!(!ids.contains(&"audio.recognition.transcriptionPlan"));
+        assert!(!ids.contains(&"audio.recognition.transcriptionProviders"));
     }
 
     #[test]
@@ -637,95 +356,12 @@ mod tests {
     }
 
     #[test]
-    fn imported_transcription_returns_contract() {
-        let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("audio.recognition.transcribeImported"),
-            input: serde_json::json!({
-                "source": "fixture.wav",
-                "language": "en",
-                "importedSegments": [
-                    {"index": 0, "startSeconds": 0.0, "endSeconds": 1.0, "text": " hello ", "confidence": 0.8, "isFinal": true}
-                ]
-            }),
-        })
-        .expect("imported transcription");
-        assert_eq!(
-            response.value["operation"],
-            "audio.recognition.transcribeImported"
-        );
-        assert_eq!(response.value["segmentCount"], 1);
-        assert_eq!(response.value["text"], "hello");
-        assert!(response.value["transcript"].is_object());
-    }
-
-    #[test]
-    fn generic_transcription_returns_contract() {
-        let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("audio.recognition.transcribe"),
-            input: serde_json::json!({
-                "source": "fixture.wav",
-                "language": "en",
-                "input": {
-                    "kind": "imported_segments",
-                    "segments": [
-                        {"index": 0, "startSeconds": 0.0, "endSeconds": 1.0, "text": " hello ", "confidence": 0.8, "isFinal": true}
-                    ]
-                }
-            }),
-        })
-        .expect("generic transcription");
-        assert_eq!(response.value["operation"], "audio.recognition.transcribe");
-        assert_eq!(response.value["segmentCount"], 1);
-        assert_eq!(response.value["text"], "hello");
-        assert!(response.value["transcript"].is_object());
-    }
-
-    #[test]
-    fn imported_transcription_rejects_invalid_ranges() {
+    fn transcription_operations_are_not_package_surface_operations() {
         let error = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("audio.recognition.transcribeImported"),
-            input: serde_json::json!({
-                "importedSegments": [
-                    {"index": 0, "startSeconds": 2.0, "endSeconds": 1.0, "text": "bad", "isFinal": true}
-                ]
-            }),
-        })
-        .unwrap_err();
-        assert!(error.contains("range") || error.contains("end"));
-    }
-
-    #[test]
-    fn transcription_plan_does_not_execute_runtime() {
-        let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("audio.recognition.transcriptionPlan"),
-            input: serde_json::json!({"modelId": "whisper-base", "source": "fixture.wav"}),
-        })
-        .expect("plan");
-        assert_eq!(
-            response.value["operation"],
-            "audio.recognition.transcriptionPlan"
-        );
-        assert_eq!(response.value["selectedModelId"], "whisper-base");
-        assert_eq!(
-            response.value["executionOwner"],
-            "moritzbrantner-text-transcripts"
-        );
-        assert_eq!(response.value["willExecute"], false);
-    }
-
-    #[test]
-    fn provider_catalog_marks_imported_runnable_and_whisper_planned() {
-        let response = run_surface_operation(SurfaceRequest {
-            operation: OperationId::new("audio.recognition.transcriptionProviders"),
+            operation: OperationId::new("audio.recognition.transcribe"),
             input: serde_json::json!({}),
         })
-        .expect("providers");
-        let providers = response.value["providers"].as_array().unwrap();
-        assert!(providers.iter().any(
-            |provider| provider["id"] == "imported-transcript" && provider["runnable"] == true
-        ));
-        assert!(providers
-            .iter()
-            .any(|provider| provider["id"] == "whisper-cpp" && provider["runnable"] == false));
+        .unwrap_err();
+        assert!(error.contains("unsupported operation"));
     }
 }

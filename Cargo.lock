@@ -2425,6 +2425,58 @@ dependencies = [
 ]
 
 [[package]]
+name = "moritzbrantner-audio-analysis-transcription"
+version = "0.1.0"
+dependencies = [
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
+ "moritzbrantner-audio-analysis-speakers",
+ "moritzbrantner-model-runtime",
+ "moritzbrantner-runtime-core",
+ "moritzbrantner-text-model-runtime",
+ "moritzbrantner-text-transcripts",
+ "moritzbrantner-video-analysis-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokenizers",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-transcription-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-transcription",
+ "moritzbrantner-runtime-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-transcription-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-analysis-transcription",
+ "moritzbrantner-runtime-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-analysis-transcription-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-analysis-transcription",
+ "moritzbrantner-runtime-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "moritzbrantner-audio-generation-midi"
 version = "0.1.0"
 dependencies = [
@@ -4934,6 +4986,7 @@ dependencies = [
  "moritzbrantner-audio-analysis-separation",
  "moritzbrantner-audio-analysis-speakers",
  "moritzbrantner-audio-analysis-synthesis",
+ "moritzbrantner-audio-analysis-transcription",
  "moritzbrantner-audio-generation-midi",
  "moritzbrantner-comfyui-data",
  "moritzbrantner-comfyui-latents",

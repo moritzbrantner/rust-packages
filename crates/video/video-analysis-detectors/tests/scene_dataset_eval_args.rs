@@ -217,6 +217,10 @@ fn resume_report_deserializes_missing_implementation_as_rust() {
     .unwrap();
 
     assert_eq!(report.implementation, "rust");
+    assert_eq!(
+        report.pyscenedetect_baseline,
+        scene_dataset_eval::PYSCENEDETECT_BASELINE
+    );
 }
 
 #[test]

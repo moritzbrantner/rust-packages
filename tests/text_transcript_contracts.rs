@@ -1,7 +1,8 @@
 use text_core::{AsTextSegmentContract, TextSegmentContract};
 use text_transcripts::{
-    parse_plain_lines, parse_srt, parse_webvtt, parse_whisper_json, segment_to_owned_text_segment,
-    TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract,
+    parse_plain_lines, parse_srt, parse_webvtt, parse_whisper_json, parse_whisperx_json,
+    segment_to_owned_text_segment, TranscriptSegmentContract, TranscriptWordContract,
+    TranscriptionContract,
 };
 
 #[test]
@@ -105,12 +106,16 @@ fn transcript_contract_normalizes_segments_words_and_confidence(
             start_seconds: Some(0.0),
             end_seconds: Some(0.5),
             confidence: Some(-1.0),
+            speaker: None,
+            attributes: Default::default(),
         },
         TranscriptWordContract {
             text: "   ".to_string(),
             start_seconds: None,
             end_seconds: None,
             confidence: Some(0.5),
+            speaker: None,
+            attributes: Default::default(),
         },
     ];
 
@@ -159,10 +164,55 @@ fn transcript_contract_strict_validation_rejects_word_timings_outside_parent_seg
         start_seconds: Some(1.5),
         end_seconds: Some(2.5),
         confidence: Some(0.8),
+        speaker: None,
+        attributes: Default::default(),
     }];
 
     let contract = TranscriptionContract::new(vec![segment]);
 
     assert!(contract.validate().is_ok());
     assert!(contract.validate_strict().is_err());
+}
+
+#[test]
+fn whisperx_import_preserves_words_speakers_confidence_and_unknown_fields(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let contract = parse_whisperx_json(
+        br#"{
+            "language": "en",
+            "source": "fixture.wav",
+            "segments": [{
+                "start": 0.0,
+                "end": 1.2,
+                "text": " hello world ",
+                "custom_segment": "kept",
+                "words": [
+                    {"word": "hello", "start": 0.0, "end": 0.4, "score": 0.95, "speaker": "SPEAKER_00", "custom_word": "left"},
+                    {"word": "world", "start": 0.5, "end": 1.0, "score": 0.90, "speaker": "SPEAKER_00"}
+                ]
+            }]
+        }"#,
+    )?;
+
+    assert_eq!(contract.text.as_deref(), Some("hello world"));
+    assert_eq!(contract.language.as_deref(), Some("en"));
+    assert_eq!(contract.source.as_deref(), Some("fixture.wav"));
+    assert_eq!(contract.segments[0].speaker.as_deref(), Some("SPEAKER_00"));
+    assert_eq!(
+        contract.segments[0]
+            .attributes
+            .get("custom_segment")
+            .map(String::as_str),
+        Some("kept")
+    );
+    assert_eq!(contract.segments[0].words[0].confidence, Some(0.95));
+    assert_eq!(
+        contract.segments[0].words[0]
+            .attributes
+            .get("custom_word")
+            .map(String::as_str),
+        Some("left")
+    );
+
+    Ok(())
 }

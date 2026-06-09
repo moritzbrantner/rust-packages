@@ -5,6 +5,34 @@ detectors and surrounding workflows. The Rust APIs stay idiomatic and crate
 owned; parity means comparable detector behavior, scene lists, stats, outputs,
 and split plans.
 
+## Current Baseline
+
+Current parity target: PySceneDetect `0.6.7.1`.
+
+The vendored behavior reference is pinned in
+`references/pyscenedetect/UPSTREAM.md` to tag `v0.6.7.1-release`, commit
+`f8e1914f9057a2d9692738ca0fece14fc4b2ecad`. Keep that reference unchanged
+unless a task explicitly asks to update or add an upstream reference. Scene
+dataset evaluator reports include `pyscenedetectBaseline: "0.6.7.1"` so local
+benchmark JSON can be compared without guessing which upstream line was used.
+
+PySceneDetect `0.7` was released on 2026-05-03 and is tracked as a future
+parity lane, not a silent replacement for the current target. The latest
+documentation lists `save-fcp` and `save-qp`, and the migration guide describes
+the timestamp/VFR overhaul and command/API changes:
+
+| 0.7 area | Upstream change | Rust parity status |
+| --- | --- | --- |
+| VFR/timestamps | Backends return PTS-backed positions, `FrameTimecode` carries `time_base`/`pts`, and frame rates are rational `Fraction` values. | Not cloned yet; prioritize before output exporters because it can affect scene boundaries. |
+| CLI time inputs | Options that previously accepted frame numbers can also accept seconds and timecodes. | Not cloned yet; current scene evaluator still records cut frame numbers. |
+| Removed/renamed CLI options | `detect-adaptive --min-delta-hsv` removed; global `--framerate` renamed to `--frame-rate`; `export-html` renamed to `save-html` with a deprecated alias. | Not cloned yet; keep current 0.6.7.1-compatible detector defaults stable. |
+| New output commands | `save-fcp` and `save-qp` were added. | Not cloned yet; add only after choosing 0.7 output parity scope. |
+| Python output helpers | `write_scene_list_edl`, `write_scene_list_fcpx`, `write_scene_list_fcp7`, and `write_scene_list_otio` are available from `scenedetect.output`. | Not cloned yet; plan with EDL/OTIO/FCP writer work. |
+| Runtime floor | Minimum Python version is now 3.10. | Documentation only for this Rust workspace. |
+
+References: [PySceneDetect changelog](https://www.scenedetect.com/changelog/)
+and [PySceneDetect 0.7 migration guide](https://www.scenedetect.com/docs/latest/api/migration_guide.html).
+
 ## Feature Matrix
 
 | Area | Rust surface | PySceneDetect reference | Status |
@@ -232,6 +260,48 @@ python3 scripts/check_video_scene_eval.py target/video-scene/content-bbc-full.js
 The evaluator reports recall, precision, F1, and average elapsed time. Strict
 performance thresholds are intentionally not part of default CI because machine
 variance would make them noisy.
+
+### AutoShot resize regression
+
+The vertical AutoShot sample `51856804342` is the resize ingest regression case:
+
+```bash
+cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- \
+  --dataset autoshot \
+  --root .test-corpora/video-scene/AutoShot \
+  --detector content \
+  --video-id 51856804342 \
+  --resize-width 320 \
+  --output target/video-scene/rust-content-autoshot-51856804342-resize.json
+
+python3 scripts/pyscenedetect_scene_dataset_eval.py \
+  --dataset autoshot \
+  --root .test-corpora/video-scene/AutoShot \
+  --detector content \
+  --video-id 51856804342 \
+  --resize-width 320 \
+  --output target/video-scene/pyscenedetect-content-autoshot-51856804342-resize.json
+
+python3 scripts/compare_scene_detector_speed.py \
+  --rust-report target/video-scene/rust-content-autoshot-51856804342-resize.json \
+  --pyscenedetect-report target/video-scene/pyscenedetect-content-autoshot-51856804342-resize.json \
+  --output target/video-scene/content-autoshot-51856804342-resize-speed-compare.json
+```
+
+Current local result for this sample at resize width `320`:
+
+```json
+{
+  "rustPredictedCuts": [111, 207, 277, 353, 399, 477, 535],
+  "pyscenedetectPredictedCuts": [111, 207, 277, 353, 402, 476, 535],
+  "onlyRustCuts": [399, 477],
+  "onlyPyscenedetectCuts": [402, 476],
+  "pairedFrameDeltas": [0, 0, 0, 0, -3, 1, 0],
+  "f1": 0.6250000000000001,
+  "precision": 0.7142857142857143,
+  "recall": 0.5555555555555556
+}
+```
 
 ## Equal Speed Comparison
 

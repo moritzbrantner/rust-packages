@@ -1,0 +1,1911 @@
+#![doc = include_str!("../README.md")]
+
+pub mod surface;
+
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Output, Stdio};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use serde::{Deserialize, Serialize};
+use text_transcripts::{
+    normalize_transcription_contract, TranscriptWordContract, TranscriptionContract,
+};
+use video_analysis_core::{DetectError, Result};
+
+#[cfg(feature = "diarization")]
+pub use audio_analysis_speakers::SpeakerDiarizationResponse;
+
+#[cfg(not(feature = "diarization"))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeakerDiarizationResponse {
+    pub accepted: bool,
+    pub operation: String,
+    pub model_id: String,
+    pub runtime: String,
+    pub segments: Vec<SpeakerSegmentPrediction>,
+}
+
+#[cfg(not(feature = "diarization"))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeakerSegmentPrediction {
+    pub speaker: String,
+    pub start_seconds: f32,
+    pub end_seconds: f32,
+    #[serde(default)]
+    pub score: Option<f32>,
+}
+
+/// Request for an audio/video-to-text transcription pipeline.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptionPipelineRequest {
+    pub source: TranscriptionSource,
+    pub provider: TranscriptionProviderSelection,
+    #[serde(default)]
+    pub vad: VadOptions,
+    #[serde(default)]
+    pub alignment: AlignmentOptions,
+    #[serde(default)]
+    pub diarization: DiarizationOptions,
+    #[serde(default)]
+    pub output: TranscriptionOutputOptions,
+}
+
+/// Source accepted by transcription providers.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum TranscriptionSource {
+    Path {
+        path: PathBuf,
+    },
+    Samples {
+        samples: Vec<f32>,
+        #[serde(rename = "sampleRate", alias = "sample_rate")]
+        sample_rate: u32,
+        channels: u16,
+        #[serde(default)]
+        source: Option<String>,
+    },
+}
+
+impl TranscriptionSource {
+    fn path(&self) -> Result<&Path> {
+        match self {
+            Self::Path { path } => Ok(path),
+            Self::Samples { .. } => Err(invalid_request(
+                "external command transcription requires a path source",
+            )),
+        }
+    }
+}
+
+/// Provider selection.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum TranscriptionProviderSelection {
+    #[serde(rename = "candleWhisper", alias = "candle-whisper")]
+    CandleWhisper(CandleWhisperOptions),
+    #[serde(rename = "whisperCpp", alias = "whisper-cpp")]
+    WhisperCpp(WhisperCppProviderOptions),
+    #[serde(rename = "externalWhisperX", alias = "whisperx")]
+    ExternalWhisperX(WhisperXCommandOptions),
+}
+
+impl TranscriptionProviderSelection {
+    pub fn provider_id(&self) -> &'static str {
+        match self {
+            Self::CandleWhisper(_) => "candle-whisper",
+            Self::WhisperCpp(_) => "whisper-cpp",
+            Self::ExternalWhisperX(_) => "whisperx-command",
+        }
+    }
+
+    pub fn model_id(&self) -> &str {
+        match self {
+            Self::CandleWhisper(options) => &options.model_id,
+            Self::WhisperCpp(options) => &options.model_id,
+            Self::ExternalWhisperX(options) => &options.model,
+        }
+    }
+}
+
+/// Options for the Candle Whisper native provider.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CandleWhisperOptions {
+    #[serde(default = "default_candle_whisper_model")]
+    pub model_id: String,
+    #[serde(default)]
+    pub language: Option<String>,
+    #[serde(default)]
+    pub device: NativeDevicePreference,
+    #[serde(default)]
+    pub model_bundle: Option<PathBuf>,
+    #[serde(default)]
+    pub batch_chunks: bool,
+    #[serde(default)]
+    pub max_batch_size: Option<usize>,
+}
+
+impl Default for CandleWhisperOptions {
+    fn default() -> Self {
+        Self {
+            model_id: default_candle_whisper_model(),
+            language: None,
+            device: NativeDevicePreference::Auto,
+            model_bundle: None,
+            batch_chunks: true,
+            max_batch_size: Some(4),
+        }
+    }
+}
+
+fn default_candle_whisper_model() -> String {
+    "openai/whisper-large-v3-turbo".to_string()
+}
+
+/// Options for native whisper.cpp compatibility.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WhisperCppProviderOptions {
+    #[serde(default = "default_whisper_cpp_model")]
+    pub model_id: String,
+    #[serde(default)]
+    pub language: Option<String>,
+    #[serde(default)]
+    pub model_path: Option<PathBuf>,
+}
+
+impl Default for WhisperCppProviderOptions {
+    fn default() -> Self {
+        Self {
+            model_id: default_whisper_cpp_model(),
+            language: None,
+            model_path: None,
+        }
+    }
+}
+
+fn default_whisper_cpp_model() -> String {
+    "large-v3-turbo".to_string()
+}
+
+/// Native execution device preference.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NativeDevicePreference {
+    #[default]
+    Auto,
+    Cpu,
+    Cuda,
+}
+
+/// Options for the external WhisperX command provider.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WhisperXCommandOptions {
+    pub command: PathBuf,
+    pub model: String,
+    #[serde(default)]
+    pub language: Option<String>,
+    pub device: WhisperXDevice,
+    #[serde(default)]
+    pub compute_type: Option<String>,
+    #[serde(default)]
+    pub batch_size: Option<usize>,
+    #[serde(default)]
+    pub align_model: Option<String>,
+    #[serde(default)]
+    pub diarize: bool,
+    #[serde(default)]
+    pub min_speakers: Option<usize>,
+    #[serde(default)]
+    pub max_speakers: Option<usize>,
+    #[serde(default)]
+    pub hf_token_env: Option<String>,
+    #[serde(default)]
+    pub output_dir: Option<PathBuf>,
+    #[serde(default)]
+    pub timeout_seconds: Option<u64>,
+    #[serde(default)]
+    pub extra_args: Vec<String>,
+}
+
+/// Backward-compatible name for the external WhisperX provider options.
+pub type WhisperXOptions = WhisperXCommandOptions;
+
+impl Default for WhisperXCommandOptions {
+    fn default() -> Self {
+        Self {
+            command: PathBuf::from("whisperx"),
+            model: "large-v2".to_string(),
+            language: None,
+            device: WhisperXDevice::Cpu,
+            compute_type: None,
+            batch_size: None,
+            align_model: None,
+            diarize: false,
+            min_speakers: None,
+            max_speakers: None,
+            hf_token_env: None,
+            output_dir: None,
+            timeout_seconds: None,
+            extra_args: Vec::new(),
+        }
+    }
+}
+
+/// WhisperX device selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WhisperXDevice {
+    Cpu,
+    Cuda,
+}
+
+impl WhisperXDevice {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Cpu => "cpu",
+            Self::Cuda => "cuda",
+        }
+    }
+}
+
+/// VAD options used before ASR chunking.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VadOptions {
+    #[serde(default = "default_vad_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_vad_threshold")]
+    pub rms_threshold: f32,
+    #[serde(default = "default_vad_frame_seconds")]
+    pub frame_seconds: f64,
+    #[serde(default = "default_vad_hop_seconds")]
+    pub hop_seconds: f64,
+    #[serde(default = "default_vad_min_speech_seconds")]
+    pub min_speech_seconds: f64,
+    #[serde(default = "default_vad_padding_seconds")]
+    pub padding_seconds: f64,
+    #[serde(default = "default_vad_merge_gap_seconds")]
+    pub merge_gap_seconds: f64,
+    #[serde(default = "default_vad_max_chunk_seconds")]
+    pub max_chunk_seconds: f64,
+}
+
+impl Default for VadOptions {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            rms_threshold: default_vad_threshold(),
+            frame_seconds: default_vad_frame_seconds(),
+            hop_seconds: default_vad_hop_seconds(),
+            min_speech_seconds: default_vad_min_speech_seconds(),
+            padding_seconds: default_vad_padding_seconds(),
+            merge_gap_seconds: default_vad_merge_gap_seconds(),
+            max_chunk_seconds: default_vad_max_chunk_seconds(),
+        }
+    }
+}
+
+fn default_vad_enabled() -> bool {
+    true
+}
+fn default_vad_threshold() -> f32 {
+    0.01
+}
+fn default_vad_frame_seconds() -> f64 {
+    0.03
+}
+fn default_vad_hop_seconds() -> f64 {
+    0.01
+}
+fn default_vad_min_speech_seconds() -> f64 {
+    0.08
+}
+fn default_vad_padding_seconds() -> f64 {
+    0.02
+}
+fn default_vad_merge_gap_seconds() -> f64 {
+    0.05
+}
+fn default_vad_max_chunk_seconds() -> f64 {
+    30.0
+}
+
+/// Forced-alignment options.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlignmentOptions {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_alignment_model")]
+    pub model_id: String,
+    #[serde(default)]
+    pub model_bundle: Option<PathBuf>,
+}
+
+impl Default for AlignmentOptions {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            model_id: default_alignment_model(),
+            model_bundle: None,
+        }
+    }
+}
+
+fn default_alignment_model() -> String {
+    "facebook/wav2vec2-base-960h".to_string()
+}
+
+/// Diarization options.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiarizationOptions {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_diarization_model")]
+    pub model_id: String,
+    #[serde(default)]
+    pub min_speakers: Option<usize>,
+    #[serde(default)]
+    pub max_speakers: Option<usize>,
+    #[serde(default)]
+    pub assignment_policy: SpeakerAssignmentPolicy,
+}
+
+impl Default for DiarizationOptions {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            model_id: default_diarization_model(),
+            min_speakers: None,
+            max_speakers: None,
+            assignment_policy: SpeakerAssignmentPolicy::Majority,
+        }
+    }
+}
+
+fn default_diarization_model() -> String {
+    "native-spectral-speaker-baseline".to_string()
+}
+
+/// Speaker assignment policy for transcript words and segments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SpeakerAssignmentPolicy {
+    #[default]
+    Majority,
+    NearestStart,
+    StrictContained,
+}
+
+/// Output preferences for transcription.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptionOutputOptions {
+    #[serde(default = "default_output_formats")]
+    pub formats: Vec<String>,
+}
+
+impl Default for TranscriptionOutputOptions {
+    fn default() -> Self {
+        Self {
+            formats: default_output_formats(),
+        }
+    }
+}
+
+fn default_output_formats() -> Vec<String> {
+    vec!["json".to_string()]
+}
+
+/// Artifact produced or discovered by a provider.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptionArtifact {
+    pub kind: String,
+    pub path: PathBuf,
+}
+
+/// Response from a transcription pipeline.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptionPipelineResponse {
+    pub accepted: bool,
+    pub operation: String,
+    pub provider: String,
+    pub model_id: String,
+    pub transcript: TranscriptionContract,
+    pub vad_segments: Vec<SpeechActivitySegment>,
+    pub alignment: Option<AlignmentSummary>,
+    pub diarization: Option<SpeakerDiarizationResponse>,
+    pub artifacts: Vec<TranscriptionArtifact>,
+    pub diagnostics: Vec<String>,
+}
+
+/// Metadata-only provider plan.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptionProviderPlan {
+    pub provider_id: String,
+    pub external_runtime: bool,
+    pub wasm_supported: bool,
+    pub primary: bool,
+    pub setup: Vec<String>,
+    pub diagnostics: Vec<String>,
+}
+
+/// Loaded audio for native providers.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadedAudio {
+    pub samples: Vec<f32>,
+    pub sample_rate: u32,
+    pub channels: u16,
+    #[serde(default)]
+    pub source: Option<String>,
+}
+
+impl LoadedAudio {
+    pub fn mono_16khz_from_source(source: &TranscriptionSource) -> Result<Self> {
+        match source {
+            TranscriptionSource::Samples {
+                samples,
+                sample_rate,
+                channels,
+                source,
+            } => normalize_samples_source(samples, *sample_rate, *channels, source.clone()),
+            TranscriptionSource::Path { path } => Err(setup_error(format!(
+                "native media decoding for `{}` is not wired yet; pass Samples or use externalWhisperX explicitly",
+                path.display()
+            ))),
+        }
+    }
+
+    pub fn duration_seconds(&self) -> f64 {
+        if self.sample_rate == 0 || self.channels == 0 {
+            return 0.0;
+        }
+        self.samples.len() as f64 / self.channels as f64 / self.sample_rate as f64
+    }
+}
+
+/// A speech activity span used for ASR chunking.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechActivitySegment {
+    pub start_seconds: f64,
+    pub end_seconds: f64,
+    pub score: f32,
+}
+
+impl SpeechActivitySegment {
+    pub fn new(start_seconds: f64, end_seconds: f64, score: f32) -> Result<Self> {
+        let segment = Self {
+            start_seconds,
+            end_seconds,
+            score,
+        };
+        segment.validate()?;
+        Ok(segment)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !self.start_seconds.is_finite()
+            || !self.end_seconds.is_finite()
+            || !self.score.is_finite()
+        {
+            return Err(invalid_request(
+                "speech activity segment values must be finite",
+            ));
+        }
+        if self.start_seconds < 0.0 || self.end_seconds <= self.start_seconds {
+            return Err(invalid_request(
+                "speech activity segment must have non-negative start and positive duration",
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// ASR provider request.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AsrRequest {
+    pub audio: LoadedAudio,
+    pub chunks: Vec<SpeechActivitySegment>,
+    pub language: Option<String>,
+    pub model_id: String,
+}
+
+/// ASR provider response.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AsrResponse {
+    pub model_id: String,
+    pub language: Option<String>,
+    pub transcript: TranscriptionContract,
+    #[serde(default)]
+    pub diagnostics: Vec<String>,
+}
+
+/// Forced-alignment request.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlignmentRequest {
+    pub audio: LoadedAudio,
+    pub transcript: TranscriptionContract,
+    pub language: Option<String>,
+    pub model_id: String,
+}
+
+/// Forced-alignment response.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlignmentResponse {
+    pub model_id: String,
+    pub words: Vec<AlignedWord>,
+    #[serde(default)]
+    pub diagnostics: Vec<String>,
+}
+
+/// One aligned word timing.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlignedWord {
+    pub segment_index: u64,
+    pub word_index: usize,
+    pub text: String,
+    pub start_seconds: f64,
+    pub end_seconds: f64,
+    #[serde(default)]
+    pub confidence: Option<f32>,
+}
+
+/// Alignment summary included in pipeline responses.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlignmentSummary {
+    pub provider: String,
+    pub model_id: String,
+    pub word_count: usize,
+}
+
+/// VAD request.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VadRequest {
+    pub audio: LoadedAudio,
+    pub options: VadOptions,
+}
+
+/// VAD response.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VadResponse {
+    pub segments: Vec<SpeechActivitySegment>,
+    #[serde(default)]
+    pub diagnostics: Vec<String>,
+}
+
+/// Trait for audio transcription providers.
+pub trait AudioTranscriptionProvider {
+    fn provider_id(&self) -> &str;
+    fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse>;
+}
+
+/// Trait for forced alignment providers.
+pub trait ForcedAlignmentProvider {
+    fn provider_id(&self) -> &str;
+    fn align(&mut self, request: AlignmentRequest) -> Result<AlignmentResponse>;
+}
+
+/// Trait for transcription VAD providers.
+pub trait TranscriptionVadProvider {
+    fn provider_id(&self) -> &str;
+    fn detect_speech(&mut self, request: VadRequest) -> Result<VadResponse>;
+}
+
+/// Trait for transcript diarization and speaker assignment providers.
+pub trait TranscriptDiarizationProvider {
+    fn provider_id(&self) -> &str;
+    fn diarize(
+        &mut self,
+        audio: LoadedAudio,
+        transcript: &TranscriptionContract,
+        options: &DiarizationOptions,
+    ) -> Result<SpeakerDiarizationResponse>;
+}
+
+/// Default pure-Rust energy VAD provider.
+#[derive(Debug, Clone, Default)]
+pub struct EnergyVadTranscriptionProvider;
+
+impl TranscriptionVadProvider for EnergyVadTranscriptionProvider {
+    fn provider_id(&self) -> &str {
+        "energy-vad"
+    }
+
+    fn detect_speech(&mut self, request: VadRequest) -> Result<VadResponse> {
+        let segments = energy_vad_segments(&request.audio, &request.options)?;
+        Ok(VadResponse {
+            segments,
+            diagnostics: vec!["deterministic energy VAD completed".to_string()],
+        })
+    }
+}
+
+/// Feature-gated Candle Whisper provider.
+#[derive(Debug, Clone, Default)]
+pub struct CandleWhisperTranscriber {
+    pub options: CandleWhisperOptions,
+}
+
+impl CandleWhisperTranscriber {
+    pub fn new(options: CandleWhisperOptions) -> Self {
+        Self { options }
+    }
+}
+
+impl AudioTranscriptionProvider for CandleWhisperTranscriber {
+    fn provider_id(&self) -> &str {
+        "candle-whisper"
+    }
+
+    fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+        validate_candle_setup(&self.options)?;
+        Err(unsupported_runtime(format!(
+            "Candle Whisper execution for `{}` is planned behind the candle provider; default tests use mock ASR providers",
+            request.model_id
+        )))
+    }
+}
+
+/// Native whisper.cpp compatibility provider.
+#[derive(Debug, Clone, Default)]
+pub struct WhisperCppTranscriber {
+    pub options: WhisperCppProviderOptions,
+}
+
+impl AudioTranscriptionProvider for WhisperCppTranscriber {
+    fn provider_id(&self) -> &str {
+        "whisper-cpp"
+    }
+
+    fn transcribe(&mut self, _request: AsrRequest) -> Result<AsrResponse> {
+        let Some(model_path) = &self.options.model_path else {
+            return Err(setup_error("required whisper.cpp model path is missing"));
+        };
+        if !model_path.exists() {
+            return Err(setup_error(format!(
+                "required whisper.cpp model `{}` is missing",
+                model_path.display()
+            )));
+        }
+        Err(unsupported_runtime(
+            "whisper.cpp compatibility provider is not the primary transcription path",
+        ))
+    }
+}
+
+/// Feature-gated CTC forced aligner.
+#[derive(Debug, Clone, Default)]
+pub struct CtcForcedAligner {
+    pub options: AlignmentOptions,
+}
+
+impl ForcedAlignmentProvider for CtcForcedAligner {
+    fn provider_id(&self) -> &str {
+        "ctc-forced-aligner"
+    }
+
+    fn align(&mut self, request: AlignmentRequest) -> Result<AlignmentResponse> {
+        validate_alignment_setup(&self.options)?;
+        Err(unsupported_runtime(format!(
+            "CTC alignment execution for `{}` is planned behind the alignment provider; default tests use mock alignment providers",
+            request.model_id
+        )))
+    }
+}
+
+/// External command provider for Python WhisperX.
+#[derive(Debug, Clone, Default)]
+pub struct WhisperXCommandTranscriber;
+
+impl WhisperXCommandTranscriber {
+    pub fn transcribe_pipeline(
+        &mut self,
+        request: TranscriptionPipelineRequest,
+    ) -> Result<TranscriptionPipelineResponse> {
+        match request.provider {
+            TranscriptionProviderSelection::ExternalWhisperX(options) => {
+                run_whisperx_command(request.source.path()?, options)
+            }
+            other => Err(invalid_request(format!(
+                "whisperx-command cannot run provider `{}`",
+                other.provider_id()
+            ))),
+        }
+    }
+}
+
+/// Runs a transcription request with the selected primary provider.
+pub fn transcribe(request: TranscriptionPipelineRequest) -> Result<TranscriptionPipelineResponse> {
+    match &request.provider {
+        TranscriptionProviderSelection::ExternalWhisperX(_) => {
+            let mut provider = WhisperXCommandTranscriber;
+            provider.transcribe_pipeline(request)
+        }
+        TranscriptionProviderSelection::CandleWhisper(options) => {
+            let mut vad = EnergyVadTranscriptionProvider;
+            let mut asr = CandleWhisperTranscriber::new(options.clone());
+            run_transcription_pipeline(request, &mut vad, &mut asr, None, None)
+        }
+        TranscriptionProviderSelection::WhisperCpp(options) => {
+            let mut vad = EnergyVadTranscriptionProvider;
+            let mut asr = WhisperCppTranscriber {
+                options: options.clone(),
+            };
+            run_transcription_pipeline(request, &mut vad, &mut asr, None, None)
+        }
+    }
+}
+
+/// Runs the provider-agnostic native transcription pipeline.
+pub fn run_transcription_pipeline(
+    request: TranscriptionPipelineRequest,
+    vad_provider: &mut dyn TranscriptionVadProvider,
+    asr_provider: &mut dyn AudioTranscriptionProvider,
+    mut alignment_provider: Option<&mut dyn ForcedAlignmentProvider>,
+    mut diarization_provider: Option<&mut dyn TranscriptDiarizationProvider>,
+) -> Result<TranscriptionPipelineResponse> {
+    let provider = request.provider.provider_id().to_string();
+    let model_id = request.provider.model_id().to_string();
+    let audio = LoadedAudio::mono_16khz_from_source(&request.source)?;
+    let vad_response = if request.vad.enabled {
+        vad_provider.detect_speech(VadRequest {
+            audio: audio.clone(),
+            options: request.vad.clone(),
+        })?
+    } else {
+        VadResponse {
+            segments: vec![SpeechActivitySegment::new(
+                0.0,
+                audio.duration_seconds().max(1.0 / audio.sample_rate as f64),
+                1.0,
+            )?],
+            diagnostics: vec!["VAD disabled; using full source as one ASR chunk".to_string()],
+        }
+    };
+
+    let language = provider_language(&request.provider);
+    let asr_response = asr_provider.transcribe(AsrRequest {
+        audio: audio.clone(),
+        chunks: vad_response.segments.clone(),
+        language: language.clone(),
+        model_id: model_id.clone(),
+    })?;
+    let mut transcript = normalize_transcription_contract(asr_response.transcript)
+        .map_err(|error| model_output_mismatch(error.to_string()))?;
+    offset_chunk_local_segments(&mut transcript, &vad_response.segments)?;
+
+    let mut diagnostics = vad_response.diagnostics;
+    diagnostics.extend(asr_response.diagnostics);
+    let mut alignment_summary = None;
+    if request.alignment.enabled {
+        let provider = alignment_provider.as_deref_mut().ok_or_else(|| {
+            setup_error("alignment requested but no alignment provider is available")
+        })?;
+        let alignment_response = provider.align(AlignmentRequest {
+            audio: audio.clone(),
+            transcript: transcript.clone(),
+            language: language.clone(),
+            model_id: request.alignment.model_id.clone(),
+        })?;
+        apply_alignment_words(&mut transcript, &alignment_response.words)?;
+        alignment_summary = Some(AlignmentSummary {
+            provider: provider.provider_id().to_string(),
+            model_id: alignment_response.model_id,
+            word_count: alignment_response.words.len(),
+        });
+        diagnostics.extend(alignment_response.diagnostics);
+    }
+
+    let mut diarization = None;
+    if request.diarization.enabled {
+        let provider = diarization_provider.as_deref_mut().ok_or_else(|| {
+            setup_error("diarization requested but no diarization provider is available")
+        })?;
+        let response = provider.diarize(audio, &transcript, &request.diarization)?;
+        assign_speakers_from_diarization(
+            &mut transcript,
+            &response,
+            request.diarization.assignment_policy,
+        )?;
+        diarization = Some(response);
+    }
+
+    transcript = normalize_transcription_contract(transcript)
+        .map_err(|error| model_output_mismatch(error.to_string()))?;
+    transcript
+        .validate_strict()
+        .map_err(|error| model_output_mismatch(error.to_string()))?;
+
+    Ok(TranscriptionPipelineResponse {
+        accepted: true,
+        operation: "audio.transcription.transcribe".to_string(),
+        provider,
+        model_id,
+        transcript,
+        vad_segments: vad_response.segments,
+        alignment: alignment_summary,
+        diarization,
+        artifacts: Vec::new(),
+        diagnostics,
+    })
+}
+
+/// Parses existing WhisperX JSON without running external tools.
+pub fn import_whisperx_json(bytes: &[u8]) -> Result<TranscriptionContract> {
+    text_transcripts::parse_whisperx_json(bytes)
+        .map_err(|error| DetectError::InvalidArgument(error.to_string()))
+}
+
+/// Returns provider plans.
+pub fn transcription_provider_plans() -> Vec<TranscriptionProviderPlan> {
+    vec![
+        candle_whisper_provider_plan(),
+        whisper_cpp_provider_plan(),
+        whisperx_provider_plan(),
+    ]
+}
+
+/// Returns the primary Candle Whisper provider plan.
+pub fn candle_whisper_provider_plan() -> TranscriptionProviderPlan {
+    TranscriptionProviderPlan {
+        provider_id: "candle-whisper".to_string(),
+        external_runtime: false,
+        wasm_supported: false,
+        primary: true,
+        setup: vec![
+            "Provide an offline model bundle with config.json, generation_config.json, tokenizer.json, preprocessor_config.json, and model.safetensors.".to_string(),
+            "Build with feature `candle`; add `cuda` for CUDA device execution.".to_string(),
+        ],
+        diagnostics: vec![
+            "Candle Whisper is the primary planned Rust-native ASR provider.".to_string(),
+            "Default tests do not download models or require CUDA.".to_string(),
+        ],
+    }
+}
+
+/// Returns the whisper.cpp compatibility provider plan.
+pub fn whisper_cpp_provider_plan() -> TranscriptionProviderPlan {
+    TranscriptionProviderPlan {
+        provider_id: "whisper-cpp".to_string(),
+        external_runtime: false,
+        wasm_supported: false,
+        primary: false,
+        setup: vec!["Provide a local whisper.cpp model path explicitly.".to_string()],
+        diagnostics: vec![
+            "whisper.cpp is retained as a native compatibility provider, not the primary ASR path."
+                .to_string(),
+        ],
+    }
+}
+
+/// Returns the external WhisperX provider plan.
+pub fn whisperx_provider_plan() -> TranscriptionProviderPlan {
+    TranscriptionProviderPlan {
+        provider_id: "whisperx-command".to_string(),
+        external_runtime: true,
+        wasm_supported: false,
+        primary: false,
+        setup: vec![
+            "Install whisperx in the active Python environment.".to_string(),
+            "Ensure ffmpeg is available on PATH.".to_string(),
+            "Set HF_TOKEN before diarization requests.".to_string(),
+        ],
+        diagnostics: vec![
+            "WhisperX execution is opt-in and never required by default tests.".to_string(),
+            "Transcript normalization and WhisperX JSON import are delegated to text-transcripts."
+                .to_string(),
+        ],
+    }
+}
+
+fn provider_language(provider: &TranscriptionProviderSelection) -> Option<String> {
+    match provider {
+        TranscriptionProviderSelection::CandleWhisper(options) => options.language.clone(),
+        TranscriptionProviderSelection::WhisperCpp(options) => options.language.clone(),
+        TranscriptionProviderSelection::ExternalWhisperX(options) => options.language.clone(),
+    }
+}
+
+fn normalize_samples_source(
+    samples: &[f32],
+    sample_rate: u32,
+    channels: u16,
+    source: Option<String>,
+) -> Result<LoadedAudio> {
+    if sample_rate == 0 || channels == 0 {
+        return Err(DetectError::InvalidAudioFormat {
+            sample_rate,
+            channels,
+        });
+    }
+    if samples.is_empty() {
+        return Err(invalid_request("empty audio"));
+    }
+    if !samples.len().is_multiple_of(channels as usize) {
+        return Err(invalid_request(
+            "sample count must contain complete interleaved frames",
+        ));
+    }
+    if samples.iter().any(|sample| !sample.is_finite()) {
+        return Err(invalid_request("audio samples must be finite"));
+    }
+    let mono = if channels == 1 {
+        samples.to_vec()
+    } else {
+        samples
+            .chunks_exact(channels as usize)
+            .map(|frame| frame.iter().sum::<f32>() / channels as f32)
+            .collect::<Vec<_>>()
+    };
+    let samples = if sample_rate == 16_000 {
+        mono
+    } else {
+        resample_linear(&mono, sample_rate, 16_000)
+    };
+    Ok(LoadedAudio {
+        samples,
+        sample_rate: 16_000,
+        channels: 1,
+        source,
+    })
+}
+
+fn resample_linear(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32> {
+    if samples.is_empty() || from_rate == to_rate {
+        return samples.to_vec();
+    }
+    let output_len = ((samples.len() as f64 * to_rate as f64) / from_rate as f64)
+        .round()
+        .max(1.0) as usize;
+    (0..output_len)
+        .map(|index| {
+            let position = index as f64 * from_rate as f64 / to_rate as f64;
+            let left = position.floor() as usize;
+            let right = (left + 1).min(samples.len() - 1);
+            let frac = (position - left as f64) as f32;
+            samples[left] * (1.0 - frac) + samples[right] * frac
+        })
+        .collect()
+}
+
+fn energy_vad_segments(
+    audio: &LoadedAudio,
+    options: &VadOptions,
+) -> Result<Vec<SpeechActivitySegment>> {
+    validate_vad_options(options)?;
+    let frame_size = seconds_to_samples(options.frame_seconds, audio.sample_rate)?;
+    let hop_size = seconds_to_samples(options.hop_seconds, audio.sample_rate)?;
+    let mut active = Vec::new();
+    let mut start = 0;
+    while start < audio.samples.len() {
+        let end = (start + frame_size).min(audio.samples.len());
+        let score = rms(&audio.samples[start..end]);
+        if score >= options.rms_threshold {
+            active.push(SpeechActivitySegment::new(
+                start as f64 / audio.sample_rate as f64,
+                end as f64 / audio.sample_rate as f64,
+                score,
+            )?);
+        }
+        if start + hop_size >= audio.samples.len() {
+            break;
+        }
+        start += hop_size;
+    }
+    let duration = audio.duration_seconds();
+    let mut merged = merge_speech_segments(active, options.merge_gap_seconds)?;
+    for segment in &mut merged {
+        segment.start_seconds = (segment.start_seconds - options.padding_seconds).max(0.0);
+        segment.end_seconds = (segment.end_seconds + options.padding_seconds).min(duration);
+    }
+    merged = merge_speech_segments(merged, options.merge_gap_seconds)?;
+    let filtered = merged
+        .into_iter()
+        .filter(|segment| segment.end_seconds - segment.start_seconds >= options.min_speech_seconds)
+        .flat_map(|segment| split_max_chunk(segment, options.max_chunk_seconds))
+        .collect::<Vec<_>>();
+    if filtered.is_empty() {
+        return Ok(vec![SpeechActivitySegment::new(
+            0.0,
+            duration.max(1.0 / audio.sample_rate as f64),
+            0.0,
+        )?]);
+    }
+    Ok(filtered)
+}
+
+fn validate_vad_options(options: &VadOptions) -> Result<()> {
+    if !options.rms_threshold.is_finite() || options.rms_threshold < 0.0 {
+        return Err(invalid_request(
+            "VAD RMS threshold must be finite and non-negative",
+        ));
+    }
+    for (name, value, positive) in [
+        ("frameSeconds", options.frame_seconds, true),
+        ("hopSeconds", options.hop_seconds, true),
+        ("minSpeechSeconds", options.min_speech_seconds, false),
+        ("paddingSeconds", options.padding_seconds, false),
+        ("mergeGapSeconds", options.merge_gap_seconds, false),
+        ("maxChunkSeconds", options.max_chunk_seconds, true),
+    ] {
+        if !value.is_finite() || (positive && value <= 0.0) || (!positive && value < 0.0) {
+            return Err(invalid_request(format!(
+                "VAD option `{name}` has an invalid value"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn seconds_to_samples(seconds: f64, sample_rate: u32) -> Result<usize> {
+    if !seconds.is_finite() || seconds <= 0.0 || sample_rate == 0 {
+        return Err(invalid_request("invalid sample duration"));
+    }
+    Ok((seconds * sample_rate as f64).round().max(1.0) as usize)
+}
+
+fn rms(samples: &[f32]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    (samples.iter().map(|sample| sample * sample).sum::<f32>() / samples.len() as f32).sqrt()
+}
+
+fn merge_speech_segments(
+    mut segments: Vec<SpeechActivitySegment>,
+    merge_gap_seconds: f64,
+) -> Result<Vec<SpeechActivitySegment>> {
+    segments.sort_by(|left, right| left.start_seconds.total_cmp(&right.start_seconds));
+    let mut merged: Vec<SpeechActivitySegment> = Vec::new();
+    for segment in segments {
+        if let Some(last) = merged.last_mut() {
+            if segment.start_seconds - last.end_seconds <= merge_gap_seconds {
+                last.end_seconds = last.end_seconds.max(segment.end_seconds);
+                last.score = last.score.max(segment.score);
+                continue;
+            }
+        }
+        merged.push(segment);
+    }
+    for segment in &merged {
+        segment.validate()?;
+    }
+    Ok(merged)
+}
+
+fn split_max_chunk(
+    segment: SpeechActivitySegment,
+    max_chunk_seconds: f64,
+) -> Vec<SpeechActivitySegment> {
+    if segment.end_seconds - segment.start_seconds <= max_chunk_seconds {
+        return vec![segment];
+    }
+    let mut chunks = Vec::new();
+    let mut start = segment.start_seconds;
+    while start < segment.end_seconds {
+        let end = (start + max_chunk_seconds).min(segment.end_seconds);
+        if end > start {
+            chunks.push(SpeechActivitySegment {
+                start_seconds: start,
+                end_seconds: end,
+                score: segment.score,
+            });
+        }
+        start = end;
+    }
+    chunks
+}
+
+fn offset_chunk_local_segments(
+    transcript: &mut TranscriptionContract,
+    chunks: &[SpeechActivitySegment],
+) -> Result<()> {
+    if chunks.is_empty() || transcript.segments.len() != chunks.len() {
+        return Ok(());
+    }
+    for (segment, chunk) in transcript.segments.iter_mut().zip(chunks) {
+        if segment
+            .attributes
+            .get("timing")
+            .is_some_and(|value| value == "global")
+        {
+            continue;
+        }
+        if let Some(start) = &mut segment.start_seconds {
+            *start += chunk.start_seconds;
+        }
+        if let Some(end) = &mut segment.end_seconds {
+            *end += chunk.start_seconds;
+        }
+        for word in &mut segment.words {
+            if let Some(start) = &mut word.start_seconds {
+                *start += chunk.start_seconds;
+            }
+            if let Some(end) = &mut word.end_seconds {
+                *end += chunk.start_seconds;
+            }
+        }
+        segment
+            .attributes
+            .insert("timing".to_string(), "global".to_string());
+    }
+    Ok(())
+}
+
+fn apply_alignment_words(
+    transcript: &mut TranscriptionContract,
+    words: &[AlignedWord],
+) -> Result<()> {
+    for aligned in words {
+        if !aligned.start_seconds.is_finite()
+            || !aligned.end_seconds.is_finite()
+            || aligned.end_seconds < aligned.start_seconds
+        {
+            return Err(model_output_mismatch(
+                "alignment output contains invalid word timing",
+            ));
+        }
+        let segment = transcript
+            .segments
+            .iter_mut()
+            .find(|segment| segment.index == aligned.segment_index)
+            .ok_or_else(|| model_output_mismatch("alignment output references unknown segment"))?;
+        while segment.words.len() <= aligned.word_index {
+            segment.words.push(TranscriptWordContract {
+                text: String::new(),
+                start_seconds: None,
+                end_seconds: None,
+                confidence: None,
+                speaker: None,
+                attributes: BTreeMap::new(),
+            });
+        }
+        let word = &mut segment.words[aligned.word_index];
+        if word.text.trim().is_empty() {
+            word.text = aligned.text.clone();
+        }
+        word.start_seconds = Some(aligned.start_seconds);
+        word.end_seconds = Some(aligned.end_seconds);
+        word.confidence = aligned.confidence;
+    }
+    Ok(())
+}
+
+fn assign_speakers_from_diarization(
+    transcript: &mut TranscriptionContract,
+    diarization: &SpeakerDiarizationResponse,
+    policy: SpeakerAssignmentPolicy,
+) -> Result<()> {
+    for segment in &mut transcript.segments {
+        for word in &mut segment.words {
+            let Some((start, end)) = word.start_seconds.zip(word.end_seconds) else {
+                continue;
+            };
+            word.speaker = speaker_for_range(start, end, diarization, policy);
+        }
+        segment.speaker = if segment.speaker.is_some() {
+            segment.speaker.clone()
+        } else if !segment.words.is_empty() {
+            majority_word_speaker(&segment.words)
+        } else if let Some((start, end)) = segment.start_seconds.zip(segment.end_seconds) {
+            speaker_for_range(start, end, diarization, policy)
+        } else {
+            None
+        };
+    }
+    Ok(())
+}
+
+fn majority_word_speaker(words: &[TranscriptWordContract]) -> Option<String> {
+    let mut counts = BTreeMap::<String, usize>::new();
+    for speaker in words.iter().filter_map(|word| word.speaker.as_ref()) {
+        *counts.entry(speaker.clone()).or_default() += 1;
+    }
+    counts
+        .into_iter()
+        .max_by(|left, right| left.1.cmp(&right.1).then_with(|| right.0.cmp(&left.0)))
+        .map(|(speaker, _)| speaker)
+}
+
+fn speaker_for_range(
+    start: f64,
+    end: f64,
+    diarization: &SpeakerDiarizationResponse,
+    policy: SpeakerAssignmentPolicy,
+) -> Option<String> {
+    #[cfg(feature = "diarization")]
+    let segments = diarization
+        .segments
+        .iter()
+        .map(|segment| {
+            (
+                segment.speaker.clone(),
+                segment.start_seconds as f64,
+                segment.end_seconds as f64,
+            )
+        })
+        .collect::<Vec<_>>();
+    #[cfg(not(feature = "diarization"))]
+    let segments = diarization
+        .segments
+        .iter()
+        .map(|segment| {
+            (
+                segment.speaker.clone(),
+                segment.start_seconds as f64,
+                segment.end_seconds as f64,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    match policy {
+        SpeakerAssignmentPolicy::Majority => segments
+            .iter()
+            .filter_map(|(speaker, diar_start, diar_end)| {
+                let overlap = (end.min(*diar_end) - start.max(*diar_start)).max(0.0);
+                (overlap > 0.0).then_some((speaker.clone(), overlap))
+            })
+            .max_by(|left, right| {
+                left.1
+                    .total_cmp(&right.1)
+                    .then_with(|| right.0.cmp(&left.0))
+            })
+            .map(|(speaker, _)| speaker),
+        SpeakerAssignmentPolicy::NearestStart => segments
+            .iter()
+            .map(|(speaker, diar_start, _)| (speaker.clone(), (*diar_start - start).abs()))
+            .min_by(|left, right| {
+                left.1
+                    .total_cmp(&right.1)
+                    .then_with(|| left.0.cmp(&right.0))
+            })
+            .map(|(speaker, _)| speaker),
+        SpeakerAssignmentPolicy::StrictContained => {
+            segments.iter().find_map(|(speaker, diar_start, diar_end)| {
+                (*diar_start <= start && *diar_end >= end).then_some(speaker.clone())
+            })
+        }
+    }
+}
+
+fn validate_candle_setup(options: &CandleWhisperOptions) -> Result<()> {
+    if options.device == NativeDevicePreference::Cuda && !cfg!(feature = "cuda") {
+        return Err(setup_error(
+            "CUDA was requested but the binary lacks the `cuda` feature",
+        ));
+    }
+    if !cfg!(feature = "candle") {
+        return Err(unsupported_runtime(
+            "Candle Whisper requested but the binary lacks the `candle` feature",
+        ));
+    }
+    if let Some(bundle) = &options.model_bundle {
+        validate_model_bundle_files(
+            bundle,
+            &[
+                "config.json",
+                "generation_config.json",
+                "tokenizer.json",
+                "preprocessor_config.json",
+                "model.safetensors",
+            ],
+        )
+    } else {
+        Err(setup_error(
+            "required Candle Whisper model bundle is missing",
+        ))
+    }
+}
+
+fn validate_alignment_setup(options: &AlignmentOptions) -> Result<()> {
+    if !cfg!(feature = "alignment") {
+        return Err(unsupported_runtime(
+            "CTC alignment requested but the binary lacks the `alignment` feature",
+        ));
+    }
+    if let Some(bundle) = &options.model_bundle {
+        validate_model_bundle_files(
+            bundle,
+            &[
+                "config.json",
+                "tokenizer.json",
+                "preprocessor_config.json",
+                "model.safetensors",
+            ],
+        )
+    } else {
+        Err(setup_error(
+            "required CTC alignment model bundle is missing",
+        ))
+    }
+}
+
+fn validate_model_bundle_files(bundle: &Path, files: &[&str]) -> Result<()> {
+    for file in files {
+        if !bundle.join(file).exists() && !bundle.join("files").join(file).exists() {
+            return Err(setup_error(format!(
+                "required model bundle file `{}` is missing in `{}`",
+                file,
+                bundle.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn run_whisperx_command(
+    source_path: &Path,
+    options: WhisperXCommandOptions,
+) -> Result<TranscriptionPipelineResponse> {
+    let output_dir = options
+        .output_dir
+        .clone()
+        .unwrap_or_else(default_whisperx_output_dir);
+    fs::create_dir_all(&output_dir)?;
+
+    let hf_token = if options.diarize {
+        let env_name = options
+            .hf_token_env
+            .clone()
+            .unwrap_or_else(|| "HF_TOKEN".to_string());
+        Some(std::env::var(&env_name).map_err(|_| {
+            setup_error(format!(
+                "diarization requires `{env_name}` to be set before running WhisperX"
+            ))
+        })?)
+    } else {
+        None
+    };
+
+    let args = whisperx_args(source_path, &output_dir, &options, hf_token.as_deref());
+    let child = Command::new(&options.command)
+        .args(&args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                setup_error(format!(
+                    "WhisperX command `{}` was not found; install whisperx or pass provider.command",
+                    options.command.display()
+                ))
+            } else {
+                DetectError::Io(error)
+            }
+        })?;
+    let output = wait_with_optional_timeout(child, &options.command, options.timeout_seconds)?;
+    if !output.status.success() {
+        return Err(setup_error(format!(
+            "WhisperX command `{}` failed: {}",
+            options.command.display(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+
+    let (transcript_path, transcript_bytes) = whisperx_json_bytes(&output_dir, &output.stdout)
+        .ok_or_else(|| {
+            model_output_mismatch(format!(
+                "WhisperX completed but no JSON transcript was found in `{}`",
+                output_dir.display()
+            ))
+        })?;
+    let mut transcript = import_whisperx_json(&transcript_bytes)?;
+    if transcript.source.is_none() {
+        transcript.source = Some(source_path.to_string_lossy().into_owned());
+    }
+    let artifacts = transcript_path
+        .map(|path| TranscriptionArtifact {
+            kind: "whisperx-json".to_string(),
+            path,
+        })
+        .into_iter()
+        .collect();
+    Ok(TranscriptionPipelineResponse {
+        accepted: true,
+        operation: "audio.transcription.transcribe".to_string(),
+        provider: "whisperx-command".to_string(),
+        model_id: options.model,
+        transcript,
+        vad_segments: Vec::new(),
+        alignment: None,
+        diarization: None,
+        artifacts,
+        diagnostics: vec![
+            format!("ran WhisperX output in `{}`", output_dir.display()),
+            "parsed WhisperX JSON through text-transcripts".to_string(),
+        ],
+    })
+}
+
+fn whisperx_args(
+    source_path: &Path,
+    output_dir: &Path,
+    options: &WhisperXCommandOptions,
+    hf_token: Option<&str>,
+) -> Vec<String> {
+    let mut args = vec![
+        source_path.to_string_lossy().into_owned(),
+        "--model".to_string(),
+        options.model.clone(),
+        "--device".to_string(),
+        options.device.as_str().to_string(),
+        "--output_format".to_string(),
+        "json".to_string(),
+        "--output_dir".to_string(),
+        output_dir.to_string_lossy().into_owned(),
+    ];
+    if let Some(language) = &options.language {
+        args.extend(["--language".to_string(), language.clone()]);
+    }
+    if let Some(compute_type) = &options.compute_type {
+        args.extend(["--compute_type".to_string(), compute_type.clone()]);
+    }
+    if let Some(batch_size) = options.batch_size {
+        args.extend(["--batch_size".to_string(), batch_size.to_string()]);
+    }
+    if let Some(align_model) = &options.align_model {
+        args.extend(["--align_model".to_string(), align_model.clone()]);
+    }
+    if options.diarize {
+        args.push("--diarize".to_string());
+        if let Some(min_speakers) = options.min_speakers {
+            args.extend(["--min_speakers".to_string(), min_speakers.to_string()]);
+        }
+        if let Some(max_speakers) = options.max_speakers {
+            args.extend(["--max_speakers".to_string(), max_speakers.to_string()]);
+        }
+        if let Some(hf_token) = hf_token {
+            args.extend(["--hf_token".to_string(), hf_token.to_string()]);
+        }
+    }
+    args.extend(options.extra_args.clone());
+    args
+}
+
+fn whisperx_json_bytes(output_dir: &Path, stdout: &[u8]) -> Option<(Option<PathBuf>, Vec<u8>)> {
+    let path = find_json_artifact(output_dir);
+    if let Some(path) = path {
+        return fs::read(&path).ok().map(|bytes| (Some(path), bytes));
+    }
+    serde_json::from_slice::<serde_json::Value>(stdout)
+        .ok()
+        .map(|_| (None, stdout.to_vec()))
+}
+
+fn find_json_artifact(output_dir: &Path) -> Option<PathBuf> {
+    let mut candidates = fs::read_dir(output_dir)
+        .ok()?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
+        .collect::<Vec<_>>();
+    candidates.sort();
+    candidates.into_iter().next()
+}
+
+fn default_whisperx_output_dir() -> PathBuf {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    std::env::temp_dir().join(format!("video-analysis-whisperx-{millis}"))
+}
+
+fn wait_with_optional_timeout(
+    mut child: Child,
+    command: &Path,
+    timeout_seconds: Option<u64>,
+) -> Result<Output> {
+    let Some(seconds) = timeout_seconds else {
+        return child.wait_with_output().map_err(DetectError::Io);
+    };
+    let started = Instant::now();
+    loop {
+        if child.try_wait()?.is_some() {
+            return child.wait_with_output().map_err(DetectError::Io);
+        }
+        if started.elapsed() >= Duration::from_secs(seconds) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(timeout_error(format!(
+                "WhisperX command `{}` timed out after {seconds} seconds",
+                command.display()
+            )));
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+}
+
+fn setup_error(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(format!("setup_error: {}", message.into()))
+}
+
+fn invalid_request(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(format!("invalid_request: {}", message.into()))
+}
+
+fn model_output_mismatch(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(format!("model_output_mismatch: {}", message.into()))
+}
+
+fn timeout_error(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(format!("timeout: {}", message.into()))
+}
+
+fn unsupported_runtime(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(format!("unsupported_runtime: {}", message.into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use text_transcripts::TranscriptSegmentContract;
+
+    #[derive(Default)]
+    struct MockAsrProvider;
+
+    impl AudioTranscriptionProvider for MockAsrProvider {
+        fn provider_id(&self) -> &str {
+            "mock-asr"
+        }
+
+        fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+            let segments = request
+                .chunks
+                .iter()
+                .enumerate()
+                .map(|(index, chunk)| {
+                    let mut segment = TranscriptSegmentContract::new(index as u64, " hello ");
+                    segment.start_seconds = Some(0.0);
+                    segment.end_seconds = Some(chunk.end_seconds - chunk.start_seconds);
+                    segment
+                })
+                .collect::<Vec<_>>();
+            Ok(AsrResponse {
+                model_id: request.model_id,
+                language: request.language,
+                transcript: TranscriptionContract::from_segments(
+                    request.audio.source,
+                    Some("en".to_string()),
+                    segments,
+                )
+                .map_err(|error| DetectError::InvalidArgument(error.to_string()))?,
+                diagnostics: vec!["mock ASR completed".to_string()],
+            })
+        }
+    }
+
+    #[derive(Default)]
+    struct MockAlignmentProvider;
+
+    impl ForcedAlignmentProvider for MockAlignmentProvider {
+        fn provider_id(&self) -> &str {
+            "mock-aligner"
+        }
+
+        fn align(&mut self, request: AlignmentRequest) -> Result<AlignmentResponse> {
+            Ok(AlignmentResponse {
+                model_id: request.model_id,
+                words: vec![AlignedWord {
+                    segment_index: 0,
+                    word_index: 0,
+                    text: "hello".to_string(),
+                    start_seconds: 0.05,
+                    end_seconds: 0.35,
+                    confidence: Some(0.91),
+                }],
+                diagnostics: vec!["mock alignment completed".to_string()],
+            })
+        }
+    }
+
+    struct MockDiarizationProvider;
+
+    impl TranscriptDiarizationProvider for MockDiarizationProvider {
+        fn provider_id(&self) -> &str {
+            "mock-diarization"
+        }
+
+        fn diarize(
+            &mut self,
+            _audio: LoadedAudio,
+            _transcript: &TranscriptionContract,
+            options: &DiarizationOptions,
+        ) -> Result<SpeakerDiarizationResponse> {
+            #[cfg(not(feature = "diarization"))]
+            {
+                Ok(SpeakerDiarizationResponse {
+                    accepted: true,
+                    operation: "audio.speakers.diarize".to_string(),
+                    model_id: options.model_id.clone(),
+                    runtime: "mock".to_string(),
+                    segments: vec![SpeakerSegmentPrediction {
+                        speaker: "SPEAKER_00".to_string(),
+                        start_seconds: 0.0,
+                        end_seconds: 1.0,
+                        score: Some(0.9),
+                    }],
+                })
+            }
+            #[cfg(feature = "diarization")]
+            {
+                Ok(SpeakerDiarizationResponse {
+                    accepted: true,
+                    operation: "audio.speakers.diarize".to_string(),
+                    model_id: options.model_id.clone(),
+                    runtime: audio_analysis_speakers::AudioRuntime::Imported,
+                    segments: vec![audio_analysis_speakers::SpeakerSegmentPrediction {
+                        speaker: "SPEAKER_00".to_string(),
+                        start_seconds: 0.0,
+                        end_seconds: 1.0,
+                        score: Some(0.9),
+                    }],
+                })
+            }
+        }
+    }
+
+    fn sample_request() -> TranscriptionPipelineRequest {
+        let mut samples = vec![0.0; 16_000];
+        for sample in &mut samples[1_000..5_000] {
+            *sample = 0.1;
+        }
+        TranscriptionPipelineRequest {
+            source: TranscriptionSource::Samples {
+                samples,
+                sample_rate: 16_000,
+                channels: 1,
+                source: Some("synthetic".to_string()),
+            },
+            provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions::default()),
+            vad: VadOptions {
+                min_speech_seconds: 0.01,
+                ..VadOptions::default()
+            },
+            alignment: AlignmentOptions::default(),
+            diarization: DiarizationOptions::default(),
+            output: TranscriptionOutputOptions::default(),
+        }
+    }
+
+    #[test]
+    fn provider_plan_reports_candle_primary_native_provider() {
+        let plans = transcription_provider_plans();
+        let candle = plans
+            .iter()
+            .find(|plan| plan.provider_id == "candle-whisper")
+            .unwrap();
+        assert!(candle.primary);
+        assert!(!candle.external_runtime);
+        assert!(plans
+            .iter()
+            .any(|plan| plan.provider_id == "whisperx-command" && !plan.primary));
+    }
+
+    #[test]
+    fn cuda_request_without_feature_returns_setup_error() {
+        let mut provider = CandleWhisperTranscriber::new(CandleWhisperOptions {
+            device: NativeDevicePreference::Cuda,
+            ..CandleWhisperOptions::default()
+        });
+        let result = provider.transcribe(AsrRequest {
+            audio: LoadedAudio {
+                samples: vec![0.0, 0.0],
+                sample_rate: 16_000,
+                channels: 1,
+                source: None,
+            },
+            chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+            language: None,
+            model_id: "openai/whisper-large-v3".to_string(),
+        });
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("setup_error") || cfg!(feature = "cuda"));
+    }
+
+    #[test]
+    fn missing_model_bundle_returns_setup_error() {
+        let mut provider = CandleWhisperTranscriber::default();
+        let result = provider.transcribe(AsrRequest {
+            audio: LoadedAudio {
+                samples: vec![0.0, 0.0],
+                sample_rate: 16_000,
+                channels: 1,
+                source: None,
+            },
+            chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+            language: None,
+            model_id: "openai/whisper-large-v3".to_string(),
+        });
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("setup_error") || error.contains("unsupported_runtime"));
+    }
+
+    #[test]
+    fn vad_splits_deterministic_synthetic_speech() {
+        let request = sample_request();
+        let audio = LoadedAudio::mono_16khz_from_source(&request.source).unwrap();
+        let mut vad = EnergyVadTranscriptionProvider;
+        let response = vad
+            .detect_speech(VadRequest {
+                audio,
+                options: request.vad,
+            })
+            .unwrap();
+        assert_eq!(response.segments.len(), 1);
+        assert!(response.segments[0].start_seconds < 0.07);
+        assert!(response.segments[0].end_seconds > 0.30);
+    }
+
+    #[test]
+    fn mock_pipeline_normalizes_offsets_alignment_and_diarization() {
+        let mut request = sample_request();
+        request.alignment.enabled = true;
+        request.diarization.enabled = true;
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+        let mut aligner = MockAlignmentProvider;
+        let mut diarizer = MockDiarizationProvider;
+        let response = run_transcription_pipeline(
+            request,
+            &mut vad,
+            &mut asr,
+            Some(&mut aligner),
+            Some(&mut diarizer),
+        )
+        .unwrap();
+        assert!(response.accepted);
+        assert_eq!(response.provider, "candle-whisper");
+        assert_eq!(response.alignment.as_ref().unwrap().word_count, 1);
+        assert_eq!(
+            response.transcript.segments[0].words[0].speaker.as_deref(),
+            Some("SPEAKER_00")
+        );
+        assert_eq!(
+            response.transcript.segments[0].speaker.as_deref(),
+            Some("SPEAKER_00")
+        );
+    }
+
+    #[test]
+    fn missing_command_returns_setup_error() {
+        let result = transcribe(TranscriptionPipelineRequest {
+            source: TranscriptionSource::Path {
+                path: PathBuf::from("missing.wav"),
+            },
+            provider: TranscriptionProviderSelection::ExternalWhisperX(WhisperXCommandOptions {
+                command: PathBuf::from("definitely-missing-whisperx-command"),
+                ..WhisperXCommandOptions::default()
+            }),
+            vad: VadOptions::default(),
+            alignment: AlignmentOptions::default(),
+            diarization: DiarizationOptions::default(),
+            output: TranscriptionOutputOptions::default(),
+        });
+
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("setup_error"));
+        assert!(error.contains("not found"));
+    }
+
+    #[test]
+    fn diarization_requires_token_before_spawn() {
+        let result = transcribe(TranscriptionPipelineRequest {
+            source: TranscriptionSource::Path {
+                path: PathBuf::from("missing.wav"),
+            },
+            provider: TranscriptionProviderSelection::ExternalWhisperX(WhisperXCommandOptions {
+                command: PathBuf::from("definitely-missing-whisperx-command"),
+                diarize: true,
+                hf_token_env: Some("VIDEO_ANALYSIS_TEST_MISSING_HF_TOKEN".to_string()),
+                ..WhisperXCommandOptions::default()
+            }),
+            vad: VadOptions::default(),
+            alignment: AlignmentOptions::default(),
+            diarization: DiarizationOptions::default(),
+            output: TranscriptionOutputOptions::default(),
+        });
+
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("diarization requires"));
+        assert!(!error.contains("not found"));
+    }
+
+    #[test]
+    fn mock_command_output_round_trips() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let command = temp.path().join("mock-whisperx.sh");
+        let output_dir = temp.path().join("out");
+        fs::write(
+            &command,
+            format!(
+                "#!/usr/bin/env bash\nmkdir -p \"{}\"\ncat > \"{}/sample.json\" <<'JSON'\n{{\"segments\":[{{\"start\":0.0,\"end\":1.0,\"text\":\" hello \",\"speaker\":\"SPEAKER_00\",\"words\":[{{\"word\":\"hello\",\"start\":0.0,\"end\":0.8,\"score\":0.9,\"speaker\":\"SPEAKER_00\"}}]}}]}}\nJSON\n",
+                output_dir.display(),
+                output_dir.display()
+            ),
+        )?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = fs::metadata(&command)?.permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&command, permissions)?;
+        }
+
+        let response = transcribe(TranscriptionPipelineRequest {
+            source: TranscriptionSource::Path {
+                path: PathBuf::from("speech.wav"),
+            },
+            provider: TranscriptionProviderSelection::ExternalWhisperX(WhisperXCommandOptions {
+                command,
+                output_dir: Some(output_dir),
+                ..WhisperXCommandOptions::default()
+            }),
+            vad: VadOptions::default(),
+            alignment: AlignmentOptions::default(),
+            diarization: DiarizationOptions::default(),
+            output: TranscriptionOutputOptions::default(),
+        })?;
+
+        assert!(response.accepted);
+        assert_eq!(response.transcript.text.as_deref(), Some("hello"));
+        assert_eq!(
+            response.transcript.segments[0].words[0].speaker.as_deref(),
+            Some("SPEAKER_00")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn timeout_returns_typed_error() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let command = temp.path().join("slow-whisperx.sh");
+        fs::write(&command, "#!/usr/bin/env bash\nsleep 2\n")?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = fs::metadata(&command)?.permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&command, permissions)?;
+        }
+
+        let result = transcribe(TranscriptionPipelineRequest {
+            source: TranscriptionSource::Path {
+                path: PathBuf::from("speech.wav"),
+            },
+            provider: TranscriptionProviderSelection::ExternalWhisperX(WhisperXCommandOptions {
+                command,
+                timeout_seconds: Some(1),
+                ..WhisperXCommandOptions::default()
+            }),
+            vad: VadOptions::default(),
+            alignment: AlignmentOptions::default(),
+            diarization: DiarizationOptions::default(),
+            output: TranscriptionOutputOptions::default(),
+        });
+        assert!(result.unwrap_err().to_string().contains("timeout"));
+        Ok(())
+    }
+}

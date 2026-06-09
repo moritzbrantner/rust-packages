@@ -8,6 +8,9 @@ use video_analysis_core::{DetectError, Result};
 use crate::{AudioRuntime, AudioRuntimeSelection, SpeechRecognitionRequest};
 
 /// Input accepted by generic audio transcription workflows.
+#[deprecated(
+    note = "use audio-analysis-transcription for real ASR or text-transcripts for imported normalization"
+)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum TranscriptionInput {
@@ -32,6 +35,7 @@ pub enum TranscriptionInput {
 }
 
 /// Runtime selection for generic audio transcription.
+#[deprecated(note = "use audio-analysis-transcription provider options for real ASR")]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TranscriptionRuntimeSelection {
@@ -50,6 +54,7 @@ pub struct TranscriptionRuntimeSelection {
 }
 
 /// Generic request for audio transcription.
+#[deprecated(note = "use audio-analysis-transcription::TranscriptionPipelineRequest for real ASR")]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TranscriptionRequest {
@@ -67,6 +72,7 @@ pub struct TranscriptionRequest {
 }
 
 /// Generic response for audio transcription.
+#[deprecated(note = "use audio-analysis-transcription::TranscriptionPipelineResponse for real ASR")]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TranscriptionResponse {
@@ -182,8 +188,12 @@ impl AudioTranscriptionProvider for ImportedTranscriptionProvider {
         let model_id = selected_transcription_model_id(&request.runtime);
         let transcript = match request.input {
             TranscriptionInput::ImportedSegments { segments } => {
-                TranscriptionContract::from_segments(request.source, request.language, segments)
-                    .map_err(|error| DetectError::InvalidArgument(error.to_string()))?
+                text_transcripts::normalize_imported_segments(
+                    request.source,
+                    request.language,
+                    segments,
+                )
+                .map_err(|error| DetectError::InvalidArgument(error.to_string()))?
             }
             TranscriptionInput::ImportedContract { mut transcript } => {
                 if transcript.source.is_none() {
@@ -192,8 +202,7 @@ impl AudioTranscriptionProvider for ImportedTranscriptionProvider {
                 if transcript.language.is_none() {
                     transcript.language = request.language;
                 }
-                transcript
-                    .normalized()
+                text_transcripts::normalize_transcription_contract(transcript)
                     .map_err(|error| DetectError::InvalidArgument(error.to_string()))?
             }
             TranscriptionInput::SourcePath { path } => {
@@ -249,6 +258,9 @@ impl From<SpeechRecognitionRequest> for TranscriptionRequest {
 }
 
 /// Runs a generic transcription request.
+#[deprecated(
+    note = "use audio-analysis-transcription for real ASR or text_transcripts::normalize_imported_segments for imported transcript normalization"
+)]
 pub fn transcribe(request: TranscriptionRequest) -> Result<TranscriptionResponse> {
     match &request.input {
         TranscriptionInput::ImportedSegments { .. }
@@ -398,6 +410,7 @@ fn audio_fallback_to_model_fallback(value: crate::FallbackPolicy) -> FallbackPol
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;

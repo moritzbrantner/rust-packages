@@ -1,7 +1,7 @@
 # audio-analysis-recognition
 
-Deterministic audio embeddings, similarity search, and generic transcription
-contracts for `moritzbrantner-video-analysis`.
+Deterministic audio embeddings, similarity search, and recognition contracts for
+`moritzbrantner-video-analysis`.
 
 ## Feature flags
 
@@ -11,31 +11,29 @@ contracts for `moritzbrantner-video-analysis`.
 
 ```rust,ignore
 use audio_analysis_recognition::{
-    transcribe, TranscriptSegmentContract, TranscriptionInput, TranscriptionRequest,
-    TranscriptionRuntimeSelection,
+    compare_audio_samples, SpectralAudioEmbedder, SpectralEmbeddingConfig,
 };
 
-let response = transcribe(TranscriptionRequest {
-    source: Some("fixture.wav".to_string()),
-    language: Some("en".to_string()),
-    input: TranscriptionInput::ImportedSegments {
-        segments: vec![TranscriptSegmentContract::new(0, "hello world")],
-    },
-    runtime: TranscriptionRuntimeSelection::default(),
-})?;
+let extractor = SpectralAudioEmbedder::new(SpectralEmbeddingConfig::default())?;
+let response = compare_audio_samples(
+    &[0.0, 1.0, 0.0, -1.0],
+    &[0.0, 0.9, 0.0, -0.9],
+    48_000,
+    &extractor,
+)?;
 
-assert_eq!(response.transcript.text_or_joined(), "hello world");
+assert!(response.score.is_finite());
 ```
 
 `SpeechRecognitionRequest` and `transcribe_audio` remain available as
 compatibility shims for existing callers. New transcription integrations should
-prefer `TranscriptionRequest`, `TranscriptionInput`, and `transcribe`.
+use `audio-analysis-transcription` for real ASR or `text-transcripts` for
+imported transcript normalization.
 
 Default builds do not run native ASR, download models, call network services, or
-spawn external transcription commands. They normalize imported transcript
-segments or transcript contracts. Native whisper.cpp execution remains owned by
-`text-transcripts`; this crate exposes generic audio-facing transcription
-contracts and runtime plans.
+spawn external transcription commands. Native transcription orchestration lives
+in `audio-analysis-transcription`; imported transcript contracts live in
+`text-transcripts`.
 
 ## Package surface
 
@@ -46,14 +44,10 @@ Workflow operations:
 - `audio.recognition.embed`: Computes a deterministic spectral embedding for normalized samples.
 - `audio.recognition.compare`: Compares two in-memory sample arrays by cosine similarity.
 - `audio.recognition.search`: Builds a transient sample-backed reference library and searches it.
-- `audio.recognition.transcribe`: Normalizes generic imported transcript input into the shared transcription contract without running native ASR.
-- `audio.recognition.transcribeImported`: Normalizes caller-supplied transcript segments into the shared transcription contract without running native ASR.
 
 Debug operations:
 
 - `describe`: inspect package metadata and runtime support.
-- `audio.recognition.transcriptionPlan`: Explains generic transcription provider setup without running native ASR, reading files, or writing outputs.
-- `audio.recognition.transcriptionProviders`: Lists imported, Whisper, external, and model-runtime transcription provider support in default builds.
 
 Runtime support: library, CLI, server, and WASM wrappers expose these operations.
 

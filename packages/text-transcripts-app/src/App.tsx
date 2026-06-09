@@ -16,13 +16,13 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "transcripts.parse",
-  featuredOperations: ["transcripts.parse", "transcripts.normalize", "transcripts.formatSrt", "transcripts.formatWebVtt", "transcripts.toTextSegments", "describe"],
+  featuredOperations: ["transcripts.parse", "transcripts.normalize", "transcripts.importWhisperX", "transcripts.formatSrt", "transcripts.formatWebVtt", "transcripts.toTextSegments", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run transcript parsing, normalization, caption formatting, and text segment conversion workflows.",
-      operations: ["transcripts.parse", "transcripts.normalize", "transcripts.formatSrt", "transcripts.formatWebVtt", "transcripts.toTextSegments"],
+      operations: ["transcripts.parse", "transcripts.normalize", "transcripts.importWhisperX", "transcripts.formatSrt", "transcripts.formatWebVtt", "transcripts.toTextSegments"],
     },
     {
       id: "debug",
@@ -69,6 +69,15 @@ const packageAppConfig: PackageAppConfig = {
           { index: 0, startSeconds: 1.0, endSeconds: 2.2, text: "  Alice   presented the tokenizer roadmap. ", isFinal: true },
           { index: 1, startSeconds: 2.5, endSeconds: 4.0, text: " Bob reviewed transcript retrieval evidence. ", isFinal: true },
         ],
+      },
+    },
+    {
+      id: "import-whisperx",
+      label: "Import WhisperX",
+      operation: "transcripts.importWhisperX",
+      description: "Import existing WhisperX JSON into the transcript contract.",
+      input: {
+        content: "{\"segments\":[{\"start\":0.0,\"end\":1.0,\"text\":\" Alice presented the roadmap. \",\"words\":[{\"word\":\"Alice\",\"start\":0.0,\"end\":0.3,\"score\":0.94,\"speaker\":\"SPEAKER_00\"},{\"word\":\"presented\",\"start\":0.32,\"end\":0.72,\"score\":0.9,\"speaker\":\"SPEAKER_00\"}]}]}",
       },
     },
     {
@@ -129,6 +138,15 @@ const packageAppConfig: PackageAppConfig = {
       outputCountPath: ["segments"],
     },
     {
+      id: "import-whisperx",
+      label: "Import WhisperX",
+      operation: "transcripts.importWhisperX",
+      input: { content: "{\"segments\":[{\"start\":0.0,\"end\":1.0,\"text\":\"Hello benchmark.\",\"words\":[{\"word\":\"Hello\",\"start\":0.0,\"end\":0.5,\"score\":0.9}]}]}" },
+      iterations: 120,
+      warmupIterations: 5,
+      outputCountPath: ["segments"],
+    },
+    {
       id: "format-srt",
       label: "Format SRT",
       operation: "transcripts.formatSrt",
@@ -172,6 +190,13 @@ const packageAppConfig: PackageAppConfig = {
         listFields: ["segments", "words"],
         objectFields: ["metadata", "result"],
         explanation: () => "The normalization pass cleaned segment text, preserved timing, and rebuilt contract-level transcript text.",
+      },
+      "transcripts.importWhisperX": {
+        title: "WhisperX import",
+        summaryFields: ["segmentCount", "hasText"],
+        listFields: ["segments", "words"],
+        objectFields: ["metadata", "result"],
+        explanation: () => "The importer converted WhisperX JSON into the shared transcript contract while preserving word timings and speaker labels.",
       },
       "transcripts.formatSrt": {
         title: "SRT formatting",

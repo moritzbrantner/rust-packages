@@ -777,14 +777,24 @@ fn audio_crates_do_not_define_transcript_dtos() {
 }
 
 fn is_audio_transcription_surface_type(path: &str, line: &str) -> bool {
-    path.contains("crates/audio/audio-analysis-recognition/src/transcription.rs")
-        && (line.contains("pub enum TranscriptionInput")
+    if path.contains("crates/audio/audio-analysis-recognition/src/transcription.rs") {
+        return line.contains("pub enum TranscriptionInput")
             || line.contains("pub struct TranscriptionRuntimeSelection")
             || line.contains("pub struct TranscriptionRequest")
             || line.contains("pub struct TranscriptionResponse")
             || line.contains("pub enum TranscriptionProviderKind")
             || line.contains("pub struct TranscriptionBackendPlan")
-            || line.contains("pub struct WhisperCppTranscriptionPlan"))
+            || line.contains("pub struct WhisperCppTranscriptionPlan");
+    }
+
+    path.contains("crates/audio/audio-analysis-transcription/src/lib.rs")
+        && (line.contains("pub struct TranscriptionPipelineRequest")
+            || line.contains("pub enum TranscriptionSource")
+            || line.contains("pub enum TranscriptionProviderSelection")
+            || line.contains("pub struct TranscriptionOutputOptions")
+            || line.contains("pub struct TranscriptionArtifact")
+            || line.contains("pub struct TranscriptionPipelineResponse")
+            || line.contains("pub struct TranscriptionProviderPlan"))
 }
 
 fn collect_text_sources(dir: &Path, visit: &mut impl FnMut(&Path)) {

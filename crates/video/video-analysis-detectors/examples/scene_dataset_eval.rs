@@ -13,6 +13,8 @@ use scene_dataset_eval_support::{
     suppress_nearby_cuts, Args, EvalConfiguration,
 };
 
+pub(crate) const PYSCENEDETECT_BASELINE: &str = "0.6.7.1";
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct EvalReport {
@@ -20,6 +22,8 @@ pub(crate) struct EvalReport {
     detector: String,
     #[serde(default = "default_implementation")]
     pub(crate) implementation: String,
+    #[serde(default = "default_pyscenedetect_baseline")]
+    pub(crate) pyscenedetect_baseline: String,
     #[serde(default)]
     configuration: EvalConfiguration,
     videos: Vec<VideoReport>,
@@ -30,6 +34,10 @@ pub(crate) struct EvalReport {
 
 pub(crate) fn default_implementation() -> String {
     "rust".to_string()
+}
+
+pub(crate) fn default_pyscenedetect_baseline() -> String {
+    PYSCENEDETECT_BASELINE.to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -406,6 +414,7 @@ fn write_report(
         dataset: args.dataset.clone(),
         detector: args.detector.clone(),
         implementation: "rust".to_string(),
+        pyscenedetect_baseline: PYSCENEDETECT_BASELINE.to_string(),
         configuration: eval_configuration(args),
         summary: summarize(reports),
         videos: reports.to_vec(),

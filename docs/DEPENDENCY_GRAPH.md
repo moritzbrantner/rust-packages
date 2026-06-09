@@ -132,6 +132,9 @@ flowchart LR
     crate_moritzbrantner_audio_analysis_synthesis_cli["moritzbrantner-audio-analysis-synthesis-cli"]:::crate
     crate_moritzbrantner_audio_analysis_synthesis_server["moritzbrantner-audio-analysis-synthesis-server"]:::crate
     crate_moritzbrantner_audio_analysis_test_support["moritzbrantner-audio-analysis-test-support"]:::crate
+    crate_moritzbrantner_audio_analysis_transcription["moritzbrantner-audio-analysis-transcription"]:::crate
+    crate_moritzbrantner_audio_analysis_transcription_cli["moritzbrantner-audio-analysis-transcription-cli"]:::crate
+    crate_moritzbrantner_audio_analysis_transcription_server["moritzbrantner-audio-analysis-transcription-server"]:::crate
     crate_moritzbrantner_audio_generation_midi["moritzbrantner-audio-generation-midi"]:::crate
     crate_moritzbrantner_audio_generation_midi_cli["moritzbrantner-audio-generation-midi-cli"]:::crate
     crate_moritzbrantner_audio_generation_midi_server["moritzbrantner-audio-generation-midi-server"]:::crate
@@ -346,6 +349,7 @@ flowchart LR
     crate_moritzbrantner_audio_analysis_separation_wasm["moritzbrantner-audio-analysis-separation-wasm"]:::crate
     crate_moritzbrantner_audio_analysis_speakers_wasm["moritzbrantner-audio-analysis-speakers-wasm"]:::crate
     crate_moritzbrantner_audio_analysis_synthesis_wasm["moritzbrantner-audio-analysis-synthesis-wasm"]:::crate
+    crate_moritzbrantner_audio_analysis_transcription_wasm["moritzbrantner-audio-analysis-transcription-wasm"]:::crate
     crate_moritzbrantner_audio_generation_midi_wasm["moritzbrantner-audio-generation-midi-wasm"]:::crate
     crate_moritzbrantner_comfyui_data_wasm["moritzbrantner-comfyui-data-wasm"]:::crate
     crate_moritzbrantner_comfyui_latents_wasm["moritzbrantner-comfyui-latents-wasm"]:::crate
@@ -487,6 +491,7 @@ flowchart LR
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_separation
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_speakers
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_synthesis
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_analysis_transcription
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_audio_generation_midi
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_captioning
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_image_analysis_classification
@@ -779,6 +784,16 @@ flowchart LR
   crate_moritzbrantner_audio_analysis_synthesis_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_test_support --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_audio_analysis_test_support --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_audio_analysis_transcription -. optional .-> crate_moritzbrantner_audio_analysis_speakers
+  crate_moritzbrantner_audio_analysis_transcription -. optional .-> crate_moritzbrantner_text_model_runtime
+  crate_moritzbrantner_audio_analysis_transcription --> crate_moritzbrantner_text_transcripts
+  crate_moritzbrantner_audio_analysis_transcription --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_transcription -. optional .-> crate_moritzbrantner_model_runtime
+  crate_moritzbrantner_audio_analysis_transcription --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_audio_analysis_transcription_cli --> crate_moritzbrantner_audio_analysis_transcription
+  crate_moritzbrantner_audio_analysis_transcription_cli --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_audio_analysis_transcription_server --> crate_moritzbrantner_audio_analysis_transcription
+  crate_moritzbrantner_audio_analysis_transcription_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_generation_midi --> crate_moritzbrantner_data_inversion_core
   crate_moritzbrantner_audio_generation_midi --> crate_moritzbrantner_audio_analysis_synthesis
   crate_moritzbrantner_audio_generation_midi --> crate_moritzbrantner_video_analysis_core
@@ -1318,6 +1333,8 @@ flowchart LR
   crate_moritzbrantner_audio_analysis_speakers_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_synthesis_wasm --> crate_moritzbrantner_audio_analysis_synthesis
   crate_moritzbrantner_audio_analysis_synthesis_wasm --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_audio_analysis_transcription_wasm --> crate_moritzbrantner_audio_analysis_transcription
+  crate_moritzbrantner_audio_analysis_transcription_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_generation_midi_wasm --> crate_moritzbrantner_audio_generation_midi
   crate_moritzbrantner_audio_generation_midi_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_comfyui_data_wasm --> crate_moritzbrantner_comfyui_data

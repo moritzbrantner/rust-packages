@@ -47,6 +47,10 @@ pub enum ModelPreset {
     ClapHtsatUnfused,
     /// The Whisper tiny English ASR variant.
     WhisperTinyEn,
+    /// The Whisper large-v3 ASR variant.
+    WhisperLargeV3,
+    /// The Whisper large-v3-turbo ASR variant.
+    WhisperLargeV3Turbo,
     /// The wav2vec2 base ASR variant.
     Wav2Vec2Base960h,
     /// The pyannote speaker diarization variant.
@@ -81,6 +85,8 @@ impl ModelPreset {
         Self::XenovaAstAudiosetOnnx,
         Self::ClapHtsatUnfused,
         Self::WhisperTinyEn,
+        Self::WhisperLargeV3,
+        Self::WhisperLargeV3Turbo,
         Self::Wav2Vec2Base960h,
         Self::PyannoteSpeakerDiarization31,
         Self::DemucsMusicSeparation,
@@ -113,6 +119,8 @@ impl ModelPreset {
             Self::XenovaAstAudiosetOnnx => "xenova-ast-audioset-onnx",
             Self::ClapHtsatUnfused => "clap-htsat-unfused",
             Self::WhisperTinyEn => "whisper-tiny-en",
+            Self::WhisperLargeV3 => "whisper-large-v3",
+            Self::WhisperLargeV3Turbo => "whisper-large-v3-turbo",
             Self::Wav2Vec2Base960h => "wav2vec2-base-960h",
             Self::PyannoteSpeakerDiarization31 => "pyannote-speaker-diarization-3-1",
             Self::DemucsMusicSeparation => "demucs-music-separation",
@@ -332,22 +340,62 @@ impl ModelPreset {
                     .file("tokenizer.json")
                     .first_available_file(["model.safetensors", "pytorch_model.bin"])
             }
-            Self::Wav2Vec2Base960h => HuggingFaceModelSpec::new(
-                "facebook/wav2vec2-base-960h",
-                ModelTask::SpeechRecognition,
-            )
-            .name(self.as_str())
-            .file("config.json")
-            .file("preprocessor_config.json")
-            .file("tokenizer.json")
-            .first_available_file(["model.safetensors", "pytorch_model.bin"]),
-            Self::PyannoteSpeakerDiarization31 => HuggingFaceModelSpec::new(
-                "pyannote/speaker-diarization-3.1",
-                ModelTask::SpeakerDiarization,
-            )
-            .name(self.as_str())
-            .file("config.yaml")
-            .optional_file("pytorch_model.bin"),
+            Self::WhisperLargeV3 => {
+                let mut spec = HuggingFaceModelSpec::new(
+                    "openai/whisper-large-v3",
+                    ModelTask::SpeechRecognition,
+                )
+                .name(self.as_str())
+                .file("config.json")
+                .file("generation_config.json")
+                .file("tokenizer.json")
+                .file("preprocessor_config.json")
+                .file("model.safetensors");
+                spec.metadata
+                    .insert("backend".to_string(), "candle".to_string());
+                spec
+            }
+            Self::WhisperLargeV3Turbo => {
+                let mut spec = HuggingFaceModelSpec::new(
+                    "openai/whisper-large-v3-turbo",
+                    ModelTask::SpeechRecognition,
+                )
+                .name(self.as_str())
+                .file("config.json")
+                .file("generation_config.json")
+                .file("tokenizer.json")
+                .file("preprocessor_config.json")
+                .file("model.safetensors");
+                spec.metadata
+                    .insert("backend".to_string(), "candle".to_string());
+                spec
+            }
+            Self::Wav2Vec2Base960h => {
+                let mut spec = HuggingFaceModelSpec::new(
+                    "facebook/wav2vec2-base-960h",
+                    ModelTask::Custom("forced_alignment".to_string()),
+                )
+                .name(self.as_str())
+                .file("config.json")
+                .file("preprocessor_config.json")
+                .file("tokenizer.json")
+                .file("model.safetensors");
+                spec.metadata
+                    .insert("backend".to_string(), "candle".to_string());
+                spec
+            }
+            Self::PyannoteSpeakerDiarization31 => {
+                let mut spec = HuggingFaceModelSpec::new(
+                    "pyannote/speaker-diarization-3.1",
+                    ModelTask::SpeakerDiarization,
+                )
+                .name(self.as_str())
+                .file("config.yaml")
+                .optional_file("pytorch_model.bin");
+                spec.metadata
+                    .insert("backend".to_string(), "plan-only".to_string());
+                spec
+            }
             Self::DemucsMusicSeparation => {
                 HuggingFaceModelSpec::new("facebook/demucs", ModelTask::SourceSeparation)
                     .name(self.as_str())

@@ -119,6 +119,7 @@ audio-analysis-rhythm = { package = "moritzbrantner-audio-analysis-rhythm", vers
 audio-analysis-separation = { package = "moritzbrantner-audio-analysis-separation", version = "0.1.0", path = "crates/audio/audio-analysis-separation" }
 audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.0", path = "crates/audio/audio-analysis-speakers" }
 audio-analysis-synthesis = { package = "moritzbrantner-audio-analysis-synthesis", version = "0.1.0", path = "crates/audio/audio-analysis-synthesis" }
+audio-analysis-transcription = { package = "moritzbrantner-audio-analysis-transcription", version = "0.1.0", path = "crates/audio/audio-analysis-transcription" }
 audio-analysis-test-support = { package = "moritzbrantner-audio-analysis-test-support", version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
 video-analysis-test-support = { package = "moritzbrantner-video-analysis-test-support", version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
 image-analysis-core = { package = "moritzbrantner-image-analysis-core", version = "0.1.0", path = "crates/image/image-analysis-core" }
@@ -208,6 +209,7 @@ audio = [
     "dep:audio-analysis-separation",
     "dep:audio-analysis-speakers",
     "dep:audio-analysis-synthesis",
+    "dep:audio-analysis-transcription",
 ]
 image = [
     "dep:image-analysis-comfyui",
@@ -383,6 +385,7 @@ audio-analysis-rhythm = { workspace = true, optional = true }
 audio-analysis-separation = { workspace = true, optional = true }
 audio-analysis-speakers = { workspace = true, optional = true }
 audio-analysis-synthesis = { workspace = true, optional = true }
+audio-analysis-transcription = { workspace = true, optional = true }
 data-inversion-core = { workspace = true, optional = true }
 graph-analysis-core = { workspace = true, optional = true }
 geo-core = { workspace = true, optional = true }

@@ -8,8 +8,9 @@ use serde::Deserialize;
 use text_core::TextSegmentContract;
 
 use crate::{
-    format_srt, format_webvtt, parse_plain_lines, parse_srt, parse_webvtt, parse_whisper_json,
-    TranscriptionContract, TranscriptionResult,
+    format_srt, format_webvtt, normalize_transcription_contract, parse_plain_lines, parse_srt,
+    parse_webvtt, parse_whisper_json, parse_whisperx_json, TranscriptionContract,
+    TranscriptionResult,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -36,6 +37,12 @@ pub fn package_surface() -> PackageSurface {
                 "Normalize transcript",
                 "Normalizes transcript contract text, segments, words, and confidence.",
                 serde_json::json!({"segments": [{"index": 0, "text": " hello ", "isFinal": true}]}),
+            ),
+            operation(
+                "transcripts.importWhisperX",
+                "Import WhisperX JSON",
+                "Parses existing WhisperX JSON output into the normalized transcript contract without running external tools.",
+                serde_json::json!({"content": "{\"segments\":[{\"start\":0.0,\"end\":1.0,\"text\":\"Hello.\",\"words\":[{\"word\":\"Hello\",\"start\":0.0,\"end\":0.8,\"score\":0.9}]}]}"}),
             ),
             operation(
                 "transcripts.formatSrt",
@@ -75,6 +82,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "describe" => describe_value(request.input),
         "transcripts.parse" => parse_value(parse_input(request.input)?)?,
         "transcripts.normalize" => normalize_value(parse_input(request.input)?)?,
+        "transcripts.importWhisperX" => import_whisperx_value(parse_input(request.input)?)?,
         "transcripts.formatSrt" => format_srt_value(parse_input(request.input)?)?,
         "transcripts.formatWebVtt" => format_webvtt_value(parse_input(request.input)?)?,
         "transcripts.toTextSegments" => to_text_segments_value(parse_input(request.input)?)?,
@@ -134,6 +142,15 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
                 "hasText": value["text"].as_str().map(|text| !text.is_empty()).unwrap_or(false)
             }),
         ),
+        "transcripts.importWhisperX" => (
+            "WhisperX import result",
+            "Imported WhisperX JSON into the normalized transcript contract.",
+            serde_json::json!({
+                "status": "ok",
+                "segmentCount": value["segments"].as_array().map(Vec::len).unwrap_or(0),
+                "hasText": value["text"].as_str().map(|text| !text.is_empty()).unwrap_or(false)
+            }),
+        ),
         "transcripts.formatSrt" => (
             "SRT formatting result",
             "Formatted a normalized transcript contract as SRT text.",
@@ -178,6 +195,12 @@ struct ParseRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ImportContentRequest {
+    content: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ToTextSegmentsRequest {
     stream_id: Option<String>,
     #[serde(flatten)]
@@ -207,9 +230,17 @@ fn parse_value(request: ParseRequest) -> Result<serde_json::Value, String> {
 }
 
 fn normalize_value(contract: TranscriptionContract) -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!(contract
-        .normalized()
-        .map_err(|error| error.to_string())?))
+    Ok(serde_json::json!(normalize_transcription_contract(
+        contract
+    )
+    .map_err(|error| error.to_string())?))
+}
+
+fn import_whisperx_value(request: ImportContentRequest) -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!(parse_whisperx_json(
+        request.content.as_bytes()
+    )
+    .map_err(|error| error.to_string())?))
 }
 
 fn format_srt_value(contract: TranscriptionContract) -> Result<serde_json::Value, String> {
@@ -274,6 +305,7 @@ mod tests {
             .map(|operation| operation.id.0)
             .collect::<Vec<_>>();
         assert!(ids.contains(&"transcripts.parse".to_string()));
+        assert!(ids.contains(&"transcripts.importWhisperX".to_string()));
         assert!(ids.contains(&"transcripts.formatSrt".to_string()));
         assert!(ids.contains(&"transcripts.formatWebVtt".to_string()));
         assert!(ids.contains(&"transcripts.toTextSegments".to_string()));

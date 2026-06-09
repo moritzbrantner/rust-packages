@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use audio_analysis_core::OwnedAudioWaveformBatch;
 use serde::Deserialize;
+use serde_json::Value;
 use text_core::{tokenize, tokenize_words, TextProcessingOptions, TokenKind};
 
 mod whisper_cpp;
@@ -568,6 +569,85 @@ pub fn parse_whisper_json(bytes: &[u8]) -> Result<TranscriptionResult> {
     })
 }
 
+/// Normalizes an existing transcription contract.
+pub fn normalize_transcription_contract(
+    contract: TranscriptionContract,
+) -> Result<TranscriptionContract> {
+    contract.normalized()
+}
+
+/// Builds and normalizes a transcription contract from imported transcript segments.
+pub fn normalize_imported_segments(
+    source: Option<String>,
+    language: Option<String>,
+    segments: Vec<TranscriptSegmentContract>,
+) -> Result<TranscriptionContract> {
+    TranscriptionContract::from_segments(source, language, segments)
+}
+
+/// Parses WhisperX JSON into the shared transcription contract.
+pub fn parse_whisperx_json(bytes: &[u8]) -> Result<TranscriptionContract> {
+    let value: Value = serde_json::from_slice(bytes)?;
+    let object = value.as_object().ok_or_else(|| {
+        TranscriptionError::InvalidTranscript("WhisperX JSON must be an object".to_string())
+    })?;
+    let language = object
+        .get("language")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let text = object
+        .get("text")
+        .and_then(Value::as_str)
+        .map(|text| text.trim().to_string())
+        .filter(|text| !text.is_empty());
+    let source = object
+        .get("source")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let mut attributes = unknown_attributes(
+        object,
+        &["language", "text", "source", "segments", "word_segments"],
+    );
+    if let Some(count) = object.get("segment_count").and_then(Value::as_u64) {
+        attributes.insert("segment_count".to_string(), count.to_string());
+    }
+
+    let mut segments = object
+        .get("segments")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            TranscriptionError::InvalidTranscript(
+                "WhisperX JSON must include a segments array".to_string(),
+            )
+        })?
+        .iter()
+        .enumerate()
+        .map(|(index, segment)| whisperx_segment(segment, index as u64, language.clone()))
+        .collect::<Result<Vec<_>>>()?;
+
+    if segments.iter().all(|segment| segment.words.is_empty()) {
+        if let Some(words) = object.get("word_segments").and_then(Value::as_array) {
+            attach_flat_whisperx_words(&mut segments, words)?;
+        }
+    }
+
+    let mut contract = TranscriptionContract {
+        text,
+        language,
+        segments,
+        source,
+        attributes,
+    }
+    .normalized()?;
+    for segment in &mut contract.segments {
+        if segment.speaker.is_none() {
+            segment.speaker = infer_segment_speaker(&segment.words);
+        }
+    }
+    contract.validate_strict()?;
+    Ok(contract)
+}
+
 /// Parses parse srt.
 pub fn parse_srt(text: &str) -> Result<TranscriptionResult> {
     parse_subtitle_blocks(text, TranscriptFormat::Srt)
@@ -750,6 +830,233 @@ fn parse_transcript_bytes(bytes: &[u8], format: TranscriptFormat) -> Result<Tran
         TranscriptFormat::Srt => parse_srt(&String::from_utf8_lossy(bytes)),
         TranscriptFormat::WebVtt => parse_webvtt(&String::from_utf8_lossy(bytes)),
     }
+}
+
+fn whisperx_segment(
+    value: &Value,
+    fallback_index: u64,
+    language: Option<String>,
+) -> Result<TranscriptSegmentContract> {
+    let object = value.as_object().ok_or_else(|| {
+        TranscriptionError::InvalidTranscript("WhisperX segment must be an object".to_string())
+    })?;
+    let mut segment = TranscriptSegmentContract::new(
+        object
+            .get("id")
+            .or_else(|| object.get("index"))
+            .and_then(Value::as_u64)
+            .unwrap_or(fallback_index),
+        object
+            .get("text")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+    );
+    segment.start_seconds = number_field(object, &["start", "start_seconds", "startSeconds"]);
+    segment.end_seconds = number_field(object, &["end", "end_seconds", "endSeconds"]);
+    segment.language = object
+        .get("language")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or(language);
+    segment.speaker = object
+        .get("speaker")
+        .or_else(|| object.get("speaker_label"))
+        .or_else(|| object.get("speakerLabel"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    segment.confidence = confidence_field(
+        object,
+        &["confidence", "score", "avg_logprob", "no_speech_prob"],
+    );
+    segment.words = object
+        .get("words")
+        .or_else(|| object.get("word_segments"))
+        .and_then(Value::as_array)
+        .map(|words| {
+            words
+                .iter()
+                .map(whisperx_word)
+                .collect::<Result<Vec<TranscriptWordContract>>>()
+        })
+        .transpose()?
+        .unwrap_or_default();
+    if segment.speaker.is_none() {
+        segment.speaker = infer_segment_speaker(&segment.words);
+    }
+    segment.attributes = unknown_attributes(
+        object,
+        &[
+            "id",
+            "index",
+            "start",
+            "start_seconds",
+            "startSeconds",
+            "end",
+            "end_seconds",
+            "endSeconds",
+            "text",
+            "language",
+            "speaker",
+            "speaker_label",
+            "speakerLabel",
+            "confidence",
+            "score",
+            "avg_logprob",
+            "no_speech_prob",
+            "words",
+            "word_segments",
+        ],
+    );
+    Ok(segment)
+}
+
+fn whisperx_word(value: &Value) -> Result<TranscriptWordContract> {
+    let object = value.as_object().ok_or_else(|| {
+        TranscriptionError::InvalidTranscript("WhisperX word must be an object".to_string())
+    })?;
+    Ok(TranscriptWordContract {
+        text: object
+            .get("word")
+            .or_else(|| object.get("text"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        start_seconds: number_field(object, &["start", "start_seconds", "startSeconds"]),
+        end_seconds: number_field(object, &["end", "end_seconds", "endSeconds"]),
+        confidence: confidence_field(object, &["confidence", "score", "probability"]),
+        speaker: object
+            .get("speaker")
+            .or_else(|| object.get("speaker_label"))
+            .or_else(|| object.get("speakerLabel"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        attributes: unknown_attributes(
+            object,
+            &[
+                "word",
+                "text",
+                "start",
+                "start_seconds",
+                "startSeconds",
+                "end",
+                "end_seconds",
+                "endSeconds",
+                "confidence",
+                "score",
+                "probability",
+                "speaker",
+                "speaker_label",
+                "speakerLabel",
+            ],
+        ),
+    })
+}
+
+fn attach_flat_whisperx_words(
+    segments: &mut [TranscriptSegmentContract],
+    words: &[Value],
+) -> Result<()> {
+    for value in words {
+        let word = whisperx_word(value)?;
+        let midpoint = match (word.start_seconds, word.end_seconds) {
+            (Some(start), Some(end)) => Some((start + end) * 0.5),
+            (Some(start), None) => Some(start),
+            (None, Some(end)) => Some(end),
+            (None, None) => None,
+        };
+        let Some(segment) = segments.iter_mut().find(|segment| {
+            midpoint
+                .zip(segment.start_seconds.zip(segment.end_seconds))
+                .map(|(midpoint, (start, end))| midpoint >= start && midpoint <= end)
+                .unwrap_or(false)
+        }) else {
+            continue;
+        };
+        segment.words.push(word);
+    }
+    for segment in segments {
+        if segment.speaker.is_none() {
+            segment.speaker = infer_segment_speaker(&segment.words);
+        }
+    }
+    Ok(())
+}
+
+fn infer_segment_speaker(words: &[TranscriptWordContract]) -> Option<String> {
+    let mut scores: BTreeMap<&str, (f64, usize)> = BTreeMap::new();
+    for word in words {
+        let Some(speaker) = word
+            .speaker
+            .as_deref()
+            .filter(|speaker| !speaker.is_empty())
+        else {
+            continue;
+        };
+        let duration = word
+            .start_seconds
+            .zip(word.end_seconds)
+            .map(|(start, end)| (end - start).max(0.0))
+            .filter(|duration| duration.is_finite() && *duration > 0.0)
+            .unwrap_or(1.0);
+        let entry = scores.entry(speaker).or_insert((0.0, 0));
+        entry.0 += duration;
+        entry.1 += 1;
+    }
+    scores
+        .into_iter()
+        .max_by(|left, right| {
+            left.1
+                 .0
+                .total_cmp(&right.1 .0)
+                .then(left.1 .1.cmp(&right.1 .1))
+                .then_with(|| right.0.cmp(left.0))
+        })
+        .map(|(speaker, _)| speaker.to_string())
+}
+
+fn unknown_attributes(
+    object: &serde_json::Map<String, Value>,
+    known_fields: &[&str],
+) -> BTreeMap<String, String> {
+    object
+        .iter()
+        .filter(|(key, _)| !known_fields.contains(&key.as_str()))
+        .map(|(key, value)| (key.clone(), json_attribute(value)))
+        .collect()
+}
+
+fn json_attribute(value: &Value) -> String {
+    match value {
+        Value::String(value) => value.clone(),
+        Value::Number(value) => value.to_string(),
+        Value::Bool(value) => value.to_string(),
+        Value::Null => "null".to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn number_field(object: &serde_json::Map<String, Value>, names: &[&str]) -> Option<f64> {
+    names
+        .iter()
+        .find_map(|name| object.get(*name).and_then(Value::as_f64))
+        .filter(|value| value.is_finite())
+}
+
+fn confidence_field(object: &serde_json::Map<String, Value>, names: &[&str]) -> Option<f32> {
+    for name in names {
+        let Some(value) = object.get(*name).and_then(Value::as_f64) else {
+            continue;
+        };
+        if !value.is_finite() {
+            continue;
+        }
+        return match *name {
+            "avg_logprob" => Some(value.exp().clamp(0.0, 1.0) as f32),
+            "no_speech_prob" => Some((1.0 - value).clamp(0.0, 1.0) as f32),
+            _ => Some(value.clamp(0.0, 1.0) as f32),
+        };
+    }
+    None
 }
 
 fn wait_with_optional_timeout(

@@ -29,9 +29,10 @@ free of model downloads or external command execution.
 | `audio.pitch.chroma` | `audio-analysis-pitch` | Pure Rust, WASM-safe |
 | `audio.speakers.vad` | `audio-analysis-speakers` | Pure Rust, WASM-safe |
 | `audio.speakers.diarize` | `audio-analysis-speakers` | Pure Rust baseline, imported segments supported |
-| `audio.recognition.transcribe` | `audio-analysis-recognition` | Imported transcript workflow, no native ASR execution |
-| `audio.recognition.transcribeImported` | `audio-analysis-recognition` | Imported transcript contract conversion |
-| `audio.recognition.transcriptionPlan` | `audio-analysis-recognition` | Debug-only provider plan, no execution |
+| `audio.transcription.transcribe` | `audio-analysis-transcription` | Native ASR orchestration; model execution requires explicit bundle/features |
+| `audio.transcription.importWhisperX` | `audio-analysis-transcription` | Delegates WhisperX JSON import to `text-transcripts` without running models |
+| `transcripts.normalize`, `transcripts.importWhisperX` | `text-transcripts` | Imported transcript contract conversion and normalization |
+| `audio.transcription.plan` | `audio-analysis-transcription` | Debug-only provider plan, no execution |
 | `audio.io.wavSummary` | `audio-analysis-io` | Inline pure summary; path reads are native/server only |
 | `audio.io.probePlan` | `audio-analysis-io` | Debug-only plan, no FFprobe execution |
 | `audio.separation.runDemucs` | `audio-analysis-separation` | Server/native only, external-test gated |

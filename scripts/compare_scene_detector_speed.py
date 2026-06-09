@@ -67,14 +67,26 @@ def compare(
         pyscene_video = pyscene_videos[ident]
         rust_elapsed = float(rust_video.get("elapsedMs", 0.0))
         pyscene_elapsed = float(pyscene_video.get("elapsedMs", 0.0))
+        rust_cuts = [int(cut) for cut in rust_video.get("predictedCuts", [])]
+        pyscene_cuts = [int(cut) for cut in pyscene_video.get("predictedCuts", [])]
         videos.append(
             {
                 "id": ident,
                 "rustElapsedMs": rust_elapsed,
                 "pyscenedetectElapsedMs": pyscene_elapsed,
                 "ratio": ratio(rust_elapsed, pyscene_elapsed),
-                "rustPredicted": len(rust_video.get("predictedCuts", [])),
-                "pyscenedetectPredicted": len(pyscene_video.get("predictedCuts", [])),
+                "rustPredicted": len(rust_cuts),
+                "pyscenedetectPredicted": len(pyscene_cuts),
+                "cutListDelta": {
+                    "rustPredictedCuts": rust_cuts,
+                    "pyscenedetectPredictedCuts": pyscene_cuts,
+                    "onlyRustCuts": sorted(set(rust_cuts) - set(pyscene_cuts)),
+                    "onlyPyscenedetectCuts": sorted(set(pyscene_cuts) - set(rust_cuts)),
+                    "pairedFrameDeltas": [
+                        rust_cut - pyscene_cut
+                        for rust_cut, pyscene_cut in zip(rust_cuts, pyscene_cuts)
+                    ],
+                },
             }
         )
 

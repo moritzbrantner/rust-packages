@@ -35,6 +35,9 @@ pub use audio_analysis_speakers as audio_speakers;
 /// Re-exports the audio synthesis API.
 pub use audio_analysis_synthesis as audio_synthesis;
 #[cfg(feature = "audio")]
+/// Re-exports the audio transcription API.
+pub use audio_analysis_transcription as audio_transcription;
+#[cfg(feature = "audio")]
 /// Re-exports the MIDI-like audio generation API.
 pub use audio_generation_midi as audio_midi;
 #[cfg(feature = "comfyui")]

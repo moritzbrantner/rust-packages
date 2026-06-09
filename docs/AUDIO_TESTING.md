@@ -112,13 +112,54 @@ Both paths symlink `demucs` into `.audio-tools/bin` and verify `demucs --help`
 before tests run. You can override the command with
 `DEMUCS_COMMAND=/path/to/demucs`.
 
-## Native Whisper Smoke Test
+## Native Transcription Smoke Tests
 
-Audio recognition keeps native ASR out of default tests. The primary
-deterministic workflow is `audio.recognition.transcribe`; the compatibility
-operation is `audio.recognition.transcribeImported`. Real Whisper execution is
-one provider path owned by `moritzbrantner-text-transcripts` and is only tested
-when explicitly requested.
+`audio-analysis-transcription` owns real audio/video-to-text execution. The
+default provider plan is Candle Whisper, with CUDA used only when the crate is
+built with the `cuda` feature and the request explicitly selects that device.
+Default tests use deterministic samples and mock providers; they do not require
+models, CUDA, Python, Hugging Face tokens, downloads, or network access.
+
+Imported transcript normalization belongs to `text-transcripts` through
+`transcripts.normalize` and `transcripts.importWhisperX`. Recognition package
+surfaces no longer advertise transcription operations.
+
+Candle Whisper CUDA smoke test:
+
+```bash
+RUN_NATIVE_TRANSCRIPTION_TESTS=1 \
+TRANSCRIPTION_MODEL_BUNDLE=/path/to/whisper-large-v3 \
+TRANSCRIPTION_AUDIO_PATH=/path/to/audio.wav \
+cargo test -p moritzbrantner-audio-analysis-transcription \
+  --features candle,cuda,model-bundles \
+  candle_whisper_cuda_smoke_when_requested -- --ignored --nocapture
+```
+
+CTC alignment CUDA smoke test:
+
+```bash
+RUN_NATIVE_ALIGNMENT_TESTS=1 \
+ALIGNMENT_MODEL_BUNDLE=/path/to/wav2vec2 \
+TRANSCRIPTION_AUDIO_PATH=/path/to/audio.wav \
+cargo test -p moritzbrantner-audio-analysis-transcription \
+  --features candle,cuda,alignment,model-bundles \
+  ctc_alignment_cuda_smoke_when_requested -- --ignored --nocapture
+```
+
+Diarization baseline smoke test:
+
+```bash
+RUN_NATIVE_DIARIZATION_TESTS=1 \
+DIARIZATION_AUDIO_PATH=/path/to/meeting.wav \
+cargo test -p moritzbrantner-audio-analysis-speakers \
+  --features external-tests \
+  native_diarization_baseline_smoke_when_requested -- --ignored --nocapture
+```
+
+## whisper.cpp Compatibility Smoke Test
+
+Native whisper.cpp remains a compatibility path outside the primary
+transcription provider. It is tested only when explicitly requested.
 
 Prepare a local 16 kHz mono WAV fixture and a cached whisper.cpp model first.
 The smoke test checks that the model already exists before calling the native

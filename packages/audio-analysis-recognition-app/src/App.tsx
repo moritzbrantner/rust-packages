@@ -11,10 +11,6 @@ const packageAppConfig: PackageAppConfig = {
     "audio.recognition.embed",
     "audio.recognition.compare",
     "audio.recognition.search",
-    "audio.recognition.transcribe",
-    "audio.recognition.transcribeImported",
-    "audio.recognition.transcriptionPlan",
-    "audio.recognition.transcriptionProviders",
     "describe",
   ],
   operationGroups: [
@@ -26,15 +22,13 @@ const packageAppConfig: PackageAppConfig = {
         "audio.recognition.embed",
         "audio.recognition.compare",
         "audio.recognition.search",
-        "audio.recognition.transcribe",
-        "audio.recognition.transcribeImported",
       ],
     },
     {
       id: "debug",
       label: "Debug",
       description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
-      operations: ["describe", "audio.recognition.transcriptionPlan", "audio.recognition.transcriptionProviders"],
+      operations: ["describe"],
     },
   ],
   wasm: {

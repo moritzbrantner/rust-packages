@@ -303,6 +303,9 @@ pub struct AudioEmbeddingResponse {
 }
 
 /// Request for speech recognition.
+#[deprecated(
+    note = "use audio-analysis-transcription for real ASR or text_transcripts::normalize_imported_segments for imported transcript normalization"
+)]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpeechRecognitionRequest {
@@ -321,6 +324,7 @@ pub struct SpeechRecognitionRequest {
 }
 
 /// Response for speech recognition.
+#[deprecated(note = "use audio-analysis-transcription for real ASR")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpeechRecognitionResponse {
@@ -1507,6 +1511,10 @@ pub fn embed_audio(request: AudioEmbeddingRequest) -> Result<AudioEmbeddingRespo
 }
 
 /// Handles ASR from imported transcript segments.
+#[deprecated(
+    note = "use audio-analysis-transcription for real ASR or text_transcripts::normalize_imported_segments for imported transcript normalization"
+)]
+#[allow(deprecated)]
 pub fn transcribe_audio(request: SpeechRecognitionRequest) -> Result<SpeechRecognitionResponse> {
     if request.imported_segments.is_empty() {
         return unsupported_runtime(
@@ -1525,6 +1533,7 @@ pub fn transcribe_audio(request: SpeechRecognitionRequest) -> Result<SpeechRecog
 }
 
 /// Builds a speech recognition response from a full transcript contract.
+#[allow(deprecated)]
 pub fn speech_recognition_response_from_transcription(
     model: &AudioRuntimeSelection,
     transcript: TranscriptionContract,
@@ -1687,6 +1696,7 @@ fn normalize_prediction_label(label: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase};

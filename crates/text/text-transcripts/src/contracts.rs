@@ -16,6 +16,10 @@ pub struct TranscriptWordContract {
     pub end_seconds: Option<f64>,
     #[serde(default)]
     pub confidence: Option<f32>,
+    #[serde(default)]
+    pub speaker: Option<String>,
+    #[serde(default)]
+    pub attributes: BTreeMap<String, String>,
 }
 
 impl From<TranscriptWord> for TranscriptWordContract {
@@ -25,6 +29,8 @@ impl From<TranscriptWord> for TranscriptWordContract {
             start_seconds: value.start_seconds,
             end_seconds: value.end_seconds,
             confidence: sanitize_confidence(value.confidence),
+            speaker: None,
+            attributes: BTreeMap::new(),
         }
     }
 }
@@ -120,6 +126,10 @@ impl TranscriptSegmentContract {
             .filter_map(|mut word| {
                 word.text = word.text.trim().to_string();
                 word.confidence = sanitize_confidence(word.confidence);
+                word.speaker = word
+                    .speaker
+                    .map(|speaker| speaker.trim().to_string())
+                    .filter(|speaker| !speaker.is_empty());
                 (!word.text.is_empty()).then_some(word)
             })
             .collect();

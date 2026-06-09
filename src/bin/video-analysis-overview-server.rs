@@ -11,17 +11,17 @@ use std::net::{TcpListener, TcpStream};
 use video_analysis::{
     animation, audio_core, audio_fourier, audio_io, audio_midi, audio_pitch, audio_processing,
     audio_recognition, audio_rhythm, audio_separation, audio_speakers, audio_synthesis,
-    comfyui_data, comfyui_latents, comfyui_models, data, dataset_records, dense, editing, features,
-    ffmpeg, finance, gaussian_splatting, geo_clustering, geo_core, geo_io_geojson, geo_viz,
-    geometry2d, graph_core, image_captioning, image_classification, image_comfyui, image_core,
-    image_detection, image_embeddings, image_io, image_ocr, image_processing, image_segmentation,
-    image_synthesis, ingest, inversion, jobs, linear, maps_kernels, model_runtime, mvs, numbers,
-    output, posture, posture_io, radiance_fields, radiance_io, radiance_pipeline, recognition,
-    reconstruction, sfm, signal, sparse, split, stats, storage, synthesis, tensor_data,
-    text_analysis, text_classification, text_core, text_embeddings, text_generation,
-    text_generation_linguistics, text_lexical, text_linguistics, text_model_runtime,
-    text_question_answering, text_retrieval, text_transcripts, three_d_core, three_d_io,
-    three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
+    audio_transcription, comfyui_data, comfyui_latents, comfyui_models, data, dataset_records,
+    dense, editing, features, ffmpeg, finance, gaussian_splatting, geo_clustering, geo_core,
+    geo_io_geojson, geo_viz, geometry2d, graph_core, image_captioning, image_classification,
+    image_comfyui, image_core, image_detection, image_embeddings, image_io, image_ocr,
+    image_processing, image_segmentation, image_synthesis, ingest, inversion, jobs, linear,
+    maps_kernels, model_runtime, mvs, numbers, output, posture, posture_io, radiance_fields,
+    radiance_io, radiance_pipeline, recognition, reconstruction, sfm, signal, sparse, split, stats,
+    storage, synthesis, tensor_data, text_analysis, text_classification, text_core,
+    text_embeddings, text_generation, text_generation_linguistics, text_lexical, text_linguistics,
+    text_model_runtime, text_question_answering, text_retrieval, text_transcripts, three_d_core,
+    three_d_io, three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
     video_segmentation, Timebase, Timestamp,
 };
 
@@ -191,6 +191,9 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
             if module.package == "audio-analysis-recognition" && is_audio_model_task_path(path) =>
         {
             audio_model_task_response(path, body)
+        }
+        ("POST", "/api/transcribe") if module.package == "audio-analysis-transcription" => {
+            audio_transcription_response(body)
         }
         ("POST", "/api/run") => package_run_response(module, body),
         ("POST", path) if path.starts_with("/api/") => {
@@ -561,7 +564,6 @@ fn is_audio_model_task_path(path: &str) -> bool {
         "/api/classify"
             | "/api/events"
             | "/api/embed"
-            | "/api/transcribe"
             | "/api/diarize"
             | "/api/separate"
             | "/api/generate"
@@ -1556,28 +1558,7 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
                 ),
             }
         }
-        "/api/transcribe" => {
-            match serde_json::from_str::<audio_recognition::TranscriptionRequest>(body) {
-                Ok(request) => audio_model_result_response(audio_recognition::transcribe(request)),
-                Err(generic_error) => {
-                    match serde_json::from_str::<audio_analysis_recognition::SpeechRecognitionRequest>(
-                        body,
-                    ) {
-                        Ok(request) => audio_model_result_response(
-                            audio_analysis_recognition::transcribe_audio(request),
-                        ),
-                        Err(compat_error) => audio_model_error_response(
-                            400,
-                            "Bad Request",
-                            "invalid_request",
-                            &format!(
-                                "invalid generic transcription request: {generic_error}; invalid speech compatibility request: {compat_error}"
-                            ),
-                        ),
-                    }
-                }
-            }
-        }
+        "/api/transcribe" => audio_transcription_response(body),
         "/api/diarize" => {
             match serde_json::from_str::<audio_analysis_speakers::SpeakerDiarizationRequest>(body) {
                 Ok(request) => {
@@ -1624,6 +1605,64 @@ fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
             "unknown audio model task endpoint",
         ),
     }
+}
+
+fn audio_transcription_response(body: &str) -> HttpResponse {
+    match serde_json::from_str::<audio_transcription::TranscriptionPipelineRequest>(body) {
+        Ok(request) => audio_transcription_result_response(audio_transcription::transcribe(request)),
+        Err(error) => audio_transcription_error_response(
+            400,
+            "Bad Request",
+            "invalid_request",
+            &format!(
+                "invalid audio transcription request: {error}; /api/transcribe now requires a real source path and provider config. Use /api/rust/packages/text-transcripts/api/run with operation `transcripts.normalize` for imported transcript normalization."
+            ),
+        ),
+    }
+}
+
+fn audio_transcription_result_response(
+    result: video_analysis_core::Result<audio_transcription::TranscriptionPipelineResponse>,
+) -> HttpResponse {
+    match result {
+        Ok(value) => json_response(200, "OK", json!(value)),
+        Err(error) => {
+            let message = error.to_string();
+            if message.contains("setup_error") {
+                audio_transcription_error_response(400, "Bad Request", "setup_error", &message)
+            } else if message.contains("timeout") {
+                audio_transcription_error_response(504, "Gateway Timeout", "timeout", &message)
+            } else {
+                audio_transcription_error_response(
+                    500,
+                    "Internal Server Error",
+                    "transcription_failed",
+                    &message,
+                )
+            }
+        }
+    }
+}
+
+fn audio_transcription_error_response(
+    status_code: u16,
+    reason: &'static str,
+    code: &str,
+    message: &str,
+) -> HttpResponse {
+    json_response(
+        status_code,
+        reason,
+        json!({
+            "package": "audio-analysis-transcription-server",
+            "library": "audio-analysis-transcription",
+            "accepted": false,
+            "error": {
+                "code": code,
+                "message": message
+            }
+        }),
+    )
 }
 
 fn audio_model_result_response<T: serde::Serialize>(
@@ -3198,19 +3237,21 @@ mod tests {
     }
 
     #[test]
-    fn serves_generic_audio_transcription_request_from_package_route() {
+    fn serves_imported_transcript_normalization_from_text_transcripts_package_route() {
         let request = Request {
             method: "POST".to_string(),
-            path: "/api/rust/packages/audio-analysis-recognition/api/transcribe".to_string(),
+            path: "/api/rust/packages/text-transcripts/api/run".to_string(),
             query: HashMap::new(),
             headers: HashMap::new(),
-            body: r#"{"source":"fixture.wav","language":"en","input":{"kind":"imported_segments","segments":[{"index":0,"startSeconds":0.0,"endSeconds":1.0,"text":" hello ","isFinal":true}]}}"#
+            body: r#"{"operation":"transcripts.normalize","input":{"source":"fixture.wav","language":"en","segments":[{"index":0,"startSeconds":0.0,"endSeconds":1.0,"text":" hello ","isFinal":true}]}}"#
                 .to_string(),
         };
         let response = response_for(&request);
         assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("\"operation\":\"transcribe\""));
-        assert!(response.body.contains("\"backend\":\"imported\""));
+        assert!(response
+            .body
+            .contains("\"operation\":\"transcripts.normalize\""));
+        assert!(response.body.contains("\"text\":\"hello\""));
     }
 
     #[test]

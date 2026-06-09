@@ -36,6 +36,35 @@ fn prioritized_crates_expose_more_than_describe() {
     }
 }
 
+#[test]
+fn transcription_surface_ownership_is_explicit() {
+    let matrix = fs::read_to_string("docs/PACKAGE_SURFACE_MATRIX.md").unwrap();
+    let operations_by_crate = parse_matrix(&matrix);
+
+    let recognition = operations_by_crate
+        .get("moritzbrantner-audio-analysis-recognition")
+        .expect("recognition row");
+    assert!(!recognition
+        .iter()
+        .any(|operation| operation.contains("transcribe")));
+    assert!(!recognition
+        .iter()
+        .any(|operation| operation.contains("transcription")));
+
+    let transcription = operations_by_crate
+        .get("moritzbrantner-audio-analysis-transcription")
+        .expect("transcription row");
+    assert!(transcription.contains(&"audio.transcription.transcribe".to_string()));
+    assert!(transcription.contains(&"audio.transcription.importWhisperX".to_string()));
+    assert!(transcription.contains(&"audio.transcription.providers".to_string()));
+
+    let text = operations_by_crate
+        .get("moritzbrantner-text-transcripts")
+        .expect("text-transcripts row");
+    assert!(text.contains(&"transcripts.normalize".to_string()));
+    assert!(text.contains(&"transcripts.importWhisperX".to_string()));
+}
+
 fn parse_matrix(markdown: &str) -> BTreeMap<String, Vec<String>> {
     markdown
         .lines()

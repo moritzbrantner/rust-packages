@@ -445,9 +445,8 @@ fn ffmpeg_pixel_format(pixel_format: PixelFormat) -> &'static str {
 }
 
 fn scaled_even_height(input_width: u32, input_height: u32, output_width: u32) -> u32 {
-    let scaled = (u64::from(input_height) * u64::from(output_width) + u64::from(input_width) / 2)
-        / u64::from(input_width);
-    let even = if scaled % 2 == 0 { scaled } else { scaled + 1 };
+    let scaled = u64::from(input_height) * u64::from(output_width) / u64::from(input_width);
+    let even = scaled - (scaled % 2);
     even.max(2) as u32
 }
 
@@ -1011,6 +1010,31 @@ pub fn write_two_scene_test_video(path: impl AsRef<Path>) -> Result<()> {
 }
 
 #[cfg(feature = "test-utils")]
+/// Writes vertical test video.
+pub fn write_vertical_test_video(path: impl AsRef<Path>) -> Result<()> {
+    let path = path.as_ref();
+    let status = Command::new("ffmpeg")
+        .arg("-y")
+        .arg("-v")
+        .arg("error")
+        .arg("-f")
+        .arg("lavfi")
+        .arg("-i")
+        .arg("testsrc=size=72x128:duration=0.4:rate=10")
+        .arg("-pix_fmt")
+        .arg("yuv420p")
+        .arg(path)
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(DetectError::Source(
+            "ffmpeg failed to generate vertical test video".to_string(),
+        ))
+    }
+}
+
+#[cfg(feature = "test-utils")]
 /// Writes test audio.
 pub fn write_test_audio(path: impl AsRef<Path>) -> Result<()> {
     let path = path.as_ref();
@@ -1176,6 +1200,13 @@ mod tests {
     }
 
     #[test]
+    fn resize_height_matches_ffmpeg_scale_negative_two_rounding() {
+        assert_eq!(scaled_even_height(720, 1280, 320), 568);
+        assert_eq!(scaled_even_height(1920, 1080, 320), 180);
+        assert_eq!(scaled_even_height(9, 16, 4), 6);
+    }
+
+    #[test]
     #[cfg(feature = "ffmpeg-tests")]
     fn decodes_generated_two_scene_video() {
         use video_analysis_core::VideoSource;
@@ -1197,6 +1228,38 @@ mod tests {
         assert!(
             count >= 8,
             "expected at least 8 decoded frames, got {count}"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "ffmpeg-tests")]
+    fn decodes_generated_vertical_video_with_resize() {
+        use video_analysis_core::VideoSource;
+
+        if !(is_ffmpeg_available() && is_ffprobe_available()) {
+            eprintln!("skipping FFmpeg test because ffmpeg/ffprobe is unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vertical.mp4");
+        write_vertical_test_video(&path).unwrap();
+        let mut source = FfmpegVideoSource::open_path_with_options(
+            &path,
+            FfmpegSourceOptions::recorded().resize_width(32),
+        )
+        .unwrap();
+        let first = source.next_frame().unwrap().unwrap();
+        assert_eq!(first.width, 32);
+        assert_eq!(first.height, 56);
+        assert_eq!(first.stride, 96);
+        assert_eq!(first.data.len(), 32 * 56 * 3);
+        let mut count = 1;
+        while source.next_frame().unwrap().is_some() {
+            count += 1;
+        }
+        assert!(
+            count >= 4,
+            "expected at least 4 decoded frames, got {count}"
         );
     }
 
