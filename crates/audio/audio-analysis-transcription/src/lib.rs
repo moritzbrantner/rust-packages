@@ -3622,6 +3622,51 @@ mod tests {
             optional_smoke_env_value(std::env::var("SPEAKER_EMBEDDING_INPUT_NAME").ok());
         let output_name =
             optional_smoke_env_value(std::env::var("SPEAKER_EMBEDDING_OUTPUT_NAME").ok());
+        let model_path = resolve_onnx_smoke_model_path(&bundle_path, model_file.as_deref())?;
+        eprintln!("speakerEmbeddingResolvedModelPath={}", model_path.display());
+        eprintln!("speakerEmbeddingExpectedDimension={embedding_dimension}");
+        eprintln!(
+            "speakerEmbeddingConfiguredInputName={}",
+            input_name.as_deref().unwrap_or("<auto>")
+        );
+        eprintln!(
+            "speakerEmbeddingConfiguredOutputName={}",
+            output_name.as_deref().unwrap_or("<auto>")
+        );
+        let static_metadata = runtime_onnx::inspect_model_metadata(&model_path)?;
+        eprintln!("onnxStaticMetadata=ok");
+        for diagnostic in runtime_onnx::inspect_model_graph_diagnostics(&model_path)? {
+            eprintln!("{diagnostic}");
+        }
+        eprintln!(
+            "onnxLoadMode={}",
+            std::env::var("ONNX_RUNTIME_LOAD_MODE").unwrap_or_else(|_| "file".to_string())
+        );
+        eprintln!(
+            "onnxRuntimeDylib={}",
+            if std::env::var_os("ORT_DYLIB_PATH").is_some() {
+                "set"
+            } else {
+                "unset"
+            }
+        );
+        if let Some(input) = static_metadata.inputs.first() {
+            eprintln!("speakerEmbeddingStaticInputName={}", input.name);
+            eprintln!(
+                "speakerEmbeddingStaticInputDimensions={}",
+                format_onnx_smoke_dimensions(&input.dimensions)
+            );
+        }
+        if let Some(output) = static_metadata.outputs.first() {
+            eprintln!("speakerEmbeddingStaticOutputName={}", output.name);
+            eprintln!(
+                "speakerEmbeddingStaticOutputDimensions={}",
+                format_onnx_smoke_dimensions(&output.dimensions)
+            );
+        }
+        eprintln!(
+            "onnxSessionOptions=cpu-single-threaded,no-memory-pattern,graph-optimization-disabled"
+        );
         let samples = local_16khz_wav_samples(&audio_path)?;
         let duration_seconds = samples.len() as f64 / 16_000.0;
         let midpoint = (duration_seconds / 2.0).clamp(1.0 / 16_000.0, duration_seconds);
@@ -3701,6 +3746,49 @@ mod tests {
     #[cfg(all(feature = "diarization", feature = "onnx"))]
     fn optional_smoke_env_value(value: Option<String>) -> Option<String> {
         value.filter(|value| !value.trim().is_empty())
+    }
+
+    #[cfg(all(feature = "diarization", feature = "onnx"))]
+    fn resolve_onnx_smoke_model_path(
+        bundle_path: &Path,
+        model_file: Option<&str>,
+    ) -> std::result::Result<PathBuf, Box<dyn std::error::Error>> {
+        let model_file = model_file.unwrap_or("model.onnx");
+        if bundle_path.is_file() {
+            return Ok(bundle_path.to_path_buf());
+        }
+        #[cfg(feature = "model-bundles")]
+        {
+            let manifest_path = bundle_path.join("manifest.json");
+            if manifest_path.is_file() {
+                let bundle = model_runtime::ModelBundle::load(&manifest_path)?;
+                for file in bundle.manifest.files.values() {
+                    if file.remote_path == model_file
+                        || file.remote_path.ends_with(model_file)
+                        || file.local_path.ends_with(model_file)
+                    {
+                        if let Some(path) = bundle.file_path(&file.remote_path) {
+                            return Ok(path);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(bundle_path.join(model_file))
+    }
+
+    #[cfg(all(feature = "diarization", feature = "onnx"))]
+    fn format_onnx_smoke_dimensions(dimensions: &[runtime_onnx::OnnxDimension]) -> String {
+        let values = dimensions
+            .iter()
+            .map(|dimension| match dimension {
+                runtime_onnx::OnnxDimension::Fixed(value) => value.to_string(),
+                runtime_onnx::OnnxDimension::Symbolic(value) => value.clone(),
+                runtime_onnx::OnnxDimension::Unknown => "unknown".to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        format!("[{values}]")
     }
 
     #[test]

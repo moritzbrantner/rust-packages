@@ -2559,6 +2559,7 @@ dependencies = [
  "moritzbrantner-audio-analysis-speakers",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
  "moritzbrantner-text-model-runtime",
  "moritzbrantner-text-transcripts",
  "moritzbrantner-video-analysis-core",

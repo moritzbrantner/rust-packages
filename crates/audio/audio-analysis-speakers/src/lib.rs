@@ -1166,14 +1166,8 @@ impl OnnxSpeakerEmbedder {
         model_path: PathBuf,
         model: SpeakerEmbeddingModel,
     ) -> Result<Self> {
-        let runner = runtime_onnx::OnnxSession::from_file_with_options(
-            &model_path,
-            runtime_onnx::OnnxSessionOptions {
-                graph_optimization: runtime_onnx::OnnxGraphOptimization::Disable,
-                execution_provider: runtime_onnx::OnnxExecutionProvider::Cpu,
-            },
-        )
-        .map_err(map_onnx_session_error)?;
+        let runner = runtime_onnx::from_file_cpu_single_threaded(&model_path)
+            .map_err(map_onnx_session_error)?;
         Ok(Self {
             config,
             model_path,
@@ -1262,7 +1256,8 @@ impl SpeakerEmbeddingProvider for OnnxSpeakerEmbedder {
         let metadata_diagnostics = self.onnx_runtime_metadata_diagnostics()?;
         #[cfg(not(feature = "onnx"))]
         let metadata_diagnostics = Vec::new();
-        let embedding = self.embed_mono_with_onnx(&mono, request.audio.sample_rate())?;
+        let (embedding, input_diagnostics) =
+            self.embed_mono_with_onnx(&mono, request.audio.sample_rate())?;
         let mut diagnostics = vec![
             "speakerEmbeddingProvider=onnx".to_string(),
             "speakerEmbeddingRuntime=onnx".to_string(),
@@ -1281,6 +1276,7 @@ impl SpeakerEmbeddingProvider for OnnxSpeakerEmbedder {
             ),
         ];
         diagnostics.extend(metadata_diagnostics);
+        diagnostics.extend(input_diagnostics);
         Ok(SpeakerEmbeddingResponse {
             model_id: self.model.name.clone(),
             runtime: AudioRuntime::Onnx,
@@ -1326,14 +1322,19 @@ impl OnnxSpeakerEmbedder {
     }
 
     #[cfg(feature = "onnx")]
-    fn embed_mono_with_onnx(&mut self, mono: &[f32], sample_rate: u32) -> Result<SpeakerEmbedding> {
+    fn embed_mono_with_onnx(
+        &mut self,
+        mono: &[f32],
+        sample_rate: u32,
+    ) -> Result<(SpeakerEmbedding, Vec<String>)> {
         let runner = self.runner.as_mut().ok_or_else(|| {
             unsupported_runtime("ONNX speaker embedding runner is not initialized")
         })?;
         let metadata = runner.metadata().map_err(map_onnx_runtime_error)?;
         let input = select_onnx_speaker_input(&metadata, self.config.input_name.as_deref())?;
         let output = select_onnx_speaker_output(&metadata, self.config.output_name.as_deref())?;
-        let (shape, values) = onnx_speaker_input_tensor(&input, mono)?;
+        let (shape, values, input_diagnostics) =
+            onnx_speaker_input_tensor(&input, mono, sample_rate)?;
         let outputs = runner
             .run(vec![runtime_onnx::single_f32_input(
                 input.name.clone(),
@@ -1346,7 +1347,10 @@ impl OnnxSpeakerEmbedder {
             runtime_onnx::f32_output_by_name_or_index(&outputs, &output.name, output.index)
                 .map_err(map_onnx_runtime_error)?;
         let values = onnx_speaker_embedding_values(tensor, self.config.embedding_dimension)?;
-        SpeakerEmbedding::new(values, self.model_info(), sample_rate)
+        Ok((
+            SpeakerEmbedding::new(values, self.model_info(), sample_rate)?,
+            input_diagnostics,
+        ))
     }
 
     #[cfg(not(feature = "onnx"))]
@@ -1354,7 +1358,7 @@ impl OnnxSpeakerEmbedder {
         &mut self,
         _mono: &[f32],
         _sample_rate: u32,
-    ) -> Result<SpeakerEmbedding> {
+    ) -> Result<(SpeakerEmbedding, Vec<String>)> {
         Err(unsupported_runtime(
             "ONNX speaker embedding requires the `onnx` feature",
         ))
@@ -1838,6 +1842,16 @@ struct SelectedOnnxIo {
 }
 
 #[cfg(feature = "onnx")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OnnxSpeakerInputKind {
+    Waveform,
+    Feature {
+        mel_bins: usize,
+        fixed_frames: Option<usize>,
+    },
+}
+
+#[cfg(feature = "onnx")]
 fn select_onnx_speaker_input(
     metadata: &runtime_onnx::OnnxSessionMetadata,
     requested_name: Option<&str>,
@@ -1857,16 +1871,13 @@ fn select_onnx_speaker_input(
         )));
     }
     validate_fixed_dimension(&input.dimensions[0], 1, "batch")?;
-    if input.dimensions.len() == 3 {
-        if !matches!(input.dimensions[1], runtime_onnx::OnnxDimension::Fixed(1))
-            && matches!(input.dimensions[2], runtime_onnx::OnnxDimension::Fixed(value) if value <= 512)
-        {
-            return Err(unsupported_runtime(format!(
-                "ONNX speaker embedding input `{}` appears to be a feature tensor with dimensions {}; waveform input [batch, 1, samples] is required",
-                input.name,
-                format_onnx_dimensions(&input.dimensions)
-            )));
-        }
+    let selected = SelectedOnnxIo {
+        name: input.name.clone(),
+        index,
+        dimensions: input.dimensions.clone(),
+    };
+    let kind = onnx_speaker_input_kind(&selected)?;
+    if matches!(kind, OnnxSpeakerInputKind::Waveform) && input.dimensions.len() == 3 {
         validate_fixed_dimension(&input.dimensions[1], 1, "channel")?;
     }
     Ok(SelectedOnnxIo {
@@ -1972,10 +1983,64 @@ fn format_onnx_dimensions(dimensions: &[runtime_onnx::OnnxDimension]) -> String 
 }
 
 #[cfg(feature = "onnx")]
+fn onnx_speaker_input_kind(input: &SelectedOnnxIo) -> Result<OnnxSpeakerInputKind> {
+    match input.dimensions.as_slice() {
+        [_, _] => Ok(OnnxSpeakerInputKind::Waveform),
+        [_, channel, _] if matches!(channel, runtime_onnx::OnnxDimension::Fixed(1)) => {
+            Ok(OnnxSpeakerInputKind::Waveform)
+        }
+        [_, frames, bins] => match bins {
+            runtime_onnx::OnnxDimension::Fixed(mel_bins) if *mel_bins > 1 && *mel_bins <= 512 => {
+                let fixed_frames = match frames {
+                    runtime_onnx::OnnxDimension::Fixed(value) => {
+                        if *value == 0 {
+                            return Err(unsupported_runtime(
+                                "ONNX speaker embedding fixed feature frame dimension must be positive",
+                            ));
+                        }
+                        Some(*value)
+                    }
+                    runtime_onnx::OnnxDimension::Symbolic(_)
+                    | runtime_onnx::OnnxDimension::Unknown => None,
+                };
+                Ok(OnnxSpeakerInputKind::Feature {
+                    mel_bins: *mel_bins,
+                    fixed_frames,
+                })
+            }
+            _ => Err(unsupported_runtime(format!(
+                "ONNX speaker embedding input `{}` rank 3 dimensions {} must be waveform [batch,1,samples] or feature [batch,frames,mel_bins]",
+                input.name,
+                format_onnx_dimensions(&input.dimensions)
+            ))),
+        },
+        _ => Err(unsupported_runtime(format!(
+            "ONNX speaker embedding input `{}` must have rank 2 or 3",
+            input.name
+        ))),
+    }
+}
+
+#[cfg(feature = "onnx")]
 fn onnx_speaker_input_tensor(
     input: &SelectedOnnxIo,
     mono: &[f32],
-) -> Result<(Vec<usize>, Vec<f32>)> {
+    sample_rate: u32,
+) -> Result<(Vec<usize>, Vec<f32>, Vec<String>)> {
+    match onnx_speaker_input_kind(input)? {
+        OnnxSpeakerInputKind::Waveform => onnx_speaker_waveform_input_tensor(input, mono),
+        OnnxSpeakerInputKind::Feature {
+            mel_bins,
+            fixed_frames,
+        } => onnx_speaker_feature_input_tensor(mono, sample_rate, mel_bins, fixed_frames),
+    }
+}
+
+#[cfg(feature = "onnx")]
+fn onnx_speaker_waveform_input_tensor(
+    input: &SelectedOnnxIo,
+    mono: &[f32],
+) -> Result<(Vec<usize>, Vec<f32>, Vec<String>)> {
     let sample_dimension = input.dimensions.last().ok_or_else(|| {
         unsupported_runtime("ONNX speaker embedding input is missing sample dimension")
     })?;
@@ -1993,7 +2058,226 @@ fn onnx_speaker_input_tensor(
     } else {
         vec![1, 1, samples]
     };
-    Ok((shape, values))
+    Ok((
+        shape,
+        values,
+        vec!["speakerEmbeddingInputKind=waveform".to_string()],
+    ))
+}
+
+#[cfg(feature = "onnx")]
+fn onnx_speaker_feature_input_tensor(
+    mono: &[f32],
+    sample_rate: u32,
+    mel_bins: usize,
+    fixed_frames: Option<usize>,
+) -> Result<(Vec<usize>, Vec<f32>, Vec<String>)> {
+    let (frame_count, values) = speaker_logmel_features(mono, sample_rate, mel_bins, fixed_frames)?;
+    Ok((
+        vec![1, frame_count, mel_bins],
+        values,
+        vec![
+            "speakerEmbeddingInputKind=feature".to_string(),
+            "speakerFeatureExtractor=fbank-logmel-cpu".to_string(),
+            format!("speakerFeatureSampleRate={SPEAKER_FEATURE_SAMPLE_RATE}"),
+            format!("speakerFeatureFrameLengthSamples={SPEAKER_FEATURE_FRAME_LENGTH}"),
+            format!("speakerFeatureHopSamples={SPEAKER_FEATURE_HOP}"),
+            format!("speakerFeatureFftSize={SPEAKER_FEATURE_FFT_SIZE}"),
+            format!("speakerFeatureBins={mel_bins}"),
+            format!("speakerFeatureFrameCount={frame_count}"),
+            "speakerFeatureCmvn=mean".to_string(),
+        ],
+    ))
+}
+
+#[cfg(feature = "onnx")]
+const SPEAKER_FEATURE_SAMPLE_RATE: u32 = 16_000;
+#[cfg(feature = "onnx")]
+const SPEAKER_FEATURE_FRAME_LENGTH: usize = 400;
+#[cfg(feature = "onnx")]
+const SPEAKER_FEATURE_HOP: usize = 160;
+#[cfg(feature = "onnx")]
+const SPEAKER_FEATURE_FFT_SIZE: usize = 512;
+#[cfg(feature = "onnx")]
+const SPEAKER_FEATURE_PREEMPHASIS: f32 = 0.97;
+#[cfg(feature = "onnx")]
+const SPEAKER_FEATURE_LOWER_HZ: f32 = 20.0;
+#[cfg(feature = "onnx")]
+const SPEAKER_FEATURE_LOG_FLOOR: f32 = 1.0e-10;
+
+#[cfg(feature = "onnx")]
+fn speaker_logmel_features(
+    mono: &[f32],
+    sample_rate: u32,
+    mel_bins: usize,
+    fixed_frames: Option<usize>,
+) -> Result<(usize, Vec<f32>)> {
+    if sample_rate != SPEAKER_FEATURE_SAMPLE_RATE {
+        return Err(invalid_request(format!(
+            "ONNX feature speaker embedding requires {SPEAKER_FEATURE_SAMPLE_RATE} Hz audio, got {sample_rate} Hz"
+        )));
+    }
+    if mel_bins == 0 {
+        return Err(unsupported_runtime(
+            "ONNX feature speaker embedding mel bin count must be positive",
+        ));
+    }
+    let mut frames = logmel_frames(mono, mel_bins)?;
+    let target_frames = fixed_frames.unwrap_or(frames.len()).max(1);
+    if frames.len() > target_frames {
+        frames.truncate(target_frames);
+    }
+    mean_normalize_frames(&mut frames, mel_bins);
+    while frames.len() < target_frames {
+        frames.push(vec![0.0; mel_bins]);
+    }
+    let values = frames.into_iter().flatten().collect::<Vec<_>>();
+    Ok((target_frames, values))
+}
+
+#[cfg(feature = "onnx")]
+fn logmel_frames(mono: &[f32], mel_bins: usize) -> Result<Vec<Vec<f32>>> {
+    let filters = mel_filterbank(
+        mel_bins,
+        SPEAKER_FEATURE_FFT_SIZE,
+        SPEAKER_FEATURE_SAMPLE_RATE,
+        SPEAKER_FEATURE_LOWER_HZ,
+        SPEAKER_FEATURE_SAMPLE_RATE as f32 / 2.0,
+    );
+    let window = hamming_window(SPEAKER_FEATURE_FRAME_LENGTH);
+    let frame_starts = if mono.len() <= SPEAKER_FEATURE_FRAME_LENGTH {
+        vec![0]
+    } else {
+        (0..=(mono.len() - SPEAKER_FEATURE_FRAME_LENGTH))
+            .step_by(SPEAKER_FEATURE_HOP)
+            .collect::<Vec<_>>()
+    };
+    let mut frames = Vec::with_capacity(frame_starts.len().max(1));
+    for start in frame_starts {
+        let mut frame = vec![0.0_f32; SPEAKER_FEATURE_FFT_SIZE];
+        for index in 0..SPEAKER_FEATURE_FRAME_LENGTH {
+            let sample_index = start + index;
+            let current = mono.get(sample_index).copied().unwrap_or(0.0);
+            let previous = if sample_index == 0 {
+                0.0
+            } else {
+                mono.get(sample_index - 1).copied().unwrap_or(0.0)
+            };
+            frame[index] = (current - SPEAKER_FEATURE_PREEMPHASIS * previous) * window[index];
+        }
+        let power = power_spectrum(&frame);
+        let mut mel = Vec::with_capacity(mel_bins);
+        for filter in &filters {
+            let energy = filter
+                .iter()
+                .enumerate()
+                .map(|(bin, weight)| power[bin] * weight)
+                .sum::<f32>()
+                .max(SPEAKER_FEATURE_LOG_FLOOR);
+            mel.push(energy.ln());
+        }
+        frames.push(mel);
+    }
+    if frames.is_empty() {
+        frames.push(vec![SPEAKER_FEATURE_LOG_FLOOR.ln(); mel_bins]);
+    }
+    Ok(frames)
+}
+
+#[cfg(feature = "onnx")]
+fn hamming_window(length: usize) -> Vec<f32> {
+    if length <= 1 {
+        return vec![1.0; length];
+    }
+    (0..length)
+        .map(|index| {
+            0.54 - 0.46 * ((2.0 * std::f32::consts::PI * index as f32) / (length - 1) as f32).cos()
+        })
+        .collect()
+}
+
+#[cfg(feature = "onnx")]
+fn power_spectrum(frame: &[f32]) -> Vec<f32> {
+    let bins = SPEAKER_FEATURE_FFT_SIZE / 2 + 1;
+    let mut power = vec![0.0_f32; bins];
+    for (bin, value) in power.iter_mut().enumerate() {
+        let mut real = 0.0_f32;
+        let mut imag = 0.0_f32;
+        for (index, sample) in frame.iter().enumerate() {
+            let angle = -2.0 * std::f32::consts::PI * bin as f32 * index as f32
+                / SPEAKER_FEATURE_FFT_SIZE as f32;
+            real += sample * angle.cos();
+            imag += sample * angle.sin();
+        }
+        *value = real.mul_add(real, imag * imag);
+    }
+    power
+}
+
+#[cfg(feature = "onnx")]
+fn mel_filterbank(
+    mel_bins: usize,
+    fft_size: usize,
+    sample_rate: u32,
+    lower_hz: f32,
+    upper_hz: f32,
+) -> Vec<Vec<f32>> {
+    let lower_mel = hz_to_mel(lower_hz);
+    let upper_mel = hz_to_mel(upper_hz);
+    let mel_points = (0..(mel_bins + 2))
+        .map(|index| lower_mel + (upper_mel - lower_mel) * index as f32 / (mel_bins + 1) as f32)
+        .map(mel_to_hz)
+        .collect::<Vec<_>>();
+    let fft_bins = mel_points
+        .iter()
+        .map(|hz| {
+            (((fft_size + 1) as f32 * hz / sample_rate as f32).floor() as usize).min(fft_size / 2)
+        })
+        .collect::<Vec<_>>();
+    let mut filters = vec![vec![0.0_f32; fft_size / 2 + 1]; mel_bins];
+    for mel in 0..mel_bins {
+        let left = fft_bins[mel];
+        let center = fft_bins[mel + 1].max(left + 1);
+        let right = fft_bins[mel + 2].max(center + 1);
+        for bin in left..center.min(filters[mel].len()) {
+            filters[mel][bin] = (bin - left) as f32 / (center - left) as f32;
+        }
+        for bin in center..right.min(filters[mel].len()) {
+            filters[mel][bin] = (right - bin) as f32 / (right - center) as f32;
+        }
+    }
+    filters
+}
+
+#[cfg(feature = "onnx")]
+fn hz_to_mel(hz: f32) -> f32 {
+    2595.0 * (1.0 + hz / 700.0).log10()
+}
+
+#[cfg(feature = "onnx")]
+fn mel_to_hz(mel: f32) -> f32 {
+    700.0 * (10.0_f32.powf(mel / 2595.0) - 1.0)
+}
+
+#[cfg(feature = "onnx")]
+fn mean_normalize_frames(frames: &mut [Vec<f32>], mel_bins: usize) {
+    if frames.is_empty() {
+        return;
+    }
+    let mut means = vec![0.0_f32; mel_bins];
+    for frame in frames.iter() {
+        for (index, value) in frame.iter().enumerate().take(mel_bins) {
+            means[index] += *value;
+        }
+    }
+    for mean in &mut means {
+        *mean /= frames.len() as f32;
+    }
+    for frame in frames {
+        for (index, value) in frame.iter_mut().enumerate().take(mel_bins) {
+            *value -= means[index];
+        }
+    }
 }
 
 #[cfg(feature = "onnx")]
@@ -3378,7 +3662,7 @@ mod tests {
 
     #[cfg(feature = "onnx")]
     #[test]
-    fn mock_onnx_feature_tensor_input_returns_unsupported_runtime() {
+    fn mock_onnx_feature_tensor_input_produces_embedding() {
         let (mut config, dir) = onnx_config_for_temp_model();
         config.input_name = Some("feats".to_string());
         config.output_name = Some("embs".to_string());
@@ -3403,18 +3687,111 @@ mod tests {
                     ],
                 }],
             },
-            outputs: Vec::new(),
+            outputs: vec![runtime_onnx::OnnxNamedTensor {
+                name: "embs".to_string(),
+                tensor: runtime_onnx::OnnxTensorValue::F32(
+                    runtime_onnx::OnnxF32Tensor::new(vec![1, 256], vec![1.0; 256]).unwrap(),
+                ),
+            }],
         };
         let mut embedder = OnnxSpeakerEmbedder::from_runner(config, runner).unwrap();
         let samples = [0.1_f32; 160];
         let audio = SpeakerAudio::mono(&samples, 16_000).unwrap();
 
-        let error = embedder.embed_speaker(&audio).unwrap_err().to_string();
+        let response = embedder.embed(SpeakerEmbeddingRequest { audio }).unwrap();
 
-        assert!(error.contains("unsupported_runtime"));
-        assert!(error.contains("feature tensor"));
-        assert!(error.contains("[B,T,80]"));
+        assert_eq!(response.embedding.dimensions(), 256);
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "speakerEmbeddingInputKind=feature"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "speakerFeatureExtractor=fbank-logmel-cpu"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "speakerFeatureBins=80"));
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[cfg(feature = "onnx")]
+    #[test]
+    fn onnx_speaker_input_selection_detects_waveform_and_feature_shapes() {
+        let waveform_rank2 = SelectedOnnxIo {
+            name: "waveform".to_string(),
+            index: 0,
+            dimensions: vec![
+                runtime_onnx::OnnxDimension::Fixed(1),
+                runtime_onnx::OnnxDimension::Unknown,
+            ],
+        };
+        let waveform_rank3 = SelectedOnnxIo {
+            name: "waveform".to_string(),
+            index: 0,
+            dimensions: vec![
+                runtime_onnx::OnnxDimension::Fixed(1),
+                runtime_onnx::OnnxDimension::Fixed(1),
+                runtime_onnx::OnnxDimension::Unknown,
+            ],
+        };
+        let feature_rank3 = SelectedOnnxIo {
+            name: "feats".to_string(),
+            index: 0,
+            dimensions: vec![
+                runtime_onnx::OnnxDimension::Symbolic("B".to_string()),
+                runtime_onnx::OnnxDimension::Symbolic("T".to_string()),
+                runtime_onnx::OnnxDimension::Fixed(80),
+            ],
+        };
+
+        assert_eq!(
+            onnx_speaker_input_kind(&waveform_rank2).unwrap(),
+            OnnxSpeakerInputKind::Waveform
+        );
+        assert_eq!(
+            onnx_speaker_input_kind(&waveform_rank3).unwrap(),
+            OnnxSpeakerInputKind::Waveform
+        );
+        assert_eq!(
+            onnx_speaker_input_kind(&feature_rank3).unwrap(),
+            OnnxSpeakerInputKind::Feature {
+                mel_bins: 80,
+                fixed_frames: None
+            }
+        );
+    }
+
+    #[cfg(feature = "onnx")]
+    #[test]
+    fn feature_preprocessing_returns_finite_tensor_with_padded_short_audio() {
+        let samples = [0.1_f32; 160];
+
+        let (frame_count, values) = speaker_logmel_features(&samples, 16_000, 80, None).unwrap();
+
+        assert_eq!(frame_count, 1);
+        assert_eq!(values.len(), 80);
+        assert!(values.iter().all(|value| value.is_finite()));
+    }
+
+    #[cfg(feature = "onnx")]
+    #[test]
+    fn fixed_feature_time_dimension_pads_and_truncates_deterministically() {
+        let short = [0.1_f32; 160];
+        let long = vec![0.1_f32; 400 + 160 * 5];
+
+        let (padded_frames, padded_values) =
+            speaker_logmel_features(&short, 16_000, 80, Some(3)).unwrap();
+        let (truncated_frames, truncated_values) =
+            speaker_logmel_features(&long, 16_000, 80, Some(2)).unwrap();
+
+        assert_eq!(padded_frames, 3);
+        assert_eq!(padded_values.len(), 3 * 80);
+        assert!(padded_values[80..].iter().all(|value| *value == 0.0));
+        assert_eq!(truncated_frames, 2);
+        assert_eq!(truncated_values.len(), 2 * 80);
+        assert!(truncated_values.iter().all(|value| value.is_finite()));
     }
 
     #[cfg(feature = "onnx")]
@@ -3767,8 +4144,55 @@ mod tests {
             "speakerEmbeddingConfiguredOutputName={}",
             config.output_name.as_deref().unwrap_or("<auto>")
         );
-        let mut provider =
-            OnnxSpeakerEmbedder::from_config(config).expect("ONNX speaker embedding provider");
+        let static_metadata =
+            runtime_onnx::inspect_model_metadata(&model_path).expect("static ONNX metadata");
+        eprintln!("onnxStaticMetadata=ok");
+        for diagnostic in runtime_onnx::inspect_model_graph_diagnostics(&model_path)
+            .expect("static ONNX graph diagnostics")
+        {
+            eprintln!("{diagnostic}");
+        }
+        eprintln!(
+            "onnxLoadMode={}",
+            std::env::var("ONNX_RUNTIME_LOAD_MODE").unwrap_or_else(|_| "file".to_string())
+        );
+        eprintln!(
+            "onnxRuntimeDylib={}",
+            if std::env::var_os("ORT_DYLIB_PATH").is_some() {
+                "set"
+            } else {
+                "unset"
+            }
+        );
+        let static_input =
+            select_onnx_speaker_input(&static_metadata, config.input_name.as_deref())
+                .expect("static ONNX speaker input metadata");
+        let static_output =
+            select_onnx_speaker_output(&static_metadata, config.output_name.as_deref())
+                .expect("static ONNX speaker output metadata");
+        eprintln!("speakerEmbeddingStaticInputName={}", static_input.name);
+        eprintln!(
+            "speakerEmbeddingStaticInputDimensions={}",
+            format_onnx_dimensions(&static_input.dimensions)
+        );
+        eprintln!("speakerEmbeddingStaticOutputName={}", static_output.name);
+        eprintln!(
+            "speakerEmbeddingStaticOutputDimensions={}",
+            format_onnx_dimensions(&static_output.dimensions)
+        );
+        eprintln!(
+            "onnxSessionOptions=cpu-single-threaded,no-memory-pattern,graph-optimization-disabled"
+        );
+        let mut provider = match OnnxSpeakerEmbedder::from_config(config) {
+            Ok(provider) => {
+                eprintln!("onnxSessionLoad=ok");
+                provider
+            }
+            Err(error) => {
+                eprintln!("onnxSessionLoad={error}");
+                panic!("ONNX speaker embedding provider: {error}");
+            }
+        };
         eprintln!(
             "{}",
             provider

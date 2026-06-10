@@ -21,6 +21,7 @@ candle-nn = { workspace = true, optional = true }
 candle-transformers = { workspace = true, optional = true }
 hound.workspace = true
 model-runtime = { workspace = true, optional = true }
+runtime-onnx = { workspace = true, optional = true }
 runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -37,7 +38,7 @@ candle = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:te
 cuda = ["candle", "candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda", "text-model-runtime/cuda"]
 alignment = ["candle", "dep:tokenizers"]
 diarization = ["dep:audio-analysis-speakers"]
-onnx = ["diarization", "audio-analysis-speakers/onnx"]
+onnx = ["diarization", "audio-analysis-speakers/onnx", "dep:runtime-onnx"]
 external-whisperx = []
 external-tests = ["external-whisperx"]
 model-bundles = ["dep:model-runtime", "audio-analysis-speakers?/model-bundles"]

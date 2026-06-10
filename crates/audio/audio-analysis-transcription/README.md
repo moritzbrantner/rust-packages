@@ -149,12 +149,16 @@ bundle manifest:
 The ONNX path accepts a direct `.onnx` file, a directory containing
 `model.onnx`, or a model-runtime manifest when `model-bundles` is enabled.
 It does not resample in this tranche; request audio must already match the
-configured speaker embedding sample rate.
+configured speaker embedding sample rate. Speaker model input shape is detected
+from ONNX metadata: waveform inputs use `[B,S]` or `[B,1,S]`, while feature
+inputs such as `[B,T,80]` use the shared speaker fbank/log-mel CPU
+preprocessor.
 
 Ignored local transcription ONNX diarization smoke:
 
 ```bash
 RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
+ORT_DYLIB_PATH="$PWD/.audio-tools/whisperx-venv/lib/python3.11/site-packages/onnxruntime/capi/libonnxruntime.so.1.26.0" \
 SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
 SPEAKER_EMBEDDING_MODEL_FILE=model.onnx \
 DIARIZATION_AUDIO_PATH=/path/to/meeting-16khz.wav \
@@ -172,21 +176,31 @@ files.
 2026-06-10 validation: the checked-in WebM fixture decoded successfully with
 `audio-io` after the ignored smoke harness resolved workspace-root-relative
 fixture paths. After local ONNX bundle provisioning, the ONNX diarization smoke
-still used direct-sample setup and mock ASR timing, then timed out during ONNX
-speaker session construction before ONNX diarization diagnostics were reached.
-Offline metadata inspection of the selected current
-`wespeaker-voxceleb-resnet34-LM` artifact found feature-input f32 `feats`
-`[B,T,80]` and output `embs` `[B,256]`; the current native adapter expects
-waveform input `[batch,1,samples]` and classifies feature tensors as
-`unsupported_runtime` when metadata is available.
+used direct-sample setup and mock ASR timing. Static ONNX metadata inspection
+succeeded for the selected current `wespeaker-voxceleb-resnet34-LM` artifact:
+f32 input `feats` `[B,T,80]` and f32 output `embs` `[B,256]`. Static graph
+diagnostics reported default-domain ONNX ops only, opset 14, 110 nodes, and
+75 initializers. The speaker adapter supports this feature-input category.
+
+With `ORT_DYLIB_PATH` unset, file and memory diagnostic load modes timed out
+via external `timeout 120s` exit `124` after `onnxSessionBuilder=begin` and
+before `onnxSessionBuilder=ok`. Python ONNX Runtime 1.26.0 loaded the same
+artifact. With `ORT_DYLIB_PATH` pointed at the local `.audio-tools/whisperx-venv`
+`libonnxruntime.so.1.26.0`, the transcription ONNX diarization smoke passed:
+direct samples and mock ASR timing reached `diarizationRuntime=onnx`,
+`speakerEmbeddingProvider=onnx`, `speakerEmbeddingDimension=256`,
+`diarizationBaseline=false`, and non-empty speaker assignments. ONNX
+diarization remains window-by-window embedding, not throughput parity.
+Classification: implicit ORT dynamic-library selection/setup blocker on this
+host, fixed for local smokes by an explicit compatible dylib.
 
 On the current RTX 3060 Ti smoke host, `/usr/local/cuda` points at CUDA 13.3
 while the passing smoke uses a local CUDA 12.3 library shim at
-`/home/moenarch/.local/share/video-analysis-smoke/cuda12-libs`. The local smoke
+`$SMOKE_ROOT/cuda12-libs`. The local smoke
 bundle and fixture used there are:
 
-- `/home/moenarch/.local/share/video-analysis-smoke/whisper-tiny`
-- `/home/moenarch/.local/share/video-analysis-smoke/audio/native-transcription-smoke.wav`
+- `$SMOKE_ROOT/whisper-tiny`
+- `$SMOKE_ROOT/audio/native-transcription-smoke.wav`
 
 Install and configure external compatibility tools outside the default test
 flow only when using the WhisperX provider:
@@ -228,4 +242,36 @@ with an ignored local venv at `.audio-tools/whisperx-venv`. Its
 `bin/whisperx --help` command worked, and non-diarization parity passed with
 `WHISPERX_MODEL=tiny.en`, `WHISPERX_LANGUAGE=en`, `WHISPERX_DEVICE=cpu`, and
 `WHISPERX_COMPUTE_TYPE=int8`. Token-gated diarization parity was not run because
-`HF_TOKEN` was absent.
+`HF_TOKEN` was absent, so pyannote-backed diarization parity remains incomplete.
+
+Token-gated continuation command shape:
+
+```bash
+test -n "$HF_TOKEN"
+
+RUN_WHISPERX_PARITY_TESTS=1 \
+WHISPERX_COMMAND="$PWD/.audio-tools/whisperx-venv/bin/whisperx" \
+WHISPERX_MODEL="tiny.en" \
+WHISPERX_LANGUAGE="en" \
+WHISPERX_DEVICE="cpu" \
+WHISPERX_COMPUTE_TYPE="int8" \
+WHISPERX_DIARIZE=1 \
+WHISPERX_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
+HF_TOKEN="$HF_TOKEN" \
+cargo test --test audio_transcription_native_contracts \
+  external_whisperx_parity_when_requested -- --ignored --nocapture
+```
+
+2026-06-10 token-gated result: setup/auth failure. WhisperX reached pyannote
+diarization, but Hugging Face rejected access to
+`pyannote/speaker-diarization-community-1`. Initial non-secret error prefix:
+`huggingface_hub.errors.GatedRepoError: 403 Client Error`; after refreshing the
+token, the rerun failed with
+`huggingface_hub.errors.HfHubHTTPError: 403 Forbidden` until the fine-grained
+token allowed public gated repositories and access to the pyannote model.
+
+2026-06-11 token-gated result: pass. WhisperX diarization parity completed with
+`WHISPERX_DIARIZE=1`, `.audio-tools/whisperx-venv/bin/whisperx`, `tiny.en`,
+CPU, int8, and `HF_TOKEN="$HF_TOKEN"`. Pyannote/Hugging Face access was valid
+for this run. No Rust parser or contract bug was exposed, and no token value
+was documented.

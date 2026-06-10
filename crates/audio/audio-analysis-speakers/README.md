@@ -40,6 +40,7 @@ Ignored ONNX smoke:
 
 ```bash
 RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
+ORT_DYLIB_PATH="$PWD/.audio-tools/whisperx-venv/lib/python3.11/site-packages/onnxruntime/capi/libonnxruntime.so.1.26.0" \
 SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
 SPEAKER_EMBEDDING_MODEL_FILE=model.onnx \
 DIARIZATION_AUDIO_PATH=/path/to/meeting.wav \
@@ -57,12 +58,22 @@ models.
 2026-06-10 validation update: the local bundle
 `wespeaker-voxceleb-resnet34-LM/main` was provisioned under the ignored smoke
 model root using the current upstream `speaker-embedding.onnx` filename. The
-smoke now prints the resolved model path and configured IO selection before
-session construction. Offline metadata inspection classified the current model
-as feature-input f32 `feats` `[B,T,80]` to f32 `embs` `[B,256]`, so it is not
-compatible with the current waveform adapter. ONNX Runtime session construction
-timed out on this host before Rust metadata retrieval; classification:
-runtime/model compatibility blocker, not missing setup.
+smoke now prints static ONNX metadata and graph diagnostics before session
+construction. The current model is feature-input f32 `feats` `[B,T,80]` to f32
+`embs` `[B,256]`; the graph uses default-domain ONNX ops only, opset 14,
+110 nodes, and 75 initializers. The native adapter auto-detects this shape and
+builds deterministic CPU fbank/log-mel features from 16 kHz mono audio.
+
+With `ORT_DYLIB_PATH` unset, both file and memory diagnostic load modes timed
+out via external `timeout 120s` exit `124` after `onnxSessionBuilder=begin`
+and before `onnxSessionBuilder=ok`. Python ONNX Runtime 1.26.0 loaded the same
+artifact successfully. With `ORT_DYLIB_PATH` pointed at the local
+`.audio-tools/whisperx-venv` `libonnxruntime.so.1.26.0`, the speaker smoke
+passed for both file and memory load modes, printed `onnxSessionCommit=ok`,
+`onnxSessionLoad=ok`, `speakerEmbeddingInputKind=feature`, and
+`speakerFeatureBins=80`. Classification: implicit ORT dynamic-library
+selection/setup blocker on this host, not a model graph or feature-shape
+blocker.
 
 ## Package surface
 
