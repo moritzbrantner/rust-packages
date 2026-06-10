@@ -107,10 +107,13 @@ The current local Candle Whisper smoke uses
 Because this machine's `/usr/local/cuda` points at CUDA 13.3, the passing smoke
 also points `RUSTFLAGS`, `LIBRARY_PATH`, and `LD_LIBRARY_PATH` at
 `/home/moenarch/.local/share/video-analysis-smoke/cuda12-libs` for CUDA 12.3
-libraries. Native Whisper timings are chunk/window-level only. wav2vec2 CTC
-bundle/config/tokenizer validation exists, but real Candle emissions currently
-return `unsupported_runtime` because `candle-transformers 0.10.2` lacks a
-wav2vec2 model implementation.
+libraries. Native Whisper timing now uses timestamp-token segments when
+available, projected word timing inside those segments, and chunk/window
+fallback timing otherwise. wav2vec2 CTC
+bundle/config/tokenizer/preprocessor validation exists, and supported local
+`Wav2Vec2ForCTC` safetensors bundles execute through Candle for native CTC
+alignment. Unsupported architectures or weight layouts return
+`unsupported_runtime`.
 
 The multimodal workflow smoke tests still include optional command adapters
 under `scripts/`, but image/video workflows now prefer Rust-side adapters when

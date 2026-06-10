@@ -11,8 +11,11 @@ video inputs.
 Native Whisper tries model timestamp tokens automatically when the tokenizer
 defines Whisper timestamp metadata. If timestamp decoding does not produce
 bounded text segments, it falls back to chunk/window segment timing. Native
-Whisper segment times are emitted as global transcript times; word-level native
-Whisper timing remains future work.
+Whisper segment times are emitted as global transcript times. Timestamp-token
+segments also include approximate projected word timings based on
+character-weighted distribution inside each segment. wav2vec2/CTC alignment
+is the authoritative native word timing path when a supported local alignment
+bundle is provided.
 
 The external WhisperX command provider remains compatibility and parity tooling.
 It keeps Python-based execution explicit for callers that still need WhisperX
@@ -22,10 +25,12 @@ default Rust path.
 Native deterministic diarization is available behind `diarization`. Pyannote
 integration is plan-only in the native path until explicitly implemented.
 
-CTC alignment validates local wav2vec2 bundle files, config, and tokenizer
-vocabulary, but real wav2vec2 Candle emissions are not implemented while
-`candle-transformers 0.10.2` lacks a wav2vec2 model module. Requests with a
-bundle return a typed `unsupported_runtime` at that execution boundary.
+CTC alignment validates local wav2vec2 bundle files, config, tokenizer
+vocabulary, and preprocessor metadata. Supported local `Wav2Vec2ForCTC`
+`model.safetensors` bundles execute through a private Candle implementation and
+feed native CTC trellis/backtracking. Unsupported architectures or safetensors
+layouts return typed `unsupported_runtime` errors instead of falling back to
+deterministic timing.
 
 Transcript contracts, normalization, caption formatting, and WhisperX JSON
 import remain owned by `text-transcripts`.
@@ -51,8 +56,17 @@ For native Candle Whisper execution, provide a local model bundle containing:
 - `preprocessor_config.json`
 - `model.safetensors`
 
-Use `candle,cuda,model-bundles` for CUDA-backed local smoke tests. No runtime
-downloads are performed by this crate.
+For native wav2vec2 CTC alignment, provide a local `Wav2Vec2ForCTC` bundle
+containing:
+
+- `config.json`
+- `tokenizer.json`
+- `preprocessor_config.json`
+- `model.safetensors`
+
+Use `candle,model-bundles` for CPU local smoke tests and add `cuda` for
+CUDA-backed Whisper smoke tests. No runtime downloads are performed by this
+crate.
 
 On the current RTX 3060 Ti smoke host, `/usr/local/cuda` points at CUDA 13.3
 while the passing smoke uses a local CUDA 12.3 library shim at

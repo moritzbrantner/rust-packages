@@ -9,6 +9,8 @@ mod native_bundles;
 mod native_device;
 #[cfg(feature = "alignment")]
 mod native_wav2vec2;
+#[cfg(feature = "alignment")]
+mod native_wav2vec2_model;
 #[cfg(feature = "candle")]
 mod native_whisper;
 
@@ -2060,6 +2062,50 @@ mod tests {
     }
 
     #[test]
+    fn alignment_overwrites_projected_word_timings() -> Result<()> {
+        let mut segment = TranscriptSegmentContract::new(0, "hello");
+        segment.start_seconds = Some(0.0);
+        segment.end_seconds = Some(1.0);
+        segment.words.push(TranscriptWordContract {
+            text: "hello".to_string(),
+            start_seconds: Some(0.0),
+            end_seconds: Some(0.5),
+            confidence: None,
+            speaker: None,
+            attributes: BTreeMap::from([(
+                "timing".to_string(),
+                "whisperTimestampProjection".to_string(),
+            )]),
+        });
+        let mut transcript =
+            TranscriptionContract::from_segments(None, Some("en".to_string()), vec![segment])
+                .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+
+        apply_alignment_words(
+            &mut transcript,
+            &[AlignedWord {
+                segment_index: 0,
+                word_index: 0,
+                text: "hello".to_string(),
+                start_seconds: 0.1,
+                end_seconds: 0.4,
+                confidence: Some(0.9),
+            }],
+        )?;
+
+        let word = &transcript.segments[0].words[0];
+        assert_eq!(word.text, "hello");
+        assert_eq!(word.start_seconds, Some(0.1));
+        assert_eq!(word.end_seconds, Some(0.4));
+        assert_eq!(word.confidence, Some(0.9));
+        assert_eq!(
+            word.attributes.get("timing").map(String::as_str),
+            Some("whisperTimestampProjection")
+        );
+        Ok(())
+    }
+
+    #[test]
     fn provider_plan_reports_candle_primary_native_provider() {
         let plans = transcription_provider_plans();
         let candle = plans
@@ -2421,25 +2467,15 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn ctc_alignment_cuda_smoke_when_requested() {
+    fn ctc_alignment_wav2vec2_smoke_when_requested() {
         if std::env::var("RUN_NATIVE_ALIGNMENT_TESTS").as_deref() != Ok("1") {
             eprintln!("skipping native alignment smoke; set RUN_NATIVE_ALIGNMENT_TESTS=1");
             return;
         }
-        #[cfg(not(all(
-            feature = "candle",
-            feature = "cuda",
-            feature = "alignment",
-            feature = "model-bundles"
-        )))]
-        panic!("native alignment smoke requires candle,cuda,alignment,model-bundles features");
+        #[cfg(not(all(feature = "candle", feature = "alignment", feature = "model-bundles")))]
+        panic!("native alignment smoke requires candle,alignment,model-bundles features");
 
-        #[cfg(all(
-            feature = "candle",
-            feature = "cuda",
-            feature = "alignment",
-            feature = "model-bundles"
-        ))]
+        #[cfg(all(feature = "candle", feature = "alignment", feature = "model-bundles"))]
         {
             let bundle = std::env::var_os("ALIGNMENT_MODEL_BUNDLE")
                 .map(PathBuf::from)
@@ -2453,37 +2489,38 @@ mod tests {
                 path: audio_path,
             })
             .expect("alignment smoke requires readable WAV audio");
+            let mut segment = TranscriptSegmentContract::new(0, transcript_text.clone());
+            segment.start_seconds = Some(0.0);
+            segment.end_seconds = Some(audio.duration_seconds().clamp(1.0 / 16_000.0, 1.0));
+            let transcript =
+                TranscriptionContract::from_segments(None, Some("en".to_string()), vec![segment])
+                    .expect("alignment smoke transcript should validate");
             let request = AlignmentRequest {
                 audio,
-                transcript: TranscriptContract {
-                    source: Some("alignment-smoke".to_string()),
-                    language: Some("en".to_string()),
-                    text: Some(transcript_text.clone()),
-                    segments: vec![TranscriptSegmentContract {
-                        index: 0,
-                        start_seconds: Some(0.0),
-                        end_seconds: Some(1.0),
-                        text: transcript_text,
-                        words: Vec::new(),
-                        speaker: None,
-                        is_final: true,
-                    }],
-                },
+                transcript,
+                language: Some("en".to_string()),
                 model_id: default_alignment_model(),
             };
-            let mut aligner = CtcForcedAligner::new(AlignmentOptions {
-                enabled: true,
-                model_bundle: Some(bundle),
-                ..AlignmentOptions::default()
-            });
+            let mut aligner = CtcForcedAligner {
+                options: AlignmentOptions {
+                    enabled: true,
+                    model_bundle: Some(bundle),
+                    ..AlignmentOptions::default()
+                },
+            };
             let response = aligner
                 .align(request)
-                .expect("native wav2vec2/CTC CUDA alignment should run");
+                .expect("native wav2vec2/CTC alignment should run");
             assert!(!response.words.is_empty());
             assert!(response
                 .words
                 .iter()
                 .all(|word| word.end_seconds >= word.start_seconds));
+            assert!(response.words.iter().all(|word| word.confidence.is_some()));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "alignmentModelExecution=candle-wav2vec2"));
         }
     }
 }

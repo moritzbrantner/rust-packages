@@ -4,11 +4,12 @@ use serde::Deserialize;
 use serde_json::Value;
 use video_analysis_core::Result;
 
-use crate::ctc_alignment::CtcVocabulary;
-use crate::{invalid_request, unsupported_runtime, AlignmentRequest};
-
-const WAV2VEC2_UNSUPPORTED_MESSAGE: &str =
-    "wav2vec2 Candle emission execution is not available because candle-transformers 0.10.2 does not expose a wav2vec2 model implementation";
+use crate::ctc_alignment::{
+    backtrack_ctc, build_ctc_trellis, tokens_to_segment_words, CtcVocabulary,
+};
+use crate::{
+    invalid_request, model_output_mismatch, unsupported_runtime, AlignedWord, AlignmentRequest,
+};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Wav2Vec2BundlePaths {
@@ -44,28 +45,215 @@ struct RawWav2Vec2Config {
     vocab_size: Option<usize>,
     #[serde(default)]
     word_delimiter_token: Option<String>,
+    #[serde(default)]
+    hidden_size: Option<usize>,
+    #[serde(default)]
+    num_hidden_layers: Option<usize>,
+    #[serde(default)]
+    num_attention_heads: Option<usize>,
+    #[serde(default)]
+    intermediate_size: Option<usize>,
+    #[serde(default)]
+    hidden_act: Option<String>,
+    #[serde(default)]
+    layer_norm_eps: Option<f64>,
+    #[serde(default)]
+    feat_extract_norm: Option<String>,
+    #[serde(default)]
+    feat_extract_activation: Option<String>,
+    #[serde(default)]
+    conv_dim: Vec<usize>,
+    #[serde(default)]
+    conv_stride: Vec<usize>,
+    #[serde(default)]
+    conv_kernel: Vec<usize>,
+    #[serde(default)]
+    conv_bias: Option<bool>,
+    #[serde(default)]
+    num_conv_pos_embeddings: Option<usize>,
+    #[serde(default)]
+    num_conv_pos_embedding_groups: Option<usize>,
+    #[serde(default)]
+    do_stable_layer_norm: Option<bool>,
+    #[serde(default)]
+    final_dropout: Option<f64>,
+    #[serde(default)]
+    hidden_dropout: Option<f64>,
+    #[serde(default)]
+    activation_dropout: Option<f64>,
+    #[serde(default)]
+    attention_dropout: Option<f64>,
+    #[serde(default)]
+    layerdrop: Option<f64>,
+    #[serde(default)]
+    pad_token_id: Option<usize>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
+pub(crate) struct Wav2Vec2CtcConfig {
+    pub model_type: Option<String>,
+    pub architectures: Vec<String>,
+    pub vocab_size: usize,
+    pub word_delimiter_token: Option<String>,
+    pub hidden_size: usize,
+    pub num_hidden_layers: usize,
+    pub num_attention_heads: usize,
+    pub intermediate_size: usize,
+    pub hidden_act: String,
+    pub layer_norm_eps: f64,
+    pub feat_extract_norm: Option<String>,
+    pub feat_extract_activation: String,
+    pub conv_dim: Vec<usize>,
+    pub conv_stride: Vec<usize>,
+    pub conv_kernel: Vec<usize>,
+    pub conv_bias: bool,
+    pub num_conv_pos_embeddings: usize,
+    pub num_conv_pos_embedding_groups: usize,
+    pub do_stable_layer_norm: bool,
+    pub final_dropout: Option<f64>,
+    pub hidden_dropout: Option<f64>,
+    pub activation_dropout: Option<f64>,
+    pub attention_dropout: Option<f64>,
+    pub layerdrop: Option<f64>,
+    pub pad_token_id: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawWav2Vec2PreprocessorConfig {
+    #[serde(default)]
+    sampling_rate: Option<u32>,
+    #[serde(default)]
+    do_normalize: Option<bool>,
+    #[serde(default)]
+    return_attention_mask: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) struct Wav2Vec2PreprocessorConfig {
+    pub sampling_rate: Option<u32>,
+    pub do_normalize: Option<bool>,
+    pub return_attention_mask: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
+pub(crate) struct Wav2Vec2CtcEmission {
+    pub segment_index: u64,
+    pub emissions: Vec<Vec<f32>>,
+    pub token_ids: Vec<usize>,
+    pub blank_id: usize,
+    pub transcript_words: Vec<String>,
+    pub segment_start_seconds: f64,
+    pub segment_end_seconds: f64,
+    pub frame_seconds: f64,
+}
+
+#[allow(dead_code)]
 pub(crate) fn emit_wav2vec2_ctc(
     bundle: &Path,
     request: &AlignmentRequest,
 ) -> Result<Vec<Vec<f32>>> {
+    let emissions = emit_wav2vec2_ctc_segments(bundle, request)?;
+    Ok(emissions
+        .into_iter()
+        .flat_map(|segment| segment.emissions)
+        .collect())
+}
+
+pub(crate) fn align_wav2vec2_ctc(
+    bundle: &Path,
+    request: &AlignmentRequest,
+) -> Result<Vec<AlignedWord>> {
+    let emission_segments = emit_wav2vec2_ctc_segments(bundle, request)?;
+    let mut aligned_words = Vec::new();
+    for segment in emission_segments {
+        let trellis = build_ctc_trellis(&segment.emissions, &segment.token_ids, segment.blank_id)?;
+        let path = backtrack_ctc(
+            &trellis,
+            &segment.emissions,
+            &segment.token_ids,
+            segment.blank_id,
+        )?;
+        aligned_words.extend(tokens_to_segment_words(
+            segment.segment_index,
+            &path,
+            &segment.transcript_words,
+            segment.segment_start_seconds,
+            segment.segment_end_seconds,
+            segment.frame_seconds,
+        )?);
+    }
+    Ok(aligned_words)
+}
+
+pub(crate) fn emit_wav2vec2_ctc_segments(
+    bundle: &Path,
+    request: &AlignmentRequest,
+) -> Result<Vec<Wav2Vec2CtcEmission>> {
     let paths = resolve_wav2vec2_bundle_paths(bundle)?;
-    let _config = parse_wav2vec2_config(&paths.config_json)?;
+    let config = parse_wav2vec2_ctc_config(&paths.config_json)?;
+    let preprocessor = parse_wav2vec2_preprocessor_config(&paths.preprocessor_config_json)?;
     let vocab = parse_ctc_vocabulary(&paths.tokenizer_json)?;
-    let transcript_text = request.transcript.text.clone().unwrap_or_else(|| {
-        request
-            .transcript
-            .segments
-            .iter()
-            .map(|segment| segment.text.as_str())
-            .collect::<Vec<_>>()
-            .join(" ")
-    });
-    let _token_ids = normalized_text_to_token_ids(&transcript_text, &vocab)?;
-    let _ = paths.preprocessor_config_json;
-    let _ = paths.model_safetensors;
-    Err(unsupported_runtime(WAV2VEC2_UNSUPPORTED_MESSAGE))
+    if vocab.tokens.len() > config.vocab_size {
+        return Err(model_output_mismatch(format!(
+            "wav2vec2 tokenizer vocab has {} entries but config vocab_size is {}",
+            vocab.tokens.len(),
+            config.vocab_size
+        )));
+    }
+    let model = crate::native_wav2vec2_model::Wav2Vec2ForCtc::load(
+        &paths.model_safetensors,
+        config,
+        preprocessor,
+    )?;
+    let mut segments = Vec::new();
+    let audio_duration = request.audio.duration_seconds();
+    for segment in &request.transcript.segments {
+        let segment_start = segment.start_seconds.unwrap_or(0.0);
+        let segment_end = segment.end_seconds.unwrap_or(audio_duration);
+        if !segment_start.is_finite()
+            || !segment_end.is_finite()
+            || segment_end <= segment_start
+            || segment_end > audio_duration + 1e-6
+        {
+            return Err(invalid_request(
+                "transcript segment timing is outside audio range",
+            ));
+        }
+        let transcript_words = segment_words(segment);
+        if transcript_words.is_empty() {
+            continue;
+        }
+        let transcript_text = transcript_words.join(" ");
+        let token_ids = normalized_text_to_token_ids(&transcript_text, &vocab)?;
+        let samples = slice_segment_samples(
+            &request.audio.samples,
+            request.audio.sample_rate,
+            request.audio.channels,
+            segment_start,
+            segment_end,
+        )?;
+        let emissions = model.emit_log_probs(&samples)?;
+        let frame_seconds = (segment_end - segment_start) / emissions.len() as f64;
+        if !frame_seconds.is_finite() || frame_seconds <= 0.0 {
+            return Err(model_output_mismatch(
+                "wav2vec2 CTC frame timing is invalid",
+            ));
+        }
+        segments.push(Wav2Vec2CtcEmission {
+            segment_index: segment.index,
+            emissions,
+            token_ids,
+            blank_id: vocab.blank_id,
+            transcript_words,
+            segment_start_seconds: segment_start,
+            segment_end_seconds: segment_end,
+            frame_seconds,
+        });
+    }
+    Ok(segments)
 }
 
 pub(crate) fn resolve_wav2vec2_bundle_paths(bundle: &Path) -> Result<Wav2Vec2BundlePaths> {
@@ -86,19 +274,130 @@ pub(crate) fn resolve_wav2vec2_bundle_paths(bundle: &Path) -> Result<Wav2Vec2Bun
     })
 }
 
+#[allow(dead_code)]
 pub(crate) fn parse_wav2vec2_config(path: &Path) -> Result<Wav2Vec2ConfigSummary> {
+    let config = parse_raw_wav2vec2_config(path)?;
+    validate_model_type_and_architecture(&config)?;
+    Ok(Wav2Vec2ConfigSummary {
+        model_type: config.model_type,
+        architectures: config.architectures,
+        vocab_size: config.vocab_size,
+        word_delimiter_token: config.word_delimiter_token,
+    })
+}
+
+pub(crate) fn parse_wav2vec2_ctc_config(path: &Path) -> Result<Wav2Vec2CtcConfig> {
+    let raw = parse_raw_wav2vec2_config(path)?;
+    validate_model_type_and_architecture(&raw)?;
+    let vocab_size = raw
+        .vocab_size
+        .ok_or_else(|| invalid_request("wav2vec2 config missing vocab_size"))?;
+    let hidden_size = raw
+        .hidden_size
+        .ok_or_else(|| invalid_request("wav2vec2 config missing hidden_size"))?;
+    let num_attention_heads = raw
+        .num_attention_heads
+        .ok_or_else(|| invalid_request("wav2vec2 config missing num_attention_heads"))?;
+    if num_attention_heads == 0 || hidden_size % num_attention_heads != 0 {
+        return Err(invalid_request(
+            "wav2vec2 hidden_size must be divisible by num_attention_heads",
+        ));
+    }
+    if raw.conv_dim.is_empty()
+        || raw.conv_dim.len() != raw.conv_stride.len()
+        || raw.conv_dim.len() != raw.conv_kernel.len()
+    {
+        return Err(invalid_request(
+            "wav2vec2 conv_dim, conv_stride, and conv_kernel must be non-empty and have matching lengths",
+        ));
+    }
+    if raw
+        .conv_dim
+        .iter()
+        .chain(raw.conv_stride.iter())
+        .chain(raw.conv_kernel.iter())
+        .any(|value| *value == 0)
+    {
+        return Err(invalid_request(
+            "wav2vec2 convolution dimensions, strides, and kernels must be positive",
+        ));
+    }
+    Ok(Wav2Vec2CtcConfig {
+        model_type: raw.model_type,
+        architectures: raw.architectures,
+        vocab_size,
+        word_delimiter_token: raw.word_delimiter_token,
+        hidden_size,
+        num_hidden_layers: raw.num_hidden_layers.unwrap_or(0),
+        num_attention_heads,
+        intermediate_size: raw.intermediate_size.unwrap_or(hidden_size * 4),
+        hidden_act: raw.hidden_act.unwrap_or_else(|| "gelu".to_string()),
+        layer_norm_eps: raw.layer_norm_eps.unwrap_or(1e-5),
+        feat_extract_norm: raw.feat_extract_norm,
+        feat_extract_activation: raw
+            .feat_extract_activation
+            .unwrap_or_else(|| "gelu".to_string()),
+        conv_dim: raw.conv_dim,
+        conv_stride: raw.conv_stride,
+        conv_kernel: raw.conv_kernel,
+        conv_bias: raw.conv_bias.unwrap_or(false),
+        num_conv_pos_embeddings: raw.num_conv_pos_embeddings.unwrap_or(0),
+        num_conv_pos_embedding_groups: raw.num_conv_pos_embedding_groups.unwrap_or(1),
+        do_stable_layer_norm: raw.do_stable_layer_norm.unwrap_or(false),
+        final_dropout: raw.final_dropout,
+        hidden_dropout: raw.hidden_dropout,
+        activation_dropout: raw.activation_dropout,
+        attention_dropout: raw.attention_dropout,
+        layerdrop: raw.layerdrop,
+        pad_token_id: raw.pad_token_id,
+    })
+}
+
+pub(crate) fn parse_wav2vec2_preprocessor_config(
+    path: &Path,
+) -> Result<Wav2Vec2PreprocessorConfig> {
+    let bytes = std::fs::read(path).map_err(|error| {
+        crate::setup_error(format!(
+            "failed to read wav2vec2 preprocessor config `{}`: {error}",
+            path.display()
+        ))
+    })?;
+    let raw: RawWav2Vec2PreprocessorConfig = serde_json::from_slice(&bytes).map_err(|error| {
+        invalid_request(format!(
+            "failed to parse wav2vec2 preprocessor config `{}`: {error}",
+            path.display()
+        ))
+    })?;
+    if let Some(sampling_rate) = raw.sampling_rate {
+        if sampling_rate != 16_000 {
+            return Err(invalid_request(format!(
+                "wav2vec2 preprocessor sampling_rate must be 16000, got {sampling_rate}"
+            )));
+        }
+    }
+    Ok(Wav2Vec2PreprocessorConfig {
+        sampling_rate: raw.sampling_rate,
+        do_normalize: raw.do_normalize,
+        return_attention_mask: raw.return_attention_mask,
+    })
+}
+
+fn parse_raw_wav2vec2_config(path: &Path) -> Result<RawWav2Vec2Config> {
     let bytes = std::fs::read(path).map_err(|error| {
         crate::setup_error(format!(
             "failed to read wav2vec2 config `{}`: {error}",
             path.display()
         ))
     })?;
-    let raw: RawWav2Vec2Config = serde_json::from_slice(&bytes).map_err(|error| {
+    serde_json::from_slice(&bytes).map_err(|error| {
         invalid_request(format!(
             "failed to parse wav2vec2 config `{}`: {error}",
             path.display()
         ))
-    })?;
+    })
+}
+
+fn validate_model_type_and_architecture(raw: &RawWav2Vec2Config) -> Result<()> {
     if let Some(model_type) = raw.model_type.as_deref() {
         if model_type != "wav2vec2" {
             return Err(unsupported_runtime(format!(
@@ -106,12 +405,18 @@ pub(crate) fn parse_wav2vec2_config(path: &Path) -> Result<Wav2Vec2ConfigSummary
             )));
         }
     }
-    Ok(Wav2Vec2ConfigSummary {
-        model_type: raw.model_type,
-        architectures: raw.architectures,
-        vocab_size: raw.vocab_size,
-        word_delimiter_token: raw.word_delimiter_token,
-    })
+    if !raw.architectures.is_empty()
+        && !raw
+            .architectures
+            .iter()
+            .any(|architecture| architecture == "Wav2Vec2ForCTC")
+    {
+        return Err(unsupported_runtime(format!(
+            "unsupported wav2vec2 architecture `{}`; expected Wav2Vec2ForCTC",
+            raw.architectures.join(",")
+        )));
+    }
+    Ok(())
 }
 
 pub(crate) fn parse_ctc_vocabulary(tokenizer_json: &Path) -> Result<CtcVocabulary> {
@@ -238,6 +543,64 @@ pub(crate) fn normalized_text_to_token_ids(
     Ok(ids)
 }
 
+fn segment_words(segment: &text_transcripts::TranscriptSegmentContract) -> Vec<String> {
+    if segment.words.is_empty() {
+        segment
+            .text
+            .split_whitespace()
+            .map(|word| word.trim().to_string())
+            .filter(|word| !word.is_empty())
+            .collect()
+    } else {
+        segment
+            .words
+            .iter()
+            .map(|word| word.text.trim().to_string())
+            .filter(|word| !word.is_empty())
+            .collect()
+    }
+}
+
+fn slice_segment_samples(
+    samples: &[f32],
+    sample_rate: u32,
+    channels: u16,
+    segment_start: f64,
+    segment_end: f64,
+) -> Result<Vec<f32>> {
+    if sample_rate == 0 || channels == 0 {
+        return Err(invalid_request(
+            "audio sample rate and channels must be positive",
+        ));
+    }
+    let channels = channels as usize;
+    let frame_count = samples.len() / channels;
+    let start_frame = (segment_start * sample_rate as f64)
+        .round()
+        .clamp(0.0, frame_count as f64) as usize;
+    let end_frame = (segment_end * sample_rate as f64)
+        .round()
+        .clamp(start_frame as f64, frame_count as f64) as usize;
+    if end_frame <= start_frame {
+        return Err(invalid_request("alignment segment audio slice is empty"));
+    }
+    let mut mono = Vec::with_capacity(end_frame - start_frame);
+    for frame in start_frame..end_frame {
+        let offset = frame * channels;
+        let value = if channels == 1 {
+            samples[offset]
+        } else {
+            samples[offset..offset + channels]
+                .iter()
+                .copied()
+                .sum::<f32>()
+                / channels as f32
+        };
+        mono.push(value);
+    }
+    Ok(mono)
+}
+
 fn token_id(tokens: &[String], token: &str) -> Option<usize> {
     tokens.iter().position(|candidate| candidate == token)
 }
@@ -245,6 +608,8 @@ fn token_id(tokens: &[String], token: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use candle_core::{Device, Tensor};
+    use std::collections::HashMap;
     use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
 
     fn write_valid_bundle(root: &Path, nested: bool) {
@@ -260,7 +625,20 @@ mod tests {
                 "model_type": "wav2vec2",
                 "architectures": ["Wav2Vec2ForCTC"],
                 "vocab_size": 10,
-                "word_delimiter_token": "|"
+                "word_delimiter_token": "|",
+                "hidden_size": 1,
+                "num_hidden_layers": 0,
+                "num_attention_heads": 1,
+                "intermediate_size": 1,
+                "hidden_act": "gelu",
+                "layer_norm_eps": 1e-5,
+                "feat_extract_activation": "gelu",
+                "conv_dim": [1],
+                "conv_stride": [1],
+                "conv_kernel": [1],
+                "conv_bias": false,
+                "num_conv_pos_embeddings": 0,
+                "num_conv_pos_embedding_groups": 1
             })
             .to_string(),
         )
@@ -292,6 +670,80 @@ mod tests {
             }
         })
         .to_string()
+    }
+
+    fn write_tiny_bundle(root: &Path) {
+        write_valid_bundle(root, false);
+        std::fs::write(
+            root.join("preprocessor_config.json"),
+            serde_json::json!({
+                "sampling_rate": 16000,
+                "do_normalize": false,
+                "return_attention_mask": false
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let device = Device::Cpu;
+        let mut tensors = HashMap::new();
+        tensors.insert(
+            "wav2vec2.feature_extractor.conv_layers.0.conv.weight".to_string(),
+            Tensor::new(&[1.0f32], &device)
+                .unwrap()
+                .reshape((1, 1, 1))
+                .unwrap(),
+        );
+        tensors.insert(
+            "wav2vec2.feature_projection.layer_norm.weight".to_string(),
+            Tensor::new(&[1.0f32], &device).unwrap(),
+        );
+        tensors.insert(
+            "wav2vec2.feature_projection.layer_norm.bias".to_string(),
+            Tensor::new(&[0.0f32], &device).unwrap(),
+        );
+        tensors.insert(
+            "wav2vec2.feature_projection.projection.weight".to_string(),
+            Tensor::new(&[1.0f32], &device)
+                .unwrap()
+                .reshape((1, 1))
+                .unwrap(),
+        );
+        tensors.insert(
+            "wav2vec2.feature_projection.projection.bias".to_string(),
+            Tensor::new(&[0.0f32], &device).unwrap(),
+        );
+        tensors.insert(
+            "lm_head.weight".to_string(),
+            Tensor::new(&[0.0f32; 10], &device)
+                .unwrap()
+                .reshape((10, 1))
+                .unwrap(),
+        );
+        tensors.insert(
+            "lm_head.bias".to_string(),
+            Tensor::new(&[0.0f32; 10], &device).unwrap(),
+        );
+        candle_core::safetensors::save(&tensors, root.join("model.safetensors")).unwrap();
+    }
+
+    fn alignment_request(text: &str) -> AlignmentRequest {
+        let mut segment = TranscriptSegmentContract::new(7, text);
+        segment.start_seconds = Some(0.0);
+        segment.end_seconds = Some(1.0);
+        let transcript =
+            TranscriptionContract::from_segments(None, Some("en".to_string()), vec![segment])
+                .unwrap();
+        AlignmentRequest {
+            audio: crate::LoadedAudio {
+                samples: vec![0.0; 16_000],
+                sample_rate: 16_000,
+                channels: 1,
+                source: None,
+            },
+            transcript,
+            language: Some("en".to_string()),
+            model_id: "facebook/wav2vec2-base-960h".to_string(),
+        }
     }
 
     #[test]
@@ -374,30 +826,103 @@ mod tests {
     }
 
     #[test]
-    fn emit_validates_then_reports_typed_runtime_gap() {
+    fn wav2vec2_config_accepts_minimal_ctc_config() {
         let temp = tempfile::tempdir().unwrap();
         write_valid_bundle(temp.path(), false);
-        let mut segment = TranscriptSegmentContract::new(0, "hello world");
-        segment.start_seconds = Some(0.0);
-        segment.end_seconds = Some(1.0);
-        let transcript =
-            TranscriptionContract::from_segments(None, Some("en".to_string()), vec![segment])
-                .unwrap();
-        let request = AlignmentRequest {
-            audio: crate::LoadedAudio {
-                samples: vec![0.0; 16_000],
-                sample_rate: 16_000,
-                channels: 1,
-                source: None,
-            },
-            transcript,
-            language: Some("en".to_string()),
-            model_id: "facebook/wav2vec2-base-960h".to_string(),
-        };
-        let error = emit_wav2vec2_ctc(temp.path(), &request)
+        let config = parse_wav2vec2_ctc_config(&temp.path().join("config.json")).unwrap();
+        assert_eq!(config.vocab_size, 10);
+        assert_eq!(config.hidden_size, 1);
+        assert_eq!(config.conv_dim, vec![1]);
+    }
+
+    #[test]
+    fn wav2vec2_config_rejects_bad_conv_shapes() {
+        let temp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            temp.path().join("config.json"),
+            serde_json::json!({
+                "model_type": "wav2vec2",
+                "architectures": ["Wav2Vec2ForCTC"],
+                "vocab_size": 10,
+                "hidden_size": 4,
+                "num_attention_heads": 2,
+                "conv_dim": [4, 4],
+                "conv_stride": [2],
+                "conv_kernel": [3, 3]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let error = parse_wav2vec2_ctc_config(&temp.path().join("config.json"))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("conv_dim"));
+    }
+
+    #[test]
+    fn wav2vec2_preprocessor_accepts_16khz() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("preprocessor_config.json");
+        std::fs::write(
+            &path,
+            serde_json::json!({"sampling_rate": 16000, "do_normalize": true}).to_string(),
+        )
+        .unwrap();
+        let config = parse_wav2vec2_preprocessor_config(&path).unwrap();
+        assert_eq!(config.sampling_rate, Some(16_000));
+        assert_eq!(config.do_normalize, Some(true));
+    }
+
+    #[test]
+    fn wav2vec2_preprocessor_rejects_non_16khz() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("preprocessor_config.json");
+        std::fs::write(
+            &path,
+            serde_json::json!({"sampling_rate": 8000}).to_string(),
+        )
+        .unwrap();
+        let error = parse_wav2vec2_preprocessor_config(&path)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("16000"));
+    }
+
+    #[test]
+    fn unsupported_wav2vec2_layout_reports_missing_key() {
+        let temp = tempfile::tempdir().unwrap();
+        write_valid_bundle(temp.path(), false);
+        let error = emit_wav2vec2_ctc(temp.path(), &alignment_request("hello"))
             .unwrap_err()
             .to_string();
         assert!(error.contains("unsupported_runtime"));
-        assert!(error.contains("candle-transformers 0.10.2"));
+        assert!(error.contains("safetensors"));
+    }
+
+    #[test]
+    fn tiny_wav2vec2_model_emits_finite_log_probs() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_bundle(temp.path());
+        let emissions = emit_wav2vec2_ctc(temp.path(), &alignment_request("hello")).unwrap();
+        assert!(!emissions.is_empty());
+        assert!(emissions
+            .iter()
+            .all(|frame| frame.len() == 10 && frame.iter().all(|score| score.is_finite())));
+    }
+
+    #[test]
+    fn alignment_with_tiny_wav2vec2_bundle_returns_words() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_bundle(temp.path());
+        let words = align_wav2vec2_ctc(temp.path(), &alignment_request("hello")).unwrap();
+        assert_eq!(words.len(), 1);
+        assert_eq!(words[0].segment_index, 7);
+        assert_eq!(words[0].text, "hello");
+        assert!(words[0].start_seconds >= 0.0);
+        assert!(words[0].end_seconds <= 1.0);
+        assert!(words[0].end_seconds >= words[0].start_seconds);
+        assert!(words[0].confidence.is_some());
     }
 }

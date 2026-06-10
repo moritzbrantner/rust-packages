@@ -43,10 +43,16 @@ pub(crate) fn align(
     validate_loaded_audio(&request.audio)?;
     validate_transcript_ranges(&request)?;
     if let Some(bundle) = &options.model_bundle {
-        crate::native_wav2vec2::emit_wav2vec2_ctc(bundle, &request)?;
-        return Err(model_output_mismatch(
-            "wav2vec2 CTC emission provider returned without emissions",
-        ));
+        let words = crate::native_wav2vec2::align_wav2vec2_ctc(bundle, &request)?;
+        return Ok(AlignmentResponse {
+            model_id: request.model_id,
+            words,
+            diagnostics: vec![
+                "alignment=wav2vec2Ctc".to_string(),
+                "alignmentProvider=ctc-forced-aligner".to_string(),
+                "alignmentModelExecution=candle-wav2vec2".to_string(),
+            ],
+        });
     }
     let words = deterministic_words_from_transcript(&request)?;
     Ok(AlignmentResponse {
@@ -145,6 +151,25 @@ pub(crate) fn tokens_to_words(
     segment_end: f64,
     frame_seconds: f64,
 ) -> Result<Vec<AlignedWord>> {
+    tokens_to_segment_words(
+        0,
+        tokens,
+        transcript_words,
+        segment_start,
+        segment_end,
+        frame_seconds,
+    )
+}
+
+#[allow(dead_code)]
+pub(crate) fn tokens_to_segment_words(
+    segment_index: u64,
+    tokens: &[CtcAlignedToken],
+    transcript_words: &[String],
+    segment_start: f64,
+    segment_end: f64,
+    frame_seconds: f64,
+) -> Result<Vec<AlignedWord>> {
     if !segment_start.is_finite()
         || !segment_end.is_finite()
         || !frame_seconds.is_finite()
@@ -176,7 +201,7 @@ pub(crate) fn tokens_to_words(
                 (start, (start + width).min(segment_end), None)
             };
         aligned.push(AlignedWord {
-            segment_index: 0,
+            segment_index,
             word_index,
             text: word.clone(),
             start_seconds,
@@ -337,6 +362,19 @@ mod tests {
     }
 
     #[test]
+    fn ctc_word_conversion_preserves_segment_index() {
+        let tokens = vec![CtcAlignedToken {
+            token_id: 1,
+            frame_index: 2,
+            score: 0.9,
+        }];
+        let words =
+            tokens_to_segment_words(42, &tokens, &["a".to_string()], 1.0, 2.0, 0.1).unwrap();
+        assert_eq!(words[0].segment_index, 42);
+        assert_eq!(words[0].word_index, 0);
+    }
+
+    #[test]
     fn alignment_merge_fills_transcript_word_contract_timings() {
         let mut segment = TranscriptSegmentContract::new(0, "hello world");
         segment.start_seconds = Some(0.0);
@@ -372,7 +410,20 @@ mod tests {
                 "model_type": "wav2vec2",
                 "architectures": ["Wav2Vec2ForCTC"],
                 "vocab_size": 10,
-                "word_delimiter_token": "|"
+                "word_delimiter_token": "|",
+                "hidden_size": 1,
+                "num_hidden_layers": 0,
+                "num_attention_heads": 1,
+                "intermediate_size": 1,
+                "hidden_act": "gelu",
+                "layer_norm_eps": 1e-5,
+                "feat_extract_activation": "gelu",
+                "conv_dim": [1],
+                "conv_stride": [1],
+                "conv_kernel": [1],
+                "conv_bias": false,
+                "num_conv_pos_embeddings": 0,
+                "num_conv_pos_embedding_groups": 1
             })
             .to_string(),
         )
@@ -427,7 +478,7 @@ mod tests {
     }
 
     #[test]
-    fn alignment_with_wav2vec2_bundle_reports_typed_runtime_gap() {
+    fn alignment_with_wav2vec2_bundle_reports_unsupported_layout() {
         let temp = tempfile::tempdir().unwrap();
         write_valid_wav2vec2_bundle(temp.path());
         let error = align(
@@ -441,7 +492,7 @@ mod tests {
         .unwrap_err()
         .to_string();
         assert!(error.contains("unsupported_runtime"));
-        assert!(error.contains("candle-transformers 0.10.2"));
+        assert!(error.contains("safetensors"));
     }
 
     #[test]

@@ -1,10 +1,11 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use candle_core::{DType, Device, IndexOp, Tensor, D};
 use candle_nn::VarBuilder;
 use candle_transformers::models::whisper::{self, model::Whisper};
 use serde::Deserialize;
-use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
+use text_transcripts::{TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract};
 use tokenizers::Tokenizer;
 use video_analysis_core::Result;
 
@@ -224,6 +225,7 @@ impl CandleWhisperSession {
         let mut segments = Vec::new();
         let mut next_index = 0_u64;
         let mut used_timestamp_tokens = false;
+        let mut used_timestamp_word_projection = false;
         let mut timing_fallbacks = Vec::new();
         for chunk in &request.chunks {
             for window in chunk_windows(&request.audio.samples, request.audio.sample_rate, chunk)? {
@@ -252,13 +254,20 @@ impl CandleWhisperSession {
                     next_index += 1;
                 } else {
                     used_timestamp_tokens = true;
-                    segments.extend(decoded_window_to_contract_segments(
+                    let timestamp_segments = decoded_window_to_contract_segments(
                         timed.decoded,
                         &mut next_index,
                         window.global_start_seconds,
                         window.global_end_seconds,
                         self.setup.language.clone(),
-                    ));
+                    );
+                    if timestamp_segments
+                        .iter()
+                        .any(|segment| !segment.words.is_empty())
+                    {
+                        used_timestamp_word_projection = true;
+                    }
+                    segments.extend(timestamp_segments);
                 }
             }
         }
@@ -284,6 +293,9 @@ impl CandleWhisperSession {
         ];
         if let Some(language) = &self.setup.language {
             diagnostics.push(format!("language={language}"));
+        }
+        if used_timestamp_word_projection {
+            diagnostics.push("wordTiming=whisperTimestampProjection".to_string());
         }
         diagnostics.extend(
             timing_fallbacks
@@ -732,20 +744,19 @@ fn decoded_window_to_contract_segments(
         .segments
         .into_iter()
         .filter_map(|decoded_segment| {
+            let mut projected_words = project_words_from_timestamp_segment(&decoded_segment);
             let text = decoded_segment.text.trim().to_string();
             if text.is_empty() {
                 return None;
             }
             let mut segment = TranscriptSegmentContract::new(*next_index, text);
             *next_index += 1;
-            segment.start_seconds = Some(
-                (window_start_seconds + decoded_segment.start_seconds)
-                    .clamp(window_start_seconds, window_end_seconds),
-            );
-            segment.end_seconds = Some(
-                (window_start_seconds + decoded_segment.end_seconds)
-                    .clamp(window_start_seconds, window_end_seconds),
-            );
+            let global_start = (window_start_seconds + decoded_segment.start_seconds)
+                .clamp(window_start_seconds, window_end_seconds);
+            let global_end = (window_start_seconds + decoded_segment.end_seconds)
+                .clamp(window_start_seconds, window_end_seconds);
+            segment.start_seconds = Some(global_start);
+            segment.end_seconds = Some(global_end);
             segment.language = language.clone();
             segment
                 .attributes
@@ -757,7 +768,78 @@ fn decoded_window_to_contract_segments(
                 "timingSource".to_string(),
                 "whisperTimestampTokens".to_string(),
             );
+            for word in &mut projected_words {
+                word.start_seconds = word
+                    .start_seconds
+                    .map(|start| (window_start_seconds + start).clamp(global_start, global_end));
+                word.end_seconds = word
+                    .end_seconds
+                    .map(|end| (window_start_seconds + end).clamp(global_start, global_end));
+                if let (Some(start), Some(end)) = (word.start_seconds, word.end_seconds) {
+                    if end < start {
+                        word.end_seconds = Some(start);
+                    }
+                }
+            }
+            segment.words = projected_words;
+            if !segment.words.is_empty() {
+                segment.attributes.insert(
+                    "wordTiming".to_string(),
+                    "whisperTimestampProjection".to_string(),
+                );
+            }
             Some(segment)
+        })
+        .collect()
+}
+
+fn project_words_from_timestamp_segment(
+    segment: &WhisperDecodedSegment,
+) -> Vec<TranscriptWordContract> {
+    let text = segment.text.trim();
+    let words = text.split_whitespace().collect::<Vec<_>>();
+    if words.is_empty() {
+        return Vec::new();
+    }
+
+    let word_count = words.len();
+    let weights = words
+        .iter()
+        .map(|word| word.chars().count())
+        .collect::<Vec<_>>();
+    let total_chars = weights.iter().sum::<usize>();
+    if total_chars == 0 {
+        return Vec::new();
+    }
+
+    let start = segment.start_seconds;
+    let end = segment.end_seconds;
+    let duration = (end - start).max(0.0);
+    let mut cursor = start;
+    words
+        .into_iter()
+        .zip(weights)
+        .enumerate()
+        .map(|(index, (word, weight))| {
+            let word_start = cursor.clamp(start, end);
+            let projected_end = if index + 1 == word_count {
+                end
+            } else {
+                cursor + duration * weight as f64 / total_chars as f64
+            };
+            let word_end = projected_end.clamp(word_start, end);
+            cursor = word_end;
+            TranscriptWordContract {
+                text: word.to_string(),
+                start_seconds: Some(word_start),
+                end_seconds: Some(word_end),
+                confidence: None,
+                speaker: None,
+                attributes: BTreeMap::from([(
+                    "timing".to_string(),
+                    "whisperTimestampProjection".to_string(),
+                )]),
+            }
         })
         .collect()
 }
@@ -950,6 +1032,22 @@ mod tests {
         .unwrap();
         let model = WordLevel::from_file(vocab.to_str().unwrap(), "<unk>".to_string()).unwrap();
         Tokenizer::new(model)
+    }
+
+    fn decoded_segment(text: &str, start_seconds: f64, end_seconds: f64) -> WhisperDecodedSegment {
+        WhisperDecodedSegment {
+            text: text.to_string(),
+            start_seconds,
+            end_seconds,
+            token_ids: Vec::new(),
+        }
+    }
+
+    fn assert_approx_eq(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() < 1e-9,
+            "expected {expected}, got {actual}"
+        );
     }
 
     #[test]
@@ -1160,6 +1258,136 @@ mod tests {
     }
 
     #[test]
+    fn projected_single_word_receives_full_segment_duration() {
+        let words = project_words_from_timestamp_segment(&decoded_segment("hello", 10.0, 12.0));
+
+        assert_eq!(words.len(), 1);
+        assert_eq!(words[0].text, "hello");
+        assert_eq!(words[0].start_seconds, Some(10.0));
+        assert_eq!(words[0].end_seconds, Some(12.0));
+        assert_eq!(
+            words[0].attributes.get("timing").map(String::as_str),
+            Some("whisperTimestampProjection")
+        );
+    }
+
+    #[test]
+    fn projected_words_split_by_character_weight() {
+        let words =
+            project_words_from_timestamp_segment(&decoded_segment("hello rustaceans", 0.0, 3.0));
+
+        assert_eq!(words.len(), 2);
+        assert_eq!(words[0].text, "hello");
+        assert_eq!(words[1].text, "rustaceans");
+        assert_approx_eq(words[0].start_seconds.unwrap(), 0.0);
+        assert_approx_eq(words[0].end_seconds.unwrap(), 1.0);
+        assert_approx_eq(words[1].start_seconds.unwrap(), 1.0);
+        assert_approx_eq(words[1].end_seconds.unwrap(), 3.0);
+    }
+
+    #[test]
+    fn projected_words_keep_punctuation_attached() {
+        let words =
+            project_words_from_timestamp_segment(&decoded_segment("hello, world!", 0.0, 2.0));
+
+        assert_eq!(
+            words
+                .iter()
+                .map(|word| word.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["hello,", "world!"]
+        );
+    }
+
+    #[test]
+    fn projected_words_ignore_empty_or_whitespace_text() {
+        let words = project_words_from_timestamp_segment(&decoded_segment("   \n\t  ", 0.0, 2.0));
+
+        assert!(words.is_empty());
+    }
+
+    #[test]
+    fn projected_words_stay_inside_parent_segment() {
+        let words =
+            project_words_from_timestamp_segment(&decoded_segment("hello rust world", 5.0, 5.1));
+
+        assert!(!words.is_empty());
+        for word in words {
+            let start = word.start_seconds.unwrap();
+            let end = word.end_seconds.unwrap();
+            assert!((5.0..=5.1).contains(&start));
+            assert!((5.0..=5.1).contains(&end));
+            assert!(end >= start);
+        }
+    }
+
+    #[test]
+    fn timestamp_decoded_segments_include_projected_global_words() {
+        let decoded = WhisperDecodedWindow {
+            text: "hello world".to_string(),
+            segments: vec![decoded_segment("hello world", 0.5, 1.5)],
+        };
+        let mut next_index = 0;
+        let segments = decoded_window_to_contract_segments(
+            decoded,
+            &mut next_index,
+            10.0,
+            12.0,
+            Some("en".to_string()),
+        );
+
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0].start_seconds, Some(10.5));
+        assert_eq!(segments[0].end_seconds, Some(11.5));
+        assert_eq!(
+            segments[0].attributes.get("wordTiming").map(String::as_str),
+            Some("whisperTimestampProjection")
+        );
+        assert_eq!(segments[0].words.len(), 2);
+        assert_eq!(segments[0].words[0].text, "hello");
+        assert_approx_eq(segments[0].words[0].start_seconds.unwrap(), 10.5);
+        assert_approx_eq(segments[0].words[0].end_seconds.unwrap(), 11.0);
+        assert_eq!(segments[0].words[1].text, "world");
+        assert_approx_eq(segments[0].words[1].start_seconds.unwrap(), 11.0);
+        assert_approx_eq(segments[0].words[1].end_seconds.unwrap(), 11.5);
+        assert!(segments[0].words.iter().all(|word| {
+            word.attributes.get("timing").map(String::as_str) == Some("whisperTimestampProjection")
+        }));
+    }
+
+    #[test]
+    fn timestamp_decoded_multiple_segments_project_words_independently() {
+        let decoded = WhisperDecodedWindow {
+            text: "hello world rustaceans".to_string(),
+            segments: vec![
+                decoded_segment("hello world", 0.0, 1.0),
+                decoded_segment("rustaceans unite", 1.0, 2.0),
+            ],
+        };
+        let mut next_index = 0;
+        let segments =
+            decoded_window_to_contract_segments(decoded, &mut next_index, 10.0, 12.0, None);
+
+        assert_eq!(segments.len(), 2);
+        for segment in &segments {
+            let segment_start = segment.start_seconds.unwrap();
+            let segment_end = segment.end_seconds.unwrap();
+            assert!(!segment.words.is_empty());
+            for word in &segment.words {
+                let start = word.start_seconds.unwrap();
+                let end = word.end_seconds.unwrap();
+                assert!(start >= segment_start);
+                assert!(end <= segment_end);
+                assert!(end >= start);
+            }
+        }
+        assert_eq!(segments[0].words[0].start_seconds, Some(10.0));
+        assert_eq!(segments[0].words[1].end_seconds, Some(11.0));
+        assert_eq!(segments[1].words[0].start_seconds, Some(11.0));
+        assert_eq!(segments[1].words[1].end_seconds, Some(12.0));
+    }
+
+    #[test]
     fn timestamp_decoded_segments_map_to_transcript_contracts() {
         let decoded = WhisperDecodedWindow {
             text: "hello world".to_string(),
@@ -1212,6 +1440,26 @@ mod tests {
     }
 
     #[test]
+    fn projected_timestamp_words_pass_strict_transcript_validation() {
+        let decoded = WhisperDecodedWindow {
+            text: "hello world".to_string(),
+            segments: vec![decoded_segment("hello world", 0.25, 1.25)],
+        };
+        let mut next_index = 0;
+        let segments = decoded_window_to_contract_segments(
+            decoded,
+            &mut next_index,
+            3.0,
+            5.0,
+            Some("en".to_string()),
+        );
+        let transcript =
+            TranscriptionContract::from_segments(None, Some("en".to_string()), segments).unwrap();
+
+        transcript.validate_strict().unwrap();
+    }
+
+    #[test]
     fn window_fallback_segment_uses_global_timing() {
         let segment =
             window_fallback_segment(3, "hello".to_string(), 4.0, 5.5, Some("en".to_string()));
@@ -1225,6 +1473,20 @@ mod tests {
             segment.attributes.get("timing").map(String::as_str),
             Some("global")
         );
+    }
+
+    #[test]
+    fn fallback_chunk_window_segment_does_not_project_words() {
+        let segment = window_fallback_segment(
+            3,
+            "hello world".to_string(),
+            4.0,
+            5.5,
+            Some("en".to_string()),
+        );
+
+        assert!(segment.words.is_empty());
+        assert!(!segment.attributes.contains_key("wordTiming"));
     }
 
     #[test]

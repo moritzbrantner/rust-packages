@@ -21,6 +21,7 @@ Replace WhisperX runtime dependency over time with Rust-native transcription, al
 - WAV path input and direct samples.
 - Prompt construction validates language, task, decoder, EOS, no-timestamps, and forced decoder IDs.
 - Native Whisper attempts timestamp-token segment timing automatically when tokenizer metadata is present, and falls back to chunk/window timing when no bounded timestamp segments are produced.
+- Approximate word timing projection from Whisper timestamp-token segments exists.
 - Real CUDA smoke passes on the RTX 3060 Ti host with the local CUDA 12 shim.
 
 ### WhisperX Compatibility
@@ -32,7 +33,12 @@ Replace WhisperX runtime dependency over time with Rust-native transcription, al
 
 - Deterministic CTC primitives exist.
 - wav2vec2 bundle/config/tokenizer validation exists.
-- Real wav2vec2 emissions are not implemented yet and return typed `unsupported_runtime`.
+- Local Candle wav2vec2 CTC emission execution exists for supported
+  `Wav2Vec2ForCTC` safetensors bundles.
+- Bundle-backed alignment feeds wav2vec2 emissions through the native CTC
+  trellis/backtracking path and returns word timings.
+- Unsupported wav2vec2 architectures or safetensors layouts return typed
+  `unsupported_runtime` errors instead of falling back silently.
 
 ### Diarization
 
@@ -42,13 +48,16 @@ Replace WhisperX runtime dependency over time with Rust-native transcription, al
 
 ## Missing For WhisperX Parity
 
-- Word timing projection from Whisper timestamp segments.
-- Real wav2vec2 CTC emission model execution.
 - Word-level alignment through the full native pipeline.
 - Production-grade diarization.
 - Native pyannote replacement.
 - Native container/video decode.
 - Full batched ASR/alignment/diarization pipeline behavior.
+- Broader wav2vec2 layout coverage and performance parity with WhisperX.
+
+Projected word timing is approximate and is not WhisperX wav2vec2 alignment
+parity. The local wav2vec2 CTC path is closer to WhisperX alignment behavior,
+but it is not full WhisperX parity yet.
 
 ## Local Smoke Assets
 
@@ -62,8 +71,7 @@ Current machine-local assets used for native Whisper smoke:
 
 ## Recommended Next Order
 
-1. Add native word timing projection from timestamp-token segments.
-2. Implement or unblock wav2vec2 Candle emissions.
-3. Wire the full native ASR + alignment + diarization pipeline.
-4. Upgrade diarization seams beyond the deterministic spectral baseline without claiming pyannote parity.
-5. Add parity tests against imported WhisperX JSON and external WhisperX command output.
+1. Wire the full native ASR + alignment + diarization pipeline.
+2. Upgrade diarization seams without claiming pyannote parity.
+3. Add parity tests against imported WhisperX JSON and external WhisperX command output.
+4. Expand supported wav2vec2 bundle layouts and performance coverage.

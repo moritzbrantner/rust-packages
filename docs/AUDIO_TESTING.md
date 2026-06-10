@@ -119,8 +119,9 @@ Whisper CUDA is the primary native target, and Candle CPU is the local
 development fallback when the crate is built with `candle`. CUDA is used only
 when the crate is built with `cuda` and the request explicitly selects that
 device. Default tests use deterministic samples, WAV fixtures, CTC primitives,
-and mock providers; they do not require models, CUDA, Python, Hugging Face
-tokens, downloads, or network access.
+synthetic wav2vec2 safetensors bundles, and mock providers; they do not require
+real model files, CUDA, Python, Hugging Face tokens, downloads, or network
+access.
 
 Native path decoding currently accepts WAV files only. Broader container/video
 decode remains an explicit external/runtime integration task. Browser and WASM
@@ -146,8 +147,9 @@ cargo test -p moritzbrantner-audio-analysis-transcription \
 The native Whisper path attempts timestamp-token segment timing automatically
 when the tokenizer exposes Whisper timestamp metadata. If timestamp decoding
 does not produce bounded text segments, it falls back to chunk/window segment
-timing. Tokenizer, prompt, parser, fallback, and global timing behavior are
-covered by hermetic unit tests that do not require model files.
+timing. Tokenizer, prompt, parser, fallback, timestamp-token segment timing,
+global mapping, approximate word projection, and alignment overwrite behavior
+are covered by hermetic unit tests that do not require model files.
 
 On the RTX 3060 Ti development host used for the current smoke, the working
 local assets are:
@@ -160,20 +162,21 @@ That host's `/usr/local/cuda` points at CUDA 13.3, so the passing smoke points
 `RUSTFLAGS`, `LIBRARY_PATH`, and `LD_LIBRARY_PATH` at the CUDA 12.3 shim to
 avoid `CUBLAS_STATUS_NOT_INITIALIZED`.
 
-CTC alignment CUDA smoke test:
+CTC alignment wav2vec2 smoke test:
 
 ```bash
 RUN_NATIVE_ALIGNMENT_TESTS=1 \
 ALIGNMENT_MODEL_BUNDLE=/path/to/wav2vec2 \
 TRANSCRIPTION_AUDIO_PATH=/path/to/audio.wav \
 cargo test -p moritzbrantner-audio-analysis-transcription \
-  --features candle,cuda,alignment,model-bundles \
-  ctc_alignment_cuda_smoke_when_requested -- --ignored --nocapture
+  --features candle,alignment,model-bundles \
+  ctc_alignment_wav2vec2_smoke_when_requested -- --ignored --nocapture
 ```
 
-The CTC path validates wav2vec2 bundle files, config, and tokenizer vocabulary.
-Real wav2vec2 Candle emissions are still a typed `unsupported_runtime` because
-`candle-transformers 0.10.2` does not expose a wav2vec2 model implementation.
+The CTC path validates wav2vec2 bundle files, config, tokenizer vocabulary, and
+preprocessor metadata. Supported local `Wav2Vec2ForCTC` safetensors bundles
+execute through Candle and native CTC trellis/backtracking. Unsupported
+architectures or safetensors layouts return typed `unsupported_runtime` errors.
 
 Diarization baseline smoke test:
 
