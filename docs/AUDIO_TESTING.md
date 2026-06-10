@@ -151,6 +151,19 @@ timing. Tokenizer, prompt, parser, fallback, timestamp-token segment timing,
 global mapping, approximate word projection, and alignment overwrite behavior
 are covered by hermetic unit tests that do not require model files.
 
+Native transcription pipeline wiring is also covered hermetically. Unit tests
+prove native providers supply `CtcForcedAligner` when alignment is enabled,
+leave alignment absent when disabled, run alignment before diarization
+assignment, and exercise a synthetic tiny wav2vec2 bundle through the pipeline
+without real model files, CUDA, Python, WhisperX, Hugging Face tokens, network,
+or downloads.
+
+Native diarization seam coverage is hermetic as well. Unit tests cover
+transcript-timing-derived speech spans, fallback to energy VAD when transcript
+timing is absent, `min_speakers`/`max_speakers` validation and diagnostics, and
+pipeline diarization diagnostics without real speaker models, Python, network,
+CUDA, Hugging Face tokens, or downloads.
+
 On the RTX 3060 Ti development host used for the current smoke, the working
 local assets are:
 

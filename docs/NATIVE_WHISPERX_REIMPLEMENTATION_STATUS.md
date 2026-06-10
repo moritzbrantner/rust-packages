@@ -37,6 +37,11 @@ Replace WhisperX runtime dependency over time with Rust-native transcription, al
   `Wav2Vec2ForCTC` safetensors bundles.
 - Bundle-backed alignment feeds wav2vec2 emissions through the native CTC
   trellis/backtracking path and returns word timings.
+- Native `transcribe(...)` wires `CtcForcedAligner` for native providers when
+  `alignment.enabled=true`.
+- The full native transcription entrypoint can run VAD, ASR, CTC alignment, and
+  diarization assignment in order. Model-backed alignment still depends on a
+  supported local wav2vec2 bundle.
 - Unsupported wav2vec2 architectures or safetensors layouts return typed
   `unsupported_runtime` errors instead of falling back silently.
 
@@ -45,10 +50,15 @@ Replace WhisperX runtime dependency over time with Rust-native transcription, al
 - Deterministic native baseline exists.
 - Transcript assignment supports majority overlap, nearest start, and strict contained policies.
 - Baseline diarization is heuristic and not production speaker recognition.
+- Native diarization uses transcript word timings, or segment timings when word
+  timings are absent, as speech-span hints before falling back to energy VAD.
+- Native transcription diagnostics report diarization provider, runtime, model,
+  segment count, speaker count, assignment policy, and heuristic-baseline use.
+- `min_speakers` and `max_speakers` are validated and reported in diagnostics,
+  but the heuristic baseline does not force pyannote-style speaker cardinality.
 
 ## Missing For WhisperX Parity
 
-- Word-level alignment through the full native pipeline.
 - Production-grade diarization.
 - Native pyannote replacement.
 - Native container/video decode.
@@ -71,7 +81,7 @@ Current machine-local assets used for native Whisper smoke:
 
 ## Recommended Next Order
 
-1. Wire the full native ASR + alignment + diarization pipeline.
-2. Upgrade diarization seams without claiming pyannote parity.
-3. Add parity tests against imported WhisperX JSON and external WhisperX command output.
-4. Expand supported wav2vec2 bundle layouts and performance coverage.
+1. Add parity tests against imported WhisperX JSON and optional external WhisperX command output.
+2. Expand supported wav2vec2 bundle layouts and performance coverage.
+3. Improve native container/video decode or document the WAV-only boundary more explicitly.
+4. Revisit diarization quality with real model-backed speaker embeddings.

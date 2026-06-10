@@ -639,10 +639,29 @@ impl TranscriptDiarizationProvider for NativeSpeakerDiarizationProvider {
     fn diarize(
         &mut self,
         audio: LoadedAudio,
-        _transcript: &TranscriptionContract,
+        transcript: &TranscriptionContract,
         options: &DiarizationOptions,
     ) -> Result<SpeakerDiarizationResponse> {
         native_audio::validate_loaded_audio(&audio)?;
+        let spans = speech_spans_from_transcript(transcript, audio.duration_seconds())?;
+        if !spans.is_empty() {
+            let speaker_audio =
+                audio_analysis_speakers::SpeakerAudio::mono(&audio.samples, audio.sample_rate)?;
+            let embedder = audio_analysis_speakers::SpectralSpeakerEmbedder::default();
+            let vad = TranscriptSpeechSpanVad { spans };
+            let mut diarizer = audio_analysis_speakers::WindowedSpeakerDiarizer::new(embedder, vad)
+                .cluster_threshold(0.95)?;
+            let result =
+                audio_analysis_speakers::SpeakerDiarizer::diarize(&mut diarizer, &speaker_audio)?;
+            return Ok(SpeakerDiarizationResponse {
+                accepted: true,
+                operation: "audio.speakers.diarize".to_string(),
+                model_id: options.model_id.clone(),
+                runtime: audio_analysis_speakers::AudioRuntime::Heuristic,
+                segments: stable_speaker_predictions_from_diarization(result.segments)?,
+            });
+        }
+
         let mut response = audio_analysis_speakers::diarize_speaker_audio_baseline(
             &audio.samples,
             audio.sample_rate,
@@ -779,6 +798,28 @@ impl WhisperXCommandTranscriber {
     }
 }
 
+fn run_native_transcription_pipeline(
+    request: TranscriptionPipelineRequest,
+    vad: &mut dyn TranscriptionVadProvider,
+    asr: &mut dyn AudioTranscriptionProvider,
+    diarization_provider: Option<&mut dyn TranscriptDiarizationProvider>,
+) -> Result<TranscriptionPipelineResponse> {
+    if !request.alignment.enabled {
+        return run_transcription_pipeline(request, vad, asr, None, diarization_provider);
+    }
+
+    let mut aligner = CtcForcedAligner {
+        options: request.alignment.clone(),
+    };
+    run_transcription_pipeline(
+        request,
+        vad,
+        asr,
+        Some(&mut aligner as &mut dyn ForcedAlignmentProvider),
+        diarization_provider,
+    )
+}
+
 /// Runs a transcription request with the selected primary provider.
 pub fn transcribe(request: TranscriptionPipelineRequest) -> Result<TranscriptionPipelineResponse> {
     match &request.provider {
@@ -796,11 +837,11 @@ pub fn transcribe(request: TranscriptionPipelineRequest) -> Result<Transcription
                     .diarization
                     .enabled
                     .then_some(&mut diarizer as &mut dyn TranscriptDiarizationProvider);
-                run_transcription_pipeline(request, &mut vad, &mut asr, None, diarization_provider)
+                run_native_transcription_pipeline(request, &mut vad, &mut asr, diarization_provider)
             }
             #[cfg(not(feature = "diarization"))]
             {
-                run_transcription_pipeline(request, &mut vad, &mut asr, None, None)
+                run_native_transcription_pipeline(request, &mut vad, &mut asr, None)
             }
         }
         TranscriptionProviderSelection::WhisperCpp(options) => {
@@ -815,11 +856,11 @@ pub fn transcribe(request: TranscriptionPipelineRequest) -> Result<Transcription
                     .diarization
                     .enabled
                     .then_some(&mut diarizer as &mut dyn TranscriptDiarizationProvider);
-                run_transcription_pipeline(request, &mut vad, &mut asr, None, diarization_provider)
+                run_native_transcription_pipeline(request, &mut vad, &mut asr, diarization_provider)
             }
             #[cfg(not(feature = "diarization"))]
             {
-                run_transcription_pipeline(request, &mut vad, &mut asr, None, None)
+                run_native_transcription_pipeline(request, &mut vad, &mut asr, None)
             }
         }
     }
@@ -887,10 +928,16 @@ pub fn run_transcription_pipeline(
 
     let mut diarization = None;
     if request.diarization.enabled {
+        validate_diarization_options(&request.diarization)?;
         let provider = diarization_provider.ok_or_else(|| {
             setup_error("diarization requested but no diarization provider is available")
         })?;
         let response = provider.diarize(audio, &transcript, &request.diarization)?;
+        diagnostics.extend(diarization_diagnostics(
+            provider.provider_id(),
+            &response,
+            &request.diarization,
+        ));
         assign_speakers_from_diarization(
             &mut transcript,
             &response,
@@ -1014,6 +1061,337 @@ pub(crate) fn validate_asr_request(request: &AsrRequest) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn validate_diarization_options(options: &DiarizationOptions) -> Result<()> {
+    if options.min_speakers == Some(0) {
+        return Err(invalid_request(
+            "diarization min_speakers must be greater than zero",
+        ));
+    }
+    if options.max_speakers == Some(0) {
+        return Err(invalid_request(
+            "diarization max_speakers must be greater than zero",
+        ));
+    }
+    if let (Some(min), Some(max)) = (options.min_speakers, options.max_speakers) {
+        if min > max {
+            return Err(invalid_request(
+                "diarization min_speakers must be less than or equal to max_speakers",
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "diarization")]
+fn speech_spans_from_transcript(
+    transcript: &TranscriptionContract,
+    audio_duration_seconds: f64,
+) -> Result<Vec<audio_analysis_speakers::SpeechSpan>> {
+    const AUDIO_DURATION_EPSILON: f64 = 1e-6;
+
+    let has_timed_words = transcript.segments.iter().any(|segment| {
+        segment.words.iter().any(|word| {
+            !word.text.trim().is_empty()
+                && word.start_seconds.is_some()
+                && word.end_seconds.is_some()
+        })
+    });
+
+    let mut spans = Vec::new();
+    if has_timed_words {
+        for word in transcript
+            .segments
+            .iter()
+            .flat_map(|segment| &segment.words)
+        {
+            if word.text.trim().is_empty() {
+                continue;
+            }
+            let Some((start, end)) = word.start_seconds.zip(word.end_seconds) else {
+                continue;
+            };
+            spans.push(transcript_timing_span(
+                start,
+                end,
+                audio_duration_seconds,
+                AUDIO_DURATION_EPSILON,
+            )?);
+        }
+    } else {
+        for segment in &transcript.segments {
+            if segment.text.trim().is_empty() {
+                continue;
+            }
+            let Some((start, end)) = segment.start_seconds.zip(segment.end_seconds) else {
+                continue;
+            };
+            spans.push(transcript_timing_span(
+                start,
+                end,
+                audio_duration_seconds,
+                AUDIO_DURATION_EPSILON,
+            )?);
+        }
+    }
+
+    merge_transcript_speech_spans(
+        spans,
+        audio_analysis_speakers::EnergyVadConfig::default().merge_gap_seconds,
+    )
+}
+
+#[cfg(feature = "diarization")]
+fn transcript_timing_span(
+    start_seconds: f64,
+    end_seconds: f64,
+    audio_duration_seconds: f64,
+    audio_duration_epsilon: f64,
+) -> Result<audio_analysis_speakers::SpeechSpan> {
+    if !start_seconds.is_finite() || !end_seconds.is_finite() || !audio_duration_seconds.is_finite()
+    {
+        return Err(invalid_request(
+            "transcript diarization timing values must be finite",
+        ));
+    }
+    if start_seconds < 0.0 || end_seconds <= start_seconds {
+        return Err(invalid_request(
+            "transcript diarization timing must be non-negative with positive duration",
+        ));
+    }
+    if start_seconds > audio_duration_seconds + audio_duration_epsilon
+        || end_seconds > audio_duration_seconds + audio_duration_epsilon
+    {
+        return Err(invalid_request(format!(
+            "transcript diarization timing end {:.6} exceeds audio duration {:.6}",
+            end_seconds, audio_duration_seconds
+        )));
+    }
+    let end_seconds = if end_seconds > audio_duration_seconds {
+        audio_duration_seconds
+    } else {
+        end_seconds
+    };
+    audio_analysis_speakers::SpeechSpan::new(start_seconds, end_seconds, 1.0)
+}
+
+#[cfg(feature = "diarization")]
+fn merge_transcript_speech_spans(
+    mut spans: Vec<audio_analysis_speakers::SpeechSpan>,
+    merge_gap_seconds: f64,
+) -> Result<Vec<audio_analysis_speakers::SpeechSpan>> {
+    spans.sort_by(|left, right| left.start_seconds.total_cmp(&right.start_seconds));
+    let mut merged: Vec<audio_analysis_speakers::SpeechSpan> = Vec::new();
+    for span in spans {
+        if let Some(last) = merged.last_mut() {
+            if span.start_seconds - last.end_seconds <= merge_gap_seconds {
+                let last_duration = last.duration_seconds();
+                let span_duration = span.duration_seconds();
+                let total_duration = last_duration + span_duration;
+                last.end_seconds = last.end_seconds.max(span.end_seconds);
+                last.score = if total_duration > f64::EPSILON {
+                    (((last.score as f64 * last_duration) + (span.score as f64 * span_duration))
+                        / total_duration) as f32
+                } else {
+                    last.score.max(span.score)
+                };
+                continue;
+            }
+        }
+        merged.push(span);
+    }
+    Ok(merged)
+}
+
+#[cfg(feature = "diarization")]
+#[derive(Debug, Clone)]
+struct TranscriptSpeechSpanVad {
+    spans: Vec<audio_analysis_speakers::SpeechSpan>,
+}
+
+#[cfg(feature = "diarization")]
+impl audio_analysis_speakers::VoiceActivityDetector for TranscriptSpeechSpanVad {
+    fn detect_speech(
+        &mut self,
+        _audio: &audio_analysis_speakers::SpeakerAudio<'_>,
+    ) -> Result<Vec<audio_analysis_speakers::SpeechSpan>> {
+        Ok(self.spans.clone())
+    }
+}
+
+#[cfg(feature = "diarization")]
+fn stable_speaker_predictions_from_diarization(
+    segments: Vec<audio_analysis_speakers::DiarizationSegment>,
+) -> Result<Vec<SpeakerSegmentPrediction>> {
+    let mut unknown_labels: Vec<(String, String)> = Vec::new();
+    let mut predictions = Vec::new();
+    for segment in segments {
+        let speaker = match segment.speaker {
+            audio_analysis_speakers::DiarizedSpeaker::Known(id) => id.as_str().to_string(),
+            audio_analysis_speakers::DiarizedSpeaker::Unknown(label) => {
+                if let Some((_, stable)) = unknown_labels
+                    .iter()
+                    .find(|(existing, _)| existing == &label)
+                {
+                    stable.clone()
+                } else {
+                    let stable = format!("speaker_{}", unknown_labels.len());
+                    unknown_labels.push((label, stable.clone()));
+                    stable
+                }
+            }
+        };
+        predictions.push(normalize_speaker_prediction(SpeakerSegmentPrediction {
+            speaker,
+            start_seconds: segment.start_seconds as f32,
+            end_seconds: segment.end_seconds as f32,
+            score: Some(segment.score),
+        })?);
+    }
+    merge_speaker_predictions(
+        predictions,
+        audio_analysis_speakers::EnergyVadConfig::default().merge_gap_seconds as f32,
+    )
+}
+
+#[cfg(feature = "diarization")]
+fn normalize_speaker_prediction(
+    mut segment: SpeakerSegmentPrediction,
+) -> Result<SpeakerSegmentPrediction> {
+    segment.speaker = segment.speaker.trim().to_string();
+    if segment.speaker.is_empty() {
+        return Err(invalid_request("speaker label must not be empty"));
+    }
+    if !segment.start_seconds.is_finite() || !segment.end_seconds.is_finite() {
+        return Err(invalid_request("speaker segment timestamps must be finite"));
+    }
+    if segment.end_seconds < segment.start_seconds {
+        return Err(invalid_request(
+            "speaker segment end_seconds must be greater than or equal to start_seconds",
+        ));
+    }
+    segment.score = segment
+        .score
+        .and_then(|score| score.is_finite().then(|| score.clamp(0.0, 1.0)));
+    Ok(segment)
+}
+
+#[cfg(feature = "diarization")]
+fn merge_speaker_predictions(
+    segments: Vec<SpeakerSegmentPrediction>,
+    merge_gap_seconds: f32,
+) -> Result<Vec<SpeakerSegmentPrediction>> {
+    let mut merged: Vec<SpeakerSegmentPrediction> = Vec::new();
+    for segment in segments {
+        if let Some(last) = merged.last_mut() {
+            if last.speaker == segment.speaker
+                && segment.start_seconds - last.end_seconds <= merge_gap_seconds
+            {
+                let last_duration = (last.end_seconds - last.start_seconds).max(0.0);
+                let segment_duration = (segment.end_seconds - segment.start_seconds).max(0.0);
+                let total_duration = last_duration + segment_duration;
+                last.end_seconds = segment.end_seconds;
+                last.score = match (last.score, segment.score) {
+                    (Some(left), Some(right)) if total_duration > f32::EPSILON => {
+                        Some(((left * last_duration) + (right * segment_duration)) / total_duration)
+                    }
+                    (Some(left), Some(right)) => Some(left.max(right)),
+                    (Some(left), None) => Some(left),
+                    (None, Some(right)) => Some(right),
+                    (None, None) => None,
+                };
+                continue;
+            }
+        }
+        merged.push(segment);
+    }
+    Ok(merged)
+}
+
+fn diarization_speaker_count(response: &SpeakerDiarizationResponse) -> usize {
+    response
+        .segments
+        .iter()
+        .map(|segment| segment.speaker.as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len()
+}
+
+fn diarization_diagnostics(
+    provider_id: &str,
+    response: &SpeakerDiarizationResponse,
+    options: &DiarizationOptions,
+) -> Vec<String> {
+    let speaker_count = diarization_speaker_count(response);
+    let mut diagnostics = vec![
+        format!("diarizationProvider={provider_id}"),
+        format!("diarizationRuntime={}", diarization_runtime_value(response)),
+        format!("diarizationModelId={}", response.model_id),
+        format!("diarizationSegmentCount={}", response.segments.len()),
+        format!("diarizationSpeakerCount={speaker_count}"),
+        format!(
+            "diarizationAssignmentPolicy={}",
+            speaker_assignment_policy_value(options.assignment_policy)
+        ),
+    ];
+    if let Some(min) = options.min_speakers {
+        diagnostics.push(format!("diarizationMinSpeakers={min}"));
+        if speaker_count < min {
+            diagnostics.push(format!(
+                "diarizationSpeakerCountBelowRequestedMin={speaker_count}/{min}"
+            ));
+        }
+    }
+    if let Some(max) = options.max_speakers {
+        diagnostics.push(format!("diarizationMaxSpeakers={max}"));
+        if speaker_count > max {
+            diagnostics.push(format!(
+                "diarizationSpeakerCountAboveRequestedMax={speaker_count}/{max}"
+            ));
+        }
+    }
+    if diarization_runtime_is_heuristic(response) {
+        diagnostics.push("diarizationBaseline=heuristic-native".to_string());
+    }
+    diagnostics
+}
+
+#[cfg(feature = "diarization")]
+fn diarization_runtime_value(response: &SpeakerDiarizationResponse) -> &'static str {
+    match response.runtime {
+        audio_analysis_speakers::AudioRuntime::Onnx => "onnx",
+        audio_analysis_speakers::AudioRuntime::Candle => "candle",
+        audio_analysis_speakers::AudioRuntime::WhisperCpp => "whisper_cpp",
+        audio_analysis_speakers::AudioRuntime::Demucs => "demucs",
+        audio_analysis_speakers::AudioRuntime::External => "external",
+        audio_analysis_speakers::AudioRuntime::Spectral => "spectral",
+        audio_analysis_speakers::AudioRuntime::Heuristic => "heuristic",
+        audio_analysis_speakers::AudioRuntime::Imported => "imported",
+    }
+}
+
+#[cfg(not(feature = "diarization"))]
+fn diarization_runtime_value(response: &SpeakerDiarizationResponse) -> &str {
+    response.runtime.as_str()
+}
+
+#[cfg(feature = "diarization")]
+fn diarization_runtime_is_heuristic(response: &SpeakerDiarizationResponse) -> bool {
+    response.runtime == audio_analysis_speakers::AudioRuntime::Heuristic
+}
+
+#[cfg(not(feature = "diarization"))]
+fn diarization_runtime_is_heuristic(response: &SpeakerDiarizationResponse) -> bool {
+    response.runtime == "heuristic"
+}
+
+fn speaker_assignment_policy_value(policy: SpeakerAssignmentPolicy) -> &'static str {
+    match policy {
+        SpeakerAssignmentPolicy::Majority => "majority",
+        SpeakerAssignmentPolicy::NearestStart => "nearestStart",
+        SpeakerAssignmentPolicy::StrictContained => "strictContained",
+    }
 }
 
 pub(crate) fn normalize_samples_source(
@@ -1743,6 +2121,26 @@ mod tests {
         }
     }
 
+    struct PanickingDiarizationProvider {
+        called: bool,
+    }
+
+    impl TranscriptDiarizationProvider for PanickingDiarizationProvider {
+        fn provider_id(&self) -> &str {
+            "panicking-diarization"
+        }
+
+        fn diarize(
+            &mut self,
+            _audio: LoadedAudio,
+            _transcript: &TranscriptionContract,
+            _options: &DiarizationOptions,
+        ) -> Result<SpeakerDiarizationResponse> {
+            self.called = true;
+            panic!("diarization provider should not be called for invalid options");
+        }
+    }
+
     fn sample_request() -> TranscriptionPipelineRequest {
         let mut samples = vec![0.0; 16_000];
         for sample in &mut samples[1_000..5_000] {
@@ -1822,6 +2220,250 @@ mod tests {
             Some("en".to_string()),
             vec![segment],
         )?)
+    }
+
+    #[test]
+    fn diarization_options_reject_invalid_speaker_bounds() {
+        let mut options = DiarizationOptions {
+            min_speakers: Some(0),
+            ..DiarizationOptions::default()
+        };
+        assert!(validate_diarization_options(&options)
+            .unwrap_err()
+            .to_string()
+            .contains("invalid_request"));
+
+        options = DiarizationOptions {
+            max_speakers: Some(0),
+            ..DiarizationOptions::default()
+        };
+        assert!(validate_diarization_options(&options)
+            .unwrap_err()
+            .to_string()
+            .contains("invalid_request"));
+
+        options = DiarizationOptions {
+            min_speakers: Some(3),
+            max_speakers: Some(2),
+            ..DiarizationOptions::default()
+        };
+        assert!(validate_diarization_options(&options)
+            .unwrap_err()
+            .to_string()
+            .contains("invalid_request"));
+
+        options = DiarizationOptions {
+            min_speakers: Some(1),
+            max_speakers: Some(2),
+            ..DiarizationOptions::default()
+        };
+        validate_diarization_options(&options).unwrap();
+    }
+
+    #[test]
+    #[cfg(feature = "diarization")]
+    fn speech_spans_from_transcript_prefers_aligned_words(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let transcript = transcript_with_words(vec![("hello", 0.2, 0.5), ("world", 1.0, 1.4)])?;
+
+        let spans = speech_spans_from_transcript(&transcript, 2.0)?;
+
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0].start_seconds, 0.2);
+        assert_eq!(spans[0].end_seconds, 0.5);
+        assert_eq!(spans[1].start_seconds, 1.0);
+        assert_eq!(spans[1].end_seconds, 1.4);
+        assert!(spans[0].start_seconds < spans[1].start_seconds);
+        assert!(spans
+            .iter()
+            .all(|span| span.score.is_finite() && span.score > 0.0));
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "diarization")]
+    fn speech_spans_from_transcript_falls_back_to_segments(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let mut first = TranscriptSegmentContract::new(0, "hello");
+        first.start_seconds = Some(0.2);
+        first.end_seconds = Some(0.5);
+        let mut second = TranscriptSegmentContract::new(1, "world");
+        second.start_seconds = Some(1.0);
+        second.end_seconds = Some(1.4);
+        let transcript = TranscriptionContract::from_segments(
+            None,
+            Some("en".to_string()),
+            vec![second, first],
+        )?;
+
+        let spans = speech_spans_from_transcript(&transcript, 2.0)?;
+
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0].start_seconds, 0.2);
+        assert_eq!(spans[0].end_seconds, 0.5);
+        assert_eq!(spans[1].start_seconds, 1.0);
+        assert_eq!(spans[1].end_seconds, 1.4);
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "diarization")]
+    fn speech_spans_from_transcript_rejects_out_of_range_timing(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let transcript = transcript_with_words(vec![("hello", 0.2, 2.000_01)])?;
+
+        let error = speech_spans_from_transcript(&transcript, 2.0)
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("invalid_request"));
+        Ok(())
+    }
+
+    #[cfg(feature = "alignment")]
+    struct AlignmentAwareDiarizationProvider {
+        saw_aligned_words: bool,
+    }
+
+    #[cfg(feature = "alignment")]
+    impl TranscriptDiarizationProvider for AlignmentAwareDiarizationProvider {
+        fn provider_id(&self) -> &str {
+            "alignment-aware-diarization"
+        }
+
+        fn diarize(
+            &mut self,
+            _audio: LoadedAudio,
+            transcript: &TranscriptionContract,
+            options: &DiarizationOptions,
+        ) -> Result<SpeakerDiarizationResponse> {
+            self.saw_aligned_words = transcript.segments.iter().any(|segment| {
+                segment.words.iter().any(|word| {
+                    word.start_seconds.is_some()
+                        && word.end_seconds.is_some()
+                        && word.confidence.is_some()
+                })
+            });
+            assert!(
+                self.saw_aligned_words,
+                "diarization should receive transcript word timings from alignment"
+            );
+            let mut response = diarization_response_for_tests(vec![SpeakerSegmentPrediction {
+                speaker: "SPEAKER_ALIGNED".to_string(),
+                start_seconds: 0.0,
+                end_seconds: 1.0,
+                score: Some(0.95),
+            }]);
+            response.model_id = options.model_id.clone();
+            Ok(response)
+        }
+    }
+
+    #[cfg(all(feature = "alignment", feature = "candle"))]
+    fn write_tiny_wav2vec2_bundle(root: &Path) {
+        use candle_core::{Device, Tensor};
+        use std::collections::HashMap;
+
+        fs::write(
+            root.join("config.json"),
+            serde_json::json!({
+                "model_type": "wav2vec2",
+                "architectures": ["Wav2Vec2ForCTC"],
+                "vocab_size": 10,
+                "word_delimiter_token": "|",
+                "hidden_size": 1,
+                "num_hidden_layers": 0,
+                "num_attention_heads": 1,
+                "intermediate_size": 1,
+                "hidden_act": "gelu",
+                "layer_norm_eps": 1e-5,
+                "feat_extract_activation": "gelu",
+                "conv_dim": [1],
+                "conv_stride": [1],
+                "conv_kernel": [1],
+                "conv_bias": false,
+                "num_conv_pos_embeddings": 0,
+                "num_conv_pos_embedding_groups": 1
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fs::write(
+            root.join("tokenizer.json"),
+            serde_json::json!({
+                "version": "1.0",
+                "word_delimiter_token": "|",
+                "model": {
+                    "type": "WordLevel",
+                    "vocab": {
+                        "[PAD]": 0,
+                        "H": 1,
+                        "E": 2,
+                        "L": 3,
+                        "O": 4,
+                        "|": 5,
+                        "W": 6,
+                        "R": 7,
+                        "D": 8,
+                        "<unk>": 9
+                    },
+                    "unk_token": "<unk>"
+                }
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fs::write(
+            root.join("preprocessor_config.json"),
+            serde_json::json!({
+                "sampling_rate": 16000,
+                "do_normalize": false,
+                "return_attention_mask": false
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let device = Device::Cpu;
+        let mut tensors = HashMap::new();
+        tensors.insert(
+            "wav2vec2.feature_extractor.conv_layers.0.conv.weight".to_string(),
+            Tensor::new(&[1.0f32], &device)
+                .unwrap()
+                .reshape((1, 1, 1))
+                .unwrap(),
+        );
+        tensors.insert(
+            "wav2vec2.feature_projection.layer_norm.weight".to_string(),
+            Tensor::new(&[1.0f32], &device).unwrap(),
+        );
+        tensors.insert(
+            "wav2vec2.feature_projection.layer_norm.bias".to_string(),
+            Tensor::new(&[0.0f32], &device).unwrap(),
+        );
+        tensors.insert(
+            "wav2vec2.feature_projection.projection.weight".to_string(),
+            Tensor::new(&[1.0f32], &device)
+                .unwrap()
+                .reshape((1, 1))
+                .unwrap(),
+        );
+        tensors.insert(
+            "wav2vec2.feature_projection.projection.bias".to_string(),
+            Tensor::new(&[0.0f32], &device).unwrap(),
+        );
+        tensors.insert(
+            "lm_head.weight".to_string(),
+            Tensor::new(&[0.0f32; 10], &device)
+                .unwrap()
+                .reshape((10, 1))
+                .unwrap(),
+        );
+        tensors.insert(
+            "lm_head.bias".to_string(),
+            Tensor::new(&[0.0f32; 10], &device).unwrap(),
+        );
+        candle_core::safetensors::save(&tensors, root.join("model.safetensors")).unwrap();
     }
 
     #[test]
@@ -2276,6 +2918,297 @@ mod tests {
             response.transcript.segments[0].speaker.as_deref(),
             Some("SPEAKER_00")
         );
+    }
+
+    #[test]
+    fn native_pipeline_reports_diarization_diagnostics() {
+        let mut request = sample_request();
+        request.diarization = DiarizationOptions {
+            enabled: true,
+            min_speakers: Some(2),
+            max_speakers: Some(3),
+            ..DiarizationOptions::default()
+        };
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+        let mut diarizer = MockDiarizationProvider;
+
+        let response =
+            run_transcription_pipeline(request, &mut vad, &mut asr, None, Some(&mut diarizer))
+                .unwrap();
+
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationProvider=mock-diarization"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationSegmentCount=1"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationSpeakerCount=1"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationMinSpeakers=2"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationSpeakerCountBelowRequestedMin=1/2"));
+    }
+
+    #[test]
+    fn native_pipeline_diarization_invalid_bounds_errors_before_provider() {
+        let mut request = sample_request();
+        request.diarization = DiarizationOptions {
+            enabled: true,
+            min_speakers: Some(3),
+            max_speakers: Some(2),
+            ..DiarizationOptions::default()
+        };
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+        let mut diarizer = PanickingDiarizationProvider { called: false };
+
+        let error =
+            run_transcription_pipeline(request, &mut vad, &mut asr, None, Some(&mut diarizer))
+                .unwrap_err()
+                .to_string();
+
+        assert!(error.contains("invalid_request"));
+        assert!(!diarizer.called);
+    }
+
+    #[test]
+    #[cfg(not(feature = "diarization"))]
+    fn native_diarization_without_feature_still_reports_no_provider() {
+        let mut request = sample_request();
+        request.diarization.enabled = true;
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+
+        let error = run_transcription_pipeline(request, &mut vad, &mut asr, None, None)
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("setup_error"));
+        assert!(error.contains("no diarization provider is available"));
+    }
+
+    #[test]
+    #[cfg(feature = "diarization")]
+    fn native_speaker_diarization_provider_uses_transcript_spans_when_available(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let samples = (0..32_000)
+            .map(|index| if index % 80 < 40 { 0.2 } else { -0.2 })
+            .collect::<Vec<_>>();
+        let audio = LoadedAudio {
+            samples,
+            sample_rate: 16_000,
+            channels: 1,
+            source: Some("synthetic".to_string()),
+        };
+        let transcript = transcript_with_words(vec![("hello", 0.20, 0.50), ("world", 1.00, 1.40)])?;
+        let options = DiarizationOptions {
+            enabled: true,
+            model_id: "requested-native-speakers".to_string(),
+            ..DiarizationOptions::default()
+        };
+        let mut provider = NativeSpeakerDiarizationProvider;
+
+        let response = provider.diarize(audio, &transcript, &options)?;
+
+        assert_eq!(response.model_id, "requested-native-speakers");
+        assert_eq!(
+            response.runtime,
+            audio_analysis_speakers::AudioRuntime::Heuristic
+        );
+        assert_eq!(response.segments.len(), 2);
+        assert!((response.segments[0].start_seconds - 0.20).abs() < 0.001);
+        assert!((response.segments[0].end_seconds - 0.50).abs() < 0.001);
+        assert!((response.segments[1].start_seconds - 1.00).abs() < 0.001);
+        assert!((response.segments[1].end_seconds - 1.40).abs() < 0.001);
+        assert!(response
+            .segments
+            .iter()
+            .all(|segment| segment.speaker.starts_with("speaker_")));
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "diarization")]
+    fn native_speaker_diarization_provider_falls_back_without_transcript_timing(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let samples = (0..16_000)
+            .map(|index| {
+                if (1_000..8_000).contains(&index) {
+                    0.2
+                } else {
+                    0.0
+                }
+            })
+            .collect::<Vec<_>>();
+        let audio = LoadedAudio {
+            samples,
+            sample_rate: 16_000,
+            channels: 1,
+            source: Some("synthetic".to_string()),
+        };
+        let segment = TranscriptSegmentContract::new(0, "hello without timing");
+        let transcript =
+            TranscriptionContract::from_segments(None, Some("en".to_string()), vec![segment])?;
+        let options = DiarizationOptions {
+            enabled: true,
+            model_id: "fallback-native-speakers".to_string(),
+            ..DiarizationOptions::default()
+        };
+        let mut provider = NativeSpeakerDiarizationProvider;
+
+        let response = provider.diarize(audio, &transcript, &options)?;
+
+        assert_eq!(response.model_id, "fallback-native-speakers");
+        assert_eq!(response.operation, "audio.speakers.diarize");
+        assert_eq!(
+            response.runtime,
+            audio_analysis_speakers::AudioRuntime::Heuristic
+        );
+        assert!(!response.segments.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "alignment")]
+    fn native_pipeline_supplies_alignment_provider_when_enabled() {
+        let mut request = sample_request();
+        request.alignment = AlignmentOptions {
+            enabled: true,
+            model_bundle: None,
+            ..AlignmentOptions::default()
+        };
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+
+        let response =
+            run_native_transcription_pipeline(request, &mut vad, &mut asr, None).unwrap();
+
+        let alignment = response.alignment.as_ref().unwrap();
+        assert_eq!(alignment.provider, "ctc-forced-aligner");
+        assert_eq!(alignment.model_id, default_alignment_model());
+        assert_eq!(alignment.word_count, 1);
+        let word = &response.transcript.segments[0].words[0];
+        assert_eq!(word.text, "hello");
+        assert!(word.start_seconds.is_some());
+        assert!(word.end_seconds.is_some());
+        assert_eq!(word.confidence, Some(1.0));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "deterministic transcript timing alignment completed"));
+        response
+            .transcript
+            .validate_strict()
+            .expect("native pipeline response should be strictly valid");
+    }
+
+    #[test]
+    fn native_pipeline_leaves_alignment_absent_when_disabled() {
+        let request = sample_request();
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+
+        let response =
+            run_native_transcription_pipeline(request, &mut vad, &mut asr, None).unwrap();
+
+        assert!(response.alignment.is_none());
+        assert!(response
+            .diagnostics
+            .iter()
+            .all(|item| !item.to_lowercase().contains("alignment")));
+        response
+            .transcript
+            .validate_strict()
+            .expect("native pipeline response should be strictly valid");
+    }
+
+    #[test]
+    #[cfg(feature = "alignment")]
+    fn native_pipeline_runs_alignment_before_diarization() {
+        let mut request = sample_request();
+        request.alignment.enabled = true;
+        request.diarization.enabled = true;
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+        let mut diarizer = AlignmentAwareDiarizationProvider {
+            saw_aligned_words: false,
+        };
+
+        let response =
+            run_native_transcription_pipeline(request, &mut vad, &mut asr, Some(&mut diarizer))
+                .unwrap();
+
+        assert!(diarizer.saw_aligned_words);
+        assert!(response.diarization.is_some());
+        let word = &response.transcript.segments[0].words[0];
+        assert!(word.start_seconds.is_some());
+        assert!(word.end_seconds.is_some());
+        assert_eq!(word.speaker.as_deref(), Some("SPEAKER_ALIGNED"));
+        assert_eq!(
+            response.transcript.segments[0].speaker.as_deref(),
+            Some("SPEAKER_ALIGNED")
+        );
+    }
+
+    #[test]
+    #[cfg(not(feature = "alignment"))]
+    fn native_pipeline_alignment_without_feature_reports_alignment_unsupported_runtime() {
+        let mut request = sample_request();
+        request.alignment.enabled = true;
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+
+        let error = run_native_transcription_pipeline(request, &mut vad, &mut asr, None)
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("unsupported_runtime"));
+        assert!(error.contains("CTC alignment"));
+        assert!(error.contains("alignment"));
+        assert!(!error.contains("no alignment provider is available"));
+    }
+
+    #[test]
+    #[cfg(all(feature = "alignment", feature = "candle"))]
+    fn native_pipeline_with_tiny_wav2vec2_bundle_runs_model_backed_alignment(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        write_tiny_wav2vec2_bundle(temp.path());
+        let mut request = sample_request();
+        request.alignment = AlignmentOptions {
+            enabled: true,
+            model_bundle: Some(temp.path().to_path_buf()),
+            ..AlignmentOptions::default()
+        };
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+
+        let response = run_native_transcription_pipeline(request, &mut vad, &mut asr, None)?;
+
+        let alignment = response.alignment.as_ref().unwrap();
+        assert_eq!(alignment.provider, "ctc-forced-aligner");
+        assert_eq!(alignment.word_count, 1);
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "alignmentModelExecution=candle-wav2vec2"));
+        let word = &response.transcript.segments[0].words[0];
+        assert_eq!(word.text, "hello");
+        assert!(word.start_seconds.is_some());
+        assert!(word.end_seconds.is_some());
+        assert!(word.confidence.is_some());
+        response.transcript.validate_strict()?;
+        Ok(())
     }
 
     #[test]

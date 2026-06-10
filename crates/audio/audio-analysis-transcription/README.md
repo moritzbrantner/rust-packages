@@ -14,16 +14,24 @@ bounded text segments, it falls back to chunk/window segment timing. Native
 Whisper segment times are emitted as global transcript times. Timestamp-token
 segments also include approximate projected word timings based on
 character-weighted distribution inside each segment. wav2vec2/CTC alignment
-is the authoritative native word timing path when a supported local alignment
-bundle is provided.
+can run through the same native transcription pipeline: `alignment.enabled=true`
+with no bundle uses deterministic transcript timing alignment, while
+`alignment.enabled=true` with a supported local wav2vec2 bundle uses Candle
+wav2vec2 CTC alignment.
 
 The external WhisperX command provider remains compatibility and parity tooling.
 It keeps Python-based execution explicit for callers that still need WhisperX
 decoding, batched ASR, alignment, or pyannote-backed diarization outside the
 default Rust path.
 
-Native deterministic diarization is available behind `diarization`. Pyannote
-integration is plan-only in the native path until explicitly implemented.
+Native deterministic diarization is available behind `diarization` as a
+heuristic spectral baseline, not a pyannote replacement or production speaker
+recognition model. Diarization assignment runs after alignment when both
+options are enabled, so the native diarization seam can use aligned word
+timings, or segment timings when word timings are absent, as speech-span hints.
+When no transcript timing is available it falls back to the energy-VAD baseline.
+`min_speakers` and `max_speakers` are validated and reported in diagnostics;
+they are not pyannote-style clustering constraints in the native baseline.
 
 CTC alignment validates local wav2vec2 bundle files, config, tokenizer
 vocabulary, and preprocessor metadata. Supported local `Wav2Vec2ForCTC`

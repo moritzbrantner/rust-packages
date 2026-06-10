@@ -97,7 +97,7 @@ numbers-core = { package = "moritzbrantner-numbers-core", version = "0.1.0", pat
 tensor-data = { package = "moritzbrantner-tensor-data", version = "0.1.0", path = "crates/data/tensor-data" }
 jobs-core = { package = "moritzbrantner-jobs-core", version = "0.1.1", path = "crates/jobs/jobs-core" }
 model-runtime = { package = "moritzbrantner-model-runtime", version = "0.1.0", path = "crates/runtime/model-runtime" }
-runtime-core = { package = "moritzbrantner-runtime-core", version = "0.1.0", path = "crates/runtime/runtime-core" }
+runtime-core = { package = "moritzbrantner-runtime-core", version = "0.1.1", path = "crates/runtime/runtime-core" }
 runtime-onnx = { package = "moritzbrantner-runtime-onnx", version = "0.1.0", path = "crates/runtime/runtime-onnx" }
 finance-statistics = { package = "moritzbrantner-finance-statistics", version = "0.1.0", path = "crates/math/finance-statistics" }
 finance-data = { package = "moritzbrantner-finance-data", version = "0.1.0", path = "crates/data/finance-data" }
@@ -151,7 +151,7 @@ three-d-processing-core = { package = "moritzbrantner-three-d-processing-core", 
 three-d-processing-io = { package = "moritzbrantner-three-d-processing-io", version = "0.1.0", path = "crates/three-d/three-d-processing-io" }
 three-d-processing-mesh = { package = "moritzbrantner-three-d-processing-mesh", version = "0.1.0", path = "crates/three-d/three-d-processing-mesh" }
 three-d-scene-svg = { package = "moritzbrantner-three-d-scene-svg", version = "0.1.0", path = "crates/three-d/three-d-scene-svg" }
-video-analysis-core = { package = "moritzbrantner-video-analysis-core", version = "0.1.1", path = "crates/video/video-analysis-core" }
+video-analysis-core = { package = "moritzbrantner-video-analysis-core", version = "0.1.2", path = "crates/video/video-analysis-core" }
 video-analysis-data = { package = "moritzbrantner-video-analysis-data", version = "0.1.0", path = "crates/video/video-analysis-data" }
 video-analysis-dataset = { package = "moritzbrantner-video-analysis-dataset", version = "0.1.0", path = "crates/video/video-analysis-dataset" }
 video-analysis-detectors = { package = "moritzbrantner-video-analysis-detectors", version = "0.1.0", path = "crates/video/video-analysis-detectors" }
@@ -296,6 +296,7 @@ three-d = [
 ]
 comfyui = ["dep:comfyui-data", "dep:comfyui-latents", "dep:comfyui-models"]
 runtime = ["dep:runtime-core", "dep:jobs-core", "dep:model-runtime"]
+external-tests = ["runtime", "dep:runtime-onnx", "runtime-onnx/onnxruntime"]
 onnx = [
     "dep:runtime-onnx",
     "image-analysis-captioning/local-onnx",

@@ -77,7 +77,7 @@ impl ForcedAlignmentProvider for FixedAligner {
                     confidence: Some(0.91),
                 },
             ],
-            diagnostics: Vec::new(),
+            diagnostics: vec!["fixed alignment completed".to_string()],
         })
     }
 }
@@ -160,6 +160,71 @@ fn mock_native_asr_alignment_and_diarization_round_trip_into_transcript_contract
         response.transcript.segments[0].speaker.as_deref(),
         Some("SPEAKER_00")
     );
+
+    Ok(())
+}
+
+#[test]
+fn native_pipeline_reports_alignment_then_diarization_diagnostics() -> Result<()> {
+    let mut vad = FixedVad;
+    let mut asr = FixedAsr;
+    let mut aligner = FixedAligner;
+    let mut diarizer = FixedDiarizer;
+    let request = TranscriptionPipelineRequest {
+        source: TranscriptionSource::Samples {
+            samples: vec![0.1; 16_000],
+            sample_rate: 16_000,
+            channels: 1,
+            source: Some("inline".to_string()),
+        },
+        provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+            device: NativeDevicePreference::Cpu,
+            ..CandleWhisperOptions::default()
+        }),
+        vad: VadOptions::default(),
+        alignment: AlignmentOptions {
+            enabled: true,
+            ..AlignmentOptions::default()
+        },
+        diarization: DiarizationOptions {
+            enabled: true,
+            ..DiarizationOptions::default()
+        },
+        output: Default::default(),
+    };
+
+    let response = audio_analysis_transcription::run_transcription_pipeline(
+        request,
+        &mut vad,
+        &mut asr,
+        Some(&mut aligner),
+        Some(&mut diarizer),
+    )?;
+
+    assert_eq!(
+        response.alignment.as_ref().unwrap().provider,
+        "fixed-aligner"
+    );
+    assert!(response.diarization.is_some());
+    assert_eq!(
+        response.transcript.segments[0].words[0].speaker.as_deref(),
+        Some("SPEAKER_00")
+    );
+    let alignment_index = response
+        .diagnostics
+        .iter()
+        .position(|item| item == "fixed alignment completed")
+        .expect("alignment diagnostics should be present");
+    let diarization_index = response
+        .diagnostics
+        .iter()
+        .position(|item| item == "diarizationProvider=fixed-diarizer")
+        .expect("diarization diagnostics should be present");
+    assert!(alignment_index < diarization_index);
+    response
+        .transcript
+        .validate_strict()
+        .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
 
     Ok(())
 }

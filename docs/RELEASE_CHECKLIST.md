@@ -53,6 +53,57 @@ Recommended publish order:
 3. Wave 3 external/runtime crates
 4. Wave 4 `video-analysis` and `video-analysis-cli`
 
+For the Model Runtime Spine release slice, prepare and publish the smallest
+runtime/model foundation before the full Wave 1 foundation release. This slice
+is for package consumers that need stable runtime DTOs, job/artifact contracts,
+model bundle lifecycle behavior, and opt-in ONNX Runtime readiness. Publishing
+remains manual: the maintainer runs `cargo publish` only after the verification
+commands pass.
+
+Run the release Rust gates plus the opt-in ONNX spine smoke:
+
+```bash
+cargo test --workspace --all-targets
+cargo clippy --workspace --all-targets -- -D warnings
+cargo doc --workspace --no-deps
+bash scripts/check_model_external_tools.sh onnx
+cargo test --no-default-features --test model_runtime_spine_onnx --features external-tests -- --ignored
+```
+
+If the ONNX Runtime dynamic library is not discoverable, first run
+`bash scripts/setup_model_external_tools.sh onnx` or set `ORT_DYLIB_PATH` to a
+local ONNX Runtime shared library.
+
+Dry-run and publish the spine crates in dependency order. Because Cargo package
+verification resolves registry dependencies, dry-run each dependent crate after
+its prerequisite version has been published to crates.io.
+
+```bash
+cargo package --allow-dirty -p moritzbrantner-runtime-core
+cargo publish -p moritzbrantner-runtime-core
+
+cargo package --allow-dirty -p moritzbrantner-jobs-core
+cargo publish -p moritzbrantner-jobs-core
+
+cargo package --allow-dirty -p moritzbrantner-video-analysis-core
+cargo publish -p moritzbrantner-video-analysis-core
+
+cargo package --allow-dirty -p moritzbrantner-runtime-onnx
+cargo publish -p moritzbrantner-runtime-onnx
+
+cargo package --allow-dirty -p moritzbrantner-model-runtime
+cargo publish -p moritzbrantner-model-runtime
+```
+
+`model-runtime` owns model specs, bundle materialization, manifests, and
+diagnostics. It does not own task inference semantics; task crates own
+preprocessing, decoding, labels, spans, boxes, captions, embeddings, and other
+domain-specific model behavior. `runtime-onnx` is part of this slice only as a
+domain-neutral low-level runtime with explicit `onnxruntime` feature support.
+The ONNX spine smoke downloads
+`onnx-internal-testing/tiny-random-BertModel-ONNX` and opens
+`onnx/model.onnx` from the materialized bundle.
+
 For a numerics and dense-data release slice, publish and dry-run packages in
 this order so crates.io can resolve each internal dependency from the registry:
 
