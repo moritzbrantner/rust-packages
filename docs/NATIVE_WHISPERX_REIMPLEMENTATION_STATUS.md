@@ -6,6 +6,15 @@
 - Native transcription baseline commit: `8876ed7f Add native audio transcription, diarization, and alignment`
 - Smoke-test tightening commit: `fd1af803 Add native audio smoke tests and disconnect handling`
 - Default tests remain hermetic: no Python, WhisperX, Hugging Face token, network, CUDA, or local model files.
+- 2026-06-10 Phase 0 verification on this worktree passed:
+  `cargo fmt --check`, speaker default and `onnx,model-bundles` tests,
+  transcription default, `alignment,candle,model-bundles`, `audio-io`, and
+  `diarization,onnx,model-bundles` tests,
+  `cargo test --test audio_surface_audit`,
+  `cargo test --test audio_transcription_native_contracts`,
+  `cargo test --test audio_voice_pipeline`, and
+  `bun run audio-app:typecheck`. Integration tests emitted an unrelated
+  pre-existing `text-model-runtime` dead-code warning.
 
 ## Goal
 
@@ -56,6 +65,12 @@ Replace WhisperX runtime dependency over time with Rust-native transcription, al
 - Unsupported wav2vec2 architectures, stable-layer-norm configs, inconsistent
   positional-convolution weight-norm tensors, or other unsupported safetensors
   layouts return typed errors instead of falling back silently.
+- Internal wav2vec2 bundle layout inspection reports architecture,
+  stable-layer-norm status, positional-convolution layout, feature-extractor
+  norm, encoder layer count, missing tensor keys, and unsupported reasons.
+- `audio.transcription.alignmentBundlePlan` exposes that readiness check as a
+  Debug-only non-executing operation. It can return a static plan without local
+  files, and invalid bundle paths are `setup_error`.
 
 ### Decode
 
@@ -67,6 +82,9 @@ Replace WhisperX runtime dependency over time with Rust-native transcription, al
   and normalizes/resamples to 16 kHz through the same native boundary.
 - `audio.transcription.decodePlan` explains the selected decode path without
   opening files or executing FFmpeg.
+- Executing decode paths have internal diagnostics for decode route, source
+  extension, input sample rate when available, and normalized mono 16 kHz
+  output shape.
 
 ### Diarization
 
@@ -83,15 +101,30 @@ Replace WhisperX runtime dependency over time with Rust-native transcription, al
 - `audio.transcription.diarizationPlan` exposes the current heuristic runtime,
   assignment policies, speaker-bound semantics, and future model-backed
   provider directions without claiming pyannote parity.
+- ADR 0003 is accepted. The first production model-backed diarization target is
+  an opt-in ONNX speaker embedding provider.
+- `audio-analysis-speakers` exposes `SpeakerEmbeddingProvider`,
+  `SpeakerEmbeddingRequest`, and `SpeakerEmbeddingResponse` without changing
+  existing `SpeakerEmbeddingExtractor` users.
+- An opt-in `OnnxSpeakerEmbedder` validates direct `.onnx` files, directories
+  containing `model.onnx`, or `model-runtime` bundle manifests when
+  `model-bundles` is enabled. It supports one f32 waveform input and one f32
+  embedding output for the first tranche.
+- Native transcription can construct
+  `WindowedSpeakerDiarizer<OnnxSpeakerEmbedder, EnergyVoiceActivityDetector>`
+  only when an explicit `speakerEmbeddingModelBundle` is supplied. Heuristic
+  diarization remains the default.
 
 ### Batch Semantics
 
 - Candle Whisper batch options are validated: `max_batch_size=0` is rejected as
   `invalid_request`.
 - Native diagnostics report `chunkCount`, `batchChunks`, `maxBatchSize`,
-  `batchCount`, and actual `batchExecution`.
+  `batchCount`, and actual
+  `batchExecution=candle-whisper-sequential`.
 - Batch grouping preserves chunk order and global timing. Execution remains
-  deterministic and non-concurrent.
+  deterministic and non-concurrent; this is not throughput parity or
+  tensor-batched model execution.
 
 ## Missing For WhisperX Parity
 
@@ -115,6 +148,145 @@ Current machine-local assets used for native Whisper smoke:
 - CUDA 12 shim: `/home/moenarch/.local/share/video-analysis-smoke/cuda12-libs`
 
 `/usr/local/cuda` points at CUDA 13.3 on this host. The passing smoke uses CUDA 12.3 libraries through `RUSTFLAGS`, `LIBRARY_PATH`, and `LD_LIBRARY_PATH`.
+
+## 2026-06-10 Native Validation Tranche
+
+Phase 1 inventory used the default smoke-root layout by environment variable,
+not checked-in model files. The speech WAV and checked-in WebM fixture were
+present. `ffmpeg` was available. Python could import `whisperx`, but the
+`whisperx` console entry point failed during import. `HF_TOKEN` and
+`MODEL_HF_TOKEN` were not present in the shell, so no token-gated pyannote
+parity or model download setup was run. `scripts/model_bundles.lock.sh` has no
+wav2vec2 or ONNX speaker model specs configured.
+
+Baseline guard before edits:
+
+```bash
+cargo fmt --check
+cargo test -p moritzbrantner-audio-analysis-speakers
+cargo test -p moritzbrantner-audio-analysis-speakers --features onnx,model-bundles
+cargo test -p moritzbrantner-audio-analysis-transcription
+cargo test -p moritzbrantner-audio-analysis-transcription --features alignment,candle,model-bundles
+cargo test -p moritzbrantner-audio-analysis-transcription --features audio-io
+cargo test -p moritzbrantner-audio-analysis-transcription --features diarization,onnx,model-bundles
+cargo test --test audio_surface_audit
+cargo test --test audio_transcription_native_contracts
+cargo test --test audio_voice_pipeline
+bun run audio-app:typecheck
+```
+
+Result: pass. The only noted warning was unrelated dead code in
+`text-model-runtime`.
+
+The same required matrix passed after the media smoke harness hardening and
+documentation updates. `bun run test` also passed before handoff.
+
+wav2vec2 alignment smoke:
+
+```bash
+RUN_NATIVE_ALIGNMENT_TESTS=1 \
+ALIGNMENT_MODEL_BUNDLE="$SMOKE_ROOT/wav2vec2-base-960h" \
+TRANSCRIPTION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
+ALIGNMENT_TRANSCRIPT_TEXT="hello world" \
+cargo test -p moritzbrantner-audio-analysis-transcription \
+  --features candle,alignment,model-bundles \
+  ctc_alignment_wav2vec2_smoke_when_requested -- --ignored --nocapture
+```
+
+Result: fail, `setup_error`. The default caller-owned wav2vec2 bundle directory
+was missing. Because bundle resolution failed before layout inspection, no
+architecture, `do_stable_layer_norm`, tokenizer layout, positional convolution
+layout, missing tensor keys, or inference-start observations were available.
+The typed prefix was `setup_error: required model bundle ... is missing`.
+Inference did not start, and deterministic timing fallback was absent.
+
+Media decode smoke:
+
+```bash
+RUN_NATIVE_MEDIA_DECODE_TESTS=1 \
+TRANSCRIPTION_MEDIA_PATH="tests/fixtures/me-at-the-zoo-jNQXAC9IVRw.webm" \
+cargo test -p moritzbrantner-audio-analysis-transcription \
+  --features audio-io \
+  native_media_decode_when_requested -- --ignored --nocapture
+```
+
+Initial result: fail, `setup_error`-class harness issue. The documented
+workspace-root-relative fixture path was interpreted from the crate test
+process and FFprobe reported `No such file or directory`.
+
+Hardening: the ignored smoke harness now resolves missing relative media paths
+against the workspace root. It does not change runtime decode behavior,
+feature defaults, `audio.transcription.decodePlan`, or FFmpeg requirements.
+
+Rerun result: pass. The smoke asserted
+`decode_route=audio-io-media-decode`, mono output, 16 kHz output, non-empty
+finite samples, preserved resolved source path, and available input sample-rate
+diagnostics.
+
+ONNX speaker embedding smoke:
+
+```bash
+RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
+SPEAKER_EMBEDDING_MODEL_BUNDLE="$SMOKE_ROOT/onnx-speaker-model" \
+DIARIZATION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
+SPEAKER_EMBEDDING_DIMENSION=192 \
+cargo test -p moritzbrantner-audio-analysis-speakers \
+  --features onnx,model-bundles \
+  onnx_speaker_embedding_smoke_when_requested -- --ignored --nocapture
+```
+
+Result: fail, `setup_error`. The default caller-owned ONNX speaker bundle
+directory was missing. No model path, input rank/name, output rank/name,
+padding/truncation behavior, embedding dimension, normalization, or ONNX
+runtime observations were available beyond the typed prefix
+`setup_error: ONNX speaker embedding bundle ... does not exist`.
+
+Transcription ONNX diarization smoke:
+
+```bash
+RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
+SPEAKER_EMBEDDING_MODEL_BUNDLE="$SMOKE_ROOT/onnx-speaker-model" \
+DIARIZATION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
+SPEAKER_EMBEDDING_DIMENSION=192 \
+cargo test -p moritzbrantner-audio-analysis-transcription \
+  --features diarization,onnx,model-bundles \
+  native_onnx_diarization_smoke_when_requested -- --ignored --nocapture
+```
+
+Result: fail, `setup_error`. The smoke used the direct-samples path from the
+local WAV and then failed when constructing the explicit ONNX speaker embedder
+because the caller-owned bundle was missing. ONNX diarization diagnostics and
+strict transcript speaker validation were not reached. Typed prefix:
+`setup_error: ONNX speaker embedding bundle ... does not exist`.
+
+External WhisperX parity smoke:
+
+```bash
+RUN_WHISPERX_PARITY_TESTS=1 \
+WHISPERX_COMMAND=whisperx \
+WHISPERX_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
+cargo test --test audio_transcription_native_contracts \
+  external_whisperx_parity_when_requested -- --ignored --nocapture
+```
+
+Result: fail, `setup_error`. `whisperx --version` and the parity smoke both
+failed during the console entry-point import with
+`pkg_resources.UnknownExtra: typer 0.24.1 has no such extra feature 'all'`.
+No WhisperX JSON was produced, no `text-transcripts` import occurred, and no
+speaker fields were observed. Token-gated diarization parity was not run
+because `HF_TOKEN` was absent and the base WhisperX command was already broken.
+
+Backlog from this tranche:
+
+- Provision a caller-owned compatible wav2vec2 CTC bundle or add an explicit
+  wav2vec2 spec to existing model-bundle tooling, then rerun alignment smoke.
+- Choose a known compatible ONNX speaker embedding model and local bundle
+  layout, then rerun the speaker and transcription ONNX diarization smokes.
+- Repair the local WhisperX Python entry point before rerunning external
+  WhisperX or pyannote parity.
+- Keep throughput work separate: ASR reports
+  `batchExecution=candle-whisper-sequential`, wav2vec2 alignment executes per
+  segment, and ONNX diarization embeds windows one by one.
 
 Optional external WhisperX parity can be run manually when Python WhisperX and
 input media are configured:
@@ -141,9 +313,53 @@ cargo test -p moritzbrantner-audio-analysis-transcription \
   native_media_decode_when_requested -- --ignored --nocapture
 ```
 
+Optional local ONNX speaker embedding smoke can be run with a caller-owned ONNX
+speaker model bundle and 16 kHz WAV:
+
+```bash
+RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
+SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+DIARIZATION_AUDIO_PATH=/path/to/meeting.wav \
+cargo test -p moritzbrantner-audio-analysis-speakers \
+  --features onnx,model-bundles \
+  onnx_speaker_embedding_smoke_when_requested -- --ignored --nocapture
+```
+
+Set `SPEAKER_EMBEDDING_DIMENSION` if the model does not emit the default 192
+dimensions expected by the smoke.
+
+The transcription pipeline's explicit ONNX diarization path has its own ignored
+smoke. It reads the same caller-owned 16 kHz WAV, builds a direct-sample
+pipeline request with mock ASR timing, and verifies that
+`diarization.speakerEmbeddingModelBundle` produces ONNX diarization diagnostics:
+
+```bash
+RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
+SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+DIARIZATION_AUDIO_PATH=/path/to/meeting-16khz.wav \
+SPEAKER_EMBEDDING_DIMENSION=192 \
+cargo test -p moritzbrantner-audio-analysis-transcription \
+  --features diarization,onnx,model-bundles \
+  native_onnx_diarization_smoke_when_requested -- --ignored --nocapture
+```
+
+## Performance Reality Backlog
+
+- ASR batch execution is currently `candle-whisper-sequential`.
+- wav2vec2 alignment executes the model per segment.
+- Diarization embeds and clusters speech windows one by one.
+- None of these claim WhisperX throughput parity.
+
+Future throughput work is separate from correctness work: provider-level
+Whisper mel/model batching if Candle supports it, wav2vec2 segment batching if
+the model API supports it, and batched ONNX embedding windows if the runtime and
+model input shape support batched waveforms.
+
 ## Recommended Next Order
 
-1. Expand wav2vec2 architecture and performance coverage beyond the currently
-   supported layouts.
-2. Exercise opt-in `audio-io` media decode on reviewed local smoke assets.
-3. Revisit diarization quality with real model-backed speaker embeddings.
+1. Provision or configure a caller-owned wav2vec2 CTC bundle and rerun the
+   alignment smoke to capture real layout diagnostics.
+2. Pick a known compatible local ONNX speaker embedding model and rerun the
+   speaker plus transcription ONNX diarization smokes.
+3. Repair the local WhisperX console environment before external WhisperX and
+   pyannote parity comparison.

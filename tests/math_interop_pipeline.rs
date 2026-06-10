@@ -61,6 +61,15 @@ fn expanded_math_apis_interoperate_through_facade() {
     let matrix = va::linear::F32Matrix::from_rows([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]).unwrap();
     let qr = matrix.qr_decompose().unwrap();
     assert_eq!(qr.r.shape().rows, 2);
+    let f64_matrix = va::linear::F64Matrix::try_from(&matrix).unwrap();
+    let svd = f64_matrix
+        .svd(va::linear::SvdOptions {
+            compute_factors: true,
+            ..va::linear::SvdOptions::default()
+        })
+        .unwrap();
+    assert_eq!(svd.rank, 2);
+    assert!(svd.reconstruction.relative_residual < 1.0e-10);
 
     let regression =
         va::stats::ordinary_least_squares(&matrix.as_view(), &[3.0, 5.0, 7.0]).unwrap();
@@ -72,7 +81,7 @@ fn expanded_math_apis_interoperate_through_facade() {
 }
 
 #[test]
-fn analytical_spine_connects_sparse_linear_statistics_and_finance() {
+fn analytical_math_crates_connect_sparse_linear_statistics_and_finance() {
     let coo = va::sparse::CooMatrix::new(
         4,
         2,

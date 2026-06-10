@@ -71,6 +71,8 @@ hound = "3.5.1"
 tempfile = "3.23.0"
 thiserror = "2.0.17"
 criterion = "0.5.1"
+faer = { version = "0.24.0", default-features = false, features = ["std", "linalg"] }
+nalgebra = { version = "0.35.0", default-features = false, features = ["std"] }
 proptest = "1.6.0"
 unicode-normalization = "0.1.24"
 unicode-segmentation = "1.12.0"

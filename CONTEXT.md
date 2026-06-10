@@ -39,3 +39,7 @@ _Avoid_: Production-grade NLP result, ground truth
 **Model-Capable Text Crate**:
 A text crate whose domain naturally supports both deterministic execution and explicit local-model-backed execution.
 _Avoid_: AI crate, model-only crate
+
+**Analytical Math Crates**:
+The peer crate family under `crates/math` that provides reusable deterministic math primitives and package surfaces for multimodal workflows.
+_Avoid_: Numerical Backend, Math Foundation Crates

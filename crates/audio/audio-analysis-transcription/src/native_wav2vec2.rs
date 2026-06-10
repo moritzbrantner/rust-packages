@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use video_analysis_core::Result;
 
@@ -17,6 +17,18 @@ pub(crate) struct Wav2Vec2BundlePaths {
     pub tokenizer_vocab: PathBuf,
     pub preprocessor_config_json: PathBuf,
     pub model_safetensors: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Wav2Vec2LayoutReport {
+    pub architecture: String,
+    pub do_stable_layer_norm: bool,
+    pub positional_conv_layout: String,
+    pub feature_extractor_norm: String,
+    pub encoder_layer_count: usize,
+    pub missing_required_keys: Vec<String>,
+    pub unsupported_reasons: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -278,6 +290,58 @@ pub(crate) fn resolve_wav2vec2_bundle_paths(bundle: &Path) -> Result<Wav2Vec2Bun
     })
 }
 
+pub(crate) fn inspect_wav2vec2_bundle_layout(bundle: &Path) -> Result<Wav2Vec2LayoutReport> {
+    let paths = resolve_wav2vec2_bundle_paths(bundle)?;
+    let raw = parse_raw_wav2vec2_config(&paths.config_json)?;
+    let mut unsupported_reasons = Vec::new();
+    if let Err(error) = validate_model_type_and_architecture(&raw) {
+        unsupported_reasons.push(error.to_string());
+    }
+    if raw.do_stable_layer_norm == Some(true) {
+        unsupported_reasons.push(
+            "unsupported_runtime: unsupported wav2vec2 config do_stable_layer_norm=true; stable layer norm execution is not implemented"
+                .to_string(),
+        );
+    }
+    match raw.feat_extract_norm.as_deref() {
+        Some("group") | Some("layer") | None => {}
+        Some(other) => unsupported_reasons.push(format!(
+            "unsupported_runtime: unsupported wav2vec2 feature extractor norm `{other}`"
+        )),
+    }
+    let tensors =
+        candle_core::safetensors::load(&paths.model_safetensors, &candle_core::Device::Cpu)
+            .map_err(|error| {
+                crate::setup_error(format!(
+                    "failed to read wav2vec2 safetensors metadata `{}`: {error}",
+                    paths.model_safetensors.display()
+                ))
+            })?;
+    let mut missing_required_keys = missing_required_model_keys(&raw, &tensors);
+    let positional_conv_layout = positional_conv_layout(&raw, &tensors, &mut missing_required_keys);
+    if !missing_required_keys.is_empty() {
+        unsupported_reasons.push(format!(
+            "unsupported_runtime: wav2vec2 safetensors layout is missing {} required tensor key(s)",
+            missing_required_keys.len()
+        ));
+    }
+    Ok(Wav2Vec2LayoutReport {
+        architecture: raw
+            .architectures
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "unspecified".to_string()),
+        do_stable_layer_norm: raw.do_stable_layer_norm.unwrap_or(false),
+        positional_conv_layout,
+        feature_extractor_norm: raw
+            .feat_extract_norm
+            .unwrap_or_else(|| "unspecified".to_string()),
+        encoder_layer_count: raw.num_hidden_layers.unwrap_or(0),
+        missing_required_keys,
+        unsupported_reasons,
+    })
+}
+
 #[allow(dead_code)]
 pub(crate) fn parse_wav2vec2_config(path: &Path) -> Result<Wav2Vec2ConfigSummary> {
     let config = parse_raw_wav2vec2_config(path)?;
@@ -426,6 +490,90 @@ fn validate_model_type_and_architecture(raw: &RawWav2Vec2Config) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+fn missing_required_model_keys(
+    raw: &RawWav2Vec2Config,
+    tensors: &std::collections::HashMap<String, candle_core::Tensor>,
+) -> Vec<String> {
+    let mut keys = Vec::new();
+    for index in 0..raw.conv_dim.len() {
+        let prefix = format!("wav2vec2.feature_extractor.conv_layers.{index}");
+        keys.push(format!("{prefix}.conv.weight"));
+        match raw.feat_extract_norm.as_deref() {
+            Some("group") if index == 0 => {
+                keys.push(format!("{prefix}.layer_norm.weight"));
+                keys.push(format!("{prefix}.layer_norm.bias"));
+            }
+            Some("layer") => {
+                keys.push(format!("{prefix}.layer_norm.weight"));
+                keys.push(format!("{prefix}.layer_norm.bias"));
+            }
+            _ => {}
+        }
+    }
+    keys.extend([
+        "wav2vec2.feature_projection.layer_norm.weight".to_string(),
+        "wav2vec2.feature_projection.layer_norm.bias".to_string(),
+        "wav2vec2.feature_projection.projection.weight".to_string(),
+        "lm_head.weight".to_string(),
+    ]);
+    for index in 0..raw.num_hidden_layers.unwrap_or(0) {
+        let prefix = format!("wav2vec2.encoder.layers.{index}");
+        keys.extend([
+            format!("{prefix}.attention.q_proj.weight"),
+            format!("{prefix}.attention.k_proj.weight"),
+            format!("{prefix}.attention.v_proj.weight"),
+            format!("{prefix}.attention.out_proj.weight"),
+            format!("{prefix}.layer_norm.weight"),
+            format!("{prefix}.layer_norm.bias"),
+            format!("{prefix}.feed_forward.intermediate_dense.weight"),
+            format!("{prefix}.feed_forward.output_dense.weight"),
+            format!("{prefix}.final_layer_norm.weight"),
+            format!("{prefix}.final_layer_norm.bias"),
+        ]);
+    }
+    keys.into_iter()
+        .filter(|key| !tensors.contains_key(key))
+        .collect()
+}
+
+fn positional_conv_layout(
+    raw: &RawWav2Vec2Config,
+    tensors: &std::collections::HashMap<String, candle_core::Tensor>,
+    missing_required_keys: &mut Vec<String>,
+) -> String {
+    if raw.num_conv_pos_embeddings.unwrap_or(0) == 0 {
+        return "none".to_string();
+    }
+    let prefix = "wav2vec2.encoder.pos_conv_embed.conv";
+    if tensors.contains_key(&format!("{prefix}.weight")) {
+        return "plain".to_string();
+    }
+    let legacy_g = format!("{prefix}.weight_g");
+    let legacy_v = format!("{prefix}.weight_v");
+    if tensors.contains_key(&legacy_g) || tensors.contains_key(&legacy_v) {
+        if !tensors.contains_key(&legacy_g) {
+            missing_required_keys.push(legacy_g);
+        }
+        if !tensors.contains_key(&legacy_v) {
+            missing_required_keys.push(legacy_v);
+        }
+        return "weight-norm".to_string();
+    }
+    let parametrized_g = format!("{prefix}.parametrizations.weight.original0");
+    let parametrized_v = format!("{prefix}.parametrizations.weight.original1");
+    if tensors.contains_key(&parametrized_g) || tensors.contains_key(&parametrized_v) {
+        if !tensors.contains_key(&parametrized_g) {
+            missing_required_keys.push(parametrized_g);
+        }
+        if !tensors.contains_key(&parametrized_v) {
+            missing_required_keys.push(parametrized_v);
+        }
+        return "weight-norm".to_string();
+    }
+    missing_required_keys.push(format!("{prefix}.weight"));
+    "missing".to_string()
 }
 
 pub(crate) fn parse_ctc_vocabulary(
@@ -709,6 +857,46 @@ mod tests {
         candle_core::safetensors::save(&tensors, root.join("model.safetensors")).unwrap();
     }
 
+    fn write_tiny_feature_norm_bundle(root: &Path, norm: &str) {
+        write_tiny_bundle(root);
+        std::fs::write(
+            root.join("config.json"),
+            serde_json::json!({
+                "model_type": "wav2vec2",
+                "architectures": ["Wav2Vec2ForCTC"],
+                "vocab_size": 10,
+                "word_delimiter_token": "|",
+                "hidden_size": 1,
+                "num_hidden_layers": 0,
+                "num_attention_heads": 1,
+                "intermediate_size": 1,
+                "hidden_act": "gelu",
+                "layer_norm_eps": 1e-5,
+                "feat_extract_norm": norm,
+                "feat_extract_activation": "gelu",
+                "conv_dim": [1],
+                "conv_stride": [1],
+                "conv_kernel": [1],
+                "conv_bias": false,
+                "num_conv_pos_embeddings": 0,
+                "num_conv_pos_embedding_groups": 1
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let device = Device::Cpu;
+        let mut tensors = tiny_model_tensors();
+        tensors.insert(
+            "wav2vec2.feature_extractor.conv_layers.0.layer_norm.weight".to_string(),
+            Tensor::new(&[1.0f32], &device).unwrap(),
+        );
+        tensors.insert(
+            "wav2vec2.feature_extractor.conv_layers.0.layer_norm.bias".to_string(),
+            Tensor::new(&[0.0f32], &device).unwrap(),
+        );
+        candle_core::safetensors::save(&tensors, root.join("model.safetensors")).unwrap();
+    }
+
     fn tiny_model_tensors() -> HashMap<String, Tensor> {
         let device = Device::Cpu;
         let mut tensors = HashMap::new();
@@ -806,6 +994,21 @@ mod tests {
         tensors.insert(
             v_name.to_string(),
             Tensor::new(&[3.0f32, 4.0], &device)
+                .unwrap()
+                .reshape((1, 1, 2))
+                .unwrap(),
+        );
+        candle_core::safetensors::save(&tensors, root.join("model.safetensors")).unwrap();
+    }
+
+    fn write_tiny_plain_positional_conv_bundle(root: &Path) {
+        write_tiny_bundle(root);
+        write_pos_conv_config(root);
+        let device = Device::Cpu;
+        let mut tensors = tiny_model_tensors();
+        tensors.insert(
+            "wav2vec2.encoder.pos_conv_embed.conv.weight".to_string(),
+            Tensor::new(&[0.5f32, 0.5], &device)
                 .unwrap()
                 .reshape((1, 1, 2))
                 .unwrap(),
@@ -1069,6 +1272,90 @@ mod tests {
             .to_string();
         assert!(error.contains("unsupported_runtime"));
         assert!(error.contains("safetensors"));
+    }
+
+    #[test]
+    fn wav2vec2_layout_report_identifies_plain_positional_conv() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_plain_positional_conv_bundle(temp.path());
+
+        let report = inspect_wav2vec2_bundle_layout(temp.path()).unwrap();
+
+        assert_eq!(report.architecture, "Wav2Vec2ForCTC");
+        assert_eq!(report.positional_conv_layout, "plain");
+        assert_eq!(report.do_stable_layer_norm, false);
+        assert!(report.missing_required_keys.is_empty());
+        assert!(report.unsupported_reasons.is_empty());
+    }
+
+    #[test]
+    fn wav2vec2_layout_report_identifies_weight_norm_positional_conv() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_weight_norm_bundle(temp.path(), true, false);
+
+        let report = inspect_wav2vec2_bundle_layout(temp.path()).unwrap();
+
+        assert_eq!(report.positional_conv_layout, "weight-norm");
+        assert!(report.missing_required_keys.is_empty());
+        assert!(report.unsupported_reasons.is_empty());
+    }
+
+    #[test]
+    fn wav2vec2_layout_report_flags_stable_layer_norm() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_bundle(temp.path());
+        std::fs::write(
+            temp.path().join("config.json"),
+            serde_json::json!({
+                "model_type": "wav2vec2",
+                "architectures": ["Wav2Vec2ForCTC"],
+                "vocab_size": 10,
+                "hidden_size": 1,
+                "num_hidden_layers": 0,
+                "num_attention_heads": 1,
+                "conv_dim": [1],
+                "conv_stride": [1],
+                "conv_kernel": [1],
+                "do_stable_layer_norm": true
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let report = inspect_wav2vec2_bundle_layout(temp.path()).unwrap();
+
+        assert_eq!(report.do_stable_layer_norm, true);
+        assert!(report
+            .unsupported_reasons
+            .iter()
+            .any(|reason| reason.contains("unsupported_runtime")
+                && reason.contains("do_stable_layer_norm")));
+    }
+
+    #[test]
+    fn wav2vec2_feature_extractor_group_norm_executes_tiny_bundle() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_feature_norm_bundle(temp.path(), "group");
+
+        let emissions = emit_wav2vec2_ctc(temp.path(), &alignment_request("hello")).unwrap();
+
+        assert!(!emissions.is_empty());
+        assert!(emissions
+            .iter()
+            .all(|frame| frame.len() == 10 && frame.iter().all(|score| score.is_finite())));
+    }
+
+    #[test]
+    fn wav2vec2_feature_extractor_layer_norm_executes_tiny_bundle() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_feature_norm_bundle(temp.path(), "layer");
+
+        let emissions = emit_wav2vec2_ctc(temp.path(), &alignment_request("hello")).unwrap();
+
+        assert!(!emissions.is_empty());
+        assert!(emissions
+            .iter()
+            .all(|frame| frame.len() == 10 && frame.iter().all(|score| score.is_finite())));
     }
 
     #[test]

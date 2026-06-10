@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use math_linear::{F32Matrix, MatrixShape};
+use math_linear::{F32Matrix, F64Matrix, MatrixShape, SvdOptions};
 
 fn matrix(rows: usize, cols: usize, seed: f32) -> F32Matrix {
     F32Matrix::new(
@@ -7,6 +7,19 @@ fn matrix(rows: usize, cols: usize, seed: f32) -> F32Matrix {
         (0..rows * cols)
             .map(|index| {
                 let value = index as f32 * 0.017 + seed;
+                value.sin() * 0.5 + value.cos() * 0.25
+            })
+            .collect(),
+    )
+    .unwrap()
+}
+
+fn matrix_f64(rows: usize, cols: usize, seed: f64) -> F64Matrix {
+    F64Matrix::new(
+        MatrixShape::new(rows, cols).unwrap(),
+        (0..rows * cols)
+            .map(|index| {
+                let value = index as f64 * 0.017 + seed;
                 value.sin() * 0.5 + value.cos() * 0.25
             })
             .collect(),
@@ -26,6 +39,7 @@ fn bench_matrix(c: &mut Criterion) {
     .unwrap();
     let tall = matrix(512, 128, 2.1);
     let query = matrix(256, 128, 0.7);
+    let svd_input = matrix_f64(96, 48, 3.7);
     let vector = (0..128)
         .map(|index| (index as f32 * 0.023).sin())
         .collect::<Vec<_>>();
@@ -82,6 +96,10 @@ fn bench_matrix(c: &mut Criterion) {
             tall.pairwise_row_cosine(black_box(&query.as_view()))
                 .unwrap()
         })
+    });
+
+    c.bench_function("matrix_svd_pure_rust_96x48", |b| {
+        b.iter(|| svd_input.svd(black_box(SvdOptions::default())).unwrap())
     });
 }
 

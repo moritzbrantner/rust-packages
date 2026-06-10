@@ -7,9 +7,12 @@ use runtime_core::{
 use serde::Deserialize;
 use tensor_data::F32Tensor;
 
-use crate::{F32Matrix, Kernel1d, MatrixShape};
+use crate::{
+    F32Matrix, F64Matrix, Kernel1d, MatrixShape, PseudoinverseOptions, SvdDecomposition, SvdOptions,
+};
 
 const MAX_VALUES: usize = 100_000;
+const MAX_SVD_DIMENSION: usize = 512;
 
 /// Describes the linear algebra operations exposed by transport wrappers.
 pub fn package_surface() -> PackageSurface {
@@ -112,6 +115,35 @@ pub fn package_surface() -> PackageSurface {
                     "tolerance": 0.0
                 }),
             ),
+            operation(
+                "linear.svd",
+                "SVD",
+                "Computes compact singular values, rank, and condition diagnostics for a finite real matrix; thin factors are opt-in.",
+                serde_json::json!({
+                    "matrix": {"rows": 3, "cols": 2, "values": [1.0, 0.0, 1.0, 1.0, 0.0, 1.0]},
+                    "precision": "f64",
+                    "computeFactors": false
+                }),
+            ),
+            operation(
+                "linear.pseudoinverse",
+                "Pseudoinverse",
+                "Computes a Moore-Penrose pseudoinverse from the pure Rust SVD path.",
+                serde_json::json!({
+                    "matrix": {"rows": 3, "cols": 2, "values": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]},
+                    "precision": "f64"
+                }),
+            ),
+            operation(
+                "linear.rank",
+                "Numerical rank",
+                "Computes singular-value based numerical rank for a finite real matrix.",
+                serde_json::json!({
+                    "matrix": {"rows": 3, "cols": 2, "values": [1.0, 2.0, 2.0, 4.0, 3.0, 6.0]},
+                    "precision": "f64",
+                    "tolerance": 1.0e-8
+                }),
+            ),
         ],
     }
 }
@@ -151,6 +183,9 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "linear.qr" => qr_value(parse_input(request.input)?)?,
         "linear.center" => center_value(parse_input(request.input)?)?,
         "linear.leastSquares" => least_squares_value(parse_input(request.input)?)?,
+        "linear.svd" => svd_value(parse_input(request.input)?)?,
+        "linear.pseudoinverse" => pseudoinverse_value(parse_input(request.input)?)?,
+        "linear.rank" => rank_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -231,6 +266,28 @@ struct MatrixRequest {
     rows: usize,
     cols: usize,
     values: Vec<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrecisionMatrixRequest {
+    rows: usize,
+    cols: usize,
+    values: Vec<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SvdRequest {
+    matrix: PrecisionMatrixRequest,
+    #[serde(default = "default_f64_precision")]
+    precision: String,
+    #[serde(default)]
+    tolerance: Option<f64>,
+    #[serde(default)]
+    max_sweeps: Option<usize>,
+    #[serde(default)]
+    compute_factors: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -500,6 +557,54 @@ fn least_squares_value(request: LeastSquaresRequest) -> Result<serde_json::Value
     }))
 }
 
+fn svd_value(request: SvdRequest) -> Result<serde_json::Value, String> {
+    let compute_factors = request.compute_factors;
+    let matrix = precision_matrix_from_request(request.matrix, &request.precision)?;
+    let svd = matrix
+        .svd(SvdOptions {
+            tolerance: request.tolerance,
+            max_sweeps: request.max_sweeps,
+            compute_factors,
+            max_dimension: Some(MAX_SVD_DIMENSION),
+        })
+        .map_err(surface_invalid_request)?;
+    Ok(svd_json(svd, compute_factors, &request.precision))
+}
+
+fn pseudoinverse_value(request: SvdRequest) -> Result<serde_json::Value, String> {
+    let matrix = precision_matrix_from_request(request.matrix, &request.precision)?;
+    let inverse = matrix
+        .pseudoinverse(PseudoinverseOptions {
+            tolerance: request.tolerance,
+            max_sweeps: request.max_sweeps,
+            max_dimension: Some(MAX_SVD_DIMENSION),
+        })
+        .map_err(surface_invalid_request)?;
+    let mut value = matrix_json_f64(&inverse);
+    value["precision"] = serde_json::json!(request.precision);
+    Ok(value)
+}
+
+fn rank_value(request: SvdRequest) -> Result<serde_json::Value, String> {
+    let matrix = precision_matrix_from_request(request.matrix, &request.precision)?;
+    let rank = matrix
+        .svd(SvdOptions {
+            tolerance: request.tolerance,
+            max_sweeps: request.max_sweeps,
+            compute_factors: false,
+            max_dimension: Some(MAX_SVD_DIMENSION),
+        })
+        .map_err(surface_invalid_request)?;
+    Ok(serde_json::json!({
+        "precision": request.precision,
+        "rank": rank.rank,
+        "singularValues": rank.singular_values,
+        "conditionEstimate": rank.condition_estimate,
+        "tolerance": rank.tolerance,
+        "sweeps": rank.sweeps
+    }))
+}
+
 fn matrix_from_request(request: MatrixRequest) -> Result<F32Matrix, String> {
     validate_value_count(request.values.len())?;
     F32Matrix::new(
@@ -507,6 +612,39 @@ fn matrix_from_request(request: MatrixRequest) -> Result<F32Matrix, String> {
         request.values,
     )
     .map_err(|error| error.to_string())
+}
+
+fn precision_matrix_from_request(
+    request: PrecisionMatrixRequest,
+    precision: &str,
+) -> Result<F64Matrix, String> {
+    validate_value_count(request.values.len())?;
+    if request.rows.max(request.cols) > MAX_SVD_DIMENSION {
+        return Err(format!(
+            "invalid request: SVD-class operations require max(rows, cols) <= {MAX_SVD_DIMENSION}"
+        ));
+    }
+    let shape = MatrixShape::new(request.rows, request.cols).map_err(surface_invalid_request)?;
+    match precision {
+        "f64" => F64Matrix::new(shape, request.values).map_err(surface_invalid_request),
+        "f32" => {
+            let mut values = Vec::with_capacity(request.values.len());
+            for value in request.values {
+                if !value.is_finite() || value < f32::MIN as f64 || value > f32::MAX as f64 {
+                    return Err(
+                        "invalid request: precision f32 requires finite in-range values"
+                            .to_string(),
+                    );
+                }
+                values.push(value as f32);
+            }
+            let matrix = F32Matrix::new(shape, values).map_err(surface_invalid_request)?;
+            F64Matrix::try_from(&matrix).map_err(surface_invalid_request)
+        }
+        precision => Err(format!(
+            "invalid request: unsupported precision `{precision}`; expected `f32` or `f64`"
+        )),
+    }
 }
 
 fn matrix_json(matrix: F32Matrix) -> Result<serde_json::Value, String> {
@@ -518,6 +656,15 @@ fn matrix_json(matrix: F32Matrix) -> Result<serde_json::Value, String> {
     }))
 }
 
+fn matrix_json_f64(matrix: &F64Matrix) -> serde_json::Value {
+    let shape = matrix.shape();
+    serde_json::json!({
+        "rows": shape.rows,
+        "cols": shape.cols,
+        "values": matrix.values()
+    })
+}
+
 fn matrix_projection(matrix: &F32Matrix) -> serde_json::Value {
     let shape = matrix.shape();
     serde_json::json!({
@@ -527,11 +674,40 @@ fn matrix_projection(matrix: &F32Matrix) -> serde_json::Value {
     })
 }
 
+fn svd_json(svd: SvdDecomposition, include_factors: bool, precision: &str) -> serde_json::Value {
+    let mut value = serde_json::json!({
+        "precision": precision,
+        "singularValues": svd.singular_values,
+        "rank": svd.rank,
+        "conditionEstimate": svd.condition_estimate,
+        "sweeps": svd.sweeps,
+        "tolerance": svd.tolerance,
+        "reconstruction": {
+            "residualFrobenius": svd.reconstruction.residual_frobenius,
+            "relativeResidual": svd.reconstruction.relative_residual,
+            "maxAbsDiff": svd.reconstruction.max_abs_diff
+        }
+    });
+    if include_factors {
+        if let Some(u) = svd.u.as_ref() {
+            value["u"] = matrix_json_f64(u);
+        }
+        if let Some(vt) = svd.vt.as_ref() {
+            value["vt"] = matrix_json_f64(vt);
+        }
+    }
+    value
+}
+
 fn validate_value_count(count: usize) -> Result<(), String> {
     if count > MAX_VALUES {
         return Err(format!("values must not exceed {MAX_VALUES}"));
     }
     Ok(())
+}
+
+fn surface_invalid_request(error: impl std::fmt::Display) -> String {
+    format!("invalid request: {error}")
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
@@ -540,6 +716,10 @@ fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result
 
 fn default_columns_axis() -> String {
     "columns".to_string()
+}
+
+fn default_f64_precision() -> String {
+    "f64".to_string()
 }
 
 #[cfg(test)]
@@ -634,6 +814,66 @@ mod tests {
             serde_json::from_value(response.value["determinant"].clone()).unwrap(),
             5.0,
         );
+    }
+
+    #[test]
+    fn svd_operations_default_to_f64_and_compact_output() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linear.svd"),
+            input: serde_json::json!({
+                "matrix": {"rows": 2, "cols": 2, "values": [1.0, 0.0, 0.0, 2.0]}
+            }),
+        })
+        .expect("svd operation");
+
+        assert_eq!(response.value["precision"], "f64");
+        assert_eq!(response.value["rank"], 2);
+        assert!(response.value["u"].is_null());
+        assert!(
+            response.value["singularValues"].as_array().unwrap()[0]
+                .as_f64()
+                .unwrap()
+                >= 2.0
+        );
+    }
+
+    #[test]
+    fn svd_can_return_thin_factors() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linear.svd"),
+            input: serde_json::json!({
+                "matrix": {"rows": 3, "cols": 2, "values": [1.0, 0.0, 1.0, 1.0, 0.0, 1.0]},
+                "computeFactors": true,
+                "precision": "f32"
+            }),
+        })
+        .expect("svd operation");
+
+        assert_eq!(response.value["u"]["rows"], 3);
+        assert_eq!(response.value["vt"]["cols"], 2);
+    }
+
+    #[test]
+    fn pseudoinverse_and_rank_operations_run() {
+        let pinv = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linear.pseudoinverse"),
+            input: serde_json::json!({
+                "matrix": {"rows": 3, "cols": 2, "values": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]}
+            }),
+        })
+        .expect("pseudoinverse operation");
+        assert_eq!(pinv.value["rows"], 2);
+        assert_eq!(pinv.value["cols"], 3);
+
+        let rank = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("linear.rank"),
+            input: serde_json::json!({
+                "matrix": {"rows": 3, "cols": 2, "values": [1.0, 2.0, 2.0, 4.0, 3.0, 6.0]},
+                "tolerance": 1.0e-8
+            }),
+        })
+        .expect("rank operation");
+        assert_eq!(rank.value["rank"], 1);
     }
 
     #[test]

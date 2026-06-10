@@ -6,13 +6,12 @@ use runtime_core::{
 };
 use serde::Deserialize;
 
-use math_linear::{F32Matrix, MatrixShape};
+use math_linear::{F64Matrix, MatrixShape, PseudoinverseOptions, SvdOptions};
 
 use crate::{
-    changes, ordinary_least_squares, ordinary_least_squares_diagnostics, rank_values,
-    rolling_correlation, rolling_mean, rolling_min_max, rolling_std_dev, simple_linear_regression,
-    spearman_correlation, summarize_pair, summarize_series, tail_risk, z_scores, ChangeMethod,
-    MinMaxNormalizer, PrincipalComponents, RunningCovariance, VarianceMode, ZScoreNormalizer,
+    changes, rank_values, rolling_correlation, rolling_mean, rolling_min_max, rolling_std_dev,
+    simple_linear_regression, spearman_correlation, summarize_pair, summarize_series, tail_risk,
+    z_scores, ChangeMethod, VarianceMode,
 };
 
 const MAX_VALUES: usize = 100_000;
@@ -31,13 +30,13 @@ pub fn package_surface() -> PackageSurface {
             operation("stats.series.rolling", "Rolling statistics", "Computes rolling mean, standard deviation, ranges, and optional paired correlations.", serde_json::json!({"values": [0.1, -0.2, 0.05, 0.3], "window": 2, "varianceMode": "sample"})),
             operation("stats.series.tailRisk", "Tail risk", "Computes empirical VaR/CVaR style tail-risk statistics.", serde_json::json!({"values": [0.02, -0.01, 0.03, -0.02, 0.01], "confidence": 0.8})),
             operation("stats.series.zScores", "Z-scores", "Standardizes a finite scalar series into z-scores.", serde_json::json!({"values": [1.0, 2.0, 3.0], "varianceMode": "population"})),
-            operation("stats.normalize", "Normalize matrix", "Applies z-score or min-max column normalization to a finite f32 matrix.", serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [0.0, 1.0, 2.0, 3.0]}, "method": "minMax"})),
-            operation("stats.covariance", "Covariance matrix", "Computes covariance and optional correlation for matrix rows as observations.", serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 0.0, 0.0, 1.0, 1.0, 1.0]}, "correlation": true})),
-            operation("stats.pca", "PCA", "Fits PCA-lite components and optionally transforms rows into component space.", serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 2.0, 2.0, 3.0, 3.0]}, "componentCount": 1, "transform": true})),
+            operation("stats.normalize", "Normalize matrix", "Applies z-score or min-max column normalization to a finite matrix; matrix workflows default to f64.", serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [0.0, 1.0, 2.0, 3.0]}, "method": "minMax", "precision": "f64"})),
+            operation("stats.covariance", "Covariance matrix", "Computes covariance and optional correlation for matrix rows as observations with f64 defaults.", serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 0.0, 0.0, 1.0, 1.0, 1.0]}, "correlation": true, "precision": "f64"})),
+            operation("stats.pca", "PCA", "Fits centered-data SVD PCA components and optionally transforms rows into component space.", serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 2.0, 2.0, 3.0, 3.0]}, "componentCount": 1, "transform": true, "precision": "f64"})),
             operation("stats.series.rankCorrelation", "Rank correlation", "Computes average ranks and Spearman correlation for finite paired scalar series.", serde_json::json!({"left": [1.0, 2.0, 2.0, 4.0], "right": [10.0, 20.0, 20.0, 40.0]})),
             operation("stats.regression.linear", "Linear regression", "Fits a simple y = intercept + slope * x regression for paired finite scalar observations.", serde_json::json!({"x": [1.0, 2.0, 3.0], "y": [3.0, 5.0, 7.0]})),
-            operation("stats.regression.ols", "OLS regression", "Fits ordinary least squares from a finite dense design matrix and target vector.", serde_json::json!({"design": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0]}, "target": [3.0, 5.0, 7.0]})),
-            operation("stats.regression.diagnostics", "Regression diagnostics", "Fits full-column-rank OLS and returns residual, adjusted R-squared, standard-error, and t-statistic diagnostics.", serde_json::json!({"design": {"rows": 4, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 4.0]}, "target": [3.0, 5.0, 7.0, 9.0], "tolerance": 0.0})),
+            operation("stats.regression.ols", "OLS regression", "Fits ordinary least squares from a finite dense design matrix and target vector, using SVD pseudoinverse for rank-deficient designs.", serde_json::json!({"design": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0]}, "target": [3.0, 5.0, 7.0], "precision": "f64"})),
+            operation("stats.regression.diagnostics", "Regression diagnostics", "Fits strict full-column-rank OLS and returns residual, adjusted R-squared, standard-error, and t-statistic diagnostics.", serde_json::json!({"design": {"rows": 4, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 4.0]}, "target": [3.0, 5.0, 7.0, 9.0], "tolerance": 0.0, "precision": "f64"})),
         ],
     }
 }
@@ -115,7 +114,7 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
 struct MatrixRequest {
     rows: usize,
     cols: usize,
-    values: Vec<f32>,
+    values: Vec<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -167,6 +166,8 @@ struct TailRiskRequest {
 struct NormalizeRequest {
     matrix: MatrixRequest,
     method: String,
+    #[serde(default = "default_f64_precision")]
+    precision: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -175,6 +176,8 @@ struct CovarianceRequest {
     matrix: MatrixRequest,
     #[serde(default)]
     correlation: bool,
+    #[serde(default = "default_f64_precision")]
+    precision: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -184,6 +187,8 @@ struct PcaRequest {
     component_count: usize,
     #[serde(default)]
     transform: bool,
+    #[serde(default = "default_f64_precision")]
+    precision: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -204,9 +209,11 @@ struct LinearRegressionRequest {
 #[serde(rename_all = "camelCase")]
 struct OlsRequest {
     design: MatrixRequest,
-    target: Vec<f32>,
+    target: Vec<f64>,
     #[serde(default)]
-    tolerance: f32,
+    tolerance: f64,
+    #[serde(default = "default_f64_precision")]
+    precision: String,
 }
 
 fn series_describe_value(request: SeriesRequest) -> Result<serde_json::Value, String> {
@@ -300,37 +307,35 @@ fn series_z_scores_value(request: SeriesRequest) -> Result<serde_json::Value, St
 }
 
 fn normalize_value(request: NormalizeRequest) -> Result<serde_json::Value, String> {
-    let matrix = matrix_from_request(request.matrix)?;
+    let matrix = matrix_from_request(request.matrix, &request.precision)?;
     match request.method.as_str() {
         "zScore" => {
-            let normalizer =
-                ZScoreNormalizer::fit(&matrix.as_view()).map_err(|error| error.to_string())?;
-            let normalized = normalizer
-                .transform_matrix(&matrix.as_view())
-                .map_err(|error| error.to_string())?;
-            let shape = normalized.shape();
+            let means = matrix
+                .as_view()
+                .column_means()
+                .map_err(surface_invalid_request)?;
+            let std_devs = column_std_devs(&matrix, &means)?;
+            let normalized = normalize_z_score(&matrix, &means, &std_devs)?;
             Ok(serde_json::json!({
+                "precision": request.precision,
                 "method": "zScore",
-                "rows": shape.rows,
-                "cols": shape.cols,
+                "rows": normalized.shape().rows,
+                "cols": normalized.shape().cols,
                 "values": normalized.values(),
-                "means": normalizer.means(),
-                "stdDevs": normalizer.std_devs()
+                "means": means,
+                "stdDevs": std_devs
             }))
         }
         "minMax" => {
-            let normalizer =
-                MinMaxNormalizer::fit(&matrix.as_view()).map_err(|error| error.to_string())?;
-            let normalized = normalizer
-                .transform_matrix(&matrix.as_view())
-                .map_err(|error| error.to_string())?;
-            let shape = normalized.shape();
+            let ranges = column_ranges(&matrix)?;
+            let normalized = normalize_min_max(&matrix, &ranges)?;
             Ok(serde_json::json!({
+                "precision": request.precision,
                 "method": "minMax",
-                "rows": shape.rows,
-                "cols": shape.cols,
+                "rows": normalized.shape().rows,
+                "cols": normalized.shape().cols,
                 "values": normalized.values(),
-                "ranges": normalizer.ranges().iter().map(|range| serde_json::json!({"min": range.min, "max": range.max})).collect::<Vec<_>>()
+                "ranges": ranges.iter().map(|(min, max)| serde_json::json!({"min": min, "max": max})).collect::<Vec<_>>()
             }))
         }
         method => Err(format!("unsupported normalization method `{method}`")),
@@ -338,39 +343,38 @@ fn normalize_value(request: NormalizeRequest) -> Result<serde_json::Value, Strin
 }
 
 fn covariance_value(request: CovarianceRequest) -> Result<serde_json::Value, String> {
-    let matrix = matrix_from_request(request.matrix)?;
-    let covariance = RunningCovariance::from_matrix(&matrix.as_view())
-        .map_err(|error| error.to_string())?
-        .covariance_matrix()
-        .map_err(|error| error.to_string())?;
+    let matrix = matrix_from_request(request.matrix, &request.precision)?;
+    let means = matrix
+        .as_view()
+        .column_means()
+        .map_err(surface_invalid_request)?;
+    let covariance = covariance_matrix_f64(&matrix, &means, VarianceMode::Population)?;
     let mut value = serde_json::json!({
-        "count": covariance.count,
-        "weightSum": covariance.weight_sum,
-        "means": covariance.means,
-        "covariance": matrix_projection(&covariance.matrix)
+        "precision": request.precision,
+        "count": matrix.shape().rows,
+        "weightSum": matrix.shape().rows as f64,
+        "means": means,
+        "covariance": matrix_projection(&covariance)
     });
     if request.correlation {
-        let correlation = covariance
-            .correlation_matrix()
-            .map_err(|error| error.to_string())?;
-        value["correlation"] = matrix_projection(&correlation);
+        value["correlation"] = matrix_projection(&correlation_matrix_f64(&covariance)?);
     }
     Ok(value)
 }
 
 fn pca_value(request: PcaRequest) -> Result<serde_json::Value, String> {
-    let matrix = matrix_from_request(request.matrix)?;
-    let pca = PrincipalComponents::fit(&matrix.as_view(), request.component_count)
-        .map_err(|error| error.to_string())?;
+    let matrix = matrix_from_request(request.matrix, &request.precision)?;
+    let pca = pca_svd(&matrix, request.component_count)?;
     let mut value = serde_json::json!({
+        "precision": request.precision,
         "mean": pca.mean(),
         "components": matrix_projection(pca.components()),
-        "explainedVariance": pca.explained_variance()
+        "explainedVariance": pca.explained_variance(),
+        "explainedVarianceRatio": pca.explained_variance_ratio(),
+        "singularValues": pca.singular_values()
     });
     if request.transform {
-        let transformed = pca
-            .transform(&matrix.as_view())
-            .map_err(|error| error.to_string())?;
+        let transformed = pca.transform(&matrix)?;
         value["transformed"] = matrix_projection(&transformed);
     }
     Ok(value)
@@ -403,10 +407,10 @@ fn regression_linear_value(request: LinearRegressionRequest) -> Result<serde_jso
 
 fn regression_ols_value(request: OlsRequest) -> Result<serde_json::Value, String> {
     validate_value_count(request.target.len())?;
-    let design = matrix_from_request(request.design)?;
-    let regression = ordinary_least_squares(&design.as_view(), &request.target)
-        .map_err(|error| error.to_string())?;
+    let design = matrix_from_request(request.design, &request.precision)?;
+    let regression = ordinary_least_squares_f64(&design, &request.target, request.tolerance)?;
     Ok(serde_json::json!({
+        "precision": request.precision,
         "coefficients": regression.coefficients,
         "fitted": regression.fitted,
         "residuals": regression.residuals,
@@ -418,11 +422,11 @@ fn regression_ols_value(request: OlsRequest) -> Result<serde_json::Value, String
 
 fn regression_diagnostics_value(request: OlsRequest) -> Result<serde_json::Value, String> {
     validate_value_count(request.target.len())?;
-    let design = matrix_from_request(request.design)?;
+    let design = matrix_from_request(request.design, &request.precision)?;
     let diagnostics =
-        ordinary_least_squares_diagnostics(&design.as_view(), &request.target, request.tolerance)
-            .map_err(|error| error.to_string())?;
+        ordinary_least_squares_diagnostics_f64(&design, &request.target, request.tolerance)?;
     Ok(serde_json::json!({
+        "precision": request.precision,
         "coefficients": diagnostics.regression.coefficients,
         "rSquared": diagnostics.regression.r_squared,
         "adjustedRSquared": diagnostics.adjusted_r_squared,
@@ -433,16 +437,31 @@ fn regression_diagnostics_value(request: OlsRequest) -> Result<serde_json::Value
     }))
 }
 
-fn matrix_from_request(request: MatrixRequest) -> Result<F32Matrix, String> {
+fn matrix_from_request(request: MatrixRequest, precision: &str) -> Result<F64Matrix, String> {
     validate_value_count(request.values.len())?;
-    F32Matrix::new(
-        MatrixShape::new(request.rows, request.cols).map_err(|error| error.to_string())?,
-        request.values,
-    )
-    .map_err(|error| error.to_string())
+    let shape = MatrixShape::new(request.rows, request.cols).map_err(surface_invalid_request)?;
+    match precision {
+        "f64" => F64Matrix::new(shape, request.values).map_err(surface_invalid_request),
+        "f32" => {
+            let mut promoted = Vec::with_capacity(request.values.len());
+            for value in request.values {
+                if !value.is_finite() || value < f32::MIN as f64 || value > f32::MAX as f64 {
+                    return Err(
+                        "invalid request: precision f32 requires finite in-range values"
+                            .to_string(),
+                    );
+                }
+                promoted.push(value as f32 as f64);
+            }
+            F64Matrix::new(shape, promoted).map_err(surface_invalid_request)
+        }
+        precision => Err(format!(
+            "invalid request: unsupported precision `{precision}`; expected `f32` or `f64`"
+        )),
+    }
 }
 
-fn matrix_projection(matrix: &F32Matrix) -> serde_json::Value {
+fn matrix_projection(matrix: &F64Matrix) -> serde_json::Value {
     let shape = matrix.shape();
     serde_json::json!({
         "rows": shape.rows,
@@ -451,11 +470,439 @@ fn matrix_projection(matrix: &F32Matrix) -> serde_json::Value {
     })
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct OlsRegressionF64 {
+    coefficients: Vec<f64>,
+    fitted: Vec<f64>,
+    residuals: Vec<f64>,
+    r_squared: f64,
+    observations: usize,
+    predictors: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct OlsRegressionDiagnosticsF64 {
+    regression: OlsRegressionF64,
+    root_mean_squared_error: f64,
+    adjusted_r_squared: f64,
+    degrees_of_freedom: usize,
+    standard_errors: Vec<Option<f64>>,
+    t_statistics: Vec<Option<f64>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct PcaSvdModel {
+    mean: Vec<f64>,
+    components: F64Matrix,
+    explained_variance: Vec<f64>,
+    explained_variance_ratio: Vec<f64>,
+    singular_values: Vec<f64>,
+}
+
+impl PcaSvdModel {
+    fn mean(&self) -> &[f64] {
+        &self.mean
+    }
+
+    fn components(&self) -> &F64Matrix {
+        &self.components
+    }
+
+    fn explained_variance(&self) -> &[f64] {
+        &self.explained_variance
+    }
+
+    fn explained_variance_ratio(&self) -> &[f64] {
+        &self.explained_variance_ratio
+    }
+
+    fn singular_values(&self) -> &[f64] {
+        &self.singular_values
+    }
+
+    fn transform(&self, matrix: &F64Matrix) -> Result<F64Matrix, String> {
+        if matrix.shape().cols != self.mean.len() {
+            return Err(
+                "invalid request: PCA transform dimensions must match input columns".to_string(),
+            );
+        }
+        let mut centered = Vec::with_capacity(matrix.values().len());
+        for row in 0..matrix.shape().rows {
+            for (col, mean) in self.mean.iter().enumerate() {
+                centered.push(
+                    matrix
+                        .as_view()
+                        .get(row, col)
+                        .map_err(surface_invalid_request)?
+                        - mean,
+                );
+            }
+        }
+        let centered = F64Matrix::new(matrix.shape(), centered).map_err(surface_invalid_request)?;
+        centered
+            .matmul(&self.components.as_view().transpose())
+            .map_err(surface_invalid_request)
+    }
+}
+
+fn column_std_devs(matrix: &F64Matrix, means: &[f64]) -> Result<Vec<f64>, String> {
+    let rows = matrix.shape().rows;
+    let cols = matrix.shape().cols;
+    let mut values = vec![0.0; cols];
+    for row in 0..rows {
+        for col in 0..cols {
+            let centered = matrix
+                .as_view()
+                .get(row, col)
+                .map_err(surface_invalid_request)?
+                - means[col];
+            values[col] += centered * centered;
+        }
+    }
+    for value in &mut values {
+        *value = (*value / rows as f64).sqrt().max(f64::EPSILON);
+    }
+    Ok(values)
+}
+
+fn normalize_z_score(
+    matrix: &F64Matrix,
+    means: &[f64],
+    std_devs: &[f64],
+) -> Result<F64Matrix, String> {
+    let mut values = Vec::with_capacity(matrix.values().len());
+    for row in 0..matrix.shape().rows {
+        for col in 0..matrix.shape().cols {
+            values.push(
+                (matrix
+                    .as_view()
+                    .get(row, col)
+                    .map_err(surface_invalid_request)?
+                    - means[col])
+                    / std_devs[col],
+            );
+        }
+    }
+    F64Matrix::new(matrix.shape(), values).map_err(surface_invalid_request)
+}
+
+fn column_ranges(matrix: &F64Matrix) -> Result<Vec<(f64, f64)>, String> {
+    let cols = matrix.shape().cols;
+    let mut ranges = vec![(f64::INFINITY, f64::NEG_INFINITY); cols];
+    for row in 0..matrix.shape().rows {
+        for (col, range) in ranges.iter_mut().enumerate() {
+            let value = matrix
+                .as_view()
+                .get(row, col)
+                .map_err(surface_invalid_request)?;
+            range.0 = range.0.min(value);
+            range.1 = range.1.max(value);
+        }
+    }
+    Ok(ranges)
+}
+
+fn normalize_min_max(matrix: &F64Matrix, ranges: &[(f64, f64)]) -> Result<F64Matrix, String> {
+    let mut values = Vec::with_capacity(matrix.values().len());
+    for row in 0..matrix.shape().rows {
+        for (col, (min, max)) in ranges.iter().enumerate() {
+            let denom = (max - min).max(f64::EPSILON);
+            values.push(
+                (matrix
+                    .as_view()
+                    .get(row, col)
+                    .map_err(surface_invalid_request)?
+                    - min)
+                    / denom,
+            );
+        }
+    }
+    F64Matrix::new(matrix.shape(), values).map_err(surface_invalid_request)
+}
+
+fn covariance_matrix_f64(
+    matrix: &F64Matrix,
+    means: &[f64],
+    mode: VarianceMode,
+) -> Result<F64Matrix, String> {
+    let rows = matrix.shape().rows;
+    let cols = matrix.shape().cols;
+    let denom = match mode {
+        VarianceMode::Population => rows as f64,
+        VarianceMode::Sample if rows > 1 => (rows - 1) as f64,
+        VarianceMode::Sample => {
+            return Err("invalid request: sample covariance requires at least two rows".to_string())
+        }
+    };
+    let mut values = vec![0.0; cols * cols];
+    for row_var in 0..cols {
+        for col_var in 0..cols {
+            let mut sum = 0.0;
+            for obs in 0..rows {
+                sum += (matrix
+                    .as_view()
+                    .get(obs, row_var)
+                    .map_err(surface_invalid_request)?
+                    - means[row_var])
+                    * (matrix
+                        .as_view()
+                        .get(obs, col_var)
+                        .map_err(surface_invalid_request)?
+                        - means[col_var]);
+            }
+            values[row_var * cols + col_var] = sum / denom;
+        }
+    }
+    F64Matrix::new(
+        MatrixShape::new(cols, cols).map_err(surface_invalid_request)?,
+        values,
+    )
+    .map_err(surface_invalid_request)
+}
+
+fn correlation_matrix_f64(covariance: &F64Matrix) -> Result<F64Matrix, String> {
+    let dims = covariance.shape().rows;
+    let mut values = vec![0.0; dims * dims];
+    for row in 0..dims {
+        let row_std = covariance
+            .as_view()
+            .get(row, row)
+            .map_err(surface_invalid_request)?
+            .max(0.0)
+            .sqrt();
+        for col in 0..dims {
+            let col_std = covariance
+                .as_view()
+                .get(col, col)
+                .map_err(surface_invalid_request)?
+                .max(0.0)
+                .sqrt();
+            let denom = (row_std * col_std).max(f64::EPSILON);
+            values[row * dims + col] = covariance
+                .as_view()
+                .get(row, col)
+                .map_err(surface_invalid_request)?
+                / denom;
+        }
+    }
+    F64Matrix::new(
+        MatrixShape::new(dims, dims).map_err(surface_invalid_request)?,
+        values,
+    )
+    .map_err(surface_invalid_request)
+}
+
+fn pca_svd(matrix: &F64Matrix, component_count: usize) -> Result<PcaSvdModel, String> {
+    if component_count == 0 || component_count > matrix.shape().cols {
+        return Err("invalid request: componentCount must be greater than zero and not exceed matrix column count".to_string());
+    }
+    let mean = matrix
+        .as_view()
+        .column_means()
+        .map_err(surface_invalid_request)?;
+    let centered = matrix.center_columns().map_err(surface_invalid_request)?;
+    let svd = centered
+        .svd(SvdOptions {
+            compute_factors: true,
+            ..SvdOptions::default()
+        })
+        .map_err(surface_invalid_request)?;
+    let vt = svd
+        .vt
+        .as_ref()
+        .ok_or_else(|| "invalid request: PCA SVD factors missing".to_string())?;
+    let cols = matrix.shape().cols;
+    let rows = matrix.shape().rows;
+    let mut component_values = Vec::with_capacity(component_count * cols);
+    for component in 0..component_count {
+        for col in 0..cols {
+            component_values.push(
+                vt.as_view()
+                    .get(component, col)
+                    .map_err(surface_invalid_request)?,
+            );
+        }
+    }
+    let denom = rows.saturating_sub(1).max(1) as f64;
+    let explained_variance = svd
+        .singular_values
+        .iter()
+        .take(component_count)
+        .map(|value| value * value / denom)
+        .collect::<Vec<_>>();
+    let total_variance = svd
+        .singular_values
+        .iter()
+        .map(|value| value * value / denom)
+        .sum::<f64>()
+        .max(f64::EPSILON);
+    let explained_variance_ratio = explained_variance
+        .iter()
+        .map(|value| value / total_variance)
+        .collect::<Vec<_>>();
+    Ok(PcaSvdModel {
+        mean,
+        components: F64Matrix::new(
+            MatrixShape::new(component_count, cols).map_err(surface_invalid_request)?,
+            component_values,
+        )
+        .map_err(surface_invalid_request)?,
+        explained_variance,
+        explained_variance_ratio,
+        singular_values: svd
+            .singular_values
+            .into_iter()
+            .take(component_count)
+            .collect(),
+    })
+}
+
+fn ordinary_least_squares_f64(
+    design: &F64Matrix,
+    target: &[f64],
+    tolerance: f64,
+) -> Result<OlsRegressionF64, String> {
+    validate_ols_inputs(design, target, tolerance)?;
+    let coefficients = design
+        .pseudoinverse(PseudoinverseOptions {
+            tolerance: (tolerance > 0.0).then_some(tolerance),
+            ..PseudoinverseOptions::default()
+        })
+        .map_err(surface_invalid_request)?
+        .matvec(target)
+        .map_err(surface_invalid_request)?;
+    ols_from_coefficients(design, target, coefficients)
+}
+
+fn ordinary_least_squares_diagnostics_f64(
+    design: &F64Matrix,
+    target: &[f64],
+    tolerance: f64,
+) -> Result<OlsRegressionDiagnosticsF64, String> {
+    validate_ols_inputs(design, target, tolerance)?;
+    let rank = design
+        .numerical_rank((tolerance > 0.0).then_some(tolerance))
+        .map_err(surface_invalid_request)?;
+    if rank < design.shape().cols {
+        return Err(
+            "invalid request: regression diagnostics requires an identifiable full-rank design"
+                .to_string(),
+        );
+    }
+    let regression = ordinary_least_squares_f64(design, target, tolerance)?;
+    let residual_sum_squares = regression
+        .residuals
+        .iter()
+        .map(|value| value * value)
+        .sum::<f64>();
+    let degrees_of_freedom = regression
+        .observations
+        .saturating_sub(regression.predictors);
+    let mean_squared_error = if degrees_of_freedom > 0 {
+        residual_sum_squares / degrees_of_freedom as f64
+    } else {
+        0.0
+    };
+    let root_mean_squared_error = mean_squared_error.sqrt();
+    let adjusted_r_squared = if regression.observations > regression.predictors + 1 {
+        1.0 - (1.0 - regression.r_squared) * (regression.observations - 1) as f64
+            / (regression.observations - regression.predictors - 1) as f64
+    } else {
+        regression.r_squared
+    };
+    let inverse = design
+        .transpose_owned()
+        .map_err(surface_invalid_request)?
+        .matmul(&design.as_view())
+        .map_err(surface_invalid_request)?
+        .pseudoinverse(PseudoinverseOptions::default())
+        .map_err(surface_invalid_request)?;
+    let standard_errors = (0..regression.predictors)
+        .map(|index| {
+            let variance =
+                inverse.values()[index * regression.predictors + index] * mean_squared_error;
+            (variance.is_finite() && variance > 0.0).then(|| variance.sqrt())
+        })
+        .collect::<Vec<_>>();
+    let t_statistics = regression
+        .coefficients
+        .iter()
+        .zip(&standard_errors)
+        .map(|(coefficient, standard_error)| {
+            standard_error.and_then(|se| (se > 0.0).then_some(coefficient / se))
+        })
+        .collect::<Vec<_>>();
+    Ok(OlsRegressionDiagnosticsF64 {
+        regression,
+        root_mean_squared_error,
+        adjusted_r_squared,
+        degrees_of_freedom,
+        standard_errors,
+        t_statistics,
+    })
+}
+
+fn validate_ols_inputs(design: &F64Matrix, target: &[f64], tolerance: f64) -> Result<(), String> {
+    if target.len() != design.shape().rows {
+        return Err("invalid request: OLS target length must match design rows".to_string());
+    }
+    if target.iter().any(|value| !value.is_finite()) {
+        return Err("invalid request: OLS target values must be finite".to_string());
+    }
+    if !tolerance.is_finite() || tolerance < 0.0 {
+        return Err("invalid request: OLS tolerance must be finite and non-negative".to_string());
+    }
+    Ok(())
+}
+
+fn ols_from_coefficients(
+    design: &F64Matrix,
+    target: &[f64],
+    coefficients: Vec<f64>,
+) -> Result<OlsRegressionF64, String> {
+    let fitted = design
+        .as_view()
+        .matvec(&coefficients)
+        .map_err(surface_invalid_request)?;
+    let residuals = target
+        .iter()
+        .zip(&fitted)
+        .map(|(actual, fitted)| actual - fitted)
+        .collect::<Vec<_>>();
+    let mean_target = target.iter().sum::<f64>() / target.len() as f64;
+    let ss_res = residuals.iter().map(|value| value * value).sum::<f64>();
+    let ss_tot = target
+        .iter()
+        .map(|value| (value - mean_target).powi(2))
+        .sum::<f64>();
+    let r_squared = if ss_tot <= f64::EPSILON {
+        if ss_res <= f64::EPSILON {
+            1.0
+        } else {
+            0.0
+        }
+    } else {
+        1.0 - ss_res / ss_tot
+    };
+    Ok(OlsRegressionF64 {
+        coefficients,
+        fitted,
+        residuals,
+        r_squared,
+        observations: design.shape().rows,
+        predictors: design.shape().cols,
+    })
+}
+
 fn validate_value_count(count: usize) -> Result<(), String> {
     if count > MAX_VALUES {
         return Err(format!("values must not exceed {MAX_VALUES}"));
     }
     Ok(())
+}
+
+fn surface_invalid_request(error: impl std::fmt::Display) -> String {
+    format!("invalid request: {error}")
 }
 
 fn parse_variance_mode(value: &str) -> Result<VarianceMode, String> {
@@ -485,6 +932,10 @@ fn default_change_method() -> String {
 
 fn default_confidence() -> f64 {
     0.95
+}
+
+fn default_f64_precision() -> String {
+    "f64".to_string()
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
@@ -599,5 +1050,28 @@ mod tests {
         assert_eq!(response.value["degreesOfFreedom"], 2);
         assert!(response.value["standardErrors"].is_array());
         assert!(response.value["tStatistics"].is_array());
+    }
+
+    #[test]
+    fn ols_uses_pseudoinverse_but_diagnostics_stay_strict() {
+        let ols = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("stats.regression.ols"),
+            input: serde_json::json!({
+                "design": {"rows": 4, "cols": 2, "values": [1.0, 2.0, 2.0, 4.0, 3.0, 6.0, 4.0, 8.0]},
+                "target": [1.0, 2.0, 3.0, 4.0]
+            }),
+        })
+        .expect("rank-deficient ols");
+        assert_eq!(ols.value["precision"], "f64");
+        assert_eq!(ols.value["coefficients"].as_array().unwrap().len(), 2);
+
+        let diagnostics = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("stats.regression.diagnostics"),
+            input: serde_json::json!({
+                "design": {"rows": 4, "cols": 2, "values": [1.0, 2.0, 2.0, 4.0, 3.0, 6.0, 4.0, 8.0]},
+                "target": [1.0, 2.0, 3.0, 4.0]
+            }),
+        });
+        assert!(diagnostics.is_err());
     }
 }

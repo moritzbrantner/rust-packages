@@ -19,3 +19,16 @@ fn cli_adapter_runs_new_operation() {
     .expect("run operation");
     assert_eq!(response.value["degreesOfFreedom"], 2);
 }
+
+#[test]
+fn cli_adapter_runs_rank_deficient_ols() {
+    let response = math_statistics_cli::run_operation(
+        "stats.regression.ols",
+        serde_json::json!({
+            "design": {"rows": 4, "cols": 2, "values": [1.0, 2.0, 2.0, 4.0, 3.0, 6.0, 4.0, 8.0]},
+            "target": [1.0, 2.0, 3.0, 4.0]
+        }),
+    )
+    .expect("run operation");
+    assert_eq!(response.value["precision"], "f64");
+}

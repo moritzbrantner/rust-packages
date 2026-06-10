@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
+use math_linear::{F64Matrix, MatrixShape};
 use video_analysis_core::{DetectError, Result};
 
 pub use math_statistics::{Drawdown, VarianceMode};
@@ -402,14 +403,14 @@ pub fn portfolio_variance(covariance: &PortfolioCovariance, weights: &[f64]) -> 
             "portfolio covariance asset count must match weight count",
         ));
     }
-    let mut variance = 0.0;
-    for row in 0..covariance.asset_count {
-        for col in 0..covariance.asset_count {
-            variance += weights.weights()[row]
-                * covariance.values[row * covariance.asset_count + col]
-                * weights.weights()[col];
-        }
-    }
+    let covariance_matrix = portfolio_covariance_matrix(covariance)?;
+    let covariance_times_weights = covariance_matrix.matvec(weights.weights())?;
+    let variance = weights
+        .weights()
+        .iter()
+        .zip(&covariance_times_weights)
+        .map(|(weight, value)| weight * value)
+        .sum::<f64>();
     if !variance.is_finite() {
         return Err(invalid_argument("portfolio variance must be finite"));
     }
@@ -448,13 +449,8 @@ pub fn portfolio_risk_contribution(
         ));
     }
     let volatility = portfolio_variance.sqrt();
-    let mut covariance_times_weights = vec![0.0; annualized.asset_count];
-    for (row, value) in covariance_times_weights.iter_mut().enumerate() {
-        for col in 0..annualized.asset_count {
-            *value +=
-                annualized.values[row * annualized.asset_count + col] * weights.weights()[col];
-        }
-    }
+    let covariance_times_weights =
+        portfolio_covariance_matrix(&annualized)?.matvec(weights.weights())?;
     let marginal_contributions = covariance_times_weights
         .iter()
         .map(|value| value / volatility)
@@ -693,6 +689,14 @@ fn validate_portfolio_covariance(covariance: &PortfolioCovariance) -> Result<()>
         ));
     }
     Ok(())
+}
+
+fn portfolio_covariance_matrix(covariance: &PortfolioCovariance) -> Result<F64Matrix> {
+    validate_portfolio_covariance(covariance)?;
+    F64Matrix::new(
+        MatrixShape::new(covariance.asset_count, covariance.asset_count)?,
+        covariance.values.clone(),
+    )
 }
 
 fn validate_periods_per_year(periods_per_year: f64) -> Result<()> {

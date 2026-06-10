@@ -496,6 +496,26 @@ mod tests {
     }
 
     #[test]
+    fn wav2vec2_model_error_does_not_fall_back_to_deterministic_alignment() {
+        let temp = tempfile::tempdir().unwrap();
+        write_valid_wav2vec2_bundle(temp.path());
+
+        let error = align(
+            &AlignmentOptions {
+                enabled: true,
+                model_bundle: Some(temp.path().to_path_buf()),
+                ..AlignmentOptions::default()
+            },
+            alignment_request_for_tests(),
+        )
+        .unwrap_err()
+        .to_string();
+
+        assert!(error.contains("safetensors"));
+        assert!(!error.contains("deterministic transcript timing alignment completed"));
+    }
+
+    #[test]
     fn missing_alignment_bundle_files_return_setup_error() {
         let temp = tempfile::tempdir().unwrap();
         std::fs::write(temp.path().join("config.json"), "{}").unwrap();

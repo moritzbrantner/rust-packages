@@ -944,6 +944,35 @@ pub trait SpeakerEmbeddingExtractor {
     fn embed_speaker(&mut self, audio: &SpeakerAudio<'_>) -> Result<SpeakerEmbedding>;
 }
 
+/// Request for a model-backed speaker embedding provider.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpeakerEmbeddingRequest<'a> {
+    /// Borrowed audio to embed.
+    pub audio: SpeakerAudio<'a>,
+}
+
+/// Response from a model-backed speaker embedding provider.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpeakerEmbeddingResponse {
+    /// Stable provider model identifier.
+    pub model_id: String,
+    /// Runtime used to produce the embedding.
+    pub runtime: AudioRuntime,
+    /// Normalized speaker embedding.
+    pub embedding: SpeakerEmbedding,
+    /// Provider diagnostics.
+    pub diagnostics: Vec<String>,
+}
+
+/// Trait for speaker embedding providers that can expose runtime diagnostics.
+pub trait SpeakerEmbeddingProvider {
+    /// Returns provider identifier.
+    fn provider_id(&self) -> &str;
+
+    /// Embeds speaker audio and returns runtime metadata.
+    fn embed(&mut self, request: SpeakerEmbeddingRequest<'_>) -> Result<SpeakerEmbeddingResponse>;
+}
+
 #[derive(Debug, Clone, PartialEq)]
 /// Deterministic spectral speaker embedder.
 ///
@@ -990,11 +1019,112 @@ impl SpeakerEmbeddingExtractor for SpectralSpeakerEmbedder {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-/// Placeholder for future ONNX-backed speaker embeddings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Configuration for ONNX-backed speaker embeddings.
+pub struct OnnxSpeakerEmbeddingConfig {
+    /// Path to a direct `.onnx` file, a directory containing the ONNX file, or a
+    /// model-runtime bundle when `model-bundles` is enabled.
+    pub bundle_path: PathBuf,
+    /// Model filename or bundle remote/local suffix. Defaults to `model.onnx`.
+    pub model_file: Option<String>,
+    /// Optional ONNX input name. Defaults to the sole model input.
+    pub input_name: Option<String>,
+    /// Optional ONNX output name. Defaults to the sole model output.
+    pub output_name: Option<String>,
+    /// Expected embedding dimensionality.
+    pub embedding_dimension: usize,
+    /// Required request sample rate. Defaults to 16 kHz when zero in
+    /// `Default`, but explicit zero is rejected during validation.
+    pub sample_rate: u32,
+}
+
+impl OnnxSpeakerEmbeddingConfig {
+    /// Returns the model filename, defaulting to `model.onnx`.
+    pub fn model_file_name(&self) -> &str {
+        self.model_file.as_deref().unwrap_or("model.onnx")
+    }
+
+    /// Returns the configured sample rate.
+    pub fn effective_sample_rate(&self) -> u32 {
+        if self.sample_rate == 0 {
+            16_000
+        } else {
+            self.sample_rate
+        }
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.bundle_path.as_os_str().is_empty() {
+            return Err(setup_error(
+                "ONNX speaker embedding bundle path is required",
+            ));
+        }
+        if let Some(model_file) = &self.model_file {
+            if model_file.trim().is_empty() {
+                return Err(invalid_request(
+                    "ONNX speaker embedding model_file must not be empty",
+                ));
+            }
+        }
+        if let Some(input_name) = &self.input_name {
+            if input_name.trim().is_empty() {
+                return Err(invalid_request(
+                    "ONNX speaker embedding input_name must not be empty",
+                ));
+            }
+        }
+        if let Some(output_name) = &self.output_name {
+            if output_name.trim().is_empty() {
+                return Err(invalid_request(
+                    "ONNX speaker embedding output_name must not be empty",
+                ));
+            }
+        }
+        if self.embedding_dimension == 0 {
+            return Err(invalid_request(
+                "ONNX speaker embedding dimension must be greater than zero",
+            ));
+        }
+        if self.sample_rate == 0 {
+            return Err(invalid_request(
+                "ONNX speaker embedding sample_rate must be greater than zero",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Default for OnnxSpeakerEmbeddingConfig {
+    fn default() -> Self {
+        Self {
+            bundle_path: PathBuf::new(),
+            model_file: None,
+            input_name: None,
+            output_name: None,
+            embedding_dimension: 0,
+            sample_rate: 16_000,
+        }
+    }
+}
+
+/// ONNX-backed speaker embedding provider.
 pub struct OnnxSpeakerEmbedder {
+    config: OnnxSpeakerEmbeddingConfig,
     model_path: PathBuf,
     model: SpeakerEmbeddingModel,
+    #[cfg(feature = "onnx")]
+    runner: Option<Box<dyn runtime_onnx::OnnxRunner + Send>>,
+}
+
+impl std::fmt::Debug for OnnxSpeakerEmbedder {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("OnnxSpeakerEmbedder")
+            .field("config", &self.config)
+            .field("model_path", &self.model_path)
+            .field("model", &self.model)
+            .finish_non_exhaustive()
+    }
 }
 
 impl OnnxSpeakerEmbedder {
@@ -1002,14 +1132,94 @@ impl OnnxSpeakerEmbedder {
     pub fn new(model_path: impl AsRef<Path>, model: SpeakerEmbeddingModel) -> Result<Self> {
         model.validate()?;
         Ok(Self {
+            config: OnnxSpeakerEmbeddingConfig {
+                bundle_path: model_path.as_ref().to_path_buf(),
+                embedding_dimension: model.dimensions,
+                sample_rate: 16_000,
+                ..OnnxSpeakerEmbeddingConfig::default()
+            },
             model_path: model_path.as_ref().to_path_buf(),
             model,
+            #[cfg(feature = "onnx")]
+            runner: None,
+        })
+    }
+
+    /// Creates an executable ONNX speaker embedder from config.
+    pub fn from_config(config: OnnxSpeakerEmbeddingConfig) -> Result<Self> {
+        let model_path = resolve_onnx_speaker_model_path(&config)?;
+        let model = SpeakerEmbeddingModel::new(
+            SpeakerEmbeddingModelFamily::Custom("onnx-speaker-embedding".to_string()),
+            model_path
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .unwrap_or("onnx-speaker-embedding"),
+            "1",
+            config.embedding_dimension,
+        )?;
+        Self::from_resolved_model(config, model_path, model)
+    }
+
+    #[cfg(feature = "onnx")]
+    fn from_resolved_model(
+        config: OnnxSpeakerEmbeddingConfig,
+        model_path: PathBuf,
+        model: SpeakerEmbeddingModel,
+    ) -> Result<Self> {
+        let runner =
+            runtime_onnx::OnnxSession::from_file(&model_path).map_err(map_onnx_session_error)?;
+        Ok(Self {
+            config,
+            model_path,
+            model,
+            runner: Some(Box::new(runner)),
+        })
+    }
+
+    #[cfg(not(feature = "onnx"))]
+    fn from_resolved_model(
+        config: OnnxSpeakerEmbeddingConfig,
+        model_path: PathBuf,
+        model: SpeakerEmbeddingModel,
+    ) -> Result<Self> {
+        let _ = (config, model_path, model);
+        Err(unsupported_runtime(
+            "ONNX speaker embedding requires the `onnx` feature",
+        ))
+    }
+
+    /// Creates an ONNX speaker embedder from a test or custom runner.
+    #[cfg(feature = "onnx")]
+    pub fn from_runner(
+        config: OnnxSpeakerEmbeddingConfig,
+        runner: impl runtime_onnx::OnnxRunner + Send + 'static,
+    ) -> Result<Self> {
+        let model_path = resolve_onnx_speaker_model_path(&config)?;
+        let model = SpeakerEmbeddingModel::new(
+            SpeakerEmbeddingModelFamily::Custom("onnx-speaker-embedding".to_string()),
+            model_path
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .unwrap_or("onnx-speaker-embedding"),
+            "1",
+            config.embedding_dimension,
+        )?;
+        Ok(Self {
+            config,
+            model_path,
+            model,
+            runner: Some(Box::new(runner)),
         })
     }
 
     /// Returns model path.
     pub fn model_path(&self) -> &Path {
         &self.model_path
+    }
+
+    /// Returns config.
+    pub fn config(&self) -> &OnnxSpeakerEmbeddingConfig {
+        &self.config
     }
 }
 
@@ -1018,9 +1228,89 @@ impl SpeakerEmbeddingExtractor for OnnxSpeakerEmbedder {
         self.model.clone()
     }
 
-    fn embed_speaker(&mut self, _audio: &SpeakerAudio<'_>) -> Result<SpeakerEmbedding> {
-        Err(DetectError::Source(
-            "ONNX speaker embedding execution is not implemented yet".to_string(),
+    fn embed_speaker(&mut self, audio: &SpeakerAudio<'_>) -> Result<SpeakerEmbedding> {
+        Ok(self
+            .embed(SpeakerEmbeddingRequest {
+                audio: audio.clone(),
+            })?
+            .embedding)
+    }
+}
+
+impl SpeakerEmbeddingProvider for OnnxSpeakerEmbedder {
+    fn provider_id(&self) -> &str {
+        "onnx-speaker-embedding"
+    }
+
+    fn embed(&mut self, request: SpeakerEmbeddingRequest<'_>) -> Result<SpeakerEmbeddingResponse> {
+        self.config.validate()?;
+        if request.audio.sample_rate() != self.config.sample_rate {
+            return Err(invalid_request(format!(
+                "ONNX speaker embedding requires {} Hz audio, got {} Hz",
+                self.config.sample_rate,
+                request.audio.sample_rate()
+            )));
+        }
+        let mono = request.audio.to_mono()?;
+        let embedding = self.embed_mono_with_onnx(&mono, request.audio.sample_rate())?;
+        Ok(SpeakerEmbeddingResponse {
+            model_id: self.model.name.clone(),
+            runtime: AudioRuntime::Onnx,
+            embedding,
+            diagnostics: vec![
+                "speakerEmbeddingProvider=onnx".to_string(),
+                "speakerEmbeddingRuntime=onnx".to_string(),
+                format!("speakerEmbeddingModelPath={}", self.model_path.display()),
+                format!(
+                    "speakerEmbeddingDimension={}",
+                    self.config.embedding_dimension
+                ),
+                format!(
+                    "speakerEmbeddingInputName={}",
+                    self.config.input_name.as_deref().unwrap_or("<auto>")
+                ),
+                format!(
+                    "speakerEmbeddingOutputName={}",
+                    self.config.output_name.as_deref().unwrap_or("<auto>")
+                ),
+            ],
+        })
+    }
+}
+
+impl OnnxSpeakerEmbedder {
+    #[cfg(feature = "onnx")]
+    fn embed_mono_with_onnx(&mut self, mono: &[f32], sample_rate: u32) -> Result<SpeakerEmbedding> {
+        let runner = self.runner.as_mut().ok_or_else(|| {
+            unsupported_runtime("ONNX speaker embedding runner is not initialized")
+        })?;
+        let metadata = runner.metadata().map_err(map_onnx_runtime_error)?;
+        let input = select_onnx_speaker_input(&metadata, self.config.input_name.as_deref())?;
+        let output = select_onnx_speaker_output(&metadata, self.config.output_name.as_deref())?;
+        let (shape, values) = onnx_speaker_input_tensor(&input, mono)?;
+        let outputs = runner
+            .run(vec![runtime_onnx::single_f32_input(
+                input.name.clone(),
+                shape,
+                values,
+            )
+            .map_err(map_onnx_runtime_error)?])
+            .map_err(map_onnx_runtime_error)?;
+        let tensor =
+            runtime_onnx::f32_output_by_name_or_index(&outputs, &output.name, output.index)
+                .map_err(map_onnx_runtime_error)?;
+        let values = onnx_speaker_embedding_values(tensor, self.config.embedding_dimension)?;
+        SpeakerEmbedding::new(values, self.model_info(), sample_rate)
+    }
+
+    #[cfg(not(feature = "onnx"))]
+    fn embed_mono_with_onnx(
+        &mut self,
+        _mono: &[f32],
+        _sample_rate: u32,
+    ) -> Result<SpeakerEmbedding> {
+        Err(unsupported_runtime(
+            "ONNX speaker embedding requires the `onnx` feature",
         ))
     }
 }
@@ -1421,6 +1711,282 @@ fn validate_model_compatible(
         )));
     }
     Ok(())
+}
+
+fn resolve_onnx_speaker_model_path(config: &OnnxSpeakerEmbeddingConfig) -> Result<PathBuf> {
+    config.validate()?;
+    let bundle_path = &config.bundle_path;
+    let model_file = config.model_file_name();
+    if bundle_path.is_file() {
+        if bundle_path.extension().and_then(|value| value.to_str()) == Some("onnx") {
+            return Ok(bundle_path.clone());
+        }
+        return Err(setup_error(format!(
+            "ONNX speaker embedding path `{}` is not an .onnx file",
+            bundle_path.display()
+        )));
+    }
+    if !bundle_path.exists() {
+        return Err(setup_error(format!(
+            "ONNX speaker embedding bundle `{}` does not exist",
+            bundle_path.display()
+        )));
+    }
+    if !bundle_path.is_dir() {
+        return Err(setup_error(format!(
+            "ONNX speaker embedding bundle `{}` is not a file or directory",
+            bundle_path.display()
+        )));
+    }
+
+    #[cfg(feature = "model-bundles")]
+    {
+        let manifest_path = bundle_path.join("manifest.json");
+        if manifest_path.is_file() {
+            let bundle = model_runtime::ModelBundle::load(&manifest_path).map_err(|error| {
+                invalid_request(format!(
+                    "failed to parse ONNX speaker embedding bundle manifest `{}`: {error}",
+                    manifest_path.display()
+                ))
+            })?;
+            for file in bundle.manifest.files.values() {
+                if file.remote_path == model_file
+                    || file.remote_path.ends_with(model_file)
+                    || file.local_path.ends_with(model_file)
+                {
+                    if let Some(path) = bundle.file_path(&file.remote_path) {
+                        if path.is_file() {
+                            return Ok(path);
+                        }
+                        return Err(setup_error(format!(
+                            "ONNX speaker embedding model file `{}` from bundle manifest does not exist",
+                            path.display()
+                        )));
+                    }
+                }
+            }
+            return Err(setup_error(format!(
+                "ONNX speaker embedding bundle `{}` is missing model file `{model_file}`",
+                bundle_path.display()
+            )));
+        }
+    }
+
+    let model_path = bundle_path.join(model_file);
+    if model_path.is_file() {
+        Ok(model_path)
+    } else {
+        Err(setup_error(format!(
+            "ONNX speaker embedding model file `{}` does not exist",
+            model_path.display()
+        )))
+    }
+}
+
+#[cfg(feature = "onnx")]
+#[derive(Debug, Clone)]
+struct SelectedOnnxIo {
+    name: String,
+    index: usize,
+    dimensions: Vec<runtime_onnx::OnnxDimension>,
+}
+
+#[cfg(feature = "onnx")]
+fn select_onnx_speaker_input(
+    metadata: &runtime_onnx::OnnxSessionMetadata,
+    requested_name: Option<&str>,
+) -> Result<SelectedOnnxIo> {
+    let (index, input) = select_onnx_io(&metadata.inputs, requested_name, "input")?;
+    if input.element_type != Some(runtime_onnx::OnnxTensorElementType::F32) {
+        return Err(unsupported_runtime(format!(
+            "ONNX speaker embedding input `{}` must be f32",
+            input.name
+        )));
+    }
+    if !matches!(input.dimensions.len(), 2 | 3) {
+        return Err(unsupported_runtime(format!(
+            "ONNX speaker embedding input `{}` must have rank 2 or 3, got rank {}",
+            input.name,
+            input.dimensions.len()
+        )));
+    }
+    validate_fixed_dimension(&input.dimensions[0], 1, "batch")?;
+    if input.dimensions.len() == 3 {
+        validate_fixed_dimension(&input.dimensions[1], 1, "channel")?;
+    }
+    Ok(SelectedOnnxIo {
+        name: input.name.clone(),
+        index,
+        dimensions: input.dimensions.clone(),
+    })
+}
+
+#[cfg(feature = "onnx")]
+fn select_onnx_speaker_output(
+    metadata: &runtime_onnx::OnnxSessionMetadata,
+    requested_name: Option<&str>,
+) -> Result<SelectedOnnxIo> {
+    let (index, output) = select_onnx_io(&metadata.outputs, requested_name, "output")?;
+    if output.element_type != Some(runtime_onnx::OnnxTensorElementType::F32) {
+        return Err(model_output_mismatch(format!(
+            "ONNX speaker embedding output `{}` must be f32",
+            output.name
+        )));
+    }
+    if !matches!(output.dimensions.len(), 1 | 2) {
+        return Err(model_output_mismatch(format!(
+            "ONNX speaker embedding output `{}` must have rank 1 or 2, got rank {}",
+            output.name,
+            output.dimensions.len()
+        )));
+    }
+    if output.dimensions.len() == 2 {
+        validate_output_fixed_dimension(&output.dimensions[0], 1, "batch")?;
+    }
+    Ok(SelectedOnnxIo {
+        name: output.name.clone(),
+        index,
+        dimensions: output.dimensions.clone(),
+    })
+}
+
+#[cfg(feature = "onnx")]
+fn select_onnx_io<'a>(
+    values: &'a [runtime_onnx::OnnxIoInfo],
+    requested_name: Option<&str>,
+    role: &str,
+) -> Result<(usize, &'a runtime_onnx::OnnxIoInfo)> {
+    if let Some(name) = requested_name {
+        return values
+            .iter()
+            .enumerate()
+            .find(|(_, value)| value.name == name)
+            .ok_or_else(|| {
+                unsupported_runtime(format!("ONNX speaker embedding {role} `{name}` is missing"))
+            });
+    }
+    if values.len() != 1 {
+        return Err(unsupported_runtime(format!(
+            "ONNX speaker embedding requires exactly one {role} when no {role}_name is configured, got {}",
+            values.len()
+        )));
+    }
+    Ok((0, &values[0]))
+}
+
+#[cfg(feature = "onnx")]
+fn validate_fixed_dimension(
+    dimension: &runtime_onnx::OnnxDimension,
+    expected: usize,
+    role: &str,
+) -> Result<()> {
+    if matches!(dimension, runtime_onnx::OnnxDimension::Fixed(value) if *value != expected) {
+        return Err(unsupported_runtime(format!(
+            "ONNX speaker embedding fixed {role} dimension must be {expected}"
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "onnx")]
+fn validate_output_fixed_dimension(
+    dimension: &runtime_onnx::OnnxDimension,
+    expected: usize,
+    role: &str,
+) -> Result<()> {
+    if matches!(dimension, runtime_onnx::OnnxDimension::Fixed(value) if *value != expected) {
+        return Err(model_output_mismatch(format!(
+            "ONNX speaker embedding fixed output {role} dimension must be {expected}"
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "onnx")]
+fn onnx_speaker_input_tensor(
+    input: &SelectedOnnxIo,
+    mono: &[f32],
+) -> Result<(Vec<usize>, Vec<f32>)> {
+    let sample_dimension = input.dimensions.last().ok_or_else(|| {
+        unsupported_runtime("ONNX speaker embedding input is missing sample dimension")
+    })?;
+    let samples = match sample_dimension {
+        runtime_onnx::OnnxDimension::Fixed(value) => *value,
+        runtime_onnx::OnnxDimension::Symbolic(_) | runtime_onnx::OnnxDimension::Unknown => {
+            mono.len()
+        }
+    };
+    let mut values = vec![0.0; samples];
+    let copy_len = mono.len().min(samples);
+    values[..copy_len].copy_from_slice(&mono[..copy_len]);
+    let shape = if input.dimensions.len() == 2 {
+        vec![1, samples]
+    } else {
+        vec![1, 1, samples]
+    };
+    Ok((shape, values))
+}
+
+#[cfg(feature = "onnx")]
+fn onnx_speaker_embedding_values(
+    tensor: &runtime_onnx::OnnxF32Tensor,
+    embedding_dimension: usize,
+) -> Result<Vec<f32>> {
+    match tensor.shape.as_slice() {
+        [dim] if *dim == embedding_dimension => Ok(tensor.values.clone()),
+        [1, dim] if *dim == embedding_dimension => Ok(tensor.values.clone()),
+        shape => Err(model_output_mismatch(format!(
+            "ONNX speaker embedding output shape {shape:?} does not match expected embedding dimension {embedding_dimension}"
+        ))),
+    }
+}
+
+#[cfg(feature = "onnx")]
+fn map_onnx_session_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
+    match error {
+        runtime_onnx::OnnxRuntimeError::Unavailable => {
+            unsupported_runtime("ONNX speaker embedding runtime is unavailable")
+        }
+        runtime_onnx::OnnxRuntimeError::InvalidArgument(message)
+            if message.contains("does not exist") =>
+        {
+            setup_error(message)
+        }
+        runtime_onnx::OnnxRuntimeError::InvalidArgument(message) => invalid_request(message),
+        runtime_onnx::OnnxRuntimeError::Io(error) => setup_error(error.to_string()),
+        other => unsupported_runtime(other.to_string()),
+    }
+}
+
+#[cfg(feature = "onnx")]
+fn map_onnx_runtime_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
+    match error {
+        runtime_onnx::OnnxRuntimeError::Unavailable => {
+            unsupported_runtime("ONNX speaker embedding runtime is unavailable")
+        }
+        runtime_onnx::OnnxRuntimeError::InvalidArgument(message) => invalid_request(message),
+        runtime_onnx::OnnxRuntimeError::InvalidTensorShape(message)
+        | runtime_onnx::OnnxRuntimeError::UnsupportedTensorType(message)
+        | runtime_onnx::OnnxRuntimeError::Source(message) => model_output_mismatch(message),
+        runtime_onnx::OnnxRuntimeError::Io(error) => setup_error(error.to_string()),
+    }
+}
+
+fn setup_error(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(format!("setup_error: {}", message.into()))
+}
+
+fn invalid_request(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(format!("invalid_request: {}", message.into()))
+}
+
+fn unsupported_runtime(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(format!("unsupported_runtime: {}", message.into()))
+}
+
+#[cfg(feature = "onnx")]
+fn model_output_mismatch(message: impl Into<String>) -> DetectError {
+    DetectError::InvalidArgument(format!("model_output_mismatch: {}", message.into()))
 }
 
 fn confidence_for(score: f32, margin: Option<f32>) -> SpeakerConfidence {
@@ -2211,6 +2777,52 @@ mod tests {
         assert!(SpeakerEmbedding::new(vec![1.0, 0.0, 0.0], model, 16_000).is_err());
     }
 
+    #[derive(Debug, Clone)]
+    struct MockSpeakerEmbeddingProvider {
+        model: SpeakerEmbeddingModel,
+    }
+
+    impl SpeakerEmbeddingProvider for MockSpeakerEmbeddingProvider {
+        fn provider_id(&self) -> &str {
+            "mock-speaker-embedding"
+        }
+
+        fn embed(
+            &mut self,
+            request: SpeakerEmbeddingRequest<'_>,
+        ) -> Result<SpeakerEmbeddingResponse> {
+            Ok(SpeakerEmbeddingResponse {
+                model_id: self.model.name.clone(),
+                runtime: AudioRuntime::Onnx,
+                embedding: SpeakerEmbedding::new(
+                    vec![3.0, 4.0],
+                    self.model.clone(),
+                    request.audio.sample_rate(),
+                )?,
+                diagnostics: vec!["speakerEmbeddingProvider=mock".to_string()],
+            })
+        }
+    }
+
+    #[test]
+    fn speaker_embedding_provider_trait_returns_runtime_response() {
+        let samples = [0.1_f32; 160];
+        let audio = SpeakerAudio::mono(&samples, 16_000).unwrap();
+        let mut provider = MockSpeakerEmbeddingProvider {
+            model: test_model(),
+        };
+
+        let response = provider
+            .embed(SpeakerEmbeddingRequest { audio })
+            .expect("mock embedding");
+
+        assert_eq!(provider.provider_id(), "mock-speaker-embedding");
+        assert_eq!(response.model_id, "spkrec");
+        assert_eq!(response.runtime, AudioRuntime::Onnx);
+        assert_eq!(response.diagnostics, ["speakerEmbeddingProvider=mock"]);
+        assert_eq!(response.embedding.values(), &[0.6, 0.8]);
+    }
+
     #[test]
     fn speaker_embedding_rejects_model_mismatch_and_invalid_stored_values() {
         let left = embedding([1.0, 0.0]);
@@ -2496,6 +3108,202 @@ mod tests {
     }
 
     #[test]
+    fn onnx_config_validation_rejects_missing_bundle_path() {
+        let err = OnnxSpeakerEmbedder::from_config(OnnxSpeakerEmbeddingConfig {
+            embedding_dimension: 2,
+            sample_rate: 16_000,
+            ..OnnxSpeakerEmbeddingConfig::default()
+        })
+        .unwrap_err();
+
+        assert!(err.to_string().contains("setup_error"));
+    }
+
+    #[cfg(not(feature = "onnx"))]
+    #[test]
+    fn onnx_runtime_unavailable_without_feature_returns_typed_error() {
+        let (dir, model_path) = temp_onnx_model();
+        let err = OnnxSpeakerEmbedder::from_config(OnnxSpeakerEmbeddingConfig {
+            bundle_path: dir,
+            embedding_dimension: 2,
+            sample_rate: 16_000,
+            ..OnnxSpeakerEmbeddingConfig::default()
+        })
+        .unwrap_err();
+        let _ = std::fs::remove_file(model_path);
+
+        assert!(err.to_string().contains("unsupported_runtime"));
+    }
+
+    #[cfg(feature = "onnx")]
+    #[derive(Debug, Clone)]
+    struct MockOnnxRunner {
+        metadata: runtime_onnx::OnnxSessionMetadata,
+        outputs: Vec<runtime_onnx::OnnxNamedTensor>,
+    }
+
+    #[cfg(feature = "onnx")]
+    impl runtime_onnx::OnnxRunner for MockOnnxRunner {
+        fn metadata(&self) -> runtime_onnx::Result<runtime_onnx::OnnxSessionMetadata> {
+            Ok(self.metadata.clone())
+        }
+
+        fn run(
+            &mut self,
+            inputs: Vec<runtime_onnx::OnnxNamedTensor>,
+        ) -> runtime_onnx::Result<Vec<runtime_onnx::OnnxNamedTensor>> {
+            assert_eq!(inputs.len(), 1);
+            Ok(self.outputs.clone())
+        }
+    }
+
+    #[cfg(feature = "onnx")]
+    fn mock_onnx_metadata(
+        input_dimensions: Vec<runtime_onnx::OnnxDimension>,
+        output_dimensions: Vec<runtime_onnx::OnnxDimension>,
+    ) -> runtime_onnx::OnnxSessionMetadata {
+        runtime_onnx::OnnxSessionMetadata {
+            inputs: vec![runtime_onnx::OnnxIoInfo {
+                name: "waveform".to_string(),
+                element_type: Some(runtime_onnx::OnnxTensorElementType::F32),
+                dimensions: input_dimensions,
+            }],
+            outputs: vec![runtime_onnx::OnnxIoInfo {
+                name: "embedding".to_string(),
+                element_type: Some(runtime_onnx::OnnxTensorElementType::F32),
+                dimensions: output_dimensions,
+            }],
+        }
+    }
+
+    #[cfg(feature = "onnx")]
+    fn mock_onnx_runner(output_shape: Vec<usize>) -> MockOnnxRunner {
+        MockOnnxRunner {
+            metadata: mock_onnx_metadata(
+                vec![
+                    runtime_onnx::OnnxDimension::Fixed(1),
+                    runtime_onnx::OnnxDimension::Unknown,
+                ],
+                output_shape
+                    .iter()
+                    .copied()
+                    .map(runtime_onnx::OnnxDimension::Fixed)
+                    .collect(),
+            ),
+            outputs: vec![runtime_onnx::OnnxNamedTensor {
+                name: "embedding".to_string(),
+                tensor: runtime_onnx::OnnxTensorValue::F32(
+                    runtime_onnx::OnnxF32Tensor::new(
+                        output_shape.clone(),
+                        if output_shape == vec![2] || output_shape == vec![1, 2] {
+                            vec![3.0, 4.0]
+                        } else {
+                            vec![1.0; output_shape.iter().product()]
+                        },
+                    )
+                    .unwrap(),
+                ),
+            }],
+        }
+    }
+
+    #[cfg(feature = "onnx")]
+    fn onnx_config_for_temp_model() -> (OnnxSpeakerEmbeddingConfig, PathBuf) {
+        let (dir, _model_path) = temp_onnx_model();
+        (
+            OnnxSpeakerEmbeddingConfig {
+                bundle_path: dir.clone(),
+                input_name: Some("waveform".to_string()),
+                output_name: Some("embedding".to_string()),
+                embedding_dimension: 2,
+                sample_rate: 16_000,
+                ..OnnxSpeakerEmbeddingConfig::default()
+            },
+            dir,
+        )
+    }
+
+    fn temp_onnx_model() -> (PathBuf, PathBuf) {
+        let unique = format!(
+            "audio-analysis-speakers-onnx-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let dir = std::env::temp_dir().join(unique);
+        std::fs::create_dir_all(&dir).unwrap();
+        let model_path = dir.join("model.onnx");
+        std::fs::write(&model_path, b"fixture").unwrap();
+        (dir, model_path)
+    }
+
+    #[cfg(feature = "onnx")]
+    #[test]
+    fn mock_onnx_rank1_output_produces_normalized_embedding() {
+        let (config, dir) = onnx_config_for_temp_model();
+        let mut embedder =
+            OnnxSpeakerEmbedder::from_runner(config, mock_onnx_runner(vec![2])).unwrap();
+        let samples = [0.1_f32; 160];
+        let audio = SpeakerAudio::mono(&samples, 16_000).unwrap();
+
+        let response = embedder.embed(SpeakerEmbeddingRequest { audio }).unwrap();
+
+        assert_eq!(response.runtime, AudioRuntime::Onnx);
+        assert_eq!(response.embedding.values(), &[0.6, 0.8]);
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "speakerEmbeddingProvider=onnx"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[cfg(feature = "onnx")]
+    #[test]
+    fn mock_onnx_rank2_output_produces_normalized_embedding() {
+        let (config, dir) = onnx_config_for_temp_model();
+        let mut embedder =
+            OnnxSpeakerEmbedder::from_runner(config, mock_onnx_runner(vec![1, 2])).unwrap();
+        let samples = [0.1_f32; 160];
+        let audio = SpeakerAudio::mono(&samples, 16_000).unwrap();
+
+        let embedding = embedder.embed_speaker(&audio).unwrap();
+
+        assert_eq!(embedding.values(), &[0.6, 0.8]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[cfg(feature = "onnx")]
+    #[test]
+    fn mock_onnx_bad_output_shape_returns_model_output_mismatch() {
+        let (config, dir) = onnx_config_for_temp_model();
+        let mut embedder =
+            OnnxSpeakerEmbedder::from_runner(config, mock_onnx_runner(vec![1, 1, 2])).unwrap();
+        let samples = [0.1_f32; 160];
+        let audio = SpeakerAudio::mono(&samples, 16_000).unwrap();
+
+        let err = embedder.embed_speaker(&audio).unwrap_err();
+
+        assert!(err.to_string().contains("model_output_mismatch"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[cfg(feature = "onnx")]
+    #[test]
+    fn onnx_embedder_rejects_non_matching_sample_rate() {
+        let (config, dir) = onnx_config_for_temp_model();
+        let mut embedder =
+            OnnxSpeakerEmbedder::from_runner(config, mock_onnx_runner(vec![2])).unwrap();
+        let samples = [0.1_f32; 160];
+        let audio = SpeakerAudio::mono(&samples, 8_000).unwrap();
+
+        let err = embedder.embed_speaker(&audio).unwrap_err();
+
+        assert!(err.to_string().contains("invalid_request"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn energy_vad_detects_and_merges_speech_spans() {
         let sample_rate = 1_000;
         let mut samples = vec![0.0; 100];
@@ -2734,5 +3542,80 @@ mod tests {
             .segments
             .iter()
             .all(|segment| segment.end_seconds > segment.start_seconds));
+    }
+
+    #[cfg(feature = "onnx")]
+    #[test]
+    #[ignore]
+    fn onnx_speaker_embedding_smoke_when_requested() {
+        if std::env::var("RUN_NATIVE_SPEAKER_MODEL_TESTS").as_deref() != Ok("1") {
+            eprintln!(
+                "skipping ONNX speaker embedding smoke; set RUN_NATIVE_SPEAKER_MODEL_TESTS=1"
+            );
+            return;
+        }
+        let bundle_path = std::env::var_os("SPEAKER_EMBEDDING_MODEL_BUNDLE")
+            .map(std::path::PathBuf::from)
+            .expect("SPEAKER_EMBEDDING_MODEL_BUNDLE is required");
+        let audio_path = std::env::var_os("DIARIZATION_AUDIO_PATH")
+            .map(std::path::PathBuf::from)
+            .expect("DIARIZATION_AUDIO_PATH is required");
+        let embedding_dimension = std::env::var("SPEAKER_EMBEDDING_DIMENSION")
+            .ok()
+            .map(|value| value.parse::<usize>().expect("valid embedding dimension"))
+            .unwrap_or(192);
+        let mut reader = hound::WavReader::open(&audio_path).unwrap_or_else(|error| {
+            panic!("failed to open WAV `{}`: {error}", audio_path.display())
+        });
+        let spec = reader.spec();
+        assert_eq!(spec.sample_rate, 16_000, "smoke WAV must be 16 kHz");
+        assert!(spec.channels > 0, "WAV channel count must be non-zero");
+        let interleaved = match spec.sample_format {
+            hound::SampleFormat::Float => {
+                assert_eq!(spec.bits_per_sample, 32, "float WAV must be 32-bit");
+                reader
+                    .samples::<f32>()
+                    .map(|sample| sample.expect("failed to read float WAV sample"))
+                    .collect::<Vec<_>>()
+            }
+            hound::SampleFormat::Int if spec.bits_per_sample <= 16 => reader
+                .samples::<i16>()
+                .map(|sample| sample.expect("failed to read int WAV sample") as f32 / 32_768.0)
+                .collect::<Vec<_>>(),
+            hound::SampleFormat::Int => reader
+                .samples::<i32>()
+                .map(|sample| {
+                    let scale = 2_f32.powi(spec.bits_per_sample as i32 - 1);
+                    sample.expect("failed to read int WAV sample") as f32 / scale
+                })
+                .collect::<Vec<_>>(),
+        };
+        let mono = interleaved_to_mono(
+            &AudioBuffer::F32(interleaved),
+            spec.channels,
+            ChannelMix::Average,
+        )
+        .expect("valid mono mix");
+        let audio = SpeakerAudio::mono(&mono, spec.sample_rate).expect("valid speaker audio");
+        let mut provider = OnnxSpeakerEmbedder::from_config(OnnxSpeakerEmbeddingConfig {
+            bundle_path,
+            embedding_dimension,
+            sample_rate: 16_000,
+            ..OnnxSpeakerEmbeddingConfig::default()
+        })
+        .expect("ONNX speaker embedding provider");
+
+        let response = provider
+            .embed(SpeakerEmbeddingRequest { audio })
+            .expect("ONNX speaker embedding");
+
+        assert_eq!(response.runtime, AudioRuntime::Onnx);
+        assert_eq!(response.embedding.dimensions(), embedding_dimension);
+        assert!(response
+            .embedding
+            .values()
+            .iter()
+            .all(|value| value.is_finite()));
+        eprintln!("{:#?}", response.diagnostics);
     }
 }

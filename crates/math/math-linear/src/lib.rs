@@ -1,7 +1,12 @@
 #![doc = include_str!("../README.md")]
 
 mod backend;
+mod f64_matrix;
 pub mod surface;
+mod svd;
+
+pub use f64_matrix::{F64ColumnView, F64Matrix, F64MatrixView, F64RowView};
+pub use svd::{PseudoinverseOptions, ReconstructionDiagnostics, SvdDecomposition, SvdOptions};
 
 use tensor_data::{F32Tensor, F32TensorView, TensorShape};
 use vector_analysis_core::{cosine_similarity, dot, l2_norm, DenseVector};

@@ -159,7 +159,9 @@ assignment, and exercise a synthetic tiny wav2vec2 bundle through the pipeline
 without real model files, CUDA, Python, WhisperX, Hugging Face tokens, network,
 or downloads. Batch option tests are hermetic as well: `max_batch_size=0`
 rejection, output order, batch counts, unbounded batch diagnostics, and
-sequential-provider diagnostics are covered without real models.
+`batchExecution=candle-whisper-sequential` diagnostics are covered without real
+models. This is semantic batch grouping and does not claim throughput parity or
+true tensor-batched Whisper execution.
 
 Native diarization seam coverage is hermetic as well. Unit tests cover
 transcript-timing-derived speech spans, fallback to energy VAD when transcript
@@ -167,7 +169,13 @@ timing is absent, `min_speakers`/`max_speakers` validation and diagnostics, and
 pipeline diarization diagnostics without real speaker models, Python, network,
 CUDA, Hugging Face tokens, or downloads. `audio.transcription.diarizationPlan`
 is a Debug-only planning surface: it reports the current heuristic runtime and
-future model-backed provider directions, not production pyannote parity.
+the accepted opt-in ONNX speaker embedding direction, not production pyannote
+parity. `audio-analysis-speakers` exposes `SpeakerEmbeddingProvider` for
+model-backed embedders while keeping existing `SpeakerEmbeddingExtractor`
+callers working.
+`audio.transcription.alignmentBundlePlan` is also Debug-only: it can report a
+static plan without local files, or inspect local wav2vec2 config/tokenizer/
+safetensors metadata without model inference when a bundle path is provided.
 
 On the RTX 3060 Ti development host used for the current smoke, the working
 local assets are:
@@ -196,7 +204,14 @@ preprocessor metadata. Supported local `Wav2Vec2ForCTC` safetensors bundles
 execute through Candle and native CTC trellis/backtracking. Unsupported
 architectures or safetensors layouts return typed errors. Positional
 convolution supports plain weights, legacy `weight_g`/`weight_v` weight norm,
-and PyTorch parametrization `original0/original1` weight norm layouts.
+and PyTorch parametrization `original0/original1` weight norm layouts. The
+ignored real-bundle smoke prints the wav2vec2 layout report before execution,
+including stable-layer-norm status, feature-extractor norm, encoder layer
+count, missing tensor keys, and unsupported reasons.
+
+2026-06-10 validation: the default speech WAV was present, but the default
+caller-owned wav2vec2 bundle directory was missing. The real-bundle smoke was
+therefore classified as `setup_error` before layout inspection or inference.
 
 Native media/container decode smoke test:
 
@@ -208,6 +223,15 @@ cargo test -p moritzbrantner-audio-analysis-transcription \
   native_media_decode_when_requested -- --ignored --nocapture
 ```
 
+The media smoke asserts that explicit `audio-io` decode returns non-empty
+finite mono 16 kHz audio, preserves the source path, and reports
+`decodeRoute=audio-io-media-decode`-equivalent internal diagnostics. Default
+tests still cover native WAV and direct-sample diagnostics without FFmpeg.
+
+2026-06-10 validation: the checked-in WebM fixture decoded successfully with
+FFmpeg after the ignored smoke harness resolved workspace-root-relative fixture
+paths. `audio-io` remains opt-in and default tests still do not require FFmpeg.
+
 Capability tiers for transcription:
 
 - Default hermetic: direct samples, native WAV reads, VAD, batch semantics,
@@ -215,9 +239,11 @@ Capability tiers for transcription:
   wav2vec2 bundles, and heuristic diarization diagnostics.
 - Feature-gated: Candle Whisper (`candle`), CUDA (`cuda`), local bundle
   validation (`model-bundles`), CTC alignment (`alignment`), heuristic speaker
-  diarization (`diarization`), and non-WAV media decode (`audio-io`).
-- Ignored local smoke: Candle Whisper CUDA, real wav2vec2 alignment, and
-  `audio-io` media/container decode.
+  diarization (`diarization`), opt-in ONNX speaker embeddings (`onnx`), and
+  non-WAV media decode (`audio-io`).
+- Ignored local smoke: Candle Whisper CUDA, real wav2vec2 alignment,
+  `audio-io` media/container decode, ONNX speaker embeddings, and the
+  transcription ONNX diarization path.
 - External compatibility only: Python WhisperX execution and pyannote-backed
   diarization.
 
@@ -230,6 +256,57 @@ cargo test -p moritzbrantner-audio-analysis-speakers \
   --features external-tests \
   native_diarization_baseline_smoke_when_requested -- --ignored --nocapture
 ```
+
+ONNX speaker embedding smoke test:
+
+```bash
+RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
+SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+DIARIZATION_AUDIO_PATH=/path/to/meeting.wav \
+cargo test -p moritzbrantner-audio-analysis-speakers \
+  --features onnx,model-bundles \
+  onnx_speaker_embedding_smoke_when_requested -- --ignored --nocapture
+```
+
+The ONNX smoke uses a caller-owned local bundle only. It does not download
+models or use Python, Hugging Face auth, pyannote auth, CUDA, or network access.
+The WAV must already be 16 kHz. Set `SPEAKER_EMBEDDING_DIMENSION` when the
+model output dimension differs from the smoke default of 192.
+
+2026-06-10 validation: the default caller-owned ONNX speaker bundle directory
+was missing, so the speaker smoke was classified as `setup_error` before ONNX
+Runtime execution or input/output shape inspection.
+
+Transcription ONNX diarization smoke test:
+
+```bash
+RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
+SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+DIARIZATION_AUDIO_PATH=/path/to/meeting-16khz.wav \
+SPEAKER_EMBEDDING_DIMENSION=192 \
+cargo test -p moritzbrantner-audio-analysis-transcription \
+  --features diarization,onnx,model-bundles \
+  native_onnx_diarization_smoke_when_requested -- --ignored --nocapture
+```
+
+This smoke reads the caller-owned 16 kHz WAV, passes direct samples into the
+native transcription pipeline, uses mock ASR with timed segments, and verifies
+the explicit `diarization.speakerEmbeddingModelBundle` path. It is ignored by
+default and does not use FFmpeg, Python, CUDA, pyannote, Hugging Face auth,
+network, or downloaded model files.
+
+2026-06-10 validation: the transcription ONNX diarization smoke reached the
+direct-samples setup and then failed as `setup_error` because the same
+caller-owned ONNX speaker bundle was missing. ONNX diarization diagnostics were
+not reached.
+
+Current performance reality:
+
+- ASR batch execution reports `batchExecution=candle-whisper-sequential`.
+- wav2vec2 alignment runs model execution per segment.
+- Diarization embeds and clusters windows one by one.
+
+These are correctness paths, not WhisperX throughput parity claims.
 
 ## whisper.cpp Compatibility Smoke Test
 

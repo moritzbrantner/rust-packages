@@ -1,6 +1,7 @@
 # math-sparse-data
 
 Sparse vector and matrix contracts for text, retrieval, and feature indexing.
+This crate is part of the Analytical Math Crates family.
 
 ## Highlights
 

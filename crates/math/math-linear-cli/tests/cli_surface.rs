@@ -19,3 +19,17 @@ fn cli_adapter_runs_new_operation() {
     .expect("run operation");
     assert_eq!(response.value["rank"], 2);
 }
+
+#[test]
+fn cli_adapter_runs_svd_operation() {
+    let response = math_linear_cli::run_operation(
+        "linear.svd",
+        serde_json::json!({
+            "matrix": {"rows": 2, "cols": 2, "values": [1.0, 0.0, 0.0, 2.0]},
+            "computeFactors": true
+        }),
+    )
+    .expect("run operation");
+    assert_eq!(response.value["rank"], 2);
+    assert_eq!(response.value["u"]["rows"], 2);
+}

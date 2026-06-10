@@ -17,10 +17,43 @@ speaker verification or diarization. Production systems should use a
 model-backed embedder such as ECAPA-TDNN, x-vector, pyannote-style, or
 SpeechBrain-compatible speaker verification models.
 
+The first reviewed production direction is an opt-in ONNX speaker embedding
+provider, documented in
+`docs/adr/0003-native-speaker-diarization-provider.md`. Heuristic diarization
+remains the default and no default test requires model files, network access,
+Python, pyannote auth, Hugging Face tokens, or CUDA.
+
+Model-backed embedders can implement `SpeakerEmbeddingProvider`, which returns
+`SpeakerEmbeddingResponse` with model id, runtime, normalized
+`SpeakerEmbedding`, and diagnostics. Existing `SpeakerEmbeddingExtractor`
+callers remain supported.
+
 ## Feature flags
 
 - `external-tests`: enables ignored local smoke tests that require caller-owned
   WAV fixtures.
+- `onnx`: enables `runtime-onnx` execution for caller-owned local ONNX speaker
+  embedding models.
+- `model-bundles`: enables model-runtime manifest lookup for local ONNX bundles.
+
+Ignored ONNX smoke:
+
+```bash
+RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
+SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+DIARIZATION_AUDIO_PATH=/path/to/meeting.wav \
+cargo test -p moritzbrantner-audio-analysis-speakers \
+  --features onnx,model-bundles \
+  onnx_speaker_embedding_smoke_when_requested -- --ignored --nocapture
+```
+
+Set `SPEAKER_EMBEDDING_DIMENSION` when the local model output dimension is not
+192. The smoke expects an already-local 16 kHz WAV and never downloads models.
+
+2026-06-10 validation: the default smoke WAV was present, but the default
+caller-owned ONNX speaker bundle directory was missing. The ignored smoke was
+classified as `setup_error` before ONNX Runtime execution, input/output shape
+inspection, or embedding normalization checks.
 
 ## Package surface
 

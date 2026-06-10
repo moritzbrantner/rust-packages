@@ -4,7 +4,7 @@ import * as wasm from "@moritzbrantner/math-statistics-wasm";
 const packageAppConfig: PackageAppConfig = {
   library: "math-statistics",
   title: "Math Statistics",
-  description: "Shared scalar, pairwise, rolling, multivariate, and matrix statistics.",
+  description: "Shared scalar, pairwise, rolling, multivariate, and f64-default matrix statistics.",
   domain: "math",
   wasm: {
     init: wasm.init,

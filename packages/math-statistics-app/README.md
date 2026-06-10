@@ -1,6 +1,8 @@
 # math-statistics-app
 
 React, TypeScript, TailwindCSS, Bun, and oxfmt frontend for `math-statistics`.
+The workbench keeps `stats.series.describe` as the default and exposes
+precision-aware f64 matrix examples for normalization, covariance, PCA, and OLS.
 
 Run the server:
 

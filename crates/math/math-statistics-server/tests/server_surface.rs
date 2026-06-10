@@ -26,3 +26,14 @@ fn run_endpoint_calls_new_operation() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""degreesOfFreedom":2"#));
 }
+
+#[test]
+fn run_endpoint_calls_rank_deficient_ols() {
+    let response = math_statistics_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"stats.regression.ols","input":{"design":{"rows":4,"cols":2,"values":[1.0,2.0,2.0,4.0,3.0,6.0,4.0,8.0]},"target":[1.0,2.0,3.0,4.0]}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains(r#""precision":"f64""#));
+}

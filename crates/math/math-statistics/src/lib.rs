@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
-use math_linear::{F32Matrix, F32MatrixView, MatrixShape};
+use math_linear::{F32Matrix, F32MatrixView, F64Matrix, MatrixShape, PseudoinverseOptions};
 use numbers_core::{quantile, quartiles, NumberRange, RunningStats};
 use video_analysis_core::{DetectError, Result};
 
@@ -513,9 +513,21 @@ pub fn ordinary_least_squares(design: &F32MatrixView<'_>, target: &[f32]) -> Res
     let coefficients = match design.qr_decompose() {
         Ok(qr) => solve_qr(&qr.q, &qr.r, target)?,
         Err(_) => {
-            let xtx = design.gram_columns()?;
-            let xty = design.transpose().matvec(target)?.into_values();
-            xtx.solve_vector(&xty)?
+            let design_f64 = F64Matrix::try_from(&design.into_owned()?)?;
+            let target_f64 = target.iter().map(|value| *value as f64).collect::<Vec<_>>();
+            let coefficients_f64 = design_f64
+                .pseudoinverse(PseudoinverseOptions::default())?
+                .matvec(&target_f64)?;
+            let mut coefficients = Vec::with_capacity(coefficients_f64.len());
+            for value in coefficients_f64 {
+                if !value.is_finite() || value < f32::MIN as f64 || value > f32::MAX as f64 {
+                    return Err(invalid_argument(
+                        "OLS pseudoinverse produced f32-out-of-range coefficients",
+                    ));
+                }
+                coefficients.push(value as f32);
+            }
+            coefficients
         }
     };
     let fitted = design.matvec(&coefficients)?.into_values();

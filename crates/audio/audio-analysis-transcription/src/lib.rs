@@ -365,6 +365,18 @@ pub struct DiarizationOptions {
     #[serde(default = "default_diarization_model")]
     pub model_id: String,
     #[serde(default)]
+    pub speaker_embedding_model_bundle: Option<PathBuf>,
+    #[serde(default)]
+    pub speaker_embedding_model_file: Option<String>,
+    #[serde(default)]
+    pub speaker_embedding_input_name: Option<String>,
+    #[serde(default)]
+    pub speaker_embedding_output_name: Option<String>,
+    #[serde(default)]
+    pub speaker_embedding_dimension: Option<usize>,
+    #[serde(default)]
+    pub speaker_embedding_sample_rate: Option<u32>,
+    #[serde(default)]
     pub min_speakers: Option<usize>,
     #[serde(default)]
     pub max_speakers: Option<usize>,
@@ -377,6 +389,12 @@ impl Default for DiarizationOptions {
         Self {
             enabled: false,
             model_id: default_diarization_model(),
+            speaker_embedding_model_bundle: None,
+            speaker_embedding_model_file: None,
+            speaker_embedding_input_name: None,
+            speaker_embedding_output_name: None,
+            speaker_embedding_dimension: None,
+            speaker_embedding_sample_rate: None,
             min_speakers: None,
             max_speakers: None,
             assignment_policy: SpeakerAssignmentPolicy::Majority,
@@ -643,6 +661,9 @@ impl TranscriptDiarizationProvider for NativeSpeakerDiarizationProvider {
         options: &DiarizationOptions,
     ) -> Result<SpeakerDiarizationResponse> {
         native_audio::validate_loaded_audio(&audio)?;
+        if options.speaker_embedding_model_bundle.is_some() {
+            return diarize_with_onnx_speaker_embeddings(audio, transcript, options);
+        }
         let spans = speech_spans_from_transcript(transcript, audio.duration_seconds())?;
         if !spans.is_empty() {
             let speaker_audio =
@@ -669,6 +690,37 @@ impl TranscriptDiarizationProvider for NativeSpeakerDiarizationProvider {
         response.model_id = options.model_id.clone();
         Ok(response)
     }
+}
+
+#[cfg(feature = "diarization")]
+fn diarize_with_onnx_speaker_embeddings(
+    audio: LoadedAudio,
+    transcript: &TranscriptionContract,
+    options: &DiarizationOptions,
+) -> Result<SpeakerDiarizationResponse> {
+    let config = onnx_speaker_embedding_config(options)?;
+    let speaker_audio =
+        audio_analysis_speakers::SpeakerAudio::mono(&audio.samples, audio.sample_rate)?;
+    let embedder = audio_analysis_speakers::OnnxSpeakerEmbedder::from_config(config)?;
+    let spans = speech_spans_from_transcript(transcript, audio.duration_seconds())?;
+    let result = if spans.is_empty() {
+        let vad = audio_analysis_speakers::EnergyVoiceActivityDetector::default();
+        let mut diarizer = audio_analysis_speakers::WindowedSpeakerDiarizer::new(embedder, vad)
+            .cluster_threshold(0.95)?;
+        audio_analysis_speakers::SpeakerDiarizer::diarize(&mut diarizer, &speaker_audio)?
+    } else {
+        let vad = TranscriptSpeechSpanVad { spans };
+        let mut diarizer = audio_analysis_speakers::WindowedSpeakerDiarizer::new(embedder, vad)
+            .cluster_threshold(0.95)?;
+        audio_analysis_speakers::SpeakerDiarizer::diarize(&mut diarizer, &speaker_audio)?
+    };
+    Ok(SpeakerDiarizationResponse {
+        accepted: true,
+        operation: "audio.speakers.diarize".to_string(),
+        model_id: options.model_id.clone(),
+        runtime: audio_analysis_speakers::AudioRuntime::Onnx,
+        segments: stable_speaker_predictions_from_diarization(result.segments)?,
+    })
 }
 
 /// Default pure-Rust energy VAD provider.
@@ -716,7 +768,7 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
             response.diagnostics.extend(candle_batch_diagnostics(
                 &self.options,
                 chunk_count,
-                "candle-whisper",
+                "candle-whisper-sequential",
             ));
             Ok(response)
         }
@@ -914,15 +966,10 @@ pub fn run_transcription_pipeline(
         .any(|diagnostic| diagnostic.starts_with("batchChunks="))
     {
         if let TranscriptionProviderSelection::CandleWhisper(options) = &request.provider {
-            let execution = if asr_provider.provider_id() == "candle-whisper" {
-                "candle-whisper"
-            } else {
-                "sequential-provider"
-            };
             asr_response.diagnostics.extend(candle_batch_diagnostics(
                 options,
                 vad_response.segments.len(),
-                execution,
+                "candle-whisper-sequential",
             ));
         }
     }
@@ -1156,7 +1203,38 @@ fn validate_diarization_options(options: &DiarizationOptions) -> Result<()> {
             ));
         }
     }
+    if options.speaker_embedding_dimension == Some(0) {
+        return Err(invalid_request(
+            "diarization speaker_embedding_dimension must be greater than zero",
+        ));
+    }
+    if options.speaker_embedding_sample_rate == Some(0) {
+        return Err(invalid_request(
+            "diarization speaker_embedding_sample_rate must be greater than zero",
+        ));
+    }
     Ok(())
+}
+
+#[cfg(feature = "diarization")]
+fn onnx_speaker_embedding_config(
+    options: &DiarizationOptions,
+) -> Result<audio_analysis_speakers::OnnxSpeakerEmbeddingConfig> {
+    let bundle_path = options
+        .speaker_embedding_model_bundle
+        .clone()
+        .ok_or_else(|| setup_error("ONNX speaker embedding model bundle is required"))?;
+    let embedding_dimension = options.speaker_embedding_dimension.ok_or_else(|| {
+        invalid_request("ONNX speaker embedding dimension must be configured explicitly")
+    })?;
+    Ok(audio_analysis_speakers::OnnxSpeakerEmbeddingConfig {
+        bundle_path,
+        model_file: options.speaker_embedding_model_file.clone(),
+        input_name: options.speaker_embedding_input_name.clone(),
+        output_name: options.speaker_embedding_output_name.clone(),
+        embedding_dimension,
+        sample_rate: options.speaker_embedding_sample_rate.unwrap_or(16_000),
+    })
 }
 
 #[cfg(feature = "diarization")]
@@ -1428,6 +1506,12 @@ fn diarization_diagnostics(
     }
     if diarization_runtime_is_heuristic(response) {
         diagnostics.push("diarizationBaseline=heuristic-native".to_string());
+    } else if diarization_runtime_value(response) == "onnx" {
+        diagnostics.push("speakerEmbeddingProvider=onnx".to_string());
+        if let Some(dimension) = options.speaker_embedding_dimension {
+            diagnostics.push(format!("speakerEmbeddingDimension={dimension}"));
+        }
+        diagnostics.push("diarizationBaseline=false".to_string());
     }
     diagnostics
 }
@@ -2219,6 +2303,36 @@ mod tests {
         called: bool,
     }
 
+    #[cfg(feature = "diarization")]
+    struct MockOnnxDiarizationProvider;
+
+    #[cfg(feature = "diarization")]
+    impl TranscriptDiarizationProvider for MockOnnxDiarizationProvider {
+        fn provider_id(&self) -> &str {
+            "mock-onnx-diarization"
+        }
+
+        fn diarize(
+            &mut self,
+            _audio: LoadedAudio,
+            _transcript: &TranscriptionContract,
+            options: &DiarizationOptions,
+        ) -> Result<SpeakerDiarizationResponse> {
+            Ok(SpeakerDiarizationResponse {
+                accepted: true,
+                operation: "audio.speakers.diarize".to_string(),
+                model_id: options.model_id.clone(),
+                runtime: audio_analysis_speakers::AudioRuntime::Onnx,
+                segments: vec![audio_analysis_speakers::SpeakerSegmentPrediction {
+                    speaker: "SPEAKER_ONNX".to_string(),
+                    start_seconds: 0.0,
+                    end_seconds: 1.0,
+                    score: Some(0.9),
+                }],
+            })
+        }
+    }
+
     impl TranscriptDiarizationProvider for PanickingDiarizationProvider {
         fn provider_id(&self) -> &str {
             "panicking-diarization"
@@ -2329,6 +2443,61 @@ mod tests {
             Some("en".to_string()),
             vec![segment],
         )?)
+    }
+
+    #[cfg(all(feature = "diarization", feature = "onnx"))]
+    fn local_16khz_wav_samples(
+        path: &Path,
+    ) -> std::result::Result<Vec<f32>, Box<dyn std::error::Error>> {
+        let mut reader = hound::WavReader::open(path)?;
+        let spec = reader.spec();
+        if spec.sample_rate != 16_000 {
+            return Err(format!(
+                "DIARIZATION_AUDIO_PATH must be 16 kHz WAV, got {} Hz",
+                spec.sample_rate
+            )
+            .into());
+        }
+        if spec.channels == 0 {
+            return Err("DIARIZATION_AUDIO_PATH WAV channel count must be non-zero".into());
+        }
+        let interleaved = match spec.sample_format {
+            hound::SampleFormat::Float => {
+                if spec.bits_per_sample != 32 {
+                    return Err("float DIARIZATION_AUDIO_PATH WAV must be 32-bit".into());
+                }
+                reader
+                    .samples::<f32>()
+                    .collect::<std::result::Result<Vec<_>, _>>()?
+            }
+            hound::SampleFormat::Int if spec.bits_per_sample <= 16 => reader
+                .samples::<i16>()
+                .map(|sample| sample.map(|value| value as f32 / 32_768.0))
+                .collect::<std::result::Result<Vec<_>, _>>()?,
+            hound::SampleFormat::Int => {
+                let scale = 2_f32.powi(spec.bits_per_sample as i32 - 1);
+                reader
+                    .samples::<i32>()
+                    .map(|sample| sample.map(|value| value as f32 / scale))
+                    .collect::<std::result::Result<Vec<_>, _>>()?
+            }
+        };
+        let channels = spec.channels as usize;
+        let samples = if channels == 1 {
+            interleaved
+        } else {
+            interleaved
+                .chunks_exact(channels)
+                .map(|frame| frame.iter().copied().sum::<f32>() / channels as f32)
+                .collect()
+        };
+        if samples.is_empty() {
+            return Err("DIARIZATION_AUDIO_PATH WAV must contain samples".into());
+        }
+        if !samples.iter().all(|sample| sample.is_finite()) {
+            return Err("DIARIZATION_AUDIO_PATH WAV samples must be finite".into());
+        }
+        Ok(samples)
     }
 
     #[test]
@@ -2457,7 +2626,7 @@ mod tests {
         assert!(response
             .diagnostics
             .iter()
-            .any(|item| item == "batchExecution=sequential-provider"));
+            .any(|item| item == "batchExecution=candle-whisper-sequential"));
     }
 
     #[test]
@@ -2519,7 +2688,7 @@ mod tests {
         assert!(response
             .diagnostics
             .iter()
-            .any(|item| item == "batchExecution=sequential-provider"));
+            .any(|item| item == "batchExecution=candle-whisper-sequential"));
     }
 
     #[test]
@@ -3138,6 +3307,54 @@ mod tests {
     }
 
     #[test]
+    fn decode_diagnostics_report_direct_samples_route() {
+        let (audio, diagnostics) =
+            native_audio::mono_16khz_from_source_with_diagnostics(&TranscriptionSource::Samples {
+                samples: vec![0.0, 1.0],
+                sample_rate: 8_000,
+                channels: 1,
+                source: Some("inline".to_string()),
+            })
+            .unwrap();
+
+        assert_eq!(diagnostics.decode_route, "direct-samples");
+        assert_eq!(diagnostics.source_path_extension, None);
+        assert_eq!(diagnostics.input_sample_rate, Some(8_000));
+        assert_eq!(diagnostics.output_sample_rate, 16_000);
+        assert_eq!(diagnostics.output_channels, 1);
+        assert_eq!(audio.sample_rate, 16_000);
+        assert_eq!(audio.channels, 1);
+    }
+
+    #[test]
+    fn decode_diagnostics_report_wav_route() -> std::result::Result<(), Box<dyn std::error::Error>>
+    {
+        let temp = tempfile::tempdir()?;
+        let path = temp.path().join("diagnostic.wav");
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 8_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(&path, spec)?;
+        writer.write_sample::<i16>(16_384)?;
+        writer.finalize()?;
+
+        let (_audio, diagnostics) =
+            native_audio::mono_16khz_from_source_with_diagnostics(&TranscriptionSource::Path {
+                path,
+            })?;
+
+        assert_eq!(diagnostics.decode_route, "native-wav-reader");
+        assert_eq!(diagnostics.source_path_extension.as_deref(), Some("wav"));
+        assert_eq!(diagnostics.input_sample_rate, Some(8_000));
+        assert_eq!(diagnostics.output_sample_rate, 16_000);
+        assert_eq!(diagnostics.output_channels, 1);
+        Ok(())
+    }
+
+    #[test]
     fn wav_path_still_uses_native_reader_without_audio_io(
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         let temp = tempfile::tempdir()?;
@@ -3182,20 +3399,44 @@ mod tests {
         }
         let path = std::env::var_os("TRANSCRIPTION_MEDIA_PATH")
             .map(PathBuf::from)
+            .map(resolve_smoke_path)
             .ok_or("TRANSCRIPTION_MEDIA_PATH must point to a local media file")?;
 
-        let audio =
-            LoadedAudio::mono_16khz_from_source(&TranscriptionSource::Path { path: path.clone() })?;
+        let (audio, diagnostics) =
+            native_audio::mono_16khz_from_source_with_diagnostics(&TranscriptionSource::Path {
+                path: path.clone(),
+            })?;
 
         assert_eq!(audio.sample_rate, 16_000);
         assert_eq!(audio.channels, 1);
         assert!(!audio.samples.is_empty());
         assert!(audio.samples.iter().all(|sample| sample.is_finite()));
+        assert_eq!(diagnostics.decode_route, "audio-io-media-decode");
+        assert_eq!(diagnostics.output_sample_rate, 16_000);
+        assert_eq!(diagnostics.output_channels, 1);
+        assert!(diagnostics.input_sample_rate.is_some());
         assert_eq!(
             audio.source.as_deref(),
             Some(path.to_string_lossy().as_ref())
         );
         Ok(())
+    }
+
+    #[cfg(feature = "audio-io")]
+    fn resolve_smoke_path(path: PathBuf) -> PathBuf {
+        if path.is_absolute() || path.exists() {
+            return path;
+        }
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let Some(workspace_root) = manifest_dir.ancestors().nth(3) else {
+            return path;
+        };
+        let workspace_path = workspace_root.join(&path);
+        if workspace_path.exists() {
+            workspace_path
+        } else {
+            path
+        }
     }
 
     #[test]
@@ -3281,6 +3522,171 @@ mod tests {
             .diagnostics
             .iter()
             .any(|item| item == "diarizationSpeakerCountBelowRequestedMin=1/2"));
+    }
+
+    #[cfg(feature = "diarization")]
+    #[test]
+    fn native_pipeline_reports_onnx_diarization_diagnostics() {
+        let mut request = sample_request();
+        request.diarization = DiarizationOptions {
+            enabled: true,
+            speaker_embedding_model_bundle: Some(PathBuf::from("speaker-model")),
+            speaker_embedding_dimension: Some(2),
+            ..DiarizationOptions::default()
+        };
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+        let mut diarizer = MockOnnxDiarizationProvider;
+
+        let response =
+            run_transcription_pipeline(request, &mut vad, &mut asr, None, Some(&mut diarizer))
+                .unwrap();
+
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationRuntime=onnx"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "speakerEmbeddingProvider=onnx"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "speakerEmbeddingDimension=2"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationBaseline=false"));
+        assert!(!response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationBaseline=heuristic-native"));
+        assert_eq!(
+            response.transcript.segments[0].speaker.as_deref(),
+            Some("SPEAKER_ONNX")
+        );
+    }
+
+    #[cfg(feature = "diarization")]
+    #[test]
+    fn native_onnx_diarization_missing_bundle_returns_setup_error() {
+        let mut request = sample_request();
+        request.diarization = DiarizationOptions {
+            enabled: true,
+            speaker_embedding_model_bundle: Some(PathBuf::from(
+                "/definitely/missing/onnx-speaker-model",
+            )),
+            speaker_embedding_dimension: Some(2),
+            ..DiarizationOptions::default()
+        };
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+        let mut diarizer = NativeSpeakerDiarizationProvider;
+
+        let error =
+            run_native_transcription_pipeline(request, &mut vad, &mut asr, Some(&mut diarizer))
+                .unwrap_err()
+                .to_string();
+
+        assert!(error.contains("setup_error"));
+        assert!(error.contains("ONNX speaker embedding"));
+    }
+
+    #[cfg(all(feature = "diarization", feature = "onnx"))]
+    #[test]
+    #[ignore = "requires RUN_NATIVE_SPEAKER_MODEL_TESTS=1 and caller-owned local ONNX speaker model/audio"]
+    fn native_onnx_diarization_smoke_when_requested(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        if std::env::var("RUN_NATIVE_SPEAKER_MODEL_TESTS").as_deref() != Ok("1") {
+            eprintln!(
+                "skipping native ONNX diarization smoke; set RUN_NATIVE_SPEAKER_MODEL_TESTS=1"
+            );
+            return Ok(());
+        }
+
+        let bundle_path = std::env::var_os("SPEAKER_EMBEDDING_MODEL_BUNDLE")
+            .map(PathBuf::from)
+            .ok_or("SPEAKER_EMBEDDING_MODEL_BUNDLE is required")?;
+        let audio_path = std::env::var_os("DIARIZATION_AUDIO_PATH")
+            .map(PathBuf::from)
+            .ok_or("DIARIZATION_AUDIO_PATH is required")?;
+        let embedding_dimension = std::env::var("SPEAKER_EMBEDDING_DIMENSION")
+            .ok()
+            .map(|value| value.parse::<usize>())
+            .transpose()?
+            .unwrap_or(192);
+        let samples = local_16khz_wav_samples(&audio_path)?;
+        let duration_seconds = samples.len() as f64 / 16_000.0;
+        let midpoint = (duration_seconds / 2.0).clamp(1.0 / 16_000.0, duration_seconds);
+        let first_end = midpoint.min(duration_seconds);
+        let second_start = first_end;
+        let second_end = duration_seconds;
+
+        let mut request = TranscriptionPipelineRequest {
+            source: TranscriptionSource::Samples {
+                samples,
+                sample_rate: 16_000,
+                channels: 1,
+                source: Some(audio_path.to_string_lossy().into_owned()),
+            },
+            provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions::default()),
+            vad: VadOptions::default(),
+            alignment: AlignmentOptions::default(),
+            diarization: DiarizationOptions {
+                enabled: true,
+                speaker_embedding_model_bundle: Some(bundle_path),
+                speaker_embedding_dimension: Some(embedding_dimension),
+                speaker_embedding_sample_rate: Some(16_000),
+                assignment_policy: SpeakerAssignmentPolicy::StrictContained,
+                ..DiarizationOptions::default()
+            },
+            output: TranscriptionOutputOptions::default(),
+        };
+        if second_end > second_start {
+            request.vad.enabled = true;
+        }
+
+        let segments = if second_end > second_start {
+            vec![
+                SpeechActivitySegment::new(0.0, first_end, 1.0)?,
+                SpeechActivitySegment::new(second_start, second_end, 1.0)?,
+            ]
+        } else {
+            vec![SpeechActivitySegment::new(0.0, first_end, 1.0)?]
+        };
+        let mut vad = FixedVadProvider { segments };
+        let mut asr = MockAsrProvider;
+        let mut diarizer = NativeSpeakerDiarizationProvider;
+
+        let response =
+            run_native_transcription_pipeline(request, &mut vad, &mut asr, Some(&mut diarizer))?;
+        eprintln!("{}", response.diagnostics.join("\n"));
+
+        assert!(response.accepted);
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationRuntime=onnx"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "speakerEmbeddingProvider=onnx"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == &format!("speakerEmbeddingDimension={embedding_dimension}")));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationBaseline=false"));
+        assert!(response.transcript.segments.iter().all(|segment| segment
+            .speaker
+            .as_deref()
+            .is_some_and(|speaker| { !speaker.trim().is_empty() })));
+        normalize_transcription_contract(response.transcript.clone())
+            .map_err(|error| format!("transcript speaker assignment must validate: {error}"))?;
+        Ok(())
     }
 
     #[test]
@@ -3740,6 +4146,9 @@ mod tests {
             let audio_path = std::env::var_os("TRANSCRIPTION_AUDIO_PATH")
                 .map(PathBuf::from)
                 .expect("TRANSCRIPTION_AUDIO_PATH is required");
+            let layout = native_wav2vec2::inspect_wav2vec2_bundle_layout(&bundle)
+                .expect("alignment smoke should inspect wav2vec2 bundle layout");
+            eprintln!("wav2vec2 layout report: {layout:#?}");
             let transcript_text = std::env::var("ALIGNMENT_TRANSCRIPT_TEXT")
                 .unwrap_or_else(|_| "hello world".to_string());
             let audio = LoadedAudio::mono_16khz_from_source(&TranscriptionSource::Path {

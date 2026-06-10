@@ -17,8 +17,8 @@ finite local inputs.
 - Empirical tail risk and compounded-path drawdown helpers
 - Z-score and min/max normalizers
 - Dense covariance matrix generation
-- PCA-lite for small and medium dense inputs
-- Deterministic power-iteration PCA with fixed iteration count
+- f64-default matrix package operations with explicit f32 compatibility
+- Centered-data SVD PCA for package workflows
 
 ## Example
 
@@ -72,20 +72,19 @@ the same fitted constant values yields zero rather than `NaN`.
 `numbers-core::NumberRange`. Degenerate ranges normalize the exact range value
 to `0.0`.
 
-`PrincipalComponents` is a small deterministic PCA helper. It extracts
-components from the covariance matrix with a fixed 32-step power iteration and
-simple deflation. It is intended for predictable package workflows, not as a
-replacement for a full numerical linear algebra backend on ill-conditioned or
-large matrices.
+`PrincipalComponents` remains a small deterministic Rust helper for existing
+library callers. Package-surface PCA uses centered-data SVD from `math-linear`
+and returns explained variance, explained variance ratio, singular values,
+components, and optional transformed rows.
 
-OLS uses the `math-linear` QR path for full-column-rank designs and falls back
-to normal equations when QR cannot be applied. OLS diagnostics use the stricter
-QR least-squares path and require full column rank.
+OLS uses the `math-linear` QR path for full-column-rank library calls and uses
+SVD pseudoinverse when a rank-deficient design needs a package-surface OLS
+result. OLS diagnostics remain strict and require identifiable full-column-rank
+designs.
 
 Ridge regression is a deterministic regularized normal-equation helper for
 small and medium local matrices: it solves `(X^T X + lambda I) beta = X^T y`
-with finite, non-negative `lambda`. It is not a full numerical backend or
-optimizer suite.
+with finite, non-negative `lambda`. It is not a full optimizer suite.
 
 ## Package surface
 
@@ -99,13 +98,13 @@ Workflow operations:
 - `stats.series.rolling`: Computes rolling mean, standard deviation, ranges, and optional paired correlations.
 - `stats.series.tailRisk`: Computes empirical VaR/CVaR style tail-risk statistics.
 - `stats.series.zScores`: Standardizes a finite scalar series into z-scores.
-- `stats.normalize`: Applies z-score or min-max column normalization to a finite f32 matrix.
-- `stats.covariance`: Computes covariance and optional correlation for matrix rows as observations.
-- `stats.pca`: Fits PCA-lite components and optionally transforms rows into component space.
+- `stats.normalize`: Applies z-score or min-max column normalization to a finite matrix, defaulting to f64 precision.
+- `stats.covariance`: Computes covariance and optional correlation for matrix rows as observations, defaulting to f64 precision.
+- `stats.pca`: Fits centered-data SVD PCA components and optionally transforms rows into component space.
 - `stats.series.rankCorrelation`: Computes average ranks and Spearman correlation for finite paired scalar series.
 - `stats.regression.linear`: Fits a simple y = intercept + slope * x regression for paired finite scalar observations.
-- `stats.regression.ols`: Fits ordinary least squares from a finite dense design matrix and target vector.
-- `stats.regression.diagnostics`: Fits full-column-rank OLS and returns residual, adjusted R-squared, standard-error, and t-statistic diagnostics.
+- `stats.regression.ols`: Fits ordinary least squares from a finite dense design matrix and target vector, using pseudoinverse when needed.
+- `stats.regression.diagnostics`: Fits strict full-column-rank OLS and returns residual, adjusted R-squared, standard-error, and t-statistic diagnostics.
 
 Debug operations:
 

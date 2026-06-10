@@ -1,7 +1,7 @@
 # math-geometry-2d
 
 Shared 2D geometry contracts for multimodal image, video, and layout
-processing.
+processing. This crate is part of the Analytical Math Crates family.
 
 ## Highlights
 

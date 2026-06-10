@@ -19,5 +19,6 @@ name = "finance_statistics"
 runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+math-linear.workspace = true
 math-statistics.workspace = true
 video-analysis-core.workspace = true

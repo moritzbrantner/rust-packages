@@ -649,6 +649,7 @@ flowchart LR
   crate_moritzbrantner_tensor_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_tensor_data
   crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_math_linear
   crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_math_statistics
   crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_runtime_core
@@ -769,7 +770,9 @@ flowchart LR
   crate_moritzbrantner_audio_analysis_speakers --> crate_moritzbrantner_audio_analysis_core
   crate_moritzbrantner_audio_analysis_speakers --> crate_moritzbrantner_audio_analysis_recognition
   crate_moritzbrantner_audio_analysis_speakers --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_audio_analysis_speakers -. optional .-> crate_moritzbrantner_model_runtime
   crate_moritzbrantner_audio_analysis_speakers --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_audio_analysis_speakers -. optional .-> crate_moritzbrantner_runtime_onnx
   crate_moritzbrantner_audio_analysis_speakers_cli --> crate_moritzbrantner_audio_analysis_speakers
   crate_moritzbrantner_audio_analysis_speakers_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_speakers_server --> crate_moritzbrantner_audio_analysis_speakers

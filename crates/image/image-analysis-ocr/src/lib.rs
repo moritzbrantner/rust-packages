@@ -2,10 +2,13 @@
 
 pub mod surface;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
+use std::process::Command;
 use std::str::FromStr;
 
-use image_analysis_core::ImageView;
+use image_analysis_core::{compact_image, ImageView};
 use model_runtime::{HuggingFaceModelSpec, ModelRuntimeBackend, ModelTask};
+use serde::{Deserialize, Serialize};
 use video_analysis_core::{BoundingBox, DetectError, FramePosition, Result, VideoFrame};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -262,7 +265,8 @@ impl OcrRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
 /// Data type for OCR confidence as a 0-100 score.
 pub struct OcrConfidence(u8);
 
@@ -284,7 +288,8 @@ impl From<u8> for OcrConfidence {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Data type for OCR text token.
 pub struct OcrToken {
     /// Text content.
@@ -327,7 +332,8 @@ impl OcrToken {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Data type for OCR text line.
 pub struct OcrTextLine {
     /// Text content.
@@ -379,7 +385,8 @@ impl OcrTextLine {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 /// Variants describing OCR block role.
 pub enum OcrBlockKind {
     /// Paragraph-like flowing text.
@@ -396,7 +403,8 @@ pub enum OcrBlockKind {
     Custom(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Data type for OCR text block.
 pub struct OcrTextBlock {
     /// Block role.
@@ -456,7 +464,8 @@ impl OcrTextBlock {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Data type for rich OCR output from an image.
 pub struct OcrDocument {
     /// Full extracted text, usually reading-order normalized.
@@ -545,6 +554,174 @@ pub trait OcrBackend {
 pub trait ModelBackedOcrBackend: OcrBackend {
     /// Returns model spec.
     fn model_spec(&self) -> HuggingFaceModelSpec;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// OCR backend that invokes an external command and reads an `OcrDocument` JSON object from stdout.
+pub struct JsonCommandOcrBackend {
+    command: PathBuf,
+    args: Vec<String>,
+}
+
+impl JsonCommandOcrBackend {
+    /// Creates a new backend.
+    pub fn new(command: impl Into<PathBuf>) -> Self {
+        Self {
+            command: command.into(),
+            args: Vec::new(),
+        }
+    }
+
+    /// Returns this backend with command args.
+    pub fn args(mut self, args: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.args = args.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// Returns command path.
+    pub fn command(&self) -> &std::path::Path {
+        &self.command
+    }
+
+    /// Returns command args.
+    pub fn command_args(&self) -> &[String] {
+        &self.args
+    }
+}
+
+impl OcrBackend for JsonCommandOcrBackend {
+    fn recognize_image(
+        &mut self,
+        image: &ImageView<'_>,
+        request: &OcrRequest,
+    ) -> Result<OcrDocument> {
+        let temp_image = tempfile::Builder::new()
+            .suffix(".png")
+            .tempfile()
+            .map_err(DetectError::Io)?;
+        let image_path = temp_image.path().to_path_buf();
+        let owned = compact_image(image)?;
+        image_analysis_io::write_image(&image_path, &owned)?;
+
+        let mut saw_placeholder = false;
+        let mut args = Vec::with_capacity(self.args.len() + 1);
+        let image_arg = image_path.to_string_lossy().into_owned();
+        for arg in &self.args {
+            if arg.contains("{image}") {
+                saw_placeholder = true;
+                args.push(arg.replace("{image}", &image_arg));
+            } else {
+                args.push(arg.clone());
+            }
+        }
+        if !saw_placeholder {
+            args.push(image_arg);
+        }
+
+        let request_json = serde_json::to_string(&JsonCommandOcrRequest::from_request(
+            request,
+            image.width,
+            image.height,
+        ))
+        .map_err(|err| DetectError::Source(format!("failed to serialize OCR request: {err}")))?;
+
+        let output = Command::new(&self.command)
+            .args(&args)
+            .env("OCR_REQUEST_JSON", request_json)
+            .output()
+            .map_err(|err| {
+                DetectError::Source(format!(
+                    "failed to run OCR command `{}`: {err}",
+                    self.command.display()
+                ))
+            })?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(DetectError::Source(format!(
+                "OCR command `{}` exited with status {}{}",
+                self.command.display(),
+                output.status,
+                if stderr.trim().is_empty() {
+                    String::new()
+                } else {
+                    format!(": {}", stderr.trim())
+                }
+            )));
+        }
+
+        let mut value: serde_json::Value = serde_json::from_slice(&output.stdout)
+            .map_err(|err| DetectError::Source(format!("invalid OCR JSON: {err}")))?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            DetectError::Source("invalid OCR document: expected JSON object".to_string())
+        })?;
+        object
+            .entry("width")
+            .or_insert_with(|| serde_json::json!(image.width));
+        object
+            .entry("height")
+            .or_insert_with(|| serde_json::json!(image.height));
+        let document: OcrDocument = serde_json::from_value(value)
+            .map_err(|err| DetectError::Source(format!("invalid OCR document: {err}")))?;
+        validate_ocr_document(&document)?;
+        Ok(document)
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonCommandOcrRequest<'a> {
+    width: u32,
+    height: u32,
+    languages: &'a [String],
+    preserve_layout: bool,
+    include_tokens: bool,
+    min_confidence: Option<u8>,
+    attributes: &'a BTreeMap<String, String>,
+}
+
+impl<'a> JsonCommandOcrRequest<'a> {
+    fn from_request(request: &'a OcrRequest, width: u32, height: u32) -> Self {
+        Self {
+            width,
+            height,
+            languages: &request.languages,
+            preserve_layout: request.preserve_layout,
+            include_tokens: request.include_tokens,
+            min_confidence: request.min_confidence,
+            attributes: &request.attributes,
+        }
+    }
+}
+
+fn validate_ocr_document(document: &OcrDocument) -> Result<()> {
+    if document.width == 0 || document.height == 0 {
+        return Err(DetectError::InvalidDimensions {
+            width: document.width,
+            height: document.height,
+        });
+    }
+    for block in &document.blocks {
+        if block.text.trim().is_empty() {
+            return Err(DetectError::Source(
+                "invalid OCR document: block text is required".to_string(),
+            ));
+        }
+        for line in &block.lines {
+            if line.text.trim().is_empty() {
+                return Err(DetectError::Source(
+                    "invalid OCR document: line text is required".to_string(),
+                ));
+            }
+            for token in &line.tokens {
+                if token.text.trim().is_empty() {
+                    return Err(DetectError::Source(
+                        "invalid OCR document: token text is required".to_string(),
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -640,6 +817,10 @@ impl<B: OcrBackend> OcrPipeline<B> {
 mod tests {
     use super::*;
     use image_analysis_core::OwnedImage;
+    use std::fs;
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
+    use tempfile::tempdir;
     use video_analysis_core::{PixelFormat, Timebase, Timestamp};
 
     struct StubOcrBackend;
@@ -776,5 +957,119 @@ mod tests {
             timestamp: Timestamp::new(9, Timebase::new(1, 24)),
         };
         assert_eq!(position.timestamp.seconds(), 0.375);
+    }
+
+    #[test]
+    fn json_command_backend_parses_valid_document() {
+        let script = fixture_script(
+            r#"#!/bin/sh
+test -f "$1" || exit 9
+printf '%s' '{"text":"Slide Title","width":4,"height":3,"language":"en","confidence":88,"blocks":[{"kind":"heading","text":"Slide Title","region":{"x":1,"y":1,"width":2,"height":1},"confidence":90,"lines":[],"attributes":{}}],"attributes":{}}'
+"#,
+        );
+        let image = OwnedImage::new_rgb(4, 3, vec![255; 36]).unwrap();
+        let mut backend = JsonCommandOcrBackend::new(script.path());
+        let document = backend
+            .recognize_image(&image.as_view(), &OcrRequest::new().languages(["en"]))
+            .unwrap();
+        assert_eq!(document.text, "Slide Title");
+        assert_eq!((document.width, document.height), (4, 3));
+        assert_eq!(document.blocks[0].kind, OcrBlockKind::Heading);
+        assert_eq!(document.blocks[0].region.unwrap().x, 1);
+    }
+
+    #[test]
+    fn json_command_backend_fills_missing_dimensions() {
+        let script = fixture_script(
+            r#"#!/bin/sh
+printf '%s' '{"text":"No dimensions","blocks":[{"kind":"paragraph","text":"No dimensions","lines":[],"attributes":{}}],"attributes":{}}'
+"#,
+        );
+        let image = OwnedImage::new_rgb(5, 2, vec![0; 30]).unwrap();
+        let mut backend = JsonCommandOcrBackend::new(script.path()).args(["--image={image}"]);
+        let document = backend
+            .recognize_image(&image.as_view(), &OcrRequest::new())
+            .unwrap();
+        assert_eq!((document.width, document.height), (5, 2));
+    }
+
+    #[test]
+    fn json_command_backend_reports_command_failure_and_invalid_json() {
+        let failing = fixture_script(
+            r#"#!/bin/sh
+echo "no OCR available" >&2
+exit 42
+"#,
+        );
+        let invalid = fixture_script(
+            r#"#!/bin/sh
+printf '%s' 'not-json'
+"#,
+        );
+        let image = OwnedImage::new_rgb(2, 2, vec![0; 12]).unwrap();
+
+        let mut failing_backend = JsonCommandOcrBackend::new(failing.path());
+        let error = failing_backend
+            .recognize_image(&image.as_view(), &OcrRequest::new())
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("exited with status"));
+        assert!(error.contains("no OCR available"));
+
+        let mut invalid_backend = JsonCommandOcrBackend::new(invalid.path());
+        let error = invalid_backend
+            .recognize_image(&image.as_view(), &OcrRequest::new())
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid OCR JSON"));
+    }
+
+    #[test]
+    fn json_command_backend_exposes_request_environment() {
+        let script = fixture_script(
+            r#"#!/bin/sh
+case "$OCR_REQUEST_JSON" in
+  *'"languages":["de"]'*'"preserveLayout":false'*'"includeTokens":false'*'"minConfidence":77'*)
+    printf '%s' '{"text":"Umgebung","blocks":[],"attributes":{}}'
+    ;;
+  *)
+    echo "$OCR_REQUEST_JSON" >&2
+    exit 7
+    ;;
+esac
+"#,
+        );
+        let image = OwnedImage::new_rgb(3, 3, vec![0; 27]).unwrap();
+        let request = OcrRequest::new()
+            .languages(["de"])
+            .preserve_layout(false)
+            .include_tokens(false)
+            .min_confidence(77);
+        let mut backend = JsonCommandOcrBackend::new(script.path());
+        let document = backend.recognize_image(&image.as_view(), &request).unwrap();
+        assert_eq!(document.text, "Umgebung");
+        assert_eq!((document.width, document.height), (3, 3));
+    }
+
+    struct FixtureScript {
+        _dir: tempfile::TempDir,
+        path: std::path::PathBuf,
+    }
+
+    impl FixtureScript {
+        fn path(&self) -> &std::path::Path {
+            &self.path
+        }
+    }
+
+    fn fixture_script(contents: &str) -> FixtureScript {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("ocr-fixture.sh");
+        let mut file = fs::File::create(&path).unwrap();
+        file.write_all(contents.as_bytes()).unwrap();
+        let mut permissions = file.metadata().unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&path, permissions).unwrap();
+        FixtureScript { _dir: dir, path }
     }
 }

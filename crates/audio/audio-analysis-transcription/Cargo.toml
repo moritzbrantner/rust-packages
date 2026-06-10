@@ -37,9 +37,10 @@ candle = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:te
 cuda = ["candle", "candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda", "text-model-runtime/cuda"]
 alignment = ["candle", "dep:tokenizers"]
 diarization = ["dep:audio-analysis-speakers"]
+onnx = ["diarization", "audio-analysis-speakers/onnx"]
 external-whisperx = []
 external-tests = ["external-whisperx"]
-model-bundles = ["dep:model-runtime"]
+model-bundles = ["dep:model-runtime", "audio-analysis-speakers?/model-bundles"]
 audio-io = ["dep:audio-analysis-io"]
 
 [dev-dependencies]

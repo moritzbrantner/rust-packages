@@ -29,6 +29,9 @@ const packageAppConfig: PackageAppConfig = {
     "linear.qr",
     "linear.center",
     "linear.leastSquares",
+    "linear.svd",
+    "linear.pseudoinverse",
+    "linear.rank",
     "describe",
   ],
   operationGroups: [
@@ -49,6 +52,9 @@ const packageAppConfig: PackageAppConfig = {
         "linear.qr",
         "linear.center",
         "linear.leastSquares",
+        "linear.svd",
+        "linear.pseudoinverse",
+        "linear.rank",
       ],
     },
     {

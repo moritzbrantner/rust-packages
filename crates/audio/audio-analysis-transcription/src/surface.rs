@@ -7,11 +7,11 @@ use runtime_core::{
 use serde::Deserialize;
 
 use crate::{
-    candle_whisper_provider_plan, import_whisperx_json, transcribe, transcription_provider_plans,
-    whisper_cpp_provider_plan, whisperx_provider_plan, AlignmentOptions, CandleWhisperOptions,
-    DiarizationOptions, NativeDevicePreference, TranscriptionPipelineRequest,
-    TranscriptionProviderSelection, TranscriptionSource, VadOptions, WhisperXCommandOptions,
-    WhisperXDevice,
+    candle_whisper_provider_plan, import_whisperx_json, setup_error, transcribe,
+    transcription_provider_plans, whisper_cpp_provider_plan, whisperx_provider_plan,
+    AlignmentOptions, CandleWhisperOptions, DiarizationOptions, NativeDevicePreference,
+    TranscriptionPipelineRequest, TranscriptionProviderSelection, TranscriptionSource, VadOptions,
+    WhisperXCommandOptions, WhisperXDevice,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -121,6 +121,13 @@ pub fn package_surface() -> PackageSurface {
                 true,
             ),
             operation(
+                "audio.transcription.alignmentBundlePlan",
+                "Plan alignment bundle",
+                "Inspects local wav2vec2 bundle compatibility without executing model inference.",
+                serde_json::json!({}),
+                true,
+            ),
+            operation(
                 "audio.transcription.decodePlan",
                 "Plan audio decode",
                 "Explains whether a transcription source uses direct samples, native WAV loading, opt-in audio-io media decode, or external WhisperX compatibility.",
@@ -169,6 +176,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.transcription.modelPlan" => model_plan_value(request.input),
         "audio.transcription.vadPlan" => vad_plan_value(request.input),
         "audio.transcription.alignmentPlan" => alignment_plan_value(request.input),
+        "audio.transcription.alignmentBundlePlan" => alignment_bundle_plan_value(request.input)?,
         "audio.transcription.decodePlan" => decode_plan_value(request.input),
         "audio.transcription.diarizationPlan" => diarization_plan_value(request.input),
         operation => {
@@ -219,6 +227,7 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
         | "audio.transcription.modelPlan"
         | "audio.transcription.vadPlan"
         | "audio.transcription.alignmentPlan"
+        | "audio.transcription.alignmentBundlePlan"
         | "audio.transcription.decodePlan"
         | "audio.transcription.diarizationPlan" => (
             "Transcription runtime plan",
@@ -331,6 +340,82 @@ fn alignment_plan_value(input: serde_json::Value) -> serde_json::Value {
         "requiresFeature": "alignment",
         "input": input
     })
+}
+
+fn alignment_bundle_plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let bundle_path = input
+        .get("bundlePath")
+        .or_else(|| input.get("modelBundle"))
+        .or_else(|| input.pointer("/alignment/modelBundle"))
+        .or_else(|| input.pointer("/alignment/modelBundlePath"))
+        .and_then(serde_json::Value::as_str);
+
+    let Some(bundle_path) = bundle_path else {
+        return Ok(serde_json::json!({
+            "defaultProvider": "ctc-forced-aligner",
+            "modelFamily": "wav2vec2",
+            "requiresFeature": "alignment",
+            "requiresModelBundles": true,
+            "bundleProvided": false,
+            "layout": serde_json::Value::Null,
+            "supported": false,
+            "unsupportedReasons": [],
+            "execution": "not-run",
+            "input": input
+        }));
+    };
+
+    let bundle = std::path::Path::new(bundle_path);
+    if !bundle.exists() {
+        return Err(setup_error(format!(
+            "required wav2vec2 alignment bundle `{}` is missing",
+            bundle.display()
+        ))
+        .to_string());
+    }
+
+    #[cfg(feature = "alignment")]
+    {
+        let report = crate::native_wav2vec2::inspect_wav2vec2_bundle_layout(bundle)
+            .map_err(|error| error.to_string())?;
+        let supported =
+            report.missing_required_keys.is_empty() && report.unsupported_reasons.is_empty();
+        return Ok(serde_json::json!({
+            "defaultProvider": "ctc-forced-aligner",
+            "modelFamily": "wav2vec2",
+            "requiresFeature": "alignment",
+            "requiresModelBundles": true,
+            "bundleProvided": true,
+            "layout": {
+                "architecture": report.architecture,
+                "doStableLayerNorm": report.do_stable_layer_norm,
+                "positionalConvLayout": report.positional_conv_layout,
+                "featureExtractorNorm": report.feature_extractor_norm,
+                "encoderLayerCount": report.encoder_layer_count,
+                "missingRequiredKeys": report.missing_required_keys
+            },
+            "supported": supported,
+            "unsupportedReasons": report.unsupported_reasons,
+            "execution": "not-run",
+            "input": input
+        }));
+    }
+
+    #[cfg(not(feature = "alignment"))]
+    {
+        Ok(serde_json::json!({
+            "defaultProvider": "ctc-forced-aligner",
+            "modelFamily": "wav2vec2",
+            "requiresFeature": "alignment",
+            "requiresModelBundles": true,
+            "bundleProvided": true,
+            "layout": serde_json::Value::Null,
+            "supported": false,
+            "unsupportedReasons": ["current build does not include the alignment feature"],
+            "execution": "not-run",
+            "input": input
+        }))
+    }
 }
 
 fn decode_plan_value(input: serde_json::Value) -> serde_json::Value {
@@ -500,6 +585,7 @@ mod tests {
         assert!(ids.contains(&"audio.transcription.modelPlan"));
         assert!(ids.contains(&"audio.transcription.vadPlan"));
         assert!(ids.contains(&"audio.transcription.alignmentPlan"));
+        assert!(ids.contains(&"audio.transcription.alignmentBundlePlan"));
         assert!(ids.contains(&"audio.transcription.decodePlan"));
         assert!(ids.contains(&"audio.transcription.diarizationPlan"));
     }
@@ -560,6 +646,58 @@ mod tests {
         );
         assert_eq!(response.value["result"]["plan"]["opensFiles"], false);
         assert_eq!(response.value["result"]["plan"]["executesFfmpeg"], false);
+    }
+
+    #[test]
+    fn decode_plan_routes_wav_and_samples_without_execution() {
+        let wav = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.transcription.decodePlan"),
+            input: serde_json::json!({"source": {"path": "clip.wav"}}),
+        })
+        .expect("wav decode plan");
+        assert_eq!(
+            wav.value["result"]["plan"]["decodePath"],
+            "native-wav-reader"
+        );
+        assert_eq!(wav.value["result"]["plan"]["opensFiles"], false);
+
+        let samples = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.transcription.decodePlan"),
+            input: serde_json::json!({"source": {"samples": [0.0], "sampleRate": 16000, "channels": 1}}),
+        })
+        .expect("samples decode plan");
+        assert_eq!(
+            samples.value["result"]["plan"]["decodePath"],
+            "direct-samples"
+        );
+        assert_eq!(samples.value["result"]["plan"]["opensFiles"], false);
+    }
+
+    #[test]
+    fn alignment_bundle_plan_runs_without_local_files() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.transcription.alignmentBundlePlan"),
+            input: serde_json::json!({}),
+        })
+        .expect("alignment bundle plan");
+        assert_eq!(
+            response.value["result"]["defaultProvider"],
+            "ctc-forced-aligner"
+        );
+        assert_eq!(response.value["result"]["bundleProvided"], false);
+        assert_eq!(response.value["result"]["execution"], "not-run");
+    }
+
+    #[test]
+    fn alignment_bundle_plan_missing_path_returns_setup_error() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.transcription.alignmentBundlePlan"),
+            input: serde_json::json!({"bundlePath": "/definitely/missing/wav2vec2"}),
+        });
+
+        let error = response.unwrap_err();
+        assert!(error.contains("setup_error"));
+        assert!(error.contains("missing"));
     }
 
     #[test]

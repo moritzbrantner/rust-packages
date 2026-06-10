@@ -206,6 +206,10 @@ fn transcription_decode_plan_is_debug_surface_only() {
     assert!(surface
         .operations
         .iter()
+        .any(|operation| operation.id.as_str() == "audio.transcription.alignmentBundlePlan"));
+    assert!(surface
+        .operations
+        .iter()
         .any(|operation| operation.id.as_str() == "audio.transcription.decodePlan"));
     assert!(surface
         .operations
@@ -224,6 +228,28 @@ fn transcription_decode_plan_is_debug_surface_only() {
     );
     assert_eq!(response.value["result"]["plan"]["opensFiles"], false);
     assert_eq!(response.value["result"]["plan"]["executesFfmpeg"], false);
+    let alignment_bundle_response =
+        audio_analysis_transcription::surface::run_surface_operation(SurfaceRequest {
+            operation: "audio.transcription.alignmentBundlePlan".into(),
+            input: serde_json::json!({}),
+        })
+        .expect("alignment bundle plan");
+    assert_structured_response(
+        "audio-analysis-transcription",
+        "audio.transcription.alignmentBundlePlan",
+        &alignment_bundle_response,
+    );
+    assert_eq!(
+        alignment_bundle_response.value["result"]["bundleProvided"],
+        false
+    );
+    let missing_bundle_error =
+        audio_analysis_transcription::surface::run_surface_operation(SurfaceRequest {
+            operation: "audio.transcription.alignmentBundlePlan".into(),
+            input: serde_json::json!({"bundlePath": "/definitely/missing/wav2vec2"}),
+        })
+        .expect_err("missing alignment bundle should fail");
+    assert!(missing_bundle_error.contains("setup_error"));
     let diarization_response =
         audio_analysis_transcription::surface::run_surface_operation(SurfaceRequest {
             operation: "audio.transcription.diarizationPlan".into(),
@@ -245,6 +271,8 @@ fn transcription_decode_plan_is_debug_surface_only() {
         group_source(&app, "workflow").expect("audio-analysis-transcription app workflow group");
     let debug_group =
         group_source(&app, "debug").expect("audio-analysis-transcription app debug group");
+    assert!(!workflow_group.contains("audio.transcription.alignmentBundlePlan"));
+    assert!(debug_group.contains("audio.transcription.alignmentBundlePlan"));
     assert!(!workflow_group.contains("audio.transcription.decodePlan"));
     assert!(debug_group.contains("audio.transcription.decodePlan"));
     assert!(!workflow_group.contains("audio.transcription.diarizationPlan"));

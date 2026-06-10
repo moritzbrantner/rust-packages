@@ -35,6 +35,7 @@ const packageAppConfig: PackageAppConfig = {
         "audio.transcription.modelPlan",
         "audio.transcription.vadPlan",
         "audio.transcription.alignmentPlan",
+        "audio.transcription.alignmentBundlePlan",
         "audio.transcription.decodePlan",
         "audio.transcription.diarizationPlan",
       ],

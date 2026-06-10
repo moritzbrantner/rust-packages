@@ -6,11 +6,13 @@ Dense matrix and kernel contracts bridging `moritzbrantner-tensor-data` and
 ## Highlights
 
 - Checked small dense matrix shapes and views
+- Parallel finite `F32Matrix` and `F64Matrix` row-major matrix types
 - Row and column iteration with transpose views
 - Identity, zero, transpose, add, subtract, scale, trace, and mean utilities
 - Diagonal construction, Gram matrices, and row/column centering
 - Matrix multiply, matrix-vector multiply, and row cosine helpers
 - Tolerance-aware rank estimates and QR-based least-squares fits
+- Pure Rust real-valued SVD, pseudoinverse, and singular-value numerical rank
 - Pure Rust LU decomposition with partial pivoting, determinant, solve, and
   inverse helpers
 - Pure Rust Cholesky and modified Gram-Schmidt QR decomposition for
@@ -63,9 +65,9 @@ a matrix shaped `left.rows x right.rows`.
 LU decomposition is implemented in pure Rust for deterministic small and
 medium-size matrix workflows. It uses partial pivoting, rejects non-square and
 singular or near-singular matrices, and powers determinant, vector solve, matrix
-solve, and inverse helpers. This crate is intended as an internal matrix backend
-layer for workspace packages, not as a full replacement for specialized
-numerical linear algebra backends.
+solve, and inverse helpers. This crate owns deterministic Analytical Math
+Crates matrix primitives for workspace packages, not a user-selectable
+numerical backend layer.
 
 Cholesky decomposition requires a symmetric positive definite square matrix. QR
 decomposition currently computes a thin factorization and requires
@@ -74,12 +76,14 @@ decomposition currently computes a thin factorization and requires
 Least-squares fitting is QR-based and deterministic for small and medium local
 matrices. It requires full column rank, rejects non-finite inputs and invalid
 tolerances, and treats `tolerance == 0.0` as an automatic tolerance derived from
-matrix size and maximum column L2 norm. This crate intentionally does not expose
-a full SVD/eigendecomposition suite or external numerical backend.
+matrix size and maximum column L2 norm.
 
-Future adapters for libraries such as faer or nalgebra can be added behind
-private feature-gated backend modules while keeping the public API owned by
-`math-linear` types and functions.
+SVD-class operations promote f32 callers to f64 by default and use a pure Rust
+real-valued Jacobi path. Package surfaces cap `max(rows, cols)` at 512, return
+compact singular values, rank, condition, and reconstruction diagnostics by
+default, and include thin `u`/`vt` factors only when requested. `faer` and
+`nalgebra` are hidden feature-gated reference and benchmark paths, not runtime
+selection options.
 
 Row and column L2 normalization use `vector-analysis-core` normalization rules.
 Rows or columns with an effectively zero norm return an error instead of
@@ -111,6 +115,9 @@ Workflow operations:
 - `linear.qr`: Factors a full-column-rank matrix with deterministic modified Gram-Schmidt QR.
 - `linear.center`: Subtracts row or column means from a finite f32 matrix.
 - `linear.leastSquares`: Fits a full-column-rank QR least-squares model for a finite f32 design matrix.
+- `linear.svd`: Computes compact SVD diagnostics for a finite real matrix, defaulting to f64 precision.
+- `linear.pseudoinverse`: Computes a Moore-Penrose pseudoinverse from the SVD path.
+- `linear.rank`: Computes singular-value numerical rank for a finite real matrix.
 
 Debug operations:
 

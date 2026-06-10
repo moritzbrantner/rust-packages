@@ -13,14 +13,13 @@ test("math-statistics-wasm exposes new operations when generated pkg is present"
     const surface = await entry.packageSurface();
     expect(surface.operations.map((operation) => operation.id)).toContain("stats.regression.diagnostics");
     const response = await entry.runOperation({
-      operation: "stats.regression.diagnostics",
+      operation: "stats.regression.ols",
       input: {
-        design: { rows: 4, cols: 2, values: [1, 1, 1, 2, 1, 3, 1, 4] },
-        target: [3, 5, 7, 9],
-        tolerance: 0,
+        design: { rows: 4, cols: 2, values: [1, 2, 2, 4, 3, 6, 4, 8] },
+        target: [1, 2, 3, 4],
       },
     });
-    expect(typeof response.value).toBe("object");
+    expect(response.value.precision).toBe("f64");
   } catch (error) {
     if (String(error).includes("/pkg/")) return;
     throw error;

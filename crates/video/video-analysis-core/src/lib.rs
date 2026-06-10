@@ -724,7 +724,8 @@ pub struct FrameAnalysis {
     pub frames_processed: u64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Data type for bounding box.
 pub struct BoundingBox {
     /// The x value.

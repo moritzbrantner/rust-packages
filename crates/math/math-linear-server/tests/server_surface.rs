@@ -26,3 +26,14 @@ fn run_endpoint_calls_new_operation() {
     assert_eq!(response.status_code, 200);
     assert!(response.body.contains(r#""rank":2"#));
 }
+
+#[test]
+fn run_endpoint_calls_svd_operation() {
+    let response = math_linear_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"linear.rank","input":{"matrix":{"rows":3,"cols":2,"values":[1.0,2.0,2.0,4.0,3.0,6.0]},"tolerance":1.0e-8}}"#,
+    );
+    assert_eq!(response.status_code, 200);
+    assert!(response.body.contains(r#""rank":1"#));
+}

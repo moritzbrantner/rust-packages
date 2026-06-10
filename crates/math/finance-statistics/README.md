@@ -47,9 +47,10 @@ Portfolio risk attribution is historical covariance-based. Asset return series
 must be aligned, finite, non-empty, and equal length; sample covariance requires
 at least two observations per asset. Risk contribution annualizes covariance by
 `periods_per_year` and rejects zero or negative portfolio variance before
-dividing by volatility. These helpers are deterministic local portfolio
-analytics, not optimizer-heavy portfolio construction or efficient-frontier
-tools.
+dividing by volatility. Internal covariance arithmetic uses `math-linear`
+`F64Matrix` helpers while the finance public API keeps domain-specific structs
+and vectors. These helpers are deterministic local portfolio analytics, not
+optimizer-heavy portfolio construction or efficient-frontier tools.
 
 ## Package surface
 

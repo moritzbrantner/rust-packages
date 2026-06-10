@@ -1,7 +1,7 @@
 # math-signal-core
 
 Shared signal-domain math for windows, frame strides, resampling, and biquad
-design.
+design. This crate is part of the Analytical Math Crates family.
 
 ## Highlights
 

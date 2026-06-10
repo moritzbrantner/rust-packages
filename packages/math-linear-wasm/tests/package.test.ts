@@ -11,16 +11,19 @@ test("math-linear-wasm exposes new operations when generated pkg is present", as
   const entry = await import("../index.js");
   try {
     const surface = await entry.packageSurface();
-    expect(surface.operations.map((operation) => operation.id)).toContain("linear.leastSquares");
+    const operationIds = surface.operations.map((operation) => operation.id);
+    expect(operationIds).toContain("linear.leastSquares");
+    expect(operationIds).toContain("linear.svd");
+    expect(operationIds).toContain("linear.pseudoinverse");
+    expect(operationIds).toContain("linear.rank");
     const response = await entry.runOperation({
-      operation: "linear.leastSquares",
+      operation: "linear.rank",
       input: {
-        matrix: { rows: 3, cols: 2, values: [1, 1, 1, 2, 1, 3] },
-        target: [3, 5, 7],
-        tolerance: 0,
+        matrix: { rows: 3, cols: 2, values: [1, 2, 2, 4, 3, 6] },
+        tolerance: 1e-8,
       },
     });
-    expect(typeof response.value).toBe("object");
+    expect(response.value.rank).toBe(1);
   } catch (error) {
     if (String(error).includes("/pkg/")) return;
     throw error;
