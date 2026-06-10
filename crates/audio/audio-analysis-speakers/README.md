@@ -41,6 +41,7 @@ Ignored ONNX smoke:
 ```bash
 RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
 SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+SPEAKER_EMBEDDING_MODEL_FILE=model.onnx \
 DIARIZATION_AUDIO_PATH=/path/to/meeting.wav \
 cargo test -p moritzbrantner-audio-analysis-speakers \
   --features onnx,model-bundles \
@@ -48,12 +49,20 @@ cargo test -p moritzbrantner-audio-analysis-speakers \
 ```
 
 Set `SPEAKER_EMBEDDING_DIMENSION` when the local model output dimension is not
-192. The smoke expects an already-local 16 kHz WAV and never downloads models.
+192. Set `SPEAKER_EMBEDDING_INPUT_NAME` and
+`SPEAKER_EMBEDDING_OUTPUT_NAME` when ONNX IO names need to be selected
+explicitly. The smoke expects an already-local 16 kHz WAV and never downloads
+models.
 
-2026-06-10 validation: the default smoke WAV was present, but the default
-caller-owned ONNX speaker bundle directory was missing. The ignored smoke was
-classified as `setup_error` before ONNX Runtime execution, input/output shape
-inspection, or embedding normalization checks.
+2026-06-10 validation update: the local bundle
+`wespeaker-voxceleb-resnet34-LM/main` was provisioned under the ignored smoke
+model root using the current upstream `speaker-embedding.onnx` filename. The
+smoke now prints the resolved model path and configured IO selection before
+session construction. Offline metadata inspection classified the current model
+as feature-input f32 `feats` `[B,T,80]` to f32 `embs` `[B,256]`, so it is not
+compatible with the current waveform adapter. ONNX Runtime session construction
+timed out on this host before Rust metadata retrieval; classification:
+runtime/model compatibility blocker, not missing setup.
 
 ## Package surface
 

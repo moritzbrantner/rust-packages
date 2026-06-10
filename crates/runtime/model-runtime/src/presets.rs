@@ -378,7 +378,7 @@ impl ModelPreset {
                 .name(self.as_str())
                 .file("config.json")
                 .file("preprocessor_config.json")
-                .file("tokenizer.json")
+                .first_available_file(["tokenizer.json", "vocab.json"])
                 .file("model.safetensors");
                 spec.metadata
                     .insert("backend".to_string(), "candle".to_string());

@@ -456,10 +456,10 @@ fn reconstruct_pos_conv_weight_norm(weight_g: &Tensor, weight_v: &Tensor) -> Res
                 "wav2vec2 positional convolution weight norm weight_v must have shape [out_channels, in_channels_per_group, kernel]",
             )
         })?;
-    if weight_g.elem_count() != out_channels {
+    if weight_g.elem_count() != out_channels && weight_g.elem_count() != kernel {
         return Err(model_output_mismatch(format!(
-            "wav2vec2 positional convolution weight norm weight_g has {} elements but expected {out_channels}",
-            weight_g.elem_count()
+            "wav2vec2 positional convolution weight norm weight_g has {} elements but expected {out_channels} or {kernel}",
+            weight_g.elem_count(),
         )));
     }
     let scale = weight_g
@@ -469,18 +469,39 @@ fn reconstruct_pos_conv_weight_norm(weight_g: &Tensor, weight_v: &Tensor) -> Res
         .map_err(candle_mismatch)?;
     let raw = weight_v.to_vec3::<f32>().map_err(candle_mismatch)?;
     let mut reconstructed = Vec::with_capacity(weight_v.elem_count());
-    for out in 0..out_channels {
-        let norm = raw[out]
-            .iter()
-            .flat_map(|channel| channel.iter())
-            .map(|value| value * value)
-            .sum::<f32>()
-            .sqrt()
-            .max(1e-12);
-        let multiplier = scale[out] / norm;
-        for input in 0..in_channels_per_group {
-            for position in 0..kernel {
-                reconstructed.push(raw[out][input][position] * multiplier);
+    if scale.len() == out_channels {
+        for out in 0..out_channels {
+            let norm = raw[out]
+                .iter()
+                .flat_map(|channel| channel.iter())
+                .map(|value| value * value)
+                .sum::<f32>()
+                .sqrt()
+                .max(1e-12);
+            let multiplier = scale[out] / norm;
+            for input in 0..in_channels_per_group {
+                for position in 0..kernel {
+                    reconstructed.push(raw[out][input][position] * multiplier);
+                }
+            }
+        }
+    } else {
+        let mut norms = vec![0.0f32; kernel];
+        for out_values in raw.iter().take(out_channels) {
+            for channel_values in out_values.iter().take(in_channels_per_group) {
+                for (position, value) in channel_values.iter().take(kernel).enumerate() {
+                    norms[position] += value * value;
+                }
+            }
+        }
+        for norm in &mut norms {
+            *norm = norm.sqrt().max(1e-12);
+        }
+        for out_values in raw.iter().take(out_channels) {
+            for channel_values in out_values.iter().take(in_channels_per_group) {
+                for (position, value) in channel_values.iter().take(kernel).enumerate() {
+                    reconstructed.push(value * scale[position] / norms[position]);
+                }
             }
         }
     }

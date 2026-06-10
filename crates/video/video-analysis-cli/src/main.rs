@@ -231,6 +231,8 @@ struct ModelDownloadArgs {
     preset: Option<ModelPresetKind>,
     #[arg(long, requires = "files")]
     repo_id: Option<String>,
+    #[arg(long, requires = "repo_id")]
+    name: Option<String>,
     #[arg(long, default_value = "main")]
     revision: String,
     #[arg(long, value_enum)]
@@ -399,6 +401,8 @@ enum ModelPresetKind {
     XenovaDistilbertSst2Onnx,
     #[value(name = "xenova-minilm-l6-v2-onnx")]
     XenovaMiniLmL6V2Onnx,
+    #[value(name = "wav2vec2-base-960h")]
+    Wav2Vec2Base960h,
 }
 
 impl From<ModelPresetKind> for ModelPreset {
@@ -411,6 +415,7 @@ impl From<ModelPresetKind> for ModelPreset {
             ModelPresetKind::MiniLmL6V2 => Self::MiniLmL6V2,
             ModelPresetKind::XenovaDistilbertSst2Onnx => Self::XenovaDistilbertSst2Onnx,
             ModelPresetKind::XenovaMiniLmL6V2Onnx => Self::XenovaMiniLmL6V2Onnx,
+            ModelPresetKind::Wav2Vec2Base960h => Self::Wav2Vec2Base960h,
         }
     }
 }
@@ -425,6 +430,8 @@ enum ModelTaskKind {
     TokenClassification,
     ZeroShotClassification,
     TextEmbedding,
+    AudioEmbedding,
+    SpeakerDiarization,
 }
 
 impl From<ModelTaskKind> for ModelTask {
@@ -438,6 +445,8 @@ impl From<ModelTaskKind> for ModelTask {
             ModelTaskKind::TokenClassification => Self::TokenClassification,
             ModelTaskKind::ZeroShotClassification => Self::ZeroShotClassification,
             ModelTaskKind::TextEmbedding => Self::TextEmbedding,
+            ModelTaskKind::AudioEmbedding => Self::AudioEmbedding,
+            ModelTaskKind::SpeakerDiarization => Self::SpeakerDiarization,
         }
     }
 }
@@ -722,6 +731,9 @@ fn download_model(args: ModelDownloadArgs) -> Result<()> {
                 .map(ModelTask::from)
                 .unwrap_or_else(|| ModelTask::Custom("custom".to_string()));
             let mut spec = HuggingFaceModelSpec::new(repo_id, task).revision(args.revision);
+            if let Some(name) = args.name {
+                spec = spec.name(name);
+            }
             for file in args.files {
                 spec = spec.file(file);
             }
@@ -1445,6 +1457,28 @@ mod tests {
     }
 
     #[test]
+    fn model_download_accepts_wav2vec2_preset_without_files() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "download",
+            "--preset",
+            "wav2vec2-base-960h",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Models(ModelsArgs {
+                command: ModelsCommand::Download(args),
+            }) => assert_eq!(
+                args.preset.map(ModelPreset::from),
+                Some(ModelPreset::Wav2Vec2Base960h)
+            ),
+            _ => panic!("expected models download command"),
+        }
+    }
+
+    #[test]
     fn model_download_accepts_custom_repo_with_files() {
         Cli::try_parse_from([
             "vanalyze",
@@ -1456,6 +1490,57 @@ mod tests {
             "config.json",
         ])
         .unwrap();
+    }
+
+    #[test]
+    fn model_download_accepts_custom_bundle_name() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "download",
+            "--repo-id",
+            "owner/model",
+            "--name",
+            "local-model-name",
+            "--file",
+            "config.json",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Models(ModelsArgs {
+                command: ModelsCommand::Download(args),
+            }) => assert_eq!(args.name.as_deref(), Some("local-model-name")),
+            _ => panic!("expected models download command"),
+        }
+    }
+
+    #[test]
+    fn model_download_accepts_audio_model_tasks() {
+        for (task, expected) in [
+            ("audio-embedding", ModelTask::AudioEmbedding),
+            ("speaker-diarization", ModelTask::SpeakerDiarization),
+        ] {
+            let cli = Cli::try_parse_from([
+                "vanalyze",
+                "models",
+                "download",
+                "--repo-id",
+                "owner/model",
+                "--task",
+                task,
+                "--file",
+                "model.onnx",
+            ])
+            .unwrap();
+
+            match cli.command {
+                Command::Models(ModelsArgs {
+                    command: ModelsCommand::Download(args),
+                }) => assert_eq!(args.task.map(ModelTask::from), Some(expected.clone())),
+                _ => panic!("expected models download command"),
+            }
+        }
     }
 
     #[test]

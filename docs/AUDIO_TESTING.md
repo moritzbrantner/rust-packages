@@ -262,6 +262,7 @@ ONNX speaker embedding smoke test:
 ```bash
 RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
 SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+SPEAKER_EMBEDDING_MODEL_FILE=model.onnx \
 DIARIZATION_AUDIO_PATH=/path/to/meeting.wav \
 cargo test -p moritzbrantner-audio-analysis-speakers \
   --features onnx,model-bundles \
@@ -271,17 +272,29 @@ cargo test -p moritzbrantner-audio-analysis-speakers \
 The ONNX smoke uses a caller-owned local bundle only. It does not download
 models or use Python, Hugging Face auth, pyannote auth, CUDA, or network access.
 The WAV must already be 16 kHz. Set `SPEAKER_EMBEDDING_DIMENSION` when the
-model output dimension differs from the smoke default of 192.
+model output dimension differs from the smoke default of 192. Set
+`SPEAKER_EMBEDDING_MODEL_FILE`, `SPEAKER_EMBEDDING_INPUT_NAME`, and
+`SPEAKER_EMBEDDING_OUTPUT_NAME` when the local bundle does not use `model.onnx`
+or needs explicit ONNX IO selection.
 
-2026-06-10 validation: the default caller-owned ONNX speaker bundle directory
-was missing, so the speaker smoke was classified as `setup_error` before ONNX
-Runtime execution or input/output shape inspection.
+2026-06-10 validation update: `scripts/sync_model_bundles.sh` provisioned the
+current `hbredin/wespeaker-voxceleb-resnet34-LM` main artifact as
+`speaker-embedding.onnx` under the ignored smoke model root. That upstream main
+artifact is feature-input, not waveform-input: offline ONNX metadata inspection
+reported f32 input `feats` with `[B,T,80]` and f32 output `embs` with
+`[B,256]`. The Rust adapter classifies that shape as `unsupported_runtime`
+when metadata is available because this tranche does not implement fbank/mel
+preprocessing. On this host, ONNX Runtime session construction for the artifact
+timed out before Rust metadata retrieval, so the ignored smoke was classified
+as a runtime/model compatibility blocker rather than a missing-bundle
+`setup_error`.
 
 Transcription ONNX diarization smoke test:
 
 ```bash
 RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
 SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+SPEAKER_EMBEDDING_MODEL_FILE=model.onnx \
 DIARIZATION_AUDIO_PATH=/path/to/meeting-16khz.wav \
 SPEAKER_EMBEDDING_DIMENSION=192 \
 cargo test -p moritzbrantner-audio-analysis-transcription \
@@ -295,10 +308,12 @@ the explicit `diarization.speakerEmbeddingModelBundle` path. It is ignored by
 default and does not use FFmpeg, Python, CUDA, pyannote, Hugging Face auth,
 network, or downloaded model files.
 
-2026-06-10 validation: the transcription ONNX diarization smoke reached the
-direct-samples setup and then failed as `setup_error` because the same
-caller-owned ONNX speaker bundle was missing. ONNX diarization diagnostics were
-not reached.
+2026-06-10 validation update: after local bundle provisioning, the transcription
+ONNX diarization smoke still used direct samples and mock ASR timing, then
+timed out during the same ONNX speaker session construction path before ONNX
+diarization diagnostics or strict transcript speaker validation were reached.
+Classification: runtime/model compatibility blocker for the selected
+feature-input ONNX model.
 
 Current performance reality:
 

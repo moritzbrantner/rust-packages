@@ -437,6 +437,17 @@ fn external_whisperx_parity_when_requested() -> std::result::Result<(), Box<dyn 
     let command = std::env::var_os("WHISPERX_COMMAND")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::PathBuf::from("whisperx"));
+    let model = std::env::var("WHISPERX_MODEL").unwrap_or_else(|_| "large-v2".to_string());
+    let language = std::env::var("WHISPERX_LANGUAGE").ok();
+    let device = match std::env::var("WHISPERX_DEVICE")
+        .unwrap_or_else(|_| "cpu".to_string())
+        .as_str()
+    {
+        "cpu" => audio_analysis_transcription::WhisperXDevice::Cpu,
+        "cuda" => audio_analysis_transcription::WhisperXDevice::Cuda,
+        other => panic!("unsupported WHISPERX_DEVICE `{other}`"),
+    };
+    let compute_type = std::env::var("WHISPERX_COMPUTE_TYPE").ok();
     let diarize = std::env::var("WHISPERX_DIARIZE").as_deref() == Ok("1");
 
     let response = transcribe(TranscriptionPipelineRequest {
@@ -444,6 +455,10 @@ fn external_whisperx_parity_when_requested() -> std::result::Result<(), Box<dyn 
         provider: TranscriptionProviderSelection::ExternalWhisperX(
             audio_analysis_transcription::WhisperXCommandOptions {
                 command,
+                model,
+                language,
+                device,
+                compute_type,
                 output_dir: Some(output_dir),
                 diarize,
                 hf_token_env: diarize.then(|| "HF_TOKEN".to_string()),

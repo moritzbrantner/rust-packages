@@ -106,10 +106,15 @@ The real wav2vec2 smoke prints the alignment bundle layout report before
 execution. Stable-layer-norm bundles remain `unsupported_runtime` until that
 architecture path is implemented.
 
-2026-06-10 validation: the default smoke WAV was present, but the default
-caller-owned wav2vec2 bundle directory was missing. The ignored real-bundle
-alignment smoke was classified as `setup_error` before layout inspection,
-inference, or deterministic fallback.
+2026-06-10 validation update: `scripts/sync_model_bundles.sh` provisioned
+`facebook/wav2vec2-base-960h` under the ignored smoke model root. The ignored
+real-bundle alignment smoke passed with `vocab.json` tokenizer discovery and
+reported `architecture="Wav2Vec2ForCTC"`,
+`do_stable_layer_norm=false`, `positional_conv_layout="weight-norm"`,
+`feature_extractor_norm="group"`, `encoder_layer_count=12`, no missing keys,
+and no unsupported layout reasons. Native positional convolution reconstruction
+now supports the observed per-kernel weight-norm `weight_g` layout used by this
+bundle.
 
 Use `candle,model-bundles` for CPU local smoke tests and add `cuda` for
 CUDA-backed Whisper smoke tests. No runtime downloads are performed by this
@@ -151,6 +156,7 @@ Ignored local transcription ONNX diarization smoke:
 ```bash
 RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
 SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+SPEAKER_EMBEDDING_MODEL_FILE=model.onnx \
 DIARIZATION_AUDIO_PATH=/path/to/meeting-16khz.wav \
 SPEAKER_EMBEDDING_DIMENSION=192 \
 cargo test -p moritzbrantner-audio-analysis-transcription \
@@ -165,9 +171,14 @@ files.
 
 2026-06-10 validation: the checked-in WebM fixture decoded successfully with
 `audio-io` after the ignored smoke harness resolved workspace-root-relative
-fixture paths. The ONNX diarization smoke reached direct-sample setup and then
-failed as `setup_error` because the default caller-owned ONNX speaker bundle
-was missing.
+fixture paths. After local ONNX bundle provisioning, the ONNX diarization smoke
+still used direct-sample setup and mock ASR timing, then timed out during ONNX
+speaker session construction before ONNX diarization diagnostics were reached.
+Offline metadata inspection of the selected current
+`wespeaker-voxceleb-resnet34-LM` artifact found feature-input f32 `feats`
+`[B,T,80]` and output `embs` `[B,256]`; the current native adapter expects
+waveform input `[batch,1,samples]` and classifies feature tensors as
+`unsupported_runtime` when metadata is available.
 
 On the current RTX 3060 Ti smoke host, `/usr/local/cuda` points at CUDA 13.3
 while the passing smoke uses a local CUDA 12.3 library shim at
@@ -207,11 +218,14 @@ cargo test -p moritzbrantner-audio-analysis-transcription external_whisperx_pari
 ```
 
 Set `WHISPERX_EXPECTED_JSON=/path/to/expected.json` to compare command output
-against a known WhisperX JSON fixture. Set `WHISPERX_DIARIZE=1` only when
-`HF_TOKEN` is available.
+against a known WhisperX JSON fixture. Optional parity-only overrides are
+`WHISPERX_MODEL`, `WHISPERX_LANGUAGE`, `WHISPERX_DEVICE`, and
+`WHISPERX_COMPUTE_TYPE`. Set `WHISPERX_DIARIZE=1` only when `HF_TOKEN` is
+available.
 
-2026-06-10 validation: `python -c 'import whisperx'` succeeded, but the
-`whisperx` console entry point and external parity smoke failed as
-`setup_error` with `pkg_resources.UnknownExtra: typer 0.24.1 has no such extra
-feature 'all'`. Token-gated diarization parity was not run because `HF_TOKEN`
-was absent and the base command was already broken.
+2026-06-10 validation update: the broken global console entry point was bypassed
+with an ignored local venv at `.audio-tools/whisperx-venv`. Its
+`bin/whisperx --help` command worked, and non-diarization parity passed with
+`WHISPERX_MODEL=tiny.en`, `WHISPERX_LANGUAGE=en`, `WHISPERX_DEVICE=cpu`, and
+`WHISPERX_COMPUTE_TYPE=int8`. Token-gated diarization parity was not run because
+`HF_TOKEN` was absent.

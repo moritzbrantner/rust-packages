@@ -3616,6 +3616,12 @@ mod tests {
             .map(|value| value.parse::<usize>())
             .transpose()?
             .unwrap_or(192);
+        let model_file =
+            optional_smoke_env_value(std::env::var("SPEAKER_EMBEDDING_MODEL_FILE").ok());
+        let input_name =
+            optional_smoke_env_value(std::env::var("SPEAKER_EMBEDDING_INPUT_NAME").ok());
+        let output_name =
+            optional_smoke_env_value(std::env::var("SPEAKER_EMBEDDING_OUTPUT_NAME").ok());
         let samples = local_16khz_wav_samples(&audio_path)?;
         let duration_seconds = samples.len() as f64 / 16_000.0;
         let midpoint = (duration_seconds / 2.0).clamp(1.0 / 16_000.0, duration_seconds);
@@ -3636,6 +3642,9 @@ mod tests {
             diarization: DiarizationOptions {
                 enabled: true,
                 speaker_embedding_model_bundle: Some(bundle_path),
+                speaker_embedding_model_file: model_file,
+                speaker_embedding_input_name: input_name,
+                speaker_embedding_output_name: output_name,
                 speaker_embedding_dimension: Some(embedding_dimension),
                 speaker_embedding_sample_rate: Some(16_000),
                 assignment_policy: SpeakerAssignmentPolicy::StrictContained,
@@ -3687,6 +3696,11 @@ mod tests {
         normalize_transcription_contract(response.transcript.clone())
             .map_err(|error| format!("transcript speaker assignment must validate: {error}"))?;
         Ok(())
+    }
+
+    #[cfg(all(feature = "diarization", feature = "onnx"))]
+    fn optional_smoke_env_value(value: Option<String>) -> Option<String> {
+        value.filter(|value| !value.trim().is_empty())
     }
 
     #[test]

@@ -983,7 +983,7 @@ mod tests {
             )
         };
         let weight_g = if bad_g {
-            Tensor::new(&[1.0f32, 2.0], &device).unwrap()
+            Tensor::new(&[1.0f32, 2.0, 3.0], &device).unwrap()
         } else {
             Tensor::new(&[10.0f32], &device)
                 .unwrap()
@@ -993,6 +993,28 @@ mod tests {
         tensors.insert(g_name.to_string(), weight_g);
         tensors.insert(
             v_name.to_string(),
+            Tensor::new(&[3.0f32, 4.0], &device)
+                .unwrap()
+                .reshape((1, 1, 2))
+                .unwrap(),
+        );
+        candle_core::safetensors::save(&tensors, root.join("model.safetensors")).unwrap();
+    }
+
+    fn write_tiny_kernel_weight_norm_bundle(root: &Path) {
+        write_tiny_bundle(root);
+        write_pos_conv_config(root);
+        let device = Device::Cpu;
+        let mut tensors = tiny_model_tensors();
+        tensors.insert(
+            "wav2vec2.encoder.pos_conv_embed.conv.weight_g".to_string(),
+            Tensor::new(&[5.0f32, 10.0], &device)
+                .unwrap()
+                .reshape((1, 1, 2))
+                .unwrap(),
+        );
+        tensors.insert(
+            "wav2vec2.encoder.pos_conv_embed.conv.weight_v".to_string(),
             Tensor::new(&[3.0f32, 4.0], &device)
                 .unwrap()
                 .reshape((1, 1, 2))
@@ -1362,6 +1384,19 @@ mod tests {
     fn positional_conv_weight_norm_layout_reconstructs_weight() {
         let temp = tempfile::tempdir().unwrap();
         write_tiny_weight_norm_bundle(temp.path(), false, false);
+
+        let emissions = emit_wav2vec2_ctc(temp.path(), &alignment_request("hello")).unwrap();
+
+        assert!(!emissions.is_empty());
+        assert!(emissions
+            .iter()
+            .all(|frame| frame.len() == 10 && frame.iter().all(|score| score.is_finite())));
+    }
+
+    #[test]
+    fn positional_conv_kernel_weight_norm_layout_reconstructs_weight() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_kernel_weight_norm_bundle(temp.path());
 
         let emissions = emit_wav2vec2_ctc(temp.path(), &alignment_request("hello")).unwrap();
 

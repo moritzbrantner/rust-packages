@@ -265,7 +265,7 @@ download_spec() {
       fi
       [[ "${#files[@]}" -gt 0 ]] || fail "custom model $name@$revision has no files configured"
       log "syncing model bundle $name@$revision (repo: $repo_id)"
-      cmd+=(--repo-id "$repo_id" --task "$task" --revision "$revision")
+      cmd+=(--repo-id "$repo_id" --name "$name" --task "$task" --revision "$revision")
       local file
       for file in "${files[@]}"; do
         cmd+=(--file "$file")

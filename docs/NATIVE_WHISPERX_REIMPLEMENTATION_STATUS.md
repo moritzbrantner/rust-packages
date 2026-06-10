@@ -144,8 +144,11 @@ but it is not full WhisperX parity yet.
 Current machine-local assets used for native Whisper smoke:
 
 - Whisper bundle: `/home/moenarch/.local/share/video-analysis-smoke/whisper-tiny`
+- wav2vec2 bundle: `/home/moenarch/.local/share/video-analysis-smoke/models/wav2vec2-base-960h/main`
+- ONNX speaker bundle: `/home/moenarch/.local/share/video-analysis-smoke/models/wespeaker-voxceleb-resnet34-LM/main`
 - Speech WAV: `/home/moenarch/.local/share/video-analysis-smoke/audio/native-transcription-smoke.wav`
 - CUDA 12 shim: `/home/moenarch/.local/share/video-analysis-smoke/cuda12-libs`
+- WhisperX venv: `.audio-tools/whisperx-venv`
 
 `/usr/local/cuda` points at CUDA 13.3 on this host. The passing smoke uses CUDA 12.3 libraries through `RUSTFLAGS`, `LIBRARY_PATH`, and `LD_LIBRARY_PATH`.
 
@@ -154,10 +157,9 @@ Current machine-local assets used for native Whisper smoke:
 Phase 1 inventory used the default smoke-root layout by environment variable,
 not checked-in model files. The speech WAV and checked-in WebM fixture were
 present. `ffmpeg` was available. Python could import `whisperx`, but the
-`whisperx` console entry point failed during import. `HF_TOKEN` and
+global `whisperx` console entry point failed during import. `HF_TOKEN` and
 `MODEL_HF_TOKEN` were not present in the shell, so no token-gated pyannote
-parity or model download setup was run. `scripts/model_bundles.lock.sh` has no
-wav2vec2 or ONNX speaker model specs configured.
+parity was run.
 
 Baseline guard before edits:
 
@@ -178,14 +180,28 @@ bun run audio-app:typecheck
 Result: pass. The only noted warning was unrelated dead code in
 `text-model-runtime`.
 
-The same required matrix passed after the media smoke harness hardening and
-documentation updates. `bun run test` also passed before handoff.
+The same required matrix passed before the 2026-06-10 setup-unblocking edits
+and again after the implementation. The only noted warning remained unrelated
+dead code in `text-model-runtime`.
+
+Model bundle tooling update:
+
+- `scripts/model_bundles.lock.sh` now includes `wav2vec2-base-960h` and
+  `wespeaker-voxceleb-resnet34-LM` specs with checksums for the local smoke
+  bundles.
+- The current `hbredin/wespeaker-voxceleb-resnet34-LM` main branch uses
+  `speaker-embedding.onnx`; the previously documented
+  `voxceleb_resnet34_LM.onnx` filename was not present on main and returned
+  404.
+- `vanalyze models download` accepts `--preset wav2vec2-base-960h`, custom
+  `--task audio-embedding`, `--task speaker-diarization`, and a custom bundle
+  `--name` so lock-file custom specs materialize under stable local names.
 
 wav2vec2 alignment smoke:
 
 ```bash
 RUN_NATIVE_ALIGNMENT_TESTS=1 \
-ALIGNMENT_MODEL_BUNDLE="$SMOKE_ROOT/wav2vec2-base-960h" \
+ALIGNMENT_MODEL_BUNDLE="$SMOKE_ROOT/models/wav2vec2-base-960h/main" \
 TRANSCRIPTION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
 ALIGNMENT_TRANSCRIPT_TEXT="hello world" \
 cargo test -p moritzbrantner-audio-analysis-transcription \
@@ -193,12 +209,18 @@ cargo test -p moritzbrantner-audio-analysis-transcription \
   ctc_alignment_wav2vec2_smoke_when_requested -- --ignored --nocapture
 ```
 
-Result: fail, `setup_error`. The default caller-owned wav2vec2 bundle directory
-was missing. Because bundle resolution failed before layout inspection, no
-architecture, `do_stable_layer_norm`, tokenizer layout, positional convolution
-layout, missing tensor keys, or inference-start observations were available.
-The typed prefix was `setup_error: required model bundle ... is missing`.
-Inference did not start, and deterministic timing fallback was absent.
+Result after setup-unblocking edits: pass. The bundle resolved through the
+model-runtime manifest and used `vocab.json` as the tokenizer file. The smoke
+reported `architecture="Wav2Vec2ForCTC"`,
+`do_stable_layer_norm=false`, `positional_conv_layout="weight-norm"`,
+`feature_extractor_norm="group"`, `encoder_layer_count=12`, no missing
+required keys, and no unsupported layout reasons. Inference started and
+completed through `alignmentModelExecution=candle-wav2vec2`.
+
+Observed implementation fix: `facebook/wav2vec2-base-960h` stores positional
+convolution `weight_g` per kernel position (`128` values), not per output
+channel (`768` values). Native reconstruction now supports both per-output and
+per-kernel weight-norm layouts.
 
 Media decode smoke:
 
@@ -227,63 +249,78 @@ ONNX speaker embedding smoke:
 
 ```bash
 RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
-SPEAKER_EMBEDDING_MODEL_BUNDLE="$SMOKE_ROOT/onnx-speaker-model" \
+SPEAKER_EMBEDDING_MODEL_BUNDLE="$SMOKE_ROOT/models/wespeaker-voxceleb-resnet34-LM/main" \
+SPEAKER_EMBEDDING_MODEL_FILE="speaker-embedding.onnx" \
 DIARIZATION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
-SPEAKER_EMBEDDING_DIMENSION=192 \
+SPEAKER_EMBEDDING_DIMENSION=256 \
 cargo test -p moritzbrantner-audio-analysis-speakers \
   --features onnx,model-bundles \
   onnx_speaker_embedding_smoke_when_requested -- --ignored --nocapture
 ```
 
-Result: fail, `setup_error`. The default caller-owned ONNX speaker bundle
-directory was missing. No model path, input rank/name, output rank/name,
-padding/truncation behavior, embedding dimension, normalization, or ONNX
-runtime observations were available beyond the typed prefix
-`setup_error: ONNX speaker embedding bundle ... does not exist`.
+Result after bundle setup: fail, `unsupported_runtime`/runtime-load blocker for
+the selected current model category. The smoke now prints the resolved model
+path, configured input/output names, and expected embedding dimension before
+session construction. A 20-second timeout run printed:
+`speakerEmbeddingResolvedModelPath=.../speaker-embedding.onnx`,
+`speakerEmbeddingExpectedDimension=256`, and auto input/output selection. ONNX
+Runtime session construction did not return within the timeout.
+
+Offline ONNX metadata inspection with the local ignored helper venv classified
+the current model as feature-input, not waveform-input:
+input `feats` is f32 `[B,T,80]`, output `embs` is f32 `[B,256]`. The native
+adapter now detects this metadata shape as `unsupported_runtime` when metadata
+is available because this tranche intentionally does not add fbank/mel
+preprocessing. The observed model category is therefore not compatible with the
+current waveform adapter, which expects `[batch, 1, samples]`.
 
 Transcription ONNX diarization smoke:
 
 ```bash
 RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
-SPEAKER_EMBEDDING_MODEL_BUNDLE="$SMOKE_ROOT/onnx-speaker-model" \
+SPEAKER_EMBEDDING_MODEL_BUNDLE="$SMOKE_ROOT/models/wespeaker-voxceleb-resnet34-LM/main" \
+SPEAKER_EMBEDDING_MODEL_FILE="speaker-embedding.onnx" \
 DIARIZATION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
-SPEAKER_EMBEDDING_DIMENSION=192 \
+SPEAKER_EMBEDDING_DIMENSION=256 \
 cargo test -p moritzbrantner-audio-analysis-transcription \
   --features diarization,onnx,model-bundles \
   native_onnx_diarization_smoke_when_requested -- --ignored --nocapture
 ```
 
-Result: fail, `setup_error`. The smoke used the direct-samples path from the
-local WAV and then failed when constructing the explicit ONNX speaker embedder
-because the caller-owned bundle was missing. ONNX diarization diagnostics and
-strict transcript speaker validation were not reached. Typed prefix:
-`setup_error: ONNX speaker embedding bundle ... does not exist`.
+Result after bundle setup: fail, timeout during the same ONNX speaker session
+construction path before diarization diagnostics or strict transcript speaker
+validation were reached. Classification: runtime/model compatibility blocker
+for the selected `speaker-embedding.onnx` feature-input model, not a missing
+bundle setup failure. The smoke still uses direct samples and mock ASR timing.
 
 External WhisperX parity smoke:
 
 ```bash
 RUN_WHISPERX_PARITY_TESTS=1 \
-WHISPERX_COMMAND=whisperx \
+WHISPERX_COMMAND="$PWD/.audio-tools/whisperx-venv/bin/whisperx" \
+WHISPERX_MODEL="tiny.en" \
+WHISPERX_LANGUAGE="en" \
+WHISPERX_DEVICE="cpu" \
+WHISPERX_COMPUTE_TYPE="int8" \
 WHISPERX_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
 cargo test --test audio_transcription_native_contracts \
   external_whisperx_parity_when_requested -- --ignored --nocapture
 ```
 
-Result: fail, `setup_error`. `whisperx --version` and the parity smoke both
-failed during the console entry-point import with
-`pkg_resources.UnknownExtra: typer 0.24.1 has no such extra feature 'all'`.
-No WhisperX JSON was produced, no `text-transcripts` import occurred, and no
-speaker fields were observed. Token-gated diarization parity was not run
-because `HF_TOKEN` was absent and the base WhisperX command was already broken.
+Result after local venv setup: pass for non-diarization parity. The ignored
+local venv `.audio-tools/whisperx-venv` installed `whisperx==3.8.6`; its
+`whisperx --help` command worked, and the parity smoke passed with `tiny.en`,
+CPU, and int8 compute. Token-gated diarization parity was not run because
+`HF_TOKEN` was absent.
 
 Backlog from this tranche:
 
-- Provision a caller-owned compatible wav2vec2 CTC bundle or add an explicit
-  wav2vec2 spec to existing model-bundle tooling, then rerun alignment smoke.
-- Choose a known compatible ONNX speaker embedding model and local bundle
-  layout, then rerun the speaker and transcription ONNX diarization smokes.
-- Repair the local WhisperX Python entry point before rerunning external
-  WhisperX or pyannote parity.
+- Pick a waveform-input ONNX speaker embedding model, or add explicit
+  feature-extraction preprocessing for feature-input speaker models such as the
+  current `hbredin/wespeaker-voxceleb-resnet34-LM` main artifact.
+- Investigate why local ONNX Runtime session construction hangs on
+  `speaker-embedding.onnx` before metadata can be queried through Rust.
+- Run token-gated WhisperX diarization parity once `HF_TOKEN` is present.
 - Keep throughput work separate: ASR reports
   `batchExecution=candle-whisper-sequential`, wav2vec2 alignment executes per
   segment, and ONNX diarization embeds windows one by one.
@@ -299,8 +336,10 @@ cargo test -p moritzbrantner-audio-analysis-transcription external_whisperx_pari
 ```
 
 Set `WHISPERX_EXPECTED_JSON=/path/to/expected.json` to compare command output
-against an imported WhisperX fixture. Set `WHISPERX_DIARIZE=1` only when
-`HF_TOKEN` is available.
+against an imported WhisperX fixture. Optional parity-only overrides are
+`WHISPERX_MODEL`, `WHISPERX_LANGUAGE`, `WHISPERX_DEVICE`, and
+`WHISPERX_COMPUTE_TYPE`. Set `WHISPERX_DIARIZE=1` only when `HF_TOKEN` is
+available.
 
 Optional local native media decode can be run when the crate is built with
 `audio-io` and FFmpeg can decode the local input:
@@ -319,6 +358,7 @@ speaker model bundle and 16 kHz WAV:
 ```bash
 RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
 SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+SPEAKER_EMBEDDING_MODEL_FILE=model.onnx \
 DIARIZATION_AUDIO_PATH=/path/to/meeting.wav \
 cargo test -p moritzbrantner-audio-analysis-speakers \
   --features onnx,model-bundles \
@@ -326,7 +366,8 @@ cargo test -p moritzbrantner-audio-analysis-speakers \
 ```
 
 Set `SPEAKER_EMBEDDING_DIMENSION` if the model does not emit the default 192
-dimensions expected by the smoke.
+dimensions expected by the smoke. Set `SPEAKER_EMBEDDING_INPUT_NAME` and
+`SPEAKER_EMBEDDING_OUTPUT_NAME` when the model has multiple inputs or outputs.
 
 The transcription pipeline's explicit ONNX diarization path has its own ignored
 smoke. It reads the same caller-owned 16 kHz WAV, builds a direct-sample
@@ -336,6 +377,7 @@ pipeline request with mock ASR timing, and verifies that
 ```bash
 RUN_NATIVE_SPEAKER_MODEL_TESTS=1 \
 SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
+SPEAKER_EMBEDDING_MODEL_FILE=model.onnx \
 DIARIZATION_AUDIO_PATH=/path/to/meeting-16khz.wav \
 SPEAKER_EMBEDDING_DIMENSION=192 \
 cargo test -p moritzbrantner-audio-analysis-transcription \
@@ -357,9 +399,9 @@ model input shape support batched waveforms.
 
 ## Recommended Next Order
 
-1. Provision or configure a caller-owned wav2vec2 CTC bundle and rerun the
-   alignment smoke to capture real layout diagnostics.
-2. Pick a known compatible local ONNX speaker embedding model and rerun the
-   speaker plus transcription ONNX diarization smokes.
-3. Repair the local WhisperX console environment before external WhisperX and
-   pyannote parity comparison.
+1. Pick a waveform-input local ONNX speaker embedding model, or add fbank/mel
+   preprocessing for feature-input models and rerun the speaker plus
+   transcription ONNX diarization smokes.
+2. Investigate the ONNX Runtime session-load timeout for
+   `speaker-embedding.onnx`.
+3. Run token-gated WhisperX diarization parity after `HF_TOKEN` is available.

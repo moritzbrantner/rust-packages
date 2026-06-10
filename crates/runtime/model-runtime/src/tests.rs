@@ -92,6 +92,26 @@ fn model_presets_include_local_onnx_defaults() {
 }
 
 #[test]
+fn wav2vec2_base_preset_accepts_vocab_json_tokenizer_layout() {
+    let spec = ModelPreset::Wav2Vec2Base960h.spec();
+
+    assert_eq!(spec.repo_id, "facebook/wav2vec2-base-960h");
+    assert!(spec
+        .files
+        .contains(&ModelFileRequest::required("config.json")));
+    assert!(spec
+        .files
+        .contains(&ModelFileRequest::required("preprocessor_config.json")));
+    assert!(spec.files.contains(&ModelFileRequest::first_available([
+        "tokenizer.json",
+        "vocab.json"
+    ])));
+    assert!(spec
+        .files
+        .contains(&ModelFileRequest::required("model.safetensors")));
+}
+
+#[test]
 fn resolver_loads_existing_bundle_before_download() {
     let temp = tempdir().unwrap();
     let spec = ModelPreset::OnnxCommunityRobertaBaseSquad2.spec();
