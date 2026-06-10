@@ -201,6 +201,57 @@ fn audio_package_apps_define_complete_operation_groups() {
 }
 
 #[test]
+fn transcription_decode_plan_is_debug_surface_only() {
+    let surface = audio_analysis_transcription::surface::package_surface();
+    assert!(surface
+        .operations
+        .iter()
+        .any(|operation| operation.id.as_str() == "audio.transcription.decodePlan"));
+    assert!(surface
+        .operations
+        .iter()
+        .any(|operation| operation.id.as_str() == "audio.transcription.diarizationPlan"));
+
+    let response = audio_analysis_transcription::surface::run_surface_operation(SurfaceRequest {
+        operation: "audio.transcription.decodePlan".into(),
+        input: serde_json::json!({"source": {"path": "clip.mp4"}}),
+    })
+    .expect("decode plan");
+    assert_structured_response(
+        "audio-analysis-transcription",
+        "audio.transcription.decodePlan",
+        &response,
+    );
+    assert_eq!(response.value["result"]["plan"]["opensFiles"], false);
+    assert_eq!(response.value["result"]["plan"]["executesFfmpeg"], false);
+    let diarization_response =
+        audio_analysis_transcription::surface::run_surface_operation(SurfaceRequest {
+            operation: "audio.transcription.diarizationPlan".into(),
+            input: serde_json::json!({}),
+        })
+        .expect("diarization plan");
+    assert_structured_response(
+        "audio-analysis-transcription",
+        "audio.transcription.diarizationPlan",
+        &diarization_response,
+    );
+    assert_eq!(
+        diarization_response.value["result"]["currentRuntime"],
+        "heuristic-native"
+    );
+
+    let app = app_source("audio-analysis-transcription");
+    let workflow_group =
+        group_source(&app, "workflow").expect("audio-analysis-transcription app workflow group");
+    let debug_group =
+        group_source(&app, "debug").expect("audio-analysis-transcription app debug group");
+    assert!(!workflow_group.contains("audio.transcription.decodePlan"));
+    assert!(debug_group.contains("audio.transcription.decodePlan"));
+    assert!(!workflow_group.contains("audio.transcription.diarizationPlan"));
+    assert!(debug_group.contains("audio.transcription.diarizationPlan"));
+}
+
+#[test]
 fn demucs_execution_surface_is_server_only_and_non_executing_by_default() {
     let surface = audio_analysis_separation::surface::package_surface();
     let operation = surface

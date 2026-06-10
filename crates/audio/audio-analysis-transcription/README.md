@@ -4,9 +4,11 @@ Rust-native and compatibility transcription orchestration for `video-analysis`.
 
 Native Candle Whisper ASR is available behind the `candle` feature. CUDA device
 selection is available behind `cuda`, and local model bundle validation is
-available behind `model-bundles`. Native path decoding is WAV-only for now; pass
-samples directly or use the external compatibility provider for container or
-video inputs.
+available behind `model-bundles`. Native path decoding defaults to direct
+samples or readable WAV files. With the explicit `audio-io` feature, non-WAV
+paths use FFmpeg-backed `audio-analysis-io` decode and then normalize/resample
+through the same native 16 kHz mono boundary. This opt-in media decode is not
+WhisperX parity and is not part of default tests.
 
 Native Whisper tries model timestamp tokens automatically when the tokenizer
 defines Whisper timestamp metadata. If timestamp decoding does not produce
@@ -22,7 +24,7 @@ wav2vec2 CTC alignment.
 The external WhisperX command provider remains compatibility and parity tooling.
 It keeps Python-based execution explicit for callers that still need WhisperX
 decoding, batched ASR, alignment, or pyannote-backed diarization outside the
-default Rust path.
+default Rust path. It is also the current path for video/container inputs.
 
 Native deterministic diarization is available behind `diarization` as a
 heuristic spectral baseline, not a pyannote replacement or production speaker
@@ -34,11 +36,19 @@ When no transcript timing is available it falls back to the energy-VAD baseline.
 they are not pyannote-style clustering constraints in the native baseline.
 
 CTC alignment validates local wav2vec2 bundle files, config, tokenizer
-vocabulary, and preprocessor metadata. Supported local `Wav2Vec2ForCTC`
-`model.safetensors` bundles execute through a private Candle implementation and
-feed native CTC trellis/backtracking. Unsupported architectures or safetensors
-layouts return typed `unsupported_runtime` errors instead of falling back to
-deterministic timing.
+vocabulary, and preprocessor metadata. Tokenizer discovery accepts
+`tokenizer.json` and `vocab.json`; CTC blank resolution can use `pad_token_id`
+when tokenizer metadata does not name a pad token. Supported local
+`Wav2Vec2ForCTC` `model.safetensors` bundles execute through a private Candle
+implementation and feed native CTC trellis/backtracking. Unsupported
+architectures, stable-layer-norm configs, inconsistent positional-convolution
+weight-norm tensors, or other unsupported safetensors layouts return typed
+errors instead of falling back to deterministic timing.
+
+Candle Whisper batch options are deterministic rather than concurrent in this
+phase. `max_batch_size=0` is rejected, chunk order and global timing are
+preserved, and diagnostics report `chunkCount`, `batchChunks`, `maxBatchSize`,
+`batchCount`, and `batchExecution`.
 
 Transcript contracts, normalization, caption formatting, and WhisperX JSON
 import remain owned by `text-transcripts`.
@@ -52,6 +62,13 @@ import remain owned by `text-transcripts`.
   running external tools.
 - `audio.transcription.providers`: inspect available provider families.
 - `audio.transcription.plan`: describe runtime setup without execution.
+- `audio.transcription.modelPlan`: inspect ASR model requirements.
+- `audio.transcription.vadPlan`: inspect deterministic VAD defaults.
+- `audio.transcription.alignmentPlan`: inspect CTC alignment requirements.
+- `audio.transcription.decodePlan`: explain source decode routing without
+  opening files or running FFmpeg.
+- `audio.transcription.diarizationPlan`: explain heuristic diarization status,
+  assignment policies, and future model-backed provider directions.
 - `describe`: inspect package metadata.
 
 ## Setup
@@ -68,13 +85,24 @@ For native wav2vec2 CTC alignment, provide a local `Wav2Vec2ForCTC` bundle
 containing:
 
 - `config.json`
-- `tokenizer.json`
+- `tokenizer.json` or `vocab.json`
 - `preprocessor_config.json`
 - `model.safetensors`
 
 Use `candle,model-bundles` for CPU local smoke tests and add `cuda` for
 CUDA-backed Whisper smoke tests. No runtime downloads are performed by this
 crate.
+
+Use `audio-io` only when native non-WAV media/container decode is explicitly
+needed and local FFmpeg support is available:
+
+```bash
+RUN_NATIVE_MEDIA_DECODE_TESTS=1 \
+TRANSCRIPTION_MEDIA_PATH=/path/to/video-or-audio-container \
+cargo test -p moritzbrantner-audio-analysis-transcription \
+  --features audio-io \
+  native_media_decode_when_requested -- --ignored --nocapture
+```
 
 On the current RTX 3060 Ti smoke host, `/usr/local/cuda` points at CUDA 13.3
 while the passing smoke uses a local CUDA 12.3 library shim at
@@ -100,4 +128,19 @@ export HF_TOKEN=...
 ```
 
 No default build or test downloads models, requires CUDA, or requires network
-access.
+access. Default tests also do not require Python, WhisperX, Hugging Face tokens,
+external model files, or FFmpeg.
+
+Optional external WhisperX parity can be run manually when local tools and media
+are configured:
+
+```bash
+RUN_WHISPERX_PARITY_TESTS=1 \
+WHISPERX_COMMAND=whisperx \
+WHISPERX_AUDIO_PATH=/path/to/audio.wav \
+cargo test -p moritzbrantner-audio-analysis-transcription external_whisperx_parity_when_requested -- --ignored --nocapture
+```
+
+Set `WHISPERX_EXPECTED_JSON=/path/to/expected.json` to compare command output
+against a known WhisperX JSON fixture. Set `WHISPERX_DIARIZE=1` only when
+`HF_TOKEN` is available.

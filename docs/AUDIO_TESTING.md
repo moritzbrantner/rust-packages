@@ -123,10 +123,11 @@ synthetic wav2vec2 safetensors bundles, and mock providers; they do not require
 real model files, CUDA, Python, Hugging Face tokens, downloads, or network
 access.
 
-Native path decoding currently accepts WAV files only. Broader container/video
-decode remains an explicit external/runtime integration task. Browser and WASM
-package surfaces can plan or import transcript data, but they do not run native
-ASR.
+Native path decoding accepts WAV files by default through the native hound-based
+reader. Broader container/video decode is feature-gated behind `audio-io`,
+which reuses FFmpeg-backed `audio-analysis-io`; it is not part of default tests.
+Browser and WASM package surfaces can plan or import transcript data, but they
+do not run native ASR.
 
 Imported transcript normalization belongs to `text-transcripts` through
 `transcripts.normalize` and `transcripts.importWhisperX`. Recognition package
@@ -156,13 +157,17 @@ prove native providers supply `CtcForcedAligner` when alignment is enabled,
 leave alignment absent when disabled, run alignment before diarization
 assignment, and exercise a synthetic tiny wav2vec2 bundle through the pipeline
 without real model files, CUDA, Python, WhisperX, Hugging Face tokens, network,
-or downloads.
+or downloads. Batch option tests are hermetic as well: `max_batch_size=0`
+rejection, output order, batch counts, unbounded batch diagnostics, and
+sequential-provider diagnostics are covered without real models.
 
 Native diarization seam coverage is hermetic as well. Unit tests cover
 transcript-timing-derived speech spans, fallback to energy VAD when transcript
 timing is absent, `min_speakers`/`max_speakers` validation and diagnostics, and
 pipeline diarization diagnostics without real speaker models, Python, network,
-CUDA, Hugging Face tokens, or downloads.
+CUDA, Hugging Face tokens, or downloads. `audio.transcription.diarizationPlan`
+is a Debug-only planning surface: it reports the current heuristic runtime and
+future model-backed provider directions, not production pyannote parity.
 
 On the RTX 3060 Ti development host used for the current smoke, the working
 local assets are:
@@ -189,7 +194,32 @@ cargo test -p moritzbrantner-audio-analysis-transcription \
 The CTC path validates wav2vec2 bundle files, config, tokenizer vocabulary, and
 preprocessor metadata. Supported local `Wav2Vec2ForCTC` safetensors bundles
 execute through Candle and native CTC trellis/backtracking. Unsupported
-architectures or safetensors layouts return typed `unsupported_runtime` errors.
+architectures or safetensors layouts return typed errors. Positional
+convolution supports plain weights, legacy `weight_g`/`weight_v` weight norm,
+and PyTorch parametrization `original0/original1` weight norm layouts.
+
+Native media/container decode smoke test:
+
+```bash
+RUN_NATIVE_MEDIA_DECODE_TESTS=1 \
+TRANSCRIPTION_MEDIA_PATH=/path/to/video-or-audio-container \
+cargo test -p moritzbrantner-audio-analysis-transcription \
+  --features audio-io \
+  native_media_decode_when_requested -- --ignored --nocapture
+```
+
+Capability tiers for transcription:
+
+- Default hermetic: direct samples, native WAV reads, VAD, batch semantics,
+  WhisperX JSON import, mock command parity, deterministic alignment, synthetic
+  wav2vec2 bundles, and heuristic diarization diagnostics.
+- Feature-gated: Candle Whisper (`candle`), CUDA (`cuda`), local bundle
+  validation (`model-bundles`), CTC alignment (`alignment`), heuristic speaker
+  diarization (`diarization`), and non-WAV media decode (`audio-io`).
+- Ignored local smoke: Candle Whisper CUDA, real wav2vec2 alignment, and
+  `audio-io` media/container decode.
+- External compatibility only: Python WhisperX execution and pyannote-backed
+  diarization.
 
 Diarization baseline smoke test:
 

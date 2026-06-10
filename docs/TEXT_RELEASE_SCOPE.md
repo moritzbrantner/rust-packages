@@ -1,10 +1,16 @@
 # Text Release Scope
 
-The first text release is a deterministic, local-first toolkit for text
-contracts, lexical analysis, transcript handling, retrieval, and task-specific
-request/response surfaces. It is designed to be useful without network access,
-model downloads, hosted AI credentials, or native inference runtimes in default
-builds, except for explicitly marked native server QA workflows.
+The first text release covers all current reusable text library crates, with
+`text-analysis::TextWorkspace` as the primary package-consumer workflow and the
+focused crates as lower-level escape hatches. It defines a stable contract for
+public APIs, schemas, operation envelopes, and adapter behavior; NLP output
+quality remains best-effort.
+
+Default builds are deterministic, local-first, and useful without network
+access, model downloads, hosted AI credentials, or native inference runtimes.
+Native/model-feature builds may prefer local model execution for declared
+model-backed workflows and may auto-download missing model bundles when those
+side effects are explicit.
 
 This release favors explicit contracts and reproducible fallback behavior over
 claims of production-grade NLP quality. Model-backed paths may exist behind
@@ -13,17 +19,17 @@ and are not required to use the text crates.
 
 ## Major Release Contract
 
-- Default builds are deterministic, local-first, and network-free, except where
-  a model-backed server operation declares filesystem/network side effects.
+- Default builds are deterministic, local-first, and network-free.
 - Package-surface operations do not download models, call network services,
-  invoke native inference, or write persistence artifacts by default.
-- Model-backed behavior requires explicit feature flags. For
-  `moritzbrantner-text-question-answering` with `local-onnx`, `qa.answer` uses
-  the local RoBERTa SQuAD2 ONNX model when no imported predictions or backend
-  are supplied.
+  invoke native inference, or write persistence artifacts in default builds.
+- Model-backed behavior requires explicit feature flags and workflow selection.
+  `moritzbrantner-text-question-answering` with `local-onnx` uses local RoBERTa
+  SQuAD2 ONNX for `qa.answer`; `moritzbrantner-text-classification` with
+  `local-models` uses local DistilBERT SST-2 for classification/sentiment and
+  local Xenova BART MNLI ONNX for zero-shot classification.
 - Model downloads require explicit model-backed workflow selection,
   `auto_download: true`, `autoDownload: true`, or an equivalent setup command.
-- Classification and question-answering model catalogs may include reference
+- Classification and question-answering model catalogs may include model
   metadata, but reference-only models must not be presented as runnable.
 - Hashed embeddings and heuristic NLP are deterministic baselines, not quality
   claims.
@@ -35,12 +41,17 @@ The text release surface treats user-visible model entries as either loadable or
 - Tokenizers: `tokenizers,model-bundles`
 - Candle token classification and embeddings: `candle,model-bundles`
 - ONNX embeddings: `onnx,model-bundles`
+- Candle text classification and sentiment: `text-classification/local-models`
+  using `distilbert-sst2`
+- ONNX zero-shot text classification: `text-classification/local-models` using
+  `xenova-bart-large-mnli-onnx`
 - whisper.cpp transcription: `native`
 - External smoke tests: `external-tests`
 
 Question-answering catalogs now expose
 `onnx-community/roberta-base-squad2-ONNX` as runnable when built with
-`local-onnx`. Classification remains outside the text release scope.
+`local-onnx`. Native text classification was previously out of scope; this
+release now requires first-party local classification models.
 
 Release checks should include the default deterministic suite plus opt-in ignored tests only on machines with model bundles or native runtimes installed.
 
@@ -87,8 +98,7 @@ tests pass these gates:
 ## What This Release Does Not Claim
 
 - It is not a hosted LLM client layer.
-- It does not download models or call network services in default builds outside
-  the explicit server-only local QA workflow.
+- It does not download models or call network services in default builds.
 - It does not require ONNX Runtime, Candle, tokenizers, whisper.cpp, or other
   native inference dependencies in default builds.
 - It does not claim production-grade semantic embeddings by default; hashed
@@ -156,6 +166,10 @@ The intended stable surface for `0.1` is:
   filters, snapshot planning, and persistence DTOs.
 - Concrete task request/response structs in `moritzbrantner-text-classification`,
   `moritzbrantner-text-question-answering`, and `moritzbrantner-text-generation`.
+- First-party local classification adapters behind `text-classification/local-models`:
+  Candle DistilBERT SST-2 for `classification.classify` and
+  `classification.sentiment`, and ONNX pair/NLI scoring for
+  `classification.zeroShot`.
 - Feature policy: default builds stay local, deterministic, and free of native
   inference/runtime requirements.
 

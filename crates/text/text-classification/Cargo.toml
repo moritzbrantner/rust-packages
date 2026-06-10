@@ -23,3 +23,12 @@ text-core.workspace = true
 text-lexical.workspace = true
 text-model-runtime.workspace = true
 video-analysis-core.workspace = true
+model-runtime = { workspace = true, optional = true }
+
+[features]
+default = []
+model-bundles = ["dep:model-runtime", "text-model-runtime/model-bundles"]
+candle = ["model-bundles", "text-model-runtime/candle"]
+onnx = ["model-bundles", "text-model-runtime/onnx"]
+local-models = ["candle", "onnx"]
+external-tests = ["local-models"]

@@ -5,7 +5,8 @@ pub mod surface;
 pub use editing::*;
 use std::path::{Path, PathBuf};
 
-use audio_analysis_core::{interleaved_to_mono, AudioClip, ChannelMix, OwnedAudioWaveformBatch};
+pub use audio_analysis_core::ChannelMix;
+use audio_analysis_core::{interleaved_to_mono, AudioClip, OwnedAudioWaveformBatch};
 use video_analysis_core::{OwnedAudioFrame, Result, Timebase, Timestamp};
 /// Re-exports the video analysis FFmpeg API.
 pub use video_analysis_ffmpeg::{

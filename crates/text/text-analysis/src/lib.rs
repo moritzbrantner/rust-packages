@@ -14,6 +14,7 @@ pub use document::{analyze_document, analyze_text};
 pub use fingerprint::{shingle_hamming_distance, simhash64, DocumentSimilarityPair};
 use serde::{Deserialize, Serialize};
 pub use stats::enriched_text_stats;
+use text_classification::TextClassificationLocalModelOptions;
 use text_core::{
     DetailedTextStats, Paragraph, ScriptProfile, Sentence, TextAnnotationGraph, TextDocument,
     TextProcessingOptions, Token,
@@ -89,6 +90,7 @@ pub struct DocumentAnalysisOptions {
     pub embedding_depth: EmbeddingDepth,
     pub include_sparse_embedding: bool,
     pub classification_depth: ClassificationDepth,
+    pub classification_local_model: Option<TextClassificationLocalModelOptions>,
     pub classification_labels: Vec<String>,
     pub zero_shot_labels: Vec<String>,
 }
@@ -111,6 +113,7 @@ impl Default for DocumentAnalysisOptions {
             },
             include_sparse_embedding: false,
             classification_depth: ClassificationDepth::Off,
+            classification_local_model: None,
             classification_labels: vec![
                 "technical".to_string(),
                 "media".to_string(),
@@ -134,6 +137,13 @@ impl DocumentAnalysisOptions {
                 auto_download: false,
                 download_progress: false,
             },
+            classification_depth: ClassificationDepth::Backend,
+            classification_local_model: Some(TextClassificationLocalModelOptions {
+                bundle_root: Some(PathBuf::from(".model-runtime")),
+                auto_download: Some(false),
+                download_progress: Some(false),
+                ..TextClassificationLocalModelOptions::default()
+            }),
             ..Self::default()
         }
     }
@@ -146,6 +156,13 @@ impl DocumentAnalysisOptions {
                 auto_download: true,
                 download_progress: true,
             },
+            classification_depth: ClassificationDepth::Backend,
+            classification_local_model: Some(TextClassificationLocalModelOptions {
+                bundle_root: Some(PathBuf::from(".model-runtime")),
+                auto_download: Some(true),
+                download_progress: Some(true),
+                ..TextClassificationLocalModelOptions::default()
+            }),
             ..Self::default()
         }
     }

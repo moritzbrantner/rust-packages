@@ -510,6 +510,6 @@ mod tests {
         .unwrap_err()
         .to_string();
         assert!(error.contains("setup_error"));
-        assert!(error.contains("tokenizer.json"));
+        assert!(error.contains("vocab.json"));
     }
 }

@@ -14,7 +14,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub(crate) struct Wav2Vec2BundlePaths {
     pub config_json: PathBuf,
-    pub tokenizer_json: PathBuf,
+    pub tokenizer_vocab: PathBuf,
     pub preprocessor_config_json: PathBuf,
     pub model_safetensors: PathBuf,
 }
@@ -195,7 +195,7 @@ pub(crate) fn emit_wav2vec2_ctc_segments(
     let paths = resolve_wav2vec2_bundle_paths(bundle)?;
     let config = parse_wav2vec2_ctc_config(&paths.config_json)?;
     let preprocessor = parse_wav2vec2_preprocessor_config(&paths.preprocessor_config_json)?;
-    let vocab = parse_ctc_vocabulary(&paths.tokenizer_json)?;
+    let vocab = parse_ctc_vocabulary(&paths.tokenizer_vocab, config.pad_token_id)?;
     if vocab.tokens.len() > config.vocab_size {
         return Err(model_output_mismatch(format!(
             "wav2vec2 tokenizer vocab has {} entries but config vocab_size is {}",
@@ -257,12 +257,16 @@ pub(crate) fn emit_wav2vec2_ctc_segments(
 }
 
 pub(crate) fn resolve_wav2vec2_bundle_paths(bundle: &Path) -> Result<Wav2Vec2BundlePaths> {
+    let tokenizer_vocab = if let Some(tokenizer_json) =
+        crate::native_bundles::resolve_optional_bundle_file(bundle, "tokenizer.json")?
+    {
+        tokenizer_json
+    } else {
+        crate::native_bundles::resolve_required_bundle_file(bundle, "vocab.json")?
+    };
     Ok(Wav2Vec2BundlePaths {
         config_json: crate::native_bundles::resolve_required_bundle_file(bundle, "config.json")?,
-        tokenizer_json: crate::native_bundles::resolve_required_bundle_file(
-            bundle,
-            "tokenizer.json",
-        )?,
+        tokenizer_vocab,
         preprocessor_config_json: crate::native_bundles::resolve_required_bundle_file(
             bundle,
             "preprocessor_config.json",
@@ -289,6 +293,11 @@ pub(crate) fn parse_wav2vec2_config(path: &Path) -> Result<Wav2Vec2ConfigSummary
 pub(crate) fn parse_wav2vec2_ctc_config(path: &Path) -> Result<Wav2Vec2CtcConfig> {
     let raw = parse_raw_wav2vec2_config(path)?;
     validate_model_type_and_architecture(&raw)?;
+    if raw.do_stable_layer_norm == Some(true) {
+        return Err(unsupported_runtime(
+            "unsupported wav2vec2 config do_stable_layer_norm=true; stable layer norm execution is not implemented",
+        ));
+    }
     let vocab_size = raw
         .vocab_size
         .ok_or_else(|| invalid_request("wav2vec2 config missing vocab_size"))?;
@@ -419,7 +428,10 @@ fn validate_model_type_and_architecture(raw: &RawWav2Vec2Config) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn parse_ctc_vocabulary(tokenizer_json: &Path) -> Result<CtcVocabulary> {
+pub(crate) fn parse_ctc_vocabulary(
+    tokenizer_json: &Path,
+    pad_token_id: Option<usize>,
+) -> Result<CtcVocabulary> {
     let bytes = std::fs::read(tokenizer_json).map_err(|error| {
         crate::setup_error(format!(
             "failed to read wav2vec2 tokenizer `{}`: {error}",
@@ -432,14 +444,22 @@ pub(crate) fn parse_ctc_vocabulary(tokenizer_json: &Path) -> Result<CtcVocabular
             tokenizer_json.display()
         ))
     })?;
-    let vocab = value
-        .pointer("/model/vocab")
-        .and_then(Value::as_object)
-        .ok_or_else(|| {
-            unsupported_runtime(
-                "unsupported wav2vec2 tokenizer layout; expected flat model.vocab mapping",
-            )
-        })?;
+    let vocab = if let Some(vocab) = value.pointer("/model/vocab").and_then(Value::as_object) {
+        vocab
+    } else if let Some(vocab) = value.pointer("/vocab").and_then(Value::as_object) {
+        vocab
+    } else if let Some(vocab) = value.as_object().filter(|object| {
+        !object.is_empty()
+            && object
+                .values()
+                .all(|candidate| candidate.as_u64().is_some())
+    }) {
+        vocab
+    } else {
+        return Err(unsupported_runtime(
+            "unsupported wav2vec2 tokenizer layout; expected flat model.vocab or vocab.json mapping",
+        ));
+    };
     let max_id = vocab
         .values()
         .filter_map(Value::as_u64)
@@ -477,6 +497,7 @@ pub(crate) fn parse_ctc_vocabulary(tokenizer_json: &Path) -> Result<CtcVocabular
         .and_then(Value::as_str);
     let blank_id = pad_token
         .and_then(|token| token_id(&tokens, token))
+        .or(pad_token_id.filter(|id| *id < tokens.len()))
         .or_else(|| token_id(&tokens, "[PAD]"))
         .or_else(|| token_id(&tokens, "<pad>"))
         .or_else(|| {
@@ -684,6 +705,11 @@ mod tests {
             .to_string(),
         )
         .unwrap();
+        let tensors = tiny_model_tensors();
+        candle_core::safetensors::save(&tensors, root.join("model.safetensors")).unwrap();
+    }
+
+    fn tiny_model_tensors() -> HashMap<String, Tensor> {
         let device = Device::Cpu;
         let mut tensors = HashMap::new();
         tensors.insert(
@@ -723,6 +749,67 @@ mod tests {
             "lm_head.bias".to_string(),
             Tensor::new(&[0.0f32; 10], &device).unwrap(),
         );
+        tensors
+    }
+
+    fn write_pos_conv_config(root: &Path) {
+        std::fs::write(
+            root.join("config.json"),
+            serde_json::json!({
+                "model_type": "wav2vec2",
+                "architectures": ["Wav2Vec2ForCTC"],
+                "vocab_size": 10,
+                "word_delimiter_token": "|",
+                "hidden_size": 1,
+                "num_hidden_layers": 0,
+                "num_attention_heads": 1,
+                "intermediate_size": 1,
+                "hidden_act": "gelu",
+                "layer_norm_eps": 1e-5,
+                "feat_extract_activation": "gelu",
+                "conv_dim": [1],
+                "conv_stride": [1],
+                "conv_kernel": [1],
+                "num_conv_pos_embeddings": 2,
+                "num_conv_pos_embedding_groups": 1
+            })
+            .to_string(),
+        )
+        .unwrap();
+    }
+
+    fn write_tiny_weight_norm_bundle(root: &Path, parametrization_layout: bool, bad_g: bool) {
+        write_tiny_bundle(root);
+        write_pos_conv_config(root);
+        let device = Device::Cpu;
+        let mut tensors = tiny_model_tensors();
+        let (g_name, v_name) = if parametrization_layout {
+            (
+                "wav2vec2.encoder.pos_conv_embed.conv.parametrizations.weight.original0",
+                "wav2vec2.encoder.pos_conv_embed.conv.parametrizations.weight.original1",
+            )
+        } else {
+            (
+                "wav2vec2.encoder.pos_conv_embed.conv.weight_g",
+                "wav2vec2.encoder.pos_conv_embed.conv.weight_v",
+            )
+        };
+        let weight_g = if bad_g {
+            Tensor::new(&[1.0f32, 2.0], &device).unwrap()
+        } else {
+            Tensor::new(&[10.0f32], &device)
+                .unwrap()
+                .reshape((1, 1, 1))
+                .unwrap()
+        };
+        tensors.insert(g_name.to_string(), weight_g);
+        tensors.insert(
+            v_name.to_string(),
+            Tensor::new(&[3.0f32, 4.0], &device)
+                .unwrap()
+                .reshape((1, 1, 2))
+                .unwrap(),
+        );
         candle_core::safetensors::save(&tensors, root.join("model.safetensors")).unwrap();
     }
 
@@ -753,7 +840,7 @@ mod tests {
             write_valid_bundle(temp.path(), nested);
             let paths = resolve_wav2vec2_bundle_paths(temp.path()).unwrap();
             assert!(paths.config_json.exists());
-            assert!(paths.tokenizer_json.exists());
+            assert!(paths.tokenizer_vocab.exists());
             assert!(paths.preprocessor_config_json.exists());
             assert!(paths.model_safetensors.exists());
         }
@@ -796,9 +883,62 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let path = temp.path().join("tokenizer.json");
         std::fs::write(&path, minimal_tokenizer()).unwrap();
-        let vocab = parse_ctc_vocabulary(&path).unwrap();
+        let vocab = parse_ctc_vocabulary(&path, None).unwrap();
         assert_eq!(vocab.blank_id, 0);
         assert_eq!(vocab.tokens[5], "|");
+    }
+
+    #[test]
+    fn vocab_json_layout_is_supported() {
+        let temp = tempfile::tempdir().unwrap();
+        write_valid_bundle(temp.path(), false);
+        std::fs::remove_file(temp.path().join("tokenizer.json")).unwrap();
+        std::fs::write(
+            temp.path().join("vocab.json"),
+            serde_json::json!({
+                "[PAD]": 0,
+                "H": 1,
+                "E": 2,
+                "L": 3,
+                "O": 4,
+                "|": 5,
+                "W": 6,
+                "R": 7,
+                "D": 8,
+                "<unk>": 9
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let paths = resolve_wav2vec2_bundle_paths(temp.path()).unwrap();
+        assert_eq!(paths.tokenizer_vocab, temp.path().join("vocab.json"));
+        let config = parse_wav2vec2_ctc_config(&paths.config_json).unwrap();
+        let vocab = parse_ctc_vocabulary(&paths.tokenizer_vocab, config.pad_token_id).unwrap();
+
+        assert_eq!(vocab.blank_id, 0);
+        assert_eq!(vocab.tokens[5], "|");
+    }
+
+    #[test]
+    fn pad_token_id_can_define_ctc_blank() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("vocab.json");
+        std::fs::write(
+            &path,
+            serde_json::json!({
+                "A": 0,
+                "B": 1,
+                "|": 2,
+                "<unk>": 3
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let vocab = parse_ctc_vocabulary(&path, Some(3)).unwrap();
+
+        assert_eq!(vocab.blank_id, 3);
     }
 
     #[test]
@@ -806,7 +946,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let path = temp.path().join("tokenizer.json");
         std::fs::write(&path, minimal_tokenizer()).unwrap();
-        let vocab = parse_ctc_vocabulary(&path).unwrap();
+        let vocab = parse_ctc_vocabulary(&path, None).unwrap();
         let ids = normalized_text_to_token_ids("hello world!", &vocab).unwrap();
         assert_eq!(ids, vec![1, 2, 3, 3, 4, 5, 6, 4, 7, 3, 8]);
     }
@@ -820,7 +960,7 @@ mod tests {
             serde_json::json!({"model": {"type": "BPE"}}).to_string(),
         )
         .unwrap();
-        let error = parse_ctc_vocabulary(&path).unwrap_err().to_string();
+        let error = parse_ctc_vocabulary(&path, None).unwrap_err().to_string();
         assert!(error.contains("unsupported_runtime"));
         assert!(error.contains("flat model.vocab"));
     }
@@ -858,6 +998,36 @@ mod tests {
             .to_string();
         assert!(error.contains("invalid_request"));
         assert!(error.contains("conv_dim"));
+    }
+
+    #[test]
+    fn stable_layer_norm_config_reports_clear_unsupported_runtime_until_implemented() {
+        let temp = tempfile::tempdir().unwrap();
+        write_valid_bundle(temp.path(), false);
+        std::fs::write(
+            temp.path().join("config.json"),
+            serde_json::json!({
+                "model_type": "wav2vec2",
+                "architectures": ["Wav2Vec2ForCTC"],
+                "vocab_size": 10,
+                "hidden_size": 1,
+                "num_hidden_layers": 0,
+                "num_attention_heads": 1,
+                "conv_dim": [1],
+                "conv_stride": [1],
+                "conv_kernel": [1],
+                "do_stable_layer_norm": true
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let error = parse_wav2vec2_ctc_config(&temp.path().join("config.json"))
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("unsupported_runtime"));
+        assert!(error.contains("do_stable_layer_norm"));
     }
 
     #[test]
@@ -899,6 +1069,45 @@ mod tests {
             .to_string();
         assert!(error.contains("unsupported_runtime"));
         assert!(error.contains("safetensors"));
+    }
+
+    #[test]
+    fn positional_conv_weight_norm_layout_reconstructs_weight() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_weight_norm_bundle(temp.path(), false, false);
+
+        let emissions = emit_wav2vec2_ctc(temp.path(), &alignment_request("hello")).unwrap();
+
+        assert!(!emissions.is_empty());
+        assert!(emissions
+            .iter()
+            .all(|frame| frame.len() == 10 && frame.iter().all(|score| score.is_finite())));
+    }
+
+    #[test]
+    fn positional_conv_parametrization_layout_reconstructs_weight() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_weight_norm_bundle(temp.path(), true, false);
+
+        let emissions = emit_wav2vec2_ctc(temp.path(), &alignment_request("hello")).unwrap();
+
+        assert!(!emissions.is_empty());
+        assert!(emissions
+            .iter()
+            .all(|frame| frame.len() == 10 && frame.iter().all(|score| score.is_finite())));
+    }
+
+    #[test]
+    fn positional_conv_weight_norm_rejects_bad_shape() {
+        let temp = tempfile::tempdir().unwrap();
+        write_tiny_weight_norm_bundle(temp.path(), false, true);
+
+        let error = emit_wav2vec2_ctc(temp.path(), &alignment_request("hello"))
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("model_output_mismatch"));
+        assert!(error.contains("positional convolution weight norm"));
     }
 
     #[test]

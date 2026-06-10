@@ -804,6 +804,19 @@ pub trait SequenceClassifier {
     fn runtime_backend(&self) -> TextRuntimeBackend;
 }
 
+/// Premise/hypothesis pair classifier for zero-shot and NLI-style workflows.
+pub trait PairSequenceClassifier {
+    /// Scores a premise against candidate hypotheses.
+    fn classify_pairs(
+        &mut self,
+        premise: &str,
+        hypotheses: &[String],
+    ) -> Result<Vec<RawPrediction>>;
+
+    /// Runtime backend.
+    fn runtime_backend(&self) -> TextRuntimeBackend;
+}
+
 /// Query-document reranking backend.
 pub trait TextReranker {
     /// Reranks documents for a query.
@@ -1072,6 +1085,158 @@ impl QuestionAnsweringBackend for OnnxQuestionAnswerer {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+enum CandleSequenceClassifierArchitecture {
+    Bert,
+    DistilBert,
+}
+
+#[cfg(feature = "model-bundles")]
+#[derive(Debug, Clone)]
+/// Candle sequence-classification facade for local text classification.
+pub struct CandleSequenceClassifier {
+    tokenizer: TokenizerBundle,
+    labels: Vec<String>,
+    config: Value,
+    model_paths: Vec<PathBuf>,
+    architecture: CandleSequenceClassifierArchitecture,
+}
+
+#[cfg(feature = "model-bundles")]
+impl CandleSequenceClassifier {
+    /// Builds from a model bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        if bundle.manifest.task != ModelTask::TextClassification {
+            return Err(invalid_argument(format!(
+                "Candle sequence-classification bundle task must be text_classification, got {:?}",
+                bundle.manifest.task
+            )));
+        }
+        let config_path = required_bundle_file(&bundle, "config.json")?;
+        let config = read_json(&config_path)?;
+        let tokenizer = tokenizer_with_model_limit(TokenizerBundle::from_bundle(&bundle)?, &config);
+        let model_paths = bundle_files_with_extension(&bundle, "safetensors");
+        if model_paths.is_empty() {
+            return Err(invalid_argument(
+                "Candle sequence-classification bundles must contain a `.safetensors` model file",
+            ));
+        }
+        let architecture = sequence_classifier_architecture_from_config(&config)?;
+        Ok(Self {
+            tokenizer,
+            labels: labels_from_config(&config),
+            config,
+            model_paths,
+            architecture,
+        })
+    }
+
+    /// Returns labels.
+    pub fn labels(&self) -> &[String] {
+        &self.labels
+    }
+
+    /// Classifies text.
+    pub fn classify(&mut self, text: &str) -> Result<Vec<RawPrediction>> {
+        let tokens = self.tokenizer.tokenize(text)?;
+        self.classify_tokenized(&tokens)
+    }
+
+    /// Classifies tokenized text.
+    pub fn classify_tokenized(&self, tokens: &TokenizedText) -> Result<Vec<RawPrediction>> {
+        #[cfg(feature = "candle")]
+        {
+            let logits = run_candle_sequence_classifier(
+                &self.config,
+                &self.model_paths,
+                self.architecture,
+                tokens,
+            )?;
+            sequence_predictions_from_logits(&logits, &self.labels)
+        }
+        #[cfg(not(feature = "candle"))]
+        {
+            let _ = (tokens, &self.config, &self.model_paths, self.architecture);
+            Err(invalid_argument(
+                "native Candle sequence classification requires the `candle` feature",
+            ))
+        }
+    }
+}
+
+#[cfg(feature = "model-bundles")]
+impl SequenceClassifier for CandleSequenceClassifier {
+    fn classify_text(&mut self, text: &str, _labels: &[String]) -> Result<Vec<RawPrediction>> {
+        self.classify(text)
+    }
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Candle
+    }
+}
+
+#[cfg(all(feature = "onnx", feature = "model-bundles"))]
+#[derive(Debug)]
+/// ONNX Runtime-backed pair classifier for zero-shot/NLI scoring.
+pub struct OnnxZeroShotClassifier {
+    tokenizer: TokenizerBundle,
+    session: runtime_onnx::OnnxSession,
+    labels: Vec<String>,
+}
+
+#[cfg(all(feature = "onnx", feature = "model-bundles"))]
+impl OnnxZeroShotClassifier {
+    /// Builds from a model bundle.
+    pub fn from_bundle(bundle: ModelBundle) -> Result<Self> {
+        if bundle.manifest.task != ModelTask::ZeroShotClassification {
+            return Err(invalid_argument(format!(
+                "ONNX zero-shot bundle task must be zero_shot_classification, got {:?}",
+                bundle.manifest.task
+            )));
+        }
+        let config_path = required_bundle_file(&bundle, "config.json")?;
+        let config = read_json(&config_path)?;
+        let tokenizer = tokenizer_with_model_limit(TokenizerBundle::from_bundle(&bundle)?, &config);
+        let model_path = preferred_onnx_model_path(&bundle)?;
+        let session =
+            runtime_onnx::OnnxSession::from_file(model_path).map_err(runtime_onnx_error)?;
+        Ok(Self {
+            tokenizer,
+            session,
+            labels: labels_from_config(&config),
+        })
+    }
+}
+
+#[cfg(all(feature = "onnx", feature = "model-bundles"))]
+impl PairSequenceClassifier for OnnxZeroShotClassifier {
+    fn classify_pairs(
+        &mut self,
+        premise: &str,
+        hypotheses: &[String],
+    ) -> Result<Vec<RawPrediction>> {
+        let mut predictions = Vec::new();
+        for hypothesis in hypotheses {
+            let tokens = self.tokenizer.tokenize_pair(premise, hypothesis)?;
+            let logits = run_onnx_pair_classifier(&mut self.session, &tokens)?;
+            let score = entailment_score_from_logits(&logits, &self.labels);
+            predictions.push(RawPrediction {
+                kind: Some("zero_shot_pair".to_string()),
+                label: Some(hypothesis.clone()),
+                text: Some(premise.to_string()),
+                score: Some(score),
+                ..RawPrediction::default()
+            });
+        }
+        Ok(predictions)
+    }
+
+    fn runtime_backend(&self) -> TextRuntimeBackend {
+        TextRuntimeBackend::Onnx
+    }
+}
+
 /// Token classification backend.
 pub trait TokenClassifier {
     /// Classifies tokenized text.
@@ -1317,6 +1482,27 @@ fn token_classifier_architecture_from_config(
 }
 
 #[allow(dead_code)]
+fn sequence_classifier_architecture_from_config(
+    config: &Value,
+) -> Result<CandleSequenceClassifierArchitecture> {
+    let architectures = architectures_from_config(config);
+    if architectures.contains(&"DistilBertForSequenceClassification") {
+        return Ok(CandleSequenceClassifierArchitecture::DistilBert);
+    }
+    if architectures.contains(&"BertForSequenceClassification") {
+        return Ok(CandleSequenceClassifierArchitecture::Bert);
+    }
+    Err(invalid_argument(format!(
+        "unsupported Candle sequence classification architecture {}; supported: DistilBertForSequenceClassification, BertForSequenceClassification",
+        if architectures.is_empty() {
+            "<missing>".to_string()
+        } else {
+            architectures.join(", ")
+        },
+    )))
+}
+
+#[allow(dead_code)]
 fn architectures_from_config(config: &Value) -> Vec<&str> {
     config
         .get("architectures")
@@ -1348,6 +1534,27 @@ fn bundle_files_with_extension(bundle: &ModelBundle, extension: &str) -> Vec<Pat
         })
         .filter_map(|path| bundle.file_path(path))
         .collect::<Vec<_>>()
+}
+
+#[cfg(all(feature = "onnx", feature = "model-bundles"))]
+fn preferred_onnx_model_path(bundle: &ModelBundle) -> Result<PathBuf> {
+    let candidates = [
+        "onnx/model.onnx",
+        "onnx/model_quantized.onnx",
+        "onnx/model_int8.onnx",
+        "onnx/model_uint8.onnx",
+    ];
+    for candidate in candidates {
+        if let Some(path) = bundle.file_path(candidate) {
+            return Ok(path);
+        }
+    }
+    bundle_files_with_extension(bundle, "onnx")
+        .into_iter()
+        .next()
+        .ok_or_else(|| {
+            invalid_argument("ONNX classification bundle must contain an `.onnx` model file")
+        })
 }
 
 #[allow(dead_code)]
@@ -1395,6 +1602,59 @@ fn labels_from_config(config: &Value) -> Vec<String> {
             .collect();
     }
     Vec::new()
+}
+
+/// Converts sequence-classification logits into ranked predictions.
+pub fn sequence_predictions_from_logits(
+    logits: &[f32],
+    labels: &[String],
+) -> Result<Vec<RawPrediction>> {
+    if logits.is_empty() {
+        return Err(invalid_argument(
+            "sequence classification logits must not be empty",
+        ));
+    }
+    if logits.iter().any(|value| !value.is_finite()) {
+        return Err(invalid_argument(
+            "sequence classification logits must be finite",
+        ));
+    }
+    let scores = softmax(logits);
+    let mut predictions = scores
+        .into_iter()
+        .enumerate()
+        .map(|(index, score)| RawPrediction {
+            kind: Some("sequence_classification".to_string()),
+            label: Some(
+                labels
+                    .get(index)
+                    .cloned()
+                    .unwrap_or_else(|| format!("LABEL_{index}")),
+            ),
+            score: Some(score),
+            ..RawPrediction::default()
+        })
+        .collect::<Vec<_>>();
+    predictions.sort_by(|left, right| {
+        right
+            .score
+            .unwrap_or(0.0)
+            .total_cmp(&left.score.unwrap_or(0.0))
+    });
+    Ok(predictions)
+}
+
+/// Returns the entailment probability from NLI logits.
+pub fn entailment_score_from_logits(logits: &[f32], labels: &[String]) -> f32 {
+    if logits.is_empty() || logits.iter().any(|value| !value.is_finite()) {
+        return 0.0;
+    }
+    let scores = softmax(logits);
+    let entailment_index = labels
+        .iter()
+        .position(|label| label.to_ascii_lowercase().contains("entail"))
+        .unwrap_or_else(|| scores.len().saturating_sub(1));
+    scores.get(entailment_index).copied().unwrap_or(0.0)
 }
 
 #[cfg(all(feature = "onnx", feature = "model-bundles"))]
@@ -1466,6 +1726,56 @@ fn run_onnx_question_answerer(
 }
 
 #[cfg(all(feature = "onnx", feature = "model-bundles"))]
+fn run_onnx_pair_classifier(
+    session: &mut runtime_onnx::OnnxSession,
+    tokens: &QuestionAnsweringTokens,
+) -> Result<Vec<f32>> {
+    use runtime_onnx::{OnnxRunner, OnnxTensor, OnnxTensorValue};
+
+    let metadata = session.metadata().map_err(runtime_onnx_error)?;
+    let shape = vec![1, tokens.input_ids.len()];
+    let mut inputs = Vec::new();
+    for input in &metadata.inputs {
+        let name = input.name.clone();
+        let values = if name.contains("attention") || name.contains("mask") {
+            tokens.attention_mask.clone()
+        } else if name.contains("token_type") || name.contains("type_ids") {
+            tokens
+                .token_type_ids
+                .clone()
+                .unwrap_or_else(|| vec![0_i64; tokens.input_ids.len()])
+        } else {
+            tokens.input_ids.clone()
+        };
+        inputs.push(runtime_onnx::OnnxNamedTensor {
+            name,
+            tensor: OnnxTensorValue::I64(
+                OnnxTensor::new(shape.clone(), values).map_err(runtime_onnx_error)?,
+            ),
+        });
+    }
+    if inputs.is_empty() {
+        return Err(invalid_argument("ONNX pair classifier exposes no inputs"));
+    }
+    let outputs = session.run(inputs).map_err(runtime_onnx_error)?;
+    let logits = runtime_onnx::f32_output_by_preferred_name_or_index(&outputs, &["logits"], 0)
+        .map_err(runtime_onnx_error)?;
+    extract_sequence_logits(logits)
+}
+
+#[cfg(all(feature = "onnx", feature = "model-bundles"))]
+fn extract_sequence_logits(value: &runtime_onnx::OnnxF32Tensor) -> Result<Vec<f32>> {
+    match value.shape.as_slice() {
+        [labels] => Ok(value.values[..*labels].to_vec()),
+        [1, labels] => Ok(value.values[..*labels].to_vec()),
+        _ => Err(invalid_argument(format!(
+            "unsupported ONNX sequence classification output shape `{:?}`",
+            value.shape
+        ))),
+    }
+}
+
+#[cfg(all(feature = "onnx", feature = "model-bundles"))]
 fn extract_qa_logits(value: &runtime_onnx::OnnxF32Tensor, sequence_len: usize) -> Result<Vec<f32>> {
     match value.shape.as_slice() {
         [seq] if *seq == sequence_len => Ok(value.values.clone()),
@@ -1485,6 +1795,77 @@ fn runtime_onnx_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
         runtime_onnx::OnnxRuntimeError::Io(error) => DetectError::Io(error),
         other => DetectError::Source(other.to_string()),
     }
+}
+
+#[cfg(feature = "candle")]
+fn run_candle_sequence_classifier(
+    config: &Value,
+    model_paths: &[PathBuf],
+    architecture: CandleSequenceClassifierArchitecture,
+    tokens: &TokenizedText,
+) -> Result<Vec<f32>> {
+    let device = candle_device_from_preference()?;
+    let vb = candle_var_builder(model_paths, &device)?;
+    let prefixes = model_prefix_candidates(config);
+
+    let (sequence_output, used_prefix) = match architecture {
+        CandleSequenceClassifierArchitecture::Bert => {
+            let config: candle_bert::Config =
+                serde_json::from_value(config.clone()).map_err(|err| {
+                    invalid_argument(format!("failed to parse BERT config for Candle: {err}"))
+                })?;
+            let (model, used_prefix) = load_candle_bert_model(&vb, &config, &prefixes)?;
+            let input_ids = candle_input_ids(tokens, &device)?;
+            let token_type_ids = candle_token_type_ids(tokens, &device)?;
+            let attention_mask = candle_attention_mask_keep(tokens, &device)?;
+            (
+                model
+                    .forward(&input_ids, &token_type_ids, Some(&attention_mask))
+                    .map_err(candle_error)?,
+                used_prefix,
+            )
+        }
+        CandleSequenceClassifierArchitecture::DistilBert => {
+            let config: candle_distilbert::Config = serde_json::from_value(config.clone())
+                .map_err(|err| {
+                    invalid_argument(format!(
+                        "failed to parse DistilBERT config for Candle: {err}"
+                    ))
+                })?;
+            let (model, used_prefix) = load_candle_distilbert_model(&vb, &config, &prefixes)?;
+            let input_ids = candle_input_ids(tokens, &device)?;
+            let attention_mask = candle_attention_mask_distil(tokens, &device)?;
+            (
+                model
+                    .forward(&input_ids, &attention_mask)
+                    .map_err(candle_error)?,
+                used_prefix,
+            )
+        }
+    };
+
+    let pooled = sequence_output
+        .narrow(1, 0, 1)
+        .map_err(candle_error)?
+        .squeeze(1)
+        .map_err(candle_error)?;
+    let pre_classifier_candidates = prioritized_layer_candidates(&used_prefix, "pre_classifier");
+    let hidden = match load_first_candle_linear(&vb, &pre_classifier_candidates)? {
+        Some(pre_classifier) => pre_classifier
+            .forward(&pooled)
+            .map_err(candle_error)?
+            .relu()
+            .map_err(candle_error)?,
+        None => pooled,
+    };
+    let classifier_candidates = prioritized_layer_candidates(&used_prefix, "classifier");
+    let classifier = load_required_candle_linear(&vb, &classifier_candidates, "classifier")?;
+    let logits = classifier.forward(&hidden).map_err(candle_error)?;
+    logits
+        .flatten_all()
+        .map_err(candle_error)?
+        .to_vec1::<f32>()
+        .map_err(candle_error)
 }
 
 #[cfg(feature = "candle")]
@@ -1779,6 +2160,26 @@ mod tests {
         let total = scores.iter().sum::<f32>();
         assert!((total - 1.0).abs() < 0.0001);
         assert!(scores[2] > scores[1]);
+    }
+
+    #[test]
+    fn sequence_logits_decode_to_ranked_predictions() {
+        let predictions =
+            sequence_predictions_from_logits(&[0.0, 2.0], &["NEGATIVE".into(), "POSITIVE".into()])
+                .unwrap();
+        assert_eq!(predictions[0].label.as_deref(), Some("POSITIVE"));
+        assert!(predictions[0].score.unwrap() > predictions[1].score.unwrap());
+    }
+
+    #[test]
+    fn entailment_score_prefers_named_label() {
+        let labels = vec![
+            "contradiction".to_string(),
+            "neutral".to_string(),
+            "entailment".to_string(),
+        ];
+        let score = entailment_score_from_logits(&[0.0, 0.0, 2.0], &labels);
+        assert!(score > 0.7);
     }
 
     #[test]

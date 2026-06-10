@@ -10,6 +10,10 @@
 # model_custom "tiny-random-bert" "hf-internal-testing/tiny-random-bert" "text-embedding" "main" \
 #   "config.json" "model.safetensors"
 #
+# Text classification external smokes use:
+# model_preset "distilbert-sst2" "main"
+# model_preset "xenova-bart-large-mnli-onnx" "main"
+#
 # After adding or changing specs, run:
 #   bash scripts/sync_model_bundles.sh --write-lock
 #

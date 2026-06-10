@@ -7,7 +7,7 @@ report generation.
 Default workspace execution is pure Rust. It uses `TextCorpus`, hashed
 embeddings, and in-memory `RetrievalIndex` state. It does not download model
 bundles or execute native model runtimes unless callers explicitly choose
-model-backed lower-level APIs.
+model-backed workspace options or lower-level APIs.
 
 ## Primary Workflow
 
@@ -49,6 +49,39 @@ assert_eq!(search.results[0].document_id, "subs:0");
 assert_eq!(snapshot.documents[0].timestamp.unwrap().seconds(), 3.0);
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
+
+## Model-Backed Workspace
+
+`TextWorkspace::default()` and `TextWorkspaceOptions::default()` remain
+deterministic and no-download. Use explicit model-backed options when native
+features and model bundles are intended:
+
+```rust,no_run
+use text_analysis::{TextWorkspace, TextWorkspaceOptions, WorkspaceDocument};
+use text_core::TextDocumentContract;
+
+let options = TextWorkspaceOptions {
+    document_analysis: text_analysis::DocumentAnalysisOptions::model_backed_with_downloads(),
+    corpus_analysis: text_analysis::CorpusAnalysisOptions {
+        document: text_analysis::DocumentAnalysisOptions::model_backed_with_downloads(),
+        ..text_analysis::CorpusAnalysisOptions::default()
+    },
+    ..TextWorkspaceOptions::default()
+};
+
+let mut workspace = TextWorkspace::new(options);
+workspace.ingest_documents([WorkspaceDocument::DocumentContract(
+    TextDocumentContract::new("doc-1", "Rust text workflows are reliable."),
+)])?;
+
+let report = workspace.analyze_document("doc-1")?;
+assert!(report.classification.is_some());
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+This mode delegates classification to `text-classification` local model options.
+It does not move model internals into `TextWorkspace`; the workspace only
+orchestrates the focused crates.
 
 ## Rich Text Contracts
 
@@ -95,5 +128,5 @@ Use `text-question-answering::answer_question_with_retrieval` for deterministic
 retrieval-backed cited answers, or
 `answer_question_with_retrieval_index` when you already own a retrieval index.
 
-Use `text-classification` directly for imported predictions or caller-supplied
-classification backends.
+Use `text-classification` directly for imported predictions, caller-supplied
+classification backends, or request-level local model options.

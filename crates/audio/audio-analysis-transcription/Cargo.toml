@@ -28,6 +28,7 @@ text-transcripts.workspace = true
 text-model-runtime = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
+audio-analysis-io = { workspace = true, optional = true }
 audio-analysis-speakers = { workspace = true, optional = true }
 
 [features]
@@ -39,6 +40,7 @@ diarization = ["dep:audio-analysis-speakers"]
 external-whisperx = []
 external-tests = ["external-whisperx"]
 model-bundles = ["dep:model-runtime"]
+audio-io = ["dep:audio-analysis-io"]
 
 [dev-dependencies]
 tempfile.workspace = true

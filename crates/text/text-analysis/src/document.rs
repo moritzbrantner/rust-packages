@@ -111,21 +111,13 @@ pub(crate) fn classification_section(
             None
         }
         ClassificationDepth::Backend => {
-            diagnostics.push(TextAnalysisDiagnostic::warning(
-                "classification_unavailable",
-                "backend classification depth requires text-classification context APIs",
-            ));
-            None
-        }
-        ClassificationDepth::LexicalFallback => {
-            let model = ModelSelection {
-                fallback_policy: FallbackPolicy::LexicalFallback,
-                ..ModelSelection::default()
-            };
+            let model = ModelSelection::default();
+            let local_model = options.classification_local_model.clone();
             let sentiment = match analyze_sentiment(SentimentRequest {
                 text: text.to_string(),
                 model: model.clone(),
                 imported_predictions: Vec::new(),
+                local_model: local_model.clone(),
             }) {
                 Ok(response) => response,
                 Err(error) => {
@@ -143,6 +135,7 @@ pub(crate) fn classification_section(
                 multi_label: false,
                 model: model.clone(),
                 imported_predictions: Vec::new(),
+                local_model: local_model.clone(),
             }) {
                 Ok(response) => response,
                 Err(error) => {
@@ -159,6 +152,68 @@ pub(crate) fn classification_section(
                 hypothesis_template: "This text is about {}.".to_string(),
                 model,
                 imported_predictions: Vec::new(),
+                local_model,
+            }) {
+                Ok(response) => response,
+                Err(error) => {
+                    diagnostics.push(TextAnalysisDiagnostic::warning(
+                        "classification_unavailable",
+                        error.to_string(),
+                    ));
+                    return None;
+                }
+            };
+            Some(ClassificationAnalysisSection {
+                sentiment,
+                classification,
+                zero_shot,
+            })
+        }
+        ClassificationDepth::LexicalFallback => {
+            let model = ModelSelection {
+                fallback_policy: FallbackPolicy::LexicalFallback,
+                ..ModelSelection::default()
+            };
+            let sentiment = match analyze_sentiment(SentimentRequest {
+                text: text.to_string(),
+                model: model.clone(),
+                imported_predictions: Vec::new(),
+                local_model: None,
+            }) {
+                Ok(response) => response,
+                Err(error) => {
+                    diagnostics.push(TextAnalysisDiagnostic::warning(
+                        "classification_unavailable",
+                        error.to_string(),
+                    ));
+                    return None;
+                }
+            };
+            let classification = match classify_text(TextClassificationRequest {
+                text: text.to_string(),
+                labels: options.classification_labels.clone(),
+                top_k: options.classification_labels.len().max(1),
+                multi_label: false,
+                model: model.clone(),
+                imported_predictions: Vec::new(),
+                local_model: None,
+            }) {
+                Ok(response) => response,
+                Err(error) => {
+                    diagnostics.push(TextAnalysisDiagnostic::warning(
+                        "classification_unavailable",
+                        error.to_string(),
+                    ));
+                    return None;
+                }
+            };
+            let zero_shot = match zero_shot_classify(ZeroShotClassificationRequest {
+                text: text.to_string(),
+                labels: options.zero_shot_labels.clone(),
+                hypothesis_template: "This text is about {}.".to_string(),
+                model,
+                imported_predictions: Vec::new(),
+                local_model: None,
             }) {
                 Ok(response) => response,
                 Err(error) => {

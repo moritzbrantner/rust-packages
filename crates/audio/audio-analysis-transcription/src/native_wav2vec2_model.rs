@@ -394,11 +394,7 @@ fn load_pos_conv(
         return Ok(None);
     }
     let prefix = "wav2vec2.encoder.pos_conv_embed.conv";
-    let Some(weight) = optional_tensor(tensors, &format!("{prefix}.weight")) else {
-        return Err(unsupported_runtime(format!(
-            "unsupported wav2vec2 safetensors layout; missing `{prefix}.weight`"
-        )));
-    };
+    let weight = load_pos_conv_weight(tensors, prefix)?;
     let bias = optional_tensor(tensors, &format!("{prefix}.bias"));
     Ok(Some(Conv1d::new(
         weight,
@@ -409,6 +405,88 @@ fn load_pos_conv(
             ..Default::default()
         },
     )))
+}
+
+fn load_pos_conv_weight(tensors: &HashMap<String, Tensor>, prefix: &str) -> Result<Tensor> {
+    if let Some(weight) = optional_tensor(tensors, &format!("{prefix}.weight")) {
+        return Ok(weight);
+    }
+    if let (Some(weight_g), Some(weight_v)) = (
+        optional_tensor(tensors, &format!("{prefix}.weight_g")),
+        optional_tensor(tensors, &format!("{prefix}.weight_v")),
+    ) {
+        return reconstruct_pos_conv_weight_norm(&weight_g, &weight_v);
+    }
+    if let (Some(weight_g), Some(weight_v)) = (
+        optional_tensor(
+            tensors,
+            &format!("{prefix}.parametrizations.weight.original0"),
+        ),
+        optional_tensor(
+            tensors,
+            &format!("{prefix}.parametrizations.weight.original1"),
+        ),
+    ) {
+        return reconstruct_pos_conv_weight_norm(&weight_g, &weight_v);
+    }
+    if tensor_exists(tensors, &format!("{prefix}.weight_g"))
+        || tensor_exists(tensors, &format!("{prefix}.weight_v"))
+        || tensor_exists(
+            tensors,
+            &format!("{prefix}.parametrizations.weight.original0"),
+        )
+        || tensor_exists(
+            tensors,
+            &format!("{prefix}.parametrizations.weight.original1"),
+        )
+    {
+        return Err(model_output_mismatch(
+            "wav2vec2 positional convolution weight norm tensors are incomplete",
+        ));
+    }
+    Err(unsupported_runtime(format!(
+        "unsupported wav2vec2 safetensors layout; missing `{prefix}.weight` or known positional convolution weight norm tensors"
+    )))
+}
+
+fn reconstruct_pos_conv_weight_norm(weight_g: &Tensor, weight_v: &Tensor) -> Result<Tensor> {
+    let (out_channels, in_channels_per_group, kernel) =
+        weight_v.dims3().map_err(|_| {
+            model_output_mismatch(
+                "wav2vec2 positional convolution weight norm weight_v must have shape [out_channels, in_channels_per_group, kernel]",
+            )
+        })?;
+    if weight_g.elem_count() != out_channels {
+        return Err(model_output_mismatch(format!(
+            "wav2vec2 positional convolution weight norm weight_g has {} elements but expected {out_channels}",
+            weight_g.elem_count()
+        )));
+    }
+    let scale = weight_g
+        .flatten_all()
+        .map_err(candle_mismatch)?
+        .to_vec1::<f32>()
+        .map_err(candle_mismatch)?;
+    let raw = weight_v.to_vec3::<f32>().map_err(candle_mismatch)?;
+    let mut reconstructed = Vec::with_capacity(weight_v.elem_count());
+    for out in 0..out_channels {
+        let norm = raw[out]
+            .iter()
+            .flat_map(|channel| channel.iter())
+            .map(|value| value * value)
+            .sum::<f32>()
+            .sqrt()
+            .max(1e-12);
+        let multiplier = scale[out] / norm;
+        for input in 0..in_channels_per_group {
+            for position in 0..kernel {
+                reconstructed.push(raw[out][input][position] * multiplier);
+            }
+        }
+    }
+    Tensor::new(reconstructed.as_slice(), &Device::Cpu)
+        .and_then(|tensor| tensor.reshape((out_channels, in_channels_per_group, kernel)))
+        .map_err(candle_mismatch)
 }
 
 fn linear(tensors: &HashMap<String, Tensor>, prefix: &str, bias: bool) -> Result<Linear> {

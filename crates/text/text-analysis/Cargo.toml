@@ -30,12 +30,13 @@ video-analysis-core.workspace = true
 model-runtime = { workspace = true, optional = true }
 [features]
 default = []
-candle = ["text-linguistics/candle", "text-embeddings/candle"]
+candle = ["text-linguistics/candle", "text-embeddings/candle", "text-classification/candle"]
 cuda = ["candle", "text-embeddings/cuda", "text-linguistics/cuda"]
-model-bundles = ["dep:model-runtime", "model-runtime/jobs", "text-linguistics/model-bundles", "text-embeddings/model-bundles"]
-onnx = ["text-embeddings/onnx", "dep:model-runtime"]
+model-bundles = ["dep:model-runtime", "model-runtime/jobs", "text-linguistics/model-bundles", "text-embeddings/model-bundles", "text-classification/model-bundles"]
+onnx = ["text-embeddings/onnx", "text-classification/onnx", "dep:model-runtime"]
 tokenizers = ["text-embeddings/tokenizers", "text-linguistics/tokenizers"]
-external-tests = ["candle", "model-bundles", "onnx"]
+local-models = ["text-classification/local-models", "candle", "onnx", "model-bundles"]
+external-tests = ["local-models"]
 transcripts = ["dep:text-transcripts"]
 
 [dev-dependencies]

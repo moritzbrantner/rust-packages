@@ -3,8 +3,7 @@ use std::path::Path;
 use video_analysis_core::{DetectError, Result};
 
 use crate::{
-    invalid_request, normalize_samples_source, resample_linear, unsupported_runtime, LoadedAudio,
-    TranscriptionSource,
+    invalid_request, normalize_samples_source, resample_linear, LoadedAudio, TranscriptionSource,
 };
 
 pub(crate) fn mono_16khz_from_source(source: &TranscriptionSource) -> Result<LoadedAudio> {
@@ -15,21 +14,19 @@ pub(crate) fn mono_16khz_from_source(source: &TranscriptionSource) -> Result<Loa
             channels,
             source,
         } => normalize_samples_source(samples, *sample_rate, *channels, source.clone()),
-        TranscriptionSource::Path { path } => load_wav_mono_16khz(path),
+        TranscriptionSource::Path { path } => load_path_mono_16khz(path),
+    }
+}
+
+pub(crate) fn load_path_mono_16khz(path: &Path) -> Result<LoadedAudio> {
+    if is_wav_path(path) {
+        load_wav_mono_16khz(path)
+    } else {
+        load_media_mono_16khz(path)
     }
 }
 
 pub(crate) fn load_wav_mono_16khz(path: &Path) -> Result<LoadedAudio> {
-    let is_wav = path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("wav"));
-    if !is_wav {
-        return Err(unsupported_runtime(
-            "native path decoding currently supports WAV files only; pass Samples or use externalWhisperX for container/video input",
-        ));
-    }
-
     let mut reader = hound::WavReader::open(path).map_err(|error| {
         invalid_request(format!("failed to open WAV `{}`: {error}", path.display()))
     })?;
@@ -88,6 +85,34 @@ pub(crate) fn load_wav_mono_16khz(path: &Path) -> Result<LoadedAudio> {
         channels: 1,
         source: Some(path.to_string_lossy().into_owned()),
     })
+}
+
+#[cfg(feature = "audio-io")]
+fn load_media_mono_16khz(path: &Path) -> Result<LoadedAudio> {
+    let (metadata, mono) = audio_analysis_io::decode_audio_to_mono_f32(
+        audio_analysis_io::AudioInput::File(path.to_path_buf()),
+        audio_analysis_io::AudioInputOptions::recorded(),
+        audio_analysis_io::ChannelMix::Average,
+    )?;
+    normalize_samples_source(
+        &mono,
+        metadata.sample_rate,
+        1,
+        Some(path.to_string_lossy().into_owned()),
+    )
+}
+
+#[cfg(not(feature = "audio-io"))]
+fn load_media_mono_16khz(_path: &Path) -> Result<LoadedAudio> {
+    Err(crate::unsupported_runtime(
+        "native path decoding currently supports WAV files only; pass Samples, enable the audio-io feature for FFmpeg-backed container/video input, or use externalWhisperX",
+    ))
+}
+
+fn is_wav_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("wav"))
 }
 
 fn read_int_samples(

@@ -3,11 +3,16 @@
 pub mod surface;
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use text_core::tokenize_words;
 use text_lexical::{sentiment as lexical_sentiment, SentimentLexicon};
-use text_model_runtime::{SequenceClassifier, TextRuntimeBackend};
+#[cfg(all(feature = "candle", feature = "model-bundles"))]
+use text_model_runtime::CandleSequenceClassifier;
+#[cfg(all(feature = "onnx", feature = "model-bundles"))]
+use text_model_runtime::OnnxZeroShotClassifier;
+use text_model_runtime::{PairSequenceClassifier, SequenceClassifier, TextRuntimeBackend};
 use video_analysis_core::{DetectError, Result};
 
 /// Text classification capability families exposed by this crate.
@@ -84,11 +89,43 @@ pub struct ModelSelection {
     pub fallback_policy: FallbackPolicy,
 }
 
+/// Local model options for default native text classification.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TextClassificationLocalModelOptions {
+    /// Optional preset id; defaults to `distilbert-sst2` or `xenova-bart-large-mnli-onnx`.
+    #[serde(default)]
+    pub model_id: Option<String>,
+    /// Bundle root; defaults to `.model-runtime`.
+    #[serde(default)]
+    pub bundle_root: Option<PathBuf>,
+    /// Whether missing bundles may be downloaded.
+    #[serde(default)]
+    pub auto_download: Option<bool>,
+    /// Whether downloads should report progress.
+    #[serde(default)]
+    pub download_progress: Option<bool>,
+    /// Optional Hugging Face cache directory.
+    #[serde(default)]
+    pub cache_dir: Option<PathBuf>,
+    /// Optional Hugging Face token.
+    #[serde(default)]
+    pub hf_token: Option<String>,
+    /// Maximum download retries.
+    #[serde(default)]
+    pub max_retries: Option<usize>,
+    /// Whether to overwrite materialized bundle files.
+    #[serde(default)]
+    pub overwrite: Option<bool>,
+}
+
 /// Caller-supplied native or external runtime backends for classification.
 #[derive(Default)]
 pub struct TextClassificationExecutionContext<'a> {
     /// Optional text classifier.
     pub classifier: Option<&'a mut dyn SequenceClassifier>,
+    /// Optional zero-shot/pair classifier.
+    pub pair_classifier: Option<&'a mut dyn PairSequenceClassifier>,
 }
 
 /// Model metadata for UI and CLI discovery.
@@ -169,6 +206,9 @@ pub struct TextClassificationRequest {
     /// Caller-supplied model predictions.
     #[serde(default)]
     pub imported_predictions: Vec<ImportedPrediction>,
+    /// Local model configuration for default native execution.
+    #[serde(default)]
+    pub local_model: Option<TextClassificationLocalModelOptions>,
 }
 
 /// Response for single-text classification.
@@ -201,6 +241,9 @@ pub struct SentimentRequest {
     /// Caller-supplied model predictions.
     #[serde(default)]
     pub imported_predictions: Vec<ImportedPrediction>,
+    /// Local model configuration for default native execution.
+    #[serde(default)]
+    pub local_model: Option<TextClassificationLocalModelOptions>,
 }
 
 /// Response for sentiment analysis.
@@ -246,6 +289,9 @@ pub struct ZeroShotClassificationRequest {
     /// Caller-supplied model predictions.
     #[serde(default)]
     pub imported_predictions: Vec<ImportedPrediction>,
+    /// Local model configuration for default native execution.
+    #[serde(default)]
+    pub local_model: Option<TextClassificationLocalModelOptions>,
 }
 
 /// Response for zero-shot classification.
@@ -272,31 +318,31 @@ pub struct ZeroShotClassificationResponse {
 pub fn model_catalog(task: Option<TextClassificationTask>) -> Vec<TextClassificationModelMetadata> {
     let models = vec![
         metadata(
-            "twitter-roberta-sentiment-latest",
-            "cardiffnlp/twitter-roberta-base-sentiment-latest",
-            TextClassificationTask::Sentiment,
-            TextClassificationRuntime::Onnx,
-            false,
-            Some("distilbert-sst2"),
-            Some("ONNX preset metadata is registered; native runner support is explicit/fallback-gated."),
-        ),
-        metadata(
             "distilbert-sst2",
             "distilbert-base-uncased-finetuned-sst-2-english",
             TextClassificationTask::TextClassification,
             TextClassificationRuntime::Candle,
-            false,
+            cfg!(all(feature = "candle", feature = "model-bundles")),
             None,
-            Some("Sequence-classification native execution is not enabled in this shared fallback crate."),
+            Some("Local Candle default for text classification when built with local-models."),
         ),
         metadata(
-            "bart-large-mnli",
-            "facebook/bart-large-mnli",
+            "distilbert-sst2",
+            "distilbert-base-uncased-finetuned-sst-2-english",
+            TextClassificationTask::Sentiment,
+            TextClassificationRuntime::Candle,
+            cfg!(all(feature = "candle", feature = "model-bundles")),
+            None,
+            Some("Local Candle default for sentiment when built with local-models."),
+        ),
+        metadata(
+            "xenova-bart-large-mnli-onnx",
+            "Xenova/bart-large-mnli",
             TextClassificationTask::ZeroShotClassification,
             TextClassificationRuntime::Onnx,
-            false,
+            cfg!(all(feature = "onnx", feature = "model-bundles")),
             None,
-            Some("Use imported predictions or explicit lexical fallback until ONNX pair classification is wired."),
+            Some("Local ONNX pair/NLI default for zero-shot classification when built with local-models."),
         ),
     ];
 
@@ -351,7 +397,7 @@ pub fn analyze_sentiment_with_context(
         .model
         .model_id
         .clone()
-        .unwrap_or_else(|| "twitter-roberta-sentiment-latest".to_string());
+        .unwrap_or_else(|| "distilbert-sst2".to_string());
     if let Some(classifier) = context.classifier.as_deref_mut() {
         let labels = ["negative", "neutral", "positive"]
             .into_iter()
@@ -405,18 +451,26 @@ pub fn zero_shot_classify_with_context(
         .model
         .model_id
         .clone()
-        .unwrap_or_else(|| "bart-large-mnli".to_string());
+        .unwrap_or_else(|| "xenova-bart-large-mnli-onnx".to_string());
     let hypotheses = request
         .labels
         .iter()
         .map(|label| request.hypothesis_template.replace("{}", label))
         .collect::<Vec<_>>();
-    if let Some(classifier) = context.classifier.as_deref_mut() {
-        let runtime = runtime_from_backend(classifier.runtime_backend());
-        let mut predictions = class_predictions_from_raw(
-            classifier.classify_text(&request.text, &request.labels)?,
-            request.labels.len(),
-        );
+    if let Some(pair_classifier) = context.pair_classifier.as_deref_mut() {
+        let runtime = runtime_from_backend(pair_classifier.runtime_backend());
+        let mut predictions = pair_classifier
+            .classify_pairs(&request.text, &hypotheses)?
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, prediction)| {
+                Some(TextClassPrediction {
+                    label: request.labels.get(index)?.clone(),
+                    score: prediction.score.unwrap_or(0.0),
+                })
+            })
+            .collect::<Vec<_>>();
+        predictions.sort_by(|left, right| right.score.total_cmp(&left.score));
         normalize_prediction_scores(&mut predictions);
         return Ok(ZeroShotClassificationResponse {
             accepted: true,
@@ -454,6 +508,16 @@ pub fn classify_text(request: TextClassificationRequest) -> Result<TextClassific
         });
     }
 
+    if should_run_local_model(&request.local_model) {
+        match run_local_classification(&request) {
+            Ok(response) => return Ok(response),
+            Err(error) if request.model.fallback_policy != FallbackPolicy::Error => {
+                let _ = error;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+
     match request.model.fallback_policy {
         FallbackPolicy::FastFallback | FallbackPolicy::LexicalFallback => {
             let predictions = lexical_label_scores(&request.text, &request.labels, request.top_k);
@@ -479,7 +543,7 @@ pub fn analyze_sentiment(request: SentimentRequest) -> Result<SentimentResponse>
         .model
         .model_id
         .clone()
-        .unwrap_or_else(|| "twitter-roberta-sentiment-latest".to_string());
+        .unwrap_or_else(|| "distilbert-sst2".to_string());
 
     if !request.imported_predictions.is_empty() {
         let predictions = normalize_predictions(request.imported_predictions, 3);
@@ -501,6 +565,16 @@ pub fn analyze_sentiment(request: SentimentRequest) -> Result<SentimentResponse>
             compound: positive_score - negative_score,
             predictions,
         });
+    }
+
+    if should_run_local_model(&request.local_model) {
+        match run_local_sentiment(&request) {
+            Ok(response) => return Ok(response),
+            Err(error) if request.model.fallback_policy != FallbackPolicy::Error => {
+                let _ = error;
+            }
+            Err(error) => return Err(error),
+        }
     }
 
     match request.model.fallback_policy {
@@ -540,7 +614,7 @@ pub fn zero_shot_classify(
         .model
         .model_id
         .clone()
-        .unwrap_or_else(|| "bart-large-mnli".to_string());
+        .unwrap_or_else(|| "xenova-bart-large-mnli-onnx".to_string());
     let hypotheses = request
         .labels
         .iter()
@@ -557,6 +631,16 @@ pub fn zero_shot_classify(
             predictions: normalize_predictions(request.imported_predictions, request.labels.len()),
             hypotheses,
         });
+    }
+
+    if should_run_local_model(&request.local_model) {
+        match run_local_zero_shot(&request, hypotheses.clone()) {
+            Ok(response) => return Ok(response),
+            Err(error) if request.model.fallback_policy != FallbackPolicy::Error => {
+                let _ = error;
+            }
+            Err(error) => return Err(error),
+        }
     }
 
     match request.model.fallback_policy {
@@ -603,20 +687,199 @@ fn metadata(
         task,
         runtime,
         supported,
-        loadable: false,
+        loadable: supported,
         fallback: fallback.map(str::to_string),
         required_feature: match runtime {
-            TextClassificationRuntime::Candle => Some("candle".to_string()),
-            TextClassificationRuntime::Onnx => Some("onnx".to_string()),
+            TextClassificationRuntime::Candle => Some("local-models".to_string()),
+            TextClassificationRuntime::Onnx => Some("local-models".to_string()),
             _ => None,
         },
-        required_setup: Some(
-            "Reference-only until a native sequence-classification runner is implemented"
-                .to_string(),
-        ),
-        smoke_operation: Some("classification.classify".to_string()),
+        required_setup: Some("First run may download the model bundle into .model-runtime when local model options allow autoDownload.".to_string()),
+        smoke_operation: Some(match task {
+            TextClassificationTask::TextClassification => "classification.classify".to_string(),
+            TextClassificationTask::Sentiment => "classification.sentiment".to_string(),
+            TextClassificationTask::ZeroShotClassification => "classification.zeroShot".to_string(),
+        }),
         note: note.map(str::to_string),
     }
+}
+
+fn should_run_local_model(options: &Option<TextClassificationLocalModelOptions>) -> bool {
+    options.is_some()
+}
+
+fn run_local_classification(
+    request: &TextClassificationRequest,
+) -> Result<TextClassificationResponse> {
+    #[cfg(all(feature = "candle", feature = "model-bundles"))]
+    {
+        let model_id = local_model_id(
+            request.local_model.as_ref(),
+            request.model.model_id.as_deref(),
+            "distilbert-sst2",
+        );
+        let bundle = resolve_local_bundle(
+            request.local_model.as_ref(),
+            &model_id,
+            model_runtime::ModelPreset::DistilbertSst2,
+        )?;
+        let mut classifier = CandleSequenceClassifier::from_bundle(bundle)?;
+        let predictions = class_predictions_from_raw(
+            classifier.classify_text(&request.text, &request.labels)?,
+            request.top_k,
+        );
+        Ok(TextClassificationResponse {
+            accepted: true,
+            operation: "classify".to_string(),
+            text: request.text.clone(),
+            model_id,
+            runtime: TextClassificationRuntime::Candle,
+            predictions,
+        })
+    }
+    #[cfg(not(all(feature = "candle", feature = "model-bundles")))]
+    {
+        let _ = request;
+        unsupported_runtime("local text classification requires the `local-models` feature")
+    }
+}
+
+fn run_local_sentiment(request: &SentimentRequest) -> Result<SentimentResponse> {
+    #[cfg(all(feature = "candle", feature = "model-bundles"))]
+    {
+        let model_id = local_model_id(
+            request.local_model.as_ref(),
+            request.model.model_id.as_deref(),
+            "distilbert-sst2",
+        );
+        let bundle = resolve_local_bundle(
+            request.local_model.as_ref(),
+            &model_id,
+            model_runtime::ModelPreset::DistilbertSst2,
+        )?;
+        let mut classifier = CandleSequenceClassifier::from_bundle(bundle)?;
+        let labels = ["negative", "positive"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        let predictions =
+            class_predictions_from_raw(classifier.classify_text(&request.text, &labels)?, 2);
+        let label = predictions
+            .first()
+            .map(|prediction| prediction.label.clone())
+            .unwrap_or_else(|| "neutral".to_string());
+        let positive_score = score_for_label(&predictions, &["positive", "label_1"]);
+        let negative_score = score_for_label(&predictions, &["negative", "label_0"]);
+        Ok(SentimentResponse {
+            accepted: true,
+            operation: "sentiment".to_string(),
+            text: request.text.clone(),
+            model_id,
+            runtime: TextClassificationRuntime::Candle,
+            label,
+            positive_score,
+            negative_score,
+            compound: positive_score - negative_score,
+            predictions,
+        })
+    }
+    #[cfg(not(all(feature = "candle", feature = "model-bundles")))]
+    {
+        let _ = request;
+        unsupported_runtime("local sentiment requires the `local-models` feature")
+    }
+}
+
+fn run_local_zero_shot(
+    request: &ZeroShotClassificationRequest,
+    hypotheses: Vec<String>,
+) -> Result<ZeroShotClassificationResponse> {
+    #[cfg(all(feature = "onnx", feature = "model-bundles"))]
+    {
+        let model_id = local_model_id(
+            request.local_model.as_ref(),
+            request.model.model_id.as_deref(),
+            "xenova-bart-large-mnli-onnx",
+        );
+        let bundle = resolve_local_bundle(
+            request.local_model.as_ref(),
+            &model_id,
+            model_runtime::ModelPreset::XenovaBartLargeMnliOnnx,
+        )?;
+        let mut classifier = OnnxZeroShotClassifier::from_bundle(bundle)?;
+        let mut predictions = classifier
+            .classify_pairs(&request.text, &hypotheses)?
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, prediction)| {
+                Some(TextClassPrediction {
+                    label: request.labels.get(index)?.clone(),
+                    score: prediction.score.unwrap_or(0.0),
+                })
+            })
+            .collect::<Vec<_>>();
+        predictions.sort_by(|left, right| right.score.total_cmp(&left.score));
+        normalize_prediction_scores(&mut predictions);
+        Ok(ZeroShotClassificationResponse {
+            accepted: true,
+            operation: "zero-shot".to_string(),
+            text: request.text.clone(),
+            model_id,
+            runtime: TextClassificationRuntime::Onnx,
+            predictions,
+            hypotheses,
+        })
+    }
+    #[cfg(not(all(feature = "onnx", feature = "model-bundles")))]
+    {
+        let _ = (request, hypotheses);
+        unsupported_runtime("local zero-shot classification requires the `local-models` feature")
+    }
+}
+
+#[allow(dead_code)]
+fn local_model_id(
+    options: Option<&TextClassificationLocalModelOptions>,
+    selected_model_id: Option<&str>,
+    default_model_id: &str,
+) -> String {
+    options
+        .and_then(|options| options.model_id.clone())
+        .or_else(|| selected_model_id.map(ToString::to_string))
+        .unwrap_or_else(|| default_model_id.to_string())
+}
+
+#[cfg(feature = "model-bundles")]
+fn resolve_local_bundle(
+    options: Option<&TextClassificationLocalModelOptions>,
+    model_id: &str,
+    default_preset: model_runtime::ModelPreset,
+) -> Result<model_runtime::ModelBundle> {
+    use model_runtime::{resolve_or_download_bundle, ModelBundleResolveOptions, ModelPreset};
+
+    let preset = model_id.parse::<ModelPreset>().unwrap_or(default_preset);
+    let mut resolve_options = ModelBundleResolveOptions::default();
+    if let Some(local) = options {
+        if let Some(bundle_root) = &local.bundle_root {
+            resolve_options.bundle_root = bundle_root.clone();
+        }
+        if let Some(auto_download) = local.auto_download {
+            resolve_options.auto_download = auto_download;
+        }
+        if let Some(download_progress) = local.download_progress {
+            resolve_options.download_progress = download_progress;
+        }
+        resolve_options.cache_dir = local.cache_dir.clone();
+        resolve_options.hf_token = local.hf_token.clone();
+        if let Some(max_retries) = local.max_retries {
+            resolve_options.max_retries = max_retries;
+        }
+        if let Some(overwrite) = local.overwrite {
+            resolve_options.overwrite = overwrite;
+        }
+    }
+    resolve_or_download_bundle(&preset.spec(), &resolve_options)
+        .map_err(|error| DetectError::Source(error.to_string()))
 }
 
 fn default_top_k() -> usize {
@@ -841,6 +1104,30 @@ mod tests {
         }
     }
 
+    struct FakePairClassifier;
+
+    impl PairSequenceClassifier for FakePairClassifier {
+        fn classify_pairs(
+            &mut self,
+            _premise: &str,
+            hypotheses: &[String],
+        ) -> Result<Vec<RawPrediction>> {
+            Ok(hypotheses
+                .iter()
+                .enumerate()
+                .map(|(index, hypothesis)| RawPrediction {
+                    label: Some(hypothesis.clone()),
+                    score: Some((hypotheses.len() - index) as f32),
+                    ..RawPrediction::default()
+                })
+                .collect())
+        }
+
+        fn runtime_backend(&self) -> TextRuntimeBackend {
+            TextRuntimeBackend::External
+        }
+    }
+
     #[test]
     fn catalog_is_classification_only() {
         let tasks = model_catalog(None)
@@ -864,6 +1151,7 @@ mod tests {
                 ..ModelSelection::default()
             },
             imported_predictions: Vec::new(),
+            local_model: None,
         })
         .expect("classification");
         assert_eq!(response.predictions[0].label, "classification");
@@ -880,6 +1168,7 @@ mod tests {
                 ..ModelSelection::default()
             },
             imported_predictions: Vec::new(),
+            local_model: None,
         })
         .expect("zero shot");
         assert_eq!(response.hypotheses[0], "This is about code.");
@@ -890,6 +1179,7 @@ mod tests {
         let mut classifier = FakeClassifier;
         let mut context = TextClassificationExecutionContext {
             classifier: Some(&mut classifier),
+            pair_classifier: None,
         };
         let response = classify_text_with_context(
             TextClassificationRequest {
@@ -899,6 +1189,7 @@ mod tests {
                 multi_label: false,
                 model: ModelSelection::default(),
                 imported_predictions: Vec::new(),
+                local_model: None,
             },
             &mut context,
         )
@@ -908,5 +1199,65 @@ mod tests {
             TextClassificationRuntime::ImportedPredictions
         );
         assert_eq!(response.predictions[0].label, "a");
+    }
+
+    #[test]
+    fn zero_shot_context_uses_pair_classifier() {
+        let mut pair_classifier = FakePairClassifier;
+        let mut context = TextClassificationExecutionContext {
+            classifier: None,
+            pair_classifier: Some(&mut pair_classifier),
+        };
+        let response = zero_shot_classify_with_context(
+            ZeroShotClassificationRequest {
+                text: "rust text".to_string(),
+                labels: vec!["code".to_string(), "music".to_string()],
+                hypothesis_template: "This text is about {}.".to_string(),
+                model: ModelSelection::default(),
+                imported_predictions: Vec::new(),
+                local_model: None,
+            },
+            &mut context,
+        )
+        .expect("zero shot context");
+        assert_eq!(
+            response.runtime,
+            TextClassificationRuntime::ImportedPredictions
+        );
+        assert_eq!(response.predictions[0].label, "code");
+        assert_eq!(response.hypotheses[0], "This text is about code.");
+    }
+
+    #[test]
+    fn local_model_options_are_request_surface() {
+        let value = serde_json::to_value(TextClassificationRequest {
+            text: "rust is reliable".to_string(),
+            labels: vec!["positive".to_string(), "negative".to_string()],
+            top_k: 2,
+            multi_label: false,
+            model: ModelSelection::default(),
+            imported_predictions: Vec::new(),
+            local_model: Some(TextClassificationLocalModelOptions {
+                model_id: Some("distilbert-sst2".to_string()),
+                auto_download: Some(false),
+                ..TextClassificationLocalModelOptions::default()
+            }),
+        })
+        .unwrap();
+        assert_eq!(value["localModel"]["modelId"], "distilbert-sst2");
+        assert_eq!(value["localModel"]["autoDownload"], false);
+    }
+
+    #[test]
+    fn catalog_marks_local_models_by_feature() {
+        let classify = model_catalog(Some(TextClassificationTask::TextClassification))
+            .into_iter()
+            .find(|model| model.id == "distilbert-sst2")
+            .expect("distilbert catalog entry");
+        assert_eq!(
+            classify.loadable,
+            cfg!(all(feature = "candle", feature = "model-bundles"))
+        );
+        assert_eq!(classify.required_feature.as_deref(), Some("local-models"));
     }
 }

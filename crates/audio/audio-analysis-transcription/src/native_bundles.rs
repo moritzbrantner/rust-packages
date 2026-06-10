@@ -50,6 +50,15 @@ pub(crate) fn resolve_required_bundle_file(bundle: &Path, file: &str) -> Result<
     )))
 }
 
+#[allow(dead_code)]
+pub(crate) fn resolve_optional_bundle_file(bundle: &Path, file: &str) -> Result<Option<PathBuf>> {
+    match resolve_required_bundle_file(bundle, file) {
+        Ok(path) => Ok(Some(path)),
+        Err(error) if error.to_string().contains("required model bundle file") => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
 pub(crate) fn validate_required_bundle_files(bundle: &Path, files: &[&str]) -> Result<()> {
     for file in files {
         resolve_required_bundle_file(bundle, file)?;

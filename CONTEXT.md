@@ -27,3 +27,15 @@ _Avoid_: Default workflow, local-first workflow
 **Model Bundle**:
 A local set of model files and metadata prepared for a caller or task crate to use.
 _Avoid_: Model cache, weights folder
+
+**Stable Contract**:
+Public API, schema, runtime operation envelope, adapter behavior, and compatibility rules promised by a release.
+_Avoid_: Accuracy guarantee, model quality promise
+
+**Best-Effort Result**:
+An output whose shape is stable but whose quality depends on heuristics, local models, language coverage, fixtures, and backend availability.
+_Avoid_: Production-grade NLP result, ground truth
+
+**Model-Capable Text Crate**:
+A text crate whose domain naturally supports both deterministic execution and explicit local-model-backed execution.
+_Avoid_: AI crate, model-only crate

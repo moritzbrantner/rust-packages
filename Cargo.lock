@@ -2433,6 +2433,7 @@ dependencies = [
  "candle-nn",
  "candle-transformers",
  "hound",
+ "moritzbrantner-audio-analysis-io",
  "moritzbrantner-audio-analysis-speakers",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
@@ -4160,6 +4161,7 @@ dependencies = [
 name = "moritzbrantner-text-classification"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
  "moritzbrantner-text-core",
  "moritzbrantner-text-lexical",

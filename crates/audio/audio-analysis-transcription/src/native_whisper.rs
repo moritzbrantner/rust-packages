@@ -11,8 +11,8 @@ use video_analysis_core::Result;
 
 use crate::native_device::{resolve_native_device, ResolvedNativeDevice};
 use crate::{
-    invalid_request, model_output_mismatch, setup_error, validate_asr_request, AsrRequest,
-    AsrResponse, CandleWhisperOptions, SpeechActivitySegment,
+    candle_batch_count, invalid_request, model_output_mismatch, setup_error, validate_asr_request,
+    AsrRequest, AsrResponse, CandleWhisperOptions, SpeechActivitySegment,
 };
 
 const WHISPER_TIMESTAMP_SECONDS_PER_TOKEN: f64 = 0.02;
@@ -107,7 +107,7 @@ pub(crate) fn transcribe(
 ) -> Result<AsrResponse> {
     let setup = WhisperRunSetup::from_options_and_request(options, &request)?;
     let mut session = CandleWhisperSession::load(setup)?;
-    session.transcribe_chunks(request)
+    session.transcribe_chunks(options, request)
 }
 
 impl WhisperRunSetup {
@@ -221,53 +221,62 @@ impl CandleWhisperSession {
         })
     }
 
-    fn transcribe_chunks(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+    fn transcribe_chunks(
+        &mut self,
+        options: &CandleWhisperOptions,
+        request: AsrRequest,
+    ) -> Result<AsrResponse> {
         let mut segments = Vec::new();
         let mut next_index = 0_u64;
         let mut used_timestamp_tokens = false;
         let mut used_timestamp_word_projection = false;
         let mut timing_fallbacks = Vec::new();
-        for chunk in &request.chunks {
-            for window in chunk_windows(&request.audio.samples, request.audio.sample_rate, chunk)? {
-                debug_assert!(window.chunk_start_seconds <= window.global_start_seconds);
-                debug_assert!(window.local_start_seconds <= window.local_end_seconds);
-                let timed = self.decode_window_with_timing_mode(
-                    &window.samples,
-                    WhisperDecodeTimingMode::Auto,
-                )?;
-                if let Some(reason) = timed.fallback_reason {
-                    if !timing_fallbacks.contains(&reason) {
-                        timing_fallbacks.push(reason);
+        let batch_size = candle_batch_size(options, request.chunks.len());
+        for batch in request.chunks.chunks(batch_size) {
+            for chunk in batch {
+                for window in
+                    chunk_windows(&request.audio.samples, request.audio.sample_rate, chunk)?
+                {
+                    debug_assert!(window.chunk_start_seconds <= window.global_start_seconds);
+                    debug_assert!(window.local_start_seconds <= window.local_end_seconds);
+                    let timed = self.decode_window_with_timing_mode(
+                        &window.samples,
+                        WhisperDecodeTimingMode::Auto,
+                    )?;
+                    if let Some(reason) = timed.fallback_reason {
+                        if !timing_fallbacks.contains(&reason) {
+                            timing_fallbacks.push(reason);
+                        }
                     }
-                }
-                if timed.timing == WhisperWindowTiming::ChunkWindow {
-                    if timed.decoded.text.trim().is_empty() {
-                        continue;
+                    if timed.timing == WhisperWindowTiming::ChunkWindow {
+                        if timed.decoded.text.trim().is_empty() {
+                            continue;
+                        }
+                        segments.push(window_fallback_segment(
+                            next_index,
+                            timed.decoded.text,
+                            window.global_start_seconds,
+                            window.global_end_seconds,
+                            self.setup.language.clone(),
+                        ));
+                        next_index += 1;
+                    } else {
+                        used_timestamp_tokens = true;
+                        let timestamp_segments = decoded_window_to_contract_segments(
+                            timed.decoded,
+                            &mut next_index,
+                            window.global_start_seconds,
+                            window.global_end_seconds,
+                            self.setup.language.clone(),
+                        );
+                        if timestamp_segments
+                            .iter()
+                            .any(|segment| !segment.words.is_empty())
+                        {
+                            used_timestamp_word_projection = true;
+                        }
+                        segments.extend(timestamp_segments);
                     }
-                    segments.push(window_fallback_segment(
-                        next_index,
-                        timed.decoded.text,
-                        window.global_start_seconds,
-                        window.global_end_seconds,
-                        self.setup.language.clone(),
-                    ));
-                    next_index += 1;
-                } else {
-                    used_timestamp_tokens = true;
-                    let timestamp_segments = decoded_window_to_contract_segments(
-                        timed.decoded,
-                        &mut next_index,
-                        window.global_start_seconds,
-                        window.global_end_seconds,
-                        self.setup.language.clone(),
-                    );
-                    if timestamp_segments
-                        .iter()
-                        .any(|segment| !segment.words.is_empty())
-                    {
-                        used_timestamp_word_projection = true;
-                    }
-                    segments.extend(timestamp_segments);
                 }
             }
         }
@@ -283,7 +292,6 @@ impl CandleWhisperSession {
             format!("device={device_label}"),
             format!("modelId={}", self.setup.model_id),
             format!("bundle={}", self.setup.bundle.root.display()),
-            format!("chunkCount={}", request.chunks.len()),
             format!("cuda={}", device_is_cuda(&self.setup.resolved_device)),
             if used_timestamp_tokens {
                 "timing=whisperTimestampTokens".to_string()
@@ -578,6 +586,16 @@ impl CandleWhisperSession {
             .copied()
             .or_else(|| token_id(tokenizer, &wrapped))
     }
+}
+
+fn candle_batch_size(options: &CandleWhisperOptions, chunk_count: usize) -> usize {
+    if !options.batch_chunks {
+        return 1;
+    }
+    if candle_batch_count(options, chunk_count) <= 1 {
+        return chunk_count.max(1);
+    }
+    options.max_batch_size.unwrap_or(chunk_count.max(1)).max(1)
 }
 
 fn decode_timestamp_window(

@@ -711,7 +711,14 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
         validate_candle_setup(&self.options)?;
         #[cfg(feature = "candle")]
         {
-            native_whisper::transcribe(&self.options, request)
+            let chunk_count = request.chunks.len();
+            let mut response = native_whisper::transcribe(&self.options, request)?;
+            response.diagnostics.extend(candle_batch_diagnostics(
+                &self.options,
+                chunk_count,
+                "candle-whisper",
+            ));
+            Ok(response)
         }
         #[cfg(not(feature = "candle"))]
         {
@@ -874,6 +881,7 @@ pub fn run_transcription_pipeline(
     alignment_provider: Option<&mut dyn ForcedAlignmentProvider>,
     diarization_provider: Option<&mut dyn TranscriptDiarizationProvider>,
 ) -> Result<TranscriptionPipelineResponse> {
+    validate_batch_options_for_provider(&request.provider)?;
     let provider = request.provider.provider_id().to_string();
     let model_id = request.provider.model_id().to_string();
     let audio = LoadedAudio::mono_16khz_from_source(&request.source)?;
@@ -894,12 +902,30 @@ pub fn run_transcription_pipeline(
     };
 
     let language = provider_language(&request.provider);
-    let asr_response = asr_provider.transcribe(AsrRequest {
+    let mut asr_response = asr_provider.transcribe(AsrRequest {
         audio: audio.clone(),
         chunks: vad_response.segments.clone(),
         language: language.clone(),
         model_id: model_id.clone(),
     })?;
+    if !asr_response
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.starts_with("batchChunks="))
+    {
+        if let TranscriptionProviderSelection::CandleWhisper(options) = &request.provider {
+            let execution = if asr_provider.provider_id() == "candle-whisper" {
+                "candle-whisper"
+            } else {
+                "sequential-provider"
+            };
+            asr_response.diagnostics.extend(candle_batch_diagnostics(
+                options,
+                vad_response.segments.len(),
+                execution,
+            ));
+        }
+    }
     let mut transcript = normalize_transcription_contract(asr_response.transcript)
         .map_err(|error| model_output_mismatch(error.to_string()))?;
     offset_chunk_local_segments(&mut transcript, &vad_response.segments)?;
@@ -1040,6 +1066,55 @@ fn provider_language(provider: &TranscriptionProviderSelection) -> Option<String
         TranscriptionProviderSelection::WhisperCpp(options) => options.language.clone(),
         TranscriptionProviderSelection::ExternalWhisperX(options) => options.language.clone(),
     }
+}
+
+fn validate_batch_options_for_provider(provider: &TranscriptionProviderSelection) -> Result<()> {
+    if let TranscriptionProviderSelection::CandleWhisper(options) = provider {
+        validate_candle_batch_options(options)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_candle_batch_options(options: &CandleWhisperOptions) -> Result<()> {
+    if options.max_batch_size == Some(0) {
+        return Err(invalid_request(
+            "Candle Whisper max_batch_size must be greater than zero",
+        ));
+    }
+    Ok(())
+}
+
+pub(crate) fn candle_batch_count(options: &CandleWhisperOptions, chunk_count: usize) -> usize {
+    if chunk_count == 0 {
+        return 0;
+    }
+    if !options.batch_chunks {
+        return chunk_count;
+    }
+    match options.max_batch_size {
+        Some(max_batch_size) => chunk_count.div_ceil(max_batch_size),
+        None => 1,
+    }
+}
+
+pub(crate) fn candle_batch_diagnostics(
+    options: &CandleWhisperOptions,
+    chunk_count: usize,
+    execution: &str,
+) -> Vec<String> {
+    vec![
+        format!("chunkCount={chunk_count}"),
+        format!("batchChunks={}", options.batch_chunks),
+        format!(
+            "maxBatchSize={}",
+            options
+                .max_batch_size
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "unbounded".to_string())
+        ),
+        format!("batchCount={}", candle_batch_count(options, chunk_count)),
+        format!("batchExecution={execution}"),
+    ]
 }
 
 pub(crate) fn validate_asr_request(request: &AsrRequest) -> Result<()> {
@@ -1757,6 +1832,7 @@ fn speaker_for_range(
 }
 
 fn validate_candle_setup(options: &CandleWhisperOptions) -> Result<()> {
+    validate_candle_batch_options(options)?;
     native_device::resolve_native_device(options.device)?;
     if !cfg!(feature = "candle") {
         return Err(unsupported_runtime(
@@ -2051,6 +2127,24 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
+    struct FixedVadProvider {
+        segments: Vec<SpeechActivitySegment>,
+    }
+
+    impl TranscriptionVadProvider for FixedVadProvider {
+        fn provider_id(&self) -> &str {
+            "fixed-vad"
+        }
+
+        fn detect_speech(&mut self, _request: VadRequest) -> Result<VadResponse> {
+            Ok(VadResponse {
+                segments: self.segments.clone(),
+                diagnostics: vec!["fixed VAD completed".to_string()],
+            })
+        }
+    }
+
     #[derive(Default)]
     struct MockAlignmentProvider;
 
@@ -2164,6 +2258,21 @@ mod tests {
         }
     }
 
+    fn batch_test_chunks() -> Vec<SpeechActivitySegment> {
+        vec![
+            SpeechActivitySegment::new(0.0, 0.20, 1.0).unwrap(),
+            SpeechActivitySegment::new(0.20, 0.40, 1.0).unwrap(),
+            SpeechActivitySegment::new(0.40, 0.60, 1.0).unwrap(),
+        ]
+    }
+
+    fn batch_test_request(options: CandleWhisperOptions) -> TranscriptionPipelineRequest {
+        TranscriptionPipelineRequest {
+            provider: TranscriptionProviderSelection::CandleWhisper(options),
+            ..sample_request()
+        }
+    }
+
     fn diarization_response_for_tests(
         segments: Vec<SpeakerSegmentPrediction>,
     ) -> SpeakerDiarizationResponse {
@@ -2258,6 +2367,159 @@ mod tests {
             ..DiarizationOptions::default()
         };
         validate_diarization_options(&options).unwrap();
+    }
+
+    #[test]
+    fn batch_options_reject_zero_max_batch_size() {
+        let mut vad = FixedVadProvider {
+            segments: batch_test_chunks(),
+        };
+        let mut asr = MockAsrProvider;
+        let result = run_transcription_pipeline(
+            batch_test_request(CandleWhisperOptions {
+                max_batch_size: Some(0),
+                ..CandleWhisperOptions::default()
+            }),
+            &mut vad,
+            &mut asr,
+            None,
+            None,
+        );
+
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("max_batch_size"));
+    }
+
+    #[test]
+    fn batch_chunking_preserves_transcript_order() {
+        let mut vad = FixedVadProvider {
+            segments: batch_test_chunks(),
+        };
+        let mut asr = MockAsrProvider;
+        let response = run_transcription_pipeline(
+            batch_test_request(CandleWhisperOptions {
+                batch_chunks: true,
+                max_batch_size: Some(2),
+                ..CandleWhisperOptions::default()
+            }),
+            &mut vad,
+            &mut asr,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let starts = response
+            .transcript
+            .segments
+            .iter()
+            .map(|segment| segment.start_seconds.unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(starts, vec![0.0, 0.20, 0.40]);
+    }
+
+    #[test]
+    fn batch_chunking_reports_batch_diagnostics() {
+        let mut vad = FixedVadProvider {
+            segments: batch_test_chunks(),
+        };
+        let mut asr = MockAsrProvider;
+        let response = run_transcription_pipeline(
+            batch_test_request(CandleWhisperOptions {
+                batch_chunks: true,
+                max_batch_size: Some(2),
+                ..CandleWhisperOptions::default()
+            }),
+            &mut vad,
+            &mut asr,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "chunkCount=3"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "batchChunks=true"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "maxBatchSize=2"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "batchCount=2"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "batchExecution=sequential-provider"));
+    }
+
+    #[test]
+    fn batch_chunking_reports_unbounded_batch_diagnostics() {
+        let mut vad = FixedVadProvider {
+            segments: batch_test_chunks(),
+        };
+        let mut asr = MockAsrProvider;
+        let response = run_transcription_pipeline(
+            batch_test_request(CandleWhisperOptions {
+                batch_chunks: true,
+                max_batch_size: None,
+                ..CandleWhisperOptions::default()
+            }),
+            &mut vad,
+            &mut asr,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "maxBatchSize=unbounded"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "batchCount=1"));
+    }
+
+    #[test]
+    fn batch_disabled_reports_sequential_diagnostics() {
+        let mut vad = FixedVadProvider {
+            segments: batch_test_chunks(),
+        };
+        let mut asr = MockAsrProvider;
+        let response = run_transcription_pipeline(
+            batch_test_request(CandleWhisperOptions {
+                batch_chunks: false,
+                max_batch_size: Some(2),
+                ..CandleWhisperOptions::default()
+            }),
+            &mut vad,
+            &mut asr,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "batchChunks=false"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "batchCount=3"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "batchExecution=sequential-provider"));
     }
 
     #[test]
@@ -2838,6 +3100,7 @@ mod tests {
         assert!(error.contains("finite"));
     }
 
+    #[cfg(not(feature = "audio-io"))]
     #[test]
     fn path_non_wav_returns_unsupported_runtime() {
         let result = LoadedAudio::mono_16khz_from_source(&TranscriptionSource::Path {
@@ -2871,6 +3134,67 @@ mod tests {
         assert_eq!(audio.samples.len(), 16_000);
         assert!(audio.samples.iter().all(|sample| sample.is_finite()));
         assert!(audio.samples.iter().any(|sample| *sample > 0.20));
+        Ok(())
+    }
+
+    #[test]
+    fn wav_path_still_uses_native_reader_without_audio_io(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let path = temp.path().join("native-reader.wav");
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 16_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(&path, spec)?;
+        writer.write_sample::<i16>(16_384)?;
+        writer.write_sample::<i16>(-16_384)?;
+        writer.finalize()?;
+
+        let audio =
+            LoadedAudio::mono_16khz_from_source(&TranscriptionSource::Path { path: path.clone() })?;
+
+        assert_eq!(audio.sample_rate, 16_000);
+        assert_eq!(audio.channels, 1);
+        assert_eq!(
+            audio.source.as_deref(),
+            Some(path.to_string_lossy().as_ref())
+        );
+        assert_eq!(audio.samples.len(), 2);
+        assert!(audio.samples[0] > 0.49);
+        assert!(audio.samples[1] < -0.49);
+        Ok(())
+    }
+
+    #[cfg(feature = "audio-io")]
+    #[test]
+    #[ignore = "requires RUN_NATIVE_MEDIA_DECODE_TESTS=1 and a local FFmpeg-decodable media file"]
+    fn native_media_decode_when_requested() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        if std::env::var("RUN_NATIVE_MEDIA_DECODE_TESTS")
+            .ok()
+            .as_deref()
+            != Some("1")
+        {
+            eprintln!("set RUN_NATIVE_MEDIA_DECODE_TESTS=1 to run native media decode smoke");
+            return Ok(());
+        }
+        let path = std::env::var_os("TRANSCRIPTION_MEDIA_PATH")
+            .map(PathBuf::from)
+            .ok_or("TRANSCRIPTION_MEDIA_PATH must point to a local media file")?;
+
+        let audio =
+            LoadedAudio::mono_16khz_from_source(&TranscriptionSource::Path { path: path.clone() })?;
+
+        assert_eq!(audio.sample_rate, 16_000);
+        assert_eq!(audio.channels, 1);
+        assert!(!audio.samples.is_empty());
+        assert!(audio.samples.iter().all(|sample| sample.is_finite()));
+        assert_eq!(
+            audio.source.as_deref(),
+            Some(path.to_string_lossy().as_ref())
+        );
         Ok(())
     }
 

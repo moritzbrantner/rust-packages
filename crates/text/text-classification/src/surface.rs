@@ -7,7 +7,9 @@ use runtime_core::{
 use serde::Deserialize;
 
 use crate::{
-    analyze_sentiment, classify_text, model_catalog, parse_task, schema_summary, zero_shot_classify,
+    analyze_sentiment, classify_text, model_catalog, parse_task, schema_summary,
+    zero_shot_classify, SentimentRequest, TextClassificationLocalModelOptions,
+    TextClassificationRequest, ZeroShotClassificationRequest,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -43,18 +45,24 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "describe" => describe_value(request.input),
         "classification.models" => models_value(parse_input(request.input)?)?,
         "classification.schema" => schema_value(),
-        "classification.classify" => serde_json::to_value(
-            classify_text(parse_input(request.input)?).map_err(|error| error.to_string())?,
-        )
-        .map_err(|error| error.to_string())?,
-        "classification.sentiment" => serde_json::to_value(
-            analyze_sentiment(parse_input(request.input)?).map_err(|error| error.to_string())?,
-        )
-        .map_err(|error| error.to_string())?,
-        "classification.zeroShot" => serde_json::to_value(
-            zero_shot_classify(parse_input(request.input)?).map_err(|error| error.to_string())?,
-        )
-        .map_err(|error| error.to_string())?,
+        "classification.classify" => {
+            let mut input: TextClassificationRequest = parse_input(request.input)?;
+            prefer_local_model_for_surface(&mut input.local_model);
+            serde_json::to_value(classify_text(input).map_err(|error| error.to_string())?)
+                .map_err(|error| error.to_string())?
+        }
+        "classification.sentiment" => {
+            let mut input: SentimentRequest = parse_input(request.input)?;
+            prefer_local_model_for_surface(&mut input.local_model);
+            serde_json::to_value(analyze_sentiment(input).map_err(|error| error.to_string())?)
+                .map_err(|error| error.to_string())?
+        }
+        "classification.zeroShot" => {
+            let mut input: ZeroShotClassificationRequest = parse_input(request.input)?;
+            prefer_local_model_for_surface(&mut input.local_model);
+            serde_json::to_value(zero_shot_classify(input).map_err(|error| error.to_string())?)
+                .map_err(|error| error.to_string())?
+        }
         operation => {
             return Err(runtime_core::SurfaceError::unsupported_operation(
                 operation,
@@ -170,6 +178,23 @@ fn schema_value() -> serde_json::Value {
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
     runtime_core::parse_surface_input(None, input)
+}
+
+fn prefer_local_model_for_surface(options: &mut Option<TextClassificationLocalModelOptions>) {
+    #[cfg(feature = "local-models")]
+    {
+        if options.is_none() {
+            *options = Some(TextClassificationLocalModelOptions {
+                auto_download: Some(true),
+                download_progress: Some(true),
+                ..TextClassificationLocalModelOptions::default()
+            });
+        }
+    }
+    #[cfg(not(feature = "local-models"))]
+    {
+        let _ = options;
+    }
 }
 
 #[cfg(test)]

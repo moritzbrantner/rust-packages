@@ -120,6 +120,20 @@ pub fn package_surface() -> PackageSurface {
                 serde_json::json!({"alignment": {"enabled": true, "modelId": "facebook/wav2vec2-base-960h"}}),
                 true,
             ),
+            operation(
+                "audio.transcription.decodePlan",
+                "Plan audio decode",
+                "Explains whether a transcription source uses direct samples, native WAV loading, opt-in audio-io media decode, or external WhisperX compatibility.",
+                serde_json::json!({"source": {"path": "clip.mp4"}, "provider": {"kind": "candleWhisper"}}),
+                true,
+            ),
+            operation(
+                "audio.transcription.diarizationPlan",
+                "Plan diarization",
+                "Explains current heuristic native diarization status and future model-backed provider options.",
+                serde_json::json!({"diarization": {"enabled": true, "assignmentPolicy": "majority"}}),
+                true,
+            ),
         ],
     }
 }
@@ -155,6 +169,8 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.transcription.modelPlan" => model_plan_value(request.input),
         "audio.transcription.vadPlan" => vad_plan_value(request.input),
         "audio.transcription.alignmentPlan" => alignment_plan_value(request.input),
+        "audio.transcription.decodePlan" => decode_plan_value(request.input),
+        "audio.transcription.diarizationPlan" => diarization_plan_value(request.input),
         operation => {
             return Err(runtime_core::SurfaceError::unsupported_operation(
                 operation,
@@ -202,7 +218,9 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
         "audio.transcription.plan"
         | "audio.transcription.modelPlan"
         | "audio.transcription.vadPlan"
-        | "audio.transcription.alignmentPlan" => (
+        | "audio.transcription.alignmentPlan"
+        | "audio.transcription.decodePlan"
+        | "audio.transcription.diarizationPlan" => (
             "Transcription runtime plan",
             "Planned transcription setup without execution.",
             serde_json::json!({
@@ -315,6 +333,110 @@ fn alignment_plan_value(input: serde_json::Value) -> serde_json::Value {
     })
 }
 
+fn decode_plan_value(input: serde_json::Value) -> serde_json::Value {
+    let provider_kind = input
+        .pointer("/provider/kind")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("candleWhisper");
+    let source = input.get("source").unwrap_or(&input);
+    let audio_io_enabled = cfg!(feature = "audio-io");
+    let plan = if provider_kind == "externalWhisperX" || provider_kind == "whisperx" {
+        serde_json::json!({
+            "sourceKind": source_kind(source),
+            "decodePath": "external-whisperx-compatibility",
+            "opensFiles": false,
+            "executesFfmpeg": false,
+            "featureGated": false,
+            "notes": "External WhisperX compatibility owns media/container decode for this provider."
+        })
+    } else if source.get("samples").is_some() {
+        serde_json::json!({
+            "sourceKind": "samples",
+            "decodePath": "direct-samples",
+            "opensFiles": false,
+            "executesFfmpeg": false,
+            "featureGated": false,
+            "normalization": "normalize_samples_source"
+        })
+    } else if let Some(path) = source.get("path").and_then(serde_json::Value::as_str) {
+        let extension = std::path::Path::new(path)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if extension == "wav" {
+            serde_json::json!({
+                "sourceKind": "path",
+                "pathExtension": extension,
+                "decodePath": "native-wav-reader",
+                "opensFiles": false,
+                "executesFfmpeg": false,
+                "featureGated": false,
+                "normalization": "native mono mix and resample to 16 kHz"
+            })
+        } else {
+            serde_json::json!({
+                "sourceKind": "path",
+                "pathExtension": extension,
+                "decodePath": if audio_io_enabled { "audio-io-media-decode" } else { "unsupported-runtime-without-audio-io" },
+                "opensFiles": false,
+                "executesFfmpeg": false,
+                "featureGated": true,
+                "requiredFeature": "audio-io",
+                "audioIoFeatureEnabled": audio_io_enabled,
+                "normalization": if audio_io_enabled { "audio-io mono decode then normalize_samples_source to 16 kHz" } else { "not available" }
+            })
+        }
+    } else {
+        serde_json::json!({
+            "sourceKind": source_kind(source),
+            "decodePath": "unknown-source",
+            "opensFiles": false,
+            "executesFfmpeg": false,
+            "featureGated": false,
+            "notes": "Provide source.samples or source.path for a concrete decode plan."
+        })
+    };
+    serde_json::json!({
+        "defaultProvider": "candle-whisper",
+        "normalizationOwner": "moritzbrantner-audio-analysis-transcription",
+        "defaultNativeBoundary": "wav-or-direct-samples",
+        "audioIoFeatureEnabled": audio_io_enabled,
+        "plan": plan,
+        "input": input
+    })
+}
+
+fn diarization_plan_value(input: serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "defaultProvider": "native-speaker-diarization",
+        "currentRuntime": "heuristic-native",
+        "productionParity": false,
+        "assignmentPolicies": ["majority", "nearestStart", "strictContained"],
+        "speakerBounds": {
+            "minSpeakers": "validated and reported only",
+            "maxSpeakers": "validated and reported only",
+            "enforcedAsClusteringConstraints": false
+        },
+        "futureProviders": [
+            "onnx-speaker-embedding",
+            "pyannote-style-speaker-embedding",
+            "external-pyannote-compatibility"
+        ],
+        "input": input
+    })
+}
+
+fn source_kind(source: &serde_json::Value) -> &'static str {
+    if source.get("samples").is_some() {
+        "samples"
+    } else if source.get("path").is_some() {
+        "path"
+    } else {
+        "unknown"
+    }
+}
+
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
     runtime_core::parse_surface_input(None, input)
 }
@@ -378,6 +500,8 @@ mod tests {
         assert!(ids.contains(&"audio.transcription.modelPlan"));
         assert!(ids.contains(&"audio.transcription.vadPlan"));
         assert!(ids.contains(&"audio.transcription.alignmentPlan"));
+        assert!(ids.contains(&"audio.transcription.decodePlan"));
+        assert!(ids.contains(&"audio.transcription.diarizationPlan"));
     }
 
     #[test]
@@ -416,6 +540,43 @@ mod tests {
         assert_eq!(
             response.value["result"]["normalizationOwner"],
             "moritzbrantner-text-transcripts"
+        );
+    }
+
+    #[test]
+    fn decode_plan_reports_non_wav_audio_io_boundary_without_opening_files() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.transcription.decodePlan"),
+            input: serde_json::json!({"source": {"path": "clip.mp4"}}),
+        })
+        .expect("decode plan");
+        assert_eq!(
+            response.value["result"]["plan"]["decodePath"],
+            if cfg!(feature = "audio-io") {
+                "audio-io-media-decode"
+            } else {
+                "unsupported-runtime-without-audio-io"
+            }
+        );
+        assert_eq!(response.value["result"]["plan"]["opensFiles"], false);
+        assert_eq!(response.value["result"]["plan"]["executesFfmpeg"], false);
+    }
+
+    #[test]
+    fn diarization_plan_reports_heuristic_status_without_model_parity_claim() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.transcription.diarizationPlan"),
+            input: serde_json::json!({}),
+        })
+        .expect("diarization plan");
+        assert_eq!(
+            response.value["result"]["currentRuntime"],
+            "heuristic-native"
+        );
+        assert_eq!(response.value["result"]["productionParity"], false);
+        assert_eq!(
+            response.value["result"]["speakerBounds"]["enforcedAsClusteringConstraints"],
+            false
         );
     }
 }

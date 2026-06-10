@@ -13,7 +13,8 @@ Text package model catalogs distinguish deterministic, loadable, and reference-o
 - `supported: true, loadable: false` means the crate has an implemented opt-in native path, but the local bundle must be materialized first.
 - `supported: false, loadable: false` means the entry is reference metadata
   only. Extractive QA is runnable for the RoBERTa SQuAD2 ONNX preset when
-  `local-onnx` is enabled.
+  `local-onnx` is enabled. Text classification is runnable for DistilBERT
+  SST-2 and Xenova BART MNLI when `text-classification/local-models` is enabled.
 
 `moritzbrantner-text-model-runtime` owns the shared conformance report types: `TextModelLoadReport`, `TextModelRunReport`, `TextModelCapability`, `validate_text_model_bundle`, and `validate_tokenizer_bundle`.
 
@@ -22,11 +23,12 @@ Candle, ONNX, model bundles, and whisper.cpp paths are opt-in through feature
 gates such as `tokenizers`, `candle`, `onnx`, `model-bundles`, `native`, and
 `external-tests`. Feature gates make native/model paths available; callers must
 still explicitly select model-backed behavior. Downloads never happen through
-generic helpers. The explicit exceptions are `runtime.onnxQaProbe`,
-`runtime.downloadBundle`, and `qa.answer` without imported predictions/backend
-when built with `local-onnx`; those server-only operations default to resolving
-or downloading through `moritzbrantner-model-runtime`. WASM reports them as
-unsupported/server-only.
+generic validation helpers. The explicit exceptions are model-backed runtime
+operations such as `runtime.onnxQaProbe`, `runtime.downloadBundle`, `qa.answer`
+with `local-onnx`, and classification package-surface operations built with
+`local-models`; those operations resolve or download through
+`moritzbrantner-model-runtime` when their local model options allow it. WASM
+reports native-only paths as unsupported/server-only.
 
 Use the existing bundle sync flow before running native smoke tests:
 
@@ -35,8 +37,30 @@ scripts/sync_model_bundles.sh
 cargo test -p moritzbrantner-text-model-runtime --features external-tests -- --ignored
 cargo test -p moritzbrantner-text-linguistics --features external-tests -- --ignored
 cargo test -p moritzbrantner-text-embeddings --features external-tests -- --ignored
+cargo test -p moritzbrantner-text-classification --features external-tests -- --ignored
 cargo test -p moritzbrantner-text-transcripts --features native,external-tests -- --ignored
 ```
+
+## Model-Capable And Model-Free Crates
+
+Model-capable text crates expose domains where both deterministic and
+local-model-backed execution are natural:
+
+- `text-analysis`
+- `text-classification`
+- `text-embeddings`
+- `text-linguistics`
+- `text-model-runtime`
+- `text-question-answering`
+- `text-retrieval` for reranking
+- `text-transcripts`
+
+Model-free text crates for this release are deterministic by ownership:
+
+- `text-core`
+- `text-lexical`
+- `text-generation`
+- `text-generation-linguistics`
 
 ## Benchmarks
 
@@ -61,12 +85,12 @@ Benchmark results are not portable performance claims; they depend on CPU, brows
 | --- | --- | --- |
 | `text-core` | Text documents, Unicode-safe spans, tokenization, sentence and paragraph boundaries, annotation graph primitives. | Model downloads, native inference, corpus search, transcript formats, transport concerns. |
 | `text-lexical` | Deterministic lexical features, stop words, keywords, `TextCorpus` raw lexical corpus assembly, reproducible lexical snapshots, TF-IDF, BM25, rule entities, extractive summaries, lexical sentiment. | ASR, transcript-specific source adapters, chunked retrieval storage, native model execution. |
-| `text-model-runtime` | Shared tokenizer bundles, tokenized model inputs, runtime backend traits, optional native model facade types, and the server-only ONNX QA probe. | High-level NLP schemas, retrieval indexes, transcript parsing, text pipeline orchestration. |
+| `text-model-runtime` | Shared tokenizer bundles, tokenized model inputs, runtime backend traits, optional native model facade types, Candle sequence classification, ONNX pair classification, and the server-only ONNX QA probe. | High-level NLP schemas, retrieval indexes, transcript parsing, text pipeline orchestration. |
 | `text-linguistics` | Heuristic-first linguistic pipeline: language, lemmas, POS, morphology, syntax, entities, coreference, events, discourse, topics, style; optional model-backed paths. | Generic task schemas, vector retrieval storage, transcript file formats. |
 | `text-embeddings` | Embedding backends, pooling, hashed fallback vectors, semantic search indexes. | General text classification, transcript parsing, linguistic annotations. |
 | `text-retrieval` | Chunking, metadata filters, metadata-rich `RetrievalIndex` workflows, BM25/vector/hybrid retrieval, persistence helpers. | Embedding model internals, ASR, linguistic parsing. |
 | `text-transcripts` | Transcript formats, transcript-specific analyzers, and optional ASR command/native adapters. | Generic lexical features, retrieval ranking. |
-| `text-classification` | Text classification, zero-shot classification, sentiment request/response contracts, imported-prediction handling, deterministic fallbacks, runtime broker APIs. | Tokenizer implementation details, direct download policy, retrieval indexes, transcript parsing. |
+| `text-classification` | Text classification, zero-shot classification, sentiment request/response contracts, imported-prediction handling, deterministic fallbacks, runtime broker APIs, and classification model policy. | Tokenizer implementation details, reusable model runtime internals, retrieval indexes, transcript parsing. |
 | `text-question-answering` | Extractive QA request/response contracts, imported span postprocessing, fallback policy, and optional local ONNX QA execution. | Text classification, tokenizer internals, transcript parsing. |
 | `text-generation` | Deterministic Markov prediction and template/text synthesis from known signals. | Hosted LLM clients or claims of open-ended generative model inference. |
 | `text-generation-linguistics` | Adapters from linguistic analyses into deterministic generation prompts, synthesis, and Markov training. | Core Markov/synthesis ownership, hosted LLM clients, native model inference. |
@@ -80,9 +104,10 @@ Benchmark results are not portable performance claims; they depend on CPU, brows
 | Embeddings | `HashedTextEmbedder` | Optional ONNX/Candle embedders in `text-embeddings` |
 | Linguistic analysis | Heuristic pipeline in `text-linguistics` | Optional local sequence labeler for NER |
 | Transcription | Transcript parsers | Whisper CLI/native whisper.cpp adapters |
-| Classification/sentiment | `text-classification` lexical/imported fallbacks | Runtime-broker traits supplied by callers |
+| Classification/sentiment | `text-classification` lexical/imported fallbacks | `distilbert-sst2` through Candle sequence classification when `local-models` is enabled; caller-supplied sequence classifier backends remain supported |
 | Question answering | `text-question-answering` imported span postprocessing and heuristic fallback | `onnx-community/roberta-base-squad2-ONNX` through `text-model-runtime` with `local-onnx`; runtime-broker traits supplied by callers |
 | Reranking | `text-retrieval` ranking APIs | Runtime-broker traits supplied by callers |
+| Zero-shot classification | `text-classification` lexical/imported label scoring | `xenova-bart-large-mnli-onnx` through ONNX pair/NLI scoring when `local-models` is enabled; caller-supplied pair classifier backends remain supported |
 | Generation | `text-generation` Markov/template synthesis; `text-generation-linguistics` analysis adapters | No hosted or native LLM path today |
 
 ## Dependency Direction
@@ -135,10 +160,12 @@ but should not duplicate `TokenizedText`, `TokenizerBundle`, or runtime backend
 enums.
 
 Concrete capability crates broker task-level behavior. They may accept
-caller-supplied runtime backends, imported predictions, or explicit fallback
-policies. The QA crate defaults to local ONNX only for the documented
-server-only `local-onnx` path; reusable model acquisition belongs in
-`model-runtime`.
+caller-supplied runtime backends, imported predictions, explicit local model
+options, or explicit fallback policies. `text-classification` owns the mixed
+classification policy: Candle sequence classification for ordinary
+classification/sentiment, and ONNX pair/NLI classification for zero-shot.
+`text-model-runtime` owns reusable tokenizer, Candle, and ONNX internals.
+Reusable model acquisition belongs in `model-runtime`.
 
 ## Feature Policy
 
@@ -146,8 +173,9 @@ Default features are deterministic and network-free. Optional runtime features
 may enable tokenizers, ONNX Runtime, or Candle, but callers must still select or
 provide the runtime explicitly. Omitted download fields are treated according to
 the operation contract: generic validation remains no-download, while
-server-only QA model workflows default to `autoDownload: true`. External tests
-that require real tools, models, or network access remain behind
+model-backed QA/classification package workflows may default to
+`autoDownload: true` only when built with the relevant native/model features.
+External tests that require real tools, models, or network access remain behind
 `external-tests`.
 
 Text Candle server binaries default to CPU. Native CUDA execution is opt-in with
