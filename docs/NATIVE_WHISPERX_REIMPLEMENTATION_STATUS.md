@@ -20,7 +20,7 @@ Replace WhisperX runtime dependency over time with Rust-native transcription, al
 - Local bundle validation behind `model-bundles`.
 - WAV path input and direct samples.
 - Prompt construction validates language, task, decoder, EOS, no-timestamps, and forced decoder IDs.
-- Private Whisper timestamp-token parsing can map model token output into segment-level timings; the default provider path still uses chunk/window timing.
+- Native Whisper attempts timestamp-token segment timing automatically when tokenizer metadata is present, and falls back to chunk/window timing when no bounded timestamp segments are produced.
 - Real CUDA smoke passes on the RTX 3060 Ti host with the local CUDA 12 shim.
 
 ### WhisperX Compatibility
@@ -42,7 +42,7 @@ Replace WhisperX runtime dependency over time with Rust-native transcription, al
 
 ## Missing For WhisperX Parity
 
-- Public/default Whisper timestamp-token decoding and word timing projection.
+- Word timing projection from Whisper timestamp segments.
 - Real wav2vec2 CTC emission model execution.
 - Word-level alignment through the full native pipeline.
 - Production-grade diarization.
@@ -62,8 +62,8 @@ Current machine-local assets used for native Whisper smoke:
 
 ## Recommended Next Order
 
-1. Enable Whisper timestamp-token decoding in the native provider path when model output proves stable.
-2. Add native word timing projection from timestamp tokens.
-3. Implement or unblock wav2vec2 Candle emissions.
-4. Upgrade diarization beyond the deterministic spectral baseline.
+1. Add native word timing projection from timestamp-token segments.
+2. Implement or unblock wav2vec2 Candle emissions.
+3. Wire the full native ASR + alignment + diarization pipeline.
+4. Upgrade diarization seams beyond the deterministic spectral baseline without claiming pyannote parity.
 5. Add parity tests against imported WhisperX JSON and external WhisperX command output.

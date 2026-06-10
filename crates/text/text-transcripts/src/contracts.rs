@@ -223,6 +223,27 @@ impl From<&TranscriptSegmentContract> for TextSegmentContract {
     }
 }
 
+pub fn text_segment_contract_with_source(
+    segment: &TranscriptSegmentContract,
+    stream_id: impl Into<String>,
+    source_kind: impl Into<String>,
+    uri: impl Into<String>,
+) -> TextSegmentContract {
+    let stream_id = stream_id.into();
+    let source_kind = source_kind.into();
+    let uri = uri.into();
+    let mut contract = segment.as_text_segment_contract();
+    contract.stream_id = Some(stream_id.clone());
+    contract.source = Some(TextSourceRef {
+        source_id: Some(stream_id),
+        source_kind: Some(source_kind),
+        uri: Some(uri),
+        media_timestamp: contract.timestamp,
+        duration_seconds: contract.duration_seconds,
+    });
+    contract
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TranscriptionContract {

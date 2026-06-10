@@ -2006,6 +2006,60 @@ mod tests {
     }
 
     #[test]
+    fn offset_chunk_local_segments_skips_global_timing() -> Result<()> {
+        let mut segment = TranscriptSegmentContract::new(0, "hello");
+        segment.start_seconds = Some(10.0);
+        segment.end_seconds = Some(10.5);
+        segment
+            .attributes
+            .insert("timing".to_string(), "global".to_string());
+        segment.words.push(TranscriptWordContract {
+            text: "hello".to_string(),
+            start_seconds: Some(10.0),
+            end_seconds: Some(10.5),
+            confidence: None,
+            speaker: None,
+            attributes: BTreeMap::new(),
+        });
+        let mut transcript =
+            TranscriptionContract::from_segments(None, Some("en".to_string()), vec![segment])
+                .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+        let chunks = vec![SpeechActivitySegment::new(5.0, 6.0, 0.8)?];
+
+        offset_chunk_local_segments(&mut transcript, &chunks)?;
+
+        assert_eq!(transcript.segments[0].start_seconds, Some(10.0));
+        assert_eq!(transcript.segments[0].end_seconds, Some(10.5));
+        assert_eq!(transcript.segments[0].words[0].start_seconds, Some(10.0));
+        assert_eq!(transcript.segments[0].words[0].end_seconds, Some(10.5));
+        Ok(())
+    }
+
+    #[test]
+    fn offset_chunk_local_segments_offsets_local_timing() -> Result<()> {
+        let mut segment = TranscriptSegmentContract::new(0, "hello");
+        segment.start_seconds = Some(0.0);
+        segment.end_seconds = Some(0.5);
+        let mut transcript =
+            TranscriptionContract::from_segments(None, Some("en".to_string()), vec![segment])
+                .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+        let chunks = vec![SpeechActivitySegment::new(5.0, 6.0, 0.8)?];
+
+        offset_chunk_local_segments(&mut transcript, &chunks)?;
+
+        assert_eq!(transcript.segments[0].start_seconds, Some(5.0));
+        assert_eq!(transcript.segments[0].end_seconds, Some(5.5));
+        assert_eq!(
+            transcript.segments[0]
+                .attributes
+                .get("timing")
+                .map(String::as_str),
+            Some("global")
+        );
+        Ok(())
+    }
+
+    #[test]
     fn provider_plan_reports_candle_primary_native_provider() {
         let plans = transcription_provider_plans();
         let candle = plans

@@ -58,6 +58,27 @@ enum WhisperDecodeMode {
     TimestampTokens,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WhisperDecodeTimingMode {
+    Auto,
+    NoTimestamps,
+    #[allow(dead_code)]
+    TimestampTokensRequired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WhisperWindowTiming {
+    ChunkWindow,
+    WhisperTimestampTokens,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct WhisperTimedWindow {
+    decoded: WhisperDecodedWindow,
+    timing: WhisperWindowTiming,
+    fallback_reason: Option<&'static str>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct WhisperTimestampSpec {
     begin_token_id: u32,
@@ -203,29 +224,39 @@ impl CandleWhisperSession {
         let mut segments = Vec::new();
         let mut next_index = 0_u64;
         let mut used_timestamp_tokens = false;
+        let mut timing_fallbacks = Vec::new();
         for chunk in &request.chunks {
             for window in chunk_windows(&request.audio.samples, request.audio.sample_rate, chunk)? {
-                let decoded =
-                    self.decode_window(&window.samples, WhisperDecodeMode::WithoutTimestamps)?;
-                if decoded.segments.is_empty() {
-                    if decoded.text.trim().is_empty() {
+                debug_assert!(window.chunk_start_seconds <= window.global_start_seconds);
+                debug_assert!(window.local_start_seconds <= window.local_end_seconds);
+                let timed = self.decode_window_with_timing_mode(
+                    &window.samples,
+                    WhisperDecodeTimingMode::Auto,
+                )?;
+                if let Some(reason) = timed.fallback_reason {
+                    if !timing_fallbacks.contains(&reason) {
+                        timing_fallbacks.push(reason);
+                    }
+                }
+                if timed.timing == WhisperWindowTiming::ChunkWindow {
+                    if timed.decoded.text.trim().is_empty() {
                         continue;
                     }
                     segments.push(window_fallback_segment(
                         next_index,
-                        decoded.text,
-                        window.local_start_seconds,
-                        window.local_end_seconds,
+                        timed.decoded.text,
+                        window.global_start_seconds,
+                        window.global_end_seconds,
                         self.setup.language.clone(),
                     ));
                     next_index += 1;
                 } else {
                     used_timestamp_tokens = true;
                     segments.extend(decoded_window_to_contract_segments(
-                        decoded,
+                        timed.decoded,
                         &mut next_index,
-                        window.local_start_seconds,
-                        window.local_end_seconds,
+                        window.global_start_seconds,
+                        window.global_end_seconds,
                         self.setup.language.clone(),
                     ));
                 }
@@ -254,12 +285,73 @@ impl CandleWhisperSession {
         if let Some(language) = &self.setup.language {
             diagnostics.push(format!("language={language}"));
         }
+        diagnostics.extend(
+            timing_fallbacks
+                .into_iter()
+                .map(|reason| format!("timingFallback={reason}")),
+        );
         Ok(AsrResponse {
             model_id: request.model_id,
             language: self.setup.language.clone(),
             transcript,
             diagnostics,
         })
+    }
+
+    fn decode_window_with_timing_mode(
+        &mut self,
+        samples: &[f32],
+        mode: WhisperDecodeTimingMode,
+    ) -> Result<WhisperTimedWindow> {
+        match mode {
+            WhisperDecodeTimingMode::NoTimestamps => {
+                let decoded = self.decode_window(samples, WhisperDecodeMode::WithoutTimestamps)?;
+                Ok(WhisperTimedWindow {
+                    decoded,
+                    timing: WhisperWindowTiming::ChunkWindow,
+                    fallback_reason: None,
+                })
+            }
+            WhisperDecodeTimingMode::Auto => {
+                if timestamp_spec_for_timing_mode(&self.tokenizer, mode)?.is_some() {
+                    let decoded =
+                        self.decode_window(samples, WhisperDecodeMode::TimestampTokens)?;
+                    if has_non_empty_timestamp_segments(&decoded) {
+                        return Ok(WhisperTimedWindow {
+                            decoded,
+                            timing: WhisperWindowTiming::WhisperTimestampTokens,
+                            fallback_reason: None,
+                        });
+                    }
+                    let mut fallback = self.decode_window_with_timing_mode(
+                        samples,
+                        WhisperDecodeTimingMode::NoTimestamps,
+                    )?;
+                    fallback.fallback_reason = Some("noBoundedTimestampSegments");
+                    return Ok(fallback);
+                }
+                let mut fallback = self.decode_window_with_timing_mode(
+                    samples,
+                    WhisperDecodeTimingMode::NoTimestamps,
+                )?;
+                fallback.fallback_reason = Some("missingTimestampMetadata");
+                Ok(fallback)
+            }
+            WhisperDecodeTimingMode::TimestampTokensRequired => {
+                timestamp_spec_for_timing_mode(&self.tokenizer, mode)?;
+                let decoded = self.decode_window(samples, WhisperDecodeMode::TimestampTokens)?;
+                if !has_non_empty_timestamp_segments(&decoded) {
+                    return Err(model_output_mismatch(
+                        "Whisper timestamp-token decode produced no bounded text segments",
+                    ));
+                }
+                Ok(WhisperTimedWindow {
+                    decoded,
+                    timing: WhisperWindowTiming::WhisperTimestampTokens,
+                    fallback_reason: None,
+                })
+            }
+        }
     }
 
     fn decode_window(
@@ -565,10 +657,37 @@ fn whisper_timestamp_spec(tokenizer: &Tokenizer) -> Result<WhisperTimestampSpec>
     })
 }
 
+fn optional_whisper_timestamp_spec(tokenizer: &Tokenizer) -> Result<Option<WhisperTimestampSpec>> {
+    if token_id(tokenizer, "<|0.00|>").is_none() {
+        return Ok(None);
+    }
+    whisper_timestamp_spec(tokenizer).map(Some)
+}
+
+fn timestamp_spec_for_timing_mode(
+    tokenizer: &Tokenizer,
+    mode: WhisperDecodeTimingMode,
+) -> Result<Option<WhisperTimestampSpec>> {
+    match mode {
+        WhisperDecodeTimingMode::Auto => optional_whisper_timestamp_spec(tokenizer),
+        WhisperDecodeTimingMode::NoTimestamps => Ok(None),
+        WhisperDecodeTimingMode::TimestampTokensRequired => {
+            whisper_timestamp_spec(tokenizer).map(Some)
+        }
+    }
+}
+
 fn timestamp_seconds(token_id: u32, spec: &WhisperTimestampSpec) -> Option<f64> {
     (spec.begin_token_id..spec.end_token_id)
         .contains(&token_id)
         .then(|| (token_id - spec.begin_token_id) as f64 * spec.seconds_per_token)
+}
+
+fn has_non_empty_timestamp_segments(decoded: &WhisperDecodedWindow) -> bool {
+    decoded
+        .segments
+        .iter()
+        .any(|segment| !segment.text.trim().is_empty())
 }
 
 fn decode_text_tokens(tokenizer: &Tokenizer, token_ids: &[u32]) -> Result<String> {
@@ -598,7 +717,7 @@ fn window_fallback_segment(
         .insert("provider".to_string(), "candle-whisper".to_string());
     segment
         .attributes
-        .insert("timing".to_string(), "chunkLocal".to_string());
+        .insert("timing".to_string(), "global".to_string());
     segment
 }
 
@@ -633,7 +752,11 @@ fn decoded_window_to_contract_segments(
                 .insert("provider".to_string(), "candle-whisper".to_string());
             segment
                 .attributes
-                .insert("timing".to_string(), "whisperTimestampTokens".to_string());
+                .insert("timing".to_string(), "global".to_string());
+            segment.attributes.insert(
+                "timingSource".to_string(),
+                "whisperTimestampTokens".to_string(),
+            );
             Some(segment)
         })
         .collect()
@@ -682,8 +805,11 @@ fn device_is_cuda(resolved: &ResolvedNativeDevice) -> bool {
 #[derive(Debug, Clone)]
 struct ChunkWindow {
     samples: Vec<f32>,
+    chunk_start_seconds: f64,
     local_start_seconds: f64,
     local_end_seconds: f64,
+    global_start_seconds: f64,
+    global_end_seconds: f64,
 }
 
 fn chunk_windows(
@@ -698,10 +824,15 @@ fn chunk_windows(
     let mut cursor = start;
     while cursor < end {
         let window_end = (cursor + max_window).min(end);
+        let local_start_seconds = (cursor - start) as f64 / sample_rate as f64;
+        let local_end_seconds = (window_end - start) as f64 / sample_rate as f64;
         windows.push(ChunkWindow {
             samples: samples[cursor..window_end].to_vec(),
-            local_start_seconds: (cursor - start) as f64 / sample_rate as f64,
-            local_end_seconds: (window_end - start) as f64 / sample_rate as f64,
+            chunk_start_seconds: chunk.start_seconds,
+            local_start_seconds,
+            local_end_seconds,
+            global_start_seconds: chunk.start_seconds + local_start_seconds,
+            global_end_seconds: chunk.start_seconds + local_end_seconds,
         });
         cursor = window_end;
     }
@@ -909,6 +1040,20 @@ mod tests {
     }
 
     #[test]
+    fn no_timestamps_prompt_keeps_forced_no_timestamps_token() {
+        let mut generation = test_generation();
+        generation.forced_decoder_ids = Some(vec![(3, Some(7))]);
+        let tokens = CandleWhisperSession::initial_prompt_tokens_for_mode(
+            &generation,
+            &test_tokenizer(),
+            Some("en"),
+            WhisperDecodeMode::WithoutTimestamps,
+        )
+        .unwrap();
+        assert_eq!(tokens, vec![1, 3, 5, 7]);
+    }
+
+    #[test]
     fn timestamp_token_detection_uses_whisper_zero_token() {
         let spec = whisper_timestamp_spec(&timestamp_test_tokenizer()).unwrap();
         assert_eq!(spec.begin_token_id, 100);
@@ -924,6 +1069,35 @@ mod tests {
             .to_string();
         assert!(error.contains("invalid_request"));
         assert!(error.contains("<|0.00|>"));
+    }
+
+    #[test]
+    fn auto_timing_allows_missing_timestamp_metadata() {
+        let spec = timestamp_spec_for_timing_mode(&test_tokenizer(), WhisperDecodeTimingMode::Auto)
+            .unwrap();
+        assert!(spec.is_none());
+    }
+
+    #[test]
+    fn required_timing_rejects_missing_timestamp_metadata() {
+        let error = timestamp_spec_for_timing_mode(
+            &test_tokenizer(),
+            WhisperDecodeTimingMode::TimestampTokensRequired,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("<|0.00|>"));
+    }
+
+    #[test]
+    fn no_timestamps_timing_does_not_require_timestamp_metadata() {
+        let spec = timestamp_spec_for_timing_mode(
+            &test_tokenizer(),
+            WhisperDecodeTimingMode::NoTimestamps,
+        )
+        .unwrap();
+        assert!(spec.is_none());
     }
 
     #[test]
@@ -988,13 +1162,21 @@ mod tests {
     #[test]
     fn timestamp_decoded_segments_map_to_transcript_contracts() {
         let decoded = WhisperDecodedWindow {
-            text: "hello".to_string(),
-            segments: vec![WhisperDecodedSegment {
-                text: "hello".to_string(),
-                start_seconds: 0.5,
-                end_seconds: 1.25,
-                token_ids: vec![10],
-            }],
+            text: "hello world".to_string(),
+            segments: vec![
+                WhisperDecodedSegment {
+                    text: "hello".to_string(),
+                    start_seconds: 0.5,
+                    end_seconds: 1.25,
+                    token_ids: vec![10],
+                },
+                WhisperDecodedSegment {
+                    text: "world".to_string(),
+                    start_seconds: 1.25,
+                    end_seconds: 1.75,
+                    token_ids: vec![11],
+                },
+            ],
         };
         let mut next_index = 7;
         let segments = decoded_window_to_contract_segments(
@@ -1004,18 +1186,57 @@ mod tests {
             12.0,
             Some("en".to_string()),
         );
-        assert_eq!(next_index, 8);
-        assert_eq!(segments.len(), 1);
+        assert_eq!(next_index, 9);
+        assert_eq!(segments.len(), 2);
         assert_eq!(segments[0].index, 7);
         assert_eq!(segments[0].text, "hello");
         assert_eq!(segments[0].start_seconds, Some(10.5));
         assert_eq!(segments[0].end_seconds, Some(11.25));
+        assert_eq!(segments[1].index, 8);
+        assert_eq!(segments[1].text, "world");
+        assert_eq!(segments[1].start_seconds, Some(11.25));
+        assert_eq!(segments[1].end_seconds, Some(11.75));
         assert_eq!(segments[0].language.as_deref(), Some("en"));
         assert_eq!(
             segments[0].attributes.get("timing").map(String::as_str),
+            Some("global")
+        );
+        assert_eq!(
+            segments[0]
+                .attributes
+                .get("timingSource")
+                .map(String::as_str),
             Some("whisperTimestampTokens")
         );
         TranscriptionContract::from_segments(None, Some("en".to_string()), segments).unwrap();
+    }
+
+    #[test]
+    fn window_fallback_segment_uses_global_timing() {
+        let segment =
+            window_fallback_segment(3, "hello".to_string(), 4.0, 5.5, Some("en".to_string()));
+        assert_eq!(segment.start_seconds, Some(4.0));
+        assert_eq!(segment.end_seconds, Some(5.5));
+        assert_eq!(
+            segment.attributes.get("provider").map(String::as_str),
+            Some("candle-whisper")
+        );
+        assert_eq!(
+            segment.attributes.get("timing").map(String::as_str),
+            Some("global")
+        );
+    }
+
+    #[test]
+    fn chunk_windows_carry_local_and_global_timing() {
+        let chunk = SpeechActivitySegment::new(1.0, 2.0, 0.8).unwrap();
+        let windows = chunk_windows(&vec![0.0; 48_000], 16_000, &chunk).unwrap();
+        assert_eq!(windows.len(), 1);
+        assert_eq!(windows[0].chunk_start_seconds, 1.0);
+        assert_eq!(windows[0].local_start_seconds, 0.0);
+        assert_eq!(windows[0].local_end_seconds, 1.0);
+        assert_eq!(windows[0].global_start_seconds, 1.0);
+        assert_eq!(windows[0].global_end_seconds, 2.0);
     }
 
     #[test]

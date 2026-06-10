@@ -21,7 +21,10 @@ use video_analysis_ingest::{
     MediaSourceInfo, SourceMode, TextFormat as IngestTextFormat, TextSegmentSource, TextStreamInfo,
 };
 pub mod contracts;
-pub use contracts::{TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract};
+pub use contracts::{
+    text_segment_contract_with_source, TranscriptSegmentContract, TranscriptWordContract,
+    TranscriptionContract,
+};
 /// Re-exports the text transcript native whisper.cpp API.
 pub use whisper_cpp::{
     transcription_catalog as whisper_cpp_catalog, whisper_cpp_system_info,
@@ -77,6 +80,25 @@ pub enum TranscriptFormat {
     Srt,
     /// The web vtt variant.
     WebVtt,
+}
+
+impl TranscriptFormat {
+    /// Infers a transcript format from a file extension.
+    pub fn from_extension(extension: &str) -> Option<Self> {
+        match extension
+            .trim()
+            .trim_start_matches('.')
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "txt" | "text" => Some(Self::Plain),
+            "lines" => Some(Self::Lines),
+            "json" | "whisper" | "whisperjson" | "whisper-json" => Some(Self::WhisperJson),
+            "srt" => Some(Self::Srt),
+            "vtt" | "webvtt" | "web-vtt" => Some(Self::WebVtt),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -819,6 +841,49 @@ fn format_webvtt_timestamp(seconds: f64) -> String {
 pub fn segment_to_owned_text_segment(segment: &TranscriptSegment) -> OwnedTextSegment {
     text_core::TextSegmentContract::from(TranscriptSegmentContract::from(segment))
         .to_owned_text_segment()
+}
+
+/// Parses a transcript file by inferring the format from its extension.
+pub fn parse_transcript_file(path: impl AsRef<Path>) -> Result<TranscriptionResult> {
+    let path = path.as_ref();
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| {
+            TranscriptionError::InvalidTranscript("transcript file missing extension".to_string())
+        })?;
+    let format = TranscriptFormat::from_extension(extension).ok_or_else(|| {
+        TranscriptionError::InvalidTranscript(format!(
+            "unsupported transcript file extension `{extension}`"
+        ))
+    })?;
+    let bytes = fs::read(path)?;
+    let mut parsed = parse_transcript_bytes(&bytes, format)?;
+    parsed.source = Some(path.to_string_lossy().into_owned());
+    Ok(parsed)
+}
+
+/// Parses and normalizes a transcript file into the stable transcript contract.
+pub fn parse_normalized_transcript_file(
+    path: impl AsRef<Path>,
+    options: SubtitleNormalizationOptions,
+) -> Result<TranscriptionContract> {
+    let parsed = parse_transcript_file(path)?;
+    let mut contract = TranscriptionContract::from(parsed);
+    contract.segments = contract
+        .segments
+        .into_iter()
+        .filter_map(|mut segment| {
+            segment.text = normalize_subtitle_text(&segment.text, options.clone());
+            (!segment.text.is_empty()).then_some(segment)
+        })
+        .collect();
+    contract.text = contract
+        .text
+        .as_deref()
+        .map(|text| normalize_subtitle_text(text, options))
+        .filter(|text| !text.is_empty());
+    contract.normalized()
 }
 
 fn parse_transcript_bytes(bytes: &[u8], format: TranscriptFormat) -> Result<TranscriptionResult> {
@@ -1583,6 +1648,67 @@ mod tests {
         );
 
         assert_eq!(normalized, "Hello Rust & friends now");
+    }
+
+    #[test]
+    fn infers_transcript_format_from_extension() {
+        assert_eq!(
+            TranscriptFormat::from_extension(".vtt"),
+            Some(TranscriptFormat::WebVtt)
+        );
+        assert_eq!(
+            TranscriptFormat::from_extension("SRT"),
+            Some(TranscriptFormat::Srt)
+        );
+        assert_eq!(
+            TranscriptFormat::from_extension("json"),
+            Some(TranscriptFormat::WhisperJson)
+        );
+        assert_eq!(TranscriptFormat::from_extension("csv"), None);
+    }
+
+    #[test]
+    fn parses_and_normalizes_transcript_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sample.vtt");
+        fs::write(
+            &path,
+            "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\n<c>Hello&nbsp;file</c>\n",
+        )
+        .unwrap();
+
+        let parsed =
+            parse_normalized_transcript_file(&path, SubtitleNormalizationOptions::default())
+                .unwrap();
+
+        assert_eq!(parsed.source.as_deref(), Some(path.to_str().unwrap()));
+        assert_eq!(parsed.text.as_deref(), Some("Hello file"));
+        assert_eq!(parsed.segments[0].text, "Hello file");
+    }
+
+    #[test]
+    fn builds_text_segment_contract_with_source() {
+        let mut segment = TranscriptSegmentContract::new(7, "hello source");
+        segment.start_seconds = Some(1.25);
+        segment.end_seconds = Some(2.5);
+        segment.language = Some("en".to_string());
+
+        let contract = text_segment_contract_with_source(
+            &segment,
+            "stream-1",
+            "caption_manual",
+            "https://example.test/video",
+        );
+
+        assert_eq!(contract.stream_id.as_deref(), Some("stream-1"));
+        assert_eq!(contract.segment_index, 7);
+        assert_eq!(contract.language.as_deref(), Some("en"));
+        assert_eq!(contract.duration_seconds, Some(1.25));
+        let source = contract.source.unwrap();
+        assert_eq!(source.source_id.as_deref(), Some("stream-1"));
+        assert_eq!(source.source_kind.as_deref(), Some("caption_manual"));
+        assert_eq!(source.uri.as_deref(), Some("https://example.test/video"));
+        assert_eq!(source.duration_seconds, Some(1.25));
     }
 
     #[test]
