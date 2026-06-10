@@ -2,7 +2,7 @@
 
 use runtime_core::{
     describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
-    RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
+    RuntimeCapabilities, SurfaceError, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -57,10 +57,10 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.frames" => frames_value(request.input)?,
         "audio.timestamps" => timestamps_value(request.input)?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ));
+            return Err(
+                SurfaceError::unsupported_operation(operation, env!("CARGO_PKG_NAME"))
+                    .to_error_string(),
+            );
         }
     };
     Ok(response(operation, value))

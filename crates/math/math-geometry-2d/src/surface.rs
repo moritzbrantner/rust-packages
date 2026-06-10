@@ -1,8 +1,9 @@
 //! Library-owned runtime surface for `math-geometry-2d`.
 
 use runtime_core::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    describe_surface_response, parse_surface_input, structured_operation_response,
+    surface_operation, validate_max_items, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceError, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 use serde::Deserialize;
 
@@ -72,61 +73,47 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
+    surface_operation(id, name, description, example_request)
 }
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    let surface = package_surface();
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => describe_value(request.input),
-        "geometry.bounds" => bounds_value(parse_input(request.input)?)?,
-        "geometry.transform" => transform_value(parse_input(request.input)?)?,
-        "geometry.intersections" => intersections_value(parse_input(request.input)?)?,
-        "geometry.overlap" => overlap_value(parse_input(request.input)?)?,
-        "geometry.segmentIntersection" => segment_intersection_value(parse_input(request.input)?)?,
-        "geometry.polygonSummary" => polygon_summary_value(parse_input(request.input)?)?,
+        "describe" => return Ok(describe_surface_response(&surface, request)),
+        "geometry.bounds" => bounds_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "geometry.transform" => transform_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "geometry.intersections" => intersections_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "geometry.overlap" => overlap_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "geometry.segmentIntersection" => segment_intersection_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "geometry.polygonSummary" => polygon_summary_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ));
+            return Err(
+                SurfaceError::unsupported_operation(operation, env!("CARGO_PKG_NAME"))
+                    .to_error_string(),
+            );
         }
     };
-    Ok(response(operation, value))
-}
-
-fn describe_value(input: serde_json::Value) -> serde_json::Value {
-    let surface = package_surface();
-    serde_json::json!({
-        "library": surface.library,
-        "version": surface.version,
-        "operationCount": surface.operations.len(),
-        "operations": surface
-            .operations
-            .iter()
-            .map(|operation| operation.id.as_str())
-            .collect::<Vec<_>>(),
-        "input": input
-    })
-}
-
-fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    Ok(structured_operation_response(&surface, operation, value))
 }
 
 #[derive(Debug, Deserialize)]
@@ -169,35 +156,40 @@ struct SegmentIntersectionRequest {
     right: SegmentEndpointRequest,
 }
 
-fn bounds_value(request: PointsRequest) -> Result<serde_json::Value, String> {
-    let points = points_from_arrays(request.points)?;
-    bounds_json(bounds_for_points(&points)?)
+fn bounds_value(operation: &str, request: PointsRequest) -> Result<serde_json::Value, String> {
+    let points = points_from_arrays(operation, request.points)?;
+    bounds_json(operation, bounds_for_points(operation, &points)?)
 }
 
-fn transform_value(request: TransformRequest) -> Result<serde_json::Value, String> {
+fn transform_value(
+    operation: &str,
+    request: TransformRequest,
+) -> Result<serde_json::Value, String> {
     request
         .transform
         .validate()
-        .map_err(|error| error.to_string())?;
-    let points = points_from_arrays(request.points)?;
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
+    let points = points_from_arrays(operation, request.points)?;
     let transformed = points
         .into_iter()
         .map(|point| request.transform.apply_point(point))
         .collect::<Vec<_>>();
-    let bounds = bounds_for_points(&transformed)?;
+    let bounds = bounds_for_points(operation, &transformed)?;
     Ok(serde_json::json!({
-        "determinant": request.transform.determinant().map_err(|error| error.to_string())?,
+        "determinant": request.transform.determinant().map_err(|error| invalid_request(operation, error.to_string()))?,
         "points": transformed.iter().map(point_array).collect::<Vec<_>>(),
-        "bounds": bounds_json(bounds)?
+        "bounds": bounds_json(operation, bounds)?
     }))
 }
 
-fn intersections_value(request: IntersectionsRequest) -> Result<serde_json::Value, String> {
-    if request.rects.len() > MAX_VALUES {
-        return Err(format!("rects must not exceed {MAX_VALUES}"));
-    }
+fn intersections_value(
+    operation: &str,
+    request: IntersectionsRequest,
+) -> Result<serde_json::Value, String> {
+    validate_max_items(operation, "rects", request.rects.len(), MAX_VALUES)?;
     for rect in &request.rects {
-        rect.validate().map_err(|error| error.to_string())?;
+        rect.validate()
+            .map_err(|error| invalid_request(operation, error.to_string()))?;
     }
     let mut pairs = Vec::new();
     for left_index in 0..request.rects.len() {
@@ -206,7 +198,7 @@ fn intersections_value(request: IntersectionsRequest) -> Result<serde_json::Valu
             let right = request.rects[right_index];
             let intersection = left
                 .intersection(right)
-                .map_err(|error| error.to_string())?;
+                .map_err(|error| invalid_request(operation, error.to_string()))?;
             pairs.push(serde_json::json!({
                 "left": left_index,
                 "right": right_index,
@@ -221,39 +213,43 @@ fn intersections_value(request: IntersectionsRequest) -> Result<serde_json::Valu
     }))
 }
 
-fn overlap_value(request: OverlapRequest) -> Result<serde_json::Value, String> {
-    request.left.validate().map_err(|error| error.to_string())?;
+fn overlap_value(operation: &str, request: OverlapRequest) -> Result<serde_json::Value, String> {
+    request
+        .left
+        .validate()
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     request
         .right
         .validate()
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     let intersection = request
         .left
         .intersection(request.right)
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     let intersection_area = intersection
         .map(|rect| rect.area())
         .transpose()
-        .map_err(|error| error.to_string())?
+        .map_err(|error| invalid_request(operation, error.to_string()))?
         .unwrap_or(0.0);
     Ok(serde_json::json!({
         "intersects": intersection.is_some(),
         "intersection": intersection.map(rect_json),
         "intersectionArea": intersection_area,
-        "iou": request.left.iou(request.right).map_err(|error| error.to_string())?,
-        "leftOverlapRatio": request.left.overlap_ratio(request.right).map_err(|error| error.to_string())?,
-        "rightOverlapRatio": request.right.overlap_ratio(request.left).map_err(|error| error.to_string())?
+        "iou": request.left.iou(request.right).map_err(|error| invalid_request(operation, error.to_string()))?,
+        "leftOverlapRatio": request.left.overlap_ratio(request.right).map_err(|error| invalid_request(operation, error.to_string()))?,
+        "rightOverlapRatio": request.right.overlap_ratio(request.left).map_err(|error| invalid_request(operation, error.to_string()))?
     }))
 }
 
 fn segment_intersection_value(
+    operation: &str,
     request: SegmentIntersectionRequest,
 ) -> Result<serde_json::Value, String> {
-    let left = segment_from_request(request.left)?;
-    let right = segment_from_request(request.right)?;
+    let left = segment_from_request(operation, request.left)?;
+    let right = segment_from_request(operation, request.right)?;
     let intersection = left
         .intersection(right)
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     Ok(serde_json::json!({
         "intersects": intersection.is_some(),
         "intersection": intersection.map(|value| serde_json::json!({
@@ -264,53 +260,59 @@ fn segment_intersection_value(
     }))
 }
 
-fn polygon_summary_value(request: PointsRequest) -> Result<serde_json::Value, String> {
-    let polygon =
-        Polygon2f::new(points_from_arrays(request.points)?).map_err(|error| error.to_string())?;
+fn polygon_summary_value(
+    operation: &str,
+    request: PointsRequest,
+) -> Result<serde_json::Value, String> {
+    let polygon = Polygon2f::new(points_from_arrays(operation, request.points)?)
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     Ok(serde_json::json!({
         "pointCount": polygon.points().len(),
-        "area": polygon.area().map_err(|error| error.to_string())?,
-        "signedArea": polygon.signed_area().map_err(|error| error.to_string())?,
-        "clockwise": polygon.is_clockwise().map_err(|error| error.to_string())?,
-        "centroid": point_array(&polygon.centroid().map_err(|error| error.to_string())?),
-        "bounds": bounds_json(polygon.bounds().map_err(|error| error.to_string())?)?
+        "area": polygon.area().map_err(|error| invalid_request(operation, error.to_string()))?,
+        "signedArea": polygon.signed_area().map_err(|error| invalid_request(operation, error.to_string()))?,
+        "clockwise": polygon.is_clockwise().map_err(|error| invalid_request(operation, error.to_string()))?,
+        "centroid": point_array(&polygon.centroid().map_err(|error| invalid_request(operation, error.to_string()))?),
+        "bounds": bounds_json(operation, polygon.bounds().map_err(|error| invalid_request(operation, error.to_string()))?)?
     }))
 }
 
-fn points_from_arrays(points: Vec<[f32; 2]>) -> Result<Vec<Point2f>, String> {
+fn points_from_arrays(operation: &str, points: Vec<[f32; 2]>) -> Result<Vec<Point2f>, String> {
     if points.is_empty() {
-        return Err("points must not be empty".to_string());
+        return Err(invalid_request(operation, "points must not be empty"));
     }
-    if points.len() > MAX_VALUES {
-        return Err(format!("points must not exceed {MAX_VALUES}"));
-    }
+    validate_max_items(operation, "points", points.len(), MAX_VALUES)?;
     points
         .into_iter()
         .map(|point| Point2f::new(point[0], point[1]))
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| error.to_string())
+        .map_err(|error| invalid_request(operation, error.to_string()))
 }
 
-fn bounds_for_points(points: &[Point2f]) -> Result<Bounds2f, String> {
-    Bounds2f::from_points(points).map_err(|error| error.to_string())
+fn bounds_for_points(operation: &str, points: &[Point2f]) -> Result<Bounds2f, String> {
+    Bounds2f::from_points(points).map_err(|error| invalid_request(operation, error.to_string()))
 }
 
-fn bounds_json(bounds: Bounds2f) -> Result<serde_json::Value, String> {
+fn bounds_json(operation: &str, bounds: Bounds2f) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({
         "min": point_array(&bounds.min),
         "max": point_array(&bounds.max),
         "width": bounds.width(),
         "height": bounds.height(),
-        "center": point_array(&bounds.center().map_err(|error| error.to_string())?)
+        "center": point_array(&bounds.center().map_err(|error| invalid_request(operation, error.to_string()))?)
     }))
 }
 
-fn segment_from_request(request: SegmentEndpointRequest) -> Result<LineSegment2, String> {
+fn segment_from_request(
+    operation: &str,
+    request: SegmentEndpointRequest,
+) -> Result<LineSegment2, String> {
     LineSegment2::new(
-        Point2f::new(request.start[0], request.start[1]).map_err(|error| error.to_string())?,
-        Point2f::new(request.end[0], request.end[1]).map_err(|error| error.to_string())?,
+        Point2f::new(request.start[0], request.start[1])
+            .map_err(|error| invalid_request(operation, error.to_string()))?,
+        Point2f::new(request.end[0], request.end[1])
+            .map_err(|error| invalid_request(operation, error.to_string()))?,
     )
-    .map_err(|error| error.to_string())
+    .map_err(|error| invalid_request(operation, error.to_string()))
 }
 
 fn point_array(point: &Point2f) -> [f32; 2] {
@@ -326,8 +328,8 @@ fn rect_json(rect: RectF32) -> serde_json::Value {
     })
 }
 
-fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
+fn invalid_request(operation: &str, message: impl Into<String>) -> String {
+    SurfaceError::invalid_request(Some(OperationId::new(operation)), message).to_error_string()
 }
 
 #[cfg(test)]

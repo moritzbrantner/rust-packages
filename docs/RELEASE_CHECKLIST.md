@@ -33,6 +33,20 @@ scripts/check.sh
 scripts/check_e2e_external_tools.sh
 ```
 
+## Contract-Readiness Gate
+
+Run this gate before choosing any publish wave. It checks contract ownership,
+adapter parity, deterministic default surfaces, generated artifact hygiene, and
+release checklist wording; it does not publish crates.
+
+```bash
+cargo test --test contract_ownership --test dependency_layers --test foundation_surface_audit --test package_structure --test package_interop_pipeline
+bun run snapshot:check
+bun run hygiene:generated
+cargo fmt --check
+git diff --check
+```
+
 ## Package Dry Runs
 
 Every publishable crate in the release wave must pass a package dry run before
@@ -170,7 +184,8 @@ Do not publish:
 - Do not introduce new warnings in publishable crates.
 - Keep external-tool coverage opt-in and non-blocking for normal contributor
   workflows.
-- Runtime surface DTOs live in `video-analysis-core::runtime`.
+- Runtime surface DTOs live in `moritzbrantner-runtime-core` and are
+  re-exported from `video-analysis-core::runtime` for compatibility.
 - Generic jobs, result envelopes, and artifact storage live in `jobs-core`.
 - Model-specific downloads, bundle manifests, and model artifact metadata live
   in `model-runtime`.

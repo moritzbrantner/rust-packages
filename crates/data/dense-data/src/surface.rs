@@ -1,8 +1,9 @@
 //! Library-owned runtime surface for `dense-data`.
 
 use runtime_core::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    describe_surface_response, parse_surface_input, structured_operation_response,
+    surface_operation, OperationId, PackageSurface, RuntimeCapabilities, SurfaceError,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 use serde::Deserialize;
 
@@ -127,45 +128,32 @@ pub fn package_surface() -> PackageSurface {
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    let surface = package_surface();
+    let operation = request.operation.clone();
     match request.operation.as_str() {
-        "describe" => {
-            let surface = package_surface();
-            Ok(SurfaceResponse {
-                operation: request.operation,
-                value: serde_json::json!({
-                    "library": surface.library,
-                    "version": surface.version,
-                    "operationCount": surface.operations.len(),
-                    "operations": surface
-                        .operations
-                        .iter()
-                        .map(|operation| operation.id.as_str())
-                        .collect::<Vec<_>>(),
-                    "input": request.input
-                }),
-                diagnostics: Vec::new(),
-                artifacts: Vec::new(),
-            })
-        }
+        "describe" => Ok(describe_surface_response(&surface, request)),
         "summarizeDensePoints" => {
             let input: DensePointsInput =
-                serde_json::from_value(request.input).map_err(|error| error.to_string())?;
-            let points = parse_dense_points(input.points)?;
-            let summary = crate::dense_summary(&points).map_err(|error| error.to_string())?;
-            Ok(surface_response(
-                request.operation,
+                parse_surface_input(Some(operation.as_str()), request.input)?;
+            let points = parse_dense_points(operation.as_str(), input.points)?;
+            let summary = crate::dense_summary(&points)
+                .map_err(|error| invalid_request(operation.as_str(), error.to_string()))?;
+            Ok(structured_operation_response(
+                &surface,
+                operation,
                 dense_summary_value(&summary),
             ))
         }
         "bucketDensePoints" => {
             let input: BucketDensePointsInput =
-                serde_json::from_value(request.input).map_err(|error| error.to_string())?;
-            let points = parse_dense_points(input.points)?;
-            let grid = input.grid.into_bucket_grid()?;
-            let buckets =
-                crate::bucket_points(&points, &grid).map_err(|error| error.to_string())?;
-            Ok(surface_response(
-                request.operation,
+                parse_surface_input(Some(operation.as_str()), request.input)?;
+            let points = parse_dense_points(operation.as_str(), input.points)?;
+            let grid = input.grid.into_bucket_grid(operation.as_str())?;
+            let buckets = crate::bucket_points(&points, &grid)
+                .map_err(|error| invalid_request(operation.as_str(), error.to_string()))?;
+            Ok(structured_operation_response(
+                &surface,
+                operation,
                 serde_json::json!({
                     "buckets": buckets
                         .iter()
@@ -185,20 +173,24 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         }
         "clusterDensePoints" => {
             let input: ClusterDensePointsInput =
-                serde_json::from_value(request.input).map_err(|error| error.to_string())?;
-            let points = parse_dense_points(input.points)?;
-            let mut config =
-                KMeansConfig::new(input.clusters).map_err(|error| error.to_string())?;
+                parse_surface_input(Some(operation.as_str()), request.input)?;
+            let points = parse_dense_points(operation.as_str(), input.points)?;
+            let mut config = KMeansConfig::new(input.clusters)
+                .map_err(|error| invalid_request(operation.as_str(), error.to_string()))?;
             if let Some(max_iterations) = input.max_iterations {
                 config.max_iterations = max_iterations;
             }
             if let Some(tolerance) = input.tolerance {
                 config.tolerance = tolerance;
             }
-            config.validate().map_err(|error| error.to_string())?;
-            let result = crate::k_means(&points, config).map_err(|error| error.to_string())?;
-            Ok(surface_response(
-                request.operation,
+            config
+                .validate()
+                .map_err(|error| invalid_request(operation.as_str(), error.to_string()))?;
+            let result = crate::k_means(&points, config)
+                .map_err(|error| invalid_request(operation.as_str(), error.to_string()))?;
+            Ok(structured_operation_response(
+                &surface,
+                operation,
                 serde_json::json!({
                     "iterations": result.iterations,
                     "clusters": result
@@ -221,16 +213,17 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         }
         "binNumericSeries" => {
             let input: BinNumericSeriesInput =
-                serde_json::from_value(request.input).map_err(|error| error.to_string())?;
-            Ok(surface_response(
-                request.operation,
-                bin_numeric_series(input)?,
+                parse_surface_input(Some(operation.as_str()), request.input)?;
+            Ok(structured_operation_response(
+                &surface,
+                operation.clone(),
+                bin_numeric_series(operation.as_str(), input)?,
             ))
         }
-        operation => Err(format!(
-            "unsupported operation `{operation}` for {}",
-            env!("CARGO_PKG_NAME")
-        )),
+        operation => Err(
+            SurfaceError::unsupported_operation(operation, env!("CARGO_PKG_NAME"))
+                .to_error_string(),
+        ),
     }
 }
 
@@ -266,14 +259,20 @@ struct BucketGridInput {
 }
 
 impl BucketGridInput {
-    fn into_bucket_grid(self) -> Result<BucketGrid, String> {
+    fn into_bucket_grid(self, operation: &str) -> Result<BucketGrid, String> {
         let origin = self.origin.unwrap_or_else(|| vec![0.0; self.dimensions]);
         let widths = match (self.widths, self.cell_size) {
             (Some(widths), _) => widths,
             (None, Some(cell_size)) => vec![cell_size; self.dimensions],
-            (None, None) => return Err("bucket grid requires `cellSize` or `widths`".to_string()),
+            (None, None) => {
+                return Err(invalid_request(
+                    operation,
+                    "bucket grid requires `cellSize` or `widths`",
+                ))
+            }
         };
-        BucketGrid::new(origin, widths).map_err(|error| error.to_string())
+        BucketGrid::new(origin, widths)
+            .map_err(|error| invalid_request(operation, error.to_string()))
     }
 }
 
@@ -312,48 +311,41 @@ fn operation(
     output_schema: serde_json::Value,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema,
-        output_schema,
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
+    let _ = (input_schema, output_schema);
+    surface_operation(id, name, description, example_request)
 }
 
-fn surface_response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
-}
-
-fn parse_dense_points(inputs: Vec<DensePointInput>) -> Result<Vec<DensePoint>, String> {
+fn parse_dense_points(
+    operation: &str,
+    inputs: Vec<DensePointInput>,
+) -> Result<Vec<DensePoint>, String> {
     inputs
         .into_iter()
         .map(|input| {
-            let mut point =
-                DensePoint::new(input.coordinates).map_err(|error| error.to_string())?;
+            let mut point = DensePoint::new(input.coordinates)
+                .map_err(|error| invalid_request(operation, error.to_string()))?;
             if let Some(id) = input.id {
                 point = point.named(id);
             }
             if let Some(weight) = input.weight {
-                point = point.weighted(weight).map_err(|error| error.to_string())?;
+                point = point
+                    .weighted(weight)
+                    .map_err(|error| invalid_request(operation, error.to_string()))?;
             }
             if let Some(value) = input.value {
-                point = point.valued(value).map_err(|error| error.to_string())?;
+                point = point
+                    .valued(value)
+                    .map_err(|error| invalid_request(operation, error.to_string()))?;
             }
             Ok(point)
         })
         .collect()
 }
 
-fn bin_numeric_series(input: BinNumericSeriesInput) -> Result<serde_json::Value, String> {
+fn bin_numeric_series(
+    operation: &str,
+    input: BinNumericSeriesInput,
+) -> Result<serde_json::Value, String> {
     let index = NumericSeriesIndex::from_points(
         input
             .points
@@ -366,16 +358,20 @@ fn bin_numeric_series(input: BinNumericSeriesInput) -> Result<serde_json::Value,
             })
             .collect(),
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(|error| invalid_request(operation, error.to_string()))?;
     let result = index
         .bin(NumericSeriesBinQuery {
             x_domain: input.x_domain,
             target_bin_count: input.target_bin_count,
             include_empty_bins: input.include_empty_bins.unwrap_or(false),
         })
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
 
-    serde_json::to_value(result).map_err(|error| error.to_string())
+    serde_json::to_value(result).map_err(|error| invalid_request(operation, error.to_string()))
+}
+
+fn invalid_request(operation: &str, message: impl Into<String>) -> String {
+    SurfaceError::invalid_request(Some(OperationId::new(operation)), message).to_error_string()
 }
 
 fn dense_summary_value(summary: &crate::DenseSummary) -> serde_json::Value {

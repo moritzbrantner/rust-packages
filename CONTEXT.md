@@ -8,6 +8,18 @@ This context defines the project language for the Rust-first multimodal package 
 An engineer who imports the Rust crates or their adapter contracts to build an application or workflow.
 _Avoid_: End user, app user
 
+**Composable Building Block**:
+A crate capability exposed through stable library and adapter contracts so external projects can use it in workflows without the crate knowing about the workflow graph.
+_Avoid_: Workflow node, graph node, ComfyUI node
+
+**Contract Owner**:
+The crate that owns the most general semantic form of a shared type and defines compatibility rules for specialized crates.
+_Avoid_: Duplicate DTO owner, local schema copy
+
+**Adapter Parity**:
+The guarantee that library, CLI, REST, WASM, and web app surfaces delegate to the same library-owned behavior and preserve the same request and response contract.
+_Avoid_: Demo wrapper parity, transport-specific behavior
+
 **Runtime Surface**:
 A stable operation contract that lets a crate expose the same request and response shape across adapters.
 _Avoid_: Endpoint, demo API

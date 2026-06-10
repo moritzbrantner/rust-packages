@@ -287,6 +287,57 @@ fn representative_adapters_delegate_to_library_owned_surfaces() {
 }
 
 #[test]
+fn all_paired_rust_adapters_delegate_to_library_owned_surfaces() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let packages = active_workspace_packages(root);
+    let library_packages = packages
+        .iter()
+        .filter_map(|package| paired_library_package(root, package))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let mut failures = Vec::new();
+
+    for package in packages {
+        let Some(name) = package["name"].as_str() else {
+            continue;
+        };
+        let Some((surface_name, adapter_kind)) = adapter_surface_name(name) else {
+            continue;
+        };
+        let Some(library) = library_packages.get(surface_name) else {
+            continue;
+        };
+        if adapter_parity_exception(name) {
+            continue;
+        }
+        let manifest = PathBuf::from(package["manifest_path"].as_str().expect("manifest path"));
+        let source_path = manifest.parent().expect("crate dir").join("src/lib.rs");
+        let source = read_source(&source_path);
+        let call_package = format!("{}::surface::package_surface()", library.import_name);
+        let call_run = format!("{}::surface::run_surface_operation", library.import_name);
+
+        if !source.contains(&call_package) {
+            failures.push(format!(
+                "{name} ({adapter_kind}) must call `{call_package}`"
+            ));
+        }
+        if !source.contains(&call_run) {
+            failures.push(format!("{name} ({adapter_kind}) must call `{call_run}`"));
+        }
+        if source.contains(".operation.as_str()") {
+            failures.push(format!(
+                "{name} ({adapter_kind}) must not branch on operation IDs"
+            ));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "paired Rust adapters must stay thin wrappers: {}",
+        failures.join(", ")
+    );
+}
+
+#[test]
 fn retired_runtime_surfaces_are_removed_and_documented() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let docs = fs::read_to_string(root.join("docs/runtime-surfaces.md")).unwrap();
@@ -429,6 +480,63 @@ fn library_manifests(root: &Path) -> Vec<PathBuf> {
             has_library_target(&package).then_some(manifest)
         })
         .collect()
+}
+
+#[derive(Debug)]
+struct PairedLibraryPackage {
+    import_name: String,
+}
+
+fn paired_library_package(
+    root: &Path,
+    package: &serde_json::Value,
+) -> Option<(String, PairedLibraryPackage)> {
+    let manifest = PathBuf::from(package["manifest_path"].as_str()?);
+    let package_name = package["name"].as_str()?;
+    let relative = manifest.strip_prefix(root).ok()?.to_string_lossy();
+    if !relative.starts_with("crates/")
+        || relative.starts_with("crates/bindings/")
+        || package_name.ends_with("-cli")
+        || package_name.ends_with("-server")
+        || package_name.ends_with("-wasm")
+        || !has_library_target(package)
+    {
+        return None;
+    }
+    let surface_name = surface_package_name(package_name).to_string();
+    let source = fs::read_to_string(manifest.parent()?.join("src/lib.rs")).ok()?;
+    source.contains("pub mod surface;").then_some((
+        surface_name.clone(),
+        PairedLibraryPackage {
+            import_name: surface_name.replace('-', "_"),
+        },
+    ))
+}
+
+fn adapter_surface_name(package_name: &str) -> Option<(&str, &'static str)> {
+    let surface_name = surface_package_name(package_name);
+    surface_name
+        .strip_suffix("-cli")
+        .map(|name| (name, "cli"))
+        .or_else(|| {
+            surface_name
+                .strip_suffix("-server")
+                .map(|name| (name, "server"))
+        })
+        .or_else(|| {
+            surface_name
+                .strip_suffix("-wasm")
+                .map(|name| (name, "wasm"))
+        })
+}
+
+fn adapter_parity_exception(package_name: &str) -> bool {
+    matches!(
+        package_name,
+        // Native server dispatch boundary: reconstruct.video delegates into the
+        // library crate's server-side reconstruction entry point.
+        "moritzbrantner-video-analysis-sfm-server"
+    )
 }
 
 fn active_workspace_packages(root: &Path) -> Vec<serde_json::Value> {

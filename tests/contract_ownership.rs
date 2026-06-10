@@ -776,6 +776,377 @@ fn audio_crates_do_not_define_transcript_dtos() {
     );
 }
 
+#[test]
+fn runtime_surface_dtos_are_owned_by_runtime_core() {
+    for type_name in [
+        "RuntimeCapabilities",
+        "PackageSurface",
+        "SurfaceOperation",
+        "SurfaceRequest",
+        "SurfaceResponse",
+        "SurfaceExecutionPlan",
+        "SurfaceArtifactExpectation",
+        "SurfaceExecutionMode",
+        "SurfaceSideEffect",
+    ] {
+        assert_public_contract_owned_by(type_name, "crates/runtime/runtime-core/");
+    }
+}
+
+#[test]
+fn surface_operation_has_no_workflow_graph_metadata() {
+    let source = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/runtime/runtime-core/src/lib.rs"),
+    )
+    .expect("read runtime-core source");
+    let body = public_struct_body(&source, "SurfaceOperation");
+
+    for field in public_field_names(body) {
+        let lower = field.to_ascii_lowercase();
+        for forbidden in ["node", "edge", "graph", "socket", "layout", "workflow"] {
+            assert!(
+                !lower.contains(forbidden),
+                "SurfaceOperation field `{field}` must not introduce workflow graph metadata"
+            );
+        }
+        assert!(
+            lower != "port"
+                && !lower.ends_with("_port")
+                && !lower.contains("port_")
+                && !lower.ends_with("_ports")
+                && !lower.contains("ports_"),
+            "SurfaceOperation field `{field}` must not introduce port metadata"
+        );
+    }
+
+    for forbidden_type in ["NodePort", "WorkflowNode", "WorkflowEdge"] {
+        assert!(
+            !source.contains(forbidden_type),
+            "runtime-core must not add workflow graph DTO `{forbidden_type}`"
+        );
+    }
+}
+
+#[test]
+fn foundation_contract_owner_rules_remain_enforced() {
+    for (type_name, owner) in [
+        ("JobSpec", "crates/jobs/jobs-core/"),
+        ("JobArtifact", "crates/jobs/jobs-core/"),
+        ("ArtifactRef", "crates/jobs/jobs-core/"),
+        ("ModelSpec", "crates/runtime/model-runtime/"),
+        ("ModelTask", "crates/runtime/model-runtime/"),
+        ("ModelBundle", "crates/runtime/model-runtime/"),
+        ("ModelBundleManifest", "crates/runtime/model-runtime/"),
+        ("ModelRuntimeSelection", "crates/runtime/model-runtime/"),
+        ("Timebase", "crates/video/video-analysis-core/"),
+        ("Timestamp", "crates/video/video-analysis-core/"),
+        ("VideoFrame", "crates/video/video-analysis-core/"),
+        ("OwnedVideoFrame", "crates/video/video-analysis-core/"),
+        ("BoundingBox", "crates/video/video-analysis-core/"),
+        ("Observation", "crates/video/video-analysis-core/"),
+        ("ImageView", "crates/image/image-analysis-core/"),
+        ("OwnedImage", "crates/image/image-analysis-core/"),
+        ("AudioFrames", "crates/audio/audio-analysis-core/"),
+        ("AudioFeaturePoint", "crates/audio/audio-analysis-core/"),
+        ("AudioFeatureSeries", "crates/audio/audio-analysis-core/"),
+        ("TextDocumentContract", "crates/text/text-core/"),
+        ("TextSegmentContract", "crates/text/text-core/"),
+        ("TranscriptSegmentContract", "crates/text/text-transcripts/"),
+        ("TranscriptionContract", "crates/text/text-transcripts/"),
+        ("TensorShape", "crates/data/tensor-data/"),
+        ("F32Tensor", "crates/data/tensor-data/"),
+        ("DenseVector", "crates/vector/vector-analysis-core/"),
+        ("SparseVector", "crates/math/math-sparse-data/"),
+        ("DensePoint", "crates/data/dense-data/"),
+        ("DenseDataset", "crates/data/dense-data/"),
+        ("NumberSummary", "crates/data/numbers-core/"),
+        ("NumberRange", "crates/data/numbers-core/"),
+        ("Point2f", "crates/math/math-geometry-2d/"),
+        ("RectU32", "crates/math/math-geometry-2d/"),
+        ("NormalizedPoint2", "crates/math/math-geometry-2d/"),
+        ("SampleRate", "crates/math/math-signal-core/"),
+        ("SignalLevels", "crates/math/math-signal-core/"),
+    ] {
+        assert_public_contract_owned_by(type_name, owner);
+    }
+}
+
+#[test]
+fn foundation_adapters_delegate_to_library_owned_surfaces() {
+    for case in [
+        FoundationAdapterCase {
+            crate_name: "jobs-core",
+            import_name: "jobs_core",
+            cli: "crates/jobs/jobs-core-cli/src/lib.rs",
+            server: "crates/jobs/jobs-core-server/src/lib.rs",
+            wasm: "crates/bindings/jobs-core-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "model-runtime",
+            import_name: "model_runtime",
+            cli: "crates/runtime/model-runtime-cli/src/lib.rs",
+            server: "crates/runtime/model-runtime-server/src/lib.rs",
+            wasm: "crates/bindings/model-runtime-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "video-analysis-core",
+            import_name: "video_analysis_core",
+            cli: "crates/video/video-analysis-core-cli/src/lib.rs",
+            server: "crates/video/video-analysis-core-server/src/lib.rs",
+            wasm: "crates/bindings/video-analysis-core-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "image-analysis-core",
+            import_name: "image_analysis_core",
+            cli: "crates/image/image-analysis-core-cli/src/lib.rs",
+            server: "crates/image/image-analysis-core-server/src/lib.rs",
+            wasm: "crates/bindings/image-analysis-core-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "audio-analysis-core",
+            import_name: "audio_analysis_core",
+            cli: "crates/audio/audio-analysis-core-cli/src/lib.rs",
+            server: "crates/audio/audio-analysis-core-server/src/lib.rs",
+            wasm: "crates/bindings/audio-analysis-core-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "text-core",
+            import_name: "text_core",
+            cli: "crates/text/text-core-cli/src/lib.rs",
+            server: "crates/text/text-core-server/src/lib.rs",
+            wasm: "crates/bindings/text-core-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "text-transcripts",
+            import_name: "text_transcripts",
+            cli: "crates/text/text-transcripts-cli/src/lib.rs",
+            server: "crates/text/text-transcripts-server/src/lib.rs",
+            wasm: "crates/bindings/text-transcripts-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "tensor-data",
+            import_name: "tensor_data",
+            cli: "crates/data/tensor-data-cli/src/lib.rs",
+            server: "crates/data/tensor-data-server/src/lib.rs",
+            wasm: "crates/bindings/tensor-data-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "vector-analysis-core",
+            import_name: "vector_analysis_core",
+            cli: "crates/vector/vector-analysis-core-cli/src/lib.rs",
+            server: "crates/vector/vector-analysis-core-server/src/lib.rs",
+            wasm: "crates/bindings/vector-analysis-core-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "math-sparse-data",
+            import_name: "math_sparse_data",
+            cli: "crates/math/math-sparse-data-cli/src/lib.rs",
+            server: "crates/math/math-sparse-data-server/src/lib.rs",
+            wasm: "crates/bindings/math-sparse-data-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "dense-data",
+            import_name: "dense_data",
+            cli: "crates/data/dense-data-cli/src/lib.rs",
+            server: "crates/data/dense-data-server/src/lib.rs",
+            wasm: "crates/bindings/dense-data-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "numbers-core",
+            import_name: "numbers_core",
+            cli: "crates/data/numbers-core-cli/src/lib.rs",
+            server: "crates/data/numbers-core-server/src/lib.rs",
+            wasm: "crates/bindings/numbers-core-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "math-geometry-2d",
+            import_name: "math_geometry_2d",
+            cli: "crates/math/math-geometry-2d-cli/src/lib.rs",
+            server: "crates/math/math-geometry-2d-server/src/lib.rs",
+            wasm: "crates/bindings/math-geometry-2d-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "math-signal-core",
+            import_name: "math_signal_core",
+            cli: "crates/math/math-signal-core-cli/src/lib.rs",
+            server: "crates/math/math-signal-core-server/src/lib.rs",
+            wasm: "crates/bindings/math-signal-core-wasm/src/lib.rs",
+        },
+    ] {
+        assert_cli_adapter_delegates(case);
+        assert_server_adapter_delegates(case);
+        assert_wasm_adapter_delegates(case);
+    }
+}
+
+#[test]
+fn release_checklist_documents_contract_readiness_gate() {
+    let checklist = read_source("docs/RELEASE_CHECKLIST.md");
+
+    assert!(
+        checklist.contains("moritzbrantner-runtime-core"),
+        "release checklist must name runtime-core as the runtime DTO owner"
+    );
+    assert!(
+        checklist.contains("video-analysis-core::runtime")
+            && checklist.contains("re-exported")
+            && checklist.contains("compatibility"),
+        "release checklist must describe video-analysis-core::runtime as a compatibility re-export"
+    );
+    assert!(
+        checklist.contains("## Contract-Readiness Gate"),
+        "release checklist must include the named contract-readiness gate"
+    );
+    for command in [
+        "cargo test --test contract_ownership --test dependency_layers --test foundation_surface_audit --test package_structure --test package_interop_pipeline",
+        "bun run snapshot:check",
+        "bun run hygiene:generated",
+        "cargo fmt --check",
+        "git diff --check",
+    ] {
+        assert!(
+            checklist.contains(command),
+            "release checklist contract-readiness gate missing `{command}`"
+        );
+    }
+    assert!(
+        !checklist.contains("Runtime surface DTOs live in `video-analysis-core::runtime`."),
+        "release checklist must not retain stale video-analysis-core runtime DTO ownership wording"
+    );
+}
+
+#[derive(Clone, Copy)]
+struct FoundationAdapterCase {
+    crate_name: &'static str,
+    import_name: &'static str,
+    cli: &'static str,
+    server: &'static str,
+    wasm: &'static str,
+}
+
+fn assert_cli_adapter_delegates(case: FoundationAdapterCase) {
+    let source = read_source(case.cli);
+    assert!(
+        source.contains(&format!("{}::surface::package_surface()", case.import_name)),
+        "{} CLI adapter must delegate package_surface to the library crate",
+        case.crate_name
+    );
+    assert!(
+        source.contains(&format!(
+            "{}::surface::run_surface_operation",
+            case.import_name
+        )),
+        "{} CLI adapter must delegate execution to the library crate",
+        case.crate_name
+    );
+}
+
+fn assert_server_adapter_delegates(case: FoundationAdapterCase) {
+    let source = read_source(case.server);
+    assert!(
+        source.contains(&format!("{}::surface::package_surface()", case.import_name)),
+        "{} server adapter must delegate package_surface to the library crate",
+        case.crate_name
+    );
+    assert!(
+        source.contains(&format!(
+            "{}::surface::run_surface_operation",
+            case.import_name
+        )),
+        "{} server adapter must delegate execution to the library crate",
+        case.crate_name
+    );
+}
+
+fn assert_wasm_adapter_delegates(case: FoundationAdapterCase) {
+    let source = read_source(case.wasm);
+    assert!(
+        source.contains(&format!("{}::surface::package_surface()", case.import_name)),
+        "{} WASM adapter must delegate package_surface to the library crate",
+        case.crate_name
+    );
+    assert!(
+        source.contains(&format!(
+            "{}::surface::run_surface_operation",
+            case.import_name
+        )),
+        "{} WASM adapter must delegate execution to the library crate",
+        case.crate_name
+    );
+}
+
+fn assert_public_contract_owned_by(type_name: &str, owner_prefix: &str) {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut owners = Vec::new();
+    collect_rust_sources(&root.join("crates"), &mut |path| {
+        let source = fs::read_to_string(path).expect("read Rust source");
+        if source
+            .lines()
+            .any(|line| public_type_declaration_name(line) == Some(type_name))
+        {
+            owners.push(
+                path.strip_prefix(root)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .to_string(),
+            );
+        }
+    });
+
+    assert!(
+        !owners.is_empty(),
+        "expected to find public contract `{type_name}`"
+    );
+    let violations = owners
+        .iter()
+        .filter(|path| !path.starts_with(owner_prefix))
+        .cloned()
+        .collect::<Vec<_>>();
+    assert!(
+        violations.is_empty(),
+        "`{type_name}` must be owned by `{owner_prefix}`, found parallel definitions in: {}",
+        violations.join(", ")
+    );
+}
+
+fn public_type_declaration_name(line: &str) -> Option<&str> {
+    let line = line.trim_start();
+    let declaration = line
+        .strip_prefix("pub struct ")
+        .or_else(|| line.strip_prefix("pub enum "))?;
+    declaration
+        .split(|character: char| {
+            character.is_whitespace() || matches!(character, '{' | '(' | ';' | '<')
+        })
+        .next()
+}
+
+fn read_source(path: &str) -> String {
+    fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join(path))
+        .unwrap_or_else(|err| panic!("read source `{path}`: {err}"))
+}
+
+fn public_struct_body<'a>(source: &'a str, name: &str) -> &'a str {
+    let declaration = format!("pub struct {name} {{");
+    let start = source
+        .find(&declaration)
+        .unwrap_or_else(|| panic!("find struct declaration `{declaration}`"));
+    let body_start = start + declaration.len();
+    let end = source[body_start..]
+        .find("\n}")
+        .unwrap_or_else(|| panic!("find end of struct `{name}`"));
+    &source[body_start..body_start + end]
+}
+
+fn public_field_names(body: &str) -> impl Iterator<Item = &str> {
+    body.lines().filter_map(|line| {
+        line.trim()
+            .strip_prefix("pub ")
+            .and_then(|field| field.split_once(':'))
+            .map(|(name, _)| name.trim())
+    })
+}
+
 fn is_audio_transcription_surface_type(path: &str, line: &str) -> bool {
     if path.contains("crates/audio/audio-analysis-recognition/src/transcription.rs") {
         return line.contains("pub enum TranscriptionInput")

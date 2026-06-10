@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `image-analysis-core`.
 
 use runtime_core::{
-    describe_surface_response, structured_operation_response, OperationId, PackageSurface,
-    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
+    describe_surface_response, parse_surface_input, structured_operation_response,
+    surface_operation, validate_max_items, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceError, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
 use crate::{luma_histogram, mask_tensor_from_luma, mean_rgb, ImagePixelFormat, ImageView};
@@ -55,16 +55,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
+    surface_operation(id, name, description, example_request)
 }
 
 /// Runs one library-owned operation.
@@ -73,21 +64,26 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
         "describe" => return Ok(describe_surface_response(&surface, request)),
-        "image.core.summary" => summary_value(parse_input(request.input)?)?,
-        "image.core.lumaHistogram" => histogram_value(parse_input(request.input)?)?,
-        "image.core.maskTensorSummary" => mask_tensor_summary_value(parse_input(request.input)?)?,
+        "image.core.summary" => summary_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "image.core.lumaHistogram" => histogram_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
+        "image.core.maskTensorSummary" => mask_tensor_summary_value(
+            operation.as_str(),
+            parse_surface_input(Some(operation.as_str()), request.input)?,
+        )?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ))
+            return Err(
+                SurfaceError::unsupported_operation(operation, env!("CARGO_PKG_NAME"))
+                    .to_error_string(),
+            )
         }
     };
     Ok(structured_operation_response(&surface, operation, value))
-}
-
-fn parse_input<T: DeserializeOwned>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
 }
 
 #[derive(Debug, Deserialize)]
@@ -120,9 +116,9 @@ struct ImagePayload {
     data: Vec<u8>,
 }
 
-fn summary_value(request: ImageRequest) -> Result<serde_json::Value, String> {
-    let image = request.image.view()?;
-    let mean = mean_rgb(&image).map_err(|error| error.to_string())?;
+fn summary_value(operation: &str, request: ImageRequest) -> Result<serde_json::Value, String> {
+    let image = request.image.view(operation)?;
+    let mean = mean_rgb(&image).map_err(|error| invalid_request(operation, error.to_string()))?;
     Ok(serde_json::json!({
         "width": image.width,
         "height": image.height,
@@ -138,23 +134,35 @@ fn summary_value(request: ImageRequest) -> Result<serde_json::Value, String> {
     }))
 }
 
-fn histogram_value(request: HistogramRequest) -> Result<serde_json::Value, String> {
+fn histogram_value(
+    operation: &str,
+    request: HistogramRequest,
+) -> Result<serde_json::Value, String> {
     let bins = request.bins.unwrap_or(DEFAULT_BINS);
     if bins == 0 || bins > MAX_BINS {
-        return Err(format!("bins must be between 1 and {MAX_BINS}"));
+        return Err(SurfaceError::resource_limit(
+            Some(OperationId::new(operation)),
+            "bins",
+            MAX_BINS,
+            bins,
+        )
+        .to_error_string());
     }
-    let image = request.image.view()?;
-    let histogram = luma_histogram(&image, bins).map_err(|error| error.to_string())?;
+    let image = request.image.view(operation)?;
+    let histogram = luma_histogram(&image, bins)
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     Ok(serde_json::json!({ "bins": bins, "histogram": histogram }))
 }
 
-fn mask_tensor_summary_value(request: MaskTensorRequest) -> Result<serde_json::Value, String> {
+fn mask_tensor_summary_value(
+    operation: &str,
+    request: MaskTensorRequest,
+) -> Result<serde_json::Value, String> {
     let preview_limit = request.preview_limit.unwrap_or(DEFAULT_PREVIEW_LIMIT);
-    if preview_limit > MAX_PREVIEW_LIMIT {
-        return Err(format!("previewLimit must be <= {MAX_PREVIEW_LIMIT}"));
-    }
-    let image = request.image.view()?;
-    let tensor = mask_tensor_from_luma(&image).map_err(|error| error.to_string())?;
+    validate_max_items(operation, "previewLimit", preview_limit, MAX_PREVIEW_LIMIT)?;
+    let image = request.image.view(operation)?;
+    let tensor = mask_tensor_from_luma(&image)
+        .map_err(|error| invalid_request(operation, error.to_string()))?;
     Ok(serde_json::json!({
         "shape": tensor.shape().dimensions(),
         "valueCount": tensor.values().len(),
@@ -164,23 +172,33 @@ fn mask_tensor_summary_value(request: MaskTensorRequest) -> Result<serde_json::V
 }
 
 impl ImagePayload {
-    fn view(&self) -> Result<ImageView<'_>, String> {
-        let pixel_format = parse_pixel_format(&self.pixel_format)?;
+    fn view(&self, operation: &str) -> Result<ImageView<'_>, String> {
+        let pixel_format = parse_pixel_format(operation, &self.pixel_format)?;
         let stride = self
             .stride
             .unwrap_or(self.width as usize * pixel_format.bytes_per_pixel());
         ImageView::new(self.width, self.height, pixel_format, &self.data, stride)
-            .map_err(|error| error.to_string())
+            .map_err(|error| invalid_request(operation, error.to_string()))
     }
 }
 
-fn parse_pixel_format(value: &str) -> Result<ImagePixelFormat, String> {
+fn parse_pixel_format(operation: &str, value: &str) -> Result<ImagePixelFormat, String> {
     match value {
         "rgb24" => Ok(ImagePixelFormat::Rgb24),
         "bgr24" => Ok(ImagePixelFormat::Bgr24),
         "gray8" => Ok(ImagePixelFormat::Gray8),
-        other => Err(format!("unsupported image pixel format `{other}`")),
+        other => Err(SurfaceError::unsupported_value(
+            Some(OperationId::new(operation)),
+            "pixelFormat",
+            other,
+            &["rgb24", "bgr24", "gray8"],
+        )
+        .to_error_string()),
     }
+}
+
+fn invalid_request(operation: &str, message: impl Into<String>) -> String {
+    SurfaceError::invalid_request(Some(OperationId::new(operation)), message).to_error_string()
 }
 
 fn pixel_format_name(format: ImagePixelFormat) -> &'static str {

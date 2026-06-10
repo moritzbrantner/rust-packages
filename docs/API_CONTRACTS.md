@@ -9,6 +9,45 @@ formats, file formats, package exports, and dependency boundaries.
 samples, scene detection, metrics, observations, analyzers, and pipelines. Other
 crates should compose around those contracts instead of defining parallel types.
 
+## Composable Building Block Policy
+
+Crates expose reusable domain behavior as composable building blocks. They must
+not depend on graph-builder concepts such as workflow nodes, ports, edges,
+sockets, or layout metadata. Workflow composition belongs in package consumers,
+prototypes, CLIs, or external projects that choose to map package operations to
+their own graph model.
+
+The crate owning the most general semantic form owns the stable contract.
+Specialized crates may enrich contracts for their domain, but they must preserve
+conversion paths back to the general contract instead of creating unrelated
+parallel DTOs.
+
+`moritzbrantner-runtime-core` owns the shared package-surface DTOs:
+`PackageSurface`, `SurfaceOperation`, `SurfaceRequest`, `SurfaceResponse`,
+execution plans, side effects, artifacts, diagnostics, and runtime
+capabilities. `SurfaceOperation` remains operation metadata, not workflow node
+metadata.
+
+Foundation contract owners for the first steering wave are:
+
+| Contract family | Owner |
+| --- | --- |
+| Runtime surface DTOs | `moritzbrantner-runtime-core` |
+| Jobs and artifacts | `moritzbrantner-jobs-core` |
+| Model specs, bundles, and model lifecycle | `moritzbrantner-model-runtime` |
+| Media samples, timestamps, observations, bounding boxes, analyzers | `moritzbrantner-video-analysis-core` |
+| Images | `moritzbrantner-image-analysis-core` |
+| Audio frames and features | `moritzbrantner-audio-analysis-core` |
+| Text documents and text segments | `moritzbrantner-text-core` |
+| Timed transcripts | `moritzbrantner-text-transcripts` |
+| Tensors | `moritzbrantner-tensor-data` |
+| Vectors | `moritzbrantner-vector-analysis-core` |
+| Sparse data | `moritzbrantner-math-sparse-data` |
+| Dense data | `moritzbrantner-dense-data` |
+| Numbers | `moritzbrantner-numbers-core` |
+| Geometry primitives | `moritzbrantner-math-geometry-2d` |
+| Signal primitives | `moritzbrantner-math-signal-core` |
+
 ## Package Surface Policy
 
 Runtime packages use the same generated surface shape, but the adapters stay
@@ -37,7 +76,8 @@ Every non-wrapper library crate owns its operation metadata and execution in
 `src/surface.rs`. Thin CLI, server, WASM, and app packages must call that
 library-owned surface instead of implementing package behavior in wrapper code.
 The shared `PackageSurface`, `SurfaceOperation`, `SurfaceRequest`, and
-`SurfaceResponse` DTOs live in `video-analysis-core::runtime`. Generic job
+`SurfaceResponse` DTOs live in `moritzbrantner-runtime-core` and are re-exported
+from `video-analysis-core::runtime` for compatibility. Generic job
 envelopes and artifact storage live in `moritzbrantner-jobs-core`; model-specific artifact
 metadata, bundle manifests, and Hugging Face downloads stay in `moritzbrantner-model-runtime`.
 `moritzbrantner-jobs-core` owns only generic job state, cancellation, progress, diagnostics,
@@ -66,9 +106,11 @@ task surfaces may expose catalog, schema, import, and validation operations, but
 default calls must not download models or run native inference.
 
 Foundation package surfaces (`jobs-core`, `model-runtime`,
-`video-analysis-core`, `numbers-core`, `tensor-data`, `vector-analysis-core`,
-and `math-sparse-data`) use strict release metadata for operation schemas,
-preserve the structured
+`video-analysis-core`, `image-analysis-core`, `audio-analysis-core`,
+`text-core`, `text-transcripts`, `numbers-core`, `tensor-data`,
+`vector-analysis-core`, `math-sparse-data`, `dense-data`,
+`math-geometry-2d`, and `math-signal-core`) use strict release metadata for
+operation schemas, preserve the structured
 `operation`/`title`/`message`/`summary`/`result` response shape, and return
 typed `SurfaceError` JSON strings for invalid requests, unsupported operations,
 unsupported values, and resource-limit failures. Default foundation operations

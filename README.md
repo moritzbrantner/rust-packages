@@ -1,8 +1,18 @@
 # Rust Multimodal Analysis Packages
 
-This workspace contains Rust-first crates for video, audio, image, text, vector,
-and 3D analysis/processing. The scene detection packages started as a
-PySceneDetect-style video analysis implementation; the vendored
+This workspace contains Rust-first multimodal building-block crates for video,
+audio, image, text, vector, data, math, animation, 3D, and adapter
+interoperability. Package consumers integrate through foundation contracts and
+audited package surfaces rather than workflow-aware node metadata.
+
+ComfyUI is an interoperability target and useful inspiration for composition,
+not the internal architecture of the crates. External projects can map package
+operations into their own graph models while this repository keeps reusable
+library APIs, CLI, REST, WASM, and web app surfaces aligned over the same
+contracts.
+
+The scene detection packages started as a PySceneDetect-style video analysis
+implementation; the vendored
 `references/pyscenedetect` directory is used only as an upstream behavior
 reference.
 
@@ -17,6 +27,10 @@ vulnerability reporting, and the root [LICENSE-MIT](LICENSE-MIT) /
 Rust crates are grouped under `crates/` by input or integration domain:
 `audio/`, `video/`, `image/`, `text/`, `vector/`, `data/`, `math/`,
 `animation/`, `three-d/`, and `comfyui/`.
+
+Start with [docs/API_CONTRACTS.md](docs/API_CONTRACTS.md) for foundation
+contract ownership and [docs/PACKAGE_SURFACE_MATRIX.md](docs/PACKAGE_SURFACE_MATRIX.md)
+for the audited package-surface integration map.
 
 Package README index:
 

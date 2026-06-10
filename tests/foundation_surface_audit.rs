@@ -229,6 +229,26 @@ fn foundation_surface_cases() -> Vec<FoundationSurfaceCase> {
             run: video_analysis_core::surface::run_surface_operation,
         },
         FoundationSurfaceCase {
+            crate_name: "image-analysis-core",
+            package_surface: image_analysis_core::surface::package_surface,
+            run: image_analysis_core::surface::run_surface_operation,
+        },
+        FoundationSurfaceCase {
+            crate_name: "audio-analysis-core",
+            package_surface: audio_analysis_core::surface::package_surface,
+            run: audio_analysis_core::surface::run_surface_operation,
+        },
+        FoundationSurfaceCase {
+            crate_name: "text-core",
+            package_surface: text_core::surface::package_surface,
+            run: text_core::surface::run_surface_operation,
+        },
+        FoundationSurfaceCase {
+            crate_name: "text-transcripts",
+            package_surface: text_transcripts::surface::package_surface,
+            run: text_transcripts::surface::run_surface_operation,
+        },
+        FoundationSurfaceCase {
             crate_name: "numbers-core",
             package_surface: numbers_core::surface::package_surface,
             run: numbers_core::surface::run_surface_operation,
@@ -247,6 +267,21 @@ fn foundation_surface_cases() -> Vec<FoundationSurfaceCase> {
             crate_name: "math-sparse-data",
             package_surface: math_sparse_data::surface::package_surface,
             run: math_sparse_data::surface::run_surface_operation,
+        },
+        FoundationSurfaceCase {
+            crate_name: "dense-data",
+            package_surface: dense_data::surface::package_surface,
+            run: dense_data::surface::run_surface_operation,
+        },
+        FoundationSurfaceCase {
+            crate_name: "math-geometry-2d",
+            package_surface: math_geometry_2d::surface::package_surface,
+            run: math_geometry_2d::surface::run_surface_operation,
+        },
+        FoundationSurfaceCase {
+            crate_name: "math-signal-core",
+            package_surface: math_signal_core::surface::package_surface,
+            run: math_signal_core::surface::run_surface_operation,
         },
     ]
 }
