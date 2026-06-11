@@ -63,6 +63,7 @@ bun run lint          # clippy and TypeScript type checks
 bun run format        # write Rust formatting changes
 bun run format:check  # check Rust formatting without mutation
 bun run build         # Rust workspace build plus UI/web production builds
+bun run preflight     # broad local CI/preflight mirror
 bun run verify        # full local baseline: scripts/check.sh
 bun run hygiene       # lightweight repo status and ignore audit
 bun run hygiene:generated # fail on tracked generated/local artifacts
@@ -72,15 +73,18 @@ bun run snapshot:check    # verify reviewed generated docs are fresh
 Existing lower-level checks:
 
 ```bash
-scripts/check-fast.sh               # normal contributor gate
-scripts/check.sh                    # full release baseline with e2e checks
+scripts/check-fast.sh               # fast local baseline; no e2e/builds/benches
+scripts/check-preflight.sh          # broad local CI/preflight mirror
+scripts/check.sh                    # full baseline with external-tool checks
 scripts/check_e2e_external_tools.sh # verify optional external tools
 cargo doc --workspace --no-deps     # release-readiness docs pass
 ```
 
-For big changes, run the relevant GitHub Actions workflow locally with `act`
-before handoff. Prefer the workflow that matches the changed surface, for
-example `act -W .github/workflows/workspace-ci.yml`.
+For big changes, run `scripts/check-preflight.sh` or the relevant GitHub Actions
+workflow locally with `act` before handoff. Prefer the workflow that matches the
+changed surface, for example `act -W .github/workflows/workspace-ci.yml`.
+Benchmark checks belong to `bun run bench`, `performance-ci`, or explicit
+benchmark commands, not the default fast local gate.
 
 Release and publish work is manual. Use `docs/RELEASE_CHECKLIST.md`; do not add
 release automation or publish crates unless the task explicitly asks for that.
@@ -109,9 +113,13 @@ python3 scripts/generate_dependency_chart.py
 
 ## Expensive Or Opt-In Work
 
-- `scripts/check.sh` includes browser e2e and external-tool coverage; run it
-  before release-oriented handoff, but use `scripts/check-fast.sh` for normal
-  iteration.
+- `scripts/check-fast.sh` is the normal fast local baseline. It intentionally
+  skips browser e2e, production web builds, and benchmarks.
+- `scripts/check-preflight.sh` is the broad local CI/preflight mirror; run it
+  before PR/release-oriented handoff or when touching UI routing/build/e2e
+  behavior.
+- `scripts/check.sh` includes external-tool coverage; run it before full
+  release-oriented handoff or when the task needs those checks.
 - `scripts/check-e2e.sh` requires local external tools. Run
   `scripts/setup_e2e_external_tools.sh fast` only when the task needs those
   checks.

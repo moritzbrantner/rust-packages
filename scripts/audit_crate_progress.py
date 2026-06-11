@@ -49,6 +49,7 @@ SHARED_EXACT_PATHS = {
     "scripts/audit_crate_progress.py",
     "scripts/audit_package_surfaces.py",
     "scripts/check-fast.sh",
+    "scripts/check-preflight.sh",
     "scripts/check.sh",
     "scripts/generated_snapshots.allow",
     "scripts/crate_progress_regressions.allow",

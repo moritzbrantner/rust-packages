@@ -11,6 +11,7 @@
     "dev": "bun run web:dev",
     "test": "bash -lc 'RUST_TEST_THREADS=\"${RUST_TEST_THREADS:-${TEST_MAX_WORKERS:-2}}\" cargo test --jobs \"${CARGO_BUILD_JOBS:-${TEST_MAX_WORKERS:-2}}\" --workspace --lib --tests' && bun run text-wasm:test && bun run text-analysis-wasm:test && bun run text-linguistics-wasm:test && bun run audio-wasm:test && bun run video-wasm:test && bun run ui:test:unit && bun run web:test:unit && bun run web:test:api",
     "verify": "scripts/check.sh",
+    "preflight": "scripts/check-preflight.sh",
     "lint": "cargo clippy --workspace --all-targets -- -D warnings && bun run ui:typecheck && bun run web:typecheck",
     "format": "cargo fmt --all",
     "format:check": "cargo fmt --all --check",

@@ -4,7 +4,15 @@ Use this checklist before tagging a release or publishing any crate wave.
 
 ## Required Gates
 
-Run the workspace Rust gate:
+Run the broad local CI/preflight mirror. This intentionally includes
+all-target Rust coverage, package surface quality checks, production frontend
+builds, and browser e2e:
+
+```bash
+scripts/check-preflight.sh
+```
+
+Run the workspace Rust release gate when validating a publish wave directly:
 
 ```bash
 cargo test --workspace --all-targets
@@ -32,6 +40,11 @@ Run the external checks only for crates or docs that depend on those toolchains:
 scripts/check.sh
 scripts/check_e2e_external_tools.sh
 ```
+
+The fast local gate, `scripts/check-fast.sh`, is for iteration and normal
+handoff. It intentionally excludes browser e2e, production web builds, and
+benchmarks. Benchmark checks belong to `bun run bench`, `performance-ci`, or
+explicit benchmark commands.
 
 ## Contract-Readiness Gate
 

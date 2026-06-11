@@ -24,6 +24,7 @@ bun run test          # fastest meaningful Rust + frontend unit/API tests
 bun run lint          # clippy and TypeScript type checks
 bun run format:check  # Rust formatting check
 bun run build         # Rust workspace build and production frontend builds
+bun run preflight     # broad local CI/preflight mirror
 bun run verify        # full baseline through scripts/check.sh
 bun run hygiene       # git status, upstream, and ignore audit
 bun run hygiene:generated # tracked generated/local artifact guard
@@ -33,13 +34,21 @@ bun run web:build         # regenerate untracked web app dist
 bun run web:build:pages   # regenerate static Pages output and crate indexes
 ```
 
-For the normal contributor gate, use:
+For the normal fast local baseline, use:
 
 ```bash
 scripts/check-fast.sh
 ```
 
-For the full local baseline before release-oriented changes, use:
+This gate intentionally skips browser e2e, production web builds, and
+benchmarks. For the broad local CI/preflight mirror before PR or
+release-oriented changes, use:
+
+```bash
+scripts/check-preflight.sh
+```
+
+For the full local baseline with external-tool checks, use:
 
 ```bash
 scripts/check.sh
@@ -79,6 +88,9 @@ cargo test --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 cargo doc --workspace --no-deps
 ```
+
+Benchmark checks belong to `bun run bench`, `performance-ci`, or explicit
+benchmark commands. They are not part of the fast local baseline.
 
 Run frontend gates when UI packages, web packages, or docs that reference them
 change:

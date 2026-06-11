@@ -11,17 +11,15 @@ python3 scripts/audit_crate_progress.py --check
 python3 scripts/test_audit_crate_progress.py
 python3 scripts/audit_crate_progress.py --changed --base "${BASE_REF:-origin/main}"
 
-cargo fmt --all --check
-cargo test --jobs "$CARGO_BUILD_JOBS" --workspace --lib --tests
-cargo clippy --workspace --lib --tests -- -D warnings
+cargo test --jobs "$CARGO_BUILD_JOBS" --workspace --all-targets
+python3 scripts/audit_package_surfaces.py --quality
+cargo clippy --workspace --all-targets -- -D warnings
 
 bun run text-wasm:test
-bun run text-analysis-wasm:test
-bun run text-linguistics-wasm:test
 bun run audio-wasm:test
 bun run video-wasm:test
-bun run ui:typecheck
+bun run ui:build
 bun run web:typecheck
-bun run ui:test:unit
-bun run web:test:unit
-bun run web:test:api
+bun run web:build
+bun run ui:test
+bun run web:test

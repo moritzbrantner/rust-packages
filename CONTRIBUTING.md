@@ -2,8 +2,10 @@
 
 ## Verification Levels
 
-- Fast baseline: `scripts/check-fast.sh`
-- Full release baseline: `scripts/check.sh`
+- Fast local baseline: `scripts/check-fast.sh` (no browser e2e, production web
+  build, or benchmarks)
+- Broad local CI/preflight mirror: `scripts/check-preflight.sh`
+- Full release/external baseline: `scripts/check.sh`
 - Release-readiness doc pass: `cargo doc --workspace --no-deps`
 - Frontend-only checks: `bun run ui:build`, `bun run ui:test`, `bun run web:typecheck`, `bun run web:build`, `bun run web:test`
 
@@ -19,9 +21,14 @@ changing workspace crate membership or internal dependencies:
 python3 scripts/generate_dependency_chart.py
 ```
 
-Use the fast baseline for normal code changes. Use the full baseline before release-oriented changes or when you touch external-tool integrations.
+Use the fast baseline for normal code changes. Use the preflight mirror before
+PR/release-oriented changes or when touching UI routing, production builds, or
+browser e2e behavior. Use the full baseline when you touch external-tool
+integrations.
 Before tagging or publishing crates, also require `cargo doc --workspace --no-deps`
 and the package dry-run checklist in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+Benchmark checks belong to `bun run bench`, `performance-ci`, or explicit
+benchmark commands, not the default fast local gate.
 
 ## Local Setup
 
@@ -42,6 +49,12 @@ Run the fast workspace baseline:
 
 ```bash
 scripts/check-fast.sh
+```
+
+Run the broad local preflight mirror before release-oriented handoff:
+
+```bash
+scripts/check-preflight.sh
 ```
 
 Run the full baseline after external tools are installed:

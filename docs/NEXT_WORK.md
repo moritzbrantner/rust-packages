@@ -6,7 +6,7 @@ reached `L4 Usable` coverage across the audited library crates.
 ## Release Gates
 
 Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for release-oriented
-verification and manual publish sequencing. The normal baseline starts with:
+verification and manual publish sequencing. The fast local baseline starts with:
 
 ```bash
 bun run progress:check
@@ -17,6 +17,12 @@ git diff --check
 cargo test --test contract_ownership --test dependency_layers --test foundation_surface_audit --test package_structure --test package_interop_pipeline
 scripts/check-fast.sh
 ```
+
+`scripts/check-fast.sh` intentionally skips browser e2e, production web builds,
+and benchmarks. Use `scripts/check-preflight.sh` for the broad local CI/preflight
+mirror before PR/release-oriented handoff, and `scripts/check.sh` for the full
+baseline with external-tool checks. Benchmark checks belong to `bun run bench`,
+`performance-ci`, or explicit benchmark commands.
 
 Publishing remains manual. Do not add release automation unless a task
 explicitly asks for it.

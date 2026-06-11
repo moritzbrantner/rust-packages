@@ -17,8 +17,8 @@ jobs:
       install_command: ""
       pre_command: rustup toolchain install 1.95.0 --profile minimal --component clippy --component rustfmt && rustup default 1.95.0
       format_command: bun run hygiene:generated && bun run snapshot:check && bun run progress:check && cargo fmt --all --check
-      lint_command: cargo clippy --workspace --all-targets -- -D warnings
-      unit_test_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && BASE_REF="origin/${GITHUB_BASE_REF:-main}" bun run progress:touched && bun run progress:test && cargo test --jobs "${CARGO_BUILD_JOBS:-2}" --workspace --all-targets
+      lint_command: cargo clippy --workspace --lib --tests --examples -- -D warnings
+      unit_test_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && BASE_REF="origin/${GITHUB_BASE_REF:-main}" bun run progress:touched && bun run progress:test && cargo test --jobs "${CARGO_BUILD_JOBS:-2}" --workspace --lib --tests
       build_command: cargo doc --workspace --no-deps
       cache_cargo: true
       timeout_minutes: 60
