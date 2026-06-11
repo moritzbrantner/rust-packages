@@ -1,10 +1,10 @@
 [package]
-name = "moritzbrantner-math-geometry-2d"
+name = "moritzbrantner-vision-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Shared 2D geometry contracts for multimodal image, video, and layout processing."
+description = "Shared visual detection, embedding, and identity-match contracts for multimodal analysis."
 readme = "README.md"
 repository.workspace = true
 homepage.workspace = true
@@ -13,16 +13,10 @@ keywords.workspace = true
 categories.workspace = true
 
 [lib]
-name = "math_geometry_2d"
+name = "vision_core"
 
 [dependencies]
 runtime-core.workspace = true
-serde_json.workspace = true
+math-geometry-2d.workspace = true
 serde.workspace = true
-
-[dev-dependencies]
-criterion.workspace = true
-
-[[bench]]
-name = "spatial"
-harness = false
+serde_json.workspace = true

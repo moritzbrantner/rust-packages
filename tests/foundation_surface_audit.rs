@@ -283,5 +283,10 @@ fn foundation_surface_cases() -> Vec<FoundationSurfaceCase> {
             package_surface: math_signal_core::surface::package_surface,
             run: math_signal_core::surface::run_surface_operation,
         },
+        FoundationSurfaceCase {
+            crate_name: "vision-core",
+            package_surface: vision_core::surface::package_surface,
+            run: vision_core::surface::run_surface_operation,
+        },
     ]
 }

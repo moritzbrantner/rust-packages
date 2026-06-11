@@ -4,10 +4,39 @@ pub mod surface;
 use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 use serde::{Deserialize, Serialize};
-use video_analysis_core::{BoundingBox, DetectError, Result};
 
-fn invalid_argument(message: impl Into<String>) -> DetectError {
-    DetectError::InvalidArgument(message.into())
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Error type for validated 2D geometry contracts.
+pub enum GeometryError {
+    /// Invalid dimensions.
+    InvalidDimensions {
+        /// Width in pixels.
+        width: u32,
+        /// Height in pixels.
+        height: u32,
+    },
+    /// Invalid argument.
+    InvalidArgument(String),
+}
+
+impl std::fmt::Display for GeometryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidDimensions { width, height } => {
+                write!(f, "invalid dimensions: {width}x{height}")
+            }
+            Self::InvalidArgument(message) => f.write_str(message),
+        }
+    }
+}
+
+impl std::error::Error for GeometryError {}
+
+/// Result type for 2D geometry operations.
+pub type Result<T> = std::result::Result<T, GeometryError>;
+
+fn invalid_argument(message: impl Into<String>) -> GeometryError {
+    GeometryError::InvalidArgument(message.into())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -233,7 +262,7 @@ impl Size2u {
     /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if self.width == 0 || self.height == 0 {
-            return Err(DetectError::InvalidDimensions {
+            return Err(GeometryError::InvalidDimensions {
                 width: self.width,
                 height: self.height,
             });
@@ -277,7 +306,7 @@ impl RectU32 {
     /// Validates this value.
     pub fn validate(self) -> Result<()> {
         if self.width == 0 || self.height == 0 {
-            return Err(DetectError::InvalidDimensions {
+            return Err(GeometryError::InvalidDimensions {
                 width: self.width,
                 height: self.height,
             });
@@ -454,25 +483,6 @@ impl RectU32 {
             width: self.width,
             height: self.height,
         }
-    }
-}
-
-impl From<BoundingBox> for RectU32 {
-    fn from(value: BoundingBox) -> Self {
-        Self {
-            x: value.x,
-            y: value.y,
-            width: value.width,
-            height: value.height,
-        }
-    }
-}
-
-impl TryFrom<RectU32> for BoundingBox {
-    type Error = DetectError;
-
-    fn try_from(value: RectU32) -> Result<Self> {
-        BoundingBox::new(value.x, value.y, value.width, value.height)
     }
 }
 

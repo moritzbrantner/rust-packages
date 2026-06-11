@@ -504,6 +504,592 @@ pub trait SceneDetector {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants describing flash filter mode.
+pub enum FlashFilterMode {
+    /// The merge variant.
+    Merge,
+    /// The suppress variant.
+    Suppress,
+}
+
+#[derive(Debug, Clone)]
+struct FlashFilter {
+    mode: FlashFilterMode,
+    length: u64,
+    last_above: Option<u64>,
+    merge_enabled: bool,
+    merge_triggered: bool,
+    merge_start: Option<u64>,
+}
+
+impl FlashFilter {
+    fn new(mode: FlashFilterMode, length: u64) -> Self {
+        Self {
+            mode,
+            length,
+            last_above: None,
+            merge_enabled: false,
+            merge_triggered: false,
+            merge_start: None,
+        }
+    }
+
+    fn max_behind(&self) -> usize {
+        match self.mode {
+            FlashFilterMode::Suppress => 0,
+            FlashFilterMode::Merge => self.length as usize,
+        }
+    }
+
+    fn filter(&mut self, frame_index: u64, above_threshold: bool) -> Vec<u64> {
+        if self.length == 0 {
+            return above_threshold.then_some(frame_index).into_iter().collect();
+        }
+        if self.last_above.is_none() {
+            self.last_above = Some(frame_index);
+        }
+        match self.mode {
+            FlashFilterMode::Suppress => self.filter_suppress(frame_index, above_threshold),
+            FlashFilterMode::Merge => self.filter_merge(frame_index, above_threshold),
+        }
+    }
+
+    fn filter_suppress(&mut self, frame_index: u64, above_threshold: bool) -> Vec<u64> {
+        let last_above = self.last_above.unwrap_or(frame_index);
+        let min_length_met = frame_index.saturating_sub(last_above) >= self.length;
+        if above_threshold && min_length_met {
+            self.last_above = Some(frame_index);
+            vec![frame_index]
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn filter_merge(&mut self, frame_index: u64, above_threshold: bool) -> Vec<u64> {
+        let last_above = self.last_above.unwrap_or(frame_index);
+        let min_length_met = frame_index.saturating_sub(last_above) >= self.length;
+        if above_threshold {
+            self.last_above = Some(frame_index);
+        }
+        let current_last_above = self.last_above.unwrap_or(frame_index);
+        if self.merge_triggered {
+            let merged = current_last_above.saturating_sub(self.merge_start.unwrap_or(frame_index));
+            if min_length_met && !above_threshold && merged >= self.length {
+                self.merge_triggered = false;
+                return vec![current_last_above];
+            }
+            return Vec::new();
+        }
+        if !above_threshold {
+            return Vec::new();
+        }
+        if min_length_met {
+            self.merge_enabled = true;
+            return vec![frame_index];
+        }
+        if self.merge_enabled {
+            self.merge_triggered = true;
+            self.merge_start = Some(frame_index);
+        }
+        Vec::new()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+/// Data type for content weights.
+pub struct ContentWeights {
+    /// The delta hue value.
+    pub delta_hue: f32,
+    /// The delta sat value.
+    pub delta_sat: f32,
+    /// The delta lum value.
+    pub delta_lum: f32,
+    /// The delta edges value.
+    pub delta_edges: f32,
+}
+
+impl Default for ContentWeights {
+    fn default() -> Self {
+        Self {
+            delta_hue: 1.0,
+            delta_sat: 1.0,
+            delta_lum: 1.0,
+            delta_edges: 0.0,
+        }
+    }
+}
+
+impl ContentWeights {
+    /// Constant for luma only.
+    pub const LUMA_ONLY: Self = Self {
+        delta_hue: 0.0,
+        delta_sat: 0.0,
+        delta_lum: 1.0,
+        delta_edges: 0.0,
+    };
+
+    fn total(self) -> f32 {
+        self.delta_hue.abs() + self.delta_sat.abs() + self.delta_lum.abs() + self.delta_edges.abs()
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Deterministic content scene detector using HSV/luma/edge frame differences.
+pub struct ContentDetector {
+    threshold: f32,
+    scorer: ContentScorer,
+    flash_filter: FlashFilter,
+}
+
+impl Default for ContentDetector {
+    fn default() -> Self {
+        Self::new(27.0, 15)
+    }
+}
+
+impl ContentDetector {
+    /// Constant for metric keys.
+    pub const METRIC_KEYS: &'static [&'static str] = &[
+        "content_val",
+        "delta_hue",
+        "delta_sat",
+        "delta_lum",
+        "delta_edges",
+    ];
+
+    /// Creates a new value.
+    pub fn new(threshold: f32, min_scene_len: u64) -> Self {
+        Self {
+            threshold,
+            scorer: ContentScorer::new(ContentWeights::default(), None),
+            flash_filter: FlashFilter::new(FlashFilterMode::Merge, min_scene_len),
+        }
+    }
+
+    /// Returns this value with weights.
+    pub fn with_weights(mut self, weights: ContentWeights) -> Self {
+        self.scorer.weights = weights;
+        self
+    }
+
+    /// Returns luma only.
+    pub fn luma_only(mut self, value: bool) -> Self {
+        if value {
+            self.scorer.weights = ContentWeights::LUMA_ONLY;
+        }
+        self
+    }
+
+    /// Returns kernel size.
+    pub fn kernel_size(mut self, value: Option<usize>) -> Result<Self> {
+        if let Some(size) = value {
+            if size < 3 || size % 2 == 0 {
+                return Err(DetectError::InvalidArgument(
+                    "kernel_size must be an odd integer >= 3".to_string(),
+                ));
+            }
+        }
+        self.scorer.kernel_size = value;
+        Ok(self)
+    }
+
+    /// Returns filter mode.
+    pub fn filter_mode(mut self, mode: FlashFilterMode, min_scene_len: u64) -> Self {
+        self.flash_filter = FlashFilter::new(mode, min_scene_len);
+        self
+    }
+}
+
+impl SceneDetector for ContentDetector {
+    fn name(&self) -> &'static str {
+        "content"
+    }
+
+    fn metric_keys(&self) -> &'static [&'static str] {
+        Self::METRIC_KEYS
+    }
+
+    fn event_buffer_len(&self) -> usize {
+        self.flash_filter.max_behind()
+    }
+
+    fn process_frame(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        metrics: Option<&mut dyn MetricsSink>,
+    ) -> Result<Vec<Cut>> {
+        let score = self.scorer.score(frame, metrics)?;
+        let cut_frames = self
+            .flash_filter
+            .filter(frame.position.frame_index, score >= self.threshold);
+        Ok(cut_frames
+            .into_iter()
+            .map(|frame_index| Cut {
+                position: position_like(frame.position, frame_index),
+                detector: self.name(),
+                score: Some(score),
+            })
+            .collect())
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ContentScorer {
+    weights: ContentWeights,
+    kernel_size: Option<usize>,
+    last: Option<FrameData>,
+    current: FrameData,
+}
+
+impl ContentScorer {
+    fn new(weights: ContentWeights, kernel_size: Option<usize>) -> Self {
+        Self {
+            weights,
+            kernel_size,
+            last: None,
+            current: FrameData::default(),
+        }
+    }
+
+    fn score(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        metrics: Option<&mut dyn MetricsSink>,
+    ) -> Result<f32> {
+        let calculate_edges = self.weights.delta_edges > 0.0;
+        let Some(previous) = self.last.as_ref() else {
+            self.current
+                .fill_from_frame(frame, calculate_edges, self.kernel_size)?;
+            self.last = Some(std::mem::take(&mut self.current));
+            if let Some(metrics) = metrics {
+                set_content_metrics(
+                    metrics,
+                    frame.position.frame_index,
+                    0.0,
+                    (0.0, 0.0, 0.0, 0.0),
+                );
+            }
+            return Ok(0.0);
+        };
+
+        let (dh, ds, dl) = if !calculate_edges && previous.pixel_count() == frame.pixel_count() {
+            self.current.fill_from_frame_and_diff(frame, previous)?
+        } else {
+            self.current
+                .fill_from_frame(frame, calculate_edges, self.kernel_size)?;
+            (
+                mean_abs_diff(&self.current.hue, &previous.hue),
+                mean_abs_diff(&self.current.sat, &previous.sat),
+                mean_abs_diff(&self.current.lum, &previous.lum),
+            )
+        };
+        let de = match (&self.current.edges, &previous.edges) {
+            (Some(left), Some(right)) => mean_abs_diff(left, right),
+            _ => 0.0,
+        };
+        let total_weight = self.weights.total();
+        let score = if total_weight == 0.0 {
+            0.0
+        } else {
+            ((dh * self.weights.delta_hue)
+                + (ds * self.weights.delta_sat)
+                + (dl * self.weights.delta_lum)
+                + (de * self.weights.delta_edges))
+                / total_weight
+        };
+        if let Some(metrics) = metrics {
+            set_content_metrics(metrics, frame.position.frame_index, score, (dh, ds, dl, de));
+        }
+        if let Some(previous) = self.last.as_mut() {
+            std::mem::swap(previous, &mut self.current);
+        }
+        Ok(score)
+    }
+}
+
+fn set_content_metrics(
+    metrics: &mut dyn MetricsSink,
+    frame_index: u64,
+    score: f32,
+    components: (f32, f32, f32, f32),
+) {
+    metrics.set_metric(frame_index, "content_val", score as f64);
+    metrics.set_metric(frame_index, "delta_hue", components.0 as f64);
+    metrics.set_metric(frame_index, "delta_sat", components.1 as f64);
+    metrics.set_metric(frame_index, "delta_lum", components.2 as f64);
+    metrics.set_metric(frame_index, "delta_edges", components.3 as f64);
+}
+
+#[derive(Debug, Default, Clone)]
+struct FrameData {
+    hue: Vec<u8>,
+    sat: Vec<u8>,
+    lum: Vec<u8>,
+    edges: Option<Vec<u8>>,
+}
+
+impl FrameData {
+    fn pixel_count(&self) -> usize {
+        self.lum.len()
+    }
+
+    fn fill_from_frame(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        calculate_edges: bool,
+        kernel_size: Option<usize>,
+    ) -> Result<()> {
+        let pixels = frame.pixel_count();
+        self.prepare_component_buffers(pixels);
+        match frame.pixel_format {
+            PixelFormat::Rgb24 => self.fill_from_rgb24(frame)?,
+            PixelFormat::Bgr24 => self.fill_from_bgr24(frame)?,
+        }
+        self.edges = calculate_edges
+            .then(|| detect_edges(&self.lum, frame.width, frame.height, kernel_size));
+        Ok(())
+    }
+
+    fn fill_from_frame_and_diff(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        previous: &FrameData,
+    ) -> Result<(f32, f32, f32)> {
+        let pixels = frame.pixel_count();
+        self.prepare_component_buffers(pixels);
+        self.edges = None;
+        let sums = match frame.pixel_format {
+            PixelFormat::Rgb24 => self.fill_from_rgb24_and_diff(frame, previous)?,
+            PixelFormat::Bgr24 => self.fill_from_bgr24_and_diff(frame, previous)?,
+        };
+        Ok((
+            sums.0 as f32 / pixels as f32,
+            sums.1 as f32 / pixels as f32,
+            sums.2 as f32 / pixels as f32,
+        ))
+    }
+
+    fn prepare_component_buffers(&mut self, pixels: usize) {
+        self.hue.clear();
+        self.sat.clear();
+        self.lum.clear();
+        if self.hue.capacity() < pixels {
+            self.hue.reserve(pixels);
+        }
+        if self.sat.capacity() < pixels {
+            self.sat.reserve(pixels);
+        }
+        if self.lum.capacity() < pixels {
+            self.lum.reserve(pixels);
+        }
+    }
+
+    fn fill_from_rgb24(&mut self, frame: &VideoFrame<'_>) -> Result<()> {
+        let row_len = frame.width as usize * 3;
+        for y in 0..frame.height {
+            let start = y as usize * frame.stride;
+            let row =
+                frame
+                    .data
+                    .get(start..start + row_len)
+                    .ok_or(DetectError::InvalidFrameBuffer {
+                        expected: start + row_len,
+                        actual: frame.data.len(),
+                    })?;
+            for pixel in row.chunks_exact(3) {
+                let (r, g, b) = (pixel[0], pixel[1], pixel[2]);
+                let (h, s, v) = rgb_to_hsv(r, g, b);
+                self.hue.push(h);
+                self.sat.push(s);
+                self.lum.push(v);
+            }
+        }
+        Ok(())
+    }
+
+    fn fill_from_rgb24_and_diff(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        previous: &FrameData,
+    ) -> Result<(u64, u64, u64)> {
+        let row_len = frame.width as usize * 3;
+        let mut index = 0usize;
+        let mut dh = 0u64;
+        let mut ds = 0u64;
+        let mut dl = 0u64;
+        for y in 0..frame.height {
+            let start = y as usize * frame.stride;
+            let row =
+                frame
+                    .data
+                    .get(start..start + row_len)
+                    .ok_or(DetectError::InvalidFrameBuffer {
+                        expected: start + row_len,
+                        actual: frame.data.len(),
+                    })?;
+            for pixel in row.chunks_exact(3) {
+                let (h, s, v) = rgb_to_hsv(pixel[0], pixel[1], pixel[2]);
+                dh += abs_diff_u8(h, previous.hue[index]) as u64;
+                ds += abs_diff_u8(s, previous.sat[index]) as u64;
+                dl += abs_diff_u8(v, previous.lum[index]) as u64;
+                self.hue.push(h);
+                self.sat.push(s);
+                self.lum.push(v);
+                index += 1;
+            }
+        }
+        Ok((dh, ds, dl))
+    }
+
+    fn fill_from_bgr24(&mut self, frame: &VideoFrame<'_>) -> Result<()> {
+        let row_len = frame.width as usize * 3;
+        for y in 0..frame.height {
+            let start = y as usize * frame.stride;
+            let row =
+                frame
+                    .data
+                    .get(start..start + row_len)
+                    .ok_or(DetectError::InvalidFrameBuffer {
+                        expected: start + row_len,
+                        actual: frame.data.len(),
+                    })?;
+            for pixel in row.chunks_exact(3) {
+                let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
+                let (h, s, v) = rgb_to_hsv(r, g, b);
+                self.hue.push(h);
+                self.sat.push(s);
+                self.lum.push(v);
+            }
+        }
+        Ok(())
+    }
+
+    fn fill_from_bgr24_and_diff(
+        &mut self,
+        frame: &VideoFrame<'_>,
+        previous: &FrameData,
+    ) -> Result<(u64, u64, u64)> {
+        let row_len = frame.width as usize * 3;
+        let mut index = 0usize;
+        let mut dh = 0u64;
+        let mut ds = 0u64;
+        let mut dl = 0u64;
+        for y in 0..frame.height {
+            let start = y as usize * frame.stride;
+            let row =
+                frame
+                    .data
+                    .get(start..start + row_len)
+                    .ok_or(DetectError::InvalidFrameBuffer {
+                        expected: start + row_len,
+                        actual: frame.data.len(),
+                    })?;
+            for pixel in row.chunks_exact(3) {
+                let (h, s, v) = rgb_to_hsv(pixel[2], pixel[1], pixel[0]);
+                dh += abs_diff_u8(h, previous.hue[index]) as u64;
+                ds += abs_diff_u8(s, previous.sat[index]) as u64;
+                dl += abs_diff_u8(v, previous.lum[index]) as u64;
+                self.hue.push(h);
+                self.sat.push(s);
+                self.lum.push(v);
+                index += 1;
+            }
+        }
+        Ok((dh, ds, dl))
+    }
+}
+
+fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
+    let r = r as f32 / 255.0;
+    let g = g as f32 / 255.0;
+    let b = b as f32 / 255.0;
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let delta = max - min;
+    let hue = if delta == 0.0 {
+        0.0
+    } else if max == r {
+        60.0 * (((g - b) / delta) % 6.0)
+    } else if max == g {
+        60.0 * (((b - r) / delta) + 2.0)
+    } else {
+        60.0 * (((r - g) / delta) + 4.0)
+    };
+    let hue = if hue < 0.0 { hue + 360.0 } else { hue };
+    let sat = if max == 0.0 { 0.0 } else { delta / max };
+    (
+        (hue / 360.0 * 255.0) as u8,
+        (sat * 255.0) as u8,
+        (max * 255.0) as u8,
+    )
+}
+
+fn mean_abs_diff(left: &[u8], right: &[u8]) -> f32 {
+    left.iter()
+        .zip(right.iter())
+        .map(|(left, right)| abs_diff_u8(*left, *right) as u64)
+        .sum::<u64>() as f32
+        / left.len() as f32
+}
+
+fn abs_diff_u8(left: u8, right: u8) -> u16 {
+    (left as i16 - right as i16).unsigned_abs()
+}
+
+fn detect_edges(lum: &[u8], width: u32, height: u32, kernel_size: Option<usize>) -> Vec<u8> {
+    let width = width as usize;
+    let height = height as usize;
+    if width < 3 || height < 3 {
+        return vec![0; width * height];
+    }
+    let mut edges = vec![0_u8; width * height];
+    for y in 1..height - 1 {
+        for x in 1..width - 1 {
+            let i = |x: usize, y: usize| lum[y * width + x] as i32;
+            let gx = -i(x - 1, y - 1) + i(x + 1, y - 1) - 2 * i(x - 1, y) + 2 * i(x + 1, y)
+                - i(x - 1, y + 1)
+                + i(x + 1, y + 1);
+            let gy = -i(x - 1, y - 1) - 2 * i(x, y - 1) - i(x + 1, y - 1)
+                + i(x - 1, y + 1)
+                + 2 * i(x, y + 1)
+                + i(x + 1, y + 1);
+            let mag = ((gx * gx + gy * gy) as f32).sqrt();
+            edges[y * width + x] = if mag > 64.0 { 255 } else { 0 };
+        }
+    }
+    dilate(&edges, width, height, kernel_size.unwrap_or(3))
+}
+
+fn dilate(input: &[u8], width: usize, height: usize, kernel_size: usize) -> Vec<u8> {
+    let radius = kernel_size / 2;
+    let mut output = vec![0_u8; input.len()];
+    for y in 0..height {
+        for x in 0..width {
+            let y0 = y.saturating_sub(radius);
+            let y1 = (y + radius).min(height - 1);
+            let x0 = x.saturating_sub(radius);
+            let x1 = (x + radius).min(width - 1);
+            let mut value = 0;
+            for yy in y0..=y1 {
+                for xx in x0..=x1 {
+                    value = value.max(input[yy * width + xx]);
+                }
+            }
+            output[y * width + x] = value;
+        }
+    }
+    output
+}
+
+fn position_like(current: FramePosition, frame_index: u64) -> FramePosition {
+    let delta = frame_index as i64 - current.frame_index as i64;
+    FramePosition {
+        frame_index,
+        timestamp: Timestamp::new(current.timestamp.pts + delta, current.timestamp.timebase),
+    }
+}
+
 /// Trait for video source implementations.
 pub trait VideoSource {
     /// Returns next frame.
@@ -833,6 +1419,32 @@ impl BoundingBox {
             width,
             height,
         })
+    }
+}
+
+impl From<BoundingBox> for math_geometry_2d::RectU32 {
+    fn from(value: BoundingBox) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+            width: value.width,
+            height: value.height,
+        }
+    }
+}
+
+impl TryFrom<math_geometry_2d::RectU32> for BoundingBox {
+    type Error = DetectError;
+
+    fn try_from(value: math_geometry_2d::RectU32) -> std::result::Result<Self, Self::Error> {
+        value.validate()?;
+        Self::new(value.x, value.y, value.width, value.height)
+    }
+}
+
+impl From<math_geometry_2d::GeometryError> for DetectError {
+    fn from(value: math_geometry_2d::GeometryError) -> Self {
+        Self::InvalidArgument(value.to_string())
     }
 }
 
@@ -2090,6 +2702,36 @@ mod tests {
         }
     }
 
+    fn content_frame(frame_index: u64, rgb: [u8; 3]) -> OwnedVideoFrame {
+        let mut data = Vec::new();
+        for _ in 0..16 {
+            data.extend_from_slice(&rgb);
+        }
+        OwnedVideoFrame {
+            position: pos(frame_index),
+            width: 4,
+            height: 4,
+            pixel_format: PixelFormat::Rgb24,
+            data,
+            stride: 12,
+        }
+    }
+
+    fn content_bgr_frame(frame_index: u64, rgb: [u8; 3]) -> OwnedVideoFrame {
+        let mut data = Vec::new();
+        for _ in 0..16 {
+            data.extend_from_slice(&[rgb[2], rgb[1], rgb[0]]);
+        }
+        OwnedVideoFrame {
+            position: pos(frame_index),
+            width: 4,
+            height: 4,
+            pixel_format: PixelFormat::Bgr24,
+            data,
+            stride: 12,
+        }
+    }
+
     #[test]
     fn timecode_formats_and_clamps_subtraction() {
         let tc = FrameTimecode::from_seconds(10.0, fps()).unwrap();
@@ -2150,6 +2792,68 @@ mod tests {
             metrics.keys().collect::<Vec<_>>(),
             vec!["combined.content.raw"]
         );
+    }
+
+    #[test]
+    fn content_detector_finds_hard_cut() {
+        let mut detector = ContentDetector::new(10.0, 1);
+        let mut metrics = MetricsStore::default();
+        let first = content_frame(0, [0, 0, 0]);
+        let second = content_frame(1, [255, 255, 255]);
+        assert!(detector
+            .process_frame(&first.as_frame(), Some(&mut metrics))
+            .unwrap()
+            .is_empty());
+        let cuts = detector
+            .process_frame(&second.as_frame(), Some(&mut metrics))
+            .unwrap();
+        assert_eq!(cuts.len(), 1);
+        assert!(metrics.get(1, "content_val").unwrap() > 10.0);
+    }
+
+    #[test]
+    fn content_detector_scores_rgb24_and_bgr24_equivalent_frames_equally() {
+        let mut rgb_detector = ContentDetector::new(10.0, 1);
+        let mut bgr_detector = ContentDetector::new(10.0, 1);
+        let mut rgb_metrics = MetricsStore::default();
+        let mut bgr_metrics = MetricsStore::default();
+        let rgb_first = content_frame(0, [24, 48, 96]);
+        let rgb_second = content_frame(1, [160, 32, 224]);
+        let bgr_first = content_bgr_frame(0, [24, 48, 96]);
+        let bgr_second = content_bgr_frame(1, [160, 32, 224]);
+
+        rgb_detector
+            .process_frame(&rgb_first.as_frame(), Some(&mut rgb_metrics))
+            .unwrap();
+        rgb_detector
+            .process_frame(&rgb_second.as_frame(), Some(&mut rgb_metrics))
+            .unwrap();
+        bgr_detector
+            .process_frame(&bgr_first.as_frame(), Some(&mut bgr_metrics))
+            .unwrap();
+        bgr_detector
+            .process_frame(&bgr_second.as_frame(), Some(&mut bgr_metrics))
+            .unwrap();
+
+        for key in ["content_val", "delta_hue", "delta_sat", "delta_lum"] {
+            assert_eq!(rgb_metrics.get(1, key), bgr_metrics.get(1, key), "{key}");
+        }
+    }
+
+    #[test]
+    fn content_detector_suppresses_flash() {
+        let mut detector = ContentDetector::new(10.0, 3).filter_mode(FlashFilterMode::Suppress, 3);
+        let frames = [
+            content_frame(0, [0, 0, 0]),
+            content_frame(1, [255, 255, 255]),
+            content_frame(2, [0, 0, 0]),
+        ];
+        let mut cuts = Vec::new();
+        for frame in frames {
+            cuts.extend(detector.process_frame(&frame.as_frame(), None).unwrap());
+        }
+
+        assert!(cuts.is_empty());
     }
 
     #[test]

@@ -19,13 +19,13 @@ python3 scripts/audit_workspace_crates.py --check
 
 ## Counts
 
-- Active workspace packages: 363
+- Active workspace packages: 371
 
 ### Domains
 
 - `animation`: 3
-- `audio`: 34
-- `bindings`: 89
+- `audio`: 37
+- `bindings`: 91
 - `comfyui`: 9
 - `data`: 33
 - `image`: 33
@@ -39,19 +39,20 @@ python3 scripts/audit_workspace_crates.py --check
 - `three-d`: 12
 - `vector`: 6
 - `video`: 76
+- `vision`: 3
 
 ### Kinds
 
-- `cli`: 90
-- `library`: 94
+- `cli`: 92
+- `library`: 96
 - `prototype`: 1
-- `server`: 89
-- `wasm`: 89
+- `server`: 91
+- `wasm`: 91
 
 ### Publish classes
 
 - `internal-test`: 2
-- `public`: 361
+- `public`: 369
 
 | Package | Domain | Kind | Publish | Surface required | Facade expected | Path |
 |---|---|---|---|---|---|---|
@@ -68,6 +69,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-audio-analysis-separation-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-separation-cli` |
 | `moritzbrantner-audio-analysis-speakers-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-speakers-cli` |
 | `moritzbrantner-audio-analysis-synthesis-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-synthesis-cli` |
+| `moritzbrantner-audio-analysis-transcription-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-transcription-cli` |
 | `moritzbrantner-audio-generation-midi-cli` | audio | cli | public | no | no | `crates/audio/audio-generation-midi-cli` |
 | `moritzbrantner-audio-analysis-core` | audio | library | public | yes | yes | `crates/audio/audio-analysis-core` |
 | `moritzbrantner-audio-analysis-fourier` | audio | library | public | yes | yes | `crates/audio/audio-analysis-fourier` |
@@ -80,6 +82,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-audio-analysis-speakers` | audio | library | public | yes | yes | `crates/audio/audio-analysis-speakers` |
 | `moritzbrantner-audio-analysis-synthesis` | audio | library | public | yes | yes | `crates/audio/audio-analysis-synthesis` |
 | `moritzbrantner-audio-analysis-test-support` | audio | library | internal-test | no | no | `crates/audio/audio-analysis-test-support` |
+| `moritzbrantner-audio-analysis-transcription` | audio | library | public | yes | yes | `crates/audio/audio-analysis-transcription` |
 | `moritzbrantner-audio-generation-midi` | audio | library | public | yes | yes | `crates/audio/audio-generation-midi` |
 | `moritzbrantner-audio-analysis-core-server` | audio | server | public | no | no | `crates/audio/audio-analysis-core-server` |
 | `moritzbrantner-audio-analysis-fourier-server` | audio | server | public | no | no | `crates/audio/audio-analysis-fourier-server` |
@@ -91,6 +94,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-audio-analysis-separation-server` | audio | server | public | no | no | `crates/audio/audio-analysis-separation-server` |
 | `moritzbrantner-audio-analysis-speakers-server` | audio | server | public | no | no | `crates/audio/audio-analysis-speakers-server` |
 | `moritzbrantner-audio-analysis-synthesis-server` | audio | server | public | no | no | `crates/audio/audio-analysis-synthesis-server` |
+| `moritzbrantner-audio-analysis-transcription-server` | audio | server | public | no | no | `crates/audio/audio-analysis-transcription-server` |
 | `moritzbrantner-audio-generation-midi-server` | audio | server | public | no | no | `crates/audio/audio-generation-midi-server` |
 | `moritzbrantner-animation-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/animation-core-wasm` |
 | `moritzbrantner-audio-analysis-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-core-wasm` |
@@ -103,6 +107,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-audio-analysis-separation-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-separation-wasm` |
 | `moritzbrantner-audio-analysis-speakers-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-speakers-wasm` |
 | `moritzbrantner-audio-analysis-synthesis-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-synthesis-wasm` |
+| `moritzbrantner-audio-analysis-transcription-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-transcription-wasm` |
 | `moritzbrantner-audio-generation-midi-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-generation-midi-wasm` |
 | `moritzbrantner-comfyui-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-data-wasm` |
 | `moritzbrantner-comfyui-latents-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-latents-wasm` |
@@ -181,6 +186,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-synthesis-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-synthesis-wasm` |
 | `moritzbrantner-video-analysis-tracking-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-tracking-wasm` |
 | `moritzbrantner-video-analysis-transform-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-transform-wasm` |
+| `moritzbrantner-vision-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/vision-core-wasm` |
 | `moritzbrantner-comfyui-data-cli` | comfyui | cli | public | no | no | `crates/comfyui/comfyui-data-cli` |
 | `moritzbrantner-comfyui-latents-cli` | comfyui | cli | public | no | no | `crates/comfyui/comfyui-latents-cli` |
 | `moritzbrantner-comfyui-models-cli` | comfyui | cli | public | no | no | `crates/comfyui/comfyui-models-cli` |
@@ -418,3 +424,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-video-analysis-synthesis-server` | video | server | public | no | no | `crates/video/video-analysis-synthesis-server` |
 | `moritzbrantner-video-analysis-tracking-server` | video | server | public | no | no | `crates/video/video-analysis-tracking-server` |
 | `moritzbrantner-video-analysis-transform-server` | video | server | public | no | no | `crates/video/video-analysis-transform-server` |
+| `moritzbrantner-vision-core-cli` | vision | cli | public | no | no | `crates/vision/vision-core-cli` |
+| `moritzbrantner-vision-core` | vision | library | public | yes | yes | `crates/vision/vision-core` |
+| `moritzbrantner-vision-core-server` | vision | server | public | no | no | `crates/vision/vision-core-server` |

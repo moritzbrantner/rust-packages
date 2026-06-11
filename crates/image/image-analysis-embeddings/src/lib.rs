@@ -15,6 +15,7 @@ use math_geometry_2d::RectU32;
 use model_runtime::{HuggingFaceModelSpec, ModelRuntimeBackend, ModelTask};
 use serde::{Deserialize, Serialize};
 use video_analysis_core::{BoundingBox, DetectError, Result};
+use vision_core::{VisualDetectionKind, VisualEmbedding, VisualRegion};
 
 /// Embedding task family for still images and faces.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,6 +143,13 @@ impl ImageEmbedding {
         self.attributes.insert(key.into(), value.into());
         self
     }
+
+    /// Converts this image embedding into a shared visual embedding.
+    pub fn to_visual_embedding(&self) -> Result<VisualEmbedding> {
+        let mut visual = VisualEmbedding::new(self.vector.clone()).map_err(vision_error)?;
+        visual.attributes = self.attributes.clone();
+        Ok(visual)
+    }
 }
 
 /// Dense face embedding.
@@ -176,6 +184,53 @@ impl FaceEmbedding {
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
+    }
+
+    /// Converts this face embedding into a shared visual embedding.
+    pub fn to_visual_embedding(&self) -> Result<VisualEmbedding> {
+        let mut visual = VisualEmbedding::new(self.vector.clone())
+            .map_err(vision_error)?
+            .kind(VisualDetectionKind::Face)
+            .map_err(vision_error)?;
+        if let Some(region) = self.region {
+            visual = visual
+                .region(VisualRegion::from(region))
+                .map_err(vision_error)?;
+        }
+        visual.attributes = self.attributes.clone();
+        Ok(visual)
+    }
+}
+
+impl TryFrom<ImageEmbedding> for VisualEmbedding {
+    type Error = DetectError;
+
+    fn try_from(value: ImageEmbedding) -> std::result::Result<Self, Self::Error> {
+        value.to_visual_embedding()
+    }
+}
+
+impl TryFrom<&ImageEmbedding> for VisualEmbedding {
+    type Error = DetectError;
+
+    fn try_from(value: &ImageEmbedding) -> std::result::Result<Self, Self::Error> {
+        value.to_visual_embedding()
+    }
+}
+
+impl TryFrom<FaceEmbedding> for VisualEmbedding {
+    type Error = DetectError;
+
+    fn try_from(value: FaceEmbedding) -> std::result::Result<Self, Self::Error> {
+        value.to_visual_embedding()
+    }
+}
+
+impl TryFrom<&FaceEmbedding> for VisualEmbedding {
+    type Error = DetectError;
+
+    fn try_from(value: &FaceEmbedding) -> std::result::Result<Self, Self::Error> {
+        value.to_visual_embedding()
     }
 }
 
@@ -305,6 +360,10 @@ fn validate_vector(vector: &[f32]) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn vision_error(error: vision_core::VisionError) -> DetectError {
+    DetectError::InvalidArgument(error.to_string())
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -714,7 +773,7 @@ fn read_json(path: &Path) -> Result<serde_json::Value> {
 
 fn face_detection_rect(detection: &FaceDetection, image: &ImageView<'_>) -> Result<RectU32> {
     let bbox = face_detection_box(detection, image)?;
-    RectU32::new(bbox.x, bbox.y, bbox.width, bbox.height)
+    Ok(RectU32::new(bbox.x, bbox.y, bbox.width, bbox.height)?)
 }
 
 fn face_detection_box(detection: &FaceDetection, image: &ImageView<'_>) -> Result<BoundingBox> {

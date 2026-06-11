@@ -276,6 +276,9 @@ pub use video_analysis_tracking as tracking;
 #[cfg(feature = "video")]
 /// Re-exports the transform API.
 pub use video_analysis_transform as transform;
+#[cfg(feature = "vision")]
+/// Re-exports the shared visual contract API.
+pub use vision_core;
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -47,6 +47,7 @@ Foundation contract owners for the first steering wave are:
 | Numbers | `moritzbrantner-numbers-core` |
 | Geometry primitives | `moritzbrantner-math-geometry-2d` |
 | Signal primitives | `moritzbrantner-math-signal-core` |
+| Visual detections, visual keypoints, visual embeddings, identity match summaries | `moritzbrantner-vision-core` |
 
 ## Package Surface Policy
 
@@ -229,7 +230,8 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-numbers-core` | Shared scalar numeric summaries and ranges | `moritzbrantner-video-analysis-core` | Running stats, weighted summaries, quantiles, histograms, numeric range helpers | `moritzbrantner-dense-data`, `moritzbrantner-video-analysis-data`, analytics workflows, and reporting utilities |
 | `moritzbrantner-tensor-data` | Generic finite `f32` tensor contracts | `moritzbrantner-video-analysis-core`, `serde`, `serde_json` | `TensorShape`, `F32Tensor`, `F32TensorView`, shape/element validation, metadata | `moritzbrantner-comfyui-latents`, audio/image bridges, and future tensor-oriented interop crates |
 | `moritzbrantner-finance-statistics` | Finance-oriented return and risk statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-math-statistics` | Simple/log returns, cumulative and annualized return, volatility, Sharpe, Sortino, beta/alpha, drawdown wrappers, drawdown duration, historical VaR/CVaR wrappers, tracking error, information/Calmar/Omega ratios, portfolio weights/returns/risk summaries, historical covariance, risk/return contribution, turnover, rolling windows | Finance analytics, portfolio reporting, and future market-data workflows |
-| `moritzbrantner-math-geometry-2d` | Shared 2D geometry primitives | `moritzbrantner-video-analysis-core`, `serde` | Checked 2D points, vectors, rectangles, IoU/overlap ratios, normalized coordinates, segments and segment intersections, circles, polygons, bounds, affine transforms, and `BoundingBox` interop | Image/video/posture crates and UI-adjacent layout workflows |
+| `moritzbrantner-math-geometry-2d` | Shared 2D geometry primitives | `serde` | Checked 2D points, vectors, rectangles, IoU/overlap ratios, normalized coordinates, segments and segment intersections, circles, polygons, bounds, and affine transforms | Image/video/posture crates and UI-adjacent layout workflows |
+| `moritzbrantner-vision-core` | Shared visual intermediate contracts | `moritzbrantner-math-geometry-2d`, `serde` | `VisualDetection`, `VisualKeypoint`, `VisualEmbedding`, `IdentityMatch`, validation helpers, and deterministic package-surface operations | Image/video detection, embedding, tracking, recognition, report, and workflow crates |
 | `moritzbrantner-math-linear` | Shared dense matrix and kernel contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data`, `moritzbrantner-vector-analysis-core` | `F32Matrix` and `F64Matrix` shapes/views, matrix multiply, row/column helpers, centering, Gram matrices, rank estimates, QR least-squares, pure Rust SVD, pseudoinverse, LU/Cholesky/QR decomposition, determinant/condition diagnostics, Cholesky solve/log determinant, tensor/vector bridges, `Kernel1d`, `Kernel2d` | Image/video preprocessing, text model utilities, dense/statistical workflows |
 | `moritzbrantner-math-signal-core` | Shared signal-domain math | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core` | Sample-rate/resampling descriptors, windows, frame strides, interpolation, signal level summaries, FIR kernels/application, peak normalization, and biquad design helpers | Audio crates and future time-series/video transform workflows |
 | `moritzbrantner-math-sparse-data` | Shared sparse vector and matrix contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-numbers-core`, `moritzbrantner-math-linear` | Sparse vectors, vector norms/add/scale/hadamard/prune/top-k, COO/CSR matrices, transpose, row/column nnz and sums, matrix summaries, row normalization, matrix-vector and matrix-matrix dense products, sparse similarities, dense bridges | Text corpus/semantic crates and future retrieval/index workflows |
@@ -447,6 +449,18 @@ surface returns processed frames for callers to analyze, stream, or encode later
 
 The `image-analysis-*` crates provide still-image contracts and processing
 helpers without requiring video timeline semantics.
+
+`moritzbrantner-vision-core` owns shared visual intermediate contracts that span
+image and video workflows: `VisualDetection`, `VisualKeypoint`,
+`VisualEmbedding`, and `IdentityMatch`. Detection and identification stay
+separate. Specialized crates keep their native adapter/model DTOs and add
+explicit bridges into these contracts when a workflow needs shared visual
+language.
+
+`moritzbrantner-math-geometry-2d` owns reusable 2D geometry primitives such as
+`Point2f` and `RectU32`. `video-analysis-core::BoundingBox` remains a
+compatibility-oriented type for existing video APIs; conversion to and from
+`RectU32` lives in `video-analysis-core`, where `BoundingBox` is owned.
 
 - `moritzbrantner-image-analysis-core` owns `ImageView<'_>`, `OwnedImage`,
   `ImagePixelFormat`, image compacting, mean RGB, and luma histograms.

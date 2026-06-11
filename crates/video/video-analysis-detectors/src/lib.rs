@@ -8,14 +8,7 @@ use video_analysis_core::{
     Cut, DetectError, FramePosition, MetricsSink, PixelFormat, Result, SceneDetector, VideoFrame,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Variants describing flash filter mode.
-pub enum FlashFilterMode {
-    /// The merge variant.
-    Merge,
-    /// The suppress variant.
-    Suppress,
-}
+pub use video_analysis_core::{ContentDetector, ContentWeights, FlashFilterMode};
 
 #[derive(Debug, Clone)]
 /// Data type for flash filter.
@@ -469,144 +462,6 @@ fn normalize_threshold(raw: f32, threshold: f32) -> f32 {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-/// Data type for content weights.
-pub struct ContentWeights {
-    /// The delta hue value.
-    pub delta_hue: f32,
-    /// The delta sat value.
-    pub delta_sat: f32,
-    /// The delta lum value.
-    pub delta_lum: f32,
-    /// The delta edges value.
-    pub delta_edges: f32,
-}
-
-impl Default for ContentWeights {
-    fn default() -> Self {
-        Self {
-            delta_hue: 1.0,
-            delta_sat: 1.0,
-            delta_lum: 1.0,
-            delta_edges: 0.0,
-        }
-    }
-}
-
-impl ContentWeights {
-    /// Constant for luma only.
-    pub const LUMA_ONLY: Self = Self {
-        delta_hue: 0.0,
-        delta_sat: 0.0,
-        delta_lum: 1.0,
-        delta_edges: 0.0,
-    };
-
-    fn total(self) -> f32 {
-        self.delta_hue.abs() + self.delta_sat.abs() + self.delta_lum.abs() + self.delta_edges.abs()
-    }
-}
-
-#[derive(Debug, Clone)]
-/// Data type for content detector.
-pub struct ContentDetector {
-    threshold: f32,
-    scorer: ContentScorer,
-    flash_filter: FlashFilter,
-}
-
-impl Default for ContentDetector {
-    fn default() -> Self {
-        Self::new(27.0, 15)
-    }
-}
-
-impl ContentDetector {
-    /// Constant for metric keys.
-    pub const METRIC_KEYS: &'static [&'static str] = &[
-        "content_val",
-        "delta_hue",
-        "delta_sat",
-        "delta_lum",
-        "delta_edges",
-    ];
-
-    /// Creates a new value.
-    pub fn new(threshold: f32, min_scene_len: u64) -> Self {
-        Self {
-            threshold,
-            scorer: ContentScorer::new(ContentWeights::default(), None),
-            flash_filter: FlashFilter::new(FlashFilterMode::Merge, min_scene_len),
-        }
-    }
-
-    /// Returns this value with weights.
-    pub fn with_weights(mut self, weights: ContentWeights) -> Self {
-        self.scorer.weights = weights;
-        self
-    }
-
-    /// Returns luma only.
-    pub fn luma_only(mut self, value: bool) -> Self {
-        if value {
-            self.scorer.weights = ContentWeights::LUMA_ONLY;
-        }
-        self
-    }
-
-    /// Returns kernel size.
-    pub fn kernel_size(mut self, value: Option<usize>) -> Result<Self> {
-        if let Some(size) = value {
-            if size < 3 || size % 2 == 0 {
-                return Err(DetectError::InvalidArgument(
-                    "kernel_size must be an odd integer >= 3".to_string(),
-                ));
-            }
-        }
-        self.scorer.kernel_size = value;
-        Ok(self)
-    }
-
-    /// Returns filter mode.
-    pub fn filter_mode(mut self, mode: FlashFilterMode, min_scene_len: u64) -> Self {
-        self.flash_filter = FlashFilter::new(mode, min_scene_len);
-        self
-    }
-}
-
-impl SceneDetector for ContentDetector {
-    fn name(&self) -> &'static str {
-        "content"
-    }
-
-    fn metric_keys(&self) -> &'static [&'static str] {
-        Self::METRIC_KEYS
-    }
-
-    fn event_buffer_len(&self) -> usize {
-        self.flash_filter.max_behind()
-    }
-
-    fn process_frame(
-        &mut self,
-        frame: &VideoFrame<'_>,
-        metrics: Option<&mut dyn MetricsSink>,
-    ) -> Result<Vec<Cut>> {
-        let score = self.scorer.score(frame, metrics)?;
-        let cut_frames = self
-            .flash_filter
-            .filter(frame.position.frame_index, score >= self.threshold);
-        Ok(cut_frames
-            .into_iter()
-            .map(|frame_index| Cut {
-                position: position_like(frame.position, frame_index),
-                detector: self.name(),
-                score: Some(score),
-            })
-            .collect())
-    }
-}
-
 #[derive(Debug, Clone)]
 struct ContentScorer {
     weights: ContentWeights,
@@ -661,7 +516,7 @@ impl ContentScorer {
             (Some(left), Some(right)) => mean_abs_diff(left, right),
             _ => 0.0,
         };
-        let total_weight = self.weights.total();
+        let total_weight = content_weight_total(self.weights);
         let score = if total_weight == 0.0 {
             0.0
         } else {
@@ -692,6 +547,13 @@ fn set_content_metrics(
     metrics.set_metric(frame_index, "delta_sat", components.1 as f64);
     metrics.set_metric(frame_index, "delta_lum", components.2 as f64);
     metrics.set_metric(frame_index, "delta_edges", components.3 as f64);
+}
+
+fn content_weight_total(weights: ContentWeights) -> f32 {
+    weights.delta_hue.abs()
+        + weights.delta_sat.abs()
+        + weights.delta_lum.abs()
+        + weights.delta_edges.abs()
 }
 
 #[derive(Debug, Clone)]

@@ -866,6 +866,10 @@ fn foundation_contract_owner_rules_remain_enforced() {
         ("NormalizedPoint2", "crates/math/math-geometry-2d/"),
         ("SampleRate", "crates/math/math-signal-core/"),
         ("SignalLevels", "crates/math/math-signal-core/"),
+        ("VisualDetection", "crates/vision/vision-core/"),
+        ("VisualKeypoint", "crates/vision/vision-core/"),
+        ("VisualEmbedding", "crates/vision/vision-core/"),
+        ("IdentityMatch", "crates/vision/vision-core/"),
     ] {
         assert_public_contract_owned_by(type_name, owner);
     }
@@ -971,6 +975,13 @@ fn foundation_adapters_delegate_to_library_owned_surfaces() {
             cli: "crates/math/math-signal-core-cli/src/lib.rs",
             server: "crates/math/math-signal-core-server/src/lib.rs",
             wasm: "crates/bindings/math-signal-core-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "vision-core",
+            import_name: "vision_core",
+            cli: "crates/vision/vision-core-cli/src/lib.rs",
+            server: "crates/vision/vision-core-server/src/lib.rs",
+            wasm: "crates/bindings/vision-core-wasm/src/lib.rs",
         },
     ] {
         assert_cli_adapter_delegates(case);

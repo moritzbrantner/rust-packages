@@ -1,6 +1,6 @@
 [package]
 name = "moritzbrantner-video-analysis-core"
-version = "0.1.2"
+version = "0.1.3"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -17,6 +17,7 @@ name = "video_analysis_core"
 
 [dependencies]
 runtime-core.workspace = true
+math-geometry-2d.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 num-rational.workspace = true

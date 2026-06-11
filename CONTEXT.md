@@ -44,6 +44,22 @@ _Avoid_: Model cache, weights folder
 Public API, schema, runtime operation envelope, adapter behavior, and compatibility rules promised by a release.
 _Avoid_: Accuracy guarantee, model quality promise
 
+**Visual Detection**:
+A localized visual finding with kind, region, score, optional keypoints, and optional metadata. It is not a persistent entity and does not imply identity.
+_Avoid_: Identity, tracked entity, generic bounding box
+
+**Visual Keypoint**:
+A point attached to a visual detection, optionally named and scored.
+_Avoid_: Landmark-only DTO, pose joint
+
+**Visual Embedding**:
+A dense vector representation of an image, region, or detection, optionally linked to its visual source.
+_Avoid_: Identity record, reference profile
+
+**Identity Match**:
+A scored hypothesis linking a visual detection or embedding to a reference identity.
+_Avoid_: Ground truth identity, persistent person
+
 **Best-Effort Result**:
 An output whose shape is stable but whose quality depends on heuristics, local models, language coverage, fixtures, and backend availability.
 _Avoid_: Production-grade NLP result, ground truth

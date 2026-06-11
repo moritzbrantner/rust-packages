@@ -10,6 +10,7 @@ use video_analysis_core::{
     BoundingBox, DetectError, FramePosition, Observation, ObservationKind, Result, VideoAnalyzer,
     VideoFrame,
 };
+use vision_core::{VisualDetection, VisualDetectionKind, VisualRegion};
 
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for tracked detection.
@@ -69,6 +70,48 @@ impl TrackedDetection {
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
+    }
+
+    /// Converts this tracked detection into a shared visual detection.
+    pub fn to_visual_detection(&self) -> Result<VisualDetection> {
+        let kind = if self
+            .label
+            .as_deref()
+            .is_some_and(|label| label.eq_ignore_ascii_case("person"))
+        {
+            VisualDetectionKind::Person
+        } else {
+            visual_kind_from_observation(&self.kind)
+        };
+        let mut visual =
+            VisualDetection::new(kind, VisualRegion::from(self.region)).map_err(vision_error)?;
+        if let Some(label) = &self.label {
+            visual = visual.label(label.clone()).map_err(vision_error)?;
+        }
+        if let Some(score) = self.score {
+            visual = visual.score(score).map_err(vision_error)?;
+        }
+        if let Some(track_hint) = &self.track_hint {
+            visual = visual.id(track_hint.clone()).map_err(vision_error)?;
+        }
+        visual.attributes = self.attributes.clone();
+        Ok(visual)
+    }
+}
+
+impl TryFrom<TrackedDetection> for VisualDetection {
+    type Error = DetectError;
+
+    fn try_from(value: TrackedDetection) -> std::result::Result<Self, Self::Error> {
+        value.to_visual_detection()
+    }
+}
+
+impl TryFrom<&TrackedDetection> for VisualDetection {
+    type Error = DetectError;
+
+    fn try_from(value: &TrackedDetection) -> std::result::Result<Self, Self::Error> {
+        value.to_visual_detection()
     }
 }
 
@@ -171,7 +214,7 @@ impl Default for CollisionBroadPhaseOptions {
 impl CollisionBroadPhaseOptions {
     /// Validates this value.
     pub fn validate(self) -> Result<()> {
-        to_broad_phase_config(self).validate()
+        Ok(to_broad_phase_config(self).validate()?)
     }
 }
 
@@ -700,6 +743,26 @@ fn observation_for_track(analyzer: &str, track: ObjectTrack) -> Observation {
         observation = observation.attribute(key, value);
     }
     observation
+}
+
+fn visual_kind_from_observation(kind: &ObservationKind) -> VisualDetectionKind {
+    match kind {
+        ObservationKind::Face => VisualDetectionKind::Face,
+        ObservationKind::Object => VisualDetectionKind::Object,
+        ObservationKind::Text => VisualDetectionKind::TextRegion,
+        ObservationKind::Custom(value) => {
+            if value.trim().is_empty() {
+                VisualDetectionKind::Object
+            } else {
+                VisualDetectionKind::Custom(value.clone())
+            }
+        }
+        _ => VisualDetectionKind::Custom(format!("{kind:?}")),
+    }
+}
+
+fn vision_error(error: vision_core::VisionError) -> DetectError {
+    DetectError::InvalidArgument(error.to_string())
 }
 
 #[cfg(test)]

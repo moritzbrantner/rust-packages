@@ -76,7 +76,7 @@ impl Keypoint {
 
     /// Converts this value to point2f.
     pub fn to_point2f(&self) -> Result<Point2f> {
-        Point2f::new(self.x, self.y)
+        Ok(Point2f::new(self.x, self.y)?)
     }
 
     /// Builds this value from point2f.
@@ -86,7 +86,7 @@ impl Keypoint {
 
     /// Converts this value to normalized point2.
     pub fn to_normalized_point2(&self, image_size: Size2u) -> Result<NormalizedPoint2> {
-        self.to_point2f()?.to_normalized(image_size)
+        Ok(self.to_point2f()?.to_normalized(image_size)?)
     }
 
     /// Builds this value from normalized point2.

@@ -14,6 +14,9 @@ use image_analysis_segmentation::{
 };
 use model_runtime::{HuggingFaceModelSpec, ModelTask};
 use video_analysis_core::{BoundingBox, DetectError, FramePosition, Result, VideoFrame};
+use vision_core::{
+    VisualDetection, VisualDetectionKind, VisualKeypoint, VisualPoint, VisualRegion,
+};
 
 /// Compatibility re-export for callers that previously imported this from the ONNX crate.
 pub use image_analysis_processing::{ChannelOrder, OnnxImagePreprocessing, OnnxImageTensor};
@@ -158,6 +161,35 @@ impl FaceDetection {
         self.attributes.insert(key.into(), value.into());
         self
     }
+
+    /// Converts this specialized face detection into a shared visual detection.
+    pub fn to_visual_detection_for_size(&self, width: u32, height: u32) -> Result<VisualDetection> {
+        let region = normalized_face_region(self.bbox, width, height)?;
+        let mut visual = VisualDetection::face(region)
+            .map_err(vision_error)?
+            .score(self.confidence)
+            .map_err(vision_error)?;
+        visual.attributes = self.attributes.clone();
+
+        if let Some(landmarks) = &self.landmarks {
+            for (index, point) in landmarks.points.iter().enumerate() {
+                let x = point[0] * width as f32;
+                let y = point[1] * height as f32;
+                let keypoint = VisualKeypoint::new(VisualPoint::new(x, y)?)
+                    .map_err(vision_error)?
+                    .name(format!("landmark_{index}"))
+                    .map_err(vision_error)?;
+                visual = visual.keypoint(keypoint).map_err(vision_error)?;
+            }
+        }
+
+        Ok(visual)
+    }
+
+    /// Converts this specialized face detection using dimensions from an image view.
+    pub fn to_visual_detection(&self, image: &ImageView<'_>) -> Result<VisualDetection> {
+        self.to_visual_detection_for_size(image.width, image.height)
+    }
 }
 
 /// Trait for face detector backend implementations.
@@ -167,10 +199,42 @@ pub trait FaceDetectorBackend {
 }
 
 impl ImageDetection {
+    /// Converts this image detection into a shared visual detection.
+    pub fn to_visual_detection(&self) -> Result<VisualDetection> {
+        let mut visual = VisualDetection::new(
+            visual_kind_from_label(&self.label),
+            VisualRegion::from(self.region),
+        )
+        .map_err(vision_error)?
+        .label(self.label.clone())
+        .map_err(vision_error)?;
+        if let Some(score) = self.score {
+            visual = visual.score(score).map_err(vision_error)?;
+        }
+        visual.attributes = self.attributes.clone();
+        Ok(visual)
+    }
+
     /// Returns attribute.
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
+    }
+}
+
+impl TryFrom<ImageDetection> for VisualDetection {
+    type Error = DetectError;
+
+    fn try_from(value: ImageDetection) -> std::result::Result<Self, Self::Error> {
+        value.to_visual_detection()
+    }
+}
+
+impl TryFrom<&ImageDetection> for VisualDetection {
+    type Error = DetectError;
+
+    fn try_from(value: &ImageDetection) -> std::result::Result<Self, Self::Error> {
+        value.to_visual_detection()
     }
 }
 
@@ -1710,6 +1774,39 @@ fn validate_threshold(value: f32) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn visual_kind_from_label(label: &str) -> VisualDetectionKind {
+    match label.trim().to_ascii_lowercase().as_str() {
+        "face" => VisualDetectionKind::Face,
+        "person" => VisualDetectionKind::Person,
+        "text" | "text_region" | "text-region" | "textregion" => VisualDetectionKind::TextRegion,
+        "object" => VisualDetectionKind::Object,
+        "" => VisualDetectionKind::Object,
+        value => VisualDetectionKind::Custom(value.to_string()),
+    }
+}
+
+fn normalized_face_region(bbox: FaceBox, width: u32, height: u32) -> Result<VisualRegion> {
+    if width == 0 || height == 0 {
+        return Err(DetectError::InvalidDimensions { width, height });
+    }
+    let image_width = width as f32;
+    let image_height = height as f32;
+    let x = (bbox.x * image_width).floor().clamp(0.0, image_width) as u32;
+    let y = (bbox.y * image_height).floor().clamp(0.0, image_height) as u32;
+    let max_x = ((bbox.x + bbox.width) * image_width)
+        .ceil()
+        .clamp(0.0, image_width) as u32;
+    let max_y = ((bbox.y + bbox.height) * image_height)
+        .ceil()
+        .clamp(0.0, image_height) as u32;
+    VisualRegion::new(x, y, max_x.saturating_sub(x), max_y.saturating_sub(y))
+        .map_err(DetectError::from)
+}
+
+fn vision_error(error: vision_core::VisionError) -> DetectError {
+    DetectError::InvalidArgument(error.to_string())
 }
 
 fn required_bundle_file(bundle: &model_runtime::ModelBundle, remote_path: &str) -> Result<PathBuf> {

@@ -27,6 +27,7 @@ runtime-onnx.workspace = true
 three-d-processing-core.workspace = true
 video-analysis-core.workspace = true
 video-analysis-posture.workspace = true
+vision-core.workspace = true
 
 [features]
 default = []

@@ -10,6 +10,7 @@ use video_analysis_core::{
     BoundingBox, DetectError, FramePosition, Observation, ObservationKind, Result, VideoAnalyzer,
     VideoFrame,
 };
+use vision_core::{IdentityMatch, VisualDetectionKind, VisualEmbedding, VisualRegion};
 
 pub use external_command::*;
 pub use model_analyzers::*;
@@ -423,6 +424,37 @@ pub struct RecognitionMatch {
     pub attributes: BTreeMap<String, String>,
 }
 
+impl RecognitionMatch {
+    /// Converts this recognition result into a shared visual identity match.
+    pub fn to_identity_match(&self) -> Result<IdentityMatch> {
+        let mut visual = IdentityMatch::new(self.reference_id.clone(), self.score)
+            .map_err(vision_error)?
+            .kind(visual_kind_from_observation(&self.kind))
+            .map_err(vision_error)?;
+        if !self.label.trim().is_empty() {
+            visual = visual.label(self.label.clone()).map_err(vision_error)?;
+        }
+        visual.attributes = self.attributes.clone();
+        Ok(visual)
+    }
+}
+
+impl TryFrom<RecognitionMatch> for IdentityMatch {
+    type Error = DetectError;
+
+    fn try_from(value: RecognitionMatch) -> std::result::Result<Self, Self::Error> {
+        value.to_identity_match()
+    }
+}
+
+impl TryFrom<&RecognitionMatch> for IdentityMatch {
+    type Error = DetectError;
+
+    fn try_from(value: &RecognitionMatch) -> std::result::Result<Self, Self::Error> {
+        value.to_identity_match()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for recognition candidate.
 pub struct RecognitionCandidate {
@@ -484,6 +516,42 @@ impl RecognitionCandidate {
     pub fn attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
+    }
+
+    /// Converts this recognition candidate into a shared visual embedding.
+    pub fn to_visual_embedding(&self) -> Result<VisualEmbedding> {
+        let mut visual = VisualEmbedding::new(self.embedding.values().to_vec())
+            .map_err(vision_error)?
+            .kind(visual_kind_from_observation(&self.kind))
+            .map_err(vision_error)?;
+        if let Some(region) = self.region {
+            visual = visual
+                .region(VisualRegion::from(region))
+                .map_err(vision_error)?;
+        }
+        if let Some(track_id) = &self.track_id {
+            visual = visual
+                .source_detection_id(track_id.clone())
+                .map_err(vision_error)?;
+        }
+        visual.attributes = self.attributes.clone();
+        Ok(visual)
+    }
+}
+
+impl TryFrom<RecognitionCandidate> for VisualEmbedding {
+    type Error = DetectError;
+
+    fn try_from(value: RecognitionCandidate) -> std::result::Result<Self, Self::Error> {
+        value.to_visual_embedding()
+    }
+}
+
+impl TryFrom<&RecognitionCandidate> for VisualEmbedding {
+    type Error = DetectError;
+
+    fn try_from(value: &RecognitionCandidate) -> std::result::Result<Self, Self::Error> {
+        value.to_visual_embedding()
     }
 }
 
@@ -775,6 +843,26 @@ fn normalize_values(values: &mut [f32]) -> Result<()> {
         *value /= norm;
     }
     Ok(())
+}
+
+fn visual_kind_from_observation(kind: &ObservationKind) -> VisualDetectionKind {
+    match kind {
+        ObservationKind::Face => VisualDetectionKind::Face,
+        ObservationKind::Object => VisualDetectionKind::Object,
+        ObservationKind::Text => VisualDetectionKind::TextRegion,
+        ObservationKind::Custom(value) => {
+            if value.trim().is_empty() {
+                VisualDetectionKind::Object
+            } else {
+                VisualDetectionKind::Custom(value.clone())
+            }
+        }
+        _ => VisualDetectionKind::Custom(format!("{kind:?}")),
+    }
+}
+
+fn vision_error(error: vision_core::VisionError) -> DetectError {
+    DetectError::InvalidArgument(error.to_string())
 }
 
 fn observation_for_match(

@@ -25,6 +25,7 @@ image-analysis-segmentation.workspace = true
 model-runtime.workspace = true
 runtime-onnx.workspace = true
 video-analysis-core.workspace = true
+vision-core.workspace = true
 
 [features]
 default = []
