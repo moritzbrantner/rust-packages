@@ -23,11 +23,11 @@ the timestamp/VFR overhaul and command/API changes:
 
 | 0.7 area | Upstream change | Rust parity status |
 | --- | --- | --- |
-| VFR/timestamps | Backends return PTS-backed positions, `FrameTimecode` carries `time_base`/`pts`, and frame rates are rational `Fraction` values. | Not cloned yet; prioritize before output exporters because it can affect scene boundaries. |
+| VFR/timestamps | Backends return PTS-backed positions, `FrameTimecode` carries `time_base`/`pts`, and frame rates are rational `Fraction` values. | Partially cloned additively: `FramePosition` already carries `Timestamp`, legacy `FrameTimecode` stays layout-compatible, and `TimestampedFrameTimecode` preserves source PTS/timebase for new VFR-aware workflows. |
 | CLI time inputs | Options that previously accepted frame numbers can also accept seconds and timecodes. | Not cloned yet; current scene evaluator still records cut frame numbers. |
-| Removed/renamed CLI options | `detect-adaptive --min-delta-hsv` removed; global `--framerate` renamed to `--frame-rate`; `export-html` renamed to `save-html` with a deprecated alias. | Not cloned yet; keep current 0.6.7.1-compatible detector defaults stable. |
-| New output commands | `save-fcp` and `save-qp` were added. | Not cloned yet; add only after choosing 0.7 output parity scope. |
-| Python output helpers | `write_scene_list_edl`, `write_scene_list_fcpx`, `write_scene_list_fcp7`, and `write_scene_list_otio` are available from `scenedetect.output`. | Not cloned yet; plan with EDL/OTIO/FCP writer work. |
+| Removed/renamed CLI options | `detect-adaptive --min-delta-hsv` removed; global `--framerate` renamed to `--frame-rate`; `export-html` renamed to `save-html` with a deprecated alias. | Partially cloned additively: `vanalyze` accepts preferred `--frame-rate` and legacy `--framerate` spelling for detection command parsing without changing detector defaults. |
+| New output commands | `save-fcp` and `save-qp` were added. | Writer support added in `video-analysis-output`; filesystem-writing CLI commands remain a later explicit scope. |
+| Python output helpers | `write_scene_list_edl`, `write_scene_list_fcpx`, `write_scene_list_fcp7`, and `write_scene_list_otio` are available from `scenedetect.output`. | Pure Rust writer helpers now exist, with package-surface previews through `video.output.editListPlan`. |
 | Runtime floor | Minimum Python version is now 3.10. | Documentation only for this Rust workspace. |
 
 References: [PySceneDetect changelog](https://www.scenedetect.com/changelog/)

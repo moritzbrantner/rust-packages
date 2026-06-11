@@ -1,7 +1,38 @@
-# Video Analysis Model And CLI Next Steps
+# Video Analysis Model And CLI Status And Next Steps
 
-This document scopes the next two gaps in the video-analysis packages so follow-up
-threads can pick up implementation without redoing discovery.
+This document preserves the implementation context for video model backends and
+CLI integration, then narrows the remaining decisions so follow-up threads do
+not treat completed work as the next target.
+
+## Current Next Work
+
+The native model backend and CLI integration milestones below are implemented.
+The remaining live work is:
+
+- Choose whether `vanalyze` should absorb composed use-case commands or remain
+  a primitive workflow CLI while `video-analysis-use-cases` stays separate.
+- Choose the first stable, small external ONNX inference fixture for opt-in CI
+  and local smoke runs.
+- Decide whether the root facade should re-export native backend crates or keep
+  backend imports explicit.
+- Continue PySceneDetect `0.7` parity as a separate video scene lane: timestamp
+  and VFR metadata first, then CLI spelling/output exporter compatibility.
+
+## Completed History
+
+The original plan in this document has been completed as implementation history:
+
+- `moritzbrantner-runtime-onnx` owns domain-neutral ONNX tensor/session
+  mechanics.
+- Task crates own model semantics and decoding for image classification,
+  captioning, embeddings, detection, video recognition, posture, and related
+  adapters.
+- `vanalyze models inspect` is implemented.
+- `vanalyze models run` is implemented for raw RGB/BGR frames and
+  DETR/YOLOS-style ONNX outputs behind feature gates.
+- `vanalyze analyze` is implemented for scene/dataset reports and optional
+  sampled video model inference.
+- The use-case binary remains separate pending an explicit product decision.
 
 Current state:
 
@@ -25,11 +56,10 @@ Current state:
 - Optional Python dependencies for model-backend experiments can be installed
   idempotently with `scripts/setup_model_external_tools.sh`.
 
-## Plan 1: Native Model Backends
+## Implemented Plan 1: Native Model Backends
 
-Goal: add a first native inference path that consumes `ModelBundle` and emits
-the existing `RawPrediction` values through `VisionModelBackend` or
-`TextModelBackend`.
+Original goal: add a first native inference path that consumes `ModelBundle`
+and emits existing prediction values through task-owned backends.
 
 Recommended first target: ONNX Runtime object detection.
 
@@ -198,10 +228,10 @@ Acceptance criteria:
 - Emits labels and scores as `RawPrediction`.
 - Tests cover unknown labels, empty input, and deterministic logits.
 
-## Plan 2: CLI Integration Beyond Scene Detection
+## Implemented Plan 2: CLI Integration Beyond Scene Detection
 
-Goal: make `vanalyze` run more of the video-analysis stack without requiring
-users to discover lower-level crates or the separate use-case binary.
+Original goal: make `vanalyze` run more of the video-analysis stack without
+requiring users to discover lower-level crates or the separate use-case binary.
 
 Recommended sequence: add narrow, composable commands first, then promote a full
 report command once model execution is real.
@@ -323,9 +353,6 @@ After that, the native backend thread can wire:
 
 ## Open Decisions
 
-- Which ONNX Runtime crate/version is acceptable for this workspace?
-- Should runtime downloads/binaries be allowed in normal builds, or only behind
-  feature flags and external tests?
 - Should the root facade re-export native backend crates, or should users import
   backend crates explicitly?
 - Should `vanalyze` absorb use-case commands, or remain a primitive workflow

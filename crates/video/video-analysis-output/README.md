@@ -1,6 +1,7 @@
 # video-analysis-output
 
-CSV and HTML report helpers for `moritzbrantner-video-analysis`.
+CSV, HTML, JSON, EDL, FCP, OTIO, and qpfile report helpers for
+`moritzbrantner-video-analysis`.
 
 ## Feature flags
 
@@ -9,10 +10,11 @@ CSV and HTML report helpers for `moritzbrantner-video-analysis`.
 ## Example
 
 ```rust,ignore
-use video_analysis_output::write_scene_list_csv;
+use video_analysis_output::{write_scene_list_csv, write_scene_list_otio};
 
 let mut bytes = Vec::new();
 write_scene_list_csv(&mut bytes, &[])?;
+write_scene_list_otio(&mut bytes, &[])?;
 
 let _ = bytes;
 ```
@@ -30,6 +32,7 @@ Debug operations:
 - `describe`: inspect package metadata and runtime support.
 - `video.output.csvPlan`: Renders scene and optional stats CSV previews in memory without writing files.
 - `video.output.htmlPlan`: Renders an HTML scene list preview in memory without writing files.
+- `video.output.editListPlan`: Renders EDL, FCP7 XML, FCPXML, OTIO JSON, or qpfile scene-list previews in memory without writing files.
 
 Runtime support: library, CLI, server, and WASM wrappers expose these operations.
 

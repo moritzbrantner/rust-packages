@@ -4,7 +4,7 @@ import * as wasm from "@moritzbrantner/video-analysis-output-wasm";
 const packageAppConfig: PackageAppConfig = {
   library: "video-analysis-output",
   title: "Video Analysis Output",
-  description: "CSV and HTML report helpers for video-analysis.",
+  description: "CSV, HTML, JSON, EDL, FCP, OTIO, and qpfile report helpers for video-analysis.",
   domain: "video",
   wasm: {
     init: wasm.init,
@@ -16,7 +16,13 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "video.output.reportSummary",
-  featuredOperations: ["video.output.reportSummary", "video.output.csvPlan", "video.output.htmlPlan", "describe"],
+  featuredOperations: [
+    "video.output.reportSummary",
+    "video.output.csvPlan",
+    "video.output.htmlPlan",
+    "video.output.editListPlan",
+    "describe",
+  ],
   operationGroups: [
     {
       id: "workflow",
@@ -28,7 +34,7 @@ const packageAppConfig: PackageAppConfig = {
       id: "debug",
       label: "Debug",
       description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
-      operations: ["describe", "video.output.csvPlan", "video.output.htmlPlan"],
+      operations: ["describe", "video.output.csvPlan", "video.output.htmlPlan", "video.output.editListPlan"],
     },
   ],
 };

@@ -1,4 +1,4 @@
-use runtime_core::{PackageSurface, SurfaceRequest, SurfaceResponse};
+use runtime_core::{PackageSurface, SurfaceError, SurfaceRequest, SurfaceResponse};
 
 type SurfaceFn = fn() -> PackageSurface;
 type RunFn = fn(SurfaceRequest) -> Result<SurfaceResponse, String>;
@@ -55,18 +55,57 @@ fn image_surfaces_fail_clearly_on_invalid_input() {
             input: case.invalid_input.clone(),
         })
         .expect_err(case.crate_name);
-        assert!(
-            error.contains("invalid request")
-                || error.contains("unsupported")
-                || error.contains("invalid")
-                || error.contains("must")
-                || error.contains("unknown")
-                || error.contains("could not infer")
-                || error.contains("extension"),
-            "{} returned unclear invalid-input error: {error}",
-            case.crate_name
-        );
+        assert_clear_invalid_input_error(case.crate_name, case.invalid_operation, &error);
     }
+}
+
+fn assert_clear_invalid_input_error(crate_name: &str, operation: &str, error: &str) {
+    if let Ok(surface_error) = serde_json::from_str::<SurfaceError>(error) {
+        assert!(
+            matches!(
+                surface_error.code.as_str(),
+                "invalid_request"
+                    | "unsupported_operation"
+                    | "unsupported_value"
+                    | "resource_limit"
+            ),
+            "{crate_name} returned unexpected error code `{}`: {error}",
+            surface_error.code
+        );
+        assert_eq!(
+            surface_error
+                .operation
+                .as_ref()
+                .map(runtime_core::OperationId::as_str),
+            Some(operation),
+            "{crate_name} error is not tied to the invalid operation: {error}"
+        );
+        assert!(
+            !surface_error.message.trim().is_empty(),
+            "{crate_name} returned typed error with empty message: {error}"
+        );
+        if surface_error.code == "resource_limit" {
+            assert!(
+                surface_error.details.get("field").is_some()
+                    && surface_error.details.get("limit").is_some()
+                    && surface_error.details.get("actual").is_some(),
+                "{crate_name} resource-limit error missing field/limit/actual details: {error}"
+            );
+        }
+        return;
+    }
+
+    assert!(
+        error.contains("invalid request")
+            || error.contains("unsupported")
+            || error.contains("invalid")
+            || error.contains("must")
+            || error.contains("unknown")
+            || error.contains("could not infer")
+            || error.contains("extension"),
+        "{} returned unclear invalid-input error: {error}",
+        crate_name
+    );
 }
 
 #[test]

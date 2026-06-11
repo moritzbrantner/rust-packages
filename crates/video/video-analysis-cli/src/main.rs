@@ -388,6 +388,28 @@ fn parse_detector_weight(value: &str) -> std::result::Result<DetectorWeight, Str
     Ok(DetectorWeight { detector, weight })
 }
 
+fn parse_frame_rate_override(value: &str) -> std::result::Result<String, String> {
+    if let Some((num, den)) = value.split_once('/') {
+        let numerator = num
+            .parse::<u64>()
+            .map_err(|err| format!("invalid frame-rate numerator `{num}`: {err}"))?;
+        let denominator = den
+            .parse::<u64>()
+            .map_err(|err| format!("invalid frame-rate denominator `{den}`: {err}"))?;
+        if numerator == 0 || denominator == 0 {
+            return Err("frame-rate numerator and denominator must be positive".to_string());
+        }
+        return Ok(value.to_string());
+    }
+    let fps = value
+        .parse::<f64>()
+        .map_err(|err| format!("invalid frame-rate `{value}`: {err}"))?;
+    if !fps.is_finite() || fps <= 0.0 {
+        return Err("frame-rate must be finite and greater than zero".to_string());
+    }
+    Ok(value.to_string())
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum ModelPresetKind {
     #[value(name = "detr-resnet-50")]
@@ -453,6 +475,13 @@ impl From<ModelTaskKind> for ModelTask {
 
 #[derive(Debug, Parser, Clone)]
 struct DetectorOptions {
+    #[arg(
+        long = "frame-rate",
+        alias = "framerate",
+        value_parser = parse_frame_rate_override,
+        help = "Accept the PySceneDetect 0.7 frame-rate spelling; source metadata still drives decoding"
+    )]
+    frame_rate: Option<String>,
     #[arg(long)]
     threshold: Option<f32>,
     #[arg(long, default_value_t = 15)]
@@ -1162,6 +1191,7 @@ fn run_detection(
     selection: &DetectionSelection,
     options: &DetectorOptions,
 ) -> Result<video_analysis_core::DetectionResult> {
+    let _reserved_frame_rate_override = options.frame_rate.as_deref();
     let mut source = FfmpegVideoSource::open(input)?;
     let mut pipeline = if selection.detectors.is_empty() {
         build_single_detector_pipeline(selection.detector, options)?
@@ -1387,6 +1417,7 @@ mod tests {
 
     fn detector_options() -> DetectorOptions {
         DetectorOptions {
+            frame_rate: None,
             threshold: None,
             min_scene_len: 15,
             luma_only: false,
@@ -1716,6 +1747,64 @@ mod tests {
             "content",
         ])
         .unwrap();
+    }
+
+    #[test]
+    fn detect_accepts_preferred_frame_rate_spelling() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "detect",
+            "--input",
+            "video.mp4",
+            "--frame-rate",
+            "30000/1001",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Detect(args) => {
+                assert_eq!(
+                    args.detector_options.frame_rate.as_deref(),
+                    Some("30000/1001")
+                );
+            }
+            _ => panic!("expected detect command"),
+        }
+    }
+
+    #[test]
+    fn detect_accepts_legacy_framerate_alias() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "detect",
+            "--input",
+            "video.mp4",
+            "--framerate",
+            "29.97",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Detect(args) => {
+                assert_eq!(args.detector_options.frame_rate.as_deref(), Some("29.97"));
+            }
+            _ => panic!("expected detect command"),
+        }
+    }
+
+    #[test]
+    fn detect_rejects_invalid_frame_rate() {
+        let err = Cli::try_parse_from([
+            "vanalyze",
+            "detect",
+            "--input",
+            "video.mp4",
+            "--frame-rate",
+            "0",
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::ValueValidation);
     }
 
     #[test]

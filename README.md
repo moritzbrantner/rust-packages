@@ -218,7 +218,8 @@ Package README index:
   GraphDeco/Nerfstudio Gaussian splat PLY import/export helpers.
 - `moritzbrantner-video-analysis-radiance-pipeline`: library-first loading, validation,
   summary, and CPU preview rendering across the radiance crates.
-- `moritzbrantner-video-analysis-output`: scene/stats CSV and simple HTML output helpers.
+- `moritzbrantner-video-analysis-output`: scene/stats CSV, simple HTML, JSON,
+  EDL, FCP, OTIO, and qpfile output helpers.
 - `moritzbrantner-video-analysis-split`: ffmpeg CLI based scene splitting.
 - `moritzbrantner-video-analysis-cli`: `vanalyze` command-line tool.
 - `moritzbrantner-video-analysis-use-cases`: prototype runnable end-to-end use-case pipelines.

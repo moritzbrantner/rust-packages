@@ -241,7 +241,10 @@ mod tests {
             input: serde_json::json!({"image": sample_image_json(), "bins": 0}),
         })
         .expect_err("invalid bins");
-        assert!(error.contains("bins must be"));
+        let error: SurfaceError = serde_json::from_str(&error).expect("typed surface error");
+        assert_eq!(error.code, "resource_limit");
+        assert_eq!(error.details["field"], "bins");
+        assert_eq!(error.details["actual"], 0);
     }
 
     #[test]

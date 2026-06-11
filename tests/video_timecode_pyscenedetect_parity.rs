@@ -1,5 +1,5 @@
 use num_rational::Rational64;
-use video_analysis_core::FrameTimecode;
+use video_analysis_core::{FrameTimecode, Timebase};
 
 fn fps(num: i64, den: i64) -> Rational64 {
     Rational64::new(num, den)
@@ -81,4 +81,32 @@ fn frame_arithmetic_adds_and_saturates() {
     assert_eq!((timecode - 3).frame_index, 7);
     assert_eq!((timecode - 30).frame_index, 0);
     assert_eq!((timecode + 10).to_string(), "00:00:02.000");
+}
+
+#[test]
+fn legacy_frame_timecode_does_not_carry_pts_metadata() {
+    let timecode = FrameTimecode::from_frames(10, fps(10, 1));
+
+    assert_eq!(timecode.pts(), None);
+    assert_eq!(timecode.time_base(), None);
+    assert_eq!(timecode.seconds(), 1.0);
+    assert_eq!(timecode.position().timestamp.pts, 10);
+    assert_eq!(timecode.position().timestamp.timebase, Timebase::new(1, 10));
+}
+
+#[test]
+fn timestamped_frame_timecode_preserves_source_pts_and_timebase() {
+    let timecode = FrameTimecode::from_pts(10, fps(30_000, 1001), 42_000, Timebase::new(1, 90_000));
+
+    assert_eq!(timecode.frame_index(), 10);
+    assert_eq!(timecode.fps(), fps(30_000, 1001));
+    assert_eq!(timecode.pts(), Some(42_000));
+    assert_eq!(timecode.time_base(), Some(Timebase::new(1, 90_000)));
+    assert!((timecode.seconds() - 0.466_666_666_666_666_7).abs() < 1e-12);
+    assert_eq!(timecode.timecode(3), "00:00:00.334");
+
+    let position = timecode.position();
+    assert_eq!(position.frame_index, 10);
+    assert_eq!(position.timestamp.pts, 42_000);
+    assert_eq!(position.timestamp.timebase, Timebase::new(1, 90_000));
 }

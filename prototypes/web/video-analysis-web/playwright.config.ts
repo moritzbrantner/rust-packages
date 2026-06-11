@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const webServerTimeout = Number(process.env.PLAYWRIGHT_WEB_SERVER_TIMEOUT_MS ?? "300000");
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -13,7 +15,7 @@ export default defineConfig({
     command: "VITE_HOST=127.0.0.1 VITE_PORT=4175 bun scripts/dev-with-rust-server.ts",
     url: "http://127.0.0.1:4175/",
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: webServerTimeout,
   },
   projects: [
     {

@@ -135,6 +135,20 @@ impl FrameTimecode {
         Self { frame_index, fps }
     }
 
+    /// Builds a PTS-backed frame timecode without changing the legacy
+    /// `FrameTimecode` layout.
+    pub fn from_pts(
+        frame_index: u64,
+        fps: Rational64,
+        pts: i64,
+        timebase: Timebase,
+    ) -> TimestampedFrameTimecode {
+        TimestampedFrameTimecode {
+            timecode: Self::from_frames(frame_index, fps),
+            timestamp: Timestamp::new(pts, timebase),
+        }
+    }
+
     /// Builds this value from seconds.
     pub fn from_seconds(seconds: f64, fps: Rational64) -> Result<Self> {
         if seconds < 0.0 {
@@ -208,6 +222,73 @@ impl FrameTimecode {
     /// Returns position.
     pub fn position(self) -> FramePosition {
         FramePosition::from_frame_index(self.frame_index, self.fps)
+    }
+
+    /// Returns PTS metadata when this value came from a timestamped wrapper.
+    ///
+    /// Plain `FrameTimecode` values remain frame-rate-derived and therefore do
+    /// not carry source PTS metadata.
+    pub const fn pts(self) -> Option<i64> {
+        None
+    }
+
+    /// Returns source timebase metadata when this value came from a timestamped
+    /// wrapper.
+    ///
+    /// Plain `FrameTimecode` values remain frame-rate-derived and therefore do
+    /// not carry source timebase metadata.
+    pub const fn time_base(self) -> Option<Timebase> {
+        None
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Frame timecode paired with source PTS/timebase metadata for VFR-aware
+/// workflows.
+pub struct TimestampedFrameTimecode {
+    /// The legacy frame/fps timecode view.
+    pub timecode: FrameTimecode,
+    /// The source timestamp attached to this frame.
+    pub timestamp: Timestamp,
+}
+
+impl TimestampedFrameTimecode {
+    /// Returns the frame index.
+    pub const fn frame_index(self) -> u64 {
+        self.timecode.frame_index
+    }
+
+    /// Returns the display frame rate.
+    pub const fn fps(self) -> Rational64 {
+        self.timecode.fps
+    }
+
+    /// Returns source PTS metadata.
+    pub const fn pts(self) -> Option<i64> {
+        Some(self.timestamp.pts)
+    }
+
+    /// Returns source timebase metadata.
+    pub const fn time_base(self) -> Option<Timebase> {
+        Some(self.timestamp.timebase)
+    }
+
+    /// Returns source timestamp seconds.
+    pub fn seconds(self) -> f64 {
+        self.timestamp.seconds()
+    }
+
+    /// Returns display timecode using the legacy frame/fps conversion.
+    pub fn timecode(self, precision: usize) -> String {
+        self.timecode.timecode(precision)
+    }
+
+    /// Returns a frame position preserving the source timestamp.
+    pub const fn position(self) -> FramePosition {
+        FramePosition {
+            frame_index: self.timecode.frame_index,
+            timestamp: self.timestamp,
+        }
     }
 }
 

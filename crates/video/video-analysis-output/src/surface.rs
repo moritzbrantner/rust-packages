@@ -13,7 +13,9 @@ use video_analysis_core::{
 };
 
 use crate::{
-    write_detection_result_json, write_scene_list_csv, write_scene_list_html, write_stats_csv,
+    write_detection_result_json, write_scene_list_csv, write_scene_list_edl, write_scene_list_fcp7,
+    write_scene_list_fcpx, write_scene_list_html, write_scene_list_otio, write_scene_list_qp,
+    write_stats_csv,
 };
 
 const DEFAULT_PREVIEW_LIMIT: usize = 20;
@@ -60,6 +62,16 @@ pub fn package_surface() -> PackageSurface {
                 "Renders an HTML scene list preview in memory without writing files.",
                 serde_json::json!({"scenes": [{"startFrame": 0, "endFrame": 30}], "previewLimit": 20}),
             ),
+            operation(
+                "video.output.editListPlan",
+                "Preview edit-list export",
+                "Renders EDL, FCP7 XML, FCPXML, OTIO JSON, or qpfile scene-list previews in memory.",
+                serde_json::json!({
+                    "format": "edl",
+                    "scenes": [{"startFrame": 0, "endFrame": 30}],
+                    "previewLimit": 20
+                }),
+            ),
         ],
     }
 }
@@ -90,6 +102,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "video.output.reportSummary" => report_summary_value(parse_input(request.input)?)?,
         "video.output.csvPlan" => csv_plan_value(parse_input(request.input)?)?,
         "video.output.htmlPlan" => html_plan_value(parse_input(request.input)?)?,
+        "video.output.editListPlan" => edit_list_plan_value(parse_input(request.input)?)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -143,6 +156,16 @@ struct CsvPlanRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct HtmlPlanRequest {
+    #[serde(default)]
+    scenes: Vec<SceneRequest>,
+    preview_limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EditListPlanRequest {
+    #[serde(default = "default_edit_list_format")]
+    format: String,
     #[serde(default)]
     scenes: Vec<SceneRequest>,
     preview_limit: Option<usize>,
@@ -205,6 +228,10 @@ fn default_detector() -> String {
     "surface".to_string()
 }
 
+fn default_edit_list_format() -> String {
+    "edl".to_string()
+}
+
 fn report_summary_value(request: ReportSummaryRequest) -> Result<serde_json::Value, String> {
     let result = detection_result(request.result)?;
     let mut json = Vec::new();
@@ -258,6 +285,38 @@ fn html_plan_value(request: HtmlPlanRequest) -> Result<serde_json::Value, String
         "lineCount": html.lines().count(),
         "htmlPreview": preview_lines(&html, limit),
         "previewLimit": limit
+    }))
+}
+
+fn edit_list_plan_value(request: EditListPlanRequest) -> Result<serde_json::Value, String> {
+    let scenes = scenes(&request.scenes)?;
+    let mut out = Vec::new();
+    let format = request.format.to_ascii_lowercase();
+    match format.as_str() {
+        "edl" => write_scene_list_edl(&mut out, &scenes),
+        "fcp7" | "fcp" | "xml" => write_scene_list_fcp7(&mut out, &scenes),
+        "fcpx" | "fcpxml" => write_scene_list_fcpx(&mut out, &scenes),
+        "otio" | "otiojson" => write_scene_list_otio(&mut out, &scenes),
+        "qp" | "qpfile" => write_scene_list_qp(&mut out, &scenes),
+        _ => return Err(format!("unsupported edit-list format `{}`", request.format)),
+    }
+    .map_err(|error| error.to_string())?;
+    let rendered = String::from_utf8(out).map_err(|error| error.to_string())?;
+    let limit = preview_limit(request.preview_limit);
+    Ok(serde_json::json!({
+        "title": "Edit-list export preview",
+        "message": "Rendered an in-memory scene-list export preview without writing files or invoking external tools.",
+        "summary": {
+            "format": format,
+            "sceneCount": scenes.len(),
+            "lineCount": rendered.lines().count(),
+            "byteLength": rendered.len(),
+            "externalToolsRequired": false
+        },
+        "result": {
+            "preview": preview_lines(&rendered, limit),
+            "previewLimit": limit
+        }
     }))
 }
 
@@ -390,5 +449,28 @@ mod tests {
         })
         .expect_err("invalid scene");
         assert!(error.contains("endFrame"));
+    }
+
+    #[test]
+    fn edit_list_plan_returns_structured_preview() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("video.output.editListPlan"),
+            input: serde_json::json!({
+                "format": "otio",
+                "scenes": [{"startFrame": 0, "endFrame": 30}],
+                "previewLimit": 3
+            }),
+        })
+        .expect("edit-list plan");
+
+        assert_eq!(response.value["title"], "Edit-list export preview");
+        assert_eq!(response.value["summary"]["format"], "otio");
+        assert!(
+            response.value["result"]["preview"]
+                .as_array()
+                .unwrap()
+                .len()
+                <= 3
+        );
     }
 }

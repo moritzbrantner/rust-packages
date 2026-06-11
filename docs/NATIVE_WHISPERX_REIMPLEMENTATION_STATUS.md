@@ -2,7 +2,8 @@
 
 ## Current Snapshot
 
-- Current commit: `5ea7f627`
+- Current repo commit when this status was refreshed: `de1e8b8f`
+- Last native-transcription validation commit: `5ea7f627`
 - Native transcription baseline commit:
   `8876ed7f Add native audio transcription, diarization, and alignment`
 - Smoke-test tightening commit:

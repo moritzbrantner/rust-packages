@@ -311,7 +311,7 @@ fn diagnostic_stage(enabled: bool, stage: &str) {
 }
 
 #[cfg_attr(not(any(feature = "onnxruntime", test)), allow(dead_code))]
-fn diagnostic_stage_line<'a>(enabled: bool, stage: &'a str) -> Option<&'a str> {
+fn diagnostic_stage_line(enabled: bool, stage: &str) -> Option<&str> {
     enabled.then_some(stage)
 }
 

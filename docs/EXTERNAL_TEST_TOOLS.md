@@ -50,6 +50,23 @@ The setup script publishes `.external-test-tools/bin` in GitHub Actions through
 `.external-test-tools/bin` and `.audio-tools/bin` to `PATH` if those directories
 exist.
 
+## Opt-In Smoke Bundles
+
+Use these bundles when a change touches the matching runtime surface. Check
+commands are non-mutating; setup commands install or repair ignored local tool
+roots only when needed.
+
+| Bundle | Setup | Check / Run |
+| --- | --- | --- |
+| ONNX model smoke | `bash scripts/setup_model_external_tools.sh onnx` | `bash scripts/check_model_external_tools.sh onnx` then `scripts/check_onnx_external_smoke.sh` |
+| Native transcription smoke | `bash scripts/setup_e2e_external_tools.sh whisper` plus model-bundle setup documented below | Run the env-gated native transcription commands below |
+| Video scene benchmark smoke | `scripts/setup_video_scene_benchmarks.sh bbc` | `scripts/setup_video_scene_benchmarks.sh verify` then the bounded BBC evaluator command in `VIDEO_SCENE_DETECTION_PARITY.md` |
+| Radiance / Nerfstudio smoke | `bash scripts/setup_radiance_external_tools.sh` | `scripts/check_e2e_external_tools.sh` or the dedicated radiance check required by the touched workflow |
+
+Missing tools should skip only when the corresponding ignored test documents a
+skip policy. If a `RUN_*` or equivalent opt-in environment variable is set,
+missing setup should be treated as a failure by that smoke.
+
 ## Text Models
 
 Default text tests do not download model files or require native runtimes. Opt-in text model tests are ignored and feature-gated:
@@ -101,15 +118,21 @@ tests also require their documented env vars before they run. External Python
 WhisperX remains compatibility/parity tooling only, and browser/WASM package
 surfaces do not run native ASR.
 
-The current local Candle Whisper smoke uses
-`/home/moenarch/.local/share/video-analysis-smoke/whisper-tiny` and
-`/home/moenarch/.local/share/video-analysis-smoke/audio/native-transcription-smoke.wav`.
-Because this machine's `/usr/local/cuda` points at CUDA 13.3, the passing smoke
-also points `RUSTFLAGS`, `LIBRARY_PATH`, and `LD_LIBRARY_PATH` at
-`/home/moenarch/.local/share/video-analysis-smoke/cuda12-libs` for CUDA 12.3
-libraries. Native Whisper timing now uses timestamp-token segments when
-available, projected word timing inside those segments, and chunk/window
-fallback timing otherwise. wav2vec2 CTC
+Set a reusable smoke root before running native transcription checks:
+
+```bash
+export SMOKE_ROOT="${SMOKE_ROOT:-$HOME/.local/share/video-analysis-smoke}"
+export TRANSCRIPTION_MODEL_BUNDLE="$SMOKE_ROOT/whisper-tiny"
+export TRANSCRIPTION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav"
+```
+
+On the current maintainer workstation, `/usr/local/cuda` points at CUDA 13.3, so
+the passing CUDA smoke also points `RUSTFLAGS`, `LIBRARY_PATH`, and
+`LD_LIBRARY_PATH` at `$SMOKE_ROOT/cuda12-libs` for CUDA 12.3 libraries. Treat
+that as host-specific setup, not a default contributor requirement. Native
+Whisper timing now uses timestamp-token segments when available, projected word
+timing inside those segments, and chunk/window fallback timing otherwise.
+wav2vec2 CTC
 bundle/config/tokenizer/preprocessor validation exists, and supported local
 `Wav2Vec2ForCTC` safetensors bundles execute through Candle for native CTC
 alignment. Unsupported architectures or weight layouts return
