@@ -10,6 +10,7 @@ import {
   Textarea,
 } from "../shared/primitives";
 
+import { landscapeContractForOperation } from "./runtime";
 import type { PackageAppPreset, SurfaceOperation } from "./types";
 
 export interface OperationWorkbenchGroup {
@@ -115,6 +116,7 @@ export function OperationWorkbench({
         </Button>
       </div>
       <p className="mt-3 text-sm leading-6 text-zinc-600">{operation?.description ?? "Run a package operation."}</p>
+      <LandscapeContractBadges operation={operation} />
       {presets.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {presets.map((preset) => (
@@ -138,6 +140,47 @@ export function OperationWorkbench({
       ) : null}
       {error ? <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
     </form>
+  );
+}
+
+function LandscapeContractBadges({ operation }: { operation: SurfaceOperation | null }) {
+  const landscape = landscapeContractForOperation(operation);
+  if (!landscape) {
+    return null;
+  }
+  const inputs = landscape.function.inputs;
+  const outputs = landscape.function.outputs;
+  if (inputs.length === 0 && outputs.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mt-3 rounded-md border border-teal-200 bg-teal-50 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase text-teal-800">Curated I/O</span>
+        <span className="rounded-sm bg-white px-2 py-1 text-xs font-medium text-teal-900">{landscape.function.id}</span>
+        <span className="rounded-sm bg-teal-100 px-2 py-1 text-xs font-medium text-teal-900">
+          {landscape.function.stability}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {inputs.map((port) => (
+          <span
+            key={`input-${port.name}-${port.typeRef.id}`}
+            className="rounded-sm border border-teal-200 bg-white px-2 py-1 text-xs text-teal-900"
+          >
+            {port.name}: {port.typeRef.id}
+          </span>
+        ))}
+        {outputs.map((port) => (
+          <span
+            key={`output-${port.name}-${port.typeRef.id}`}
+            className="rounded-sm border border-teal-200 bg-white px-2 py-1 text-xs text-teal-900"
+          >
+            {port.name}: {port.typeRef.id}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 

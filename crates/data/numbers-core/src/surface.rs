@@ -26,13 +26,13 @@ pub fn package_surface() -> PackageSurface {
                 "Deterministic scalar numeric summaries, quantiles, ranges, and histograms for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            surface_operation(
+            operation(
                 "numbers.summary",
                 "Number summary",
                 "Returns finite/non-finite counts and weighted scalar summary statistics.",
                 serde_json::json!({"values": [1.0, 2.0, 3.0, 4.0]}),
             ),
-            surface_operation(
+            operation(
                 "numbers.histogram",
                 "Number histogram",
                 "Builds fixed-width histogram bins over finite numeric values.",
@@ -46,6 +46,35 @@ pub fn package_surface() -> PackageSurface {
             ),
         ],
     }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> runtime_core::SurfaceOperation {
+    let mut operation = surface_operation(id, name, description, example_request);
+    if id == "numbers.summary" {
+        runtime_core::attach_landscape_contract(
+            &mut operation,
+            runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "numbers.summary",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "values",
+                    runtime_core::landscape::well_known::vector_vector(),
+                ))
+                .output(runtime_core::landscape::LandscapePort::new(
+                    "summary",
+                    runtime_core::landscape::well_known::numbers_summary(),
+                )),
+            ),
+        );
+    }
+    operation
 }
 
 /// Runs one library-owned operation.

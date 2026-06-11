@@ -14,6 +14,8 @@ bun run snapshot:check
 bun run hygiene:generated
 bun run format:check
 git diff --check
+python3 scripts/audit_curated_landscape.py --check
+cargo test --test curated_landscape
 cargo test --test contract_ownership --test dependency_layers --test foundation_surface_audit --test package_structure --test package_interop_pipeline
 scripts/check-fast.sh
 ```

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { createTextResultTabs, ModelSelector, PackageSurfaceWorkbench, ResultViewer } from "./index";
+import { createTextResultTabs, landscapeContractForOperation, ModelSelector, PackageSurfaceWorkbench, ResultViewer } from "./index";
 import type { PackageAppConfig, SurfaceResponse } from "./types";
 
 const operationResponse: SurfaceResponse = {
@@ -116,6 +116,142 @@ describe("PackageSurfaceWorkbench", () => {
     expect(await screen.findByRole("combobox", { name: "Operation" })).toBeTruthy();
     expect(await screen.findByText("Large model", { exact: false })).toBeTruthy();
     expect((await screen.findAllByText("Fallback")).length).toBeGreaterThan(0);
+  });
+
+  test("parses and renders optional curated landscape metadata", async () => {
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          wasm: {
+            init: vi.fn(async () => undefined),
+            packageSurface: vi.fn(() => ({
+              library: "demo-package",
+              version: "0.1.0",
+              capabilities: {},
+              operations: [
+                {
+                  id: "demo.run",
+                  name: "Run demo",
+                  description: "Runs the demo operation.",
+                  inputSchema: {
+                    type: "object",
+                    xLandscape: {
+                      function: {
+                        id: "demo.curated",
+                        owner: "demo-package",
+                        stability: "stable",
+                        inputs: [
+                          {
+                            name: "document",
+                            typeRef: {
+                              id: "text.document",
+                              owner: "moritzbrantner-text-core",
+                              rustType: "text_core::TextDocumentContract",
+                            },
+                            required: true,
+                            cardinality: "one",
+                          },
+                          {
+                            name: "config",
+                            typeRef: {
+                              id: "audio.transcriptionConfig",
+                              owner: "moritzbrantner-audio-analysis-transcription",
+                            },
+                            required: true,
+                            cardinality: "one",
+                          },
+                        ],
+                        outputs: [
+                          {
+                            name: "segments",
+                            typeRef: {
+                              id: "text.segment",
+                              owner: "moritzbrantner-text-core",
+                              rustType: "text_core::TextSegmentContract",
+                            },
+                            required: true,
+                            cardinality: "many",
+                          },
+                          {
+                            name: "document",
+                            typeRef: {
+                              id: "text.document",
+                              owner: "moritzbrantner-text-core",
+                            },
+                            required: true,
+                            cardinality: "one",
+                          },
+                        ],
+                      },
+                    },
+                  },
+                  outputSchema: {},
+                  exampleRequest: { text: "hello" },
+                  wasmSupported: true,
+                  serverSupported: true,
+                },
+              ],
+            })),
+            runOperation: vi.fn(async () => operationResponse),
+          },
+        })}
+      />,
+    );
+
+    expect(await screen.findByText("Curated I/O")).toBeTruthy();
+    expect(screen.getByText("demo.curated")).toBeTruthy();
+    expect(screen.getByText("stable")).toBeTruthy();
+    expect(screen.getAllByText("document: text.document").length).toBe(2);
+    expect(screen.getByText("config: audio.transcriptionConfig")).toBeTruthy();
+    expect(screen.getByText("segments: text.segment")).toBeTruthy();
+  });
+
+  test("omits curated landscape section when metadata is absent", async () => {
+    render(<PackageSurfaceWorkbench config={config()} />);
+
+    expect(await screen.findByRole("heading", { name: "Demo Package" })).toBeTruthy();
+    expect(screen.queryByText("Curated I/O")).toBeNull();
+  });
+
+  test("ignores malformed curated landscape metadata", async () => {
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          wasm: {
+            init: vi.fn(async () => undefined),
+            packageSurface: vi.fn(() => ({
+              library: "demo-package",
+              version: "0.1.0",
+              capabilities: {},
+              operations: [
+                {
+                  id: "demo.run",
+                  name: "Run demo",
+                  description: "Runs the demo operation.",
+                  inputSchema: {
+                    type: "object",
+                    xLandscape: {
+                      function: {
+                        inputs: [{ name: "document" }],
+                        outputs: [{ name: "segments" }],
+                      },
+                    },
+                  },
+                  outputSchema: {},
+                  exampleRequest: { text: "hello" },
+                  wasmSupported: true,
+                  serverSupported: true,
+                },
+              ],
+            })),
+            runOperation: vi.fn(async () => operationResponse),
+          },
+        })}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Demo Package" })).toBeTruthy();
+    expect(screen.queryByText("Curated I/O")).toBeNull();
   });
 
   test("edits operation input through form fields", async () => {
@@ -421,6 +557,52 @@ describe("PackageSurfaceWorkbench", () => {
 
     expect(await screen.findByText("No runnable runtime is available for this package.")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Run" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("landscapeContractForOperation", () => {
+  test("normalizes xLandscape when present and returns null when absent", () => {
+    expect(
+      landscapeContractForOperation({
+        id: "demo.empty",
+        name: "Empty",
+        inputSchema: {},
+        outputSchema: {},
+        exampleRequest: {},
+        wasmSupported: true,
+        serverSupported: true,
+      }),
+    ).toBeNull();
+
+    const landscape = landscapeContractForOperation({
+      id: "demo.run",
+      name: "Run",
+      inputSchema: {
+        xLandscape: {
+          function: {
+            id: "demo.curated",
+            owner: "demo-package",
+            inputs: [
+              {
+                name: "request",
+                type_ref: { id: "runtime.surfaceRequest", owner: "moritzbrantner-runtime-core" },
+                required: true,
+                cardinality: "one",
+              },
+            ],
+            outputs: [],
+            stability: "stable",
+          },
+        },
+      },
+      outputSchema: {},
+      exampleRequest: {},
+      wasmSupported: true,
+      serverSupported: true,
+    });
+
+    expect(landscape?.function.id).toBe("demo.curated");
+    expect(landscape?.function.inputs[0]?.typeRef.id).toBe("runtime.surfaceRequest");
   });
 });
 

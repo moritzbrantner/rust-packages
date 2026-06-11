@@ -29,19 +29,19 @@ pub fn package_surface() -> PackageSurface {
                 "Dense vector validation and metrics for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            surface_operation(
+            operation(
                 "vector.normalize",
                 "Normalize vector",
                 "Returns the L2 norm and normalized dense vector values.",
                 serde_json::json!({"values": [3.0, 4.0]}),
             ),
-            surface_operation(
+            operation(
                 "vector.distance",
                 "Vector distance",
                 "Computes cosine, euclidean, manhattan, or dot distance between two dense vectors.",
                 serde_json::json!({"left": [1.0, 0.0], "right": [0.5, 0.5], "metric": "cosine"}),
             ),
-            surface_operation(
+            operation(
                 "vector.summary",
                 "Vector summary",
                 "Returns per-dimension mean, min, max, and preview values for dense vectors.",
@@ -49,6 +49,35 @@ pub fn package_surface() -> PackageSurface {
             ),
         ],
     }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> runtime_core::SurfaceOperation {
+    let mut operation = surface_operation(id, name, description, example_request);
+    if id == "vector.normalize" {
+        runtime_core::attach_landscape_contract(
+            &mut operation,
+            runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "vector.normalize",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "vector",
+                    runtime_core::landscape::well_known::vector_vector(),
+                ))
+                .output(runtime_core::landscape::LandscapePort::new(
+                    "vector",
+                    runtime_core::landscape::well_known::vector_vector(),
+                )),
+            ),
+        );
+    }
+    operation
 }
 
 /// Runs one library-owned operation.

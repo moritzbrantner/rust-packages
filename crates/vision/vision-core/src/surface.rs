@@ -2,7 +2,7 @@
 
 use runtime_core::{
     describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
-    RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
+    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 use serde::Deserialize;
 
@@ -15,13 +15,13 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            surface_operation(
+            operation(
                 "describe",
                 "Inspect package metadata",
                 "Shared visual detection, keypoint, embedding, and identity-match contracts.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            surface_operation(
+            operation(
                 "vision.validateDetection",
                 "Validate visual detection",
                 "Validates one visual detection contract.",
@@ -37,7 +37,7 @@ pub fn package_surface() -> PackageSurface {
                     }
                 }),
             ),
-            surface_operation(
+            operation(
                 "vision.validateEmbedding",
                 "Validate visual embedding",
                 "Validates one source-aware visual embedding contract.",
@@ -52,7 +52,7 @@ pub fn package_surface() -> PackageSurface {
                     }
                 }),
             ),
-            surface_operation(
+            operation(
                 "vision.validateIdentityMatch",
                 "Validate identity match",
                 "Validates one visual identity match summary.",
@@ -68,7 +68,7 @@ pub fn package_surface() -> PackageSurface {
                     }
                 }),
             ),
-            surface_operation(
+            operation(
                 "vision.convertDetectionSummary",
                 "Summarize visual detections",
                 "Returns a deterministic summary of visual detection contracts.",
@@ -88,6 +88,54 @@ pub fn package_surface() -> PackageSurface {
             ),
         ],
     }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    let mut operation = surface_operation(id, name, description, example_request);
+    let contract = match id {
+        "vision.validateDetection" => {
+            Some(runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "vision.validateDetection",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "detection",
+                    runtime_core::landscape::well_known::vision_detection(),
+                ))
+                .output(runtime_core::landscape::LandscapePort::new(
+                    "detection",
+                    runtime_core::landscape::well_known::vision_detection(),
+                )),
+            ))
+        }
+        "vision.validateEmbedding" => {
+            Some(runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "vision.validateEmbedding",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "embedding",
+                    runtime_core::landscape::well_known::vision_embedding(),
+                ))
+                .output(runtime_core::landscape::LandscapePort::new(
+                    "embedding",
+                    runtime_core::landscape::well_known::vision_embedding(),
+                )),
+            ))
+        }
+        _ => None,
+    };
+    if let Some(contract) = contract {
+        runtime_core::attach_landscape_contract(&mut operation, contract);
+    }
+    operation
 }
 
 /// Runs one library-owned operation.

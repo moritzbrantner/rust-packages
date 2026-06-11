@@ -72,7 +72,40 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    runtime_core::surface_operation(id, name, description, example_request)
+    let mut operation = runtime_core::surface_operation(id, name, description, example_request);
+    if id == "transcripts.toTextSegments" {
+        runtime_core::attach_landscape_contract(
+            &mut operation,
+            runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "text.transcripts.toTextSegments",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(
+                    runtime_core::landscape::LandscapePort::new(
+                        "segments",
+                        runtime_core::landscape::well_known::text_transcript_segment(),
+                    )
+                    .many(),
+                )
+                .output(
+                    runtime_core::landscape::LandscapePort::new(
+                        "segments",
+                        runtime_core::landscape::well_known::text_segment(),
+                    )
+                    .many(),
+                )
+                .output(
+                    runtime_core::landscape::LandscapePort::new(
+                        "documents",
+                        runtime_core::landscape::well_known::text_document(),
+                    )
+                    .many(),
+                ),
+            ),
+        );
+    }
+    operation
 }
 
 /// Runs one library-owned operation.

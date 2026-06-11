@@ -1,9 +1,12 @@
 import type {
   HealthPayload,
+  LandscapeOperationContract,
+  LandscapePort,
   ModelCatalogEntry,
   PackageAppConfig,
   PackageSurface,
   RuntimeMode,
+  SurfaceOperation,
   SurfaceResponse,
 } from "./types";
 
@@ -108,11 +111,100 @@ function normalizeOperations(input: unknown[]): PackageSurface["operations"] {
       description: typeof value.description === "string" ? value.description : undefined,
       inputSchema: value.inputSchema ?? value.input_schema ?? {},
       outputSchema: value.outputSchema ?? value.output_schema ?? {},
+      landscape: normalizeLandscape(value.landscape ?? schemaExtension(value.inputSchema ?? value.input_schema, "xLandscape")),
       exampleRequest: value.exampleRequest ?? value.example_request ?? {},
       wasmSupported: Boolean(value.wasmSupported ?? value.wasm_supported ?? false),
       serverSupported: Boolean(value.serverSupported ?? value.server_supported ?? false),
     }))
     .filter((operation) => operation.id.length > 0);
+}
+
+export function landscapeContractForOperation(operation: SurfaceOperation | null): LandscapeOperationContract | null {
+  if (!operation) {
+    return null;
+  }
+  return operation.landscape ?? normalizeLandscape(schemaExtension(operation.inputSchema, "xLandscape")) ?? null;
+}
+
+function schemaExtension(schema: unknown, key: string): unknown {
+  if (!schema || typeof schema !== "object") {
+    return undefined;
+  }
+  return (schema as Record<string, unknown>)[key];
+}
+
+function normalizeLandscape(value: unknown): LandscapeOperationContract | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const landscape = value as Record<string, unknown>;
+  const fn = landscape.function;
+  if (!fn || typeof fn !== "object") {
+    return undefined;
+  }
+  const functionValue = fn as Record<string, unknown>;
+  const id = stringField(functionValue.id);
+  const owner = stringField(functionValue.owner);
+  if (!id || !owner) {
+    return undefined;
+  }
+  return {
+    function: {
+      id,
+      owner,
+      inputs: normalizeLandscapePorts(functionValue.inputs),
+      outputs: normalizeLandscapePorts(functionValue.outputs),
+      stability: normalizeLandscapeStability(functionValue.stability),
+    },
+  };
+}
+
+function normalizeLandscapePorts(value: unknown): LandscapeOperationContract["function"]["inputs"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((port): port is Record<string, unknown> => Boolean(port) && typeof port === "object")
+    .map((port): LandscapePort | null => {
+      const typeRef = port.typeRef ?? port.type_ref;
+      const normalizedTypeRef = normalizeLandscapeTypeRef(typeRef);
+      if (!normalizedTypeRef) {
+        return null;
+      }
+      return {
+        name: String(port.name ?? ""),
+        typeRef: normalizedTypeRef,
+        required: Boolean(port.required ?? true),
+        cardinality: normalizeLandscapeCardinality(port.cardinality),
+      };
+    })
+    .filter((port): port is LandscapePort => port !== null && port.name.length > 0);
+}
+
+function normalizeLandscapeTypeRef(value: unknown): LandscapeOperationContract["function"]["inputs"][number]["typeRef"] | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const typeRef = value as Record<string, unknown>;
+  const id = stringField(typeRef.id);
+  const owner = stringField(typeRef.owner);
+  if (!id || !owner) {
+    return null;
+  }
+  return {
+    id,
+    owner,
+    rustType: stringField(typeRef.rustType ?? typeRef.rust_type) ?? null,
+    schemaRef: stringField(typeRef.schemaRef ?? typeRef.schema_ref) ?? null,
+  };
+}
+
+function normalizeLandscapeStability(value: unknown): LandscapeOperationContract["function"]["stability"] {
+  return value === "experimental" || value === "internal" ? value : "stable";
+}
+
+function normalizeLandscapeCardinality(value: unknown): LandscapeOperationContract["function"]["inputs"][number]["cardinality"] {
+  return value === "optional" || value === "many" ? value : "one";
 }
 
 export function normalizeModelCatalog(input: unknown[]): ModelCatalogEntry[] {

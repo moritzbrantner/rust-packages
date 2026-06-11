@@ -55,7 +55,27 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    surface_operation(id, name, description, example_request)
+    let mut operation = surface_operation(id, name, description, example_request);
+    if id == "image.core.summary" {
+        runtime_core::attach_landscape_contract(
+            &mut operation,
+            runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "image.core.summarizeImage",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "image",
+                    runtime_core::landscape::well_known::image_image(),
+                ))
+                .output(runtime_core::landscape::LandscapePort::new(
+                    "summary",
+                    runtime_core::landscape::well_known::numbers_summary(),
+                )),
+            ),
+        );
+    }
+    operation
 }
 
 /// Runs one library-owned operation.

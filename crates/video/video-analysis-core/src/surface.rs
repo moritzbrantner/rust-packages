@@ -7,8 +7,8 @@ use serde::Deserialize;
 use crate::runtime::{
     describe_surface_response, parse_surface_input, structured_operation_response,
     surface_operation, surface_operation_with_execution_plan, OperationId, PackageSurface,
-    RuntimeCapabilities, SurfaceError, SurfaceExecutionMode, SurfaceExecutionPlan, SurfaceRequest,
-    SurfaceResponse, SurfaceSideEffect,
+    RuntimeCapabilities, SurfaceError, SurfaceExecutionMode, SurfaceExecutionPlan,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse, SurfaceSideEffect,
 };
 use crate::FrameTimecode;
 
@@ -25,13 +25,7 @@ pub fn package_surface() -> PackageSurface {
                 "Core media, timing, detection, and analyzer contracts for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            surface_operation_with_execution_plan(
-                "video.core.timecode",
-                "Convert timecode",
-                "Converts between frame indexes, seconds, timestamps, and display timecode values.",
-                serde_json::json!({"fps": {"numerator": 30000, "denominator": 1001}, "frames": [0, 30], "seconds": [1.5], "timecodes": ["00:00:02.000"]}),
-                in_memory_plan("video.core.timecode"),
-            ),
+            timecode_operation(),
             surface_operation_with_execution_plan(
                 "video.core.frameSummary",
                 "Summarize frames",
@@ -48,6 +42,34 @@ pub fn package_surface() -> PackageSurface {
             ),
         ],
     }
+}
+
+fn timecode_operation() -> SurfaceOperation {
+    let mut operation = surface_operation_with_execution_plan(
+        "video.core.timecode",
+        "Convert timecode",
+        "Converts between frame indexes, seconds, timestamps, and display timecode values.",
+        serde_json::json!({"fps": {"numerator": 30000, "denominator": 1001}, "frames": [0, 30], "seconds": [1.5], "timecodes": ["00:00:02.000"]}),
+        in_memory_plan("video.core.timecode"),
+    );
+    crate::runtime::attach_landscape_contract(
+        &mut operation,
+        crate::runtime::landscape::LandscapeOperationContract::new(
+            crate::runtime::landscape::LandscapeFunction::new(
+                "video.core.parseTimecode",
+                env!("CARGO_PKG_NAME"),
+            )
+            .input(crate::runtime::landscape::LandscapePort::new(
+                "timecode",
+                crate::runtime::landscape::well_known::video_timecode(),
+            ))
+            .output(crate::runtime::landscape::LandscapePort::new(
+                "timecode",
+                crate::runtime::landscape::well_known::video_timecode(),
+            )),
+        ),
+    );
+    operation
 }
 
 fn in_memory_plan(operation: &str) -> SurfaceExecutionPlan {

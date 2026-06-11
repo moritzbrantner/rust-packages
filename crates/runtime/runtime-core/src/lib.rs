@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+pub mod landscape;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 pub struct DiagnosticCode(pub String);
@@ -482,6 +484,33 @@ pub fn surface_operation_with_execution_plan(
         execution_plan,
     );
     operation
+}
+
+pub fn landscape_operation_contract_value(
+    contract: &landscape::LandscapeOperationContract,
+) -> serde_json::Value {
+    serde_json::to_value(contract).unwrap_or_else(|_| serde_json::json!({}))
+}
+
+pub fn surface_operation_with_landscape(
+    id: impl Into<String>,
+    name: impl Into<String>,
+    description: impl Into<String>,
+    example_request: serde_json::Value,
+    contract: landscape::LandscapeOperationContract,
+) -> SurfaceOperation {
+    let mut operation = surface_operation(id, name, description, example_request);
+    attach_landscape_contract(&mut operation, contract);
+    operation
+}
+
+pub fn attach_landscape_contract(
+    operation: &mut SurfaceOperation,
+    contract: landscape::LandscapeOperationContract,
+) {
+    let landscape = landscape_operation_contract_value(&contract);
+    insert_schema_extension(&mut operation.input_schema, "xLandscape", landscape.clone());
+    insert_schema_extension(&mut operation.output_schema, "xLandscape", landscape);
 }
 
 pub fn surface_execution_plan_value(plan: &SurfaceExecutionPlan) -> serde_json::Value {
@@ -1479,6 +1508,80 @@ mod tests {
             operation.input_schema["xExecutionPlan"]["sideEffects"],
             serde_json::json!(["none"])
         );
+    }
+
+    #[test]
+    fn landscape_contract_serializes_to_schema_extension() {
+        let contract = landscape::LandscapeOperationContract::new(
+            landscape::LandscapeFunction::new("demo.curated", "moritzbrantner-runtime-core")
+                .input(landscape::LandscapePort::new(
+                    "request",
+                    landscape::well_known::runtime_surface_request(),
+                ))
+                .output(landscape::LandscapePort::new(
+                    "response",
+                    landscape::well_known::runtime_surface_response(),
+                )),
+        );
+
+        let operation = surface_operation_with_landscape(
+            "demo.run",
+            "Run demo",
+            "Run a curated demo workflow",
+            serde_json::json!({"request": {"operation": "demo.run", "input": {}}}),
+            contract,
+        );
+
+        assert_eq!(operation.id.as_str(), "demo.run");
+        assert_eq!(
+            operation.example_request["request"]["operation"],
+            "demo.run"
+        );
+        assert!(operation.wasm_supported);
+        assert!(operation.server_supported);
+        assert_eq!(
+            operation.input_schema["xLandscape"]["function"]["id"],
+            serde_json::json!("demo.curated")
+        );
+        assert_eq!(
+            operation.input_schema["xLandscape"]["function"]["inputs"][0]["typeRef"]["id"],
+            serde_json::json!("runtime.surfaceRequest")
+        );
+        assert_eq!(
+            operation.output_schema["xLandscape"]["function"]["outputs"][0]["typeRef"]["rustType"],
+            serde_json::json!("runtime_core::SurfaceResponse")
+        );
+    }
+
+    #[test]
+    fn landscape_contract_value_uses_camel_case_json() {
+        let contract = landscape::LandscapeOperationContract::new(
+            landscape::LandscapeFunction::new("demo.curated", "moritzbrantner-runtime-core")
+                .input(
+                    landscape::LandscapePort::new(
+                        "optionalRequest",
+                        landscape::well_known::runtime_surface_request(),
+                    )
+                    .optional(),
+                )
+                .output(
+                    landscape::LandscapePort::new(
+                        "responses",
+                        landscape::well_known::runtime_surface_response(),
+                    )
+                    .many(),
+                ),
+        );
+        let value = landscape_operation_contract_value(&contract);
+
+        assert_eq!(value["function"]["stability"], "stable");
+        assert_eq!(
+            value["function"]["inputs"][0]["typeRef"]["schemaRef"],
+            serde_json::Value::Null
+        );
+        assert_eq!(value["function"]["inputs"][0]["required"], false);
+        assert_eq!(value["function"]["inputs"][0]["cardinality"], "optional");
+        assert_eq!(value["function"]["outputs"][0]["cardinality"], "many");
     }
 
     #[test]

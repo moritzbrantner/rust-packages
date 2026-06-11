@@ -82,7 +82,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
+    let mut operation = SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
         description: Some(description.to_string()),
@@ -91,6 +91,33 @@ fn operation(
         example_request,
         wasm_supported: true,
         server_supported: true,
+    };
+    if let Some(contract) = landscape_contract(id) {
+        runtime_core::attach_landscape_contract(&mut operation, contract);
+    }
+    operation
+}
+
+fn landscape_contract(id: &str) -> Option<runtime_core::landscape::LandscapeOperationContract> {
+    match id {
+        "video.output.csvPlan" => Some(runtime_core::landscape::LandscapeOperationContract::new(
+            runtime_core::landscape::LandscapeFunction::new(
+                "video.output.planSceneListCsv",
+                env!("CARGO_PKG_NAME"),
+            )
+            .input(
+                runtime_core::landscape::LandscapePort::new(
+                    "scenes",
+                    runtime_core::landscape::well_known::video_scene(),
+                )
+                .many(),
+            )
+            .output(runtime_core::landscape::LandscapePort::new(
+                "sceneList",
+                runtime_core::landscape::well_known::video_scene_list(),
+            )),
+        )),
+        _ => None,
     }
 }
 

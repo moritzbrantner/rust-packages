@@ -53,7 +53,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    SurfaceOperation {
+    let mut operation = SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
         description: Some(description.to_string()),
@@ -62,6 +62,39 @@ fn operation(
         example_request,
         wasm_supported: true,
         server_supported: true,
+    };
+    if let Some(contract) = landscape_contract(id) {
+        runtime_core::attach_landscape_contract(&mut operation, contract);
+    }
+    operation
+}
+
+fn landscape_contract(id: &str) -> Option<runtime_core::landscape::LandscapeOperationContract> {
+    match id {
+        "image.detection.colorBlob" => {
+            Some(runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "image.detection.detectColorBlob",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "image",
+                    runtime_core::landscape::well_known::image_image(),
+                ))
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "request",
+                    runtime_core::landscape::well_known::image_detection_request(),
+                ))
+                .output(
+                    runtime_core::landscape::LandscapePort::new(
+                        "detections",
+                        runtime_core::landscape::well_known::vision_detection(),
+                    )
+                    .many(),
+                ),
+            ))
+        }
+        _ => None,
     }
 }
 

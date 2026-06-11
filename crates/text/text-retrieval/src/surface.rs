@@ -61,7 +61,41 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    runtime_core::surface_operation(id, name, description, example_request)
+    let mut operation = runtime_core::surface_operation(id, name, description, example_request);
+    if let Some(contract) = landscape_contract(id) {
+        runtime_core::attach_landscape_contract(&mut operation, contract);
+    }
+    operation
+}
+
+fn landscape_contract(id: &str) -> Option<runtime_core::landscape::LandscapeOperationContract> {
+    match id {
+        "retrieval.search" => Some(runtime_core::landscape::LandscapeOperationContract::new(
+            runtime_core::landscape::LandscapeFunction::new(
+                "text.retrieval.search",
+                env!("CARGO_PKG_NAME"),
+            )
+            .input(runtime_core::landscape::LandscapePort::new(
+                "query",
+                runtime_core::landscape::well_known::text_retrieval_query(),
+            ))
+            .input(
+                runtime_core::landscape::LandscapePort::new(
+                    "documents",
+                    runtime_core::landscape::well_known::text_document(),
+                )
+                .many(),
+            )
+            .output(
+                runtime_core::landscape::LandscapePort::new(
+                    "results",
+                    runtime_core::landscape::well_known::text_search_result(),
+                )
+                .many(),
+            ),
+        )),
+        _ => None,
+    }
 }
 
 /// Runs one library-owned operation.

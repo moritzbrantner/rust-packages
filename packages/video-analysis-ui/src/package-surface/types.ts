@@ -23,9 +23,36 @@ export interface SurfaceOperation {
   description?: string;
   inputSchema: unknown;
   outputSchema: unknown;
+  landscape?: LandscapeOperationContract;
   exampleRequest: unknown;
   wasmSupported: boolean;
   serverSupported: boolean;
+}
+
+export interface LandscapeOperationContract {
+  function: LandscapeFunction;
+}
+
+export interface LandscapeFunction {
+  id: string;
+  owner: string;
+  inputs: LandscapePort[];
+  outputs: LandscapePort[];
+  stability: "stable" | "experimental" | "internal";
+}
+
+export interface LandscapePort {
+  name: string;
+  typeRef: LandscapeTypeRef;
+  required: boolean;
+  cardinality: "one" | "optional" | "many";
+}
+
+export interface LandscapeTypeRef {
+  id: string;
+  owner: string;
+  rustType?: string | null;
+  schemaRef?: string | null;
 }
 
 export interface PackageSurface {

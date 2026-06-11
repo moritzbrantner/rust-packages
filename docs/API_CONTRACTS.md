@@ -25,14 +25,19 @@ parallel DTOs.
 `moritzbrantner-runtime-core` owns the shared package-surface DTOs:
 `PackageSurface`, `SurfaceOperation`, `SurfaceRequest`, `SurfaceResponse`,
 execution plans, side effects, artifacts, diagnostics, and runtime
-capabilities. `SurfaceOperation` remains operation metadata, not workflow node
-metadata.
+capabilities. It also owns the curated landscape metadata structs used by
+`xLandscape` schema extensions. `SurfaceOperation` remains operation metadata,
+not workflow node metadata, and `xLandscape` is descriptive metadata rather than
+execution behavior. Declared `xLandscape` metadata is optional, must be
+identical on input and output schemas, and is validated only for metadata shape,
+known owners, known type IDs, and port validity. Domain crates own the semantic
+compatibility of the types they name.
 
 Foundation contract owners for the first steering wave are:
 
 | Contract family | Owner |
 | --- | --- |
-| Runtime surface DTOs | `moritzbrantner-runtime-core` |
+| Runtime surface DTOs and curated landscape metadata shape | `moritzbrantner-runtime-core` |
 | Jobs and artifacts | `moritzbrantner-jobs-core` |
 | Model specs, bundles, and model lifecycle | `moritzbrantner-model-runtime` |
 | Media samples, timestamps, observations, bounding boxes, analyzers | `moritzbrantner-video-analysis-core` |
@@ -120,6 +125,15 @@ payloads, vector previews, and sparse matrix entries before doing work.
 Runtime/job planning metadata is exposed through `xExecutionPlan` schema
 extensions, including mode, side effects, cancellation, progress units, expected
 artifacts, requirements, and recommended input size.
+Curated type/function metadata is exposed through optional `xLandscape` schema
+extensions. These extensions let package consumers see stable inputs and outputs
+for representative operations while keeping the domain contract semantics owned
+by the existing foundation crates. Missing `xLandscape` means curated I/O has
+not been declared yet, not that an operation is unusable or impossible to map in
+a consumer. Curated type and function IDs are stable after release; additions
+are allowed, while removals or renames require a documented migration. The
+landscape layer is not a workflow graph, node system, port layout, scheduling
+model, execution planner, or runtime placement contract.
 
 The text crate surfaces now expose deterministic, local-first operations for
 core statistics/tokenization/boundaries, lexical analysis and corpus search,

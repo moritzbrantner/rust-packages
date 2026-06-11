@@ -23,3 +23,12 @@ background job, or an external command, plus side effects, cancellation,
 progress units, artifact expectations, requirements, and recommended input
 limits. This keeps package surfaces runtime-aware without adding required fields
 to `SurfaceOperation`.
+
+Curated landscape metadata is also additive. Crates can use
+`surface_operation_with_landscape` or `attach_landscape_contract` to attach an
+`xLandscape` schema extension that names stable curated input and output types
+for package consumers. The metadata is string-based; `runtime-core` owns the
+shape, known owner/type IDs, and generic validation, while domain crates keep
+ownership of the actual type semantics. When declared, `xLandscape` must be
+identical on input and output schemas. Missing metadata means curated I/O has
+not been declared yet.

@@ -172,7 +172,31 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    runtime_core::surface_operation(id, name, description, example_request)
+    let mut operation = runtime_core::surface_operation(id, name, description, example_request);
+    if let Some(contract) = landscape_contract(id) {
+        runtime_core::attach_landscape_contract(&mut operation, contract);
+    }
+    operation
+}
+
+fn landscape_contract(id: &str) -> Option<runtime_core::landscape::LandscapeOperationContract> {
+    match id {
+        "analysis.document" => Some(runtime_core::landscape::LandscapeOperationContract::new(
+            runtime_core::landscape::LandscapeFunction::new(
+                "text.analysis.analyzeDocument",
+                env!("CARGO_PKG_NAME"),
+            )
+            .input(runtime_core::landscape::LandscapePort::new(
+                "document",
+                runtime_core::landscape::well_known::text_document(),
+            ))
+            .output(runtime_core::landscape::LandscapePort::new(
+                "report",
+                runtime_core::landscape::well_known::text_analysis_report(),
+            )),
+        )),
+        _ => None,
+    }
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {

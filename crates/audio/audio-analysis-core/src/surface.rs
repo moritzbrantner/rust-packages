@@ -2,7 +2,7 @@
 
 use runtime_core::{
     describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
-    RuntimeCapabilities, SurfaceError, SurfaceRequest, SurfaceResponse,
+    RuntimeCapabilities, SurfaceError, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -20,25 +20,25 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            surface_operation(
+            operation(
                 "describe",
                 "Describe package",
                 "Shared audio frame conversion, windowing, and streaming helpers for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            surface_operation(
+            operation(
                 "audio.levels",
                 "Audio levels",
                 "Returns deterministic level metrics for normalized audio samples.",
                 serde_json::json!({"samples": [0.0, 0.5, -0.5], "sampleRate": 48000, "channels": 1}),
             ),
-            surface_operation(
+            operation(
                 "audio.frames",
                 "Audio frames",
                 "Summarizes fixed-size analysis frames over normalized samples.",
                 serde_json::json!({"samples": [0.0, 0.5, -0.5, 0.25], "sampleRate": 48000, "channels": 1, "frameSize": 2, "hopSize": 1}),
             ),
-            surface_operation(
+            operation(
                 "audio.timestamps",
                 "Audio timestamps",
                 "Converts between seconds, samples, and timestamp ticks for a sample rate.",
@@ -46,6 +46,35 @@ pub fn package_surface() -> PackageSurface {
             ),
         ],
     }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    let mut operation = surface_operation(id, name, description, example_request);
+    if id == "audio.levels" {
+        runtime_core::attach_landscape_contract(
+            &mut operation,
+            runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "audio.core.levels",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "frame",
+                    runtime_core::landscape::well_known::audio_frame(),
+                ))
+                .output(runtime_core::landscape::LandscapePort::new(
+                    "summary",
+                    runtime_core::landscape::well_known::numbers_summary(),
+                )),
+            ),
+        );
+    }
+    operation
 }
 
 /// Runs one library-owned operation.

@@ -2,7 +2,7 @@
 
 use runtime_core::{
     describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
-    RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
+    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 use serde::Deserialize;
 
@@ -19,31 +19,31 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            surface_operation(
+            operation(
                 "describe",
                 "Inspect package metadata",
                 "Shared text documents, tokenization, spans, and statistics for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            surface_operation(
+            operation(
                 "text.statistics",
                 "Text statistics",
                 "Counts bytes, characters, words, lines, and sentences.",
                 serde_json::json!({"text": "Hello world. Again."}),
             ),
-            surface_operation(
+            operation(
                 "text.normalize",
                 "Normalize text",
                 "Normalizes Unicode, casing, and whitespace with before/after statistics.",
                 serde_json::json!({"text": "  Hello   WORLD  ", "lowercase": true, "normalizeWhitespace": true}),
             ),
-            surface_operation(
+            operation(
                 "text.tokenize",
                 "Tokenize text",
                 "Returns span-aware tokens, script profile, and detailed text statistics.",
                 serde_json::json!({"text": "Hello, Berlin 2026.", "includePunctuation": true}),
             ),
-            surface_operation(
+            operation(
                 "text.boundaries",
                 "Text boundaries",
                 "Returns Unicode-safe word, sentence, paragraph, and grapheme boundaries.",
@@ -51,6 +51,38 @@ pub fn package_surface() -> PackageSurface {
             ),
         ],
     }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    let mut operation = surface_operation(id, name, description, example_request);
+    if id == "text.tokenize" {
+        runtime_core::attach_landscape_contract(
+            &mut operation,
+            runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "text.core.tokenize",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "document",
+                    runtime_core::landscape::well_known::text_document(),
+                ))
+                .output(
+                    runtime_core::landscape::LandscapePort::new(
+                        "segments",
+                        runtime_core::landscape::well_known::text_segment(),
+                    )
+                    .many(),
+                ),
+            ),
+        );
+    }
+    operation
 }
 
 /// Runs one library-owned operation.

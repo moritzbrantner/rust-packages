@@ -26,13 +26,13 @@ pub fn package_surface() -> PackageSurface {
                 "Small finite f32 tensor contracts and metadata for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            surface_operation(
+            operation(
                 "tensor.validate",
                 "Validate tensor",
                 "Validates a finite f32 tensor shape and values payload.",
                 serde_json::json!({"shape": [2, 2], "values": [0.0, 1.0, 2.0, 3.0], "metadata": {"source": "surface"}}),
             ),
-            surface_operation(
+            operation(
                 "tensor.summary",
                 "Tensor summary",
                 "Returns shape metadata and scalar summary statistics for a finite f32 tensor.",
@@ -46,6 +46,35 @@ pub fn package_surface() -> PackageSurface {
             ),
         ],
     }
+}
+
+fn operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> runtime_core::SurfaceOperation {
+    let mut operation = surface_operation(id, name, description, example_request);
+    if id == "tensor.validate" {
+        runtime_core::attach_landscape_contract(
+            &mut operation,
+            runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "tensor.validate",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "tensor",
+                    runtime_core::landscape::well_known::tensor_f32_tensor(),
+                ))
+                .output(runtime_core::landscape::LandscapePort::new(
+                    "tensor",
+                    runtime_core::landscape::well_known::tensor_f32_tensor(),
+                )),
+            ),
+        );
+    }
+    operation
 }
 
 /// Runs one library-owned operation.

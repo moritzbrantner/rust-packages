@@ -152,7 +152,7 @@ fn operation(
     example_request: serde_json::Value,
     wasm_supported: bool,
 ) -> SurfaceOperation {
-    SurfaceOperation {
+    let mut operation = SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
         description: Some(description.to_string()),
@@ -161,6 +161,67 @@ fn operation(
         example_request,
         wasm_supported,
         server_supported: true,
+    };
+    if let Some(contract) = landscape_contract(id) {
+        runtime_core::attach_landscape_contract(&mut operation, contract);
+    }
+    operation
+}
+
+fn landscape_contract(id: &str) -> Option<runtime_core::landscape::LandscapeOperationContract> {
+    match id {
+        "audio.transcription.transcribe" => {
+            Some(runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "audio.transcription.transcribe",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "source",
+                    runtime_core::landscape::well_known::audio_source(),
+                ))
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "config",
+                    runtime_core::landscape::well_known::audio_transcription_config(),
+                ))
+                .output(
+                    runtime_core::landscape::LandscapePort::new(
+                        "segments",
+                        runtime_core::landscape::well_known::text_transcript_segment(),
+                    )
+                    .many(),
+                )
+                .output(runtime_core::landscape::LandscapePort::new(
+                    "document",
+                    runtime_core::landscape::well_known::text_document(),
+                ))
+                .stability(runtime_core::landscape::LandscapeStability::Experimental),
+            ))
+        }
+        "audio.transcription.importWhisperX" => {
+            Some(runtime_core::landscape::LandscapeOperationContract::new(
+                runtime_core::landscape::LandscapeFunction::new(
+                    "audio.transcription.importWhisperX",
+                    env!("CARGO_PKG_NAME"),
+                )
+                .input(runtime_core::landscape::LandscapePort::new(
+                    "source",
+                    runtime_core::landscape::well_known::audio_source(),
+                ))
+                .output(
+                    runtime_core::landscape::LandscapePort::new(
+                        "segments",
+                        runtime_core::landscape::well_known::text_transcript_segment(),
+                    )
+                    .many(),
+                )
+                .output(runtime_core::landscape::LandscapePort::new(
+                    "document",
+                    runtime_core::landscape::well_known::text_document(),
+                )),
+            ))
+        }
+        _ => None,
     }
 }
 
