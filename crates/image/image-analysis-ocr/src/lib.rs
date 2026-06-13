@@ -996,7 +996,7 @@ impl OnnxTrOcrBackend {
         #[cfg(not(feature = "local-onnx"))]
         {
             let _ = options;
-            return Err(local_onnx_feature_error());
+            Err(local_onnx_feature_error())
         }
         #[cfg(feature = "local-onnx")]
         {

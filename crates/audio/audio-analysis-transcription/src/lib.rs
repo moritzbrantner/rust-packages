@@ -846,11 +846,27 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
         #[cfg(not(feature = "candle"))]
         {
             Err(unsupported_runtime(format!(
-                "Candle Whisper requested for `{}` but the binary lacks the `candle` feature",
-                request.model_id
+                "Candle Whisper requested for `{}` but the binary lacks the `candle` feature; {}; build with `candle` for native execution and `model-bundles` for Hugging Face cache resolution",
+                request.model_id,
+                candle_whisper_setup_context(&self.options)
             )))
         }
     }
+}
+
+fn candle_whisper_setup_context(options: &CandleWhisperOptions) -> String {
+    let model_location = options
+        .model_bundle
+        .as_ref()
+        .map(|path| format!("--whisper-bundle={}", path.display()))
+        .or_else(|| {
+            options
+                .model_dir
+                .as_ref()
+                .map(|path| format!("--model-dir={}", path.display()))
+        })
+        .unwrap_or_else(|| "--model-dir=<default huggingface cache>".to_string());
+    format!("{model_location}; cache-only={}", options.model_cache_only)
 }
 
 /// Native whisper.cpp compatibility provider.
@@ -2028,9 +2044,10 @@ fn validate_candle_setup(options: &CandleWhisperOptions) -> Result<()> {
     validate_candle_batch_options(options)?;
     native_device::resolve_native_device(options.device)?;
     if !cfg!(feature = "candle") {
-        return Err(unsupported_runtime(
-            "Candle Whisper requested but the binary lacks the `candle` feature",
-        ));
+        return Err(unsupported_runtime(format!(
+            "Candle Whisper requested but the binary lacks the `candle` feature; {}; build with `candle` for native execution and `model-bundles` for Hugging Face cache resolution",
+            candle_whisper_setup_context(options)
+        )));
     }
     if let Some(bundle) = &options.model_bundle {
         validate_model_bundle_files(
