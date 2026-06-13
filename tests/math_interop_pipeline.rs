@@ -75,13 +75,17 @@ fn expanded_math_apis_interoperate_through_facade() {
         va::stats::ordinary_least_squares(&matrix.as_view(), &[3.0, 5.0, 7.0]).unwrap();
     assert!((regression.coefficients[1] - 2.0).abs() < 1.0e-4);
 
-    let portfolio =
-        va::finance::portfolio_returns(&[vec![0.02, -0.01], vec![0.01, 0.0]], &[0.5, 0.5]).unwrap();
-    assert_eq!(portfolio.len(), 2);
+    let changes =
+        va::stats::changes(&[100.0, 102.0, 99.0], va::stats::ChangeMethod::Relative).unwrap();
+    assert_eq!(changes.len(), 2);
+    assert!(va::stats::tail_risk(&changes, 0.8)
+        .unwrap()
+        .conditional_value_at_risk
+        .is_finite());
 }
 
 #[test]
-fn analytical_math_crates_connect_sparse_linear_statistics_and_finance() {
+fn analytical_math_crates_connect_sparse_linear_statistics_and_risk_metrics() {
     let coo = va::sparse::CooMatrix::new(
         4,
         2,
@@ -114,13 +118,15 @@ fn analytical_math_crates_connect_sparse_linear_statistics_and_finance() {
     assert_eq!(diagnostics.degrees_of_freedom, 2);
     assert!(diagnostics.root_mean_squared_error.is_finite());
 
-    let risk = va::finance::portfolio_risk_contribution(
-        &[vec![0.02, -0.01, 0.03, 0.01], vec![0.01, 0.0, 0.02, -0.01]],
-        &[0.6, 0.4],
-        252.0,
-    )
-    .unwrap();
-    assert_eq!(risk.marginal_contributions.len(), 2);
-    assert!(risk.volatility.is_finite());
-    assert!((risk.component_contributions.iter().sum::<f64>() - risk.volatility).abs() < 1.0e-10);
+    let matrix =
+        va::linear::F32Matrix::from_rows([[0.02, 0.01], [-0.01, 0.0], [0.03, 0.02], [0.01, -0.01]])
+            .unwrap();
+    let covariance =
+        va::stats::covariance_matrix_from_rows(&matrix.as_view(), va::stats::VarianceMode::Sample)
+            .unwrap();
+    assert_eq!(covariance.shape().rows, 2);
+    assert_eq!(covariance.shape().cols, 2);
+
+    let drawdown = va::stats::max_drawdown(&[0.02, -0.03, 0.01, 0.04]).unwrap();
+    assert!(drawdown.depth > 0.0);
 }

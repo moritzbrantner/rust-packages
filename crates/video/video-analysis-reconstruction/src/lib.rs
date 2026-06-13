@@ -1119,19 +1119,10 @@ pub fn project_point(
     intrinsics: CameraIntrinsics,
     point: Vec3,
 ) -> Result<Option<Vec2>> {
-    pose.validate()?;
-    intrinsics.validate()?;
-    if !point.is_finite() {
-        return Err(invalid_argument("point must be finite"));
-    }
-    let camera_space = pose.world_to_camera_point(point);
-    if camera_space.z <= 0.0 {
-        return Ok(None);
-    }
-    Ok(Some(Vec2::new(
-        intrinsics.fx * (camera_space.x / camera_space.z) + intrinsics.cx,
-        intrinsics.fy * (camera_space.y / camera_space.z) + intrinsics.cy,
-    )))
+    let projected = pose
+        .to_core_pose()?
+        .project_point(intrinsics.to_core_pinhole()?, point.to_core_point())?;
+    Ok(projected.map(|pixel| Vec2::new(pixel[0], pixel[1])))
 }
 
 /// Returns reprojection error.

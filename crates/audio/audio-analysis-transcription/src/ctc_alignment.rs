@@ -1,9 +1,11 @@
+use std::path::{Path, PathBuf};
+
 use video_analysis_core::Result;
 
 use crate::native_audio::validate_loaded_audio;
 use crate::{
-    invalid_request, model_output_mismatch, AlignedWord, AlignmentOptions, AlignmentRequest,
-    AlignmentResponse,
+    invalid_request, model_output_mismatch, setup_error, AlignedWord, AlignmentOptions,
+    AlignmentRequest, AlignmentResponse,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +25,7 @@ pub(crate) struct CtcEmissionFrame {
 #[allow(dead_code)]
 pub(crate) struct CtcAlignedToken {
     pub token_id: usize,
+    pub token_index: usize,
     pub frame_index: usize,
     pub score: f32,
 }
@@ -42,24 +45,207 @@ pub(crate) fn align(
 ) -> Result<AlignmentResponse> {
     validate_loaded_audio(&request.audio)?;
     validate_transcript_ranges(&request)?;
+    let resolved = resolve_alignment_model(options, &request.model_id)?;
+    let aligned = crate::native_wav2vec2::align_wav2vec2_ctc(
+        &resolved.bundle,
+        &request,
+        options.interpolate_method,
+        options.return_char_alignments,
+    )?;
+    Ok(AlignmentResponse {
+        model_id: resolved.model_id,
+        words: aligned.words,
+        chars: aligned.chars,
+        diagnostics: vec![
+            "alignment=wav2vec2Ctc".to_string(),
+            "alignmentProvider=ctc-forced-aligner".to_string(),
+            "alignmentModelExecution=candle-wav2vec2".to_string(),
+            format!("alignmentModelResolved={}", resolved.bundle.display()),
+            format!("alignmentModelSource={}", resolved.source),
+            format!(
+                "alignmentInterpolateMethod={}",
+                options.interpolate_method.as_whisperx_arg()
+            ),
+            format!("returnCharAlignments={}", options.return_char_alignments),
+        ],
+    })
+}
+
+struct ResolvedAlignmentModel {
+    model_id: String,
+    bundle: PathBuf,
+    source: &'static str,
+}
+
+fn resolve_alignment_model(
+    options: &AlignmentOptions,
+    requested_model_id: &str,
+) -> Result<ResolvedAlignmentModel> {
+    let model_id = canonical_alignment_model_id(requested_model_id)?;
     if let Some(bundle) = &options.model_bundle {
-        let words = crate::native_wav2vec2::align_wav2vec2_ctc(bundle, &request)?;
-        return Ok(AlignmentResponse {
-            model_id: request.model_id,
-            words,
-            diagnostics: vec![
-                "alignment=wav2vec2Ctc".to_string(),
-                "alignmentProvider=ctc-forced-aligner".to_string(),
-                "alignmentModelExecution=candle-wav2vec2".to_string(),
-            ],
+        crate::native_wav2vec2::resolve_wav2vec2_bundle_paths(bundle)?;
+        return Ok(ResolvedAlignmentModel {
+            model_id,
+            bundle: bundle.clone(),
+            source: "explicit-bundle",
         });
     }
-    let words = deterministic_words_from_transcript(&request)?;
-    Ok(AlignmentResponse {
-        model_id: request.model_id,
-        words,
-        diagnostics: vec!["deterministic transcript timing alignment completed".to_string()],
-    })
+
+    #[cfg(feature = "model-bundles")]
+    {
+        let required = required_alignment_files();
+        if options.model_cache_only {
+            let bundle = resolve_cached_alignment_model(&model_id, options.model_dir.as_deref())
+                .ok_or_else(|| missing_alignment_model_error(&model_id, options, &required))?;
+            crate::native_wav2vec2::resolve_wav2vec2_bundle_paths(&bundle)?;
+            return Ok(ResolvedAlignmentModel {
+                model_id,
+                bundle,
+                source: "hugging-face-cache",
+            });
+        }
+
+        let mut downloader = model_runtime::HuggingFaceDownloader::new().progress(false);
+        if let Some(model_dir) = &options.model_dir {
+            downloader = downloader.cache_dir(model_dir.clone());
+        }
+        let downloaded = downloader
+            .download(&alignment_model_spec(&model_id))
+            .map_err(|error| {
+                missing_alignment_model_error_with_source(&model_id, options, &required, error)
+            })?;
+        let bundle = downloaded
+            .model_dir()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| {
+                setup_error(format!(
+                    "alignment model `{model_id}` resolved without a local model directory"
+                ))
+            })?;
+        return Ok(ResolvedAlignmentModel {
+            model_id,
+            bundle,
+            source: "hugging-face-cache",
+        });
+    }
+
+    #[cfg(not(feature = "model-bundles"))]
+    {
+        Err(setup_error(format!(
+            "alignment model `{model_id}` requires a local --alignment-bundle or the model-bundles feature for Hugging Face resolution"
+        )))
+    }
+}
+
+fn canonical_alignment_model_id(value: &str) -> Result<String> {
+    match value {
+        "WAV2VEC2_ASR_BASE_960H" | "facebook/wav2vec2-base-960h" => {
+            Ok("facebook/wav2vec2-base-960h".to_string())
+        }
+        other if looks_like_hf_repo_id(other) => Ok(other.to_string()),
+        other => Err(crate::unsupported_runtime(format!(
+            "unsupported alignment model alias `{other}`; pass a Hugging Face repo ID with a safetensors Wav2Vec2ForCTC layout or WAV2VEC2_ASR_BASE_960H"
+        ))),
+    }
+}
+
+fn looks_like_hf_repo_id(value: &str) -> bool {
+    let mut parts = value.split('/');
+    matches!((parts.next(), parts.next(), parts.next()), (Some(owner), Some(repo), None) if !owner.is_empty() && !repo.is_empty())
+}
+
+fn required_alignment_files() -> Vec<&'static str> {
+    vec![
+        "config.json",
+        "preprocessor_config.json",
+        "tokenizer.json or vocab.json",
+        "model.safetensors",
+    ]
+}
+
+fn missing_alignment_model_error(
+    model_id: &str,
+    options: &AlignmentOptions,
+    required: &[&str],
+) -> video_analysis_core::DetectError {
+    setup_error(format!(
+        "failed to resolve alignment model `{model_id}`; required files: {}; --model-dir={}; cache-only={}",
+        required.join(", "),
+        options
+            .model_dir
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "<default huggingface cache>".to_string()),
+        options.model_cache_only
+    ))
+}
+
+fn missing_alignment_model_error_with_source(
+    model_id: &str,
+    options: &AlignmentOptions,
+    required: &[&str],
+    source: impl std::fmt::Display,
+) -> video_analysis_core::DetectError {
+    setup_error(format!(
+        "failed to resolve alignment model `{model_id}`; required files: {}; --model-dir={}; cache-only={}: {source}",
+        required.join(", "),
+        options
+            .model_dir
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "<default huggingface cache>".to_string()),
+        options.model_cache_only
+    ))
+}
+
+#[cfg(feature = "model-bundles")]
+fn alignment_model_spec(model_id: &str) -> model_runtime::HuggingFaceModelSpec {
+    let mut spec = model_runtime::HuggingFaceModelSpec::new(
+        model_id.to_string(),
+        model_runtime::ModelTask::SpeechRecognition,
+    );
+    spec.files = vec![
+        model_runtime::ModelFileRequest::required("config.json"),
+        model_runtime::ModelFileRequest::required("preprocessor_config.json"),
+        model_runtime::ModelFileRequest::first_available(["tokenizer.json", "vocab.json"]),
+        model_runtime::ModelFileRequest::required("model.safetensors"),
+    ];
+    spec
+}
+
+#[cfg(feature = "model-bundles")]
+fn resolve_cached_alignment_model(model_id: &str, model_dir: Option<&Path>) -> Option<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(model_dir) = model_dir {
+        roots.push(model_dir.to_path_buf());
+    } else if let Some(home) = std::env::var_os("HF_HOME") {
+        roots.push(PathBuf::from(home).join("hub"));
+    } else if let Some(home) = std::env::var_os("HOME") {
+        roots.push(PathBuf::from(home).join(".cache/huggingface/hub"));
+    }
+    for root in roots {
+        for candidate in cache_candidates(&root, model_id) {
+            if crate::native_wav2vec2::resolve_wav2vec2_bundle_paths(&candidate).is_ok() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(feature = "model-bundles")]
+fn cache_candidates(root: &Path, model_id: &str) -> Vec<PathBuf> {
+    let mut candidates = vec![root.to_path_buf(), root.join(model_id.replace('/', "--"))];
+    let hf_repo_dir = root.join(format!("models--{}", model_id.replace('/', "--")));
+    if let Ok(snapshot) = std::fs::read_to_string(hf_repo_dir.join("refs/main")) {
+        candidates.push(hf_repo_dir.join("snapshots").join(snapshot.trim()));
+    }
+    if let Ok(entries) = std::fs::read_dir(hf_repo_dir.join("snapshots")) {
+        for entry in entries.flatten() {
+            candidates.push(entry.path());
+        }
+    }
+    candidates
 }
 
 #[allow(dead_code)]
@@ -90,7 +276,8 @@ pub(crate) fn build_ctc_trellis(
         for token_index in 0..=token_count {
             let stay = trellis[frame][token_index] + emissions[frame][blank_id];
             let change = if token_index > 0 {
-                trellis[frame][token_index - 1] + emissions[frame][token_ids[token_index - 1]]
+                trellis[frame][token_index - 1]
+                    + emission_token_score(&emissions[frame], token_ids[token_index - 1], blank_id)
             } else {
                 f32::NEG_INFINITY
             };
@@ -127,13 +314,15 @@ pub(crate) fn backtrack_ctc(
         }
         let current_frame = frame - 1;
         let token_id = token_ids[token_index - 1];
-        let changed = trellis[current_frame][token_index - 1] + emissions[current_frame][token_id];
+        let changed = trellis[current_frame][token_index - 1]
+            + emission_token_score(&emissions[current_frame], token_id, blank_id);
         let stayed = trellis[current_frame][token_index] + emissions[current_frame][blank_id];
         if changed >= stayed {
             path.push(CtcAlignedToken {
                 token_id,
+                token_index: token_index - 1,
                 frame_index: current_frame,
-                score: emissions[current_frame][token_id].exp(),
+                score: emission_token_score(&emissions[current_frame], token_id, blank_id).exp(),
             });
             token_index -= 1;
         }
@@ -141,6 +330,20 @@ pub(crate) fn backtrack_ctc(
     }
     path.reverse();
     Ok(path)
+}
+
+fn emission_token_score(frame: &[f32], token_id: usize, blank_id: usize) -> f32 {
+    if token_id == usize::MAX {
+        frame
+            .iter()
+            .enumerate()
+            .filter(|(index, score)| *index != blank_id && score.is_finite())
+            .map(|(_, score)| *score)
+            .max_by(f32::total_cmp)
+            .unwrap_or(f32::NEG_INFINITY)
+    } else {
+        frame[token_id]
+    }
 }
 
 #[allow(dead_code)]
@@ -213,6 +416,7 @@ pub(crate) fn tokens_to_segment_words(
     Ok(aligned)
 }
 
+#[allow(dead_code)]
 fn deterministic_words_from_transcript(request: &AlignmentRequest) -> Result<Vec<AlignedWord>> {
     let mut aligned = Vec::new();
     let duration = request.audio.duration_seconds();
@@ -297,7 +501,9 @@ fn validate_emissions(emissions: &[Vec<f32>], blank_id: usize, token_ids: &[usiz
     };
     if vocab_size == 0
         || blank_id >= vocab_size
-        || token_ids.iter().any(|token| *token >= vocab_size)
+        || token_ids
+            .iter()
+            .any(|token| *token != usize::MAX && *token >= vocab_size)
         || emissions
             .iter()
             .any(|frame| frame.len() != vocab_size || frame.iter().any(|score| !score.is_finite()))
@@ -347,11 +553,13 @@ mod tests {
         let tokens = vec![
             CtcAlignedToken {
                 token_id: 1,
+                token_index: 0,
                 frame_index: 0,
                 score: 0.9,
             },
             CtcAlignedToken {
                 token_id: 2,
+                token_index: 1,
                 frame_index: 5,
                 score: 0.8,
             },
@@ -365,6 +573,7 @@ mod tests {
     fn ctc_word_conversion_preserves_segment_index() {
         let tokens = vec![CtcAlignedToken {
             token_id: 1,
+            token_index: 0,
             frame_index: 2,
             score: 0.9,
         }];
@@ -375,7 +584,7 @@ mod tests {
     }
 
     #[test]
-    fn alignment_merge_fills_transcript_word_contract_timings() {
+    fn alignment_without_bundle_or_cache_returns_setup_error() {
         let mut segment = TranscriptSegmentContract::new(0, "hello world");
         segment.start_seconds = Some(0.0);
         segment.end_seconds = Some(1.0);
@@ -396,11 +605,10 @@ mod tests {
                 model_id: "deterministic".to_string(),
             },
         )
-        .unwrap();
-        assert_eq!(response.words.len(), 2);
-        assert_eq!(response.words[0].text, "hello");
-        assert!(response.words[0].end_seconds <= 0.5);
-        assert!(response.words[1].start_seconds >= 0.5);
+        .unwrap_err()
+        .to_string();
+        assert!(response.contains("setup_error") || response.contains("unsupported_runtime"));
+        assert!(!response.contains("deterministic transcript timing alignment completed"));
     }
 
     fn write_valid_wav2vec2_bundle(root: &Path) {

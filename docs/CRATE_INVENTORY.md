@@ -19,23 +19,23 @@ python3 scripts/audit_workspace_crates.py --check
 
 ## Counts
 
-- Active workspace packages: 371
+- Active workspace packages: 367
 
 ### Domains
 
 - `animation`: 3
 - `audio`: 37
-- `bindings`: 91
+- `bindings`: 90
 - `comfyui`: 9
-- `data`: 33
+- `data`: 30
 - `image`: 33
 - `jobs`: 3
-- `math`: 21
+- `math`: 18
 - `prototype`: 1
 - `root`: 1
 - `runtime`: 5
 - `test-support`: 1
-- `text`: 36
+- `text`: 39
 - `three-d`: 12
 - `vector`: 6
 - `video`: 76
@@ -43,16 +43,16 @@ python3 scripts/audit_workspace_crates.py --check
 
 ### Kinds
 
-- `cli`: 92
-- `library`: 96
+- `cli`: 91
+- `library`: 95
 - `prototype`: 1
-- `server`: 91
-- `wasm`: 91
+- `server`: 90
+- `wasm`: 90
 
 ### Publish classes
 
 - `internal-test`: 2
-- `public`: 369
+- `public`: 365
 
 | Package | Domain | Kind | Publish | Surface required | Facade expected | Path |
 |---|---|---|---|---|---|---|
@@ -114,8 +114,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-comfyui-models-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-models-wasm` |
 | `moritzbrantner-data-inversion-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/data-inversion-core-wasm` |
 | `moritzbrantner-dense-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/dense-data-wasm` |
-| `moritzbrantner-finance-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/finance-data-wasm` |
-| `moritzbrantner-finance-statistics-wasm` | bindings | wasm | public | no | no | `crates/bindings/finance-statistics-wasm` |
 | `moritzbrantner-geo-clustering-wasm` | bindings | wasm | public | no | no | `crates/bindings/geo-clustering-wasm` |
 | `moritzbrantner-geo-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/geo-core-wasm` |
 | `moritzbrantner-geo-io-geojson-wasm` | bindings | wasm | public | no | no | `crates/bindings/geo-io-geojson-wasm` |
@@ -149,6 +147,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-text-embeddings-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-embeddings-wasm` |
 | `moritzbrantner-text-generation-linguistics-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-generation-linguistics-wasm` |
 | `moritzbrantner-text-generation-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-generation-wasm` |
+| `moritzbrantner-text-index-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-index-wasm` |
 | `moritzbrantner-text-lexical-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-lexical-wasm` |
 | `moritzbrantner-text-linguistics-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-linguistics-wasm` |
 | `moritzbrantner-text-model-runtime-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-model-runtime-wasm` |
@@ -198,7 +197,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-comfyui-models-server` | comfyui | server | public | no | no | `crates/comfyui/comfyui-models-server` |
 | `moritzbrantner-data-inversion-core-cli` | data | cli | public | no | no | `crates/data/data-inversion-core-cli` |
 | `moritzbrantner-dense-data-cli` | data | cli | public | no | no | `crates/data/dense-data-cli` |
-| `moritzbrantner-finance-data-cli` | data | cli | public | no | no | `crates/data/finance-data-cli` |
 | `moritzbrantner-geo-clustering-cli` | data | cli | public | no | no | `crates/data/geo-clustering-cli` |
 | `moritzbrantner-geo-core-cli` | data | cli | public | no | no | `crates/data/geo-core-cli` |
 | `moritzbrantner-geo-io-geojson-cli` | data | cli | public | no | no | `crates/data/geo-io-geojson-cli` |
@@ -209,7 +207,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-tensor-data-cli` | data | cli | public | no | no | `crates/data/tensor-data-cli` |
 | `moritzbrantner-data-inversion-core` | data | library | public | yes | yes | `crates/data/data-inversion-core` |
 | `moritzbrantner-dense-data` | data | library | public | yes | yes | `crates/data/dense-data` |
-| `moritzbrantner-finance-data` | data | library | public | yes | yes | `crates/data/finance-data` |
 | `moritzbrantner-geo-clustering` | data | library | public | yes | yes | `crates/data/geo-clustering` |
 | `moritzbrantner-geo-core` | data | library | public | yes | yes | `crates/data/geo-core` |
 | `moritzbrantner-geo-io-geojson` | data | library | public | yes | yes | `crates/data/geo-io-geojson` |
@@ -220,7 +217,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-tensor-data` | data | library | public | yes | yes | `crates/data/tensor-data` |
 | `moritzbrantner-data-inversion-core-server` | data | server | public | no | no | `crates/data/data-inversion-core-server` |
 | `moritzbrantner-dense-data-server` | data | server | public | no | no | `crates/data/dense-data-server` |
-| `moritzbrantner-finance-data-server` | data | server | public | no | no | `crates/data/finance-data-server` |
 | `moritzbrantner-geo-clustering-server` | data | server | public | no | no | `crates/data/geo-clustering-server` |
 | `moritzbrantner-geo-core-server` | data | server | public | no | no | `crates/data/geo-core-server` |
 | `moritzbrantner-geo-io-geojson-server` | data | server | public | no | no | `crates/data/geo-io-geojson-server` |
@@ -265,21 +261,18 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-jobs-core-cli` | jobs | cli | public | no | no | `crates/jobs/jobs-core-cli` |
 | `moritzbrantner-jobs-core` | jobs | library | public | yes | yes | `crates/jobs/jobs-core` |
 | `moritzbrantner-jobs-core-server` | jobs | server | public | no | no | `crates/jobs/jobs-core-server` |
-| `moritzbrantner-finance-statistics-cli` | math | cli | public | no | no | `crates/math/finance-statistics-cli` |
 | `moritzbrantner-maps-kernels-core-cli` | math | cli | public | no | no | `crates/math/maps-kernels-core-cli` |
 | `moritzbrantner-math-geometry-2d-cli` | math | cli | public | no | no | `crates/math/math-geometry-2d-cli` |
 | `moritzbrantner-math-linear-cli` | math | cli | public | no | no | `crates/math/math-linear-cli` |
 | `moritzbrantner-math-signal-core-cli` | math | cli | public | no | no | `crates/math/math-signal-core-cli` |
 | `moritzbrantner-math-sparse-data-cli` | math | cli | public | no | no | `crates/math/math-sparse-data-cli` |
 | `moritzbrantner-math-statistics-cli` | math | cli | public | no | no | `crates/math/math-statistics-cli` |
-| `moritzbrantner-finance-statistics` | math | library | public | yes | yes | `crates/math/finance-statistics` |
 | `moritzbrantner-maps-kernels-core` | math | library | public | yes | yes | `crates/math/maps-kernels-core` |
 | `moritzbrantner-math-geometry-2d` | math | library | public | yes | yes | `crates/math/math-geometry-2d` |
 | `moritzbrantner-math-linear` | math | library | public | yes | yes | `crates/math/math-linear` |
 | `moritzbrantner-math-signal-core` | math | library | public | yes | yes | `crates/math/math-signal-core` |
 | `moritzbrantner-math-sparse-data` | math | library | public | yes | yes | `crates/math/math-sparse-data` |
 | `moritzbrantner-math-statistics` | math | library | public | yes | yes | `crates/math/math-statistics` |
-| `moritzbrantner-finance-statistics-server` | math | server | public | no | no | `crates/math/finance-statistics-server` |
 | `moritzbrantner-maps-kernels-core-server` | math | server | public | no | no | `crates/math/maps-kernels-core-server` |
 | `moritzbrantner-math-geometry-2d-server` | math | server | public | no | no | `crates/math/math-geometry-2d-server` |
 | `moritzbrantner-math-linear-server` | math | server | public | no | no | `crates/math/math-linear-server` |
@@ -300,6 +293,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-text-embeddings-cli` | text | cli | public | no | no | `crates/text/text-embeddings-cli` |
 | `moritzbrantner-text-generation-cli` | text | cli | public | no | no | `crates/text/text-generation-cli` |
 | `moritzbrantner-text-generation-linguistics-cli` | text | cli | public | no | no | `crates/text/text-generation-linguistics-cli` |
+| `moritzbrantner-text-index-cli` | text | cli | public | no | no | `crates/text/text-index-cli` |
 | `moritzbrantner-text-lexical-cli` | text | cli | public | no | no | `crates/text/text-lexical-cli` |
 | `moritzbrantner-text-linguistics-cli` | text | cli | public | no | no | `crates/text/text-linguistics-cli` |
 | `moritzbrantner-text-model-runtime-cli` | text | cli | public | no | no | `crates/text/text-model-runtime-cli` |
@@ -312,6 +306,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-text-embeddings` | text | library | public | yes | yes | `crates/text/text-embeddings` |
 | `moritzbrantner-text-generation` | text | library | public | yes | yes | `crates/text/text-generation` |
 | `moritzbrantner-text-generation-linguistics` | text | library | public | yes | yes | `crates/text/text-generation-linguistics` |
+| `moritzbrantner-text-index` | text | library | public | yes | yes | `crates/text/text-index` |
 | `moritzbrantner-text-lexical` | text | library | public | yes | yes | `crates/text/text-lexical` |
 | `moritzbrantner-text-linguistics` | text | library | public | yes | yes | `crates/text/text-linguistics` |
 | `moritzbrantner-text-model-runtime` | text | library | public | yes | yes | `crates/text/text-model-runtime` |
@@ -324,6 +319,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-text-embeddings-server` | text | server | public | no | no | `crates/text/text-embeddings-server` |
 | `moritzbrantner-text-generation-linguistics-server` | text | server | public | no | no | `crates/text/text-generation-linguistics-server` |
 | `moritzbrantner-text-generation-server` | text | server | public | no | no | `crates/text/text-generation-server` |
+| `moritzbrantner-text-index-server` | text | server | public | no | no | `crates/text/text-index-server` |
 | `moritzbrantner-text-lexical-server` | text | server | public | no | no | `crates/text/text-lexical-server` |
 | `moritzbrantner-text-linguistics-server` | text | server | public | no | no | `crates/text/text-linguistics-server` |
 | `moritzbrantner-text-model-runtime-server` | text | server | public | no | no | `crates/text/text-model-runtime-server` |

@@ -78,22 +78,18 @@ impl Quaternion {
 
     /// Converts this value to rotation matrix.
     pub fn to_rotation_matrix(self) -> Result<[[f32; 3]; 3]> {
-        let q = self.normalize()?;
-        let xx = q.x * q.x;
-        let yy = q.y * q.y;
-        let zz = q.z * q.z;
-        let xy = q.x * q.y;
-        let xz = q.x * q.z;
-        let yz = q.y * q.z;
-        let wx = q.w * q.x;
-        let wy = q.w * q.y;
-        let wz = q.w * q.z;
+        Ok(self.to_core_quaternion()?.to_rotation_matrix()?.rows)
+    }
 
-        Ok([
-            [1.0 - 2.0 * (yy + zz), 2.0 * (xy - wz), 2.0 * (xz + wy)],
-            [2.0 * (xy + wz), 1.0 - 2.0 * (xx + zz), 2.0 * (yz - wx)],
-            [2.0 * (xz - wy), 2.0 * (yz + wx), 1.0 - 2.0 * (xx + yy)],
-        ])
+    /// Converts this value to the canonical 3D core quaternion.
+    pub fn to_core_quaternion(self) -> Result<three_d_processing_core::Quaternion> {
+        three_d_processing_core::Quaternion::new(self.x, self.y, self.z, self.w).normalize()
+    }
+
+    /// Builds this value from the canonical 3D core quaternion.
+    pub fn from_core_quaternion(value: three_d_processing_core::Quaternion) -> Result<Self> {
+        let value = value.normalize()?;
+        Ok(Self::new(value.x, value.y, value.z, value.w))
     }
 }
 

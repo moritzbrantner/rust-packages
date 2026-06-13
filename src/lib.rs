@@ -56,12 +56,6 @@ pub use data_inversion_core as inversion;
 /// Re-exports the dense API.
 pub use dense_data as dense;
 #[cfg(feature = "data")]
-/// Re-exports the finance data API.
-pub use finance_data;
-#[cfg(feature = "math")]
-/// Re-exports the finance statistics API.
-pub use finance_statistics as finance;
-#[cfg(feature = "data")]
 /// Re-exports the geo data API.
 pub use geo_clustering;
 #[cfg(feature = "data")]
@@ -75,6 +69,17 @@ pub use geo_viz;
 #[cfg(feature = "data")]
 /// Re-exports the graph core API.
 pub use graph_analysis_core as graph_core;
+
+#[deprecated(note = "Finance APIs moved to the finance-analysis repository.")]
+pub mod finance {
+    //! Finance statistics APIs moved to the `finance-analysis` repository.
+}
+
+#[deprecated(note = "Finance APIs moved to the finance-analysis repository.")]
+pub mod finance_data {
+    //! Finance data APIs moved to the `finance-analysis` repository.
+}
+
 #[cfg(feature = "image")]
 /// Re-exports the image captioning API.
 pub use image_analysis_captioning as image_captioning;
@@ -162,6 +167,9 @@ pub use text_generation;
 #[cfg(feature = "text")]
 /// Re-exports the text generation linguistics adapter API.
 pub use text_generation_linguistics;
+#[cfg(feature = "text")]
+/// Re-exports the durable text index API.
+pub use text_index;
 #[cfg(feature = "text")]
 /// Re-exports the text lexical API.
 pub use text_lexical;

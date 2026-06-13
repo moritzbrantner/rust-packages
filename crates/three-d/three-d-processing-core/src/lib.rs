@@ -5,6 +5,7 @@ mod broad_phase;
 mod geometry;
 mod math;
 mod point_cloud;
+mod spatial_math;
 pub mod surface;
 mod transform;
 mod validation;
@@ -14,6 +15,7 @@ pub use broad_phase::*;
 pub use geometry::*;
 pub use math::*;
 pub use point_cloud::*;
+pub use spatial_math::*;
 pub use transform::*;
 
 #[cfg(test)]

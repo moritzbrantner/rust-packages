@@ -8,6 +8,26 @@ use crate::{TranscriptSegment, TranscriptWord, TranscriptionError, Transcription
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TranscriptCharContract {
+    #[serde(rename = "char")]
+    pub character: String,
+    #[serde(
+        default,
+        rename = "start",
+        alias = "start_seconds",
+        alias = "startSeconds"
+    )]
+    pub start_seconds: Option<f64>,
+    #[serde(default, rename = "end", alias = "end_seconds", alias = "endSeconds")]
+    pub end_seconds: Option<f64>,
+    #[serde(default, rename = "score", alias = "confidence")]
+    pub confidence: Option<f32>,
+    #[serde(default)]
+    pub attributes: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TranscriptWordContract {
     pub text: String,
     #[serde(default)]
@@ -65,6 +85,8 @@ pub struct TranscriptSegmentContract {
     #[serde(default)]
     pub words: Vec<TranscriptWordContract>,
     #[serde(default)]
+    pub chars: Vec<TranscriptCharContract>,
+    #[serde(default)]
     pub attributes: BTreeMap<String, String>,
 }
 
@@ -80,6 +102,7 @@ impl TranscriptSegmentContract {
             confidence: None,
             is_final: true,
             words: Vec::new(),
+            chars: Vec::new(),
             attributes: BTreeMap::new(),
         }
     }
@@ -105,6 +128,17 @@ impl TranscriptSegmentContract {
                 ));
             }
         }
+        for character in &self.chars {
+            validate_seconds_range(character.start_seconds, character.end_seconds)?;
+            if character
+                .confidence
+                .is_some_and(|confidence| !confidence.is_finite())
+            {
+                return Err(TranscriptionError::InvalidTranscript(
+                    "transcript char confidence must be finite".to_string(),
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -112,6 +146,9 @@ impl TranscriptSegmentContract {
         self.confidence = sanitize_confidence(self.confidence);
         for word in &mut self.words {
             word.confidence = sanitize_confidence(word.confidence);
+        }
+        for character in &mut self.chars {
+            character.confidence = sanitize_confidence(character.confidence);
         }
         self.validate()?;
         Ok(self)
@@ -131,6 +168,14 @@ impl TranscriptSegmentContract {
                     .map(|speaker| speaker.trim().to_string())
                     .filter(|speaker| !speaker.is_empty());
                 (!word.text.is_empty()).then_some(word)
+            })
+            .collect();
+        self.chars = self
+            .chars
+            .into_iter()
+            .filter_map(|mut character| {
+                character.confidence = sanitize_confidence(character.confidence);
+                (!character.character.is_empty()).then_some(character)
             })
             .collect();
         self
@@ -185,6 +230,7 @@ impl From<TranscriptSegment> for TranscriptSegmentContract {
             confidence: sanitize_confidence(value.confidence),
             is_final: value.is_final,
             words: Vec::new(),
+            chars: Vec::new(),
             attributes: BTreeMap::new(),
         }
     }
@@ -323,6 +369,9 @@ impl TranscriptionContract {
             for word in &segment.words {
                 validate_word_inside_segment(segment, word)?;
             }
+            for character in &segment.chars {
+                validate_char_inside_segment(segment, character)?;
+            }
         }
         Ok(())
     }
@@ -430,6 +479,29 @@ fn validate_word_inside_segment(
         if word_end > segment_end {
             return Err(TranscriptionError::InvalidTranscript(
                 "transcript word end_seconds must be within its segment".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_char_inside_segment(
+    segment: &TranscriptSegmentContract,
+    character: &TranscriptCharContract,
+) -> crate::Result<()> {
+    if let (Some(segment_start), Some(char_start)) =
+        (segment.start_seconds, character.start_seconds)
+    {
+        if char_start < segment_start {
+            return Err(TranscriptionError::InvalidTranscript(
+                "transcript char start_seconds must be within its segment".to_string(),
+            ));
+        }
+    }
+    if let (Some(segment_end), Some(char_end)) = (segment.end_seconds, character.end_seconds) {
+        if char_end > segment_end {
+            return Err(TranscriptionError::InvalidTranscript(
+                "transcript char end_seconds must be within its segment".to_string(),
             ));
         }
     }

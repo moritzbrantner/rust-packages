@@ -39,9 +39,9 @@ Package README index:
 - ComfyUI: [`moritzbrantner-comfyui-data`](crates/comfyui/comfyui-data/README.md), [`moritzbrantner-comfyui-latents`](crates/comfyui/comfyui-latents/README.md), [`moritzbrantner-comfyui-models`](crates/comfyui/comfyui-models/README.md)
 - Data: [`moritzbrantner-data-inversion-core`](crates/data/data-inversion-core/README.md), [`moritzbrantner-graph-analysis-core`](crates/data/graph-analysis-core/README.md), [`moritzbrantner-numbers-core`](crates/data/numbers-core/README.md), [`moritzbrantner-tensor-data`](crates/data/tensor-data/README.md), [`moritzbrantner-dense-data`](crates/data/dense-data/README.md)
 - Animation: [`moritzbrantner-animation-core`](crates/animation/animation-core/README.md)
-- Math: [`moritzbrantner-finance-statistics`](crates/math/finance-statistics/README.md), [`moritzbrantner-math-geometry-2d`](crates/math/math-geometry-2d/README.md), [`moritzbrantner-math-linear`](crates/math/math-linear/README.md), [`moritzbrantner-math-signal-core`](crates/math/math-signal-core/README.md), [`moritzbrantner-math-sparse-data`](crates/math/math-sparse-data/README.md), [`moritzbrantner-math-statistics`](crates/math/math-statistics/README.md)
+- Math: [`moritzbrantner-math-geometry-2d`](crates/math/math-geometry-2d/README.md), [`moritzbrantner-math-linear`](crates/math/math-linear/README.md), [`moritzbrantner-math-signal-core`](crates/math/math-signal-core/README.md), [`moritzbrantner-math-sparse-data`](crates/math/math-sparse-data/README.md), [`moritzbrantner-math-statistics`](crates/math/math-statistics/README.md)
 - Image: [`moritzbrantner-image-analysis-comfyui`](crates/image/image-analysis-comfyui/README.md), [`moritzbrantner-image-analysis-core`](crates/image/image-analysis-core/README.md), [`moritzbrantner-image-analysis-detection`](crates/image/image-analysis-detection/README.md), [`moritzbrantner-image-analysis-classification`](crates/image/image-analysis-classification/README.md), [`moritzbrantner-image-analysis-embeddings`](crates/image/image-analysis-embeddings/README.md), [`moritzbrantner-image-analysis-captioning`](crates/image/image-analysis-captioning/README.md), [`moritzbrantner-image-analysis-io`](crates/image/image-analysis-io/README.md), [`moritzbrantner-image-analysis-ocr`](crates/image/image-analysis-ocr/README.md), [`moritzbrantner-image-analysis-processing`](crates/image/image-analysis-processing/README.md), [`moritzbrantner-image-analysis-segmentation`](crates/image/image-analysis-segmentation/README.md), [`moritzbrantner-image-analysis-synthesis`](crates/image/image-analysis-synthesis/README.md)
-- Text: [release scope](docs/TEXT_RELEASE_SCOPE.md), [workspace guide](docs/TEXT_WORKSPACE_GUIDE.md), [corpus guide](docs/TEXT_CORPUS_GUIDE.md), [`moritzbrantner-text-analysis`](crates/text/text-analysis/README.md), [`moritzbrantner-text-core`](crates/text/text-core/README.md), [`moritzbrantner-text-lexical`](crates/text/text-lexical/README.md), [`moritzbrantner-text-linguistics`](crates/text/text-linguistics/README.md), [`moritzbrantner-text-classification`](crates/text/text-classification/README.md), [`moritzbrantner-text-question-answering`](crates/text/text-question-answering/README.md), [`moritzbrantner-text-embeddings`](crates/text/text-embeddings/README.md), [`moritzbrantner-text-retrieval`](crates/text/text-retrieval/README.md), [`moritzbrantner-text-model-runtime`](crates/text/text-model-runtime/README.md), [`moritzbrantner-text-transcripts`](crates/text/text-transcripts/README.md), [`moritzbrantner-text-generation`](crates/text/text-generation/README.md), [`moritzbrantner-text-generation-linguistics`](crates/text/text-generation-linguistics/README.md)
+- Text: [release scope](docs/TEXT_RELEASE_SCOPE.md), [workspace guide](docs/TEXT_WORKSPACE_GUIDE.md), [corpus guide](docs/TEXT_CORPUS_GUIDE.md), [`moritzbrantner-text-analysis`](crates/text/text-analysis/README.md), [`moritzbrantner-text-core`](crates/text/text-core/README.md), [`moritzbrantner-text-lexical`](crates/text/text-lexical/README.md), [`moritzbrantner-text-linguistics`](crates/text/text-linguistics/README.md), [`moritzbrantner-text-classification`](crates/text/text-classification/README.md), [`moritzbrantner-text-question-answering`](crates/text/text-question-answering/README.md), [`moritzbrantner-text-embeddings`](crates/text/text-embeddings/README.md), [`moritzbrantner-text-index`](crates/text/text-index/README.md), [`moritzbrantner-text-retrieval`](crates/text/text-retrieval/README.md), [`moritzbrantner-text-model-runtime`](crates/text/text-model-runtime/README.md), [`moritzbrantner-text-transcripts`](crates/text/text-transcripts/README.md), [`moritzbrantner-text-generation`](crates/text/text-generation/README.md), [`moritzbrantner-text-generation-linguistics`](crates/text/text-generation-linguistics/README.md)
 - Vector and 3D: [`moritzbrantner-vector-analysis-core`](crates/vector/vector-analysis-core/README.md), [`moritzbrantner-vector-analysis-index`](crates/vector/vector-analysis-index/README.md), [`moritzbrantner-three-d-processing-core`](crates/three-d/three-d-processing-core/README.md), [`moritzbrantner-three-d-processing-io`](crates/three-d/three-d-processing-io/README.md), [`moritzbrantner-three-d-processing-mesh`](crates/three-d/three-d-processing-mesh/README.md), [`moritzbrantner-three-d-scene-svg`](crates/three-d/three-d-scene-svg/README.md)
 - Video: [`moritzbrantner-video-analysis-core`](crates/video/video-analysis-core/README.md), [`moritzbrantner-video-analysis-data`](crates/video/video-analysis-data/README.md), [`moritzbrantner-video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`moritzbrantner-video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`moritzbrantner-video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`moritzbrantner-video-analysis-features`](crates/video/video-analysis-features/README.md), [`moritzbrantner-video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`moritzbrantner-video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`moritzbrantner-video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`moritzbrantner-video-analysis-output`](crates/video/video-analysis-output/README.md), [`moritzbrantner-video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`moritzbrantner-video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`moritzbrantner-video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`moritzbrantner-video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`moritzbrantner-video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`moritzbrantner-video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`moritzbrantner-video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`moritzbrantner-video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`moritzbrantner-video-analysis-split`](crates/video/video-analysis-split/README.md), [`moritzbrantner-video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`moritzbrantner-video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`moritzbrantner-video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`moritzbrantner-video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`moritzbrantner-video-analysis-cli`](crates/video/video-analysis-cli/README.md)
 - Prototypes: [`moritzbrantner-video-analysis-use-cases`](prototypes/rust/video-analysis-use-cases/README.md), `@moritzbrantner/video-analysis-web` in `prototypes/web/video-analysis-web`
@@ -63,8 +63,6 @@ Package README index:
   histograms, and range helpers for analytics and reporting crates.
 - `moritzbrantner-tensor-data`: finite `f32` tensor shapes, borrowed/owned tensor values, and
   lightweight tensor metadata for interop contracts.
-- `moritzbrantner-finance-statistics`: return-series generation, rolling statistics,
-  historical risk, drawdown, and common finance performance metrics.
 - `moritzbrantner-math-geometry-2d`: shared checked 2D points, rectangles, normalized
   coordinates, polygons, bounds, and affine transforms for image, video, and
   posture workflows.
@@ -76,6 +74,11 @@ Package README index:
   and feature indexing workflows.
 - `moritzbrantner-math-statistics`: streaming covariance, normalizers, covariance matrices,
   and PCA-lite utilities for dense multivariate inputs.
+
+Finance packages moved to the sibling `finance-analysis` repository as an
+Adjacent Domain Package Family. This repository keeps only deprecated
+`video_analysis::finance` and `video_analysis::finance_data` doc stubs as
+migration signposts.
 - `moritzbrantner-audio-analysis-core`: normalized audio sample conversion, mono mixing,
   windowing, frame iteration, streaming frame windows, waveform batches, and
   level helpers for audio analysis crates.
@@ -138,9 +141,12 @@ Package README index:
   topics, style profiles, and a `TextAnalyzer` adapter.
 - `moritzbrantner-text-embeddings`: lightweight hashed text embeddings, embedding backend
   traits, dense-vector similarity, and co-occurrence/related-term analysis.
-- `moritzbrantner-text-retrieval`: document chunking, full-text/semantic/hybrid search,
-  metadata filtering, related-content lookup, score normalization, facets,
-  sorting, and manifest/JSONL persistence for index round trips.
+- `moritzbrantner-text-index`: durable text indexing, deterministic chunking,
+  memory and SQLite storage, lexical/semantic/hybrid search, semantic facets,
+  analysis attachments, filters, inspection, and snapshot planning.
+- `moritzbrantner-text-retrieval`: contract ingestion, legacy retrieval
+  compatibility, related-content lookup, reranking, and manifest/JSONL
+  compatibility for retrieval index round trips.
 - `moritzbrantner-text-model-runtime`: shared tokenizer bundle contracts, tokenized model
   inputs, and optional ONNX/Candle runtime traits. Default builds stay
   deterministic; `tokenizers`, `onnx`, `candle`, and `external-tests` are
@@ -333,8 +339,12 @@ For the default contributor gate, run:
 scripts/check-fast.sh
 ```
 
-The script runs Rust tests, strict clippy, the UI/web production builds, API
-integration tests, and browser e2e coverage for the UI package.
+The script is changed-aware for local iteration: it runs the artifact and Rust
+formatting guards, checks affected reviewed generated snapshots, then scopes
+Rust test/clippy, frontend package checks, and package-surface progress
+comparisons to touched files when possible. Use `CHECK_FAST_SCOPE=workspace`,
+`CHECK_FAST_FRONTEND=all`, or `CHECK_FAST_PROGRESS=all` to force broader coverage. Use
+`scripts/check-preflight.sh` as the broad local CI mirror before handoff.
 FFmpeg decode coverage is intentionally opt-in so the default suite stays
 hermetic:
 

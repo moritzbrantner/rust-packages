@@ -79,6 +79,7 @@ impl ForcedAlignmentProvider for FixedAligner {
                     confidence: Some(0.91),
                 },
             ],
+            chars: Vec::new(),
             diagnostics: vec!["fixed alignment completed".to_string()],
         })
     }

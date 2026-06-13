@@ -21,6 +21,7 @@ serde.workspace = true
 serde_json.workspace = true
 text-core.workspace = true
 text-embeddings.workspace = true
+text-index.workspace = true
 text-lexical.workspace = true
 text-model-runtime.workspace = true
 text-transcripts = { workspace = true, optional = true }
@@ -30,6 +31,7 @@ video-analysis-core.workspace = true
 
 [features]
 default = []
+sqlite = ["text-index/sqlite"]
 transcripts = ["dep:text-transcripts"]
 
 [dev-dependencies]

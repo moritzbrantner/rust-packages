@@ -59,6 +59,7 @@ Model-free text crates for this release are deterministic by ownership:
 
 - `text-core`
 - `text-lexical`
+- `text-index`
 - `text-generation`
 - `text-generation-linguistics`
 
@@ -88,7 +89,8 @@ Benchmark results are not portable performance claims; they depend on CPU, brows
 | `text-model-runtime` | Shared tokenizer bundles, tokenized model inputs, runtime backend traits, optional native model facade types, Candle sequence classification, ONNX pair classification, and the server-only ONNX QA probe. | High-level NLP schemas, retrieval indexes, transcript parsing, text pipeline orchestration. |
 | `text-linguistics` | Heuristic-first linguistic pipeline: language, lemmas, POS, morphology, syntax, entities, coreference, events, discourse, topics, style; optional model-backed paths. | Generic task schemas, vector retrieval storage, transcript file formats. |
 | `text-embeddings` | Embedding backends, pooling, hashed fallback vectors, semantic search indexes. | General text classification, transcript parsing, linguistic annotations. |
-| `text-retrieval` | Chunking, metadata filters, metadata-rich `RetrievalIndex` workflows, BM25/vector/hybrid retrieval, persistence helpers. | Embedding model internals, ASR, linguistic parsing. |
+| `text-index` | Durable text indexes, deterministic chunking, in-memory and SQLite storage, lexical/semantic/hybrid search, semantic facets, analysis attachments, index inspection, and snapshot planning. | File extraction, hosted search services, external vector databases, graph databases, model-backed default embeddings. |
+| `text-retrieval` | Contract ingestion, legacy `RetrievalIndex` compatibility, reranking, and import paths from existing persisted retrieval snapshots into `text-index`. | Durable index ownership, file extraction, embedding model internals, ASR, linguistic parsing. |
 | `text-transcripts` | Transcript formats, transcript-specific analyzers, and optional ASR command/native adapters. | Generic lexical features, retrieval ranking. |
 | `text-classification` | Text classification, zero-shot classification, sentiment request/response contracts, imported-prediction handling, deterministic fallbacks, runtime broker APIs, and classification model policy. | Tokenizer implementation details, reusable model runtime internals, retrieval indexes, transcript parsing. |
 | `text-question-answering` | Extractive QA request/response contracts, imported span postprocessing, fallback policy, and optional local ONNX QA execution. | Text classification, tokenizer internals, transcript parsing. |
@@ -100,7 +102,8 @@ Benchmark results are not portable performance claims; they depend on CPU, brows
 | Capability | Classical path | Model-backed path |
 | --- | --- | --- |
 | Tokenization and spans | `text-core` Unicode/token rules | `text-model-runtime` tokenizer bundles when feature-enabled |
-| Lexical search | `text-lexical` TF-IDF/BM25 | Hybrid with embeddings in `text-retrieval` |
+| Lexical search | `text-lexical` TF-IDF/BM25 | Hybrid with embeddings in `text-index`; legacy hybrid search remains in `text-retrieval` |
+| Durable search | `text-index` memory/SQLite Text Index | Optional caller-supplied embedders; hashed embeddings by default |
 | Embeddings | `HashedTextEmbedder` | Optional ONNX/Candle embedders in `text-embeddings` |
 | Linguistic analysis | Heuristic pipeline in `text-linguistics` | Optional local sequence labeler for NER |
 | Transcription | Transcript parsers | Whisper CLI/native whisper.cpp adapters |
@@ -128,10 +131,16 @@ stack.
 APIs. `TextCorpusSnapshot` serializes deterministic TF-IDF term state for
 reproducible local round trips.
 
-`text-retrieval` remains the owner for chunked retrieval workflows.
-`RetrievalIndex` is the metadata-rich search index for full-text, vector, and
-hybrid retrieval; it should not be treated as the same abstraction as a
-`text-lexical` corpus.
+`text-index` owns the durable Text Index boundary. It is the home for canonical
+deterministic chunking, in-memory and SQLite-backed indexing, stored vectors,
+semantic facets, metadata/source/time/provenance filters, and hybrid score
+explanations. SQLite is feature-gated and uses bundled FTS5 when enabled.
+
+`text-retrieval` is transitional. Its legacy `RetrievalIndex` remains available
+for existing package consumers, but new durable indexing/search work belongs in
+`text-index`. Retrieval should focus on contract ingestion from text contracts,
+transcript-derived segments, OCR-derived documents, and plain records, plus
+compatibility wrappers and reranking.
 
 `text-transcripts` owns transcript extensions such as
 `TranscriptSegmentContract`, `TranscriptWordContract`, and

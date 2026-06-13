@@ -18,5 +18,6 @@ name = "video_analysis_gaussian_splatting"
 [dependencies]
 runtime-core.workspace = true
 serde_json.workspace = true
+three-d-processing-core.workspace = true
 video-analysis-core.workspace = true
 video-analysis-radiance-fields.workspace = true

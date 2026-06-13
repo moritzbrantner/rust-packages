@@ -40,9 +40,24 @@ For the normal fast local baseline, use:
 scripts/check-fast.sh
 ```
 
-This gate intentionally skips browser e2e, production web builds, and
-benchmarks. For the broad local CI/preflight mirror before PR or
-release-oriented changes, use:
+This gate is changed-aware for local iteration. It always checks generated
+artifacts and Rust formatting, checks affected reviewed generated snapshots,
+then scopes Rust test/clippy, package-surface progress comparisons, and
+frontend package tests to touched files when it can. Force broader local
+validation with:
+
+```bash
+CHECK_FAST_SCOPE=workspace scripts/check-fast.sh
+CHECK_FAST_FRONTEND=all scripts/check-fast.sh
+CHECK_FAST_PROGRESS=all scripts/check-fast.sh
+```
+
+Use `CHECK_FAST_FRONTEND=none` or `CHECK_FAST_PROGRESS=none` only for emergency
+local loops. `BASE_REF` defaults to `origin/main` for changed-file detection,
+and `CHECK_FAST_RUST_JOBS` defaults from `CARGO_BUILD_JOBS`, then
+`TEST_MAX_WORKERS`, then a capped local CPU count. The fast gate intentionally
+skips browser e2e, production web builds, and benchmarks. For the broad local
+CI/preflight mirror before PR or release-oriented changes, use:
 
 ```bash
 scripts/check-preflight.sh

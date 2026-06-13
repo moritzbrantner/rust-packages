@@ -73,7 +73,7 @@ bun run snapshot:check    # verify reviewed generated docs are fresh
 Existing lower-level checks:
 
 ```bash
-scripts/check-fast.sh               # fast local baseline; no e2e/builds/benches
+scripts/check-fast.sh               # changed-aware local iteration gate
 scripts/check-preflight.sh          # broad local CI/preflight mirror
 scripts/check.sh                    # full baseline with external-tool checks
 scripts/check_e2e_external_tools.sh # verify optional external tools
@@ -113,8 +113,10 @@ python3 scripts/generate_dependency_chart.py
 
 ## Expensive Or Opt-In Work
 
-- `scripts/check-fast.sh` is the normal fast local baseline. It intentionally
-  skips browser e2e, production web builds, and benchmarks.
+- `scripts/check-fast.sh` is the normal changed-aware local iteration gate. It
+  intentionally skips browser e2e, production web builds, and benchmarks; force
+  broader checks with `CHECK_FAST_SCOPE=workspace`,
+  `CHECK_FAST_FRONTEND=all`, or `CHECK_FAST_PROGRESS=all`.
 - `scripts/check-preflight.sh` is the broad local CI/preflight mirror; run it
   before PR/release-oriented handoff or when touching UI routing/build/e2e
   behavior.

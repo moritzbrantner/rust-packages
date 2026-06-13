@@ -5,7 +5,6 @@ use comfyui_models::{
 };
 use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};
 use dense_data::{BucketGrid, DenseDataset, DensePoint};
-use finance_statistics::{historical_value_at_risk, max_drawdown, sharpe_ratio, simple_returns};
 use graph_analysis_core::{minimum_spanning_tree, shortest_path, Graph};
 use image_analysis_core::{mean_rgb, ImagePixelFormat, OwnedImage};
 use image_analysis_processing::{
@@ -18,7 +17,10 @@ use math_geometry_2d::{
 use math_linear::{F32Matrix, Kernel2d};
 use math_signal_core::{BiquadDesign, SampleRate, WindowFunction};
 use math_sparse_data::SparseVector;
-use math_statistics::{summarize_series, PrincipalComponents, RunningCovariance, VarianceMode};
+use math_statistics::{
+    changes, max_drawdown, summarize_series, tail_risk, ChangeMethod, PrincipalComponents,
+    RunningCovariance, VarianceMode,
+};
 use numbers_core::{quartiles, summarize_numbers};
 use tempfile::tempdir;
 use three_d_processing_core::{
@@ -88,11 +90,10 @@ fn foundation_crates_support_basic_consumer_workflows() -> Result<(), Box<dyn st
     assert_eq!(scalar_summary.mean, Some(2.0));
     assert_eq!(quartiles(&[1.0, 2.0, 3.0, 4.0])?.median, 2.5);
 
-    let returns = simple_returns(&[100.0, 102.0, 99.0, 105.0])?;
+    let returns = changes(&[100.0, 102.0, 99.0, 105.0], ChangeMethod::Relative)?;
     assert_eq!(summarize_series(&returns, VarianceMode::Sample)?.count, 3);
-    assert!(sharpe_ratio(&returns, 0.0, 252.0)?.is_finite());
     assert!(max_drawdown(&returns)?.depth >= 0.0);
-    assert_eq!(historical_value_at_risk(&returns, 0.95)?.observations, 3);
+    assert_eq!(tail_risk(&returns, 0.95)?.observations, 3);
 
     let rect = RectU32::new(2, 3, 4, 5)?;
     assert_eq!(rect.area()?, 20);

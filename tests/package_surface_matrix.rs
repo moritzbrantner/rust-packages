@@ -21,7 +21,6 @@ fn prioritized_crates_expose_more_than_describe() {
         "moritzbrantner-math-signal-core",
         "moritzbrantner-math-sparse-data",
         "moritzbrantner-math-statistics",
-        "moritzbrantner-finance-statistics",
         "moritzbrantner-maps-kernels-core",
     ];
 

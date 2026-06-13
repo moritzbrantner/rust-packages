@@ -22,8 +22,8 @@ use video_analysis_ingest::{
 };
 pub mod contracts;
 pub use contracts::{
-    text_segment_contract_with_source, TranscriptSegmentContract, TranscriptWordContract,
-    TranscriptionContract,
+    text_segment_contract_with_source, TranscriptCharContract, TranscriptSegmentContract,
+    TranscriptWordContract, TranscriptionContract,
 };
 /// Re-exports the text transcript native whisper.cpp API.
 pub use whisper_cpp::{
@@ -945,6 +945,18 @@ fn whisperx_segment(
         })
         .transpose()?
         .unwrap_or_default();
+    segment.chars = object
+        .get("chars")
+        .or_else(|| object.get("characters"))
+        .and_then(Value::as_array)
+        .map(|chars| {
+            chars
+                .iter()
+                .map(whisperx_char)
+                .collect::<Result<Vec<TranscriptCharContract>>>()
+        })
+        .transpose()?
+        .unwrap_or_default();
     if segment.speaker.is_none() {
         segment.speaker = infer_segment_speaker(&segment.words);
     }
@@ -970,6 +982,8 @@ fn whisperx_segment(
             "no_speech_prob",
             "words",
             "word_segments",
+            "chars",
+            "characters",
         ],
     );
     Ok(segment)
@@ -1012,6 +1026,41 @@ fn whisperx_word(value: &Value) -> Result<TranscriptWordContract> {
                 "speaker",
                 "speaker_label",
                 "speakerLabel",
+            ],
+        ),
+    })
+}
+
+fn whisperx_char(value: &Value) -> Result<TranscriptCharContract> {
+    let object = value.as_object().ok_or_else(|| {
+        TranscriptionError::InvalidTranscript("WhisperX char must be an object".to_string())
+    })?;
+    Ok(TranscriptCharContract {
+        character: object
+            .get("char")
+            .or_else(|| object.get("character"))
+            .or_else(|| object.get("text"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        start_seconds: number_field(object, &["start", "start_seconds", "startSeconds"]),
+        end_seconds: number_field(object, &["end", "end_seconds", "endSeconds"]),
+        confidence: confidence_field(object, &["confidence", "score", "probability"]),
+        attributes: unknown_attributes(
+            object,
+            &[
+                "char",
+                "character",
+                "text",
+                "start",
+                "start_seconds",
+                "startSeconds",
+                "end",
+                "end_seconds",
+                "endSeconds",
+                "confidence",
+                "score",
+                "probability",
             ],
         ),
     })
@@ -1433,6 +1482,64 @@ mod tests {
         assert_eq!(parsed.language.as_deref(), Some("en"));
         assert_eq!(parsed.segments[0].index, 7);
         assert_eq!(parsed.segments[0].start_seconds, Some(0.0));
+    }
+
+    #[test]
+    fn parses_whisperx_segment_chars_and_preserves_unknown_fields() {
+        let parsed = parse_whisperx_json(
+            br#"{
+                "text": "hi",
+                "language": "en",
+                "segments": [{
+                    "id": 0,
+                    "start": 1.0,
+                    "end": 2.0,
+                    "text": "hi",
+                    "chars": [
+                        {"char": "h", "start": 1.1, "end": 1.2, "score": 0.9, "extra": "kept"},
+                        {"char": "i", "start": 1.2, "end": 1.3, "score": 0.8}
+                    ]
+                }]
+            }"#,
+        )
+        .unwrap();
+
+        let chars = &parsed.segments[0].chars;
+        assert_eq!(chars.len(), 2);
+        assert_eq!(chars[0].character, "h");
+        assert_eq!(chars[0].start_seconds, Some(1.1));
+        assert_eq!(chars[0].end_seconds, Some(1.2));
+        assert_eq!(chars[0].confidence, Some(0.9));
+        assert_eq!(
+            chars[0].attributes.get("extra").map(String::as_str),
+            Some("kept")
+        );
+    }
+
+    #[test]
+    fn normalization_keeps_chars_and_strict_validation_checks_bounds() {
+        let mut segment = TranscriptSegmentContract::new(0, " hello ");
+        segment.start_seconds = Some(0.0);
+        segment.end_seconds = Some(1.0);
+        segment.chars.push(TranscriptCharContract {
+            character: "h".to_string(),
+            start_seconds: Some(0.1),
+            end_seconds: Some(0.2),
+            confidence: Some(0.5),
+            attributes: BTreeMap::new(),
+        });
+
+        let normalized = TranscriptionContract::new(vec![segment])
+            .normalized()
+            .unwrap();
+        assert_eq!(normalized.segments[0].text, "hello");
+        assert_eq!(normalized.segments[0].chars.len(), 1);
+        normalized.validate_strict().unwrap();
+
+        let mut invalid = normalized.clone();
+        invalid.segments[0].chars[0].end_seconds = Some(1.1);
+        let error = invalid.validate_strict().unwrap_err().to_string();
+        assert!(error.contains("transcript char end_seconds"));
     }
 
     #[test]

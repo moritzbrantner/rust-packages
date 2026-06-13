@@ -100,11 +100,8 @@ numbers-core = { package = "moritzbrantner-numbers-core", version = "0.1.0", pat
 tensor-data = { package = "moritzbrantner-tensor-data", version = "0.1.0", path = "crates/data/tensor-data" }
 jobs-core = { package = "moritzbrantner-jobs-core", version = "0.1.1", path = "crates/jobs/jobs-core" }
 model-runtime = { package = "moritzbrantner-model-runtime", version = "0.1.0", path = "crates/runtime/model-runtime" }
-runtime-core = { package = "moritzbrantner-runtime-core", version = "0.1.1", path = "crates/runtime/runtime-core" }
+runtime-core = { package = "moritzbrantner-runtime-core", version = "0.1.2", path = "crates/runtime/runtime-core" }
 runtime-onnx = { package = "moritzbrantner-runtime-onnx", version = "0.1.0", path = "crates/runtime/runtime-onnx" }
-finance-statistics = { package = "moritzbrantner-finance-statistics", version = "0.1.0", path = "crates/math/finance-statistics" }
-finance-data = { package = "moritzbrantner-finance-data", version = "0.1.0", path = "crates/data/finance-data" }
-finance-data-wasm = { package = "moritzbrantner-finance-data-wasm", version = "0.1.0", path = "crates/bindings/finance-data-wasm" }
 maps-kernels-core = { package = "moritzbrantner-maps-kernels-core", version = "0.1.0", path = "crates/math/maps-kernels-core" }
 math-geometry-2d = { package = "moritzbrantner-math-geometry-2d", version = "0.1.0", path = "crates/math/math-geometry-2d" }
 math-linear = { package = "moritzbrantner-math-linear", version = "0.1.0", path = "crates/math/math-linear" }
@@ -122,7 +119,7 @@ audio-analysis-rhythm = { package = "moritzbrantner-audio-analysis-rhythm", vers
 audio-analysis-separation = { package = "moritzbrantner-audio-analysis-separation", version = "0.1.0", path = "crates/audio/audio-analysis-separation" }
 audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.0", path = "crates/audio/audio-analysis-speakers" }
 audio-analysis-synthesis = { package = "moritzbrantner-audio-analysis-synthesis", version = "0.1.0", path = "crates/audio/audio-analysis-synthesis" }
-audio-analysis-transcription = { package = "moritzbrantner-audio-analysis-transcription", version = "0.1.0", path = "crates/audio/audio-analysis-transcription" }
+audio-analysis-transcription = { package = "moritzbrantner-audio-analysis-transcription", version = "0.1.1", path = "crates/audio/audio-analysis-transcription" }
 audio-analysis-test-support = { package = "moritzbrantner-audio-analysis-test-support", version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
 video-analysis-test-support = { package = "moritzbrantner-video-analysis-test-support", version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
 image-analysis-core = { package = "moritzbrantner-image-analysis-core", version = "0.1.0", path = "crates/image/image-analysis-core" }
@@ -145,9 +142,10 @@ text-model-runtime = { package = "moritzbrantner-text-model-runtime", version = 
 text-question-answering = { package = "moritzbrantner-text-question-answering", version = "0.1.0", path = "crates/text/text-question-answering" }
 text-generation = { package = "moritzbrantner-text-generation", version = "0.1.0", path = "crates/text/text-generation" }
 text-generation-linguistics = { package = "moritzbrantner-text-generation-linguistics", version = "0.1.0", path = "crates/text/text-generation-linguistics" }
+text-index = { package = "moritzbrantner-text-index", version = "0.1.0", path = "crates/text/text-index" }
 text-retrieval = { package = "moritzbrantner-text-retrieval", version = "0.1.0", path = "crates/text/text-retrieval" }
 text-embeddings = { package = "moritzbrantner-text-embeddings", version = "0.1.0", path = "crates/text/text-embeddings" }
-text-transcripts = { package = "moritzbrantner-text-transcripts", version = "0.1.0", path = "crates/text/text-transcripts" }
+text-transcripts = { package = "moritzbrantner-text-transcripts", version = "0.1.1", path = "crates/text/text-transcripts" }
 vector-analysis-core = { package = "moritzbrantner-vector-analysis-core", version = "0.1.0", path = "crates/vector/vector-analysis-core" }
 vector-analysis-index = { package = "moritzbrantner-vector-analysis-index", version = "0.1.0", path = "crates/vector/vector-analysis-index" }
 vision-core = { package = "moritzbrantner-vision-core", version = "0.1.0", path = "crates/vision/vision-core" }
@@ -239,6 +237,7 @@ text = [
     "dep:text-question-answering",
     "dep:text-generation",
     "dep:text-generation-linguistics",
+    "dep:text-index",
     "dep:text-retrieval",
     "dep:text-embeddings",
     "dep:text-transcripts",
@@ -279,12 +278,10 @@ data = [
     "dep:geo-clustering",
     "dep:geo-viz",
     "dep:dense-data",
-    "dep:finance-data",
     "dep:numbers-core",
     "dep:tensor-data",
 ]
 math = [
-    "dep:finance-statistics",
     "dep:maps-kernels-core",
     "dep:math-geometry-2d",
     "dep:math-linear",
@@ -405,8 +402,6 @@ numbers-core = { workspace = true, optional = true }
 tensor-data = { workspace = true, optional = true }
 jobs-core = { workspace = true, optional = true }
 model-runtime = { workspace = true, optional = true }
-finance-statistics = { workspace = true, optional = true }
-finance-data = { workspace = true, optional = true }
 maps-kernels-core = { workspace = true, optional = true }
 math-geometry-2d = { workspace = true, optional = true }
 math-linear = { workspace = true, optional = true }
@@ -436,6 +431,7 @@ text-model-runtime = { workspace = true, optional = true }
 text-question-answering = { workspace = true, optional = true }
 text-generation = { workspace = true, optional = true }
 text-generation-linguistics = { workspace = true, optional = true }
+text-index = { workspace = true, optional = true }
 text-retrieval = { workspace = true, optional = true }
 text-embeddings = { workspace = true, optional = true }
 text-transcripts = { workspace = true, optional = true }
@@ -455,7 +451,6 @@ tempfile.workspace = true
 comfyui-data.workspace = true
 comfyui-latents.workspace = true
 comfyui-models.workspace = true
-finance-data.workspace = true
 num-rational.workspace = true
 tensor-data.workspace = true
 video-analysis-test-support.workspace = true
@@ -469,6 +464,8 @@ text-generation-cli = { package = "moritzbrantner-text-generation-cli", path = "
 text-generation-server = { package = "moritzbrantner-text-generation-server", path = "crates/text/text-generation-server" }
 text-lexical-cli = { package = "moritzbrantner-text-lexical-cli", path = "crates/text/text-lexical-cli" }
 text-lexical-server = { package = "moritzbrantner-text-lexical-server", path = "crates/text/text-lexical-server" }
+text-index-cli = { package = "moritzbrantner-text-index-cli", path = "crates/text/text-index-cli" }
+text-index-server = { package = "moritzbrantner-text-index-server", path = "crates/text/text-index-server" }
 text-retrieval-cli = { package = "moritzbrantner-text-retrieval-cli", path = "crates/text/text-retrieval-cli" }
 text-retrieval-server = { package = "moritzbrantner-text-retrieval-server", path = "crates/text/text-retrieval-server" }
 text-transcripts-cli = { package = "moritzbrantner-text-transcripts-cli", path = "crates/text/text-transcripts-cli" }

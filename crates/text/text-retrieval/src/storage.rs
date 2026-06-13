@@ -220,6 +220,94 @@ impl PersistedSearchIndex {
     ) -> Result<RetrievalIndex<B>> {
         Self::load_from_path(path)?.into_index(embedder)
     }
+
+    /// Imports this legacy JSON/JSONL snapshot into a SQLite-backed `text-index`.
+    #[cfg(feature = "sqlite")]
+    pub fn import_into_sqlite_path(self, path: &Path) -> Result<text_index::IndexMutationReport> {
+        use text_index::{
+            IndexBuildOptions, IndexDocument, IndexDocumentMetadata, StoredVector, TextIndexStore,
+        };
+
+        let mut store = text_index::SqliteIndexStore::open(path, true)
+            .map_err(|error| StorageError::InvalidState(error.to_string()))?;
+        let mut vectors_by_chunk = self
+            .vectors
+            .into_iter()
+            .map(|record| {
+                let chunk_id = record.id.as_str().to_string();
+                (
+                    chunk_id.clone(),
+                    StoredVector {
+                        chunk_id,
+                        backend: format!("{:?}", self.manifest.embedder.backend),
+                        model_name: self.manifest.embedder.model_name.clone(),
+                        dimensions: record.vector.len(),
+                        vector: record.vector,
+                    },
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        let mut chunks_by_document = BTreeMap::<String, Vec<DocumentChunk>>::new();
+        for record in self.chunks {
+            chunks_by_document
+                .entry(record.chunk.document_id.clone())
+                .or_default()
+                .push(record.chunk);
+        }
+
+        let mut total = text_index::IndexMutationReport {
+            documents_received: chunks_by_document.len(),
+            documents_replaced: 0,
+            documents_removed: 0,
+            documents_skipped: 0,
+            chunks_indexed: 0,
+            vectors_indexed: 0,
+        };
+        for (document_id, chunks) in chunks_by_document {
+            let Some(first) = chunks.first() else {
+                total.documents_skipped += 1;
+                continue;
+            };
+            let document = IndexDocument {
+                id: document_id.clone(),
+                title: first.metadata.get("__title").cloned(),
+                body: chunks
+                    .iter()
+                    .map(|chunk| chunk.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n\n"),
+                language: first.metadata.get("language").cloned(),
+                metadata: IndexDocumentMetadata {
+                    attributes: first.metadata.clone(),
+                    source: first.source.clone(),
+                    provenance: first.provenance.clone(),
+                    annotations: first.annotations.clone(),
+                },
+                analysis_attachments: Vec::new(),
+                semantic_facets: Vec::new(),
+            };
+            let index_chunks = chunks
+                .iter()
+                .map(text_index::IndexChunk::from)
+                .collect::<Vec<_>>();
+            let vectors = index_chunks
+                .iter()
+                .filter_map(|chunk| vectors_by_chunk.remove(&chunk.id))
+                .collect::<Vec<_>>();
+            let report = store
+                .upsert_document_state(
+                    document,
+                    index_chunks,
+                    vectors,
+                    &IndexBuildOptions::default(),
+                )
+                .map_err(|error| StorageError::InvalidState(error.to_string()))?;
+            total.documents_replaced += report.documents_replaced;
+            total.chunks_indexed += report.chunks_indexed;
+            total.vectors_indexed += report.vectors_indexed;
+        }
+        Ok(total)
+    }
 }
 
 fn write_json(path: impl AsRef<Path>, value: &impl Serialize) -> Result<()> {

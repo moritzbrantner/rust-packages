@@ -549,9 +549,9 @@ def compare_records(root: Path, base: str, package_names: set[str]) -> int:
             )
         return 1
 
-    current = {record.library: record for record in audit_records(root)}
+    current = audit_selected_records(root, package_names)
     with base_worktree(root, base) as base_root:
-        base_records = {record.library: record for record in audit_records(base_root)}
+        base_records = audit_selected_records(base_root, package_names)
 
     failures = regression_failures(current, base_records, package_names, allow_entries)
     if failures:
@@ -561,6 +561,22 @@ def compare_records(root: Path, base: str, package_names: set[str]) -> int:
         return 1
     print(f"crate progress regression audit passed for {len(package_names)} touched crate(s)")
     return 0
+
+
+def audit_selected_records(root: Path, package_names: set[str]) -> dict[str, ProgressRecord]:
+    if not package_names:
+        return {}
+    if len(package_names) > 8:
+        return {
+            record.library: record
+            for record in audit_records(root)
+            if record.library in package_names
+        }
+    return {
+        record.library: record
+        for package_name in sorted(package_names)
+        for record in audit_records(root, package_name)
+    }
 
 
 def regression_failures(

@@ -12,14 +12,14 @@ use video_analysis::{
     animation, audio_core, audio_fourier, audio_io, audio_midi, audio_pitch, audio_processing,
     audio_recognition, audio_rhythm, audio_separation, audio_speakers, audio_synthesis,
     audio_transcription, comfyui_data, comfyui_latents, comfyui_models, data, dataset_records,
-    dense, editing, features, ffmpeg, finance, gaussian_splatting, geo_clustering, geo_core,
-    geo_io_geojson, geo_viz, geometry2d, graph_core, image_captioning, image_classification,
-    image_comfyui, image_core, image_detection, image_embeddings, image_io, image_ocr,
-    image_processing, image_segmentation, image_synthesis, ingest, inversion, jobs, linear,
-    maps_kernels, model_runtime, mvs, numbers, output, posture, posture_io, radiance_fields,
-    radiance_io, radiance_pipeline, recognition, reconstruction, sfm, signal, sparse, split, stats,
-    storage, synthesis, tensor_data, text_analysis, text_classification, text_core,
-    text_embeddings, text_generation, text_generation_linguistics, text_lexical, text_linguistics,
+    dense, editing, features, ffmpeg, gaussian_splatting, geo_clustering, geo_core, geo_io_geojson,
+    geo_viz, geometry2d, graph_core, image_captioning, image_classification, image_comfyui,
+    image_core, image_detection, image_embeddings, image_io, image_ocr, image_processing,
+    image_segmentation, image_synthesis, ingest, inversion, jobs, linear, maps_kernels,
+    model_runtime, mvs, numbers, output, posture, posture_io, radiance_fields, radiance_io,
+    radiance_pipeline, recognition, reconstruction, sfm, signal, sparse, split, stats, storage,
+    synthesis, tensor_data, text_analysis, text_classification, text_core, text_embeddings,
+    text_generation, text_generation_linguistics, text_lexical, text_linguistics,
     text_model_runtime, text_question_answering, text_retrieval, text_transcripts, three_d_core,
     three_d_io, three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
     video_segmentation, Timebase, Timestamp,
@@ -2125,7 +2125,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "comfyui-models" => Some(comfyui_models::surface::package_surface()),
         "data-inversion-core" => Some(data_inversion_core::surface::package_surface()),
         "dense-data" => Some(dense_data::surface::package_surface()),
-        "finance-statistics" => Some(finance_statistics::surface::package_surface()),
         "geo-core" | "moritzbrantner-geo-core" => Some(geo_core::surface::package_surface()),
         "geo-io-geojson" | "moritzbrantner-geo-io-geojson" => {
             Some(geo_io_geojson::surface::package_surface())
@@ -2267,7 +2266,6 @@ fn run_surface_operation_for(
         "comfyui-models" => Some(comfyui_models::surface::run_surface_operation(request)),
         "data-inversion-core" => Some(data_inversion_core::surface::run_surface_operation(request)),
         "dense-data" => Some(dense_data::surface::run_surface_operation(request)),
-        "finance-statistics" => Some(finance_statistics::surface::run_surface_operation(request)),
         "geo-core" | "moritzbrantner-geo-core" => {
             Some(geo_core::surface::run_surface_operation(request))
         }
@@ -2546,13 +2544,6 @@ const MODULES: &[ModuleInfo] = &[
         package: "dense-data",
         import_path: "video_analysis::dense",
         domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "finance-statistics",
-        import_path: "video_analysis::finance",
-        domain: "math",
         linked: true,
         required_feature: None,
     },

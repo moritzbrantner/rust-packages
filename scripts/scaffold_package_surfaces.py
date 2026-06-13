@@ -1485,7 +1485,7 @@ def package_domain(name: str) -> str:
         return "three-d"
     if name.startswith("comfyui-"):
         return "comfyui"
-    if name.startswith("math-") or name in {"finance-statistics", "numbers-core"}:
+    if name.startswith("math-") or name == "numbers-core":
         return "math"
     if name.startswith("data-") or name.startswith("moritzbrantner-geo-") or name in {
         "dense-data",

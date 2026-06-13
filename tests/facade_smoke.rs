@@ -47,9 +47,17 @@ fn root_facade_reexports_core_and_domain_packages() {
             .median,
         2.5
     );
-    let returns = va::finance::simple_returns(&[100.0, 101.0, 99.0, 103.0]).unwrap();
-    assert!(va::finance::annualized_volatility(&returns, 252.0).unwrap() > 0.0);
-    assert!(va::finance::max_drawdown(&returns).unwrap().depth >= 0.0);
+    let changes = va::stats::changes(
+        &[100.0, 101.0, 99.0, 103.0],
+        va::stats::ChangeMethod::Relative,
+    )
+    .unwrap();
+    assert_eq!(changes.len(), 3);
+    assert!(va::stats::tail_risk(&changes, 0.8)
+        .unwrap()
+        .value_at_risk
+        .is_finite());
+    assert!(va::stats::max_drawdown(&changes).unwrap().depth >= 0.0);
 
     let linguistic = va::text_linguistics::analyze_text(
         "Alice launched the API in Berlin.",

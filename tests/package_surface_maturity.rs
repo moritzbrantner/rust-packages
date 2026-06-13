@@ -62,8 +62,6 @@ fn migrated_tranche_operation_metadata_is_complete() {
         audio_analysis_core::surface::package_surface(),
         audio_analysis_processing::surface::package_surface(),
         image_analysis_processing::surface::package_surface(),
-        finance_data::surface::package_surface(),
-        finance_statistics::surface::package_surface(),
         text_core::surface::package_surface(),
         maps_kernels_core::surface::package_surface(),
         math_geometry_2d::surface::package_surface(),
@@ -84,13 +82,6 @@ fn migrated_tranche_operation_metadata_is_complete() {
     }
 
     for (surface, runner) in [
-        (
-            finance_statistics::surface::package_surface(),
-            finance_statistics::surface::run_surface_operation
-                as fn(
-                    runtime_core::SurfaceRequest,
-                ) -> Result<runtime_core::SurfaceResponse, String>,
-        ),
         (
             maps_kernels_core::surface::package_surface(),
             maps_kernels_core::surface::run_surface_operation
@@ -129,13 +120,6 @@ fn migrated_tranche_operation_metadata_is_complete() {
         (
             math_statistics::surface::package_surface(),
             math_statistics::surface::run_surface_operation
-                as fn(
-                    runtime_core::SurfaceRequest,
-                ) -> Result<runtime_core::SurfaceResponse, String>,
-        ),
-        (
-            finance_data::surface::package_surface(),
-            finance_data::surface::run_surface_operation
                 as fn(
                     runtime_core::SurfaceRequest,
                 ) -> Result<runtime_core::SurfaceResponse, String>,

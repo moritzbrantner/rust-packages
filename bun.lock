@@ -437,54 +437,6 @@
       "name": "@moritzbrantner/dense-data-wasm",
       "version": "0.1.0",
     },
-    "packages/finance-data-app": {
-      "name": "@moritzbrantner/finance-data-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/finance-data-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/finance-data-wasm": {
-      "name": "@moritzbrantner/finance-data-wasm",
-      "version": "0.1.0",
-    },
-    "packages/finance-statistics-app": {
-      "name": "@moritzbrantner/finance-statistics-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/finance-statistics-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/finance-statistics-wasm": {
-      "name": "@moritzbrantner/finance-statistics-wasm",
-      "version": "0.1.0",
-    },
     "packages/geo-clustering-app": {
       "name": "@moritzbrantner/geo-clustering-app",
       "version": "0.1.0",
@@ -1285,6 +1237,30 @@
     },
     "packages/text-generation-wasm": {
       "name": "@moritzbrantner/text-generation-wasm",
+      "version": "0.1.0",
+    },
+    "packages/text-index-app": {
+      "name": "@moritzbrantner/text-index-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@moritzbrantner/text-index-wasm": "workspace:*",
+        "@moritzbrantner/video-analysis-ui": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.18",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/text-index-wasm": {
+      "name": "@moritzbrantner/text-index-wasm",
       "version": "0.1.0",
     },
     "packages/text-lexical-app": {
@@ -2204,6 +2180,27 @@
         "tailwindcss": ">=3.4.0",
       },
     },
+    "packages/vision-core-app": {
+      "name": "@moritzbrantner/vision-core-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@moritzbrantner/video-analysis-ui": "workspace:*",
+        "@moritzbrantner/vision-core-wasm": "workspace:*",
+        "@vitejs/plugin-react": "^5.1.2",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "vite": "^7.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "typescript": "^6.0.2",
+      },
+    },
+    "packages/vision-core-wasm": {
+      "name": "@moritzbrantner/vision-core-wasm",
+      "version": "0.1.0",
+    },
     "prototypes/web/video-analysis-web": {
       "name": "@moritzbrantner/video-analysis-web",
       "version": "0.1.0",
@@ -2544,14 +2541,6 @@
 
     "@moritzbrantner/dense-data-wasm": ["@moritzbrantner/dense-data-wasm@workspace:packages/dense-data-wasm"],
 
-    "@moritzbrantner/finance-data-app": ["@moritzbrantner/finance-data-app@workspace:packages/finance-data-app"],
-
-    "@moritzbrantner/finance-data-wasm": ["@moritzbrantner/finance-data-wasm@workspace:packages/finance-data-wasm"],
-
-    "@moritzbrantner/finance-statistics-app": ["@moritzbrantner/finance-statistics-app@workspace:packages/finance-statistics-app"],
-
-    "@moritzbrantner/finance-statistics-wasm": ["@moritzbrantner/finance-statistics-wasm@workspace:packages/finance-statistics-wasm"],
-
     "@moritzbrantner/geo-clustering-app": ["@moritzbrantner/geo-clustering-app@workspace:packages/geo-clustering-app"],
 
     "@moritzbrantner/geo-clustering-wasm": ["@moritzbrantner/geo-clustering-wasm@workspace:packages/geo-clustering-wasm"],
@@ -2685,6 +2674,10 @@
     "@moritzbrantner/text-generation-linguistics-wasm": ["@moritzbrantner/text-generation-linguistics-wasm@workspace:packages/text-generation-linguistics-wasm"],
 
     "@moritzbrantner/text-generation-wasm": ["@moritzbrantner/text-generation-wasm@workspace:packages/text-generation-wasm"],
+
+    "@moritzbrantner/text-index-app": ["@moritzbrantner/text-index-app@workspace:packages/text-index-app"],
+
+    "@moritzbrantner/text-index-wasm": ["@moritzbrantner/text-index-wasm@workspace:packages/text-index-wasm"],
 
     "@moritzbrantner/text-lexical-app": ["@moritzbrantner/text-lexical-app@workspace:packages/text-lexical-app"],
 
@@ -2837,6 +2830,10 @@
     "@moritzbrantner/video-analysis-ui": ["@moritzbrantner/video-analysis-ui@workspace:packages/video-analysis-ui"],
 
     "@moritzbrantner/video-analysis-web": ["@moritzbrantner/video-analysis-web@workspace:prototypes/web/video-analysis-web"],
+
+    "@moritzbrantner/vision-core-app": ["@moritzbrantner/vision-core-app@workspace:packages/vision-core-app"],
+
+    "@moritzbrantner/vision-core-wasm": ["@moritzbrantner/vision-core-wasm@workspace:packages/vision-core-wasm"],
 
     "@mswjs/interceptors": ["@mswjs/interceptors@0.41.9", "", { "dependencies": { "@open-draft/deferred-promise": "^2.2.0", "@open-draft/logger": "^0.3.0", "@open-draft/until": "^2.0.0", "is-node-process": "^1.2.0", "outvariant": "^1.4.3", "strict-event-emitter": "^0.5.1" } }, "sha512-VVPPgHyQ6ShqnrmDWuxjmUIsO9gWyOZFmuOfLd9LfBGQJwZfy0gvv9pbHSJuoFNIYC7ZDX9aoFwowjcdSC4E8w=="],
 

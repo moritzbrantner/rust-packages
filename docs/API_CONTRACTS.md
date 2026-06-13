@@ -44,6 +44,7 @@ Foundation contract owners for the first steering wave are:
 | Images | `moritzbrantner-image-analysis-core` |
 | Audio frames and features | `moritzbrantner-audio-analysis-core` |
 | Text documents and text segments | `moritzbrantner-text-core` |
+| Durable text indexes, chunks, semantic facets, and index queries | `moritzbrantner-text-index` |
 | Timed transcripts | `moritzbrantner-text-transcripts` |
 | Tensors | `moritzbrantner-tensor-data` |
 | Vectors | `moritzbrantner-vector-analysis-core` |
@@ -138,7 +139,7 @@ model, execution planner, or runtime placement contract.
 The text crate surfaces now expose deterministic, local-first operations for
 core statistics/tokenization/boundaries, lexical analysis and corpus search,
 linguistic analysis/entity projection, hashed embeddings and transient search,
-in-memory retrieval, transcript parsing/formatting, fallback/imported NLP
+in-memory retrieval, durable memory/SQLite text indexing, transcript parsing/formatting, fallback/imported NLP
 tasks, Markov/template generation, generation-from-linguistics adapters, and
 runtime helpers. `runtime.onnxQaProbe`, `runtime.downloadBundle`, and
 `qa.answer` without imported predictions/backend are native server-side model
@@ -148,6 +149,11 @@ remain no-download unless documented otherwise. These operations must continue t
 must not silently download models, run native inference, invoke ASR commands, or
 write retrieval persistence files through default surface calls outside the
 documented model-backed operation exceptions.
+
+`moritzbrantner-text-index` owns the `index.*` operation family. Package
+examples are transient/dry-run by default. SQLite writes require a caller
+provided path plus `commit: true`; browser/WASM adapters report SQLite
+persistence as unsupported diagnostics rather than performing hidden writes.
 
 Text package operations declare release contract metadata in their
 `SurfaceOperation` schemas. Top-level request fields are explicit
@@ -243,13 +249,12 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-animation-core` | Shared animation timeline contracts | `moritzbrantner-three-d-processing-core`, `moritzbrantner-video-analysis-core`, `serde` | Time values, interpolation modes, keyframes, typed tracks, transform tracks, joints, skeletons, and animation clips | Future 2D/3D animation workflows, posture sequence interop, mesh/skinning work |
 | `moritzbrantner-numbers-core` | Shared scalar numeric summaries and ranges | `moritzbrantner-video-analysis-core` | Running stats, weighted summaries, quantiles, histograms, numeric range helpers | `moritzbrantner-dense-data`, `moritzbrantner-video-analysis-data`, analytics workflows, and reporting utilities |
 | `moritzbrantner-tensor-data` | Generic finite `f32` tensor contracts | `moritzbrantner-video-analysis-core`, `serde`, `serde_json` | `TensorShape`, `F32Tensor`, `F32TensorView`, shape/element validation, metadata | `moritzbrantner-comfyui-latents`, audio/image bridges, and future tensor-oriented interop crates |
-| `moritzbrantner-finance-statistics` | Finance-oriented return and risk statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-math-statistics` | Simple/log returns, cumulative and annualized return, volatility, Sharpe, Sortino, beta/alpha, drawdown wrappers, drawdown duration, historical VaR/CVaR wrappers, tracking error, information/Calmar/Omega ratios, portfolio weights/returns/risk summaries, historical covariance, risk/return contribution, turnover, rolling windows | Finance analytics, portfolio reporting, and future market-data workflows |
 | `moritzbrantner-math-geometry-2d` | Shared 2D geometry primitives | `serde` | Checked 2D points, vectors, rectangles, IoU/overlap ratios, normalized coordinates, segments and segment intersections, circles, polygons, bounds, and affine transforms | Image/video/posture crates and UI-adjacent layout workflows |
 | `moritzbrantner-vision-core` | Shared visual intermediate contracts | `moritzbrantner-math-geometry-2d`, `serde` | `VisualDetection`, `VisualKeypoint`, `VisualEmbedding`, `IdentityMatch`, validation helpers, and deterministic package-surface operations | Image/video detection, embedding, tracking, recognition, report, and workflow crates |
 | `moritzbrantner-math-linear` | Shared dense matrix and kernel contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data`, `moritzbrantner-vector-analysis-core` | `F32Matrix` and `F64Matrix` shapes/views, matrix multiply, row/column helpers, centering, Gram matrices, rank estimates, QR least-squares, pure Rust SVD, pseudoinverse, LU/Cholesky/QR decomposition, determinant/condition diagnostics, Cholesky solve/log determinant, tensor/vector bridges, `Kernel1d`, `Kernel2d` | Image/video preprocessing, text model utilities, dense/statistical workflows |
 | `moritzbrantner-math-signal-core` | Shared signal-domain math | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core` | Sample-rate/resampling descriptors, windows, frame strides, interpolation, signal level summaries, FIR kernels/application, peak normalization, and biquad design helpers | Audio crates and future time-series/video transform workflows |
 | `moritzbrantner-math-sparse-data` | Shared sparse vector and matrix contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-numbers-core`, `moritzbrantner-math-linear` | Sparse vectors, vector norms/add/scale/hadamard/prune/top-k, COO/CSR matrices, transpose, row/column nnz and sums, matrix summaries, row normalization, matrix-vector and matrix-matrix dense products, sparse similarities, dense bridges | Text corpus/semantic crates and future retrieval/index workflows |
-| `moritzbrantner-math-statistics` | Shared scalar, pairwise, rolling, multivariate, and matrix statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core`, `moritzbrantner-math-linear` | Series summaries, sample/population variance, changes, pairwise covariance/correlation, ranks/Spearman correlation, simple and OLS regression, OLS diagnostics, ridge regression, row-wise covariance/correlation matrices, rolling windows, z-scores, tail risk, drawdown, running covariance, covariance matrices, f64-default package normalizers, centered-SVD PCA, weighted observations | Dense-data, feature extraction, finance wrappers, and analytics workflows |
+| `moritzbrantner-math-statistics` | Shared scalar, pairwise, rolling, multivariate, and matrix statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core`, `moritzbrantner-math-linear` | Series summaries, sample/population variance, changes, pairwise covariance/correlation, ranks/Spearman correlation, simple and OLS regression, OLS diagnostics, ridge regression, row-wise covariance/correlation matrices, rolling windows, z-scores, tail risk, drawdown, running covariance, covariance matrices, f64-default package normalizers, centered-SVD PCA, weighted observations | Dense-data, feature extraction, and analytics workflows |
 | `moritzbrantner-audio-analysis-core` | Shared audio analysis utilities | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data`, `moritzbrantner-math-signal-core` | Normalized sample conversion, mono mixing, shared window functions, frame iteration, streaming frame windows, feature-series contracts, level helpers, waveform batch contracts | Audio analysis crates and applications |
 | `moritzbrantner-audio-analysis-fourier` | Frequency-domain audio analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, mel-style band summaries, dominant-frequency analyzer | Applications and audio pipelines |
 | `moritzbrantner-audio-analysis-io` | Audio input convenience facade | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest`, `moritzbrantner-video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, pure WAV read/write helpers, WAV/probe plan surfaces | Applications that want audio-specific input APIs |
@@ -622,9 +627,9 @@ stats, quantiles, or histograms.
 
 ## Analytical Math Crates Contracts
 
-The `math-linear`, `math-statistics`, `math-sparse-data`, and
-`finance-statistics` crates provide deterministic small/medium local analytical
-helpers. They do not expose a separate numerical backend layer.
+The `math-linear`, `math-statistics`, and `math-sparse-data` crates provide
+deterministic small/medium local analytical helpers. They do not expose a
+separate numerical backend layer.
 
 - `math-linear` least-squares is QR-based, requires full column rank, rejects
   non-finite inputs and invalid tolerances, and uses an automatic tolerance when
@@ -639,28 +644,6 @@ helpers. They do not expose a separate numerical backend layer.
   not a full optimizer.
 - `math-sparse-data` can summarize CSR matrices and convert or multiply sparse
   feature matrices into `math-linear::F32Matrix` for downstream dense workflows.
-- `finance-statistics` portfolio risk attribution is historical
-  covariance-based and assumes aligned, finite, equal-length asset return
-  series.
-
-## Finance Statistics Contracts
-
-`moritzbrantner-finance-statistics` builds on `moritzbrantner-numbers-core` for finance-specific return
-analytics without adding market-data or brokerage assumptions to the generic
-math crates.
-
-- Price-to-return helpers produce simple or log returns from strictly positive
-  prices.
-- Return series helpers expose sample/population variance, standard deviation,
-  cumulative return, annualized return, annualized volatility, Sharpe, Sortino,
-  beta/alpha, tracking error, and information ratio.
-- Risk helpers expose maximum drawdown and historical VaR/CVaR as positive loss
-  values.
-- Portfolio attribution helpers expose historical covariance, variance, risk
-  contribution, return contribution, and turnover for validated weights.
-- Rolling helpers expose fixed-window mean, standard deviation, and
-  correlation.
-
 ## Dense Data Contracts
 
 `moritzbrantner-dense-data` provides generic dense numeric point processing for UI and media
@@ -1186,10 +1169,12 @@ selection, or CLI branching.
 
 ## 3D Scene Contracts
 
-The workspace has two 3D layers. Generic processing crates use
-`three-d-processing-*` types for point clouds and triangle meshes. Video-driven
-neural rendering and reconstruction crates continue to interoperate through
-`video-analysis-radiance-fields` geometry, camera, ray, and color primitives.
+The workspace has two 3D layers. `three-d-processing-core` owns the canonical
+workspace 3D spatial math contract: vectors, points, rotations, transforms,
+pinhole camera geometry, and coordinate-convention conversions. Video-driven
+neural rendering and reconstruction crates may keep domain DTOs, but they bridge
+camera, pose, vector, and quaternion semantics to the 3D core through explicit
+adapter methods.
 
 `three-d-processing-core` exposes:
 
@@ -1199,10 +1184,34 @@ neural rendering and reconstruction crates continue to interoperate through
 - `Transform3`
 - `Quaternion`
 - `RigidTransform3`
+- `Vector3d`
+- `Point3d`
+- `Quaterniond`
+- `Matrix3` / `Matrix4`
+- `Matrix3d` / `Matrix4d`
+- `SimilarityTransform3`
+- `TrsTransform3`
+- `AffineTransform3`
+- `RigidTransform3d`
+- `SimilarityTransform3d`
+- `TrsTransform3d`
+- `AffineTransform3d`
+- `PinholeIntrinsics`
+- `PinholeIntrinsicsd`
+- `CameraPose3`
+- `CameraPose3d`
+- `CameraRay`
+- `CameraRayd`
 - `LineSegment3`
 - `PointCloud`
 - Point distance, closest-point, ray/surface intersection, rigid-transform,
-  voxel-downsampling, and center/scale helpers.
+  TRS/affine transform, row-major matrix construction/conversion, pinhole
+  projection/pixel-ray, workspace/WebGL view and projection matrices, COLMAP
+  pose conversion, glTF/WebGL matrix conversion, voxel-downsampling, and
+  center/scale helpers. Workspace camera forward is `+Z`; WebGL view/projection
+  builders explicitly map that convention to graphics `-Z`. Euler extraction is
+  import/export and UI-control support only; quaternion remains the primary
+  rotation type.
 
 `three-d-processing-io` exposes:
 

@@ -250,11 +250,7 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
   if (packageName.startsWith("comfyui-")) {
     return "comfyui";
   }
-  if (
-    packageName.startsWith("math-") ||
-    packageName === "maps-kernels-core" ||
-    packageName === "finance-statistics"
-  ) {
+  if (packageName.startsWith("math-") || packageName === "maps-kernels-core") {
     return "math";
   }
   if (packageName.startsWith("runtime-") || packageName === "model-runtime") {

@@ -12,6 +12,10 @@ use text_core::{
     TextSourceRef, TextSpan, TokenKind,
 };
 use text_embeddings::{EmbeddingModelInfo, TextEmbedderBackend};
+use text_index::{
+    ChunkingStrategy as IndexChunkingStrategy, IndexBuildOptions, IndexDocument,
+    IndexDocumentMetadata, IndexMutationReport, MemoryIndexStore, TextIndex, TextIndexError,
+};
 use text_lexical::{Bm25Corpus, Bm25Options, CorpusOptions, TextCorpus, TextCorpusDocument};
 use text_model_runtime::{TextReranker, TextRuntimeBackend};
 use vector_analysis_index::{
@@ -192,6 +196,29 @@ impl SearchDocument {
     }
 }
 
+impl From<&SearchDocument> for IndexDocument {
+    fn from(document: &SearchDocument) -> Self {
+        let mut attributes = document.metadata.clone();
+        if let Some(language) = attributes.get("language").cloned() {
+            attributes.entry("language".to_string()).or_insert(language);
+        }
+        Self {
+            id: document.id.clone(),
+            title: document.title.clone(),
+            body: document.body.clone(),
+            language: document.metadata.get("language").cloned(),
+            metadata: IndexDocumentMetadata {
+                attributes,
+                source: document.source.clone(),
+                provenance: document.provenance.clone(),
+                annotations: document.annotations.clone(),
+            },
+            analysis_attachments: Vec::new(),
+            semantic_facets: Vec::new(),
+        }
+    }
+}
+
 pub trait IntoSearchDocument {
     fn into_search_document(self) -> SearchDocument;
 }
@@ -298,6 +325,26 @@ impl DocumentChunk {
     }
 }
 
+impl From<&DocumentChunk> for text_index::IndexChunk {
+    fn from(chunk: &DocumentChunk) -> Self {
+        text_index::IndexChunk {
+            id: chunk.chunk_id.clone(),
+            document_id: chunk.document_id.clone(),
+            ordinal: chunk.ordinal,
+            text: chunk.text.clone(),
+            byte_start: 0,
+            byte_end: chunk.text.len(),
+            token_start: None,
+            token_end: None,
+            metadata: chunk.metadata.clone(),
+            source: chunk.source.clone(),
+            provenance: chunk.provenance.clone(),
+            annotations: chunk.annotations.clone(),
+            semantic_facets: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Data type for ingestion options.
 pub struct IngestionOptions {
@@ -346,6 +393,55 @@ impl Default for IngestionOptions {
             store_raw_text: true,
         }
     }
+}
+
+impl From<IngestionOptions> for IndexBuildOptions {
+    fn from(options: IngestionOptions) -> Self {
+        Self {
+            chunking_strategy: IndexChunkingStrategy::TokenWindow,
+            chunk_tokens: options.chunk_tokens,
+            chunk_overlap_tokens: options.chunk_overlap_tokens,
+            store_raw_text: options.store_raw_text,
+            commit: false,
+            processing: TextProcessingOptions::default(),
+        }
+    }
+}
+
+impl From<ChunkingOptions> for IndexBuildOptions {
+    fn from(options: ChunkingOptions) -> Self {
+        let chunking_strategy = match options.strategy {
+            ChunkingStrategy::TokenWindow => IndexChunkingStrategy::TokenWindow,
+            ChunkingStrategy::Sentence => IndexChunkingStrategy::Sentence,
+            ChunkingStrategy::Paragraph => IndexChunkingStrategy::Paragraph,
+        };
+        Self {
+            chunking_strategy,
+            chunk_tokens: options.ingestion.chunk_tokens,
+            chunk_overlap_tokens: options.ingestion.chunk_overlap_tokens,
+            store_raw_text: options.ingestion.store_raw_text,
+            commit: false,
+            processing: TextProcessingOptions::default(),
+        }
+    }
+}
+
+/// Builds the new in-memory `text-index` from legacy retrieval documents.
+pub fn build_memory_text_index<B: TextEmbedderBackend>(
+    embedder: B,
+    documents: &[SearchDocument],
+    options: &IngestionOptions,
+) -> CoreResult<(TextIndex<B, MemoryIndexStore>, IndexMutationReport)> {
+    let index_documents = documents
+        .iter()
+        .map(IndexDocument::from)
+        .collect::<Vec<_>>();
+    let mut index =
+        TextIndex::with_store(embedder, MemoryIndexStore::new()).with_options((*options).into());
+    let report = index
+        .upsert_documents(&index_documents)
+        .map_err(text_index_error)?;
+    Ok((index, report))
 }
 
 /// Chunks one search document with explicit strategy options.
@@ -1455,6 +1551,13 @@ fn build_snippet(text: &str, normalized_query: &str) -> String {
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())
+}
+
+fn text_index_error(error: TextIndexError) -> DetectError {
+    match error {
+        TextIndexError::InvalidArgument(message) => DetectError::InvalidArgument(message),
+        other => DetectError::Source(other.to_string()),
+    }
 }
 
 #[cfg(test)]

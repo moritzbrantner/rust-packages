@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
-use three_d_processing_core::{Point3, Quaternion, Vector3};
+use three_d_processing_core::{Point3, Quaternion, TrsTransform3, Vector3};
 use three_d_processing_mesh::{Mesh, Triangle};
 use video_analysis_core::{DetectError, Result};
 
@@ -245,18 +245,7 @@ impl NodeTransform {
 
     /// Applies the transform to a point.
     pub fn apply_point(self, point: Point3) -> Result<Point3> {
-        self.validate()?;
-        let scaled = Vector3::new(
-            point.x * self.scale.x,
-            point.y * self.scale.y,
-            point.z * self.scale.z,
-        );
-        let rotated = self.rotation.rotate_vector(scaled)?;
-        Ok(Point3::new(
-            rotated.x + self.translation.x,
-            rotated.y + self.translation.y,
-            rotated.z + self.translation.z,
-        ))
+        self.to_core_trs()?.apply_point(point)
     }
 
     /// Composes this transform with a child transform.
@@ -277,12 +266,12 @@ impl NodeTransform {
     }
 
     fn apply_vector(self, vector: Vector3) -> Result<Vector3> {
-        let scaled = Vector3::new(
-            vector.x * self.scale.x,
-            vector.y * self.scale.y,
-            vector.z * self.scale.z,
-        );
-        self.rotation.rotate_vector(scaled)
+        self.to_core_trs()?.apply_vector(vector)
+    }
+
+    /// Converts this scene transform to the canonical 3D core TRS type.
+    pub fn to_core_trs(self) -> Result<TrsTransform3> {
+        TrsTransform3::new(self.translation, self.rotation, self.scale)
     }
 
     /// Validates this value.

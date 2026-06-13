@@ -9,6 +9,38 @@ fi
 
 cd "$ROOT_DIR"
 
+only_paths=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --only)
+      if [[ -z "${2:-}" ]]; then
+        echo "error: --only requires a snapshot path" >&2
+        exit 2
+      fi
+      only_paths+=("$2")
+      shift 2
+      ;;
+    *)
+      echo "error: unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+should_check_path() {
+  local path="$1"
+  if (( ${#only_paths[@]} == 0 )); then
+    return 0
+  fi
+  local wanted
+  for wanted in "${only_paths[@]}"; do
+    if [[ "$path" == "$wanted" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 ALLOW_FILE="scripts/generated_snapshots.allow"
 if [[ ! -f "$ALLOW_FILE" ]]; then
   echo "error: missing $ALLOW_FILE" >&2
@@ -22,6 +54,9 @@ while IFS=$'\t' read -r path check_command regenerate_command; do
   if [[ -z "${check_command:-}" || -z "${regenerate_command:-}" ]]; then
     echo "malformed snapshot allowlist entry for $path" >&2
     failures=$((failures + 1))
+    continue
+  fi
+  if ! should_check_path "$path"; then
     continue
   fi
   if [[ ! -f "$path" ]]; then

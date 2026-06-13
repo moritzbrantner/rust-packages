@@ -38,10 +38,15 @@ and document frequencies for BM25 full-text ranking.
 embeddings from `text-embeddings`. It is useful for local semantic similarity
 without model downloads or native inference.
 
+`TextIndex` from `text-index` is the durable searchable representation of a
+text corpus. It owns deterministic chunking, stored vectors, lexical state,
+semantic facets, analysis attachments, metadata/source/time/provenance filters,
+and memory or SQLite-backed persistence. Use it for large local corpora and new
+index/search development.
+
 `RetrievalIndex` is a chunked, metadata-aware retrieval index from
-`text-retrieval`. It combines token-window chunking, vector search, BM25
-full-text search, hybrid ranking, metadata filters, and persistence-friendly
-export helpers.
+`text-retrieval`. It remains available for compatibility and reranking
+workflows, but durable index ownership is moving to `text-index`.
 
 `CorpusAnalysisReport` is analysis output from `text-analysis`. It is not a
 stored corpus. It reports corpus stats, per-document analysis, lexical search
@@ -191,6 +196,32 @@ for result in index.search(&query)? {
     println!("{} {} {:.3}", result.document_id, result.chunk_id, result.score);
 }
 # Ok::<(), video_analysis_core::DetectError>(())
+```
+
+## Durable Text Index
+
+```rust,no_run
+use text_embeddings::{HashedTextEmbedder, TextEmbeddingConfig};
+use text_index::{IndexBuildOptions, IndexDocument, IndexQuery, MemoryIndexStore, TextIndex};
+use text_lexical::CorpusOptions;
+
+let embedder = HashedTextEmbedder::new(
+    TextEmbeddingConfig { dimensions: 64, use_idf: false },
+    CorpusOptions::default(),
+)?;
+let mut index = TextIndex::with_store(embedder, MemoryIndexStore::new())
+    .with_options(IndexBuildOptions {
+        chunk_tokens: 12,
+        chunk_overlap_tokens: 0,
+        ..IndexBuildOptions::default()
+    });
+index.upsert_documents(&[
+    IndexDocument::new("doc-1", "Durable text indexes combine lexical and semantic search."),
+])?;
+
+let results = index.search(&IndexQuery::new("semantic search", 5))?;
+assert_eq!(results[0].document_id, "doc-1");
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 ## Snapshot Export And Import

@@ -45,9 +45,6 @@ flowchart LR
     crate_moritzbrantner_dense_data["moritzbrantner-dense-data"]:::crate
     crate_moritzbrantner_dense_data_cli["moritzbrantner-dense-data-cli"]:::crate
     crate_moritzbrantner_dense_data_server["moritzbrantner-dense-data-server"]:::crate
-    crate_moritzbrantner_finance_data["moritzbrantner-finance-data"]:::crate
-    crate_moritzbrantner_finance_data_cli["moritzbrantner-finance-data-cli"]:::crate
-    crate_moritzbrantner_finance_data_server["moritzbrantner-finance-data-server"]:::crate
     crate_moritzbrantner_geo_clustering["moritzbrantner-geo-clustering"]:::crate
     crate_moritzbrantner_geo_clustering_cli["moritzbrantner-geo-clustering-cli"]:::crate
     crate_moritzbrantner_geo_clustering_server["moritzbrantner-geo-clustering-server"]:::crate
@@ -76,9 +73,6 @@ flowchart LR
 
   subgraph group_math["Math"]
     direction TB
-    crate_moritzbrantner_finance_statistics["moritzbrantner-finance-statistics"]:::crate
-    crate_moritzbrantner_finance_statistics_cli["moritzbrantner-finance-statistics-cli"]:::crate
-    crate_moritzbrantner_finance_statistics_server["moritzbrantner-finance-statistics-server"]:::crate
     crate_moritzbrantner_maps_kernels_core["moritzbrantner-maps-kernels-core"]:::crate
     crate_moritzbrantner_maps_kernels_core_cli["moritzbrantner-maps-kernels-core-cli"]:::crate
     crate_moritzbrantner_maps_kernels_core_server["moritzbrantner-maps-kernels-core-server"]:::crate
@@ -197,6 +191,9 @@ flowchart LR
     crate_moritzbrantner_text_generation_linguistics_cli["moritzbrantner-text-generation-linguistics-cli"]:::crate
     crate_moritzbrantner_text_generation_linguistics_server["moritzbrantner-text-generation-linguistics-server"]:::crate
     crate_moritzbrantner_text_generation_server["moritzbrantner-text-generation-server"]:::crate
+    crate_moritzbrantner_text_index["moritzbrantner-text-index"]:::crate
+    crate_moritzbrantner_text_index_cli["moritzbrantner-text-index-cli"]:::crate
+    crate_moritzbrantner_text_index_server["moritzbrantner-text-index-server"]:::crate
     crate_moritzbrantner_text_lexical["moritzbrantner-text-lexical"]:::crate
     crate_moritzbrantner_text_lexical_cli["moritzbrantner-text-lexical-cli"]:::crate
     crate_moritzbrantner_text_lexical_server["moritzbrantner-text-lexical-server"]:::crate
@@ -356,8 +353,6 @@ flowchart LR
     crate_moritzbrantner_comfyui_models_wasm["moritzbrantner-comfyui-models-wasm"]:::crate
     crate_moritzbrantner_data_inversion_core_wasm["moritzbrantner-data-inversion-core-wasm"]:::crate
     crate_moritzbrantner_dense_data_wasm["moritzbrantner-dense-data-wasm"]:::crate
-    crate_moritzbrantner_finance_data_wasm["moritzbrantner-finance-data-wasm"]:::crate
-    crate_moritzbrantner_finance_statistics_wasm["moritzbrantner-finance-statistics-wasm"]:::crate
     crate_moritzbrantner_geo_clustering_wasm["moritzbrantner-geo-clustering-wasm"]:::crate
     crate_moritzbrantner_geo_core_wasm["moritzbrantner-geo-core-wasm"]:::crate
     crate_moritzbrantner_geo_io_geojson_wasm["moritzbrantner-geo-io-geojson-wasm"]:::crate
@@ -391,6 +386,7 @@ flowchart LR
     crate_moritzbrantner_text_embeddings_wasm["moritzbrantner-text-embeddings-wasm"]:::crate
     crate_moritzbrantner_text_generation_linguistics_wasm["moritzbrantner-text-generation-linguistics-wasm"]:::crate
     crate_moritzbrantner_text_generation_wasm["moritzbrantner-text-generation-wasm"]:::crate
+    crate_moritzbrantner_text_index_wasm["moritzbrantner-text-index-wasm"]:::crate
     crate_moritzbrantner_text_lexical_wasm["moritzbrantner-text-lexical-wasm"]:::crate
     crate_moritzbrantner_text_linguistics_wasm["moritzbrantner-text-linguistics-wasm"]:::crate
     crate_moritzbrantner_text_model_runtime_wasm["moritzbrantner-text-model-runtime-wasm"]:::crate
@@ -473,7 +469,6 @@ flowchart LR
 
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_data_inversion_core
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_dense_data
-  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_finance_data
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_geo_clustering
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_geo_core
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_geo_io_geojson
@@ -482,7 +477,6 @@ flowchart LR
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_graph_analysis_core
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_numbers_core
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_tensor_data
-  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_finance_statistics
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_maps_kernels_core
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_math_geometry_2d
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_math_linear
@@ -526,6 +520,9 @@ flowchart LR
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_generation_cli
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_generation_linguistics
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_generation_server
+  crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_index
+  crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_index_cli
+  crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_index_server
   crate_moritzbrantner_video_analysis -. optional .-> crate_moritzbrantner_text_lexical
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_lexical_cli
   crate_moritzbrantner_video_analysis -. dev .-> crate_moritzbrantner_text_lexical_server
@@ -594,13 +591,6 @@ flowchart LR
   crate_moritzbrantner_dense_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_dense_data_server --> crate_moritzbrantner_dense_data
   crate_moritzbrantner_dense_data_server --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_finance_data --> crate_moritzbrantner_finance_statistics
-  crate_moritzbrantner_finance_data --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_finance_data --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_finance_data_cli --> crate_moritzbrantner_finance_data
-  crate_moritzbrantner_finance_data_cli --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_finance_data_server --> crate_moritzbrantner_finance_data
-  crate_moritzbrantner_finance_data_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_clustering --> crate_moritzbrantner_geo_core
   crate_moritzbrantner_geo_clustering --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_geo_clustering --> crate_moritzbrantner_runtime_core
@@ -658,14 +648,6 @@ flowchart LR
   crate_moritzbrantner_tensor_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_tensor_data
   crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_math_linear
-  crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_math_statistics
-  crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_video_analysis_core
-  crate_moritzbrantner_finance_statistics --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_finance_statistics_cli --> crate_moritzbrantner_finance_statistics
-  crate_moritzbrantner_finance_statistics_cli --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_finance_statistics_server --> crate_moritzbrantner_finance_statistics
-  crate_moritzbrantner_finance_statistics_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_maps_kernels_core --> crate_moritzbrantner_numbers_core
   crate_moritzbrantner_maps_kernels_core --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_maps_kernels_core --> crate_moritzbrantner_runtime_core
@@ -930,6 +912,7 @@ flowchart LR
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_classification
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_embeddings
+  crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_index
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_lexical
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_linguistics
   crate_moritzbrantner_text_analysis --> crate_moritzbrantner_text_retrieval
@@ -992,6 +975,16 @@ flowchart LR
   crate_moritzbrantner_text_generation_linguistics_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_generation_server --> crate_moritzbrantner_text_generation
   crate_moritzbrantner_text_generation_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_text_index --> crate_moritzbrantner_text_core
+  crate_moritzbrantner_text_index --> crate_moritzbrantner_text_embeddings
+  crate_moritzbrantner_text_index --> crate_moritzbrantner_text_lexical
+  crate_moritzbrantner_text_index --> crate_moritzbrantner_vector_analysis_index
+  crate_moritzbrantner_text_index --> crate_moritzbrantner_video_analysis_core
+  crate_moritzbrantner_text_index --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_text_index_cli --> crate_moritzbrantner_text_index
+  crate_moritzbrantner_text_index_cli --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_text_index_server --> crate_moritzbrantner_text_index
+  crate_moritzbrantner_text_index_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_lexical --> crate_moritzbrantner_math_sparse_data
   crate_moritzbrantner_text_lexical --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_lexical --> crate_moritzbrantner_video_analysis_core
@@ -1036,6 +1029,7 @@ flowchart LR
   crate_moritzbrantner_text_question_answering_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_core
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_embeddings
+  crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_index
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_lexical
   crate_moritzbrantner_text_retrieval --> crate_moritzbrantner_text_model_runtime
   crate_moritzbrantner_text_retrieval -. optional .-> crate_moritzbrantner_text_transcripts
@@ -1163,6 +1157,7 @@ flowchart LR
   crate_moritzbrantner_video_analysis_ffmpeg_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_ffmpeg_server --> crate_moritzbrantner_video_analysis_ffmpeg
   crate_moritzbrantner_video_analysis_ffmpeg_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_video_analysis_gaussian_splatting --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_video_analysis_gaussian_splatting --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_gaussian_splatting --> crate_moritzbrantner_video_analysis_radiance_fields
   crate_moritzbrantner_video_analysis_gaussian_splatting --> crate_moritzbrantner_runtime_core
@@ -1212,6 +1207,7 @@ flowchart LR
   crate_moritzbrantner_video_analysis_posture_io_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_posture_server --> crate_moritzbrantner_video_analysis_posture
   crate_moritzbrantner_video_analysis_posture_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_video_analysis_radiance_fields --> crate_moritzbrantner_three_d_processing_core
   crate_moritzbrantner_video_analysis_radiance_fields --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_radiance_fields --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_radiance_fields_cli --> crate_moritzbrantner_video_analysis_radiance_fields
@@ -1367,10 +1363,6 @@ flowchart LR
   crate_moritzbrantner_data_inversion_core_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_dense_data_wasm --> crate_moritzbrantner_dense_data
   crate_moritzbrantner_dense_data_wasm --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_finance_data_wasm --> crate_moritzbrantner_finance_data
-  crate_moritzbrantner_finance_data_wasm --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_finance_statistics_wasm --> crate_moritzbrantner_finance_statistics
-  crate_moritzbrantner_finance_statistics_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_clustering_wasm --> crate_moritzbrantner_geo_clustering
   crate_moritzbrantner_geo_clustering_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_core_wasm --> crate_moritzbrantner_geo_core
@@ -1437,6 +1429,8 @@ flowchart LR
   crate_moritzbrantner_text_generation_linguistics_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_generation_wasm --> crate_moritzbrantner_text_generation
   crate_moritzbrantner_text_generation_wasm --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_text_index_wasm --> crate_moritzbrantner_text_index
+  crate_moritzbrantner_text_index_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_lexical_wasm --> crate_moritzbrantner_text_lexical
   crate_moritzbrantner_text_lexical_wasm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_linguistics_wasm --> crate_moritzbrantner_text_linguistics

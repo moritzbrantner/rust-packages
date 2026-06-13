@@ -24,6 +24,7 @@ text-classification.workspace = true
 text-lexical.workspace = true
 text-linguistics.workspace = true
 text-embeddings.workspace = true
+text-index.workspace = true
 text-retrieval.workspace = true
 text-transcripts = { workspace = true, optional = true }
 video-analysis-core.workspace = true
@@ -37,6 +38,7 @@ onnx = ["text-embeddings/onnx", "text-classification/onnx", "dep:model-runtime"]
 tokenizers = ["text-embeddings/tokenizers", "text-linguistics/tokenizers"]
 local-models = ["text-classification/local-models", "candle", "onnx", "model-bundles"]
 external-tests = ["local-models"]
+sqlite = ["text-index/sqlite"]
 transcripts = ["dep:text-transcripts"]
 
 [dev-dependencies]

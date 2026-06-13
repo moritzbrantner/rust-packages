@@ -172,6 +172,26 @@ impl Vec3 {
     pub fn max(self, rhs: Self) -> Self {
         Self::new(self.x.max(rhs.x), self.y.max(rhs.y), self.z.max(rhs.z))
     }
+
+    /// Converts this value to the canonical 3D core vector.
+    pub fn to_core_vector(self) -> three_d_processing_core::Vector3 {
+        three_d_processing_core::Vector3::new(self.x, self.y, self.z)
+    }
+
+    /// Converts this value to the canonical 3D core point.
+    pub fn to_core_point(self) -> three_d_processing_core::Point3 {
+        three_d_processing_core::Point3::new(self.x, self.y, self.z)
+    }
+
+    /// Builds this value from the canonical 3D core vector.
+    pub fn from_core_vector(value: three_d_processing_core::Vector3) -> Self {
+        Self::new(value.x, value.y, value.z)
+    }
+
+    /// Builds this value from the canonical 3D core point.
+    pub fn from_core_point(value: three_d_processing_core::Point3) -> Self {
+        Self::new(value.x, value.y, value.z)
+    }
 }
 
 impl Add for Vec3 {
@@ -381,23 +401,12 @@ impl CameraIntrinsics {
 
     /// Returns pinhole.
     pub fn pinhole(width: u32, height: u32, vertical_fov_radians: f32) -> Result<Self> {
-        if width == 0 || height == 0 {
-            return Err(invalid_argument("camera dimensions must be positive"));
-        }
-        validate_finite(vertical_fov_radians, "vertical_fov_radians")?;
-        if vertical_fov_radians <= 0.0 || vertical_fov_radians >= std::f32::consts::PI {
-            return Err(invalid_argument(
-                "vertical_fov_radians must be in the open range (0, pi)",
-            ));
-        }
-        let fy = (height as f32 * 0.5) / (vertical_fov_radians * 0.5).tan();
-        Self::new(
-            width,
-            height,
-            fy,
-            fy,
-            (width as f32 - 1.0) * 0.5,
-            (height as f32 - 1.0) * 0.5,
+        Self::from_core_pinhole(
+            three_d_processing_core::PinholeIntrinsics::from_vertical_fov(
+                width,
+                height,
+                vertical_fov_radians,
+            )?,
         )
     }
 
@@ -418,6 +427,30 @@ impl CameraIntrinsics {
             return Err(invalid_argument("camera focal lengths must be positive"));
         }
         Ok(())
+    }
+
+    /// Converts this value to canonical 3D core pinhole intrinsics.
+    pub fn to_core_pinhole(self) -> Result<three_d_processing_core::PinholeIntrinsics> {
+        three_d_processing_core::PinholeIntrinsics::new(
+            self.width,
+            self.height,
+            self.fx,
+            self.fy,
+            self.cx,
+            self.cy,
+        )
+    }
+
+    /// Builds this value from canonical 3D core pinhole intrinsics.
+    pub fn from_core_pinhole(value: three_d_processing_core::PinholeIntrinsics) -> Result<Self> {
+        Self::new(
+            value.width,
+            value.height,
+            value.fx,
+            value.fy,
+            value.cx,
+            value.cy,
+        )
     }
 }
 
@@ -512,61 +545,20 @@ impl CameraPose {
         ty: f32,
         tz: f32,
     ) -> Result<Self> {
-        for (name, value) in [
-            ("qw", qw),
-            ("qx", qx),
-            ("qy", qy),
-            ("qz", qz),
-            ("tx", tx),
-            ("ty", ty),
-            ("tz", tz),
-        ] {
-            validate_finite(value, name)?;
-        }
-        let norm = qw
-            .mul_add(qw, qx.mul_add(qx, qy.mul_add(qy, qz * qz)))
-            .sqrt();
-        if norm <= f32::EPSILON {
-            return Err(invalid_argument(
-                "COLMAP camera quaternion length must be greater than zero",
-            ));
-        }
-        let qw = qw / norm;
-        let qx = qx / norm;
-        let qy = qy / norm;
-        let qz = qz / norm;
-
-        let r00 = 1.0 - 2.0 * (qy * qy + qz * qz);
-        let r01 = 2.0 * (qx * qy - qz * qw);
-        let r02 = 2.0 * (qx * qz + qy * qw);
-        let r10 = 2.0 * (qx * qy + qz * qw);
-        let r11 = 1.0 - 2.0 * (qx * qx + qz * qz);
-        let r12 = 2.0 * (qy * qz - qx * qw);
-        let r20 = 2.0 * (qx * qz - qy * qw);
-        let r21 = 2.0 * (qy * qz + qx * qw);
-        let r22 = 1.0 - 2.0 * (qx * qx + qy * qy);
-
-        let t = Vec3::new(tx, ty, tz);
-        let position = Vec3::new(
-            -(r00 * t.x + r10 * t.y + r20 * t.z),
-            -(r01 * t.x + r11 * t.y + r21 * t.z),
-            -(r02 * t.x + r12 * t.y + r22 * t.z),
-        );
-
-        Self::new(
-            position,
-            Vec3::new(r00, r01, r02),
-            Vec3::new(r10, r11, r12),
-            Vec3::new(r20, r21, r22),
+        Self::from_core_pose(
+            three_d_processing_core::CameraPose3::from_colmap_world_to_camera(
+                qw, qx, qy, qz, tx, ty, tz,
+            )?,
         )
     }
 
     /// Returns look at.
     pub fn look_at(position: Vec3, target: Vec3, up_hint: Vec3) -> Result<Self> {
-        let forward = (target - position).normalize()?;
-        let right = up_hint.cross(forward).normalize()?;
-        let up = forward.cross(right).normalize()?;
-        Self::new(position, right, up, forward)
+        Self::from_core_pose(three_d_processing_core::CameraPose3::look_at(
+            position.to_core_point(),
+            target.to_core_point(),
+            up_hint.to_core_vector(),
+        )?)
     }
 
     /// Validates this value.
@@ -624,18 +616,38 @@ impl CameraPose {
         near: f32,
         far: f32,
     ) -> Result<Ray> {
-        intrinsics.validate()?;
-        if !pixel.is_finite() {
-            return Err(invalid_argument("pixel coordinates must be finite"));
-        }
-        let camera_direction = Vec3::new(
-            (pixel.x - intrinsics.cx) / intrinsics.fx,
-            (pixel.y - intrinsics.cy) / intrinsics.fy,
-            1.0,
+        let ray = self.to_core_pose()?.pixel_ray(
+            intrinsics.to_core_pinhole()?,
+            [pixel.x, pixel.y],
+            near,
+            far,
+        )?;
+        Ray::new(
+            Vec3::from_core_point(ray.origin),
+            Vec3::from_core_vector(ray.direction),
+            ray.t_min,
+            ray.t_max,
         )
-        .normalize()?;
-        let world_direction = self.camera_to_world_direction(camera_direction);
-        Ray::new(self.position, world_direction, near, far)
+    }
+
+    /// Converts this pose to the canonical 3D core camera pose.
+    pub fn to_core_pose(self) -> Result<three_d_processing_core::CameraPose3> {
+        three_d_processing_core::CameraPose3::new(
+            self.position.to_core_point(),
+            self.right.to_core_vector(),
+            self.up.to_core_vector(),
+            self.forward.to_core_vector(),
+        )
+    }
+
+    /// Builds this pose from the canonical 3D core camera pose.
+    pub fn from_core_pose(value: three_d_processing_core::CameraPose3) -> Result<Self> {
+        Self::new(
+            Vec3::from_core_point(value.position),
+            Vec3::from_core_vector(value.right),
+            Vec3::from_core_vector(value.up),
+            Vec3::from_core_vector(value.forward),
+        )
     }
 }
 

@@ -26,7 +26,8 @@ use text_lexical::{
     TfIdfTerm,
 };
 pub use workspace::{
-    TextWorkspace, TextWorkspaceOptions, WorkspaceDocument, WorkspaceIngestReport,
+    TextWorkspace, TextWorkspaceOptions, WorkspaceDocument, WorkspaceIndexOptions,
+    WorkspaceIndexSearchReport, WorkspaceIndexStorage, WorkspaceIngestReport,
     WorkspaceSearchReport, WorkspaceSnapshot,
 };
 

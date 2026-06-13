@@ -432,6 +432,7 @@ mod tests {
                     confidence: Some(2.0),
                     is_final: true,
                     words: Vec::new(),
+                    chars: Vec::new(),
                     attributes: BTreeMap::new(),
                 }],
             },

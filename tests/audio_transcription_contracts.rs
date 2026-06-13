@@ -25,6 +25,7 @@ fn generic_audio_transcription_returns_transcription_contract_from_imported_segm
                 confidence: Some(2.0),
                 is_final: true,
                 words: Vec::new(),
+                chars: Vec::new(),
                 attributes: BTreeMap::from([("channel".to_string(), "left".to_string())]),
             }],
         },
@@ -69,6 +70,7 @@ fn audio_asr_returns_transcription_contract_from_imported_segments(
                 confidence: Some(2.0),
                 is_final: true,
                 words: Vec::new(),
+                chars: Vec::new(),
                 attributes: BTreeMap::from([("channel".to_string(), "left".to_string())]),
             },
             TranscriptSegmentContract {
@@ -81,6 +83,7 @@ fn audio_asr_returns_transcription_contract_from_imported_segments(
                 confidence: Some(0.9),
                 is_final: true,
                 words: Vec::new(),
+                chars: Vec::new(),
                 attributes: BTreeMap::new(),
             },
         ],

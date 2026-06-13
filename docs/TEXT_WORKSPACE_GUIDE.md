@@ -5,9 +5,10 @@ text documents, transcript segments, lexical corpus analysis, retrieval, and
 report generation.
 
 Default workspace execution is pure Rust. It uses `TextCorpus`, hashed
-embeddings, and in-memory `RetrievalIndex` state. It does not download model
-bundles or execute native model runtimes unless callers explicitly choose
-model-backed workspace options or lower-level APIs.
+embeddings, in-memory `text-index` state, and compatibility `RetrievalIndex`
+state. It does not download model bundles or execute native model runtimes
+unless callers explicitly choose model-backed workspace options or lower-level
+APIs.
 
 ## Primary Workflow
 
@@ -36,6 +37,7 @@ workspace.ingest_documents([WorkspaceDocument::SegmentContract(segment)])?;
 let document = workspace.analyze_document("subs:0")?;
 let corpus = workspace.analyze_corpus()?;
 workspace.build_retrieval_index()?;
+workspace.build_text_index()?;
 let search = workspace.search(SearchQuery::hybrid(
     "timed transcript citations",
     5,
@@ -47,6 +49,42 @@ assert!(document.classification.is_some());
 assert!(corpus.classification.is_some());
 assert_eq!(search.results[0].document_id, "subs:0");
 assert_eq!(snapshot.documents[0].timestamp.unwrap().seconds(), 3.0);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+## Index-Backed Workspace Search
+
+Use `WorkspaceIndexOptions` when a workspace should build a memory or SQLite
+Text Index. SQLite writes require `commit: true` and a path, and require the
+`text-analysis/sqlite` feature.
+
+```rust,no_run
+use text_analysis::{
+    TextWorkspace, TextWorkspaceOptions, WorkspaceDocument, WorkspaceIndexOptions,
+    WorkspaceIndexStorage,
+};
+use text_core::TextDocumentContract;
+use text_index::{IndexBuildOptions, IndexQuery};
+
+let mut workspace = TextWorkspace::new(TextWorkspaceOptions {
+    index: WorkspaceIndexOptions {
+        storage: WorkspaceIndexStorage::Memory,
+        build: IndexBuildOptions {
+            chunk_tokens: 16,
+            chunk_overlap_tokens: 0,
+            ..IndexBuildOptions::default()
+        },
+        embedding_dimensions: 64,
+        commit: false,
+    },
+    ..TextWorkspaceOptions::default()
+});
+workspace.ingest_documents([WorkspaceDocument::DocumentContract(
+    TextDocumentContract::new("doc-1", "Hybrid workspace search cites indexed chunks."),
+)])?;
+workspace.build_text_index()?;
+let search = workspace.search_text_index(IndexQuery::new("indexed chunks", 3))?;
+assert_eq!(search.results[0].document_id, "doc-1");
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
@@ -120,9 +158,13 @@ Use `text-lexical::TextCorpus` directly when you only need corpus ownership,
 TF-IDF, BM25, snapshots, or full-fidelity export with
 `text_document_contracts()`.
 
-Use `text-retrieval::RetrievalIndex` directly when you need explicit chunking,
-metadata filters, persistence DTOs, related chunks, or runtime-backed reranking
-through `rerank_documents_with_context`.
+Use `text-index::TextIndex` directly when you need durable memory/SQLite
+indexing, semantic facets, analysis attachments, source/time/provenance
+filters, hybrid score explanations, or snapshot planning.
+
+Use `text-retrieval::RetrievalIndex` directly when you need legacy retrieval
+compatibility, persisted JSON/JSONL retrieval snapshots, related chunks, or
+runtime-backed reranking through `rerank_documents_with_context`.
 
 Use `text-question-answering::answer_question_with_retrieval` for deterministic
 retrieval-backed cited answers, or

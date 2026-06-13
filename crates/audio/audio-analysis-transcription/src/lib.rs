@@ -22,7 +22,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use text_transcripts::{
-    normalize_transcription_contract, TranscriptWordContract, TranscriptionContract,
+    normalize_transcription_contract, TranscriptCharContract, TranscriptWordContract,
+    TranscriptionContract,
 };
 use video_analysis_core::{DetectError, Result};
 
@@ -212,6 +213,16 @@ pub struct WhisperXCommandOptions {
     #[serde(default)]
     pub align_model: Option<String>,
     #[serde(default)]
+    pub model_dir: Option<PathBuf>,
+    #[serde(default)]
+    pub model_cache_only: bool,
+    #[serde(default)]
+    pub no_align: bool,
+    #[serde(default)]
+    pub interpolate_method: AlignmentInterpolationMethod,
+    #[serde(default)]
+    pub return_char_alignments: bool,
+    #[serde(default)]
     pub diarize: bool,
     #[serde(default)]
     pub min_speakers: Option<usize>,
@@ -240,6 +251,11 @@ impl Default for WhisperXCommandOptions {
             compute_type: None,
             batch_size: None,
             align_model: None,
+            model_dir: None,
+            model_cache_only: false,
+            no_align: false,
+            interpolate_method: AlignmentInterpolationMethod::Nearest,
+            return_char_alignments: false,
             diarize: false,
             min_speakers: None,
             max_speakers: None,
@@ -264,6 +280,26 @@ impl WhisperXDevice {
         match self {
             Self::Cpu => "cpu",
             Self::Cuda => "cuda",
+        }
+    }
+}
+
+/// Timestamp interpolation behavior for missing alignment spans.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AlignmentInterpolationMethod {
+    #[default]
+    Nearest,
+    Linear,
+    Ignore,
+}
+
+impl AlignmentInterpolationMethod {
+    pub fn as_whisperx_arg(self) -> &'static str {
+        match self {
+            Self::Nearest => "nearest",
+            Self::Linear => "linear",
+            Self::Ignore => "ignore",
         }
     }
 }
@@ -340,6 +376,14 @@ pub struct AlignmentOptions {
     pub model_id: String,
     #[serde(default)]
     pub model_bundle: Option<PathBuf>,
+    #[serde(default)]
+    pub model_dir: Option<PathBuf>,
+    #[serde(default)]
+    pub model_cache_only: bool,
+    #[serde(default)]
+    pub interpolate_method: AlignmentInterpolationMethod,
+    #[serde(default)]
+    pub return_char_alignments: bool,
 }
 
 impl Default for AlignmentOptions {
@@ -348,6 +392,10 @@ impl Default for AlignmentOptions {
             enabled: false,
             model_id: default_alignment_model(),
             model_bundle: None,
+            model_dir: None,
+            model_cache_only: false,
+            interpolate_method: AlignmentInterpolationMethod::Nearest,
+            return_char_alignments: false,
         }
     }
 }
@@ -572,6 +620,8 @@ pub struct AlignmentResponse {
     pub model_id: String,
     pub words: Vec<AlignedWord>,
     #[serde(default)]
+    pub chars: Vec<AlignedChar>,
+    #[serde(default)]
     pub diagnostics: Vec<String>,
 }
 
@@ -584,6 +634,21 @@ pub struct AlignedWord {
     pub text: String,
     pub start_seconds: f64,
     pub end_seconds: f64,
+    #[serde(default)]
+    pub confidence: Option<f32>,
+}
+
+/// One aligned character timing.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlignedChar {
+    pub segment_index: u64,
+    pub char_index: usize,
+    pub character: String,
+    #[serde(default)]
+    pub start_seconds: Option<f64>,
+    #[serde(default)]
+    pub end_seconds: Option<f64>,
     #[serde(default)]
     pub confidence: Option<f32>,
 }
@@ -991,6 +1056,7 @@ pub fn run_transcription_pipeline(
             model_id: request.alignment.model_id.clone(),
         })?;
         apply_alignment_words(&mut transcript, &alignment_response.words)?;
+        apply_alignment_chars(&mut transcript, &alignment_response.chars)?;
         alignment_summary = Some(AlignmentSummary {
             provider: provider.provider_id().to_string(),
             model_id: alignment_response.model_id,
@@ -1818,6 +1884,43 @@ fn apply_alignment_words(
     Ok(())
 }
 
+fn apply_alignment_chars(
+    transcript: &mut TranscriptionContract,
+    chars: &[AlignedChar],
+) -> Result<()> {
+    for aligned in chars {
+        if let Some((start, end)) = aligned.start_seconds.zip(aligned.end_seconds) {
+            if !start.is_finite() || !end.is_finite() || end < start {
+                return Err(model_output_mismatch(
+                    "alignment output contains invalid char timing",
+                ));
+            }
+        }
+        let segment = transcript
+            .segments
+            .iter_mut()
+            .find(|segment| segment.index == aligned.segment_index)
+            .ok_or_else(|| model_output_mismatch("alignment output references unknown segment"))?;
+        while segment.chars.len() <= aligned.char_index {
+            segment.chars.push(TranscriptCharContract {
+                character: String::new(),
+                start_seconds: None,
+                end_seconds: None,
+                confidence: None,
+                attributes: BTreeMap::new(),
+            });
+        }
+        let character = &mut segment.chars[aligned.char_index];
+        if character.character.is_empty() {
+            character.character = aligned.character.clone();
+        }
+        character.start_seconds = aligned.start_seconds;
+        character.end_seconds = aligned.end_seconds;
+        character.confidence = aligned.confidence;
+    }
+    Ok(())
+}
+
 fn assign_speakers_from_diarization(
     transcript: &mut TranscriptionContract,
     diarization: &SpeakerDiarizationResponse,
@@ -2080,8 +2183,27 @@ fn whisperx_args(
     if let Some(batch_size) = options.batch_size {
         args.extend(["--batch_size".to_string(), batch_size.to_string()]);
     }
+    if options.no_align {
+        args.push("--no_align".to_string());
+    }
     if let Some(align_model) = &options.align_model {
         args.extend(["--align_model".to_string(), align_model.clone()]);
+    }
+    if let Some(model_dir) = &options.model_dir {
+        args.extend([
+            "--model_dir".to_string(),
+            model_dir.to_string_lossy().into_owned(),
+        ]);
+    }
+    if options.model_cache_only {
+        args.push("--model_cache_only".to_string());
+    }
+    args.extend([
+        "--interpolate_method".to_string(),
+        options.interpolate_method.as_whisperx_arg().to_string(),
+    ]);
+    if options.return_char_alignments {
+        args.push("--return_char_alignments".to_string());
     }
     if options.diarize {
         args.push("--diarize".to_string());
@@ -2248,6 +2370,7 @@ mod tests {
                     end_seconds: 0.35,
                     confidence: Some(0.91),
                 }],
+                chars: Vec::new(),
                 diagnostics: vec!["mock alignment completed".to_string()],
             })
         }
@@ -3912,18 +4035,20 @@ mod tests {
 
     #[test]
     #[cfg(feature = "alignment")]
-    fn native_pipeline_supplies_alignment_provider_when_enabled() {
+    fn native_pipeline_supplies_alignment_provider_when_enabled(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        write_tiny_wav2vec2_bundle(temp.path());
         let mut request = sample_request();
         request.alignment = AlignmentOptions {
             enabled: true,
-            model_bundle: None,
+            model_bundle: Some(temp.path().to_path_buf()),
             ..AlignmentOptions::default()
         };
         let mut vad = EnergyVadTranscriptionProvider;
         let mut asr = MockAsrProvider;
 
-        let response =
-            run_native_transcription_pipeline(request, &mut vad, &mut asr, None).unwrap();
+        let response = run_native_transcription_pipeline(request, &mut vad, &mut asr, None)?;
 
         let alignment = response.alignment.as_ref().unwrap();
         assert_eq!(alignment.provider, "ctc-forced-aligner");
@@ -3933,15 +4058,15 @@ mod tests {
         assert_eq!(word.text, "hello");
         assert!(word.start_seconds.is_some());
         assert!(word.end_seconds.is_some());
-        assert_eq!(word.confidence, Some(1.0));
+        assert!(word
+            .confidence
+            .is_some_and(|confidence| confidence.is_finite()));
         assert!(response
             .diagnostics
             .iter()
-            .any(|item| item == "deterministic transcript timing alignment completed"));
-        response
-            .transcript
-            .validate_strict()
-            .expect("native pipeline response should be strictly valid");
+            .any(|item| item == "alignmentModelSource=explicit-bundle"));
+        response.transcript.validate_strict()?;
+        Ok(())
     }
 
     #[test]
@@ -4130,6 +4255,37 @@ mod tests {
             Some("SPEAKER_00")
         );
         Ok(())
+    }
+
+    #[test]
+    fn whisperx_args_include_alignment_parity_flags() {
+        let args = whisperx_args(
+            Path::new("speech.wav"),
+            Path::new("out"),
+            &WhisperXCommandOptions {
+                align_model: Some("facebook/wav2vec2-base-960h".to_string()),
+                model_dir: Some(PathBuf::from("models")),
+                model_cache_only: true,
+                no_align: true,
+                interpolate_method: AlignmentInterpolationMethod::Linear,
+                return_char_alignments: true,
+                ..WhisperXCommandOptions::default()
+            },
+            None,
+        );
+
+        assert!(args.iter().any(|arg| arg == "--no_align"));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair[0] == "--align_model" && pair[1] == "facebook/wav2vec2-base-960h"));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair[0] == "--model_dir" && pair[1] == "models"));
+        assert!(args.iter().any(|arg| arg == "--model_cache_only"));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair[0] == "--interpolate_method" && pair[1] == "linear"));
+        assert!(args.iter().any(|arg| arg == "--return_char_alignments"));
     }
 
     #[test]

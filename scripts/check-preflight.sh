@@ -9,7 +9,7 @@ scripts/check_generated_artifacts.sh
 scripts/check_generated_snapshots.sh
 python3 scripts/audit_crate_progress.py --check
 python3 scripts/test_audit_crate_progress.py
-python3 scripts/audit_crate_progress.py --changed --base "${BASE_REF:-origin/main}"
+python3 scripts/audit_crate_progress.py --compare-base "${BASE_REF:-origin/main}"
 
 cargo test --jobs "$CARGO_BUILD_JOBS" --workspace --all-targets
 python3 scripts/audit_package_surfaces.py --quality

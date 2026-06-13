@@ -5,10 +5,11 @@ use serde_json::Value;
 use video_analysis_core::Result;
 
 use crate::ctc_alignment::{
-    backtrack_ctc, build_ctc_trellis, tokens_to_segment_words, CtcVocabulary,
+    backtrack_ctc, build_ctc_trellis, tokens_to_segment_words, CtcAlignedToken, CtcVocabulary,
 };
 use crate::{
-    invalid_request, model_output_mismatch, unsupported_runtime, AlignedWord, AlignmentRequest,
+    invalid_request, model_output_mismatch, unsupported_runtime, AlignedChar, AlignedWord,
+    AlignmentInterpolationMethod, AlignmentRequest,
 };
 
 #[derive(Debug, Clone)]
@@ -155,11 +156,26 @@ pub(crate) struct Wav2Vec2CtcEmission {
     pub segment_index: u64,
     pub emissions: Vec<Vec<f32>>,
     pub token_ids: Vec<usize>,
+    pub chars: Vec<AlignedInputChar>,
     pub blank_id: usize,
     pub transcript_words: Vec<String>,
     pub segment_start_seconds: f64,
     pub segment_end_seconds: f64,
     pub frame_seconds: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) struct AlignedInputChar {
+    pub char_index: usize,
+    pub character: String,
+    pub is_word_delimiter: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct NativeAlignmentResult {
+    pub words: Vec<AlignedWord>,
+    pub chars: Vec<AlignedChar>,
 }
 
 #[allow(dead_code)]
@@ -177,9 +193,12 @@ pub(crate) fn emit_wav2vec2_ctc(
 pub(crate) fn align_wav2vec2_ctc(
     bundle: &Path,
     request: &AlignmentRequest,
-) -> Result<Vec<AlignedWord>> {
+    interpolate_method: AlignmentInterpolationMethod,
+    return_char_alignments: bool,
+) -> Result<NativeAlignmentResult> {
     let emission_segments = emit_wav2vec2_ctc_segments(bundle, request)?;
     let mut aligned_words = Vec::new();
+    let mut aligned_chars = Vec::new();
     for segment in emission_segments {
         let trellis = build_ctc_trellis(&segment.emissions, &segment.token_ids, segment.blank_id)?;
         let path = backtrack_ctc(
@@ -196,8 +215,22 @@ pub(crate) fn align_wav2vec2_ctc(
             segment.segment_end_seconds,
             segment.frame_seconds,
         )?);
+        if return_char_alignments {
+            aligned_chars.extend(tokens_to_segment_chars(
+                segment.segment_index,
+                &path,
+                &segment.chars,
+                segment.segment_start_seconds,
+                segment.segment_end_seconds,
+                segment.frame_seconds,
+                interpolate_method,
+            )?);
+        }
     }
-    Ok(aligned_words)
+    Ok(NativeAlignmentResult {
+        words: aligned_words,
+        chars: aligned_chars,
+    })
 }
 
 pub(crate) fn emit_wav2vec2_ctc_segments(
@@ -239,7 +272,11 @@ pub(crate) fn emit_wav2vec2_ctc_segments(
             continue;
         }
         let transcript_text = transcript_words.join(" ");
-        let token_ids = normalized_text_to_token_ids(&transcript_text, &vocab)?;
+        let aligned_chars = normalize_text_to_aligned_chars(&transcript_text, &vocab)?;
+        let token_ids = aligned_chars
+            .iter()
+            .map(|character| character.token_id)
+            .collect::<Vec<_>>();
         let samples = slice_segment_samples(
             &request.audio.samples,
             request.audio.sample_rate,
@@ -258,6 +295,14 @@ pub(crate) fn emit_wav2vec2_ctc_segments(
             segment_index: segment.index,
             emissions,
             token_ids,
+            chars: aligned_chars
+                .into_iter()
+                .map(|character| AlignedInputChar {
+                    char_index: character.char_index,
+                    character: character.character,
+                    is_word_delimiter: character.is_word_delimiter,
+                })
+                .collect(),
             blank_id: vocab.blank_id,
             transcript_words,
             segment_start_seconds: segment_start,
@@ -266,6 +311,14 @@ pub(crate) fn emit_wav2vec2_ctc_segments(
         });
     }
     Ok(segments)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TokenizedAlignmentChar {
+    char_index: usize,
+    character: String,
+    token_id: usize,
+    is_word_delimiter: bool,
 }
 
 pub(crate) fn resolve_wav2vec2_bundle_paths(bundle: &Path) -> Result<Wav2Vec2BundlePaths> {
@@ -661,10 +714,21 @@ pub(crate) fn parse_ctc_vocabulary(
     Ok(CtcVocabulary { blank_id, tokens })
 }
 
+#[allow(dead_code)]
 pub(crate) fn normalized_text_to_token_ids(
     text: &str,
     vocab: &CtcVocabulary,
 ) -> Result<Vec<usize>> {
+    Ok(normalize_text_to_aligned_chars(text, vocab)?
+        .into_iter()
+        .map(|character| character.token_id)
+        .collect())
+}
+
+fn normalize_text_to_aligned_chars(
+    text: &str,
+    vocab: &CtcVocabulary,
+) -> Result<Vec<TokenizedAlignmentChar>> {
     let delimiter = token_id(&vocab.tokens, "|").map(|_| "|");
     let uppercase_hits = vocab
         .tokens
@@ -677,39 +741,174 @@ pub(crate) fn normalized_text_to_token_ids(
         .filter(|token| token.chars().any(|ch| ch.is_ascii_lowercase()))
         .count();
     let use_uppercase = uppercase_hits >= lowercase_hits;
-    let mut ids = Vec::new();
-    for character in text.chars() {
+    let mut chars = Vec::new();
+    for (char_index, character) in text.trim().chars().enumerate() {
         if character.is_whitespace() {
             if let Some(delimiter) = delimiter {
                 if let Some(id) = token_id(&vocab.tokens, delimiter) {
-                    ids.push(id);
+                    chars.push(TokenizedAlignmentChar {
+                        char_index,
+                        character: " ".to_string(),
+                        token_id: id,
+                        is_word_delimiter: true,
+                    });
                 }
             }
             continue;
         }
+        let lowered = character.to_lowercase().collect::<String>();
         let token = if character.is_alphabetic() {
             if use_uppercase {
                 character.to_uppercase().collect::<String>()
             } else {
-                character.to_lowercase().collect::<String>()
+                lowered.clone()
             }
         } else {
             character.to_string()
         };
-        if let Some(id) = token_id(&vocab.tokens, &token) {
-            ids.push(id);
-        } else if character.is_alphanumeric() {
-            return Err(invalid_request(format!(
-                "transcript character `{character}` is not representable by wav2vec2 tokenizer"
-            )));
-        }
+        let token_id = token_id(&vocab.tokens, &token).unwrap_or(usize::MAX);
+        chars.push(TokenizedAlignmentChar {
+            char_index,
+            character: lowered,
+            token_id,
+            is_word_delimiter: false,
+        });
     }
-    if ids.is_empty() {
+    if chars.is_empty() {
         return Err(invalid_request(
             "transcript text does not contain any wav2vec2 CTC tokens",
         ));
     }
-    Ok(ids)
+    Ok(chars)
+}
+
+fn tokens_to_segment_chars(
+    segment_index: u64,
+    tokens: &[CtcAlignedToken],
+    chars: &[AlignedInputChar],
+    segment_start: f64,
+    segment_end: f64,
+    frame_seconds: f64,
+    interpolate_method: AlignmentInterpolationMethod,
+) -> Result<Vec<AlignedChar>> {
+    if chars.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut projected = chars
+        .iter()
+        .enumerate()
+        .map(|(position, character)| {
+            let token = tokens.iter().find(|token| token.token_index == position);
+            let (start_seconds, end_seconds, confidence) = token
+                .map(|token| {
+                    let start = segment_start + token.frame_index as f64 * frame_seconds;
+                    let end = segment_start + (token.frame_index + 1) as f64 * frame_seconds;
+                    (
+                        Some(start.clamp(segment_start, segment_end)),
+                        Some(end.clamp(segment_start, segment_end)),
+                        Some(token.score),
+                    )
+                })
+                .unwrap_or((None, None, None));
+            AlignedChar {
+                segment_index,
+                char_index: character.char_index,
+                character: character.character.clone(),
+                start_seconds,
+                end_seconds,
+                confidence,
+            }
+        })
+        .collect::<Vec<_>>();
+    interpolate_missing_char_timings(
+        &mut projected,
+        segment_start,
+        segment_end,
+        interpolate_method,
+    );
+    Ok(projected)
+}
+
+fn interpolate_missing_char_timings(
+    chars: &mut [AlignedChar],
+    segment_start: f64,
+    segment_end: f64,
+    method: AlignmentInterpolationMethod,
+) {
+    if method == AlignmentInterpolationMethod::Ignore {
+        return;
+    }
+    for index in 0..chars.len() {
+        if chars[index]
+            .start_seconds
+            .zip(chars[index].end_seconds)
+            .is_some()
+        {
+            continue;
+        }
+        let previous = chars[..index]
+            .iter()
+            .rfind(|character| character.start_seconds.zip(character.end_seconds).is_some());
+        let next = chars[index + 1..]
+            .iter()
+            .find(|character| character.start_seconds.zip(character.end_seconds).is_some());
+        let midpoint = match method {
+            AlignmentInterpolationMethod::Nearest => {
+                nearest_midpoint(previous, next).unwrap_or((segment_start + segment_end) * 0.5)
+            }
+            AlignmentInterpolationMethod::Linear => linear_midpoint(index, previous, next, chars)
+                .unwrap_or_else(|| {
+                    nearest_midpoint(previous, next).unwrap_or((segment_start + segment_end) * 0.5)
+                }),
+            AlignmentInterpolationMethod::Ignore => continue,
+        }
+        .clamp(segment_start, segment_end);
+        chars[index].start_seconds = Some(midpoint);
+        chars[index].end_seconds = Some(midpoint);
+    }
+}
+
+fn nearest_midpoint(previous: Option<&AlignedChar>, next: Option<&AlignedChar>) -> Option<f64> {
+    match (previous, next) {
+        (Some(previous), Some(next)) => {
+            let previous_mid = char_midpoint(previous)?;
+            let next_mid = char_midpoint(next)?;
+            Some(if previous_mid.abs() <= next_mid.abs() {
+                previous_mid
+            } else {
+                next_mid
+            })
+        }
+        (Some(previous), None) => char_midpoint(previous),
+        (None, Some(next)) => char_midpoint(next),
+        (None, None) => None,
+    }
+}
+
+fn linear_midpoint(
+    index: usize,
+    previous: Option<&AlignedChar>,
+    next: Option<&AlignedChar>,
+    chars: &[AlignedChar],
+) -> Option<f64> {
+    let previous = previous?;
+    let next = next?;
+    let previous_position = chars
+        .iter()
+        .position(|candidate| std::ptr::eq(candidate, previous))?;
+    let next_position = chars
+        .iter()
+        .position(|candidate| std::ptr::eq(candidate, next))?;
+    let denominator = (next_position - previous_position) as f64;
+    if denominator <= 0.0 {
+        return None;
+    }
+    let fraction = (index - previous_position) as f64 / denominator;
+    Some(char_midpoint(previous)? + (char_midpoint(next)? - char_midpoint(previous)?) * fraction)
+}
+
+fn char_midpoint(character: &AlignedChar) -> Option<f64> {
+    Some((character.start_seconds? + character.end_seconds?) * 0.5)
 }
 
 fn segment_words(segment: &text_transcripts::TranscriptSegmentContract) -> Vec<String> {
@@ -1173,7 +1372,7 @@ mod tests {
         std::fs::write(&path, minimal_tokenizer()).unwrap();
         let vocab = parse_ctc_vocabulary(&path, None).unwrap();
         let ids = normalized_text_to_token_ids("hello world!", &vocab).unwrap();
-        assert_eq!(ids, vec![1, 2, 3, 3, 4, 5, 6, 4, 7, 3, 8]);
+        assert_eq!(ids, vec![1, 2, 3, 3, 4, 5, 6, 4, 7, 3, 8, usize::MAX]);
     }
 
     #[test]
@@ -1447,13 +1646,22 @@ mod tests {
     fn alignment_with_tiny_wav2vec2_bundle_returns_words() {
         let temp = tempfile::tempdir().unwrap();
         write_tiny_bundle(temp.path());
-        let words = align_wav2vec2_ctc(temp.path(), &alignment_request("hello")).unwrap();
-        assert_eq!(words.len(), 1);
-        assert_eq!(words[0].segment_index, 7);
-        assert_eq!(words[0].text, "hello");
-        assert!(words[0].start_seconds >= 0.0);
-        assert!(words[0].end_seconds <= 1.0);
-        assert!(words[0].end_seconds >= words[0].start_seconds);
-        assert!(words[0].confidence.is_some());
+        let result = align_wav2vec2_ctc(
+            temp.path(),
+            &alignment_request("hello"),
+            AlignmentInterpolationMethod::Nearest,
+            true,
+        )
+        .unwrap();
+        assert_eq!(result.words.len(), 1);
+        assert_eq!(result.words[0].segment_index, 7);
+        assert_eq!(result.words[0].text, "hello");
+        assert!(result.words[0].start_seconds >= 0.0);
+        assert!(result.words[0].end_seconds <= 1.0);
+        assert!(result.words[0].end_seconds >= result.words[0].start_seconds);
+        assert!(result.words[0].confidence.is_some());
+        assert_eq!(result.chars.len(), 5);
+        assert_eq!(result.chars[0].character, "h");
+        assert!(result.chars[0].start_seconds.is_some());
     }
 }

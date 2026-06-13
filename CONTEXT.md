@@ -68,6 +68,30 @@ _Avoid_: Production-grade NLP result, ground truth
 A text crate whose domain naturally supports both deterministic execution and explicit local-model-backed execution.
 _Avoid_: AI crate, model-only crate
 
+**Text Corpus**:
+A raw collection of text documents or segments with stable ids, language, source, provenance, annotations, and metadata before indexing.
+_Avoid_: Search index, knowledge base
+
+**Text Index**:
+A searchable representation of text corpus content, including chunks, lexical state, vectors, facets, and persistence metadata.
+_Avoid_: Corpus, document store
+
+**Contract Ingestion**:
+Conversion from existing text contracts, transcript segments, OCR outputs, and plain text records into indexable documents/chunks.
+_Avoid_: File extraction, document parsing
+
+**Semantic Facet**:
+A searchable/filterable meaning-bearing label derived from analysis, such as entity, topic, relation, classification label, language, source, or provenance.
+_Avoid_: Knowledge graph claim, ground truth
+
 **Analytical Math Crates**:
-The peer crate family under `crates/math` that provides reusable deterministic math primitives and package surfaces for multimodal workflows.
-_Avoid_: Numerical Backend, Math Foundation Crates
+The peer crate family under `crates/math` that provides reusable deterministic math primitives and package surfaces for multimodal workflows. It owns generic dense linear algebra, statistics, sparse data, signal kernels, and map kernels, not 3D coordinate-system semantics.
+_Avoid_: Numerical Backend, Math Foundation Crates, 3D Spatial Core
+
+**Three-D Spatial Core**:
+The crate family centered on `three-d-processing-core` that owns workspace 3D vectors, points, rotations, transforms, camera geometry, and coordinate-convention conversions.
+_Avoid_: Math crate, graphics helper crate, radiance-only geometry
+
+**Adjacent Domain Package Family**:
+A useful, coherent package family whose domain can support multimodal workflows but whose primary purpose belongs outside this repository's core video, audio, image, text, vector, animation, 3D, runtime, and interoperability scope.
+_Avoid_: Failed package, low-quality crate, unrelated code
