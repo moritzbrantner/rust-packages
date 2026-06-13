@@ -298,6 +298,10 @@ impl TextWorkspace {
         }
     }
 
+    pub fn build_index(&mut self) -> Result<IndexMutationReport> {
+        self.build_text_index()
+    }
+
     pub fn search_text_index(&self, query: IndexQuery) -> Result<WorkspaceIndexSearchReport> {
         let results = match self
             .index
@@ -314,6 +318,10 @@ impl TextWorkspace {
         })
     }
 
+    pub fn search_index(&self, query: IndexQuery) -> Result<WorkspaceIndexSearchReport> {
+        self.search_text_index(query)
+    }
+
     pub fn inspect_text_index(&self) -> Result<IndexInspectReport> {
         match self
             .index
@@ -324,6 +332,10 @@ impl TextWorkspace {
             #[cfg(feature = "sqlite")]
             WorkspaceIndexState::Sqlite(index) => index.inspect().map_err(text_index_error),
         }
+    }
+
+    pub fn inspect_index(&self) -> Result<IndexInspectReport> {
+        self.inspect_text_index()
     }
 
     pub fn search(&self, query: SearchQuery) -> Result<WorkspaceSearchReport> {
@@ -349,20 +361,7 @@ impl TextWorkspace {
 }
 
 fn index_document_from_corpus_document(document: &TextCorpusDocument) -> IndexDocument {
-    IndexDocument {
-        id: document.id.clone(),
-        title: None,
-        body: document.text.clone(),
-        language: document.language.clone(),
-        metadata: text_index::IndexDocumentMetadata {
-            attributes: document.metadata.clone(),
-            source: document.source.clone(),
-            provenance: document.provenance.clone(),
-            annotations: document.annotations.clone(),
-        },
-        analysis_attachments: Vec::new(),
-        semantic_facets: Vec::new(),
-    }
+    IndexDocument::from_text_corpus_document(document)
 }
 
 fn workspace_document_to_corpus_documents(document: WorkspaceDocument) -> Vec<TextCorpusDocument> {

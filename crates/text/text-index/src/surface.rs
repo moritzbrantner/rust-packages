@@ -5,11 +5,13 @@ use runtime_core::{
     SurfaceRequest, SurfaceResponse,
 };
 use serde::Deserialize;
+use std::path::PathBuf;
 use text_embeddings::{HashedTextEmbedder, TextEmbeddingConfig};
 use text_lexical::CorpusOptions;
 
 use crate::{
-    IndexBuildOptions, IndexDocument, IndexMutationReport, IndexQuery, MemoryIndexStore, TextIndex,
+    IndexBuildOptions, IndexDocument, IndexInspectReport, IndexMutationReport, IndexQuery,
+    IndexSearchResult, IndexSnapshotPlan, MemoryIndexStore, TextIndex, TextIndexStore,
 };
 
 pub fn package_surface() -> PackageSurface {
@@ -19,13 +21,13 @@ pub fn package_surface() -> PackageSurface {
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
             operation("describe", "Inspect package metadata", "Durable local text indexing and hybrid search.", serde_json::json!({"includeOperations": true})),
-            operation("index.build", "Build index", "Builds a transient in-memory text index unless a committed SQLite surface is used.", serde_json::json!({"documents": [{"id": "doc-1", "body": "Rust text index"}]})),
+            operation("index.build", "Build index", "Builds a transient in-memory text index unless an explicit committed SQLite backend is requested.", serde_json::json!({"backend": "memory", "documents": [{"id": "doc-1", "body": "Rust text index"}]})),
             operation("index.open", "Open index", "Opens or describes an index backend.", serde_json::json!({"backend": "memory"})),
-            operation("index.addDocuments", "Add documents", "Adds documents to a transient in-memory index for package-surface execution.", serde_json::json!({"documents": [{"id": "doc-1", "body": "Rust text index"}]})),
-            operation("index.removeDocuments", "Remove documents", "Plans document removals for package-surface execution.", serde_json::json!({"documentIds": ["doc-1"]})),
-            operation("index.search", "Search index", "Builds a transient in-memory index and searches it.", serde_json::json!({"documents": [{"id": "doc-1", "body": "Rust text index"}], "query": {"text": "text index"}})),
-            operation("index.inspect", "Inspect index", "Builds a transient in-memory index and returns counts.", serde_json::json!({"documents": [{"id": "doc-1", "body": "Rust text index"}]})),
-            operation("index.snapshotPlan", "Plan snapshot", "Builds a transient index and returns a dry-run snapshot plan.", serde_json::json!({"documents": [{"id": "doc-1", "body": "Rust text index"}]})),
+            operation("index.addDocuments", "Add documents", "Adds documents to a transient memory index or an explicit committed SQLite backend.", serde_json::json!({"backend": "memory", "documents": [{"id": "doc-1", "body": "Rust text index"}]})),
+            operation("index.removeDocuments", "Remove documents", "Removes documents only from an explicit committed SQLite backend; memory execution returns a side-effect-free plan.", serde_json::json!({"backend": "memory", "documentIds": ["doc-1"]})),
+            operation("index.search", "Search index", "Builds or opens a requested backend and searches it.", serde_json::json!({"backend": "memory", "documents": [{"id": "doc-1", "body": "Rust text index"}], "query": {"text": "text index"}})),
+            operation("index.inspect", "Inspect index", "Builds or opens a requested backend and returns counts.", serde_json::json!({"backend": "memory", "documents": [{"id": "doc-1", "body": "Rust text index"}]})),
+            operation("index.snapshotPlan", "Plan snapshot", "Builds or opens a requested backend and returns a snapshot plan.", serde_json::json!({"backend": "memory", "documents": [{"id": "doc-1", "body": "Rust text index"}]})),
         ],
     }
 }
@@ -33,34 +35,44 @@ pub fn package_surface() -> PackageSurface {
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" | "index.open" => describe_value(request.input),
+        "describe" => describe_value(request.input),
+        "index.open" => {
+            let input: OpenRequest = parse_input(request.input)?;
+            let index = open_index(input.backend)?;
+            serde_json::json!({
+                "backend": index.backend_name(),
+                "inspect": index.inspect()?,
+                "snapshotPlan": index.snapshot_plan()?
+            })
+        }
         "index.build" | "index.addDocuments" => {
             let input: BuildRequest = parse_input(request.input)?;
-            let (index, report) = build_index(&input)?;
-            serde_json::json!({"report": report, "inspect": index.inspect().map_err(|error| error.to_string())?})
+            let (index, report) = build_index(input)?;
+            serde_json::json!({"backend": index.backend_name(), "report": report, "inspect": index.inspect()?})
         }
         "index.removeDocuments" => {
             let input: RemoveRequest = parse_input(request.input)?;
-            serde_json::json!({"accepted": true, "documentIds": input.document_ids, "commitRequiredForDurableWrites": true})
+            remove_documents(input)?
         }
         "index.search" => {
             let input: SearchRequest = parse_input(request.input)?;
-            let (index, _) = build_index(&BuildRequest {
+            let (index, _) = build_index(BuildRequest {
                 documents: input.documents,
                 options: input.options,
                 dimensions: input.dimensions,
+                backend: input.backend,
             })?;
-            serde_json::json!({"results": index.search(&input.query).map_err(|error| error.to_string())?})
+            serde_json::json!({"backend": index.backend_name(), "results": index.search(&input.query)?})
         }
         "index.inspect" => {
             let input: BuildRequest = parse_input(request.input)?;
-            let (index, _) = build_index(&input)?;
-            serde_json::json!(index.inspect().map_err(|error| error.to_string())?)
+            let (index, _) = build_index(input)?;
+            serde_json::json!(index.inspect()?)
         }
         "index.snapshotPlan" => {
             let input: BuildRequest = parse_input(request.input)?;
-            let (index, _) = build_index(&input)?;
-            serde_json::json!(index.snapshot_plan().map_err(|error| error.to_string())?)
+            let (index, _) = build_index(input)?;
+            serde_json::json!(index.snapshot_plan()?)
         }
         other => {
             return Err(runtime_core::SurfaceError::unsupported_operation(
@@ -78,29 +90,168 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
     })
 }
 
-fn build_index(
-    input: &BuildRequest,
-) -> Result<
-    (
-        TextIndex<HashedTextEmbedder, MemoryIndexStore>,
-        IndexMutationReport,
-    ),
-    String,
-> {
+enum SurfaceIndex {
+    Memory(TextIndex<HashedTextEmbedder, MemoryIndexStore>),
+    #[cfg(feature = "sqlite")]
+    Sqlite(TextIndex<HashedTextEmbedder, crate::SqliteIndexStore>),
+}
+
+impl SurfaceIndex {
+    fn backend_name(&self) -> &'static str {
+        match self {
+            Self::Memory(index) => index.store().backend_name(),
+            #[cfg(feature = "sqlite")]
+            Self::Sqlite(index) => index.store().backend_name(),
+        }
+    }
+
+    fn upsert_documents(
+        &mut self,
+        documents: &[IndexDocument],
+    ) -> Result<IndexMutationReport, String> {
+        match self {
+            Self::Memory(index) => index
+                .upsert_documents(documents)
+                .map_err(|error| error.to_string()),
+            #[cfg(feature = "sqlite")]
+            Self::Sqlite(index) => index
+                .upsert_documents(documents)
+                .map_err(|error| error.to_string()),
+        }
+    }
+
+    fn remove_documents(&mut self, document_ids: &[String]) -> Result<IndexMutationReport, String> {
+        match self {
+            Self::Memory(index) => index
+                .remove_documents(document_ids)
+                .map_err(|error| error.to_string()),
+            #[cfg(feature = "sqlite")]
+            Self::Sqlite(index) => index
+                .remove_documents(document_ids)
+                .map_err(|error| error.to_string()),
+        }
+    }
+
+    fn search(&self, query: &IndexQuery) -> Result<Vec<IndexSearchResult>, String> {
+        match self {
+            Self::Memory(index) => index.search(query).map_err(|error| error.to_string()),
+            #[cfg(feature = "sqlite")]
+            Self::Sqlite(index) => index.search(query).map_err(|error| error.to_string()),
+        }
+    }
+
+    fn inspect(&self) -> Result<IndexInspectReport, String> {
+        match self {
+            Self::Memory(index) => index.inspect().map_err(|error| error.to_string()),
+            #[cfg(feature = "sqlite")]
+            Self::Sqlite(index) => index.inspect().map_err(|error| error.to_string()),
+        }
+    }
+
+    fn snapshot_plan(&self) -> Result<IndexSnapshotPlan, String> {
+        match self {
+            Self::Memory(index) => index.snapshot_plan().map_err(|error| error.to_string()),
+            #[cfg(feature = "sqlite")]
+            Self::Sqlite(index) => index.snapshot_plan().map_err(|error| error.to_string()),
+        }
+    }
+}
+
+fn build_index(input: BuildRequest) -> Result<(SurfaceIndex, IndexMutationReport), String> {
+    let documents = input.documents;
+    let mut index = open_configured_index(input.backend, input.options, input.dimensions)?;
+    let report = index.upsert_documents(&documents)?;
+    Ok((index, report))
+}
+
+fn open_index(backend: BackendRequest) -> Result<SurfaceIndex, String> {
+    open_configured_index(backend, IndexBuildOptions::default(), default_dimensions())
+}
+
+fn open_configured_index(
+    backend: BackendRequest,
+    mut options: IndexBuildOptions,
+    dimensions: usize,
+) -> Result<SurfaceIndex, String> {
+    let backend_kind = backend.kind();
+    options.commit = backend.commit.unwrap_or(options.commit);
     let embedder = HashedTextEmbedder::new(
         TextEmbeddingConfig {
-            dimensions: input.dimensions.max(1),
+            dimensions: dimensions.max(1),
             use_idf: false,
         },
         CorpusOptions::default(),
     )
     .map_err(|error| error.to_string())?;
-    let mut index = TextIndex::with_store(embedder, MemoryIndexStore::new())
-        .with_options(input.options.clone());
-    let report = index
-        .upsert_documents(&input.documents)
-        .map_err(|error| error.to_string())?;
-    Ok((index, report))
+    match backend_kind.as_str() {
+        "memory" => Ok(SurfaceIndex::Memory(
+            TextIndex::with_store(embedder, MemoryIndexStore::new()).with_options(options),
+        )),
+        "sqlite" => open_sqlite_index(backend, embedder, options),
+        other => Err(format!(
+            "unsupported text-index backend `{other}`; expected `memory` or `sqlite`"
+        )),
+    }
+}
+
+#[cfg(feature = "sqlite")]
+fn open_sqlite_index(
+    backend: BackendRequest,
+    embedder: HashedTextEmbedder,
+    options: IndexBuildOptions,
+) -> Result<SurfaceIndex, String> {
+    let path = backend.path.ok_or_else(|| {
+        "SQLite text-index backend requires `path` plus `commit: true`".to_string()
+    })?;
+    if backend.commit != Some(true) {
+        return Err("SQLite text-index backend requires `commit: true`".to_string());
+    }
+    let store = crate::SqliteIndexStore::open(path, true).map_err(|error| error.to_string())?;
+    Ok(SurfaceIndex::Sqlite(
+        TextIndex::with_store(embedder, store).with_options(options),
+    ))
+}
+
+#[cfg(not(feature = "sqlite"))]
+fn open_sqlite_index(
+    backend: BackendRequest,
+    _embedder: HashedTextEmbedder,
+    _options: IndexBuildOptions,
+) -> Result<SurfaceIndex, String> {
+    if backend.path.is_none() || backend.commit != Some(true) {
+        return Err("SQLite text-index backend requires `path` plus `commit: true`".to_string());
+    }
+    Err("SQLite text-index backend is server-only and requires the `sqlite` feature".to_string())
+}
+
+fn remove_documents(input: RemoveRequest) -> Result<serde_json::Value, String> {
+    let backend_kind = input.backend.kind();
+    if backend_kind == "memory" {
+        return Ok(serde_json::json!({
+            "accepted": true,
+            "backend": "memory",
+            "documentIds": input.document_ids,
+            "commitRequiredForDurableWrites": true,
+            "report": {
+                "documentsReceived": 0,
+                "documentsReplaced": 0,
+                "documentsRemoved": 0,
+                "documentsSkipped": 0,
+                "chunksIndexed": 0,
+                "vectorsIndexed": 0
+            }
+        }));
+    }
+    let mut index = open_index(input.backend)?;
+    let report = index.remove_documents(&input.document_ids)?;
+    Ok(serde_json::json!({
+        "accepted": true,
+        "backend": index.backend_name(),
+        "documentIds": input.document_ids,
+        "commitRequiredForDurableWrites": true,
+        "report": report,
+        "inspect": index.inspect()?
+    }))
 }
 
 fn describe_value(input: serde_json::Value) -> serde_json::Value {
@@ -129,7 +280,8 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
             "Built a transient in-memory text index from the provided documents.",
             serde_json::json!({
                 "status": "ok",
-                "documentsUpserted": value["report"]["documentsUpserted"],
+                "documentsReceived": value["report"]["documentsReceived"],
+                "documentsReplaced": value["report"]["documentsReplaced"],
                 "chunkCount": value["inspect"]["chunkCount"],
                 "vectorCount": value["inspect"]["vectorCount"]
             }),
@@ -199,6 +351,8 @@ struct BuildRequest {
     options: IndexBuildOptions,
     #[serde(default = "default_dimensions")]
     dimensions: usize,
+    #[serde(flatten)]
+    backend: BackendRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -210,18 +364,102 @@ struct SearchRequest {
     options: IndexBuildOptions,
     #[serde(default = "default_dimensions")]
     dimensions: usize,
+    #[serde(flatten)]
+    backend: BackendRequest,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RemoveRequest {
     document_ids: Vec<String>,
+    #[serde(flatten)]
+    backend: BackendRequest,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenRequest {
+    #[serde(flatten)]
+    backend: BackendRequest,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BackendRequest {
+    #[serde(default = "default_backend")]
+    backend: String,
+    #[serde(default)]
+    path: Option<PathBuf>,
+    #[serde(default)]
+    commit: Option<bool>,
+}
+
+impl BackendRequest {
+    fn kind(&self) -> String {
+        self.backend.trim().to_ascii_lowercase()
+    }
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
     serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
 }
 
+fn default_backend() -> String {
+    "memory".to_string()
+}
+
 fn default_dimensions() -> usize {
     128
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use runtime_core::OperationId;
+
+    fn request(operation: &str, input: serde_json::Value) -> SurfaceRequest {
+        SurfaceRequest {
+            operation: OperationId::new(operation),
+            input,
+        }
+    }
+
+    #[test]
+    fn sqlite_backend_requires_explicit_path_and_commit() {
+        let error = run_surface_operation(request(
+            "index.build",
+            serde_json::json!({
+                "backend": "sqlite",
+                "documents": [{"id": "doc-1", "body": "SQLite requires explicit writes."}]
+            }),
+        ))
+        .expect_err("sqlite must not write without explicit path and commit");
+        assert!(error.contains("SQLite text-index backend"));
+    }
+
+    #[cfg(feature = "sqlite")]
+    #[test]
+    fn sqlite_backend_builds_when_path_and_commit_are_explicit() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("text-index.sqlite");
+        let response = run_surface_operation(request(
+            "index.build",
+            serde_json::json!({
+                "backend": "sqlite",
+                "path": path,
+                "commit": true,
+                "documents": [{"id": "doc-1", "body": "SQLite text indexes persist chunks."}]
+            }),
+        ))
+        .expect("sqlite build");
+        assert_eq!(response.value["summary"]["status"], serde_json::json!("ok"));
+        assert_eq!(
+            response.value["result"]["backend"],
+            serde_json::json!("sqlite")
+        );
+        assert_eq!(
+            response.value["result"]["inspect"]["documentCount"],
+            serde_json::json!(1)
+        );
+    }
 }

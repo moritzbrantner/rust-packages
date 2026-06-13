@@ -7,6 +7,9 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use text_embeddings::{HashedTextEmbedder, TextEmbedderBackend, TextEmbeddingConfig};
+use text_index::{
+    IndexBuildOptions, IndexDocument, IndexQuery, IndexSearchResult, MemoryIndexStore, TextIndex,
+};
 #[cfg(feature = "local-onnx")]
 use text_model_runtime::{OnnxQuestionAnswerer, QuestionAnsweringDecodeOptions};
 use text_model_runtime::{QuestionAnsweringBackend, TextRuntimeBackend};
@@ -279,6 +282,59 @@ pub struct RetrievalQuestionAnsweringResponse {
     pub runtime: QuestionAnsweringRuntime,
     /// Retrieved chunks.
     pub retrieved_chunks: Vec<SearchResult>,
+    /// Cited answers.
+    pub answers: Vec<CitedAnswer>,
+}
+
+/// Request for `text-index`-backed question answering.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextIndexQuestionAnsweringRequest {
+    /// Question text.
+    pub question: String,
+    /// Documents used to build a transient deterministic text index.
+    #[serde(default)]
+    pub documents: Vec<IndexDocument>,
+    /// Text index build options.
+    #[serde(default)]
+    pub index_options: IndexBuildOptions,
+    /// Hashed embedding dimensions for the transient index.
+    #[serde(default = "default_embedding_dimensions")]
+    pub embedding_dimensions: usize,
+    /// Retrieved chunk count.
+    #[serde(default = "default_top_k_chunks")]
+    pub top_k_chunks: usize,
+    /// Answer count.
+    #[serde(default = "default_top_k")]
+    pub top_k_answers: usize,
+    /// Imported span predictions mapped back to indexed chunks.
+    #[serde(default)]
+    pub imported_predictions: Vec<ImportedAnswerPrediction>,
+    /// Model selection for backend execution.
+    #[serde(default)]
+    pub model: ModelSelection,
+    /// Local model configuration for default native execution.
+    #[serde(default)]
+    pub local_model: Option<QuestionAnsweringLocalModelOptions>,
+    /// Fallback policy when native execution is unavailable.
+    #[serde(default)]
+    pub fallback_policy: Option<QuestionAnsweringFallbackPolicy>,
+}
+
+/// Response for `text-index`-backed question answering.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextIndexQuestionAnsweringResponse {
+    /// Accepted flag for generated package surfaces.
+    pub accepted: bool,
+    /// Operation name.
+    pub operation: String,
+    /// Question text.
+    pub question: String,
+    /// Runtime used for answer extraction.
+    pub runtime: QuestionAnsweringRuntime,
+    /// Retrieved text-index chunks.
+    pub retrieved_chunks: Vec<IndexSearchResult>,
     /// Cited answers.
     pub answers: Vec<CitedAnswer>,
 }
@@ -618,6 +674,96 @@ pub fn answer_question_with_retrieval_index<B: TextEmbedderBackend>(
     })
 }
 
+/// Answers a question by building a deterministic memory `TextIndex` from documents.
+pub fn answer_question_with_text_index(
+    request: TextIndexQuestionAnsweringRequest,
+) -> Result<TextIndexQuestionAnsweringResponse> {
+    let mut context = QuestionAnsweringExecutionContext::default();
+    answer_question_with_text_index_context(request, &mut context)
+}
+
+/// Answers a `text-index`-backed question with an optional QA backend.
+pub fn answer_question_with_text_index_context(
+    request: TextIndexQuestionAnsweringRequest,
+    context: &mut QuestionAnsweringExecutionContext<'_>,
+) -> Result<TextIndexQuestionAnsweringResponse> {
+    ensure_non_empty(&request.question, "question")?;
+    if request.documents.is_empty() {
+        return Err(DetectError::InvalidArgument(
+            "text-index QA request must include documents".to_string(),
+        ));
+    }
+    let top_k_chunks = request.top_k_chunks.max(1);
+    let embedder = HashedTextEmbedder::new(
+        TextEmbeddingConfig {
+            dimensions: request.embedding_dimensions.max(1),
+            use_idf: false,
+        },
+        text_lexical::CorpusOptions::default(),
+    )?;
+    let mut index = TextIndex::with_store(embedder, MemoryIndexStore::new())
+        .with_options(request.index_options.clone());
+    index
+        .upsert_documents(&request.documents)
+        .map_err(|error| DetectError::Source(error.to_string()))?;
+    let retrieved_chunks = index
+        .search(&IndexQuery::new(request.question.clone(), top_k_chunks))
+        .map_err(|error| DetectError::Source(error.to_string()))?;
+    if retrieved_chunks.is_empty() {
+        return Ok(TextIndexQuestionAnsweringResponse {
+            accepted: true,
+            operation: "text-index-question-answer".to_string(),
+            question: request.question,
+            runtime: QuestionAnsweringRuntime::Heuristic,
+            retrieved_chunks,
+            answers: Vec::new(),
+        });
+    }
+    let context_text = retrieved_chunks
+        .iter()
+        .map(|chunk| chunk.snippet.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let qa_response = if context.qa.is_some() && request.imported_predictions.is_empty() {
+        answer_question_with_context(
+            QuestionAnsweringRequest {
+                question: request.question.clone(),
+                context: context_text,
+                top_k: request.top_k_answers,
+                model: request.model.clone(),
+                imported_predictions: Vec::new(),
+                local_model: request.local_model.clone(),
+                fallback_policy: request.fallback_policy,
+            },
+            context,
+        )?
+    } else {
+        answer_question(QuestionAnsweringRequest {
+            question: request.question.clone(),
+            context: context_text,
+            top_k: request.top_k_answers,
+            model: request.model.clone(),
+            imported_predictions: request.imported_predictions.clone(),
+            local_model: request.local_model.clone(),
+            fallback_policy: request.fallback_policy,
+        })?
+    };
+    let runtime = qa_response.runtime;
+    let answers = qa_response
+        .answers
+        .into_iter()
+        .map(|answer| cited_index_answer_from_prediction(answer, &retrieved_chunks))
+        .collect::<Vec<_>>();
+    Ok(TextIndexQuestionAnsweringResponse {
+        accepted: true,
+        operation: "text-index-question-answer".to_string(),
+        question: request.question,
+        runtime,
+        retrieved_chunks,
+        answers,
+    })
+}
+
 /// Returns preset ids registered for question answering.
 pub fn registered_question_answering_presets() -> Vec<String> {
     model_catalog().into_iter().map(|model| model.id).collect()
@@ -629,6 +775,10 @@ fn default_top_k() -> usize {
 
 fn default_top_k_chunks() -> usize {
     5
+}
+
+fn default_embedding_dimensions() -> usize {
+    64
 }
 
 fn ensure_non_empty(value: &str, name: &str) -> Result<()> {
@@ -793,7 +943,54 @@ fn cited_answer_from_prediction(answer: AnswerPrediction, chunks: &[SearchResult
     }
 }
 
+fn cited_index_answer_from_prediction(
+    answer: AnswerPrediction,
+    chunks: &[IndexSearchResult],
+) -> CitedAnswer {
+    let citations = citations_for_index_answer(&answer.answer, chunks);
+    CitedAnswer {
+        answer: answer.answer,
+        score: answer.score,
+        span: answer.span,
+        citations,
+    }
+}
+
 fn citations_for_answer(answer: &str, chunks: &[SearchResult]) -> Vec<AnswerCitation> {
+    let mut citations = chunks
+        .iter()
+        .filter_map(|chunk| {
+            let span = find_span(&chunk.snippet, answer);
+            if span.is_none() && !answer.trim().is_empty() && !chunk.snippet.contains(answer.trim())
+            {
+                return None;
+            }
+            Some(AnswerCitation {
+                document_id: chunk.document_id.clone(),
+                chunk_id: chunk.chunk_id.clone(),
+                snippet: chunk.snippet.clone(),
+                score: chunk.score,
+                span,
+            })
+        })
+        .collect::<Vec<_>>();
+    if citations.is_empty() {
+        citations = chunks
+            .iter()
+            .take(1)
+            .map(|chunk| AnswerCitation {
+                document_id: chunk.document_id.clone(),
+                chunk_id: chunk.chunk_id.clone(),
+                snippet: chunk.snippet.clone(),
+                score: chunk.score,
+                span: None,
+            })
+            .collect();
+    }
+    citations
+}
+
+fn citations_for_index_answer(answer: &str, chunks: &[IndexSearchResult]) -> Vec<AnswerCitation> {
     let mut citations = chunks
         .iter()
         .filter_map(|chunk| {
@@ -1006,6 +1203,45 @@ mod tests {
         assert_eq!(response.answers[0].answer, "Rust");
         assert_eq!(response.answers[0].citations[0].document_id, "doc-rust");
         assert!(response.answers[0].citations[0].span.is_some());
+    }
+
+    #[test]
+    fn imported_text_index_qa_prediction_maps_to_chunk_citation() {
+        let response = answer_question_with_text_index(TextIndexQuestionAnsweringRequest {
+            question: "What has ownership?".to_string(),
+            documents: vec![IndexDocument::new(
+                "doc-rust",
+                "Rust has ownership and deterministic package workflows.",
+            )],
+            index_options: IndexBuildOptions {
+                chunk_tokens: 8,
+                chunk_overlap_tokens: 0,
+                ..IndexBuildOptions::default()
+            },
+            embedding_dimensions: 32,
+            top_k_chunks: 1,
+            top_k_answers: 1,
+            imported_predictions: vec![ImportedAnswerPrediction {
+                kind: None,
+                label: None,
+                text: Some("Rust".to_string()),
+                score: 0.9,
+                attributes: BTreeMap::new(),
+            }],
+            model: ModelSelection::default(),
+            local_model: None,
+            fallback_policy: None,
+        })
+        .expect("text-index qa");
+
+        assert_eq!(
+            response.runtime,
+            QuestionAnsweringRuntime::ImportedPredictions
+        );
+        assert_eq!(response.answers[0].answer, "Rust");
+        assert_eq!(response.answers[0].citations[0].document_id, "doc-rust");
+        assert!(response.answers[0].citations[0].span.is_some());
+        assert_eq!(response.retrieved_chunks[0].document_id, "doc-rust");
     }
 
     #[test]

@@ -94,6 +94,16 @@ fn selected_text_cli_surfaces_passthrough_library_operations() {
         .as_array()
         .unwrap()
         .is_empty());
+    let sqlite_index = text_index_cli::run_operation(
+        "index.build",
+        serde_json::json!({
+            "backend": "sqlite",
+            "documents": [{"id": "doc-1", "body": "Rust text index search."}]
+        }),
+    );
+    assert!(sqlite_index
+        .expect_err("default text-index CLI must reject SQLite without explicit feature support")
+        .contains("SQLite text-index backend"));
 
     let analysis = text_analysis_cli::run_operation(
         "analysis.document",
@@ -155,6 +165,37 @@ fn selected_text_cli_surfaces_passthrough_library_operations() {
     .expect("text question answering cli");
     assert_eq!(qa.value["operation"], "qa.answer");
     assert!(!qa.value["result"]["answers"].as_array().unwrap().is_empty());
+
+    let indexed_qa = text_question_answering_cli::run_operation(
+        "qa.answerWithIndex",
+        serde_json::json!({
+            "question": "What language has ownership?",
+            "documents": [
+                {
+                    "id": "doc-rust",
+                    "body": "Rust has ownership and deterministic package workflows.",
+                    "language": "en"
+                }
+            ],
+            "indexOptions": {
+                "chunkingStrategy": "tokenWindow",
+                "chunkTokens": 16,
+                "chunkOverlapTokens": 0,
+                "storeRawText": true
+            },
+            "topKChunks": 2,
+            "topKAnswers": 1,
+            "localModel": { "autoDownload": false },
+            "fallbackPolicy": "heuristicIfUnavailable"
+        }),
+    )
+    .expect("text question answering indexed cli");
+    assert_eq!(indexed_qa.value["operation"], "qa.answerWithIndex");
+    assert_eq!(indexed_qa.value["summary"]["backend"], "text-index");
+    assert_eq!(
+        indexed_qa.value["result"]["answers"][0]["citations"][0]["documentId"],
+        "doc-rust"
+    );
 
     let transcripts = text_transcripts_cli::run_operation(
         "transcripts.formatSrt",
@@ -334,6 +375,15 @@ fn selected_text_server_surfaces_passthrough_library_operations() {
         .as_array()
         .unwrap()
         .is_empty());
+
+    let indexed_qa = text_question_answering_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"qa.answerWithIndex","input":{"question":"What language has ownership?","documents":[{"id":"doc-rust","body":"Rust has ownership and deterministic package workflows.","language":"en"}],"indexOptions":{"chunkingStrategy":"tokenWindow","chunkTokens":16,"chunkOverlapTokens":0,"storeRawText":true},"topKChunks":2,"topKAnswers":1,"localModel":{"autoDownload":false},"fallbackPolicy":"heuristicIfUnavailable"}}"#,
+    );
+    assert_eq!(indexed_qa.status_code, 200);
+    assert!(indexed_qa.body.contains("qa.answerWithIndex"));
+    assert!(indexed_qa.body.contains("doc-rust"));
 
     let transcripts = text_transcripts_server::response_for(
         "POST",

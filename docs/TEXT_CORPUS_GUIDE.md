@@ -5,7 +5,7 @@ examples are deterministic and local-only.
 
 ## Benchmarking Corpus Workflows
 
-The text package apps include a `Benchmarks` result tab for local browser WASM timing. Scenarios cover tokenization, lexical keyword extraction, semantic and hybrid search, document reports, corpus reports, linguistic analysis, fallback classification, imported-span QA, generation, and transcript parsing.
+The text package apps include a `Benchmarks` result tab for local browser WASM timing. Scenarios cover tokenization, lexical keyword extraction, semantic and hybrid search, document reports, corpus reports, linguistic analysis, fallback classification, imported-span QA, indexed cited QA, generation, and transcript parsing.
 
 Run all browser text scenarios from the root:
 
@@ -39,14 +39,21 @@ embeddings from `text-embeddings`. It is useful for local semantic similarity
 without model downloads or native inference.
 
 `TextIndex` from `text-index` is the durable searchable representation of a
-text corpus. It owns deterministic chunking, stored vectors, lexical state,
-semantic facets, analysis attachments, metadata/source/time/provenance filters,
-and memory or SQLite-backed persistence. Use it for large local corpora and new
-index/search development.
+text corpus. It owns generic ingestion from text contracts and `TextCorpus`,
+deterministic chunking, stored vectors, lexical state, semantic facets, analysis
+attachments, metadata/source/time/provenance filters, and memory or
+SQLite-backed persistence. Use it for large local corpora and new index/search
+development.
 
 `RetrievalIndex` is a chunked, metadata-aware retrieval index from
-`text-retrieval`. It remains available for compatibility and reranking
-workflows, but durable index ownership is moving to `text-index`.
+`text-retrieval`. It remains available for soft-legacy compatibility,
+persisted retrieval snapshot import, and reranking workflows, but new durable
+index/search development belongs in `text-index`.
+
+Package surfaces stay request-scoped: CLI/server/WASM/app operations build
+their transient indexes from each request. Server sessions and open index
+handles are out of scope; durable writes use explicit backend/path/commit
+fields where supported.
 
 `CorpusAnalysisReport` is analysis output from `text-analysis`. It is not a
 stored corpus. It reports corpus stats, per-document analysis, lexical search

@@ -15,7 +15,7 @@ use text_core::{
 use text_embeddings::{
     DenseVector, EmbeddingModelInfo, HashedTextEmbedder, TextEmbedderBackend, TextEmbeddingConfig,
 };
-use text_lexical::{Bm25Corpus, Bm25Options, CorpusOptions};
+use text_lexical::{Bm25Corpus, Bm25Options, CorpusOptions, TextCorpus, TextCorpusDocument};
 use thiserror::Error;
 use vector_analysis_index::{
     VectorRecord, VectorRecordId, VectorRecordMetadata, VectorSearchIndex,
@@ -92,7 +92,12 @@ impl IndexDocument {
             language: document.language.clone(),
             metadata: IndexDocumentMetadata {
                 attributes: document.attributes.clone(),
-                source: document.source.clone(),
+                source: source_with_timestamp(
+                    document.source.clone(),
+                    document.timestamp,
+                    "text_document",
+                    None,
+                ),
                 provenance: document.provenance.clone(),
                 annotations: document.annotations.clone(),
             },
@@ -104,6 +109,59 @@ impl IndexDocument {
     pub fn from_text_segment_contract(segment: &TextSegmentContract) -> Self {
         let contract = segment.to_text_document_contract();
         Self::from_text_document_contract(&contract)
+    }
+
+    pub fn from_text_corpus_document(document: &TextCorpusDocument) -> Self {
+        Self {
+            id: document.id.clone(),
+            title: None,
+            body: document.text.clone(),
+            language: document.language.clone(),
+            metadata: IndexDocumentMetadata {
+                attributes: document.metadata.clone(),
+                source: source_with_timestamp(
+                    document.source.clone(),
+                    document.timestamp,
+                    "text_corpus_document",
+                    None,
+                ),
+                provenance: document.provenance.clone(),
+                annotations: document.annotations.clone(),
+            },
+            analysis_attachments: Vec::new(),
+            semantic_facets: Vec::new(),
+        }
+    }
+
+    pub fn from_text_corpus(corpus: &TextCorpus) -> Vec<Self> {
+        corpus
+            .documents
+            .iter()
+            .map(Self::from_text_corpus_document)
+            .collect()
+    }
+}
+
+fn source_with_timestamp(
+    source: Option<TextSourceRef>,
+    timestamp: Option<TimestampContract>,
+    default_kind: &str,
+    source_id: Option<String>,
+) -> Option<TextSourceRef> {
+    match (source, timestamp) {
+        (Some(mut source), Some(timestamp)) => {
+            source.media_timestamp.get_or_insert(timestamp);
+            Some(source)
+        }
+        (source @ Some(_), None) => source,
+        (None, Some(timestamp)) => Some(TextSourceRef {
+            source_id,
+            source_kind: Some(default_kind.to_string()),
+            uri: None,
+            media_timestamp: Some(timestamp),
+            duration_seconds: None,
+        }),
+        (None, None) => None,
     }
 }
 
@@ -1043,7 +1101,7 @@ impl TextIndexStore for SqliteIndexStore {
     }
 }
 
-fn validate_document(document: &IndexDocument) -> Result<()> {
+pub fn validate_index_document(document: &IndexDocument) -> Result<()> {
     if document.id.trim().is_empty() {
         return Err(TextIndexError::InvalidArgument(
             "document id must not be empty".to_string(),
@@ -1057,7 +1115,7 @@ fn validate_document(document: &IndexDocument) -> Result<()> {
     Ok(())
 }
 
-fn validate_build_options(options: &IndexBuildOptions) -> Result<()> {
+pub fn validate_index_build_options(options: &IndexBuildOptions) -> Result<()> {
     if options.chunk_tokens == 0 {
         return Err(TextIndexError::InvalidArgument(
             "chunk token size must be greater than zero".to_string(),
@@ -1069,6 +1127,14 @@ fn validate_build_options(options: &IndexBuildOptions) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn validate_document(document: &IndexDocument) -> Result<()> {
+    validate_index_document(document)
+}
+
+fn validate_build_options(options: &IndexBuildOptions) -> Result<()> {
+    validate_index_build_options(options)
 }
 
 fn validate_query(query: &IndexQuery) -> Result<()> {

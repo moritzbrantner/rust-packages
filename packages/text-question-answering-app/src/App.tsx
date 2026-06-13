@@ -16,13 +16,13 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "qa.answer",
-  featuredOperations: ["qa.answer", "qa.answerWithRetrieval", "qa.answerBatch", "qa.models", "describe"],
+  featuredOperations: ["qa.answer", "qa.answerWithIndex", "qa.answerWithRetrieval", "qa.answerBatch", "qa.models", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
       description: "Run extractive question-answering and document QA workflows.",
-      operations: ["qa.answer", "qa.answerWithRetrieval", "qa.answerBatch"],
+      operations: ["qa.answer", "qa.answerWithIndex", "qa.answerWithRetrieval", "qa.answerBatch"],
     },
     {
       id: "debug",
@@ -57,10 +57,38 @@ const packageAppConfig: PackageAppConfig = {
       },
     },
     {
+      id: "index-answer",
+      label: "Answer from index",
+      operation: "qa.answerWithIndex",
+      description: "Build a deterministic Text Index and return cited answers.",
+      input: {
+        question: "What language has ownership?",
+        documents: [
+          {
+            id: "doc-rust",
+            body: "Rust has ownership and deterministic package workflows.",
+            language: "en",
+            metadata: { attributes: { kind: "language" } },
+          },
+          { id: "doc-python", body: "Python has a large package ecosystem.", language: "en" },
+        ],
+        indexOptions: {
+          chunkingStrategy: "tokenWindow",
+          chunkTokens: 16,
+          chunkOverlapTokens: 0,
+          storeRawText: true,
+        },
+        topKChunks: 2,
+        topKAnswers: 1,
+        localModel: { autoDownload: false },
+        fallbackPolicy: "heuristicIfUnavailable",
+      },
+    },
+    {
       id: "retrieval-answer",
-      label: "Answer from documents",
+      label: "Answer from retrieval",
       operation: "qa.answerWithRetrieval",
-      description: "Build a deterministic retrieval index and return cited answers.",
+      description: "Use the compatibility retrieval index and return cited answers.",
       input: {
         question: "What language has ownership?",
         documents: [
@@ -102,6 +130,28 @@ const packageAppConfig: PackageAppConfig = {
       outputCountPath: ["answers"],
     },
     {
+      id: "index-answer",
+      label: "Indexed Answer",
+      operation: "qa.answerWithIndex",
+      input: {
+        question: "What language has ownership?",
+        documents: [{ id: "doc-rust", body: "Rust has ownership and deterministic package workflows.", language: "en" }],
+        indexOptions: {
+          chunkingStrategy: "tokenWindow",
+          chunkTokens: 16,
+          chunkOverlapTokens: 0,
+          storeRawText: true,
+        },
+        topKChunks: 2,
+        topKAnswers: 1,
+        localModel: { autoDownload: false },
+        fallbackPolicy: "heuristicIfUnavailable",
+      },
+      iterations: 80,
+      warmupIterations: 5,
+      outputCountPath: ["answers"],
+    },
+    {
       id: "retrieval-answer",
       label: "Retrieval Answer",
       operation: "qa.answerWithRetrieval",
@@ -126,12 +176,19 @@ const packageAppConfig: PackageAppConfig = {
         objectFields: ["model", "result"],
         explanation: () => "The current browser-safe workflow postprocesses supplied extractive span predictions and reports question, answer, score, span, and runtime metadata.",
       },
+      "qa.answerWithIndex": {
+        title: "Indexed QA",
+        summaryFields: ["retrievedChunkCount", "answerCount"],
+        listFields: ["answers", "retrievedChunks"],
+        objectFields: ["result"],
+        explanation: () => "The workflow builds a deterministic in-memory Text Index from supplied documents and returns cited answers.",
+      },
       "qa.answerWithRetrieval": {
         title: "Retrieval QA",
         summaryFields: ["retrievedChunkCount", "answerCount"],
         listFields: ["answers", "retrievedChunks"],
         objectFields: ["result"],
-        explanation: () => "The workflow builds a deterministic in-memory retrieval index from supplied documents and returns cited answers.",
+        explanation: () => "The workflow builds a deterministic in-memory compatibility retrieval index from supplied documents and returns cited answers.",
       },
       "qa.answerBatch": {
         title: "Batch QA",

@@ -139,7 +139,7 @@ model, execution planner, or runtime placement contract.
 The text crate surfaces now expose deterministic, local-first operations for
 core statistics/tokenization/boundaries, lexical analysis and corpus search,
 linguistic analysis/entity projection, hashed embeddings and transient search,
-in-memory retrieval, durable memory/SQLite text indexing, transcript parsing/formatting, fallback/imported NLP
+soft-legacy compatibility retrieval, durable memory/SQLite text indexing, transcript parsing/formatting, fallback/imported NLP
 tasks, Markov/template generation, generation-from-linguistics adapters, and
 runtime helpers. `runtime.onnxQaProbe`, `runtime.downloadBundle`, and
 `qa.answer` without imported predictions/backend are native server-side model
@@ -151,9 +151,13 @@ write retrieval persistence files through default surface calls outside the
 documented model-backed operation exceptions.
 
 `moritzbrantner-text-index` owns the `index.*` operation family. Package
-examples are transient/dry-run by default. SQLite writes require a caller
+examples are transient/dry-run by default, and package surfaces are
+request-scoped: CLI/server/WASM/app operations do not create durable server-side
+index sessions or return open index handles. SQLite writes require a caller
 provided path plus `commit: true`; browser/WASM adapters report SQLite
 persistence as unsupported diagnostics rather than performing hidden writes.
+`qa.answerWithIndex` is the primary text-index path for new cited document QA;
+`qa.answerWithRetrieval` remains available for soft-legacy compatibility.
 
 Text package operations declare release contract metadata in their
 `SurfaceOperation` schemas. Top-level request fields are explicit
@@ -279,11 +283,11 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-text-lexical` | Lexical features and classical corpus statistics | `moritzbrantner-text-core`, `moritzbrantner-math-sparse-data`, `moritzbrantner-video-analysis-core`, `serde` | Stop words, keywords, n-grams, shingles, readability, stemming, extractive summaries, sentiment, reusable text analyzers, TF-IDF, BM25, sparse term matrices/vectors | Applications, text analytics, semantic indexing |
 | `moritzbrantner-text-linguistics` | Local model-backed linguistic interpretation | `moritzbrantner-jobs-core`, `moritzbrantner-model-runtime`, `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-text-transcripts`, `moritzbrantner-video-analysis-core`, optional `tokenizers`/Candle crates | Language detection, tokenizer routing/alignment, lemmatization, POS/morphology, chunks, dependencies, local model named entities, jobs-backed model materialization, rule entity fallback, coreference, relations, events, discourse, topics, style, `TextAnalyzer` adapter | Applications, text pipelines, transcript analysis |
 | `moritzbrantner-text-embeddings` | Embedding traits and lightweight semantic text analysis | `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-math-sparse-data`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-vector-analysis-index`, `moritzbrantner-video-analysis-core`, optional `tokenizers`/`runtime-onnx`/Candle crates | `TextEmbeddingBackend`, `TextEmbedderBackend`, `EmbeddingModelInfo`, hashed dense/sparse embeddings, optional ONNX/Candle text embedders, semantic indexes, text similarity, co-occurrence graphs, related-term scoring | Retrieval, applications, semantic analysis prototypes |
-| `moritzbrantner-text-retrieval` | Text ingestion, search, and persisted retrieval indexes | `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-text-embeddings`, `moritzbrantner-vector-analysis-index`, `serde`, `serde_json`, `thiserror`, `moritzbrantner-video-analysis-core` | Search documents/chunks, chunking options, full-text/semantic/hybrid query/ranking, metadata filters, search results, related-chunk lookup, manifests, chunk/vector JSONL snapshots, corpus metadata, rehydration helpers | Applications, search prototypes, local retrieval snapshots |
+| `moritzbrantner-text-retrieval` | Soft-legacy retrieval compatibility and reranking | `moritzbrantner-text-core`, `moritzbrantner-text-lexical`, `moritzbrantner-text-embeddings`, `moritzbrantner-vector-analysis-index`, `serde`, `serde_json`, `thiserror`, `moritzbrantner-video-analysis-core` | `RetrievalIndex` compatibility APIs, search documents/chunks, full-text/semantic/hybrid query/ranking for older callers, metadata filters, search results, related-chunk lookup, persisted retrieval snapshot DTOs, snapshot import helpers, and reranking | Existing search prototypes, compatibility adapters, reranking workflows |
 | `moritzbrantner-text-generation` | Deterministic text prediction and synthesis | `moritzbrantner-data-inversion-core`, `moritzbrantner-text-core`, `moritzbrantner-video-analysis-core` | Token Markov chains, next-token predictions, deterministic generation, perplexity scoring, weighted term prompts, generated text segments | Applications, text pipelines, prototyping |
 | `moritzbrantner-text-generation-linguistics` | Linguistic adapters for deterministic generation | `moritzbrantner-data-inversion-core`, `moritzbrantner-text-core`, `moritzbrantner-text-generation`, `moritzbrantner-text-linguistics`, `moritzbrantner-video-analysis-core` | Linguistic-analysis term prompts, analysis-to-document synthesis, and Markov training modes for surface, normalized, lemma, and entity-aware tokens | Applications, text pipelines, prototyping |
 | `moritzbrantner-text-model-runtime` | Text model runtime helper contracts | `moritzbrantner-video-analysis-core`, optional `moritzbrantner-model-runtime`/tokenizer/inference backends | Tokenization summaries, softmax helpers, text runtime request DTOs, non-executing local model helpers | Text model-backed crates, CLI model utilities, package UI runtime probes |
-| `moritzbrantner-text-question-answering` | Question answering surface contracts | `moritzbrantner-text-model-runtime`, `moritzbrantner-video-analysis-core` | QA model presets, question/context request DTOs, answer span responses, deterministic lexical fallback answers | Applications adding local-first question answering over documents and transcripts |
+| `moritzbrantner-text-question-answering` | Question answering surface contracts | `moritzbrantner-text-index`, `moritzbrantner-text-retrieval`, `moritzbrantner-text-model-runtime`, `moritzbrantner-video-analysis-core` | QA model presets, question/context request DTOs, answer span responses, primary text-index cited document QA, soft-legacy compatibility retrieval-backed cited QA, and deterministic lexical fallback answers | Applications adding local-first question answering over documents and transcripts |
 | `moritzbrantner-text-transcripts` | Reusable transcript parsing and ASR command wrappers | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-io`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, waveform-batch transcription bridge, text segment source adapter | Use cases, applications, text pipelines |
 | `moritzbrantner-dense-data` | Generic dense point aggregation and clustering | `moritzbrantner-numbers-core`, `moritzbrantner-math-linear`, `moritzbrantner-math-statistics`, `moritzbrantner-video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, per-dimension summaries, bounds, fixed-grid buckets, deterministic k-means clusters, covariance, and PCA helpers | Tables, graphs, charts, maps, media features, and analytics workflows |
 | `moritzbrantner-geo-core` | Geospatial domain contracts and transforms | `moritzbrantner-video-analysis-core`, `serde` | Coordinates, bounding boxes, feature records, geometry transforms, distance and bounds utilities | Map views, location-aware reports, and future geospatial analytics workflows |
@@ -569,9 +573,11 @@ cases and model adapters.
   backed by `moritzbrantner-math-sparse-data`. Optional native embedding runtimes now live
   here through `OnnxTextEmbedder` and `CandleTextEmbedder`; model acquisition
   uses `moritzbrantner-model-runtime`.
-- `moritzbrantner-text-retrieval` owns `SearchDocument`, `DocumentChunk`, `RetrievalIndex`,
-  `SearchQuery`, `SearchFilter`, `HybridConfig`, `SearchResult`, retrieval
-  manifests, persisted chunk/vector JSONL snapshots, and index rehydration.
+- `moritzbrantner-text-retrieval` keeps `SearchDocument`, `DocumentChunk`,
+  `RetrievalIndex`, `SearchQuery`, `SearchFilter`, `HybridConfig`,
+  `SearchResult`, retrieval manifests, persisted chunk/vector JSONL snapshots,
+  and index rehydration as soft-legacy compatibility plus reranking surfaces.
+  New durable ingestion/search concepts belong to `moritzbrantner-text-index`.
 - `moritzbrantner-text-transcripts` owns `TranscriptFormat`, `TranscriptSegment`,
   `TranscriptSegmentContract`, `TranscriptionResult`, `TranscriptionContract`,
   `Transcriber`, `CommandTranscriber`, `WhisperCliTranscriber`,

@@ -26,14 +26,20 @@ the request disables `auto_download`.
 - Primary workflow: `qa.answer` postprocesses imported extractive QA spans when
   supplied, uses a caller backend when provided, otherwise runs the default
   local ONNX QA model on native server/CLI builds with `local-onnx`.
-- Workflow operations: `qa.answer`, `qa.answerWithRetrieval`, and
-  `qa.answerBatch`.
+- Primary cited document-QA path: `qa.answerWithIndex` builds a deterministic
+  request-scoped in-memory `TextIndex` and returns cited extractive answers.
+- Compatibility cited document-QA path: `qa.answerWithRetrieval` keeps the
+  soft-legacy compatibility `RetrievalIndex` workflow available for existing
+  consumers.
+- Workflow operations: `qa.answer`, `qa.answerWithIndex`,
+  `qa.answerWithRetrieval`, and `qa.answerBatch`.
 - Debug operations: `qa.models` inspects the model catalog, and `describe`
   inspects package metadata and operation support.
 - Runtime support: imported/fallback behavior is available through library,
   CLI, server, and WASM wrappers. Local ONNX execution is server/CLI-only.
 - Sample output includes `title`, `message`, `summary`, `result`, and
-  operation-specific answer, citation, batch-result, and retrieval fields.
+  operation-specific answer, citation, batch-result, indexed chunk, and
+  compatibility retrieval fields.
 - Model-backed calls declare filesystem reads, filesystem writes, and network
   access in their execution plan. Use `fallbackPolicy:
   "heuristicIfUnavailable"` only when deterministic heuristic fallback is

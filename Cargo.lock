@@ -2572,7 +2572,7 @@ dependencies = [
 
 [[package]]
 name = "moritzbrantner-audio-analysis-transcription"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "candle-core",
  "candle-nn",
@@ -4672,6 +4672,7 @@ dependencies = [
  "moritzbrantner-runtime-core",
  "moritzbrantner-runtime-onnx",
  "moritzbrantner-text-embeddings",
+ "moritzbrantner-text-index",
  "moritzbrantner-text-lexical",
  "moritzbrantner-text-model-runtime",
  "moritzbrantner-text-retrieval",

@@ -139,6 +139,10 @@ pub struct CandleWhisperOptions {
     #[serde(default)]
     pub model_bundle: Option<PathBuf>,
     #[serde(default)]
+    pub model_dir: Option<PathBuf>,
+    #[serde(default)]
+    pub model_cache_only: bool,
+    #[serde(default)]
     pub batch_chunks: bool,
     #[serde(default)]
     pub max_batch_size: Option<usize>,
@@ -151,6 +155,8 @@ impl Default for CandleWhisperOptions {
             language: None,
             device: NativeDevicePreference::Auto,
             model_bundle: None,
+            model_dir: None,
+            model_cache_only: false,
             batch_chunks: true,
             max_batch_size: Some(4),
         }
@@ -2038,9 +2044,7 @@ fn validate_candle_setup(options: &CandleWhisperOptions) -> Result<()> {
             ],
         )
     } else {
-        Err(setup_error(
-            "required Candle Whisper model bundle is missing",
-        ))
+        Ok(())
     }
 }
 
@@ -3439,7 +3443,12 @@ mod tests {
 
     #[test]
     fn missing_model_bundle_returns_setup_error() {
-        let mut provider = CandleWhisperTranscriber::default();
+        let temp = tempfile::tempdir().unwrap();
+        let mut provider = CandleWhisperTranscriber::new(CandleWhisperOptions {
+            model_dir: Some(temp.path().to_path_buf()),
+            model_cache_only: true,
+            ..CandleWhisperOptions::default()
+        });
         let result = provider.transcribe(AsrRequest {
             audio: LoadedAudio {
                 samples: vec![0.0; 16],
@@ -3453,6 +3462,7 @@ mod tests {
         });
         let error = result.unwrap_err().to_string();
         assert!(error.contains("setup_error") || error.contains("unsupported_runtime"));
+        assert!(error.contains("cache-only=true") || error.contains("model-bundles"));
     }
 
     #[test]
@@ -4418,6 +4428,60 @@ mod tests {
         });
         assert!(result.unwrap_err().to_string().contains("timeout"));
         Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn native_whisper_hf_cache_smoke() {
+        if std::env::var("RUN_NATIVE_WHISPER_MODEL_CACHE_TESTS").as_deref() != Ok("1") {
+            eprintln!(
+                "skipping native Whisper HF cache smoke; set RUN_NATIVE_WHISPER_MODEL_CACHE_TESTS=1"
+            );
+            return;
+        }
+        #[cfg(not(all(feature = "candle", feature = "model-bundles")))]
+        panic!("native Whisper HF cache smoke requires candle,model-bundles features");
+
+        #[cfg(all(feature = "candle", feature = "model-bundles"))]
+        {
+            let audio_path = std::env::var_os("TRANSCRIPTION_AUDIO_PATH")
+                .map(PathBuf::from)
+                .expect("TRANSCRIPTION_AUDIO_PATH is required");
+            let model_dir = std::env::var_os("TRANSCRIPTION_MODEL_DIR")
+                .map(PathBuf::from)
+                .expect("TRANSCRIPTION_MODEL_DIR is required");
+            let model_id =
+                std::env::var("TRANSCRIPTION_MODEL_ID").unwrap_or_else(|_| "tiny.en".to_string());
+            let response = transcribe(TranscriptionPipelineRequest {
+                source: TranscriptionSource::Path { path: audio_path },
+                provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+                    model_id,
+                    device: NativeDevicePreference::Cpu,
+                    language: Some("en".to_string()),
+                    model_dir: Some(model_dir),
+                    model_cache_only: true,
+                    ..CandleWhisperOptions::default()
+                }),
+                vad: VadOptions::default(),
+                alignment: AlignmentOptions {
+                    enabled: false,
+                    ..AlignmentOptions::default()
+                },
+                diarization: DiarizationOptions::default(),
+                output: TranscriptionOutputOptions::default(),
+            })
+            .expect("native Candle Whisper HF cache transcription should run");
+            eprintln!("{}", response.diagnostics.join("\n"));
+            assert!(response.accepted);
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "asrModelSource=hugging-face-cache"));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item.starts_with("asrModelResolved=")));
+        }
     }
 
     #[test]

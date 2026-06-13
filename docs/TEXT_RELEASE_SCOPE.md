@@ -85,13 +85,14 @@ tests pass these gates:
   text crates.
 - Deterministic hashed embeddings, vector similarity helpers, embedding backend
   traits, and backend catalog metadata that does not load model bundles.
-- Local chunking, metadata-aware retrieval, full-text search, semantic search
-  over supplied embeddings, hybrid retrieval, and JSON/JSONL persistence
-  helpers.
+- Local chunking, metadata-aware soft-legacy compatibility retrieval, full-text
+  search, semantic search over supplied embeddings, hybrid retrieval, reranking,
+  and JSON/JSONL retrieval snapshot compatibility helpers.
 - Durable Text Index workflows through `moritzbrantner-text-index`, including
-  deterministic chunking, in-memory indexing, SQLite persistence behind the
-  `sqlite` feature, metadata/source/time/provenance filters, semantic facets,
-  analysis attachments, inspection, and snapshot planning.
+  generic ingestion from text contracts and `TextCorpus`, deterministic
+  chunking, in-memory indexing, SQLite persistence behind the `sqlite` feature,
+  metadata/source/time/provenance filters, semantic facets, analysis
+  attachments, inspection, and snapshot planning.
 - Heuristic-first linguistic analysis with optional model-backed paths where
   feature-enabled.
 - Transcript parsing, normalization, formatting, and conversion into generic
@@ -125,8 +126,8 @@ Start with the smallest crate that owns the capability you need:
 | Deterministic lexical analysis, stop words, keywords, n-grams, shingles, readability, stemming, sentiment, extractive summaries, TF-IDF, or BM25 | `moritzbrantner-text-lexical` |
 | High-level document or corpus reports that orchestrate the focused text crates | `moritzbrantner-text-analysis` |
 | Deterministic hashed embeddings, embedding backend traits, or backend catalog metadata | `moritzbrantner-text-embeddings` |
-| Durable local text indexing, SQLite-backed persistence, semantic facets, hybrid search explanations, or snapshot planning | `moritzbrantner-text-index` |
-| Legacy chunked retrieval compatibility, retrieval snapshot import, or runtime-backed reranking | `moritzbrantner-text-retrieval` |
+| Durable local text indexing, generic text contract ingestion, SQLite-backed persistence, semantic facets, hybrid search explanations, or snapshot planning | `moritzbrantner-text-index` |
+| Soft-legacy chunked retrieval compatibility, retrieval snapshot import, older search document adapters, or runtime-backed reranking | `moritzbrantner-text-retrieval` |
 | Heuristic-first linguistic analysis, focused language detection, with optional model-backed paths | `moritzbrantner-text-linguistics` |
 | Transcript parsing, normalization, SRT/WebVTT formatting, or transcript-to-text-segment conversion | `moritzbrantner-text-transcripts` |
 | Text classification or zero-shot classification contracts and deterministic fallbacks | `moritzbrantner-text-classification` |
@@ -145,8 +146,9 @@ The term "corpus" has crate-specific meanings. In `moritzbrantner-text-lexical`,
 `Bm25Corpus` are scoring structures. In `moritzbrantner-text-analysis`, corpus APIs produce
 multi-document reports. In `moritzbrantner-text-index`, `TextIndex` is the durable searchable
 representation of corpus content. In `moritzbrantner-text-retrieval`,
-`RetrievalIndex` is the legacy chunked compatibility index for full-text,
-vector, and hybrid retrieval.
+`RetrievalIndex` is the soft-legacy compatibility chunked index for full-text,
+vector, and hybrid retrieval. New durable search work should start from
+`moritzbrantner-text-index`.
 See [Text Corpus Guide](TEXT_CORPUS_GUIDE.md) for end-to-end examples across
 these types.
 
@@ -169,11 +171,15 @@ The intended stable surface for `0.1` is:
   conversion into generic text segments.
 - `moritzbrantner-text-embeddings` embedding backend traits and deterministic hashed embedding
   APIs.
-- `moritzbrantner-text-index` durable indexing/search contracts, chunking,
-  filters, semantic facets, analysis attachments, SQLite feature, inspection,
-  and snapshot planning.
-- `moritzbrantner-text-retrieval` compatibility retrieval request/result
-  contracts, persisted snapshot DTOs, import helpers, and reranking APIs.
+- `moritzbrantner-text-index` generic ingestion, durable indexing/search
+  contracts, chunking, filters, semantic facets, analysis attachments, SQLite
+  feature, inspection, and snapshot planning.
+- `moritzbrantner-text-retrieval` soft-legacy compatibility retrieval request/result
+  contracts, older `SearchDocument` adapters, persisted snapshot DTOs, import
+  helpers, and reranking APIs.
+- `moritzbrantner-text-question-answering` indexed cited QA through the primary
+  text-index path, plus soft-legacy compatibility retrieval-backed cited QA for
+  existing consumers.
 - Concrete task request/response structs in `moritzbrantner-text-classification`,
   `moritzbrantner-text-question-answering`, and `moritzbrantner-text-generation`.
 - First-party local classification adapters behind `text-classification/local-models`:
@@ -202,6 +208,9 @@ Before promoting the text crates to a major version:
 - Keep transcript-specific DTOs and analyzers in `moritzbrantner-text-transcripts`;
   other crates should consume `TextSegmentContract` or `TextDocumentContract`.
 - Keep package-surface example operations in-memory and artifact-free.
+- Keep CLI/server/WASM/app package surfaces request-scoped. Server sessions and
+  open index handles are out of scope; durable writes require explicit
+  backend/path/commit request fields where supported.
 - Make README examples compile where possible, using `no_run` only when the
   example needs runtime setup.
 

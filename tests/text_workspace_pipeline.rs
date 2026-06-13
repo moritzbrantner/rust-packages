@@ -74,6 +74,24 @@ fn sophisticated_text_workspace_flow_preserves_metadata_and_citations() {
     let corpus_report = workspace.analyze_corpus().unwrap();
     assert!(corpus_report.classification.is_some());
 
+    workspace.build_index().unwrap();
+    let index_search = workspace
+        .search_index(va::text_index::IndexQuery::new(
+            "timed transcript citations",
+            2,
+        ))
+        .unwrap();
+    assert_eq!(index_search.results[0].document_id, document_id);
+    assert_eq!(
+        index_search.results[0]
+            .chunk
+            .source
+            .as_ref()
+            .and_then(|source| source.duration_seconds),
+        Some(2.0)
+    );
+    assert!(workspace.inspect_index().unwrap().chunk_count > 0);
+
     workspace.build_retrieval_index().unwrap();
     let search = workspace
         .search(va::text_retrieval::SearchQuery::hybrid(

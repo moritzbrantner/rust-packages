@@ -5,10 +5,12 @@ text documents, transcript segments, lexical corpus analysis, retrieval, and
 report generation.
 
 Default workspace execution is pure Rust. It uses `TextCorpus`, hashed
-embeddings, in-memory `text-index` state, and compatibility `RetrievalIndex`
-state. It does not download model bundles or execute native model runtimes
-unless callers explicitly choose model-backed workspace options or lower-level
-APIs.
+embeddings, in-memory `text-index` state, and soft-legacy compatibility
+`RetrievalIndex` state. New search/index workflows should use the index-first
+`build_index()`/`search_index()` methods; `build_retrieval_index()` and
+`search()` remain compatibility paths. It does not download model bundles or
+execute native model runtimes unless callers explicitly choose model-backed
+workspace options or lower-level APIs.
 
 ## Primary Workflow
 
@@ -17,7 +19,7 @@ use text_analysis::{
     ClassificationDepth, TextWorkspace, TextWorkspaceOptions, WorkspaceDocument,
 };
 use text_core::{AsTextSegmentContract, TextSegmentContract};
-use text_retrieval::{HybridConfig, SearchQuery};
+use text_index::IndexQuery;
 use text_transcripts::{parse_srt, TranscriptSegmentContract};
 
 let transcript = parse_srt(
@@ -36,13 +38,8 @@ workspace.ingest_documents([WorkspaceDocument::SegmentContract(segment)])?;
 
 let document = workspace.analyze_document("subs:0")?;
 let corpus = workspace.analyze_corpus()?;
-workspace.build_retrieval_index()?;
-workspace.build_text_index()?;
-let search = workspace.search(SearchQuery::hybrid(
-    "timed transcript citations",
-    5,
-    HybridConfig::default(),
-))?;
+workspace.build_index()?;
+let search = workspace.search_index(IndexQuery::new("timed transcript citations", 5))?;
 let snapshot = workspace.snapshot();
 
 assert!(document.classification.is_some());
@@ -56,7 +53,8 @@ assert_eq!(snapshot.documents[0].timestamp.unwrap().seconds(), 3.0);
 
 Use `WorkspaceIndexOptions` when a workspace should build a memory or SQLite
 Text Index. SQLite writes require `commit: true` and a path, and require the
-`text-analysis/sqlite` feature.
+`text-analysis/sqlite` feature. Package surfaces remain request-scoped; they do
+not create server-side index sessions or keep open index handles between calls.
 
 ```rust,no_run
 use text_analysis::{
@@ -82,8 +80,8 @@ let mut workspace = TextWorkspace::new(TextWorkspaceOptions {
 workspace.ingest_documents([WorkspaceDocument::DocumentContract(
     TextDocumentContract::new("doc-1", "Hybrid workspace search cites indexed chunks."),
 )])?;
-workspace.build_text_index()?;
-let search = workspace.search_text_index(IndexQuery::new("indexed chunks", 3))?;
+workspace.build_index()?;
+let search = workspace.search_index(IndexQuery::new("indexed chunks", 3))?;
 assert_eq!(search.results[0].document_id, "doc-1");
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
@@ -162,13 +160,14 @@ Use `text-index::TextIndex` directly when you need durable memory/SQLite
 indexing, semantic facets, analysis attachments, source/time/provenance
 filters, hybrid score explanations, or snapshot planning.
 
-Use `text-retrieval::RetrievalIndex` directly when you need legacy retrieval
+Use `text-retrieval::RetrievalIndex` directly when you need soft-legacy
 compatibility, persisted JSON/JSONL retrieval snapshots, related chunks, or
 runtime-backed reranking through `rerank_documents_with_context`.
 
-Use `text-question-answering::answer_question_with_retrieval` for deterministic
-retrieval-backed cited answers, or
-`answer_question_with_retrieval_index` when you already own a retrieval index.
+Use `text-question-answering::answer_question_with_text_index` for new cited QA
+workflows that should build on the primary text-index path. Use
+`text-question-answering::answer_question_with_retrieval` for deterministic
+soft-legacy retrieval-backed cited answers.
 
 Use `text-classification` directly for imported predictions, caller-supplied
 classification backends, or request-level local model options.

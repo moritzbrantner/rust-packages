@@ -239,6 +239,10 @@ fn new_release_text_operations_have_app_presets_and_benchmarks() {
     assert_operation_has_benchmark(&index, "index.search");
     assert_operation_has_benchmark(&index, "index.inspect");
 
+    let question_answering = app_source("text-question-answering");
+    assert_operation_has_app_preset(&question_answering, "qa.answerWithIndex");
+    assert_operation_has_benchmark(&question_answering, "qa.answerWithIndex");
+
     let transcripts = app_source("text-transcripts");
     assert_operation_has_app_preset(&transcripts, "transcripts.formatWebVtt");
     assert_operation_has_app_preset(&transcripts, "transcripts.toTextSegments");
@@ -493,10 +497,16 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
                 "describe",
                 "qa.models",
                 "qa.answer",
+                "qa.answerWithIndex",
                 "qa.answerWithRetrieval",
                 "qa.answerBatch",
             ],
-            workflow: &["qa.answer", "qa.answerWithRetrieval", "qa.answerBatch"],
+            workflow: &[
+                "qa.answer",
+                "qa.answerWithIndex",
+                "qa.answerWithRetrieval",
+                "qa.answerBatch",
+            ],
             debug: &["qa.models", "describe"],
             support: &[],
             invalid_operation: "qa.answer",

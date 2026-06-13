@@ -200,6 +200,120 @@ fn transcript_segment_corpus_export_preserves_retrieval_metadata() {
     );
 }
 
+#[test]
+fn text_corpus_exports_to_primary_text_index_without_losing_metadata() {
+    let mut document = va::text_lexical::TextCorpusDocument::new(
+        "doc-index",
+        "Primary text indexes preserve corpus metadata for durable search.",
+    );
+    document.language = Some("en".to_string());
+    document.timestamp = Some(va::text_core::TimestampContract {
+        pts: 42,
+        timebase: va::text_core::TimebaseContract { num: 1, den: 1 },
+    });
+    document.source = Some(va::text_core::TextSourceRef {
+        source_id: Some("corpus".to_string()),
+        source_kind: Some("fixture".to_string()),
+        uri: Some("file:///fixture.txt".to_string()),
+        media_timestamp: None,
+        duration_seconds: Some(3.0),
+    });
+    document.provenance.push(va::text_core::TextProvenance {
+        crate_name: Some("test".to_string()),
+        operation: Some("corpus-export".to_string()),
+        model_id: None,
+        runtime: Some("deterministic".to_string()),
+        confidence: Some(1.0),
+    });
+    document
+        .annotations
+        .push(va::text_core::TextAnnotationSpan {
+            span: va::text_core::TextSpan {
+                byte_start: 0,
+                byte_end: 7,
+                char_start: 0,
+                char_end: 7,
+            },
+            token_start: Some(0),
+            token_end: Some(1),
+            source_segment_id: Some("segment-1".to_string()),
+        });
+    document
+        .metadata
+        .insert("kind".to_string(), "index".to_string());
+
+    let corpus = va::text_lexical::TextCorpus::from_documents(
+        [document],
+        va::text_lexical::CorpusOptions::default(),
+    )
+    .unwrap();
+    let index_documents = va::text_index::IndexDocument::from_text_corpus(&corpus);
+    let index_document = &index_documents[0];
+
+    assert_eq!(index_document.id, "doc-index");
+    assert_eq!(index_document.body, corpus.documents[0].text);
+    assert_eq!(index_document.language.as_deref(), Some("en"));
+    assert_eq!(index_document.metadata.attributes["kind"], "index");
+    assert_eq!(
+        index_document
+            .metadata
+            .source
+            .as_ref()
+            .and_then(|source| source.media_timestamp)
+            .unwrap()
+            .seconds(),
+        42.0
+    );
+    assert_eq!(
+        index_document.metadata.provenance[0].operation.as_deref(),
+        Some("corpus-export")
+    );
+    assert_eq!(
+        index_document.metadata.annotations[0]
+            .source_segment_id
+            .as_deref(),
+        Some("segment-1")
+    );
+    va::text_index::validate_index_document(index_document).unwrap();
+
+    let embedder = va::text_embeddings::HashedTextEmbedder::new(
+        va::text_embeddings::TextEmbeddingConfig {
+            dimensions: 32,
+            use_idf: false,
+        },
+        va::text_lexical::CorpusOptions::default(),
+    )
+    .unwrap();
+    let mut index = va::text_index::TextIndex::with_store(
+        embedder.clone(),
+        va::text_index::MemoryIndexStore::new(),
+    );
+    index.upsert_documents(&index_documents).unwrap();
+    let query = va::text_index::IndexQuery::new("durable corpus metadata", 2);
+    let first = index.search(&query).unwrap();
+    let second = index.search(&query).unwrap();
+    assert_eq!(first, second);
+    assert_eq!(first[0].document_id, "doc-index");
+
+    let (migrated, report) = va::text_retrieval::build_memory_text_index(
+        embedder,
+        &[va::text_retrieval::SearchDocument::from_text_corpus_document(&corpus.documents[0])],
+        &va::text_retrieval::IngestionOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(report.documents_received, 1);
+    assert_eq!(
+        migrated
+            .search(&va::text_index::IndexQuery::new(
+                "durable corpus metadata",
+                1
+            ))
+            .unwrap()[0]
+            .document_id,
+        "doc-index"
+    );
+}
+
 fn corpus_document(
     id: &str,
     text: &str,

@@ -15,6 +15,13 @@ use crate::{
     AsrRequest, AsrResponse, CandleWhisperOptions, SpeechActivitySegment,
 };
 
+const REQUIRED_WHISPER_FILES: &[&str] = &[
+    "config.json",
+    "generation_config.json",
+    "tokenizer.json",
+    "preprocessor_config.json",
+    "model.safetensors",
+];
 const WHISPER_TIMESTAMP_SECONDS_PER_TOKEN: f64 = 0.02;
 const WHISPER_TIMESTAMP_TOKEN_COUNT: u32 =
     (whisper::CHUNK_LENGTH as f64 / WHISPER_TIMESTAMP_SECONDS_PER_TOKEN) as u32 + 1;
@@ -34,7 +41,15 @@ struct WhisperRunSetup {
     model_id: String,
     language: Option<String>,
     bundle: WhisperBundlePaths,
+    model_source: &'static str,
     resolved_device: ResolvedNativeDevice,
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedWhisperModel {
+    model_id: String,
+    bundle: WhisperBundlePaths,
+    source: &'static str,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -116,22 +131,195 @@ impl WhisperRunSetup {
         request: &AsrRequest,
     ) -> Result<Self> {
         validate_asr_request(request)?;
-        let bundle = options
-            .model_bundle
-            .as_ref()
-            .ok_or_else(|| setup_error("required Candle Whisper model bundle is missing"))
-            .and_then(|bundle| resolve_whisper_bundle_paths(bundle))?;
+        let model = resolve_whisper_model(options, &request.model_id)?;
         let resolved_device = resolve_native_device(options.device)?;
         Ok(Self {
-            model_id: request.model_id.clone(),
+            model_id: model.model_id,
             language: request
                 .language
                 .clone()
                 .or_else(|| options.language.clone()),
-            bundle,
+            bundle: model.bundle,
+            model_source: model.source,
             resolved_device,
         })
     }
+}
+
+fn resolve_whisper_model(
+    options: &CandleWhisperOptions,
+    requested_model_id: &str,
+) -> Result<ResolvedWhisperModel> {
+    let model_id = canonical_whisper_model_id(requested_model_id)?;
+    if let Some(bundle) = &options.model_bundle {
+        let bundle = resolve_whisper_bundle_paths(bundle)?;
+        return Ok(ResolvedWhisperModel {
+            model_id,
+            bundle,
+            source: "explicit-bundle",
+        });
+    }
+
+    #[cfg(feature = "model-bundles")]
+    {
+        if options.model_cache_only {
+            let bundle = resolve_cached_whisper_model(&model_id, options.model_dir.as_deref())
+                .ok_or_else(|| missing_whisper_model_error(&model_id, options))?;
+            return Ok(ResolvedWhisperModel {
+                model_id,
+                bundle,
+                source: "hugging-face-cache",
+            });
+        }
+
+        let mut downloader = model_runtime::HuggingFaceDownloader::new().progress(false);
+        if let Some(model_dir) = &options.model_dir {
+            downloader = downloader.cache_dir(model_dir.clone());
+        }
+        let downloaded = downloader
+            .download(&whisper_model_spec(&model_id))
+            .map_err(|error| missing_whisper_model_error_with_source(&model_id, options, error))?;
+        let bundle = downloaded
+            .model_dir()
+            .ok_or_else(|| {
+                setup_error(format!(
+                    "native Candle Whisper model `{model_id}` resolved without a local model directory"
+                ))
+            })
+            .and_then(resolve_whisper_bundle_paths)?;
+        return Ok(ResolvedWhisperModel {
+            model_id,
+            bundle,
+            source: "hugging-face-cache",
+        });
+    }
+
+    #[cfg(not(feature = "model-bundles"))]
+    {
+        Err(setup_error(format!(
+            "native Candle Whisper model `{model_id}` requires --whisper-bundle or the model-bundles feature for Hugging Face resolution"
+        )))
+    }
+}
+
+fn canonical_whisper_model_id(value: &str) -> Result<String> {
+    match value {
+        "tiny" => Ok("openai/whisper-tiny".to_string()),
+        "tiny.en" => Ok("openai/whisper-tiny.en".to_string()),
+        "base" => Ok("openai/whisper-base".to_string()),
+        "base.en" => Ok("openai/whisper-base.en".to_string()),
+        "small" => Ok("openai/whisper-small".to_string()),
+        "small.en" => Ok("openai/whisper-small.en".to_string()),
+        "medium" => Ok("openai/whisper-medium".to_string()),
+        "medium.en" => Ok("openai/whisper-medium.en".to_string()),
+        "large" => Ok("openai/whisper-large-v3".to_string()),
+        "large-v1" => Ok("openai/whisper-large-v1".to_string()),
+        "large-v2" => Ok("openai/whisper-large-v2".to_string()),
+        "large-v3" => Ok("openai/whisper-large-v3".to_string()),
+        "large-v3-turbo" => Ok("openai/whisper-large-v3-turbo".to_string()),
+        other if looks_like_hf_repo_id(other) => Ok(other.to_string()),
+        other => Err(setup_error(format!(
+            "unsupported native Candle Whisper model alias `{other}`; native Candle Whisper requires a supported Whisper alias, a Hugging Face repo ID with Candle-compatible files, or --whisper-bundle"
+        ))),
+    }
+}
+
+fn looks_like_hf_repo_id(value: &str) -> bool {
+    let mut parts = value.split('/');
+    matches!((parts.next(), parts.next(), parts.next()), (Some(owner), Some(repo), None) if !owner.is_empty() && !repo.is_empty())
+}
+
+#[cfg(feature = "model-bundles")]
+fn resolve_cached_whisper_model(
+    model_id: &str,
+    model_dir: Option<&Path>,
+) -> Option<WhisperBundlePaths> {
+    let mut roots = Vec::new();
+    if let Some(model_dir) = model_dir {
+        roots.push(model_dir.to_path_buf());
+    } else if let Some(home) = std::env::var_os("HF_HOME") {
+        roots.push(PathBuf::from(home).join("hub"));
+    } else if let Some(home) = std::env::var_os("HOME") {
+        roots.push(PathBuf::from(home).join(".cache/huggingface/hub"));
+    }
+    for root in roots {
+        for candidate in whisper_cache_candidates(&root, model_id) {
+            if let Ok(paths) = resolve_whisper_bundle_paths(&candidate) {
+                return Some(paths);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(feature = "model-bundles")]
+fn whisper_cache_candidates(root: &Path, model_id: &str) -> Vec<PathBuf> {
+    let mut candidates = vec![root.to_path_buf(), root.join(model_id.replace('/', "--"))];
+    let hf_repo_dir = root.join(format!("models--{}", model_id.replace('/', "--")));
+    if let Ok(snapshot) = std::fs::read_to_string(hf_repo_dir.join("refs/main")) {
+        candidates.push(hf_repo_dir.join("snapshots").join(snapshot.trim()));
+    }
+    if let Ok(entries) = std::fs::read_dir(hf_repo_dir.join("snapshots")) {
+        for entry in entries.flatten() {
+            candidates.push(entry.path());
+        }
+    }
+    candidates
+}
+
+#[cfg(feature = "model-bundles")]
+fn whisper_model_spec(model_id: &str) -> model_runtime::HuggingFaceModelSpec {
+    let mut spec = model_runtime::HuggingFaceModelSpec::new(
+        model_id.to_string(),
+        model_runtime::ModelTask::SpeechRecognition,
+    );
+    spec.files = REQUIRED_WHISPER_FILES
+        .iter()
+        .copied()
+        .map(model_runtime::ModelFileRequest::required)
+        .collect();
+    spec
+}
+
+fn missing_whisper_model_error(
+    model_id: &str,
+    options: &CandleWhisperOptions,
+) -> video_analysis_core::DetectError {
+    setup_error(format!(
+        "failed to resolve native Candle Whisper model `{model_id}`; required files: {}; --model-dir={}; cache-only={}",
+        REQUIRED_WHISPER_FILES.join(", "),
+        options
+            .model_dir
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "<default huggingface cache>".to_string()),
+        options.model_cache_only
+    ))
+}
+
+fn missing_whisper_model_error_with_source(
+    model_id: &str,
+    options: &CandleWhisperOptions,
+    source: impl std::fmt::Display,
+) -> video_analysis_core::DetectError {
+    setup_error(format!(
+        "failed to resolve native Candle Whisper model `{model_id}`; required files: {}; --model-dir={}; cache-only={}: {source}",
+        REQUIRED_WHISPER_FILES.join(", "),
+        options
+            .model_dir
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "<default huggingface cache>".to_string()),
+        options.model_cache_only
+    ))
+}
+
+fn whisper_setup_diagnostics(setup: &WhisperRunSetup) -> Vec<String> {
+    vec![
+        format!("asrModelResolved={}", setup.bundle.root.display()),
+        format!("asrModelSource={}", setup.model_source),
+        format!("asrModelId={}", setup.model_id),
+    ]
 }
 
 pub(crate) fn resolve_whisper_bundle_paths(bundle: &Path) -> Result<WhisperBundlePaths> {
@@ -287,7 +475,8 @@ impl CandleWhisperSession {
         )
         .map_err(|error| model_output_mismatch(error.to_string()))?;
         let device_label = device_label(&self.setup.resolved_device);
-        let mut diagnostics = vec![
+        let mut diagnostics = whisper_setup_diagnostics(&self.setup);
+        diagnostics.extend([
             "provider=candle-whisper".to_string(),
             format!("device={device_label}"),
             format!("modelId={}", self.setup.model_id),
@@ -298,7 +487,7 @@ impl CandleWhisperSession {
             } else {
                 "timing=chunk/window".to_string()
             },
-        ];
+        ]);
         if let Some(language) = &self.setup.language {
             diagnostics.push(format!("language={language}"));
         }
@@ -992,6 +1181,26 @@ mod tests {
     use super::*;
     use tokenizers::models::wordlevel::WordLevel;
 
+    fn create_fake_whisper_bundle(root: &Path) {
+        for file in REQUIRED_WHISPER_FILES {
+            std::fs::write(root.join(file), "").unwrap();
+        }
+    }
+
+    fn minimal_asr_request(model_id: &str) -> AsrRequest {
+        AsrRequest {
+            audio: crate::LoadedAudio {
+                samples: vec![0.0; 16_000],
+                sample_rate: 16_000,
+                channels: 1,
+                source: None,
+            },
+            chunks: vec![SpeechActivitySegment::new(0.0, 1.0, 0.5).unwrap()],
+            language: Some("en".to_string()),
+            model_id: model_id.to_string(),
+        }
+    }
+
     fn test_generation() -> GenerationConfig {
         GenerationConfig {
             decoder_start_token_id: Some(1),
@@ -1093,6 +1302,7 @@ mod tests {
                 preprocessor_config_json: PathBuf::from("preprocessor_config.json"),
                 model_safetensors: PathBuf::from("model.safetensors"),
             },
+            model_source: "explicit-bundle",
             resolved_device: ResolvedNativeDevice::Cpu,
         };
         let tokens = CandleWhisperSession::initial_prompt_tokens(
@@ -1128,6 +1338,125 @@ mod tests {
             .or_else(|| options.language.clone())
             .unwrap();
         assert_eq!(language, "en");
+    }
+
+    #[test]
+    fn whisper_aliases_canonicalize_to_hugging_face_ids() {
+        assert_eq!(
+            canonical_whisper_model_id("small").unwrap(),
+            "openai/whisper-small"
+        );
+        assert_eq!(
+            canonical_whisper_model_id("tiny.en").unwrap(),
+            "openai/whisper-tiny.en"
+        );
+        assert_eq!(
+            canonical_whisper_model_id("large").unwrap(),
+            "openai/whisper-large-v3"
+        );
+        assert_eq!(
+            canonical_whisper_model_id("openai/whisper-small").unwrap(),
+            "openai/whisper-small"
+        );
+        let error = canonical_whisper_model_id("unknown")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("setup_error"));
+        assert!(error.contains("unsupported native Candle Whisper model alias"));
+    }
+
+    #[test]
+    fn whisper_bundle_priority_wins_over_model_dir() {
+        let explicit = tempfile::tempdir().unwrap();
+        create_fake_whisper_bundle(explicit.path());
+        let cache = tempfile::tempdir().unwrap();
+        let options = CandleWhisperOptions {
+            model_id: "tiny.en".to_string(),
+            model_bundle: Some(explicit.path().to_path_buf()),
+            model_dir: Some(cache.path().to_path_buf()),
+            model_cache_only: true,
+            ..CandleWhisperOptions::default()
+        };
+        let resolved = resolve_whisper_model(&options, "tiny.en").unwrap();
+        assert_eq!(resolved.source, "explicit-bundle");
+        assert_eq!(resolved.model_id, "openai/whisper-tiny.en");
+        assert_eq!(resolved.bundle.root, explicit.path());
+    }
+
+    #[cfg(feature = "model-bundles")]
+    #[test]
+    fn whisper_cache_only_resolves_fake_hf_snapshot() {
+        let temp = tempfile::tempdir().unwrap();
+        let snapshot = temp
+            .path()
+            .join("models--openai--whisper-tiny.en/snapshots/abc123");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        create_fake_whisper_bundle(&snapshot);
+        let options = CandleWhisperOptions {
+            model_dir: Some(temp.path().to_path_buf()),
+            model_cache_only: true,
+            ..CandleWhisperOptions::default()
+        };
+        let resolved = resolve_whisper_model(&options, "tiny.en").unwrap();
+        assert_eq!(resolved.source, "hugging-face-cache");
+        assert_eq!(resolved.model_id, "openai/whisper-tiny.en");
+        assert_eq!(resolved.bundle.root, snapshot);
+    }
+
+    #[cfg(feature = "model-bundles")]
+    #[test]
+    fn whisper_cache_only_missing_model_reports_required_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let options = CandleWhisperOptions {
+            model_dir: Some(temp.path().to_path_buf()),
+            model_cache_only: true,
+            ..CandleWhisperOptions::default()
+        };
+        let error = resolve_whisper_model(&options, "tiny.en")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("setup_error"));
+        assert!(error.contains("openai/whisper-tiny.en"));
+        assert!(error.contains("config.json"));
+        assert!(error.contains("generation_config.json"));
+        assert!(error.contains("tokenizer.json"));
+        assert!(error.contains("preprocessor_config.json"));
+        assert!(error.contains("model.safetensors"));
+        assert!(error.contains("cache-only=true"));
+    }
+
+    #[cfg(feature = "model-bundles")]
+    #[test]
+    fn whisper_model_spec_requests_required_candle_files() {
+        let spec = whisper_model_spec("openai/whisper-tiny.en");
+        assert_eq!(spec.repo_id_value(), Some("openai/whisper-tiny.en"));
+        let rendered = format!("{:?}", spec.files);
+        for file in REQUIRED_WHISPER_FILES {
+            assert!(rendered.contains(file));
+        }
+    }
+
+    #[test]
+    fn whisper_setup_reports_model_resolution_diagnostics() {
+        let explicit = tempfile::tempdir().unwrap();
+        create_fake_whisper_bundle(explicit.path());
+        let options = CandleWhisperOptions {
+            model_bundle: Some(explicit.path().to_path_buf()),
+            ..CandleWhisperOptions::default()
+        };
+        let setup =
+            WhisperRunSetup::from_options_and_request(&options, &minimal_asr_request("tiny.en"))
+                .unwrap();
+        let diagnostics = whisper_setup_diagnostics(&setup);
+        assert!(diagnostics
+            .iter()
+            .any(|item| item == "asrModelSource=explicit-bundle"));
+        assert!(diagnostics
+            .iter()
+            .any(|item| item == "asrModelId=openai/whisper-tiny.en"));
+        assert!(diagnostics
+            .iter()
+            .any(|item| item.starts_with("asrModelResolved=")));
     }
 
     #[test]

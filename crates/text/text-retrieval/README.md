@@ -1,6 +1,7 @@
 # text-retrieval
 
-Library-first semantic and hybrid retrieval for `moritzbrantner-video-analysis`.
+Soft-legacy semantic and hybrid retrieval compatibility for
+`moritzbrantner-video-analysis`.
 
 Default builds are deterministic and local-first. Transcript integration is
 feature-gated, and native model execution stays outside the default dependency
@@ -14,17 +15,20 @@ scoring, hashed semantic search, and corpus analysis reports, see
 
 ## Highlights
 
-- Deterministic text chunking with token overlap
+- Soft-legacy compatibility `RetrievalIndex` APIs for existing package consumers
+- Legacy deterministic text chunking with token overlap
 - Exact semantic retrieval over `moritzbrantner-vector-analysis-index`
 - BM25 lexical retrieval over `moritzbrantner-text-lexical`
 - Hybrid weighted ranking with metadata filters
-- Related-content lookup and persistence-friendly export helpers
+- Related-content lookup, reranking, and persisted snapshot import helpers
 
 ## Stable contract
 
 The stable surface is chunk construction, `SearchDocument`,
 `TextDocumentContract`/`TextSegmentContract` ingestion, retrieval request/result
-types, metadata filters, snapshot planning, and persistence DTOs.
+types, metadata filters, snapshot planning, and persistence DTOs. New durable
+indexing/search work should use `moritzbrantner-text-index`; this crate keeps
+older callers and reranking workflows working while they migrate.
 
 ## Quality and limits
 
@@ -47,6 +51,9 @@ in-memory indexes and do not write files.
 - Package-surface operations do not write persistence artifacts or run native
   model inference; `retrieval.snapshotPlan` plans in-memory persistence work but
   does not write files.
+- CLI/server/WASM/app package surfaces are request-scoped compatibility
+  operations. They do not create server-side retrieval sessions or open durable
+  index handles.
 
 ## Related crates
 

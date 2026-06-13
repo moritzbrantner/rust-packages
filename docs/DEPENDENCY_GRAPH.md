@@ -1026,6 +1026,7 @@ flowchart LR
   crate_moritzbrantner_text_model_runtime_server --> crate_moritzbrantner_text_model_runtime
   crate_moritzbrantner_text_model_runtime_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_text_embeddings
+  crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_text_index
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_text_lexical
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_text_model_runtime
   crate_moritzbrantner_text_question_answering --> crate_moritzbrantner_text_retrieval

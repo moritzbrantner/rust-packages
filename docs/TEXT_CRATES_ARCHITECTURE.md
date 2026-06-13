@@ -89,11 +89,11 @@ Benchmark results are not portable performance claims; they depend on CPU, brows
 | `text-model-runtime` | Shared tokenizer bundles, tokenized model inputs, runtime backend traits, optional native model facade types, Candle sequence classification, ONNX pair classification, and the server-only ONNX QA probe. | High-level NLP schemas, retrieval indexes, transcript parsing, text pipeline orchestration. |
 | `text-linguistics` | Heuristic-first linguistic pipeline: language, lemmas, POS, morphology, syntax, entities, coreference, events, discourse, topics, style; optional model-backed paths. | Generic task schemas, vector retrieval storage, transcript file formats. |
 | `text-embeddings` | Embedding backends, pooling, hashed fallback vectors, semantic search indexes. | General text classification, transcript parsing, linguistic annotations. |
-| `text-index` | Durable text indexes, deterministic chunking, in-memory and SQLite storage, lexical/semantic/hybrid search, semantic facets, analysis attachments, index inspection, and snapshot planning. | File extraction, hosted search services, external vector databases, graph databases, model-backed default embeddings. |
-| `text-retrieval` | Contract ingestion, legacy `RetrievalIndex` compatibility, reranking, and import paths from existing persisted retrieval snapshots into `text-index`. | Durable index ownership, file extraction, embedding model internals, ASR, linguistic parsing. |
+| `text-index` | Generic contract ingestion into index documents, durable text indexes, deterministic chunking, in-memory and SQLite storage, lexical/semantic/hybrid search, semantic facets, analysis attachments, index inspection, and snapshot planning. | File extraction, hosted search services, external vector databases, graph databases, model-backed default embeddings, NLP facet derivation. |
+| `text-retrieval` | Soft-legacy compatibility `RetrievalIndex`, search document adapters, reranking, and import paths from existing persisted retrieval snapshots into `text-index`. | New durable index ownership, canonical chunking for new workflows, file extraction, embedding model internals, ASR, linguistic parsing. |
 | `text-transcripts` | Transcript formats, transcript-specific analyzers, and optional ASR command/native adapters. | Generic lexical features, retrieval ranking. |
 | `text-classification` | Text classification, zero-shot classification, sentiment request/response contracts, imported-prediction handling, deterministic fallbacks, runtime broker APIs, and classification model policy. | Tokenizer implementation details, reusable model runtime internals, retrieval indexes, transcript parsing. |
-| `text-question-answering` | Extractive QA request/response contracts, imported span postprocessing, fallback policy, and optional local ONNX QA execution. | Text classification, tokenizer internals, transcript parsing. |
+| `text-question-answering` | Extractive QA request/response contracts, primary text-index path for cited document QA, soft-legacy compatibility retrieval-backed QA, imported span postprocessing, fallback policy, and optional local ONNX QA execution. | Text classification, tokenizer internals, transcript parsing, durable index sessions. |
 | `text-generation` | Deterministic Markov prediction and template/text synthesis from known signals. | Hosted LLM clients or claims of open-ended generative model inference. |
 | `text-generation-linguistics` | Adapters from linguistic analyses into deterministic generation prompts, synthesis, and Markov training. | Core Markov/synthesis ownership, hosted LLM clients, native model inference. |
 
@@ -132,15 +132,23 @@ APIs. `TextCorpusSnapshot` serializes deterministic TF-IDF term state for
 reproducible local round trips.
 
 `text-index` owns the durable Text Index boundary. It is the home for canonical
-deterministic chunking, in-memory and SQLite-backed indexing, stored vectors,
-semantic facets, metadata/source/time/provenance filters, and hybrid score
-explanations. SQLite is feature-gated and uses bundled FTS5 when enabled.
+generic ingestion from `TextDocumentContract`, `TextSegmentContract`,
+`TextCorpusDocument`, and caller-supplied index records, plus deterministic
+chunking, in-memory and SQLite-backed indexing, stored vectors, semantic facets,
+metadata/source/time/provenance filters, and hybrid score explanations. SQLite
+is feature-gated and uses bundled FTS5 when enabled.
 
-`text-retrieval` is transitional. Its legacy `RetrievalIndex` remains available
-for existing package consumers, but new durable indexing/search work belongs in
-`text-index`. Retrieval should focus on contract ingestion from text contracts,
-transcript-derived segments, OCR-derived documents, and plain records, plus
-compatibility wrappers and reranking.
+`text-retrieval` is transitional. Its `RetrievalIndex` remains available as
+soft-legacy compatibility for existing package consumers, but new durable
+indexing/search work belongs in `text-index`. Retrieval should focus on
+compatibility wrappers, `SearchDocument` adapters for older callers, persisted
+retrieval snapshot import into `text-index`, and reranking.
+
+`text-question-answering` uses `text-index` as the primary path for new cited
+document QA. Package surfaces stay request-scoped: `qa.answerWithIndex` builds a
+deterministic in-memory Text Index from the request and does not create
+server-side sessions or open index handles. `qa.answerWithRetrieval` remains for
+soft-legacy compatibility with older retrieval consumers.
 
 `text-transcripts` owns transcript extensions such as
 `TranscriptSegmentContract`, `TranscriptWordContract`, and
