@@ -46,6 +46,11 @@ for target in "${targets[@]}"; do
   case "$target" in
     python|onnx|transformers|all)
       install_model_python_target "$target"
+      if [[ "$target" == "onnx" || "$target" == "all" ]]; then
+        dylib="$(require_model_onnxruntime_dylib_path)"
+        log "model ONNX Runtime dylib:"
+        log "  $dylib"
+      fi
       ;;
     bundles)
       bash "$ROOT_DIR/scripts/sync_model_bundles.sh"

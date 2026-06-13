@@ -32,6 +32,10 @@ for target in "${targets[@]}"; do
     python|onnx|transformers|all)
       if verify_model_python_target "$target"; then
         log "verified model $target Python dependencies in $MODEL_PYTHON_VENV"
+        if [[ "$target" == "onnx" || "$target" == "all" ]]; then
+          dylib="$(require_model_onnxruntime_dylib_path)"
+          log "verified model onnx Runtime dylib: $dylib"
+        fi
       else
         fail "missing model $target Python dependencies; run: bash scripts/setup_model_external_tools.sh $target"
       fi

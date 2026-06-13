@@ -494,6 +494,33 @@ verify_model_python_target() {
   esac
 }
 
+model_onnxruntime_dylib_path() {
+  local candidate
+  [[ -d "$MODEL_PYTHON_VENV" ]] || return 0
+  candidate="$(
+    find "$MODEL_PYTHON_VENV" \
+      \( -path '*/onnxruntime/capi/libonnxruntime.so*' \
+      -o -path '*/onnxruntime/capi/libonnxruntime.dylib*' \) \
+      | sort \
+      | tail -n 1
+  )"
+  [[ -n "$candidate" ]] || return 0
+  realpath "$candidate"
+}
+
+require_model_onnxruntime_dylib_path() {
+  local candidate="${ORT_DYLIB_PATH:-}"
+  if [[ -n "$candidate" ]]; then
+    [[ -f "$candidate" ]] || fail "ORT_DYLIB_PATH is set but does not point to a file: $candidate"
+    realpath "$candidate"
+    return
+  fi
+
+  candidate="$(model_onnxruntime_dylib_path)"
+  [[ -n "$candidate" ]] || fail "missing ONNX Runtime shared library under $MODEL_PYTHON_VENV; run: bash scripts/setup_model_external_tools.sh onnx"
+  printf '%s\n' "$candidate"
+}
+
 install_model_python_target() {
   local target="$1"
   if verify_model_python_target "$target"; then

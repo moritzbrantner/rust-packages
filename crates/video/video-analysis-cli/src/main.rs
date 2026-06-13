@@ -423,6 +423,10 @@ enum ModelPresetKind {
     XenovaDistilbertSst2Onnx,
     #[value(name = "xenova-minilm-l6-v2-onnx")]
     XenovaMiniLmL6V2Onnx,
+    #[value(name = "trocr-base-printed-onnx")]
+    XenovaTrocrBasePrintedOnnx,
+    #[value(name = "trocr-base-handwritten-onnx")]
+    XenovaTrocrBaseHandwrittenOnnx,
     #[value(name = "wav2vec2-base-960h")]
     Wav2Vec2Base960h,
 }
@@ -437,6 +441,8 @@ impl From<ModelPresetKind> for ModelPreset {
             ModelPresetKind::MiniLmL6V2 => Self::MiniLmL6V2,
             ModelPresetKind::XenovaDistilbertSst2Onnx => Self::XenovaDistilbertSst2Onnx,
             ModelPresetKind::XenovaMiniLmL6V2Onnx => Self::XenovaMiniLmL6V2Onnx,
+            ModelPresetKind::XenovaTrocrBasePrintedOnnx => Self::XenovaTrocrBasePrintedOnnx,
+            ModelPresetKind::XenovaTrocrBaseHandwrittenOnnx => Self::XenovaTrocrBaseHandwrittenOnnx,
             ModelPresetKind::Wav2Vec2Base960h => Self::Wav2Vec2Base960h,
         }
     }
@@ -1485,6 +1491,30 @@ mod tests {
             "xenova-distilbert-sst2-onnx",
         ])
         .unwrap();
+    }
+
+    #[test]
+    fn model_download_accepts_trocr_onnx_presets_without_files() {
+        for (preset, expected) in [
+            (
+                "trocr-base-printed-onnx",
+                ModelPreset::XenovaTrocrBasePrintedOnnx,
+            ),
+            (
+                "trocr-base-handwritten-onnx",
+                ModelPreset::XenovaTrocrBaseHandwrittenOnnx,
+            ),
+        ] {
+            let cli = Cli::try_parse_from(["vanalyze", "models", "download", "--preset", preset])
+                .unwrap();
+
+            match cli.command {
+                Command::Models(ModelsArgs {
+                    command: ModelsCommand::Download(args),
+                }) => assert_eq!(args.preset.map(ModelPreset::from), Some(expected)),
+                _ => panic!("expected models download command"),
+            }
+        }
     }
 
     #[test]

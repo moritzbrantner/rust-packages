@@ -87,6 +87,7 @@ through `moritzbrantner-model-runtime`:
 - `onnx-community/roberta-base-squad2-ONNX`
 - `Xenova/vit-base-patch16-224`
 - `Xenova/vit-gpt2-image-captioning`
+- `Xenova/trocr-base-printed`
 
 Live download/inference checks stay ignored and feature-gated:
 
@@ -94,6 +95,7 @@ Live download/inference checks stay ignored and feature-gated:
 cargo test -p moritzbrantner-text-question-answering --features external-tests -- --ignored
 cargo test -p moritzbrantner-image-analysis-classification --features external-tests -- --ignored
 cargo test -p moritzbrantner-image-analysis-captioning --features external-tests -- --ignored
+cargo test -p moritzbrantner-image-analysis-ocr --features external-tests --test external_onnx_smoke -- --ignored
 ```
 
 The native ONNX smoke suite can be run explicitly with:
@@ -102,12 +104,22 @@ The native ONNX smoke suite can be run explicitly with:
 scripts/check_onnx_external_smoke.sh
 ```
 
+The helper auto-discovers the ONNX Runtime shared library from
+`.external-test-tools/model-python-venv`, canonicalizes it to an absolute path,
+and exports `ORT_DYLIB_PATH` before running native ONNX tests. If
+`ORT_DYLIB_PATH` is set manually, use an absolute path. Relative paths can be
+resolved from the test binary directory and may hang during ORT dynamic loading.
+
 This helper prints the expected `.model-runtime/<bundle>/main/manifest.json`
 paths before running the ignored classification, captioning, detection,
-embedding, and text QA/runtime-helper commands. It is opt-in only and is not
+embedding, OCR, and text QA/runtime-helper commands. It is opt-in only and is not
 called by `bun run test`, `scripts/check-fast.sh`, or default CI. Missing
 bundles should skip or fail only according to the ignored test's own semantics;
 default tests do not download or execute live models.
+
+The OCR smoke expects the printed TrOCR ONNX manifest at
+`.model-runtime/trocr-base-printed-onnx/main/manifest.json` and reads
+`tests/fixtures/ocr/trocr-hello.png`.
 
 Native transcription smoke tests follow the same opt-in rule. Candle Whisper
 CUDA is the primary native target and requires `candle,cuda,model-bundles`
