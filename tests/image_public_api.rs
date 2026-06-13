@@ -7,7 +7,9 @@ use image_analysis_embeddings::{
     image_embedding_catalog, FaceEmbeddingPreset, ImageEmbeddingPreset, ImageEmbeddingTask,
 };
 use image_analysis_io::{read_image, write_image};
-use image_analysis_ocr::{OcrPreset, OcrRequest, OcrTechnique};
+use image_analysis_ocr::{
+    OcrDocument, OcrPreset, OcrRequest, OcrTechnique, OcrTextContractOptions,
+};
 use image_analysis_segmentation::ImageSegmentationRequest;
 
 #[test]
@@ -50,6 +52,29 @@ fn image_public_api_covers_ocr_model_presets_and_requests() {
         _ => panic!("expected a Hugging Face OCR model technique"),
     }
     assert_eq!(request.languages, ["en".to_string()]);
+
+    let onnx_request = OcrRequest::new().model_preset(OcrPreset::TrOcrBasePrintedOnnx);
+    match onnx_request.technique {
+        Some(OcrTechnique::OnnxModel(spec)) => {
+            assert_eq!(spec.repo_id_value(), Some("Xenova/trocr-base-printed"));
+        }
+        _ => panic!("expected an ONNX OCR model technique"),
+    }
+
+    let conversion = OcrDocument::new("Hello OCR", 8, 4)
+        .unwrap()
+        .to_text_document_contract(OcrTextContractOptions {
+            id: "ocr-public-api".to_string(),
+            ..OcrTextContractOptions::default()
+        });
+    assert_eq!(conversion.document.id, "ocr-public-api");
+    assert_eq!(
+        conversion
+            .document
+            .source
+            .and_then(|source| source.source_kind),
+        Some("ocr_image".to_string())
+    );
 }
 
 #[test]

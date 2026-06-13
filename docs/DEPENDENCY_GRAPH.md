@@ -887,9 +887,12 @@ flowchart LR
   crate_moritzbrantner_image_analysis_io_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_image_analysis_core
   crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_image_analysis_io
+  crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_image_analysis_processing
+  crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_text_core
   crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_model_runtime
   crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_image_analysis_ocr --> crate_moritzbrantner_runtime_onnx
   crate_moritzbrantner_image_analysis_ocr_cli --> crate_moritzbrantner_image_analysis_ocr
   crate_moritzbrantner_image_analysis_ocr_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_image_analysis_ocr_server --> crate_moritzbrantner_image_analysis_ocr

@@ -21,6 +21,15 @@ serde.workspace = true
 serde_json.workspace = true
 image-analysis-core.workspace = true
 image-analysis-io.workspace = true
+image-analysis-processing.workspace = true
 video-analysis-core.workspace = true
 model-runtime.workspace = true
+runtime-onnx.workspace = true
+text-core.workspace = true
 tempfile.workspace = true
+tokenizers = { workspace = true, optional = true }
+
+[features]
+default = []
+local-onnx = ["runtime-onnx/onnxruntime", "dep:tokenizers"]
+external-tests = ["local-onnx"]

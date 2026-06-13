@@ -15,20 +15,20 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/image-analysis-ocr",
     standaloneRoute: "",
   },
-  defaultOperation: "image.ocr.documentSummary",
-  featuredOperations: ["image.ocr.documentSummary", "image.ocr.requestSummary", "image.ocr.presets", "describe"],
+  defaultOperation: "image.ocr.recognize",
+  featuredOperations: ["image.ocr.recognize", "image.ocr.toTextDocument", "image.ocr.models", "image.ocr.presets", "describe"],
   operationGroups: [
     {
       id: "workflow",
       label: "Workflow",
-      description: "Summarize imported OCR document results.",
-      operations: ["image.ocr.documentSummary"],
+      description: "Recognize OCR text and convert OCR output into text document contracts.",
+      operations: ["image.ocr.recognize", "image.ocr.toTextDocument"],
     },
     {
       id: "debug",
       label: "Debug",
-      description: "Inspect OCR presets, request options, and package metadata.",
-      operations: ["image.ocr.presets", "image.ocr.requestSummary", "describe"],
+      description: "Inspect OCR models, presets, request options, imported document summaries, and package metadata.",
+      operations: ["image.ocr.models", "image.ocr.presets", "image.ocr.requestSummary", "image.ocr.documentSummary", "describe"],
     },
   ],
 };

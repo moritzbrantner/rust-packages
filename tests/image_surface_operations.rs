@@ -93,6 +93,14 @@ fn image_io_ocr_segmentation_and_synthesis_surfaces_accept_valid_inputs() {
     );
     assert_eq!(
         run(
+            "image.ocr.toTextDocument",
+            serde_json::json!({"document": {"text": "Hello", "width": 4, "height": 3}, "id": "ocr-doc"}),
+            image_analysis_ocr::surface::run_surface_operation,
+        )["document"]["source"]["sourceKind"],
+        "ocr_image"
+    );
+    assert_eq!(
+        run(
             "image.segmentation.maskSummary",
             serde_json::json!({"width": 4, "height": 3, "rect": {"x": 1, "y": 1, "width": 2, "height": 1}}),
             image_analysis_segmentation::surface::run_surface_operation,

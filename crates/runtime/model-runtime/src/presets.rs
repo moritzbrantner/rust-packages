@@ -37,6 +37,10 @@ pub enum ModelPreset {
     XenovaVitBasePatch16_224Onnx,
     /// The Xenova ViT-GPT2 image captioning ONNX variant.
     XenovaVitGpt2ImageCaptioningOnnx,
+    /// The Xenova TrOCR printed text ONNX variant.
+    XenovaTrocrBasePrintedOnnx,
+    /// The Xenova TrOCR handwritten text ONNX variant.
+    XenovaTrocrBaseHandwrittenOnnx,
     /// The xenova DETR ResNet-50 ONNX variant.
     XenovaDetrResnet50Onnx,
     /// The AST AudioSet classification variant.
@@ -80,6 +84,8 @@ impl ModelPreset {
         Self::OnnxCommunityRobertaBaseSquad2,
         Self::XenovaVitBasePatch16_224Onnx,
         Self::XenovaVitGpt2ImageCaptioningOnnx,
+        Self::XenovaTrocrBasePrintedOnnx,
+        Self::XenovaTrocrBaseHandwrittenOnnx,
         Self::XenovaDetrResnet50Onnx,
         Self::AstAudioset,
         Self::XenovaAstAudiosetOnnx,
@@ -114,6 +120,8 @@ impl ModelPreset {
             Self::OnnxCommunityRobertaBaseSquad2 => "roberta-base-squad2-onnx",
             Self::XenovaVitBasePatch16_224Onnx => "vit-base-patch16-224-onnx",
             Self::XenovaVitGpt2ImageCaptioningOnnx => "vit-gpt2-image-captioning-onnx",
+            Self::XenovaTrocrBasePrintedOnnx => "trocr-base-printed-onnx",
+            Self::XenovaTrocrBaseHandwrittenOnnx => "trocr-base-handwritten-onnx",
             Self::XenovaDetrResnet50Onnx => "xenova-detr-resnet-50-onnx",
             Self::AstAudioset => "ast-audioset",
             Self::XenovaAstAudiosetOnnx => "xenova-ast-audioset-onnx",
@@ -301,6 +309,35 @@ impl ModelPreset {
                 "onnx/decoder_model_quantized.onnx",
                 "onnx/decoder_model.onnx",
             ]),
+            Self::XenovaTrocrBasePrintedOnnx | Self::XenovaTrocrBaseHandwrittenOnnx => {
+                let repo_id = match self {
+                    Self::XenovaTrocrBasePrintedOnnx => "Xenova/trocr-base-printed",
+                    Self::XenovaTrocrBaseHandwrittenOnnx => "Xenova/trocr-base-handwritten",
+                    _ => unreachable!(),
+                };
+                HuggingFaceModelSpec::new(
+                    repo_id,
+                    ModelTask::Custom("optical_character_recognition".to_string()),
+                )
+                .name(self.as_str())
+                .file("config.json")
+                .file("preprocessor_config.json")
+                .file("tokenizer.json")
+                .optional_file("generation_config.json")
+                .optional_file("tokenizer_config.json")
+                .optional_file("vocab.json")
+                .optional_file("merges.txt")
+                .first_available_file([
+                    "onnx/encoder_model_quantized.onnx",
+                    "onnx/encoder_model.onnx",
+                    "onnx/encoder_model_fp16.onnx",
+                ])
+                .first_available_file([
+                    "onnx/decoder_model_quantized.onnx",
+                    "onnx/decoder_model.onnx",
+                    "onnx/decoder_model_fp16.onnx",
+                ])
+            }
             Self::XenovaDetrResnet50Onnx => {
                 HuggingFaceModelSpec::new("Xenova/detr-resnet-50", ModelTask::ObjectDetection)
                     .name(self.as_str())

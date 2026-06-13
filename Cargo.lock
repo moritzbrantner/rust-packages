@@ -3519,12 +3519,16 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-image-analysis-core",
  "moritzbrantner-image-analysis-io",
+ "moritzbrantner-image-analysis-processing",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-runtime-onnx",
+ "moritzbrantner-text-core",
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
  "tempfile",
+ "tokenizers",
 ]
 
 [[package]]
