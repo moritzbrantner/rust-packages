@@ -212,14 +212,20 @@ bun run audio-app:typecheck
 wav2vec2 alignment smoke:
 
 ```bash
-RUN_NATIVE_ALIGNMENT_TESTS=1 \
-ALIGNMENT_MODEL_BUNDLE="$SMOKE_ROOT/models/wav2vec2-base-960h/main" \
-TRANSCRIPTION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
 ALIGNMENT_TRANSCRIPT_TEXT="hello world" \
 cargo test -p moritzbrantner-audio-analysis-transcription \
   --features candle,alignment,model-bundles \
   ctc_alignment_wav2vec2_smoke_when_requested -- --ignored --nocapture
 ```
+
+The ignored smoke runs with defaults when environment variables are omitted. It
+uses `ALIGNMENT_AUDIO_PATH` when set, then `TRANSCRIPTION_AUDIO_PATH`, the
+checked-in whisper.cpp sample WAV, or a generated 16 kHz WAV. It uses
+`ALIGNMENT_MODEL_BUNDLE` when set, otherwise `ALIGNMENT_MODEL_DIR`,
+`$XDG_DATA_HOME/video-analysis-smoke/models`,
+`$HOME/.local/share/video-analysis-smoke/models`, or a generated tiny wav2vec2
+bundle. Set `RUN_NATIVE_ALIGNMENT_TESTS=0` to skip it explicitly when running
+ignored tests.
 
 Media/container decode smoke:
 

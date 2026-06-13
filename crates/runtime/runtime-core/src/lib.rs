@@ -578,8 +578,10 @@ pub fn operation_category(operation: &str) -> &'static str {
         | "classification.models"
         | "classification.schema"
         | "embeddings.backends"
+        | "index.open"
+        | "index.inspect"
         | "qa.models" => "debug",
-        "runtime.softmax" => "support",
+        "index.removeDocuments" | "runtime.softmax" => "support",
         _ => "workflow",
     }
 }

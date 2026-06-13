@@ -8,6 +8,6 @@
   "private": true,
   "scripts": {
     "build": "bash scripts/build-wasm.sh",
-    "test": "bun test tests"
+    "test": "bun run build && bun test tests"
   }
 }

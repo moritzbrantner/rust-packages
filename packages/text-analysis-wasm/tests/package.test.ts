@@ -1,4 +1,6 @@
-import { analyzeDocument, compareTexts, packageSurface } from "../index.js";
+import { expect, test } from "bun:test";
+
+import { analyzeDocument, compareTexts, packageSurface, runOperation } from "../index.js";
 
 test("packageSurface lists document analysis", async () => {
   const surface = await packageSurface();
@@ -10,9 +12,10 @@ test("analyzeDocument returns stats, keywords, and fingerprints", async () => {
     id: "doc-1",
     text: "Rust crates analyze text. Rust text analysis is deterministic.",
   });
-  expect(report.core.stats.basic.words).toBeGreaterThan(0);
-  expect(report.lexical.keywords.length).toBeGreaterThan(0);
-  expect(report.similarity.tokenShingleSimhash).toBeDefined();
+  const result = report.result ?? report;
+  expect(result.core.stats.basic.words).toBeGreaterThan(0);
+  expect(result.lexical.keywords.length).toBeGreaterThan(0);
+  expect(result.similarity.tokenShingleSimhash).toBeDefined();
 });
 
 test("compareTexts returns token shingle jaccard", async () => {
@@ -22,5 +25,30 @@ test("compareTexts returns token shingle jaccard", async () => {
     n: 2,
     mode: "token",
   });
-  expect(report.similarity.jaccard).toBeGreaterThan(0);
+  const result = report.result ?? report;
+  expect(result.similarity.jaccard).toBeGreaterThan(0);
 });
+
+test("runOperation executes document analysis with structured output", async () => {
+  const result = assertStructuredResponse(
+    await runOperation({
+      operation: "analysis.document",
+      input: {
+        id: "doc-1",
+        text: "Rust text analysis is deterministic.",
+      },
+    }),
+    "analysis.document",
+  );
+  expect(result.core.stats.basic.words).toBeGreaterThan(0);
+});
+
+function assertStructuredResponse(response: any, operation: string) {
+  expect(response.operation).toBe(operation);
+  expect(response.value.operation).toBe(operation);
+  expect(typeof response.value.title).toBe("string");
+  expect(typeof response.value.message).toBe("string");
+  expect(response.value.summary.status).toBe("ok");
+  expect(response.value.result).toBeDefined();
+  return response.value.result;
+}

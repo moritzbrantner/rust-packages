@@ -2572,7 +2572,7 @@ dependencies = [
 
 [[package]]
 name = "moritzbrantner-audio-analysis-transcription"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "candle-core",
  "candle-nn",
@@ -5141,6 +5141,8 @@ dependencies = [
  "moritzbrantner-runtime-onnx",
  "moritzbrantner-tensor-data",
  "moritzbrantner-text-analysis",
+ "moritzbrantner-text-analysis-cli",
+ "moritzbrantner-text-analysis-server",
  "moritzbrantner-text-classification",
  "moritzbrantner-text-classification-cli",
  "moritzbrantner-text-classification-server",
@@ -5153,6 +5155,8 @@ dependencies = [
  "moritzbrantner-text-generation",
  "moritzbrantner-text-generation-cli",
  "moritzbrantner-text-generation-linguistics",
+ "moritzbrantner-text-generation-linguistics-cli",
+ "moritzbrantner-text-generation-linguistics-server",
  "moritzbrantner-text-generation-server",
  "moritzbrantner-text-index",
  "moritzbrantner-text-index-cli",
@@ -5161,8 +5165,14 @@ dependencies = [
  "moritzbrantner-text-lexical-cli",
  "moritzbrantner-text-lexical-server",
  "moritzbrantner-text-linguistics",
+ "moritzbrantner-text-linguistics-cli",
+ "moritzbrantner-text-linguistics-server",
  "moritzbrantner-text-model-runtime",
+ "moritzbrantner-text-model-runtime-cli",
+ "moritzbrantner-text-model-runtime-server",
  "moritzbrantner-text-question-answering",
+ "moritzbrantner-text-question-answering-cli",
+ "moritzbrantner-text-question-answering-server",
  "moritzbrantner-text-retrieval",
  "moritzbrantner-text-retrieval-cli",
  "moritzbrantner-text-retrieval-server",

@@ -119,7 +119,7 @@ audio-analysis-rhythm = { package = "moritzbrantner-audio-analysis-rhythm", vers
 audio-analysis-separation = { package = "moritzbrantner-audio-analysis-separation", version = "0.1.0", path = "crates/audio/audio-analysis-separation" }
 audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.0", path = "crates/audio/audio-analysis-speakers" }
 audio-analysis-synthesis = { package = "moritzbrantner-audio-analysis-synthesis", version = "0.1.0", path = "crates/audio/audio-analysis-synthesis" }
-audio-analysis-transcription = { package = "moritzbrantner-audio-analysis-transcription", version = "0.1.1", path = "crates/audio/audio-analysis-transcription" }
+audio-analysis-transcription = { package = "moritzbrantner-audio-analysis-transcription", version = "0.1.2", path = "crates/audio/audio-analysis-transcription" }
 audio-analysis-test-support = { package = "moritzbrantner-audio-analysis-test-support", version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
 video-analysis-test-support = { package = "moritzbrantner-video-analysis-test-support", version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
 image-analysis-core = { package = "moritzbrantner-image-analysis-core", version = "0.1.0", path = "crates/image/image-analysis-core" }
@@ -462,10 +462,20 @@ text-embeddings-cli = { package = "moritzbrantner-text-embeddings-cli", path = "
 text-embeddings-server = { package = "moritzbrantner-text-embeddings-server", path = "crates/text/text-embeddings-server" }
 text-generation-cli = { package = "moritzbrantner-text-generation-cli", path = "crates/text/text-generation-cli" }
 text-generation-server = { package = "moritzbrantner-text-generation-server", path = "crates/text/text-generation-server" }
+text-generation-linguistics-cli = { package = "moritzbrantner-text-generation-linguistics-cli", path = "crates/text/text-generation-linguistics-cli" }
+text-generation-linguistics-server = { package = "moritzbrantner-text-generation-linguistics-server", path = "crates/text/text-generation-linguistics-server" }
 text-lexical-cli = { package = "moritzbrantner-text-lexical-cli", path = "crates/text/text-lexical-cli" }
 text-lexical-server = { package = "moritzbrantner-text-lexical-server", path = "crates/text/text-lexical-server" }
+text-analysis-cli = { package = "moritzbrantner-text-analysis-cli", path = "crates/text/text-analysis-cli" }
+text-analysis-server = { package = "moritzbrantner-text-analysis-server", path = "crates/text/text-analysis-server" }
 text-index-cli = { package = "moritzbrantner-text-index-cli", path = "crates/text/text-index-cli" }
 text-index-server = { package = "moritzbrantner-text-index-server", path = "crates/text/text-index-server" }
+text-linguistics-cli = { package = "moritzbrantner-text-linguistics-cli", path = "crates/text/text-linguistics-cli" }
+text-linguistics-server = { package = "moritzbrantner-text-linguistics-server", path = "crates/text/text-linguistics-server" }
+text-model-runtime-cli = { package = "moritzbrantner-text-model-runtime-cli", path = "crates/text/text-model-runtime-cli" }
+text-model-runtime-server = { package = "moritzbrantner-text-model-runtime-server", path = "crates/text/text-model-runtime-server" }
+text-question-answering-cli = { package = "moritzbrantner-text-question-answering-cli", path = "crates/text/text-question-answering-cli" }
+text-question-answering-server = { package = "moritzbrantner-text-question-answering-server", path = "crates/text/text-question-answering-server" }
 text-retrieval-cli = { package = "moritzbrantner-text-retrieval-cli", path = "crates/text/text-retrieval-cli" }
 text-retrieval-server = { package = "moritzbrantner-text-retrieval-server", path = "crates/text/text-retrieval-server" }
 text-transcripts-cli = { package = "moritzbrantner-text-transcripts-cli", path = "crates/text/text-transcripts-cli" }

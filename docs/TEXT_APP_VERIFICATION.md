@@ -1,0 +1,90 @@
+# Text App Verification
+
+Use this guide to verify deterministic text crate functionality through the
+package workbench apps. These checks do not require model downloads, ONNX,
+Candle, or external tools.
+
+## Root Catalog
+
+Start the overview server and Vite catalog from the workspace root:
+
+```bash
+bun run dev
+```
+
+Open these routes:
+
+```text
+/text/
+/wrappers/text-core/
+/wrappers/text-index/
+/wrappers/text-analysis/
+```
+
+For each wrapper, run the default workflow in both runtime modes:
+
+- `Overview Server`
+- `Client WASM`
+
+The JSON result should include:
+
+```json
+{
+  "operation": "...",
+  "title": "...",
+  "message": "...",
+  "summary": {},
+  "result": {}
+}
+```
+
+The page should not show a dynamic import failure.
+
+## Individual Text Apps
+
+Run a package app directly when checking one text surface:
+
+```bash
+bun run --cwd packages/text-core-app dev
+```
+
+Direct app development uses the same `PackageSurfaceWorkbench` as the catalog.
+Client WASM requires the package WASM artifacts to exist. Regenerate text WASM
+packages from the root when needed:
+
+```bash
+bun run text-wasm:build:all
+```
+
+## Server-Backed Mode
+
+Standalone server mode expects the matching server wrapper. Use full Cargo
+package names:
+
+```bash
+cargo run -p moritzbrantner-text-core-server
+cargo run -p moritzbrantner-text-index-server
+cargo run -p moritzbrantner-text-analysis-server
+```
+
+Then use the app runtime switch to select `Standalone Server`.
+
+## Local Checks
+
+Use focused checks while changing text apps or WASM packages:
+
+```bash
+bun run text-app:typecheck
+bun run text-wasm:test:all
+bun run web:test:e2e
+```
+
+Rust package-surface contracts are covered by:
+
+```bash
+cargo test --test text_surface_audit --test text_surface_operations
+```
+
+Model-backed/native checks remain opt-in. Keep default text app verification on
+deterministic package-surface operations unless a task explicitly targets model
+runtime behavior.

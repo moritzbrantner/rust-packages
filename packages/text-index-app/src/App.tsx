@@ -21,17 +21,50 @@ const packageAppConfig: PackageAppConfig = {
     {
       id: "workflow",
       label: "Workflow",
-      description: "Build, search, inspect, and plan transient text indexes.",
-      operations: ["index.search", "index.build", "index.addDocuments", "index.removeDocuments", "index.inspect", "index.snapshotPlan"],
+      description: "Build, search, and plan transient text indexes.",
+      operations: ["index.search", "index.build", "index.addDocuments", "index.snapshotPlan"],
     },
     {
       id: "debug",
       label: "Debug",
       description: "Inspect package metadata and operation support.",
-      operations: ["describe", "index.open"],
+      operations: ["describe", "index.open", "index.inspect"],
+    },
+    {
+      id: "support",
+      label: "Support",
+      description: "Plan durable index support operations without browser-side writes.",
+      operations: ["index.removeDocuments"],
     },
   ],
   presets: [
+    {
+      id: "build-index",
+      label: "Build index",
+      operation: "index.build",
+      description: "Build a transient in-memory Text Index from sample documents.",
+      input: {
+        documents: [
+          { id: "doc-1", body: "Rust text indexes combine chunks, vectors, and facets." },
+          { id: "doc-2", body: "Transient browser runs avoid durable SQLite writes." },
+        ],
+        options: { chunkingStrategy: "tokenWindow", chunkTokens: 16, chunkOverlapTokens: 0, storeRawText: true },
+        dimensions: 64,
+      },
+    },
+    {
+      id: "add-documents",
+      label: "Add documents",
+      operation: "index.addDocuments",
+      description: "Exercise the package-surface add-documents workflow on an in-memory index.",
+      input: {
+        documents: [
+          { id: "doc-1", body: "Add document workflows share the same deterministic index builder." },
+          { id: "doc-2", body: "Package surface operations stay side-effect free by default." },
+        ],
+        dimensions: 64,
+      },
+    },
     {
       id: "hybrid-search",
       label: "Hybrid search",

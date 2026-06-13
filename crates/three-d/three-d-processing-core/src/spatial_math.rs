@@ -302,7 +302,7 @@ impl Quaterniond {
         let rotation = nalgebra::Rotation3::from_matrix_unchecked(matrix);
         let q = nalgebra::UnitQuaternion::from_rotation_matrix(&rotation);
         let q = q.quaternion();
-        Ok(Self::new(q.i, q.j, q.k, q.w).normalize()?)
+        Self::new(q.i, q.j, q.k, q.w).normalize()
     }
 
     /// Returns the dot product.
@@ -351,7 +351,7 @@ impl Quaterniond {
     pub fn mul_quaternion(self, rhs: Self) -> Result<Self> {
         let lhs = self.normalize()?;
         let rhs = rhs.normalize()?;
-        Ok(Self::new(
+        Self::new(
             lhs.w
                 .mul_add(rhs.x, lhs.x.mul_add(rhs.w, lhs.y * rhs.z - lhs.z * rhs.y)),
             lhs.w
@@ -361,7 +361,7 @@ impl Quaterniond {
             lhs.w
                 .mul_add(rhs.w, -(lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z)),
         )
-        .normalize()?)
+        .normalize()
     }
 
     /// Rotates a vector.
@@ -468,13 +468,13 @@ impl Quaterniond {
 
     /// Converts this value to the single-precision quaternion type.
     pub fn to_f32_checked(self) -> Result<Quaternion> {
-        Ok(Quaternion::new(
+        Quaternion::new(
             f64_to_f32(self.x, "x")?,
             f64_to_f32(self.y, "y")?,
             f64_to_f32(self.z, "z")?,
             f64_to_f32(self.w, "w")?,
         )
-        .normalize()?)
+        .normalize()
     }
 }
 
@@ -847,7 +847,7 @@ impl Matrix4 {
 
     /// Returns the determinant.
     pub fn determinant(self) -> Result<f32> {
-        Ok(f64_to_f32(self.to_f64().determinant()?, "determinant")?)
+        f64_to_f32(self.to_f64().determinant()?, "determinant")
     }
 
     /// Multiplies two matrices.

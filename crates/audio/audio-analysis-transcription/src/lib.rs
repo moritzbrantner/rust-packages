@@ -3020,6 +3020,107 @@ mod tests {
         candle_core::safetensors::save(&tensors, root.join("model.safetensors")).unwrap();
     }
 
+    #[cfg(all(feature = "alignment", feature = "candle", feature = "model-bundles"))]
+    fn env_path(name: &str) -> Option<PathBuf> {
+        std::env::var_os(name).map(PathBuf::from)
+    }
+
+    #[cfg(all(feature = "alignment", feature = "candle", feature = "model-bundles"))]
+    fn write_default_alignment_smoke_wav(path: &Path) -> std::result::Result<(), hound::Error> {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 16_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(path, spec)?;
+        for index in 0..16_000 {
+            let sample = if (1_000..8_000).contains(&index) {
+                16_384i16
+            } else {
+                0i16
+            };
+            writer.write_sample(sample)?;
+        }
+        writer.finalize()
+    }
+
+    #[cfg(all(feature = "alignment", feature = "candle", feature = "model-bundles"))]
+    fn default_alignment_smoke_audio_path(
+        temp: &Path,
+    ) -> std::result::Result<PathBuf, Box<dyn std::error::Error>> {
+        if let Some(path) =
+            env_path("ALIGNMENT_AUDIO_PATH").or_else(|| env_path("TRANSCRIPTION_AUDIO_PATH"))
+        {
+            return Ok(path);
+        }
+
+        let repo_sample = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../vendor/whisper.cpp/samples/jfk.wav");
+        if repo_sample.exists() {
+            return Ok(repo_sample);
+        }
+
+        let generated = temp.join("default-alignment-smoke.wav");
+        write_default_alignment_smoke_wav(&generated)?;
+        Ok(generated)
+    }
+
+    #[cfg(all(feature = "alignment", feature = "candle", feature = "model-bundles"))]
+    fn resolve_alignment_smoke_bundle_candidate(path: &Path) -> Option<PathBuf> {
+        let candidates = [
+            path.to_path_buf(),
+            path.join("main"),
+            path.join("wav2vec2-base-960h"),
+            path.join("wav2vec2-base-960h/main"),
+            path.join("facebook--wav2vec2-base-960h"),
+            path.join("facebook--wav2vec2-base-960h/main"),
+            path.join("models--facebook--wav2vec2-base-960h"),
+        ];
+        candidates
+            .into_iter()
+            .find(|candidate| native_wav2vec2::resolve_wav2vec2_bundle_paths(candidate).is_ok())
+    }
+
+    #[cfg(all(feature = "alignment", feature = "candle", feature = "model-bundles"))]
+    fn default_alignment_smoke_bundle(
+        temp: &Path,
+    ) -> std::result::Result<(PathBuf, &'static str), Box<dyn std::error::Error>> {
+        if let Some(bundle) = env_path("ALIGNMENT_MODEL_BUNDLE") {
+            return Ok((bundle, "ALIGNMENT_MODEL_BUNDLE"));
+        }
+
+        if let Some(model_dir) = env_path("ALIGNMENT_MODEL_DIR") {
+            if let Some(bundle) = resolve_alignment_smoke_bundle_candidate(&model_dir) {
+                return Ok((bundle, "ALIGNMENT_MODEL_DIR"));
+            }
+            return Err(format!(
+                "ALIGNMENT_MODEL_DIR did not contain a supported wav2vec2 bundle: {}",
+                model_dir.display()
+            )
+            .into());
+        }
+
+        if let Some(xdg_data_home) = env_path("XDG_DATA_HOME") {
+            let smoke_models = xdg_data_home.join("video-analysis-smoke/models");
+            if let Some(bundle) = resolve_alignment_smoke_bundle_candidate(&smoke_models) {
+                return Ok((bundle, "default-xdg-data-home"));
+            }
+        }
+
+        if let Some(home) = env_path("HOME") {
+            let smoke_models = home.join(".local/share/video-analysis-smoke/models");
+            if let Some(bundle) = resolve_alignment_smoke_bundle_candidate(&smoke_models) {
+                return Ok((bundle, "default-home-local-share"));
+            }
+        }
+
+        let generated = temp.join("default-wav2vec2-bundle");
+        fs::create_dir_all(&generated)?;
+        write_tiny_wav2vec2_bundle(&generated);
+        Ok((generated, "generated-tiny-bundle"))
+    }
+
     #[test]
     fn majority_overlap_assigns_word_and_segment_speaker(
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -4389,8 +4490,11 @@ mod tests {
     #[test]
     #[ignore]
     fn ctc_alignment_wav2vec2_smoke_when_requested() {
-        if std::env::var("RUN_NATIVE_ALIGNMENT_TESTS").as_deref() != Ok("1") {
-            eprintln!("skipping native alignment smoke; set RUN_NATIVE_ALIGNMENT_TESTS=1");
+        if matches!(
+            std::env::var("RUN_NATIVE_ALIGNMENT_TESTS").as_deref(),
+            Ok("0" | "false" | "FALSE")
+        ) {
+            eprintln!("skipping native alignment smoke; RUN_NATIVE_ALIGNMENT_TESTS disables it");
             return;
         }
         #[cfg(not(all(feature = "candle", feature = "alignment", feature = "model-bundles")))]
@@ -4398,14 +4502,18 @@ mod tests {
 
         #[cfg(all(feature = "candle", feature = "alignment", feature = "model-bundles"))]
         {
-            let bundle = std::env::var_os("ALIGNMENT_MODEL_BUNDLE")
-                .map(PathBuf::from)
-                .expect("ALIGNMENT_MODEL_BUNDLE is required");
-            let audio_path = std::env::var_os("TRANSCRIPTION_AUDIO_PATH")
-                .map(PathBuf::from)
-                .expect("TRANSCRIPTION_AUDIO_PATH is required");
+            let temp = tempfile::tempdir().expect("alignment smoke tempdir should be created");
+            let (bundle, bundle_source) = default_alignment_smoke_bundle(temp.path())
+                .expect("alignment smoke should resolve a default wav2vec2 bundle");
+            let audio_path = default_alignment_smoke_audio_path(temp.path())
+                .expect("alignment smoke should resolve a default WAV path");
             let layout = native_wav2vec2::inspect_wav2vec2_bundle_layout(&bundle)
                 .expect("alignment smoke should inspect wav2vec2 bundle layout");
+            eprintln!(
+                "alignment smoke defaults: bundleSource={bundle_source} bundle={} audio={}",
+                bundle.display(),
+                audio_path.display()
+            );
             eprintln!("wav2vec2 layout report: {layout:#?}");
             let transcript_text = std::env::var("ALIGNMENT_TRANSCRIPT_TEXT")
                 .unwrap_or_else(|_| "hello world".to_string());
@@ -4429,22 +4537,41 @@ mod tests {
                 options: AlignmentOptions {
                     enabled: true,
                     model_bundle: Some(bundle),
+                    return_char_alignments: true,
                     ..AlignmentOptions::default()
                 },
             };
             let response = aligner
                 .align(request)
                 .expect("native wav2vec2/CTC alignment should run");
+            eprintln!("{}", response.diagnostics.join("\n"));
             assert!(!response.words.is_empty());
             assert!(response
                 .words
                 .iter()
                 .all(|word| word.end_seconds >= word.start_seconds));
             assert!(response.words.iter().all(|word| word.confidence.is_some()));
+            assert!(!response.chars.is_empty());
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "alignmentProvider=ctc-forced-aligner"));
             assert!(response
                 .diagnostics
                 .iter()
                 .any(|item| item == "alignmentModelExecution=candle-wav2vec2"));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "alignmentModelSource=explicit-bundle"));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "alignmentInterpolateMethod=nearest"));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "returnCharAlignments=true"));
         }
     }
 }

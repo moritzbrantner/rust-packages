@@ -191,13 +191,18 @@ avoid `CUBLAS_STATUS_NOT_INITIALIZED`.
 CTC alignment wav2vec2 smoke test:
 
 ```bash
-RUN_NATIVE_ALIGNMENT_TESTS=1 \
-ALIGNMENT_MODEL_BUNDLE=/path/to/wav2vec2 \
-TRANSCRIPTION_AUDIO_PATH=/path/to/audio.wav \
 cargo test -p moritzbrantner-audio-analysis-transcription \
   --features candle,alignment,model-bundles \
   ctc_alignment_wav2vec2_smoke_when_requested -- --ignored --nocapture
 ```
+
+The ignored smoke has defaults when the environment is unset: `ALIGNMENT_AUDIO_PATH`
+falls back to `TRANSCRIPTION_AUDIO_PATH`, the checked-in whisper.cpp sample WAV,
+or a generated 16 kHz WAV. `ALIGNMENT_MODEL_BUNDLE` is used first, then
+`ALIGNMENT_MODEL_DIR`, `$XDG_DATA_HOME/video-analysis-smoke/models`,
+`$HOME/.local/share/video-analysis-smoke/models`, or a generated tiny wav2vec2
+bundle. Set `RUN_NATIVE_ALIGNMENT_TESTS=0` to skip it explicitly when running
+ignored tests.
 
 The CTC path validates wav2vec2 bundle files, config, tokenizer vocabulary, and
 preprocessor metadata. Supported local `Wav2Vec2ForCTC` safetensors bundles

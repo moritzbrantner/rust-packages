@@ -231,6 +231,14 @@ fn new_release_text_operations_have_app_presets_and_benchmarks() {
     assert_operation_has_app_preset(&retrieval, "retrieval.snapshotPlan");
     assert_operation_has_benchmark(&retrieval, "retrieval.snapshotPlan");
 
+    let index = app_source("text-index");
+    assert_operation_has_app_preset(&index, "index.build");
+    assert_operation_has_app_preset(&index, "index.addDocuments");
+    assert_operation_has_app_preset(&index, "index.search");
+    assert_operation_has_app_preset(&index, "index.snapshotPlan");
+    assert_operation_has_benchmark(&index, "index.search");
+    assert_operation_has_benchmark(&index, "index.inspect");
+
     let transcripts = app_source("text-transcripts");
     assert_operation_has_app_preset(&transcripts, "transcripts.formatWebVtt");
     assert_operation_has_app_preset(&transcripts, "transcripts.toTextSegments");
@@ -408,6 +416,31 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
             support: &[],
             invalid_operation: "retrieval.search",
             invalid_input: serde_json::json!({"documents": []}),
+        },
+        TextSurfaceCase {
+            crate_name: "text-index",
+            package_surface: text_index::surface::package_surface,
+            run: text_index::surface::run_surface_operation,
+            operations: &[
+                "describe",
+                "index.build",
+                "index.open",
+                "index.addDocuments",
+                "index.removeDocuments",
+                "index.search",
+                "index.inspect",
+                "index.snapshotPlan",
+            ],
+            workflow: &[
+                "index.search",
+                "index.build",
+                "index.addDocuments",
+                "index.snapshotPlan",
+            ],
+            debug: &["describe", "index.open", "index.inspect"],
+            support: &["index.removeDocuments"],
+            invalid_operation: "index.search",
+            invalid_input: serde_json::json!({"documents": "bad", "query": {"text": "missing"}}),
         },
         TextSurfaceCase {
             crate_name: "text-analysis",

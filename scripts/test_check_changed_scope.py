@@ -47,7 +47,13 @@ class CheckChangedScopeTests(unittest.TestCase):
     def test_wasm_package_change_runs_matching_bun_test(self) -> None:
         scope = self.classify(["packages/text-core-wasm/tests/package.test.ts"])
         self.assertEqual(scope["frontend_scope"], "changed")
-        self.assertEqual(scope["frontend_commands"], ["bun run --cwd packages/text-core-wasm test"])
+        self.assertEqual(scope["frontend_commands"], ["bun run text-wasm:test:all"])
+        self.assertEqual(scope["progress_packages"], ["moritzbrantner-text-core"])
+
+    def test_text_app_change_runs_text_app_typecheck(self) -> None:
+        scope = self.classify(["packages/text-core-app/src/App.tsx"])
+        self.assertEqual(scope["frontend_scope"], "changed")
+        self.assertEqual(scope["frontend_commands"], ["bun run text-app:typecheck"])
         self.assertEqual(scope["progress_packages"], ["moritzbrantner-text-core"])
 
     def test_root_cargo_toml_selects_workspace(self) -> None:
@@ -121,6 +127,7 @@ class CheckChangedScopeTests(unittest.TestCase):
             ],
             package_json_paths=[
                 "packages/text-core-wasm/package.json",
+                "packages/text-core-app/package.json",
                 "packages/video-analysis-ui/package.json",
                 "prototypes/web/video-analysis-web/package.json",
             ],

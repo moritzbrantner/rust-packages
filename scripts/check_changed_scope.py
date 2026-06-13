@@ -202,7 +202,13 @@ def classify_changed_files(
             frontend_reasons.append(f"{path} affects prototypes/web/video-analysis-web")
         elif path.startswith("packages/"):
             package_dir = frontend_package_dir(path, package_json_set)
-            if package_dir and package_dir.endswith("-wasm"):
+            if package_dir and package_dir.startswith("packages/text-") and package_dir.endswith("-wasm"):
+                frontend_commands.add("bun run text-wasm:test:all")
+                frontend_reasons.append(f"{path} affects a text WASM package")
+            elif package_dir and package_dir.startswith("packages/text-") and package_dir.endswith("-app"):
+                frontend_commands.add("bun run text-app:typecheck")
+                frontend_reasons.append(f"{path} affects a text app package")
+            elif package_dir and package_dir.endswith("-wasm"):
                 frontend_commands.add(f"bun run --cwd {package_dir} test")
                 frontend_reasons.append(f"{path} affects {package_dir}")
 
@@ -351,6 +357,8 @@ def order_frontend_commands(commands: Iterable[str]) -> list[str]:
         "bun run web:typecheck",
         "bun run web:test:unit",
         "bun run web:test:api",
+        "bun run text-wasm:test:all",
+        "bun run text-app:typecheck",
     ]
     command_set = set(commands)
     ordered = [command for command in preferred if command in command_set]

@@ -19,7 +19,7 @@ use video_analysis::{
     model_runtime, mvs, numbers, output, posture, posture_io, radiance_fields, radiance_io,
     radiance_pipeline, recognition, reconstruction, sfm, signal, sparse, split, stats, storage,
     synthesis, tensor_data, text_analysis, text_classification, text_core, text_embeddings,
-    text_generation, text_generation_linguistics, text_lexical, text_linguistics,
+    text_generation, text_generation_linguistics, text_index, text_lexical, text_linguistics,
     text_model_runtime, text_question_answering, text_retrieval, text_transcripts, three_d_core,
     three_d_io, three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
     video_segmentation, Timebase, Timestamp,
@@ -2167,6 +2167,7 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "text-generation-linguistics" => {
             Some(text_generation_linguistics::surface::package_surface())
         }
+        "text-index" => Some(text_index::surface::package_surface()),
         "text-lexical" => Some(text_lexical::surface::package_surface()),
         "text-linguistics" => Some(text_linguistics::surface::package_surface()),
         "text-model-runtime" => Some(text_model_runtime::surface::package_surface()),
@@ -2324,6 +2325,7 @@ fn run_surface_operation_for(
         "text-generation-linguistics" => Some(
             text_generation_linguistics::surface::run_surface_operation(request),
         ),
+        "text-index" => Some(text_index::surface::run_surface_operation(request)),
         "text-lexical" => Some(text_lexical::surface::run_surface_operation(request)),
         "text-linguistics" => Some(text_linguistics::surface::run_surface_operation(request)),
         "text-model-runtime" => Some(text_model_runtime::surface::run_surface_operation(request)),
@@ -2793,6 +2795,13 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
+        package: "text-index",
+        import_path: "video_analysis::text_index",
+        domain: "text",
+        linked: true,
+        required_feature: None,
+    },
+    ModuleInfo {
         package: "text-retrieval",
         import_path: "video_analysis::text_retrieval",
         domain: "text",
@@ -3136,6 +3145,21 @@ mod tests {
             .contains("\"operation\":\"analysis.document\""));
         assert!(response.body.contains("\"enrichedStats\""));
         assert!(response.body.contains("\"lexical\""));
+    }
+
+    #[test]
+    fn serves_text_index_search_from_package_route() {
+        let request = Request {
+            method: "POST".to_string(),
+            path: "/api/rust/packages/text-index/api/run".to_string(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            body: r#"{"operation":"index.search","input":{"documents":[{"id":"doc-1","body":"Rust text index search"},{"id":"doc-2","body":"Video scene reports"}],"query":{"text":"text search","topK":2}}}"#.to_string(),
+        };
+        let response = response_for(&request);
+        assert_eq!(response.status_code, 200);
+        assert!(response.body.contains("\"operation\":\"index.search\""));
+        assert!(response.body.contains("\"results\""));
     }
 
     #[test]

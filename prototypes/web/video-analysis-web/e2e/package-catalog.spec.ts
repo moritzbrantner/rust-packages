@@ -28,6 +28,7 @@ const textOperationSmokePackages = [
   "text-embeddings",
   "text-generation",
   "text-generation-linguistics",
+  "text-index",
   "text-lexical",
   "text-linguistics",
   "text-model-runtime",
@@ -134,7 +135,7 @@ test("missing generated WASM falls back to the overview server", async ({ page }
 });
 
 async function fetchWrappers(page: Page): Promise<string[]> {
-  const response = await page.request.get("/workspace-architecture.json");
+  const response = await page.request.get("/api/workspace-architecture");
   expect(response.ok()).toBe(true);
   const architecture = (await response.json()) as WorkspaceArchitectureResponse;
   return architecture.packages

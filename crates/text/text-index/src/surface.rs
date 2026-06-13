@@ -115,13 +115,71 @@ fn describe_value(input: serde_json::Value) -> serde_json::Value {
 }
 
 fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_json::Value {
-    structured_surface_value(
-        operation,
-        "Text index result",
-        "Ran a text-index package operation.",
-        serde_json::json!({"status": "ok"}),
-        value,
-    )
+    let (title, message, summary) = match operation.as_str() {
+        "describe" | "index.open" => (
+            "Package surface metadata",
+            "Inspected the text-index package operations and runtime support.",
+            serde_json::json!({
+                "status": "ok",
+                "operationCount": value["operationCount"]
+            }),
+        ),
+        "index.build" | "index.addDocuments" => (
+            "Index build result",
+            "Built a transient in-memory text index from the provided documents.",
+            serde_json::json!({
+                "status": "ok",
+                "documentsUpserted": value["report"]["documentsUpserted"],
+                "chunkCount": value["inspect"]["chunkCount"],
+                "vectorCount": value["inspect"]["vectorCount"]
+            }),
+        ),
+        "index.removeDocuments" => (
+            "Index removal plan",
+            "Planned document removal for a durable text index; browser package execution stays side-effect free.",
+            serde_json::json!({
+                "status": "ok",
+                "documentCount": value["documentIds"].as_array().map(Vec::len).unwrap_or(0),
+                "commitRequiredForDurableWrites": value["commitRequiredForDurableWrites"]
+            }),
+        ),
+        "index.search" => (
+            "Index search result",
+            "Built a transient in-memory text index and searched it with deterministic lexical and semantic scoring.",
+            serde_json::json!({
+                "status": "ok",
+                "resultCount": value["results"].as_array().map(Vec::len).unwrap_or(0)
+            }),
+        ),
+        "index.inspect" => (
+            "Index inspection result",
+            "Inspected transient text index counts without durable writes.",
+            serde_json::json!({
+                "status": "ok",
+                "documentCount": value["documentCount"],
+                "chunkCount": value["chunkCount"],
+                "vectorCount": value["vectorCount"],
+                "facetCount": value["facetCount"]
+            }),
+        ),
+        "index.snapshotPlan" => (
+            "Index snapshot plan",
+            "Planned transient index snapshot metadata without writing files.",
+            serde_json::json!({
+                "status": "ok",
+                "backend": value["backend"],
+                "documentCount": value["documentCount"],
+                "chunkCount": value["chunkCount"],
+                "vectorCount": value["vectorCount"]
+            }),
+        ),
+        _ => (
+            "Text index result",
+            "Ran a text-index package operation.",
+            serde_json::json!({"status": "ok"}),
+        ),
+    };
+    structured_surface_value(operation, title, message, summary, value)
 }
 
 fn operation(
@@ -161,7 +219,7 @@ struct RemoveRequest {
 }
 
 fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| error.to_string())
+    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
 }
 
 fn default_dimensions() -> usize {

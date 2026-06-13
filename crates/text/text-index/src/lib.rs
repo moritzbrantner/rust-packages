@@ -566,7 +566,9 @@ impl<B: TextEmbedderBackend, S: TextIndexStore> TextIndex<B, S> {
             validate_document(document)?;
             let chunks = chunk_index_document(document, &self.options)?;
             if chunks.is_empty() {
-                let _ = self.store.remove_documents(&[document.id.clone()])?;
+                let _ = self
+                    .store
+                    .remove_documents(std::slice::from_ref(&document.id))?;
                 total.documents_skipped += 1;
                 continue;
             }
