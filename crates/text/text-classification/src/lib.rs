@@ -1260,4 +1260,31 @@ mod tests {
         );
         assert_eq!(classify.required_feature.as_deref(), Some("local-models"));
     }
+
+    #[cfg(all(feature = "onnx", feature = "model-bundles"))]
+    #[test]
+    fn zero_shot_local_model_respects_auto_download_false() {
+        let temp = tempfile::tempdir().unwrap();
+        let error = zero_shot_classify(ZeroShotClassificationRequest {
+            text: "Rust package workflows".to_string(),
+            labels: vec!["software".to_string(), "music".to_string()],
+            hypothesis_template: "This text is about {}.".to_string(),
+            model: ModelSelection {
+                fallback_policy: FallbackPolicy::Error,
+                ..ModelSelection::default()
+            },
+            imported_predictions: Vec::new(),
+            local_model: Some(TextClassificationLocalModelOptions {
+                model_id: Some("xenova-bart-large-mnli-onnx".to_string()),
+                bundle_root: Some(temp.path().join("bundles")),
+                auto_download: Some(false),
+                ..TextClassificationLocalModelOptions::default()
+            }),
+        })
+        .unwrap_err()
+        .to_string();
+
+        assert!(error.contains("missing model bundle `xenova-bart-large-mnli-onnx`"));
+        assert!(error.contains("autoDownload is false"));
+    }
 }

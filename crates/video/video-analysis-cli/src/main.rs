@@ -423,6 +423,8 @@ enum ModelPresetKind {
     XenovaDistilbertSst2Onnx,
     #[value(name = "xenova-minilm-l6-v2-onnx")]
     XenovaMiniLmL6V2Onnx,
+    #[value(name = "xenova-bart-large-mnli-onnx")]
+    XenovaBartLargeMnliOnnx,
     #[value(name = "trocr-base-printed-onnx")]
     XenovaTrocrBasePrintedOnnx,
     #[value(name = "trocr-base-handwritten-onnx")]
@@ -441,6 +443,7 @@ impl From<ModelPresetKind> for ModelPreset {
             ModelPresetKind::MiniLmL6V2 => Self::MiniLmL6V2,
             ModelPresetKind::XenovaDistilbertSst2Onnx => Self::XenovaDistilbertSst2Onnx,
             ModelPresetKind::XenovaMiniLmL6V2Onnx => Self::XenovaMiniLmL6V2Onnx,
+            ModelPresetKind::XenovaBartLargeMnliOnnx => Self::XenovaBartLargeMnliOnnx,
             ModelPresetKind::XenovaTrocrBasePrintedOnnx => Self::XenovaTrocrBasePrintedOnnx,
             ModelPresetKind::XenovaTrocrBaseHandwrittenOnnx => Self::XenovaTrocrBaseHandwrittenOnnx,
             ModelPresetKind::Wav2Vec2Base960h => Self::Wav2Vec2Base960h,
@@ -1491,6 +1494,28 @@ mod tests {
             "xenova-distilbert-sst2-onnx",
         ])
         .unwrap();
+    }
+
+    #[test]
+    fn model_download_accepts_bart_mnli_onnx_preset_without_files() {
+        let cli = Cli::try_parse_from([
+            "vanalyze",
+            "models",
+            "download",
+            "--preset",
+            "xenova-bart-large-mnli-onnx",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Models(ModelsArgs {
+                command: ModelsCommand::Download(args),
+            }) => assert_eq!(
+                args.preset.map(ModelPreset::from),
+                Some(ModelPreset::XenovaBartLargeMnliOnnx)
+            ),
+            _ => panic!("expected models download command"),
+        }
     }
 
     #[test]

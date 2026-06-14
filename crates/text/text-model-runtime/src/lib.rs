@@ -453,9 +453,10 @@ impl TokenizerPreset {
     fn source(self) -> TokenizerSource {
         match self {
             Self::BertBaseUncased => TokenizerSource::huggingface("bert-base-uncased"),
-            Self::DistilbertSst2 => {
-                TokenizerSource::huggingface("distilbert-base-uncased-finetuned-sst-2-english")
-            }
+            Self::DistilbertSst2 => TokenizerSource::huggingface_file(
+                "distilbert-base-uncased-finetuned-sst-2-english",
+                "vocab.txt",
+            ),
             Self::MiniLmL6V2 => {
                 TokenizerSource::huggingface("sentence-transformers/all-MiniLM-L6-v2")
             }
@@ -494,10 +495,14 @@ impl TokenizerSource {
 
     /// Uses a Hugging Face tokenizer.
     pub fn huggingface(repo_id: impl Into<String>) -> Self {
+        Self::huggingface_file(repo_id, "tokenizer.json")
+    }
+
+    fn huggingface_file(repo_id: impl Into<String>, tokenizer_file: impl Into<String>) -> Self {
         Self::HuggingFace {
             repo_id: repo_id.into(),
             revision: "main".to_string(),
-            tokenizer_file: "tokenizer.json".to_string(),
+            tokenizer_file: tokenizer_file.into(),
         }
     }
 
@@ -2169,6 +2174,21 @@ mod tests {
                 .unwrap();
         assert_eq!(predictions[0].label.as_deref(), Some("POSITIVE"));
         assert!(predictions[0].score.unwrap() > predictions[1].score.unwrap());
+    }
+
+    #[test]
+    fn distilbert_sst2_tokenizer_preset_uses_vocab_file() {
+        match TokenizerPreset::DistilbertSst2.source() {
+            TokenizerSource::HuggingFace {
+                repo_id,
+                tokenizer_file,
+                ..
+            } => {
+                assert_eq!(repo_id, "distilbert-base-uncased-finetuned-sst-2-english");
+                assert_eq!(tokenizer_file, "vocab.txt");
+            }
+            other => panic!("unexpected DistilBERT tokenizer source: {other:?}"),
+        }
     }
 
     #[test]

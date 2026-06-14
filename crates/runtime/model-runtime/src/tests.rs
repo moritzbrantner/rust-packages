@@ -112,6 +112,45 @@ fn wav2vec2_base_preset_accepts_vocab_json_tokenizer_layout() {
 }
 
 #[test]
+fn distilbert_sst2_preset_uses_wordpiece_vocab_layout() {
+    let spec = ModelPreset::DistilbertSst2.spec();
+
+    assert_eq!(
+        spec.repo_id,
+        "distilbert-base-uncased-finetuned-sst-2-english"
+    );
+    assert_eq!(spec.name, "distilbert-sst2");
+    assert!(spec
+        .files
+        .contains(&ModelFileRequest::required("config.json")));
+    assert!(spec
+        .files
+        .contains(&ModelFileRequest::required("tokenizer_config.json")));
+    assert!(spec
+        .files
+        .contains(&ModelFileRequest::required("vocab.txt")));
+    assert!(!spec
+        .files
+        .contains(&ModelFileRequest::required("tokenizer.json")));
+    assert!(spec.files.contains(&ModelFileRequest::first_available([
+        "model.safetensors",
+        "pytorch_model.bin"
+    ])));
+}
+
+#[test]
+fn bart_mnli_onnx_preset_prefers_quantized_smoke_artifact() {
+    let spec = ModelPreset::XenovaBartLargeMnliOnnx.spec();
+
+    assert_eq!(spec.repo_id, "Xenova/bart-large-mnli");
+    assert!(spec.files.contains(&ModelFileRequest::first_available([
+        "onnx/model_quantized.onnx",
+        "onnx/encoder_model.onnx",
+        "onnx/model.onnx"
+    ])));
+}
+
+#[test]
 fn resolver_loads_existing_bundle_before_download() {
     let temp = tempdir().unwrap();
     let spec = ModelPreset::OnnxCommunityRobertaBaseSquad2.spec();

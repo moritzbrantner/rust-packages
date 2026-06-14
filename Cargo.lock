@@ -4237,6 +4237,7 @@ dependencies = [
  "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

@@ -32,3 +32,6 @@ candle = ["model-bundles", "text-model-runtime/candle"]
 onnx = ["model-bundles", "text-model-runtime/onnx"]
 local-models = ["candle", "onnx"]
 external-tests = ["local-models"]
+
+[dev-dependencies]
+tempfile.workspace = true

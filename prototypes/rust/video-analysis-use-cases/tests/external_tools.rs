@@ -287,6 +287,11 @@ fn image_person_edit_workflow_runs_with_real_tools_when_configured() {
             assert!(std::path::Path::new(&report.assets.workflow_json).exists());
         }
         Err(error) => {
+            if std::env::var_os("STRICT_EXTERNAL_RUNTIME_CHECKS").is_some() {
+                panic!(
+                    "image person edit detector/editor failed under STRICT_EXTERNAL_RUNTIME_CHECKS: {error}"
+                );
+            }
             eprintln!(
                 "skipping image person edit external test because detector/editor failed: {error}"
             );

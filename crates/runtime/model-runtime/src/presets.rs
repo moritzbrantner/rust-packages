@@ -159,7 +159,6 @@ impl ModelPreset {
             )
             .name(self.as_str())
             .file("config.json")
-            .file("tokenizer.json")
             .file("tokenizer_config.json")
             .file("vocab.txt")
             .first_available_file(["model.safetensors", "pytorch_model.bin"]),
@@ -232,9 +231,9 @@ impl ModelPreset {
             .file("tokenizer.json")
             .file("tokenizer_config.json")
             .first_available_file([
+                "onnx/model_quantized.onnx",
                 "onnx/encoder_model.onnx",
                 "onnx/model.onnx",
-                "onnx/model_quantized.onnx",
             ]),
             Self::XenovaBartLargeCnnOnnx => {
                 HuggingFaceModelSpec::new("Xenova/bart-large-cnn", ModelTask::Summarization)
