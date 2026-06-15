@@ -27,6 +27,11 @@ mod tests {
     fn wrapped_surface_has_operations() {
         let surface = text_question_answering::surface::package_surface();
         assert_eq!(surface.library, "moritzbrantner-text-question-answering");
-        assert!(!surface.operations.is_empty());
+        let operations = surface
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>();
+        assert!(operations.contains(&"qa.answerWithIndex"));
     }
 }

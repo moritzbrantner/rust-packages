@@ -23,6 +23,38 @@ test("runOperation answers from imported spans with structured output", async ()
   expect(result.answers.length).toBeGreaterThan(0);
 });
 
+test("runOperation answers from an indexed document with structured output", async () => {
+  const entry = await import("../index.js");
+  const result = assertStructuredResponse(
+    await entry.runOperation({
+      operation: "qa.answerWithIndex",
+      input: {
+        question: "What language has ownership?",
+        documents: [
+          {
+            id: "doc-rust",
+            body: "Rust has ownership and deterministic package workflows.",
+            language: "en",
+          },
+        ],
+        indexOptions: {
+          chunkingStrategy: "tokenWindow",
+          chunkTokens: 16,
+          chunkOverlapTokens: 0,
+          storeRawText: true,
+        },
+        topKChunks: 2,
+        topKAnswers: 1,
+        localModel: { autoDownload: false },
+        fallbackPolicy: "heuristicIfUnavailable",
+      },
+    }),
+    "qa.answerWithIndex",
+  );
+  expect(result.answers.length).toBeGreaterThan(0);
+  expect(result.answers[0].citations.length).toBeGreaterThan(0);
+});
+
 function assertStructuredResponse(response: any, operation: string) {
   expect(response.operation).toBe(operation);
   expect(response.value.operation).toBe(operation);

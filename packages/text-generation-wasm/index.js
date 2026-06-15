@@ -1,7 +1,7 @@
 let wasmModulePromise;
 
 export async function init() {
-  const wasmEntry = "./pkg/text_generation_wasm.js";
+  const wasmEntry = "./pkg/moritzbrantner_text_generation_wasm.js";
   wasmModulePromise ??= import(/* @vite-ignore */ wasmEntry).then(async (module) => {
     if (typeof module.default === "function") {
       await module.default();

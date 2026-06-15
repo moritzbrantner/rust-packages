@@ -252,8 +252,6 @@ fn backends_value(request: BackendsRequest) -> Result<serde_json::Value, String>
                 "backend": "hashed",
                 "loadable": true,
                 "default": true,
-                "requiredFeature": null,
-                "requiredSetup": null,
                 "model": hashed.model_info()
             },
             {
@@ -266,8 +264,7 @@ fn backends_value(request: BackendsRequest) -> Result<serde_json::Value, String>
                     "modelName": "feature-gated-onnx-text-embedding",
                     "backend": "onnx",
                     "dimensions": 0,
-                    "normalized": true,
-                    "maxTokens": null
+                    "normalized": true
                 }
             },
             {
@@ -280,8 +277,7 @@ fn backends_value(request: BackendsRequest) -> Result<serde_json::Value, String>
                     "modelName": "feature-gated-candle-text-embedding",
                     "backend": "candle",
                     "dimensions": 0,
-                    "normalized": true,
-                    "maxTokens": null
+                    "normalized": true
                 }
             }
         ]
@@ -445,6 +441,8 @@ mod tests {
             .find(|backend| backend["backend"] == "hashed")
             .unwrap();
         assert_eq!(hashed["loadable"], true);
+        assert!(hashed["requiredFeature"].is_null());
+        assert!(hashed["requiredSetup"].is_null());
         assert_eq!(hashed["model"]["dimensions"], 32);
         let onnx = backends
             .iter()

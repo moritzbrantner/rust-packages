@@ -19,6 +19,19 @@ test("runOperation computes similarity with structured output", async () => {
   expect(Number.isFinite(result.similarity)).toBe(true);
 });
 
+test("runOperation exposes backend catalog with structured output", async () => {
+  const entry = await import("../index.js");
+  const result = assertStructuredResponse(
+    await entry.runOperation({
+      operation: "embeddings.backends",
+      input: { dimensions: 16 },
+    }),
+    "embeddings.backends",
+  );
+  expect(result.defaultBackend).toBe("hashed");
+  expect(result.backends[0].model.dimensions).toBe(16);
+});
+
 function assertStructuredResponse(response: any, operation: string) {
   expect(response.operation).toBe(operation);
   expect(response.value.operation).toBe(operation);
