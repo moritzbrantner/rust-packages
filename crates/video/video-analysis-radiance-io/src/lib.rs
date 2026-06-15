@@ -288,16 +288,27 @@ pub fn colmap_to_sparse_reconstruction(dataset: &ColmapDataset) -> IoResult<Spar
         if point.track.len() < 2 {
             continue;
         }
-        let track = Track::new(
-            point
-                .track
-                .iter()
-                .map(|element| TrackElement::new(ImageId(element.image_id), element.point2d_index))
-                .collect::<Vec<_>>(),
-        )?;
+        let track_elements = normalized_colmap_track(&point.track);
+        if track_elements.len() < 2 {
+            continue;
+        }
+        let track = Track::new(track_elements)?;
         reconstruction.insert_point(point.xyz, point.color, track, point.error)?;
     }
     Ok(reconstruction)
+}
+
+fn normalized_colmap_track(track: &[ColmapTrackElement]) -> Vec<TrackElement> {
+    let mut by_image = BTreeMap::new();
+    for element in track {
+        by_image
+            .entry(element.image_id)
+            .or_insert(element.point2d_index);
+    }
+    by_image
+        .into_iter()
+        .map(|(image_id, point2d_index)| TrackElement::new(ImageId(image_id), point2d_index))
+        .collect()
 }
 
 fn colmap_camera_intrinsics(
@@ -1234,6 +1245,86 @@ mod tests {
         let reconstruction = colmap_to_sparse_reconstruction(&dataset).unwrap();
 
         assert_eq!(reconstruction.cameras().len(), 1);
+    }
+
+    #[test]
+    fn colmap_to_sparse_reconstruction_deduplicates_track_images() {
+        let dataset = ColmapDataset {
+            cameras: vec![ColmapCamera {
+                id: 1,
+                model: CameraModel::Pinhole,
+                raw_model: "PINHOLE".to_string(),
+                width: 100,
+                height: 80,
+                params: vec![50.0, 50.0, 49.0, 39.0],
+            }],
+            images: vec![
+                ColmapImage {
+                    id: 1,
+                    qw: 1.0,
+                    qx: 0.0,
+                    qy: 0.0,
+                    qz: 0.0,
+                    tx: 0.0,
+                    ty: 0.0,
+                    tz: 0.0,
+                    camera_id: 1,
+                    name: "a.png".to_string(),
+                    points2d: vec![
+                        ColmapPoint2d {
+                            xy: Vec2::new(10.0, 10.0),
+                            point3d_id: Some(1),
+                        },
+                        ColmapPoint2d {
+                            xy: Vec2::new(11.0, 10.0),
+                            point3d_id: Some(1),
+                        },
+                    ],
+                },
+                ColmapImage {
+                    id: 2,
+                    qw: 1.0,
+                    qx: 0.0,
+                    qy: 0.0,
+                    qz: 0.0,
+                    tx: -1.0,
+                    ty: 0.0,
+                    tz: 0.0,
+                    camera_id: 1,
+                    name: "b.png".to_string(),
+                    points2d: vec![ColmapPoint2d {
+                        xy: Vec2::new(10.0, 10.0),
+                        point3d_id: Some(1),
+                    }],
+                },
+            ],
+            points: vec![ColmapPoint3d {
+                id: 1,
+                xyz: Vec3::new(0.0, 0.0, 3.0),
+                color: ColorRgb::WHITE,
+                error: 0.5,
+                track: vec![
+                    ColmapTrackElement {
+                        image_id: 1,
+                        point2d_index: 0,
+                    },
+                    ColmapTrackElement {
+                        image_id: 1,
+                        point2d_index: 1,
+                    },
+                    ColmapTrackElement {
+                        image_id: 2,
+                        point2d_index: 0,
+                    },
+                ],
+            }],
+        };
+
+        let reconstruction = colmap_to_sparse_reconstruction(&dataset).unwrap();
+
+        assert_eq!(reconstruction.points().len(), 1);
+        let point = reconstruction.points().values().next().unwrap();
+        assert_eq!(point.track.elements.len(), 2);
     }
 
     #[test]

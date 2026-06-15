@@ -367,6 +367,18 @@ pub fn reconstruct_video_surface_operation(
         ));
     }
 
+    let feature_gpu_option = colmap_option_name(
+        &colmap,
+        "feature_extractor",
+        "FeatureExtraction.use_gpu",
+        "SiftExtraction.use_gpu",
+    );
+    let matching_gpu_option = colmap_option_name(
+        &colmap,
+        "exhaustive_matcher",
+        "FeatureMatching.use_gpu",
+        "SiftMatching.use_gpu",
+    );
     let commands = [
         (
             "colmap feature_extractor",
@@ -378,7 +390,7 @@ pub fn reconstruct_video_surface_operation(
                 path_arg(&frames_dir),
                 "--ImageReader.single_camera".into(),
                 "1".into(),
-                "--SiftExtraction.use_gpu".into(),
+                format!("--{feature_gpu_option}"),
                 "0".into(),
             ],
         ),
@@ -388,7 +400,7 @@ pub fn reconstruct_video_surface_operation(
                 "exhaustive_matcher".into(),
                 "--database_path".into(),
                 path_arg(&database_path),
-                "--SiftMatching.use_gpu".into(),
+                format!("--{matching_gpu_option}"),
                 "0".into(),
             ],
         ),
@@ -695,6 +707,32 @@ fn run_command(
             truncate(details, 1200)
         ),
     ))
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn colmap_option_name(
+    colmap: &Path,
+    subcommand: &str,
+    preferred: &'static str,
+    fallback: &'static str,
+) -> &'static str {
+    let Ok(output) = std::process::Command::new(colmap)
+        .arg(subcommand)
+        .arg("-h")
+        .output()
+    else {
+        return fallback;
+    };
+    let help = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    if help.contains(&format!("--{preferred}")) {
+        preferred
+    } else {
+        fallback
+    }
 }
 
 #[cfg(not(target_family = "wasm"))]

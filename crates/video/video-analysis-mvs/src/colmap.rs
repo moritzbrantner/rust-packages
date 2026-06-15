@@ -142,28 +142,12 @@ impl DenseReconstructor for ColmapMvsBackend {
             patch_match.arg("--PatchMatchStereo.gpu_index").arg("-1");
         }
         run_colmap_command("patch_match_stereo", &mut patch_match)?;
-        run_colmap_command(
-            "stereo_fusion",
-            Command::new(&self.config.colmap_command)
-                .arg("stereo_fusion")
-                .arg("--workspace_path")
-                .arg(&self.config.workspace_dir)
-                .arg("--workspace_format")
-                .arg("COLMAP")
-                .arg("--input_type")
-                .arg("geometric")
-                .arg("--output_path")
-                .arg(&self.config.fused_ply_path),
-        )?;
-        if !self.config.fused_ply_path.is_file()
-            || self.config.fused_ply_path.metadata()?.len() == 0
-        {
-            return Err(DetectError::Source(format!(
-                "COLMAP stereo_fusion did not create a non-empty fused PLY at {}",
-                self.config.fused_ply_path.display()
-            )));
+        run_stereo_fusion(&self.config, false)?;
+        let mut report = self.artifact_report()?;
+        if report.loaded_point_count == 0 {
+            run_stereo_fusion(&self.config, true)?;
+            report = self.artifact_report()?;
         }
-        let report = self.artifact_report()?;
         if report.loaded_point_count == 0 {
             return Err(DetectError::Source(
                 "COLMAP fused PLY contained no loadable finite vertices".to_string(),
@@ -260,6 +244,46 @@ fn run_colmap_command(label: &str, command: &mut Command) -> Result<()> {
         tail(&stderr),
         tail(&stdout)
     )))
+}
+
+fn run_stereo_fusion(config: &ColmapMvsConfig, loose: bool) -> Result<()> {
+    let mut command = Command::new(&config.colmap_command);
+    command
+        .arg("stereo_fusion")
+        .arg("--workspace_path")
+        .arg(&config.workspace_dir)
+        .arg("--workspace_format")
+        .arg("COLMAP")
+        .arg("--input_type")
+        .arg("geometric")
+        .arg("--output_path")
+        .arg(&config.fused_ply_path);
+    if loose {
+        command
+            .arg("--StereoFusion.min_num_pixels")
+            .arg("1")
+            .arg("--StereoFusion.max_reproj_error")
+            .arg("8")
+            .arg("--StereoFusion.max_depth_error")
+            .arg("0.1")
+            .arg("--StereoFusion.max_normal_error")
+            .arg("45");
+    }
+    run_colmap_command(
+        if loose {
+            "stereo_fusion loose"
+        } else {
+            "stereo_fusion"
+        },
+        &mut command,
+    )?;
+    if !config.fused_ply_path.is_file() || config.fused_ply_path.metadata()?.len() == 0 {
+        return Err(DetectError::Source(format!(
+            "COLMAP stereo_fusion did not create a non-empty fused PLY at {}",
+            config.fused_ply_path.display()
+        )));
+    }
+    Ok(())
 }
 
 fn tail(value: &str) -> String {
