@@ -5666,8 +5666,10 @@ dependencies = [
  "moritzbrantner-three-d-processing-mesh",
  "moritzbrantner-video-analysis-core",
  "moritzbrantner-video-analysis-radiance-fields",
+ "moritzbrantner-video-analysis-radiance-io",
  "moritzbrantner-video-analysis-reconstruction",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -5751,6 +5753,7 @@ dependencies = [
 name = "moritzbrantner-video-analysis-posture"
 version = "0.1.0"
 dependencies = [
+ "image",
  "moritzbrantner-image-analysis-core",
  "moritzbrantner-image-analysis-processing",
  "moritzbrantner-math-geometry-2d",

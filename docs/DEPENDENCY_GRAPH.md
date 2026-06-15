@@ -1189,6 +1189,7 @@ flowchart LR
   crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_three_d_processing_mesh
   crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_video_analysis_radiance_fields
+  crate_moritzbrantner_video_analysis_mvs -. dev .-> crate_moritzbrantner_video_analysis_radiance_io
   crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_video_analysis_reconstruction
   crate_moritzbrantner_video_analysis_mvs --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_video_analysis_mvs_cli --> crate_moritzbrantner_video_analysis_mvs

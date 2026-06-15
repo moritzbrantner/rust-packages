@@ -43,6 +43,8 @@ pub enum ModelPreset {
     XenovaTrocrBaseHandwrittenOnnx,
     /// The xenova DETR ResNet-50 ONNX variant.
     XenovaDetrResnet50Onnx,
+    /// The Xenova YOLOv8n pose ONNX variant.
+    XenovaYolov8nPoseOnnx,
     /// The AST AudioSet classification variant.
     AstAudioset,
     /// The Xenova AST AudioSet ONNX variant.
@@ -87,6 +89,7 @@ impl ModelPreset {
         Self::XenovaTrocrBasePrintedOnnx,
         Self::XenovaTrocrBaseHandwrittenOnnx,
         Self::XenovaDetrResnet50Onnx,
+        Self::XenovaYolov8nPoseOnnx,
         Self::AstAudioset,
         Self::XenovaAstAudiosetOnnx,
         Self::ClapHtsatUnfused,
@@ -123,6 +126,7 @@ impl ModelPreset {
             Self::XenovaTrocrBasePrintedOnnx => "trocr-base-printed-onnx",
             Self::XenovaTrocrBaseHandwrittenOnnx => "trocr-base-handwritten-onnx",
             Self::XenovaDetrResnet50Onnx => "xenova-detr-resnet-50-onnx",
+            Self::XenovaYolov8nPoseOnnx => "xenova-yolov8n-pose-onnx",
             Self::AstAudioset => "ast-audioset",
             Self::XenovaAstAudiosetOnnx => "xenova-ast-audioset-onnx",
             Self::ClapHtsatUnfused => "clap-htsat-unfused",
@@ -343,6 +347,17 @@ impl ModelPreset {
                     .file("config.json")
                     .file("preprocessor_config.json")
                     .first_available_file(["onnx/model.onnx", "onnx/model_quantized.onnx"])
+            }
+            Self::XenovaYolov8nPoseOnnx => {
+                HuggingFaceModelSpec::new("Xenova/yolov8n-pose", ModelTask::PoseEstimation2d)
+                    .name(self.as_str())
+                    .file("config.json")
+                    .file("preprocessor_config.json")
+                    .first_available_file([
+                        "onnx/model_quantized.onnx",
+                        "onnx/model_int8.onnx",
+                        "onnx/model.onnx",
+                    ])
             }
             Self::AstAudioset => HuggingFaceModelSpec::new(
                 "MIT/ast-finetuned-audioset-10-10-0.4593",

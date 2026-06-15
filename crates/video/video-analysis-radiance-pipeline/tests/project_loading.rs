@@ -173,7 +173,7 @@ fn loads_colmap_and_nerfstudio_together() {
 }
 
 #[test]
-fn colmap_with_simple_radial_is_rejected() {
+fn colmap_with_simple_radial_loads_and_preserves_distortion() {
     let dir = tempdir().unwrap();
     let colmap_dir = dir.path().join("colmap");
     write_colmap_text_dir(
@@ -182,21 +182,22 @@ fn colmap_with_simple_radial_is_rejected() {
     )
     .unwrap();
 
-    let error = RadianceProject::from_paths(&RadianceProjectPaths {
+    let project = RadianceProject::from_paths(&RadianceProjectPaths {
         colmap_text_dir: Some(colmap_dir),
         nerfstudio_transforms_json: None,
         gaussian_splat_ply: None,
     })
-    .unwrap_err();
+    .unwrap();
+    let colmap = project.colmap.as_ref().unwrap();
 
-    match error {
-        RadiancePipelineError::UnsupportedColmapCameraModels(support) => {
-            assert_eq!(support.len(), 1);
-            assert_eq!(support[0].camera_id, 1);
-            assert_eq!(support[0].raw_model, "SIMPLE_RADIAL");
-        }
-        other => panic!("expected UnsupportedColmapCameraModels, got {other:?}"),
-    }
+    assert_eq!(colmap.view_set.views.len(), 1);
+    assert_eq!(
+        colmap.view_set.views[0]
+            .distortion
+            .as_ref()
+            .map(|distortion| distortion.model.clone()),
+        Some(CameraModel::SimpleRadial)
+    );
 }
 
 #[test]

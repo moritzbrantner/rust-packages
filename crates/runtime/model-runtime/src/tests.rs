@@ -89,6 +89,28 @@ fn model_presets_include_local_onnx_defaults() {
     assert!(ids.contains(&"roberta-base-squad2-onnx"));
     assert!(ids.contains(&"vit-base-patch16-224-onnx"));
     assert!(ids.contains(&"vit-gpt2-image-captioning-onnx"));
+    assert!(ids.contains(&"xenova-yolov8n-pose-onnx"));
+}
+
+#[test]
+fn yolov8n_pose_onnx_preset_uses_pose_bundle_layout() {
+    let preset = ModelPreset::XenovaYolov8nPoseOnnx;
+    let spec = preset.spec();
+
+    assert_eq!(preset.as_str(), "xenova-yolov8n-pose-onnx");
+    assert_eq!(spec.repo_id, "Xenova/yolov8n-pose");
+    assert_eq!(spec.task, ModelTask::PoseEstimation2d);
+    assert!(spec
+        .files
+        .contains(&ModelFileRequest::required("config.json")));
+    assert!(spec
+        .files
+        .contains(&ModelFileRequest::required("preprocessor_config.json")));
+    assert!(spec.files.contains(&ModelFileRequest::first_available([
+        "onnx/model_quantized.onnx",
+        "onnx/model_int8.onnx",
+        "onnx/model.onnx",
+    ])));
 }
 
 #[test]

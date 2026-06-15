@@ -425,6 +425,10 @@ enum ModelPresetKind {
     XenovaMiniLmL6V2Onnx,
     #[value(name = "xenova-bart-large-mnli-onnx")]
     XenovaBartLargeMnliOnnx,
+    #[value(name = "xenova-detr-resnet-50-onnx")]
+    XenovaDetrResnet50Onnx,
+    #[value(name = "xenova-yolov8n-pose-onnx")]
+    XenovaYolov8nPoseOnnx,
     #[value(name = "trocr-base-printed-onnx")]
     XenovaTrocrBasePrintedOnnx,
     #[value(name = "trocr-base-handwritten-onnx")]
@@ -444,6 +448,8 @@ impl From<ModelPresetKind> for ModelPreset {
             ModelPresetKind::XenovaDistilbertSst2Onnx => Self::XenovaDistilbertSst2Onnx,
             ModelPresetKind::XenovaMiniLmL6V2Onnx => Self::XenovaMiniLmL6V2Onnx,
             ModelPresetKind::XenovaBartLargeMnliOnnx => Self::XenovaBartLargeMnliOnnx,
+            ModelPresetKind::XenovaDetrResnet50Onnx => Self::XenovaDetrResnet50Onnx,
+            ModelPresetKind::XenovaYolov8nPoseOnnx => Self::XenovaYolov8nPoseOnnx,
             ModelPresetKind::XenovaTrocrBasePrintedOnnx => Self::XenovaTrocrBasePrintedOnnx,
             ModelPresetKind::XenovaTrocrBaseHandwrittenOnnx => Self::XenovaTrocrBaseHandwrittenOnnx,
             ModelPresetKind::Wav2Vec2Base960h => Self::Wav2Vec2Base960h,
@@ -1528,6 +1534,30 @@ mod tests {
             (
                 "trocr-base-handwritten-onnx",
                 ModelPreset::XenovaTrocrBaseHandwrittenOnnx,
+            ),
+        ] {
+            let cli = Cli::try_parse_from(["vanalyze", "models", "download", "--preset", preset])
+                .unwrap();
+
+            match cli.command {
+                Command::Models(ModelsArgs {
+                    command: ModelsCommand::Download(args),
+                }) => assert_eq!(args.preset.map(ModelPreset::from), Some(expected)),
+                _ => panic!("expected models download command"),
+            }
+        }
+    }
+
+    #[test]
+    fn model_download_accepts_video_onnx_presets_without_files() {
+        for (preset, expected) in [
+            (
+                "xenova-detr-resnet-50-onnx",
+                ModelPreset::XenovaDetrResnet50Onnx,
+            ),
+            (
+                "xenova-yolov8n-pose-onnx",
+                ModelPreset::XenovaYolov8nPoseOnnx,
             ),
         ] {
             let cli = Cli::try_parse_from(["vanalyze", "models", "download", "--preset", preset])

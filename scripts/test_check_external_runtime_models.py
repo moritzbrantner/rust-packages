@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 
 
@@ -119,6 +121,7 @@ test another_smoke ... ok
             "ModuleNotFoundError: No module named 'huggingface_hub'",
             "HF_TOKEN is required for gated model access",
             "CUDA error: CUBLAS_STATUS_NOT_INITIALIZED",
+            "colmap: error while loading shared libraries: libcudart.so.12",
             "ORT_DYLIB_PATH is required",
         ]
         for output in cases:
@@ -133,6 +136,70 @@ test another_smoke ... ok
                 self.assertEqual(evidence, [])
                 self.assertEqual(missing, ["expected_smoke"])
                 self.assertEqual(skips, [])
+
+    def test_missing_colmap_text_dir_is_blocked_setup(self) -> None:
+        row = orchestrator.Check(
+            "colmap-text",
+            ("moritzbrantner-video-analysis-radiance-io",),
+            "COLMAP sparse text",
+            "setup",
+            "run",
+            required_colmap_text_dirs=("COLMAP_SPARSE_TEXT_DIR",),
+        )
+        blockers = orchestrator.precondition_blockers(row, os.environ.copy() | {"COLMAP_SPARSE_TEXT_DIR": ""})
+
+        self.assertEqual(blockers, ["missing required COLMAP sparse text dir env COLMAP_SPARSE_TEXT_DIR"])
+
+    def test_empty_colmap_text_dir_is_blocked_setup(self) -> None:
+        row = orchestrator.Check(
+            "colmap-text",
+            ("moritzbrantner-video-analysis-radiance-io",),
+            "COLMAP sparse text",
+            "setup",
+            "run",
+            required_colmap_text_dirs=("COLMAP_SPARSE_TEXT_DIR",),
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            blockers = orchestrator.precondition_blockers(
+                row,
+                os.environ.copy() | {"COLMAP_SPARSE_TEXT_DIR": str(Path(temp).resolve())},
+            )
+
+        self.assertTrue(any("cameras.txt" in blocker for blocker in blockers))
+        self.assertTrue(any("images.txt" in blocker for blocker in blockers))
+        self.assertTrue(any("points3D.txt" in blocker for blocker in blockers))
+
+    def test_complete_colmap_text_dir_clears_preconditions(self) -> None:
+        row = orchestrator.Check(
+            "colmap-text",
+            ("moritzbrantner-video-analysis-radiance-io",),
+            "COLMAP sparse text",
+            "setup",
+            "run",
+            required_colmap_text_dirs=("COLMAP_SPARSE_TEXT_DIR",),
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp).resolve()
+            for name in ("cameras.txt", "images.txt", "points3D.txt"):
+                path.joinpath(name).write_text("# fixture\n", encoding="utf-8")
+
+            blockers = orchestrator.precondition_blockers(
+                row,
+                os.environ.copy() | {"COLMAP_SPARSE_TEXT_DIR": str(path)},
+            )
+
+        self.assertEqual(blockers, [])
+
+    def test_gpu_only_crate_without_included_rows_is_excluded(self) -> None:
+        summary = orchestrator.aggregate_crates([])
+        by_package = {item["package"]: item for item in summary}
+
+        radiance_fields = by_package["moritzbrantner-video-analysis-radiance-fields"]
+        self.assertEqual(radiance_fields["status"], "excluded")
+        self.assertIn("--gpu", radiance_fields["blockers"][0])
+
+        runtime_onnx = by_package["moritzbrantner-runtime-onnx"]
+        self.assertEqual(runtime_onnx["status"], "missing-coverage")
 
 
 if __name__ == "__main__":

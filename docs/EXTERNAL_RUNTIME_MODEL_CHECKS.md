@@ -38,6 +38,8 @@ Setup mode reuses the existing idempotent setup scripts:
 ```bash
 bash scripts/setup_model_external_tools.sh all bundles
 bash scripts/setup_e2e_external_tools.sh all
+bash scripts/setup_whisper_cpp_external_model.sh
+scripts/setup_colmap_test_video.sh
 NERFSTUDIO_REQUIRE_CUDA=1 bash scripts/setup_radiance_external_tools.sh training
 ```
 
@@ -54,6 +56,8 @@ Without `--setup`, missing tools, missing bundles, missing CUDA, missing
   bundles, absolute local paths, external commands, or `ORT_DYLIB_PATH`.
 - `missing-coverage`: the crate is in the required matrix but the repository has
   no real ignored load-and-run smoke for that external surface yet.
+- `excluded`: the crate only has checks that were intentionally omitted by the
+  selected options, such as GPU rows when `--gpu` is not passed.
 
 In `--strict`, ignored tests that print explicit skip messages are failures.
 Cargo lib/doc-test harness sections that print `running 0 tests` are ignored
@@ -84,6 +88,10 @@ export ALIGNMENT_MODEL_DIR="$SMOKE_ROOT/models/wav2vec2-base-960h/main"
 export SPEAKER_EMBEDDING_MODEL_BUNDLE="$SMOKE_ROOT/models/wespeaker-voxceleb-resnet34-LM/main"
 export TEXT_CLASSIFICATION_DISTILBERT_BUNDLE="$PWD/.model-runtime/distilbert-sst2/main/manifest.json"
 export TEXT_CLASSIFICATION_BART_MNLI_BUNDLE="$PWD/.model-runtime/xenova-bart-large-mnli-onnx/main/manifest.json"
+export RUNTIME_ONNX_SMOKE_MODEL="$PWD/.model-runtime/roberta-base-squad2-onnx/main/files/onnx/model_quantized.onnx"
+export RECOGNITION_ONNX_MODEL_BUNDLE="$PWD/.model-runtime/xenova-detr-resnet-50-onnx/main"
+export COLMAP_TEST_VIDEO_PATH="$PWD/prototypes/web/video-analysis-web/public/samples/video/test-video.mp4"
+export COLMAP_SPARSE_TEXT_DIR="$PWD/.external-test-tools/colmap-runs/test-video/sparse_txt"
 export SPEAKER_EMBEDDING_MODEL_FILE="speaker-embedding.onnx"
 export SPEAKER_EMBEDDING_DIMENSION="256"
 ```
@@ -137,22 +145,38 @@ packages exposing relevant features such as `external-tests`, `local-models`,
 `local-onnx`, `onnx`, `candle`, `cuda`, `native`, `ffmpeg-*`, or
 `model-bundles`.
 
-## Current Missing Coverage
+## Current Setup-Dependent Rows
 
-The strict gate does not mark undocumented gaps as successful. Until real
-ignored external smokes are added, these rows are expected to report
-`missing-coverage`:
+The strict gate does not mark undocumented gaps as successful, and it now
+distinguishes setup blockers from missing coverage. Current setup-dependent rows
+are:
 
-- `moritzbrantner-image-analysis-comfyui`: needs a real ComfyUI server submit
-  smoke that validates a structured response.
-- `moritzbrantner-runtime-onnx`: needs a low-level ONNX Runtime load/run smoke;
-  the current ignored command only exercises empty harnesses.
-- `moritzbrantner-video-analysis-posture`: needs a posture ONNX model
-  load-and-run smoke.
-- `moritzbrantner-video-analysis-recognition`: needs a recognition ONNX or
-  external model load-and-run smoke.
-- Radiance/reconstruction crates: need strict COLMAP/Nerfstudio or GPU runtime
-  smokes that produce and validate non-empty structured outputs.
+- `moritzbrantner-video-analysis-posture`: requires `ORT_DYLIB_PATH` and
+  `POSTURE_ONNX_MODEL_BUNDLE`, normally
+  `.model-runtime/xenova-yolov8n-pose-onnx/main`.
+- `moritzbrantner-video-analysis-mvs`: requires COLMAP, sparse text output
+  under `COLMAP_SPARSE_TEXT_DIR`, source frames under `COLMAP_MVS_IMAGE_DIR`,
+  and sparse binary output under `COLMAP_MVS_SPARSE_DIR`.
+- `moritzbrantner-image-analysis-comfyui`: reports `blocked-setup` until
+  `COMFYUI_URL` points at a real running server. Use:
+
+  ```bash
+  export COMFYUI_URL=http://127.0.0.1:8188
+  export COMFYUI_CHECKPOINT=<checkpoint-installed-on-that-server>
+  cargo test -p moritzbrantner-image-analysis-comfyui --test external_comfyui_smoke \
+    comfyui_submits_generation_workflow_when_configured -- --ignored --nocapture
+  ```
+
+- `moritzbrantner-video-analysis-recognition`: reports `blocked-setup` until
+  `RECOGNITION_ONNX_MODEL_BUNDLE` points at a local ONNX object-detection
+  bundle.
+- `moritzbrantner-video-analysis-sfm`, `moritzbrantner-video-analysis-radiance-io`,
+  `moritzbrantner-video-analysis-radiance-pipeline`, and
+  `moritzbrantner-video-analysis-reconstruction` report `blocked-setup` until
+  COLMAP can run successfully and produces supported sparse text output under
+  `COLMAP_SPARSE_TEXT_DIR`.
+- `moritzbrantner-video-analysis-radiance-fields` is `excluded` in non-GPU
+  reports and remains a GPU/Nerfstudio follow-up for `--gpu` runs.
 
 Each new smoke should remain ignored, feature-gated or env-gated, and outside
 the default `bun run test` path.

@@ -32,10 +32,15 @@ SETUP_NEEDLES = (
     "CUDA",
     "CUBLAS_STATUS_NOT_INITIALIZED",
     "cublas",
+    "libcudart",
+    "error while loading shared libraries",
     "ORT_DYLIB_PATH",
     "ModuleNotFoundError",
     "GatedRepoError",
     "HfHubHTTPError",
+    "UnsupportedColmapCameraModels",
+    "UnsupportedCameraModel",
+    "unsupported camera model",
     "403",
     "Forbidden",
 )
@@ -61,6 +66,7 @@ class Check:
     required_env: tuple[str, ...] = ()
     required_paths: tuple[str, ...] = ()
     required_commands: tuple[str, ...] = ()
+    required_colmap_text_dirs: tuple[str, ...] = ()
     expected_tests: tuple[str, ...] = ()
     strict_skip_patterns: tuple[str, ...] = ("skipping ",)
     coverage_status_override: Literal["missing-coverage"] | None = None
@@ -270,14 +276,10 @@ CHECKS: tuple[Check, ...] = (
         ("moritzbrantner-runtime-onnx",),
         "ONNX Runtime session load/run",
         "bash scripts/setup_model_external_tools.sh onnx",
-        "cargo test -p moritzbrantner-runtime-onnx --features external-tests -- --ignored --nocapture",
-        required_env=("ORT_DYLIB_PATH",),
-        required_paths=("ORT_DYLIB_PATH",),
-        coverage_status_override="missing-coverage",
-        missing_coverage_reason=(
-            "The runtime-onnx ignored command currently runs zero ignored tests; "
-            "a low-level ONNX Runtime load/run smoke is still needed."
-        ),
+        "cargo test -p moritzbrantner-runtime-onnx --features external-tests runtime_onnx_loads_and_runs_local_model -- --ignored --nocapture",
+        required_env=("ORT_DYLIB_PATH", "RUNTIME_ONNX_SMOKE_MODEL"),
+        required_paths=("ORT_DYLIB_PATH", "RUNTIME_ONNX_SMOKE_MODEL"),
+        expected_tests=("runtime_onnx_loads_and_runs_local_model",),
     ),
     Check(
         "facade-model-runtime-spine-onnx",
@@ -485,7 +487,7 @@ CHECKS: tuple[Check, ...] = (
         "text-transcripts-whisper-cpp",
         ("moritzbrantner-text-transcripts",),
         "native whisper.cpp CLI transcript parse/import",
-        "bash scripts/setup_e2e_external_tools.sh whisper",
+        "bash scripts/setup_e2e_external_tools.sh whisper && bash scripts/setup_whisper_cpp_external_model.sh",
         "RUN_NATIVE_WHISPER_TESTS=1 cargo test -p moritzbrantner-text-transcripts --features native,external-tests native_whisper_cpp_smoke_when_requested -- --ignored --nocapture",
         required_env=("NATIVE_WHISPER_AUDIO_PATH", "WHISPER_CPP_MODEL_STORE"),
         required_paths=("NATIVE_WHISPER_AUDIO_PATH", "WHISPER_CPP_MODEL_STORE"),
@@ -510,7 +512,7 @@ CHECKS: tuple[Check, ...] = (
         "workflow-image-person-edit-real-tools",
         ("moritzbrantner-video-analysis-use-cases",),
         "image person edit workflow with configured detector/editor tools",
-        "Configure IMAGE_PERSON_EDIT_INPUT and IMAGE_PERSON_EDIT_DETECTOR_COMMAND",
+        "Configure IMAGE_PERSON_EDIT_INPUT, IMAGE_PERSON_EDIT_DETECTOR_COMMAND, and optional IMAGE_PERSON_EDIT_DETECTOR_ARGS/IMAGE_PERSON_EDIT_EDITOR_ARGS",
         "STRICT_EXTERNAL_RUNTIME_CHECKS=1 cargo test -p moritzbrantner-video-analysis-use-cases --test external_tools image_person_edit_workflow_runs_with_real_tools_when_configured -- --ignored --nocapture",
         required_env=("IMAGE_PERSON_EDIT_INPUT", "IMAGE_PERSON_EDIT_DETECTOR_COMMAND"),
         required_paths=("IMAGE_PERSON_EDIT_INPUT",),
@@ -521,33 +523,29 @@ CHECKS: tuple[Check, ...] = (
         ("moritzbrantner-image-analysis-comfyui",),
         "ComfyUI HTTP server workflow submission and non-empty response",
         "Start ComfyUI and export COMFYUI_URL",
-        None,
-        missing_coverage_reason=(
-            "No ignored external smoke currently submits a workflow to a real ComfyUI "
-            "server and validates a structured response."
-        ),
+        "cargo test -p moritzbrantner-image-analysis-comfyui --test external_comfyui_smoke comfyui_submits_generation_workflow_when_configured -- --ignored --nocapture",
+        required_env=("COMFYUI_URL",),
+        expected_tests=("comfyui_submits_generation_workflow_when_configured",),
     ),
     Check(
         "video-posture-onnx",
         ("moritzbrantner-video-analysis-posture",),
         "posture ONNX model load/run",
         "bash scripts/setup_model_external_tools.sh onnx bundles",
-        None,
-        missing_coverage_reason=(
-            "The crate has an `onnx` feature but no ignored external posture model "
-            "load-and-run smoke in the workspace."
-        ),
+        "cargo test -p moritzbrantner-video-analysis-posture --features onnx --test external_onnx_smoke yolov8n_pose_onnx_estimator_loads_and_runs_fixture_frame -- --ignored --nocapture",
+        required_env=("ORT_DYLIB_PATH", "POSTURE_ONNX_MODEL_BUNDLE"),
+        required_paths=("ORT_DYLIB_PATH", "POSTURE_ONNX_MODEL_BUNDLE"),
+        expected_tests=("yolov8n_pose_onnx_estimator_loads_and_runs_fixture_frame",),
     ),
     Check(
         "video-recognition-onnx",
         ("moritzbrantner-video-analysis-recognition",),
         "recognition ONNX detector/model load/run",
         "bash scripts/setup_model_external_tools.sh onnx bundles",
-        None,
-        missing_coverage_reason=(
-            "The crate has an `onnx` feature and external command adapters but no "
-            "ignored external recognition model load-and-run smoke."
-        ),
+        "cargo test -p moritzbrantner-video-analysis-recognition --features onnx --test external_onnx_smoke video_recognition_onnx_detects_fixture_frame_when_configured -- --ignored --nocapture",
+        required_env=("ORT_DYLIB_PATH", "RECOGNITION_ONNX_MODEL_BUNDLE"),
+        required_paths=("ORT_DYLIB_PATH", "RECOGNITION_ONNX_MODEL_BUNDLE"),
+        expected_tests=("video_recognition_onnx_detects_fixture_frame_when_configured",),
     ),
     Check(
         "radiance-fields-runtime",
@@ -563,58 +561,57 @@ CHECKS: tuple[Check, ...] = (
     Check(
         "radiance-io-external",
         ("moritzbrantner-video-analysis-radiance-io",),
-        "COLMAP/Nerfstudio external project import",
-        "NERFSTUDIO_REQUIRE_CUDA=1 bash scripts/setup_radiance_external_tools.sh training",
-        None,
-        tags=("gpu",),
-        missing_coverage_reason=(
-            "Existing tests parse local synthetic files; no strict smoke currently runs "
-            "COLMAP/Nerfstudio and validates imported external output."
-        ),
+        "COLMAP external project import",
+        "bash scripts/setup_radiance_external_tools.sh colmap && scripts/setup_colmap_test_video.sh",
+        "STRICT_EXTERNAL_RUNTIME_CHECKS=1 cargo test -p moritzbrantner-video-analysis-radiance-io --test external_colmap_output radiance_io_reads_external_colmap_output -- --ignored --nocapture",
+        required_env=("COLMAP_SPARSE_TEXT_DIR",),
+        required_colmap_text_dirs=("COLMAP_SPARSE_TEXT_DIR",),
+        expected_tests=("radiance_io_reads_external_colmap_output",),
     ),
     Check(
         "radiance-pipeline-external",
         ("moritzbrantner-video-analysis-radiance-pipeline",),
-        "Nerfstudio/COLMAP pipeline load-run",
-        "NERFSTUDIO_REQUIRE_CUDA=1 bash scripts/setup_radiance_external_tools.sh training",
-        None,
-        tags=("gpu",),
-        missing_coverage_reason=(
-            "Existing tests load checked-in/synthetic project data; no strict GPU "
-            "Nerfstudio pipeline smoke is wired."
-        ),
+        "COLMAP pipeline load-run",
+        "bash scripts/setup_radiance_external_tools.sh colmap && scripts/setup_colmap_test_video.sh",
+        "STRICT_EXTERNAL_RUNTIME_CHECKS=1 cargo test -p moritzbrantner-video-analysis-radiance-pipeline --test external_colmap_project radiance_pipeline_loads_external_colmap_project -- --ignored --nocapture",
+        required_env=("COLMAP_SPARSE_TEXT_DIR",),
+        required_colmap_text_dirs=("COLMAP_SPARSE_TEXT_DIR",),
+        expected_tests=("radiance_pipeline_loads_external_colmap_project",),
     ),
     Check(
         "sfm-colmap-reconstruct-video",
         ("moritzbrantner-video-analysis-sfm",),
         "COLMAP video reconstruction command workflow",
-        "bash scripts/setup_radiance_external_tools.sh colmap",
-        None,
-        missing_coverage_reason=(
-            "COLMAP command helpers exist, but no ignored external test currently "
-            "runs reconstruction and validates non-empty structured output."
-        ),
+        "bash scripts/setup_radiance_external_tools.sh colmap && scripts/setup_colmap_test_video.sh",
+        "STRICT_EXTERNAL_RUNTIME_CHECKS=1 cargo test -p moritzbrantner-video-analysis-sfm native_colmap_video_reconstruction_smoke_when_configured -- --ignored --nocapture",
+        required_env=("COLMAP_TEST_VIDEO_PATH",),
+        required_paths=("COLMAP_TEST_VIDEO_PATH",),
+        required_commands=("ffmpeg", "colmap"),
+        expected_tests=("native_colmap_video_reconstruction_smoke_when_configured",),
+        timeout_seconds=300,
     ),
     Check(
         "mvs-external-runtime",
         ("moritzbrantner-video-analysis-mvs",),
         "MVS external reconstruction backend",
         "bash scripts/setup_radiance_external_tools.sh colmap",
-        None,
-        missing_coverage_reason=(
-            "No ignored external MVS load-and-run smoke is present."
-        ),
+        "STRICT_EXTERNAL_RUNTIME_CHECKS=1 cargo test -p moritzbrantner-video-analysis-mvs --test external_colmap_dense_smoke colmap_dense_mvs_smoke_when_configured -- --ignored --nocapture",
+        required_env=("COLMAP_MVS_IMAGE_DIR", "COLMAP_MVS_SPARSE_DIR"),
+        required_paths=("COLMAP_MVS_IMAGE_DIR", "COLMAP_MVS_SPARSE_DIR"),
+        required_commands=("colmap",),
+        required_colmap_text_dirs=("COLMAP_SPARSE_TEXT_DIR",),
+        expected_tests=("colmap_dense_mvs_smoke_when_configured",),
+        timeout_seconds=600,
     ),
     Check(
         "reconstruction-external-runtime",
         ("moritzbrantner-video-analysis-reconstruction",),
-        "reconstruction external runtime/model backend",
-        "bash scripts/setup_radiance_external_tools.sh colmap",
-        None,
-        missing_coverage_reason=(
-            "The crate has deterministic reconstruction contracts, but no external "
-            "runtime/model smoke in the workspace."
-        ),
+        "reconstruction sparse COLMAP conversion",
+        "bash scripts/setup_radiance_external_tools.sh colmap && scripts/setup_colmap_test_video.sh",
+        "STRICT_EXTERNAL_RUNTIME_CHECKS=1 cargo test -p moritzbrantner-video-analysis-radiance-io --test external_colmap_output reconstruction_accepts_external_sparse_colmap_output -- --ignored --nocapture",
+        required_env=("COLMAP_SPARSE_TEXT_DIR",),
+        required_colmap_text_dirs=("COLMAP_SPARSE_TEXT_DIR",),
+        expected_tests=("reconstruction_accepts_external_sparse_colmap_output",),
     ),
 )
 
@@ -701,6 +698,18 @@ def prepare_env() -> tuple[dict[str, str], dict[str, str]]:
         "NATIVE_WHISPER_AUDIO_PATH": smoke / "audio/native-transcription-smoke.wav",
         "WHISPER_CPP_MODEL_STORE": ROOT / ".model-runtime/whisper-cpp",
         "WHISPERX_AUDIO_PATH": smoke / "audio/native-transcription-smoke.wav",
+        "RUNTIME_ONNX_SMOKE_MODEL": ROOT
+        / ".model-runtime/roberta-base-squad2-onnx/main/files/onnx/model_quantized.onnx",
+        "RECOGNITION_ONNX_MODEL_BUNDLE": ROOT / ".model-runtime/xenova-detr-resnet-50-onnx/main",
+        "POSTURE_ONNX_MODEL_BUNDLE": ROOT / ".model-runtime/xenova-yolov8n-pose-onnx/main",
+        "COLMAP_TEST_VIDEO_PATH": ROOT
+        / "prototypes/web/video-analysis-web/public/samples/video/test-video.mp4",
+        "COLMAP_SPARSE_TEXT_DIR": ROOT / ".external-test-tools/colmap-runs/test-video/sparse_txt",
+        "COLMAP_MVS_IMAGE_DIR": ROOT / ".external-test-tools/colmap-runs/test-video/frames",
+        "COLMAP_MVS_SPARSE_DIR": ROOT / ".external-test-tools/colmap-runs/test-video/sparse/0",
+        "COLMAP_MVS_WORKSPACE_DIR": ROOT / ".external-test-tools/colmap-runs/test-video/dense",
+        "COLMAP_MVS_FUSED_PLY": ROOT / ".external-test-tools/colmap-runs/test-video/dense/fused.ply",
+        "IMAGE_PERSON_EDIT_INPUT": ROOT / ".external-test-tools/image-person-edit/person-frame.jpg",
     }
     for key, default in defaults.items():
         env[key] = make_abs(env.get(key, str(default)))
@@ -714,6 +723,7 @@ def prepare_env() -> tuple[dict[str, str], dict[str, str]]:
     env.setdefault("WHISPERX_COMPUTE_TYPE", "int8")
     env.setdefault("SPEAKER_EMBEDDING_MODEL_FILE", "speaker-embedding.onnx")
     env.setdefault("SPEAKER_EMBEDDING_DIMENSION", "256")
+    env.setdefault("COLMAP_MVS_USE_GPU", "0")
 
     if "ORT_DYLIB_PATH" in env:
         env["ORT_DYLIB_PATH"] = make_abs(env["ORT_DYLIB_PATH"])
@@ -744,10 +754,26 @@ def prepare_env() -> tuple[dict[str, str], dict[str, str]]:
         "WHISPERX_LANGUAGE",
         "WHISPERX_DEVICE",
         "WHISPERX_COMPUTE_TYPE",
+        "RUNTIME_ONNX_SMOKE_MODEL",
+        "RECOGNITION_ONNX_MODEL_BUNDLE",
+        "RECOGNITION_ONNX_IMAGE",
+        "POSTURE_ONNX_MODEL_BUNDLE",
+        "POSTURE_ONNX_IMAGE",
+        "COLMAP_TEST_VIDEO_PATH",
+        "COLMAP_SPARSE_TEXT_DIR",
+        "COLMAP_MVS_IMAGE_DIR",
+        "COLMAP_MVS_SPARSE_DIR",
+        "COLMAP_MVS_WORKSPACE_DIR",
+        "COLMAP_MVS_FUSED_PLY",
+        "COLMAP_MVS_USE_GPU",
         "COMFYUI_URL",
+        "COMFYUI_CHECKPOINT",
+        "COMFYUI_WAIT_FOR_OUTPUT",
         "IMAGE_PERSON_EDIT_INPUT",
         "IMAGE_PERSON_EDIT_DETECTOR_COMMAND",
+        "IMAGE_PERSON_EDIT_DETECTOR_ARGS",
         "IMAGE_PERSON_EDIT_EDITOR_COMMAND",
+        "IMAGE_PERSON_EDIT_EDITOR_ARGS",
         "HF_TOKEN",
         "MODEL_HF_TOKEN",
     )
@@ -791,6 +817,24 @@ def precondition_blockers(check: Check, env: dict[str, str]) -> list[str]:
     for command in check.required_commands:
         if not command_available(command, env):
             blockers.append(f"missing command on PATH: {command}")
+    for key in check.required_colmap_text_dirs:
+        value = env.get(key)
+        if not value:
+            blockers.append(f"missing required COLMAP sparse text dir env {key}")
+            continue
+        path = Path(value)
+        if not path.is_absolute():
+            blockers.append(f"{key} must be absolute, got {value}")
+            continue
+        if not path.is_dir():
+            blockers.append(f"{key} directory does not exist: {value}")
+            continue
+        for name in ("cameras.txt", "images.txt", "points3D.txt"):
+            file_path = path / name
+            if not file_path.is_file():
+                blockers.append(f"{key} missing COLMAP text file: {file_path}")
+            elif file_path.stat().st_size == 0:
+                blockers.append(f"{key} COLMAP text file is empty: {file_path}")
     return blockers
 
 
@@ -955,6 +999,21 @@ def load_feature_inventory(env: dict[str, str], out_dir: Path) -> dict[str, obje
     }
 
 
+def excluded_by_option(package: str, included_results: list[dict[str, object]]) -> list[str]:
+    if included_results:
+        return []
+    reasons: list[str] = []
+    for check in CHECKS:
+        if package not in check.crates:
+            continue
+        tags = set(check.tags)
+        if "gpu" in tags:
+            reasons.append(f"{check.check_id} excluded because --gpu was not requested")
+        if "token-gated" in tags:
+            reasons.append(f"{check.check_id} excluded because --token-gated was not requested")
+    return reasons
+
+
 def aggregate_crates(check_results: list[dict[str, object]]) -> list[dict[str, object]]:
     matrix = required_matrix()
     by_crate: dict[str, list[dict[str, object]]] = {package: [] for package in matrix}
@@ -963,13 +1022,18 @@ def aggregate_crates(check_results: list[dict[str, object]]) -> list[dict[str, o
             if package in by_crate:
                 by_crate[package].append(result)
 
-    ranks = {"pass": 0, "missing-coverage": 1, "blocked-setup": 2, "fail": 3}
+    ranks = {"excluded": 0, "pass": 1, "missing-coverage": 2, "blocked-setup": 3, "fail": 4}
     summary = []
     for package, crate in matrix.items():
         results = by_crate[package]
         if not results:
-            status = "missing-coverage"
-            blockers = ["no check row covered this required crate"]
+            excluded_reasons = excluded_by_option(package, results)
+            if excluded_reasons:
+                status = "excluded"
+                blockers = excluded_reasons
+            else:
+                status = "missing-coverage"
+                blockers = ["no check row covered this required crate"]
             log_paths: list[str] = []
         else:
             status = max((str(item["status"]) for item in results), key=lambda item: ranks[item])
@@ -1156,7 +1220,7 @@ def main() -> int:
     crate_summary = aggregate_crates(results)
     overall = "pass"
     for crate in crate_summary:
-        if crate["status"] != "pass":
+        if crate["status"] not in ("pass", "excluded"):
             overall = "fail"
             break
 

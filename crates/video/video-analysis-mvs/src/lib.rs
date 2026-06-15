@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod colmap;
 pub mod opencv;
 pub mod surface;
 
@@ -9,6 +10,7 @@ use video_analysis_core::{DetectError, Result};
 use video_analysis_radiance_fields::{CameraView, CameraViewSet};
 use video_analysis_reconstruction::SparseReconstruction;
 
+pub use colmap::{ColmapMvsArtifactReport, ColmapMvsBackend, ColmapMvsConfig};
 pub use opencv::OpenCvMvsBackend;
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {

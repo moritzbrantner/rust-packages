@@ -164,6 +164,11 @@ configured without commands:
 - `scripts/opencv_red_car_detector.py`: external-model JSON protocol adapter for
   compatibility with older red-car runs. Requires Python with `cv2` and
   `numpy`.
+- `scripts/setup_image_person_edit_external_fixture.sh`: downloads or reuses
+  the Me at the Zoo video, extracts a face-containing local frame under
+  `.external-test-tools/image-person-edit/`, validates it with
+  `scripts/opencv_person_detector.py`, and prints the `IMAGE_PERSON_EDIT_*`
+  exports for `workflow-image-person-edit-real-tools`.
 - `scripts/run_comfyui_image_edit.py`: image-edit JSON protocol adapter that
   submits generated workflows to a ComfyUI server when `COMFYUI_URL` is set;
   kept for compatibility with older editor-command flows.
@@ -178,6 +183,22 @@ Optional env vars used by the ignored external smoke tests:
   image-edit smoke test.
 - `IMAGE_PERSON_EDIT_EDITOR_COMMAND`: optional editor command path for the real
   image-edit smoke test.
+
+```bash
+bash scripts/setup_image_person_edit_external_fixture.sh
+export IMAGE_PERSON_EDIT_INPUT="$PWD/.external-test-tools/image-person-edit/person-frame.jpg"
+export IMAGE_PERSON_EDIT_DETECTOR_COMMAND=python3
+export IMAGE_PERSON_EDIT_DETECTOR_ARGS="scripts/opencv_person_detector.py"
+```
+
+ComfyUI checks require a real running server:
+
+```bash
+export COMFYUI_URL=http://127.0.0.1:8188
+export COMFYUI_CHECKPOINT=<checkpoint-installed-on-that-server>
+cargo test -p moritzbrantner-image-analysis-comfyui --test external_comfyui_smoke \
+  comfyui_submits_generation_workflow_when_configured -- --ignored --nocapture
+```
 
 ## Model Backend Python Dependencies
 

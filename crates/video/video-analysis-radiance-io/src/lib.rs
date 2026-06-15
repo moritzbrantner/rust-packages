@@ -192,7 +192,15 @@ pub fn inspect_colmap_camera_support(dataset: &ColmapDataset) -> Vec<ColmapCamer
                 supported_for_reconstruction_conversion: true,
                 reason: None,
             },
-            "SIMPLE_RADIAL" | "RADIAL" | "OPENCV" => ColmapCameraSupport {
+            "SIMPLE_RADIAL" => ColmapCameraSupport {
+                camera_id: camera.id,
+                raw_model: camera.raw_model.clone(),
+                model: camera.model.clone(),
+                supported_for_view_conversion: true,
+                supported_for_reconstruction_conversion: true,
+                reason: None,
+            },
+            "RADIAL" | "OPENCV" => ColmapCameraSupport {
                 camera_id: camera.id,
                 raw_model: camera.raw_model.clone(),
                 model: camera.model.clone(),
@@ -324,7 +332,24 @@ fn colmap_camera_intrinsics(
                 None,
             ))
         }
-        "SIMPLE_RADIAL" | "RADIAL" | "OPENCV" => Err(RadianceIoError::UnsupportedCameraModel {
+        "SIMPLE_RADIAL" => {
+            require_params(camera, 4)?;
+            Ok((
+                CameraIntrinsics::new(
+                    camera.width,
+                    camera.height,
+                    camera.params[0],
+                    camera.params[0],
+                    camera.params[1],
+                    camera.params[2],
+                )?,
+                Some(CameraDistortion {
+                    model: CameraModel::SimpleRadial,
+                    params: vec![camera.params[3]],
+                }),
+            ))
+        }
+        "RADIAL" | "OPENCV" => Err(RadianceIoError::UnsupportedCameraModel {
             model: camera.raw_model.clone(),
         }),
         _ => Err(RadianceIoError::UnsupportedCameraModel {
@@ -1104,7 +1129,41 @@ mod tests {
     }
 
     #[test]
-    fn colmap_parser_preserves_distorted_camera_model_and_direct_conversion_rejects_it() {
+    fn colmap_parser_preserves_opencv_camera_model_and_direct_conversion_rejects_it() {
+        let dataset = ColmapDataset {
+            cameras: vec![ColmapCamera {
+                id: 1,
+                model: CameraModel::OpenCv,
+                raw_model: "OPENCV".to_string(),
+                width: 100,
+                height: 80,
+                params: vec![50.0, 51.0, 49.0, 39.0, 0.01, 0.02, 0.0, 0.0],
+            }],
+            images: vec![ColmapImage {
+                id: 1,
+                qw: 1.0,
+                qx: 0.0,
+                qy: 0.0,
+                qz: 0.0,
+                tx: 0.0,
+                ty: 0.0,
+                tz: 0.0,
+                camera_id: 1,
+                name: "image.png".to_string(),
+                points2d: Vec::new(),
+            }],
+            points: Vec::new(),
+        };
+
+        assert_eq!(dataset.cameras[0].model, CameraModel::OpenCv);
+        assert!(matches!(
+            colmap_to_view_set(&dataset),
+            Err(RadianceIoError::UnsupportedCameraModel { .. })
+        ));
+    }
+
+    #[test]
+    fn colmap_parser_converts_simple_radial_views() {
         let dataset = ColmapDataset {
             cameras: vec![ColmapCamera {
                 id: 1,
@@ -1130,11 +1189,51 @@ mod tests {
             points: Vec::new(),
         };
 
-        assert_eq!(dataset.cameras[0].model, CameraModel::SimpleRadial);
-        assert!(matches!(
-            colmap_to_view_set(&dataset),
-            Err(RadianceIoError::UnsupportedCameraModel { .. })
-        ));
+        let views = colmap_to_view_set(&dataset).unwrap();
+
+        assert_eq!(views.views[0].intrinsics.fx, 50.0);
+        assert_eq!(views.views[0].intrinsics.fy, 50.0);
+        assert_eq!(views.views[0].intrinsics.cx, 49.0);
+        assert_eq!(views.views[0].intrinsics.cy, 39.0);
+        assert_eq!(
+            views.views[0].distortion,
+            Some(CameraDistortion {
+                model: CameraModel::SimpleRadial,
+                params: vec![0.01],
+            })
+        );
+    }
+
+    #[test]
+    fn colmap_to_sparse_reconstruction_accepts_simple_radial() {
+        let dataset = ColmapDataset {
+            cameras: vec![ColmapCamera {
+                id: 1,
+                model: CameraModel::SimpleRadial,
+                raw_model: "SIMPLE_RADIAL".to_string(),
+                width: 100,
+                height: 80,
+                params: vec![50.0, 49.0, 39.0, 0.01],
+            }],
+            images: vec![ColmapImage {
+                id: 1,
+                qw: 1.0,
+                qx: 0.0,
+                qy: 0.0,
+                qz: 0.0,
+                tx: 0.0,
+                ty: 0.0,
+                tz: 0.0,
+                camera_id: 1,
+                name: "image.png".to_string(),
+                points2d: Vec::new(),
+            }],
+            points: Vec::new(),
+        };
+
+        let reconstruction = colmap_to_sparse_reconstruction(&dataset).unwrap();
+
+        assert_eq!(reconstruction.cameras().len(), 1);
     }
 
     #[test]
@@ -1166,7 +1265,7 @@ mod tests {
     }
 
     #[test]
-    fn inspect_colmap_camera_support_marks_distorted_models_unsupported() {
+    fn inspect_colmap_camera_support_marks_radial_and_opencv_models_unsupported() {
         let dataset = ColmapDataset {
             cameras: vec![ColmapCamera {
                 id: 3,
@@ -1189,6 +1288,34 @@ mod tests {
             .as_deref()
             .unwrap()
             .contains("pipeline MVP preserves distortion metadata"));
+    }
+
+    #[test]
+    fn inspect_colmap_camera_support_marks_simple_radial_supported() {
+        let dataset = ColmapDataset {
+            cameras: vec![ColmapCamera {
+                id: 8,
+                model: CameraModel::SimpleRadial,
+                raw_model: "SIMPLE_RADIAL".to_string(),
+                width: 64,
+                height: 48,
+                params: vec![50.0, 32.0, 24.0, 0.1],
+            }],
+            images: Vec::new(),
+            points: Vec::new(),
+        };
+
+        assert_eq!(
+            inspect_colmap_camera_support(&dataset),
+            vec![ColmapCameraSupport {
+                camera_id: 8,
+                raw_model: "SIMPLE_RADIAL".to_string(),
+                model: CameraModel::SimpleRadial,
+                supported_for_view_conversion: true,
+                supported_for_reconstruction_conversion: true,
+                reason: None,
+            }]
+        );
     }
 
     #[test]

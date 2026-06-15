@@ -742,23 +742,29 @@ impl OnnxObjectDetectionRunner for runtime_onnx::OnnxSession {
         let input_name = runtime_onnx::input_name(&metadata, 0)
             .map_err(runtime_onnx_error)?
             .to_string();
-        let outputs = self
-            .run(vec![runtime_onnx::OnnxNamedTensor {
-                name: input_name,
-                tensor: OnnxTensorValue::F32(
-                    OnnxTensor::new(
-                        vec![
-                            1,
-                            input.channels,
-                            input.height as usize,
-                            input.width as usize,
-                        ],
-                        input.values.clone(),
-                    )
-                    .map_err(runtime_onnx_error)?,
-                ),
-            }])
-            .map_err(runtime_onnx_error)?;
+        let mut inputs = vec![runtime_onnx::OnnxNamedTensor {
+            name: input_name,
+            tensor: OnnxTensorValue::F32(
+                OnnxTensor::new(
+                    vec![
+                        1,
+                        input.channels,
+                        input.height as usize,
+                        input.width as usize,
+                    ],
+                    input.values.clone(),
+                )
+                .map_err(runtime_onnx_error)?,
+            ),
+        }];
+        if let Some(mask_input) = metadata
+            .inputs
+            .iter()
+            .find(|input| input.name == "pixel_mask")
+        {
+            inputs.push(pixel_mask_input(mask_input, input)?);
+        }
+        let outputs = self.run(inputs).map_err(runtime_onnx_error)?;
         if outputs.len() < 2 {
             return Err(DetectError::InvalidArgument(
                 "ONNX object detection model must return logits and boxes".to_string(),
@@ -768,6 +774,34 @@ impl OnnxObjectDetectionRunner for runtime_onnx::OnnxSession {
         let second = runtime_onnx::f32_output_by_name_or_index(&outputs, "", 1)
             .map_err(runtime_onnx_error)?;
         decode_detr_like_outputs(first, second)
+    }
+}
+
+#[cfg(feature = "onnx")]
+fn pixel_mask_input(
+    input_info: &runtime_onnx::OnnxIoInfo,
+    input: &ImageModelTensor,
+) -> Result<runtime_onnx::OnnxNamedTensor> {
+    let height = fixed_or_image_dimension(input_info.dimensions.get(1), input.height as usize);
+    let width = fixed_or_image_dimension(input_info.dimensions.get(2), input.width as usize);
+    let values = vec![1_i64; height * width];
+    Ok(runtime_onnx::OnnxNamedTensor {
+        name: input_info.name.clone(),
+        tensor: runtime_onnx::OnnxTensorValue::I64(
+            runtime_onnx::OnnxTensor::new(vec![1, height, width], values)
+                .map_err(runtime_onnx_error)?,
+        ),
+    })
+}
+
+#[cfg(feature = "onnx")]
+fn fixed_or_image_dimension(
+    dimension: Option<&runtime_onnx::OnnxDimension>,
+    image_dimension: usize,
+) -> usize {
+    match dimension {
+        Some(runtime_onnx::OnnxDimension::Fixed(value)) => *value,
+        _ => image_dimension,
     }
 }
 

@@ -1032,7 +1032,16 @@ impl OnnxPose2dRunner for runtime_onnx::OnnxSession {
             .map_err(runtime_onnx_error)?;
         let pose_tensor = pose_2d_output_tensor(&outputs)?;
         let scores = pose_scores_output(&outputs).map(|tensor| tensor.values.as_slice());
-        decode_pose_2d_tensor(pose_tensor, None, scores)
+        match decode_pose_2d_tensor(pose_tensor, None, scores) {
+            Ok(poses) => Ok(poses),
+            Err(generic_error) => decode_yolov8_pose_tensor(
+                pose_tensor,
+                &Skeleton::coco_17(),
+                input.width,
+                input.height,
+            )
+            .map_err(|_| generic_error),
+        }
     }
 }
 
@@ -1304,6 +1313,171 @@ fn decode_pose_2d_tensor(
     Ok(poses)
 }
 
+#[cfg(any(feature = "onnx", test))]
+#[derive(Debug, Clone)]
+struct YoloV8PoseDetection {
+    pose: PoseEstimate,
+    score: f32,
+    x1: f32,
+    y1: f32,
+    x2: f32,
+    y2: f32,
+}
+
+#[cfg(any(feature = "onnx", test))]
+fn decode_yolov8_pose_tensor(
+    tensor: &runtime_onnx::OnnxF32Tensor,
+    skeleton: &Skeleton,
+    input_width: u32,
+    input_height: u32,
+) -> Result<Vec<PoseEstimate>> {
+    const DETECTION_LEN: usize = 56;
+    const KEYPOINT_COUNT: usize = 17;
+    const DETECTION_THRESHOLD: f32 = 0.30;
+    const NMS_IOU_THRESHOLD: f32 = 0.50;
+
+    if input_width == 0 || input_height == 0 {
+        return Err(invalid_argument(
+            "YOLOv8 pose input dimensions must be positive",
+        ));
+    }
+    let detections = transpose_yolov8_pose_output(tensor)?;
+    let mut decoded = Vec::new();
+    for detection in detections {
+        if detection.len() != DETECTION_LEN {
+            return Err(invalid_argument(format!(
+                "YOLOv8 pose detection length must be {DETECTION_LEN}, got {}",
+                detection.len()
+            )));
+        }
+        if !detection.iter().all(|value| value.is_finite()) {
+            continue;
+        }
+        let score = detection[4];
+        if score < DETECTION_THRESHOLD {
+            continue;
+        }
+        let xc = detection[0];
+        let yc = detection[1];
+        let w = detection[2].max(0.0);
+        let h = detection[3].max(0.0);
+        let x1 = xc - w / 2.0;
+        let y1 = yc - h / 2.0;
+        let x2 = xc + w / 2.0;
+        let y2 = yc + h / 2.0;
+        if ![x1, y1, x2, y2].iter().all(|value| value.is_finite()) || x2 <= x1 || y2 <= y1 {
+            continue;
+        }
+
+        let mut keypoints = Vec::with_capacity(KEYPOINT_COUNT);
+        for keypoint_index in 0..KEYPOINT_COUNT {
+            let start = 5 + keypoint_index * 3;
+            let name = skeleton
+                .keypoints
+                .get(keypoint_index)
+                .cloned()
+                .unwrap_or_else(|| format!("keypoint_{keypoint_index}"));
+            keypoints.push(
+                Keypoint::new(
+                    name,
+                    (detection[start] / input_width as f32).clamp(0.0, 1.0),
+                    (detection[start + 1] / input_height as f32).clamp(0.0, 1.0),
+                )?
+                .score(detection[start + 2])?,
+            );
+        }
+
+        decoded.push(YoloV8PoseDetection {
+            pose: PoseEstimate::new(keypoints)?.score(score)?,
+            score,
+            x1,
+            y1,
+            x2,
+            y2,
+        });
+    }
+
+    let mut retained = non_max_suppression(decoded, NMS_IOU_THRESHOLD);
+    retained.sort_by(|left, right| right.score.total_cmp(&left.score));
+    Ok(retained
+        .into_iter()
+        .map(|detection| detection.pose)
+        .collect())
+}
+
+#[cfg(any(feature = "onnx", test))]
+fn transpose_yolov8_pose_output(tensor: &runtime_onnx::OnnxF32Tensor) -> Result<Vec<Vec<f32>>> {
+    const DETECTION_LEN: usize = 56;
+    let (detection_count, channel_first) = match tensor.shape.as_slice() {
+        [1, DETECTION_LEN, detections] => (*detections, true),
+        [1, detections, DETECTION_LEN] => (*detections, false),
+        shape => {
+            return Err(invalid_argument(format!(
+                "unsupported YOLOv8 pose output shape `{shape:?}`"
+            )))
+        }
+    };
+    let expected = detection_count
+        .checked_mul(DETECTION_LEN)
+        .ok_or_else(|| invalid_argument("YOLOv8 pose output shape is too large"))?;
+    if tensor.values.len() != expected {
+        return Err(invalid_argument(
+            "YOLOv8 pose output values do not match shape",
+        ));
+    }
+
+    if !channel_first {
+        return Ok(tensor
+            .values
+            .chunks(DETECTION_LEN)
+            .map(|chunk| chunk.to_vec())
+            .collect());
+    }
+
+    let mut detections = vec![vec![0.0; DETECTION_LEN]; detection_count];
+    for channel in 0..DETECTION_LEN {
+        let start = channel * detection_count;
+        let end = start + detection_count;
+        for (row, value) in detections.iter_mut().zip(&tensor.values[start..end]) {
+            row[channel] = *value;
+        }
+    }
+    Ok(detections)
+}
+
+#[cfg(any(feature = "onnx", test))]
+fn yolov8_pose_iou(left: &YoloV8PoseDetection, right: &YoloV8PoseDetection) -> f32 {
+    let x_overlap = (left.x2.min(right.x2) - left.x1.max(right.x1)).max(0.0);
+    let y_overlap = (left.y2.min(right.y2) - left.y1.max(right.y1)).max(0.0);
+    let overlap = x_overlap * y_overlap;
+    let left_area = (left.x2 - left.x1).max(0.0) * (left.y2 - left.y1).max(0.0);
+    let right_area = (right.x2 - right.x1).max(0.0) * (right.y2 - right.y1).max(0.0);
+    let union = left_area + right_area - overlap;
+    if union <= 0.0 {
+        0.0
+    } else {
+        overlap / union
+    }
+}
+
+#[cfg(any(feature = "onnx", test))]
+fn non_max_suppression(
+    mut detections: Vec<YoloV8PoseDetection>,
+    iou_threshold: f32,
+) -> Vec<YoloV8PoseDetection> {
+    detections.sort_by(|left, right| right.score.total_cmp(&left.score));
+    let mut retained = Vec::new();
+    'candidate: for detection in detections {
+        for existing in &retained {
+            if yolov8_pose_iou(&detection, existing) > iou_threshold {
+                continue 'candidate;
+            }
+        }
+        retained.push(detection);
+    }
+    retained
+}
+
 fn validate_and_apply_pose_skeleton(poses: &mut [PoseEstimate], skeleton: &Skeleton) -> Result<()> {
     for pose in poses {
         if pose.keypoints.len() != skeleton.keypoints.len() {
@@ -1543,6 +1717,27 @@ fn skeleton_from_config(config: &serde_json::Value) -> Skeleton {
             return Skeleton::new(keypoints);
         }
     }
+    if let Some(id2label) = config
+        .get("id2label")
+        .and_then(serde_json::Value::as_object)
+    {
+        let mut labels = id2label
+            .iter()
+            .filter_map(|(key, value)| {
+                let index = key.parse::<usize>().ok()?;
+                let label = value.as_str()?;
+                Some((index, label.to_string()))
+            })
+            .collect::<Vec<_>>();
+        labels.sort_by_key(|(index, _)| *index);
+        let keypoints = labels
+            .into_iter()
+            .map(|(_, label)| label)
+            .collect::<Vec<_>>();
+        if !keypoints.is_empty() {
+            return Skeleton::new(keypoints);
+        }
+    }
     Skeleton::coco_17()
 }
 
@@ -1630,6 +1825,26 @@ mod tests {
 
     fn f32_tensor(shape: Vec<usize>, values: Vec<f32>) -> runtime_onnx::OnnxF32Tensor {
         runtime_onnx::OnnxF32Tensor::new(shape, values).unwrap()
+    }
+
+    fn yolov8_detection(score: f32, xc: f32, yc: f32) -> Vec<f32> {
+        let mut values = vec![xc, yc, 100.0, 200.0, score];
+        for index in 0..17 {
+            values.push(64.0 + index as f32);
+            values.push(128.0 + index as f32);
+            values.push(0.5 + index as f32 * 0.01);
+        }
+        values
+    }
+
+    fn yolov8_channel_first(rows: &[Vec<f32>]) -> Vec<f32> {
+        let mut values = Vec::with_capacity(rows.len() * 56);
+        for channel in 0..56 {
+            for row in rows {
+                values.push(row[channel]);
+            }
+        }
+        values
     }
 
     #[test]
@@ -1760,6 +1975,78 @@ mod tests {
         let poses = decode_pose_2d_tensor(&tensor, None, None).unwrap();
         assert_eq!(poses.len(), 1);
         assert_eq!(poses[0].keypoints.len(), 2);
+    }
+
+    #[test]
+    fn skeleton_from_config_reads_numeric_id2label() {
+        let config = serde_json::json!({
+            "id2label": {
+                "2": "right_eye",
+                "0": "nose",
+                "1": "left_eye"
+            }
+        });
+
+        let skeleton = skeleton_from_config(&config);
+
+        assert_eq!(skeleton.keypoints, vec!["nose", "left_eye", "right_eye"]);
+    }
+
+    #[test]
+    fn decodes_yolov8_pose_output_channel_first_layout() {
+        let rows = vec![yolov8_detection(0.9, 320.0, 320.0)];
+        let tensor = f32_tensor(vec![1, 56, 1], yolov8_channel_first(&rows));
+
+        let poses = decode_yolov8_pose_tensor(&tensor, &Skeleton::coco_17(), 640, 640).unwrap();
+
+        assert_eq!(poses.len(), 1);
+        assert_eq!(poses[0].score, Some(0.9));
+        assert_eq!(poses[0].keypoints.len(), 17);
+        assert_eq!(poses[0].keypoints[0].name, "nose");
+        assert!((poses[0].keypoints[0].x - 0.1).abs() < 1.0e-6);
+        assert!((poses[0].keypoints[0].y - 0.2).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn decodes_yolov8_pose_output_detection_first_layout() {
+        let rows = [yolov8_detection(0.8, 300.0, 300.0)];
+        let tensor = f32_tensor(vec![1, 1, 56], rows.concat());
+
+        let poses = decode_yolov8_pose_tensor(&tensor, &Skeleton::coco_17(), 640, 640).unwrap();
+
+        assert_eq!(poses.len(), 1);
+        assert_eq!(poses[0].score, Some(0.8));
+        assert_eq!(poses[0].keypoints[16].name, "right_ankle");
+    }
+
+    #[test]
+    fn yolov8_pose_decoder_filters_low_confidence_detections() {
+        let rows = [
+            yolov8_detection(0.29, 320.0, 320.0),
+            yolov8_detection(0.31, 120.0, 120.0),
+        ];
+        let tensor = f32_tensor(vec![1, 2, 56], rows.concat());
+
+        let poses = decode_yolov8_pose_tensor(&tensor, &Skeleton::coco_17(), 640, 640).unwrap();
+
+        assert_eq!(poses.len(), 1);
+        assert_eq!(poses[0].score, Some(0.31));
+    }
+
+    #[test]
+    fn yolov8_pose_decoder_removes_duplicate_boxes_by_iou() {
+        let rows = [
+            yolov8_detection(0.7, 320.0, 320.0),
+            yolov8_detection(0.95, 322.0, 322.0),
+            yolov8_detection(0.8, 100.0, 100.0),
+        ];
+        let tensor = f32_tensor(vec![1, 3, 56], rows.concat());
+
+        let poses = decode_yolov8_pose_tensor(&tensor, &Skeleton::coco_17(), 640, 640).unwrap();
+
+        assert_eq!(poses.len(), 2);
+        assert_eq!(poses[0].score, Some(0.95));
+        assert_eq!(poses[1].score, Some(0.8));
     }
 
     #[test]

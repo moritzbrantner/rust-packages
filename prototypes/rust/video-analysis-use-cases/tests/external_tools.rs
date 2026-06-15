@@ -259,8 +259,13 @@ fn image_person_edit_workflow_runs_with_real_tools_when_configured() {
         return;
     };
 
+    let input = PathBuf::from(input);
     let dir = tempfile::tempdir().unwrap();
-    let local_input = dir.path().join("input.png");
+    let extension = input
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("png");
+    let local_input = dir.path().join(format!("input.{extension}"));
     let _ = std::fs::copy(&input, &local_input).unwrap_or_else(|_| {
         write_image(
             &local_input,
@@ -270,14 +275,18 @@ fn image_person_edit_workflow_runs_with_real_tools_when_configured() {
         0
     });
 
+    let detector_args = env_args("IMAGE_PERSON_EDIT_DETECTOR_ARGS");
     let editor_command = std::env::var_os("IMAGE_PERSON_EDIT_EDITOR_COMMAND").map(PathBuf::from);
+    let editor_args = env_args("IMAGE_PERSON_EDIT_EDITOR_ARGS");
     let report = run_image_person_edit(ImagePersonEditRequest {
         input: local_input,
         work_dir: dir.path().join("work"),
         prompt: "replace the person with a statue".to_string(),
         model: "flux1-dev.safetensors".to_string(),
         person_detector_command: detector_command.into(),
+        person_detector_args: detector_args,
         editor_command,
+        editor_args,
         ..ImagePersonEditRequest::default()
     });
 
@@ -297,4 +306,28 @@ fn image_person_edit_workflow_runs_with_real_tools_when_configured() {
             );
         }
     }
+}
+
+fn env_args(key: &str) -> Vec<String> {
+    std::env::var(key)
+        .ok()
+        .map(|value| {
+            value
+                .split_whitespace()
+                .filter(|part| !part.is_empty())
+                .map(resolve_repo_script_arg)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn resolve_repo_script_arg(value: &str) -> String {
+    if value.starts_with("scripts/") {
+        return PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../..")
+            .join(value)
+            .display()
+            .to_string();
+    }
+    value.to_string()
 }

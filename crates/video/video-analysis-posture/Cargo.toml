@@ -32,4 +32,5 @@ default = []
 onnx = ["runtime-onnx/onnxruntime"]
 
 [dev-dependencies]
+image.workspace = true
 num-rational.workspace = true

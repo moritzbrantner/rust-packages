@@ -322,11 +322,12 @@ mod tests {
         )
         .unwrap();
 
-        assert!(load_colmap_text_baseline(dir.path()).is_err());
+        let baseline = load_colmap_text_baseline(dir.path()).unwrap();
         let dataset = read_colmap_text_dir(dir.path()).unwrap();
         let summary = scene_summary_from_dataset(&dataset);
         let scene = build_colmap_scene_from_dataset(&dataset).unwrap();
 
+        assert_eq!(baseline.dataset.cameras.len(), 1);
         assert_eq!(summary.camera_count, 1);
         assert_eq!(summary.registered_image_count, 1);
         assert_eq!(summary.sparse_point_count, 1);
@@ -339,11 +340,28 @@ mod tests {
     #[test]
     #[ignore = "requires local test-video.mp4, ffmpeg, and COLMAP"]
     fn real_colmap_video_smoke_test_when_local_tools_are_available() {
+        run_colmap_video_smoke();
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    #[test]
+    #[ignore = "requires local test-video.mp4, ffmpeg, and COLMAP"]
+    fn native_colmap_video_reconstruction_smoke_when_configured() {
+        run_colmap_video_smoke();
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    fn run_colmap_video_smoke() {
+        let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        std::env::set_current_dir(&workspace).unwrap();
         let video_path = PathBuf::from(COLMAP_TEST_VIDEO_PATH);
         if !video_path.exists()
             || find_executable(&["ffmpeg", "/usr/bin/ffmpeg"]).is_none()
             || find_executable(&["colmap", "/usr/local/bin/colmap"]).is_none()
         {
+            if std::env::var_os("STRICT_EXTERNAL_RUNTIME_CHECKS").is_some() {
+                panic!("COLMAP smoke preconditions were not met");
+            }
             eprintln!("skipping real COLMAP smoke test because video or tools are unavailable");
             return;
         }
@@ -367,6 +385,9 @@ mod tests {
             "unexpected diagnostics: {:?}",
             response.diagnostics
         );
-        assert!(response.value["scene"]["points"].as_array().is_some());
+        let points = response.value["scene"]["points"]
+            .as_array()
+            .expect("scene points should be an array");
+        assert!(!points.is_empty());
     }
 }
