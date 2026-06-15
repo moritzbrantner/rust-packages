@@ -35,6 +35,7 @@ const packageAppConfig: PackageAppConfig = {
     },
   ],
   defaultOperation: "text.tokenize",
+  defaultPresetId: "tokenize-transcript-notes",
   featuredOperations: ["text.tokenize", "text.statistics", "text.normalize", "text.boundaries", "describe"],
   presets: [
     {

@@ -20,6 +20,22 @@ export interface OperationWorkbenchGroup {
   operations: SurfaceOperation[];
 }
 
+export interface OperationWorkbenchScenarioGroup {
+  id: string;
+  label: string;
+  description?: string;
+  options: OperationWorkbenchScenarioOption[];
+}
+
+export interface OperationWorkbenchScenarioOption {
+  value: string;
+  kind: "preset" | "operation";
+  label: string;
+  description?: string;
+  operationId: string;
+  operationName: string;
+}
+
 export function OperationWorkbench({
   canRun,
   error,
@@ -29,11 +45,17 @@ export function OperationWorkbench({
   operations,
   presets = [],
   running,
+  scenarioGroups,
+  selectedScenario,
   runDisabledReason,
   selectedOperation,
+  inputChrome = "full",
+  showLandscapeContract = true,
+  visibleInputFields,
   onInputChange,
   onPreset,
   onRun,
+  onSelectScenario,
   onSelectOperation,
 }: {
   canRun: boolean;
@@ -44,11 +66,17 @@ export function OperationWorkbench({
   operations: SurfaceOperation[];
   presets?: PackageAppPreset[];
   running: boolean;
+  scenarioGroups?: OperationWorkbenchScenarioGroup[];
+  selectedScenario?: string;
   runDisabledReason?: string;
   selectedOperation: string;
+  inputChrome?: "full" | "compact";
+  showLandscapeContract?: boolean;
+  visibleInputFields?: string[];
   onInputChange: (input: string) => void;
   onPreset: (preset: PackageAppPreset) => void;
   onRun: () => void;
+  onSelectScenario?: (scenario: string) => void;
   onSelectOperation: (operation: string) => void;
 }) {
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -58,10 +86,14 @@ export function OperationWorkbench({
 
   const activeGroup = operationGroups?.find((group) => group.operations.some((candidate) => candidate.id === selectedOperation));
   const visibleOperations = activeGroup?.operations ?? operations;
+  const hasScenarios = presets.length > 0 && scenarioGroups && scenarioGroups.length > 0;
+  const selectedScenarioOption = scenarioGroups
+    ?.flatMap((group) => group.options)
+    .find((scenario) => scenario.value === selectedScenario);
 
   return (
     <form className="rounded-md border border-zinc-200 bg-white p-4" onSubmit={submit}>
-      {operationGroups && operationGroups.length > 1 ? (
+      {!hasScenarios && operationGroups && operationGroups.length > 1 ? (
         <div className="mb-4">
           <div className="inline-flex flex-wrap gap-1 rounded-md bg-zinc-100 p-1" role="tablist" aria-label="Operation category">
             {operationGroups.map((group) => {
@@ -93,20 +125,41 @@ export function OperationWorkbench({
         </div>
       ) : null}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <label className="grid gap-1 text-sm">
-          <span className="text-xs font-semibold uppercase text-zinc-500">Operation</span>
-          <select
-            className="min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
-            value={selectedOperation}
-            onChange={(event) => onSelectOperation(event.target.value)}
-          >
-            {visibleOperations.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {hasScenarios ? (
+          <label className="grid gap-1 text-sm">
+            <span className="text-xs font-semibold uppercase text-zinc-500">Scenario</span>
+            <select
+              className="min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
+              value={selectedScenario}
+              onChange={(event) => onSelectScenario?.(event.target.value)}
+            >
+              {scenarioGroups.map((group) => (
+                <optgroup key={group.id} label={group.label}>
+                  {group.options.map((scenario) => (
+                    <option key={scenario.value} value={scenario.value}>
+                      {scenario.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label className="grid gap-1 text-sm">
+            <span className="text-xs font-semibold uppercase text-zinc-500">Operation</span>
+            <select
+              className="min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
+              value={selectedOperation}
+              onChange={(event) => onSelectOperation(event.target.value)}
+            >
+              {visibleOperations.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <Button
           className="min-h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
           disabled={!canRun || running || !selectedOperation}
@@ -115,9 +168,20 @@ export function OperationWorkbench({
           {running ? "Running" : "Run"}
         </Button>
       </div>
-      <p className="mt-3 text-sm leading-6 text-zinc-600">{operation?.description ?? "Run a package operation."}</p>
-      <LandscapeContractBadges operation={operation} />
-      {presets.length > 0 ? (
+      {hasScenarios ? (
+        <div className="mt-3 text-sm leading-6 text-zinc-600">
+          <p>{selectedScenarioOption?.description ?? operation?.description ?? "Run a package operation."}</p>
+          {operation ? (
+            <p className="mt-1 text-xs font-medium uppercase text-zinc-500">
+              Operation: <span className="normal-case text-zinc-700">{selectedScenarioOption?.operationName ?? operation.name}</span>
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm leading-6 text-zinc-600">{operation?.description ?? "Run a package operation."}</p>
+      )}
+      {showLandscapeContract ? <LandscapeContractBadges operation={operation} /> : null}
+      {!hasScenarios && presets.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {presets.map((preset) => (
             <Button
@@ -132,7 +196,13 @@ export function OperationWorkbench({
           ))}
         </div>
       ) : null}
-      <OperationInputForm input={input} operation={operation} onInputChange={onInputChange} />
+      <OperationInputForm
+        input={input}
+        inputChrome={inputChrome}
+        operation={operation}
+        visibleInputFields={visibleInputFields}
+        onInputChange={onInputChange}
+      />
       {runDisabledReason ? (
         <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           {runDisabledReason}
@@ -186,11 +256,15 @@ function LandscapeContractBadges({ operation }: { operation: SurfaceOperation | 
 
 function OperationInputForm({
   input,
+  inputChrome,
   operation,
+  visibleInputFields,
   onInputChange,
 }: {
   input: string;
+  inputChrome: "full" | "compact";
   operation: SurfaceOperation | null;
+  visibleInputFields?: string[];
   onInputChange: (input: string) => void;
 }) {
   const parsed = parseObjectInput(input);
@@ -217,12 +291,16 @@ function OperationInputForm({
     );
   }
 
-  const entries = Object.entries(parsed.value);
+  const visibleFieldSet = visibleInputFields ? new Set(visibleInputFields) : null;
+  const entries = Object.entries(parsed.value).filter(([key]) => !visibleFieldSet || visibleFieldSet.has(key));
   const updateField = (key: string, value: unknown) => {
     onInputChange(JSON.stringify({ ...parsed.value, [key]: value }, null, 2));
   };
 
   if (entries.length === 0) {
+    if (visibleFieldSet) {
+      return null;
+    }
     return (
       <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-4 py-5 text-sm text-zinc-600">
         This operation does not require request input.
@@ -230,26 +308,32 @@ function OperationInputForm({
     );
   }
 
+  const compact = inputChrome === "compact";
+
   return (
-    <FieldGroup className="mt-4 gap-4 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+    <FieldGroup className={compact ? "mt-4 gap-3" : "mt-4 gap-4 rounded-md border border-zinc-200 bg-zinc-50 p-4"}>
       <div>
-        <h3 className="text-sm font-semibold text-zinc-950">Request input</h3>
-        <p className="mt-1 text-sm leading-6 text-zinc-600">
-          {operation ? `Edit inputs for ${operation.name}.` : "Edit operation inputs."}
-        </p>
+        <h3 className="text-sm font-semibold text-zinc-950">{compact ? "Inputs" : "Request input"}</h3>
+        {!compact ? (
+          <p className="mt-1 text-sm leading-6 text-zinc-600">
+            {operation ? `Edit inputs for ${operation.name}.` : "Edit operation inputs."}
+          </p>
+        ) : null}
       </div>
       {entries.map(([key, value]) => (
-        <InputField key={key} name={key} value={value} onChange={(nextValue) => updateField(key, nextValue)} />
+        <InputField key={key} compact={compact} name={key} value={value} onChange={(nextValue) => updateField(key, nextValue)} />
       ))}
     </FieldGroup>
   );
 }
 
 function InputField({
+  compact,
   name,
   value,
   onChange,
 }: {
+  compact: boolean;
   name: string;
   value: unknown;
   onChange: (value: unknown) => void;
@@ -264,7 +348,7 @@ function InputField({
           <label className="text-sm font-medium leading-snug text-zinc-950" htmlFor={fieldId}>
             {label}
           </label>
-          <p className="mt-1 break-words text-sm leading-normal text-zinc-500">{name}</p>
+          {!compact ? <p className="mt-1 break-words text-sm leading-normal text-zinc-500">{name}</p> : null}
         </div>
         <button
           id={fieldId}
@@ -296,7 +380,7 @@ function InputField({
       <Field>
         <FieldContent>
           <FieldLabel htmlFor={fieldId}>{label}</FieldLabel>
-          <FieldDescription>{name}</FieldDescription>
+          {!compact ? <FieldDescription>{name}</FieldDescription> : null}
         </FieldContent>
         <Input
           id={fieldId}
@@ -314,7 +398,7 @@ function InputField({
       <Field>
         <FieldContent>
           <FieldLabel htmlFor={fieldId}>{label}</FieldLabel>
-          <FieldDescription>{name}</FieldDescription>
+          {!compact ? <FieldDescription>{name}</FieldDescription> : null}
         </FieldContent>
         {multiline ? (
           <Textarea
@@ -336,7 +420,7 @@ function InputField({
       <Field>
         <FieldContent>
           <FieldLabel htmlFor={fieldId}>{label}</FieldLabel>
-          <FieldDescription>One {name} value per line</FieldDescription>
+          {!compact ? <FieldDescription>One {name} value per line</FieldDescription> : null}
         </FieldContent>
         <Textarea
           id={fieldId}
@@ -352,14 +436,16 @@ function InputField({
     );
   }
 
-  return <StructuredValueField name={name} value={value} onChange={onChange} />;
+  return <StructuredValueField compact={compact} name={name} value={value} onChange={onChange} />;
 }
 
 function StructuredValueField({
+  compact,
   name,
   value,
   onChange,
 }: {
+  compact: boolean;
   name: string;
   value: unknown;
   onChange: (value: unknown) => void;
@@ -378,7 +464,7 @@ function StructuredValueField({
     <Field>
       <FieldContent>
         <FieldLabel htmlFor={fieldId}>{humanizeKey(name)}</FieldLabel>
-        <FieldDescription>{name}</FieldDescription>
+        {!compact ? <FieldDescription>{name}</FieldDescription> : null}
       </FieldContent>
       <Textarea
         id={fieldId}

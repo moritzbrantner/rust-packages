@@ -47,6 +47,16 @@ fn document_surface_parses_modes_and_option_overrides() {
     assert!(value["linguistic"].is_null());
     assert!(value["embedding"].is_null());
     assert_eq!(value["similarity"]["tokenShingleCounts"][0]["n"], 2);
+    assert_eq!(value["summary"]["id"], "doc-surface");
+    assert_eq!(value["summary"]["language"], "en");
+    assert!(value["summary"]["tokenCount"].as_u64().unwrap() > 0);
+    assert!(value["summary"]["sentenceCount"].as_u64().unwrap() > 0);
+    assert_eq!(value["summary"]["keywordCount"], 2);
+    assert_eq!(
+        value["summary"]["embeddingDimensions"],
+        serde_json::Value::Null
+    );
+    assert_eq!(value["summary"]["diagnosticCount"], 0);
 }
 
 #[test]
@@ -99,6 +109,15 @@ fn corpus_surface_generates_missing_ids_and_honors_toggles() {
     assert!(value["bm25Search"].is_null());
     assert_eq!(value["nearDuplicates"].as_array().unwrap().len(), 0);
     assert_eq!(value["semanticNeighbors"].as_array().unwrap().len(), 0);
+    assert_eq!(value["summary"]["documentCount"], 2);
+    assert_eq!(
+        value["summary"]["termCount"].as_u64().unwrap(),
+        value["termStats"].as_array().unwrap().len() as u64
+    );
+    assert_eq!(value["summary"]["resultCount"], 0);
+    assert_eq!(value["summary"]["nearDuplicateCount"], 0);
+    assert_eq!(value["summary"]["semanticNeighborCount"], 0);
+    assert_eq!(value["summary"]["diagnosticCount"], 0);
 }
 
 #[test]
@@ -117,6 +136,60 @@ fn similarity_surface_supports_character_alias_and_clamps_n() {
     assert_eq!(value["mode"], "character");
     assert_eq!(value["n"], 1);
     assert!(value["similarity"]["jaccard"].as_f64().unwrap() > 0.0);
+    assert_eq!(value["summary"]["mode"], "character");
+    assert_eq!(value["summary"]["n"], 1);
+    assert!(value["summary"]["score"].as_f64().unwrap() > 0.0);
+    assert_eq!(
+        value["summary"]["leftCount"],
+        value["similarity"]["leftCount"]
+    );
+    assert_eq!(
+        value["summary"]["rightCount"],
+        value["similarity"]["rightCount"]
+    );
+    assert_eq!(
+        value["summary"]["intersectionCount"],
+        value["similarity"]["intersectionCount"]
+    );
+    assert_eq!(
+        value["summary"]["unionCount"],
+        value["similarity"]["unionCount"]
+    );
+}
+
+#[test]
+fn workflow_operation_examples_return_structured_values() {
+    let surface = package_surface();
+    for operation_id in [
+        "analysis.document",
+        "analysis.corpus",
+        "analysis.similarity",
+    ] {
+        let operation = surface
+            .operations
+            .iter()
+            .find(|operation| operation.id.as_str() == operation_id)
+            .expect("workflow operation exists");
+        let value = run(operation_id, operation.example_request.clone()).unwrap();
+
+        assert!(
+            value["title"].is_string(),
+            "{operation_id} should include a title"
+        );
+        assert!(
+            value["message"].is_string(),
+            "{operation_id} should include a message"
+        );
+        assert!(
+            value["summary"].is_object(),
+            "{operation_id} should include summary"
+        );
+        assert!(
+            value["result"].is_object(),
+            "{operation_id} should include result"
+        );
+        assert_eq!(value["summary"]["status"], "ok");
+    }
 }
 
 #[test]

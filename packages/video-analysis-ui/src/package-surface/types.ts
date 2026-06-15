@@ -165,6 +165,19 @@ export interface FileInputDefinition {
   samples?: FileInputSample[];
 }
 
+export interface PackageWorkbenchPresentation {
+  layout?: "standard" | "focused";
+  sidePanels?: {
+    runtime?: boolean;
+    models?: boolean;
+    files?: boolean;
+    support?: boolean;
+  };
+  inputFields?: Record<string, string[]>;
+  inputChrome?: "full" | "compact";
+  showLandscapeContract?: boolean;
+}
+
 export interface PackageAppConfig {
   library: string;
   title: string;
@@ -183,11 +196,13 @@ export interface PackageAppConfig {
   featuredOperations?: string[];
   operationGroups?: OperationGroupDefinition[];
   defaultOperation?: string;
+  defaultPresetId?: string;
   defaultRuntime?: RuntimeMode;
   presets?: PackageAppPreset[];
   benchmarkScenarios?: BenchmarkScenario[];
   resultTabs?: ResultTabDefinition[];
   fileInputs?: FileInputDefinition[];
+  workbench?: PackageWorkbenchPresentation;
   children?: ReactNode | ((context: PackageSurfaceWorkbenchContext) => ReactNode);
 }
 

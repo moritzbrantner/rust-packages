@@ -2,7 +2,7 @@ import { createTextResultTabs, PackageSurfaceWorkbench, type PackageAppConfig } 
 import * as wasm from "@moritzbrantner/text-analysis-wasm";
 
 const sampleText =
-  "Alice presented the tokenizer roadmap in Berlin. Rust crates analyze text with deterministic local features. Semantic search and lexical statistics support transcript workflows.";
+  "Alice presented the tokenizer roadmap in Berlin during the release review. Rust text crates extract keywords, entities, and transcript evidence with deterministic local features. Semantic search and lexical statistics help editors find the strongest report passages.";
 
 const packageAppConfig: PackageAppConfig = {
   library: "text-analysis",
@@ -19,7 +19,26 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "analysis.document",
+  defaultPresetId: "document-deterministic",
   featuredOperations: ["analysis.document", "analysis.corpus", "analysis.similarity", "analysis.describe", "describe"],
+  workbench: {
+    layout: "focused",
+    sidePanels: {
+      runtime: false,
+      models: false,
+      files: false,
+      support: false,
+    },
+    inputChrome: "compact",
+    showLandscapeContract: false,
+    inputFields: {
+      "analysis.document": ["text", "keywordLimit", "summarySentences"],
+      "analysis.corpus": ["query", "topK", "includeNearDuplicates", "includeSemanticNeighbors"],
+      "analysis.similarity": ["left", "right", "n", "mode"],
+      "analysis.describe": [],
+      describe: [],
+    },
+  },
   operationGroups: [
     {
       id: "workflow",
@@ -37,11 +56,11 @@ const packageAppConfig: PackageAppConfig = {
   presets: [
     {
       id: "document-deterministic",
-      label: "Document",
+      label: "Document: deterministic report",
       operation: "analysis.document",
-      description: "Deterministic document analysis with lexical, linguistic, and embedding sections.",
+      description: "Deterministic report analysis with non-empty keywords, entity hints, sentence counts, and hashed embeddings.",
       input: {
-        id: "app-input",
+        id: "release-report-berlin",
         text: sampleText,
         profile: "deterministic",
         keywordLimit: 10,
@@ -54,31 +73,32 @@ const packageAppConfig: PackageAppConfig = {
     },
     {
       id: "document-model-backed",
-      label: "Model-backed",
+      label: "Document: model-backed fallback",
       operation: "analysis.document",
-      description: "Server-oriented model-backed profile with deterministic fallback metadata.",
+      description: "Model-capable request with local bundle paths optional, no auto-download, and diagnostics expected when native support is unavailable.",
       input: {
-        id: "model-backed-input",
+        id: "release-report-model-fallback",
         text: sampleText,
         profile: "modelBacked",
         keywordLimit: 10,
         summarySentences: 3,
-        linguistics: { mode: "modelBacked" },
-        embedding: { mode: "hashed", dimensions: 128, useIdf: false },
+        linguistics: { mode: "localModel", bundleDir: ".model-runtime/text-analysis/ner", autoDownload: false, downloadProgress: false },
+        embedding: { mode: "candleBundle", bundleDir: ".model-runtime/text-analysis/embeddings" },
       },
     },
     {
       id: "corpus",
-      label: "Corpus retrieval report",
+      label: "Corpus: transcript retrieval",
       operation: "analysis.corpus",
-      description: "Transient corpus search and similarity report.",
+      description: "Transient transcript corpus with retrieval hits, near-duplicate checks, and semantic neighbors.",
       input: {
         documents: [
-          { id: "doc-1", text: "rust text analysis" },
-          { id: "doc-2", text: "video scene analysis" },
-          { id: "doc-3", text: "semantic search over transcripts" },
+          { id: "report-berlin", text: "Alice presents the Berlin release report with tokenizer roadmap evidence and transcript retrieval notes." },
+          { id: "transcript-berlin-a", text: "Alice says the tokenizer roadmap links rust text analysis to semantic transcript search." },
+          { id: "transcript-berlin-b", text: "Alice says the tokenizer roadmap links rust text analysis to semantic transcript search for editors." },
+          { id: "editorial-note", text: "The playlist discussion covers music pacing and visual transitions." },
         ],
-        query: "text analysis",
+        query: "tokenizer transcript search evidence",
         topK: 10,
         includeNearDuplicates: true,
         includeSemanticNeighbors: true,
@@ -87,52 +107,15 @@ const packageAppConfig: PackageAppConfig = {
     },
     {
       id: "similarity",
-      label: "Similarity overlap and embedding",
+      label: "Similarity: transcript overlap",
       operation: "analysis.similarity",
-      description: "Compare two transcript-style passages with lexical and deterministic embedding signals.",
+      description: "Compare two transcript-style passages with overlapping token shingles and scalar overlap counts.",
       input: {
-        left: "Rust text packages extract keywords, entities, and transcript retrieval evidence.",
-        right: "Transcript search in Rust combines lexical features with deterministic semantic embeddings.",
-        n: 3,
+        left: "Alice presents tokenizer roadmap evidence for semantic transcript search in the Berlin release report.",
+        right: "Alice presents tokenizer roadmap evidence for transcript retrieval in the Berlin editor report.",
+        n: 2,
         mode: "token",
       },
-    },
-  ],
-  benchmarkScenarios: [
-    {
-      id: "document-report",
-      label: "Document Report",
-      operation: "analysis.document",
-      input: {
-        id: "bench-doc",
-        text: sampleText.repeat(6),
-        profile: "deterministic",
-        keywordLimit: 12,
-        summarySentences: 3,
-        embedding: { mode: "hashed", dimensions: 128, useIdf: false },
-      },
-      iterations: 20,
-      warmupIterations: 3,
-      outputCountPath: ["summary"],
-    },
-    {
-      id: "corpus-report",
-      label: "Corpus Report",
-      operation: "analysis.corpus",
-      input: {
-        documents: [
-          { id: "doc-1", text: sampleText },
-          { id: "doc-2", text: "Scene reports and transcript retrieval share lexical search." },
-          { id: "doc-3", text: "Embeddings support semantic discovery over captions." },
-        ],
-        query: "text retrieval",
-        topK: 5,
-        includeSemanticNeighbors: true,
-        embedding: { mode: "hashed", dimensions: 128, useIdf: true },
-      },
-      iterations: 15,
-      warmupIterations: 2,
-      outputCountPath: ["results"],
     },
   ],
   resultTabs: createTextResultTabs({
@@ -140,9 +123,9 @@ const packageAppConfig: PackageAppConfig = {
     primaryOperations: {
       "analysis.document": {
         title: "Document analysis",
-        summaryFields: ["profile", "language", "wordCount", "keywordCount", "entityCount", "embeddingDimensions"],
-        listFields: ["lexical.keywords", "linguistics.entities", "retrieval.results", "diagnostics"],
-        objectFields: ["core", "lexical", "linguistics", "embedding", "retrieval"],
+        summaryFields: ["tokenCount", "sentenceCount", "keywordCount", "entityCount", "embeddingDimensions", "diagnosticCount"],
+        listFields: ["lexical.keywords", "lexical.ruleEntities", "diagnostics"],
+        objectFields: ["core", "lexical", "linguistic", "embedding", "classification"],
         explanation: () => "The orchestrator ran core statistics, lexical keyword extraction, linguistic projections, deterministic embeddings, and retrieval-oriented diagnostics for one document.",
       },
       "analysis.corpus": {
@@ -154,10 +137,9 @@ const packageAppConfig: PackageAppConfig = {
       },
       "analysis.similarity": {
         title: "Text similarity",
-        summaryFields: ["mode", "score", "lexicalScore", "embeddingScore"],
-        listFields: ["sharedTerms", "diagnostics"],
-        objectFields: ["lexical", "embedding", "result"],
-        explanation: () => "The run compared two passages with the selected similarity mode and reports the lexical and embedding contributions that were available.",
+        summaryFields: ["mode", "n", "score", "intersectionCount", "unionCount"],
+        objectFields: ["similarity", "result"],
+        explanation: () => "The run compared two transcript passages with the selected shingle mode and reports scalar overlap counts for the selected n-gram size.",
       },
     },
   }),

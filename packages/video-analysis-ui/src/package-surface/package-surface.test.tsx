@@ -17,6 +17,29 @@ const operationResponse: SurfaceResponse = {
   artifacts: [{ id: "artifact-1" }],
 };
 
+const scenarioOperations = [
+  {
+    id: "demo.run",
+    name: "Run demo",
+    description: "Runs the main workflow.",
+    inputSchema: {},
+    outputSchema: {},
+    exampleRequest: { text: "workflow example" },
+    wasmSupported: true,
+    serverSupported: true,
+  },
+  {
+    id: "demo.inspect",
+    name: "Inspect JSON",
+    description: "Inspects advanced JSON.",
+    inputSchema: {},
+    outputSchema: {},
+    exampleRequest: { text: "inspect example" },
+    wasmSupported: true,
+    serverSupported: true,
+  },
+];
+
 function config(overrides: Partial<PackageAppConfig> = {}): PackageAppConfig {
   return {
     library: "demo-package",
@@ -52,8 +75,54 @@ function config(overrides: Partial<PackageAppConfig> = {}): PackageAppConfig {
   };
 }
 
+function scenarioConfig(overrides: Partial<PackageAppConfig> = {}): PackageAppConfig {
+  return config({
+    wasm: {
+      init: vi.fn(async () => undefined),
+      packageSurface: vi.fn(() => ({
+        library: "demo-package",
+        version: "0.1.0",
+        capabilities: {},
+        operations: scenarioOperations,
+      })),
+      runOperation: vi.fn(async () => operationResponse),
+    },
+    operationGroups: [
+      {
+        id: "workflow",
+        label: "Workflow",
+        operations: ["demo.run"],
+      },
+      {
+        id: "debug",
+        label: "Debug",
+        operations: ["demo.inspect"],
+      },
+    ],
+    defaultPresetId: "demo-preset",
+    presets: [
+      {
+        id: "demo-preset",
+        label: "Curated demo",
+        operation: "demo.run",
+        description: "Run curated demo input.",
+        input: { text: "curated input" },
+      },
+      {
+        id: "demo-alt",
+        label: "Alternate demo",
+        operation: "demo.run",
+        description: "Run alternate demo input.",
+        input: { text: "alternate input" },
+      },
+    ],
+    ...overrides,
+  });
+}
+
 beforeEach(() => {
   localStorage.clear();
+  window.history.replaceState({}, "", "/");
   vi.restoreAllMocks();
   vi.stubGlobal(
     "fetch",
@@ -300,6 +369,122 @@ describe("PackageSurfaceWorkbench", () => {
     });
   });
 
+  test("focused input fields hide internal request fields but preserve them in the payload", async () => {
+    const runOperation = vi.fn(async () => operationResponse);
+    const focusedExample = {
+      text: "visible text",
+      includeNearDuplicates: true,
+      embedding: { mode: "hashed", dimensions: 128 },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/health")) {
+          return jsonResponse({ ok: true, package: "demo-package-server", library: "demo-package" });
+        }
+        if (url.endsWith("/api/package")) {
+          return jsonResponse({
+            library: "demo-package",
+            version: "0.1.0",
+            operations: [
+              {
+                id: "demo.run",
+                name: "Run demo",
+                description: "Runs the demo operation.",
+                exampleRequest: focusedExample,
+                wasmSupported: true,
+                serverSupported: true,
+              },
+            ],
+          });
+        }
+        if (url.endsWith("/api/models")) {
+          return jsonResponse([]);
+        }
+        if (url.endsWith("/api/run")) {
+          return jsonResponse(operationResponse);
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          workbench: {
+            inputChrome: "compact",
+            showLandscapeContract: false,
+            inputFields: {
+              "demo.run": ["text"],
+            },
+          },
+          wasm: {
+            init: vi.fn(async () => undefined),
+            packageSurface: vi.fn(() => ({
+              library: "demo-package",
+              version: "0.1.0",
+              capabilities: {},
+              operations: [
+                {
+                  id: "demo.run",
+                  name: "Run demo",
+                  description: "Runs the demo operation.",
+                  inputSchema: {},
+                  outputSchema: {},
+                  exampleRequest: focusedExample,
+                  wasmSupported: true,
+                  serverSupported: true,
+                },
+              ],
+            })),
+            runOperation,
+          },
+        })}
+      />,
+    );
+
+    const textInput = await screen.findByDisplayValue(/visible text|server/);
+    fireEvent.change(textInput, { target: { value: "updated visible text" } });
+    expect(screen.queryByRole("switch", { name: "Include Near Duplicates" })).toBeNull();
+    expect(screen.queryByLabelText("Embedding")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+
+    await waitFor(() => {
+      expect(runOperation).toHaveBeenCalledWith({
+        operation: "demo.run",
+        input: {
+          text: "updated visible text",
+          includeNearDuplicates: true,
+          embedding: { mode: "hashed", dimensions: 128 },
+        },
+      });
+    });
+  });
+
+  test("focused layout can suppress metadata side panels", async () => {
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          workbench: {
+            layout: "focused",
+            sidePanels: {
+              runtime: false,
+              models: false,
+              files: false,
+              support: false,
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Demo Package" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Runtime" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Models" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Support" })).toBeNull();
+  });
+
   test("runs the selected operation", async () => {
     render(<PackageSurfaceWorkbench config={config()} />);
 
@@ -310,6 +495,85 @@ describe("PackageSurfaceWorkbench", () => {
     expect(screen.getByText("Demo operation completed.")).toBeTruthy();
     expect(screen.getAllByText("Count").length).toBeGreaterThan(0);
     expect(screen.getByText("1 diagnostics")).toBeTruthy();
+  });
+
+  test("renders one Scenario combobox when presets are configured", async () => {
+    render(<PackageSurfaceWorkbench config={scenarioConfig()} />);
+
+    expect(await screen.findByRole("combobox", { name: "Scenario" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Operation" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Curated demo" })).toBeNull();
+    expect(screen.getByRole("option", { name: "Curated demo" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Alternate demo" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Inspect JSON" })).toBeTruthy();
+  });
+
+  test("loads the configured default preset on initial mount", async () => {
+    localStorage.setItem("package-workbench:demo-package:demo.run", JSON.stringify({ text: "stale draft" }, null, 2));
+
+    render(<PackageSurfaceWorkbench config={scenarioConfig()} />);
+
+    const scenario = (await screen.findByRole("combobox", { name: "Scenario" })) as HTMLSelectElement;
+    expect(scenario.value).toBe("preset:demo-preset");
+    expect(await screen.findByDisplayValue("curated input")).toBeTruthy();
+  });
+
+  test("selecting a preset updates operation, input, URL params, and run payload", async () => {
+    localStorage.setItem("package-workbench:demo-package:demo.run", JSON.stringify({ text: "stale draft" }, null, 2));
+    const runOperation = vi.fn(async () => operationResponse);
+    render(
+      <PackageSurfaceWorkbench
+        config={scenarioConfig({
+          wasm: {
+            init: vi.fn(async () => undefined),
+            packageSurface: vi.fn(() => ({
+              library: "demo-package",
+              version: "0.1.0",
+              capabilities: {},
+              operations: scenarioOperations,
+            })),
+            runOperation,
+          },
+        })}
+      />,
+    );
+
+    const scenario = (await screen.findByRole("combobox", { name: "Scenario" })) as HTMLSelectElement;
+    fireEvent.change(scenario, { target: { value: "preset:demo-alt" } });
+
+    expect(await screen.findByDisplayValue("alternate input")).toBeTruthy();
+    expect(window.location.search).toContain("operation=demo.run");
+    expect(window.location.search).toContain("preset=demo-alt");
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+
+    await waitFor(() => {
+      expect(runOperation).toHaveBeenCalledWith({
+        operation: "demo.run",
+        input: { text: "alternate input" },
+      });
+    });
+  });
+
+  test("debug raw operations remain selectable through the scenario dropdown", async () => {
+    render(<PackageSurfaceWorkbench config={scenarioConfig()} />);
+
+    const scenario = (await screen.findByRole("combobox", { name: "Scenario" })) as HTMLSelectElement;
+    fireEvent.change(scenario, { target: { value: "operation:demo.inspect" } });
+
+    expect(await screen.findByDisplayValue("inspect example")).toBeTruthy();
+    expect(window.location.search).toContain("operation=demo.inspect");
+    expect(window.location.search).not.toContain("preset=");
+  });
+
+  test("preset query param restores the selected scenario", async () => {
+    localStorage.setItem("package-workbench:demo-package:demo.run", JSON.stringify({ text: "stale draft" }, null, 2));
+    window.history.replaceState({}, "", "/?operation=demo.run&preset=demo-alt");
+
+    render(<PackageSurfaceWorkbench config={scenarioConfig()} />);
+
+    const scenario = (await screen.findByRole("combobox", { name: "Scenario" })) as HTMLSelectElement;
+    expect(scenario.value).toBe("preset:demo-alt");
+    expect(await screen.findByDisplayValue("alternate input")).toBeTruthy();
   });
 
   test("groups operations under category tabs", async () => {

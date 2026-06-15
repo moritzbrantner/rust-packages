@@ -16,6 +16,7 @@ const packageAppConfig: PackageAppConfig = {
     standaloneRoute: "",
   },
   defaultOperation: "index.search",
+  defaultPresetId: "hybrid-search",
   featuredOperations: ["index.search", "index.build", "index.inspect", "index.snapshotPlan", "describe"],
   operationGroups: [
     {
@@ -107,6 +108,16 @@ const packageAppConfig: PackageAppConfig = {
         dimensions: 64,
       },
     },
+    {
+      id: "remove-documents",
+      label: "Remove documents plan",
+      operation: "index.removeDocuments",
+      description: "Preview a side-effect-free document removal plan for a durable index.",
+      input: {
+        backend: "memory",
+        documentIds: ["doc-1", "doc-2"],
+      },
+    },
   ],
   benchmarkScenarios: [
     {
@@ -149,6 +160,24 @@ const packageAppConfig: PackageAppConfig = {
         listFields: ["results"],
         objectFields: ["result"],
         explanation: () => "The app built a transient Text Index, combined lexical and semantic candidates, and returned scored chunks with score breakdowns.",
+      },
+      "index.build": {
+        title: "Index build",
+        summaryFields: ["status", "documentsReceived", "documentsReplaced", "chunkCount", "vectorCount"],
+        objectFields: ["report", "inspect", "result"],
+        explanation: () => "The app built a side-effect-free transient Text Index from the sample documents and reported the indexed document, chunk, and vector counts.",
+      },
+      "index.addDocuments": {
+        title: "Add documents",
+        summaryFields: ["status", "documentsReceived", "documentsReplaced", "chunkCount", "vectorCount"],
+        objectFields: ["report", "inspect", "result"],
+        explanation: () => "The app exercised the add-documents surface against an in-memory index so the preview stays deterministic and browser-safe.",
+      },
+      "index.removeDocuments": {
+        title: "Remove documents",
+        summaryFields: ["status", "documentCount", "commitRequiredForDurableWrites"],
+        objectFields: ["report", "inspect", "result"],
+        explanation: () => "The app returns a removal plan for browser/default execution and avoids durable writes unless a committed backend is selected explicitly.",
       },
       "index.inspect": {
         title: "Index inspection",

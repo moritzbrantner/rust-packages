@@ -228,7 +228,10 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
                 "id": value["id"],
                 "language": value["language"],
                 "tokenCount": value["core"]["tokens"].as_array().map(Vec::len).unwrap_or(0),
+                "sentenceCount": value["core"]["sentences"].as_array().map(Vec::len).unwrap_or(0),
                 "keywordCount": value["lexical"]["keywords"].as_array().map(Vec::len).unwrap_or(0),
+                "entityCount": value["lexical"]["ruleEntities"].as_array().map(Vec::len).unwrap_or(0),
+                "embeddingDimensions": value["embedding"]["dimensions"],
                 "diagnosticCount": value["diagnostics"].as_array().map(Vec::len).unwrap_or(0)
             }),
         ),
@@ -239,8 +242,14 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
                 "status": "ok",
                 "documentCount": value["documents"].as_array().map(Vec::len).unwrap_or(0),
                 "termCount": value["termStats"].as_array().map(Vec::len).unwrap_or(0),
+                "resultCount": value["tfidfSearch"]
+                    .as_array()
+                    .or_else(|| value["bm25Search"].as_array())
+                    .map(Vec::len)
+                    .unwrap_or(0),
                 "nearDuplicateCount": value["nearDuplicates"].as_array().map(Vec::len).unwrap_or(0),
-                "semanticNeighborCount": value["semanticNeighbors"].as_array().map(Vec::len).unwrap_or(0)
+                "semanticNeighborCount": value["semanticNeighbors"].as_array().map(Vec::len).unwrap_or(0),
+                "diagnosticCount": value["diagnostics"].as_array().map(Vec::len).unwrap_or(0)
             }),
         ),
         "analysis.similarity" => (
@@ -250,6 +259,11 @@ fn annotated_value(operation: &OperationId, value: serde_json::Value) -> serde_j
                 "status": "ok",
                 "mode": value["mode"],
                 "n": value["n"],
+                "score": value["similarity"]["jaccard"],
+                "leftCount": value["similarity"]["leftCount"],
+                "rightCount": value["similarity"]["rightCount"],
+                "intersectionCount": value["similarity"]["intersectionCount"],
+                "unionCount": value["similarity"]["unionCount"],
                 "similarity": value["similarity"]
             }),
         ),

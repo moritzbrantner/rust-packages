@@ -26,6 +26,16 @@ For each wrapper, run the default workflow in both runtime modes:
 - `Overview Server`
 - `Client WASM`
 
+Use the primary `Scenario` dropdown to switch curated examples. Verify the
+default scenarios are selected on first load:
+
+- `/wrappers/text-core/`: `Tokenize transcript notes`
+- `/wrappers/text-index/`: `Hybrid search`
+- `/wrappers/text-analysis/`: `Document: deterministic report`
+
+Debug/support operations must remain available in the same dropdown under the
+`Debug` or `Support` option groups.
+
 The JSON result should include:
 
 ```json
@@ -39,6 +49,10 @@ The JSON result should include:
 ```
 
 The page should not show a dynamic import failure.
+
+The formatted summary cards for the default text scenarios should show concrete
+counts or scores. They should not show empty primary summaries or `n/a` for the
+main document, corpus, or similarity metrics.
 
 ## Individual Text Apps
 

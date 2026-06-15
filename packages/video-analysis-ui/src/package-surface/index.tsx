@@ -3,7 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { BenchmarkPanel } from "./BenchmarkPanel";
 import { FileInputs } from "./FileInputs";
 import { ModelSelector } from "./ModelSelector";
-import { OperationWorkbench, type OperationWorkbenchGroup } from "./OperationWorkbench";
+import {
+  OperationWorkbench,
+  type OperationWorkbenchGroup,
+  type OperationWorkbenchScenarioGroup,
+} from "./OperationWorkbench";
 import { ResultViewer } from "./ResultViewer";
 import { builtInVideoFileInput } from "./samples";
 import {
@@ -41,6 +45,27 @@ export type { TextOperationPresentation, TextResultTabsConfig } from "./TextResu
 
 type LoadState = "loading" | "ready" | "error" | "disabled";
 
+function readQuery(key: string): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return new URLSearchParams(window.location.search).get(key);
+}
+
+function initialPresetId(config: PackageAppConfig): string | null {
+  const presetFromQuery = readQuery("preset");
+  if (config.presets?.some((preset) => preset.id === presetFromQuery)) {
+    return presetFromQuery;
+  }
+  return null;
+}
+
+function initialOperationId(config: PackageAppConfig): string {
+  const presetFromQuery = config.presets?.find((preset) => preset.id === readQuery("preset"));
+  const defaultPreset = config.presets?.find((preset) => preset.id === config.defaultPresetId);
+  return presetFromQuery?.operation ?? readQuery("operation") ?? defaultPreset?.operation ?? config.defaultOperation ?? "describe";
+}
+
 export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }) {
   const runtimeFromUrl = readRuntimeMode(config);
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>(runtimeFromUrl);
@@ -50,7 +75,8 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
   const [surface, setSurface] = useState<PackageSurface | null>(null);
   const [models, setModels] = useState<ModelCatalogEntry[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
-  const [selectedOperation, setSelectedOperation] = useState(() => readQuery("operation") ?? config.defaultOperation ?? "describe");
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(() => initialPresetId(config));
+  const [selectedOperation, setSelectedOperation] = useState(() => initialOperationId(config));
   const [input, setInput] = useState("{}");
   const [response, setResponse] = useState<SurfaceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +89,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
         .then((nextSurface) => {
           if (cancelled) return;
           setSurface((current) => current ?? nextSurface);
-          initializeSelection(nextSurface, selectedOperation, setSelectedOperation, setInput, config.defaultOperation);
+          initializeSelection(nextSurface, selectedOperation, selectedPresetId, setSelectedOperation, setSelectedPresetId, setInput, config);
           setWasmState("ready");
         })
         .catch(() => {
@@ -80,7 +106,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
         if (cancelled) return;
         setHealth(nextHealth);
         setSurface((current) => current ?? nextSurface);
-        initializeSelection(nextSurface, selectedOperation, setSelectedOperation, setInput, config.defaultOperation);
+        initializeSelection(nextSurface, selectedOperation, selectedPresetId, setSelectedOperation, setSelectedPresetId, setInput, config);
         setModels(nextModels);
         setSelectedModel(nextModels[0]?.id ?? "");
         setServerState(nextHealth.ok === false ? "error" : "ready");
@@ -99,10 +125,15 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
     () => groupedOperations(operations, config.operationGroups),
     [operations, config.operationGroups],
   );
+  const scenarioGroups = useMemo(
+    () => groupedScenarioOptions(operations, operationGroups, config.presets),
+    [operations, operationGroups, config.presets],
+  );
   const operation = useMemo(
     () => operations.find((candidate) => candidate.id === selectedOperation) ?? operations[0] ?? null,
     [operations, selectedOperation],
   );
+  const selectedScenario = selectedPresetId ? presetScenarioValue(selectedPresetId) : operationScenarioValue(selectedOperation);
   const parsedInput = useMemo(() => parseInputOrNull(input), [input]);
   const wasmAvailable = Boolean(config.wasm) && wasmState === "ready";
   const overviewServerAvailable = serverState === "ready";
@@ -149,7 +180,8 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
 
   function chooseOperation(nextOperation: string) {
     setSelectedOperation(nextOperation);
-    writeQuery({ operation: nextOperation });
+    setSelectedPresetId(null);
+    writeQuery({ operation: nextOperation, preset: null });
     const next = operations.find((candidate) => candidate.id === nextOperation);
     setInput(storedInput(config.library, nextOperation) ?? JSON.stringify(next?.exampleRequest ?? {}, null, 2));
     setResponse(null);
@@ -158,11 +190,26 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
 
   function applyPreset(preset: PackageAppPreset) {
     setSelectedOperation(preset.operation);
+    setSelectedPresetId(preset.id);
     setInput(JSON.stringify(preset.input, null, 2));
-    writeQuery({ operation: preset.operation });
-    persistInput(config.library, preset.operation, JSON.stringify(preset.input, null, 2));
+    writeQuery({ operation: preset.operation, preset: preset.id });
     setResponse(null);
     setError(null);
+  }
+
+  function chooseScenario(nextScenario: string) {
+    if (nextScenario.startsWith("preset:")) {
+      const presetId = nextScenario.slice("preset:".length);
+      const preset = config.presets?.find((candidate) => candidate.id === presetId);
+      if (preset) {
+        applyPreset(preset);
+      }
+      return;
+    }
+
+    if (nextScenario.startsWith("operation:")) {
+      chooseOperation(nextScenario.slice("operation:".length));
+    }
   }
 
   function patchInput(path: string[], value: unknown) {
@@ -171,7 +218,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
         const parsed = JSON.parse(currentInput || "{}") as unknown;
         const patched = patchValue(parsed, path, value);
         const nextInput = JSON.stringify(patched, null, 2);
-        persistInput(config.library, selectedOperation, nextInput);
+        persistDraftInput(nextInput);
         return nextInput;
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : String(caught));
@@ -183,7 +230,13 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
   function setInputValue(value: unknown) {
     const nextInput = JSON.stringify(value, null, 2);
     setInput(nextInput);
-    persistInput(config.library, selectedOperation, nextInput);
+    persistDraftInput(nextInput);
+  }
+
+  function persistDraftInput(nextInput: string) {
+    if (!selectedPresetId) {
+      persistInput(config.library, selectedOperation, nextInput);
+    }
   }
 
   async function run() {
@@ -196,7 +249,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
     setError(null);
     try {
       const payload = JSON.parse(input || "{}");
-      persistInput(config.library, selectedOperation, input);
+      persistDraftInput(input);
       const result = await runOperation(config, runtimeMode, selectedOperation, payload);
       setResponse(result);
     } catch (caught) {
@@ -216,7 +269,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
     setInput: setInputValue,
     setInputJson: (nextInput) => {
       setInput(nextInput);
-      persistInput(config.library, selectedOperation, nextInput);
+      persistDraftInput(nextInput);
     },
   };
   const children = typeof config.children === "function" ? config.children(childContext) : config.children;
@@ -224,6 +277,17 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
     () => benchmarkResultTabs(config, runtimeMode),
     [config, runtimeMode],
   );
+  const sidePanels = {
+    runtime: config.workbench?.sidePanels?.runtime ?? true,
+    models: config.workbench?.sidePanels?.models ?? true,
+    files: config.workbench?.sidePanels?.files ?? true,
+    support: config.workbench?.sidePanels?.support ?? true,
+  };
+  const hasSidePanel = sidePanels.runtime || sidePanels.models || sidePanels.files || sidePanels.support;
+  const layoutClass =
+    config.workbench?.layout === "focused" || !hasSidePanel
+      ? "mx-auto grid max-w-screen-2xl gap-5 px-5 py-5 xl:grid-cols-[minmax(420px,0.85fr)_minmax(0,1.15fr)]"
+      : "mx-auto grid max-w-screen-2xl gap-5 px-5 py-5 xl:grid-cols-[minmax(380px,0.8fr)_minmax(0,1.2fr)_360px]";
 
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-950">
@@ -245,7 +309,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-screen-2xl gap-5 px-5 py-5 xl:grid-cols-[minmax(380px,0.8fr)_minmax(0,1.2fr)_360px]">
+      <section className={layoutClass}>
         <div className="space-y-5">
           <OperationWorkbench
             canRun={canRun}
@@ -258,29 +322,39 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
             running={running}
             runDisabledReason={runDisabledReason}
             selectedOperation={selectedOperation}
+            inputChrome={config.workbench?.inputChrome}
+            showLandscapeContract={config.workbench?.showLandscapeContract}
+            visibleInputFields={config.workbench?.inputFields?.[selectedOperation]}
             onInputChange={(nextInput) => {
               setInput(nextInput);
-              persistInput(config.library, selectedOperation, nextInput);
+              persistDraftInput(nextInput);
             }}
             onPreset={applyPreset}
             onRun={() => void run()}
+            onSelectScenario={chooseScenario}
             onSelectOperation={chooseOperation}
+            scenarioGroups={scenarioGroups}
+            selectedScenario={selectedScenario}
           />
           {children}
         </div>
         <ResultViewer response={response} resultTabs={resultTabs} />
-        <aside className="space-y-5">
-          <RuntimePanel
-            config={config}
-            health={health}
-            serverState={serverState}
-            surface={surface}
-            wasmState={wasmState}
-          />
-          <ModelSelector models={models} selectedModel={selectedModel} onSelectModel={setSelectedModel} />
-          <FileInputs definitions={config.fileInputs ?? defaultFileInputs(config.domain)} onPatch={patchInput} />
-          <SupportPanel operations={operations} />
-        </aside>
+        {hasSidePanel ? (
+          <aside className="space-y-5">
+            {sidePanels.runtime ? (
+              <RuntimePanel
+                config={config}
+                health={health}
+                serverState={serverState}
+                surface={surface}
+                wasmState={wasmState}
+              />
+            ) : null}
+            {sidePanels.models ? <ModelSelector models={models} selectedModel={selectedModel} onSelectModel={setSelectedModel} /> : null}
+            {sidePanels.files ? <FileInputs definitions={config.fileInputs ?? defaultFileInputs(config.domain)} onPatch={patchInput} /> : null}
+            {sidePanels.support ? <SupportPanel operations={operations} /> : null}
+          </aside>
+        ) : null}
       </section>
     </main>
   );
@@ -504,22 +578,150 @@ function groupedOperations(
   return workbenchGroups.length > 1 ? workbenchGroups : undefined;
 }
 
+function groupedScenarioOptions(
+  operations: SurfaceOperation[],
+  operationGroups?: OperationWorkbenchGroup[],
+  presets: PackageAppPreset[] = [],
+): OperationWorkbenchScenarioGroup[] | undefined {
+  if (presets.length === 0 || operations.length === 0) {
+    return undefined;
+  }
+
+  const groups =
+    operationGroups && operationGroups.length > 0
+      ? operationGroups
+      : [
+          {
+            id: "scenarios",
+            label: "Scenarios",
+            description: undefined,
+            operations,
+          },
+        ];
+  const operationsWithPresets = new Set(presets.map((preset) => preset.operation));
+
+  return groups
+    .map((group) => {
+      const groupOperationIds = new Set(group.operations.map((operation) => operation.id));
+      const presetOptions = presets
+        .filter((preset) => groupOperationIds.has(preset.operation))
+        .map((preset) => {
+          const operation = group.operations.find((candidate) => candidate.id === preset.operation);
+          return {
+            value: presetScenarioValue(preset.id),
+            kind: "preset" as const,
+            label: preset.label,
+            description: preset.description,
+            operationId: preset.operation,
+            operationName: operation?.name ?? preset.operation,
+          };
+        });
+      const rawOperationOptions = group.operations
+        .filter((operation) => isRawScenarioOperation(group.id, operation.id, operationsWithPresets))
+        .map((operation) => ({
+          value: operationScenarioValue(operation.id),
+          kind: "operation" as const,
+          label: operation.name,
+          description: operation.description,
+          operationId: operation.id,
+          operationName: operation.name,
+        }));
+
+      return {
+        id: group.id,
+        label: group.label,
+        description: group.description,
+        options: [...presetOptions, ...rawOperationOptions],
+      };
+    })
+    .filter((group) => group.options.length > 0);
+}
+
+function isRawScenarioOperation(groupId: string, operationId: string, operationsWithPresets: Set<string>): boolean {
+  return groupId === "debug" || groupId === "support" || !operationsWithPresets.has(operationId);
+}
+
+function presetScenarioValue(presetId: string): string {
+  return `preset:${presetId}`;
+}
+
+function operationScenarioValue(operationId: string): string {
+  return `operation:${operationId}`;
+}
+
 function initializeSelection(
   surface: PackageSurface,
   current: string,
+  currentPresetId: string | null,
   setSelectedOperation: (operation: string) => void,
+  setSelectedPresetId: (preset: string | null) => void,
   setInput: (input: string) => void,
-  defaultOperation?: string,
+  config: PackageAppConfig,
 ) {
+  const presetFromQuery = findValidPreset(readQuery("preset"), config.presets, surface.operations);
+  if (presetFromQuery) {
+    setSelectedOperation(presetFromQuery.operation);
+    setSelectedPresetId(presetFromQuery.id);
+    setInput(JSON.stringify(presetFromQuery.input, null, 2));
+    return;
+  }
+
+  const operationFromQuery = findOperation(surface.operations, readQuery("operation"));
+  if (operationFromQuery) {
+    setSelectedOperation(operationFromQuery.id);
+    setSelectedPresetId(null);
+    setInput(storedInput(surface.library, operationFromQuery.id) ?? JSON.stringify(operationFromQuery.exampleRequest ?? {}, null, 2));
+    return;
+  }
+
+  const currentPreset = findValidPreset(currentPresetId, config.presets, surface.operations);
+  if (currentPreset) {
+    setSelectedOperation(currentPreset.operation);
+    setSelectedPresetId(currentPreset.id);
+    setInput(JSON.stringify(currentPreset.input, null, 2));
+    return;
+  }
+
+  const defaultPreset = findValidPreset(config.defaultPresetId, config.presets, surface.operations);
+  if (defaultPreset) {
+    setSelectedOperation(defaultPreset.operation);
+    setSelectedPresetId(defaultPreset.id);
+    setInput(JSON.stringify(defaultPreset.input, null, 2));
+    return;
+  }
+
   const operation =
-    surface.operations.find((candidate) => candidate.id === current) ??
-    surface.operations.find((candidate) => candidate.id === defaultOperation) ??
+    findOperation(surface.operations, current) ??
+    findOperation(surface.operations, config.defaultOperation) ??
     surface.operations[0];
   if (!operation) {
     return;
   }
   setSelectedOperation(operation.id);
+  setSelectedPresetId(null);
   setInput(storedInput(surface.library, operation.id) ?? JSON.stringify(operation.exampleRequest ?? {}, null, 2));
+}
+
+function findValidPreset(
+  presetId: string | null | undefined,
+  presets: PackageAppPreset[] | undefined,
+  operations: SurfaceOperation[],
+): PackageAppPreset | undefined {
+  if (!presetId) {
+    return undefined;
+  }
+  const preset = presets?.find((candidate) => candidate.id === presetId);
+  if (!preset || !operations.some((operation) => operation.id === preset.operation)) {
+    return undefined;
+  }
+  return preset;
+}
+
+function findOperation(operations: SurfaceOperation[], operationId: string | null | undefined): SurfaceOperation | undefined {
+  if (!operationId) {
+    return undefined;
+  }
+  return operations.find((operation) => operation.id === operationId);
 }
 
 function readRuntimeMode(config: PackageAppConfig): RuntimeMode {
@@ -547,20 +749,17 @@ function parseInputOrNull(input: string): unknown | null {
   }
 }
 
-function readQuery(key: string): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  return new URLSearchParams(window.location.search).get(key);
-}
-
-function writeQuery(values: Record<string, string>) {
+function writeQuery(values: Record<string, string | null>) {
   if (typeof window === "undefined") {
     return;
   }
   const url = new URL(window.location.href);
   for (const [key, value] of Object.entries(values)) {
-    url.searchParams.set(key, value);
+    if (value == null) {
+      url.searchParams.delete(key);
+    } else {
+      url.searchParams.set(key, value);
+    }
   }
   window.history.replaceState({}, "", url);
 }
