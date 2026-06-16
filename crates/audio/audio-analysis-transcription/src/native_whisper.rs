@@ -1,18 +1,21 @@
+#[cfg(test)]
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use candle_core::{DType, Device, IndexOp, Tensor, D};
+use candle_core::{DType, Device, IndexOp, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::whisper::{self, model::Whisper};
 use serde::Deserialize;
-use text_transcripts::{TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract};
+#[cfg(test)]
+use text_transcripts::TranscriptWordContract;
+use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
 use tokenizers::Tokenizer;
 use video_analysis_core::Result;
 
 use crate::native_device::{resolve_native_device, ResolvedNativeDevice};
 use crate::{
     candle_batch_count, invalid_request, model_output_mismatch, setup_error, validate_asr_request,
-    AsrRequest, AsrResponse, CandleWhisperOptions, SpeechActivitySegment,
+    AsrRequest, AsrResponse, CandleWhisperOptions, SpeechActivitySegment, TranscriptionTask,
 };
 
 const REQUIRED_WHISPER_FILES: &[&str] = &[
@@ -25,6 +28,8 @@ const REQUIRED_WHISPER_FILES: &[&str] = &[
 const WHISPER_TIMESTAMP_SECONDS_PER_TOKEN: f64 = 0.02;
 const WHISPER_TIMESTAMP_TOKEN_COUNT: u32 =
     (whisper::CHUNK_LENGTH as f64 / WHISPER_TIMESTAMP_SECONDS_PER_TOKEN) as u32 + 1;
+const ASR_WINDOW_LEADING_CONTEXT_SECONDS: f64 = 0.25;
+const ASR_WINDOW_TRAILING_CONTEXT_SECONDS: f64 = 0.04;
 
 #[derive(Debug, Clone)]
 pub(crate) struct WhisperBundlePaths {
@@ -39,6 +44,7 @@ pub(crate) struct WhisperBundlePaths {
 #[derive(Debug, Clone)]
 struct WhisperRunSetup {
     model_id: String,
+    task: TranscriptionTask,
     language: Option<String>,
     bundle: WhisperBundlePaths,
     model_source: &'static str,
@@ -66,6 +72,12 @@ struct GenerationConfig {
     lang_to_id: std::collections::BTreeMap<String, u32>,
     #[serde(default)]
     task_to_id: std::collections::BTreeMap<String, u32>,
+    #[serde(default)]
+    no_timestamps_token_id: Option<u32>,
+    #[serde(default)]
+    suppress_tokens: Vec<u32>,
+    #[serde(default)]
+    begin_suppress_tokens: Vec<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,6 +105,14 @@ struct WhisperTimedWindow {
     decoded: WhisperDecodedWindow,
     timing: WhisperWindowTiming,
     fallback_reason: Option<&'static str>,
+    diagnostics: WhisperDecodeDiagnostics,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct WhisperDecodeDiagnostics {
+    timestamp_tokens_requested: bool,
+    timestamp_tokens_present: bool,
+    decoded_token_ids: Vec<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -135,6 +155,7 @@ impl WhisperRunSetup {
         let resolved_device = resolve_native_device(options.device)?;
         Ok(Self {
             model_id: model.model_id,
+            task: request.task,
             language: request
                 .language
                 .clone()
@@ -187,11 +208,11 @@ fn resolve_whisper_model(
                 ))
             })
             .and_then(resolve_whisper_bundle_paths)?;
-        return Ok(ResolvedWhisperModel {
+        Ok(ResolvedWhisperModel {
             model_id,
             bundle,
             source: "hugging-face-cache",
-        });
+        })
     }
 
     #[cfg(not(feature = "model-bundles"))]
@@ -418,6 +439,9 @@ impl CandleWhisperSession {
         let mut next_index = 0_u64;
         let mut used_timestamp_tokens = false;
         let mut used_timestamp_word_projection = false;
+        let mut timestamp_tokens_requested = false;
+        let mut timestamp_tokens_present = false;
+        let mut rejected_timestamp_segments = false;
         let mut timing_fallbacks = Vec::new();
         let batch_size = candle_batch_size(options, request.chunks.len());
         for batch in request.chunks.chunks(batch_size) {
@@ -431,10 +455,13 @@ impl CandleWhisperSession {
                         &window.samples,
                         WhisperDecodeTimingMode::Auto,
                     )?;
+                    timestamp_tokens_requested |= timed.diagnostics.timestamp_tokens_requested;
+                    timestamp_tokens_present |= timed.diagnostics.timestamp_tokens_present;
                     if let Some(reason) = timed.fallback_reason {
                         if !timing_fallbacks.contains(&reason) {
                             timing_fallbacks.push(reason);
                         }
+                        rejected_timestamp_segments |= reason == "unstableTimestampSegments";
                     }
                     if timed.timing == WhisperWindowTiming::ChunkWindow {
                         if timed.decoded.text.trim().is_empty() {
@@ -482,10 +509,11 @@ impl CandleWhisperSession {
             format!("modelId={}", self.setup.model_id),
             format!("bundle={}", self.setup.bundle.root.display()),
             format!("cuda={}", device_is_cuda(&self.setup.resolved_device)),
+            format!("asrTask={}", self.setup.task.as_whisper_task()),
             if used_timestamp_tokens {
                 "timing=whisperTimestampTokens".to_string()
             } else {
-                "timing=chunk/window".to_string()
+                "timing=expandedVadWindow".to_string()
             },
         ]);
         if let Some(language) = &self.setup.language {
@@ -494,6 +522,13 @@ impl CandleWhisperSession {
         if used_timestamp_word_projection {
             diagnostics.push("wordTiming=whisperTimestampProjection".to_string());
         }
+        diagnostics.push(format!(
+            "timestampTokensRequested={timestamp_tokens_requested}"
+        ));
+        diagnostics.push(format!("timestampTokensPresent={timestamp_tokens_present}"));
+        diagnostics.push(format!(
+            "timestampSegmentsRejected={rejected_timestamp_segments}"
+        ));
         diagnostics.extend(
             timing_fallbacks
                 .into_iter()
@@ -501,7 +536,12 @@ impl CandleWhisperSession {
         );
         Ok(AsrResponse {
             model_id: request.model_id,
-            language: self.setup.language.clone(),
+            language: self
+                .setup
+                .task
+                .output_language_hint()
+                .map(str::to_string)
+                .or_else(|| self.setup.language.clone()),
             transcript,
             diagnostics,
         })
@@ -516,27 +556,31 @@ impl CandleWhisperSession {
             WhisperDecodeTimingMode::NoTimestamps => {
                 let decoded = self.decode_window(samples, WhisperDecodeMode::WithoutTimestamps)?;
                 Ok(WhisperTimedWindow {
-                    decoded,
+                    decoded: decoded.window,
                     timing: WhisperWindowTiming::ChunkWindow,
                     fallback_reason: None,
+                    diagnostics: decoded.diagnostics,
                 })
             }
             WhisperDecodeTimingMode::Auto => {
                 if timestamp_spec_for_timing_mode(&self.tokenizer, mode)?.is_some() {
                     let decoded =
                         self.decode_window(samples, WhisperDecodeMode::TimestampTokens)?;
-                    if has_non_empty_timestamp_segments(&decoded) {
+                    let diagnostics = decoded.diagnostics.clone();
+                    if has_stable_timestamp_segments(&decoded.window, samples) {
                         return Ok(WhisperTimedWindow {
-                            decoded,
+                            decoded: decoded.window,
                             timing: WhisperWindowTiming::WhisperTimestampTokens,
                             fallback_reason: None,
+                            diagnostics,
                         });
                     }
                     let mut fallback = self.decode_window_with_timing_mode(
                         samples,
                         WhisperDecodeTimingMode::NoTimestamps,
                     )?;
-                    fallback.fallback_reason = Some("noBoundedTimestampSegments");
+                    fallback.fallback_reason = Some("unstableTimestampSegments");
+                    fallback.diagnostics = diagnostics;
                     return Ok(fallback);
                 }
                 let mut fallback = self.decode_window_with_timing_mode(
@@ -549,15 +593,17 @@ impl CandleWhisperSession {
             WhisperDecodeTimingMode::TimestampTokensRequired => {
                 timestamp_spec_for_timing_mode(&self.tokenizer, mode)?;
                 let decoded = self.decode_window(samples, WhisperDecodeMode::TimestampTokens)?;
-                if !has_non_empty_timestamp_segments(&decoded) {
+                let diagnostics = decoded.diagnostics.clone();
+                if !has_stable_timestamp_segments(&decoded.window, samples) {
                     return Err(model_output_mismatch(
-                        "Whisper timestamp-token decode produced no bounded text segments",
+                        "Whisper timestamp-token decode produced no stable bounded text segments",
                     ));
                 }
                 Ok(WhisperTimedWindow {
-                    decoded,
+                    decoded: decoded.window,
                     timing: WhisperWindowTiming::WhisperTimestampTokens,
                     fallback_reason: None,
+                    diagnostics,
                 })
             }
         }
@@ -567,7 +613,7 @@ impl CandleWhisperSession {
         &mut self,
         samples: &[f32],
         mode: WhisperDecodeMode,
-    ) -> Result<WhisperDecodedWindow> {
+    ) -> Result<WhisperDecodeOutput> {
         let mel = whisper::audio::pcm_to_mel(&self.model.config, samples, &self.mel_filters);
         let n_mel = self.model.config.num_mel_bins;
         let mel_frames = mel.len() / n_mel;
@@ -588,18 +634,42 @@ impl CandleWhisperSession {
                 model_output_mismatch(format!("Whisper encoder failed: {error}"))
             })?;
         let token_ids = self.decode_tokens(&audio_features, mode)?;
+        let diagnostics = WhisperDecodeDiagnostics {
+            timestamp_tokens_requested: mode == WhisperDecodeMode::TimestampTokens,
+            timestamp_tokens_present: timestamp_spec_for_timing_mode(
+                &self.tokenizer,
+                WhisperDecodeTimingMode::Auto,
+            )?
+            .is_some_and(|spec| {
+                token_ids
+                    .iter()
+                    .any(|token| timestamp_seconds(*token, &spec).is_some())
+            }),
+            decoded_token_ids: token_ids.clone(),
+        };
         match mode {
-            WhisperDecodeMode::WithoutTimestamps => Ok(WhisperDecodedWindow {
-                text: decode_text_tokens(&self.tokenizer, &token_ids)?,
-                segments: Vec::new(),
+            WhisperDecodeMode::WithoutTimestamps => Ok(WhisperDecodeOutput {
+                window: WhisperDecodedWindow {
+                    text: decode_text_tokens(&self.tokenizer, &token_ids)?,
+                    segments: Vec::new(),
+                },
+                diagnostics,
             }),
             WhisperDecodeMode::TimestampTokens => {
                 decode_timestamp_window(&self.tokenizer, &token_ids)?
-                    .map(Ok)
+                    .map(|window| {
+                        Ok(WhisperDecodeOutput {
+                            window,
+                            diagnostics: diagnostics.clone(),
+                        })
+                    })
                     .unwrap_or_else(|| {
-                        Ok(WhisperDecodedWindow {
-                            text: decode_text_tokens(&self.tokenizer, &token_ids)?,
-                            segments: Vec::new(),
+                        Ok(WhisperDecodeOutput {
+                            window: WhisperDecodedWindow {
+                                text: decode_text_tokens(&self.tokenizer, &token_ids)?,
+                                segments: Vec::new(),
+                            },
+                            diagnostics,
                         })
                     })
             }
@@ -636,14 +706,17 @@ impl CandleWhisperSession {
                 model_output_mismatch(format!("Whisper logits projection failed: {error}"))
             })?;
             let seq_index = tokens.len() - 1;
-            let next = logits
+            let mut next_logits = logits
                 .i((0, seq_index, ..))
                 .and_then(|logits| logits.to_dtype(DType::F32))
-                .and_then(|logits| logits.argmax(D::Minus1))
-                .and_then(|token| token.to_scalar::<u32>())
+                .and_then(|logits| logits.to_vec1::<f32>())
                 .map_err(|error| {
                     model_output_mismatch(format!("Whisper greedy decode failed: {error}"))
                 })?;
+            self.apply_logit_filters(&mut next_logits, mode, &tokens[prompt_len..])?;
+            let next = argmax_finite(&next_logits).ok_or_else(|| {
+                model_output_mismatch("Whisper logits were fully suppressed during decode")
+            })? as u32;
             if next == eos {
                 break;
             }
@@ -652,11 +725,49 @@ impl CandleWhisperSession {
         Ok(tokens.into_iter().skip(prompt_len).collect())
     }
 
+    fn apply_logit_filters(
+        &self,
+        logits: &mut [f32],
+        mode: WhisperDecodeMode,
+        generated: &[u32],
+    ) -> Result<()> {
+        for token in &self.generation.suppress_tokens {
+            suppress_token(logits, *token);
+        }
+        if generated.is_empty() {
+            for token in &self.generation.begin_suppress_tokens {
+                suppress_token(logits, *token);
+            }
+        }
+        let no_timestamps = self
+            .generation
+            .no_timestamps_token_id
+            .or_else(|| token_id(&self.tokenizer, whisper::NO_TIMESTAMPS_TOKEN));
+        if let Some(no_timestamps) = no_timestamps {
+            suppress_token(logits, no_timestamps);
+        }
+        let Some(spec) =
+            timestamp_spec_for_timing_mode(&self.tokenizer, WhisperDecodeTimingMode::Auto)?
+        else {
+            return Ok(());
+        };
+        match mode {
+            WhisperDecodeMode::WithoutTimestamps => {
+                suppress_range(logits, spec.begin_token_id, spec.end_token_id);
+            }
+            WhisperDecodeMode::TimestampTokens => {
+                apply_timestamp_logit_rules(logits, generated, &spec, self.eos_token_id()?)?;
+            }
+        }
+        Ok(())
+    }
+
     fn initial_tokens(&self, mode: WhisperDecodeMode) -> Result<Vec<u32>> {
         Self::initial_prompt_tokens_for_mode(
             &self.generation,
             &self.tokenizer,
             self.setup.language.as_deref(),
+            self.setup.task,
             mode,
         )
     }
@@ -671,6 +782,23 @@ impl CandleWhisperSession {
             generation,
             tokenizer,
             language,
+            TranscriptionTask::Transcribe,
+            WhisperDecodeMode::WithoutTimestamps,
+        )
+    }
+
+    #[cfg(test)]
+    fn initial_prompt_tokens_for_task(
+        generation: &GenerationConfig,
+        tokenizer: &Tokenizer,
+        language: Option<&str>,
+        task: TranscriptionTask,
+    ) -> Result<Vec<u32>> {
+        Self::initial_prompt_tokens_for_mode(
+            generation,
+            tokenizer,
+            language,
+            task,
             WhisperDecodeMode::WithoutTimestamps,
         )
     }
@@ -679,6 +807,7 @@ impl CandleWhisperSession {
         generation: &GenerationConfig,
         tokenizer: &Tokenizer,
         language: Option<&str>,
+        task: TranscriptionTask,
         mode: WhisperDecodeMode,
     ) -> Result<Vec<u32>> {
         let decoder_start = Self::decoder_start_token_id(generation, tokenizer)?;
@@ -691,13 +820,14 @@ impl CandleWhisperSession {
             })?;
             tokens.push(token);
         }
-        let transcribe =
-            Self::task_token_id(generation, tokenizer, "transcribe").ok_or_else(|| {
-                invalid_request(
-                    "Whisper generation config/tokenizer is missing transcribe task token",
-                )
+        let task_token = Self::task_token_id(generation, tokenizer, task.as_whisper_task())
+            .ok_or_else(|| {
+                invalid_request(format!(
+                    "Whisper generation config/tokenizer is missing {} task token",
+                    task.as_whisper_task()
+                ))
             })?;
-        tokens.push(transcribe);
+        tokens.push(task_token);
         let no_timestamps = token_id(tokenizer, whisper::NO_TIMESTAMPS_TOKEN);
         if mode == WhisperDecodeMode::WithoutTimestamps {
             tokens.push(no_timestamps.ok_or_else(|| {
@@ -775,6 +905,12 @@ impl CandleWhisperSession {
             .copied()
             .or_else(|| token_id(tokenizer, &wrapped))
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct WhisperDecodeOutput {
+    window: WhisperDecodedWindow,
+    diagnostics: WhisperDecodeDiagnostics,
 }
 
 fn candle_batch_size(options: &CandleWhisperOptions, chunk_count: usize) -> usize {
@@ -902,11 +1038,131 @@ fn timestamp_seconds(token_id: u32, spec: &WhisperTimestampSpec) -> Option<f64> 
         .then(|| (token_id - spec.begin_token_id) as f64 * spec.seconds_per_token)
 }
 
-fn has_non_empty_timestamp_segments(decoded: &WhisperDecodedWindow) -> bool {
-    decoded
+fn apply_timestamp_logit_rules(
+    logits: &mut [f32],
+    generated: &[u32],
+    spec: &WhisperTimestampSpec,
+    eos: u32,
+) -> Result<()> {
+    let begin = spec.begin_token_id;
+    let end = spec.end_token_id;
+    let last_was_timestamp = generated
+        .last()
+        .is_some_and(|token| timestamp_seconds(*token, spec).is_some());
+    let penultimate_was_timestamp = generated
+        .get(generated.len().saturating_sub(2))
+        .is_none_or(|token| timestamp_seconds(*token, spec).is_some());
+    if last_was_timestamp {
+        if penultimate_was_timestamp {
+            suppress_range(logits, begin, end);
+        } else {
+            suppress_range(logits, 0, eos);
+        }
+    }
+    if generated.is_empty() {
+        let max_initial_timestamp = begin + (1.0 / spec.seconds_per_token).round() as u32;
+        suppress_range(logits, max_initial_timestamp + 1, end);
+    }
+    if let Some(last_timestamp) = generated
+        .iter()
+        .rev()
+        .find(|token| timestamp_seconds(**token, spec).is_some())
+    {
+        suppress_range(logits, begin, *last_timestamp);
+    }
+    let timestamp_logprob = logsumexp_range(logits, begin, end);
+    let max_text_logprob = max_finite_range(logits, 0, begin);
+    if let (Some(timestamp_logprob), Some(max_text_logprob)) = (timestamp_logprob, max_text_logprob)
+    {
+        if timestamp_logprob > max_text_logprob {
+            suppress_range(logits, 0, begin);
+        }
+    }
+    Ok(())
+}
+
+fn suppress_token(logits: &mut [f32], token: u32) {
+    if let Some(logit) = logits.get_mut(token as usize) {
+        *logit = f32::NEG_INFINITY;
+    }
+}
+
+fn suppress_range(logits: &mut [f32], start: u32, end: u32) {
+    let start = start as usize;
+    let end = (end as usize).min(logits.len());
+    if start >= end {
+        return;
+    }
+    for logit in &mut logits[start..end] {
+        *logit = f32::NEG_INFINITY;
+    }
+}
+
+fn argmax_finite(logits: &[f32]) -> Option<usize> {
+    logits
+        .iter()
+        .enumerate()
+        .filter(|(_, logit)| logit.is_finite())
+        .max_by(|(_, left), (_, right)| left.total_cmp(right))
+        .map(|(index, _)| index)
+}
+
+fn max_finite_range(logits: &[f32], start: u32, end: u32) -> Option<f32> {
+    let start = start as usize;
+    let end = (end as usize).min(logits.len());
+    if start >= end {
+        return None;
+    }
+    logits[start..end]
+        .iter()
+        .copied()
+        .filter(|logit| logit.is_finite())
+        .max_by(f32::total_cmp)
+}
+
+fn logsumexp_range(logits: &[f32], start: u32, end: u32) -> Option<f32> {
+    let start = start as usize;
+    let end = (end as usize).min(logits.len());
+    if start >= end {
+        return None;
+    }
+    let max = logits[start..end]
+        .iter()
+        .copied()
+        .filter(|logit| logit.is_finite())
+        .max_by(f32::total_cmp)?;
+    let sum = logits[start..end]
+        .iter()
+        .copied()
+        .filter(|logit| logit.is_finite())
+        .map(|logit| (logit - max).exp())
+        .sum::<f32>();
+    (sum > 0.0).then(|| max + sum.ln())
+}
+
+fn has_stable_timestamp_segments(decoded: &WhisperDecodedWindow, samples: &[f32]) -> bool {
+    let audio_duration = samples.len() as f64 / whisper::SAMPLE_RATE as f64;
+    let joined_text = decoded
         .segments
         .iter()
-        .any(|segment| !segment.text.trim().is_empty())
+        .map(|segment| segment.text.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    !joined_text.trim().is_empty()
+        && joined_text
+            .trim()
+            .chars()
+            .any(|character| character.is_alphanumeric())
+        && decoded.segments.iter().all(|segment| {
+            !segment.text.trim().is_empty()
+                && segment.end_seconds > segment.start_seconds
+                && segment.start_seconds >= 0.0
+                && segment.end_seconds <= audio_duration + 0.5
+        })
+        && decoded
+            .segments
+            .last()
+            .is_some_and(|segment| segment.end_seconds >= audio_duration * 0.85)
 }
 
 fn decode_text_tokens(tokenizer: &Tokenizer, token_ids: &[u32]) -> Result<String> {
@@ -951,7 +1207,6 @@ fn decoded_window_to_contract_segments(
         .segments
         .into_iter()
         .filter_map(|decoded_segment| {
-            let mut projected_words = project_words_from_timestamp_segment(&decoded_segment);
             let text = decoded_segment.text.trim().to_string();
             if text.is_empty() {
                 return None;
@@ -975,31 +1230,12 @@ fn decoded_window_to_contract_segments(
                 "timingSource".to_string(),
                 "whisperTimestampTokens".to_string(),
             );
-            for word in &mut projected_words {
-                word.start_seconds = word
-                    .start_seconds
-                    .map(|start| (window_start_seconds + start).clamp(global_start, global_end));
-                word.end_seconds = word
-                    .end_seconds
-                    .map(|end| (window_start_seconds + end).clamp(global_start, global_end));
-                if let (Some(start), Some(end)) = (word.start_seconds, word.end_seconds) {
-                    if end < start {
-                        word.end_seconds = Some(start);
-                    }
-                }
-            }
-            segment.words = projected_words;
-            if !segment.words.is_empty() {
-                segment.attributes.insert(
-                    "wordTiming".to_string(),
-                    "whisperTimestampProjection".to_string(),
-                );
-            }
             Some(segment)
         })
         .collect()
 }
 
+#[cfg(test)]
 fn project_words_from_timestamp_segment(
     segment: &WhisperDecodedSegment,
 ) -> Vec<TranscriptWordContract> {
@@ -1106,8 +1342,13 @@ fn chunk_windows(
     sample_rate: u32,
     chunk: &SpeechActivitySegment,
 ) -> Result<Vec<ChunkWindow>> {
-    let start = seconds_to_index(chunk.start_seconds, sample_rate, samples.len());
-    let end = seconds_to_index(chunk.end_seconds, sample_rate, samples.len()).max(start + 1);
+    let duration = samples.len() as f64 / sample_rate as f64;
+    let padded_start_seconds =
+        (chunk.start_seconds - ASR_WINDOW_LEADING_CONTEXT_SECONDS).clamp(0.0, duration);
+    let padded_end_seconds = (chunk.end_seconds + ASR_WINDOW_TRAILING_CONTEXT_SECONDS)
+        .clamp(padded_start_seconds, duration);
+    let start = seconds_to_index(padded_start_seconds, sample_rate, samples.len());
+    let end = seconds_to_index(padded_end_seconds, sample_rate, samples.len()).max(start + 1);
     let max_window = whisper::N_SAMPLES;
     let mut windows = Vec::new();
     let mut cursor = start;
@@ -1117,11 +1358,11 @@ fn chunk_windows(
         let local_end_seconds = (window_end - start) as f64 / sample_rate as f64;
         windows.push(ChunkWindow {
             samples: samples[cursor..window_end].to_vec(),
-            chunk_start_seconds: chunk.start_seconds,
+            chunk_start_seconds: padded_start_seconds,
             local_start_seconds,
             local_end_seconds,
-            global_start_seconds: chunk.start_seconds + local_start_seconds,
-            global_end_seconds: chunk.start_seconds + local_end_seconds,
+            global_start_seconds: padded_start_seconds + local_start_seconds,
+            global_end_seconds: padded_start_seconds + local_end_seconds,
         });
         cursor = window_end;
     }
@@ -1196,6 +1437,7 @@ mod tests {
                 source: None,
             },
             chunks: vec![SpeechActivitySegment::new(0.0, 1.0, 0.5).unwrap()],
+            task: TranscriptionTask::Transcribe,
             language: Some("en".to_string()),
             model_id: model_id.to_string(),
         }
@@ -1213,6 +1455,9 @@ mod tests {
             task_to_id: [("transcribe".to_string(), 5), ("translate".to_string(), 6)]
                 .into_iter()
                 .collect(),
+            no_timestamps_token_id: Some(7),
+            suppress_tokens: Vec::new(),
+            begin_suppress_tokens: Vec::new(),
         }
     }
 
@@ -1290,9 +1535,23 @@ mod tests {
     }
 
     #[test]
+    fn initial_prompt_uses_requested_language_and_translate_task() {
+        let tokens = CandleWhisperSession::initial_prompt_tokens_for_task(
+            &test_generation(),
+            &test_tokenizer(),
+            Some("en"),
+            TranscriptionTask::Translate,
+        )
+        .unwrap();
+        assert_eq!(tokens, vec![1, 3, 6, 7]);
+        assert!(!tokens.contains(&5));
+    }
+
+    #[test]
     fn initial_prompt_uses_option_language_when_request_language_absent() {
         let setup = WhisperRunSetup {
             model_id: "openai/whisper-tiny".to_string(),
+            task: TranscriptionTask::Transcribe,
             language: Some("de".to_string()),
             bundle: WhisperBundlePaths {
                 root: PathBuf::from("bundle"),
@@ -1324,6 +1583,7 @@ mod tests {
                 source: None,
             },
             chunks: vec![SpeechActivitySegment::new(0.0, 1.0, 0.5).unwrap()],
+            task: TranscriptionTask::Transcribe,
             language: Some("en".to_string()),
             model_id: "openai/whisper-tiny".to_string(),
         };
@@ -1477,6 +1737,7 @@ mod tests {
             &generation,
             &test_tokenizer(),
             Some("en"),
+            TranscriptionTask::Transcribe,
             WhisperDecodeMode::TimestampTokens,
         )
         .unwrap();
@@ -1492,6 +1753,7 @@ mod tests {
             &generation,
             &test_tokenizer(),
             Some("en"),
+            TranscriptionTask::Transcribe,
             WhisperDecodeMode::WithoutTimestamps,
         )
         .unwrap();
@@ -1583,6 +1845,13 @@ mod tests {
     }
 
     #[test]
+    fn timestamp_decode_without_timestamp_tokens_falls_back() {
+        let tokenizer = timestamp_test_tokenizer();
+        let decoded = decode_timestamp_window(&tokenizer, &[10, 11]).unwrap();
+        assert!(decoded.is_none());
+    }
+
+    #[test]
     fn timestamp_decode_rejects_non_monotonic_timestamps() {
         let tokenizer = timestamp_test_tokenizer();
         let error = decode_timestamp_window(&tokenizer, &[150, 10, 100])
@@ -1602,6 +1871,24 @@ mod tests {
         assert_eq!(decoded.segments[0].text, "hello");
         assert_eq!(decoded.segments[0].start_seconds, 1.0);
         assert_eq!(decoded.segments[0].end_seconds, 2.0);
+    }
+
+    #[test]
+    fn timestamp_logit_rules_select_timestamp_when_timestamp_mass_wins() {
+        let spec = WhisperTimestampSpec {
+            begin_token_id: 10,
+            end_token_id: 13,
+            seconds_per_token: 0.02,
+        };
+        let mut logits = vec![0.0; 13];
+        logits[3] = 2.0;
+        logits[10] = 1.8;
+        logits[11] = 1.8;
+        apply_timestamp_logit_rules(&mut logits, &[], &spec, 2).unwrap();
+
+        assert!(logits[3].is_infinite() && logits[3].is_sign_negative());
+        let selected = argmax_finite(&logits).unwrap();
+        assert!((10..13).contains(&selected));
     }
 
     #[test]
@@ -1669,7 +1956,7 @@ mod tests {
     }
 
     #[test]
-    fn timestamp_decoded_segments_include_projected_global_words() {
+    fn timestamp_decoded_segments_do_not_project_words() {
         let decoded = WhisperDecodedWindow {
             text: "hello world".to_string(),
             segments: vec![decoded_segment("hello world", 0.5, 1.5)],
@@ -1686,24 +1973,12 @@ mod tests {
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0].start_seconds, Some(10.5));
         assert_eq!(segments[0].end_seconds, Some(11.5));
-        assert_eq!(
-            segments[0].attributes.get("wordTiming").map(String::as_str),
-            Some("whisperTimestampProjection")
-        );
-        assert_eq!(segments[0].words.len(), 2);
-        assert_eq!(segments[0].words[0].text, "hello");
-        assert_approx_eq(segments[0].words[0].start_seconds.unwrap(), 10.5);
-        assert_approx_eq(segments[0].words[0].end_seconds.unwrap(), 11.0);
-        assert_eq!(segments[0].words[1].text, "world");
-        assert_approx_eq(segments[0].words[1].start_seconds.unwrap(), 11.0);
-        assert_approx_eq(segments[0].words[1].end_seconds.unwrap(), 11.5);
-        assert!(segments[0].words.iter().all(|word| {
-            word.attributes.get("timing").map(String::as_str) == Some("whisperTimestampProjection")
-        }));
+        assert!(segments[0].words.is_empty());
+        assert!(!segments[0].attributes.contains_key("wordTiming"));
     }
 
     #[test]
-    fn timestamp_decoded_multiple_segments_project_words_independently() {
+    fn timestamp_decoded_multiple_segments_keep_word_timing_empty() {
         let decoded = WhisperDecodedWindow {
             text: "hello world rustaceans".to_string(),
             segments: vec![
@@ -1719,19 +1994,10 @@ mod tests {
         for segment in &segments {
             let segment_start = segment.start_seconds.unwrap();
             let segment_end = segment.end_seconds.unwrap();
-            assert!(!segment.words.is_empty());
-            for word in &segment.words {
-                let start = word.start_seconds.unwrap();
-                let end = word.end_seconds.unwrap();
-                assert!(start >= segment_start);
-                assert!(end <= segment_end);
-                assert!(end >= start);
-            }
+            assert!(segment_start >= 10.0);
+            assert!(segment_end <= 12.0);
+            assert!(segment.words.is_empty());
         }
-        assert_eq!(segments[0].words[0].start_seconds, Some(10.0));
-        assert_eq!(segments[0].words[1].end_seconds, Some(11.0));
-        assert_eq!(segments[1].words[0].start_seconds, Some(11.0));
-        assert_eq!(segments[1].words[1].end_seconds, Some(12.0));
     }
 
     #[test]
@@ -1841,11 +2107,11 @@ mod tests {
         let chunk = SpeechActivitySegment::new(1.0, 2.0, 0.8).unwrap();
         let windows = chunk_windows(&vec![0.0; 48_000], 16_000, &chunk).unwrap();
         assert_eq!(windows.len(), 1);
-        assert_eq!(windows[0].chunk_start_seconds, 1.0);
+        assert_eq!(windows[0].chunk_start_seconds, 0.75);
         assert_eq!(windows[0].local_start_seconds, 0.0);
-        assert_eq!(windows[0].local_end_seconds, 1.0);
-        assert_eq!(windows[0].global_start_seconds, 1.0);
-        assert_eq!(windows[0].global_end_seconds, 2.0);
+        assert_eq!(windows[0].local_end_seconds, 1.29);
+        assert_eq!(windows[0].global_start_seconds, 0.75);
+        assert_eq!(windows[0].global_end_seconds, 2.04);
     }
 
     #[test]

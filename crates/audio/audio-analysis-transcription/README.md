@@ -21,6 +21,14 @@ with no bundle uses deterministic transcript timing alignment, while
 `alignment.enabled=true` with a supported local wav2vec2 bundle uses Candle
 wav2vec2 CTC alignment.
 
+Native Candle Whisper also supports Whisper's built-in translate-to-English
+task with `provider.task="translate"`. This is GPU-backed when built with
+`cuda` and requested with `provider.device="cuda"`. Translation uses the
+Whisper decoder task token; it is not OPUS-MT/Marian post-ASR machine
+translation. Because translated text is not source-language text,
+`alignment.enabled=true` is rejected for native translation requests.
+Diarization remains allowed because speaker assignment can use segment timing.
+
 The external WhisperX command provider remains compatibility and parity tooling.
 It keeps Python-based execution explicit for callers that still need WhisperX
 decoding, batched ASR, alignment, or pyannote-backed diarization outside the
@@ -32,14 +40,19 @@ recognition model. Diarization assignment runs after alignment when both
 options are enabled, so the native diarization seam can use aligned word
 timings, or segment timings when word timings are absent, as speech-span hints.
 When no transcript timing is available it falls back to the energy-VAD baseline.
-`min_speakers` and `max_speakers` are validated and reported in diagnostics;
-they are not pyannote-style clustering constraints in the native baseline.
+`min_speakers` and `max_speakers` are validated, reported in diagnostics, and
+applied as native unknown-speaker clustering constraints. Known/enrolled
+speaker IDs are preserved; bounds only affect generated unknown speaker labels.
 An ONNX speaker embedding provider is available only when explicitly configured
 with `diarization.speakerEmbeddingModelBundle` and the crate is built with
 `diarization,onnx`. It feeds the existing `WindowedSpeakerDiarizer`; heuristic
 diarization remains the default. ONNX diagnostics include
 `diarizationRuntime=onnx`, `speakerEmbeddingProvider=onnx`,
-`speakerEmbeddingDimension=N`, and `diarizationBaseline=false`.
+`speakerEmbeddingDimension=N`, and `diarizationBaseline=false`. When speaker
+bounds are requested, diagnostics include
+`diarizationSpeakerBoundsApplied=true`; if the requested minimum cannot be
+reached because too few usable speech spans exist, diagnostics include
+`diarizationSpeakerBoundsSaturated=true`.
 
 CTC alignment validates local wav2vec2 bundle files, config, tokenizer
 vocabulary, and preprocessor metadata. Tokenizer discovery accepts
@@ -67,8 +80,9 @@ import remain owned by `text-transcripts`.
 ## Package Operations
 
 - `audio.transcription.transcribe`: run real transcription through the selected
-  provider. Native Candle Whisper uses local WAV input or direct samples; the
-  external WhisperX provider remains available for compatibility.
+  provider. Native Candle Whisper uses local WAV input or direct samples and can
+  run `task="translate"` for Whisper translate-to-English; the external
+  WhisperX provider remains available for compatibility.
 - `audio.transcription.importWhisperX`: import existing WhisperX JSON without
   running external tools.
 - `audio.transcription.providers`: inspect available provider families.

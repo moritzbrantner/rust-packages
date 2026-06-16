@@ -1582,6 +1582,11 @@ pub struct WindowedSpeakerDiarizer<E, V> {
     pub identification_options: SpeakerIdentificationOptions,
     /// Minimum cosine similarity for assigning a window to an existing cluster.
     pub cluster_threshold: f32,
+    /// Minimum number of unknown speaker clusters to produce when enough
+    /// unknown speech windows are available.
+    pub min_speakers: Option<usize>,
+    /// Maximum number of unknown speaker clusters to produce.
+    pub max_speakers: Option<usize>,
 }
 
 impl<E, V> WindowedSpeakerDiarizer<E, V> {
@@ -1593,6 +1598,8 @@ impl<E, V> WindowedSpeakerDiarizer<E, V> {
             library: None,
             identification_options: SpeakerIdentificationOptions::default(),
             cluster_threshold: 0.72,
+            min_speakers: None,
+            max_speakers: None,
         }
     }
 
@@ -1613,6 +1620,18 @@ impl<E, V> WindowedSpeakerDiarizer<E, V> {
         self.cluster_threshold = cluster_threshold;
         Ok(self)
     }
+
+    /// Returns this value with unknown-speaker cluster bounds.
+    pub fn speaker_bounds(
+        mut self,
+        min_speakers: Option<usize>,
+        max_speakers: Option<usize>,
+    ) -> Result<Self> {
+        validate_speaker_bounds(min_speakers, max_speakers)?;
+        self.min_speakers = min_speakers;
+        self.max_speakers = max_speakers;
+        Ok(self)
+    }
 }
 
 impl<E, V> SpeakerDiarizer for WindowedSpeakerDiarizer<E, V>
@@ -1623,8 +1642,7 @@ where
     fn diarize(&mut self, audio: &SpeakerAudio<'_>) -> Result<DiarizationResult> {
         let spans = self.vad.detect_speech(audio)?;
         let mono = audio.to_mono()?;
-        let mut clusters: Vec<Cluster> = Vec::new();
-        let mut segments = Vec::new();
+        let mut windows = Vec::new();
 
         for span in spans {
             let start = (span.start_seconds * audio.sample_rate() as f64).round() as usize;
@@ -1643,23 +1661,40 @@ where
                 .transpose()?
                 .and_then(|result| result.best_match.map(|value| value.speaker_id));
 
-            let speaker = if let Some(speaker_id) = known {
-                DiarizedSpeaker::Known(speaker_id)
-            } else {
-                DiarizedSpeaker::Unknown(assign_cluster(
-                    &mut clusters,
-                    embedding,
-                    self.cluster_threshold,
-                )?)
-            };
-
-            segments.push(DiarizationSegment {
-                start_seconds: span.start_seconds,
-                end_seconds: span.end_seconds,
-                speaker,
-                score: span.score,
+            windows.push(DiarizationWindow {
+                span,
+                embedding,
+                known,
             });
         }
+
+        let unknown_labels = cluster_unknown_windows_with_bounds(
+            &windows,
+            self.cluster_threshold,
+            self.min_speakers,
+            self.max_speakers,
+        )?;
+        let segments = windows
+            .into_iter()
+            .enumerate()
+            .map(|(index, window)| {
+                let speaker = if let Some(speaker_id) = window.known {
+                    DiarizedSpeaker::Known(speaker_id)
+                } else {
+                    DiarizedSpeaker::Unknown(
+                        unknown_labels[index]
+                            .clone()
+                            .expect("unknown window has clustered label"),
+                    )
+                };
+                DiarizationSegment {
+                    start_seconds: window.span.start_seconds,
+                    end_seconds: window.span.end_seconds,
+                    speaker,
+                    score: window.span.score,
+                }
+            })
+            .collect();
 
         Ok(DiarizationResult { segments })
     }
@@ -1667,55 +1702,232 @@ where
 
 #[derive(Debug, Clone)]
 struct Cluster {
-    label: String,
     centroid: SpeakerEmbedding,
-    count: usize,
+    members: Vec<usize>,
 }
 
-fn assign_cluster(
-    clusters: &mut Vec<Cluster>,
+#[derive(Debug, Clone)]
+struct DiarizationWindow {
+    span: SpeechSpan,
     embedding: SpeakerEmbedding,
+    known: Option<SpeakerId>,
+}
+
+fn validate_speaker_bounds(min_speakers: Option<usize>, max_speakers: Option<usize>) -> Result<()> {
+    if min_speakers == Some(0) {
+        return Err(DetectError::InvalidArgument(
+            "speaker diarization min_speakers must be greater than zero".to_string(),
+        ));
+    }
+    if max_speakers == Some(0) {
+        return Err(DetectError::InvalidArgument(
+            "speaker diarization max_speakers must be greater than zero".to_string(),
+        ));
+    }
+    if let (Some(min), Some(max)) = (min_speakers, max_speakers) {
+        if min > max {
+            return Err(DetectError::InvalidArgument(
+                "speaker diarization min_speakers must be less than or equal to max_speakers"
+                    .to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn cluster_unknown_windows_with_bounds(
+    windows: &[DiarizationWindow],
     threshold: f32,
-) -> Result<String> {
+    min_speakers: Option<usize>,
+    max_speakers: Option<usize>,
+) -> Result<Vec<Option<String>>> {
+    validate_speaker_bounds(min_speakers, max_speakers)?;
+    let mut clusters: Vec<Cluster> = Vec::new();
+    for (index, window) in windows.iter().enumerate() {
+        if window.known.is_some() {
+            continue;
+        }
+        assign_unknown_window(&mut clusters, windows, index, threshold, max_speakers)?;
+    }
+
+    let target_min = min_speakers.unwrap_or(0).min(
+        windows
+            .iter()
+            .filter(|window| window.known.is_none())
+            .count(),
+    );
+    while clusters.len() < target_min {
+        if !split_most_dispersed_cluster(&mut clusters, windows)? {
+            break;
+        }
+    }
+
+    if let Some(max) = max_speakers {
+        while clusters.len() > max {
+            if !merge_closest_clusters(&mut clusters, windows)? {
+                break;
+            }
+        }
+    }
+
+    let mut cluster_for_window = vec![None; windows.len()];
+    for (cluster_index, cluster) in clusters.iter().enumerate() {
+        for &member in &cluster.members {
+            cluster_for_window[member] = Some(cluster_index);
+        }
+    }
+
+    let mut first_seen_clusters = Vec::new();
+    let mut labels = vec![None; windows.len()];
+    for (index, window) in windows.iter().enumerate() {
+        if window.known.is_some() {
+            continue;
+        }
+        let cluster_index = cluster_for_window[index].expect("unknown window belongs to cluster");
+        let label_index = if let Some(existing) = first_seen_clusters
+            .iter()
+            .position(|value| *value == cluster_index)
+        {
+            existing
+        } else {
+            first_seen_clusters.push(cluster_index);
+            first_seen_clusters.len() - 1
+        };
+        labels[index] = Some(format!("speaker_{label_index}"));
+    }
+    Ok(labels)
+}
+
+fn assign_unknown_window(
+    clusters: &mut Vec<Cluster>,
+    windows: &[DiarizationWindow],
+    window_index: usize,
+    threshold: f32,
+    max_speakers: Option<usize>,
+) -> Result<()> {
+    let embedding = &windows[window_index].embedding;
     let mut best_index = None;
     let mut best_score = f32::NEG_INFINITY;
     for (index, cluster) in clusters.iter().enumerate() {
-        let score = cluster.centroid.cosine_similarity(&embedding)?;
+        let score = cluster.centroid.cosine_similarity(embedding)?;
         if score > best_score {
             best_score = score;
             best_index = Some(index);
         }
     }
-    if best_score >= threshold {
-        let index = best_index.expect("best index exists when best score is finite");
-        update_centroid(&mut clusters[index], &embedding)?;
-        return Ok(clusters[index].label.clone());
+    if best_score >= threshold
+        || (max_speakers.is_some_and(|max| clusters.len() >= max) && best_index.is_some())
+    {
+        let cluster_index = best_index.expect("best index exists when best score is finite");
+        clusters[cluster_index].members.push(window_index);
+        refresh_centroid(&mut clusters[cluster_index], windows)?;
+        return Ok(());
     }
 
-    let label = format!("speaker-{}", clusters.len() + 1);
     clusters.push(Cluster {
-        label: label.clone(),
-        centroid: embedding,
-        count: 1,
+        centroid: embedding.clone(),
+        members: vec![window_index],
     });
-    Ok(label)
+    Ok(())
 }
 
-fn update_centroid(cluster: &mut Cluster, embedding: &SpeakerEmbedding) -> Result<()> {
-    let total = cluster.count as f32 + 1.0;
-    let values = cluster
-        .centroid
-        .values()
-        .iter()
-        .zip(embedding.values())
-        .map(|(left, right)| ((*left * cluster.count as f32) + *right) / total)
-        .collect::<Vec<_>>();
+fn split_most_dispersed_cluster(
+    clusters: &mut Vec<Cluster>,
+    windows: &[DiarizationWindow],
+) -> Result<bool> {
+    let mut selected = None;
+    let mut selected_dispersion = f32::NEG_INFINITY;
+    let mut selected_member = None;
+    for (cluster_index, cluster) in clusters.iter().enumerate() {
+        if cluster.members.len() < 2 {
+            continue;
+        }
+        let mut cluster_dispersion = 0.0_f32;
+        let mut farthest_member = cluster.members[0];
+        let mut farthest_distance = f32::NEG_INFINITY;
+        for &member in &cluster.members {
+            let similarity = cluster
+                .centroid
+                .cosine_similarity(&windows[member].embedding)?;
+            let distance = 1.0 - similarity;
+            cluster_dispersion += distance;
+            if distance > farthest_distance {
+                farthest_distance = distance;
+                farthest_member = member;
+            }
+        }
+        cluster_dispersion /= cluster.members.len() as f32;
+        if cluster_dispersion > selected_dispersion {
+            selected_dispersion = cluster_dispersion;
+            selected = Some(cluster_index);
+            selected_member = Some(farthest_member);
+        }
+    }
+
+    let Some(cluster_index) = selected else {
+        return Ok(false);
+    };
+    let member = selected_member.expect("selected cluster has a farthest member");
+    clusters[cluster_index]
+        .members
+        .retain(|value| *value != member);
+    refresh_centroid(&mut clusters[cluster_index], windows)?;
+    clusters.push(Cluster {
+        centroid: windows[member].embedding.clone(),
+        members: vec![member],
+    });
+    Ok(true)
+}
+
+fn merge_closest_clusters(
+    clusters: &mut Vec<Cluster>,
+    windows: &[DiarizationWindow],
+) -> Result<bool> {
+    if clusters.len() < 2 {
+        return Ok(false);
+    }
+    let mut best_pair = (0, 1);
+    let mut best_score = f32::NEG_INFINITY;
+    for left in 0..clusters.len() {
+        for right in (left + 1)..clusters.len() {
+            let score = clusters[left]
+                .centroid
+                .cosine_similarity(&clusters[right].centroid)?;
+            if score > best_score {
+                best_score = score;
+                best_pair = (left, right);
+            }
+        }
+    }
+    let (left, right) = best_pair;
+    let mut right_cluster = clusters.remove(right);
+    clusters[left].members.append(&mut right_cluster.members);
+    clusters[left].members.sort_unstable();
+    refresh_centroid(&mut clusters[left], windows)?;
+    Ok(true)
+}
+
+fn refresh_centroid(cluster: &mut Cluster, windows: &[DiarizationWindow]) -> Result<()> {
+    if cluster.members.len() == 1 {
+        cluster.centroid = windows[cluster.members[0]].embedding.clone();
+        return Ok(());
+    }
+    let dimensions = cluster.centroid.dimensions();
+    let mut values = vec![0.0_f32; dimensions];
+    for &member in &cluster.members {
+        for (index, value) in windows[member].embedding.values().iter().enumerate() {
+            values[index] += *value;
+        }
+    }
+    for value in &mut values {
+        *value /= cluster.members.len() as f32;
+    }
     cluster.centroid = SpeakerEmbedding::new(
         values,
         cluster.centroid.model().clone(),
-        embedding.sample_rate(),
-    )?;
-    cluster.count += 1;
+        cluster.centroid.sample_rate(),
+    )
+    .unwrap_or_else(|_| windows[cluster.members[0]].embedding.clone());
     Ok(())
 }
 
@@ -3942,7 +4154,150 @@ mod tests {
         );
         assert_eq!(
             result.segments[1].speaker,
-            DiarizedSpeaker::Unknown("speaker-1".to_string())
+            DiarizedSpeaker::Unknown("speaker_0".to_string())
+        );
+    }
+
+    #[test]
+    fn bounded_diarizer_produces_requested_two_unknown_speakers() {
+        let mut samples = vec![0.4_f32; 100];
+        samples.extend(vec![-0.4_f32; 100]);
+        samples.extend(vec![0.4_f32; 100]);
+        let audio = SpeakerAudio::mono(&samples, 1_000).unwrap();
+        let vad = FixedVad {
+            spans: vec![
+                SpeechSpan::new(0.0, 0.1, 0.9).unwrap(),
+                SpeechSpan::new(0.1, 0.2, 0.9).unwrap(),
+                SpeechSpan::new(0.2, 0.3, 0.9).unwrap(),
+            ],
+        };
+        let mut diarizer = WindowedSpeakerDiarizer::new(MeanSignSpeakerEmbedder::new(), vad)
+            .cluster_threshold(0.95)
+            .unwrap()
+            .speaker_bounds(Some(2), Some(2))
+            .unwrap();
+
+        let result = diarizer.diarize(&audio).unwrap();
+        let speakers = result
+            .segments
+            .iter()
+            .filter_map(|segment| match &segment.speaker {
+                DiarizedSpeaker::Unknown(label) => Some(label.clone()),
+                DiarizedSpeaker::Known(_) => None,
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+
+        assert_eq!(speakers.len(), 2);
+        assert!(speakers.contains("speaker_0"));
+        assert!(speakers.contains("speaker_1"));
+    }
+
+    #[test]
+    fn bounded_diarizer_max_one_collapses_distinct_unknown_profiles() {
+        let mut samples = vec![0.4_f32; 100];
+        samples.extend(vec![-0.4_f32; 100]);
+        let audio = SpeakerAudio::mono(&samples, 1_000).unwrap();
+        let vad = FixedVad {
+            spans: vec![
+                SpeechSpan::new(0.0, 0.1, 0.9).unwrap(),
+                SpeechSpan::new(0.1, 0.2, 0.9).unwrap(),
+            ],
+        };
+        let mut diarizer = WindowedSpeakerDiarizer::new(MeanSignSpeakerEmbedder::new(), vad)
+            .cluster_threshold(0.95)
+            .unwrap()
+            .speaker_bounds(None, Some(1))
+            .unwrap();
+
+        let result = diarizer.diarize(&audio).unwrap();
+        assert!(result
+            .segments
+            .iter()
+            .all(|segment| segment.speaker == DiarizedSpeaker::Unknown("speaker_0".to_string())));
+    }
+
+    #[test]
+    fn bounded_diarizer_min_above_window_count_is_saturated_by_windows() {
+        let mut samples = vec![0.4_f32; 100];
+        samples.extend(vec![-0.4_f32; 100]);
+        let audio = SpeakerAudio::mono(&samples, 1_000).unwrap();
+        let vad = FixedVad {
+            spans: vec![
+                SpeechSpan::new(0.0, 0.1, 0.9).unwrap(),
+                SpeechSpan::new(0.1, 0.2, 0.9).unwrap(),
+            ],
+        };
+        let mut diarizer = WindowedSpeakerDiarizer::new(MeanSignSpeakerEmbedder::new(), vad)
+            .cluster_threshold(0.95)
+            .unwrap()
+            .speaker_bounds(Some(3), None)
+            .unwrap();
+
+        let result = diarizer.diarize(&audio).unwrap();
+        let speakers = result
+            .segments
+            .iter()
+            .filter_map(|segment| match &segment.speaker {
+                DiarizedSpeaker::Unknown(label) => Some(label.clone()),
+                DiarizedSpeaker::Known(_) => None,
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+
+        assert!(speakers.len() <= 2);
+    }
+
+    #[test]
+    fn bounded_diarizer_invalid_bounds_return_invalid_argument() {
+        for error in [
+            WindowedSpeakerDiarizer::new(
+                MeanSignSpeakerEmbedder::new(),
+                FixedVad { spans: vec![] },
+            )
+            .speaker_bounds(Some(0), None)
+            .unwrap_err(),
+            WindowedSpeakerDiarizer::new(
+                MeanSignSpeakerEmbedder::new(),
+                FixedVad { spans: vec![] },
+            )
+            .speaker_bounds(None, Some(0))
+            .unwrap_err(),
+            WindowedSpeakerDiarizer::new(
+                MeanSignSpeakerEmbedder::new(),
+                FixedVad { spans: vec![] },
+            )
+            .speaker_bounds(Some(3), Some(2))
+            .unwrap_err(),
+        ] {
+            assert!(matches!(error, DetectError::InvalidArgument(_)));
+        }
+    }
+
+    #[test]
+    fn diarizer_without_bounds_keeps_threshold_clustering_behavior() {
+        let mut samples = vec![0.4_f32; 100];
+        samples.extend(vec![-0.4_f32; 100]);
+        let audio = SpeakerAudio::mono(&samples, 1_000).unwrap();
+        let vad = FixedVad {
+            spans: vec![
+                SpeechSpan::new(0.0, 0.1, 0.9).unwrap(),
+                SpeechSpan::new(0.1, 0.2, 0.9).unwrap(),
+            ],
+        };
+        let mut diarizer = WindowedSpeakerDiarizer::new(MeanSignSpeakerEmbedder::new(), vad)
+            .cluster_threshold(0.95)
+            .unwrap();
+
+        let result = diarizer.diarize(&audio).unwrap();
+        assert_eq!(
+            result
+                .segments
+                .iter()
+                .map(|segment| segment.speaker.clone())
+                .collect::<Vec<_>>(),
+            vec![
+                DiarizedSpeaker::Unknown("speaker_0".to_string()),
+                DiarizedSpeaker::Unknown("speaker_1".to_string()),
+            ]
         );
     }
 

@@ -216,7 +216,7 @@ pub(crate) fn align_wav2vec2_ctc(
             segment.frame_seconds,
         )?);
         if return_char_alignments {
-            aligned_chars.extend(tokens_to_segment_chars(
+            let segment_chars = tokens_to_segment_chars(
                 segment.segment_index,
                 &path,
                 &segment.chars,
@@ -224,7 +224,11 @@ pub(crate) fn align_wav2vec2_ctc(
                 segment.segment_end_seconds,
                 segment.frame_seconds,
                 interpolate_method,
-            )?);
+            )?;
+            aligned_chars.extend(whisperx_compatible_segment_chars(
+                segment.segment_index,
+                segment_chars,
+            ));
         }
     }
     Ok(NativeAlignmentResult {
@@ -827,6 +831,33 @@ fn tokens_to_segment_chars(
         interpolate_method,
     );
     Ok(projected)
+}
+
+fn whisperx_compatible_segment_chars(
+    segment_index: u64,
+    mut chars: Vec<AlignedChar>,
+) -> Vec<AlignedChar> {
+    if chars.is_empty()
+        || chars
+            .first()
+            .is_some_and(|character| character.character == " ")
+    {
+        return chars;
+    }
+    for character in &mut chars {
+        character.char_index += 1;
+    }
+    let mut projected = Vec::with_capacity(chars.len() + 1);
+    projected.push(AlignedChar {
+        segment_index,
+        char_index: 0,
+        character: " ".to_string(),
+        start_seconds: None,
+        end_seconds: None,
+        confidence: None,
+    });
+    projected.extend(chars);
+    projected
 }
 
 fn interpolate_missing_char_timings(
@@ -1504,7 +1535,7 @@ mod tests {
 
         assert_eq!(report.architecture, "Wav2Vec2ForCTC");
         assert_eq!(report.positional_conv_layout, "plain");
-        assert_eq!(report.do_stable_layer_norm, false);
+        assert!(!report.do_stable_layer_norm);
         assert!(report.missing_required_keys.is_empty());
         assert!(report.unsupported_reasons.is_empty());
     }
@@ -1545,7 +1576,7 @@ mod tests {
 
         let report = inspect_wav2vec2_bundle_layout(temp.path()).unwrap();
 
-        assert_eq!(report.do_stable_layer_norm, true);
+        assert!(report.do_stable_layer_norm);
         assert!(report
             .unsupported_reasons
             .iter()
@@ -1660,8 +1691,68 @@ mod tests {
         assert!(result.words[0].end_seconds <= 1.0);
         assert!(result.words[0].end_seconds >= result.words[0].start_seconds);
         assert!(result.words[0].confidence.is_some());
-        assert_eq!(result.chars.len(), 5);
-        assert_eq!(result.chars[0].character, "h");
-        assert!(result.chars[0].start_seconds.is_some());
+        assert_eq!(result.chars.len(), 6);
+        assert_eq!(result.chars[0].character, " ");
+        assert!(result.chars[0].start_seconds.is_none());
+        assert_eq!(result.chars[1].character, "h");
+        assert!(result.chars[1].start_seconds.is_some());
+    }
+
+    #[test]
+    fn whisperx_compatible_chars_include_leading_space_without_word_change() {
+        let chars = vec![
+            AlignedChar {
+                segment_index: 3,
+                char_index: 0,
+                character: "T".to_string(),
+                start_seconds: Some(0.1),
+                end_seconds: Some(0.2),
+                confidence: Some(0.9),
+            },
+            AlignedChar {
+                segment_index: 3,
+                char_index: 1,
+                character: "h".to_string(),
+                start_seconds: Some(0.2),
+                end_seconds: Some(0.3),
+                confidence: Some(0.9),
+            },
+        ];
+        let projected = whisperx_compatible_segment_chars(3, chars);
+
+        assert_eq!(projected.len(), 3);
+        assert_eq!(projected[0].character, " ");
+        assert_eq!(projected[0].char_index, 0);
+        assert!(projected[0].start_seconds.is_none());
+        assert_eq!(projected[1].character, "T");
+        assert_eq!(projected[1].char_index, 1);
+        assert_eq!(projected[2].char_index, 2);
+    }
+
+    #[test]
+    fn smoke_sentence_char_projection_matches_whisperx_count() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("tokenizer.json");
+        std::fs::write(&path, minimal_tokenizer()).unwrap();
+        let vocab = parse_ctc_vocabulary(&path, None).unwrap();
+        let chars = normalize_text_to_aligned_chars("This is a test.", &vocab).unwrap();
+        let aligned = chars
+            .iter()
+            .map(|character| AlignedChar {
+                segment_index: 0,
+                char_index: character.char_index,
+                character: character.character.clone(),
+                start_seconds: Some(0.0),
+                end_seconds: Some(0.01),
+                confidence: Some(1.0),
+            })
+            .collect();
+        let projected = whisperx_compatible_segment_chars(0, aligned);
+
+        assert_eq!(projected.len(), 16);
+        assert_eq!(projected[0].character, " ");
+        assert!(projected[1..].iter().all(|character| {
+            character.start_seconds.is_some() && character.end_seconds.is_some()
+        }));
     }
 }

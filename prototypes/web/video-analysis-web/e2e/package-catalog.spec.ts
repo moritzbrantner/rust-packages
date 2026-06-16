@@ -147,16 +147,39 @@ test("catalog exposes every server-backed wrapper route with a mounted frontend"
   }
 });
 
-test("text category mounts every audited package frontend", async ({ page }) => {
+test("text category presents the Text Family UI launcher", async ({ page }) => {
   test.setTimeout(90_000);
 
   await page.goto("/categories/text/");
 
   await expect(page.getByRole("heading", { name: "Text", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Category Frontends" })).toBeVisible();
-  for (const wrapper of Object.keys(textOperationMatrix)) {
-    await expect(page.getByRole("heading", { name: wrapper }).first()).toBeVisible();
-  }
+  await expect(page.getByRole("heading", { name: "Analyze" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Search" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Task APIs" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Foundations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Runtime Setup" })).toBeVisible();
+
+  await expect(page.getByRole("link", { name: "Open Text Analysis" })).toHaveAttribute(
+    "href",
+    /\/wrappers\/text-analysis\/\?preset=document-deterministic$/,
+  );
+
+  const searchTier = page.locator("section").filter({ has: page.getByRole("heading", { name: "Search" }) });
+  const searchText = await searchTier.textContent();
+  expect(searchText?.indexOf("Text Index")).toBeGreaterThanOrEqual(0);
+  expect(searchText?.indexOf("Text Embeddings")).toBeGreaterThan((searchText ?? "").indexOf("Text Index"));
+
+  const compatibility = page.locator("details").filter({ hasText: "Compatibility And Adapters" });
+  await expect(compatibility).not.toHaveAttribute("open", "");
+  await expect(page.getByRole("heading", { name: "Text Retrieval" })).toBeHidden();
+  await compatibility.locator("summary").click();
+  await expect(page.getByRole("heading", { name: "Text Retrieval" })).toBeVisible();
+
+  await expect(page.getByRole("heading", { name: "Category Frontends" })).toHaveCount(0);
+
+  await page.goto(wrapperHref("text-retrieval"));
+  await expect(page.getByRole("heading", { name: "text-retrieval" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Frontend" })).toBeVisible();
 });
 
 for (const wrapper of operationSmokePackages) {
@@ -304,7 +327,7 @@ async function expectStructuredJsonResult(page: Page, expectedOperation?: string
 
 async function selectWorkbenchOperation(page: Page, operation: string) {
   const operationSelect = page.getByRole("combobox", { name: "Operation" });
-  if ((await operationSelect.count()) > 0) {
+  if (await operationSelect.first().isVisible({ timeout: 1_000 }).catch(() => false)) {
     await operationSelect.selectOption(operation);
     return;
   }

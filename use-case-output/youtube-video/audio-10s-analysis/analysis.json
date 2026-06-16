@@ -1,0 +1,168 @@
+{
+  "workflow": "audio-voice-analysis",
+  "source": {
+    "local_audio": "use-case-output/youtube-video/audio-10s.wav"
+  },
+  "assets": {
+    "work_dir": "use-case-output/youtube-video/audio-10s-analysis",
+    "report_path": "use-case-output/youtube-video/audio-10s-analysis/analysis.json",
+    "transcription_audio": null,
+    "voice_stem": "use-case-output/youtube-video/audio-10s-analysis/separated/htdemucs/audio-10s/vocals.wav"
+  },
+  "capabilities": {
+    "completed": [
+      "audio_separation",
+      "tempo_estimation",
+      "pitch_tracking"
+    ],
+    "skipped": [
+      "transcription: video source error: failed to initialize whisper.cpp from `text-transcripts was built without the `native` feature`"
+    ]
+  },
+  "voice_source": "vocals.wav",
+  "tempo_bpm": null,
+  "tempo_confidence": 0.0,
+  "sung_notes": [
+    {
+      "start_seconds": 1.7298866213151927,
+      "end_seconds": 1.9156462585034013,
+      "frequency_hz": 238.22827,
+      "midi_note": 58.37778,
+      "note_name": "A#3",
+      "confidence": 0.729926,
+      "frames": 13
+    },
+    {
+      "start_seconds": 2.159455782312925,
+      "end_seconds": 2.2871655328798184,
+      "frequency_hz": 277.56586,
+      "midi_note": 61.023434,
+      "note_name": "C#4",
+      "confidence": 0.6454223,
+      "frames": 8
+    },
+    {
+      "start_seconds": 2.693514739229025,
+      "end_seconds": 2.8212244897959184,
+      "frequency_hz": 488.84515,
+      "midi_note": 70.82246,
+      "note_name": "B4",
+      "confidence": 0.61402845,
+      "frames": 8
+    },
+    {
+      "start_seconds": 3.436553287981859,
+      "end_seconds": 3.645532879818594,
+      "frequency_hz": 1118.2253,
+      "midi_note": 85.14582,
+      "note_name": "C#6",
+      "confidence": 0.88660985,
+      "frames": 15
+    },
+    {
+      "start_seconds": 3.610702947845805,
+      "end_seconds": 3.7384126984126986,
+      "frequency_hz": 1055.1781,
+      "midi_note": 84.14249,
+      "note_name": "C6",
+      "confidence": 0.6274084,
+      "frames": 8
+    },
+    {
+      "start_seconds": 4.748480725623582,
+      "end_seconds": 4.992290249433107,
+      "frequency_hz": 361.12256,
+      "midi_note": 65.579765,
+      "note_name": "F#4",
+      "confidence": 0.7252061,
+      "frames": 12
+    },
+    {
+      "start_seconds": 5.027120181405896,
+      "end_seconds": 5.224489795918367,
+      "frequency_hz": 362.72168,
+      "midi_note": 65.656235,
+      "note_name": "F#4",
+      "confidence": 0.70996344,
+      "frames": 8
+    },
+    {
+      "start_seconds": 5.317369614512471,
+      "end_seconds": 5.445079365079365,
+      "frequency_hz": 361.91946,
+      "midi_note": 65.61794,
+      "note_name": "F#4",
+      "confidence": 0.51895386,
+      "frames": 8
+    },
+    {
+      "start_seconds": 8.55655328798186,
+      "end_seconds": 8.695873015873016,
+      "frequency_hz": 91.58789,
+      "midi_note": 41.8283,
+      "note_name": "F#2",
+      "confidence": 0.6270319,
+      "frames": 7
+    },
+    {
+      "start_seconds": 8.846802721088435,
+      "end_seconds": 9.067392290249433,
+      "frequency_hz": 90.41467,
+      "midi_note": 41.605484,
+      "note_name": "F#2",
+      "confidence": 0.67031527,
+      "frames": 9
+    },
+    {
+      "start_seconds": 9.032562358276644,
+      "end_seconds": 9.508571428571429,
+      "frequency_hz": 181.9779,
+      "midi_note": 53.714626,
+      "note_name": "F#3",
+      "confidence": 0.7693209,
+      "frames": 38
+    },
+    {
+      "start_seconds": 9.508571428571429,
+      "end_seconds": 9.682721088435374,
+      "frequency_hz": 87.724785,
+      "midi_note": 41.080757,
+      "note_name": "F2",
+      "confidence": 0.63818496,
+      "frames": 7
+    },
+    {
+      "start_seconds": 9.659501133786849,
+      "end_seconds": 9.787210884353742,
+      "frequency_hz": 181.90106,
+      "midi_note": 53.707775,
+      "note_name": "F#3",
+      "confidence": 0.68879646,
+      "frames": 8
+    }
+  ],
+  "transcription": {
+    "status": "skipped",
+    "text": null,
+    "segments": [],
+    "message": "video source error: failed to initialize whisper.cpp from `text-transcripts was built without the `native` feature`"
+  },
+  "separation": {
+    "status": "completed",
+    "model": "htdemucs",
+    "output_dir": "use-case-output/youtube-video/audio-10s-analysis/separated/htdemucs/audio-10s",
+    "stems": [
+      {
+        "stem": "vocals",
+        "path": "use-case-output/youtube-video/audio-10s-analysis/separated/htdemucs/audio-10s/vocals.wav",
+        "bytes": 1762758
+      },
+      {
+        "stem": "no_vocals",
+        "path": "use-case-output/youtube-video/audio-10s-analysis/separated/htdemucs/audio-10s/no_vocals.wav",
+        "bytes": 1762758
+      }
+    ],
+    "message": null
+  }
+}

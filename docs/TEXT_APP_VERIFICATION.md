@@ -16,10 +16,24 @@ Open these routes:
 
 ```text
 /text/
+/categories/text/
 /wrappers/text-core/
 /wrappers/text-index/
 /wrappers/text-analysis/
+/wrappers/text-retrieval/
 ```
+
+`/categories/text/` is the Text Family UI launcher. Verify that it shows the
+workflow tiers `Analyze`, `Search`, `Task APIs`, `Foundations`, and
+`Runtime Setup` instead of mounting every package frontend inline. `Text
+Analysis` should be the primary entry and link to
+`/wrappers/text-analysis/?preset=document-deterministic`. The `Search` tier
+should list `Text Index` before `Text Embeddings`.
+
+The `Compatibility And Adapters` section should be collapsed by default. Expand
+it to verify that `Text Retrieval` remains reachable there, and confirm direct
+navigation to `/wrappers/text-retrieval/` still mounts the runnable focused
+workbench.
 
 For each wrapper, run the default workflow in both runtime modes:
 

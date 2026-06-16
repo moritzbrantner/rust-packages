@@ -122,11 +122,11 @@ fn resolve_alignment_model(
                     "alignment model `{model_id}` resolved without a local model directory"
                 ))
             })?;
-        return Ok(ResolvedAlignmentModel {
+        Ok(ResolvedAlignmentModel {
             model_id,
             bundle,
             source: "hugging-face-cache",
-        });
+        })
     }
 
     #[cfg(not(feature = "model-bundles"))]
@@ -384,7 +384,7 @@ pub(crate) fn tokens_to_segment_words(
     let mut cursor = 0;
     let mut aligned = Vec::new();
     for (word_index, word) in transcript_words.iter().enumerate() {
-        let token_len = normalize_alignment_text(word).len().max(1);
+        let token_len = ctc_word_token_len(word).max(1);
         let end_cursor = (cursor + token_len).min(tokens.len());
         let word_tokens = &tokens[cursor..end_cursor];
         let (start_seconds, end_seconds, confidence) =
@@ -412,8 +412,34 @@ pub(crate) fn tokens_to_segment_words(
             confidence,
         });
         cursor = end_cursor;
+        if word_index + 1 < transcript_words.len() && cursor < tokens.len() {
+            cursor += 1;
+        }
     }
+    extend_word_ends_to_delimiter_midpoints(&mut aligned);
     Ok(aligned)
+}
+
+fn ctc_word_token_len(word: &str) -> usize {
+    word.chars()
+        .filter(|character| !character.is_whitespace())
+        .count()
+}
+
+fn extend_word_ends_to_delimiter_midpoints(words: &mut [AlignedWord]) {
+    if words.len() < 2 {
+        return;
+    }
+    for index in 0..words.len() - 1 {
+        if ctc_word_token_len(&words[index].text) <= 1 {
+            continue;
+        }
+        let next_start = words[index + 1].start_seconds;
+        let end = words[index].end_seconds;
+        if next_start > end {
+            words[index].end_seconds = end + (next_start - end) * 0.5;
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -581,6 +607,50 @@ mod tests {
             tokens_to_segment_words(42, &tokens, &["a".to_string()], 1.0, 2.0, 0.1).unwrap();
         assert_eq!(words[0].segment_index, 42);
         assert_eq!(words[0].word_index, 0);
+    }
+
+    #[test]
+    fn ctc_word_conversion_skips_word_delimiter_tokens() {
+        let tokens = (0..8)
+            .map(|index| CtcAlignedToken {
+                token_id: index,
+                token_index: index,
+                frame_index: index,
+                score: 0.9,
+            })
+            .collect::<Vec<_>>();
+        let words = tokens_to_segment_words(
+            0,
+            &tokens,
+            &["This".to_string(), "is".to_string()],
+            0.0,
+            1.0,
+            0.1,
+        )
+        .unwrap();
+
+        assert_eq!(words[0].start_seconds, 0.0);
+        assert_eq!(words[0].end_seconds, 0.45);
+        assert_eq!(words[1].start_seconds, 0.5);
+        assert!((words[1].end_seconds - 0.7).abs() < 1e-9);
+    }
+
+    #[test]
+    fn ctc_word_conversion_includes_punctuation_in_word_span() {
+        let tokens = (0..5)
+            .map(|index| CtcAlignedToken {
+                token_id: index,
+                token_index: index,
+                frame_index: index + 10,
+                score: 0.9,
+            })
+            .collect::<Vec<_>>();
+        let words =
+            tokens_to_segment_words(0, &tokens, &["test.".to_string()], 1.0, 3.0, 0.05).unwrap();
+
+        assert_eq!(words[0].text, "test.");
+        assert_eq!(words[0].start_seconds, 1.5);
+        assert_eq!(words[0].end_seconds, 1.75);
     }
 
     #[test]

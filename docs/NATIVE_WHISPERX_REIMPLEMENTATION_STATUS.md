@@ -12,8 +12,8 @@
 - Default tests remain hermetic: no Python, WhisperX, Hugging Face token,
   network, CUDA, or local model files.
 
-Native ASR, wav2vec2 alignment, ONNX speaker embedding, transcription ONNX
-diarization, external WhisperX non-diarization parity, and token-gated
+Native ASR, Whisper translate-to-English, wav2vec2 alignment, ONNX speaker
+embedding, transcription ONNX diarization, external WhisperX non-diarization parity, and token-gated
 WhisperX diarization parity have all passed in the documented local setup.
 Full native replacement is still not complete: production diarization quality,
 a native pyannote replacement, default native container/video decode, broader
@@ -33,6 +33,11 @@ are sufficient.
 - Candle Whisper provider behind `candle`.
 - CUDA selection behind `cuda`.
 - Local bundle validation behind `model-bundles`.
+- Whisper translate-to-English task behind the same Candle Whisper provider via
+  `provider.task="translate"`. Translation reports
+  `translationRuntime=whisper-task` and `translationTargetLanguage=en`.
+  wav2vec2/CTC alignment is rejected for translated output because the text is
+  no longer source-language audio text.
 - WAV path input and direct samples.
 - Prompt construction validates language, task, decoder, EOS, no-timestamps,
   and forced decoder IDs.
@@ -168,6 +173,8 @@ No token value was logged or documented.
 - Broader wav2vec2 architecture/layout coverage.
 - Local ONNX Runtime dylib setup is still host-sensitive unless
   `ORT_DYLIB_PATH` points at the compatible local ONNX Runtime 1.26.0 dylib.
+- OPUS-MT/Marian post-ASR translation remains future text-runtime work; the
+  implemented native translation path is Whisper's built-in translate task.
 
 Projected word timing is approximate and is not WhisperX wav2vec2 alignment
 parity. The local wav2vec2 CTC path is closer to WhisperX alignment behavior,

@@ -17,6 +17,16 @@ speaker verification or diarization. Production systems should use a
 model-backed embedder such as ECAPA-TDNN, x-vector, pyannote-style, or
 SpeechBrain-compatible speaker verification models.
 
+`WindowedSpeakerDiarizer` supports optional unknown-speaker cluster bounds via
+`speaker_bounds(min_speakers, max_speakers)`. The diarizer first preserves
+accepted known/enrolled speaker matches, then clusters only unknown windows. A
+maximum speaker bound assigns later unmatched unknown windows to the nearest
+existing cluster once the maximum is reached. A minimum speaker bound splits
+the most internally dispersed unknown clusters until the requested minimum is
+reached or there are too few unknown speech windows. Unknown labels are
+assigned deterministically by first occurrence as `speaker_0`, `speaker_1`, and
+so on.
+
 The first reviewed production direction is an opt-in ONNX speaker embedding
 provider, documented in
 `docs/adr/0003-native-speaker-diarization-provider.md`. Heuristic diarization

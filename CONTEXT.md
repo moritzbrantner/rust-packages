@@ -20,6 +20,14 @@ _Avoid_: Duplicate DTO owner, local schema copy
 The guarantee that library, CLI, REST, WASM, and web app surfaces delegate to the same library-owned behavior and preserve the same request and response contract.
 _Avoid_: Demo wrapper parity, transport-specific behavior
 
+**Text Family UI**:
+A package-consumer UI surface that guides users through the text crate family by workflow intent and routes them to the appropriate focused text workbench.
+_Avoid_: Flat text catalog, text mega-app, aggregate NLP app
+
+**Focused Text Workbench**:
+A package-surface app for one text crate's owned operations that preserves adapter parity across library, server, WASM, and app surfaces.
+_Avoid_: Demo app, custom crate UI
+
 **Runtime Surface**:
 A stable operation contract that lets a crate expose the same request and response shape across adapters.
 _Avoid_: Endpoint, demo API

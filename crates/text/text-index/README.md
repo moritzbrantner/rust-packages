@@ -56,6 +56,26 @@ assert_eq!(results[0].document_id, "doc-2");
 # Ok::<(), text_index::TextIndexError>(())
 ```
 
+Required phrases can be attached to a query when the caller needs exact passage
+constraints after hybrid scoring:
+
+```rust,no_run
+use text_index::{IndexDocument, IndexQuery, MemoryTextIndex};
+
+let mut index = MemoryTextIndex::new_memory()?;
+index.upsert_documents(&[
+    IndexDocument::new("doc-1", "Climate policy needs public funding."),
+    IndexDocument::new("doc-2", "Climate policy mentions funding separately."),
+])?;
+
+let mut query = IndexQuery::new("climate policy public funding", 5);
+query.required_phrases = vec!["public funding".to_string()];
+
+let results = index.search(&query)?;
+assert_eq!(results[0].matched_phrases, vec!["public funding"]);
+# Ok::<(), text_index::TextIndexError>(())
+```
+
 ## Package surface
 
 - Primary workflow: `index.search` builds or opens the requested backend and

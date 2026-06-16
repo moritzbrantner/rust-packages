@@ -470,8 +470,8 @@ fn reconstruct_pos_conv_weight_norm(weight_g: &Tensor, weight_v: &Tensor) -> Res
     let raw = weight_v.to_vec3::<f32>().map_err(candle_mismatch)?;
     let mut reconstructed = Vec::with_capacity(weight_v.elem_count());
     if scale.len() == out_channels {
-        for out in 0..out_channels {
-            let norm = raw[out]
+        for (out, out_values) in raw.iter().take(out_channels).enumerate() {
+            let norm = out_values
                 .iter()
                 .flat_map(|channel| channel.iter())
                 .map(|value| value * value)
@@ -479,9 +479,9 @@ fn reconstruct_pos_conv_weight_norm(weight_g: &Tensor, weight_v: &Tensor) -> Res
                 .sqrt()
                 .max(1e-12);
             let multiplier = scale[out] / norm;
-            for input in 0..in_channels_per_group {
-                for position in 0..kernel {
-                    reconstructed.push(raw[out][input][position] * multiplier);
+            for channel_values in out_values.iter().take(in_channels_per_group) {
+                for value in channel_values.iter().take(kernel) {
+                    reconstructed.push(value * multiplier);
                 }
             }
         }

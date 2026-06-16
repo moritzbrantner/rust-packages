@@ -1,0 +1,155 @@
+{
+  "use_case": "youtube-video",
+  "source": {
+    "url": null,
+    "local_video": "use-case-output/youtube-video/sample-10s.mp4"
+  },
+  "assets": {
+    "work_dir": "use-case-output/youtube-video/sample-10s-analysis",
+    "report_path": "use-case-output/youtube-video/sample-10s-analysis/analysis.json",
+    "audio_wav": "use-case-output/youtube-video/sample-10s-analysis/audio.wav"
+  },
+  "capabilities": {
+    "completed": [
+      "scene_detection",
+      "transcription",
+      "audio_analysis",
+      "transcript_text_analysis"
+    ],
+    "skipped": [
+      "object/person detection: pass --object-command",
+      "on-screen text OCR: pass --ocr-command"
+    ]
+  },
+  "video": {
+    "width": 1280,
+    "height": 720,
+    "frame_rate": "24000/1001",
+    "duration_seconds": 10.01,
+    "frames_processed": 240,
+    "scenes": [
+      {
+        "index": 0,
+        "start_frame": 0,
+        "end_frame": 33,
+        "start_seconds": 0.0,
+        "end_seconds": 1.376375,
+        "observations": []
+      },
+      {
+        "index": 1,
+        "start_frame": 33,
+        "end_frame": 240,
+        "start_seconds": 1.376375,
+        "end_seconds": 10.01,
+        "observations": []
+      }
+    ],
+    "observations": []
+  },
+  "transcription": {
+    "status": "completed",
+    "text": "oh",
+    "segments": [
+      {
+        "index": 0,
+        "start_seconds": 0.0,
+        "end_seconds": 1.0,
+        "text": "oh"
+      }
+    ],
+    "message": "use-case-output/youtube-video/sample-10s-analysis/transcript/audio.json"
+  },
+  "audio": {
+    "status": "completed",
+    "frames_processed": 30,
+    "events": [
+      {
+        "timestamp_seconds": 0.0,
+        "analyzer": "audio_energy",
+        "label": "audio:silence",
+        "score": 0.0
+      },
+      {
+        "timestamp_seconds": 1.7066666666666666,
+        "analyzer": "audio_energy",
+        "label": "audio:active",
+        "score": 0.017291818
+      },
+      {
+        "timestamp_seconds": 3.7546666666666666,
+        "analyzer": "audio_energy",
+        "label": "audio:silence",
+        "score": 0.006400333
+      },
+      {
+        "timestamp_seconds": 4.437333333333333,
+        "analyzer": "audio_energy",
+        "label": "audio:active",
+        "score": 0.0103804525
+      },
+      {
+        "timestamp_seconds": 5.12,
+        "analyzer": "audio_energy",
+        "label": "audio:silence",
+        "score": 0.008254146
+      },
+      {
+        "timestamp_seconds": 5.802666666666666,
+        "analyzer": "audio_energy",
+        "label": "audio:active",
+        "score": 0.019785024
+      }
+    ],
+    "separation": null,
+    "message": null
+  },
+  "text": {
+    "status": "completed",
+    "segments_processed": 1,
+    "events": [],
+    "message": null
+  },
+  "data_buckets": [
+    {
+      "bucket_index": 0,
+      "records": 271,
+      "estimated_bytes": 667389506,
+      "streams": [
+        {
+          "stream_id": "audio",
+          "records": 30,
+          "estimated_bytes": 3837504,
+          "payload_counts": {
+            "audio": 30
+          },
+          "video_frames": 0,
+          "audio_frames": 30,
+          "text_segments": 0
+        },
+        {
+          "stream_id": "transcript",
+          "records": 1,
+          "estimated_bytes": 2,
+          "payload_counts": {
+            "text": 1
+          },
+          "video_frames": 0,
+          "audio_frames": 0,
+          "text_segments": 1
+        },
+        {
+          "stream_id": "video",
+          "records": 240,
+          "estimated_bytes": 663552000,
+          "payload_counts": {
+            "video": 240
+          },
+          "video_frames": 240,
+          "audio_frames": 0,
+          "text_segments": 0
+        }
+      ]
+    }
+  ]
+}

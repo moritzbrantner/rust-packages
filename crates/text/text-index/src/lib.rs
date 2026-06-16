@@ -309,6 +309,8 @@ pub struct IndexQuery {
     #[serde(default = "default_lexical_weight")]
     pub lexical_weight: f32,
     #[serde(default)]
+    pub required_phrases: Vec<String>,
+    #[serde(default)]
     pub explain: bool,
 }
 
@@ -350,6 +352,7 @@ impl Default for IndexQuery {
             filter: IndexFilter::default(),
             semantic_weight: default_semantic_weight(),
             lexical_weight: default_lexical_weight(),
+            required_phrases: Vec::new(),
             explain: false,
         }
     }
@@ -395,6 +398,8 @@ pub struct IndexSearchResult {
     pub document_id: String,
     pub score: f32,
     pub snippet: String,
+    #[serde(default)]
+    pub matched_phrases: Vec<String>,
     pub chunk: IndexChunk,
     pub score_breakdown: IndexScoreBreakdown,
 }
@@ -661,6 +666,8 @@ impl<B: TextEmbedderBackend, S: TextIndexStore> TextIndex<B, S> {
     pub fn search(&self, query: &IndexQuery) -> Result<Vec<IndexSearchResult>> {
         validate_query(query)?;
         let normalized_query = normalize_query(&query.text, &self.corpus_options.processing)?;
+        let required_phrases =
+            normalize_required_phrases(&query.required_phrases, &self.corpus_options.processing);
         let limit = query.candidate_limit.max(query.top_k).max(1);
         let chunks = self
             .store
@@ -706,6 +713,16 @@ impl<B: TextEmbedderBackend, S: TextIndexStore> TextIndex<B, S> {
         let mut ids = BTreeSet::new();
         ids.extend(normalized_semantic.keys().cloned());
         ids.extend(normalized_lexical.keys().cloned());
+        if !required_phrases.is_empty() {
+            ids.extend(chunks.values().filter_map(|chunk| {
+                let matched_phrases = matched_required_phrases(
+                    &chunk.text,
+                    &required_phrases,
+                    &self.corpus_options.processing,
+                );
+                (matched_phrases.len() == required_phrases.len()).then(|| chunk.id.clone())
+            }));
+        }
 
         let (semantic_weight, lexical_weight) = effective_weights(query);
         let mut results = ids
@@ -713,6 +730,11 @@ impl<B: TextEmbedderBackend, S: TextIndexStore> TextIndex<B, S> {
             .filter_map(|chunk_id| {
                 let chunk = chunks.get(&chunk_id)?;
                 if !matches_filter(chunk, &query.filter) {
+                    return None;
+                }
+                let matched_phrases =
+                    matched_required_phrases(&chunk.text, &required_phrases, &self.corpus_options.processing);
+                if matched_phrases.len() != required_phrases.len() {
                     return None;
                 }
                 let semantic_raw = semantic_scores.get(&chunk_id).copied().unwrap_or(0.0);
@@ -725,6 +747,7 @@ impl<B: TextEmbedderBackend, S: TextIndexStore> TextIndex<B, S> {
                     document_id: chunk.document_id.clone(),
                     score,
                     snippet: build_snippet(&chunk.text, &normalized_query),
+                    matched_phrases,
                     chunk: chunk.clone(),
                     score_breakdown: IndexScoreBreakdown {
                         semantic_score: semantic_raw,
@@ -1375,6 +1398,44 @@ fn normalize_query(query: &str, processing: &TextProcessingOptions) -> Result<St
     Ok(terms.join(" "))
 }
 
+fn normalize_phrase_text(text: &str, processing: &TextProcessingOptions) -> Option<String> {
+    let terms = searchable_tokens(text, processing)
+        .into_iter()
+        .map(|token| token.normalized)
+        .collect::<Vec<_>>();
+    (!terms.is_empty()).then(|| terms.join(" "))
+}
+
+fn normalize_required_phrases(
+    phrases: &[String],
+    processing: &TextProcessingOptions,
+) -> Vec<String> {
+    phrases
+        .iter()
+        .filter_map(|phrase| normalize_phrase_text(phrase, processing))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn matched_required_phrases(
+    text: &str,
+    required_phrases: &[String],
+    processing: &TextProcessingOptions,
+) -> Vec<String> {
+    if required_phrases.is_empty() {
+        return Vec::new();
+    }
+    let Some(normalized_text) = normalize_phrase_text(text, processing) else {
+        return Vec::new();
+    };
+    required_phrases
+        .iter()
+        .filter(|phrase| normalized_text.contains(phrase.as_str()))
+        .cloned()
+        .collect()
+}
+
 fn normalize_scores(scores: &BTreeMap<String, f32>) -> BTreeMap<String, f32> {
     if scores.is_empty() {
         return BTreeMap::new();
@@ -1799,6 +1860,105 @@ mod tests {
     }
 
     #[test]
+    fn search_reports_and_requires_matched_phrases() {
+        let mut index = index();
+        index
+            .upsert_documents(&[
+                IndexDocument::new(
+                    "doc-1",
+                    "Climate policy needs public funding. Markets price risk.",
+                ),
+                IndexDocument::new(
+                    "doc-2",
+                    "Climate policy needs private finance and separate funding.",
+                ),
+            ])
+            .unwrap();
+        let results = index
+            .search(&IndexQuery {
+                text: "climate policy public funding".to_string(),
+                required_phrases: vec!["public funding".to_string()],
+                ..IndexQuery::default()
+            })
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].document_id, "doc-1");
+        assert_eq!(results[0].matched_phrases, vec!["public funding"]);
+    }
+
+    #[test]
+    fn required_phrases_are_filtered_before_top_k_truncation() {
+        let mut index = index();
+        index
+            .upsert_documents(&[
+                IndexDocument::new("doc-1", "Climate policy mentions funding separately."),
+                IndexDocument::new("doc-2", "Public funding supports climate adaptation."),
+                IndexDocument::new("doc-3", "Public funding expands climate resilience."),
+            ])
+            .unwrap();
+        let results = index
+            .search(&IndexQuery {
+                text: "climate funding".to_string(),
+                top_k: 2,
+                candidate_limit: 1,
+                required_phrases: vec!["public funding".to_string()],
+                ..IndexQuery::default()
+            })
+            .unwrap();
+        assert_eq!(results.len(), 2);
+        assert!(results
+            .iter()
+            .all(|result| result.matched_phrases == ["public funding"]));
+    }
+
+    #[test]
+    fn exact_term_match_stays_above_semantic_neighbor_in_balanced_hybrid() {
+        let mut index = index();
+        index
+            .upsert_documents(&[
+                IndexDocument::new("doc-1", "The archive describes neural ranking experiments."),
+                IndexDocument::new("doc-2", "Garden notes mention tomatoes and irrigation."),
+            ])
+            .unwrap();
+        let results = index
+            .search(&IndexQuery {
+                text: "neural ranking".to_string(),
+                semantic_weight: 0.5,
+                lexical_weight: 0.5,
+                ..IndexQuery::default()
+            })
+            .unwrap();
+        assert_eq!(results[0].document_id, "doc-1");
+        assert!(results[0].score_breakdown.lexical_score > 0.0);
+    }
+
+    #[test]
+    fn equal_scores_sort_by_chunk_id_for_stable_results() {
+        let mut index = index();
+        index
+            .upsert_documents(&[
+                IndexDocument::new("doc-b", "Shared passage text."),
+                IndexDocument::new("doc-a", "Shared passage text."),
+            ])
+            .unwrap();
+        let results = index
+            .search(&IndexQuery {
+                text: "shared passage".to_string(),
+                mode: IndexSearchMode::Lexical,
+                top_k: 2,
+                ..IndexQuery::default()
+            })
+            .unwrap();
+        assert_eq!(
+            results
+                .iter()
+                .map(|result| result.chunk_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["doc-a:0", "doc-b:0"]
+        );
+    }
+
+    #[test]
     fn upsert_replaces_chunks_vectors_and_facets_atomically() {
         let mut index = index();
         let mut first = IndexDocument::new("doc-1", "old durable text");
@@ -1863,6 +2023,7 @@ mod tests {
         let results = index
             .search(&IndexQuery {
                 text: "hybrid search".to_string(),
+                required_phrases: vec!["hybrid search".to_string()],
                 filter: IndexFilter {
                     metadata_equals: BTreeMap::from([("speaker".to_string(), "alice".to_string())]),
                     semantic_facets: vec![SemanticFacetFilter {

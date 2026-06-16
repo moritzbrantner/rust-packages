@@ -25,7 +25,7 @@ pub fn package_surface() -> PackageSurface {
             operation("index.open", "Open index", "Opens or describes an index backend.", serde_json::json!({"backend": "memory"})),
             operation("index.addDocuments", "Add documents", "Adds documents to a transient memory index or an explicit committed SQLite backend.", serde_json::json!({"backend": "memory", "documents": [{"id": "doc-1", "body": "Rust text index"}]})),
             operation("index.removeDocuments", "Remove documents", "Removes documents only from an explicit committed SQLite backend; memory execution returns a side-effect-free plan.", serde_json::json!({"backend": "memory", "documentIds": ["doc-1"]})),
-            operation("index.search", "Search index", "Builds or opens a requested backend and searches it.", serde_json::json!({"backend": "memory", "documents": [{"id": "doc-1", "body": "Rust text index"}], "query": {"text": "text index"}})),
+            operation("index.search", "Search index", "Builds or opens a requested backend and searches it.", serde_json::json!({"backend": "memory", "documents": [{"id": "doc-1", "body": "Rust text index supports required phrases"}], "query": {"text": "text index required phrases", "requiredPhrases": ["required phrases"]}})),
             operation("index.inspect", "Inspect index", "Builds or opens a requested backend and returns counts.", serde_json::json!({"backend": "memory", "documents": [{"id": "doc-1", "body": "Rust text index"}]})),
             operation("index.snapshotPlan", "Plan snapshot", "Builds or opens a requested backend and returns a snapshot plan.", serde_json::json!({"backend": "memory", "documents": [{"id": "doc-1", "body": "Rust text index"}]})),
         ],

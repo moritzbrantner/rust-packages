@@ -145,6 +145,23 @@ cargo test -p moritzbrantner-audio-analysis-transcription \
   candle_whisper_cuda_smoke_when_requested -- --ignored --nocapture
 ```
 
+Candle Whisper CUDA translate-to-English smoke test:
+
+```bash
+RUN_NATIVE_TRANSLATION_TESTS=1 \
+TRANSCRIPTION_MODEL_BUNDLE=/path/to/whisper-tiny-or-small \
+TRANSCRIPTION_AUDIO_PATH=/path/to/non-english-audio.wav \
+cargo test -p moritzbrantner-audio-analysis-transcription \
+  --features candle,cuda,model-bundles \
+  candle_whisper_cuda_translate_smoke_when_requested -- --ignored --nocapture
+```
+
+Native translation uses Whisper's built-in `translate` task and reports
+`translationRuntime=whisper-task` and `translationTargetLanguage=en`.
+wav2vec2/CTC alignment is intentionally rejected for translated output because
+the transcript text is no longer source-language audio text. OPUS-MT/Marian
+post-ASR translation is not part of this path.
+
 The native Whisper path attempts timestamp-token segment timing automatically
 when the tokenizer exposes Whisper timestamp metadata. If timestamp decoding
 does not produce bounded text segments, it falls back to chunk/window segment
@@ -243,10 +260,11 @@ Capability tiers for transcription:
   WhisperX JSON import, mock command parity, deterministic alignment, synthetic
   wav2vec2 bundles, and heuristic diarization diagnostics.
 - Feature-gated: Candle Whisper (`candle`), CUDA (`cuda`), local bundle
-  validation (`model-bundles`), CTC alignment (`alignment`), heuristic speaker
+  validation (`model-bundles`), native Whisper translate-to-English
+  (`provider.task="translate"`), CTC alignment (`alignment`), heuristic speaker
   diarization (`diarization`), opt-in ONNX speaker embeddings (`onnx`), and
   non-WAV media decode (`audio-io`).
-- Ignored local smoke: Candle Whisper CUDA, real wav2vec2 alignment,
+- Ignored local smoke: Candle Whisper CUDA transcription and translation, real wav2vec2 alignment,
   `audio-io` media/container decode, ONNX speaker embeddings, and the
   transcription ONNX diarization path.
 - External compatibility only: Python WhisperX execution and pyannote-backed

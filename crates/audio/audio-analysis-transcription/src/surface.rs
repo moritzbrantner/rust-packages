@@ -10,8 +10,8 @@ use crate::{
     candle_whisper_provider_plan, import_whisperx_json, setup_error, transcribe,
     transcription_provider_plans, whisper_cpp_provider_plan, whisperx_provider_plan,
     AlignmentOptions, CandleWhisperOptions, DiarizationOptions, NativeDevicePreference,
-    TranscriptionPipelineRequest, TranscriptionProviderSelection, TranscriptionSource, VadOptions,
-    WhisperXCommandOptions, WhisperXDevice,
+    TranscriptionPipelineRequest, TranscriptionProviderSelection, TranscriptionSource,
+    TranscriptionTask, VadOptions, WhisperXCommandOptions, WhisperXDevice,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -62,14 +62,14 @@ pub fn package_surface() -> PackageSurface {
             operation(
                 "audio.transcription.transcribe",
                 "Transcribe audio or video",
-                "Runs transcription through native providers when built with explicit features and local bundles; WhisperX remains an external compatibility path.",
+                "Runs transcription or Whisper translate-to-English through native providers when built with explicit features and local bundles; WhisperX remains an external compatibility path.",
                 serde_json::json!({
-                    "source": {"path": "{\"segments\":[{\"start\":0.0,\"end\":1.0,\"text\":\"Hello from offline compatibility output.\"}]}"},
+                    "source": {"path": "speech-de.wav"},
                     "provider": {
-                        "kind": "externalWhisperX",
-                        "command": "/usr/bin/printf",
-                        "model": "mock-whisperx-json",
-                        "device": "cpu"
+                        "kind": "candleWhisper",
+                        "modelId": "openai/whisper-large-v3-turbo",
+                        "task": "translate",
+                        "device": "cuda"
                     },
                     "vad": {"enabled": true},
                     "alignment": {"enabled": false},
@@ -358,6 +358,18 @@ fn plan_value(input: serde_json::Value) -> serde_json::Value {
     serde_json::json!({
         "operation": "audio.transcription.transcribe",
         "defaultProvider": "candle-whisper",
+        "supportedTasks": ["transcribe", "translate"],
+        "translation": {
+            "runtime": "whisper-task",
+            "targetLanguage": "en",
+            "requiresProvider": "candle-whisper",
+            "alignmentSupported": false,
+            "alignmentRestriction": "native Whisper translation output cannot be wav2vec2/CTC-aligned against source-language audio"
+        },
+        "gpu": {
+            "cuda": "opt-in through the cuda feature and provider.device=cuda",
+            "cpuFallback": true
+        },
         "normalizationOwner": "moritzbrantner-text-transcripts",
         "vadProvider": "energy-vad",
         "alignmentProvider": "ctc-forced-aligner",
@@ -370,6 +382,17 @@ fn plan_value(input: serde_json::Value) -> serde_json::Value {
 fn model_plan_value(input: serde_json::Value) -> serde_json::Value {
     serde_json::json!({
         "defaultProvider": "candle-whisper",
+        "supportedTasks": ["transcribe", "translate"],
+        "translation": {
+            "runtime": "whisper-task",
+            "targetLanguage": "en",
+            "postAsrMt": "out-of-scope",
+            "alignmentSupported": false
+        },
+        "gpu": {
+            "cuda": "optional Candle CUDA execution when built with cuda",
+            "requiredFeature": "cuda"
+        },
         "normalizationOwner": "moritzbrantner-text-transcripts",
         "asr": candle_whisper_provider_plan(),
         "compatibility": [whisper_cpp_provider_plan(), whisperx_provider_plan()],
@@ -441,7 +464,7 @@ fn alignment_bundle_plan_value(input: serde_json::Value) -> Result<serde_json::V
             .map_err(|error| error.to_string())?;
         let supported =
             report.missing_required_keys.is_empty() && report.unsupported_reasons.is_empty();
-        return Ok(serde_json::json!({
+        Ok(serde_json::json!({
             "defaultProvider": "ctc-forced-aligner",
             "modelFamily": "wav2vec2",
             "requiresFeature": "alignment",
@@ -459,7 +482,7 @@ fn alignment_bundle_plan_value(input: serde_json::Value) -> Result<serde_json::V
             "unsupportedReasons": report.unsupported_reasons,
             "execution": "not-run",
             "input": input
-        }));
+        }))
     }
 
     #[cfg(not(feature = "alignment"))]
@@ -627,6 +650,18 @@ pub fn cuda_native_request(path: impl Into<std::path::PathBuf>) -> Transcription
     request
 }
 
+/// Builds a CUDA-preferring native Whisper translate-to-English request.
+pub fn cuda_translate_request(path: impl Into<std::path::PathBuf>) -> TranscriptionPipelineRequest {
+    let mut request = cuda_native_request(path);
+    request.provider = TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+        task: TranscriptionTask::Translate,
+        device: NativeDevicePreference::Cuda,
+        ..CandleWhisperOptions::default()
+    });
+    request.alignment.enabled = false;
+    request
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -687,6 +722,18 @@ mod tests {
         assert_eq!(
             response.value["result"]["normalizationOwner"],
             "moritzbrantner-text-transcripts"
+        );
+        assert_eq!(
+            response.value["result"]["translation"]["runtime"],
+            "whisper-task"
+        );
+        assert_eq!(
+            response.value["result"]["translation"]["targetLanguage"],
+            "en"
+        );
+        assert_eq!(
+            response.value["result"]["translation"]["alignmentSupported"],
+            false
         );
     }
 

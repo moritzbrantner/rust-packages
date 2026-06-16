@@ -124,6 +124,39 @@ impl TranscriptionProviderSelection {
             Self::ExternalWhisperX(options) => &options.model,
         }
     }
+
+    pub fn task(&self) -> TranscriptionTask {
+        match self {
+            Self::CandleWhisper(options) => options.task,
+            Self::WhisperCpp(options) => options.task,
+            Self::ExternalWhisperX(options) => options.task,
+        }
+    }
+}
+
+/// Whisper speech task.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TranscriptionTask {
+    #[default]
+    Transcribe,
+    Translate,
+}
+
+impl TranscriptionTask {
+    pub fn as_whisper_task(self) -> &'static str {
+        match self {
+            Self::Transcribe => "transcribe",
+            Self::Translate => "translate",
+        }
+    }
+
+    pub fn output_language_hint(self) -> Option<&'static str> {
+        match self {
+            Self::Transcribe => None,
+            Self::Translate => Some("en"),
+        }
+    }
 }
 
 /// Options for the Candle Whisper native provider.
@@ -132,6 +165,8 @@ impl TranscriptionProviderSelection {
 pub struct CandleWhisperOptions {
     #[serde(default = "default_candle_whisper_model")]
     pub model_id: String,
+    #[serde(default)]
+    pub task: TranscriptionTask,
     #[serde(default)]
     pub language: Option<String>,
     #[serde(default)]
@@ -152,6 +187,7 @@ impl Default for CandleWhisperOptions {
     fn default() -> Self {
         Self {
             model_id: default_candle_whisper_model(),
+            task: TranscriptionTask::Transcribe,
             language: None,
             device: NativeDevicePreference::Auto,
             model_bundle: None,
@@ -174,6 +210,8 @@ pub struct WhisperCppProviderOptions {
     #[serde(default = "default_whisper_cpp_model")]
     pub model_id: String,
     #[serde(default)]
+    pub task: TranscriptionTask,
+    #[serde(default)]
     pub language: Option<String>,
     #[serde(default)]
     pub model_path: Option<PathBuf>,
@@ -183,6 +221,7 @@ impl Default for WhisperCppProviderOptions {
     fn default() -> Self {
         Self {
             model_id: default_whisper_cpp_model(),
+            task: TranscriptionTask::Transcribe,
             language: None,
             model_path: None,
         }
@@ -209,6 +248,8 @@ pub enum NativeDevicePreference {
 pub struct WhisperXCommandOptions {
     pub command: PathBuf,
     pub model: String,
+    #[serde(default)]
+    pub task: TranscriptionTask,
     #[serde(default)]
     pub language: Option<String>,
     pub device: WhisperXDevice,
@@ -252,6 +293,7 @@ impl Default for WhisperXCommandOptions {
         Self {
             command: PathBuf::from("whisperx"),
             model: "large-v2".to_string(),
+            task: TranscriptionTask::Transcribe,
             language: None,
             device: WhisperXDevice::Cpu,
             compute_type: None,
@@ -594,6 +636,8 @@ impl SpeechActivitySegment {
 pub struct AsrRequest {
     pub audio: LoadedAudio,
     pub chunks: Vec<SpeechActivitySegment>,
+    #[serde(default)]
+    pub task: TranscriptionTask,
     pub language: Option<String>,
     pub model_id: String,
 }
@@ -742,7 +786,8 @@ impl TranscriptDiarizationProvider for NativeSpeakerDiarizationProvider {
             let embedder = audio_analysis_speakers::SpectralSpeakerEmbedder::default();
             let vad = TranscriptSpeechSpanVad { spans };
             let mut diarizer = audio_analysis_speakers::WindowedSpeakerDiarizer::new(embedder, vad)
-                .cluster_threshold(0.95)?;
+                .cluster_threshold(0.95)?
+                .speaker_bounds(options.min_speakers, options.max_speakers)?;
             let result =
                 audio_analysis_speakers::SpeakerDiarizer::diarize(&mut diarizer, &speaker_audio)?;
             return Ok(SpeakerDiarizationResponse {
@@ -754,12 +799,23 @@ impl TranscriptDiarizationProvider for NativeSpeakerDiarizationProvider {
             });
         }
 
-        let mut response = audio_analysis_speakers::diarize_speaker_audio_baseline(
-            &audio.samples,
-            audio.sample_rate,
-        )?;
-        response.model_id = options.model_id.clone();
-        Ok(response)
+        let speaker_audio =
+            audio_analysis_speakers::SpeakerAudio::mono(&audio.samples, audio.sample_rate)?;
+        let embedder = audio_analysis_speakers::SpectralSpeakerEmbedder::default();
+        let vad_config = audio_analysis_speakers::EnergyVadConfig::default();
+        let vad = audio_analysis_speakers::EnergyVoiceActivityDetector::new(vad_config)?;
+        let mut diarizer = audio_analysis_speakers::WindowedSpeakerDiarizer::new(embedder, vad)
+            .cluster_threshold(0.95)?
+            .speaker_bounds(options.min_speakers, options.max_speakers)?;
+        let result =
+            audio_analysis_speakers::SpeakerDiarizer::diarize(&mut diarizer, &speaker_audio)?;
+        Ok(SpeakerDiarizationResponse {
+            accepted: true,
+            operation: "audio.speakers.diarize".to_string(),
+            model_id: options.model_id.clone(),
+            runtime: audio_analysis_speakers::AudioRuntime::Heuristic,
+            segments: stable_speaker_predictions_from_diarization(result.segments)?,
+        })
     }
 }
 
@@ -777,12 +833,14 @@ fn diarize_with_onnx_speaker_embeddings(
     let result = if spans.is_empty() {
         let vad = audio_analysis_speakers::EnergyVoiceActivityDetector::default();
         let mut diarizer = audio_analysis_speakers::WindowedSpeakerDiarizer::new(embedder, vad)
-            .cluster_threshold(0.95)?;
+            .cluster_threshold(0.95)?
+            .speaker_bounds(options.min_speakers, options.max_speakers)?;
         audio_analysis_speakers::SpeakerDiarizer::diarize(&mut diarizer, &speaker_audio)?
     } else {
         let vad = TranscriptSpeechSpanVad { spans };
         let mut diarizer = audio_analysis_speakers::WindowedSpeakerDiarizer::new(embedder, vad)
-            .cluster_threshold(0.95)?;
+            .cluster_threshold(0.95)?
+            .speaker_bounds(options.min_speakers, options.max_speakers)?;
         audio_analysis_speakers::SpeakerDiarizer::diarize(&mut diarizer, &speaker_audio)?
     };
     Ok(SpeakerDiarizationResponse {
@@ -1021,8 +1079,10 @@ pub fn run_transcription_pipeline(
     diarization_provider: Option<&mut dyn TranscriptDiarizationProvider>,
 ) -> Result<TranscriptionPipelineResponse> {
     validate_batch_options_for_provider(&request.provider)?;
+    validate_task_options_for_request(&request)?;
     let provider = request.provider.provider_id().to_string();
     let model_id = request.provider.model_id().to_string();
+    let task = request.provider.task();
     let audio = LoadedAudio::mono_16khz_from_source(&request.source)?;
     let vad_response = if request.vad.enabled {
         vad_provider.detect_speech(VadRequest {
@@ -1044,6 +1104,7 @@ pub fn run_transcription_pipeline(
     let mut asr_response = asr_provider.transcribe(AsrRequest {
         audio: audio.clone(),
         chunks: vad_response.segments.clone(),
+        task,
         language: language.clone(),
         model_id: model_id.clone(),
     })?;
@@ -1064,7 +1125,14 @@ pub fn run_transcription_pipeline(
         .map_err(|error| model_output_mismatch(error.to_string()))?;
     offset_chunk_local_segments(&mut transcript, &vad_response.segments)?;
 
-    let mut diagnostics = vad_response.diagnostics;
+    let mut diagnostics = vec![format!("asrTask={}", task.as_whisper_task())];
+    if task == TranscriptionTask::Translate {
+        diagnostics.push("translationRuntime=whisper-task".to_string());
+        if let Some(language) = task.output_language_hint() {
+            diagnostics.push(format!("translationTargetLanguage={language}"));
+        }
+    }
+    diagnostics.extend(vad_response.diagnostics);
     diagnostics.extend(asr_response.diagnostics);
     let mut alignment_summary = None;
     if request.alignment.enabled {
@@ -1154,7 +1222,8 @@ pub fn candle_whisper_provider_plan() -> TranscriptionProviderPlan {
             "Build with feature `candle`; add `cuda` for CUDA device execution.".to_string(),
         ],
         diagnostics: vec![
-            "Candle Whisper is the primary planned Rust-native ASR provider.".to_string(),
+            "Candle Whisper is the primary planned Rust-native ASR and translate-to-English provider.".to_string(),
+            "Set task=translate for native Whisper translation; wav2vec2/CTC alignment is not supported for translated output.".to_string(),
             "Default tests do not download models or require CUDA.".to_string(),
         ],
     }
@@ -1171,6 +1240,7 @@ pub fn whisper_cpp_provider_plan() -> TranscriptionProviderPlan {
         diagnostics: vec![
             "whisper.cpp is retained as a native compatibility provider, not the primary ASR path."
                 .to_string(),
+            "Whisper translate is not supported through this provider in this crate.".to_string(),
         ],
     }
 }
@@ -1189,6 +1259,7 @@ pub fn whisperx_provider_plan() -> TranscriptionProviderPlan {
         ],
         diagnostics: vec![
             "WhisperX execution is opt-in and never required by default tests.".to_string(),
+            "The compatibility command path forwards task=transcribe or task=translate to Python WhisperX.".to_string(),
             "Transcript normalization and WhisperX JSON import are delegated to text-transcripts."
                 .to_string(),
         ],
@@ -1206,6 +1277,25 @@ fn provider_language(provider: &TranscriptionProviderSelection) -> Option<String
 fn validate_batch_options_for_provider(provider: &TranscriptionProviderSelection) -> Result<()> {
     if let TranscriptionProviderSelection::CandleWhisper(options) = provider {
         validate_candle_batch_options(options)?;
+    }
+    Ok(())
+}
+
+fn validate_task_options_for_request(request: &TranscriptionPipelineRequest) -> Result<()> {
+    let task = request.provider.task();
+    if task == TranscriptionTask::Translate && request.alignment.enabled {
+        return Err(invalid_request(
+            "native Whisper translation output cannot be wav2vec2/CTC-aligned against source-language audio in this implementation",
+        ));
+    }
+    if matches!(
+        request.provider,
+        TranscriptionProviderSelection::WhisperCpp(_)
+    ) && task == TranscriptionTask::Translate
+    {
+        return Err(invalid_request(
+            "Whisper translate is not supported by the whisper.cpp provider in this crate; use candleWhisper or externalWhisperX",
+        ));
     }
     Ok(())
 }
@@ -1582,6 +1672,9 @@ fn diarization_diagnostics(
             diagnostics.push(format!(
                 "diarizationSpeakerCountBelowRequestedMin={speaker_count}/{min}"
             ));
+            if response.segments.len() < min {
+                diagnostics.push("diarizationSpeakerBoundsSaturated=true".to_string());
+            }
         }
     }
     if let Some(max) = options.max_speakers {
@@ -1591,6 +1684,9 @@ fn diarization_diagnostics(
                 "diarizationSpeakerCountAboveRequestedMax={speaker_count}/{max}"
             ));
         }
+    }
+    if options.min_speakers.is_some() || options.max_speakers.is_some() {
+        diagnostics.push("diarizationSpeakerBoundsApplied=true".to_string());
     }
     if diarization_runtime_is_heuristic(response) {
         diagnostics.push("diarizationBaseline=heuristic-native".to_string());
@@ -1903,6 +1999,17 @@ fn apply_alignment_words(
         word.end_seconds = Some(aligned.end_seconds);
         word.confidence = aligned.confidence;
     }
+    for segment in &mut transcript.segments {
+        let timed_words = segment
+            .words
+            .iter()
+            .filter_map(|word| word.start_seconds.zip(word.end_seconds))
+            .collect::<Vec<_>>();
+        if let (Some((start, _)), Some((_, end))) = (timed_words.first(), timed_words.last()) {
+            segment.start_seconds = Some(*start);
+            segment.end_seconds = Some(*end);
+        }
+    }
     Ok(())
 }
 
@@ -2097,6 +2204,7 @@ fn run_whisperx_command(
     source_path: &Path,
     options: WhisperXCommandOptions,
 ) -> Result<TranscriptionPipelineResponse> {
+    let task = options.task;
     let output_dir = options
         .output_dir
         .clone()
@@ -2154,6 +2262,7 @@ fn run_whisperx_command(
     if transcript.source.is_none() {
         transcript.source = Some(source_path.to_string_lossy().into_owned());
     }
+    let vad_segments = whisperx_stdout_vad_segments(&output.stdout);
     let artifacts = transcript_path
         .map(|path| TranscriptionArtifact {
             kind: "whisperx-json".to_string(),
@@ -2161,20 +2270,34 @@ fn run_whisperx_command(
         })
         .into_iter()
         .collect();
+    let mut diagnostics = vec![
+        format!("asrTask={}", task.as_whisper_task()),
+        format!("ran WhisperX output in `{}`", output_dir.display()),
+        "parsed WhisperX JSON through text-transcripts".to_string(),
+    ];
+    if task == TranscriptionTask::Translate {
+        diagnostics.push("translationRuntime=whisperx-command".to_string());
+        if let Some(language) = task.output_language_hint() {
+            diagnostics.push(format!("translationTargetLanguage={language}"));
+        }
+    }
+    if !vad_segments.is_empty() {
+        diagnostics.push(format!(
+            "whisperxVadSegmentsFromStdout={}",
+            vad_segments.len()
+        ));
+    }
     Ok(TranscriptionPipelineResponse {
         accepted: true,
         operation: "audio.transcription.transcribe".to_string(),
         provider: "whisperx-command".to_string(),
         model_id: options.model,
         transcript,
-        vad_segments: Vec::new(),
+        vad_segments,
         alignment: None,
         diarization: None,
         artifacts,
-        diagnostics: vec![
-            format!("ran WhisperX output in `{}`", output_dir.display()),
-            "parsed WhisperX JSON through text-transcripts".to_string(),
-        ],
+        diagnostics,
     })
 }
 
@@ -2188,6 +2311,8 @@ fn whisperx_args(
         source_path.to_string_lossy().into_owned(),
         "--model".to_string(),
         options.model.clone(),
+        "--task".to_string(),
+        options.task.as_whisper_task().to_string(),
         "--device".to_string(),
         options.device.as_str().to_string(),
         "--output_format".to_string(),
@@ -2250,6 +2375,22 @@ fn whisperx_json_bytes(output_dir: &Path, stdout: &[u8]) -> Option<(Option<PathB
     serde_json::from_slice::<serde_json::Value>(stdout)
         .ok()
         .map(|_| (None, stdout.to_vec()))
+}
+
+fn whisperx_stdout_vad_segments(stdout: &[u8]) -> Vec<SpeechActivitySegment> {
+    let stdout = String::from_utf8_lossy(stdout);
+    stdout
+        .lines()
+        .filter_map(|line| {
+            let start_marker = "Transcript: [";
+            let start = line.find(start_marker)? + start_marker.len();
+            let range = line[start..].split_once(']')?.0;
+            let (start_seconds, end_seconds) = range.split_once("-->")?;
+            let start_seconds = start_seconds.trim().parse::<f64>().ok()?;
+            let end_seconds = end_seconds.trim().parse::<f64>().ok()?;
+            SpeechActivitySegment::new(start_seconds, end_seconds, 1.0).ok()
+        })
+        .collect()
 }
 
 fn find_json_artifact(output_dir: &Path) -> Option<PathBuf> {
@@ -2342,7 +2483,11 @@ mod tests {
                 .collect::<Vec<_>>();
             Ok(AsrResponse {
                 model_id: request.model_id,
-                language: request.language,
+                language: request
+                    .task
+                    .output_language_hint()
+                    .map(str::to_string)
+                    .or(request.language),
                 transcript: TranscriptionContract::from_segments(
                     request.audio.source,
                     Some("en".to_string()),
@@ -2587,6 +2732,42 @@ mod tests {
             Some("en".to_string()),
             vec![segment],
         )?)
+    }
+
+    #[cfg(feature = "diarization")]
+    fn sine_into(samples: &mut [f32], sample_rate: u32, start_seconds: f32, freq_hz: f32) {
+        for (offset, sample) in samples.iter_mut().enumerate() {
+            let t = start_seconds + offset as f32 / sample_rate as f32;
+            *sample = (2.0 * std::f32::consts::PI * freq_hz * t).sin() * 0.5;
+        }
+    }
+
+    #[cfg(feature = "diarization")]
+    fn two_profile_loaded_audio() -> LoadedAudio {
+        let sample_rate = 16_000;
+        let mut samples = vec![0.0_f32; sample_rate as usize * 2];
+        let first_start = (0.20 * sample_rate as f32) as usize;
+        let first_end = (0.50 * sample_rate as f32) as usize;
+        let second_start = (1.00 * sample_rate as f32) as usize;
+        let second_end = (1.40 * sample_rate as f32) as usize;
+        sine_into(
+            &mut samples[first_start..first_end],
+            sample_rate,
+            0.20,
+            220.0,
+        );
+        sine_into(
+            &mut samples[second_start..second_end],
+            sample_rate,
+            1.00,
+            1_200.0,
+        );
+        LoadedAudio {
+            samples,
+            sample_rate,
+            channels: 1,
+            source: Some("synthetic-two-speaker".to_string()),
+        }
     }
 
     #[cfg(all(feature = "diarization", feature = "onnx"))]
@@ -3420,6 +3601,8 @@ mod tests {
             word.attributes.get("timing").map(String::as_str),
             Some("whisperTimestampProjection")
         );
+        assert_eq!(transcript.segments[0].start_seconds, Some(0.1));
+        assert_eq!(transcript.segments[0].end_seconds, Some(0.4));
         Ok(())
     }
 
@@ -3451,6 +3634,7 @@ mod tests {
                 source: None,
             },
             chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+            task: TranscriptionTask::Transcribe,
             language: None,
             model_id: "openai/whisper-large-v3".to_string(),
         });
@@ -3474,6 +3658,7 @@ mod tests {
                 source: None,
             },
             chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+            task: TranscriptionTask::Transcribe,
             language: None,
             model_id: "openai/whisper-large-v3".to_string(),
         });
@@ -3493,6 +3678,7 @@ mod tests {
                 source: None,
             },
             chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+            task: TranscriptionTask::Transcribe,
             language: None,
             model_id: "openai/whisper-large-v3".to_string(),
         });
@@ -3512,6 +3698,7 @@ mod tests {
                 source: None,
             },
             chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+            task: TranscriptionTask::Transcribe,
             language: None,
             model_id: "openai/whisper-large-v3".to_string(),
         });
@@ -3769,6 +3956,10 @@ mod tests {
             .diagnostics
             .iter()
             .any(|item| item == "diarizationMinSpeakers=2"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "diarizationSpeakerBoundsApplied=true"));
         assert!(response
             .diagnostics
             .iter()
@@ -4122,6 +4313,58 @@ mod tests {
 
     #[test]
     #[cfg(feature = "diarization")]
+    fn native_speaker_diarization_provider_applies_exact_speaker_bounds(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let audio = two_profile_loaded_audio();
+        let transcript = transcript_with_words(vec![("hello", 0.20, 0.50), ("world", 1.00, 1.40)])?;
+        let options = DiarizationOptions {
+            enabled: true,
+            min_speakers: Some(2),
+            max_speakers: Some(2),
+            ..DiarizationOptions::default()
+        };
+        let mut provider = NativeSpeakerDiarizationProvider;
+
+        let response = provider.diarize(audio, &transcript, &options)?;
+        let speakers = response
+            .segments
+            .iter()
+            .map(|segment| segment.speaker.clone())
+            .collect::<std::collections::BTreeSet<_>>();
+
+        assert_eq!(speakers.len(), 2, "{:?}", response.segments);
+        assert!(speakers.contains("speaker_0"));
+        assert!(speakers.contains("speaker_1"));
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "diarization")]
+    fn native_speaker_diarization_provider_applies_max_one_bound(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let audio = two_profile_loaded_audio();
+        let transcript = transcript_with_words(vec![("hello", 0.20, 0.50), ("world", 1.00, 1.40)])?;
+        let options = DiarizationOptions {
+            enabled: true,
+            max_speakers: Some(1),
+            ..DiarizationOptions::default()
+        };
+        let mut provider = NativeSpeakerDiarizationProvider;
+
+        let response = provider.diarize(audio, &transcript, &options)?;
+        let speakers = response
+            .segments
+            .iter()
+            .map(|segment| segment.speaker.clone())
+            .collect::<std::collections::BTreeSet<_>>();
+
+        assert_eq!(speakers.len(), 1, "{:?}", response.segments);
+        assert!(speakers.contains("speaker_0"));
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "diarization")]
     fn native_speaker_diarization_provider_falls_back_without_transcript_timing(
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         let samples = (0..16_000)
@@ -4215,6 +4458,81 @@ mod tests {
             .transcript
             .validate_strict()
             .expect("native pipeline response should be strictly valid");
+    }
+
+    #[test]
+    fn native_pipeline_passes_translate_task_to_asr_provider() {
+        let mut request = sample_request();
+        request.provider = TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+            task: TranscriptionTask::Translate,
+            ..CandleWhisperOptions::default()
+        });
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+
+        let response =
+            run_native_transcription_pipeline(request, &mut vad, &mut asr, None).unwrap();
+
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "asrTask=translate"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "translationRuntime=whisper-task"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "translationTargetLanguage=en"));
+        assert_eq!(response.transcript.language.as_deref(), Some("en"));
+        assert!(response.alignment.is_none());
+    }
+
+    #[test]
+    fn native_translate_rejects_ctc_alignment() {
+        let mut request = sample_request();
+        request.provider = TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+            task: TranscriptionTask::Translate,
+            ..CandleWhisperOptions::default()
+        });
+        request.alignment.enabled = true;
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+
+        let error = run_native_transcription_pipeline(request, &mut vad, &mut asr, None)
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("translation output cannot be wav2vec2/CTC-aligned"));
+    }
+
+    #[test]
+    fn native_translate_allows_diarization_with_segment_timings() {
+        let mut request = sample_request();
+        request.provider = TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+            task: TranscriptionTask::Translate,
+            ..CandleWhisperOptions::default()
+        });
+        request.diarization.enabled = true;
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = MockAsrProvider;
+        let mut diarizer = MockDiarizationProvider;
+
+        let response =
+            run_native_transcription_pipeline(request, &mut vad, &mut asr, Some(&mut diarizer))
+                .unwrap();
+
+        assert!(response.diarization.is_some());
+        assert_eq!(
+            response.transcript.segments[0].speaker.as_deref(),
+            Some("SPEAKER_00")
+        );
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "asrTask=translate"));
     }
 
     #[test]
@@ -4348,7 +4666,7 @@ mod tests {
         fs::write(
             &command,
             format!(
-                "#!/usr/bin/env bash\nmkdir -p \"{}\"\ncat > \"{}/sample.json\" <<'JSON'\n{{\"segments\":[{{\"start\":0.0,\"end\":1.0,\"text\":\" hello \",\"speaker\":\"SPEAKER_00\",\"words\":[{{\"word\":\"hello\",\"start\":0.0,\"end\":0.8,\"score\":0.9,\"speaker\":\"SPEAKER_00\"}}]}}]}}\nJSON\n",
+                "#!/usr/bin/env bash\nmkdir -p \"{}\"\nprintf 'Transcript: [0.29 --> 1.47]  hello\\n'\ncat > \"{}/sample.json\" <<'JSON'\n{{\"segments\":[{{\"start\":0.0,\"end\":1.0,\"text\":\" hello \",\"speaker\":\"SPEAKER_00\",\"words\":[{{\"word\":\"hello\",\"start\":0.0,\"end\":0.8,\"score\":0.9,\"speaker\":\"SPEAKER_00\"}}]}}]}}\nJSON\n",
                 output_dir.display(),
                 output_dir.display()
             ),
@@ -4382,7 +4700,23 @@ mod tests {
             response.transcript.segments[0].words[0].speaker.as_deref(),
             Some("SPEAKER_00")
         );
+        assert_eq!(response.vad_segments.len(), 1);
+        assert_eq!(response.vad_segments[0].start_seconds, 0.29);
+        assert_eq!(response.vad_segments[0].end_seconds, 1.47);
         Ok(())
+    }
+
+    #[test]
+    fn whisperx_stdout_vad_segments_parses_transcript_lines() {
+        let segments = whisperx_stdout_vad_segments(
+            b"noise\nTranscript: [0.29 --> 1.47]  This is a test.\nTranscript: [2.00 --> 3.25]  More speech.\n",
+        );
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].start_seconds, 0.29);
+        assert_eq!(segments[0].end_seconds, 1.47);
+        assert_eq!(segments[1].start_seconds, 2.0);
+        assert_eq!(segments[1].end_seconds, 3.25);
     }
 
     #[test]
@@ -4414,6 +4748,23 @@ mod tests {
             .windows(2)
             .any(|pair| pair[0] == "--interpolate_method" && pair[1] == "linear"));
         assert!(args.iter().any(|arg| arg == "--return_char_alignments"));
+    }
+
+    #[test]
+    fn whisperx_args_include_task_translate() {
+        let args = whisperx_args(
+            Path::new("speech.wav"),
+            Path::new("out"),
+            &WhisperXCommandOptions {
+                task: TranscriptionTask::Translate,
+                ..WhisperXCommandOptions::default()
+            },
+            None,
+        );
+
+        assert!(args
+            .windows(2)
+            .any(|pair| pair[0] == "--task" && pair[1] == "translate"));
     }
 
     #[test]
@@ -4557,6 +4908,72 @@ mod tests {
                 .iter()
                 .any(|item| item.starts_with("chunkCount=")));
             assert!(response.diagnostics.iter().any(|item| item == "cuda=true"));
+            assert!(
+                response
+                    .transcript
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| !text.trim().is_empty())
+                    || !response.transcript.segments.is_empty()
+            );
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn candle_whisper_cuda_translate_smoke_when_requested() {
+        if std::env::var("RUN_NATIVE_TRANSLATION_TESTS").as_deref() != Ok("1") {
+            eprintln!("skipping native translation smoke; set RUN_NATIVE_TRANSLATION_TESTS=1");
+            return;
+        }
+        #[cfg(not(all(feature = "candle", feature = "cuda", feature = "model-bundles")))]
+        panic!("native translation smoke requires candle,cuda,model-bundles features");
+
+        #[cfg(all(feature = "candle", feature = "cuda", feature = "model-bundles"))]
+        {
+            let bundle = std::env::var_os("TRANSCRIPTION_MODEL_BUNDLE")
+                .map(PathBuf::from)
+                .expect("TRANSCRIPTION_MODEL_BUNDLE is required");
+            let audio_path = std::env::var_os("TRANSCRIPTION_AUDIO_PATH")
+                .map(PathBuf::from)
+                .expect("TRANSCRIPTION_AUDIO_PATH is required");
+            let response = transcribe(TranscriptionPipelineRequest {
+                source: TranscriptionSource::Path { path: audio_path },
+                provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+                    model_id: "openai/whisper-tiny".to_string(),
+                    task: TranscriptionTask::Translate,
+                    device: NativeDevicePreference::Cuda,
+                    model_bundle: Some(bundle),
+                    ..CandleWhisperOptions::default()
+                }),
+                vad: VadOptions::default(),
+                alignment: AlignmentOptions {
+                    enabled: false,
+                    ..AlignmentOptions::default()
+                },
+                diarization: DiarizationOptions::default(),
+                output: TranscriptionOutputOptions::default(),
+            })
+            .expect("native Candle Whisper CUDA translation should run");
+            eprintln!("{}", response.diagnostics.join("\n"));
+            assert!(response.accepted);
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "provider=candle-whisper"));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "device=cuda:0"));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "asrTask=translate"));
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|item| item == "translationRuntime=whisper-task"));
+            assert_eq!(response.transcript.language.as_deref(), Some("en"));
             assert!(
                 response
                     .transcript

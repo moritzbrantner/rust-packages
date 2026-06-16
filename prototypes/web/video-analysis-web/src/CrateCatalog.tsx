@@ -8,6 +8,12 @@ import {
   type WorkspaceArchitecturePackage,
   type WorkspaceArchitectureResponse,
 } from "./workspaceArchitecture";
+import {
+  textFamilyEntryHref,
+  textFamilyTiers,
+  type TextFamilyEntry,
+  type TextFamilyTier,
+} from "./textFamilyCatalog";
 import { fetchWorkspaceArchitecture } from "./workspaceArchitectureClient";
 
 type CatalogRoute =
@@ -351,6 +357,10 @@ function CategoryPage({
   wrappers: WorkspaceArchitecturePackage[];
   onSelectWrapper: (wrapper: WorkspaceArchitecturePackage) => void;
 }) {
+  if (domain === "text") {
+    return <TextFamilyCategory packages={packages} wrappers={wrappers} />;
+  }
+
   const domainPackages = packages.filter((pkg) => pkg.domain === domain);
   const libraries = wrappers.map(serviceLibraryName);
   const appCount = wrappers.filter((wrapper) => Boolean(relatedSurfaces(serviceLibraryName(wrapper), packages).app)).length;
@@ -455,6 +465,144 @@ function CategoryPage({
         </section>
       ) : null}
     </div>
+  );
+}
+
+function TextFamilyCategory({
+  packages,
+  wrappers,
+}: {
+  packages: WorkspaceArchitecturePackage[];
+  wrappers: WorkspaceArchitecturePackage[];
+}) {
+  const primaryEntry = textFamilyTiers.find((tier) => tier.primary)?.entries[0] ?? textFamilyTiers[0].entries[0];
+  const primaryHref = textFamilyEntryHref(primaryEntry, rootHref());
+  const compatibilityTier = textFamilyTiers.find((tier) => tier.collapsedByDefault);
+  const visibleTiers = textFamilyTiers.filter((tier) => !tier.collapsedByDefault);
+
+  return (
+    <div className="space-y-5">
+      <section className="rounded-md border border-zinc-200 bg-white p-5">
+        <div className="grid gap-5 lg:grid-cols-[1fr_320px] lg:items-end">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase text-zinc-500">Text Family UI</div>
+            <h1 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">Text</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+              Package-consumer entry points for the text crate family, organized by workflow intent and routed to focused text workbenches.
+            </p>
+          </div>
+          <a
+            href={primaryHref}
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-950 bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+          >
+            Open Text Analysis
+          </a>
+        </div>
+      </section>
+
+      {visibleTiers.map((tier) => (
+        <TextFamilyTierSection key={tier.id} packages={packages} tier={tier} wrappers={wrappers} />
+      ))}
+
+      {compatibilityTier ? (
+        <details className="rounded-md border border-zinc-200 bg-white">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-zinc-950">
+            {compatibilityTier.label}
+          </summary>
+          <div className="border-t border-zinc-200 px-4 py-4">
+            <p className="max-w-3xl text-xs leading-5 text-zinc-500">{compatibilityTier.description}</p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {compatibilityTier.entries.map((entry) => (
+                <TextFamilyEntryCard
+                  key={`${compatibilityTier.id}:${entry.library}:${entry.presetId ?? entry.operationId ?? entry.label}`}
+                  entry={entry}
+                  packages={packages}
+                  wrappers={wrappers}
+                />
+              ))}
+            </div>
+          </div>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function TextFamilyTierSection({
+  packages,
+  tier,
+  wrappers,
+}: {
+  packages: WorkspaceArchitecturePackage[];
+  tier: TextFamilyTier;
+  wrappers: WorkspaceArchitecturePackage[];
+}) {
+  return (
+    <section className="rounded-md border border-zinc-200 bg-white">
+      <div className="border-b border-zinc-200 px-4 py-3">
+        <h2 className="text-base font-semibold text-zinc-950">{tier.label}</h2>
+        <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-500">{tier.description}</p>
+      </div>
+      <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+        {tier.entries.map((entry) => (
+          <TextFamilyEntryCard
+            key={`${tier.id}:${entry.library}:${entry.presetId ?? entry.operationId ?? entry.label}`}
+            entry={entry}
+            packages={packages}
+            wrappers={wrappers}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TextFamilyEntryCard({
+  entry,
+  packages,
+  wrappers,
+}: {
+  entry: TextFamilyEntry;
+  packages: WorkspaceArchitecturePackage[];
+  wrappers: WorkspaceArchitecturePackage[];
+}) {
+  const indexedWrapper = wrappers.find((wrapper) => serviceLibraryName(wrapper) === entry.library);
+  const surfaces = relatedSurfaces(entry.library, packages);
+
+  return (
+    <a
+      href={textFamilyEntryHref(entry, rootHref())}
+      className="flex min-h-52 min-w-0 flex-col rounded-md border border-zinc-200 bg-zinc-50 p-4 transition hover:-translate-y-0.5 hover:border-zinc-300 hover:bg-white hover:shadow-sm"
+    >
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase text-zinc-500">{entry.library}</div>
+          <h3 className="mt-1 break-words text-base font-semibold text-zinc-950">{entry.label}</h3>
+        </div>
+        <SurfacePill active={Boolean(indexedWrapper)} label={indexedWrapper ? "Indexed" : "Missing"} />
+      </div>
+      <p className="mt-3 flex-1 text-sm leading-6 text-zinc-600">{entry.description}</p>
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {entry.badges.map((badge) => (
+          <span
+            key={badge}
+            className="inline-flex min-h-6 max-w-full items-center truncate rounded-md border border-zinc-200 bg-white px-2 text-[11px] font-semibold text-zinc-600"
+          >
+            {badge}
+          </span>
+        ))}
+        {entry.presetId ? (
+          <span className="inline-flex min-h-6 max-w-full items-center truncate rounded-md border border-teal-200 bg-teal-50 px-2 text-[11px] font-semibold text-teal-800">
+            preset:{entry.presetId}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1">
+        <SurfacePill active={Boolean(surfaces.app)} label="App" />
+        <SurfacePill active={Boolean(surfaces.server)} label="API" />
+        <SurfacePill active={Boolean(surfaces.wasm)} label="WASM" />
+      </div>
+    </a>
   );
 }
 

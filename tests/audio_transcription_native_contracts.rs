@@ -521,7 +521,7 @@ fn mock_native_asr_alignment_and_diarization_round_trip_into_transcript_contract
     assert_eq!(response.provider, "candle-whisper");
     assert_eq!(response.vad_segments[0].start_seconds, 0.25);
     assert_eq!(response.transcript.text.as_deref(), Some("hello world"));
-    assert_eq!(response.transcript.segments[0].start_seconds, Some(0.25));
+    assert_eq!(response.transcript.segments[0].start_seconds, Some(0.30));
     assert_eq!(response.transcript.segments[0].words.len(), 2);
     assert_eq!(
         response.transcript.segments[0].words[0].speaker.as_deref(),

@@ -12,13 +12,23 @@ fn cli_adapter_runs_default_workflow() {
         "index.search",
         serde_json::json!({
             "documents": [
-                {"id": "doc-1", "body": "Rust durable text indexing"},
-                {"id": "doc-2", "body": "Video scene reports"}
+                {"id": "doc-1", "body": "Rust durable text indexing needs stable adapters"},
+                {"id": "doc-2", "body": "Video scene reports mention adapters separately"}
             ],
-            "query": {"text": "text indexing", "topK": 2}
+            "query": {
+                "text": "text indexing stable adapters",
+                "topK": 2,
+                "requiredPhrases": ["stable adapters"]
+            }
         }),
     )
     .expect("search");
     assert_eq!(response.value["operation"], "index.search");
-    assert!(!response.value["results"].as_array().unwrap().is_empty());
+    let results = response.value["results"].as_array().unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0]["documentId"], serde_json::json!("doc-1"));
+    assert_eq!(
+        results[0]["matchedPhrases"],
+        serde_json::json!(["stable adapters"])
+    );
 }

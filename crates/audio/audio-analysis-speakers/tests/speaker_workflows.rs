@@ -156,6 +156,6 @@ fn public_diarizer_maps_known_speaker_and_labels_unknown_cluster() {
     );
     assert_eq!(
         result.segments[1].speaker,
-        DiarizedSpeaker::Unknown("speaker-1".to_string())
+        DiarizedSpeaker::Unknown("speaker_0".to_string())
     );
 }
