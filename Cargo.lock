@@ -2469,7 +2469,7 @@ dependencies = [
 
 [[package]]
 name = "moritzbrantner-audio-analysis-speakers"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "hound",
  "moritzbrantner-audio-analysis-core",
@@ -2573,7 +2573,7 @@ dependencies = [
 
 [[package]]
 name = "moritzbrantner-audio-analysis-transcription"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "candle-core",
  "candle-nn",

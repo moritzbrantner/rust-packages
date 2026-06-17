@@ -222,7 +222,10 @@ def audit_package(root: Path, package: LibraryPackage) -> ProgressRecord:
         for operation_id in operation_ids
         if operation_id != "describe"
         and (
-            operation_id in app_workflow_group
+            (
+                operation_id in app_workflow_group
+                and not operation_curation_role(find_operation(operations, operation_id))
+            )
             or classify_operation(find_operation(operations, operation_id)) == "workflow"
         )
     ]
@@ -244,7 +247,7 @@ def audit_package(root: Path, package: LibraryPackage) -> ProgressRecord:
     no_scaffold = not any(scaffold in surface_source for scaffold in SCAFFOLD_STRINGS)
 
     parity = companion_parity(root, package)
-    app_status = app_default_status(root, package, operation_ids, workflow_operations)
+    app_status = app_default_status(root, package, operations, operation_ids, workflow_operations)
     readme = readme_has_quickstart(root, package, operation_ids)
     tests = has_primary_workflow_test(root, package, workflow_operations)
 
@@ -362,25 +365,40 @@ def companion_parity(root: Path, package: LibraryPackage) -> dict[str, bool]:
     }
 
 
-def app_default_status(root: Path, package: LibraryPackage, operation_ids: list[str], workflow_operations: list[str]) -> str:
+def app_default_status(
+    root: Path,
+    package: LibraryPackage,
+    operations: list[dict],
+    operation_ids: list[str],
+    workflow_operations: list[str],
+) -> str:
     app_path = root / "packages" / f"{package.base}-app" / "src" / "App.tsx"
     text = read_text(app_path)
     if not text:
         return "app source missing"
     default = string_property(text, "defaultOperation")
     if not default:
+        if workflow_operations and any(
+            operation_curation_primary(operation) and operation_curation_role(operation) == "workflow"
+            for operation in operations
+        ):
+            return "rust primary workflow"
         return "app default missing"
     if default not in operation_ids:
         return "app default not exposed"
     workflow_group = operations_for_group_label(text, "Workflow")
     debug_group = operations_for_group_label(text, "Debug")
-    if not workflow_group:
+    has_rust_curation = all(
+        operation_curation_role(operation) in {"workflow", "debug", "support"}
+        for operation in operations
+    )
+    if not workflow_group and not has_rust_curation:
         return "Workflow group missing"
-    if not debug_group:
+    if not debug_group and not has_rust_curation:
         return "Debug group missing"
     if default == "describe":
         return "app defaults to describe"
-    if workflow_operations and default not in workflow_group:
+    if workflow_operations and workflow_group and default not in workflow_group:
         return "app default outside Workflow group"
     featured = array_property(text, "featuredOperations")
     if featured and featured[0] == "describe" and workflow_operations:
@@ -699,6 +717,9 @@ def is_allowed(entries: list[RegressionAllow], crate: str, metric: str) -> bool:
 def classify_operation(operation: dict | None) -> str:
     if not operation:
         return "debug"
+    curation_role = operation_curation_role(operation)
+    if curation_role in {"workflow", "debug", "support"}:
+        return curation_role
     schema_category = schema_category_value(operation.get("inputSchema")) or schema_category_value(operation.get("outputSchema"))
     if schema_category in {"workflow", "debug", "support"}:
         return schema_category
@@ -709,6 +730,23 @@ def classify_operation(operation: dict | None) -> str:
     if any(keyword in operation_id or keyword in name for keyword in DEBUG_KEYWORDS):
         return "debug"
     return "workflow"
+
+
+def operation_curation_role(operation: dict | None) -> str | None:
+    if not operation:
+        return None
+    curation = operation.get("curation")
+    if not isinstance(curation, dict):
+        return None
+    role = curation.get("role")
+    return role.lower() if isinstance(role, str) else None
+
+
+def operation_curation_primary(operation: dict | None) -> bool:
+    if not operation:
+        return False
+    curation = operation.get("curation")
+    return isinstance(curation, dict) and curation.get("primary") is True
 
 
 def schema_category_value(schema: object) -> str | None:

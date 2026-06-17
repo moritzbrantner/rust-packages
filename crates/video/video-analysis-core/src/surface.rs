@@ -5,10 +5,11 @@ use num_traits::ToPrimitive;
 use serde::Deserialize;
 
 use crate::runtime::{
-    describe_surface_response, parse_surface_input, structured_operation_response,
-    surface_operation, surface_operation_with_execution_plan, OperationId, PackageSurface,
-    RuntimeCapabilities, SurfaceError, SurfaceExecutionMode, SurfaceExecutionPlan,
-    SurfaceOperation, SurfaceRequest, SurfaceResponse, SurfaceSideEffect,
+    describe_surface_response, parse_surface_input, set_surface_operation_curation,
+    structured_operation_response, surface_operation, surface_operation_with_execution_plan,
+    OperationId, PackageSurface, RuntimeCapabilities, SurfaceError, SurfaceExecutionMode,
+    SurfaceExecutionPlan, SurfaceOperation, SurfaceOperationCuration, SurfaceRequest,
+    SurfaceResponse, SurfaceSideEffect,
 };
 use crate::FrameTimecode;
 
@@ -19,26 +20,35 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            surface_operation(
+            curated(
+                surface_operation(
                 "describe",
                 "Describe package",
                 "Core media, timing, detection, and analyzer contracts for video-analysis.",
                 serde_json::json!({"includeOperations": true}),
             ),
+                SurfaceOperationCuration::debug(900),
+            ),
             timecode_operation(),
-            surface_operation_with_execution_plan(
+            curated(
+                surface_operation_with_execution_plan(
                 "video.core.frameSummary",
                 "Summarize frames",
                 "Summarizes frame timing, dimensions, pixel formats, byte counts, and validation diagnostics.",
                 serde_json::json!({"frames": [{"frameIndex": 0, "timestampSeconds": 0.0, "width": 1920, "height": 1080, "pixelFormat": "rgb24", "stride": 5760, "bytes": 6220800}]}),
                 in_memory_plan("video.core.frameSummary"),
             ),
-            surface_operation_with_execution_plan(
+                SurfaceOperationCuration::workflow(10).primary(),
+            ),
+            curated(
+                surface_operation_with_execution_plan(
                 "video.core.sceneSummary",
                 "Summarize scenes",
                 "Summarizes scene and cut intervals using core video timing contracts.",
                 serde_json::json!({"fps": {"numerator": 24, "denominator": 1}, "scenes": [{"startFrame": 0, "endFrame": 48}, {"startFrame": 48, "endFrame": 96}]}),
                 in_memory_plan("video.core.sceneSummary"),
+            ),
+                SurfaceOperationCuration::debug(910),
             ),
         ],
     }
@@ -52,6 +62,7 @@ fn timecode_operation() -> SurfaceOperation {
         serde_json::json!({"fps": {"numerator": 30000, "denominator": 1001}, "frames": [0, 30], "seconds": [1.5], "timecodes": ["00:00:02.000"]}),
         in_memory_plan("video.core.timecode"),
     );
+    set_surface_operation_curation(&mut operation, SurfaceOperationCuration::workflow(20));
     crate::runtime::attach_landscape_contract(
         &mut operation,
         crate::runtime::landscape::LandscapeOperationContract::new(
@@ -69,6 +80,14 @@ fn timecode_operation() -> SurfaceOperation {
             )),
         ),
     );
+    operation
+}
+
+fn curated(
+    mut operation: SurfaceOperation,
+    curation: SurfaceOperationCuration,
+) -> SurfaceOperation {
+    set_surface_operation_curation(&mut operation, curation);
     operation
 }
 

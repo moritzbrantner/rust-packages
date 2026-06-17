@@ -149,8 +149,7 @@ def write_surface_module(crate_dir: Path, name: str, description: str) -> None:
         f"""//! Library-owned runtime surface for `{name}`.
 
 use {contract_import}::{{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
-    SurfaceResponse,
+    surface_operation, PackageSurface, RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 }};
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -159,24 +158,12 @@ pub fn package_surface() -> PackageSurface {{
         library: env!("CARGO_PKG_NAME").to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
-        operations: vec![SurfaceOperation {{
-            id: OperationId::new("describe"),
-            name: "Describe package".to_string(),
-            description: Some({json.dumps(description)}.to_string()),
-            input_schema: serde_json::json!({{
-                "type": "object",
-                "additionalProperties": true
-            }}),
-            output_schema: serde_json::json!({{
-                "type": "object",
-                "required": ["library", "version", "operationCount"]
-            }}),
-            example_request: serde_json::json!({{
-                "includeOperations": true
-            }}),
-            wasm_supported: true,
-            server_supported: true,
-        }}],
+        operations: vec![surface_operation(
+            "describe",
+            "Describe package",
+            {json.dumps(description)},
+            serde_json::json!({{"includeOperations": true}}),
+        )],
     }}
 }}
 
@@ -991,6 +978,11 @@ export interface SurfaceOperation {
   id: string;
   name: string;
   description?: string;
+  curation?: {
+    role: "workflow" | "debug" | "support";
+    primary: boolean;
+    sortOrder: number;
+  };
   inputSchema: unknown;
   outputSchema: unknown;
   exampleRequest: unknown;
@@ -1131,6 +1123,11 @@ export interface SurfaceOperation {{
   id: string;
   name: string;
   description?: string;
+  curation?: {{
+    role: "workflow" | "debug" | "support";
+    primary: boolean;
+    sortOrder: number;
+  }};
   inputSchema: unknown;
   outputSchema: unknown;
   exampleRequest: unknown;
@@ -1228,22 +1225,6 @@ const packageAppConfig: PackageAppConfig = {{
     scopedRoute: "/api/rust/packages/{base_name}",
     standaloneRoute: "",
   }},
-  defaultOperation: "describe",
-  featuredOperations: ["describe"],
-  operationGroups: [
-    {{
-      id: "workflow",
-      label: "Workflow",
-      description: "Run the main package workflow.",
-      operations: [],
-    }},
-    {{
-      id: "debug",
-      label: "Debug",
-      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
-      operations: ["describe"],
-    }},
-  ],
 }};
 
 export function App() {{

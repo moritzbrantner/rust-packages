@@ -30,6 +30,7 @@ import type {
   SurfaceOperation,
   SurfaceResponse,
   ResultTabDefinition,
+  SurfaceOperationRole,
 } from "./types";
 
 export * from "./types";
@@ -531,19 +532,32 @@ function operationSupportsRuntime(operation: SurfaceOperation | null, runtimeMod
 }
 
 function orderedOperations(operations: SurfaceOperation[], featured?: string[]): SurfaceOperation[] {
-  if (!featured?.length) {
-    return operations;
+  const originalRank = new Map(operations.map((operation, index) => [operation.id, index]));
+  if (featured?.length) {
+    const rank = new Map(featured.map((operation, index) => [operation, index]));
+    return [...operations].sort(
+      (left, right) =>
+        (rank.get(left.id) ?? 999) - (rank.get(right.id) ?? 999) ||
+        (originalRank.get(left.id) ?? 999) - (originalRank.get(right.id) ?? 999),
+    );
   }
-  const rank = new Map(featured.map((operation, index) => [operation, index]));
-  return [...operations].sort((left, right) => (rank.get(left.id) ?? 999) - (rank.get(right.id) ?? 999));
+  return [...operations].sort(
+    (left, right) =>
+      roleRank(operationRole(left)) - roleRank(operationRole(right)) ||
+      operationSortOrder(left) - operationSortOrder(right) ||
+      (originalRank.get(left.id) ?? 999) - (originalRank.get(right.id) ?? 999),
+  );
 }
 
 function groupedOperations(
   operations: SurfaceOperation[],
   groups?: OperationGroupDefinition[],
 ): OperationWorkbenchGroup[] | undefined {
-  if (!groups?.length || operations.length === 0) {
+  if (operations.length === 0) {
     return undefined;
+  }
+  if (!groups?.length) {
+    return groupedOperationsByCuration(operations);
   }
 
   const byId = new Map(operations.map((operation) => [operation.id, operation]));
@@ -576,6 +590,43 @@ function groupedOperations(
   }
 
   return workbenchGroups.length > 1 ? workbenchGroups : undefined;
+}
+
+function groupedOperationsByCuration(operations: SurfaceOperation[]): OperationWorkbenchGroup[] | undefined {
+  const labels: Record<SurfaceOperationRole, string> = {
+    workflow: "Workflow",
+    support: "Support",
+    debug: "Debug",
+  };
+  const groups: OperationWorkbenchGroup[] = (["workflow", "support", "debug"] as SurfaceOperationRole[])
+    .map((role) => ({
+      id: role,
+      label: labels[role],
+      description: undefined,
+      operations: operations.filter((operation) => operationRole(operation) === role),
+    }))
+    .filter((group) => group.operations.length > 0);
+
+  return groups.length > 1 ? groups : undefined;
+}
+
+function operationRole(operation: SurfaceOperation): SurfaceOperationRole {
+  const role = operation.curation?.role;
+  if (role === "workflow" || role === "support" || role === "debug") {
+    return role;
+  }
+  if (operation.id === "describe") {
+    return "debug";
+  }
+  return "workflow";
+}
+
+function operationSortOrder(operation: SurfaceOperation): number {
+  return typeof operation.curation?.sortOrder === "number" ? operation.curation.sortOrder : operationRole(operation) === "debug" ? 900 : 100;
+}
+
+function roleRank(role: SurfaceOperationRole): number {
+  return role === "workflow" ? 0 : role === "support" ? 1 : 2;
 }
 
 function groupedScenarioOptions(
@@ -691,8 +742,9 @@ function initializeSelection(
   }
 
   const operation =
-    findOperation(surface.operations, current) ??
     findOperation(surface.operations, config.defaultOperation) ??
+    preferredOperation(surface.operations) ??
+    findOperation(surface.operations, current) ??
     surface.operations[0];
   if (!operation) {
     return;
@@ -722,6 +774,14 @@ function findOperation(operations: SurfaceOperation[], operationId: string | nul
     return undefined;
   }
   return operations.find((operation) => operation.id === operationId);
+}
+
+function preferredOperation(operations: SurfaceOperation[]): SurfaceOperation | undefined {
+  return (
+    operations.find((operation) => operation.curation?.primary) ??
+    operations.find((operation) => operationRole(operation) === "workflow") ??
+    operations[0]
+  );
 }
 
 function readRuntimeMode(config: PackageAppConfig): RuntimeMode {

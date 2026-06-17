@@ -184,11 +184,16 @@ impl PyannoteCommunityDiarizer {
         let resolved = resolve_config(config)?;
         let manifest = load_manifest(&resolved.bundle_path, DEFAULT_MANIFEST_FILE)?;
         validate_manifest(&manifest)?;
-        let segmentation =
-            OnnxSession::from_file_cpu_single_threaded(&resolved.segmentation_model_path)
-                .map_err(map_onnx_session_error)?;
-        let embedding = OnnxSession::from_file_cpu_single_threaded(&resolved.embedding_model_path)
-            .map_err(map_onnx_session_error)?;
+        let segmentation = OnnxSession::from_file_with_options(
+            &resolved.segmentation_model_path,
+            runtime_onnx::OnnxSessionOptions::default(),
+        )
+        .map_err(map_onnx_session_error)?;
+        let embedding = OnnxSession::from_file_with_options(
+            &resolved.embedding_model_path,
+            runtime_onnx::OnnxSessionOptions::default(),
+        )
+        .map_err(map_onnx_session_error)?;
         Ok(Self {
             manifest,
             segmentation,
@@ -238,6 +243,7 @@ impl PyannoteCommunityDiarizer {
         let diagnostics = vec![
             "diarizationProvider=pyannote".to_string(),
             "diarizationRuntime=onnx".to_string(),
+            "pyannoteOnnxGraphOptimization=default".to_string(),
             format!("diarizationModel={}", self.manifest.model_id),
             format!("diarizationSpeakerCount={speaker_count}"),
             format!(

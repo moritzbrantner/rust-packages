@@ -117,9 +117,9 @@ audio-analysis-processing = { package = "moritzbrantner-audio-analysis-processin
 audio-analysis-recognition = { package = "moritzbrantner-audio-analysis-recognition", version = "0.1.0", path = "crates/audio/audio-analysis-recognition" }
 audio-analysis-rhythm = { package = "moritzbrantner-audio-analysis-rhythm", version = "0.1.0", path = "crates/audio/audio-analysis-rhythm" }
 audio-analysis-separation = { package = "moritzbrantner-audio-analysis-separation", version = "0.1.0", path = "crates/audio/audio-analysis-separation" }
-audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.0", path = "crates/audio/audio-analysis-speakers" }
+audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.2", path = "crates/audio/audio-analysis-speakers" }
 audio-analysis-synthesis = { package = "moritzbrantner-audio-analysis-synthesis", version = "0.1.0", path = "crates/audio/audio-analysis-synthesis" }
-audio-analysis-transcription = { package = "moritzbrantner-audio-analysis-transcription", version = "0.1.2", path = "crates/audio/audio-analysis-transcription" }
+audio-analysis-transcription = { package = "moritzbrantner-audio-analysis-transcription", version = "0.1.5", path = "crates/audio/audio-analysis-transcription" }
 audio-analysis-test-support = { package = "moritzbrantner-audio-analysis-test-support", version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
 video-analysis-test-support = { package = "moritzbrantner-video-analysis-test-support", version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
 image-analysis-core = { package = "moritzbrantner-image-analysis-core", version = "0.1.0", path = "crates/image/image-analysis-core" }

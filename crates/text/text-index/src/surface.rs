@@ -1,9 +1,9 @@
 //! Library-owned runtime surface for `text-index`.
 
 use runtime_core::{
-    primary_workflow_operation, structured_surface_value, OperationId, PackageSurface,
-    RuntimeCapabilities, SurfaceError, SurfaceOperation, SurfaceRequest, SurfaceResponse,
-    SurfaceRuntimeContext,
+    primary_workflow_operation, set_surface_operation_curation, structured_surface_value,
+    OperationId, PackageSurface, RuntimeCapabilities, SurfaceError, SurfaceOperation,
+    SurfaceOperationCuration, SurfaceRequest, SurfaceResponse, SurfaceRuntimeContext,
 };
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -402,7 +402,7 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    if id == "index.search" {
+    let mut operation = if id == "index.search" {
         primary_workflow_operation(
             id,
             name,
@@ -418,7 +418,20 @@ fn operation(
         )
     } else {
         runtime_core::surface_operation(id, name, description, example_request)
-    }
+    };
+    let curation = match id {
+        "index.search" => SurfaceOperationCuration::workflow(10).primary(),
+        "index.build" => SurfaceOperationCuration::workflow(20),
+        "index.addDocuments" => SurfaceOperationCuration::workflow(30),
+        "index.snapshotPlan" => SurfaceOperationCuration::workflow(40),
+        "index.removeDocuments" => SurfaceOperationCuration::support(500),
+        "describe" => SurfaceOperationCuration::debug(900),
+        "index.open" => SurfaceOperationCuration::debug(910),
+        "index.inspect" => SurfaceOperationCuration::debug(920),
+        _ => SurfaceOperationCuration::from_operation_id(id),
+    };
+    set_surface_operation_curation(&mut operation, curation);
+    operation
 }
 
 #[derive(Debug, Deserialize)]

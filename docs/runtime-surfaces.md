@@ -75,6 +75,17 @@ from `video-analysis-core::runtime`:
 - `SurfaceRequest`
 - `SurfaceResponse`
 
+`SurfaceOperation` includes Rust-owned curation metadata:
+
+- `role`: `workflow`, `support`, or `debug`
+- `primary`: whether this operation is the default package workflow
+- `sortOrder`: stable ordering within its role
+
+Shared app workbenches use this curation for operation grouping, default
+selection, and ordering unless an app config supplies an explicit presentation
+override. Runtime schemas still include `xOperationCategory` for backward
+compatibility with older package-surface consumers and audit tools.
+
 Generic `OperationResult<T>`, `JobResult<T>`, `JobManifest`, `ArtifactRef`, and
 artifact stores live in `jobs-core`.
 

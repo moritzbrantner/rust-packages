@@ -106,10 +106,13 @@ an explicit runtime storage context, declare filesystem/network side effects
 through `xExecutionPlan`, and stay unsupported in WASM. Compatibility-only
 surface calls may return plans without performing setup.
 
-Primary workflow operations declare strict request schemas
-(`additionalProperties: false`), `xOperationCategory: "workflow"`,
-`xReleaseStability`, `xContractPolicy`, typed error-shape metadata, and any
-required `xExecutionPlan` or lower-contract proof metadata. The tracer gate
+Primary workflow operations declare typed `SurfaceOperation.curation` metadata
+with `role: "workflow"` and `primary: true` for the default package workflow.
+They also declare strict request schemas (`additionalProperties: false`), keep
+legacy `xOperationCategory: "workflow"` schema extensions synchronized for
+older consumers, include `xReleaseStability`, `xContractPolicy`, typed
+error-shape metadata, and any required `xExecutionPlan` or lower-contract proof
+metadata. The tracer gate
 currently enforces this for `image.classification.classify`, `index.search`,
 and `video.sfm.reconstruct`; workspace-wide enforcement expands only after this
 pattern proves stable.
@@ -182,9 +185,12 @@ Text package operations declare release contract metadata in their
 `SurfaceOperation` schemas. Top-level request fields are explicit
 (`additionalProperties: false`), outputs preserve the structured
 `operation`/`title`/`message`/`summary`/`result` shape, and schema extensions
-record `xOperationCategory`, `xReleaseStability`, `xContractPolicy`, resource
-limits, and the typed error shape. During the release train, operation IDs and
-declared fields are additive-only unless a versioned migration is documented.
+record backward-compatible `xOperationCategory`, `xReleaseStability`,
+`xContractPolicy`, resource limits, and the typed error shape. First-class
+operation placement belongs in `SurfaceOperation.curation`; app configs should
+only override grouping, defaulting, or ordering for presentation exceptions.
+During the release train, operation IDs and declared fields are additive-only
+unless a versioned migration is documented.
 Malformed JSON shapes and unknown operations should use the shared
 `SurfaceError` envelope with `code`, `message`, `operation`, and `details`;
 server adapters expose the same code and message in their HTTP diagnostics.

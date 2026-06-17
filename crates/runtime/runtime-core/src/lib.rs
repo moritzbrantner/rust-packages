@@ -168,12 +168,102 @@ pub struct PackageSurface {
     pub capabilities: RuntimeCapabilities,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceOperationCuration {
+    pub role: SurfaceOperationRole,
+    pub primary: bool,
+    pub sort_order: u16,
+}
+
+impl SurfaceOperationCuration {
+    pub fn workflow(sort_order: u16) -> Self {
+        Self {
+            role: SurfaceOperationRole::Workflow,
+            primary: false,
+            sort_order,
+        }
+    }
+
+    pub fn debug(sort_order: u16) -> Self {
+        Self {
+            role: SurfaceOperationRole::Debug,
+            primary: false,
+            sort_order,
+        }
+    }
+
+    pub fn support(sort_order: u16) -> Self {
+        Self {
+            role: SurfaceOperationRole::Support,
+            primary: false,
+            sort_order,
+        }
+    }
+
+    pub fn primary(mut self) -> Self {
+        self.primary = true;
+        self
+    }
+
+    pub fn from_operation_id(operation_id: &str) -> Self {
+        if operation_id == "describe" {
+            Self::debug(900)
+        } else {
+            match operation_category(operation_id) {
+                "debug" => Self::debug(900),
+                "support" => Self::support(500),
+                _ => Self::workflow(100),
+            }
+        }
+    }
+
+    fn legacy_category(&self) -> &'static str {
+        self.role.legacy_category()
+    }
+}
+
+impl Default for SurfaceOperationCuration {
+    fn default() -> Self {
+        Self::workflow(100)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SurfaceOperationRole {
+    Workflow,
+    Debug,
+    Support,
+}
+
+impl SurfaceOperationRole {
+    fn legacy_category(self) -> &'static str {
+        match self {
+            Self::Workflow => "workflow",
+            Self::Debug => "debug",
+            Self::Support => "support",
+        }
+    }
+
+    fn from_legacy_category(value: &str) -> Option<Self> {
+        match value {
+            "workflow" => Some(Self::Workflow),
+            "debug" => Some(Self::Debug),
+            "support" => Some(Self::Support),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SurfaceOperation {
     pub id: OperationId,
     pub name: String,
     pub description: Option<String>,
+    #[serde(default)]
+    pub curation: SurfaceOperationCuration,
     pub input_schema: serde_json::Value,
     pub output_schema: serde_json::Value,
     pub example_request: serde_json::Value,
@@ -575,16 +665,20 @@ pub fn surface_operation(
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
     let id = id.into();
-    SurfaceOperation {
+    let curation = SurfaceOperationCuration::from_operation_id(&id);
+    let mut operation = SurfaceOperation {
         id: OperationId::new(id.clone()),
         name: name.into(),
         description: Some(description.into()),
         input_schema: surface_input_schema(&id, &example_request),
         output_schema: surface_output_schema(&id),
+        curation: curation.clone(),
         example_request,
         wasm_supported: true,
         server_supported: true,
-    }
+    };
+    set_surface_operation_curation(&mut operation, curation);
+    operation
 }
 
 pub fn surface_operation_with_execution_plan(
@@ -622,10 +716,9 @@ pub fn primary_workflow_operation(
     } else {
         surface_operation(id, name, description, example_request)
     };
-    add_surface_operation_schema_extension(
+    set_surface_operation_curation(
         &mut operation,
-        "xOperationCategory",
-        serde_json::json!("workflow"),
+        SurfaceOperationCuration::workflow(0).primary(),
     );
     if !lower_contracts.is_empty() {
         let proof = serde_json::json!({
@@ -652,8 +745,30 @@ pub fn add_surface_operation_schema_extension(
     value: serde_json::Value,
 ) {
     let key = key.into();
+    if key == "xOperationCategory" {
+        if let Some(category) = value
+            .as_str()
+            .and_then(SurfaceOperationRole::from_legacy_category)
+        {
+            operation.curation.role = category;
+        }
+    }
     insert_schema_extension(&mut operation.input_schema, &key, value.clone());
     insert_schema_extension(&mut operation.output_schema, &key, value);
+}
+
+pub fn set_surface_operation_curation(
+    operation: &mut SurfaceOperation,
+    curation: SurfaceOperationCuration,
+) {
+    let category = serde_json::json!(curation.legacy_category());
+    operation.curation = curation;
+    insert_schema_extension(
+        &mut operation.input_schema,
+        "xOperationCategory",
+        category.clone(),
+    );
+    insert_schema_extension(&mut operation.output_schema, "xOperationCategory", category);
 }
 
 pub fn landscape_operation_contract_value(
@@ -1538,6 +1653,7 @@ mod tests {
                 id: OperationId::new("describe"),
                 name: "Describe".to_string(),
                 description: Some("Describe package surface".to_string()),
+                curation: SurfaceOperationCuration::from_operation_id("describe"),
                 input_schema: serde_json::json!({"type": "object"}),
                 output_schema: serde_json::json!({"type": "object"}),
                 example_request: serde_json::json!({}),
@@ -1549,8 +1665,64 @@ mod tests {
         let json = serde_json::to_string(&surface).expect("serialize surface");
 
         assert!(json.contains("\"inputSchema\""));
+        assert!(json.contains("\"curation\""));
         assert!(json.contains("\"exampleRequest\""));
         assert!(json.contains("\"wasmSupported\":true"));
+    }
+
+    #[test]
+    fn surface_operation_curation_serializes_and_deserializes() {
+        let operation = surface_operation(
+            "demo.run",
+            "Run demo",
+            "Run a demo workflow",
+            serde_json::json!({"text": "hello"}),
+        );
+
+        let value = serde_json::to_value(&operation).expect("serialize operation");
+        assert_eq!(value["curation"]["role"], "workflow");
+        assert_eq!(value["curation"]["primary"], false);
+        assert_eq!(value["curation"]["sortOrder"], 100);
+
+        let round_trip: SurfaceOperation =
+            serde_json::from_value(value).expect("deserialize operation");
+        assert_eq!(round_trip.curation, SurfaceOperationCuration::workflow(100));
+    }
+
+    #[test]
+    fn surface_operation_deserializes_without_curation() {
+        let json = serde_json::json!({
+            "id": "describe",
+            "name": "Describe",
+            "description": "Describe package surface",
+            "inputSchema": {"type": "object", "xOperationCategory": "debug"},
+            "outputSchema": {"type": "object", "xOperationCategory": "debug"},
+            "exampleRequest": {},
+            "wasmSupported": true,
+            "serverSupported": true
+        });
+
+        let operation: SurfaceOperation =
+            serde_json::from_value(json).expect("deserialize old operation JSON");
+
+        assert_eq!(operation.id.as_str(), "describe");
+        assert_eq!(operation.curation, SurfaceOperationCuration::default());
+    }
+
+    #[test]
+    fn set_surface_operation_curation_syncs_legacy_schema_category() {
+        let mut operation = surface_operation(
+            "demo.inspect",
+            "Inspect demo",
+            "Inspect demo inputs",
+            serde_json::json!({}),
+        );
+
+        set_surface_operation_curation(&mut operation, SurfaceOperationCuration::debug(750));
+
+        assert_eq!(operation.curation, SurfaceOperationCuration::debug(750));
+        assert_eq!(operation.input_schema["xOperationCategory"], "debug");
+        assert_eq!(operation.output_schema["xOperationCategory"], "debug");
     }
 
     #[test]

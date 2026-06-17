@@ -83,6 +83,7 @@ fn operation(
         id: OperationId::new(id),
         name: name.to_string(),
         description: Some(description.to_string()),
+        curation: runtime_core::SurfaceOperationCuration::from_operation_id(id),
         input_schema,
         output_schema,
         example_request,

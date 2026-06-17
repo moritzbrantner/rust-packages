@@ -1,9 +1,10 @@
 //! Library-owned runtime surface for `model-runtime`.
 
 use runtime_core::{
-    describe_surface_response, parse_surface_input, structured_operation_response,
-    surface_operation, surface_operation_with_execution_plan, OperationId, PackageSurface,
-    RuntimeCapabilities, SurfaceError, SurfaceExecutionMode, SurfaceExecutionPlan, SurfaceRequest,
+    describe_surface_response, parse_surface_input, set_surface_operation_curation,
+    structured_operation_response, surface_operation, surface_operation_with_execution_plan,
+    OperationId, PackageSurface, RuntimeCapabilities, SurfaceError, SurfaceExecutionMode,
+    SurfaceExecutionPlan, SurfaceOperation, SurfaceOperationCuration, SurfaceRequest,
     SurfaceResponse, SurfaceSideEffect,
 };
 use serde::Deserialize;
@@ -20,47 +21,73 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            surface_operation(
+            curated(
+                surface_operation(
                 "describe",
                 "Describe package",
                 "Generic model specs, bundle plans, presets, and job helpers for multimodal runtimes.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            surface_operation_with_execution_plan(
+                SurfaceOperationCuration::debug(900),
+            ),
+            curated(
+                surface_operation_with_execution_plan(
                 "model.executionPlan",
                 "Model execution plan",
                 "Validates a model access job request and returns a pure execution plan without spawning jobs or running inference.",
                 serde_json::json!({"id": "model-job-1", "kind": "Inference", "spec": {"name": "demo-model", "task": "text_embedding", "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"}, "files": [{"required": "config.json"}]}, "backend": "heuristic", "inputs": [{"kind": "json", "value": {"text": "hello"}}], "outputArtifactPrefix": "prediction"}),
                 surface_plan("model.executionPlan"),
             ),
-            surface_operation_with_execution_plan(
+                SurfaceOperationCuration::workflow(10).primary(),
+            ),
+            curated(
+                surface_operation_with_execution_plan(
                 "model.bundlePlan",
                 "Model bundle plan",
                 "Plans manifest layout and artifact references for a model spec and optional local file list without network or materialization.",
                 serde_json::json!({"spec": {"name": "demo-model", "task": "text_embedding", "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"}, "files": [{"required": "config.json"}]}, "localFiles": ["config.json"]}),
                 surface_plan("model.bundlePlan"),
             ),
-            surface_operation_with_execution_plan(
+                SurfaceOperationCuration::workflow(20),
+            ),
+            curated(
+                surface_operation_with_execution_plan(
                 "model.jobManifest",
                 "Model job manifest",
                 "Projects a planned model access job into a deterministic JobManifest without starting a job.",
                 serde_json::json!({"id": "model-job-1", "kind": "Inference", "spec": {"name": "demo-model", "task": "text_embedding", "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"}, "files": [{"required": "config.json"}]}, "backend": "heuristic", "outputArtifactPrefix": "prediction"}),
                 surface_plan("model.jobManifest"),
             ),
-            surface_operation(
+                SurfaceOperationCuration::workflow(30),
+            ),
+            curated(
+                surface_operation(
                 "model.presets",
                 "Model presets",
                 "Lists model preset ids and derived model spec summaries without downloading models.",
                 serde_json::json!({}),
             ),
-            surface_operation(
+                SurfaceOperationCuration::debug(910),
+            ),
+            curated(
+                surface_operation(
                 "model.spec",
                 "Model spec",
                 "Validates a ModelSpec-shaped input and returns safe name, task, source, files, and revision.",
                 serde_json::json!({"name": "demo-model", "task": "text_embedding", "source": {"kind": "hugging_face", "repo_id": "demo/model", "revision": "main"}, "files": [{"required": "config.json"}]}),
             ),
+                SurfaceOperationCuration::debug(920),
+            ),
         ],
     }
+}
+
+fn curated(
+    mut operation: SurfaceOperation,
+    curation: SurfaceOperationCuration,
+) -> SurfaceOperation {
+    set_surface_operation_curation(&mut operation, curation);
+    operation
 }
 
 fn surface_plan(operation: &str) -> SurfaceExecutionPlan {

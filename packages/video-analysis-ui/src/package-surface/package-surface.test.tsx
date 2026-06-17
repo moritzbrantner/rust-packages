@@ -40,6 +40,53 @@ const scenarioOperations = [
   },
 ];
 
+const curatedOperations = [
+  {
+    id: "describe",
+    name: "Describe",
+    description: "Describes the package.",
+    curation: { role: "debug" as const, primary: false, sortOrder: 900 },
+    inputSchema: {},
+    outputSchema: {},
+    exampleRequest: { text: "debug example" },
+    wasmSupported: true,
+    serverSupported: true,
+  },
+  {
+    id: "demo.support",
+    name: "Support demo",
+    description: "Runs support planning.",
+    curation: { role: "support" as const, primary: false, sortOrder: 500 },
+    inputSchema: {},
+    outputSchema: {},
+    exampleRequest: { text: "support example" },
+    wasmSupported: true,
+    serverSupported: true,
+  },
+  {
+    id: "demo.secondary",
+    name: "Secondary workflow",
+    description: "Runs a secondary workflow.",
+    curation: { role: "workflow" as const, primary: false, sortOrder: 20 },
+    inputSchema: {},
+    outputSchema: {},
+    exampleRequest: { text: "secondary example" },
+    wasmSupported: true,
+    serverSupported: true,
+  },
+  {
+    id: "demo.primary",
+    name: "Primary workflow",
+    description: "Runs the primary workflow.",
+    curation: { role: "workflow" as const, primary: true, sortOrder: 10 },
+    inputSchema: {},
+    outputSchema: {},
+    exampleRequest: { text: "primary example" },
+    wasmSupported: true,
+    serverSupported: true,
+  },
+];
+
 function config(overrides: Partial<PackageAppConfig> = {}): PackageAppConfig {
   return {
     library: "demo-package",
@@ -646,6 +693,62 @@ describe("PackageSurfaceWorkbench", () => {
     expect(await screen.findByRole("option", { name: "Inspect JSON" })).toBeTruthy();
     expect(screen.queryByRole("option", { name: "Run demo" })).toBeNull();
     expect((await screen.findByDisplayValue(/inspect/)) as HTMLTextAreaElement).toBeTruthy();
+  });
+
+  test("derives operation groups and primary selection from Rust curation", async () => {
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          wasm: {
+            init: vi.fn(async () => undefined),
+            packageSurface: vi.fn(() => ({
+              library: "demo-package",
+              version: "0.1.0",
+              capabilities: {},
+              operations: curatedOperations,
+            })),
+            runOperation: vi.fn(async () => operationResponse),
+          },
+        })}
+      />,
+    );
+
+    expect(await screen.findByRole("tab", { name: "Workflow" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Support" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Debug" })).toBeTruthy();
+    expect((screen.getByRole("combobox", { name: "Operation" }) as HTMLSelectElement).value).toBe("demo.primary");
+    expect(screen.getByRole("option", { name: "Primary workflow" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Secondary workflow" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Support" }));
+    expect(await screen.findByRole("option", { name: "Support demo" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Primary workflow" })).toBeNull();
+  });
+
+  test("uses featured operations as a presentation ordering override", async () => {
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          featuredOperations: ["demo.secondary", "demo.primary"],
+          wasm: {
+            init: vi.fn(async () => undefined),
+            packageSurface: vi.fn(() => ({
+              library: "demo-package",
+              version: "0.1.0",
+              capabilities: {},
+              operations: [curatedOperations[3], curatedOperations[2]],
+            })),
+            runOperation: vi.fn(async () => operationResponse),
+          },
+        })}
+      />,
+    );
+
+    const operation = (await screen.findByRole("combobox", { name: "Operation" })) as HTMLSelectElement;
+    expect([...operation.options].map((option) => option.textContent)).toEqual([
+      "Secondary workflow",
+      "Primary workflow",
+    ]);
   });
 
   test("falls back to overview server when WASM initialization fails", async () => {

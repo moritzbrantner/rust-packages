@@ -270,8 +270,17 @@ def audit_one_package_quality(package: LibraryPackage, failures: list[str]) -> N
         for operation in operations
         if isinstance(operation.get("id"), str)
     }
+    operations_by_id = {
+        operation["id"]: operation
+        for operation in operations
+        if isinstance(operation.get("id"), str)
+    }
     for operation_id in app_workflow_operation_ids(package):
-        if operation_id != "describe" and operation_id in operation_categories:
+        if (
+            operation_id != "describe"
+            and operation_id in operation_categories
+            and not operation_curation_role(operations_by_id.get(operation_id, {}))
+        ):
             operation_categories[operation_id] = "workflow"
     if any(operation_id != "describe" for operation_id in operation_ids) and not any(
         category == "workflow"
@@ -281,7 +290,7 @@ def audit_one_package_quality(package: LibraryPackage, failures: list[str]) -> N
         failures.append(f"{package.name}: no non-debug workflow operation classified")
 
     validate_cli_invalid_behavior(package.name, failures)
-    validate_app_config(package.name, operation_ids, operation_categories, failures)
+    validate_app_config(package.name, operations, operation_ids, operation_categories, failures)
     validate_readme_quickstart(package, operation_ids, failures)
 
 
@@ -553,6 +562,7 @@ def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
 
 def validate_app_config(
     crate: str,
+    operations: list[dict],
     operation_ids: list[str],
     operation_categories: dict[str, str],
     failures: list[str],
@@ -563,13 +573,23 @@ def validate_app_config(
         failures.append(f"{crate}: missing app source {app_path.relative_to(ROOT)}")
         return
     text = app_path.read_text(encoding="utf-8")
-    for token in ["defaultOperation", "featuredOperations", "operationGroups"]:
-        if token not in text:
-            failures.append(f"{crate}: app config missing `{token}`")
-    if 'label: "Workflow"' not in text and "label: 'Workflow'" not in text:
-        failures.append(f"{crate}: app config missing Workflow operation group")
-    if 'label: "Debug"' not in text and "label: 'Debug'" not in text:
-        failures.append(f"{crate}: app config missing Debug operation group")
+    has_rust_curation = all(
+        operation_curation_role(operation) in {"workflow", "debug", "support"}
+        for operation in operations
+    )
+    has_app_grouping = "operationGroups" in text
+    has_app_defaulting = any(
+        token in text for token in ["defaultOperation", "featuredOperations", "operationGroups"]
+    )
+    if not has_rust_curation:
+        for token in ["defaultOperation", "featuredOperations", "operationGroups"]:
+            if token not in text:
+                failures.append(f"{crate}: app config missing `{token}`")
+    if has_app_grouping or not has_rust_curation:
+        if 'label: "Workflow"' not in text and "label: 'Workflow'" not in text:
+            failures.append(f"{crate}: app config missing Workflow operation group")
+        if 'label: "Debug"' not in text and "label: 'Debug'" not in text:
+            failures.append(f"{crate}: app config missing Debug operation group")
 
     workflow_operations = [
         operation_id
@@ -583,6 +603,13 @@ def validate_app_config(
 
     default_match = re.search(r"defaultOperation:\s*[\"']([^\"']+)[\"']", text)
     if not default_match:
+        if has_app_defaulting and not has_rust_curation:
+            failures.append(f"{crate}: app config missing `defaultOperation`")
+        if workflow_operations and has_rust_curation and not any(
+            operation_curation_primary(operation) and operation_curation_role(operation) == "workflow"
+            for operation in operations
+        ):
+            failures.append(f"{crate}: Rust curation has workflow operations but no primary workflow")
         return
     default_operation = default_match.group(1)
     if default_operation not in operation_ids:
@@ -626,6 +653,9 @@ def validate_readme_quickstart(
 
 
 def classify_operation(operation: dict) -> str:
+    curation_role = operation_curation_role(operation)
+    if curation_role in {"workflow", "debug", "support"}:
+        return curation_role
     schema_category = schema_category_value(operation.get("inputSchema")) or schema_category_value(
         operation.get("outputSchema")
     )
@@ -638,6 +668,19 @@ def classify_operation(operation: dict) -> str:
     if any(keyword in operation_id or keyword in name for keyword in DEBUG_OPERATION_KEYWORDS):
         return "debug"
     return "workflow"
+
+
+def operation_curation_role(operation: dict) -> str | None:
+    curation = operation.get("curation")
+    if not isinstance(curation, dict):
+        return None
+    role = curation.get("role")
+    return role.lower() if isinstance(role, str) else None
+
+
+def operation_curation_primary(operation: dict) -> bool:
+    curation = operation.get("curation")
+    return isinstance(curation, dict) and curation.get("primary") is True
 
 
 def schema_category_value(schema: object) -> str | None:

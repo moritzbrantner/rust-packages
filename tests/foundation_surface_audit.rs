@@ -1,4 +1,4 @@
-use runtime_core::{PackageSurface, SurfaceRequest, SurfaceResponse};
+use runtime_core::{PackageSurface, SurfaceOperationRole, SurfaceRequest, SurfaceResponse};
 
 type SurfaceFn = fn() -> PackageSurface;
 type RunFn = fn(SurfaceRequest) -> Result<SurfaceResponse, String>;
@@ -156,6 +156,113 @@ fn runtime_job_surfaces_expose_execution_plan_metadata() {
     }
 }
 
+#[test]
+fn pilot_foundation_surfaces_expose_typed_curation() {
+    for (crate_name, surface, expected) in [
+        (
+            "jobs-core",
+            jobs_core::surface::package_surface(),
+            vec![
+                ("describe", SurfaceOperationRole::Debug, false, 900),
+                ("jobs.spec", SurfaceOperationRole::Debug, false, 910),
+                ("jobs.progress", SurfaceOperationRole::Debug, false, 920),
+                ("jobs.lifecycle", SurfaceOperationRole::Workflow, true, 10),
+                ("jobs.manifest", SurfaceOperationRole::Workflow, false, 20),
+                ("jobs.events", SurfaceOperationRole::Debug, false, 930),
+                (
+                    "jobs.artifactValidate",
+                    SurfaceOperationRole::Debug,
+                    false,
+                    940,
+                ),
+            ],
+        ),
+        (
+            "model-runtime",
+            model_runtime::surface::package_surface(),
+            vec![
+                ("describe", SurfaceOperationRole::Debug, false, 900),
+                (
+                    "model.executionPlan",
+                    SurfaceOperationRole::Workflow,
+                    true,
+                    10,
+                ),
+                (
+                    "model.bundlePlan",
+                    SurfaceOperationRole::Workflow,
+                    false,
+                    20,
+                ),
+                (
+                    "model.jobManifest",
+                    SurfaceOperationRole::Workflow,
+                    false,
+                    30,
+                ),
+                ("model.presets", SurfaceOperationRole::Debug, false, 910),
+                ("model.spec", SurfaceOperationRole::Debug, false, 920),
+            ],
+        ),
+        (
+            "video-analysis-core",
+            video_analysis_core::surface::package_surface(),
+            vec![
+                ("describe", SurfaceOperationRole::Debug, false, 900),
+                (
+                    "video.core.timecode",
+                    SurfaceOperationRole::Workflow,
+                    false,
+                    20,
+                ),
+                (
+                    "video.core.frameSummary",
+                    SurfaceOperationRole::Workflow,
+                    true,
+                    10,
+                ),
+                (
+                    "video.core.sceneSummary",
+                    SurfaceOperationRole::Debug,
+                    false,
+                    910,
+                ),
+            ],
+        ),
+    ] {
+        for (id, role, primary, sort_order) in expected {
+            let operation = surface
+                .operations
+                .iter()
+                .find(|operation| operation.id.as_str() == id)
+                .unwrap_or_else(|| panic!("{crate_name} missing {id}"));
+            assert_eq!(operation.curation.role, role, "{crate_name} {id} role");
+            assert_eq!(
+                operation.curation.primary, primary,
+                "{crate_name} {id} primary"
+            );
+            assert_eq!(
+                operation.curation.sort_order, sort_order,
+                "{crate_name} {id} sort order"
+            );
+        }
+    }
+}
+
+#[test]
+fn pilot_foundation_apps_derive_operation_curation_from_rust() {
+    for crate_name in ["jobs-core", "model-runtime", "video-analysis-core"] {
+        let app = std::fs::read_to_string(format!("packages/{crate_name}-app/src/App.tsx"))
+            .unwrap_or_else(|error| panic!("{crate_name} app config missing: {error}"));
+        for token in ["defaultOperation", "featuredOperations", "operationGroups"] {
+            assert!(
+                !app.contains(token),
+                "{crate_name} app should derive `{token}` from Rust curation"
+            );
+        }
+    }
+}
+
 fn assert_release_schema(crate_name: &str, operation: &runtime_core::SurfaceOperation) {
     let id = operation.id.as_str();
     assert_eq!(
@@ -177,6 +284,10 @@ fn assert_release_schema(crate_name: &str, operation: &runtime_core::SurfaceOper
     assert!(
         operation.input_schema["xOperationCategory"].is_string(),
         "{crate_name} {id} missing operation category"
+    );
+    assert!(
+        operation.output_schema["xOperationCategory"].is_string(),
+        "{crate_name} {id} missing output operation category"
     );
     assert!(
         operation.input_schema["xErrorShape"].is_object(),

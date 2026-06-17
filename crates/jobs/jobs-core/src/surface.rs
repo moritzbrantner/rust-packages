@@ -1,10 +1,11 @@
 //! Library-owned runtime surface for `jobs-core`.
 
 use runtime_core::{
-    describe_surface_response, parse_surface_input, structured_operation_response,
-    surface_operation, surface_operation_with_execution_plan, validate_max_items, OperationId,
-    PackageSurface, RuntimeCapabilities, SurfaceArtifactExpectation, SurfaceError,
-    SurfaceExecutionMode, SurfaceExecutionPlan, SurfaceRequest, SurfaceResponse, SurfaceSideEffect,
+    describe_surface_response, parse_surface_input, set_surface_operation_curation,
+    structured_operation_response, surface_operation, surface_operation_with_execution_plan,
+    validate_max_items, OperationId, PackageSurface, RuntimeCapabilities,
+    SurfaceArtifactExpectation, SurfaceError, SurfaceExecutionMode, SurfaceExecutionPlan,
+    SurfaceOperation, SurfaceOperationCuration, SurfaceRequest, SurfaceResponse, SurfaceSideEffect,
 };
 use serde::Deserialize;
 
@@ -24,27 +25,37 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            surface_operation(
+            curated(
+                surface_operation(
                 "describe",
                 "Describe package",
                 "Reusable long-running job state, cancellation, progress, logs, and artifact primitives.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            surface_operation_with_execution_plan(
+                SurfaceOperationCuration::debug(900),
+            ),
+            curated(
+                surface_operation_with_execution_plan(
                 "jobs.spec",
                 "Validate job spec",
                 "Validates a JobSpec input and returns normalized id, name, kind, and metadata.",
                 serde_json::json!({"id": "job-1", "name": "Demo job", "kind": "demo", "metadata": {"owner": "surface"}}),
                 in_memory_plan("jobs.spec", None, Vec::new()),
             ),
-            surface_operation_with_execution_plan(
+                SurfaceOperationCuration::debug(910),
+            ),
+            curated(
+                surface_operation_with_execution_plan(
                 "jobs.progress",
                 "Validate job progress",
                 "Validates JobProgress input and returns fraction and percent when a total is known.",
                 serde_json::json!({"completed": 2, "total": 4, "unit": "steps", "message": "halfway"}),
                 in_memory_plan("jobs.progress", Some("steps"), Vec::new()),
             ),
-            surface_operation_with_execution_plan(
+                SurfaceOperationCuration::debug(920),
+            ),
+            curated(
+                surface_operation_with_execution_plan(
                 "jobs.lifecycle",
                 "Script job lifecycle",
                 "Creates an in-memory tracker, applies a short lifecycle script, and returns the final snapshot and events.",
@@ -61,7 +72,10 @@ pub fn package_surface() -> PackageSurface {
                     }],
                 ),
             ),
-            surface_operation_with_execution_plan(
+                SurfaceOperationCuration::workflow(10).primary(),
+            ),
+            curated(
+                surface_operation_with_execution_plan(
                 "jobs.manifest",
                 "Build job manifest",
                 "Builds a deterministic JobManifest from inline spec, progress, artifact, and metadata inputs.",
@@ -78,22 +92,38 @@ pub fn package_surface() -> PackageSurface {
                     }],
                 ),
             ),
-            surface_operation_with_execution_plan(
+                SurfaceOperationCuration::workflow(20),
+            ),
+            curated(
+                surface_operation_with_execution_plan(
                 "jobs.events",
                 "Replay job events",
                 "Replays and filters a short inline lifecycle script into ordered job events.",
                 serde_json::json!({"spec": {"id": "job-1", "name": "Demo job"}, "script": ["running", "progress", "log", "artifact", "succeeded"], "filter": {"afterSequence": 2, "kind": "progress"}}),
                 in_memory_plan("jobs.events", Some("steps"), Vec::new()),
             ),
-            surface_operation_with_execution_plan(
+                SurfaceOperationCuration::debug(930),
+            ),
+            curated(
+                surface_operation_with_execution_plan(
                 "jobs.artifactValidate",
                 "Validate artifact metadata",
                 "Validates inline artifact media type, size, checksum, and metadata expectations without reading files.",
                 serde_json::json!({"artifact": {"id": "report", "kind": "json", "mediaType": "application/json", "uri": "memory://job-1/report.json", "sizeBytes": 2, "sha256": "abcd"}, "expectedMediaType": "application/json", "expectedSha256": "abcd", "requiredMetadata": {}}),
                 in_memory_plan("jobs.artifactValidate", None, Vec::new()),
             ),
+                SurfaceOperationCuration::debug(940),
+            ),
         ],
     }
+}
+
+fn curated(
+    mut operation: SurfaceOperation,
+    curation: SurfaceOperationCuration,
+) -> SurfaceOperation {
+    set_surface_operation_curation(&mut operation, curation);
+    operation
 }
 
 fn in_memory_plan(

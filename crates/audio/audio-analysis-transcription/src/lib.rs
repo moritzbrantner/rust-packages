@@ -72,6 +72,56 @@ pub struct TranscriptionPipelineRequest {
     pub output: TranscriptionOutputOptions,
 }
 
+/// Phase-level observer event emitted by the native transcription pipeline.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TranscriptionPipelineEvent {
+    ValidationStart,
+    DecodeStart,
+    DecodeEnd {
+        duration_seconds: f64,
+        samples: usize,
+    },
+    VadStart {
+        provider: String,
+    },
+    VadEnd {
+        segments: usize,
+        windows: Option<usize>,
+    },
+    AsrStart {
+        model_id: String,
+    },
+    AsrEnd {
+        segments: usize,
+    },
+    AlignmentStart {
+        model_id: String,
+    },
+    AlignmentEnd {
+        words: usize,
+    },
+    DiarizationStart {
+        provider: String,
+    },
+    DiarizationEnd {
+        speakers: usize,
+        segments: usize,
+    },
+}
+
+/// Observer for phase-level native transcription progress.
+pub trait TranscriptionPipelineObserver {
+    fn observe(&mut self, event: TranscriptionPipelineEvent);
+}
+
+/// Observer implementation that discards all events.
+#[derive(Debug, Default)]
+pub struct NoopTranscriptionPipelineObserver;
+
+impl TranscriptionPipelineObserver for NoopTranscriptionPipelineObserver {
+    fn observe(&mut self, _event: TranscriptionPipelineEvent) {}
+}
+
 /// Source accepted by transcription providers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", untagged)]
@@ -1183,12 +1233,42 @@ pub fn run_transcription_pipeline(
     alignment_provider: Option<&mut dyn ForcedAlignmentProvider>,
     diarization_provider: Option<&mut dyn TranscriptDiarizationProvider>,
 ) -> Result<TranscriptionPipelineResponse> {
+    let mut observer = NoopTranscriptionPipelineObserver;
+    run_transcription_pipeline_with_observer(
+        request,
+        vad_provider,
+        asr_provider,
+        alignment_provider,
+        diarization_provider,
+        &mut observer,
+    )
+}
+
+/// Runs the provider-agnostic native transcription pipeline and emits phase events.
+pub fn run_transcription_pipeline_with_observer(
+    request: TranscriptionPipelineRequest,
+    vad_provider: &mut dyn TranscriptionVadProvider,
+    asr_provider: &mut dyn AudioTranscriptionProvider,
+    alignment_provider: Option<&mut dyn ForcedAlignmentProvider>,
+    diarization_provider: Option<&mut dyn TranscriptDiarizationProvider>,
+    observer: &mut dyn TranscriptionPipelineObserver,
+) -> Result<TranscriptionPipelineResponse> {
+    observer.observe(TranscriptionPipelineEvent::ValidationStart);
     validate_batch_options_for_provider(&request.provider)?;
     validate_task_options_for_request(&request)?;
     let provider = request.provider.provider_id().to_string();
     let model_id = request.provider.model_id().to_string();
     let task = request.provider.task();
+    observer.observe(TranscriptionPipelineEvent::DecodeStart);
+    let decode_started = Instant::now();
     let audio = LoadedAudio::mono_16khz_from_source(&request.source)?;
+    observer.observe(TranscriptionPipelineEvent::DecodeEnd {
+        duration_seconds: decode_started.elapsed().as_secs_f64(),
+        samples: audio.samples.len(),
+    });
+    observer.observe(TranscriptionPipelineEvent::VadStart {
+        provider: vad_provider.provider_id().to_string(),
+    });
     let vad_response = if request.vad.enabled {
         vad_provider.detect_speech(VadRequest {
             audio: audio.clone(),
@@ -1204,8 +1284,16 @@ pub fn run_transcription_pipeline(
             diagnostics: vec!["VAD disabled; using full source as one ASR chunk".to_string()],
         }
     };
+    observer.observe(TranscriptionPipelineEvent::VadEnd {
+        segments: vad_response.segments.len(),
+        windows: diagnostic_usize(&vad_response.diagnostics, "pyannoteVadWindows")
+            .or_else(|| diagnostic_usize(&vad_response.diagnostics, "sileroVadWindows")),
+    });
 
     let language = provider_language(&request.provider);
+    observer.observe(TranscriptionPipelineEvent::AsrStart {
+        model_id: model_id.clone(),
+    });
     let mut asr_response = asr_provider.transcribe(AsrRequest {
         audio: audio.clone(),
         chunks: vad_response.segments.clone(),
@@ -1213,6 +1301,9 @@ pub fn run_transcription_pipeline(
         language: language.clone(),
         model_id: model_id.clone(),
     })?;
+    observer.observe(TranscriptionPipelineEvent::AsrEnd {
+        segments: asr_response.transcript.segments.len(),
+    });
     if !asr_response
         .diagnostics
         .iter()
@@ -1244,12 +1335,18 @@ pub fn run_transcription_pipeline(
         let provider = alignment_provider.ok_or_else(|| {
             setup_error("alignment requested but no alignment provider is available")
         })?;
+        observer.observe(TranscriptionPipelineEvent::AlignmentStart {
+            model_id: request.alignment.model_id.clone(),
+        });
         let alignment_response = provider.align(AlignmentRequest {
             audio: audio.clone(),
             transcript: transcript.clone(),
             language: language.clone(),
             model_id: request.alignment.model_id.clone(),
         })?;
+        observer.observe(TranscriptionPipelineEvent::AlignmentEnd {
+            words: alignment_response.words.len(),
+        });
         apply_alignment_words(&mut transcript, &alignment_response.words)?;
         apply_alignment_chars(&mut transcript, &alignment_response.chars)?;
         alignment_summary = Some(AlignmentSummary {
@@ -1266,7 +1363,14 @@ pub fn run_transcription_pipeline(
         let provider = diarization_provider.ok_or_else(|| {
             setup_error("diarization requested but no diarization provider is available")
         })?;
+        observer.observe(TranscriptionPipelineEvent::DiarizationStart {
+            provider: diarization_progress_provider(provider.provider_id(), &request.diarization),
+        });
         let response = provider.diarize(audio, &transcript, &request.diarization)?;
+        observer.observe(TranscriptionPipelineEvent::DiarizationEnd {
+            speakers: diarization_speaker_count(&response),
+            segments: response.segments.len(),
+        });
         diagnostics.extend(diarization_diagnostics(
             provider.provider_id(),
             &response,
@@ -1760,6 +1864,27 @@ fn diarization_speaker_count(response: &SpeakerDiarizationResponse) -> usize {
         .map(|segment| segment.speaker.as_str())
         .collect::<std::collections::BTreeSet<_>>()
         .len()
+}
+
+fn diagnostic_usize(diagnostics: &[String], key: &str) -> Option<usize> {
+    let prefix = format!("{key}=");
+    diagnostics
+        .iter()
+        .find_map(|diagnostic| diagnostic.strip_prefix(&prefix))
+        .and_then(|value| value.parse().ok())
+}
+
+fn diarization_progress_provider(provider_id: &str, options: &DiarizationOptions) -> String {
+    if options
+        .model_id
+        .trim()
+        .to_ascii_lowercase()
+        .starts_with("pyannote/")
+    {
+        "pyannote".to_string()
+    } else {
+        provider_id.to_string()
+    }
 }
 
 fn diarization_diagnostics(

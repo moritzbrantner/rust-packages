@@ -1,4 +1,4 @@
-use runtime_core::{PackageSurface, SurfaceRequest, SurfaceResponse};
+use runtime_core::{PackageSurface, SurfaceOperationRole, SurfaceRequest, SurfaceResponse};
 
 type SurfaceFn = fn() -> PackageSurface;
 type RunFn = fn(SurfaceRequest) -> Result<SurfaceResponse, String>;
@@ -85,6 +85,18 @@ fn text_surfaces_declare_release_contracts() {
                 "{} {id} has the wrong operation category",
                 case.crate_name
             );
+            assert_eq!(
+                operation.output_schema["xOperationCategory"],
+                expected_category(&case, id),
+                "{} {id} output schema has the wrong operation category",
+                case.crate_name
+            );
+            assert_eq!(
+                operation.curation.role,
+                expected_role(&case, id),
+                "{} {id} has the wrong typed curation role",
+                case.crate_name
+            );
             if case.crate_name == "text-question-answering" && id == "qa.answerWithRetrieval" {
                 assert_eq!(
                     operation.input_schema["xDeprecated"], true,
@@ -92,8 +104,7 @@ fn text_surfaces_declare_release_contracts() {
                     case.crate_name
                 );
                 assert_eq!(
-                    operation.input_schema["xReplacementOperation"],
-                    "qa.answerWithIndex",
+                    operation.input_schema["xReplacementOperation"], "qa.answerWithIndex",
                     "{} {id} must point to the replacement workflow",
                     case.crate_name
                 );
@@ -103,8 +114,7 @@ fn text_surfaces_declare_release_contracts() {
                     case.crate_name
                 );
                 assert_eq!(
-                    operation.output_schema["xReplacementOperation"],
-                    "qa.answerWithIndex",
+                    operation.output_schema["xReplacementOperation"], "qa.answerWithIndex",
                     "{} {id} output schema must point to the replacement workflow",
                     case.crate_name
                 );
@@ -174,6 +184,10 @@ fn text_package_apps_define_audited_operation_groups() {
     for case in text_surface_cases() {
         let app = std::fs::read_to_string(format!("packages/{}-app/src/App.tsx", case.crate_name))
             .unwrap_or_else(|error| panic!("{} app config missing: {error}", case.crate_name));
+        if case.crate_name == "text-index" {
+            assert_rust_owned_app_curation(&app, case.crate_name);
+            continue;
+        }
         assert!(
             app.contains(&format!("defaultOperation: \"{}\"", case.workflow[0])),
             "{} app default operation is not the primary workflow",
@@ -343,6 +357,23 @@ fn expected_category(case: &TextSurfaceCase, operation: &str) -> &'static str {
         "support"
     } else {
         "workflow"
+    }
+}
+
+fn expected_role(case: &TextSurfaceCase, operation: &str) -> SurfaceOperationRole {
+    match expected_category(case, operation) {
+        "debug" => SurfaceOperationRole::Debug,
+        "support" => SurfaceOperationRole::Support,
+        _ => SurfaceOperationRole::Workflow,
+    }
+}
+
+fn assert_rust_owned_app_curation(app: &str, crate_name: &str) {
+    for token in ["defaultOperation", "featuredOperations", "operationGroups"] {
+        assert!(
+            !app.contains(token),
+            "{crate_name} app should derive `{token}` from Rust curation"
+        );
     }
 }
 
@@ -537,11 +568,7 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
                 "qa.answerWithRetrieval",
                 "qa.answerBatch",
             ],
-            workflow: &[
-                "qa.answer",
-                "qa.answerWithIndex",
-                "qa.answerBatch",
-            ],
+            workflow: &["qa.answer", "qa.answerWithIndex", "qa.answerBatch"],
             debug: &["qa.models", "describe"],
             support: &["qa.answerWithRetrieval"],
             invalid_operation: "qa.answer",

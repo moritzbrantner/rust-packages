@@ -1,4 +1,4 @@
-use runtime_core::{PackageSurface, SurfaceRequest, SurfaceResponse};
+use runtime_core::{PackageSurface, SurfaceOperationRole, SurfaceRequest, SurfaceResponse};
 
 type SurfaceFn = fn() -> PackageSurface;
 type RunFn = fn(SurfaceRequest) -> Result<SurfaceResponse, String>;
@@ -86,7 +86,57 @@ fn audio_surfaces_declare_complete_operation_metadata() {
                 "{} {id} output schema must be an object",
                 case.crate_name
             );
+            assert!(
+                operation.input_schema["xOperationCategory"].is_string(),
+                "{} {id} missing operation category",
+                case.crate_name
+            );
+            assert!(
+                operation.output_schema["xOperationCategory"].is_string(),
+                "{} {id} missing output operation category",
+                case.crate_name
+            );
+            assert!(
+                matches!(
+                    operation.curation.role,
+                    SurfaceOperationRole::Workflow
+                        | SurfaceOperationRole::Debug
+                        | SurfaceOperationRole::Support
+                ),
+                "{} {id} missing typed curation role",
+                case.crate_name
+            );
         }
+    }
+}
+
+#[test]
+fn audio_core_surface_exposes_expected_typed_curation() {
+    let surface = audio_analysis_core::surface::package_surface();
+    for (id, role, primary, sort_order) in [
+        ("describe", SurfaceOperationRole::Debug, false, 900),
+        ("audio.levels", SurfaceOperationRole::Workflow, true, 10),
+        ("audio.frames", SurfaceOperationRole::Workflow, false, 20),
+        ("audio.timestamps", SurfaceOperationRole::Debug, false, 910),
+    ] {
+        let operation = surface
+            .operations
+            .iter()
+            .find(|operation| operation.id.as_str() == id)
+            .unwrap_or_else(|| panic!("audio-analysis-core missing {id}"));
+        assert_eq!(operation.curation.role, role, "{id} role");
+        assert_eq!(operation.curation.primary, primary, "{id} primary");
+        assert_eq!(operation.curation.sort_order, sort_order, "{id} sort order");
+        assert_eq!(
+            operation.input_schema["xOperationCategory"],
+            expected_category_for_role(role),
+            "{id} input schema category"
+        );
+        assert_eq!(
+            operation.output_schema["xOperationCategory"],
+            expected_category_for_role(role),
+            "{id} output schema category"
+        );
     }
 }
 
@@ -132,6 +182,10 @@ fn audio_surfaces_return_unknown_operation_errors() {
 fn audio_package_apps_define_complete_operation_groups() {
     for case in audio_surface_cases() {
         let app = app_source(case.crate_name);
+        if case.crate_name == "audio-analysis-core" {
+            assert_rust_owned_app_curation(&app, case.crate_name);
+            continue;
+        }
         assert!(
             app.contains(&format!("defaultOperation: \"{}\"", case.workflow[0])),
             "{} app default operation is not the primary workflow",
@@ -196,6 +250,23 @@ fn audio_package_apps_define_complete_operation_groups() {
             !app.contains("label: \"Support\""),
             "{} app should not define a Support group",
             case.crate_name
+        );
+    }
+}
+
+fn expected_category_for_role(role: SurfaceOperationRole) -> &'static str {
+    match role {
+        SurfaceOperationRole::Workflow => "workflow",
+        SurfaceOperationRole::Debug => "debug",
+        SurfaceOperationRole::Support => "support",
+    }
+}
+
+fn assert_rust_owned_app_curation(app: &str, crate_name: &str) {
+    for token in ["defaultOperation", "featuredOperations", "operationGroups"] {
+        assert!(
+            !app.contains(token),
+            "{crate_name} app should derive `{token}` from Rust curation"
         );
     }
 }

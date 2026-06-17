@@ -69,6 +69,27 @@ class PackageSurfaceAuditTests(unittest.TestCase):
 
         self.assertEqual(failures, [])
 
+    def test_classify_operation_prefers_typed_curation_role(self) -> None:
+        operation = {
+            "id": "demo.inspect",
+            "name": "Inspect workflow",
+            "curation": {"role": "support", "primary": False, "sortOrder": 500},
+            "inputSchema": {"xOperationCategory": "debug"},
+            "outputSchema": {"xOperationCategory": "workflow"},
+        }
+
+        self.assertEqual(audit.classify_operation(operation), "support")
+
+    def test_classify_operation_falls_back_to_legacy_schema_category(self) -> None:
+        operation = {
+            "id": "demo.inspect",
+            "name": "Inspect workflow",
+            "inputSchema": {"xOperationCategory": "support"},
+            "outputSchema": {"xOperationCategory": "workflow"},
+        }
+
+        self.assertEqual(audit.classify_operation(operation), "support")
+
 
 if __name__ == "__main__":
     unittest.main()

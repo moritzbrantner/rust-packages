@@ -15,22 +15,6 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/video-analysis-core",
     standaloneRoute: "",
   },
-  defaultOperation: "video.core.frameSummary",
-  featuredOperations: ["video.core.frameSummary", "video.core.timecode", "video.core.sceneSummary", "describe"],
-  operationGroups: [
-    {
-      id: "workflow",
-      label: "Workflow",
-      description: "Run the main package workflow.",
-      operations: ["video.core.frameSummary", "video.core.timecode"],
-    },
-    {
-      id: "debug",
-      label: "Debug",
-      description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
-      operations: ["describe", "video.core.sceneSummary"],
-    },
-  ],
 };
 
 export function App() {

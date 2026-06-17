@@ -1,8 +1,9 @@
 //! Library-owned runtime surface for `audio-analysis-core`.
 
 use runtime_core::{
-    describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
-    RuntimeCapabilities, SurfaceError, SurfaceOperation, SurfaceRequest, SurfaceResponse,
+    describe_surface_response, set_surface_operation_curation, structured_surface_response,
+    surface_operation, PackageSurface, RuntimeCapabilities, SurfaceError, SurfaceOperation,
+    SurfaceOperationCuration, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -55,6 +56,14 @@ fn operation(
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
     let mut operation = surface_operation(id, name, description, example_request);
+    let curation = match id {
+        "audio.levels" => SurfaceOperationCuration::workflow(10).primary(),
+        "audio.frames" => SurfaceOperationCuration::workflow(20),
+        "audio.timestamps" => SurfaceOperationCuration::debug(910),
+        "describe" => SurfaceOperationCuration::debug(900),
+        _ => SurfaceOperationCuration::from_operation_id(id),
+    };
+    set_surface_operation_curation(&mut operation, curation);
     if id == "audio.levels" {
         runtime_core::attach_landscape_contract(
             &mut operation,

@@ -15,29 +15,7 @@ const packageAppConfig: PackageAppConfig = {
     scopedRoute: "/api/rust/packages/text-index",
     standaloneRoute: "",
   },
-  defaultOperation: "index.search",
   defaultPresetId: "hybrid-search",
-  featuredOperations: ["index.search", "index.build", "index.inspect", "index.snapshotPlan", "describe"],
-  operationGroups: [
-    {
-      id: "workflow",
-      label: "Workflow",
-      description: "Build, search, and plan transient text indexes.",
-      operations: ["index.search", "index.build", "index.addDocuments", "index.snapshotPlan"],
-    },
-    {
-      id: "debug",
-      label: "Debug",
-      description: "Inspect package metadata and operation support.",
-      operations: ["describe", "index.open", "index.inspect"],
-    },
-    {
-      id: "support",
-      label: "Support",
-      description: "Plan durable index support operations without browser-side writes.",
-      operations: ["index.removeDocuments"],
-    },
-  ],
   presets: [
     {
       id: "build-index",

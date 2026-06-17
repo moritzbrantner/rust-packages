@@ -21,12 +21,21 @@ export interface SurfaceOperation {
   id: string;
   name: string;
   description?: string;
+  curation?: SurfaceOperationCuration;
   inputSchema: unknown;
   outputSchema: unknown;
   landscape?: LandscapeOperationContract;
   exampleRequest: unknown;
   wasmSupported: boolean;
   serverSupported: boolean;
+}
+
+export type SurfaceOperationRole = "workflow" | "debug" | "support";
+
+export interface SurfaceOperationCuration {
+  role: SurfaceOperationRole;
+  primary: boolean;
+  sortOrder: number;
 }
 
 export interface LandscapeOperationContract {
