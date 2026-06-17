@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
+#[cfg(feature = "pyannote-diarization")]
+pub mod pyannote;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -61,7 +63,16 @@ pub struct SpeakerDiarizationResponse {
     pub runtime: AudioRuntime,
     /// Speaker segments.
     pub segments: Vec<SpeakerSegmentPrediction>,
+    /// Optional speaker centroids or embeddings returned by providers that can expose them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker_embeddings: Option<BTreeMap<String, SpeakerEmbedding>>,
 }
+
+#[cfg(feature = "pyannote-diarization")]
+pub use pyannote::{
+    PyannoteCommunityDiarizationConfig, PyannoteCommunityDiarizationResult,
+    PyannoteCommunityDiarizer,
+};
 
 /// Speaker assignment policy for transcript segments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
@@ -2648,6 +2659,7 @@ pub fn diarize_speakers(request: SpeakerDiarizationRequest) -> Result<SpeakerDia
             model_id,
             runtime: AudioRuntime::Imported,
             segments,
+            speaker_embeddings: None,
         });
     }
 
@@ -2665,6 +2677,7 @@ pub fn diarize_speakers(request: SpeakerDiarizationRequest) -> Result<SpeakerDia
                     end_seconds: duration,
                     score: Some(1.0),
                 }],
+                speaker_embeddings: None,
             })
         }
         FallbackPolicy::Error => Err(DetectError::InvalidArgument(
@@ -2693,6 +2706,7 @@ pub fn diarize_speaker_audio_baseline(
         model_id: "native-spectral-speaker-baseline".to_string(),
         runtime: AudioRuntime::Heuristic,
         segments,
+        speaker_embeddings: None,
     })
 }
 
@@ -3072,6 +3086,7 @@ mod tests {
                     score: Some(0.9),
                 },
             ],
+            speaker_embeddings: None,
         };
 
         let assigned = assign_speakers_to_transcript(&transcript, &diarization).unwrap();
@@ -3105,6 +3120,7 @@ mod tests {
                 end_seconds: 4.0,
                 score: Some(1.0),
             }],
+            speaker_embeddings: None,
         };
 
         let assigned = assign_speakers_to_transcript(&transcript, &diarization).unwrap();
@@ -3138,6 +3154,7 @@ mod tests {
                     score: Some(0.1),
                 },
             ],
+            speaker_embeddings: None,
         };
 
         let assigned = assign_speakers_to_transcript_with_policy(
@@ -3170,6 +3187,7 @@ mod tests {
                 end_seconds: 1.5,
                 score: Some(1.0),
             }],
+            speaker_embeddings: None,
         };
 
         let assigned = assign_speakers_to_transcript_with_policy(
