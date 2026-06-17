@@ -32,9 +32,16 @@ Start with [docs/API_CONTRACTS.md](docs/API_CONTRACTS.md) for foundation
 contract ownership and [docs/PACKAGE_SURFACE_MATRIX.md](docs/PACKAGE_SURFACE_MATRIX.md)
 for the audited package-surface integration map.
 
+Package surfaces are the primary public interface for cross-runtime consumers.
+Use the library-owned `package_surface()` and `run_surface_operation*` APIs, plus
+their CLI/server/WASM/app adapters, for workflow execution and discovery. The
+root `moritzbrantner-video-analysis` crate remains an umbrella compatibility
+facade for existing Rust callers; new workflow behavior should be proven through
+the owning package surface rather than new root facade exports.
+
 Package README index:
 
-- Root facade: [`moritzbrantner-video-analysis`](src/lib.rs), [README](README.md)
+- Root compatibility facade: [`moritzbrantner-video-analysis`](src/lib.rs), [README](README.md)
 - Audio: [`moritzbrantner-audio-analysis-core`](crates/audio/audio-analysis-core/README.md), [`moritzbrantner-audio-generation-midi`](crates/audio/audio-generation-midi/README.md), [`moritzbrantner-audio-analysis-fourier`](crates/audio/audio-analysis-fourier/README.md), [`moritzbrantner-audio-analysis-io`](crates/audio/audio-analysis-io/README.md), [`moritzbrantner-audio-analysis-pitch`](crates/audio/audio-analysis-pitch/README.md), [`moritzbrantner-audio-analysis-processing`](crates/audio/audio-analysis-processing/README.md), [`moritzbrantner-audio-analysis-recognition`](crates/audio/audio-analysis-recognition/README.md), [`moritzbrantner-audio-analysis-rhythm`](crates/audio/audio-analysis-rhythm/README.md), [`moritzbrantner-audio-analysis-separation`](crates/audio/audio-analysis-separation/README.md), [`moritzbrantner-audio-analysis-speakers`](crates/audio/audio-analysis-speakers/README.md), [`moritzbrantner-audio-analysis-synthesis`](crates/audio/audio-analysis-synthesis/README.md)
 - ComfyUI: [`moritzbrantner-comfyui-data`](crates/comfyui/comfyui-data/README.md), [`moritzbrantner-comfyui-latents`](crates/comfyui/comfyui-latents/README.md), [`moritzbrantner-comfyui-models`](crates/comfyui/comfyui-models/README.md)
 - Data: [`moritzbrantner-data-inversion-core`](crates/data/data-inversion-core/README.md), [`moritzbrantner-graph-analysis-core`](crates/data/graph-analysis-core/README.md), [`moritzbrantner-numbers-core`](crates/data/numbers-core/README.md), [`moritzbrantner-tensor-data`](crates/data/tensor-data/README.md), [`moritzbrantner-dense-data`](crates/data/dense-data/README.md)
@@ -46,7 +53,7 @@ Package README index:
 - Video: [`moritzbrantner-video-analysis-core`](crates/video/video-analysis-core/README.md), [`moritzbrantner-video-analysis-data`](crates/video/video-analysis-data/README.md), [`moritzbrantner-video-analysis-dataset`](crates/video/video-analysis-dataset/README.md), [`moritzbrantner-video-analysis-detectors`](crates/video/video-analysis-detectors/README.md), [`moritzbrantner-video-analysis-editing`](crates/video/video-analysis-editing/README.md), [`moritzbrantner-video-analysis-features`](crates/video/video-analysis-features/README.md), [`moritzbrantner-video-analysis-ffmpeg`](crates/video/video-analysis-ffmpeg/README.md), [`moritzbrantner-video-analysis-gaussian-splatting`](crates/video/video-analysis-gaussian-splatting/README.md), [`moritzbrantner-video-analysis-ingest`](crates/video/video-analysis-ingest/README.md), [`moritzbrantner-video-analysis-output`](crates/video/video-analysis-output/README.md), [`moritzbrantner-video-analysis-posture`](crates/video/video-analysis-posture/README.md), [`moritzbrantner-video-analysis-posture-io`](crates/video/video-analysis-posture-io/README.md), [`moritzbrantner-video-analysis-radiance-fields`](crates/video/video-analysis-radiance-fields/README.md), [`moritzbrantner-video-analysis-radiance-io`](crates/video/video-analysis-radiance-io/README.md), [`moritzbrantner-video-analysis-radiance-pipeline`](crates/video/video-analysis-radiance-pipeline/README.md), [`moritzbrantner-video-analysis-recognition`](crates/video/video-analysis-recognition/README.md), [`moritzbrantner-video-analysis-reconstruction`](crates/video/video-analysis-reconstruction/README.md), [`moritzbrantner-video-analysis-segmentation`](crates/video/video-analysis-segmentation/README.md), [`moritzbrantner-video-analysis-split`](crates/video/video-analysis-split/README.md), [`moritzbrantner-video-analysis-storage`](crates/video/video-analysis-storage/README.md), [`moritzbrantner-video-analysis-synthesis`](crates/video/video-analysis-synthesis/README.md), [`moritzbrantner-video-analysis-tracking`](crates/video/video-analysis-tracking/README.md), [`moritzbrantner-video-analysis-transform`](crates/video/video-analysis-transform/README.md), [`moritzbrantner-video-analysis-cli`](crates/video/video-analysis-cli/README.md)
 - Prototypes: [`moritzbrantner-video-analysis-use-cases`](prototypes/rust/video-analysis-use-cases/README.md), `@moritzbrantner/video-analysis-web` in `prototypes/web/video-analysis-web`
 
-- `moritzbrantner-video-analysis`: umbrella re-export crate.
+- `moritzbrantner-video-analysis`: umbrella compatibility re-export crate.
 - `moritzbrantner-comfyui-data`: serde contracts and helpers for ComfyUI workflow JSON and
   API prompt graphs, plus typed socket inventory helpers.
 - `moritzbrantner-comfyui-latents`: ComfyUI-oriented latent batches, latent masks, and
@@ -416,8 +423,9 @@ Most functional video crates depend on `video-analysis-core`, while
 `video-analysis-gaussian-splatting` also reuses the camera and geometry
 contracts from `video-analysis-radiance-fields`. `video-analysis-radiance-io`
 keeps COLMAP, Nerfstudio, and PLY parsing out of those core math crates.
-Composition happens in `video-analysis-cli` and the root `video-analysis`
-facade crate. The
+Composition happens in `video-analysis-cli` and package surfaces. The root
+`video-analysis` facade crate is compatibility scaffolding for existing Rust
+imports, not the primary workflow interface. The
 `comfyui-*` crates are standalone ComfyUI interoperability packages for
 applications that need to inspect ComfyUI workflows, prompt graphs, model
 folders, and extra model path configuration.
@@ -999,7 +1007,8 @@ Allowed internal dependencies:
 - `video-analysis-output` -> `video-analysis-core`.
 - `video-analysis-split` -> `video-analysis-core`.
 - `video-analysis-cli` -> crates it composes for CLI workflows.
-- `video-analysis` root facade -> all library crates except CLI.
+- `video-analysis` root facade -> compatibility re-exports for library crates
+  except CLI; new workflow behavior is owned by package surfaces.
 
 Forbidden internal dependencies:
 

@@ -4,7 +4,7 @@ use support::{checkerboard_frame, dataset_with_scene_text_and_feature};
 use video_analysis as va;
 
 #[test]
-fn root_facade_reexports_core_and_domain_packages() {
+fn root_facade_covers_compatibility_reexports() {
     let frame = checkerboard_frame(8, 8, 0);
     let image = va::image_core::ImageView::from_video_frame(&frame.as_frame()).unwrap();
     assert_eq!(image.width, 8);

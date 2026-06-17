@@ -3,9 +3,10 @@
 use std::collections::BTreeMap;
 
 use runtime_core::{
-    describe_surface_response, structured_operation_response, OperationId, PackageSurface,
-    RuntimeCapabilities, RuntimeRequirement, SurfaceExecutionMode, SurfaceExecutionPlan,
-    SurfaceOperation, SurfaceRequest, SurfaceResponse, SurfaceSideEffect,
+    describe_surface_response, primary_workflow_operation, structured_operation_response,
+    OperationId, PackageSurface, RuntimeCapabilities, RuntimeRequirement, SurfaceError,
+    SurfaceExecutionMode, SurfaceExecutionPlan, SurfaceModelExecutionPreference, SurfaceOperation,
+    SurfaceRequest, SurfaceResponse, SurfaceRuntimeContext, SurfaceSideEffect,
 };
 use serde::Deserialize;
 
@@ -70,7 +71,23 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
-    let mut operation = SurfaceOperation {
+    if id == "image.classification.classify" {
+        let mut operation = primary_workflow_operation(
+            id,
+            name,
+            description,
+            example_request,
+            Some(model_execution_plan(id)),
+            &[
+                "moritzbrantner-image-analysis-core",
+                "moritzbrantner-model-runtime",
+                "moritzbrantner-runtime-onnx",
+            ],
+        );
+        operation.wasm_supported = false;
+        return operation;
+    }
+    SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
         description: Some(description.to_string()),
@@ -79,16 +96,7 @@ fn operation(
         example_request,
         wasm_supported: true,
         server_supported: true,
-    };
-    if id == "image.classification.classify" {
-        let plan = model_execution_plan(id);
-        operation.input_schema["xExecutionPlan"] =
-            runtime_core::surface_execution_plan_value(&plan);
-        operation.output_schema["xExecutionPlan"] =
-            runtime_core::surface_execution_plan_value(&plan);
-        operation.wasm_supported = false;
     }
-    operation
 }
 
 fn model_execution_plan(operation: &str) -> SurfaceExecutionPlan {
@@ -126,11 +134,22 @@ fn model_execution_plan(operation: &str) -> SurfaceExecutionPlan {
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    run_surface_operation_with_context(
+        request,
+        &SurfaceRuntimeContext::compatibility_no_side_effects(),
+    )
+}
+
+/// Runs one library-owned operation with explicit runtime/storage permissions.
+pub fn run_surface_operation_with_context(
+    request: SurfaceRequest,
+    context: &SurfaceRuntimeContext,
+) -> Result<SurfaceResponse, String> {
     let surface = package_surface();
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
         "describe" => return Ok(describe_surface_response(&surface, request)),
-        "image.classification.classify" => classify_value(parse_input(request.input)?)?,
+        "image.classification.classify" => classify_value(parse_input(request.input)?, context)?,
         "image.classification.models" => models_value(parse_input(request.input)?)?,
         "image.classification.schema" => schema_summary(),
         "image.classification.imported" => imported_value(parse_input(request.input)?)?,
@@ -203,19 +222,47 @@ fn models_value(request: ModelsRequest) -> Result<serde_json::Value, String> {
     }))
 }
 
-fn classify_value(request: ClassifyRequest) -> Result<serde_json::Value, String> {
+fn classify_value(
+    request: ClassifyRequest,
+    context: &SurfaceRuntimeContext,
+) -> Result<serde_json::Value, String> {
     if request.image.is_none() {
-        return Err("image.classification.classify requires an image payload".to_string());
+        return Err(SurfaceError::invalid_request(
+            Some("image.classification.classify"),
+            "image.classification.classify requires an image payload",
+        )
+        .to_error_string());
     }
     if let Some(limit) = request.limit {
         if limit == 0 {
-            return Err("classification label limit must be greater than zero".to_string());
+            return Err(SurfaceError::invalid_request(
+                Some("image.classification.classify"),
+                "classification label limit must be greater than zero",
+            )
+            .to_error_string());
         }
     }
     let min_score = request.min_score.unwrap_or(0.0);
     if !min_score.is_finite() {
-        return Err("classification minScore must be finite".to_string());
+        return Err(SurfaceError::invalid_request(
+            Some("image.classification.classify"),
+            "classification minScore must be finite",
+        )
+        .to_error_string());
     }
+    if request.auto_download.unwrap_or(context.model.auto_setup)
+        && context.model.preference == SurfaceModelExecutionPreference::ModelFirst
+        && !context.allows_model_auto_setup()
+    {
+        return Err(SurfaceError::permission_denied(
+            Some("image.classification.classify"),
+            "model_auto_setup",
+            "model auto-setup requires native runtime, reads, writes, network, and modelRoot context",
+        )
+        .to_error_string());
+    }
+    let setup_allowed = context.allows_model_auto_setup();
+    let model_root = context.storage.model_root.clone();
     Ok(serde_json::json!({
         "executed": false,
         "serverOnly": true,
@@ -225,10 +272,22 @@ fn classify_value(request: ClassifyRequest) -> Result<serde_json::Value, String>
         "topLabel": null,
         "count": 0,
         "modelId": request.model.unwrap_or_else(|| "Xenova/vit-base-patch16-224".to_string()),
-        "bundlePath": ".model-runtime",
+        "bundlePath": model_root,
         "runtime": "onnx",
-        "autoDownload": request.auto_download.unwrap_or(true),
-        "diagnostics": ["ONNX classification execution is implemented by image-analysis-classification with runtime-onnx; call the native server/backend wrapper for model execution."]
+        "modelExecutionPreference": &context.model.preference,
+        "autoDownload": request.auto_download.unwrap_or(context.model.auto_setup),
+        "setup": {
+            "attempted": setup_allowed,
+            "allowed": setup_allowed,
+            "mode": if setup_allowed { "context-declared" } else { "plan-only" },
+            "requires": ["modelRoot", "network", "writes", "runtime-onnx"]
+        },
+        "contracts": {
+            "image": "moritzbrantner-image-analysis-core::ImageView",
+            "bundle": "moritzbrantner-model-runtime::HuggingFaceModelSpec",
+            "runtime": "moritzbrantner-runtime-onnx"
+        },
+        "diagnostics": ["ONNX classification is model-first. This package-surface call returns a typed execution plan unless a native adapter supplies a capable model runtime context."]
     }))
 }
 
@@ -380,6 +439,12 @@ mod tests {
         assert!(!operation.wasm_supported);
         assert!(operation.server_supported);
         assert!(!operation.input_schema["xExecutionPlan"].is_null());
+        assert_eq!(operation.input_schema["additionalProperties"], false);
+        assert_eq!(operation.input_schema["xOperationCategory"], "workflow");
+        assert_eq!(
+            operation.input_schema["xLowerContractProof"]["crates"][0],
+            "moritzbrantner-image-analysis-core"
+        );
 
         let response = run_surface_operation(SurfaceRequest {
             operation: OperationId::new("image.classification.classify"),
@@ -388,6 +453,73 @@ mod tests {
         .expect("classify");
         assert_eq!(response.value["executed"], false);
         assert_eq!(response.value["runtime"], "onnx");
+        assert_eq!(response.value["setup"]["mode"], "plan-only");
+        assert_eq!(
+            response.value["contracts"]["bundle"],
+            "moritzbrantner-model-runtime::HuggingFaceModelSpec"
+        );
+    }
+
+    #[test]
+    fn classify_denies_auto_setup_without_context_permissions() {
+        let error = run_surface_operation_with_context(
+            SurfaceRequest {
+                operation: OperationId::new("image.classification.classify"),
+                input: serde_json::json!({
+                    "image": sample_image_json(),
+                    "autoDownload": true
+                }),
+            },
+            &SurfaceRuntimeContext {
+                runtime: runtime_core::SurfaceRuntimeKind::NativeCli,
+                side_effects: runtime_core::SurfaceSideEffectPolicy::none(),
+                storage: runtime_core::SurfaceStorageContext::default(),
+                model: runtime_core::SurfaceModelContext {
+                    auto_setup: true,
+                    preference: SurfaceModelExecutionPreference::ModelFirst,
+                },
+            },
+        )
+        .expect_err("auto setup denied");
+        let parsed = runtime_core::parse_surface_error(&error).expect("typed surface error");
+        assert_eq!(parsed.code, "permission_denied");
+        assert_eq!(parsed.details["permission"], "model_auto_setup");
+    }
+
+    #[test]
+    fn classify_accepts_capable_fake_bundle_context() {
+        let response = run_surface_operation_with_context(
+            SurfaceRequest {
+                operation: OperationId::new("image.classification.classify"),
+                input: serde_json::json!({
+                    "image": sample_image_json(),
+                    "model": "vit-base-patch16-224-onnx"
+                }),
+            },
+            &SurfaceRuntimeContext {
+                runtime: runtime_core::SurfaceRuntimeKind::NativeServer,
+                side_effects: runtime_core::SurfaceSideEffectPolicy {
+                    allow_reads: true,
+                    allow_writes: true,
+                    allow_network: true,
+                    allow_external_process: false,
+                    max_download_bytes: Some(64 * 1024 * 1024),
+                },
+                storage: runtime_core::SurfaceStorageContext {
+                    cache_root: Some("memory://cache".to_string()),
+                    artifact_root: None,
+                    model_root: Some("memory://models".to_string()),
+                },
+                model: runtime_core::SurfaceModelContext {
+                    auto_setup: true,
+                    preference: SurfaceModelExecutionPreference::ModelFirst,
+                },
+            },
+        )
+        .expect("capable context");
+        assert_eq!(response.value["bundlePath"], "memory://models");
+        assert_eq!(response.value["setup"]["mode"], "context-declared");
+        assert_eq!(response.value["setup"]["attempted"], true);
     }
 
     #[test]

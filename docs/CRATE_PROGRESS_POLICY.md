@@ -4,6 +4,11 @@ This repository tracks crate progress as generated, reviewable maturity data.
 The goal is to make forward movement visible, catch drift early, and keep each
 library crate usable through the shared package-surface model.
 
+Package surfaces are the primary public interface for cross-runtime consumers.
+The root `moritzbrantner-video-analysis` crate is compatibility/umbrella
+coverage only; crate progress is measured through library-owned package
+surfaces and their adapters.
+
 ## Maturity Levels
 
 Each audited library crate is assigned exactly one level.
@@ -59,6 +64,12 @@ The crate is usable from the default package UI path:
 - Focused tests cover the primary workflow or surface dispatch.
 - Known scaffold/debug-only output has been replaced with domain-specific
   output.
+
+Tracer primary workflows currently have a stricter package-surface gate before
+the rule is expanded workspace-wide. `image.classification.classify`,
+`index.search`, and `video.sfm.reconstruct` must expose strict request schemas,
+workflow metadata, typed error-shape metadata, example requests, and
+lower-contract proof metadata.
 
 ## Regression Rule
 

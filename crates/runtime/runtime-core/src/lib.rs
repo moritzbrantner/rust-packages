@@ -223,6 +223,113 @@ pub struct SurfaceExecutionPlan {
     pub max_recommended_input_bytes: Option<u64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceRuntimeContext {
+    pub runtime: SurfaceRuntimeKind,
+    pub side_effects: SurfaceSideEffectPolicy,
+    pub storage: SurfaceStorageContext,
+    pub model: SurfaceModelContext,
+}
+
+impl SurfaceRuntimeContext {
+    pub fn no_side_effects(runtime: SurfaceRuntimeKind) -> Self {
+        Self {
+            runtime,
+            side_effects: SurfaceSideEffectPolicy::none(),
+            storage: SurfaceStorageContext::default(),
+            model: SurfaceModelContext::plan_only(),
+        }
+    }
+
+    pub fn compatibility_no_side_effects() -> Self {
+        Self::no_side_effects(SurfaceRuntimeKind::Unknown)
+    }
+
+    pub fn allows_model_auto_setup(&self) -> bool {
+        self.model.auto_setup
+            && self.side_effects.allow_reads
+            && self.side_effects.allow_writes
+            && self.side_effects.allow_network
+            && self.storage.model_root.is_some()
+            && self.runtime.can_setup_models()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SurfaceRuntimeKind {
+    NativeCli,
+    NativeServer,
+    Wasm,
+    Browser,
+    Mobile,
+    Unknown,
+}
+
+impl SurfaceRuntimeKind {
+    pub fn can_setup_models(&self) -> bool {
+        matches!(self, Self::NativeCli | Self::NativeServer)
+    }
+
+    pub fn can_run_external_processes(&self) -> bool {
+        matches!(self, Self::NativeCli | Self::NativeServer)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceSideEffectPolicy {
+    pub allow_reads: bool,
+    pub allow_writes: bool,
+    pub allow_network: bool,
+    pub allow_external_process: bool,
+    pub max_download_bytes: Option<u64>,
+}
+
+impl SurfaceSideEffectPolicy {
+    pub fn none() -> Self {
+        Self {
+            allow_reads: false,
+            allow_writes: false,
+            allow_network: false,
+            allow_external_process: false,
+            max_download_bytes: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceStorageContext {
+    pub cache_root: Option<String>,
+    pub artifact_root: Option<String>,
+    pub model_root: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceModelContext {
+    pub auto_setup: bool,
+    pub preference: SurfaceModelExecutionPreference,
+}
+
+impl SurfaceModelContext {
+    pub fn plan_only() -> Self {
+        Self {
+            auto_setup: false,
+            preference: SurfaceModelExecutionPreference::PlanOnly,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SurfaceModelExecutionPreference {
+    ModelFirst,
+    PlanOnly,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SurfaceRequest {
@@ -347,6 +454,22 @@ impl SurfaceError {
             serde_json::json!({
                 "dependency": dependency,
                 "setup": setup
+            }),
+        )
+    }
+
+    pub fn permission_denied(
+        operation: Option<impl Into<OperationId>>,
+        permission: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        let permission = permission.into();
+        Self::new(
+            "permission_denied",
+            operation,
+            message,
+            serde_json::json!({
+                "permission": permission
             }),
         )
     }
@@ -483,6 +606,44 @@ pub fn surface_operation_with_execution_plan(
         "xExecutionPlan",
         execution_plan,
     );
+    operation
+}
+
+pub fn primary_workflow_operation(
+    id: impl Into<String>,
+    name: impl Into<String>,
+    description: impl Into<String>,
+    example_request: serde_json::Value,
+    execution_plan: Option<SurfaceExecutionPlan>,
+    lower_contracts: &[&str],
+) -> SurfaceOperation {
+    let mut operation = if let Some(plan) = execution_plan {
+        surface_operation_with_execution_plan(id, name, description, example_request, plan)
+    } else {
+        surface_operation(id, name, description, example_request)
+    };
+    insert_schema_extension(
+        &mut operation.input_schema,
+        "xOperationCategory",
+        serde_json::json!("workflow"),
+    );
+    insert_schema_extension(
+        &mut operation.output_schema,
+        "xOperationCategory",
+        serde_json::json!("workflow"),
+    );
+    if !lower_contracts.is_empty() {
+        let proof = serde_json::json!({
+            "policy": "primary workflow proves compatibility with lower crate contracts",
+            "crates": lower_contracts
+        });
+        insert_schema_extension(
+            &mut operation.input_schema,
+            "xLowerContractProof",
+            proof.clone(),
+        );
+        insert_schema_extension(&mut operation.output_schema, "xLowerContractProof", proof);
+    }
     operation
 }
 
@@ -1509,6 +1670,59 @@ mod tests {
         assert_eq!(
             operation.input_schema["xExecutionPlan"]["sideEffects"],
             serde_json::json!(["none"])
+        );
+    }
+
+    #[test]
+    fn runtime_context_serializes_and_tracks_no_side_effect_defaults() {
+        let context = SurfaceRuntimeContext::no_side_effects(SurfaceRuntimeKind::Wasm);
+        assert!(!context.side_effects.allow_reads);
+        assert!(!context.side_effects.allow_writes);
+        assert!(!context.side_effects.allow_network);
+        assert_eq!(
+            context.model.preference,
+            SurfaceModelExecutionPreference::PlanOnly
+        );
+        assert!(!context.allows_model_auto_setup());
+
+        let value = serde_json::to_value(&context).expect("serialize context");
+        assert_eq!(value["runtime"], "wasm");
+        assert_eq!(value["sideEffects"]["allowWrites"], false);
+        assert_eq!(value["storage"]["modelRoot"], serde_json::Value::Null);
+
+        let round_trip: SurfaceRuntimeContext =
+            serde_json::from_value(value).expect("deserialize context");
+        assert_eq!(round_trip, context);
+    }
+
+    #[test]
+    fn primary_workflow_operation_attaches_strict_metadata_and_lower_contracts() {
+        let operation = primary_workflow_operation(
+            "demo.workflow",
+            "Run workflow",
+            "Runs the primary workflow.",
+            serde_json::json!({"input": "value"}),
+            None,
+            &[
+                "moritzbrantner-runtime-core",
+                "moritzbrantner-video-analysis-core",
+            ],
+        );
+
+        assert_eq!(
+            operation.input_schema["additionalProperties"],
+            serde_json::json!(false)
+        );
+        assert_eq!(operation.input_schema["xOperationCategory"], "workflow");
+        assert_eq!(operation.input_schema["xReleaseStability"], "stable");
+        assert_eq!(operation.input_schema["xContractPolicy"], "additiveOnly");
+        assert_eq!(
+            operation.input_schema["xErrorShape"]["code"],
+            serde_json::json!("string")
+        );
+        assert_eq!(
+            operation.input_schema["xLowerContractProof"]["crates"][1],
+            "moritzbrantner-video-analysis-core"
         );
     }
 

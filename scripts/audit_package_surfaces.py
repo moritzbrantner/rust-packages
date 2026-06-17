@@ -52,6 +52,11 @@ DEBUG_OPERATION_KEYWORDS = (
     "inventory",
     "providers",
 )
+TRACER_PRIMARY_WORKFLOWS = {
+    "moritzbrantner-image-analysis-classification": "image.classification.classify",
+    "moritzbrantner-text-index": "index.search",
+    "moritzbrantner-video-analysis-sfm": "video.sfm.reconstruct",
+}
 
 
 @dataclass(frozen=True)
@@ -239,6 +244,7 @@ def audit_one_package_quality(package: LibraryPackage, failures: list[str]) -> N
     if not operations:
         failures.append(f"{package.name}: CLI reported no operations")
         return
+    validate_tracer_primary_workflow(package.name, operations, failures)
 
     operation_ids = []
     seen_ids = set()
@@ -395,6 +401,44 @@ def validate_operation_metadata(crate: str, operation: dict, failures: list[str]
             failures.append(f"{crate}:{operation_id}: `{field}` must be boolean")
     if classify_operation(operation) not in {"workflow", "debug", "support"}:
         failures.append(f"{crate}:{operation_id}: operation category could not be classified")
+
+
+def validate_tracer_primary_workflow(
+    crate: str, operations: list[dict], failures: list[str]
+) -> None:
+    primary = TRACER_PRIMARY_WORKFLOWS.get(crate)
+    if not primary:
+        return
+    operation = next(
+        (operation for operation in operations if operation.get("id") == primary),
+        None,
+    )
+    if operation is None:
+        failures.append(f"{crate}: missing tracer primary workflow `{primary}`")
+        return
+    input_schema = operation.get("inputSchema")
+    if not isinstance(input_schema, dict):
+        failures.append(f"{crate}:{primary}: primary workflow inputSchema must be an object")
+        return
+    if input_schema.get("additionalProperties") is not False:
+        failures.append(
+            f"{crate}:{primary}: primary workflow schema must set additionalProperties: false"
+        )
+    example = operation.get("exampleRequest")
+    if not isinstance(example, dict) or not example:
+        failures.append(f"{crate}:{primary}: primary workflow must include an example request")
+    if not isinstance(input_schema.get("xErrorShape"), dict):
+        failures.append(f"{crate}:{primary}: primary workflow must declare typed error shape")
+    if schema_category_value(input_schema) != "workflow":
+        failures.append(f"{crate}:{primary}: primary workflow must declare workflow category")
+    if not input_schema.get("xReleaseStability"):
+        failures.append(f"{crate}:{primary}: primary workflow must declare xReleaseStability")
+    if not input_schema.get("xContractPolicy"):
+        failures.append(f"{crate}:{primary}: primary workflow must declare xContractPolicy")
+    if not isinstance(input_schema.get("xLowerContractProof"), dict):
+        failures.append(
+            f"{crate}:{primary}: primary workflow must declare lower-contract proof metadata"
+        )
 
 
 def run_operation_example(crate: str, operation: dict, failures: list[str]) -> None:

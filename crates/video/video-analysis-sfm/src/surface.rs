@@ -4,8 +4,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use runtime_core::{
-    ensure_structured_surface_value, Diagnostic, DiagnosticSeverity, OperationId, PackageSurface,
-    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
+    ensure_structured_surface_value, primary_workflow_operation, Diagnostic, DiagnosticSeverity,
+    OperationId, PackageSurface, RuntimeCapabilities, RuntimeRequirement, SurfaceError,
+    SurfaceExecutionMode, SurfaceExecutionPlan, SurfaceOperation, SurfaceRequest, SurfaceResponse,
+    SurfaceRuntimeContext, SurfaceSideEffect,
 };
 use serde::Deserialize;
 
@@ -16,6 +18,7 @@ use crate::{
 
 /// Native server-only COLMAP video reconstruction operation.
 pub const RECONSTRUCT_VIDEO_OPERATION: &str = "video.colmap.reconstructVideo";
+pub const SFM_RECONSTRUCT_OPERATION: &str = "video.sfm.reconstruct";
 const COMMAND_PLAN_OPERATION: &str = "video.colmap.commandPlan";
 const IMAGE_LIST_OPERATION: &str = "video.colmap.imageList";
 const SPARSE_SUMMARY_OPERATION: &str = "video.colmap.sparseSummary";
@@ -41,6 +44,12 @@ pub fn package_surface() -> PackageSurface {
                 serde_json::json!({
                     "includeOperations": true
                 }),
+            ),
+            operation(
+                SFM_RECONSTRUCT_OPERATION,
+                "Reconstruct video with SFM provider",
+                "Provider-oriented structure-from-motion workflow that returns a reconstruction plan unless an adapter supplies native execution capability.",
+                reconstruct_video_example_request(),
             ),
             operation(
                 SFM_MATCH_PLAN_OPERATION,
@@ -150,6 +159,24 @@ fn operation(
     description: &str,
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
+    if id == SFM_RECONSTRUCT_OPERATION {
+        let mut operation = primary_workflow_operation(
+            id,
+            name,
+            description,
+            example_request,
+            Some(sfm_reconstruct_execution_plan()),
+            &[
+                "moritzbrantner-video-analysis-core",
+                "moritzbrantner-video-analysis-reconstruction",
+                "moritzbrantner-video-analysis-radiance-fields",
+                "moritzbrantner-video-analysis-radiance-io",
+            ],
+        );
+        operation.wasm_supported = true;
+        operation.server_supported = true;
+        return operation;
+    }
     let mut operation = SurfaceOperation {
         id: OperationId::new(id),
         name: name.to_string(),
@@ -164,6 +191,36 @@ fn operation(
         runtime_core::attach_landscape_contract(&mut operation, contract);
     }
     operation
+}
+
+fn sfm_reconstruct_execution_plan() -> SurfaceExecutionPlan {
+    SurfaceExecutionPlan {
+        operation: OperationId::new(SFM_RECONSTRUCT_OPERATION),
+        mode: SurfaceExecutionMode::ExternalCommand,
+        side_effects: vec![
+            SurfaceSideEffect::ReadsFiles,
+            SurfaceSideEffect::WritesFiles,
+            SurfaceSideEffect::ExternalProcess,
+        ],
+        cancellable: true,
+        progress_unit: Some("stage".to_string()),
+        expected_artifacts: Vec::new(),
+        requirements: vec![
+            RuntimeRequirement {
+                name: "ffmpeg".to_string(),
+                description: Some(
+                    "Extract bounded frames for the selected SFM provider.".to_string(),
+                ),
+                required: true,
+            },
+            RuntimeRequirement {
+                name: "colmap".to_string(),
+                description: Some("Default native sparse reconstruction provider.".to_string()),
+                required: false,
+            },
+        ],
+        max_recommended_input_bytes: None,
+    }
 }
 
 fn landscape_contract(id: &str) -> Option<runtime_core::landscape::LandscapeOperationContract> {
@@ -217,6 +274,17 @@ fn server_operation(
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    run_surface_operation_with_context(
+        request,
+        &SurfaceRuntimeContext::compatibility_no_side_effects(),
+    )
+}
+
+/// Runs one library-owned operation with explicit runtime side-effect policy.
+pub fn run_surface_operation_with_context(
+    request: SurfaceRequest,
+    context: &SurfaceRuntimeContext,
+) -> Result<SurfaceResponse, String> {
     let surface = package_surface();
     let operation = request.operation.clone();
     let Some(surface_operation) = surface
@@ -233,6 +301,9 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
 
     let value = match operation.as_str() {
         "describe" => describe_value(&surface, request.input),
+        SFM_RECONSTRUCT_OPERATION => {
+            return sfm_reconstruct_response(operation, request.input, context);
+        }
         COMMAND_PLAN_OPERATION => command_plan_value(request.input)?,
         IMAGE_LIST_OPERATION => image_list_value(request.input)?,
         SPARSE_SUMMARY_OPERATION => sparse_summary_value(request.input),
@@ -255,6 +326,76 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         operation,
         value,
         diagnostics: Vec::new(),
+        artifacts: Vec::new(),
+    })
+}
+
+fn sfm_reconstruct_response(
+    operation: OperationId,
+    input: serde_json::Value,
+    context: &SurfaceRuntimeContext,
+) -> Result<SurfaceResponse, String> {
+    let plan = command_plan_value(input)?;
+    let can_execute = context.side_effects.allow_external_process
+        && context.side_effects.allow_reads
+        && context.side_effects.allow_writes
+        && context.runtime.can_run_external_processes();
+    if can_execute {
+        return Err(SurfaceError::missing_dependency(
+            Some(operation),
+            "colmap",
+            "install ffmpeg and COLMAP, then execute through the native server adapter",
+        )
+        .to_error_string());
+    }
+
+    let code = if context.runtime.can_run_external_processes() {
+        "external_process_denied"
+    } else {
+        "unsupported_runtime"
+    };
+    let message = if context.runtime.can_run_external_processes() {
+        "video.sfm.reconstruct requires explicit external-process, read, and write permission"
+    } else {
+        "video.sfm.reconstruct cannot execute external SFM providers in this runtime"
+    };
+    let result = serde_json::json!({
+        "provider": "colmap",
+        "executed": false,
+        "canExecute": false,
+        "runtime": &context.runtime,
+        "requiresExternalProcess": true,
+        "contracts": {
+            "video": "moritzbrantner-video-analysis-core",
+            "reconstruction": "moritzbrantner-video-analysis-reconstruction::SparseReconstruction",
+            "radianceFields": "moritzbrantner-video-analysis-radiance-fields",
+            "radianceIo": "moritzbrantner-video-analysis-radiance-io"
+        },
+        "plan": plan,
+    });
+    Ok(SurfaceResponse {
+        value: runtime_core::structured_surface_value(
+            &operation,
+            "SFM reconstruction plan",
+            message,
+            serde_json::json!({
+                "status": "planned",
+                "provider": "colmap",
+                "executed": false,
+                "diagnostic": code
+            }),
+            result,
+        ),
+        operation,
+        diagnostics: vec![Diagnostic {
+            severity: DiagnosticSeverity::Warning,
+            code: code.into(),
+            message: message.to_string(),
+            source: Some(env!("CARGO_PKG_NAME").to_string()),
+            help: Some(
+                "Use video.colmap.commandPlan for the provider command plan, or supply a native context that allows external processes.".to_string(),
+            ),
+        }],
         artifacts: Vec::new(),
     })
 }
@@ -788,6 +929,23 @@ mod tests {
     }
 
     #[test]
+    fn primary_reconstruct_schema_is_strict_and_proves_lower_contracts() {
+        let surface = package_surface();
+        let operation = surface
+            .operations
+            .iter()
+            .find(|operation| operation.id.as_str() == SFM_RECONSTRUCT_OPERATION)
+            .expect("sfm reconstruct operation");
+        assert_eq!(operation.input_schema["additionalProperties"], false);
+        assert_eq!(operation.input_schema["xOperationCategory"], "workflow");
+        assert!(!operation.input_schema["xExecutionPlan"].is_null());
+        assert_eq!(
+            operation.input_schema["xLowerContractProof"]["crates"][1],
+            "moritzbrantner-video-analysis-reconstruction"
+        );
+    }
+
+    #[test]
     fn describe_operation_returns_surface_summary() {
         let response = run_surface_operation(SurfaceRequest {
             operation: OperationId::new("describe"),
@@ -823,6 +981,55 @@ mod tests {
             .unwrap()
             .contains("ffmpeg -y -i"));
         assert_eq!(response.value["stages"][4]["id"], "textExport");
+    }
+
+    #[test]
+    fn reconstruct_returns_provider_plan_without_external_permission() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new(SFM_RECONSTRUCT_OPERATION),
+            input: serde_json::json!({}),
+        })
+        .expect("sfm reconstruct plan");
+
+        assert_eq!(response.value["summary"]["status"], "planned");
+        assert_eq!(response.value["result"]["provider"], "colmap");
+        assert_eq!(response.value["result"]["executed"], false);
+        assert_eq!(response.value["result"]["plan"]["executes"], false);
+        assert_eq!(
+            response.value["result"]["contracts"]["reconstruction"],
+            "moritzbrantner-video-analysis-reconstruction::SparseReconstruction"
+        );
+        assert_eq!(response.diagnostics[0].code.as_str(), "unsupported_runtime");
+    }
+
+    #[test]
+    fn reconstruct_reports_typed_missing_dependency_when_execution_allowed() {
+        let error = run_surface_operation_with_context(
+            SurfaceRequest {
+                operation: OperationId::new(SFM_RECONSTRUCT_OPERATION),
+                input: serde_json::json!({}),
+            },
+            &SurfaceRuntimeContext {
+                runtime: runtime_core::SurfaceRuntimeKind::NativeServer,
+                side_effects: runtime_core::SurfaceSideEffectPolicy {
+                    allow_reads: true,
+                    allow_writes: true,
+                    allow_network: false,
+                    allow_external_process: true,
+                    max_download_bytes: None,
+                },
+                storage: runtime_core::SurfaceStorageContext {
+                    cache_root: None,
+                    artifact_root: Some("memory://artifacts".to_string()),
+                    model_root: None,
+                },
+                model: runtime_core::SurfaceModelContext::plan_only(),
+            },
+        )
+        .expect_err("missing provider dependency");
+        let parsed = runtime_core::parse_surface_error(&error).expect("typed missing dependency");
+        assert_eq!(parsed.code, "missing_dependency");
+        assert_eq!(parsed.details["dependency"], "colmap");
     }
 
     #[test]

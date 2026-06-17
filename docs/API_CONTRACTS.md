@@ -57,6 +57,10 @@ Foundation contract owners for the first steering wave are:
 
 ## Package Surface Policy
 
+Package surfaces are the primary cross-runtime interface for new consumers.
+Root facade re-exports are compatibility scaffolding; new workflow behavior must
+be exposed and tested through the crate-owned package surface and its adapters.
+
 Runtime packages use the same generated surface shape, but the adapters stay
 outside the reusable library crate:
 
@@ -98,8 +102,17 @@ batch inference must declare execution metadata and side effects. The
 server-only local ONNX defaults for text QA, image classification, and image
 captioning are explicit exceptions to the no-download package-surface policy:
 they use `moritzbrantner-model-runtime` to resolve or materialize bundles under
-`.model-runtime`, declare filesystem/network side effects through
-`xExecutionPlan`, and stay unsupported in WASM.
+an explicit runtime storage context, declare filesystem/network side effects
+through `xExecutionPlan`, and stay unsupported in WASM. Compatibility-only
+surface calls may return plans without performing setup.
+
+Primary workflow operations declare strict request schemas
+(`additionalProperties: false`), `xOperationCategory: "workflow"`,
+`xReleaseStability`, `xContractPolicy`, typed error-shape metadata, and any
+required `xExecutionPlan` or lower-contract proof metadata. The tracer gate
+currently enforces this for `image.classification.classify`, `index.search`,
+and `video.sfm.reconstruct`; workspace-wide enforcement expands only after this
+pattern proves stable.
 
 The current workspace-wide baseline operation is `describe`; crates should add
 richer representative operations in their own surface module as library
@@ -150,12 +163,14 @@ must not silently download models, run native inference, invoke ASR commands, or
 write retrieval persistence files through default surface calls outside the
 documented model-backed operation exceptions.
 
-`moritzbrantner-text-index` owns the `index.*` operation family. Package
-examples are transient/dry-run by default, and package surfaces are
-request-scoped: CLI/server/WASM/app operations do not create durable server-side
-index sessions or return open index handles. SQLite writes require a caller
-provided path plus `commit: true`; browser/WASM adapters report SQLite
-persistence as unsupported diagnostics rather than performing hidden writes.
+`moritzbrantner-text-index` owns the `index.*` operation family, with
+`index.search` as the primary package-surface workflow. Package examples are
+transient/dry-run by default, and package surfaces are request-scoped:
+CLI/server/WASM/app operations do not create durable server-side index sessions
+or return open index handles. SQLite backends require a caller-provided path,
+`commit: true`, and runtime context write permission; browser/WASM adapters
+report SQLite persistence as unsupported diagnostics rather than performing
+hidden writes.
 `qa.answerWithIndex` is the primary text-index path for new cited document QA;
 `qa.answerWithRetrieval` remains available for soft-legacy compatibility.
 
@@ -1439,11 +1454,12 @@ Compatibility notes:
 
 ## Facade And Package Export Contracts
 
-The Rust root crate `video-analysis` is a convenience facade. It re-exports all
-core items, detector items, and package modules for audio, image, text, vector,
-3D processing, data, FFmpeg, ingest, models, output, radiance fields, Gaussian
-splatting, reconstruction, and split. It does not expose CLI or use-case
-binaries as library modules.
+The Rust root crate `video-analysis` is a compatibility umbrella facade. It
+re-exports existing core items, detector items, and package modules for audio,
+image, text, vector, 3D processing, data, FFmpeg, ingest, models, output,
+radiance fields, Gaussian splatting, reconstruction, and split. It does not
+expose CLI or use-case binaries as library modules, and new workflow behavior
+should not be proven by adding root facade exports or root facade tests.
 
 The UI package exposes these subpaths:
 
