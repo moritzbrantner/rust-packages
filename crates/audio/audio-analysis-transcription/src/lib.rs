@@ -39,6 +39,10 @@ pub struct SpeakerDiarizationResponse {
     pub model_id: String,
     pub runtime: String,
     pub segments: Vec<SpeakerSegmentPrediction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker_embeddings: Option<BTreeMap<String, serde_json::Value>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<String>,
 }
 
 #[cfg(not(feature = "diarization"))]
@@ -526,7 +530,6 @@ fn default_diarization_model() -> String {
     "native-spectral-speaker-baseline".to_string()
 }
 
-#[cfg(feature = "diarization")]
 fn is_pyannote_diarization_model(model_id: &str) -> bool {
     matches!(
         model_id,
@@ -790,64 +793,6 @@ pub trait TranscriptDiarizationProvider {
     ) -> Result<SpeakerDiarizationResponse>;
 }
 
-/// Native pyannote community diarization adapter.
-#[cfg(feature = "diarization")]
-#[derive(Debug, Clone, Default)]
-pub struct PyannoteCommunityTranscriptDiarizationProvider;
-
-#[cfg(feature = "diarization")]
-impl TranscriptDiarizationProvider for PyannoteCommunityTranscriptDiarizationProvider {
-    fn provider_id(&self) -> &str {
-        "pyannote"
-    }
-
-    fn diarize(
-        &mut self,
-        audio: LoadedAudio,
-        _transcript: &TranscriptionContract,
-        options: &DiarizationOptions,
-    ) -> Result<SpeakerDiarizationResponse> {
-        native_audio::validate_loaded_audio(&audio)?;
-        if !is_pyannote_diarization_model(&options.model_id) {
-            return Err(invalid_request(format!(
-                "pyannote diarization provider does not support model `{}`",
-                options.model_id
-            )));
-        }
-        #[cfg(not(feature = "pyannote-diarization"))]
-        {
-            return Err(invalid_request(
-                "native pyannote diarization requires the pyannote-diarization feature",
-            ));
-        }
-        #[cfg(feature = "pyannote-diarization")]
-        {
-            let bundle_path = options.pyannote_model_bundle.clone().ok_or_else(|| {
-                invalid_request(
-                    "native pyannote diarization requires --diarization-model-bundle or DiarizationConfig.pyannote_model_bundle",
-                )
-            })?;
-            let speaker_audio =
-                audio_analysis_speakers::SpeakerAudio::mono(&audio.samples, audio.sample_rate)?;
-            let config = audio_analysis_speakers::PyannoteCommunityDiarizationConfig {
-                bundle_path,
-                manifest_file: options.pyannote_manifest_file.clone(),
-                segmentation_model_file: options.pyannote_segmentation_model_file.clone(),
-                embedding_model_file: options.pyannote_embedding_model_file.clone(),
-                plda_transform_file: options.pyannote_plda_transform_file.clone(),
-                plda_model_file: options.pyannote_plda_model_file.clone(),
-                clustering_config_file: options.pyannote_clustering_config_file.clone(),
-                min_speakers: options.min_speakers,
-                max_speakers: options.max_speakers,
-                return_speaker_embeddings: options.return_speaker_embeddings,
-            };
-            let mut diarizer = audio_analysis_speakers::PyannoteCommunityDiarizer;
-            let result = diarizer.diarize(&speaker_audio, config)?;
-            Ok(result.response)
-        }
-    }
-}
-
 /// Native deterministic speaker diarization adapter.
 #[cfg(feature = "diarization")]
 #[derive(Debug, Clone, Default)]
@@ -865,11 +810,20 @@ impl TranscriptDiarizationProvider for NativeSpeakerDiarizationProvider {
         transcript: &TranscriptionContract,
         options: &DiarizationOptions,
     ) -> Result<SpeakerDiarizationResponse> {
-        if is_pyannote_diarization_model(&options.model_id) {
-            let mut provider = PyannoteCommunityTranscriptDiarizationProvider;
-            return provider.diarize(audio, transcript, options);
-        }
         native_audio::validate_loaded_audio(&audio)?;
+        if is_pyannote_diarization_model(&options.model_id) {
+            #[cfg(feature = "pyannote-diarization")]
+            {
+                let mut provider = PyannoteCommunityTranscriptDiarizationProvider;
+                return provider.diarize(audio, transcript, options);
+            }
+            #[cfg(not(feature = "pyannote-diarization"))]
+            {
+                return Err(setup_error(
+                    "native pyannote diarization requires the pyannote-diarization feature",
+                ));
+            }
+        }
         if options.speaker_embedding_model_bundle.is_some() {
             return diarize_with_onnx_speaker_embeddings(audio, transcript, options);
         }
@@ -891,6 +845,7 @@ impl TranscriptDiarizationProvider for NativeSpeakerDiarizationProvider {
                 runtime: audio_analysis_speakers::AudioRuntime::Heuristic,
                 segments: stable_speaker_predictions_from_diarization(result.segments)?,
                 speaker_embeddings: None,
+                diagnostics: Vec::new(),
             });
         }
 
@@ -911,7 +866,59 @@ impl TranscriptDiarizationProvider for NativeSpeakerDiarizationProvider {
             runtime: audio_analysis_speakers::AudioRuntime::Heuristic,
             segments: stable_speaker_predictions_from_diarization(result.segments)?,
             speaker_embeddings: None,
+            diagnostics: Vec::new(),
         })
+    }
+}
+
+/// Native pyannote community diarization adapter.
+#[cfg(all(feature = "diarization", feature = "pyannote-diarization"))]
+#[derive(Debug, Clone, Default)]
+pub struct PyannoteCommunityTranscriptDiarizationProvider;
+
+#[cfg(all(feature = "diarization", feature = "pyannote-diarization"))]
+impl TranscriptDiarizationProvider for PyannoteCommunityTranscriptDiarizationProvider {
+    fn provider_id(&self) -> &str {
+        "pyannote-community-diarization"
+    }
+
+    fn diarize(
+        &mut self,
+        audio: LoadedAudio,
+        _transcript: &TranscriptionContract,
+        options: &DiarizationOptions,
+    ) -> Result<SpeakerDiarizationResponse> {
+        native_audio::validate_loaded_audio(&audio)?;
+        if !is_pyannote_diarization_model(&options.model_id) {
+            return Err(invalid_request(format!(
+                "pyannote community diarization provider does not support model `{}`",
+                options.model_id
+            )));
+        }
+        let bundle_path = options.pyannote_model_bundle.clone().ok_or_else(|| {
+            setup_error(
+                "native pyannote diarization requires --diarization-model-bundle or DiarizationOptions.pyannote_model_bundle",
+            )
+        })?;
+        let speaker_audio =
+            audio_analysis_speakers::SpeakerAudio::mono(&audio.samples, audio.sample_rate)?;
+        let mut diarizer = audio_analysis_speakers::PyannoteCommunityDiarizer::from_config(
+            audio_analysis_speakers::PyannoteCommunityDiarizationConfig {
+                bundle_path,
+                manifest_file: options.pyannote_manifest_file.clone(),
+                segmentation_model_file: options.pyannote_segmentation_model_file.clone(),
+                embedding_model_file: options.pyannote_embedding_model_file.clone(),
+                plda_transform_file: options.pyannote_plda_transform_file.clone(),
+                plda_model_file: options.pyannote_plda_model_file.clone(),
+                clustering_config_file: options.pyannote_clustering_config_file.clone(),
+                min_speakers: options.min_speakers,
+                max_speakers: options.max_speakers,
+                return_speaker_embeddings: options.return_speaker_embeddings,
+            },
+        )?;
+        let mut result = diarizer.diarize(&speaker_audio)?.response;
+        result.model_id = options.model_id.clone();
+        Ok(result)
     }
 }
 
@@ -946,6 +953,7 @@ fn diarize_with_onnx_speaker_embeddings(
         runtime: audio_analysis_speakers::AudioRuntime::Onnx,
         segments: stable_speaker_predictions_from_diarization(result.segments)?,
         speaker_embeddings: None,
+        diagnostics: Vec::new(),
     })
 }
 
@@ -1264,6 +1272,7 @@ pub fn run_transcription_pipeline(
             &response,
             &request.diarization,
         ));
+        diagnostics.extend(response.diagnostics.clone());
         assign_speakers_from_diarization(
             &mut transcript,
             &response,
@@ -1486,6 +1495,13 @@ fn validate_diarization_options(options: &DiarizationOptions) -> Result<()> {
     if options.speaker_embedding_sample_rate == Some(0) {
         return Err(invalid_request(
             "diarization speaker_embedding_sample_rate must be greater than zero",
+        ));
+    }
+    if is_pyannote_diarization_model(&options.model_id)
+        && options.speaker_embedding_model_bundle.is_some()
+    {
+        return Err(invalid_request(
+            "pyannote diarization uses pyannote_model_bundle, not speaker_embedding_model_bundle",
         ));
     }
     Ok(())
@@ -2665,6 +2681,8 @@ mod tests {
                         end_seconds: 1.0,
                         score: Some(0.9),
                     }],
+                    speaker_embeddings: None,
+                    diagnostics: Vec::new(),
                 })
             }
             #[cfg(feature = "diarization")]
@@ -2681,6 +2699,7 @@ mod tests {
                         score: Some(0.9),
                     }],
                     speaker_embeddings: None,
+                    diagnostics: Vec::new(),
                 })
             }
         }
@@ -2717,6 +2736,7 @@ mod tests {
                     score: Some(0.9),
                 }],
                 speaker_embeddings: None,
+                diagnostics: Vec::new(),
             })
         }
     }
@@ -2786,6 +2806,8 @@ mod tests {
                 model_id: "test-speakers".to_string(),
                 runtime: "mock".to_string(),
                 segments,
+                speaker_embeddings: None,
+                diagnostics: Vec::new(),
             }
         }
         #[cfg(feature = "diarization")]
@@ -2797,6 +2819,7 @@ mod tests {
                 runtime: audio_analysis_speakers::AudioRuntime::Imported,
                 segments,
                 speaker_embeddings: None,
+                diagnostics: Vec::new(),
             }
         }
     }
@@ -4353,31 +4376,6 @@ mod tests {
 
         assert!(error.contains("invalid_request"));
         assert!(!diarizer.called);
-    }
-
-    #[test]
-    #[cfg(feature = "pyannote-diarization")]
-    fn pyannote_diarization_requires_bundle_with_feature() {
-        let mut provider = PyannoteCommunityTranscriptDiarizationProvider;
-        let audio = LoadedAudio {
-            samples: vec![0.0; 16_000],
-            sample_rate: 16_000,
-            channels: 1,
-            source: None,
-        };
-        let transcript = TranscriptionContract::new(Vec::new());
-        let options = DiarizationOptions {
-            enabled: true,
-            model_id: "pyannote/speaker-diarization-community-1".to_string(),
-            ..DiarizationOptions::default()
-        };
-
-        let error = provider
-            .diarize(audio, &transcript, &options)
-            .expect_err("pyannote diarization should require a bundle")
-            .to_string();
-
-        assert!(error.contains("diarization-model-bundle"));
     }
 
     #[test]

@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 
-pub mod surface;
 #[cfg(feature = "pyannote-diarization")]
 pub mod pyannote;
+pub mod surface;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -63,9 +63,12 @@ pub struct SpeakerDiarizationResponse {
     pub runtime: AudioRuntime,
     /// Speaker segments.
     pub segments: Vec<SpeakerSegmentPrediction>,
-    /// Optional speaker centroids or embeddings returned by providers that can expose them.
+    /// Optional speaker embeddings keyed by emitted speaker label.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speaker_embeddings: Option<BTreeMap<String, SpeakerEmbedding>>,
+    /// Provider diagnostics.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<String>,
 }
 
 #[cfg(feature = "pyannote-diarization")]
@@ -2660,6 +2663,7 @@ pub fn diarize_speakers(request: SpeakerDiarizationRequest) -> Result<SpeakerDia
             runtime: AudioRuntime::Imported,
             segments,
             speaker_embeddings: None,
+            diagnostics: Vec::new(),
         });
     }
 
@@ -2678,6 +2682,7 @@ pub fn diarize_speakers(request: SpeakerDiarizationRequest) -> Result<SpeakerDia
                     score: Some(1.0),
                 }],
                 speaker_embeddings: None,
+                diagnostics: Vec::new(),
             })
         }
         FallbackPolicy::Error => Err(DetectError::InvalidArgument(
@@ -2707,6 +2712,7 @@ pub fn diarize_speaker_audio_baseline(
         runtime: AudioRuntime::Heuristic,
         segments,
         speaker_embeddings: None,
+        diagnostics: Vec::new(),
     })
 }
 
@@ -3087,6 +3093,7 @@ mod tests {
                 },
             ],
             speaker_embeddings: None,
+            diagnostics: Vec::new(),
         };
 
         let assigned = assign_speakers_to_transcript(&transcript, &diarization).unwrap();
@@ -3121,6 +3128,7 @@ mod tests {
                 score: Some(1.0),
             }],
             speaker_embeddings: None,
+            diagnostics: Vec::new(),
         };
 
         let assigned = assign_speakers_to_transcript(&transcript, &diarization).unwrap();
@@ -3155,6 +3163,7 @@ mod tests {
                 },
             ],
             speaker_embeddings: None,
+            diagnostics: Vec::new(),
         };
 
         let assigned = assign_speakers_to_transcript_with_policy(
@@ -3188,6 +3197,7 @@ mod tests {
                 score: Some(1.0),
             }],
             speaker_embeddings: None,
+            diagnostics: Vec::new(),
         };
 
         let assigned = assign_speakers_to_transcript_with_policy(
