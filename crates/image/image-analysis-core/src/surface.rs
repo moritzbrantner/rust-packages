@@ -7,7 +7,8 @@ use runtime_core::{
 };
 use serde::Deserialize;
 
-use crate::{luma_histogram, mask_tensor_from_luma, mean_rgb, ImagePixelFormat, ImageView};
+use crate::contracts::{pixel_format_name, sample_image_json, ImagePayload, ImagePayloadError};
+use crate::{luma_histogram, mask_tensor_from_luma, mean_rgb, ImageView};
 
 const DEFAULT_BINS: usize = 16;
 const MAX_BINS: usize = 256;
@@ -126,18 +127,8 @@ struct MaskTensorRequest {
     preview_limit: Option<usize>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ImagePayload {
-    width: u32,
-    height: u32,
-    pixel_format: String,
-    stride: Option<usize>,
-    data: Vec<u8>,
-}
-
 fn summary_value(operation: &str, request: ImageRequest) -> Result<serde_json::Value, String> {
-    let image = request.image.view(operation)?;
+    let image = image_view(operation, &request.image)?;
     let mean = mean_rgb(&image).map_err(|error| invalid_request(operation, error.to_string()))?;
     Ok(serde_json::json!({
         "width": image.width,
@@ -168,7 +159,7 @@ fn histogram_value(
         )
         .to_error_string());
     }
-    let image = request.image.view(operation)?;
+    let image = image_view(operation, &request.image)?;
     let histogram = luma_histogram(&image, bins)
         .map_err(|error| invalid_request(operation, error.to_string()))?;
     Ok(serde_json::json!({ "bins": bins, "histogram": histogram }))
@@ -180,7 +171,7 @@ fn mask_tensor_summary_value(
 ) -> Result<serde_json::Value, String> {
     let preview_limit = request.preview_limit.unwrap_or(DEFAULT_PREVIEW_LIMIT);
     validate_max_items(operation, "previewLimit", preview_limit, MAX_PREVIEW_LIMIT)?;
-    let image = request.image.view(operation)?;
+    let image = image_view(operation, &request.image)?;
     let tensor = mask_tensor_from_luma(&image)
         .map_err(|error| invalid_request(operation, error.to_string()))?;
     Ok(serde_json::json!({
@@ -191,52 +182,27 @@ fn mask_tensor_summary_value(
     }))
 }
 
-impl ImagePayload {
-    fn view(&self, operation: &str) -> Result<ImageView<'_>, String> {
-        let pixel_format = parse_pixel_format(operation, &self.pixel_format)?;
-        let stride = self
-            .stride
-            .unwrap_or(self.width as usize * pixel_format.bytes_per_pixel());
-        ImageView::new(self.width, self.height, pixel_format, &self.data, stride)
-            .map_err(|error| invalid_request(operation, error.to_string()))
-    }
+fn image_view<'a>(operation: &str, image: &'a ImagePayload) -> Result<ImageView<'a>, String> {
+    image
+        .view()
+        .map_err(|error| image_payload_error(operation, error))
 }
 
-fn parse_pixel_format(operation: &str, value: &str) -> Result<ImagePixelFormat, String> {
-    match value {
-        "rgb24" => Ok(ImagePixelFormat::Rgb24),
-        "bgr24" => Ok(ImagePixelFormat::Bgr24),
-        "gray8" => Ok(ImagePixelFormat::Gray8),
-        other => Err(SurfaceError::unsupported_value(
+fn image_payload_error(operation: &str, error: ImagePayloadError) -> String {
+    match error {
+        ImagePayloadError::UnsupportedPixelFormat(value) => SurfaceError::unsupported_value(
             Some(OperationId::new(operation)),
             "pixelFormat",
-            other,
+            value,
             &["rgb24", "bgr24", "gray8"],
         )
-        .to_error_string()),
+        .to_error_string(),
+        ImagePayloadError::InvalidImage(error) => invalid_request(operation, error.to_string()),
     }
 }
 
 fn invalid_request(operation: &str, message: impl Into<String>) -> String {
     SurfaceError::invalid_request(Some(OperationId::new(operation)), message).to_error_string()
-}
-
-fn pixel_format_name(format: ImagePixelFormat) -> &'static str {
-    match format {
-        ImagePixelFormat::Rgb24 => "rgb24",
-        ImagePixelFormat::Bgr24 => "bgr24",
-        ImagePixelFormat::Gray8 => "gray8",
-    }
-}
-
-fn sample_image_json() -> serde_json::Value {
-    serde_json::json!({
-        "width": 2,
-        "height": 2,
-        "pixelFormat": "rgb24",
-        "stride": null,
-        "data": [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255]
-    })
 }
 
 #[cfg(test)]

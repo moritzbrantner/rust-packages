@@ -39,6 +39,7 @@ cuda = ["candle", "candle-core/cuda", "candle-nn/cuda", "candle-transformers/cud
 alignment = ["candle", "dep:tokenizers"]
 diarization = ["dep:audio-analysis-speakers"]
 onnx = ["diarization", "audio-analysis-speakers/onnx", "dep:runtime-onnx"]
+pyannote-diarization = ["diarization", "audio-analysis-speakers/pyannote-diarization"]
 external-whisperx = []
 external-tests = ["external-whisperx"]
 model-bundles = ["dep:model-runtime", "audio-analysis-speakers?/model-bundles"]

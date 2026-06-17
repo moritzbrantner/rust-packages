@@ -1,8 +1,11 @@
 #![doc = include_str!("../README.md")]
 
+pub mod contracts;
 pub mod surface;
 use tensor_data::F32Tensor;
 use video_analysis_core::{DetectError, PixelFormat, Result, VideoFrame};
+
+pub use contracts::{ImagePayload, ImagePayloadError, ImagePayloadResult};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Variants describing image pixel format.
