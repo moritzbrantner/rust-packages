@@ -1172,6 +1172,7 @@ fn is_audio_transcription_surface_type(path: &str, line: &str) -> bool {
     path.contains("crates/audio/audio-analysis-transcription/src/lib.rs")
         && (line.contains("pub struct TranscriptionPipelineRequest")
             || line.contains("pub enum TranscriptionSource")
+            || line.contains("pub enum TranscriptionTask")
             || line.contains("pub enum TranscriptionProviderSelection")
             || line.contains("pub struct TranscriptionOutputOptions")
             || line.contains("pub struct TranscriptionArtifact")
