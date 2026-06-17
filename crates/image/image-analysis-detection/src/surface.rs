@@ -1,6 +1,6 @@
 //! Library-owned runtime surface for `image-analysis-detection`.
 
-use image_analysis_core::{ImagePixelFormat, ImageView};
+use image_analysis_core::contracts::{sample_image_json, ImagePayload};
 use runtime_core::{
     describe_surface_response, structured_operation_response, OperationId, PackageSurface,
     RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
@@ -132,16 +132,6 @@ struct ColorBlobRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ImagePayload {
-    width: u32,
-    height: u32,
-    pixel_format: String,
-    stride: Option<usize>,
-    data: Vec<u8>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct BoxSummaryRequest {
     #[serde(default)]
     detections: Vec<DetectionPayload>,
@@ -176,7 +166,7 @@ fn color_blob_value(request: ColorBlobRequest) -> Result<serde_json::Value, Stri
         ColorBlobDetectionOptions::default().min_area_pixels(request.min_area_pixels.unwrap_or(24));
     options.target = target;
     options.morph_open_3x3 = request.merge_adjacent.unwrap_or(true);
-    let image = request.image.view()?;
+    let image = request.image.view().map_err(|error| error.to_string())?;
     let mut detector = ColorBlobDetector::new(options).map_err(|error| error.to_string())?;
     let detections = detector
         .detect_image(&image)
@@ -263,26 +253,6 @@ fn box_summary_value(request: BoxSummaryRequest) -> Result<serde_json::Value, St
     }))
 }
 
-impl ImagePayload {
-    fn view(&self) -> Result<ImageView<'_>, String> {
-        let pixel_format = parse_pixel_format(&self.pixel_format)?;
-        let stride = self
-            .stride
-            .unwrap_or(self.width as usize * pixel_format.bytes_per_pixel());
-        ImageView::new(self.width, self.height, pixel_format, &self.data, stride)
-            .map_err(|error| error.to_string())
-    }
-}
-
-fn parse_pixel_format(value: &str) -> Result<ImagePixelFormat, String> {
-    match value {
-        "rgb24" => Ok(ImagePixelFormat::Rgb24),
-        "bgr24" => Ok(ImagePixelFormat::Bgr24),
-        "gray8" => Ok(ImagePixelFormat::Gray8),
-        other => Err(format!("unsupported image pixel format `{other}`")),
-    }
-}
-
 impl BoxPayload {
     fn bounding_box(self) -> Result<BoundingBox, String> {
         BoundingBox::new(self.x, self.y, self.width, self.height).map_err(|error| error.to_string())
@@ -305,16 +275,6 @@ fn union_bounds(regions: impl IntoIterator<Item = BoundingBox>) -> Option<Boundi
         max_y = max_y.max(region.y + region.height);
     }
     BoundingBox::new(min_x, min_y, max_x - min_x, max_y - min_y).ok()
-}
-
-fn sample_image_json() -> serde_json::Value {
-    serde_json::json!({
-        "width": 2,
-        "height": 2,
-        "pixelFormat": "rgb24",
-        "stride": null,
-        "data": [255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0]
-    })
 }
 
 #[cfg(test)]

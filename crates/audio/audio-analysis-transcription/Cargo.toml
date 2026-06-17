@@ -1,6 +1,6 @@
 [package]
 name = "moritzbrantner-audio-analysis-transcription"
-version = "0.1.3"
+version = "0.1.4"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -30,7 +30,7 @@ text-model-runtime = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
 audio-analysis-io = { workspace = true, optional = true }
-audio-analysis-speakers = { workspace = true, optional = true }
+audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", path = "../audio-analysis-speakers", optional = true }
 
 [features]
 default = []
@@ -39,6 +39,7 @@ cuda = ["candle", "candle-core/cuda", "candle-nn/cuda", "candle-transformers/cud
 alignment = ["candle", "dep:tokenizers"]
 diarization = ["dep:audio-analysis-speakers"]
 onnx = ["diarization", "audio-analysis-speakers/onnx", "dep:runtime-onnx"]
+pyannote-diarization = ["diarization", "audio-analysis-speakers/pyannote-diarization"]
 external-whisperx = []
 external-tests = ["external-whisperx"]
 model-bundles = ["dep:model-runtime", "audio-analysis-speakers?/model-bundles"]

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub use image_analysis_core::contracts::ImagePayload;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ApplyRequest {
@@ -34,16 +36,6 @@ pub struct CompositeRequest {
 pub struct HashRequest {
     pub image: ImagePayload,
     pub hash_size: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ImagePayload {
-    pub width: u32,
-    pub height: u32,
-    pub pixel_format: String,
-    pub stride: Option<usize>,
-    pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

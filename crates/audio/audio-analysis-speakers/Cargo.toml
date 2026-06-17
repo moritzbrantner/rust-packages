@@ -1,6 +1,6 @@
 [package]
 name = "moritzbrantner-audio-analysis-speakers"
-version.workspace = true
+version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -21,6 +21,7 @@ audio-analysis-core.workspace = true
 audio-analysis-recognition.workspace = true
 model-runtime = { workspace = true, optional = true }
 runtime-onnx = { workspace = true, optional = true }
+ndarray = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 video-analysis-core.workspace = true
@@ -28,6 +29,7 @@ video-analysis-core.workspace = true
 [features]
 default = []
 onnx = ["dep:runtime-onnx", "runtime-onnx/onnxruntime"]
+pyannote-diarization = ["onnx", "dep:ndarray"]
 model-bundles = ["dep:model-runtime"]
 external-tests = ["onnx", "model-bundles"]
 

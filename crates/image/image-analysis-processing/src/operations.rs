@@ -1,9 +1,11 @@
 use image::GrayImage;
-use image_analysis_core::{compact_image, ImagePixelFormat, ImageView, OwnedImage};
+use image_analysis_core::contracts::pixel_format_name;
+pub use image_analysis_core::contracts::sample_image_json;
+use image_analysis_core::{compact_image, ImageView, OwnedImage};
 use serde::de::DeserializeOwned;
 
 use crate::contracts::{
-    ApplyRequest, CompositeRequest, HashRequest, ImagePayload, OperationRequest, PipelineRequest,
+    ApplyRequest, CompositeRequest, HashRequest, OperationRequest, PipelineRequest,
 };
 use crate::{
     apply_operation, composite_image, perceptual_hash_luma, sharpen_image, BlendMode,
@@ -16,7 +18,7 @@ const MAX_HASH_SIZE: u32 = 16;
 
 pub fn apply_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     let request = parse_input::<ApplyRequest>(input)?;
-    let image = request.image.view()?;
+    let image = request.image.view().map_err(|error| error.to_string())?;
     let preview_limit = checked_preview_limit(request.preview_limit)?;
     let output = apply_requested_operation(&image, &request.operation)?;
     Ok(image_value(&output, preview_limit))
@@ -24,7 +26,7 @@ pub fn apply_value(input: serde_json::Value) -> Result<serde_json::Value, String
 
 pub fn pipeline_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     let request = parse_input::<PipelineRequest>(input)?;
-    let image = request.image.view()?;
+    let image = request.image.view().map_err(|error| error.to_string())?;
     let preview_limit = checked_preview_limit(request.preview_limit)?;
     let mut current = compact_image(&image).map_err(|error| error.to_string())?;
     for operation in &request.operations {
@@ -35,9 +37,13 @@ pub fn pipeline_value(input: serde_json::Value) -> Result<serde_json::Value, Str
 
 pub fn composite_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     let request = parse_input::<CompositeRequest>(input)?;
-    let base = request.base.view()?;
-    let overlay = request.overlay.view()?;
-    let mask = request.mask.as_ref().map(ImagePayload::view).transpose()?;
+    let base = request.base.view().map_err(|error| error.to_string())?;
+    let overlay = request.overlay.view().map_err(|error| error.to_string())?;
+    let mask = request
+        .mask
+        .as_ref()
+        .map(|payload| payload.view().map_err(|error| error.to_string()))
+        .transpose()?;
     let preview_limit = checked_preview_limit(request.preview_limit)?;
     let spec = CompositeSpec::new(
         request.x.unwrap_or(0),
@@ -56,7 +62,7 @@ pub fn hash_value(input: serde_json::Value) -> Result<serde_json::Value, String>
     if hash_size == 0 || hash_size > MAX_HASH_SIZE {
         return Err(format!("hashSize must be between 1 and {MAX_HASH_SIZE}"));
     }
-    let image = request.image.view()?;
+    let image = request.image.view().map_err(|error| error.to_string())?;
     if image.width < hash_size || image.height < hash_size {
         return Err(format!(
             "image dimensions must be at least hashSize ({hash_size}) in both axes"
@@ -147,17 +153,6 @@ impl OperationRequest {
     }
 }
 
-impl ImagePayload {
-    fn view(&self) -> Result<ImageView<'_>, String> {
-        let pixel_format = parse_pixel_format(&self.pixel_format)?;
-        let stride = self
-            .stride
-            .unwrap_or(self.width as usize * pixel_format.bytes_per_pixel());
-        ImageView::new(self.width, self.height, pixel_format, &self.data, stride)
-            .map_err(|error| error.to_string())
-    }
-}
-
 fn image_value(image: &OwnedImage, preview_limit: usize) -> serde_json::Value {
     serde_json::json!({
         "width": image.width,
@@ -170,23 +165,6 @@ fn image_value(image: &OwnedImage, preview_limit: usize) -> serde_json::Value {
     })
 }
 
-fn parse_pixel_format(value: &str) -> Result<ImagePixelFormat, String> {
-    match value {
-        "rgb24" => Ok(ImagePixelFormat::Rgb24),
-        "bgr24" => Ok(ImagePixelFormat::Bgr24),
-        "gray8" => Ok(ImagePixelFormat::Gray8),
-        other => Err(format!("unsupported image pixel format `{other}`")),
-    }
-}
-
-fn pixel_format_name(format: ImagePixelFormat) -> &'static str {
-    match format {
-        ImagePixelFormat::Rgb24 => "rgb24",
-        ImagePixelFormat::Bgr24 => "bgr24",
-        ImagePixelFormat::Gray8 => "gray8",
-    }
-}
-
 fn blend_mode(value: &str) -> Result<BlendMode, String> {
     match value {
         "normal" => Ok(BlendMode::Normal),
@@ -196,14 +174,4 @@ fn blend_mode(value: &str) -> Result<BlendMode, String> {
         "difference" => Ok(BlendMode::Difference),
         other => Err(format!("unsupported blend mode `{other}`")),
     }
-}
-
-pub fn sample_image_json() -> serde_json::Value {
-    serde_json::json!({
-        "width": 2,
-        "height": 2,
-        "pixelFormat": "rgb24",
-        "stride": null,
-        "data": [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255]
-    })
 }
