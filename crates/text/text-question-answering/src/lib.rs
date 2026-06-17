@@ -1,10 +1,12 @@
 #![doc = include_str!("../README.md")]
 
+mod retrieved_context;
 pub mod surface;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use retrieved_context::RetrievedContext;
 use serde::{Deserialize, Serialize};
 use text_embeddings::{HashedTextEmbedder, TextEmbedderBackend, TextEmbeddingConfig};
 use text_index::{
@@ -607,11 +609,8 @@ pub fn answer_question_with_retrieval_index<B: TextEmbedderBackend>(
             answers: Vec::new(),
         });
     }
-    let context_text = retrieved_chunks
-        .iter()
-        .map(|chunk| chunk.snippet.as_str())
-        .collect::<Vec<_>>()
-        .join("\n\n");
+    let retrieved_context = RetrievedContext::from_search_results(&retrieved_chunks, index);
+    let context_text = retrieved_context.context_text.clone();
 
     let (runtime, answers) = if !request.imported_predictions.is_empty() || context.qa.is_some() {
         let qa_response = if context.qa.is_some() && request.imported_predictions.is_empty() {
@@ -642,7 +641,7 @@ pub fn answer_question_with_retrieval_index<B: TextEmbedderBackend>(
         let answers = qa_response
             .answers
             .into_iter()
-            .map(|answer| cited_answer_from_prediction(answer, &retrieved_chunks))
+            .map(|answer| retrieved_context.cited_answer_from_prediction(answer))
             .collect::<Vec<_>>();
         (runtime, answers)
     } else {
@@ -659,7 +658,7 @@ pub fn answer_question_with_retrieval_index<B: TextEmbedderBackend>(
         let answers = qa_response
             .answers
             .into_iter()
-            .map(|answer| cited_answer_from_prediction(answer, &retrieved_chunks))
+            .map(|answer| retrieved_context.cited_answer_from_prediction(answer))
             .collect::<Vec<_>>();
         (runtime, answers)
     };
@@ -719,16 +718,13 @@ pub fn answer_question_with_text_index_context(
             answers: Vec::new(),
         });
     }
-    let context_text = retrieved_chunks
-        .iter()
-        .map(|chunk| chunk.snippet.as_str())
-        .collect::<Vec<_>>()
-        .join("\n\n");
+    let retrieved_context = RetrievedContext::from_index_results(&retrieved_chunks);
+    let context_text = retrieved_context.context_text.clone();
     let qa_response = if context.qa.is_some() && request.imported_predictions.is_empty() {
         answer_question_with_context(
             QuestionAnsweringRequest {
                 question: request.question.clone(),
-                context: context_text,
+                context: context_text.clone(),
                 top_k: request.top_k_answers,
                 model: request.model.clone(),
                 imported_predictions: Vec::new(),
@@ -752,7 +748,7 @@ pub fn answer_question_with_text_index_context(
     let answers = qa_response
         .answers
         .into_iter()
-        .map(|answer| cited_index_answer_from_prediction(answer, &retrieved_chunks))
+        .map(|answer| retrieved_context.cited_answer_from_prediction(answer))
         .collect::<Vec<_>>();
     Ok(TextIndexQuestionAnsweringResponse {
         accepted: true,
@@ -933,97 +929,6 @@ fn span_from_attributes(attributes: &BTreeMap<String, String>) -> Option<TextSpa
     })
 }
 
-fn cited_answer_from_prediction(answer: AnswerPrediction, chunks: &[SearchResult]) -> CitedAnswer {
-    let citations = citations_for_answer(&answer.answer, chunks);
-    CitedAnswer {
-        answer: answer.answer,
-        score: answer.score,
-        span: answer.span,
-        citations,
-    }
-}
-
-fn cited_index_answer_from_prediction(
-    answer: AnswerPrediction,
-    chunks: &[IndexSearchResult],
-) -> CitedAnswer {
-    let citations = citations_for_index_answer(&answer.answer, chunks);
-    CitedAnswer {
-        answer: answer.answer,
-        score: answer.score,
-        span: answer.span,
-        citations,
-    }
-}
-
-fn citations_for_answer(answer: &str, chunks: &[SearchResult]) -> Vec<AnswerCitation> {
-    let mut citations = chunks
-        .iter()
-        .filter_map(|chunk| {
-            let span = find_span(&chunk.snippet, answer);
-            if span.is_none() && !answer.trim().is_empty() && !chunk.snippet.contains(answer.trim())
-            {
-                return None;
-            }
-            Some(AnswerCitation {
-                document_id: chunk.document_id.clone(),
-                chunk_id: chunk.chunk_id.clone(),
-                snippet: chunk.snippet.clone(),
-                score: chunk.score,
-                span,
-            })
-        })
-        .collect::<Vec<_>>();
-    if citations.is_empty() {
-        citations = chunks
-            .iter()
-            .take(1)
-            .map(|chunk| AnswerCitation {
-                document_id: chunk.document_id.clone(),
-                chunk_id: chunk.chunk_id.clone(),
-                snippet: chunk.snippet.clone(),
-                score: chunk.score,
-                span: None,
-            })
-            .collect();
-    }
-    citations
-}
-
-fn citations_for_index_answer(answer: &str, chunks: &[IndexSearchResult]) -> Vec<AnswerCitation> {
-    let mut citations = chunks
-        .iter()
-        .filter_map(|chunk| {
-            let span = find_span(&chunk.snippet, answer);
-            if span.is_none() && !answer.trim().is_empty() && !chunk.snippet.contains(answer.trim())
-            {
-                return None;
-            }
-            Some(AnswerCitation {
-                document_id: chunk.document_id.clone(),
-                chunk_id: chunk.chunk_id.clone(),
-                snippet: chunk.snippet.clone(),
-                score: chunk.score,
-                span,
-            })
-        })
-        .collect::<Vec<_>>();
-    if citations.is_empty() {
-        citations = chunks
-            .iter()
-            .take(1)
-            .map(|chunk| AnswerCitation {
-                document_id: chunk.document_id.clone(),
-                chunk_id: chunk.chunk_id.clone(),
-                snippet: chunk.snippet.clone(),
-                score: chunk.score,
-                span: None,
-            })
-            .collect();
-    }
-    citations
-}
-
 fn lexical_answer_span(question: &str, text: &str) -> Option<TextSpanRef> {
     let terms = question
         .split_whitespace()
@@ -1041,15 +946,6 @@ fn lexical_answer_span(question: &str, text: &str) -> Option<TextSpanRef> {
         }
     }
     None
-}
-
-fn find_span(text: &str, needle: &str) -> Option<TextSpanRef> {
-    let needle = needle.trim();
-    if needle.is_empty() {
-        return None;
-    }
-    text.find(needle)
-        .map(|byte_start| byte_span_to_ref(text, byte_start, byte_start + needle.len()))
 }
 
 fn byte_span_to_ref(text: &str, byte_start: usize, byte_end: usize) -> TextSpanRef {
@@ -1089,6 +985,32 @@ mod tests {
                 text: Some("Alice".to_string()),
                 score: Some(0.8),
                 attributes,
+                ..RawPrediction::default()
+            }])
+        }
+
+        fn runtime_backend(&self) -> TextRuntimeBackend {
+            TextRuntimeBackend::External
+        }
+    }
+
+    struct ContextAnswerQa {
+        expected_context: Option<String>,
+        answer: Option<String>,
+    }
+
+    impl QuestionAnsweringBackend for ContextAnswerQa {
+        fn answer(&mut self, _question: &str, context: &str) -> Result<Vec<RawPrediction>> {
+            if let Some(expected_context) = &self.expected_context {
+                assert!(
+                    context.contains(expected_context),
+                    "QA context did not include expected text `{expected_context}`: {context}"
+                );
+            }
+            Ok(vec![RawPrediction {
+                text: Some(self.answer.clone().unwrap_or_else(|| context.to_string())),
+                score: Some(0.8),
+                attributes: BTreeMap::new(),
                 ..RawPrediction::default()
             }])
         }
@@ -1242,6 +1164,147 @@ mod tests {
         assert_eq!(response.answers[0].citations[0].document_id, "doc-rust");
         assert!(response.answers[0].citations[0].span.is_some());
         assert_eq!(response.retrieved_chunks[0].document_id, "doc-rust");
+    }
+
+    #[test]
+    fn text_index_qa_uses_full_chunk_text_for_answer_extraction() {
+        let far_answer = "tail-only-answer";
+        let body = format!(
+            "Rust starts the chunk.{} {far_answer}",
+            " filler".repeat(80)
+        );
+        let mut qa = ContextAnswerQa {
+            expected_context: Some(far_answer.to_string()),
+            answer: Some(far_answer.to_string()),
+        };
+        let mut context = QuestionAnsweringExecutionContext { qa: Some(&mut qa) };
+
+        let response = answer_question_with_text_index_context(
+            TextIndexQuestionAnsweringRequest {
+                question: "What starts the chunk?".to_string(),
+                documents: vec![IndexDocument::new("doc-rust", body)],
+                index_options: IndexBuildOptions {
+                    chunk_tokens: 512,
+                    chunk_overlap_tokens: 0,
+                    ..IndexBuildOptions::default()
+                },
+                embedding_dimensions: 32,
+                top_k_chunks: 1,
+                top_k_answers: 1,
+                imported_predictions: Vec::new(),
+                model: ModelSelection::default(),
+                local_model: None,
+                fallback_policy: None,
+            },
+            &mut context,
+        )
+        .expect("text-index qa");
+
+        assert_eq!(response.answers[0].answer, far_answer);
+        assert!(!response.retrieved_chunks[0].snippet.contains(far_answer));
+        assert_eq!(
+            response.answers[0].citations[0].snippet,
+            response.retrieved_chunks[0].snippet
+        );
+        assert!(response.answers[0].citations[0].span.is_none());
+    }
+
+    #[test]
+    fn full_text_answer_cites_matching_chunk_even_when_outside_snippet() {
+        let answer = "second-tail-answer";
+        let second_body = format!(
+            "Rust starts the second chunk.{} {answer}",
+            " filler".repeat(80)
+        );
+        let mut qa = ContextAnswerQa {
+            expected_context: Some(answer.to_string()),
+            answer: Some(answer.to_string()),
+        };
+        let mut context = QuestionAnsweringExecutionContext { qa: Some(&mut qa) };
+
+        let response = answer_question_with_text_index_context(
+            TextIndexQuestionAnsweringRequest {
+                question: "What starts the chunk?".to_string(),
+                documents: vec![
+                    IndexDocument::new("doc-first", "Rust starts the first chunk."),
+                    IndexDocument::new("doc-second", second_body),
+                ],
+                index_options: IndexBuildOptions {
+                    chunk_tokens: 512,
+                    chunk_overlap_tokens: 0,
+                    ..IndexBuildOptions::default()
+                },
+                embedding_dimensions: 32,
+                top_k_chunks: 2,
+                top_k_answers: 1,
+                imported_predictions: Vec::new(),
+                model: ModelSelection::default(),
+                local_model: None,
+                fallback_policy: None,
+            },
+            &mut context,
+        )
+        .expect("text-index qa");
+
+        assert_eq!(response.answers[0].answer, answer);
+        assert_eq!(response.answers[0].citations[0].document_id, "doc-second");
+        assert!(!response.answers[0].citations[0].snippet.contains(answer));
+        assert!(response.answers[0].citations[0].span.is_none());
+    }
+
+    #[test]
+    fn retrieval_qa_falls_back_to_snippet_when_raw_chunk_text_is_unavailable() {
+        let raw_only = "raw-only-answer";
+        let body = format!(
+            "Rust starts the compatibility chunk.{} {raw_only}",
+            " filler".repeat(80)
+        );
+        let embedder = HashedTextEmbedder::new(
+            TextEmbeddingConfig {
+                dimensions: 32,
+                use_idf: false,
+            },
+            text_lexical::CorpusOptions::default(),
+        )
+        .expect("embedder");
+        let mut index = RetrievalIndex::new(embedder);
+        index
+            .ingest_documents(
+                &[SearchDocument::new("doc-rust", body)],
+                &IngestionOptions {
+                    chunk_tokens: 512,
+                    chunk_overlap_tokens: 0,
+                    store_raw_text: false,
+                },
+            )
+            .expect("ingest");
+        let mut qa = ContextAnswerQa {
+            expected_context: None,
+            answer: None,
+        };
+        let mut context = QuestionAnsweringExecutionContext { qa: Some(&mut qa) };
+
+        let response = answer_question_with_retrieval_index(
+            RetrievalQuestionAnsweringRequest {
+                question: "What starts the compatibility chunk?".to_string(),
+                documents: Vec::new(),
+                top_k_chunks: 1,
+                top_k_answers: 1,
+                imported_predictions: Vec::new(),
+                model: ModelSelection::default(),
+                local_model: None,
+                fallback_policy: None,
+            },
+            &index,
+            &mut context,
+        )
+        .expect("retrieval qa");
+
+        assert_eq!(
+            response.answers[0].answer,
+            response.retrieved_chunks[0].snippet
+        );
+        assert!(!response.answers[0].answer.contains(raw_only));
     }
 
     #[test]

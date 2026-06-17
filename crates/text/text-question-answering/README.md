@@ -28,11 +28,17 @@ the request disables `auto_download`.
   local ONNX QA model on native server/CLI builds with `local-onnx`.
 - Primary cited document-QA path: `qa.answerWithIndex` builds a deterministic
   request-scoped in-memory `TextIndex` and returns cited extractive answers.
-- Compatibility cited document-QA path: `qa.answerWithRetrieval` keeps the
-  soft-legacy compatibility `RetrievalIndex` workflow available for existing
-  consumers.
-- Workflow operations: `qa.answer`, `qa.answerWithIndex`,
-  `qa.answerWithRetrieval`, and `qa.answerBatch`.
+- Deprecated compatibility cited document-QA path: `qa.answerWithRetrieval`
+  keeps the soft-legacy compatibility `RetrievalIndex` path callable for
+  existing consumers, but new package consumers should use
+  `qa.answerWithIndex`.
+- Retrieval-backed QA paths assemble Retrieved Context before answer extraction:
+  full chunk text is used for extraction when available, while citations keep
+  the existing display snippet shape.
+- Workflow operations: `qa.answer`, `qa.answerWithIndex`, and
+  `qa.answerBatch`.
+- Support operations: `qa.answerWithRetrieval` remains runnable as a deprecated
+  compatibility path.
 - Debug operations: `qa.models` inspects the model catalog, and `describe`
   inspects package metadata and operation support.
 - Runtime support: imported/fallback behavior is available through library,

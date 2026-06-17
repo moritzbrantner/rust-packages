@@ -147,8 +147,11 @@ retrieval snapshot import into `text-index`, and reranking.
 `text-question-answering` uses `text-index` as the primary path for new cited
 document QA. Package surfaces stay request-scoped: `qa.answerWithIndex` builds a
 deterministic in-memory Text Index from the request and does not create
-server-side sessions or open index handles. `qa.answerWithRetrieval` remains for
-soft-legacy compatibility with older retrieval consumers.
+server-side sessions or open index handles. `qa.answerWithRetrieval` remains
+runnable as a deprecated compatibility path for older retrieval consumers.
+Both retrieval-backed QA operations assemble private Retrieved Context before
+answer extraction and citation mapping, so extraction can use full chunk text
+when available while responses preserve the existing citation snippet shape.
 
 `text-transcripts` owns transcript extensions such as
 `TranscriptSegmentContract`, `TranscriptWordContract`, and

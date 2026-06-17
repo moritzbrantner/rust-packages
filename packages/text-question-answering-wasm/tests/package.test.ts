@@ -55,6 +55,15 @@ test("runOperation answers from an indexed document with structured output", asy
   expect(result.answers[0].citations.length).toBeGreaterThan(0);
 });
 
+test("packageSurface marks retrieval QA as deprecated support", async () => {
+  const entry = await import("../index.js");
+  const surface = await entry.packageSurface();
+  const operation = surface.operations.find((operation: any) => operation.id === "qa.answerWithRetrieval");
+  expect(operation.inputSchema.xOperationCategory).toBe("support");
+  expect(operation.inputSchema.xDeprecated).toBe(true);
+  expect(operation.inputSchema.xReplacementOperation).toBe("qa.answerWithIndex");
+});
+
 function assertStructuredResponse(response: any, operation: string) {
   expect(response.operation).toBe(operation);
   expect(response.value.operation).toBe(operation);

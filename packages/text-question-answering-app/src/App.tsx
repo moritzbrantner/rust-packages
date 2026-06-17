@@ -22,7 +22,13 @@ const packageAppConfig: PackageAppConfig = {
       id: "workflow",
       label: "Workflow",
       description: "Run extractive question-answering and document QA workflows.",
-      operations: ["qa.answer", "qa.answerWithIndex", "qa.answerWithRetrieval", "qa.answerBatch"],
+      operations: ["qa.answer", "qa.answerWithIndex", "qa.answerBatch"],
+    },
+    {
+      id: "support",
+      label: "Support",
+      description: "Run compatibility paths that remain available for existing consumers.",
+      operations: ["qa.answerWithRetrieval"],
     },
     {
       id: "debug",
@@ -85,10 +91,10 @@ const packageAppConfig: PackageAppConfig = {
       },
     },
     {
-      id: "retrieval-answer",
-      label: "Answer from retrieval",
+      id: "compatibility-retrieval-answer",
+      label: "Compatibility retrieval answer",
       operation: "qa.answerWithRetrieval",
-      description: "Use the compatibility retrieval index and return cited answers.",
+      description: "Use the deprecated compatibility retrieval path and return cited answers.",
       input: {
         question: "What language has ownership?",
         documents: [
@@ -97,6 +103,8 @@ const packageAppConfig: PackageAppConfig = {
         ],
         topKChunks: 2,
         topKAnswers: 1,
+        localModel: { autoDownload: false },
+        fallbackPolicy: "heuristicIfUnavailable",
       },
     },
     {
@@ -151,20 +159,6 @@ const packageAppConfig: PackageAppConfig = {
       warmupIterations: 5,
       outputCountPath: ["answers"],
     },
-    {
-      id: "retrieval-answer",
-      label: "Retrieval Answer",
-      operation: "qa.answerWithRetrieval",
-      input: {
-        question: "What language has ownership?",
-        documents: [{ id: "doc-rust", body: "Rust has ownership and deterministic package workflows." }],
-        topKChunks: 2,
-        topKAnswers: 1,
-      },
-      iterations: 80,
-      warmupIterations: 5,
-      outputCountPath: ["answers"],
-    },
   ],
   resultTabs: createTextResultTabs({
     library: "text-question-answering",
@@ -184,11 +178,11 @@ const packageAppConfig: PackageAppConfig = {
         explanation: () => "The workflow builds a deterministic in-memory Text Index from supplied documents and returns cited answers.",
       },
       "qa.answerWithRetrieval": {
-        title: "Retrieval QA",
+        title: "Compatibility Retrieval QA",
         summaryFields: ["retrievedChunkCount", "answerCount"],
         listFields: ["answers", "retrievedChunks"],
         objectFields: ["result"],
-        explanation: () => "The workflow builds a deterministic in-memory compatibility retrieval index from supplied documents and returns cited answers.",
+        explanation: () => "The support path builds a deterministic in-memory compatibility retrieval index from supplied documents and returns cited answers through the same retrieved context behavior as indexed QA.",
       },
       "qa.answerBatch": {
         title: "Batch QA",

@@ -1,8 +1,8 @@
 //! Library-owned runtime surface for `text-question-answering`.
 
 use runtime_core::{
-    structured_surface_value, OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation,
-    SurfaceRequest, SurfaceResponse,
+    add_surface_operation_schema_extension, structured_surface_value, OperationId, PackageSurface,
+    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
 
 use crate::{
@@ -21,7 +21,7 @@ pub fn package_surface() -> PackageSurface {
             operation("qa.models", "Inspect QA model catalog", "Lists registered extractive question-answering presets.", serde_json::json!({})),
             operation("qa.answer", "Answer question", "Postprocesses imported span predictions for extractive QA.", serde_json::json!({"question": "What is reliable?", "context": "Rust is reliable.", "importedPredictions": [{"text": "Rust", "score": 0.9}]})),
             operation("qa.answerWithIndex", "Answer from text index", "Builds a deterministic in-memory Text Index and returns cited extractive answers.", serde_json::json!({"question": "What language has ownership?", "documents": [{"id": "doc-rust", "body": "Rust has ownership and deterministic package workflows.", "language": "en", "metadata": {"attributes": {"kind": "language"}}}], "indexOptions": {"chunkingStrategy": "tokenWindow", "chunkTokens": 16, "chunkOverlapTokens": 0, "storeRawText": true}, "topKChunks": 2, "topKAnswers": 1, "localModel": {"autoDownload": false}, "fallbackPolicy": "heuristicIfUnavailable"})),
-            operation("qa.answerWithRetrieval", "Answer from compatibility retrieval", "Builds a deterministic in-memory compatibility retrieval index and returns cited extractive answers.", serde_json::json!({"question": "What language has ownership?", "documents": [{"id": "doc-rust", "body": "Rust has ownership and deterministic package workflows."}], "topKChunks": 2, "topKAnswers": 1, "localModel": {"autoDownload": false}, "fallbackPolicy": "heuristicIfUnavailable"})),
+            deprecated_support_operation("qa.answerWithRetrieval", "Answer from compatibility retrieval", "Builds a deterministic in-memory compatibility retrieval index and returns cited extractive answers.", serde_json::json!({"question": "What language has ownership?", "documents": [{"id": "doc-rust", "body": "Rust has ownership and deterministic package workflows."}], "topKChunks": 2, "topKAnswers": 1, "localModel": {"autoDownload": false}, "fallbackPolicy": "heuristicIfUnavailable"})),
             operation("qa.answerBatch", "Answer question batch", "Runs multiple imported-span QA requests and returns item-level successes and errors.", serde_json::json!({"requests": [{"question": "Who presented the roadmap?", "context": "Alice presented the roadmap.", "importedPredictions": [{"text": "Alice", "score": 0.94}]}]})),
         ],
     }
@@ -34,6 +34,34 @@ fn operation(
     example_request: serde_json::Value,
 ) -> SurfaceOperation {
     runtime_core::surface_operation(id, name, description, example_request)
+}
+
+fn deprecated_support_operation(
+    id: &str,
+    name: &str,
+    description: &str,
+    example_request: serde_json::Value,
+) -> SurfaceOperation {
+    let mut operation = operation(id, name, description, example_request);
+    add_surface_operation_schema_extension(
+        &mut operation,
+        "xOperationCategory",
+        serde_json::json!("support"),
+    );
+    add_surface_operation_schema_extension(&mut operation, "xDeprecated", serde_json::json!(true));
+    add_surface_operation_schema_extension(
+        &mut operation,
+        "xReplacementOperation",
+        serde_json::json!("qa.answerWithIndex"),
+    );
+    add_surface_operation_schema_extension(
+        &mut operation,
+        "xDeprecationReason",
+        serde_json::json!(
+            "Compatibility retrieval remains callable for existing consumers; new cited document QA should use qa.answerWithIndex."
+        ),
+    );
+    operation
 }
 
 /// Runs one library-owned operation.
@@ -221,6 +249,39 @@ mod tests {
         assert_eq!(
             response.value["result"]["answers"][0]["citations"][0]["documentId"],
             "doc-rust"
+        );
+    }
+
+    #[test]
+    fn answer_with_retrieval_surface_is_deprecated_support() {
+        let operation = package_surface()
+            .operations
+            .into_iter()
+            .find(|operation| operation.id.as_str() == "qa.answerWithRetrieval")
+            .expect("retrieval operation");
+
+        assert_eq!(operation.input_schema["xOperationCategory"], "support");
+        assert_eq!(operation.output_schema["xOperationCategory"], "support");
+        assert_eq!(operation.input_schema["xDeprecated"], true);
+        assert_eq!(operation.output_schema["xDeprecated"], true);
+        assert_eq!(
+            operation.input_schema["xReplacementOperation"],
+            "qa.answerWithIndex"
+        );
+        assert_eq!(
+            operation.output_schema["xReplacementOperation"],
+            "qa.answerWithIndex"
+        );
+
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "qa.answerWithRetrieval".into(),
+            input: operation.example_request,
+        })
+        .expect("answer with retrieval remains runnable");
+        assert_eq!(response.operation.as_str(), "qa.answerWithRetrieval");
+        assert_eq!(
+            response.value["summary"]["backend"],
+            "compatibility-retrieval"
         );
     }
 }

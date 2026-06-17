@@ -85,6 +85,30 @@ fn text_surfaces_declare_release_contracts() {
                 "{} {id} has the wrong operation category",
                 case.crate_name
             );
+            if case.crate_name == "text-question-answering" && id == "qa.answerWithRetrieval" {
+                assert_eq!(
+                    operation.input_schema["xDeprecated"], true,
+                    "{} {id} must be marked deprecated",
+                    case.crate_name
+                );
+                assert_eq!(
+                    operation.input_schema["xReplacementOperation"],
+                    "qa.answerWithIndex",
+                    "{} {id} must point to the replacement workflow",
+                    case.crate_name
+                );
+                assert_eq!(
+                    operation.output_schema["xDeprecated"], true,
+                    "{} {id} output schema must be marked deprecated",
+                    case.crate_name
+                );
+                assert_eq!(
+                    operation.output_schema["xReplacementOperation"],
+                    "qa.answerWithIndex",
+                    "{} {id} output schema must point to the replacement workflow",
+                    case.crate_name
+                );
+            }
             assert!(
                 operation.input_schema["properties"].is_object(),
                 "{} {id} missing input properties",
@@ -203,6 +227,18 @@ fn text_package_apps_define_audited_operation_groups() {
                     case.crate_name
                 );
             }
+        }
+        if case.crate_name == "text-question-answering" {
+            assert!(
+                app.contains(
+                    "operations: [\"qa.answer\", \"qa.answerWithIndex\", \"qa.answerBatch\"]"
+                ),
+                "text-question-answering app Workflow group should not include qa.answerWithRetrieval"
+            );
+            assert!(
+                app.contains("operations: [\"qa.answerWithRetrieval\"]"),
+                "text-question-answering app Support group should include qa.answerWithRetrieval"
+            );
         }
     }
 }
@@ -504,11 +540,10 @@ fn text_surface_cases() -> Vec<TextSurfaceCase> {
             workflow: &[
                 "qa.answer",
                 "qa.answerWithIndex",
-                "qa.answerWithRetrieval",
                 "qa.answerBatch",
             ],
             debug: &["qa.models", "describe"],
-            support: &[],
+            support: &["qa.answerWithRetrieval"],
             invalid_operation: "qa.answer",
             invalid_input: serde_json::json!({"question": "missing context"}),
         },

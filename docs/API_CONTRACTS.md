@@ -172,7 +172,11 @@ or return open index handles. SQLite backends require a caller-provided path,
 report SQLite persistence as unsupported diagnostics rather than performing
 hidden writes.
 `qa.answerWithIndex` is the primary text-index path for new cited document QA;
-`qa.answerWithRetrieval` remains available for soft-legacy compatibility.
+`qa.answerWithRetrieval` remains available as a deprecated soft-legacy
+compatibility path. Both retrieval-backed QA operations delegate context
+assembly and citation mapping through private Retrieved Context, which uses full
+chunk text for answer extraction when available and keeps public citation
+snippets stable for display.
 
 Text package operations declare release contract metadata in their
 `SurfaceOperation` schemas. Top-level request fields are explicit

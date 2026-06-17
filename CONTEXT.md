@@ -84,6 +84,10 @@ _Avoid_: Search index, knowledge base
 A searchable representation of text corpus content, including chunks, lexical state, vectors, facets, and persistence metadata.
 _Avoid_: Corpus, document store
 
+**Retrieved Context**:
+Scored text chunks assembled from Text Index or compatibility retrieval for extractive QA before answer extraction and citation mapping.
+_Avoid_: Raw search hits, QA context string, retrieval result list
+
 **Contract Ingestion**:
 Conversion from existing text contracts, transcript segments, OCR outputs, and plain text records into indexable documents/chunks.
 _Avoid_: File extraction, document parsing

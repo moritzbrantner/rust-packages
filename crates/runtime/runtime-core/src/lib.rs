@@ -622,13 +622,8 @@ pub fn primary_workflow_operation(
     } else {
         surface_operation(id, name, description, example_request)
     };
-    insert_schema_extension(
-        &mut operation.input_schema,
-        "xOperationCategory",
-        serde_json::json!("workflow"),
-    );
-    insert_schema_extension(
-        &mut operation.output_schema,
+    add_surface_operation_schema_extension(
+        &mut operation,
         "xOperationCategory",
         serde_json::json!("workflow"),
     );
@@ -645,6 +640,20 @@ pub fn primary_workflow_operation(
         insert_schema_extension(&mut operation.output_schema, "xLowerContractProof", proof);
     }
     operation
+}
+
+/// Adds a schema extension to both input and output schemas for an operation.
+///
+/// Runtime surfaces use `x*` schema fields for additive metadata such as
+/// operation category, compatibility/deprecation state, or replacement hints.
+pub fn add_surface_operation_schema_extension(
+    operation: &mut SurfaceOperation,
+    key: impl Into<String>,
+    value: serde_json::Value,
+) {
+    let key = key.into();
+    insert_schema_extension(&mut operation.input_schema, &key, value.clone());
+    insert_schema_extension(&mut operation.output_schema, &key, value);
 }
 
 pub fn landscape_operation_contract_value(
@@ -1590,6 +1599,25 @@ mod tests {
         );
         assert_eq!(operation.input_schema["properties"]["topK"]["minimum"], 1);
         assert_eq!(operation.output_schema["required"][0], "operation");
+    }
+
+    #[test]
+    fn surface_operation_schema_extension_updates_both_schemas() {
+        let mut operation = surface_operation(
+            "demo.compat",
+            "Run compatibility demo",
+            "Run a compatibility helper",
+            serde_json::json!({"text": "hello"}),
+        );
+
+        add_surface_operation_schema_extension(
+            &mut operation,
+            "xReplacementOperation",
+            serde_json::json!("demo.run"),
+        );
+
+        assert_eq!(operation.input_schema["xReplacementOperation"], "demo.run");
+        assert_eq!(operation.output_schema["xReplacementOperation"], "demo.run");
     }
 
     #[test]
