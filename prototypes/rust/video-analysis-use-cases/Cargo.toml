@@ -37,7 +37,7 @@ image-analysis-core.workspace = true
 image-analysis-detection.workspace = true
 image-analysis-io.workspace = true
 model-runtime.workspace = true
-rusqlite.workspace = true
+rusqlite = { workspace = true, features = ["bundled"] }
 serde.workspace = true
 serde_json.workspace = true
 shlex.workspace = true
