@@ -269,6 +269,21 @@ fn foundation_surface_cases() -> Vec<FoundationSurfaceCase> {
             run: math_sparse_data::surface::run_surface_operation,
         },
         FoundationSurfaceCase {
+            crate_name: "maps-kernels-core",
+            package_surface: maps_kernels_core::surface::package_surface,
+            run: maps_kernels_core::surface::run_surface_operation,
+        },
+        FoundationSurfaceCase {
+            crate_name: "math-linear",
+            package_surface: math_linear::surface::package_surface,
+            run: math_linear::surface::run_surface_operation,
+        },
+        FoundationSurfaceCase {
+            crate_name: "math-statistics",
+            package_surface: math_statistics::surface::package_surface,
+            run: math_statistics::surface::run_surface_operation,
+        },
+        FoundationSurfaceCase {
             crate_name: "dense-data",
             package_surface: dense_data::surface::package_surface,
             run: dense_data::surface::run_surface_operation,

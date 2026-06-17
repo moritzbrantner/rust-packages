@@ -1,7 +1,8 @@
 //! Library-owned runtime surface for `math-linear`.
 
 use runtime_core::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
+    describe_surface_response, parse_surface_input, structured_operation_response,
+    surface_operation, PackageSurface, RuntimeCapabilities, SurfaceError, SurfaceRequest,
     SurfaceResponse,
 };
 use serde::Deserialize;
@@ -21,13 +22,13 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation(
+            surface_operation(
                 "describe",
                 "Describe package",
                 "Dense matrix and kernel contracts bridging tensor-data and vector-analysis-core.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            operation(
+            surface_operation(
                 "linear.matmul",
                 "Matrix multiply",
                 "Multiplies two finite f32 row-major matrices.",
@@ -36,7 +37,7 @@ pub fn package_surface() -> PackageSurface {
                     "right": {"rows": 2, "cols": 1, "values": [5.0, 6.0]}
                 }),
             ),
-            operation(
+            surface_operation(
                 "linear.transpose",
                 "Matrix transpose",
                 "Returns a row-major owned transpose of a finite f32 matrix.",
@@ -44,7 +45,7 @@ pub fn package_surface() -> PackageSurface {
                     "matrix": {"rows": 2, "cols": 3, "values": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]}
                 }),
             ),
-            operation(
+            surface_operation(
                 "linear.solve",
                 "Linear solve",
                 "Solves a square finite f32 matrix against a vector or matrix right-hand side.",
@@ -53,7 +54,7 @@ pub fn package_surface() -> PackageSurface {
                     "rhs": [1.0, 2.0]
                 }),
             ),
-            operation(
+            surface_operation(
                 "linear.decompose",
                 "LU decomposition",
                 "Decomposes a square finite f32 matrix with partial-pivoted LU.",
@@ -61,7 +62,7 @@ pub fn package_surface() -> PackageSurface {
                     "matrix": {"rows": 2, "cols": 2, "values": [2.0, 1.0, 1.0, 3.0]}
                 }),
             ),
-            operation(
+            surface_operation(
                 "linear.inverse",
                 "Matrix inverse",
                 "Returns the inverse of a finite square f32 matrix.",
@@ -69,43 +70,43 @@ pub fn package_surface() -> PackageSurface {
                     "matrix": {"rows": 2, "cols": 2, "values": [2.0, 1.0, 1.0, 3.0]}
                 }),
             ),
-            operation(
+            surface_operation(
                 "linear.kernel1d",
                 "1D kernel",
                 "Validates and optionally normalizes a finite 1D f32 kernel.",
                 serde_json::json!({"values": [0.25, 0.5, 0.25], "normalize": true}),
             ),
-            operation(
+            surface_operation(
                 "linear.tensorBridge",
                 "Tensor matrix bridge",
                 "Projects rank-2 tensor payloads to matrix shape or matrix-shaped payloads to tensor shape.",
                 serde_json::json!({"shape": [2, 2], "values": [1.0, 2.0, 3.0, 4.0], "direction": "tensorToMatrix"}),
             ),
-            operation(
+            surface_operation(
                 "linear.gram",
                 "Gram matrix",
                 "Computes row or column Gram matrices for a finite f32 matrix.",
                 serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [1.0, 2.0, 3.0, 4.0]}, "axis": "rows"}),
             ),
-            operation(
+            surface_operation(
                 "linear.cholesky",
                 "Cholesky decomposition",
                 "Factors a symmetric positive definite matrix into lower-triangular Cholesky form.",
                 serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [4.0, 2.0, 2.0, 3.0]}}),
             ),
-            operation(
+            surface_operation(
                 "linear.qr",
                 "QR decomposition",
                 "Factors a full-column-rank matrix with deterministic modified Gram-Schmidt QR.",
                 serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 0.0, 1.0, 1.0, 0.0, 1.0]}}),
             ),
-            operation(
+            surface_operation(
                 "linear.center",
                 "Center matrix",
                 "Subtracts row or column means from a finite f32 matrix.",
                 serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [1.0, 2.0, 3.0, 4.0]}, "axis": "columns"}),
             ),
-            operation(
+            surface_operation(
                 "linear.leastSquares",
                 "Least squares",
                 "Fits a full-column-rank QR least-squares model for a finite f32 design matrix.",
@@ -115,7 +116,7 @@ pub fn package_surface() -> PackageSurface {
                     "tolerance": 0.0
                 }),
             ),
-            operation(
+            surface_operation(
                 "linear.svd",
                 "SVD",
                 "Computes compact singular values, rank, and condition diagnostics for a finite real matrix; thin factors are opt-in.",
@@ -125,7 +126,7 @@ pub fn package_surface() -> PackageSurface {
                     "computeFactors": false
                 }),
             ),
-            operation(
+            surface_operation(
                 "linear.pseudoinverse",
                 "Pseudoinverse",
                 "Computes a Moore-Penrose pseudoinverse from the pure Rust SVD path.",
@@ -134,7 +135,7 @@ pub fn package_surface() -> PackageSurface {
                     "precision": "f64"
                 }),
             ),
-            operation(
+            surface_operation(
                 "linear.rank",
                 "Numerical rank",
                 "Computes singular-value based numerical rank for a finite real matrix.",
@@ -148,76 +149,80 @@ pub fn package_surface() -> PackageSurface {
     }
 }
 
-fn operation(
-    id: &str,
-    name: &str,
-    description: &str,
-    example_request: serde_json::Value,
-) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
-}
-
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    let surface = package_surface();
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => describe_value(request.input),
-        "linear.matmul" => matmul_value(parse_input(request.input)?)?,
-        "linear.transpose" => transpose_value(parse_input(request.input)?)?,
-        "linear.solve" => solve_value(parse_input(request.input)?)?,
-        "linear.decompose" => decompose_value(parse_input(request.input)?)?,
-        "linear.inverse" => inverse_value(parse_input(request.input)?)?,
-        "linear.kernel1d" => kernel1d_value(parse_input(request.input)?)?,
-        "linear.tensorBridge" => tensor_bridge_value(parse_input(request.input)?)?,
-        "linear.gram" => gram_value(parse_input(request.input)?)?,
-        "linear.cholesky" => cholesky_value(parse_input(request.input)?)?,
-        "linear.qr" => qr_value(parse_input(request.input)?)?,
-        "linear.center" => center_value(parse_input(request.input)?)?,
-        "linear.leastSquares" => least_squares_value(parse_input(request.input)?)?,
-        "linear.svd" => svd_value(parse_input(request.input)?)?,
-        "linear.pseudoinverse" => pseudoinverse_value(parse_input(request.input)?)?,
-        "linear.rank" => rank_value(parse_input(request.input)?)?,
+        "describe" => return Ok(describe_surface_response(&surface, request)),
+        "linear.matmul" => matmul_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.transpose" => transpose_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.solve" => solve_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.decompose" => decompose_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.inverse" => inverse_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.kernel1d" => kernel1d_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.tensorBridge" => tensor_bridge_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.gram" => gram_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.cholesky" => cholesky_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.qr" => qr_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.center" => center_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.leastSquares" => least_squares_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.svd" => svd_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.pseudoinverse" => pseudoinverse_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "linear.rank" => rank_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ));
+            return Err(
+                SurfaceError::unsupported_operation(operation, env!("CARGO_PKG_NAME"))
+                    .to_error_string(),
+            );
         }
     };
-    Ok(response(operation, value))
-}
-
-fn describe_value(input: serde_json::Value) -> serde_json::Value {
-    let surface = package_surface();
-    serde_json::json!({
-        "library": surface.library,
-        "version": surface.version,
-        "operationCount": surface.operations.len(),
-        "operations": surface
-            .operations
-            .iter()
-            .map(|operation| operation.id.as_str())
-            .collect::<Vec<_>>(),
-        "input": input
-    })
-}
-
-fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    Ok(structured_operation_response(&surface, operation, value))
 }
 
 #[derive(Debug, Deserialize)]
@@ -710,10 +715,6 @@ fn surface_invalid_request(error: impl std::fmt::Display) -> String {
     format!("invalid request: {error}")
 }
 
-fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
-}
-
 fn default_columns_axis() -> String {
     "columns".to_string()
 }
@@ -725,6 +726,7 @@ fn default_f64_precision() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use runtime_core::OperationId;
 
     fn assert_close(left: f32, right: f32) {
         assert!((left - right).abs() < 1.0e-4, "expected {left} ≈ {right}");

@@ -949,6 +949,27 @@ fn foundation_adapters_delegate_to_library_owned_surfaces() {
             wasm: "crates/bindings/math-sparse-data-wasm/src/lib.rs",
         },
         FoundationAdapterCase {
+            crate_name: "maps-kernels-core",
+            import_name: "maps_kernels_core",
+            cli: "crates/math/maps-kernels-core-cli/src/lib.rs",
+            server: "crates/math/maps-kernels-core-server/src/lib.rs",
+            wasm: "crates/bindings/maps-kernels-core-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "math-linear",
+            import_name: "math_linear",
+            cli: "crates/math/math-linear-cli/src/lib.rs",
+            server: "crates/math/math-linear-server/src/lib.rs",
+            wasm: "crates/bindings/math-linear-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
+            crate_name: "math-statistics",
+            import_name: "math_statistics",
+            cli: "crates/math/math-statistics-cli/src/lib.rs",
+            server: "crates/math/math-statistics-server/src/lib.rs",
+            wasm: "crates/bindings/math-statistics-wasm/src/lib.rs",
+        },
+        FoundationAdapterCase {
             crate_name: "dense-data",
             import_name: "dense_data",
             cli: "crates/data/dense-data-cli/src/lib.rs",

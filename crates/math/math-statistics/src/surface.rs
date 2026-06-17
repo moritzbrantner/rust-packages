@@ -1,7 +1,8 @@
 //! Library-owned runtime surface for `math-statistics`.
 
 use runtime_core::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
+    describe_surface_response, parse_surface_input, structured_operation_response,
+    surface_operation, PackageSurface, RuntimeCapabilities, SurfaceError, SurfaceRequest,
     SurfaceResponse,
 };
 use serde::Deserialize;
@@ -23,90 +24,90 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation("describe", "Describe package", "Shared statistics for scalar series, paired series, dense matrix inputs, and streaming observations.", serde_json::json!({"includeOperations": true})),
-            operation("stats.series.describe", "Describe series", "Computes summary statistics for a finite scalar series.", serde_json::json!({"values": [1.0, 2.0, 3.0, 4.0], "varianceMode": "sample"})),
-            operation("stats.series.changes", "Series changes", "Converts adjacent values into differences, relative changes, or log-ratios.", serde_json::json!({"values": [100.0, 102.0, 99.0, 105.0], "method": "relative"})),
-            operation("stats.series.compare", "Compare series", "Computes pairwise covariance and correlation for two finite scalar series.", serde_json::json!({"left": [0.01, -0.02, 0.03], "right": [0.0, -0.01, 0.02], "varianceMode": "sample"})),
-            operation("stats.series.rolling", "Rolling statistics", "Computes rolling mean, standard deviation, ranges, and optional paired correlations.", serde_json::json!({"values": [0.1, -0.2, 0.05, 0.3], "window": 2, "varianceMode": "sample"})),
-            operation("stats.series.tailRisk", "Tail risk", "Computes empirical VaR/CVaR style tail-risk statistics.", serde_json::json!({"values": [0.02, -0.01, 0.03, -0.02, 0.01], "confidence": 0.8})),
-            operation("stats.series.zScores", "Z-scores", "Standardizes a finite scalar series into z-scores.", serde_json::json!({"values": [1.0, 2.0, 3.0], "varianceMode": "population"})),
-            operation("stats.normalize", "Normalize matrix", "Applies z-score or min-max column normalization to a finite matrix; matrix workflows default to f64.", serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [0.0, 1.0, 2.0, 3.0]}, "method": "minMax", "precision": "f64"})),
-            operation("stats.covariance", "Covariance matrix", "Computes covariance and optional correlation for matrix rows as observations with f64 defaults.", serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 0.0, 0.0, 1.0, 1.0, 1.0]}, "correlation": true, "precision": "f64"})),
-            operation("stats.pca", "PCA", "Fits centered-data SVD PCA components and optionally transforms rows into component space.", serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 2.0, 2.0, 3.0, 3.0]}, "componentCount": 1, "transform": true, "precision": "f64"})),
-            operation("stats.series.rankCorrelation", "Rank correlation", "Computes average ranks and Spearman correlation for finite paired scalar series.", serde_json::json!({"left": [1.0, 2.0, 2.0, 4.0], "right": [10.0, 20.0, 20.0, 40.0]})),
-            operation("stats.regression.linear", "Linear regression", "Fits a simple y = intercept + slope * x regression for paired finite scalar observations.", serde_json::json!({"x": [1.0, 2.0, 3.0], "y": [3.0, 5.0, 7.0]})),
-            operation("stats.regression.ols", "OLS regression", "Fits ordinary least squares from a finite dense design matrix and target vector, using SVD pseudoinverse for rank-deficient designs.", serde_json::json!({"design": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0]}, "target": [3.0, 5.0, 7.0], "precision": "f64"})),
-            operation("stats.regression.diagnostics", "Regression diagnostics", "Fits strict full-column-rank OLS and returns residual, adjusted R-squared, standard-error, and t-statistic diagnostics.", serde_json::json!({"design": {"rows": 4, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 4.0]}, "target": [3.0, 5.0, 7.0, 9.0], "tolerance": 0.0, "precision": "f64"})),
+            surface_operation("describe", "Describe package", "Shared statistics for scalar series, paired series, dense matrix inputs, and streaming observations.", serde_json::json!({"includeOperations": true})),
+            surface_operation("stats.series.describe", "Describe series", "Computes summary statistics for a finite scalar series.", serde_json::json!({"values": [1.0, 2.0, 3.0, 4.0], "varianceMode": "sample"})),
+            surface_operation("stats.series.changes", "Series changes", "Converts adjacent values into differences, relative changes, or log-ratios.", serde_json::json!({"values": [100.0, 102.0, 99.0, 105.0], "method": "relative"})),
+            surface_operation("stats.series.compare", "Compare series", "Computes pairwise covariance and correlation for two finite scalar series.", serde_json::json!({"left": [0.01, -0.02, 0.03], "right": [0.0, -0.01, 0.02], "varianceMode": "sample"})),
+            surface_operation("stats.series.rolling", "Rolling statistics", "Computes rolling mean, standard deviation, ranges, and optional paired correlations.", serde_json::json!({"values": [0.1, -0.2, 0.05, 0.3], "window": 2, "varianceMode": "sample"})),
+            surface_operation("stats.series.tailRisk", "Tail risk", "Computes empirical VaR/CVaR style tail-risk statistics.", serde_json::json!({"values": [0.02, -0.01, 0.03, -0.02, 0.01], "confidence": 0.8})),
+            surface_operation("stats.series.zScores", "Z-scores", "Standardizes a finite scalar series into z-scores.", serde_json::json!({"values": [1.0, 2.0, 3.0], "varianceMode": "population"})),
+            surface_operation("stats.normalize", "Normalize matrix", "Applies z-score or min-max column normalization to a finite matrix; matrix workflows default to f64.", serde_json::json!({"matrix": {"rows": 2, "cols": 2, "values": [0.0, 1.0, 2.0, 3.0]}, "method": "minMax", "precision": "f64"})),
+            surface_operation("stats.covariance", "Covariance matrix", "Computes covariance and optional correlation for matrix rows as observations with f64 defaults.", serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 0.0, 0.0, 1.0, 1.0, 1.0]}, "correlation": true, "precision": "f64"})),
+            surface_operation("stats.pca", "PCA", "Fits centered-data SVD PCA components and optionally transforms rows into component space.", serde_json::json!({"matrix": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 2.0, 2.0, 3.0, 3.0]}, "componentCount": 1, "transform": true, "precision": "f64"})),
+            surface_operation("stats.series.rankCorrelation", "Rank correlation", "Computes average ranks and Spearman correlation for finite paired scalar series.", serde_json::json!({"left": [1.0, 2.0, 2.0, 4.0], "right": [10.0, 20.0, 20.0, 40.0]})),
+            surface_operation("stats.regression.linear", "Linear regression", "Fits a simple y = intercept + slope * x regression for paired finite scalar observations.", serde_json::json!({"x": [1.0, 2.0, 3.0], "y": [3.0, 5.0, 7.0]})),
+            surface_operation("stats.regression.ols", "OLS regression", "Fits ordinary least squares from a finite dense design matrix and target vector, using SVD pseudoinverse for rank-deficient designs.", serde_json::json!({"design": {"rows": 3, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0]}, "target": [3.0, 5.0, 7.0], "precision": "f64"})),
+            surface_operation("stats.regression.diagnostics", "Regression diagnostics", "Fits strict full-column-rank OLS and returns residual, adjusted R-squared, standard-error, and t-statistic diagnostics.", serde_json::json!({"design": {"rows": 4, "cols": 2, "values": [1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 4.0]}, "target": [3.0, 5.0, 7.0, 9.0], "tolerance": 0.0, "precision": "f64"})),
         ],
-    }
-}
-
-fn operation(
-    id: &str,
-    name: &str,
-    description: &str,
-    example_request: serde_json::Value,
-) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
     }
 }
 
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    let surface = package_surface();
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => describe_value(request.input),
-        "stats.series.describe" => series_describe_value(parse_input(request.input)?)?,
-        "stats.series.changes" => series_changes_value(parse_input(request.input)?)?,
-        "stats.series.compare" => series_compare_value(parse_input(request.input)?)?,
-        "stats.series.rolling" => series_rolling_value(parse_input(request.input)?)?,
-        "stats.series.tailRisk" => series_tail_risk_value(parse_input(request.input)?)?,
-        "stats.series.zScores" => series_z_scores_value(parse_input(request.input)?)?,
-        "stats.normalize" => normalize_value(parse_input(request.input)?)?,
-        "stats.covariance" => covariance_value(parse_input(request.input)?)?,
-        "stats.pca" => pca_value(parse_input(request.input)?)?,
-        "stats.series.rankCorrelation" => rank_correlation_value(parse_input(request.input)?)?,
-        "stats.regression.linear" => regression_linear_value(parse_input(request.input)?)?,
-        "stats.regression.ols" => regression_ols_value(parse_input(request.input)?)?,
-        "stats.regression.diagnostics" => {
-            regression_diagnostics_value(parse_input(request.input)?)?
-        }
+        "describe" => return Ok(describe_surface_response(&surface, request)),
+        "stats.series.describe" => series_describe_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.series.changes" => series_changes_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.series.compare" => series_compare_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.series.rolling" => series_rolling_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.series.tailRisk" => series_tail_risk_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.series.zScores" => series_z_scores_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.normalize" => normalize_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.covariance" => covariance_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.pca" => pca_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.series.rankCorrelation" => rank_correlation_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.regression.linear" => regression_linear_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.regression.ols" => regression_ols_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "stats.regression.diagnostics" => regression_diagnostics_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ))
+            return Err(
+                SurfaceError::unsupported_operation(operation, env!("CARGO_PKG_NAME"))
+                    .to_error_string(),
+            )
         }
     };
-    Ok(response(operation, value))
-}
-
-fn describe_value(input: serde_json::Value) -> serde_json::Value {
-    let surface = package_surface();
-    serde_json::json!({
-        "library": surface.library,
-        "version": surface.version,
-        "operationCount": surface.operations.len(),
-        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
-        "input": input
-    })
-}
-
-fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    Ok(structured_operation_response(&surface, operation, value))
 }
 
 #[derive(Debug, Deserialize)]
@@ -938,13 +939,10 @@ fn default_f64_precision() -> String {
     "f64".to_string()
 }
 
-fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use runtime_core::OperationId;
 
     #[test]
     fn surface_lists_series_operations() {

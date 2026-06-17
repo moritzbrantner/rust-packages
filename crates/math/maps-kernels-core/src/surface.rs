@@ -1,7 +1,8 @@
 //! Library-owned runtime surface for `maps-kernels-core`.
 
 use runtime_core::{
-    OperationId, PackageSurface, RuntimeCapabilities, SurfaceOperation, SurfaceRequest,
+    describe_surface_response, parse_surface_input, structured_operation_response,
+    surface_operation, PackageSurface, RuntimeCapabilities, SurfaceError, SurfaceRequest,
     SurfaceResponse,
 };
 use serde::Deserialize;
@@ -20,37 +21,37 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust(),
         operations: vec![
-            operation(
+            surface_operation(
                 "describe",
                 "Describe package",
                 "Numeric kernels for map and temporal GeoJSON processing.",
                 serde_json::json!({"includeOperations": true}),
             ),
-            operation(
+            surface_operation(
                 "maps.kernelSummary",
                 "Map kernel summary",
                 "Summarizes flat 2D coordinates as an open line or closed ring.",
                 serde_json::json!({"coordinates": [0.0, 0.0, 1.0, 0.0], "closed": false}),
             ),
-            operation(
+            surface_operation(
                 "maps.applyKernel",
                 "Apply map kernel",
                 "Resamples flat 2D coordinates as an open line or closed ring.",
                 serde_json::json!({"coordinates": [0.0, 0.0, 10.0, 0.0], "coordinateCount": 3, "closed": false}),
             ),
-            operation(
+            surface_operation(
                 "maps.pathSummary",
                 "Path summary",
                 "Reports point count, segment count, length, and bounds for a flat 2D path.",
                 serde_json::json!({"coordinates": [0.0, 0.0, 3.0, 4.0], "closed": false}),
             ),
-            operation(
+            surface_operation(
                 "maps.simplifyLine",
                 "Simplify line",
                 "Simplifies a flat open 2D line with deterministic Douglas-Peucker simplification.",
                 serde_json::json!({"coordinates": [0.0, 0.0, 1.0, 0.01, 2.0, 0.0], "tolerance": 0.05}),
             ),
-            operation(
+            surface_operation(
                 "maps.densifyLine",
                 "Densify line",
                 "Inserts flat 2D line points so no segment exceeds the requested length.",
@@ -60,62 +61,40 @@ pub fn package_surface() -> PackageSurface {
     }
 }
 
-fn operation(
-    id: &str,
-    name: &str,
-    description: &str,
-    example_request: serde_json::Value,
-) -> SurfaceOperation {
-    SurfaceOperation {
-        id: OperationId::new(id),
-        name: name.to_string(),
-        description: Some(description.to_string()),
-        input_schema: serde_json::json!({"type": "object", "additionalProperties": true}),
-        output_schema: serde_json::json!({"type": "object"}),
-        example_request,
-        wasm_supported: true,
-        server_supported: true,
-    }
-}
-
 /// Runs one library-owned operation.
 pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse, String> {
+    let surface = package_surface();
     let operation = request.operation.clone();
     let value = match request.operation.as_str() {
-        "describe" => describe_value(request.input),
-        "maps.kernelSummary" => summary_value(parse_input(request.input)?)?,
-        "maps.applyKernel" => apply_value(parse_input(request.input)?)?,
-        "maps.pathSummary" => path_summary_value(parse_input(request.input)?)?,
-        "maps.simplifyLine" => simplify_line_value(parse_input(request.input)?)?,
-        "maps.densifyLine" => densify_line_value(parse_input(request.input)?)?,
+        "describe" => return Ok(describe_surface_response(&surface, request)),
+        "maps.kernelSummary" => summary_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "maps.applyKernel" => apply_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "maps.pathSummary" => path_summary_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "maps.simplifyLine" => simplify_line_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
+        "maps.densifyLine" => densify_line_value(parse_surface_input(
+            Some(operation.as_str()),
+            request.input,
+        )?)?,
         operation => {
-            return Err(format!(
-                "unsupported operation `{operation}` for {}",
-                env!("CARGO_PKG_NAME")
-            ))
+            return Err(
+                SurfaceError::unsupported_operation(operation, env!("CARGO_PKG_NAME"))
+                    .to_error_string(),
+            )
         }
     };
-    Ok(response(operation, value))
-}
-
-fn describe_value(input: serde_json::Value) -> serde_json::Value {
-    let surface = package_surface();
-    serde_json::json!({
-        "library": surface.library,
-        "version": surface.version,
-        "operationCount": surface.operations.len(),
-        "operations": surface.operations.iter().map(|operation| operation.id.as_str()).collect::<Vec<_>>(),
-        "input": input
-    })
-}
-
-fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse {
-    SurfaceResponse {
-        operation,
-        value,
-        diagnostics: Vec::new(),
-        artifacts: Vec::new(),
-    }
+    Ok(structured_operation_response(&surface, operation, value))
 }
 
 #[derive(Debug, Deserialize)]
@@ -268,13 +247,10 @@ fn total_length(coordinates: &[f64], closed: bool) -> f64 {
         .sum()
 }
 
-fn parse_input<T: for<'de> Deserialize<'de>>(input: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use runtime_core::OperationId;
 
     #[test]
     fn summary_reports_lengths_and_bbox() {
