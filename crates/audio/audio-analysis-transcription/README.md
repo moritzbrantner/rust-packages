@@ -34,15 +34,19 @@ It keeps Python-based execution explicit for callers that still need WhisperX
 decoding, batched ASR, alignment, or pyannote-backed diarization outside the
 default Rust path. It is also the current path for video/container inputs.
 
-Native deterministic diarization is available behind `diarization` as a
-heuristic spectral baseline, not a pyannote replacement or production speaker
-recognition model. Diarization assignment runs after alignment when both
-options are enabled, so the native diarization seam can use aligned word
-timings, or segment timings when word timings are absent, as speech-span hints.
-When no transcript timing is available it falls back to the energy-VAD baseline.
-`min_speakers` and `max_speakers` are validated, reported in diagnostics, and
-applied as native unknown-speaker clustering constraints. Known/enrolled
-speaker IDs are preserved; bounds only affect generated unknown speaker labels.
+Speaker diarization contracts are owned by `audio-analysis-speakers`.
+Transcription owns pipeline orchestration and adapts the speaker-owned
+`SpeakerDiarizationOptions` into its flattened `diarization` request JSON.
+Native deterministic diarization execution is still available only behind
+`diarization` as a heuristic spectral baseline, not a pyannote replacement or
+production speaker recognition model. Transcript Speaker Assignment runs after
+alignment when both options are enabled, so the native diarization seam can use
+aligned word timings, or segment timings when word timings are absent, as
+speech-span hints. When no transcript timing is available it falls back to the
+energy-VAD baseline. `min_speakers` and `max_speakers` are validated by the
+speaker-owned contract, reported in diagnostics, and applied as native
+unknown-speaker clustering constraints. Known/enrolled speaker IDs are
+preserved; bounds only affect generated unknown speaker labels.
 An ONNX speaker embedding provider is available only when explicitly configured
 with `diarization.speakerEmbeddingModelBundle` and the crate is built with
 `diarization,onnx`. It feeds the existing `WindowedSpeakerDiarizer`; heuristic
@@ -95,7 +99,8 @@ import remain owned by `text-transcripts`.
 - `audio.transcription.decodePlan`: explain source decode routing without
   opening files or running FFmpeg.
 - `audio.transcription.diarizationPlan`: explain heuristic diarization status,
-  assignment policies, and future model-backed provider directions.
+  speaker-owned assignment policies, and future model-backed provider
+  directions.
 - `describe`: inspect package metadata.
 
 ## Setup

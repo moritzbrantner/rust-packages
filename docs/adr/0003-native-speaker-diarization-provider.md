@@ -6,9 +6,10 @@ Accepted.
 
 ## Context
 
-Native transcription currently has a deterministic heuristic diarization
-baseline. It is useful for hermetic tests and prototypes, but it is not
-production pyannote parity and it is not a native pyannote replacement.
+Native transcription currently adapts a deterministic heuristic diarization
+baseline from `audio-analysis-speakers`. It is useful for hermetic tests and
+prototypes, but it is not production pyannote parity and it is not a native
+pyannote replacement.
 
 Default tests must remain hermetic: no Python, pyannote auth, Hugging Face
 tokens, network access, CUDA, or checked-in model files.
@@ -18,9 +19,10 @@ tokens, network access, CUDA, or checked-in model files.
 The first model-backed diarization provider target is an ONNX speaker embedding
 adapter in `audio-analysis-speakers`.
 
-The crate will keep heuristic diarization as the default. Model-backed
-diarization must be opt-in and must validate a caller-owned local bundle before
-execution.
+`audio-analysis-speakers` owns speaker diarization contracts and Transcript
+Speaker Assignment. Transcription remains the orchestration adapter and keeps
+model-backed diarization execution opt-in. Model-backed diarization must
+validate a caller-owned local bundle before execution.
 
 The provider abstraction should be:
 
@@ -57,9 +59,10 @@ caller-owned model and local WAV fixture, but default tests must not.
 
 `audio.transcription.diarizationPlan` continues to report
 `currentRuntime=heuristic-native` and should list ONNX speaker embeddings as a
-future opt-in provider. Production diarization work can proceed after review by
-adding an ONNX adapter, feeding embeddings into `WindowedSpeakerDiarizer`, and
-emitting diagnostics such as `diarizationRuntime=onnx`,
+future opt-in provider while pointing at the speaker-owned contract boundary.
+Production diarization work can proceed after review by adding an ONNX adapter,
+feeding embeddings into `WindowedSpeakerDiarizer`, and emitting diagnostics such
+as `diarizationRuntime=onnx`,
 `speakerEmbeddingProvider=onnx`, `speakerEmbeddingDimension=N`, and
 `diarizationBaseline=false`.
 

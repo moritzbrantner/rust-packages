@@ -30,19 +30,19 @@ text-model-runtime = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
 audio-analysis-io = { workspace = true, optional = true }
-audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.2", path = "../audio-analysis-speakers", optional = true }
+audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.2", path = "../audio-analysis-speakers" }
 
 [features]
 default = []
 candle = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:text-model-runtime", "dep:tokenizers"]
 cuda = ["candle", "candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda", "text-model-runtime/cuda"]
 alignment = ["candle", "dep:tokenizers"]
-diarization = ["dep:audio-analysis-speakers"]
+diarization = []
 onnx = ["diarization", "audio-analysis-speakers/onnx", "dep:runtime-onnx"]
 pyannote-diarization = ["diarization", "audio-analysis-speakers/pyannote-diarization"]
 external-whisperx = []
 external-tests = ["external-whisperx"]
-model-bundles = ["dep:model-runtime", "audio-analysis-speakers?/model-bundles"]
+model-bundles = ["dep:model-runtime", "audio-analysis-speakers/model-bundles"]
 audio-io = ["dep:audio-analysis-io"]
 
 [dev-dependencies]

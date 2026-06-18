@@ -44,6 +44,14 @@ _Avoid_: Model platform, inference layer
 A workflow that requires local tools, downloaded model artifacts, native runtimes, or network/materialization setup.
 _Avoid_: Default workflow, local-first workflow
 
+**Speaker Diarization**:
+The speaker-domain operation that detects time spans and assigns speaker labels to those spans. `audio-analysis-speakers` owns the stable diarization contracts; orchestration crates may adapt those contracts to their pipelines.
+_Avoid_: Transcription diarization schema, ASR speaker detection
+
+**Transcript Speaker Assignment**:
+The operation that applies speaker diarization spans to transcript words and segments using an explicit policy such as majority, nearest-start, or strict-contained. It is owned by `audio-analysis-speakers` even when invoked from transcription orchestration.
+_Avoid_: Diarization postprocess, transcript-owned speaker matching
+
 **Model Bundle**:
 A local set of model files and metadata prepared for a caller or task crate to use.
 _Avoid_: Model cache, weights folder

@@ -71,6 +71,174 @@ pub struct SpeakerDiarizationResponse {
     pub diagnostics: Vec<String>,
 }
 
+/// Speaker-owned diarization options shared by transcription and speaker surfaces.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeakerDiarizationOptions {
+    /// Selected diarization model id.
+    #[serde(default = "default_speaker_diarization_model")]
+    pub model_id: String,
+    /// ONNX speaker embedding model bundle or direct model path.
+    #[serde(default)]
+    pub speaker_embedding_model_bundle: Option<PathBuf>,
+    /// ONNX speaker embedding model filename.
+    #[serde(default)]
+    pub speaker_embedding_model_file: Option<String>,
+    /// ONNX speaker embedding input name.
+    #[serde(default)]
+    pub speaker_embedding_input_name: Option<String>,
+    /// ONNX speaker embedding output name.
+    #[serde(default)]
+    pub speaker_embedding_output_name: Option<String>,
+    /// ONNX speaker embedding vector dimension.
+    #[serde(default)]
+    pub speaker_embedding_dimension: Option<usize>,
+    /// ONNX speaker embedding expected sample rate.
+    #[serde(default)]
+    pub speaker_embedding_sample_rate: Option<u32>,
+    /// pyannote diarization bundle path.
+    #[serde(default)]
+    pub pyannote_model_bundle: Option<PathBuf>,
+    /// pyannote manifest filename.
+    #[serde(default)]
+    pub pyannote_manifest_file: Option<String>,
+    /// pyannote segmentation model filename.
+    #[serde(default)]
+    pub pyannote_segmentation_model_file: Option<String>,
+    /// pyannote embedding model filename.
+    #[serde(default)]
+    pub pyannote_embedding_model_file: Option<String>,
+    /// pyannote PLDA transform filename.
+    #[serde(default)]
+    pub pyannote_plda_transform_file: Option<String>,
+    /// pyannote PLDA model filename.
+    #[serde(default)]
+    pub pyannote_plda_model_file: Option<String>,
+    /// pyannote clustering config filename.
+    #[serde(default)]
+    pub pyannote_clustering_config_file: Option<String>,
+    /// Whether provider responses should include speaker embeddings when available.
+    #[serde(default)]
+    pub return_speaker_embeddings: bool,
+    /// Requested minimum number of speakers.
+    #[serde(default)]
+    pub min_speakers: Option<usize>,
+    /// Requested maximum number of speakers.
+    #[serde(default)]
+    pub max_speakers: Option<usize>,
+    /// Transcript Speaker Assignment policy.
+    #[serde(default)]
+    pub assignment_policy: SpeakerTranscriptAssignmentPolicy,
+}
+
+impl SpeakerDiarizationOptions {
+    /// Validates the speaker-owned diarization contract.
+    pub fn validate(&self) -> Result<()> {
+        if self.min_speakers == Some(0) {
+            return Err(invalid_request(
+                "diarization min_speakers must be greater than zero",
+            ));
+        }
+        if self.max_speakers == Some(0) {
+            return Err(invalid_request(
+                "diarization max_speakers must be greater than zero",
+            ));
+        }
+        if let (Some(min), Some(max)) = (self.min_speakers, self.max_speakers) {
+            if min > max {
+                return Err(invalid_request(
+                    "diarization min_speakers must be less than or equal to max_speakers",
+                ));
+            }
+        }
+        if self.speaker_embedding_dimension == Some(0) {
+            return Err(invalid_request(
+                "diarization speaker_embedding_dimension must be greater than zero",
+            ));
+        }
+        if self.speaker_embedding_sample_rate == Some(0) {
+            return Err(invalid_request(
+                "diarization speaker_embedding_sample_rate must be greater than zero",
+            ));
+        }
+        if is_pyannote_diarization_model(&self.model_id)
+            && self.speaker_embedding_model_bundle.is_some()
+        {
+            return Err(invalid_request(
+                "pyannote diarization uses pyannote_model_bundle, not speaker_embedding_model_bundle",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Returns true when the selected model id targets the pyannote provider.
+    pub fn is_pyannote_model(&self) -> bool {
+        is_pyannote_diarization_model(&self.model_id)
+    }
+
+    /// Returns true when ONNX speaker embedding execution is explicitly configured.
+    pub fn uses_onnx_speaker_embedding(&self) -> bool {
+        self.speaker_embedding_model_bundle.is_some()
+    }
+
+    /// Builds an ONNX speaker embedding config from this contract.
+    pub fn onnx_speaker_embedding_config(&self) -> Result<OnnxSpeakerEmbeddingConfig> {
+        let bundle_path = self
+            .speaker_embedding_model_bundle
+            .clone()
+            .ok_or_else(|| setup_error("ONNX speaker embedding model bundle is required"))?;
+        let embedding_dimension = self.speaker_embedding_dimension.ok_or_else(|| {
+            invalid_request("ONNX speaker embedding dimension must be configured explicitly")
+        })?;
+        Ok(OnnxSpeakerEmbeddingConfig {
+            bundle_path,
+            model_file: self.speaker_embedding_model_file.clone(),
+            input_name: self.speaker_embedding_input_name.clone(),
+            output_name: self.speaker_embedding_output_name.clone(),
+            embedding_dimension,
+            sample_rate: self.speaker_embedding_sample_rate.unwrap_or(16_000),
+        })
+    }
+}
+
+impl Default for SpeakerDiarizationOptions {
+    fn default() -> Self {
+        Self {
+            model_id: default_speaker_diarization_model(),
+            speaker_embedding_model_bundle: None,
+            speaker_embedding_model_file: None,
+            speaker_embedding_input_name: None,
+            speaker_embedding_output_name: None,
+            speaker_embedding_dimension: None,
+            speaker_embedding_sample_rate: None,
+            pyannote_model_bundle: None,
+            pyannote_manifest_file: None,
+            pyannote_segmentation_model_file: None,
+            pyannote_embedding_model_file: None,
+            pyannote_plda_transform_file: None,
+            pyannote_plda_model_file: None,
+            pyannote_clustering_config_file: None,
+            return_speaker_embeddings: false,
+            min_speakers: None,
+            max_speakers: None,
+            assignment_policy: SpeakerTranscriptAssignmentPolicy::Majority,
+        }
+    }
+}
+
+/// Returns the default native speaker diarization model id.
+pub fn default_speaker_diarization_model() -> String {
+    "native-spectral-speaker-baseline".to_string()
+}
+
+/// Returns true when a diarization model id targets the pyannote provider.
+pub fn is_pyannote_diarization_model(model_id: &str) -> bool {
+    matches!(
+        model_id,
+        "pyannote/speaker-diarization-community-1" | "pyannote-community-1"
+    )
+}
+
 #[cfg(feature = "pyannote-diarization")]
 pub use pyannote::{
     PyannoteCommunityDiarizationConfig, PyannoteCommunityDiarizationResult,
@@ -2791,7 +2959,7 @@ pub fn assign_speakers_to_transcript(
     )
 }
 
-/// Assigns speaker diarization output onto transcript segments using an explicit policy.
+/// Assigns speaker diarization output onto transcript words and segments using an explicit policy.
 pub fn assign_speakers_to_transcript_with_policy(
     transcript: &TranscriptionContract,
     diarization: &SpeakerDiarizationResponse,
@@ -2809,6 +2977,20 @@ pub fn assign_speakers_to_transcript_with_policy(
         .collect::<Result<Vec<_>>>()?;
 
     for segment in &mut transcript.segments {
+        for word in &mut segment.words {
+            let Some((start, end)) = word.start_seconds.zip(word.end_seconds) else {
+                continue;
+            };
+            word.speaker = speaker_for_range(start, end, &diarization_segments, policy)
+                .map(|speaker_segment| speaker_segment.speaker.clone());
+        }
+        if segment.speaker.is_some() {
+            continue;
+        }
+        if !segment.words.is_empty() {
+            segment.speaker = majority_word_speaker(segment);
+            continue;
+        }
         let Some(best) = best_speaker_match(segment, &diarization_segments, policy) else {
             if policy == SpeakerTranscriptAssignmentPolicy::StrictContained
                 && segment.speaker.is_none()
@@ -2829,6 +3011,21 @@ pub fn assign_speakers_to_transcript_with_policy(
         .validate_strict()
         .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
     Ok(transcript)
+}
+
+fn majority_word_speaker(segment: &TranscriptSegmentContract) -> Option<String> {
+    let mut counts = BTreeMap::<String, usize>::new();
+    for speaker in segment
+        .words
+        .iter()
+        .filter_map(|word| word.speaker.as_ref())
+    {
+        *counts.entry(speaker.clone()).or_default() += 1;
+    }
+    counts
+        .into_iter()
+        .max_by(|left, right| left.1.cmp(&right.1).then_with(|| right.0.cmp(&left.0)))
+        .map(|(speaker, _)| speaker)
 }
 
 fn normalize_speaker_segment(
@@ -2862,27 +3059,50 @@ fn best_speaker_match<'a>(
     diarization_segments: &'a [SpeakerSegmentPrediction],
     policy: SpeakerTranscriptAssignmentPolicy,
 ) -> Option<&'a SpeakerSegmentPrediction> {
+    let (Some(start), Some(end)) = (
+        transcript_segment.start_seconds,
+        transcript_segment.end_seconds,
+    ) else {
+        return match policy {
+            SpeakerTranscriptAssignmentPolicy::NearestStart => {
+                let start = transcript_segment.midpoint_seconds()?;
+                speaker_for_range(start, start, diarization_segments, policy)
+            }
+            _ => None,
+        };
+    };
+    speaker_for_range(start, end, diarization_segments, policy)
+}
+
+fn speaker_for_range<'a>(
+    start: f64,
+    end: f64,
+    diarization_segments: &'a [SpeakerSegmentPrediction],
+    policy: SpeakerTranscriptAssignmentPolicy,
+) -> Option<&'a SpeakerSegmentPrediction> {
     match policy {
         SpeakerTranscriptAssignmentPolicy::Majority => {
-            best_majority_speaker_match(transcript_segment, diarization_segments)
+            best_majority_speaker_match(start, end, (start + end) / 2.0, diarization_segments)
         }
         SpeakerTranscriptAssignmentPolicy::NearestStart => {
-            nearest_start_speaker_match(transcript_segment, diarization_segments)
+            nearest_start_speaker_match(start, diarization_segments)
         }
         SpeakerTranscriptAssignmentPolicy::StrictContained => {
-            strict_contained_speaker_match(transcript_segment, diarization_segments)
+            strict_contained_speaker_match(start, end, diarization_segments)
         }
     }
 }
 
 fn best_majority_speaker_match<'a>(
-    transcript_segment: &TranscriptSegmentContract,
+    transcript_start: f64,
+    transcript_end: f64,
+    transcript_midpoint: f64,
     diarization_segments: &'a [SpeakerSegmentPrediction],
 ) -> Option<&'a SpeakerSegmentPrediction> {
     let positive_overlap = diarization_segments
         .iter()
         .filter_map(|candidate| {
-            let overlap = speaker_overlap_seconds(transcript_segment, candidate);
+            let overlap = speaker_overlap_seconds(transcript_start, transcript_end, candidate);
             (overlap > 0.0).then_some((candidate, overlap))
         })
         .max_by(compare_speaker_candidates);
@@ -2890,13 +3110,12 @@ fn best_majority_speaker_match<'a>(
         return Some(candidate);
     }
 
-    let midpoint = transcript_segment.midpoint_seconds()?;
     diarization_segments
         .iter()
         .filter(|candidate| {
             let start = candidate.start_seconds as f64;
             let end = candidate.end_seconds as f64;
-            start <= midpoint && midpoint <= end
+            start <= transcript_midpoint && transcript_midpoint <= end
         })
         .map(|candidate| (candidate, 0.0))
         .max_by(compare_speaker_candidates)
@@ -2904,12 +3123,9 @@ fn best_majority_speaker_match<'a>(
 }
 
 fn nearest_start_speaker_match<'a>(
-    transcript_segment: &TranscriptSegmentContract,
+    transcript_start: f64,
     diarization_segments: &'a [SpeakerSegmentPrediction],
 ) -> Option<&'a SpeakerSegmentPrediction> {
-    let transcript_start = transcript_segment
-        .start_seconds
-        .or_else(|| transcript_segment.midpoint_seconds())?;
     diarization_segments
         .iter()
         .map(|candidate| {
@@ -2929,11 +3145,10 @@ fn nearest_start_speaker_match<'a>(
 }
 
 fn strict_contained_speaker_match<'a>(
-    transcript_segment: &TranscriptSegmentContract,
+    transcript_start: f64,
+    transcript_end: f64,
     diarization_segments: &'a [SpeakerSegmentPrediction],
 ) -> Option<&'a SpeakerSegmentPrediction> {
-    let transcript_start = transcript_segment.start_seconds?;
-    let transcript_end = transcript_segment.end_seconds?;
     diarization_segments
         .iter()
         .filter(|candidate| {
@@ -2946,15 +3161,10 @@ fn strict_contained_speaker_match<'a>(
 }
 
 fn speaker_overlap_seconds(
-    transcript_segment: &TranscriptSegmentContract,
+    transcript_start: f64,
+    transcript_end: f64,
     speaker_segment: &SpeakerSegmentPrediction,
 ) -> f64 {
-    let Some(transcript_start) = transcript_segment.start_seconds else {
-        return 0.0;
-    };
-    let Some(transcript_end) = transcript_segment.end_seconds else {
-        return 0.0;
-    };
     let start = transcript_start.max(speaker_segment.start_seconds as f64);
     let end = transcript_end.min(speaker_segment.end_seconds as f64);
     (end - start).max(0.0)
@@ -3208,6 +3418,193 @@ mod tests {
         .unwrap();
 
         assert_eq!(assigned.segments[0].speaker.as_deref(), Some("unknown"));
+    }
+
+    #[test]
+    fn speaker_diarization_options_accept_flat_camel_case_json() {
+        let options: SpeakerDiarizationOptions = serde_json::from_value(serde_json::json!({
+            "modelId": "pyannote-community-1",
+            "pyannoteModelBundle": "/models/pyannote",
+            "pyannoteManifestFile": "manifest.json",
+            "returnSpeakerEmbeddings": true,
+            "minSpeakers": 1,
+            "maxSpeakers": 3,
+            "assignmentPolicy": "nearestStart"
+        }))
+        .unwrap();
+
+        assert_eq!(options.model_id, "pyannote-community-1");
+        assert!(options.is_pyannote_model());
+        assert_eq!(
+            options.pyannote_model_bundle.as_deref(),
+            Some(Path::new("/models/pyannote"))
+        );
+        assert_eq!(
+            options.pyannote_manifest_file.as_deref(),
+            Some("manifest.json")
+        );
+        assert!(options.return_speaker_embeddings);
+        assert_eq!(options.min_speakers, Some(1));
+        assert_eq!(options.max_speakers, Some(3));
+        assert_eq!(
+            options.assignment_policy,
+            SpeakerTranscriptAssignmentPolicy::NearestStart
+        );
+        options.validate().unwrap();
+    }
+
+    #[test]
+    fn speaker_diarization_options_validate_owned_bounds_and_model_options() {
+        let invalid_bounds = SpeakerDiarizationOptions {
+            min_speakers: Some(3),
+            max_speakers: Some(2),
+            ..SpeakerDiarizationOptions::default()
+        };
+        assert!(invalid_bounds
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("invalid_request"));
+
+        let invalid_embedding_dimension = SpeakerDiarizationOptions {
+            speaker_embedding_dimension: Some(0),
+            ..SpeakerDiarizationOptions::default()
+        };
+        assert!(invalid_embedding_dimension
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("speaker_embedding_dimension"));
+
+        let pyannote_with_onnx_bundle = SpeakerDiarizationOptions {
+            model_id: "pyannote/speaker-diarization-community-1".to_string(),
+            speaker_embedding_model_bundle: Some(PathBuf::from("speaker-model")),
+            ..SpeakerDiarizationOptions::default()
+        };
+        assert!(pyannote_with_onnx_bundle
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("pyannote_model_bundle"));
+    }
+
+    #[test]
+    fn speaker_assignment_assigns_words_and_majority_segment_speaker() {
+        let mut segment = TranscriptSegmentContract::new(0, "one two three");
+        segment.start_seconds = Some(0.0);
+        segment.end_seconds = Some(0.9);
+        for (text, start, end) in [("one", 0.0, 0.3), ("two", 0.3, 0.6), ("three", 0.6, 0.9)] {
+            segment.words.push(
+                serde_json::from_value(serde_json::json!({
+                    "text": text,
+                    "startSeconds": start,
+                    "endSeconds": end
+                }))
+                .unwrap(),
+            );
+        }
+        let transcript = TranscriptionContract::new(vec![segment]);
+        let diarization = SpeakerDiarizationResponse {
+            accepted: true,
+            operation: "diarize".to_string(),
+            model_id: "fixture".to_string(),
+            runtime: AudioRuntime::Imported,
+            segments: vec![
+                SpeakerSegmentPrediction {
+                    speaker: "speaker_0".to_string(),
+                    start_seconds: 0.0,
+                    end_seconds: 0.65,
+                    score: Some(0.9),
+                },
+                SpeakerSegmentPrediction {
+                    speaker: "speaker_1".to_string(),
+                    start_seconds: 0.65,
+                    end_seconds: 1.0,
+                    score: Some(0.9),
+                },
+            ],
+            speaker_embeddings: None,
+            diagnostics: Vec::new(),
+        };
+
+        let assigned = assign_speakers_to_transcript_with_policy(
+            &transcript,
+            &diarization,
+            SpeakerTranscriptAssignmentPolicy::Majority,
+        )
+        .unwrap();
+
+        assert_eq!(
+            assigned.segments[0].words[0].speaker.as_deref(),
+            Some("speaker_0")
+        );
+        assert_eq!(
+            assigned.segments[0].words[1].speaker.as_deref(),
+            Some("speaker_0")
+        );
+        assert_eq!(
+            assigned.segments[0].words[2].speaker.as_deref(),
+            Some("speaker_1")
+        );
+        assert_eq!(assigned.segments[0].speaker.as_deref(), Some("speaker_0"));
+    }
+
+    #[test]
+    fn speaker_assignment_word_policy_variants_match_transcription_contract() {
+        let mut segment = TranscriptSegmentContract::new(0, "hello");
+        segment.start_seconds = Some(0.2);
+        segment.end_seconds = Some(0.8);
+        segment.words.push(
+            serde_json::from_value(serde_json::json!({
+                "text": "hello",
+                "startSeconds": 0.2,
+                "endSeconds": 0.8
+            }))
+            .unwrap(),
+        );
+        let transcript = TranscriptionContract::new(vec![segment]);
+        let diarization = SpeakerDiarizationResponse {
+            accepted: true,
+            operation: "diarize".to_string(),
+            model_id: "fixture".to_string(),
+            runtime: AudioRuntime::Imported,
+            segments: vec![
+                SpeakerSegmentPrediction {
+                    speaker: "speaker_far".to_string(),
+                    start_seconds: 0.0,
+                    end_seconds: 0.1,
+                    score: Some(0.9),
+                },
+                SpeakerSegmentPrediction {
+                    speaker: "speaker_near".to_string(),
+                    start_seconds: 0.18,
+                    end_seconds: 0.3,
+                    score: Some(0.9),
+                },
+            ],
+            speaker_embeddings: None,
+            diagnostics: Vec::new(),
+        };
+
+        let nearest = assign_speakers_to_transcript_with_policy(
+            &transcript,
+            &diarization,
+            SpeakerTranscriptAssignmentPolicy::NearestStart,
+        )
+        .unwrap();
+        assert_eq!(
+            nearest.segments[0].words[0].speaker.as_deref(),
+            Some("speaker_near")
+        );
+
+        let strict = assign_speakers_to_transcript_with_policy(
+            &transcript,
+            &diarization,
+            SpeakerTranscriptAssignmentPolicy::StrictContained,
+        )
+        .unwrap();
+        assert!(strict.segments[0].words[0].speaker.is_none());
+        assert!(strict.segments[0].speaker.is_none());
     }
 
     #[derive(Debug, Clone)]

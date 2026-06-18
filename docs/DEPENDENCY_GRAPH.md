@@ -788,7 +788,7 @@ flowchart LR
   crate_moritzbrantner_audio_analysis_test_support --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_audio_analysis_test_support --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_analysis_transcription -. optional .-> crate_moritzbrantner_audio_analysis_io
-  crate_moritzbrantner_audio_analysis_transcription -. optional .-> crate_moritzbrantner_audio_analysis_speakers
+  crate_moritzbrantner_audio_analysis_transcription --> crate_moritzbrantner_audio_analysis_speakers
   crate_moritzbrantner_audio_analysis_transcription -. optional .-> crate_moritzbrantner_text_model_runtime
   crate_moritzbrantner_audio_analysis_transcription --> crate_moritzbrantner_text_transcripts
   crate_moritzbrantner_audio_analysis_transcription --> crate_moritzbrantner_video_analysis_core

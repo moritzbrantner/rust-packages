@@ -10,12 +10,21 @@ This crate keeps `moritzbrantner-audio-analysis-recognition` focused on generic 
 - enrollment and thresholded identification
 - baseline energy VAD
 - diarization traits and a simple VAD/window/cluster diarizer
+- shared speaker diarization options, response DTOs, and Transcript Speaker
+  Assignment policies
 
 `SpectralSpeakerEmbedder` and the native diarization baseline are deterministic
 heuristics intended for tests and prototypes. They are not production-grade
 speaker verification or diarization. Production systems should use a
 model-backed embedder such as ECAPA-TDNN, x-vector, pyannote-style, or
 SpeechBrain-compatible speaker verification models.
+
+`SpeakerDiarizationOptions`, `SpeakerDiarizationResponse`,
+`SpeakerSegmentPrediction`, and `SpeakerTranscriptAssignmentPolicy` are the
+speaker-owned contracts used by transcription orchestration and package
+surfaces. Transcript Speaker Assignment applies diarization spans to transcript
+words and segments while preserving the existing JSON field names used by
+package consumers.
 
 `WindowedSpeakerDiarizer` supports optional unknown-speaker cluster bounds via
 `speaker_bounds(min_speakers, max_speakers)`. The diarizer first preserves
@@ -93,7 +102,7 @@ Workflow operations:
 
 - `audio.speakers.embed`: Computes a deterministic spectral speaker embedding from normalized samples.
 - `audio.speakers.identify`: Builds a transient enrolled-speaker library and identifies a query embedding.
-- `audio.speakers.assignTranscript`: Applies diarization segments to an existing transcription contract.
+- `audio.speakers.assignTranscript`: Applies diarization segments to an existing transcription contract through Transcript Speaker Assignment.
 - `audio.speakers.vad`: Detects speech-like regions with a deterministic RMS voice activity detector.
 - `audio.speakers.diarize`: Runs deterministic VAD/window/spectral speaker diarization or normalizes imported diarization segments.
 

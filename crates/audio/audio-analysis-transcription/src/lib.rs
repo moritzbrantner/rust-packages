@@ -27,34 +27,13 @@ use text_transcripts::{
 };
 use video_analysis_core::{DetectError, Result};
 
-#[cfg(feature = "diarization")]
-pub use audio_analysis_speakers::{SpeakerDiarizationResponse, SpeakerSegmentPrediction};
+pub use audio_analysis_speakers::{
+    AudioRuntime, SpeakerDiarizationOptions, SpeakerDiarizationResponse, SpeakerSegmentPrediction,
+    SpeakerTranscriptAssignmentPolicy,
+};
 
-#[cfg(not(feature = "diarization"))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SpeakerDiarizationResponse {
-    pub accepted: bool,
-    pub operation: String,
-    pub model_id: String,
-    pub runtime: String,
-    pub segments: Vec<SpeakerSegmentPrediction>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub speaker_embeddings: Option<BTreeMap<String, serde_json::Value>>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub diagnostics: Vec<String>,
-}
-
-#[cfg(not(feature = "diarization"))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SpeakerSegmentPrediction {
-    pub speaker: String,
-    pub start_seconds: f32,
-    pub end_seconds: f32,
-    #[serde(default)]
-    pub score: Option<f32>,
-}
+/// Backward-compatible name for Transcript Speaker Assignment policy.
+pub type SpeakerAssignmentPolicy = SpeakerTranscriptAssignmentPolicy;
 
 /// Request for an audio/video-to-text transcription pipeline.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -512,89 +491,31 @@ fn default_alignment_model() -> String {
 pub struct DiarizationOptions {
     #[serde(default)]
     pub enabled: bool,
-    #[serde(default = "default_diarization_model")]
-    pub model_id: String,
-    #[serde(default)]
-    pub speaker_embedding_model_bundle: Option<PathBuf>,
-    #[serde(default)]
-    pub speaker_embedding_model_file: Option<String>,
-    #[serde(default)]
-    pub speaker_embedding_input_name: Option<String>,
-    #[serde(default)]
-    pub speaker_embedding_output_name: Option<String>,
-    #[serde(default)]
-    pub speaker_embedding_dimension: Option<usize>,
-    #[serde(default)]
-    pub speaker_embedding_sample_rate: Option<u32>,
-    #[serde(default)]
-    pub pyannote_model_bundle: Option<PathBuf>,
-    #[serde(default)]
-    pub pyannote_manifest_file: Option<String>,
-    #[serde(default)]
-    pub pyannote_segmentation_model_file: Option<String>,
-    #[serde(default)]
-    pub pyannote_embedding_model_file: Option<String>,
-    #[serde(default)]
-    pub pyannote_plda_transform_file: Option<String>,
-    #[serde(default)]
-    pub pyannote_plda_model_file: Option<String>,
-    #[serde(default)]
-    pub pyannote_clustering_config_file: Option<String>,
-    #[serde(default)]
-    pub return_speaker_embeddings: bool,
-    #[serde(default)]
-    pub min_speakers: Option<usize>,
-    #[serde(default)]
-    pub max_speakers: Option<usize>,
-    #[serde(default)]
-    pub assignment_policy: SpeakerAssignmentPolicy,
+    #[serde(default, flatten)]
+    pub speaker: SpeakerDiarizationOptions,
 }
 
 impl Default for DiarizationOptions {
     fn default() -> Self {
         Self {
             enabled: false,
-            model_id: default_diarization_model(),
-            speaker_embedding_model_bundle: None,
-            speaker_embedding_model_file: None,
-            speaker_embedding_input_name: None,
-            speaker_embedding_output_name: None,
-            speaker_embedding_dimension: None,
-            speaker_embedding_sample_rate: None,
-            pyannote_model_bundle: None,
-            pyannote_manifest_file: None,
-            pyannote_segmentation_model_file: None,
-            pyannote_embedding_model_file: None,
-            pyannote_plda_transform_file: None,
-            pyannote_plda_model_file: None,
-            pyannote_clustering_config_file: None,
-            return_speaker_embeddings: false,
-            min_speakers: None,
-            max_speakers: None,
-            assignment_policy: SpeakerAssignmentPolicy::Majority,
+            speaker: SpeakerDiarizationOptions::default(),
         }
     }
 }
 
-fn default_diarization_model() -> String {
-    "native-spectral-speaker-baseline".to_string()
+impl std::ops::Deref for DiarizationOptions {
+    type Target = SpeakerDiarizationOptions;
+
+    fn deref(&self) -> &Self::Target {
+        &self.speaker
+    }
 }
 
-fn is_pyannote_diarization_model(model_id: &str) -> bool {
-    matches!(
-        model_id,
-        "pyannote/speaker-diarization-community-1" | "pyannote-community-1"
-    )
-}
-
-/// Speaker assignment policy for transcript words and segments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum SpeakerAssignmentPolicy {
-    #[default]
-    Majority,
-    NearestStart,
-    StrictContained,
+impl std::ops::DerefMut for DiarizationOptions {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.speaker
+    }
 }
 
 /// Output preferences for transcription.
@@ -861,7 +782,7 @@ impl TranscriptDiarizationProvider for NativeSpeakerDiarizationProvider {
         options: &DiarizationOptions,
     ) -> Result<SpeakerDiarizationResponse> {
         native_audio::validate_loaded_audio(&audio)?;
-        if is_pyannote_diarization_model(&options.model_id) {
+        if options.is_pyannote_model() {
             #[cfg(feature = "pyannote-diarization")]
             {
                 let mut provider = PyannoteCommunityTranscriptDiarizationProvider;
@@ -939,7 +860,7 @@ impl TranscriptDiarizationProvider for PyannoteCommunityTranscriptDiarizationPro
         options: &DiarizationOptions,
     ) -> Result<SpeakerDiarizationResponse> {
         native_audio::validate_loaded_audio(&audio)?;
-        if !is_pyannote_diarization_model(&options.model_id) {
+        if !options.is_pyannote_model() {
             return Err(invalid_request(format!(
                 "pyannote community diarization provider does not support model `{}`",
                 options.model_id
@@ -978,7 +899,7 @@ fn diarize_with_onnx_speaker_embeddings(
     transcript: &TranscriptionContract,
     options: &DiarizationOptions,
 ) -> Result<SpeakerDiarizationResponse> {
-    let config = onnx_speaker_embedding_config(options)?;
+    let config = options.onnx_speaker_embedding_config()?;
     let speaker_audio =
         audio_analysis_speakers::SpeakerAudio::mono(&audio.samples, audio.sample_rate)?;
     let embedder = audio_analysis_speakers::OnnxSpeakerEmbedder::from_config(config)?;
@@ -1377,8 +1298,8 @@ pub fn run_transcription_pipeline_with_observer(
             &request.diarization,
         ));
         diagnostics.extend(response.diagnostics.clone());
-        assign_speakers_from_diarization(
-            &mut transcript,
+        transcript = audio_analysis_speakers::assign_speakers_to_transcript_with_policy(
+            &transcript,
             &response,
             request.diarization.assignment_policy,
         )?;
@@ -1574,62 +1495,7 @@ pub(crate) fn validate_asr_request(request: &AsrRequest) -> Result<()> {
 }
 
 fn validate_diarization_options(options: &DiarizationOptions) -> Result<()> {
-    if options.min_speakers == Some(0) {
-        return Err(invalid_request(
-            "diarization min_speakers must be greater than zero",
-        ));
-    }
-    if options.max_speakers == Some(0) {
-        return Err(invalid_request(
-            "diarization max_speakers must be greater than zero",
-        ));
-    }
-    if let (Some(min), Some(max)) = (options.min_speakers, options.max_speakers) {
-        if min > max {
-            return Err(invalid_request(
-                "diarization min_speakers must be less than or equal to max_speakers",
-            ));
-        }
-    }
-    if options.speaker_embedding_dimension == Some(0) {
-        return Err(invalid_request(
-            "diarization speaker_embedding_dimension must be greater than zero",
-        ));
-    }
-    if options.speaker_embedding_sample_rate == Some(0) {
-        return Err(invalid_request(
-            "diarization speaker_embedding_sample_rate must be greater than zero",
-        ));
-    }
-    if is_pyannote_diarization_model(&options.model_id)
-        && options.speaker_embedding_model_bundle.is_some()
-    {
-        return Err(invalid_request(
-            "pyannote diarization uses pyannote_model_bundle, not speaker_embedding_model_bundle",
-        ));
-    }
-    Ok(())
-}
-
-#[cfg(feature = "diarization")]
-fn onnx_speaker_embedding_config(
-    options: &DiarizationOptions,
-) -> Result<audio_analysis_speakers::OnnxSpeakerEmbeddingConfig> {
-    let bundle_path = options
-        .speaker_embedding_model_bundle
-        .clone()
-        .ok_or_else(|| setup_error("ONNX speaker embedding model bundle is required"))?;
-    let embedding_dimension = options.speaker_embedding_dimension.ok_or_else(|| {
-        invalid_request("ONNX speaker embedding dimension must be configured explicitly")
-    })?;
-    Ok(audio_analysis_speakers::OnnxSpeakerEmbeddingConfig {
-        bundle_path,
-        model_file: options.speaker_embedding_model_file.clone(),
-        input_name: options.speaker_embedding_input_name.clone(),
-        output_name: options.speaker_embedding_output_name.clone(),
-        embedding_dimension,
-        sample_rate: options.speaker_embedding_sample_rate.unwrap_or(16_000),
-    })
+    options.speaker.validate()
 }
 
 #[cfg(feature = "diarization")]
@@ -1938,7 +1804,6 @@ fn diarization_diagnostics(
     diagnostics
 }
 
-#[cfg(feature = "diarization")]
 fn diarization_runtime_value(response: &SpeakerDiarizationResponse) -> &'static str {
     match response.runtime {
         audio_analysis_speakers::AudioRuntime::Onnx => "onnx",
@@ -1952,19 +1817,8 @@ fn diarization_runtime_value(response: &SpeakerDiarizationResponse) -> &'static 
     }
 }
 
-#[cfg(not(feature = "diarization"))]
-fn diarization_runtime_value(response: &SpeakerDiarizationResponse) -> &str {
-    response.runtime.as_str()
-}
-
-#[cfg(feature = "diarization")]
 fn diarization_runtime_is_heuristic(response: &SpeakerDiarizationResponse) -> bool {
     response.runtime == audio_analysis_speakers::AudioRuntime::Heuristic
-}
-
-#[cfg(not(feature = "diarization"))]
-fn diarization_runtime_is_heuristic(response: &SpeakerDiarizationResponse) -> bool {
-    response.runtime == "heuristic"
 }
 
 fn speaker_assignment_policy_value(policy: SpeakerAssignmentPolicy) -> &'static str {
@@ -2286,103 +2140,6 @@ fn apply_alignment_chars(
         character.confidence = aligned.confidence;
     }
     Ok(())
-}
-
-fn assign_speakers_from_diarization(
-    transcript: &mut TranscriptionContract,
-    diarization: &SpeakerDiarizationResponse,
-    policy: SpeakerAssignmentPolicy,
-) -> Result<()> {
-    for segment in &mut transcript.segments {
-        for word in &mut segment.words {
-            let Some((start, end)) = word.start_seconds.zip(word.end_seconds) else {
-                continue;
-            };
-            word.speaker = speaker_for_range(start, end, diarization, policy);
-        }
-        segment.speaker = if segment.speaker.is_some() {
-            segment.speaker.clone()
-        } else if !segment.words.is_empty() {
-            majority_word_speaker(&segment.words)
-        } else if let Some((start, end)) = segment.start_seconds.zip(segment.end_seconds) {
-            speaker_for_range(start, end, diarization, policy)
-        } else {
-            None
-        };
-    }
-    Ok(())
-}
-
-fn majority_word_speaker(words: &[TranscriptWordContract]) -> Option<String> {
-    let mut counts = BTreeMap::<String, usize>::new();
-    for speaker in words.iter().filter_map(|word| word.speaker.as_ref()) {
-        *counts.entry(speaker.clone()).or_default() += 1;
-    }
-    counts
-        .into_iter()
-        .max_by(|left, right| left.1.cmp(&right.1).then_with(|| right.0.cmp(&left.0)))
-        .map(|(speaker, _)| speaker)
-}
-
-fn speaker_for_range(
-    start: f64,
-    end: f64,
-    diarization: &SpeakerDiarizationResponse,
-    policy: SpeakerAssignmentPolicy,
-) -> Option<String> {
-    #[cfg(feature = "diarization")]
-    let segments = diarization
-        .segments
-        .iter()
-        .map(|segment| {
-            (
-                segment.speaker.clone(),
-                segment.start_seconds as f64,
-                segment.end_seconds as f64,
-            )
-        })
-        .collect::<Vec<_>>();
-    #[cfg(not(feature = "diarization"))]
-    let segments = diarization
-        .segments
-        .iter()
-        .map(|segment| {
-            (
-                segment.speaker.clone(),
-                segment.start_seconds as f64,
-                segment.end_seconds as f64,
-            )
-        })
-        .collect::<Vec<_>>();
-
-    match policy {
-        SpeakerAssignmentPolicy::Majority => segments
-            .iter()
-            .filter_map(|(speaker, diar_start, diar_end)| {
-                let overlap = (end.min(*diar_end) - start.max(*diar_start)).max(0.0);
-                (overlap > 0.0).then_some((speaker.clone(), overlap))
-            })
-            .max_by(|left, right| {
-                left.1
-                    .total_cmp(&right.1)
-                    .then_with(|| right.0.cmp(&left.0))
-            })
-            .map(|(speaker, _)| speaker),
-        SpeakerAssignmentPolicy::NearestStart => segments
-            .iter()
-            .map(|(speaker, diar_start, _)| (speaker.clone(), (*diar_start - start).abs()))
-            .min_by(|left, right| {
-                left.1
-                    .total_cmp(&right.1)
-                    .then_with(|| left.0.cmp(&right.0))
-            })
-            .map(|(speaker, _)| speaker),
-        SpeakerAssignmentPolicy::StrictContained => {
-            segments.iter().find_map(|(speaker, diar_start, diar_end)| {
-                (*diar_start <= start && *diar_end >= end).then_some(speaker.clone())
-            })
-        }
-    }
 }
 
 fn validate_candle_setup(options: &CandleWhisperOptions) -> Result<()> {
@@ -2793,40 +2550,20 @@ mod tests {
             _transcript: &TranscriptionContract,
             options: &DiarizationOptions,
         ) -> Result<SpeakerDiarizationResponse> {
-            #[cfg(not(feature = "diarization"))]
-            {
-                Ok(SpeakerDiarizationResponse {
-                    accepted: true,
-                    operation: "audio.speakers.diarize".to_string(),
-                    model_id: options.model_id.clone(),
-                    runtime: "mock".to_string(),
-                    segments: vec![SpeakerSegmentPrediction {
-                        speaker: "SPEAKER_00".to_string(),
-                        start_seconds: 0.0,
-                        end_seconds: 1.0,
-                        score: Some(0.9),
-                    }],
-                    speaker_embeddings: None,
-                    diagnostics: Vec::new(),
-                })
-            }
-            #[cfg(feature = "diarization")]
-            {
-                Ok(SpeakerDiarizationResponse {
-                    accepted: true,
-                    operation: "audio.speakers.diarize".to_string(),
-                    model_id: options.model_id.clone(),
-                    runtime: audio_analysis_speakers::AudioRuntime::Imported,
-                    segments: vec![audio_analysis_speakers::SpeakerSegmentPrediction {
-                        speaker: "SPEAKER_00".to_string(),
-                        start_seconds: 0.0,
-                        end_seconds: 1.0,
-                        score: Some(0.9),
-                    }],
-                    speaker_embeddings: None,
-                    diagnostics: Vec::new(),
-                })
-            }
+            Ok(SpeakerDiarizationResponse {
+                accepted: true,
+                operation: "audio.speakers.diarize".to_string(),
+                model_id: options.model_id.clone(),
+                runtime: audio_analysis_speakers::AudioRuntime::Imported,
+                segments: vec![SpeakerSegmentPrediction {
+                    speaker: "SPEAKER_00".to_string(),
+                    start_seconds: 0.0,
+                    end_seconds: 1.0,
+                    score: Some(0.9),
+                }],
+                speaker_embeddings: None,
+                diagnostics: Vec::new(),
+            })
         }
     }
 
@@ -2923,29 +2660,14 @@ mod tests {
     fn diarization_response_for_tests(
         segments: Vec<SpeakerSegmentPrediction>,
     ) -> SpeakerDiarizationResponse {
-        #[cfg(not(feature = "diarization"))]
-        {
-            SpeakerDiarizationResponse {
-                accepted: true,
-                operation: "audio.speakers.diarize".to_string(),
-                model_id: "test-speakers".to_string(),
-                runtime: "mock".to_string(),
-                segments,
-                speaker_embeddings: None,
-                diagnostics: Vec::new(),
-            }
-        }
-        #[cfg(feature = "diarization")]
-        {
-            SpeakerDiarizationResponse {
-                accepted: true,
-                operation: "audio.speakers.diarize".to_string(),
-                model_id: "test-speakers".to_string(),
-                runtime: audio_analysis_speakers::AudioRuntime::Imported,
-                segments,
-                speaker_embeddings: None,
-                diagnostics: Vec::new(),
-            }
+        SpeakerDiarizationResponse {
+            accepted: true,
+            operation: "audio.speakers.diarize".to_string(),
+            model_id: "test-speakers".to_string(),
+            runtime: audio_analysis_speakers::AudioRuntime::Imported,
+            segments,
+            speaker_embeddings: None,
+            diagnostics: Vec::new(),
         }
     }
 
@@ -2980,6 +2702,19 @@ mod tests {
             Some("en".to_string()),
             vec![segment],
         )?)
+    }
+
+    fn assign_speakers_from_diarization(
+        transcript: &mut TranscriptionContract,
+        diarization: &SpeakerDiarizationResponse,
+        policy: SpeakerAssignmentPolicy,
+    ) -> Result<()> {
+        *transcript = audio_analysis_speakers::assign_speakers_to_transcript_with_policy(
+            transcript,
+            diarization,
+            policy,
+        )?;
+        Ok(())
     }
 
     #[cfg(feature = "diarization")]
@@ -3076,7 +2811,10 @@ mod tests {
     #[test]
     fn diarization_options_reject_invalid_speaker_bounds() {
         let mut options = DiarizationOptions {
-            min_speakers: Some(0),
+            speaker: SpeakerDiarizationOptions {
+                min_speakers: Some(0),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         assert!(validate_diarization_options(&options)
@@ -3085,7 +2823,10 @@ mod tests {
             .contains("invalid_request"));
 
         options = DiarizationOptions {
-            max_speakers: Some(0),
+            speaker: SpeakerDiarizationOptions {
+                max_speakers: Some(0),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         assert!(validate_diarization_options(&options)
@@ -3094,8 +2835,11 @@ mod tests {
             .contains("invalid_request"));
 
         options = DiarizationOptions {
-            min_speakers: Some(3),
-            max_speakers: Some(2),
+            speaker: SpeakerDiarizationOptions {
+                min_speakers: Some(3),
+                max_speakers: Some(2),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         assert!(validate_diarization_options(&options)
@@ -3104,11 +2848,89 @@ mod tests {
             .contains("invalid_request"));
 
         options = DiarizationOptions {
-            min_speakers: Some(1),
-            max_speakers: Some(2),
+            speaker: SpeakerDiarizationOptions {
+                min_speakers: Some(1),
+                max_speakers: Some(2),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         validate_diarization_options(&options).unwrap();
+    }
+
+    #[test]
+    fn diarization_options_keep_flat_json_shape_with_speaker_owned_contract() {
+        let options: DiarizationOptions = serde_json::from_value(serde_json::json!({
+            "enabled": true,
+            "modelId": "native-speakers",
+            "speakerEmbeddingModelBundle": "/models/speaker",
+            "speakerEmbeddingModelFile": "speaker.onnx",
+            "speakerEmbeddingInputName": "waveform",
+            "speakerEmbeddingOutputName": "embedding",
+            "speakerEmbeddingDimension": 192,
+            "speakerEmbeddingSampleRate": 16000,
+            "returnSpeakerEmbeddings": true,
+            "minSpeakers": 1,
+            "maxSpeakers": 2,
+            "assignmentPolicy": "strictContained"
+        }))
+        .unwrap();
+
+        assert!(options.enabled);
+        assert_eq!(options.model_id, "native-speakers");
+        assert_eq!(
+            options.speaker_embedding_model_bundle.as_deref(),
+            Some(Path::new("/models/speaker"))
+        );
+        assert_eq!(
+            options.speaker_embedding_model_file.as_deref(),
+            Some("speaker.onnx")
+        );
+        assert_eq!(
+            options.speaker_embedding_input_name.as_deref(),
+            Some("waveform")
+        );
+        assert_eq!(
+            options.speaker_embedding_output_name.as_deref(),
+            Some("embedding")
+        );
+        assert_eq!(options.speaker_embedding_dimension, Some(192));
+        assert_eq!(options.speaker_embedding_sample_rate, Some(16_000));
+        assert!(options.return_speaker_embeddings);
+        assert_eq!(options.min_speakers, Some(1));
+        assert_eq!(options.max_speakers, Some(2));
+        assert_eq!(
+            options.assignment_policy,
+            SpeakerAssignmentPolicy::StrictContained
+        );
+
+        let value = serde_json::to_value(&options).unwrap();
+        assert_eq!(value["enabled"], true);
+        assert_eq!(value["modelId"], "native-speakers");
+        assert_eq!(value["assignmentPolicy"], "strictContained");
+        assert!(value.get("speaker").is_none());
+    }
+
+    #[test]
+    fn default_build_exposes_speakers_owned_diarization_response_types() {
+        fn accepts_speakers_response(_: audio_analysis_speakers::SpeakerDiarizationResponse) {}
+
+        let response = SpeakerDiarizationResponse {
+            accepted: true,
+            operation: "audio.speakers.diarize".to_string(),
+            model_id: "fixture".to_string(),
+            runtime: audio_analysis_speakers::AudioRuntime::Imported,
+            segments: vec![SpeakerSegmentPrediction {
+                speaker: "speaker_0".to_string(),
+                start_seconds: 0.0,
+                end_seconds: 1.0,
+                score: None,
+            }],
+            speaker_embeddings: None,
+            diagnostics: Vec::new(),
+        };
+
+        accepts_speakers_response(response);
     }
 
     #[test]
@@ -4176,8 +3998,11 @@ mod tests {
         let mut request = sample_request();
         request.diarization = DiarizationOptions {
             enabled: true,
-            min_speakers: Some(2),
-            max_speakers: Some(3),
+            speaker: SpeakerDiarizationOptions {
+                min_speakers: Some(2),
+                max_speakers: Some(3),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         let mut vad = EnergyVadTranscriptionProvider;
@@ -4220,8 +4045,11 @@ mod tests {
         let mut request = sample_request();
         request.diarization = DiarizationOptions {
             enabled: true,
-            speaker_embedding_model_bundle: Some(PathBuf::from("speaker-model")),
-            speaker_embedding_dimension: Some(2),
+            speaker: SpeakerDiarizationOptions {
+                speaker_embedding_model_bundle: Some(PathBuf::from("speaker-model")),
+                speaker_embedding_dimension: Some(2),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         let mut vad = EnergyVadTranscriptionProvider;
@@ -4264,10 +4092,13 @@ mod tests {
         let mut request = sample_request();
         request.diarization = DiarizationOptions {
             enabled: true,
-            speaker_embedding_model_bundle: Some(PathBuf::from(
-                "/definitely/missing/onnx-speaker-model",
-            )),
-            speaker_embedding_dimension: Some(2),
+            speaker: SpeakerDiarizationOptions {
+                speaker_embedding_model_bundle: Some(PathBuf::from(
+                    "/definitely/missing/onnx-speaker-model",
+                )),
+                speaker_embedding_dimension: Some(2),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         let mut vad = EnergyVadTranscriptionProvider;
@@ -4376,13 +4207,16 @@ mod tests {
             alignment: AlignmentOptions::default(),
             diarization: DiarizationOptions {
                 enabled: true,
-                speaker_embedding_model_bundle: Some(bundle_path),
-                speaker_embedding_model_file: model_file,
-                speaker_embedding_input_name: input_name,
-                speaker_embedding_output_name: output_name,
-                speaker_embedding_dimension: Some(embedding_dimension),
-                speaker_embedding_sample_rate: Some(16_000),
-                assignment_policy: SpeakerAssignmentPolicy::StrictContained,
+                speaker: SpeakerDiarizationOptions {
+                    speaker_embedding_model_bundle: Some(bundle_path),
+                    speaker_embedding_model_file: model_file,
+                    speaker_embedding_input_name: input_name,
+                    speaker_embedding_output_name: output_name,
+                    speaker_embedding_dimension: Some(embedding_dimension),
+                    speaker_embedding_sample_rate: Some(16_000),
+                    assignment_policy: SpeakerAssignmentPolicy::StrictContained,
+                    ..SpeakerDiarizationOptions::default()
+                },
                 ..DiarizationOptions::default()
             },
             output: TranscriptionOutputOptions::default(),
@@ -4486,8 +4320,11 @@ mod tests {
         let mut request = sample_request();
         request.diarization = DiarizationOptions {
             enabled: true,
-            min_speakers: Some(3),
-            max_speakers: Some(2),
+            speaker: SpeakerDiarizationOptions {
+                min_speakers: Some(3),
+                max_speakers: Some(2),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         let mut vad = EnergyVadTranscriptionProvider;
@@ -4535,7 +4372,10 @@ mod tests {
         let transcript = transcript_with_words(vec![("hello", 0.20, 0.50), ("world", 1.00, 1.40)])?;
         let options = DiarizationOptions {
             enabled: true,
-            model_id: "requested-native-speakers".to_string(),
+            speaker: SpeakerDiarizationOptions {
+                model_id: "requested-native-speakers".to_string(),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         let mut provider = NativeSpeakerDiarizationProvider;
@@ -4567,8 +4407,11 @@ mod tests {
         let transcript = transcript_with_words(vec![("hello", 0.20, 0.50), ("world", 1.00, 1.40)])?;
         let options = DiarizationOptions {
             enabled: true,
-            min_speakers: Some(2),
-            max_speakers: Some(2),
+            speaker: SpeakerDiarizationOptions {
+                min_speakers: Some(2),
+                max_speakers: Some(2),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         let mut provider = NativeSpeakerDiarizationProvider;
@@ -4594,7 +4437,10 @@ mod tests {
         let transcript = transcript_with_words(vec![("hello", 0.20, 0.50), ("world", 1.00, 1.40)])?;
         let options = DiarizationOptions {
             enabled: true,
-            max_speakers: Some(1),
+            speaker: SpeakerDiarizationOptions {
+                max_speakers: Some(1),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         let mut provider = NativeSpeakerDiarizationProvider;
@@ -4635,7 +4481,10 @@ mod tests {
             TranscriptionContract::from_segments(None, Some("en".to_string()), vec![segment])?;
         let options = DiarizationOptions {
             enabled: true,
-            model_id: "fallback-native-speakers".to_string(),
+            speaker: SpeakerDiarizationOptions {
+                model_id: "fallback-native-speakers".to_string(),
+                ..SpeakerDiarizationOptions::default()
+            },
             ..DiarizationOptions::default()
         };
         let mut provider = NativeSpeakerDiarizationProvider;

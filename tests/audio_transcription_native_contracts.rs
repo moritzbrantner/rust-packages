@@ -1,10 +1,11 @@
 use audio_analysis_transcription::{
     import_whisperx_json, transcribe, AlignedWord, AlignmentOptions, AlignmentRequest,
-    AlignmentResponse, AsrRequest, AsrResponse, AudioTranscriptionProvider, CandleWhisperOptions,
-    DiarizationOptions, ForcedAlignmentProvider, LoadedAudio, NativeDevicePreference,
-    SpeakerDiarizationResponse, SpeakerSegmentPrediction, SpeechActivitySegment,
-    TranscriptDiarizationProvider, TranscriptionPipelineRequest, TranscriptionProviderSelection,
-    TranscriptionSource, TranscriptionVadProvider, VadOptions, VadRequest, VadResponse,
+    AlignmentResponse, AsrRequest, AsrResponse, AudioRuntime, AudioTranscriptionProvider,
+    CandleWhisperOptions, DiarizationOptions, ForcedAlignmentProvider, LoadedAudio,
+    NativeDevicePreference, SpeakerDiarizationResponse, SpeakerSegmentPrediction,
+    SpeechActivitySegment, TranscriptDiarizationProvider, TranscriptionPipelineRequest,
+    TranscriptionProviderSelection, TranscriptionSource, TranscriptionVadProvider, VadOptions,
+    VadRequest, VadResponse,
 };
 use text_transcripts::{TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract};
 use video_analysis_core::{DetectError, Result};
@@ -102,13 +103,15 @@ impl TranscriptDiarizationProvider for FixedDiarizer {
             accepted: true,
             operation: "audio.speakers.diarize".to_string(),
             model_id: "mock-speakers".to_string(),
-            runtime: "mock".to_string(),
+            runtime: AudioRuntime::Imported,
             segments: vec![SpeakerSegmentPrediction {
                 speaker: "SPEAKER_00".to_string(),
                 start_seconds: 0.0,
                 end_seconds: 2.0,
                 score: Some(0.88),
             }],
+            speaker_embeddings: None,
+            diagnostics: Vec::new(),
         })
     }
 }
