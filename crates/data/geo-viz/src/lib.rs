@@ -6,13 +6,12 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use geo_clustering::{ClusterIndex, ClusterItem, ClusterOptions, ClusterPoint};
 use geo_core::{
-    simplify_geometry, BBox, Coordinate, GeoFeature, GeoFeatureCollection,
-    Geometry as GeoDataGeometry,
+    simplify_geometry, BBox, Coordinate, GeoError, GeoFeature, GeoFeatureCollection,
+    Geometry as GeoDataGeometry, Result,
 };
 use geo_io_geojson::{parse_geojson, to_geojson_feature_collection, GeoJsonDocument};
 use rstar::{PointDistance, RTree, RTreeObject, AABB};
 use serde::{Deserialize, Serialize};
-use video_analysis_core::{DetectError, Result};
 
 /// Numeric metric bag attached to points and aggregated features.
 pub type GeoVizMetricRecord = BTreeMap<String, f64>;
@@ -28,8 +27,8 @@ pub use scalar_field::{
     GeoVizScalarFieldOptions,
 };
 
-fn invalid_argument(message: impl Into<String>) -> DetectError {
-    DetectError::InvalidArgument(message.into())
+fn invalid_argument(message: impl Into<String>) -> GeoError {
+    GeoError::invalid_argument(message)
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]

@@ -2,10 +2,61 @@
 
 pub mod surface;
 use std::collections::BTreeMap;
+use std::fmt;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use video_analysis_core::{DetectError, Result};
+
+/// Error type for geospatial domain validation and local data access.
+#[derive(Debug)]
+pub enum GeoError {
+    /// Caller supplied invalid geospatial input.
+    InvalidArgument(String),
+    /// Source data could not be parsed or read as valid geospatial input.
+    Source(String),
+    /// Underlying filesystem I/O failed.
+    Io(std::io::Error),
+}
+
+impl GeoError {
+    /// Creates an invalid-argument error.
+    pub fn invalid_argument(message: impl Into<String>) -> Self {
+        Self::InvalidArgument(message.into())
+    }
+
+    /// Creates a source-data error.
+    pub fn source(message: impl Into<String>) -> Self {
+        Self::Source(message.into())
+    }
+}
+
+impl fmt::Display for GeoError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidArgument(message) => write!(formatter, "invalid argument: {message}"),
+            Self::Source(message) => write!(formatter, "source error: {message}"),
+            Self::Io(error) => write!(formatter, "I/O error: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for GeoError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(error) => Some(error),
+            Self::InvalidArgument(_) | Self::Source(_) => None,
+        }
+    }
+}
+
+impl From<std::io::Error> for GeoError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
+    }
+}
+
+/// Geo crate result type.
+pub type Result<T> = std::result::Result<T, GeoError>;
 
 /// JSON object used for feature properties.
 pub type Properties = BTreeMap<String, Value>;
@@ -15,8 +66,8 @@ pub type Position = [f64; 2];
 
 const GEOMETRY_EPSILON: f64 = 1e-12;
 
-fn invalid_argument(message: impl Into<String>) -> DetectError {
-    DetectError::InvalidArgument(message.into())
+fn invalid_argument(message: impl Into<String>) -> GeoError {
+    GeoError::invalid_argument(message)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -78,7 +129,7 @@ impl From<Coordinate> for Position {
 }
 
 impl TryFrom<Position> for Coordinate {
-    type Error = DetectError;
+    type Error = GeoError;
 
     fn try_from(value: Position) -> Result<Self> {
         Self::from_position(value)

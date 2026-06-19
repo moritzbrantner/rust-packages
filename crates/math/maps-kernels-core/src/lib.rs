@@ -1,11 +1,37 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
-use numbers_core::NumberRange;
-use video_analysis_core::{DetectError, Result};
+use std::fmt;
 
-fn invalid_argument(message: impl Into<String>) -> DetectError {
-    DetectError::InvalidArgument(message.into())
+/// Error type for deterministic map kernel validation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MapsKernelError {
+    /// Caller supplied invalid numeric path input.
+    InvalidArgument(String),
+}
+
+impl MapsKernelError {
+    /// Creates an invalid-argument error.
+    pub fn invalid_argument(message: impl Into<String>) -> Self {
+        Self::InvalidArgument(message.into())
+    }
+}
+
+impl fmt::Display for MapsKernelError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidArgument(message) => write!(formatter, "invalid argument: {message}"),
+        }
+    }
+}
+
+impl std::error::Error for MapsKernelError {}
+
+/// Map kernel result type.
+pub type Result<T> = std::result::Result<T, MapsKernelError>;
+
+fn invalid_argument(message: impl Into<String>) -> MapsKernelError {
+    MapsKernelError::invalid_argument(message)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -245,8 +271,8 @@ fn interpolate_along_path_from_segment(
 ) -> Result<PathSample> {
     let point_count = coordinates.len() / 2;
     let segment_count = if closed { point_count } else { point_count - 1 };
-    let target_distance =
-        NumberRange::new(0.0, *distances.last().unwrap_or(&0.0))?.clamp(target_distance)?;
+    let max_distance = *distances.last().unwrap_or(&0.0);
+    let target_distance = clamp_finite(target_distance, 0.0, max_distance)?;
 
     for index in start_segment_index..segment_count {
         let segment_start_distance = distances[index];
@@ -275,6 +301,16 @@ fn interpolate_along_path_from_segment(
         position: position_at(coordinates, point_count - 1),
         segment_index: segment_count.saturating_sub(1),
     })
+}
+
+fn clamp_finite(value: f64, min: f64, max: f64) -> Result<f64> {
+    if !value.is_finite() || !min.is_finite() || !max.is_finite() {
+        return Err(invalid_argument("range values must be finite"));
+    }
+    if min > max {
+        return Err(invalid_argument("range min must not exceed max"));
+    }
+    Ok(value.clamp(min, max))
 }
 
 fn repeat_position(coordinates: &[f64], coordinate_count: usize) -> Vec<f64> {

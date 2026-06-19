@@ -1,12 +1,12 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use geo_core::{GeoError, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use video_analysis_core::{DetectError, Result};
 
-fn invalid_argument(message: impl Into<String>) -> DetectError {
-    DetectError::InvalidArgument(message.into())
+fn invalid_argument(message: impl Into<String>) -> GeoError {
+    GeoError::invalid_argument(message)
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]

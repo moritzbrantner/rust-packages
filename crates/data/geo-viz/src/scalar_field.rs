@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use geo_core::Result;
 use serde::{Deserialize, Serialize};
-use video_analysis_core::Result;
 
 use crate::{GeoVizBounds, GeoVizMetricRecord, GeoVizPoint};
 
