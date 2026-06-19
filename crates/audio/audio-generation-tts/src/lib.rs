@@ -3,10 +3,17 @@
 pub mod surface;
 
 mod native_f5;
+mod native_vocos;
 
 pub use native_f5::{
     run_f5_mel_diagnostic, NativeF5BundleReport, NativeF5ConfigReport, NativeF5DeviceReport,
     NativeF5MelDiagnosticOutput, NativeF5MelDiagnosticRequest, NativeF5MelReport,
+};
+pub use native_vocos::{
+    run_vocos_vocoder_diagnostic, NativeVocosAudioFrameReport, NativeVocosBundleReport,
+    NativeVocosConfigReport, NativeVocosDeviceReport, NativeVocosMelInput, NativeVocosMelReport,
+    NativeVocosVocoderDiagnosticOutput, NativeVocosVocoderDiagnosticRequest,
+    NativeVocosWeightsReport,
 };
 
 use serde::{Deserialize, Serialize};
