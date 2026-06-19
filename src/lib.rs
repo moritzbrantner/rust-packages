@@ -40,6 +40,9 @@ pub use audio_analysis_transcription as audio_transcription;
 #[cfg(feature = "audio")]
 /// Re-exports the MIDI-like audio generation API.
 pub use audio_generation_midi as audio_midi;
+#[cfg(feature = "audio")]
+/// Re-exports the generic and speaker-conditioned TTS API.
+pub use audio_generation_tts as audio_tts;
 #[cfg(feature = "comfyui")]
 /// Re-exports the ComfyUI data API.
 pub use comfyui_data;

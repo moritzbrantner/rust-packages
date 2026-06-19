@@ -60,4 +60,12 @@ fn audio_surfaces_expose_cross_crate_deterministic_flow() {
     })
     .expect("midi render");
     assert!(midi.value["sampleCount"].as_u64().unwrap() > 0);
+
+    let tts = va::audio_tts::surface::run_surface_operation(SurfaceRequest {
+        operation: OperationId::new("audio.tts.synthesize"),
+        input: serde_json::json!({"text": "Hello from the facade."}),
+    })
+    .expect("tts synthesize");
+    assert_eq!(tts.value["result"]["status"], "unsupportedRuntime");
+    assert_eq!(tts.value["result"]["audioGenerated"], false);
 }

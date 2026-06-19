@@ -761,7 +761,7 @@ fn audio_crates_do_not_define_transcript_dtos() {
         let source = fs::read_to_string(path).expect("read Rust source");
         for (line_index, line) in source.lines().enumerate() {
             let path_text = path.to_string_lossy();
-            if (line.contains("pub struct Transcript") || line.contains("pub enum Transcript"))
+            if declares_public_transcript_dto(line)
                 && !is_audio_transcription_surface_type(&path_text, line)
             {
                 violations.push(format!("{}:{}", path.display(), line_index + 1));
@@ -1199,6 +1199,15 @@ fn is_audio_transcription_surface_type(path: &str, line: &str) -> bool {
             || line.contains("pub struct TranscriptionArtifact")
             || line.contains("pub struct TranscriptionPipelineResponse")
             || line.contains("pub struct TranscriptionProviderPlan"))
+}
+
+fn declares_public_transcript_dto(line: &str) -> bool {
+    let trimmed = line.trim();
+    ["pub struct ", "pub enum "]
+        .iter()
+        .filter_map(|prefix| trimmed.strip_prefix(prefix))
+        .filter_map(|rest| rest.split_whitespace().next())
+        .any(|name| name.starts_with("Transcript") && !name.starts_with("Transcription"))
 }
 
 fn collect_text_sources(dir: &Path, visit: &mut impl FnMut(&Path)) {

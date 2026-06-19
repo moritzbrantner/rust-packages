@@ -1,0 +1,21 @@
+[package]
+name = "moritzbrantner-audio-generation-tts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Generic and speaker-conditioned text-to-speech contracts and package surfaces for video-analysis."
+readme = "README.md"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "audio_generation_tts"
+
+[dependencies]
+runtime-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true

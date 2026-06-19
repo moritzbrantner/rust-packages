@@ -10,6 +10,7 @@ pub(crate) enum ResolvedNativeDevice {
 }
 
 impl ResolvedNativeDevice {
+    #[allow(dead_code)]
     pub(crate) fn diagnostic_name(&self) -> String {
         match self {
             Self::Cpu => "cpu".to_string(),
@@ -18,6 +19,7 @@ impl ResolvedNativeDevice {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn cuda_active(&self) -> bool {
         match self {
             Self::Cpu => false,

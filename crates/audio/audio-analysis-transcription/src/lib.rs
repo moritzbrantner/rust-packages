@@ -493,22 +493,13 @@ fn default_alignment_device() -> NativeDevicePreference {
 }
 
 /// Diarization options.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiarizationOptions {
     #[serde(default)]
     pub enabled: bool,
     #[serde(default, flatten)]
     pub speaker: SpeakerDiarizationOptions,
-}
-
-impl Default for DiarizationOptions {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            speaker: SpeakerDiarizationOptions::default(),
-        }
-    }
 }
 
 impl std::ops::Deref for DiarizationOptions {
@@ -4010,7 +4001,6 @@ mod tests {
                 max_speakers: Some(3),
                 ..SpeakerDiarizationOptions::default()
             },
-            ..DiarizationOptions::default()
         };
         let mut vad = EnergyVadTranscriptionProvider;
         let mut asr = MockAsrProvider;
@@ -4332,7 +4322,6 @@ mod tests {
                 max_speakers: Some(2),
                 ..SpeakerDiarizationOptions::default()
             },
-            ..DiarizationOptions::default()
         };
         let mut vad = EnergyVadTranscriptionProvider;
         let mut asr = MockAsrProvider;

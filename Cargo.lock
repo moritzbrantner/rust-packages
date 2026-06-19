@@ -2671,6 +2671,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "moritzbrantner-audio-generation-tts"
+version = "0.1.0"
+dependencies = [
+ "moritzbrantner-runtime-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-generation-tts-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-generation-tts",
+ "moritzbrantner-runtime-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-generation-tts-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "moritzbrantner-audio-generation-tts",
+ "moritzbrantner-runtime-core",
+ "serde_json",
+]
+
+[[package]]
+name = "moritzbrantner-audio-generation-tts-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "moritzbrantner-audio-generation-tts",
+ "moritzbrantner-runtime-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "moritzbrantner-comfyui-data"
 version = "0.1.0"
 dependencies = [
@@ -5113,6 +5155,10 @@ dependencies = [
  "moritzbrantner-audio-analysis-synthesis",
  "moritzbrantner-audio-analysis-transcription",
  "moritzbrantner-audio-generation-midi",
+ "moritzbrantner-audio-generation-tts",
+ "moritzbrantner-audio-generation-tts-cli",
+ "moritzbrantner-audio-generation-tts-server",
+ "moritzbrantner-audio-generation-tts-wasm",
  "moritzbrantner-comfyui-data",
  "moritzbrantner-comfyui-latents",
  "moritzbrantner-comfyui-models",
