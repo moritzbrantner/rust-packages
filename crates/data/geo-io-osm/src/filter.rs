@@ -3,13 +3,14 @@ use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 
-use geo_core::{assemble_multipolygon, BBox, Coordinate, GeoFeatureCollection, Geometry};
+use geo_core::{
+    assemble_multipolygon, BBox, Coordinate, GeoError, GeoFeatureCollection, Geometry, Result,
+};
 use osmpbfreader::{
     NodeId, OsmObj, OsmPbfReader, Relation, RelationId, Tags as OsmPbfTags, Way, WayId,
 };
 use regex::Regex;
 use serde::Serialize;
-use video_analysis_core::{DetectError, Result};
 
 use crate::index::{AutoNodeIndex, IndexBackend, IndexOptions, NodeIndex, StoredCoordinate};
 use crate::model::{geo_collection_from_osm, OsmElementKind, OsmFeature, OsmTags};
@@ -20,12 +21,12 @@ use crate::spec::{
 
 const NODE_INDEX_BATCH_SIZE: usize = 16_384;
 
-fn invalid_argument(message: impl Into<String>) -> DetectError {
-    DetectError::InvalidArgument(message.into())
+fn invalid_argument(message: impl Into<String>) -> GeoError {
+    GeoError::invalid_argument(message)
 }
 
-fn source_error(message: impl Into<String>) -> DetectError {
-    DetectError::Source(message.into())
+fn source_error(message: impl Into<String>) -> GeoError {
+    GeoError::source(message)
 }
 
 #[derive(Debug, Clone)]
@@ -111,7 +112,7 @@ pub fn collect_osm_pbf(options: CollectOsmOptions) -> Result<OsmFeatureCollectio
     let input = options.input.clone();
     run_filter_pipeline(
         input.clone(),
-        || File::open(&input).map_err(DetectError::Io),
+        || File::open(&input).map_err(GeoError::Io),
         &options.spec,
         options.index_options,
     )

@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use geo_core::Coordinate;
+use geo_core::{Coordinate, GeoError, Result};
 use osmpbfreader::NodeId;
 #[cfg(feature = "disk-index")]
 use redb::{Database, ReadableDatabase, TableDefinition};
 #[cfg(feature = "disk-index")]
 use tempfile::{NamedTempFile, TempDir};
-use video_analysis_core::{DetectError, Result};
 
 pub use crate::spec::IndexMode;
 use crate::spec::OsmIndexSpec;
@@ -18,13 +17,13 @@ const NODE_TABLE: TableDefinition<i64, &[u8]> = TableDefinition::new("nodes");
 const STORED_COORDINATE_BYTES: usize = 8;
 
 #[cfg(not(feature = "disk-index"))]
-fn invalid_argument(message: impl Into<String>) -> DetectError {
-    DetectError::InvalidArgument(message.into())
+fn invalid_argument(message: impl Into<String>) -> GeoError {
+    GeoError::invalid_argument(message)
 }
 
 #[cfg(feature = "disk-index")]
-fn source_error(message: impl Into<String>) -> DetectError {
-    DetectError::Source(message.into())
+fn source_error(message: impl Into<String>) -> GeoError {
+    GeoError::source(message)
 }
 
 #[derive(Debug, Clone)]
@@ -461,12 +460,12 @@ impl NodeIndex for AutoNodeIndex {
 #[cfg(feature = "disk-index")]
 fn index_path(options: &IndexOptions) -> Result<(PathBuf, Option<NamedTempFile>, Option<TempDir>)> {
     if let Some(dir) = &options.disk_dir {
-        std::fs::create_dir_all(dir).map_err(DetectError::Io)?;
-        let temp_file = NamedTempFile::new_in(dir).map_err(DetectError::Io)?;
+        std::fs::create_dir_all(dir).map_err(GeoError::Io)?;
+        let temp_file = NamedTempFile::new_in(dir).map_err(GeoError::Io)?;
         let path = temp_file.path().to_path_buf();
         Ok((path, Some(temp_file), None))
     } else {
-        let temp_dir = tempfile::tempdir().map_err(DetectError::Io)?;
+        let temp_dir = tempfile::tempdir().map_err(GeoError::Io)?;
         let path = temp_dir.path().join("nodes.redb");
         Ok((path, None, Some(temp_dir)))
     }

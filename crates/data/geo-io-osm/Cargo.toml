@@ -32,7 +32,6 @@ regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile = { workspace = true, optional = true }
-video-analysis-core.workspace = true
 
 [dev-dependencies]
 protobuf = "2"

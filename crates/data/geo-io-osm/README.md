@@ -17,7 +17,7 @@ geo-io-osm = { package = "moritzbrantner-geo-io-osm", version = "0.1.0" }
 ```rust
 use geo_io_osm::{collect_osm_pbf_bytes, CollectOsmBytesOptions, IndexOptions, OsmFilterSpec};
 
-# fn run(pbf_bytes: &[u8]) -> video_analysis_core::Result<()> {
+# fn run(pbf_bytes: &[u8]) -> geo_core::Result<()> {
 let collected = collect_osm_pbf_bytes(CollectOsmBytesOptions {
     input: pbf_bytes,
     spec: OsmFilterSpec::default(),

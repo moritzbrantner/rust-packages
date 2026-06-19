@@ -3,13 +3,13 @@
 pub mod surface;
 
 use geo_core::{
-    BBox, Coordinate, GeoFeature, GeoFeatureCollection, Geometry, Position, Properties,
+    BBox, Coordinate, GeoError, GeoFeature, GeoFeatureCollection, Geometry, Position, Properties,
+    Result,
 };
 use serde_json::{Map, Value};
-use video_analysis_core::{DetectError, Result};
 
-fn invalid_argument(message: impl Into<String>) -> DetectError {
-    DetectError::InvalidArgument(message.into())
+fn invalid_argument(message: impl Into<String>) -> GeoError {
+    GeoError::invalid_argument(message)
 }
 
 #[derive(Debug, Clone, PartialEq)]

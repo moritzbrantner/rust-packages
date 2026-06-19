@@ -610,20 +610,17 @@ flowchart LR
   crate_moritzbrantner_dense_data_server --> crate_moritzbrantner_dense_data
   crate_moritzbrantner_dense_data_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_clustering --> crate_moritzbrantner_geo_core
-  crate_moritzbrantner_geo_clustering --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_geo_clustering --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_clustering_cli --> crate_moritzbrantner_geo_clustering
   crate_moritzbrantner_geo_clustering_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_clustering_server --> crate_moritzbrantner_geo_clustering
   crate_moritzbrantner_geo_clustering_server --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_geo_core --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_geo_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_core_cli --> crate_moritzbrantner_geo_core
   crate_moritzbrantner_geo_core_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_core_server --> crate_moritzbrantner_geo_core
   crate_moritzbrantner_geo_core_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_geojson --> crate_moritzbrantner_geo_core
-  crate_moritzbrantner_geo_io_geojson --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_geo_io_geojson --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_geojson_cli --> crate_moritzbrantner_geo_io_geojson
   crate_moritzbrantner_geo_io_geojson_cli --> crate_moritzbrantner_runtime_core
@@ -631,7 +628,6 @@ flowchart LR
   crate_moritzbrantner_geo_io_geojson_server --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_osm --> crate_moritzbrantner_geo_core
   crate_moritzbrantner_geo_io_osm --> crate_moritzbrantner_geo_io_geojson
-  crate_moritzbrantner_geo_io_osm --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_geo_io_osm --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_io_osm_cli --> crate_moritzbrantner_geo_io_geojson
   crate_moritzbrantner_geo_io_osm_cli --> crate_moritzbrantner_geo_io_osm
@@ -642,7 +638,6 @@ flowchart LR
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_core
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_geo_io_geojson
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_maps_kernels_core
-  crate_moritzbrantner_geo_viz --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_geo_viz --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_geo_viz_cli --> crate_moritzbrantner_geo_viz
   crate_moritzbrantner_geo_viz_cli --> crate_moritzbrantner_runtime_core
@@ -666,8 +661,6 @@ flowchart LR
   crate_moritzbrantner_tensor_data_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_tensor_data
   crate_moritzbrantner_tensor_data_server --> crate_moritzbrantner_runtime_core
-  crate_moritzbrantner_maps_kernels_core --> crate_moritzbrantner_numbers_core
-  crate_moritzbrantner_maps_kernels_core --> crate_moritzbrantner_video_analysis_core
   crate_moritzbrantner_maps_kernels_core --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_maps_kernels_core_cli --> crate_moritzbrantner_maps_kernels_core
   crate_moritzbrantner_maps_kernels_core_cli --> crate_moritzbrantner_runtime_core

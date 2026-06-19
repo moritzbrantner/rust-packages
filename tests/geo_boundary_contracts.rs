@@ -15,8 +15,6 @@ fn geo_crates_keep_dependency_boundaries() {
             "serde_json",
             "runtime-core",
             "moritzbrantner-runtime-core",
-            "moritzbrantner-video-analysis-core",
-            "video-analysis-core",
         ],
     );
     assert_normal_deps_are_subset(
@@ -30,8 +28,6 @@ fn geo_crates_keep_dependency_boundaries() {
             "serde_json",
             "runtime-core",
             "moritzbrantner-runtime-core",
-            "moritzbrantner-video-analysis-core",
-            "video-analysis-core",
         ],
     );
     assert_normal_deps_are_subset(
@@ -53,8 +49,6 @@ fn geo_crates_keep_dependency_boundaries() {
             "serde_json",
             "tempfile",
             "moritzbrantner-runtime-core",
-            "moritzbrantner-video-analysis-core",
-            "video-analysis-core",
         ],
     );
     assert_normal_deps_are_subset(
@@ -67,8 +61,6 @@ fn geo_crates_keep_dependency_boundaries() {
             "serde",
             "serde_json",
             "moritzbrantner-runtime-core",
-            "moritzbrantner-video-analysis-core",
-            "video-analysis-core",
         ],
     );
     assert_normal_deps_are_subset(
@@ -88,8 +80,17 @@ fn geo_crates_keep_dependency_boundaries() {
             "serde",
             "serde_json",
             "moritzbrantner-runtime-core",
-            "moritzbrantner-video-analysis-core",
-            "video-analysis-core",
+        ],
+    );
+
+    assert_normal_deps_are_subset(
+        &metadata,
+        "moritzbrantner-maps-kernels-core",
+        &[
+            "runtime-core",
+            "moritzbrantner-runtime-core",
+            "serde",
+            "serde_json",
         ],
     );
 

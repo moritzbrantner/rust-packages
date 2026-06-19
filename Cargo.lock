@@ -2945,7 +2945,6 @@ version = "0.1.0"
 dependencies = [
  "moritzbrantner-geo-core",
  "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -2988,7 +2987,6 @@ name = "moritzbrantner-geo-core"
 version = "0.1.0"
 dependencies = [
  "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -3033,7 +3031,6 @@ dependencies = [
  "geojson",
  "moritzbrantner-geo-core",
  "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -3080,7 +3077,6 @@ dependencies = [
  "moritzbrantner-geo-core",
  "moritzbrantner-geo-io-geojson",
  "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
  "osmpbfreader",
  "protobuf",
  "redb",
@@ -3136,7 +3132,6 @@ dependencies = [
  "moritzbrantner-geo-io-geojson",
  "moritzbrantner-maps-kernels-core",
  "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
  "rstar 0.13.0",
  "serde",
  "serde_json",
@@ -3799,9 +3794,7 @@ name = "moritzbrantner-maps-kernels-core"
 version = "0.1.0"
 dependencies = [
  "criterion",
- "moritzbrantner-numbers-core",
  "moritzbrantner-runtime-core",
- "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
 ]

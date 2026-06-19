@@ -4,12 +4,11 @@ pub mod surface;
 
 use std::collections::BTreeMap;
 
-use geo_core::{BBox, Coordinate};
+use geo_core::{BBox, Coordinate, GeoError, Result};
 use serde::{Deserialize, Serialize};
-use video_analysis_core::{DetectError, Result};
 
-fn invalid_argument(message: impl Into<String>) -> DetectError {
-    DetectError::InvalidArgument(message.into())
+fn invalid_argument(message: impl Into<String>) -> GeoError {
+    GeoError::invalid_argument(message)
 }
 
 /// Point accepted by clustering indexes.
