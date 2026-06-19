@@ -24,3 +24,12 @@ audio-generation-tts = { package = "moritzbrantner-audio-generation-tts", versio
 clap.workspace = true
 runtime-core.workspace = true
 serde_json.workspace = true
+
+[features]
+default = []
+candle = ["audio-generation-tts/candle"]
+cuda = ["audio-generation-tts/cuda"]
+model-bundles = ["audio-generation-tts/model-bundles"]
+audio-io = ["audio-generation-tts/audio-io"]
+asr = ["audio-generation-tts/asr"]
+external-tests = ["audio-generation-tts/external-tests"]

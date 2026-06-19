@@ -112,10 +112,14 @@ speaker-conditioned TTS contract. Its package surface exposes
 `audio.tts.synthesize`, `audio.tts.plan`, `audio.tts.models`,
 `audio.tts.referencePromptPlan`, `audio.tts.debug.f5Mel`,
 `audio.tts.debug.vocosVocoder`, and `describe` across library, CLI, server,
-WASM, and app adapters. Until primary native synthesis is implemented,
-`audio.tts.synthesize` validates requests and returns explicit
-`setupRequired` or `unsupportedRuntime` responses without downloading models,
-running inference, or emitting audio artifacts.
+WASM, and app adapters. Default builds keep `audio.tts.synthesize`
+side-effect free and return explicit `setupRequired` or `unsupportedRuntime`
+responses without downloading models, running native inference, or emitting
+audio artifacts. With explicit native F5 selection, caller-provided local F5
+and Vocos bundles, and the `candle` feature, the primary operation runs the
+F5 mel path through Vocos and returns in-memory PCM audio plus native
+diagnostics for provider, model id, vocoder, runtime, device, and bundle
+source.
 
 Primary workflow operations declare typed `SurfaceOperation.curation` metadata
 with `role: "workflow"` and `primary: true` for the default package workflow.

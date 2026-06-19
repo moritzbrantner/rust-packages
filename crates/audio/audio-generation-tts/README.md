@@ -3,15 +3,18 @@
 `audio-generation-tts` owns the first stable package-consumer contract for
 generic text-to-speech and speaker-conditioned TTS.
 
-The primary workflow operation is `audio.tts.synthesize`. It validates the
-request and returns explicit setup/unsupported-runtime diagnostics instead of
-running native synthesis. The F5 mel and Vocos vocoder diagnostics are opt-in
-and debug-only; full F5/E2/Vocos synthesis remains owned by later slices.
+The primary workflow operation is `audio.tts.synthesize`. Default builds keep
+the operation side-effect free and return explicit setup/unsupported-runtime
+diagnostics. When the crate is built with `candle` and the request explicitly
+selects native F5 plus local F5 and Vocos bundles, the same primary operation
+runs F5 mel generation through Vocos vocoding and returns in-memory PCM audio.
+The F5 mel and Vocos vocoder diagnostics remain opt-in debug operations for
+setup inspection.
 
 Package-surface operations:
 
-- `audio.tts.synthesize` validates a synthesis request and returns a
-  side-effect-free setup response.
+- `audio.tts.synthesize` validates a synthesis request and returns either a
+  side-effect-free setup response or explicit native F5 + Vocos PCM output.
 - `audio.tts.plan` previews provider, runtime, and output requirements.
 - `audio.tts.models` reports the current model inventory state.
 - `audio.tts.referencePromptPlan` inspects Reference Voice Prompt readiness.
@@ -49,6 +52,12 @@ Device planning uses `provider.device`:
 
 Cargo features are explicit and default to off: `candle`, `cuda`,
 `model-bundles`, `audio-io`, `asr`, and `external-tests`.
+
+Native synthesis uses `provider.providerId = "f5"`, `provider.native = true`,
+`provider.modelBundle.bundlePath` for the F5 bundle, and
+`provider.vocoder.modelBundle.bundlePath` for the Vocos bundle. Responses
+include `nativeDiagnostics` with provider, model id, vocoder, runtime, device,
+and bundle-source fields.
 
 `audio.tts.debug.f5Mel` requires an explicit local `bundlePath`. With `candle`
 enabled it validates compatible F5 config, vocab, and safetensors files, then

@@ -17,7 +17,6 @@ pub use native_vocos::{
 };
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "asr")]
 use std::path::PathBuf;
 
 /// In-memory PCM audio used by TTS inputs and outputs.
@@ -284,15 +283,18 @@ pub struct TtsModelBundleSelection {
 impl TtsModelBundleSelection {
     /// Validates model-bundle planning options without touching the filesystem.
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_field("provider.modelBundle")
+    }
+
+    fn validate_field(&self, field: &str) -> Result<(), String> {
         if self
             .bundle_path
             .as_deref()
             .is_some_and(|path| path.trim().is_empty())
         {
-            return Err(
-                "invalid request: `provider.modelBundle.bundlePath` must not be empty when provided"
-                    .to_string(),
-            );
+            return Err(format!(
+                "invalid request: `{field}.bundlePath` must not be empty when provided"
+            ));
         }
         Ok(())
     }
@@ -316,6 +318,9 @@ pub struct SpeechSynthesisProviderSelection {
     /// Model-bundle resolution and download policy for native planning.
     #[serde(default)]
     pub model_bundle: TtsModelBundleSelection,
+    /// Optional vocoder selection used by native speaker-conditioned providers.
+    #[serde(default)]
+    pub vocoder: Option<SpeechSynthesisVocoderSelection>,
 }
 
 impl Default for SpeechSynthesisProviderSelection {
@@ -326,6 +331,7 @@ impl Default for SpeechSynthesisProviderSelection {
             native: false,
             device: NativeTtsDevicePreference::Auto,
             model_bundle: TtsModelBundleSelection::default(),
+            vocoder: None,
         }
     }
 }
@@ -346,8 +352,62 @@ impl SpeechSynthesisProviderSelection {
             );
         }
         self.model_bundle.validate()?;
+        if let Some(vocoder) = &self.vocoder {
+            vocoder.validate()?;
+        }
         Ok(())
     }
+}
+
+/// Vocoder requested by a native speech synthesis provider.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechSynthesisVocoderSelection {
+    /// Vocoder provider id. `vocos` is the first native vocoder path.
+    #[serde(default = "default_vocoder_provider_id")]
+    pub provider_id: String,
+    /// Vocoder model preset id.
+    #[serde(default = "default_vocoder_model_id")]
+    pub model_id: String,
+    /// Model-bundle resolution and download policy for the vocoder.
+    #[serde(default)]
+    pub model_bundle: TtsModelBundleSelection,
+}
+
+impl Default for SpeechSynthesisVocoderSelection {
+    fn default() -> Self {
+        Self {
+            provider_id: default_vocoder_provider_id(),
+            model_id: default_vocoder_model_id(),
+            model_bundle: TtsModelBundleSelection::default(),
+        }
+    }
+}
+
+impl SpeechSynthesisVocoderSelection {
+    /// Validates this vocoder selection.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.provider_id.trim().is_empty() {
+            return Err(
+                "invalid request: `provider.vocoder.providerId` must not be empty".to_string(),
+            );
+        }
+        if self.model_id.trim().is_empty() {
+            return Err(
+                "invalid request: `provider.vocoder.modelId` must not be empty".to_string(),
+            );
+        }
+        self.model_bundle
+            .validate_field("provider.vocoder.modelBundle")
+    }
+}
+
+fn default_vocoder_provider_id() -> String {
+    "vocos".to_string()
+}
+
+fn default_vocoder_model_id() -> String {
+    "vocos-mel-24khz".to_string()
 }
 
 /// Inference controls that package consumers can pass through to TTS providers.
@@ -504,7 +564,24 @@ pub struct SpeechSynthesisOutput {
     pub provider: SpeechSynthesisProviderSelection,
     #[serde(default)]
     pub audio: Option<PcmAudio>,
+    #[serde(default)]
+    pub native_diagnostics: Option<SpeechSynthesisNativeDiagnostics>,
     pub diagnostics: Vec<SpeechSynthesisDiagnostic>,
+}
+
+/// Native provider/vocoder diagnostics returned by end-to-end synthesis.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechSynthesisNativeDiagnostics {
+    pub provider: String,
+    pub model_id: String,
+    pub vocoder: String,
+    pub vocoder_model_id: String,
+    pub runtime: String,
+    pub device: String,
+    pub bundle_source: String,
+    pub provider_bundle_source: String,
+    pub vocoder_bundle_source: String,
 }
 
 /// Trait implemented by concrete TTS providers.
@@ -540,14 +617,249 @@ impl SpeechSynthesisProvider for UnsupportedSpeechSynthesisProvider {
             status,
             provider: request.provider.clone(),
             audio: None,
+            native_diagnostics: None,
             diagnostics: unsupported_provider_diagnostics(request),
+        })
+    }
+}
+
+/// Native F5 mel generation plus Vocos vocoding provider.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NativeF5VocosSpeechSynthesisProvider;
+
+impl SpeechSynthesisProvider for NativeF5VocosSpeechSynthesisProvider {
+    fn provider_id(&self) -> &'static str {
+        "f5"
+    }
+
+    fn synthesize(
+        &self,
+        request: &SpeechSynthesisRequest,
+    ) -> Result<SpeechSynthesisOutput, String> {
+        request.validate()?;
+        let Some(reference_prompt) = &request.reference_voice_prompt else {
+            return Ok(SpeechSynthesisOutput {
+                status: SpeechSynthesisStatus::SetupRequired,
+                provider: request.provider.clone(),
+                audio: None,
+                native_diagnostics: Some(native_diagnostics_for_request(
+                    request,
+                    "notRun",
+                    "unresolved",
+                    "unresolved",
+                )),
+                diagnostics: vec![SpeechSynthesisDiagnostic {
+                    code: "reference_voice_prompt_missing".to_string(),
+                    message: "Native F5 synthesis requires a Reference Voice Prompt.".to_string(),
+                    help: Some(
+                        "Provide referenceVoicePrompt audio and transcript before running native synthesis."
+                            .to_string(),
+                    ),
+                }],
+            });
+        };
+        if !reference_prompt.has_transcript() {
+            return Ok(SpeechSynthesisOutput {
+                status: SpeechSynthesisStatus::SetupRequired,
+                provider: request.provider.clone(),
+                audio: None,
+                native_diagnostics: Some(native_diagnostics_for_request(
+                    request,
+                    "notRun",
+                    "unresolved",
+                    "unresolved",
+                )),
+                diagnostics: vec![SpeechSynthesisDiagnostic {
+                    code: "reference_prompt_transcript_required".to_string(),
+                    message:
+                        "Native F5 synthesis requires a transcript for the Reference Voice Prompt."
+                            .to_string(),
+                    help: Some(
+                        "Run or provide ASR before calling audio.tts.synthesize; this operation does not transcribe the reference prompt."
+                            .to_string(),
+                    ),
+                }],
+            });
+        }
+
+        let vocoder = request.provider.vocoder.clone().unwrap_or_default();
+        if vocoder.provider_id != "vocos" {
+            return Ok(SpeechSynthesisOutput {
+                status: SpeechSynthesisStatus::UnsupportedRuntime,
+                provider: request.provider.clone(),
+                audio: None,
+                native_diagnostics: Some(native_diagnostics_for_request(
+                    request,
+                    "notRun",
+                    provider_bundle_source(&request.provider.model_bundle),
+                    provider_bundle_source(&vocoder.model_bundle),
+                )),
+                diagnostics: vec![SpeechSynthesisDiagnostic {
+                    code: "tts_vocoder_unsupported".to_string(),
+                    message: format!(
+                        "unsupported TTS vocoder `{}`; use `vocos`",
+                        vocoder.provider_id
+                    ),
+                    help: Some(
+                        "F5 synthesis is currently wired to the Vocos native vocoder path."
+                            .to_string(),
+                    ),
+                }],
+            });
+        }
+
+        let f5_model_id = request
+            .provider
+            .model_id
+            .clone()
+            .unwrap_or_else(|| "f5-tts-v1-base".to_string());
+        let f5_request = NativeF5MelDiagnosticRequest {
+            text: request.text.clone(),
+            model_id: f5_model_id,
+            bundle_path: request
+                .provider
+                .model_bundle
+                .bundle_path
+                .as_ref()
+                .map(PathBuf::from),
+            device: request.provider.device,
+            options: request.options.clone(),
+        };
+        let f5_output = run_f5_mel_diagnostic(&f5_request)?;
+        let f5_bundle_source = provider_bundle_source(&request.provider.model_bundle);
+        let vocoder_bundle_source = provider_bundle_source(&vocoder.model_bundle);
+        let diagnostics = native_diagnostics_from_reports(
+            request,
+            &f5_output.device.selected,
+            f5_bundle_source,
+            vocoder_bundle_source,
+        );
+
+        let Some(f5_mel) = f5_output.mel.clone() else {
+            return Ok(SpeechSynthesisOutput {
+                status: f5_output.status,
+                provider: request.provider.clone(),
+                audio: None,
+                native_diagnostics: Some(diagnostics),
+                diagnostics: f5_output.diagnostics,
+            });
+        };
+        if f5_output.status != SpeechSynthesisStatus::Ready {
+            return Ok(SpeechSynthesisOutput {
+                status: f5_output.status,
+                provider: request.provider.clone(),
+                audio: None,
+                native_diagnostics: Some(diagnostics),
+                diagnostics: f5_output.diagnostics,
+            });
+        }
+
+        let vocos_request = NativeVocosVocoderDiagnosticRequest {
+            model_id: vocoder.model_id.clone(),
+            bundle_path: vocoder.model_bundle.bundle_path.as_ref().map(PathBuf::from),
+            device: request.provider.device,
+            mel: Some(NativeVocosMelInput {
+                frames: f5_mel.frames,
+                channels: f5_mel.channels,
+                values: vec![0.0; f5_mel.frames * f5_mel.channels],
+            }),
+            options: request.options.clone(),
+        };
+        let vocos_output = run_vocos_vocoder_diagnostic(&vocos_request)?;
+        let diagnostics = native_diagnostics_from_reports(
+            request,
+            &vocos_output.device.selected,
+            f5_bundle_source,
+            vocoder_bundle_source,
+        );
+        Ok(SpeechSynthesisOutput {
+            status: vocos_output.status,
+            provider: request.provider.clone(),
+            audio: vocos_output.audio,
+            native_diagnostics: Some(diagnostics),
+            diagnostics: vocos_output.diagnostics,
         })
     }
 }
 
 /// Validates a request and returns the current default synthesis response.
 pub fn synthesize(request: &SpeechSynthesisRequest) -> Result<SpeechSynthesisOutput, String> {
-    UnsupportedSpeechSynthesisProvider.synthesize(request)
+    if request.provider.native && request.provider.provider_id == "f5" {
+        NativeF5VocosSpeechSynthesisProvider.synthesize(request)
+    } else {
+        UnsupportedSpeechSynthesisProvider.synthesize(request)
+    }
+}
+
+fn native_diagnostics_for_request(
+    request: &SpeechSynthesisRequest,
+    device: &str,
+    provider_bundle_source: &str,
+    vocoder_bundle_source: &str,
+) -> SpeechSynthesisNativeDiagnostics {
+    let vocoder = request.provider.vocoder.clone().unwrap_or_default();
+    let model_id = request
+        .provider
+        .model_id
+        .clone()
+        .unwrap_or_else(|| "f5-tts-v1-base".to_string());
+    SpeechSynthesisNativeDiagnostics {
+        provider: request.provider.provider_id.clone(),
+        model_id,
+        vocoder: vocoder.provider_id,
+        vocoder_model_id: vocoder.model_id,
+        runtime: native_runtime(),
+        device: device.to_string(),
+        bundle_source: combined_bundle_source(provider_bundle_source, vocoder_bundle_source)
+            .to_string(),
+        provider_bundle_source: provider_bundle_source.to_string(),
+        vocoder_bundle_source: vocoder_bundle_source.to_string(),
+    }
+}
+
+fn native_diagnostics_from_reports(
+    request: &SpeechSynthesisRequest,
+    device: &str,
+    provider_bundle_source: &str,
+    vocoder_bundle_source: &str,
+) -> SpeechSynthesisNativeDiagnostics {
+    native_diagnostics_for_request(
+        request,
+        device,
+        provider_bundle_source,
+        vocoder_bundle_source,
+    )
+}
+
+fn native_runtime() -> String {
+    if cfg!(feature = "candle") {
+        "candle".to_string()
+    } else {
+        "unavailable".to_string()
+    }
+}
+
+fn provider_bundle_source(bundle: &TtsModelBundleSelection) -> &'static str {
+    if bundle.bundle_path.is_some() {
+        "explicitBundlePath"
+    } else if bundle.auto_download && cfg!(feature = "model-bundles") && !bundle.cache_only {
+        "autoResolveRequested"
+    } else {
+        "unresolved"
+    }
+}
+
+fn combined_bundle_source(provider_source: &str, vocoder_source: &str) -> &'static str {
+    if provider_source == "explicitBundlePath" && vocoder_source == "explicitBundlePath" {
+        "explicitBundlePath"
+    } else if provider_source == "autoResolveRequested" && vocoder_source == "autoResolveRequested"
+    {
+        "autoResolveRequested"
+    } else if provider_source == "unresolved" && vocoder_source == "unresolved" {
+        "unresolved"
+    } else {
+        "mixed"
+    }
 }
 
 fn unsupported_provider_diagnostics(
@@ -692,6 +1004,58 @@ mod tests {
         assert!(output.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "reference_prompt_asr_unavailable"
                 && diagnostic.message.contains("ASR fallback")
+        }));
+    }
+
+    #[test]
+    fn native_f5_synthesis_requires_reference_prompt_transcript_before_provider_execution() {
+        let request = SpeechSynthesisRequest {
+            text: "Match this speaker.".to_string(),
+            reference_voice_prompt: Some(ReferenceVoicePrompt {
+                audio: ReferenceVoicePromptAudio::Samples(PcmAudio {
+                    sample_rate_hz: 24_000,
+                    channels: 1,
+                    samples: vec![0.0, 0.01, -0.01, 0.0],
+                }),
+                transcript: None,
+                language: Some("en".to_string()),
+                asr_fallback: Some(ReferencePromptAsrFallback {
+                    provider_id: "candle-whisper".to_string(),
+                    model_id: None,
+                    language: None,
+                }),
+                metadata: serde_json::json!({}),
+            }),
+            provider: SpeechSynthesisProviderSelection {
+                provider_id: "f5".to_string(),
+                model_id: Some("f5-tts-v1-base".to_string()),
+                native: true,
+                device: NativeTtsDevicePreference::Cpu,
+                model_bundle: TtsModelBundleSelection {
+                    bundle_path: Some("unused-f5".to_string()),
+                    auto_download: false,
+                    cache_only: false,
+                },
+                vocoder: Some(SpeechSynthesisVocoderSelection {
+                    provider_id: "vocos".to_string(),
+                    model_id: "vocos-mel-24khz".to_string(),
+                    model_bundle: TtsModelBundleSelection {
+                        bundle_path: Some("unused-vocos".to_string()),
+                        auto_download: false,
+                        cache_only: false,
+                    },
+                }),
+            },
+            options: SpeechSynthesisOptions::default(),
+        };
+
+        let output = synthesize(&request).expect("native setup response");
+
+        assert_eq!(output.status, SpeechSynthesisStatus::SetupRequired);
+        assert!(output.audio.is_none());
+        assert!(output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "reference_prompt_transcript_required"
+                && diagnostic.message.contains("transcript")
         }));
     }
 
