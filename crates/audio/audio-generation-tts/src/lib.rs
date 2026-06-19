@@ -617,11 +617,134 @@ pub struct SpeechSynthesisNativeDiagnostics {
     pub vocoder: String,
     pub vocoder_model_id: String,
     pub inference: SpeechSynthesisInferenceControlsReport,
+    #[serde(default)]
+    pub text_chunking: SpeechSynthesisTextChunkingReport,
     pub runtime: String,
     pub device: String,
     pub bundle_source: String,
     pub provider_bundle_source: String,
     pub vocoder_bundle_source: String,
+}
+
+/// Native/provider-facing chunking report for long target text.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechSynthesisTextChunkingReport {
+    pub strategy: String,
+    pub max_characters: usize,
+    pub text_character_count: usize,
+    pub chunk_count: usize,
+    pub preserves_in_memory_output_contract: bool,
+    pub chunks: Vec<SpeechSynthesisTextChunkReport>,
+}
+
+impl Default for SpeechSynthesisTextChunkingReport {
+    fn default() -> Self {
+        Self {
+            strategy: TTS_TEXT_CHUNKING_STRATEGY.to_string(),
+            max_characters: DEFAULT_TTS_TEXT_CHUNK_MAX_CHARS,
+            text_character_count: 0,
+            chunk_count: 0,
+            preserves_in_memory_output_contract: true,
+            chunks: Vec::new(),
+        }
+    }
+}
+
+/// A target text chunk span, expressed in character offsets.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechSynthesisTextChunkReport {
+    pub index: usize,
+    pub start_char: usize,
+    pub end_char: usize,
+    pub character_count: usize,
+}
+
+const DEFAULT_TTS_TEXT_CHUNK_MAX_CHARS: usize = 120;
+const TTS_TEXT_CHUNKING_STRATEGY: &str = "sentence-boundary";
+
+/// Reports deterministic long-text chunking while preserving single-buffer PCM output.
+pub fn speech_synthesis_text_chunking_report(text: &str) -> SpeechSynthesisTextChunkingReport {
+    let chunks = speech_synthesis_text_chunk_spans(text)
+        .into_iter()
+        .enumerate()
+        .map(
+            |(index, (start_char, end_char))| SpeechSynthesisTextChunkReport {
+                index,
+                start_char,
+                end_char,
+                character_count: end_char.saturating_sub(start_char),
+            },
+        )
+        .collect::<Vec<_>>();
+    SpeechSynthesisTextChunkingReport {
+        strategy: TTS_TEXT_CHUNKING_STRATEGY.to_string(),
+        max_characters: DEFAULT_TTS_TEXT_CHUNK_MAX_CHARS,
+        text_character_count: text.chars().count(),
+        chunk_count: chunks.len(),
+        preserves_in_memory_output_contract: true,
+        chunks,
+    }
+}
+
+fn speech_synthesis_text_chunks(text: &str) -> Vec<String> {
+    speech_synthesis_text_chunk_spans(text)
+        .into_iter()
+        .filter_map(|(start, end)| text_by_char_range(text, start, end))
+        .map(|chunk| chunk.trim().to_string())
+        .filter(|chunk| !chunk.is_empty())
+        .collect()
+}
+
+fn speech_synthesis_text_chunk_spans(text: &str) -> Vec<(usize, usize)> {
+    let chars = text.chars().collect::<Vec<_>>();
+    if chars.is_empty() {
+        return Vec::new();
+    }
+    let mut spans = Vec::new();
+    let mut start = leading_non_whitespace(&chars, 0);
+    while start < chars.len() {
+        let hard_end = (start + DEFAULT_TTS_TEXT_CHUNK_MAX_CHARS).min(chars.len());
+        if hard_end == chars.len() {
+            spans.push((start, chars.len()));
+            break;
+        }
+        let minimum_soft_end = start + (DEFAULT_TTS_TEXT_CHUNK_MAX_CHARS / 3);
+        let end = (minimum_soft_end..=hard_end)
+            .rev()
+            .find(|candidate| is_chunk_boundary(chars[*candidate - 1]))
+            .unwrap_or(hard_end);
+        spans.push((start, end));
+        start = leading_non_whitespace(&chars, end);
+    }
+    spans
+}
+
+fn leading_non_whitespace(chars: &[char], mut index: usize) -> usize {
+    while index < chars.len() && chars[index].is_whitespace() {
+        index += 1;
+    }
+    index
+}
+
+fn is_chunk_boundary(character: char) -> bool {
+    matches!(character, '.' | '?' | '!' | ';' | ':' | '\n') || character.is_whitespace()
+}
+
+fn text_by_char_range(text: &str, start_char: usize, end_char: usize) -> Option<&str> {
+    let start_byte = byte_index_for_char(text, start_char)?;
+    let end_byte = byte_index_for_char(text, end_char)?;
+    Some(&text[start_byte..end_byte])
+}
+
+fn byte_index_for_char(text: &str, char_index: usize) -> Option<usize> {
+    if char_index == text.chars().count() {
+        return Some(text.len());
+    }
+    text.char_indices()
+        .nth(char_index)
+        .map(|(byte_index, _)| byte_index)
 }
 
 /// Trait implemented by concrete TTS providers.
@@ -753,71 +876,100 @@ impl SpeechSynthesisProvider for NativeF5VocosSpeechSynthesisProvider {
             .model_id
             .clone()
             .unwrap_or_else(|| "f5-tts-v1-base".to_string());
-        let f5_request = NativeF5MelDiagnosticRequest {
-            text: request.text.clone(),
-            model_id: f5_model_id,
-            bundle_path: request
-                .provider
-                .model_bundle
-                .bundle_path
-                .as_ref()
-                .map(PathBuf::from),
-            device: request.provider.device,
-            options: request.options.clone(),
-        };
-        let f5_output = run_f5_mel_diagnostic(&f5_request)?;
         let f5_bundle_source = provider_bundle_source(&request.provider.model_bundle);
         let vocoder_bundle_source = provider_bundle_source(&vocoder.model_bundle);
-        let diagnostics = native_diagnostics_from_reports(
-            request,
-            &f5_output.device.selected,
-            f5_bundle_source,
-            vocoder_bundle_source,
-        );
+        let mut selected_device = "notRun".to_string();
+        let mut combined_audio: Option<PcmAudio> = None;
+        let mut output_diagnostics = Vec::new();
 
-        let Some(f5_mel) = f5_output.mel.clone() else {
-            return Ok(SpeechSynthesisOutput {
-                status: f5_output.status,
-                provider: request.provider.clone(),
-                audio: None,
-                native_diagnostics: Some(diagnostics),
-                diagnostics: f5_output.diagnostics,
-            });
-        };
-        if f5_output.status != SpeechSynthesisStatus::Ready {
-            return Ok(SpeechSynthesisOutput {
-                status: f5_output.status,
-                provider: request.provider.clone(),
-                audio: None,
-                native_diagnostics: Some(diagnostics),
-                diagnostics: f5_output.diagnostics,
-            });
+        for chunk in speech_synthesis_text_chunks(&request.text) {
+            let f5_request = NativeF5MelDiagnosticRequest {
+                text: chunk,
+                model_id: f5_model_id.clone(),
+                bundle_path: request
+                    .provider
+                    .model_bundle
+                    .bundle_path
+                    .as_ref()
+                    .map(PathBuf::from),
+                device: request.provider.device,
+                options: request.options.clone(),
+            };
+            let f5_output = run_f5_mel_diagnostic(&f5_request)?;
+            selected_device = f5_output.device.selected.clone();
+            let diagnostics = native_diagnostics_from_reports(
+                request,
+                &selected_device,
+                f5_bundle_source,
+                vocoder_bundle_source,
+            );
+
+            let Some(f5_mel) = f5_output.mel.clone() else {
+                return Ok(SpeechSynthesisOutput {
+                    status: f5_output.status,
+                    provider: request.provider.clone(),
+                    audio: None,
+                    native_diagnostics: Some(diagnostics),
+                    diagnostics: f5_output.diagnostics,
+                });
+            };
+            if f5_output.status != SpeechSynthesisStatus::Ready {
+                return Ok(SpeechSynthesisOutput {
+                    status: f5_output.status,
+                    provider: request.provider.clone(),
+                    audio: None,
+                    native_diagnostics: Some(diagnostics),
+                    diagnostics: f5_output.diagnostics,
+                });
+            }
+            output_diagnostics.extend(f5_output.diagnostics);
+
+            let vocos_request = NativeVocosVocoderDiagnosticRequest {
+                model_id: vocoder.model_id.clone(),
+                bundle_path: vocoder.model_bundle.bundle_path.as_ref().map(PathBuf::from),
+                device: request.provider.device,
+                mel: Some(NativeVocosMelInput {
+                    frames: f5_mel.frames,
+                    channels: f5_mel.channels,
+                    values: diagnostic_f5_mel_values(f5_mel.frames, f5_mel.channels),
+                }),
+                options: request.options.clone(),
+            };
+            let vocos_output = run_vocos_vocoder_diagnostic(&vocos_request)?;
+            selected_device = vocos_output.device.selected.clone();
+            if vocos_output.status != SpeechSynthesisStatus::Ready {
+                let diagnostics = native_diagnostics_from_reports(
+                    request,
+                    &selected_device,
+                    f5_bundle_source,
+                    vocoder_bundle_source,
+                );
+                return Ok(SpeechSynthesisOutput {
+                    status: vocos_output.status,
+                    provider: request.provider.clone(),
+                    audio: vocos_output.audio,
+                    native_diagnostics: Some(diagnostics),
+                    diagnostics: vocos_output.diagnostics,
+                });
+            }
+            if let Some(audio) = vocos_output.audio {
+                append_pcm_audio(&mut combined_audio, audio)?;
+            }
+            output_diagnostics.extend(vocos_output.diagnostics);
         }
 
-        let vocos_request = NativeVocosVocoderDiagnosticRequest {
-            model_id: vocoder.model_id.clone(),
-            bundle_path: vocoder.model_bundle.bundle_path.as_ref().map(PathBuf::from),
-            device: request.provider.device,
-            mel: Some(NativeVocosMelInput {
-                frames: f5_mel.frames,
-                channels: f5_mel.channels,
-                values: diagnostic_f5_mel_values(f5_mel.frames, f5_mel.channels),
-            }),
-            options: request.options.clone(),
-        };
-        let vocos_output = run_vocos_vocoder_diagnostic(&vocos_request)?;
         let diagnostics = native_diagnostics_from_reports(
             request,
-            &vocos_output.device.selected,
+            &selected_device,
             f5_bundle_source,
             vocoder_bundle_source,
         );
         Ok(SpeechSynthesisOutput {
-            status: vocos_output.status,
+            status: SpeechSynthesisStatus::Ready,
             provider: request.provider.clone(),
-            audio: vocos_output.audio,
+            audio: combined_audio,
             native_diagnostics: Some(diagnostics),
-            diagnostics: vocos_output.diagnostics,
+            diagnostics: output_diagnostics,
         })
     }
 }
@@ -855,6 +1007,7 @@ fn native_diagnostics_for_request(
             DEFAULT_NATIVE_F5_SPEED,
             DEFAULT_NATIVE_F5_MAX_DURATION_SECONDS,
         ),
+        text_chunking: speech_synthesis_text_chunking_report(&request.text),
         runtime: native_runtime(),
         device: device.to_string(),
         bundle_source: combined_bundle_source(provider_bundle_source, vocoder_bundle_source)
@@ -876,6 +1029,25 @@ fn native_diagnostics_from_reports(
         provider_bundle_source,
         vocoder_bundle_source,
     )
+}
+
+fn append_pcm_audio(target: &mut Option<PcmAudio>, next: PcmAudio) -> Result<(), String> {
+    match target {
+        Some(existing) => {
+            if existing.sample_rate_hz != next.sample_rate_hz || existing.channels != next.channels
+            {
+                return Err(
+                    "native synthesis chunk output mismatch: sample rate and channels must stay stable"
+                        .to_string(),
+                );
+            }
+            existing.samples.extend(next.samples);
+        }
+        None => {
+            *target = Some(next);
+        }
+    }
+    Ok(())
 }
 
 fn native_runtime() -> String {

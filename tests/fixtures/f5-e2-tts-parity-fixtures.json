@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "scope": "audio-generation-tts-python-reference-parity",
+  "upstreamReferences": [
+    {
+      "family": "f5",
+      "modelId": "f5-tts-v1-base",
+      "repository": "SWivid/F5-TTS",
+      "referenceEntryPoint": "F5-TTS python infer-cli with Vocos"
+    },
+    {
+      "family": "f5",
+      "modelId": "f5-tts-base",
+      "repository": "SWivid/F5-TTS",
+      "referenceEntryPoint": "F5-TTS python infer-cli with Vocos"
+    },
+    {
+      "family": "e2",
+      "modelId": "e2-tts-base",
+      "repository": "SWivid/E2-TTS",
+      "referenceEntryPoint": "E2-TTS python infer-cli with Vocos"
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "f5-short-reference-transcript",
+      "modelFamily": "f5",
+      "modelId": "f5-tts-v1-base",
+      "targetText": "Short fixture text for the reference speaker.",
+      "referenceTranscript": "Reference voice prompt text.",
+      "referenceAudio": {
+        "kind": "metadata-only",
+        "sampleRateHz": 24000,
+        "channels": 1,
+        "durationSeconds": 0.25
+      },
+      "expectedNativeBehavior": {
+        "statusWithoutBundles": "setupRequired",
+        "outputContract": "single pcm-f32-interleaved PcmAudio when native F5 and Vocos bundles are available"
+      },
+      "knownGaps": [
+        "Default contributor tests use synthetic bundle fixtures and do not assert acoustic quality.",
+        "Native diagnostics allocate constrained mel/audio tensors instead of reproducing full upstream sampling."
+      ]
+    },
+    {
+      "id": "f5-long-text-chunking",
+      "modelFamily": "f5",
+      "modelId": "f5-tts-v1-base",
+      "targetText": "The first sentence establishes a long target. The second sentence exercises package-level chunking. The third sentence confirms concatenated PCM output.",
+      "referenceTranscript": "Reference voice prompt text.",
+      "referenceAudio": {
+        "kind": "metadata-only",
+        "sampleRateHz": 24000,
+        "channels": 1,
+        "durationSeconds": 0.25
+      },
+      "expectedNativeBehavior": {
+        "textChunkingStrategy": "sentence-boundary",
+        "outputContract": "single pcm-f32-interleaved PcmAudio containing concatenated chunk audio"
+      },
+      "knownGaps": [
+        "Chunk boundaries are deterministic sentence/whitespace boundaries, not a byte-for-byte copy of upstream Python preprocessing.",
+        "Prosody continuity across chunks is not quality-gated by hermetic tests."
+      ]
+    },
+    {
+      "id": "e2-reference-metadata",
+      "modelFamily": "e2",
+      "modelId": "e2-tts-base",
+      "targetText": "E2 fixture metadata documents the explicit model preset and current native support gap.",
+      "referenceTranscript": "Reference voice prompt text.",
+      "referenceAudio": {
+        "kind": "metadata-only",
+        "sampleRateHz": 24000,
+        "channels": 1,
+        "durationSeconds": 0.25
+      },
+      "expectedNativeBehavior": {
+        "status": "unsupportedRuntime",
+        "reason": "E2 model metadata is exposed for explicit opt-in, but native E2 inference is not wired in this slice."
+      },
+      "knownGaps": [
+        "E2 package metadata is available through audio.tts.models, but audio.tts.synthesize currently routes only native F5 plus Vocos.",
+        "No checked-in E2 acoustic parity assertion exists because default tests remain model-free and side-effect free."
+      ]
+    }
+  ]
+}

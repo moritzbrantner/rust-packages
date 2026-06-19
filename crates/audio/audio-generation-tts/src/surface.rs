@@ -8,10 +8,10 @@ use runtime_core::{
 };
 
 use crate::{
-    run_f5_mel_diagnostic, run_vocos_vocoder_diagnostic, synthesize, NativeF5MelDiagnosticRequest,
-    NativeTtsDevicePreference, NativeVocosVocoderDiagnosticRequest, PcmAudio, ReferenceVoicePrompt,
-    ReferenceVoicePromptAudio, SpeechSynthesisRequest, SpeechSynthesisStatus,
-    TtsModelBundleSelection,
+    run_f5_mel_diagnostic, run_vocos_vocoder_diagnostic, speech_synthesis_text_chunking_report,
+    synthesize, NativeF5MelDiagnosticRequest, NativeTtsDevicePreference,
+    NativeVocosVocoderDiagnosticRequest, PcmAudio, ReferenceVoicePrompt, ReferenceVoicePromptAudio,
+    SpeechSynthesisRequest, SpeechSynthesisStatus, TtsModelBundleSelection,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -366,6 +366,7 @@ fn plan_for_request(
             "channels": request.options.channels,
             "format": "pcm-f32-interleaved"
         },
+        "textChunking": speech_synthesis_text_chunking_report(&request.text),
         "runtime": {
             "nativeProvidersImplemented": true,
             "nativeSynthesisAvailable": cfg!(feature = "candle"),
@@ -1019,6 +1020,42 @@ mod tests {
     }
 
     #[test]
+    fn plan_and_synthesize_report_long_text_chunking_without_audio_chunks() {
+        let long_text = [
+            "The first sentence establishes the speaker-conditioned synthesis request.",
+            "The second sentence is intentionally long enough to force chunk planning at the package surface boundary.",
+            "The final sentence verifies that chunking metadata stays separate from the core in-memory PCM output contract.",
+        ]
+        .join(" ");
+
+        let plan = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.plan".into(),
+            input: serde_json::json!({"text": long_text}),
+        })
+        .expect("plan response");
+        let chunking = &plan.value["result"]["textChunking"];
+
+        assert_eq!(chunking["strategy"], "sentence-boundary");
+        assert!(chunking["chunkCount"].as_u64().expect("chunk count") > 1);
+        assert_eq!(chunking["preservesInMemoryOutputContract"], true);
+        assert!(chunking["chunks"].as_array().expect("chunks").len() > 1);
+
+        let synthesis = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.synthesize".into(),
+            input: serde_json::json!({"text": long_text}),
+        })
+        .expect("synthesis response");
+        let result = &synthesis.value["result"];
+
+        assert_eq!(result["audioGenerated"], false);
+        assert!(result.get("audioChunks").is_none());
+        assert_eq!(
+            result["plan"]["textChunking"]["preservesInMemoryOutputContract"],
+            true
+        );
+    }
+
+    #[test]
     fn models_surface_lists_explicit_tts_presets_with_license_metadata() {
         let response = run_surface_operation(SurfaceRequest {
             operation: "audio.tts.models".into(),
@@ -1265,5 +1302,82 @@ mod tests {
             .as_array()
             .expect("diagnostics")
             .is_empty());
+    }
+
+    #[cfg(feature = "candle")]
+    #[test]
+    fn synthesize_surface_concatenates_long_text_chunks_into_one_pcm_output() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let f5_bundle = temp.path().join("f5");
+        let vocos_bundle = temp.path().join("vocos");
+        crate::native_f5::test_support::write_test_f5_bundle(
+            &f5_bundle,
+            serde_json::json!({
+                "model_type": "f5-tts",
+                "architectures": ["F5TTS"],
+                "n_mel_channels": 4,
+                "sample_rate": 24000,
+                "hop_length": 256
+            }),
+        );
+        crate::native_vocos::test_support::write_test_vocos_bundle(
+            &vocos_bundle,
+            &crate::native_vocos::test_support::test_config(4, 24_000, 256),
+            &[1, 2, 3, 4],
+        );
+        let long_text = [
+            "The first sentence establishes the native synthesis request for a reference speaker.",
+            "The second sentence is long enough to require chunk planning while using the same local diagnostic bundles.",
+            "The third sentence verifies that chunked synthesis still returns one in-memory PCM audio object.",
+        ]
+        .join(" ");
+
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.synthesize".into(),
+            input: serde_json::json!({
+                "text": long_text,
+                "referenceVoicePrompt": {
+                    "audio": example_pcm_audio(),
+                    "transcript": "Reference voice prompt text.",
+                    "language": "en"
+                },
+                "provider": {
+                    "providerId": "f5",
+                    "modelId": "f5-tts-v1-base",
+                    "native": true,
+                    "device": "cpu",
+                    "modelBundle": {
+                        "bundlePath": f5_bundle
+                    },
+                    "vocoder": {
+                        "providerId": "vocos",
+                        "modelId": "vocos-mel-24khz",
+                        "modelBundle": {
+                            "bundlePath": vocos_bundle
+                        }
+                    }
+                },
+                "options": {
+                    "maxDurationSeconds": 0.02,
+                    "steps": 1
+                }
+            }),
+        })
+        .expect("native synthesize");
+        let result = &response.value["result"];
+        let chunk_count = result["nativeDiagnostics"]["textChunking"]["chunkCount"]
+            .as_u64()
+            .expect("chunk count");
+        let samples = result["audio"]["samples"].as_array().expect("samples");
+
+        assert_eq!(result["status"], "ready");
+        assert_eq!(result["audioGenerated"], true);
+        assert!(chunk_count > 1);
+        assert!(samples.len() > chunk_count as usize);
+        assert!(result.get("audioChunks").is_none());
+        assert_eq!(
+            result["nativeDiagnostics"]["textChunking"]["preservesInMemoryOutputContract"],
+            true
+        );
     }
 }
