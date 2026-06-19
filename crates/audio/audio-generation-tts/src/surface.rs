@@ -1211,7 +1211,12 @@ mod tests {
                     }
                 },
                 "options": {
-                    "maxDurationSeconds": 0.02
+                    "seed": 41,
+                    "steps": 3,
+                    "cfgStrength": 1.25,
+                    "speed": 1.5,
+                    "maxDurationSeconds": 0.02,
+                    "removeSilence": true
                 }
             }),
         })
@@ -1237,6 +1242,21 @@ mod tests {
         );
         assert_eq!(result["nativeDiagnostics"]["runtime"], "candle");
         assert_eq!(result["nativeDiagnostics"]["device"], "cpu");
+        assert_eq!(result["nativeDiagnostics"]["inference"]["seed"], 41);
+        assert_eq!(result["nativeDiagnostics"]["inference"]["steps"], 3);
+        assert_eq!(
+            result["nativeDiagnostics"]["inference"]["cfgStrength"],
+            1.25
+        );
+        assert_eq!(result["nativeDiagnostics"]["inference"]["speed"], 1.5);
+        let max_duration = result["nativeDiagnostics"]["inference"]["maxDurationSeconds"]
+            .as_f64()
+            .expect("max duration");
+        assert!((max_duration - 0.02).abs() < 1.0e-6);
+        assert_eq!(
+            result["nativeDiagnostics"]["inference"]["removeSilence"],
+            true
+        );
         assert_eq!(
             result["nativeDiagnostics"]["bundleSource"],
             "explicitBundlePath"
