@@ -220,9 +220,11 @@ fn presets_value() -> serde_json::Value {
                 "name": spec.name,
                 "safeName": spec.safe_name(),
                 "task": spec.task.as_protocol_str(),
+                "repoId": spec.repo_id_value(),
                 "source": source_json(&spec.source),
                 "revision": spec.revision_value(),
-                "requestedFiles": file_requests_json(&spec.files)
+                "requestedFiles": file_requests_json(&spec.files),
+                "metadata": spec.metadata
             })
         }).collect::<Vec<_>>()
     })

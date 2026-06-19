@@ -1,5 +1,6 @@
 //! Library-owned runtime surface for `audio-generation-tts`.
 
+use model_runtime::{ModelFileRequest, ModelPreset, ModelSpec};
 use runtime_core::{
     set_surface_operation_curation, structured_surface_response, OperationId, PackageSurface,
     RuntimeCapabilities, SurfaceOperation, SurfaceOperationCuration, SurfaceRequest,
@@ -182,11 +183,15 @@ fn plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
 }
 
 fn models_value() -> serde_json::Value {
+    let models = tts_model_presets()
+        .into_iter()
+        .map(tts_model_json)
+        .collect::<Vec<_>>();
     serde_json::json!({
         "defaultModelSelected": false,
-        "models": [],
+        "models": models,
         "nativeProvidersImplemented": false,
-        "message": "No TTS model preset is selected by default. Explicit F5/E2/Vocos model metadata is added by later slices.",
+        "message": "No TTS model preset is selected by default. F5/E2/Vocos metadata is available for explicit opt-in planning.",
         "requirements": [
             {
                 "id": "native-tts-provider",
@@ -194,6 +199,80 @@ fn models_value() -> serde_json::Value {
                 "available": false
             }
         ]
+    })
+}
+
+fn tts_model_presets() -> Vec<ModelPreset> {
+    ModelPreset::ALL
+        .iter()
+        .copied()
+        .filter(|preset| {
+            matches!(
+                preset,
+                ModelPreset::F5TtsV1Base
+                    | ModelPreset::F5TtsBase
+                    | ModelPreset::E2TtsBase
+                    | ModelPreset::VocosMel24Khz
+            )
+        })
+        .collect()
+}
+
+fn tts_model_json(preset: ModelPreset) -> serde_json::Value {
+    let spec = preset.spec();
+    serde_json::json!({
+        "id": preset.as_str(),
+        "name": spec.name.as_str(),
+        "displayName": spec.metadata.get("displayName"),
+        "task": spec.task.as_protocol_str(),
+        "repoId": spec.repo_id_value(),
+        "revision": spec.revision_value(),
+        "requiredFiles": required_files(&spec),
+        "requestedFiles": file_requests_json(&spec.files),
+        "license": license_json(&spec),
+        "explicitOptIn": spec.metadata.get("explicitOptIn").is_some_and(|value| value == "true"),
+        "metadata": spec.metadata,
+        "runtime": {
+            "downloadsModels": false,
+            "runsInference": false,
+            "sideEffects": []
+        }
+    })
+}
+
+fn required_files(spec: &ModelSpec) -> Vec<&str> {
+    spec.files
+        .iter()
+        .filter_map(|request| match request {
+            ModelFileRequest::Required(path) => Some(path.as_str()),
+            ModelFileRequest::Optional(_) | ModelFileRequest::FirstAvailable(_) => None,
+        })
+        .collect()
+}
+
+fn file_requests_json(files: &[ModelFileRequest]) -> Vec<serde_json::Value> {
+    files
+        .iter()
+        .map(|request| match request {
+            ModelFileRequest::Required(path) => {
+                serde_json::json!({"kind": "required", "path": path})
+            }
+            ModelFileRequest::Optional(path) => {
+                serde_json::json!({"kind": "optional", "path": path})
+            }
+            ModelFileRequest::FirstAvailable(paths) => {
+                serde_json::json!({"kind": "firstAvailable", "paths": paths})
+            }
+        })
+        .collect()
+}
+
+fn license_json(spec: &ModelSpec) -> serde_json::Value {
+    serde_json::json!({
+        "id": spec.metadata.get("license"),
+        "name": spec.metadata.get("licenseName"),
+        "url": spec.metadata.get("licenseUrl"),
+        "scope": spec.metadata.get("licenseScope"),
     })
 }
 
@@ -387,5 +466,56 @@ mod tests {
             response.value["result"]["action"],
             "needsTranscriptOrAsrFallback"
         );
+    }
+
+    #[test]
+    fn models_surface_lists_explicit_tts_presets_with_license_metadata() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.models".into(),
+            input: serde_json::json!({}),
+        })
+        .expect("models response");
+
+        assert_eq!(response.value["result"]["defaultModelSelected"], false);
+        let models = response.value["result"]["models"]
+            .as_array()
+            .expect("models array");
+        let ids = models
+            .iter()
+            .map(|model| model["id"].as_str().expect("model id"))
+            .collect::<Vec<_>>();
+        assert!(ids.contains(&"f5-tts-v1-base"));
+        assert!(ids.contains(&"f5-tts-base"));
+        assert!(ids.contains(&"e2-tts-base"));
+        assert!(ids.contains(&"vocos-mel-24khz"));
+
+        let f5 = models
+            .iter()
+            .find(|model| model["id"] == "f5-tts-v1-base")
+            .expect("f5 v1 preset");
+        assert_eq!(f5["repoId"], "SWivid/F5-TTS");
+        assert_eq!(f5["task"], "speaker_conditioned_tts");
+        assert_eq!(f5["license"]["id"], "cc-by-nc-4.0");
+        assert_eq!(f5["explicitOptIn"], true);
+        assert!(f5["requiredFiles"]
+            .as_array()
+            .expect("required files")
+            .contains(&serde_json::json!(
+                "F5TTS_v1_Base/model_1250000.safetensors"
+            )));
+
+        let e2 = models
+            .iter()
+            .find(|model| model["id"] == "e2-tts-base")
+            .expect("e2 preset");
+        assert_eq!(e2["repoId"], "SWivid/E2-TTS");
+        assert_eq!(e2["license"]["id"], "cc-by-nc-4.0");
+
+        let vocos = models
+            .iter()
+            .find(|model| model["id"] == "vocos-mel-24khz")
+            .expect("vocos preset");
+        assert_eq!(vocos["repoId"], "charactr/vocos-mel-24khz");
+        assert_eq!(vocos["license"]["id"], "mit");
     }
 }

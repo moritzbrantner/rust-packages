@@ -459,6 +459,9 @@ fn default_kind(task: &ModelTask) -> ObservationKind {
         ModelTask::SpeakerDiarization => ObservationKind::Custom("speaker".to_string()),
         ModelTask::SourceSeparation => ObservationKind::Custom("source_separation".to_string()),
         ModelTask::AudioGeneration => ObservationKind::Custom("audio_generation".to_string()),
+        ModelTask::SpeakerConditionedTts => {
+            ObservationKind::Custom("speaker_conditioned_tts".to_string())
+        }
         ModelTask::TextEmbedding => ObservationKind::Custom("embedding".to_string()),
         ModelTask::Summarization => ObservationKind::Custom("summary".to_string()),
         ModelTask::Reranking => ObservationKind::Custom("reranking".to_string()),

@@ -65,6 +65,14 @@ pub enum ModelPreset {
     DemucsMusicSeparation,
     /// The MusicGen small generation variant.
     MusicgenSmall,
+    /// The F5-TTS v1 base speaker-conditioned TTS variant.
+    F5TtsV1Base,
+    /// The F5-TTS base speaker-conditioned TTS variant.
+    F5TtsBase,
+    /// The E2-TTS base speaker-conditioned TTS variant.
+    E2TtsBase,
+    /// The Vocos 24 kHz mel vocoder variant.
+    VocosMel24Khz,
 }
 
 impl ModelPreset {
@@ -100,6 +108,10 @@ impl ModelPreset {
         Self::PyannoteSpeakerDiarization31,
         Self::DemucsMusicSeparation,
         Self::MusicgenSmall,
+        Self::F5TtsV1Base,
+        Self::F5TtsBase,
+        Self::E2TtsBase,
+        Self::VocosMel24Khz,
     ];
 
     /// Borrows this value as a str.
@@ -137,6 +149,10 @@ impl ModelPreset {
             Self::PyannoteSpeakerDiarization31 => "pyannote-speaker-diarization-3-1",
             Self::DemucsMusicSeparation => "demucs-music-separation",
             Self::MusicgenSmall => "musicgen-small",
+            Self::F5TtsV1Base => "f5-tts-v1-base",
+            Self::F5TtsBase => "f5-tts-base",
+            Self::E2TtsBase => "e2-tts-base",
+            Self::VocosMel24Khz => "vocos-mel-24khz",
         }
     }
 
@@ -461,8 +477,76 @@ impl ModelPreset {
                     .file("tokenizer.json")
                     .first_available_file(["model.safetensors", "pytorch_model.bin"])
             }
+            Self::F5TtsV1Base => tts_preset(
+                HuggingFaceModelSpec::new("SWivid/F5-TTS", ModelTask::SpeakerConditionedTts)
+                    .name(self.as_str())
+                    .file("F5TTS_v1_Base/model_1250000.safetensors")
+                    .file("F5TTS_v1_Base/vocab.txt"),
+                "f5-tts",
+                "F5-TTS v1 base",
+                "cc-by-nc-4.0",
+                "Creative Commons Attribution Non Commercial 4.0",
+                "https://creativecommons.org/licenses/by-nc/4.0/",
+            ),
+            Self::F5TtsBase => tts_preset(
+                HuggingFaceModelSpec::new("SWivid/F5-TTS", ModelTask::SpeakerConditionedTts)
+                    .name(self.as_str())
+                    .file("F5TTS_Base/model_1200000.safetensors")
+                    .file("F5TTS_Base/vocab.txt"),
+                "f5-tts",
+                "F5-TTS base",
+                "cc-by-nc-4.0",
+                "Creative Commons Attribution Non Commercial 4.0",
+                "https://creativecommons.org/licenses/by-nc/4.0/",
+            ),
+            Self::E2TtsBase => tts_preset(
+                HuggingFaceModelSpec::new("SWivid/E2-TTS", ModelTask::SpeakerConditionedTts)
+                    .name(self.as_str())
+                    .file("E2TTS_Base/model_1200000.safetensors"),
+                "e2-tts",
+                "E2-TTS base",
+                "cc-by-nc-4.0",
+                "Creative Commons Attribution Non Commercial 4.0",
+                "https://creativecommons.org/licenses/by-nc/4.0/",
+            ),
+            Self::VocosMel24Khz => tts_preset(
+                HuggingFaceModelSpec::new("charactr/vocos-mel-24khz", ModelTask::AudioGeneration)
+                    .name(self.as_str())
+                    .file("config.yaml")
+                    .file("pytorch_model.bin"),
+                "vocos",
+                "Vocos mel 24 kHz",
+                "mit",
+                "MIT",
+                "https://opensource.org/license/mit/",
+            ),
         }
     }
+}
+
+fn tts_preset(
+    mut spec: HuggingFaceModelSpec,
+    family: &str,
+    display_name: &str,
+    license: &str,
+    license_name: &str,
+    license_url: &str,
+) -> HuggingFaceModelSpec {
+    spec.metadata
+        .insert("modelFamily".to_string(), family.to_string());
+    spec.metadata
+        .insert("displayName".to_string(), display_name.to_string());
+    spec.metadata
+        .insert("license".to_string(), license.to_string());
+    spec.metadata
+        .insert("licenseName".to_string(), license_name.to_string());
+    spec.metadata
+        .insert("licenseUrl".to_string(), license_url.to_string());
+    spec.metadata
+        .insert("licenseScope".to_string(), "model".to_string());
+    spec.metadata
+        .insert("explicitOptIn".to_string(), "true".to_string());
+    spec
 }
 
 impl FromStr for ModelPreset {

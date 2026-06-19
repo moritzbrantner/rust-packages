@@ -93,6 +93,52 @@ fn model_presets_include_local_onnx_defaults() {
 }
 
 #[test]
+fn tts_presets_are_explicit_speaker_conditioned_and_carry_license_metadata() {
+    let f5_v1 = ModelPreset::F5TtsV1Base.spec();
+    assert_eq!(f5_v1.repo_id, "SWivid/F5-TTS");
+    assert_eq!(f5_v1.task, ModelTask::SpeakerConditionedTts);
+    assert!(f5_v1.files.contains(&ModelFileRequest::required(
+        "F5TTS_v1_Base/model_1250000.safetensors"
+    )));
+    assert!(f5_v1
+        .files
+        .contains(&ModelFileRequest::required("F5TTS_v1_Base/vocab.txt")));
+    assert_eq!(f5_v1.metadata["license"], "cc-by-nc-4.0");
+    assert_eq!(f5_v1.metadata["licenseScope"], "model");
+    assert_eq!(f5_v1.metadata["explicitOptIn"], "true");
+
+    let f5_base = ModelPreset::F5TtsBase.spec();
+    assert_eq!(f5_base.repo_id, "SWivid/F5-TTS");
+    assert_eq!(f5_base.task, ModelTask::SpeakerConditionedTts);
+    assert!(f5_base.files.contains(&ModelFileRequest::required(
+        "F5TTS_Base/model_1200000.safetensors"
+    )));
+    assert!(f5_base
+        .files
+        .contains(&ModelFileRequest::required("F5TTS_Base/vocab.txt")));
+    assert_eq!(f5_base.metadata["license"], "cc-by-nc-4.0");
+
+    let e2 = ModelPreset::E2TtsBase.spec();
+    assert_eq!(e2.repo_id, "SWivid/E2-TTS");
+    assert_eq!(e2.task, ModelTask::SpeakerConditionedTts);
+    assert!(e2.files.contains(&ModelFileRequest::required(
+        "E2TTS_Base/model_1200000.safetensors"
+    )));
+    assert_eq!(e2.metadata["license"], "cc-by-nc-4.0");
+
+    let vocos = ModelPreset::VocosMel24Khz.spec();
+    assert_eq!(vocos.repo_id, "charactr/vocos-mel-24khz");
+    assert_eq!(vocos.task, ModelTask::AudioGeneration);
+    assert!(vocos
+        .files
+        .contains(&ModelFileRequest::required("config.yaml")));
+    assert!(vocos
+        .files
+        .contains(&ModelFileRequest::required("pytorch_model.bin")));
+    assert_eq!(vocos.metadata["license"], "mit");
+}
+
+#[test]
 fn yolov8n_pose_onnx_preset_uses_pose_bundle_layout() {
     let preset = ModelPreset::XenovaYolov8nPoseOnnx;
     let spec = preset.spec();
