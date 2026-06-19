@@ -2678,6 +2678,7 @@ dependencies = [
  "moritzbrantner-audio-analysis-transcription",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
+ "moritzbrantner-video-analysis-core",
  "serde",
  "serde_json",
  "tempfile",

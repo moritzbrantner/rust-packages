@@ -5,8 +5,8 @@ generic text-to-speech and speaker-conditioned TTS.
 
 The primary workflow operation is `audio.tts.synthesize`. It validates the
 request and returns explicit setup/unsupported-runtime diagnostics instead of
-running native synthesis. The F5 mel diagnostic is opt-in and debug-only; full
-F5/E2/Vocos synthesis remains owned by later slices.
+running native synthesis. The F5 mel and Vocos vocoder diagnostics are opt-in
+and debug-only; full F5/E2/Vocos synthesis remains owned by later slices.
 
 Package-surface operations:
 
@@ -17,6 +17,8 @@ Package-surface operations:
 - `audio.tts.referencePromptPlan` inspects Reference Voice Prompt readiness.
 - `audio.tts.debug.f5Mel` validates a local F5 bundle and returns a mel-level
   diagnostic without running a vocoder.
+- `audio.tts.debug.vocosVocoder` validates a local Vocos bundle and converts a
+  constrained generated or inline mel input into PCM audio.
 - `describe` returns package and operation metadata.
 
 Native planning is side-effect free. `audio.tts.plan` can explain an explicit
@@ -52,3 +54,9 @@ Cargo features are explicit and default to off: `candle`, `cuda`,
 enabled it validates compatible F5 config, vocab, and safetensors files, then
 allocates a constrained mel diagnostic tensor. It never downloads models,
 emits PCM audio, or invokes Vocos.
+
+`audio.tts.debug.vocosVocoder` requires an explicit local `bundlePath`. It
+validates `config.yaml` and `pytorch_model.bin` from the Vocos bundle before
+audio generation. With `candle` enabled it converts a constrained mel diagnostic
+input into a mono `OwnedAudioFrame` and returns a JSON PCM summary; it does not
+download models or run full F5/E2 synthesis.

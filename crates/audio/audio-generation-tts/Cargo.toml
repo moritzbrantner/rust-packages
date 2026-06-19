@@ -22,6 +22,7 @@ model-runtime.workspace = true
 runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+video-analysis-core.workspace = true
 
 [features]
 default = []

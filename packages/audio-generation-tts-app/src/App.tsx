@@ -13,6 +13,7 @@ const packageAppConfig: PackageAppConfig = {
     "audio.tts.models",
     "audio.tts.referencePromptPlan",
     "audio.tts.debug.f5Mel",
+    "audio.tts.debug.vocosVocoder",
     "describe",
   ],
   operationGroups: [
@@ -32,6 +33,7 @@ const packageAppConfig: PackageAppConfig = {
         "audio.tts.models",
         "audio.tts.referencePromptPlan",
         "audio.tts.debug.f5Mel",
+        "audio.tts.debug.vocosVocoder",
       ],
     },
   ],

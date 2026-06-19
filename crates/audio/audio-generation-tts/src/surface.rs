@@ -8,9 +8,10 @@ use runtime_core::{
 };
 
 use crate::{
-    run_f5_mel_diagnostic, synthesize, NativeF5MelDiagnosticRequest, NativeTtsDevicePreference,
-    PcmAudio, ReferenceVoicePrompt, ReferenceVoicePromptAudio, SpeechSynthesisRequest,
-    SpeechSynthesisStatus, TtsModelBundleSelection,
+    run_f5_mel_diagnostic, run_vocos_vocoder_diagnostic, synthesize, NativeF5MelDiagnosticRequest,
+    NativeTtsDevicePreference, NativeVocosVocoderDiagnosticRequest, PcmAudio, ReferenceVoicePrompt,
+    ReferenceVoicePromptAudio, SpeechSynthesisRequest, SpeechSynthesisStatus,
+    TtsModelBundleSelection,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -66,6 +67,13 @@ pub fn package_surface() -> PackageSurface {
                 example_f5_debug_request(),
                 SurfaceOperationCuration::debug(940),
             ),
+            operation(
+                "audio.tts.debug.vocosVocoder",
+                "Debug Vocos vocoder",
+                "Validates a local Vocos bundle and vocodes a constrained mel diagnostic into PCM audio.",
+                example_vocos_debug_request(),
+                SurfaceOperationCuration::debug(950),
+            ),
         ],
     }
 }
@@ -92,6 +100,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.tts.models" => models_value(),
         "audio.tts.referencePromptPlan" => reference_prompt_plan_value(request.input)?,
         "audio.tts.debug.f5Mel" => f5_mel_debug_value(request.input)?,
+        "audio.tts.debug.vocosVocoder" => vocos_vocoder_debug_value(request.input)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -154,6 +163,18 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
                 "modelId": value.get("modelId").cloned().unwrap_or(serde_json::Value::Null),
                 "audioGenerated": value.get("audioGenerated").cloned().unwrap_or(serde_json::Value::Null),
                 "vocoderRequired": value.get("vocoderRequired").cloned().unwrap_or(serde_json::Value::Null),
+                "diagnosticCount": value.get("diagnostics").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
+            }),
+        ),
+        "audio.tts.debug.vocosVocoder" => (
+            "Vocos vocoder diagnostic",
+            "Validated the Vocos provider path and returned a constrained PCM audio diagnostic when setup is available.",
+            serde_json::json!({
+                "status": value.get("status").cloned().unwrap_or(serde_json::Value::Null),
+                "modelId": value.get("modelId").cloned().unwrap_or(serde_json::Value::Null),
+                "audioGenerated": value.get("audioGenerated").cloned().unwrap_or(serde_json::Value::Null),
+                "sampleRateHz": value.get("frame").and_then(|frame| frame.get("sampleRateHz")).cloned().unwrap_or(serde_json::Value::Null),
+                "channels": value.get("frame").and_then(|frame| frame.get("channels")).cloned().unwrap_or(serde_json::Value::Null),
                 "diagnosticCount": value.get("diagnostics").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
             }),
         ),
@@ -312,6 +333,13 @@ fn f5_mel_debug_value(input: serde_json::Value) -> Result<serde_json::Value, Str
         serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))?;
     serde_json::to_value(run_f5_mel_diagnostic(&request)?)
         .map_err(|error| format!("failed to encode F5 mel diagnostic: {error}"))
+}
+
+fn vocos_vocoder_debug_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let request: NativeVocosVocoderDiagnosticRequest =
+        serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))?;
+    serde_json::to_value(run_vocos_vocoder_diagnostic(&request)?)
+        .map_err(|error| format!("failed to encode Vocos vocoder diagnostic: {error}"))
 }
 
 fn request_from_value(input: serde_json::Value) -> Result<SpeechSynthesisRequest, String> {
@@ -698,6 +726,21 @@ fn example_f5_debug_request() -> serde_json::Value {
     })
 }
 
+fn example_vocos_debug_request() -> serde_json::Value {
+    serde_json::json!({
+        "modelId": "vocos-mel-24khz",
+        "bundlePath": ".model-runtime/vocos-mel-24khz/main",
+        "device": "cpu",
+        "mel": {
+            "frames": 4,
+            "channels": 100
+        },
+        "options": {
+            "maxDurationSeconds": 0.05
+        }
+    })
+}
+
 fn example_pcm_audio() -> PcmAudio {
     PcmAudio {
         sample_rate_hz: 24_000,
@@ -727,7 +770,8 @@ mod tests {
                 "audio.tts.plan",
                 "audio.tts.models",
                 "audio.tts.referencePromptPlan",
-                "audio.tts.debug.f5Mel"
+                "audio.tts.debug.f5Mel",
+                "audio.tts.debug.vocosVocoder"
             ]
         );
         let synthesize = surface
@@ -749,6 +793,12 @@ mod tests {
             .find(|operation| operation.id.as_str() == "audio.tts.debug.f5Mel")
             .expect("f5 mel debug");
         assert_eq!(f5_debug.curation.role, SurfaceOperationRole::Debug);
+        let vocos_debug = surface
+            .operations
+            .iter()
+            .find(|operation| operation.id.as_str() == "audio.tts.debug.vocosVocoder")
+            .expect("vocos vocoder debug");
+        assert_eq!(vocos_debug.curation.role, SurfaceOperationRole::Debug);
     }
 
     #[test]
@@ -994,6 +1044,28 @@ mod tests {
                 "external-tests"
             ]
         );
+    }
+
+    #[test]
+    fn vocos_debug_surface_reports_missing_bundle_setup_error() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.debug.vocosVocoder".into(),
+            input: serde_json::json!({
+                "modelId": "vocos-mel-24khz",
+                "device": "cpu"
+            }),
+        })
+        .expect("vocos vocoder diagnostic");
+
+        let result = &response.value["result"];
+        assert_eq!(result["status"], "setupRequired");
+        assert_eq!(result["audioGenerated"], false);
+        assert_eq!(result["device"]["selected"], "cpu");
+        assert!(result["diagnostics"]
+            .as_array()
+            .expect("diagnostics")
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "vocos_bundle_missing"));
     }
 
     #[cfg(feature = "candle")]
