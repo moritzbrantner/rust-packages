@@ -30,6 +30,42 @@ and the package dry-run checklist in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CH
 Benchmark checks belong to `bun run bench`, `performance-ci`, or explicit
 benchmark commands, not the default fast local gate.
 
+## Local Build Cache
+
+Large local checkouts are usually dominated by ignored build artifacts, not by
+tracked source files. Inspect the local caches before treating repository size
+as an extraction or source-layout problem:
+
+```bash
+du -sh .cargo-target target 2>/dev/null || true
+du -sh packages/*-wasm/pkg packages/video-analysis-ui/dist prototypes/web/video-analysis-web/dist 2>/dev/null || true
+```
+
+It is safe to remove the local Rust build cache when you need disk back. The
+next Rust command will rebuild what it needs:
+
+```bash
+rm -rf .cargo-target
+```
+
+Use `rm -rf target` only if you have explicitly built into Cargo's default
+target directory. Generated WASM and frontend outputs are also local build
+products; prefer regenerating them with the package build flow instead of
+checking them in.
+
+Keep day-to-day checks narrow so `.cargo-target` grows only for the crates you
+are changing:
+
+```bash
+cargo check -p <crate>
+cargo test -p <crate>
+scripts/check-fast.sh
+```
+
+Use broad workspace checks when the change affects shared public APIs, workspace
+membership, dependency versions or feature flags, generated package surfaces,
+UI routing/build behavior, release readiness, or external-tool integration.
+
 ## Local Setup
 
 Install the Rust WASM build prerequisites used by `@moritzbrantner/text-core-wasm`:

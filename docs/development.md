@@ -69,6 +69,42 @@ For the full local baseline with external-tool checks, use:
 scripts/check.sh
 ```
 
+## Local Build Cache
+
+Cargo and package build outputs are local artifacts. If the checkout looks large,
+measure ignored build directories before treating source layout as the problem:
+
+```bash
+du -sh .cargo-target target 2>/dev/null || true
+du -sh packages/*-wasm/pkg packages/video-analysis-ui/dist prototypes/web/video-analysis-web/dist 2>/dev/null || true
+```
+
+`.cargo-target` is the repo-local Rust build cache used by contributor scripts.
+It can be deleted whenever you need to reclaim space:
+
+```bash
+rm -rf .cargo-target
+```
+
+The next `cargo` or workspace check rebuilds the artifacts it needs. Delete
+`target` only if you have also built into Cargo's default target directory.
+Generated WASM packages and frontend `dist/` directories are regenerated through
+their build commands and should stay untracked.
+
+Prefer crate-scoped Rust checks while iterating:
+
+```bash
+cargo check -p <crate>
+cargo test -p <crate>
+scripts/check-fast.sh
+```
+
+Move to `CHECK_FAST_SCOPE=workspace scripts/check-fast.sh`,
+`scripts/check-preflight.sh`, or `scripts/check.sh` when the change crosses
+crate boundaries, changes workspace membership, dependencies, features, package
+surface generation, UI routing/build behavior, release readiness, or
+external-tool coverage.
+
 ## External Tools
 
 External tests are opt-in. Check availability without installing:
