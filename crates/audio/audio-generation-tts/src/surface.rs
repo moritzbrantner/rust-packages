@@ -8,8 +8,9 @@ use runtime_core::{
 };
 
 use crate::{
-    synthesize, NativeTtsDevicePreference, PcmAudio, ReferenceVoicePrompt, SpeechSynthesisRequest,
-    SpeechSynthesisStatus, TtsModelBundleSelection,
+    synthesize, NativeTtsDevicePreference, PcmAudio, ReferenceVoicePrompt,
+    ReferenceVoicePromptAudio, SpeechSynthesisRequest, SpeechSynthesisStatus,
+    TtsModelBundleSelection,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -173,14 +174,7 @@ fn synthesize_value(input: serde_json::Value) -> Result<serde_json::Value, Strin
 fn plan_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     let request = request_from_value(input)?;
     request.validate()?;
-    Ok(plan_for_request(
-        &request,
-        if request.provider.native {
-            &SpeechSynthesisStatus::SetupRequired
-        } else {
-            &SpeechSynthesisStatus::UnsupportedRuntime
-        },
-    ))
+    Ok(plan_for_request(&request, &planned_status(&request)))
 }
 
 fn models_value() -> serde_json::Value {
@@ -287,7 +281,7 @@ fn reference_prompt_plan_value(input: serde_json::Value) -> Result<serde_json::V
         Some(prompt) => {
             let prompt: ReferenceVoicePrompt = serde_json::from_value(prompt)
                 .map_err(|error| format!("invalid request: referenceVoicePrompt {error}"))?;
-            prompt.validate()?;
+            prompt.validate_source_and_hints()?;
             Ok(reference_prompt_plan(Some(&prompt)))
         }
         None => Ok(reference_prompt_plan(None)),
@@ -330,6 +324,23 @@ fn plan_for_request(
             }
         ]
     })
+}
+
+fn planned_status(request: &SpeechSynthesisRequest) -> SpeechSynthesisStatus {
+    if request.provider.native || request_reference_prompt_asr_unavailable(request) {
+        SpeechSynthesisStatus::SetupRequired
+    } else {
+        SpeechSynthesisStatus::UnsupportedRuntime
+    }
+}
+
+fn request_reference_prompt_asr_unavailable(request: &SpeechSynthesisRequest) -> bool {
+    request
+        .reference_voice_prompt
+        .as_ref()
+        .is_some_and(|prompt| {
+            !prompt.has_transcript() && prompt.asr_fallback.is_some() && !cfg!(feature = "asr")
+        })
 }
 
 fn device_plan(preference: NativeTtsDevicePreference) -> serde_json::Value {
@@ -497,22 +508,25 @@ fn feature_flag(name: &str, enabled: bool, purpose: &str) -> serde_json::Value {
 fn reference_prompt_plan(prompt: Option<&ReferenceVoicePrompt>) -> serde_json::Value {
     match prompt {
         Some(prompt) => {
-            let sample_count = prompt.audio.samples.len();
             serde_json::json!({
                 "provided": true,
                 "transcriptProvided": prompt.has_transcript(),
-                "sampleRateHz": prompt.audio.sample_rate_hz,
-                "channels": prompt.audio.channels,
-                "sampleCount": sample_count,
+                "languageHint": prompt.language,
+                "source": reference_audio_source_json(&prompt.audio),
                 "action": if prompt.has_transcript() {
                     "readyForProviderValidation"
+                } else if prompt.asr_fallback.is_some() {
+                    "planAsrFallback"
                 } else {
                     "needsTranscriptOrAsrFallback"
                 },
+                "asrFallback": asr_fallback_plan(prompt),
                 "message": if prompt.has_transcript() {
                     "Reference Voice Prompt includes audio and transcript."
+                } else if prompt.asr_fallback.is_some() {
+                    "Reference Voice Prompt is missing a transcript and will require ASR fallback setup before provider validation."
                 } else {
-                    "Reference Voice Prompt includes audio but no transcript; later slices add ASR fallback planning."
+                    "Reference Voice Prompt includes audio but no transcript; configure referenceVoicePrompt.asrFallback to plan ASR setup."
                 }
             })
         }
@@ -521,6 +535,88 @@ fn reference_prompt_plan(prompt: Option<&ReferenceVoicePrompt>) -> serde_json::V
             "transcriptProvided": false,
             "action": "notRequiredForGenericTts",
             "message": "No Reference Voice Prompt was supplied."
+        }),
+    }
+}
+
+fn asr_fallback_plan(prompt: &ReferenceVoicePrompt) -> serde_json::Value {
+    let Some(fallback) = &prompt.asr_fallback else {
+        return serde_json::json!({
+            "configured": false,
+            "available": false,
+            "asrFeatureEnabled": cfg!(feature = "asr")
+        });
+    };
+    let language_hint = fallback.language.as_deref().or(prompt.language.as_deref());
+
+    #[cfg(feature = "asr")]
+    {
+        let source = prompt.audio.to_transcription_source();
+        let provider_plan = audio_analysis_transcription::transcription_provider_plans()
+            .into_iter()
+            .find(|plan| plan.provider_id == fallback.provider_id);
+        let provider_known = provider_plan.is_some();
+
+        serde_json::json!({
+            "configured": true,
+            "available": provider_known,
+            "asrFeatureEnabled": true,
+            "providerKnown": provider_known,
+            "providerId": fallback.provider_id,
+            "modelId": fallback.model_id,
+            "languageHint": language_hint,
+            "sourceKind": transcription_source_kind(&source),
+            "willRunAsr": false,
+            "transcriptionProviderPlan": provider_plan,
+            "message": if provider_known {
+                "ASR fallback is planned through audio-analysis-transcription; this operation does not run transcription."
+            } else {
+                "ASR fallback provider is not known to audio-analysis-transcription."
+            }
+        })
+    }
+
+    #[cfg(not(feature = "asr"))]
+    {
+        serde_json::json!({
+            "configured": true,
+            "available": false,
+            "asrFeatureEnabled": false,
+            "providerKnown": serde_json::Value::Null,
+            "providerId": fallback.provider_id,
+            "modelId": fallback.model_id,
+            "languageHint": language_hint,
+            "sourceKind": prompt.audio.kind(),
+            "willRunAsr": false,
+            "setup": [
+                "Build audio-generation-tts with the `asr` feature to plan fallback through audio-analysis-transcription."
+            ],
+            "message": "ASR fallback is configured but unavailable in this build."
+        })
+    }
+}
+
+#[cfg(feature = "asr")]
+fn transcription_source_kind(
+    source: &audio_analysis_transcription::TranscriptionSource,
+) -> &'static str {
+    match source {
+        audio_analysis_transcription::TranscriptionSource::Samples { .. } => "samples",
+        audio_analysis_transcription::TranscriptionSource::Path { .. } => "path",
+    }
+}
+
+fn reference_audio_source_json(audio: &ReferenceVoicePromptAudio) -> serde_json::Value {
+    match audio {
+        ReferenceVoicePromptAudio::Samples(audio) => serde_json::json!({
+            "kind": "samples",
+            "sampleRateHz": audio.sample_rate_hz,
+            "channels": audio.channels,
+            "sampleCount": audio.samples.len()
+        }),
+        ReferenceVoicePromptAudio::Path { path } => serde_json::json!({
+            "kind": "path",
+            "path": path
         }),
     }
 }
@@ -554,6 +650,7 @@ fn example_reference_prompt() -> serde_json::Value {
     serde_json::json!({
         "audio": example_pcm_audio(),
         "transcript": "Reference voice prompt text.",
+        "language": "en",
         "metadata": {
             "source": "inline-example"
         }
@@ -619,6 +716,29 @@ mod tests {
     }
 
     #[test]
+    fn reference_prompt_plan_accepts_transcript_present_path_source() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.referencePromptPlan".into(),
+            input: serde_json::json!({
+                "referenceVoicePrompt": {
+                    "audio": {"path": "fixtures/reference.wav"},
+                    "transcript": "The reference speaker reads this sentence.",
+                    "language": "en"
+                }
+            }),
+        })
+        .expect("reference prompt plan");
+
+        let result = &response.value["result"];
+        assert_eq!(result["provided"], true);
+        assert_eq!(result["source"]["kind"], "path");
+        assert_eq!(result["source"]["path"], "fixtures/reference.wav");
+        assert_eq!(result["transcriptProvided"], true);
+        assert_eq!(result["languageHint"], "en");
+        assert_eq!(result["action"], "readyForProviderValidation");
+    }
+
+    #[test]
     fn reference_prompt_plan_reports_missing_transcript() {
         let response = run_surface_operation(SurfaceRequest {
             operation: "audio.tts.referencePromptPlan".into(),
@@ -632,6 +752,85 @@ mod tests {
         assert_eq!(
             response.value["result"]["action"],
             "needsTranscriptOrAsrFallback"
+        );
+    }
+
+    #[test]
+    fn reference_prompt_plan_reports_configured_asr_fallback_unavailable_by_default() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.referencePromptPlan".into(),
+            input: serde_json::json!({
+                "referenceVoicePrompt": {
+                    "audio": example_pcm_audio(),
+                    "language": "en",
+                    "asrFallback": {
+                        "providerId": "candle-whisper",
+                        "modelId": "openai/whisper-large-v3-turbo"
+                    }
+                }
+            }),
+        })
+        .expect("reference prompt plan");
+
+        let result = &response.value["result"];
+        assert_eq!(result["transcriptProvided"], false);
+        assert_eq!(result["action"], "planAsrFallback");
+        assert_eq!(result["asrFallback"]["configured"], true);
+        assert_eq!(result["asrFallback"]["available"], false);
+        assert_eq!(result["asrFallback"]["providerId"], "candle-whisper");
+        assert_eq!(result["asrFallback"]["languageHint"], "en");
+    }
+
+    #[test]
+    fn plan_surface_reports_setup_required_for_unavailable_asr_fallback() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.plan".into(),
+            input: serde_json::json!({
+                "text": "Plan speaker-conditioned TTS.",
+                "provider": {"providerId": "speaker-conditioned"},
+                "referenceVoicePrompt": {
+                    "audio": example_pcm_audio(),
+                    "language": "en",
+                    "asrFallback": {
+                        "providerId": "candle-whisper"
+                    }
+                }
+            }),
+        })
+        .expect("plan response");
+
+        let result = &response.value["result"];
+        assert_eq!(result["status"], "setupRequired");
+        assert_eq!(result["referencePrompt"]["action"], "planAsrFallback");
+        assert_eq!(result["referencePrompt"]["asrFallback"]["available"], false);
+    }
+
+    #[cfg(feature = "asr")]
+    #[test]
+    fn reference_prompt_plan_uses_transcription_provider_plan_when_asr_feature_enabled() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.referencePromptPlan".into(),
+            input: serde_json::json!({
+                "referenceVoicePrompt": {
+                    "audio": {"path": "fixtures/reference.wav"},
+                    "language": "en",
+                    "asrFallback": {
+                        "providerId": "candle-whisper",
+                        "modelId": "openai/whisper-large-v3-turbo"
+                    }
+                }
+            }),
+        })
+        .expect("reference prompt plan");
+
+        let fallback = &response.value["result"]["asrFallback"];
+        assert_eq!(fallback["configured"], true);
+        assert_eq!(fallback["available"], true);
+        assert_eq!(fallback["asrFeatureEnabled"], true);
+        assert_eq!(fallback["sourceKind"], "path");
+        assert_eq!(
+            fallback["transcriptionProviderPlan"]["providerId"],
+            "candle-whisper"
         );
     }
 

@@ -3,6 +3,8 @@
 pub mod surface;
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "asr")]
+use std::path::PathBuf;
 
 /// In-memory PCM audio used by TTS inputs and outputs.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -43,15 +45,134 @@ impl PcmAudio {
     }
 }
 
+/// Reference audio source used by a Reference Voice Prompt.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum ReferenceVoicePromptAudio {
+    /// In-memory PCM samples supplied by the caller.
+    Samples(PcmAudio),
+    /// Path to caller-managed reference audio.
+    Path { path: String },
+}
+
+impl ReferenceVoicePromptAudio {
+    /// Validates the reference audio source without opening files.
+    pub fn validate(&self, field: &str) -> Result<(), String> {
+        match self {
+            Self::Samples(audio) => audio.validate(field),
+            Self::Path { path } => {
+                if path.trim().is_empty() {
+                    return Err(format!(
+                        "invalid request: `{field}.path` must not be empty when provided"
+                    ));
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Stable source-kind string for package-surface plans.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Samples(_) => "samples",
+            Self::Path { .. } => "path",
+        }
+    }
+
+    /// Converts this source into the transcription crate source contract.
+    #[cfg(feature = "asr")]
+    pub fn to_transcription_source(&self) -> audio_analysis_transcription::TranscriptionSource {
+        match self {
+            Self::Samples(audio) => audio_analysis_transcription::TranscriptionSource::Samples {
+                samples: audio.samples.clone(),
+                sample_rate: audio.sample_rate_hz,
+                channels: audio.channels,
+                source: None,
+            },
+            Self::Path { path } => audio_analysis_transcription::TranscriptionSource::Path {
+                path: PathBuf::from(path),
+            },
+        }
+    }
+}
+
+/// ASR fallback configuration for a transcript-missing Reference Voice Prompt.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferencePromptAsrFallback {
+    /// Planned transcription provider id from the transcription crate surface.
+    #[serde(default = "default_reference_prompt_asr_provider")]
+    pub provider_id: String,
+    /// Optional model id to pass to the planned transcription provider.
+    #[serde(default)]
+    pub model_id: Option<String>,
+    /// Optional language hint for ASR fallback.
+    #[serde(default)]
+    pub language: Option<String>,
+}
+
+impl Default for ReferencePromptAsrFallback {
+    fn default() -> Self {
+        Self {
+            provider_id: default_reference_prompt_asr_provider(),
+            model_id: None,
+            language: None,
+        }
+    }
+}
+
+impl ReferencePromptAsrFallback {
+    /// Validates ASR fallback planning fields.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.provider_id.trim().is_empty() {
+            return Err(
+                "invalid request: `referenceVoicePrompt.asrFallback.providerId` must not be empty"
+                    .to_string(),
+            );
+        }
+        if self
+            .model_id
+            .as_deref()
+            .is_some_and(|model_id| model_id.trim().is_empty())
+        {
+            return Err(
+                "invalid request: `referenceVoicePrompt.asrFallback.modelId` must not be empty when provided"
+                    .to_string(),
+            );
+        }
+        if self
+            .language
+            .as_deref()
+            .is_some_and(|language| language.trim().is_empty())
+        {
+            return Err(
+                "invalid request: `referenceVoicePrompt.asrFallback.language` must not be empty when provided"
+                    .to_string(),
+            );
+        }
+        Ok(())
+    }
+}
+
+fn default_reference_prompt_asr_provider() -> String {
+    "candle-whisper".to_string()
+}
+
 /// Reference Voice Prompt supplied by a package consumer for speaker conditioning.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceVoicePrompt {
     /// Caller-supplied reference audio.
-    pub audio: PcmAudio,
+    pub audio: ReferenceVoicePromptAudio,
     /// Optional transcript for the supplied reference audio.
     #[serde(default)]
     pub transcript: Option<String>,
+    /// Optional BCP-47-ish language hint for transcript or ASR fallback planning.
+    #[serde(default)]
+    pub language: Option<String>,
+    /// Optional ASR fallback used when the reference transcript is missing.
+    #[serde(default)]
+    pub asr_fallback: Option<ReferencePromptAsrFallback>,
     /// Optional caller metadata such as source id or preparation notes.
     #[serde(default)]
     pub metadata: serde_json::Value,
@@ -65,8 +186,8 @@ impl ReferenceVoicePrompt {
             .is_some_and(|transcript| !transcript.trim().is_empty())
     }
 
-    /// Validates this prompt.
-    pub fn validate(&self) -> Result<(), String> {
+    /// Validates source, transcript text, language hints, and fallback fields.
+    pub fn validate_source_and_hints(&self) -> Result<(), String> {
         self.audio.validate("referenceVoicePrompt.audio")?;
         if self
             .transcript
@@ -75,6 +196,31 @@ impl ReferenceVoicePrompt {
         {
             return Err(
                 "invalid request: `referenceVoicePrompt.transcript` must not be empty when provided"
+                    .to_string(),
+            );
+        }
+        if self
+            .language
+            .as_deref()
+            .is_some_and(|language| language.trim().is_empty())
+        {
+            return Err(
+                "invalid request: `referenceVoicePrompt.language` must not be empty when provided"
+                    .to_string(),
+            );
+        }
+        if let Some(fallback) = &self.asr_fallback {
+            fallback.validate()?;
+        }
+        Ok(())
+    }
+
+    /// Validates this prompt for synthesis setup.
+    pub fn validate(&self) -> Result<(), String> {
+        self.validate_source_and_hints()?;
+        if !self.has_transcript() && self.asr_fallback.is_none() {
+            return Err(
+                "setup_error: `referenceVoicePrompt.transcript` is required unless `referenceVoicePrompt.asrFallback` is configured"
                     .to_string(),
             );
         }
@@ -371,7 +517,7 @@ impl SpeechSynthesisProvider for UnsupportedSpeechSynthesisProvider {
         request: &SpeechSynthesisRequest,
     ) -> Result<SpeechSynthesisOutput, String> {
         request.validate()?;
-        let status = if request.provider.native {
+        let status = if request.provider.native || reference_prompt_asr_unavailable(request) {
             SpeechSynthesisStatus::SetupRequired
         } else {
             SpeechSynthesisStatus::UnsupportedRuntime
@@ -409,7 +555,33 @@ fn unsupported_provider_diagnostics(
             ),
         });
     }
+    if reference_prompt_asr_unavailable(request) {
+        diagnostics.push(SpeechSynthesisDiagnostic {
+            code: "reference_prompt_asr_unavailable".to_string(),
+            message: "Reference Voice Prompt ASR fallback is configured but unavailable in this build."
+                .to_string(),
+            help: Some(
+                "Build audio-generation-tts with the `asr` feature to plan fallback through audio-analysis-transcription."
+                    .to_string(),
+            ),
+        });
+    }
     diagnostics
+}
+
+fn reference_prompt_asr_unavailable(request: &SpeechSynthesisRequest) -> bool {
+    request
+        .reference_voice_prompt
+        .as_ref()
+        .is_some_and(|prompt| {
+            !prompt.has_transcript()
+                && prompt.asr_fallback.is_some()
+                && !reference_prompt_asr_available()
+        })
+}
+
+fn reference_prompt_asr_available() -> bool {
+    cfg!(feature = "asr")
 }
 
 #[cfg(test)]
@@ -445,6 +617,68 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "tts_provider_not_available"));
+    }
+
+    #[test]
+    fn speaker_conditioned_synthesis_requires_transcript_without_asr_fallback() {
+        let request = SpeechSynthesisRequest {
+            text: "Match this speaker.".to_string(),
+            reference_voice_prompt: Some(ReferenceVoicePrompt {
+                audio: ReferenceVoicePromptAudio::Samples(PcmAudio {
+                    sample_rate_hz: 24_000,
+                    channels: 1,
+                    samples: vec![0.0, 0.01, -0.01, 0.0],
+                }),
+                transcript: None,
+                language: Some("en".to_string()),
+                asr_fallback: None,
+                metadata: serde_json::json!({}),
+            }),
+            provider: SpeechSynthesisProviderSelection {
+                provider_id: "speaker-conditioned".to_string(),
+                ..SpeechSynthesisProviderSelection::default()
+            },
+            options: SpeechSynthesisOptions::default(),
+        };
+
+        let error = synthesize(&request).expect_err("missing transcript");
+        assert!(error.contains("setup_error"));
+        assert!(error.contains("referenceVoicePrompt.transcript"));
+        assert!(error.contains("referenceVoicePrompt.asrFallback"));
+    }
+
+    #[test]
+    fn speaker_conditioned_synthesis_reports_asr_unavailable_when_fallback_is_configured() {
+        let request = SpeechSynthesisRequest {
+            text: "Match this speaker.".to_string(),
+            reference_voice_prompt: Some(ReferenceVoicePrompt {
+                audio: ReferenceVoicePromptAudio::Samples(PcmAudio {
+                    sample_rate_hz: 24_000,
+                    channels: 1,
+                    samples: vec![0.0, 0.01, -0.01, 0.0],
+                }),
+                transcript: None,
+                language: Some("en".to_string()),
+                asr_fallback: Some(ReferencePromptAsrFallback {
+                    provider_id: "candle-whisper".to_string(),
+                    model_id: Some("openai/whisper-large-v3-turbo".to_string()),
+                    language: None,
+                }),
+                metadata: serde_json::json!({}),
+            }),
+            provider: SpeechSynthesisProviderSelection {
+                provider_id: "speaker-conditioned".to_string(),
+                ..SpeechSynthesisProviderSelection::default()
+            },
+            options: SpeechSynthesisOptions::default(),
+        };
+
+        let output = synthesize(&request).expect("asr fallback setup response");
+        assert_eq!(output.status, SpeechSynthesisStatus::SetupRequired);
+        assert!(output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "reference_prompt_asr_unavailable"
+                && diagnostic.message.contains("ASR fallback")
+        }));
     }
 
     #[test]
