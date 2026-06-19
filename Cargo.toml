@@ -110,6 +110,7 @@ math-sparse-data = { package = "moritzbrantner-math-sparse-data", version = "0.1
 math-statistics = { package = "moritzbrantner-math-statistics", version = "0.1.0", path = "crates/math/math-statistics" }
 audio-analysis-core = { package = "moritzbrantner-audio-analysis-core", version = "0.1.0", path = "crates/audio/audio-analysis-core" }
 audio-generation-midi = { package = "moritzbrantner-audio-generation-midi", version = "0.1.0", path = "crates/audio/audio-generation-midi" }
+audio-generation-tts = { package = "moritzbrantner-audio-generation-tts", version = "0.1.0", path = "crates/audio/audio-generation-tts" }
 audio-analysis-fourier = { package = "moritzbrantner-audio-analysis-fourier", version = "0.1.0", path = "crates/audio/audio-analysis-fourier" }
 audio-analysis-io = { package = "moritzbrantner-audio-analysis-io", version = "0.1.0", path = "crates/audio/audio-analysis-io" }
 audio-analysis-pitch = { package = "moritzbrantner-audio-analysis-pitch", version = "0.1.0", path = "crates/audio/audio-analysis-pitch" }
@@ -203,6 +204,7 @@ animation = ["dep:animation-core"]
 audio = [
     "dep:audio-analysis-core",
     "dep:audio-generation-midi",
+    "dep:audio-generation-tts",
     "dep:audio-analysis-fourier",
     "dep:audio-analysis-io",
     "dep:audio-analysis-pitch",
@@ -380,6 +382,7 @@ video-analysis-tracking = { workspace = true, optional = true }
 video-analysis-transform = { workspace = true, optional = true }
 audio-analysis-core = { workspace = true, optional = true }
 audio-generation-midi = { workspace = true, optional = true }
+audio-generation-tts = { workspace = true, optional = true }
 audio-analysis-fourier = { workspace = true, optional = true }
 audio-analysis-io = { workspace = true, optional = true }
 audio-analysis-pitch = { workspace = true, optional = true }
@@ -480,3 +483,6 @@ text-retrieval-cli = { package = "moritzbrantner-text-retrieval-cli", path = "cr
 text-retrieval-server = { package = "moritzbrantner-text-retrieval-server", path = "crates/text/text-retrieval-server" }
 text-transcripts-cli = { package = "moritzbrantner-text-transcripts-cli", path = "crates/text/text-transcripts-cli" }
 text-transcripts-server = { package = "moritzbrantner-text-transcripts-server", path = "crates/text/text-transcripts-server" }
+audio-generation-tts-cli = { package = "moritzbrantner-audio-generation-tts-cli", path = "crates/audio/audio-generation-tts-cli" }
+audio-generation-tts-server = { package = "moritzbrantner-audio-generation-tts-server", path = "crates/audio/audio-generation-tts-server" }
+audio-generation-tts-wasm = { package = "moritzbrantner-audio-generation-tts-wasm", path = "crates/bindings/audio-generation-tts-wasm" }

@@ -19,13 +19,13 @@ python3 scripts/audit_workspace_crates.py --check
 
 ## Counts
 
-- Active workspace packages: 367
+- Active workspace packages: 371
 
 ### Domains
 
 - `animation`: 3
-- `audio`: 37
-- `bindings`: 90
+- `audio`: 40
+- `bindings`: 91
 - `comfyui`: 9
 - `data`: 30
 - `image`: 33
@@ -43,16 +43,16 @@ python3 scripts/audit_workspace_crates.py --check
 
 ### Kinds
 
-- `cli`: 91
-- `library`: 95
+- `cli`: 92
+- `library`: 96
 - `prototype`: 1
-- `server`: 90
-- `wasm`: 90
+- `server`: 91
+- `wasm`: 91
 
 ### Publish classes
 
 - `internal-test`: 2
-- `public`: 365
+- `public`: 369
 
 | Package | Domain | Kind | Publish | Surface required | Facade expected | Path |
 |---|---|---|---|---|---|---|
@@ -71,6 +71,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-audio-analysis-synthesis-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-synthesis-cli` |
 | `moritzbrantner-audio-analysis-transcription-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-transcription-cli` |
 | `moritzbrantner-audio-generation-midi-cli` | audio | cli | public | no | no | `crates/audio/audio-generation-midi-cli` |
+| `moritzbrantner-audio-generation-tts-cli` | audio | cli | public | no | no | `crates/audio/audio-generation-tts-cli` |
 | `moritzbrantner-audio-analysis-core` | audio | library | public | yes | yes | `crates/audio/audio-analysis-core` |
 | `moritzbrantner-audio-analysis-fourier` | audio | library | public | yes | yes | `crates/audio/audio-analysis-fourier` |
 | `moritzbrantner-audio-analysis-io` | audio | library | public | yes | yes | `crates/audio/audio-analysis-io` |
@@ -84,6 +85,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-audio-analysis-test-support` | audio | library | internal-test | no | no | `crates/audio/audio-analysis-test-support` |
 | `moritzbrantner-audio-analysis-transcription` | audio | library | public | yes | yes | `crates/audio/audio-analysis-transcription` |
 | `moritzbrantner-audio-generation-midi` | audio | library | public | yes | yes | `crates/audio/audio-generation-midi` |
+| `moritzbrantner-audio-generation-tts` | audio | library | public | yes | yes | `crates/audio/audio-generation-tts` |
 | `moritzbrantner-audio-analysis-core-server` | audio | server | public | no | no | `crates/audio/audio-analysis-core-server` |
 | `moritzbrantner-audio-analysis-fourier-server` | audio | server | public | no | no | `crates/audio/audio-analysis-fourier-server` |
 | `moritzbrantner-audio-analysis-io-server` | audio | server | public | no | no | `crates/audio/audio-analysis-io-server` |
@@ -96,6 +98,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-audio-analysis-synthesis-server` | audio | server | public | no | no | `crates/audio/audio-analysis-synthesis-server` |
 | `moritzbrantner-audio-analysis-transcription-server` | audio | server | public | no | no | `crates/audio/audio-analysis-transcription-server` |
 | `moritzbrantner-audio-generation-midi-server` | audio | server | public | no | no | `crates/audio/audio-generation-midi-server` |
+| `moritzbrantner-audio-generation-tts-server` | audio | server | public | no | no | `crates/audio/audio-generation-tts-server` |
 | `moritzbrantner-animation-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/animation-core-wasm` |
 | `moritzbrantner-audio-analysis-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-core-wasm` |
 | `moritzbrantner-audio-analysis-fourier-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-fourier-wasm` |
@@ -109,6 +112,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moritzbrantner-audio-analysis-synthesis-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-synthesis-wasm` |
 | `moritzbrantner-audio-analysis-transcription-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-transcription-wasm` |
 | `moritzbrantner-audio-generation-midi-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-generation-midi-wasm` |
+| `moritzbrantner-audio-generation-tts-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-generation-tts-wasm` |
 | `moritzbrantner-comfyui-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-data-wasm` |
 | `moritzbrantner-comfyui-latents-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-latents-wasm` |
 | `moritzbrantner-comfyui-models-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-models-wasm` |

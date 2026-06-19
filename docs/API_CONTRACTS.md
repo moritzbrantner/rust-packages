@@ -43,6 +43,7 @@ Foundation contract owners for the first steering wave are:
 | Media samples, timestamps, observations, bounding boxes, analyzers | `moritzbrantner-video-analysis-core` |
 | Images | `moritzbrantner-image-analysis-core` |
 | Audio frames and features | `moritzbrantner-audio-analysis-core` |
+| Generic and speaker-conditioned TTS requests, Reference Voice Prompts, provider selection, inference options, and PCM synthesis output | `moritzbrantner-audio-generation-tts` |
 | Text documents and text segments | `moritzbrantner-text-core` |
 | Durable text indexes, chunks, semantic facets, and index queries | `moritzbrantner-text-index` |
 | Timed transcripts | `moritzbrantner-text-transcripts` |
@@ -105,6 +106,15 @@ they use `moritzbrantner-model-runtime` to resolve or materialize bundles under
 an explicit runtime storage context, declare filesystem/network side effects
 through `xExecutionPlan`, and stay unsupported in WASM. Compatibility-only
 surface calls may return plans without performing setup.
+
+`moritzbrantner-audio-generation-tts` owns the generic and
+speaker-conditioned TTS contract. Its package surface exposes
+`audio.tts.synthesize`, `audio.tts.plan`, `audio.tts.models`,
+`audio.tts.referencePromptPlan`, and `describe` across library, CLI, server,
+WASM, and app adapters. Until native providers are implemented,
+`audio.tts.synthesize` validates requests and returns explicit
+`setupRequired` or `unsupportedRuntime` responses without downloading models,
+running inference, or emitting audio artifacts.
 
 Primary workflow operations declare typed `SurfaceOperation.curation` metadata
 with `role: "workflow"` and `primary: true` for the default package workflow.

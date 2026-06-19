@@ -254,6 +254,59 @@ fn audio_package_apps_define_complete_operation_groups() {
     }
 }
 
+#[test]
+fn audio_tts_adapters_expose_library_surface_contract() {
+    let library = audio_generation_tts::surface::package_surface();
+    let library_operations = library
+        .operations
+        .iter()
+        .map(|operation| operation.id.as_str())
+        .collect::<Vec<_>>();
+
+    let cli = audio_generation_tts_cli::package_surface();
+    assert_eq!(cli.library, library.library);
+    assert_eq!(
+        cli.operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>(),
+        library_operations,
+        "TTS CLI operation ids must match the library surface"
+    );
+
+    let server = audio_generation_tts_server::package_surface();
+    assert_eq!(server.library, library.library);
+    assert_eq!(
+        server
+            .operations
+            .iter()
+            .map(|operation| operation.id.as_str())
+            .collect::<Vec<_>>(),
+        library_operations,
+        "TTS server operation ids must match the library surface"
+    );
+
+    let cli_response = audio_generation_tts_cli::run_operation(
+        "audio.tts.synthesize",
+        serde_json::json!({"text":"adapter parity"}),
+    )
+    .expect("cli synthesize");
+    let library_response = audio_generation_tts::surface::run_surface_operation(SurfaceRequest {
+        operation: "audio.tts.synthesize".into(),
+        input: serde_json::json!({"text":"adapter parity"}),
+    })
+    .expect("library synthesize");
+    assert_eq!(cli_response.value, library_response.value);
+
+    let server_response = audio_generation_tts_server::response_for(
+        "POST",
+        "/api/run",
+        r#"{"operation":"audio.tts.synthesize","input":{"text":"adapter parity"}}"#,
+    );
+    assert_eq!(server_response.status_code, 200);
+    assert!(server_response.body.contains("unsupportedRuntime"));
+}
+
 fn expected_category_for_role(role: SurfaceOperationRole) -> &'static str {
     match role {
         SurfaceOperationRole::Workflow => "workflow",
@@ -663,6 +716,27 @@ fn audio_surface_cases() -> Vec<AudioSurfaceCase> {
             debug: &["describe", "audio.midi.note"],
             invalid_operation: "audio.midi.note",
             invalid_input: serde_json::json!({"name": "bad"}),
+        },
+        AudioSurfaceCase {
+            crate_name: "audio-generation-tts",
+            package_surface: audio_generation_tts::surface::package_surface,
+            run: audio_generation_tts::surface::run_surface_operation,
+            operations: &[
+                "describe",
+                "audio.tts.synthesize",
+                "audio.tts.plan",
+                "audio.tts.models",
+                "audio.tts.referencePromptPlan",
+            ],
+            workflow: &["audio.tts.synthesize"],
+            debug: &[
+                "describe",
+                "audio.tts.plan",
+                "audio.tts.models",
+                "audio.tts.referencePromptPlan",
+            ],
+            invalid_operation: "audio.tts.synthesize",
+            invalid_input: serde_json::json!({"text": ""}),
         },
     ]
 }

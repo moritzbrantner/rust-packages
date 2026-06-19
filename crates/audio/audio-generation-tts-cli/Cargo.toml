@@ -1,0 +1,26 @@
+[package]
+name = "moritzbrantner-audio-generation-tts-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Command-line adapter for the audio-generation-tts library crate."
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+default-run = "audio-generation-tts-cli"
+
+[lib]
+name = "audio_generation_tts_cli"
+
+[[bin]]
+name = "audio-generation-tts-cli"
+path = "src/main.rs"
+
+[dependencies]
+audio-generation-tts = { package = "moritzbrantner-audio-generation-tts", version = "0.1.0", path = "../audio-generation-tts" }
+clap.workspace = true
+runtime-core.workspace = true
+serde_json.workspace = true

@@ -3074,12 +3074,12 @@ fn best_speaker_match<'a>(
     speaker_for_range(start, end, diarization_segments, policy)
 }
 
-fn speaker_for_range<'a>(
+fn speaker_for_range(
     start: f64,
     end: f64,
-    diarization_segments: &'a [SpeakerSegmentPrediction],
+    diarization_segments: &[SpeakerSegmentPrediction],
     policy: SpeakerTranscriptAssignmentPolicy,
-) -> Option<&'a SpeakerSegmentPrediction> {
+) -> Option<&SpeakerSegmentPrediction> {
     match policy {
         SpeakerTranscriptAssignmentPolicy::Majority => {
             best_majority_speaker_match(start, end, (start + end) / 2.0, diarization_segments)
@@ -3093,12 +3093,12 @@ fn speaker_for_range<'a>(
     }
 }
 
-fn best_majority_speaker_match<'a>(
+fn best_majority_speaker_match(
     transcript_start: f64,
     transcript_end: f64,
     transcript_midpoint: f64,
-    diarization_segments: &'a [SpeakerSegmentPrediction],
-) -> Option<&'a SpeakerSegmentPrediction> {
+    diarization_segments: &[SpeakerSegmentPrediction],
+) -> Option<&SpeakerSegmentPrediction> {
     let positive_overlap = diarization_segments
         .iter()
         .filter_map(|candidate| {
@@ -3122,10 +3122,10 @@ fn best_majority_speaker_match<'a>(
         .map(|(candidate, _)| candidate)
 }
 
-fn nearest_start_speaker_match<'a>(
+fn nearest_start_speaker_match(
     transcript_start: f64,
-    diarization_segments: &'a [SpeakerSegmentPrediction],
-) -> Option<&'a SpeakerSegmentPrediction> {
+    diarization_segments: &[SpeakerSegmentPrediction],
+) -> Option<&SpeakerSegmentPrediction> {
     diarization_segments
         .iter()
         .map(|candidate| {
@@ -3144,11 +3144,11 @@ fn nearest_start_speaker_match<'a>(
         .map(|(candidate, _)| candidate)
 }
 
-fn strict_contained_speaker_match<'a>(
+fn strict_contained_speaker_match(
     transcript_start: f64,
     transcript_end: f64,
-    diarization_segments: &'a [SpeakerSegmentPrediction],
-) -> Option<&'a SpeakerSegmentPrediction> {
+    diarization_segments: &[SpeakerSegmentPrediction],
+) -> Option<&SpeakerSegmentPrediction> {
     diarization_segments
         .iter()
         .filter(|candidate| {
