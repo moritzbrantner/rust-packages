@@ -44,6 +44,18 @@ _Avoid_: Model platform, inference layer
 A workflow that requires local tools, downloaded model artifacts, native runtimes, or network/materialization setup.
 _Avoid_: Default workflow, local-first workflow
 
+**Speaker-conditioned TTS**:
+Text-to-speech synthesis where a request includes target text plus a Reference Voice Prompt or equivalent speaker-conditioning input so a TTS Provider can synthesize speech in a desired voice. The contract names the conditioning data and setup requirements; consent, identity, and safety policy decisions remain downstream-owned.
+_Avoid_: Generic synthesis, voice cloning policy, deterministic audio rendering
+
+**Reference Voice Prompt**:
+Caller-supplied reference audio, optional transcript, and preparation metadata used to condition speaker-aware TTS. A missing transcript may require explicit reference prompt planning or a caller-selected ASR fallback, but the prompt is not a model bundle and does not prove voice consent.
+_Avoid_: Model preset, speaker identity authorization, hidden training sample
+
+**TTS Provider**:
+An adapter or runtime implementation that validates a TTS request, resolves explicit model preset and Model Bundle requirements, selects an allowed device/runtime plan, and either synthesizes audio or returns setup diagnostics. Native providers are opt-in and must not be selected silently by default builds.
+_Avoid_: Default TTS engine, model downloader, product safety gate
+
 **Alignment Runtime**:
 The model-backed forced-alignment execution path that projects transcript text onto audio timings.
 _Avoid_: ASR runtime, transcript timing heuristic
