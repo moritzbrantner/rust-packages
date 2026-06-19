@@ -21,8 +21,8 @@ pub fn package_surface() -> PackageSurface {
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: RuntimeCapabilities::pure_rust().with_requirement(
             "native-tts-provider",
-            "Native providers and model bundles are not implemented in this slice.",
-            false,
+            "Native F5 + Vocos synthesis requires explicit native selection, local bundles, and the candle feature.",
+            cfg!(feature = "candle"),
         ),
         operations: vec![
             operation(
@@ -35,7 +35,7 @@ pub fn package_surface() -> PackageSurface {
             operation(
                 "audio.tts.synthesize",
                 "Synthesize speech",
-                "Validates a TTS request and returns explicit setup diagnostics until native providers are implemented.",
+                "Validates a TTS request and runs explicit native F5 + Vocos synthesis when local setup is available.",
                 example_synthesis_request(),
                 SurfaceOperationCuration::workflow(10).primary(),
             ),
@@ -122,10 +122,11 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
         ),
         "audio.tts.synthesize" => (
             "TTS synthesis setup result",
-            "Validated the synthesis request and returned explicit setup diagnostics; no native audio was generated.",
+            "Validated the synthesis request and returned audio or explicit setup diagnostics.",
             serde_json::json!({
                 "status": value.get("status").cloned().unwrap_or(serde_json::Value::Null),
                 "audioGenerated": value.get("audioGenerated").cloned().unwrap_or(serde_json::Value::Null),
+                "nativeRuntime": value.get("nativeDiagnostics").and_then(|diagnostics| diagnostics.get("runtime")).cloned().unwrap_or(serde_json::Value::Null),
                 "diagnosticCount": value.get("diagnostics").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
             }),
         ),
@@ -206,6 +207,7 @@ fn synthesize_value(input: serde_json::Value) -> Result<serde_json::Value, Strin
         "provider": output.provider,
         "audioGenerated": output.audio.is_some(),
         "audio": output.audio,
+        "nativeDiagnostics": output.native_diagnostics,
         "diagnostics": output.diagnostics,
         "plan": plan_for_request(&request, &output.status),
     }))
@@ -225,14 +227,15 @@ fn models_value() -> serde_json::Value {
     serde_json::json!({
         "defaultModelSelected": false,
         "models": models,
-        "nativeProvidersImplemented": false,
+        "nativeProvidersImplemented": true,
+        "nativeSynthesisAvailable": cfg!(feature = "candle"),
         "featureFlags": feature_flags_json(),
-        "message": "No TTS model preset is selected by default. F5/E2/Vocos metadata is available for explicit opt-in planning.",
+        "message": "No TTS model preset is selected by default. F5 + Vocos native synthesis requires explicit provider selection and local bundles.",
         "requirements": [
             {
                 "id": "native-tts-provider",
                 "requiredFor": ["audio.tts.synthesize"],
-                "available": false
+                "available": cfg!(feature = "candle")
             }
         ]
     })
@@ -352,20 +355,22 @@ fn plan_for_request(
 ) -> serde_json::Value {
     serde_json::json!({
         "status": status_string(status),
-        "willSynthesize": false,
+        "willSynthesize": can_attempt_native_synthesis(request),
         "speakerConditioned": request.is_speaker_conditioned(),
         "provider": request.provider,
         "device": device_plan(request.provider.device),
         "modelBundle": model_bundle_plan(request),
+        "vocoder": vocoder_plan(request),
         "requestedOutput": {
             "sampleRateHz": request.options.sample_rate_hz,
             "channels": request.options.channels,
             "format": "pcm-f32-interleaved"
         },
         "runtime": {
-            "nativeProvidersImplemented": false,
+            "nativeProvidersImplemented": true,
+            "nativeSynthesisAvailable": cfg!(feature = "candle"),
             "downloadsModels": false,
-            "runsInference": false,
+            "runsInference": can_attempt_native_synthesis(request),
             "sideEffects": []
         },
         "featureFlags": feature_flags_json(),
@@ -373,11 +378,27 @@ fn plan_for_request(
         "requirements": [
             {
                 "id": "native-tts-provider",
-                "available": false,
-                "message": "Native providers are added by later slices."
+                "available": cfg!(feature = "candle"),
+                "message": "Native F5 + Vocos synthesis requires explicit local bundle paths and the candle feature."
             }
         ]
     })
+}
+
+fn can_attempt_native_synthesis(request: &SpeechSynthesisRequest) -> bool {
+    let reference_prompt_ready = request
+        .reference_voice_prompt
+        .as_ref()
+        .is_some_and(ReferenceVoicePrompt::has_transcript);
+    let vocoder_ready = request.provider.vocoder.as_ref().is_some_and(|vocoder| {
+        vocoder.provider_id == "vocos" && vocoder.model_bundle.bundle_path.is_some()
+    });
+    request.provider.native
+        && request.provider.provider_id == "f5"
+        && cfg!(feature = "candle")
+        && reference_prompt_ready
+        && request.provider.model_bundle.bundle_path.is_some()
+        && vocoder_ready
 }
 
 fn planned_status(request: &SpeechSynthesisRequest) -> SpeechSynthesisStatus {
@@ -462,6 +483,36 @@ fn model_bundle_plan(request: &SpeechSynthesisRequest) -> serde_json::Value {
     })
 }
 
+fn vocoder_plan(request: &SpeechSynthesisRequest) -> serde_json::Value {
+    let vocoder = request.provider.vocoder.clone().unwrap_or_default();
+    let model_id = Some(vocoder.model_id.as_str());
+    let preset = model_id.and_then(model_preset_by_id);
+    let required_files = preset.map(|preset| {
+        let spec = preset.spec();
+        required_files(&spec)
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+    });
+    serde_json::json!({
+        "providerId": vocoder.provider_id,
+        "modelId": vocoder.model_id,
+        "modelKnown": preset.is_some(),
+        "bundlePath": vocoder.model_bundle.bundle_path,
+        "resolution": bundle_resolution(model_id, preset, &vocoder.model_bundle),
+        "requiredFiles": required_files,
+        "modelBundlesFeatureEnabled": cfg!(feature = "model-bundles"),
+        "autoDownloadRequested": vocoder.model_bundle.auto_download,
+        "cacheOnly": vocoder.model_bundle.cache_only,
+        "downloadAllowed": cfg!(feature = "model-bundles")
+            && vocoder.model_bundle.auto_download
+            && !vocoder.model_bundle.cache_only,
+        "downloadPolicy": download_policy(&vocoder.model_bundle),
+        "willResolveBundle": false,
+        "willDownload": false
+    })
+}
+
 fn model_preset_by_id(id: &str) -> Option<ModelPreset> {
     tts_model_presets()
         .into_iter()
@@ -521,7 +572,7 @@ fn feature_flags_json() -> Vec<serde_json::Value> {
         feature_flag(
             "candle",
             cfg!(feature = "candle"),
-            "Enables native Candle tensor/model execution for later TTS providers.",
+            "Enables native Candle tensor/model execution for F5 + Vocos TTS providers.",
         ),
         feature_flag(
             "cuda",
@@ -1106,6 +1157,90 @@ mod tests {
         assert_eq!(result["bundle"]["vocabEntries"], 2);
         assert_eq!(result["bundle"]["tensorCount"], 1);
         assert_eq!(result["mel"]["channels"], 4);
+        assert!(result["diagnostics"]
+            .as_array()
+            .expect("diagnostics")
+            .is_empty());
+    }
+
+    #[cfg(feature = "candle")]
+    #[test]
+    fn synthesize_surface_runs_f5_and_vocos_for_local_native_bundles() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let f5_bundle = temp.path().join("f5");
+        let vocos_bundle = temp.path().join("vocos");
+        crate::native_f5::test_support::write_test_f5_bundle(
+            &f5_bundle,
+            serde_json::json!({
+                "model_type": "f5-tts",
+                "architectures": ["F5TTS"],
+                "n_mel_channels": 4,
+                "sample_rate": 24000,
+                "hop_length": 256
+            }),
+        );
+        crate::native_vocos::test_support::write_test_vocos_bundle(
+            &vocos_bundle,
+            &crate::native_vocos::test_support::test_config(4, 24_000, 256),
+            &[1, 2, 3, 4],
+        );
+
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.synthesize".into(),
+            input: serde_json::json!({
+                "text": "Synthesize with the reference speaker.",
+                "referenceVoicePrompt": {
+                    "audio": example_pcm_audio(),
+                    "transcript": "Reference voice prompt text.",
+                    "language": "en"
+                },
+                "provider": {
+                    "providerId": "f5",
+                    "modelId": "f5-tts-v1-base",
+                    "native": true,
+                    "device": "cpu",
+                    "modelBundle": {
+                        "bundlePath": f5_bundle
+                    },
+                    "vocoder": {
+                        "providerId": "vocos",
+                        "modelId": "vocos-mel-24khz",
+                        "modelBundle": {
+                            "bundlePath": vocos_bundle
+                        }
+                    }
+                },
+                "options": {
+                    "maxDurationSeconds": 0.02
+                }
+            }),
+        })
+        .expect("native synthesize");
+
+        let result = &response.value["result"];
+        assert_eq!(result["status"], "ready");
+        assert_eq!(result["audioGenerated"], true);
+        assert_eq!(result["audio"]["sampleRateHz"], 24_000);
+        assert!(
+            result["audio"]["samples"]
+                .as_array()
+                .expect("samples")
+                .len()
+                > 0
+        );
+        assert_eq!(result["nativeDiagnostics"]["provider"], "f5");
+        assert_eq!(result["nativeDiagnostics"]["modelId"], "f5-tts-v1-base");
+        assert_eq!(result["nativeDiagnostics"]["vocoder"], "vocos");
+        assert_eq!(
+            result["nativeDiagnostics"]["vocoderModelId"],
+            "vocos-mel-24khz"
+        );
+        assert_eq!(result["nativeDiagnostics"]["runtime"], "candle");
+        assert_eq!(result["nativeDiagnostics"]["device"], "cpu");
+        assert_eq!(
+            result["nativeDiagnostics"]["bundleSource"],
+            "explicitBundlePath"
+        );
         assert!(result["diagnostics"]
             .as_array()
             .expect("diagnostics")
