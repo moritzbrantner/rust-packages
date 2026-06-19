@@ -131,3 +131,15 @@ _Avoid_: Math crate, graphics helper crate, radiance-only geometry
 **Adjacent Domain Package Family**:
 A useful, coherent package family whose domain can support multimodal workflows but whose primary purpose belongs outside this repository's core video, audio, image, text, vector, animation, 3D, runtime, and interoperability scope.
 _Avoid_: Failed package, low-quality crate, unrelated code
+
+**Publisher Namespace**:
+The crate and package name prefix that identifies the maintainer-owned publishing path for a package family. Extracted adjacent families target `moenarch-*` package names unless an ADR records a different namespace.
+_Avoid_: Repository owner, git remote, crate module prefix
+
+**Extracted Package Family**:
+A coherent package family moved from this workspace into a separate repository by clean copy, with active implementation ownership and publishing moving to that repository while this workspace keeps only shared foundations or migration signposts.
+_Avoid_: Full media-type repository split, vendored copy, generated package
+
+**Legacy Package Signpost**:
+A deliberately small deprecated package, module, or documentation stub that points existing package consumers from an old name to the extracted package family without keeping active wrapper implementation in this workspace.
+_Avoid_: Compatibility layer, active wrapper, duplicate implementation

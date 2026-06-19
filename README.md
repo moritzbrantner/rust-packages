@@ -39,6 +39,14 @@ root `moritzbrantner-video-analysis` crate remains an umbrella compatibility
 facade for existing Rust callers; new workflow behavior should be proven through
 the owning package surface rather than new root facade exports.
 
+Adjacent package families are extracted selectively instead of splitting the
+whole workspace by media type. Full repository splitting is not the first move
+for local disk pressure because build cache, not source checkout size, is the
+dominant local size issue. Keep source ownership decisions tied to package-family
+boundaries, publishing paths, and migration signposts; handle `.cargo-target`,
+`target`, WASM, and frontend build artifacts through contributor cleanup and
+changed-aware checks.
+
 Package README index:
 
 - Root compatibility facade: [`moritzbrantner-video-analysis`](src/lib.rs), [README](README.md)
