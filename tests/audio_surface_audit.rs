@@ -727,6 +727,7 @@ fn audio_surface_cases() -> Vec<AudioSurfaceCase> {
                 "audio.tts.plan",
                 "audio.tts.models",
                 "audio.tts.referencePromptPlan",
+                "audio.tts.debug.f5Mel",
             ],
             workflow: &["audio.tts.synthesize"],
             debug: &[
@@ -734,6 +735,7 @@ fn audio_surface_cases() -> Vec<AudioSurfaceCase> {
                 "audio.tts.plan",
                 "audio.tts.models",
                 "audio.tts.referencePromptPlan",
+                "audio.tts.debug.f5Mel",
             ],
             invalid_operation: "audio.tts.synthesize",
             invalid_input: serde_json::json!({"text": ""}),

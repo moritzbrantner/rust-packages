@@ -12,6 +12,7 @@ const packageAppConfig: PackageAppConfig = {
     "audio.tts.plan",
     "audio.tts.models",
     "audio.tts.referencePromptPlan",
+    "audio.tts.debug.f5Mel",
     "describe",
   ],
   operationGroups: [
@@ -25,7 +26,13 @@ const packageAppConfig: PackageAppConfig = {
       id: "debug",
       label: "Debug",
       description: "Inspect inputs, plans, metadata, and diagnostic helpers.",
-      operations: ["describe", "audio.tts.plan", "audio.tts.models", "audio.tts.referencePromptPlan"],
+      operations: [
+        "describe",
+        "audio.tts.plan",
+        "audio.tts.models",
+        "audio.tts.referencePromptPlan",
+        "audio.tts.debug.f5Mel",
+      ],
     },
   ],
   wasm: {

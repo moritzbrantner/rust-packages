@@ -8,9 +8,9 @@ use runtime_core::{
 };
 
 use crate::{
-    synthesize, NativeTtsDevicePreference, PcmAudio, ReferenceVoicePrompt,
-    ReferenceVoicePromptAudio, SpeechSynthesisRequest, SpeechSynthesisStatus,
-    TtsModelBundleSelection,
+    run_f5_mel_diagnostic, synthesize, NativeF5MelDiagnosticRequest, NativeTtsDevicePreference,
+    PcmAudio, ReferenceVoicePrompt, ReferenceVoicePromptAudio, SpeechSynthesisRequest,
+    SpeechSynthesisStatus, TtsModelBundleSelection,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -59,6 +59,13 @@ pub fn package_surface() -> PackageSurface {
                 serde_json::json!({"referenceVoicePrompt": example_reference_prompt()}),
                 SurfaceOperationCuration::debug(930),
             ),
+            operation(
+                "audio.tts.debug.f5Mel",
+                "Debug F5 mel generation",
+                "Validates a local F5 bundle and runs a mel-level native diagnostic without vocoding audio.",
+                example_f5_debug_request(),
+                SurfaceOperationCuration::debug(940),
+            ),
         ],
     }
 }
@@ -84,6 +91,7 @@ pub fn run_surface_operation(request: SurfaceRequest) -> Result<SurfaceResponse,
         "audio.tts.plan" => plan_value(request.input)?,
         "audio.tts.models" => models_value(),
         "audio.tts.referencePromptPlan" => reference_prompt_plan_value(request.input)?,
+        "audio.tts.debug.f5Mel" => f5_mel_debug_value(request.input)?,
         operation => {
             return Err(format!(
                 "unsupported operation `{operation}` for {}",
@@ -136,6 +144,17 @@ fn response(operation: OperationId, value: serde_json::Value) -> SurfaceResponse
                 "provided": value.get("provided").cloned().unwrap_or(serde_json::Value::Null),
                 "transcriptProvided": value.get("transcriptProvided").cloned().unwrap_or(serde_json::Value::Null),
                 "action": value.get("action").cloned().unwrap_or(serde_json::Value::Null)
+            }),
+        ),
+        "audio.tts.debug.f5Mel" => (
+            "F5 mel diagnostic",
+            "Validated the F5 provider path and returned a mel-level diagnostic without vocoding audio.",
+            serde_json::json!({
+                "status": value.get("status").cloned().unwrap_or(serde_json::Value::Null),
+                "modelId": value.get("modelId").cloned().unwrap_or(serde_json::Value::Null),
+                "audioGenerated": value.get("audioGenerated").cloned().unwrap_or(serde_json::Value::Null),
+                "vocoderRequired": value.get("vocoderRequired").cloned().unwrap_or(serde_json::Value::Null),
+                "diagnosticCount": value.get("diagnostics").and_then(serde_json::Value::as_array).map_or(0, Vec::len)
             }),
         ),
         _ => (
@@ -286,6 +305,13 @@ fn reference_prompt_plan_value(input: serde_json::Value) -> Result<serde_json::V
         }
         None => Ok(reference_prompt_plan(None)),
     }
+}
+
+fn f5_mel_debug_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
+    let request: NativeF5MelDiagnosticRequest =
+        serde_json::from_value(input).map_err(|error| format!("invalid request: {error}"))?;
+    serde_json::to_value(run_f5_mel_diagnostic(&request)?)
+        .map_err(|error| format!("failed to encode F5 mel diagnostic: {error}"))
 }
 
 fn request_from_value(input: serde_json::Value) -> Result<SpeechSynthesisRequest, String> {
@@ -657,6 +683,21 @@ fn example_reference_prompt() -> serde_json::Value {
     })
 }
 
+fn example_f5_debug_request() -> serde_json::Value {
+    serde_json::json!({
+        "text": "Run an F5 mel diagnostic.",
+        "modelId": "f5-tts-v1-base",
+        "bundlePath": ".model-runtime/f5-tts-v1-base/main",
+        "device": "cpu",
+        "options": {
+            "maxDurationSeconds": 0.25,
+            "steps": 1,
+            "cfgStrength": 1.0,
+            "speed": 1.0
+        }
+    })
+}
+
 fn example_pcm_audio() -> PcmAudio {
     PcmAudio {
         sample_rate_hz: 24_000,
@@ -685,7 +726,8 @@ mod tests {
                 "audio.tts.synthesize",
                 "audio.tts.plan",
                 "audio.tts.models",
-                "audio.tts.referencePromptPlan"
+                "audio.tts.referencePromptPlan",
+                "audio.tts.debug.f5Mel"
             ]
         );
         let synthesize = surface
@@ -701,6 +743,12 @@ mod tests {
             .find(|operation| operation.id.as_str() == "audio.tts.plan")
             .expect("plan");
         assert_eq!(plan.curation.role, SurfaceOperationRole::Debug);
+        let f5_debug = surface
+            .operations
+            .iter()
+            .find(|operation| operation.id.as_str() == "audio.tts.debug.f5Mel")
+            .expect("f5 mel debug");
+        assert_eq!(f5_debug.curation.role, SurfaceOperationRole::Debug);
     }
 
     #[test]
@@ -946,5 +994,49 @@ mod tests {
                 "external-tests"
             ]
         );
+    }
+
+    #[cfg(feature = "candle")]
+    #[test]
+    fn f5_debug_surface_returns_mel_diagnostic_for_local_bundle() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = temp.path();
+        crate::native_f5::test_support::write_test_f5_bundle(
+            bundle,
+            serde_json::json!({
+                "model_type": "f5-tts",
+                "architectures": ["F5TTS"],
+                "n_mel_channels": 4,
+                "sample_rate": 24000,
+                "hop_length": 256
+            }),
+        );
+
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.debug.f5Mel".into(),
+            input: serde_json::json!({
+                "text": "diagnose f5",
+                "bundlePath": bundle,
+                "modelId": "f5-tts-v1-base",
+                "device": "cpu",
+                "options": {
+                    "maxDurationSeconds": 0.05
+                }
+            }),
+        })
+        .expect("f5 mel diagnostic");
+
+        let result = &response.value["result"];
+        assert_eq!(result["status"], "ready");
+        assert_eq!(result["vocoderRequired"], true);
+        assert_eq!(result["audioGenerated"], false);
+        assert_eq!(result["device"]["selected"], "cpu");
+        assert_eq!(result["bundle"]["vocabEntries"], 2);
+        assert_eq!(result["bundle"]["tensorCount"], 1);
+        assert_eq!(result["mel"]["channels"], 4);
+        assert!(result["diagnostics"]
+            .as_array()
+            .expect("diagnostics")
+            .is_empty());
     }
 }

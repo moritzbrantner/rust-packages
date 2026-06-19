@@ -110,8 +110,9 @@ surface calls may return plans without performing setup.
 `moritzbrantner-audio-generation-tts` owns the generic and
 speaker-conditioned TTS contract. Its package surface exposes
 `audio.tts.synthesize`, `audio.tts.plan`, `audio.tts.models`,
-`audio.tts.referencePromptPlan`, and `describe` across library, CLI, server,
-WASM, and app adapters. Until native providers are implemented,
+`audio.tts.referencePromptPlan`, `audio.tts.debug.f5Mel`, and `describe` across
+library, CLI, server, WASM, and app adapters. Until primary native synthesis is
+implemented,
 `audio.tts.synthesize` validates requests and returns explicit
 `setupRequired` or `unsupportedRuntime` responses without downloading models,
 running inference, or emitting audio artifacts.

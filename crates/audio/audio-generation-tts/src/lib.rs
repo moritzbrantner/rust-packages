@@ -2,6 +2,13 @@
 
 pub mod surface;
 
+mod native_f5;
+
+pub use native_f5::{
+    run_f5_mel_diagnostic, NativeF5BundleReport, NativeF5ConfigReport, NativeF5DeviceReport,
+    NativeF5MelDiagnosticOutput, NativeF5MelDiagnosticRequest, NativeF5MelReport,
+};
+
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "asr")]
 use std::path::PathBuf;

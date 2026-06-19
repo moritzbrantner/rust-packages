@@ -5,8 +5,8 @@ generic text-to-speech and speaker-conditioned TTS.
 
 The primary workflow operation is `audio.tts.synthesize`. It validates the
 request and returns explicit setup/unsupported-runtime diagnostics instead of
-running native model inference. Native F5/E2/Vocos providers remain opt-in and
-are added by later slices.
+running native synthesis. The F5 mel diagnostic is opt-in and debug-only; full
+F5/E2/Vocos synthesis remains owned by later slices.
 
 Package-surface operations:
 
@@ -15,6 +15,8 @@ Package-surface operations:
 - `audio.tts.plan` previews provider, runtime, and output requirements.
 - `audio.tts.models` reports the current model inventory state.
 - `audio.tts.referencePromptPlan` inspects Reference Voice Prompt readiness.
+- `audio.tts.debug.f5Mel` validates a local F5 bundle and returns a mel-level
+  diagnostic without running a vocoder.
 - `describe` returns package and operation metadata.
 
 Native planning is side-effect free. `audio.tts.plan` can explain an explicit
@@ -45,3 +47,8 @@ Device planning uses `provider.device`:
 
 Cargo features are explicit and default to off: `candle`, `cuda`,
 `model-bundles`, `audio-io`, `asr`, and `external-tests`.
+
+`audio.tts.debug.f5Mel` requires an explicit local `bundlePath`. With `candle`
+enabled it validates compatible F5 config, vocab, and safetensors files, then
+allocates a constrained mel diagnostic tensor. It never downloads models,
+emits PCM audio, or invokes Vocos.
