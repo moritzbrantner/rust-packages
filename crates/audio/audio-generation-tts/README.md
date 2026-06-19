@@ -57,7 +57,11 @@ Native synthesis uses `provider.providerId = "f5"`, `provider.native = true`,
 `provider.modelBundle.bundlePath` for the F5 bundle, and
 `provider.vocoder.modelBundle.bundlePath` for the Vocos bundle. Responses
 include `nativeDiagnostics` with provider, model id, vocoder, runtime, device,
-and bundle-source fields.
+bundle-source, and resolved inference-control fields. The native path accepts
+`options.seed`, `options.steps`, `options.cfgStrength`, `options.speed`,
+`options.maxDurationSeconds`, and `options.removeSilence`; debug diagnostics
+report the accepted controls and the constrained diagnostic audio path applies
+them to generated mel/audio shape and silence trimming.
 
 `audio.tts.debug.f5Mel` requires an explicit local `bundlePath`. With `candle`
 enabled it validates compatible F5 config, vocab, and safetensors files, then
@@ -69,3 +73,7 @@ validates `config.yaml` and `pytorch_model.bin` from the Vocos bundle before
 audio generation. With `candle` enabled it converts a constrained mel diagnostic
 input into a mono `OwnedAudioFrame` and returns a JSON PCM summary; it does not
 download models or run full F5/E2 synthesis.
+
+CUDA smoke coverage is opt-in and ignored by default. Run it only on a
+CUDA-capable host with local `F5_TTS_BUNDLE` and `VOCOS_BUNDLE` paths:
+`cargo test -p moritzbrantner-audio-generation-tts --features candle,cuda,external-tests native_f5_vocos_cuda_preferred_synthesis_smoke_when_requested -- --ignored`.

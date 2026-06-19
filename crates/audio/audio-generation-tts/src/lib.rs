@@ -569,14 +569,54 @@ pub struct SpeechSynthesisOutput {
     pub diagnostics: Vec<SpeechSynthesisDiagnostic>,
 }
 
+/// Resolved native inference controls that were accepted into a provider path.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechSynthesisInferenceControlsReport {
+    #[serde(default)]
+    pub seed: Option<u64>,
+    pub steps: u32,
+    pub cfg_strength: f32,
+    pub speed: f32,
+    pub max_duration_seconds: f32,
+    pub remove_silence: bool,
+}
+
+impl SpeechSynthesisInferenceControlsReport {
+    pub fn from_options(
+        options: &SpeechSynthesisOptions,
+        default_steps: u32,
+        default_cfg_strength: f32,
+        default_speed: f32,
+        default_max_duration_seconds: f32,
+    ) -> Self {
+        Self {
+            seed: options.seed,
+            steps: options.steps.unwrap_or(default_steps),
+            cfg_strength: options.cfg_strength.unwrap_or(default_cfg_strength),
+            speed: options.speed.unwrap_or(default_speed),
+            max_duration_seconds: options
+                .max_duration_seconds
+                .unwrap_or(default_max_duration_seconds),
+            remove_silence: options.remove_silence,
+        }
+    }
+}
+
+const DEFAULT_NATIVE_F5_STEPS: u32 = 32;
+const DEFAULT_NATIVE_F5_CFG_STRENGTH: f32 = 2.0;
+const DEFAULT_NATIVE_F5_SPEED: f32 = 1.0;
+const DEFAULT_NATIVE_F5_MAX_DURATION_SECONDS: f32 = 0.25;
+
 /// Native provider/vocoder diagnostics returned by end-to-end synthesis.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SpeechSynthesisNativeDiagnostics {
     pub provider: String,
     pub model_id: String,
     pub vocoder: String,
     pub vocoder_model_id: String,
+    pub inference: SpeechSynthesisInferenceControlsReport,
     pub runtime: String,
     pub device: String,
     pub bundle_source: String,
@@ -761,7 +801,7 @@ impl SpeechSynthesisProvider for NativeF5VocosSpeechSynthesisProvider {
             mel: Some(NativeVocosMelInput {
                 frames: f5_mel.frames,
                 channels: f5_mel.channels,
-                values: vec![0.0; f5_mel.frames * f5_mel.channels],
+                values: diagnostic_f5_mel_values(f5_mel.frames, f5_mel.channels),
             }),
             options: request.options.clone(),
         };
@@ -808,6 +848,13 @@ fn native_diagnostics_for_request(
         model_id,
         vocoder: vocoder.provider_id,
         vocoder_model_id: vocoder.model_id,
+        inference: SpeechSynthesisInferenceControlsReport::from_options(
+            &request.options,
+            DEFAULT_NATIVE_F5_STEPS,
+            DEFAULT_NATIVE_F5_CFG_STRENGTH,
+            DEFAULT_NATIVE_F5_SPEED,
+            DEFAULT_NATIVE_F5_MAX_DURATION_SECONDS,
+        ),
         runtime: native_runtime(),
         device: device.to_string(),
         bundle_source: combined_bundle_source(provider_bundle_source, vocoder_bundle_source)
@@ -837,6 +884,17 @@ fn native_runtime() -> String {
     } else {
         "unavailable".to_string()
     }
+}
+
+fn diagnostic_f5_mel_values(frames: usize, channels: usize) -> Vec<f32> {
+    let mut values = Vec::with_capacity(frames * channels);
+    for channel in 0..channels {
+        for frame in 0..frames {
+            let phase = ((channel + 1) * (frame + 1)) as f32 * 0.017;
+            values.push(phase.sin() * 0.5);
+        }
+    }
+    values
 }
 
 fn provider_bundle_source(bundle: &TtsModelBundleSelection) -> &'static str {
@@ -1060,6 +1118,63 @@ mod tests {
     }
 
     #[test]
+    fn native_f5_synthesis_reports_inference_controls_in_diagnostics() {
+        let request = SpeechSynthesisRequest {
+            text: "Match this speaker.".to_string(),
+            reference_voice_prompt: Some(ReferenceVoicePrompt {
+                audio: ReferenceVoicePromptAudio::Samples(PcmAudio {
+                    sample_rate_hz: 24_000,
+                    channels: 1,
+                    samples: vec![0.0, 0.01, -0.01, 0.0],
+                }),
+                transcript: Some("The reference speaker reads this sentence.".to_string()),
+                language: Some("en".to_string()),
+                asr_fallback: None,
+                metadata: serde_json::json!({}),
+            }),
+            provider: SpeechSynthesisProviderSelection {
+                provider_id: "f5".to_string(),
+                model_id: Some("f5-tts-v1-base".to_string()),
+                native: true,
+                device: NativeTtsDevicePreference::Cpu,
+                model_bundle: TtsModelBundleSelection {
+                    bundle_path: Some("missing-f5".to_string()),
+                    auto_download: false,
+                    cache_only: false,
+                },
+                vocoder: Some(SpeechSynthesisVocoderSelection {
+                    provider_id: "vocos".to_string(),
+                    model_id: "vocos-mel-24khz".to_string(),
+                    model_bundle: TtsModelBundleSelection {
+                        bundle_path: Some("missing-vocos".to_string()),
+                        auto_download: false,
+                        cache_only: false,
+                    },
+                }),
+            },
+            options: SpeechSynthesisOptions {
+                seed: Some(29),
+                steps: Some(5),
+                cfg_strength: Some(1.75),
+                speed: Some(1.1),
+                max_duration_seconds: Some(0.3),
+                remove_silence: true,
+                ..SpeechSynthesisOptions::default()
+            },
+        };
+
+        let output = synthesize(&request).expect("native setup response");
+        let diagnostics = output.native_diagnostics.expect("native diagnostics");
+
+        assert_eq!(diagnostics.inference.seed, Some(29));
+        assert_eq!(diagnostics.inference.steps, 5);
+        assert_eq!(diagnostics.inference.cfg_strength, 1.75);
+        assert_eq!(diagnostics.inference.speed, 1.1);
+        assert_eq!(diagnostics.inference.max_duration_seconds, 0.3);
+        assert!(diagnostics.inference.remove_silence);
+    }
+
+    #[test]
     fn provider_selection_deserializes_native_device_preferences() {
         for (device, expected) in [
             ("auto", NativeTtsDevicePreference::Auto),
@@ -1073,5 +1188,72 @@ mod tests {
 
             assert_eq!(selection.device, expected);
         }
+    }
+
+    #[cfg(all(feature = "candle", feature = "cuda", feature = "external-tests"))]
+    #[test]
+    #[ignore = "requires CUDA-capable host, F5_TTS_BUNDLE, and VOCOS_BUNDLE; run with `cargo test -p moritzbrantner-audio-generation-tts --features candle,cuda,external-tests native_f5_vocos_cuda_preferred_synthesis_smoke_when_requested -- --ignored`"]
+    fn native_f5_vocos_cuda_preferred_synthesis_smoke_when_requested() {
+        let f5_bundle = std::env::var_os("F5_TTS_BUNDLE")
+            .map(PathBuf::from)
+            .expect("set F5_TTS_BUNDLE to a local compatible F5 bundle");
+        let vocos_bundle = std::env::var_os("VOCOS_BUNDLE")
+            .map(PathBuf::from)
+            .expect("set VOCOS_BUNDLE to a local compatible Vocos bundle");
+
+        let request = SpeechSynthesisRequest {
+            text: "CUDA preferred native synthesis smoke.".to_string(),
+            reference_voice_prompt: Some(ReferenceVoicePrompt {
+                audio: ReferenceVoicePromptAudio::Samples(PcmAudio {
+                    sample_rate_hz: 24_000,
+                    channels: 1,
+                    samples: vec![0.0, 0.01, -0.01, 0.0],
+                }),
+                transcript: Some("Reference voice prompt text.".to_string()),
+                language: Some("en".to_string()),
+                asr_fallback: None,
+                metadata: serde_json::json!({}),
+            }),
+            provider: SpeechSynthesisProviderSelection {
+                provider_id: "f5".to_string(),
+                model_id: Some(
+                    std::env::var("F5_TTS_MODEL_ID")
+                        .unwrap_or_else(|_| "f5-tts-v1-base".to_string()),
+                ),
+                native: true,
+                device: NativeTtsDevicePreference::Auto,
+                model_bundle: TtsModelBundleSelection {
+                    bundle_path: Some(f5_bundle.display().to_string()),
+                    auto_download: false,
+                    cache_only: false,
+                },
+                vocoder: Some(SpeechSynthesisVocoderSelection {
+                    provider_id: "vocos".to_string(),
+                    model_id: std::env::var("VOCOS_MODEL_ID")
+                        .unwrap_or_else(|_| "vocos-mel-24khz".to_string()),
+                    model_bundle: TtsModelBundleSelection {
+                        bundle_path: Some(vocos_bundle.display().to_string()),
+                        auto_download: false,
+                        cache_only: false,
+                    },
+                }),
+            },
+            options: SpeechSynthesisOptions {
+                seed: Some(1),
+                steps: Some(1),
+                cfg_strength: Some(1.0),
+                speed: Some(1.0),
+                max_duration_seconds: Some(0.02),
+                remove_silence: true,
+                ..SpeechSynthesisOptions::default()
+            },
+        };
+
+        let output = synthesize(&request).expect("native CUDA-preferred synthesis");
+
+        assert_eq!(output.status, SpeechSynthesisStatus::Ready);
+        assert!(output.audio.is_some());
+        let diagnostics = output.native_diagnostics.expect("native diagnostics");
+        assert!(diagnostics.device.starts_with("cuda"));
     }
 }

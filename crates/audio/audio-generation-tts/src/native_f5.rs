@@ -5,14 +5,18 @@ use model_runtime::{ModelBundleManifest, ModelFileRequest, ModelPreset, ModelTas
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    NativeTtsDevicePreference, SpeechSynthesisDiagnostic, SpeechSynthesisOptions,
-    SpeechSynthesisStatus,
+    NativeTtsDevicePreference, SpeechSynthesisDiagnostic, SpeechSynthesisInferenceControlsReport,
+    SpeechSynthesisOptions, SpeechSynthesisStatus,
 };
 
 const DEFAULT_F5_MODEL_ID: &str = "f5-tts-v1-base";
 const DEFAULT_N_MEL_CHANNELS: usize = 100;
 const DEFAULT_SAMPLE_RATE_HZ: u32 = 24_000;
 const DEFAULT_HOP_LENGTH: usize = 256;
+const DEFAULT_STEPS: u32 = 32;
+const DEFAULT_CFG_STRENGTH: f32 = 2.0;
+const DEFAULT_SPEED: f32 = 1.0;
+const DEFAULT_MAX_DURATION_SECONDS: f32 = 0.25;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -36,6 +40,7 @@ pub struct NativeF5MelDiagnosticOutput {
     pub model_id: String,
     pub vocoder_required: bool,
     pub audio_generated: bool,
+    pub controls: SpeechSynthesisInferenceControlsReport,
     pub device: NativeF5DeviceReport,
     pub bundle: NativeF5BundleReport,
     #[serde(default)]
@@ -334,17 +339,30 @@ fn output(
     mel: Option<NativeF5MelReport>,
     diagnostics: Vec<SpeechSynthesisDiagnostic>,
 ) -> NativeF5MelDiagnosticOutput {
+    let mut diagnostics = diagnostics;
+    diagnostics.extend(device_diagnostics(&device));
     NativeF5MelDiagnosticOutput {
         status,
         provider_id: "f5".to_string(),
         model_id: request.model_id.clone(),
         vocoder_required: true,
         audio_generated: false,
+        controls: f5_controls(&request.options),
         device,
         bundle,
         mel,
         diagnostics,
     }
+}
+
+fn f5_controls(options: &SpeechSynthesisOptions) -> SpeechSynthesisInferenceControlsReport {
+    SpeechSynthesisInferenceControlsReport::from_options(
+        options,
+        DEFAULT_STEPS,
+        DEFAULT_CFG_STRENGTH,
+        DEFAULT_SPEED,
+        DEFAULT_MAX_DURATION_SECONDS,
+    )
 }
 
 fn diagnostic(
@@ -362,10 +380,12 @@ fn diagnostic(
 fn resolve_device(preference: NativeTtsDevicePreference) -> NativeF5DeviceReport {
     let selected = match preference {
         NativeTtsDevicePreference::Cpu => "cpu".to_string(),
-        NativeTtsDevicePreference::Cuda if cfg!(feature = "cuda") => "cuda:0".to_string(),
+        NativeTtsDevicePreference::Cuda if cfg!(feature = "cuda") && cuda_available() => {
+            "cuda:0".to_string()
+        }
         NativeTtsDevicePreference::Cuda => "unavailable".to_string(),
-        NativeTtsDevicePreference::Auto if cfg!(feature = "cuda") => {
-            "cuda-if-available".to_string()
+        NativeTtsDevicePreference::Auto if cfg!(feature = "cuda") && cuda_available() => {
+            "cuda:0".to_string()
         }
         NativeTtsDevicePreference::Auto => "cpu".to_string(),
     };
@@ -375,6 +395,38 @@ fn resolve_device(preference: NativeTtsDevicePreference) -> NativeF5DeviceReport
         selected,
         candle_feature_enabled: cfg!(feature = "candle"),
         cuda_feature_enabled: cfg!(feature = "cuda"),
+    }
+}
+
+#[cfg(feature = "cuda")]
+fn cuda_available() -> bool {
+    candle_core::Device::new_cuda(0).is_ok()
+}
+
+#[cfg(not(feature = "cuda"))]
+fn cuda_available() -> bool {
+    false
+}
+
+fn device_diagnostics(device: &NativeF5DeviceReport) -> Vec<SpeechSynthesisDiagnostic> {
+    match (device.preference.as_str(), device.selected.as_str()) {
+        ("auto", "cpu") if device.cuda_feature_enabled => vec![diagnostic(
+            "native_tts_cpu_fallback",
+            "CUDA-preferred auto device selection fell back to CPU because CUDA was unavailable."
+                .to_string(),
+            Some("Use provider.device = `cuda` to require CUDA, or keep `auto` for CPU fallback."),
+        )],
+        ("auto", "cpu") => vec![diagnostic(
+            "native_tts_cpu_fallback",
+            "Auto device selection used CPU because this build does not enable CUDA.".to_string(),
+            Some("Rebuild with `--features cuda` to prefer CUDA when hardware is available."),
+        )],
+        ("cuda", "unavailable") => vec![diagnostic(
+            "native_tts_cuda_unavailable",
+            "CUDA was requested but is unavailable to this native TTS build.".to_string(),
+            Some("Rebuild with `--features cuda` on a CUDA-capable host, or request `cpu`/`auto`."),
+        )],
+        _ => Vec::new(),
     }
 }
 
@@ -630,9 +682,8 @@ fn build_mel_report(
             ));
         }
     };
-    let max_duration = request.options.max_duration_seconds.unwrap_or(0.25);
-    let speed = request.options.speed.unwrap_or(1.0);
-    let seconds = (max_duration / speed).clamp(0.01, 1.0);
+    let controls = f5_controls(&request.options);
+    let seconds = (controls.max_duration_seconds / controls.speed).clamp(0.01, 1.0);
     let frames = ((seconds * config.sample_rate_hz as f32) / config.hop_length as f32)
         .ceil()
         .max(1.0) as usize;
@@ -739,11 +790,64 @@ mod tests {
 
         assert_eq!(output.device.preference, "cuda");
         assert_eq!(output.device.cuda_feature_enabled, cfg!(feature = "cuda"));
-        if cfg!(feature = "cuda") {
+        if output.device.selected.starts_with("cuda") {
             assert!(output.device.selected.starts_with("cuda"));
         } else {
             assert_eq!(output.device.selected, "unavailable");
+            assert!(output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "native_tts_cuda_unavailable"));
         }
+    }
+
+    #[test]
+    fn f5_diagnostic_reports_cpu_fallback_for_auto_without_cuda_feature() {
+        let request = NativeF5MelDiagnosticRequest {
+            text: "diagnose auto fallback".to_string(),
+            model_id: "f5-tts-v1-base".to_string(),
+            bundle_path: None,
+            device: NativeTtsDevicePreference::Auto,
+            options: SpeechSynthesisOptions::default(),
+        };
+
+        let output = run_f5_mel_diagnostic(&request).expect("diagnostic");
+
+        if output.device.selected == "cpu" {
+            assert_eq!(output.device.selected, "cpu");
+            assert!(output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "native_tts_cpu_fallback"));
+        }
+    }
+
+    #[test]
+    fn f5_diagnostic_reports_native_inference_controls() {
+        let request = NativeF5MelDiagnosticRequest {
+            text: "diagnose controls".to_string(),
+            model_id: "f5-tts-v1-base".to_string(),
+            bundle_path: None,
+            device: NativeTtsDevicePreference::Cpu,
+            options: SpeechSynthesisOptions {
+                seed: Some(13),
+                steps: Some(7),
+                cfg_strength: Some(1.5),
+                speed: Some(1.25),
+                max_duration_seconds: Some(0.4),
+                remove_silence: true,
+                ..SpeechSynthesisOptions::default()
+            },
+        };
+
+        let output = run_f5_mel_diagnostic(&request).expect("diagnostic");
+
+        assert_eq!(output.controls.seed, Some(13));
+        assert_eq!(output.controls.steps, 7);
+        assert_eq!(output.controls.cfg_strength, 1.5);
+        assert_eq!(output.controls.speed, 1.25);
+        assert_eq!(output.controls.max_duration_seconds, 0.4);
+        assert!(output.controls.remove_silence);
     }
 
     #[cfg(feature = "candle")]

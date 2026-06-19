@@ -8,14 +8,18 @@ use video_analysis_core::{AudioBuffer, OwnedAudioFrame};
 use video_analysis_core::{Timebase, Timestamp};
 
 use crate::{
-    NativeTtsDevicePreference, PcmAudio, SpeechSynthesisDiagnostic, SpeechSynthesisOptions,
-    SpeechSynthesisStatus,
+    NativeTtsDevicePreference, PcmAudio, SpeechSynthesisDiagnostic,
+    SpeechSynthesisInferenceControlsReport, SpeechSynthesisOptions, SpeechSynthesisStatus,
 };
 
 const DEFAULT_VOCOS_MODEL_ID: &str = "vocos-mel-24khz";
 const DEFAULT_INPUT_CHANNELS: usize = 100;
 const DEFAULT_SAMPLE_RATE_HZ: u32 = 24_000;
 const DEFAULT_HOP_LENGTH: usize = 256;
+const DEFAULT_STEPS: u32 = 1;
+const DEFAULT_CFG_STRENGTH: f32 = 1.0;
+const DEFAULT_SPEED: f32 = 1.0;
+const DEFAULT_MAX_DURATION_SECONDS: f32 = 0.05;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -48,6 +52,7 @@ pub struct NativeVocosVocoderDiagnosticOutput {
     pub provider_id: String,
     pub model_id: String,
     pub audio_generated: bool,
+    pub controls: SpeechSynthesisInferenceControlsReport,
     pub device: NativeVocosDeviceReport,
     pub bundle: NativeVocosBundleReport,
     pub mel: NativeVocosMelReport,
@@ -363,6 +368,8 @@ fn output(
     audio_frame: Option<OwnedAudioFrame>,
     diagnostics: Vec<SpeechSynthesisDiagnostic>,
 ) -> NativeVocosVocoderDiagnosticOutput {
+    let mut diagnostics = diagnostics;
+    diagnostics.extend(device_diagnostics(&device));
     let audio = audio_frame.as_ref().and_then(pcm_audio_from_frame);
     let frame = audio_frame.as_ref().map(audio_frame_report);
     NativeVocosVocoderDiagnosticOutput {
@@ -370,6 +377,7 @@ fn output(
         provider_id: "vocos".to_string(),
         model_id: request.model_id.clone(),
         audio_generated: audio_frame.is_some(),
+        controls: vocos_controls(&request.options),
         device,
         bundle,
         mel,
@@ -378,6 +386,16 @@ fn output(
         audio_frame,
         diagnostics,
     }
+}
+
+fn vocos_controls(options: &SpeechSynthesisOptions) -> SpeechSynthesisInferenceControlsReport {
+    SpeechSynthesisInferenceControlsReport::from_options(
+        options,
+        DEFAULT_STEPS,
+        DEFAULT_CFG_STRENGTH,
+        DEFAULT_SPEED,
+        DEFAULT_MAX_DURATION_SECONDS,
+    )
 }
 
 fn pcm_audio_from_frame(frame: &OwnedAudioFrame) -> Option<PcmAudio> {
@@ -416,10 +434,12 @@ fn diagnostic(
 fn resolve_device(preference: NativeTtsDevicePreference) -> NativeVocosDeviceReport {
     let selected = match preference {
         NativeTtsDevicePreference::Cpu => "cpu".to_string(),
-        NativeTtsDevicePreference::Cuda if cfg!(feature = "cuda") => "cuda:0".to_string(),
+        NativeTtsDevicePreference::Cuda if cfg!(feature = "cuda") && cuda_available() => {
+            "cuda:0".to_string()
+        }
         NativeTtsDevicePreference::Cuda => "unavailable".to_string(),
-        NativeTtsDevicePreference::Auto if cfg!(feature = "cuda") => {
-            "cuda-if-available".to_string()
+        NativeTtsDevicePreference::Auto if cfg!(feature = "cuda") && cuda_available() => {
+            "cuda:0".to_string()
         }
         NativeTtsDevicePreference::Auto => "cpu".to_string(),
     };
@@ -429,6 +449,38 @@ fn resolve_device(preference: NativeTtsDevicePreference) -> NativeVocosDeviceRep
         selected,
         candle_feature_enabled: cfg!(feature = "candle"),
         cuda_feature_enabled: cfg!(feature = "cuda"),
+    }
+}
+
+#[cfg(feature = "cuda")]
+fn cuda_available() -> bool {
+    candle_core::Device::new_cuda(0).is_ok()
+}
+
+#[cfg(not(feature = "cuda"))]
+fn cuda_available() -> bool {
+    false
+}
+
+fn device_diagnostics(device: &NativeVocosDeviceReport) -> Vec<SpeechSynthesisDiagnostic> {
+    match (device.preference.as_str(), device.selected.as_str()) {
+        ("auto", "cpu") if device.cuda_feature_enabled => vec![diagnostic(
+            "native_tts_cpu_fallback",
+            "CUDA-preferred auto device selection fell back to CPU because CUDA was unavailable."
+                .to_string(),
+            Some("Use provider.device = `cuda` to require CUDA, or keep `auto` for CPU fallback."),
+        )],
+        ("auto", "cpu") => vec![diagnostic(
+            "native_tts_cpu_fallback",
+            "Auto device selection used CPU because this build does not enable CUDA.".to_string(),
+            Some("Rebuild with `--features cuda` to prefer CUDA when hardware is available."),
+        )],
+        ("cuda", "unavailable") => vec![diagnostic(
+            "native_tts_cuda_unavailable",
+            "CUDA was requested but is unavailable to this native TTS build.".to_string(),
+            Some("Rebuild with `--features cuda` on a CUDA-capable host, or request `cpu`/`auto`."),
+        )],
+        _ => Vec::new(),
     }
 }
 
@@ -650,11 +702,18 @@ fn build_audio_frame(
             mel.channels, config.input_channels
         ));
     }
-    let values = mel_values(&mel);
+    let controls = vocos_controls(&request.options);
+    let values = mel_values(&mel, &controls);
     let tensor =
         candle_core::Tensor::from_vec(values.clone(), (mel.channels, mel.frames), &candle_device)
             .map_err(|error| format!("failed to build Vocos mel tensor: {error}"))?;
-    let samples = diagnostic_vocode(&values, mel.channels, mel.frames, config.hop_length);
+    let samples = diagnostic_vocode(
+        &values,
+        mel.channels,
+        mel.frames,
+        config.hop_length,
+        &controls,
+    );
     let frame = OwnedAudioFrame::new(
         Timestamp::new(0, Timebase::new(1, config.sample_rate_hz as i32)),
         config.sample_rate_hz,
@@ -688,10 +747,8 @@ fn generated_mel(
     config: &NativeVocosConfigReport,
     options: &SpeechSynthesisOptions,
 ) -> NativeVocosMelInput {
-    let seconds = options
-        .max_duration_seconds
-        .unwrap_or(0.05)
-        .clamp(0.01, 0.25);
+    let controls = vocos_controls(options);
+    let seconds = (controls.max_duration_seconds / controls.speed).clamp(0.01, 0.25);
     let frames = ((seconds * config.sample_rate_hz as f32) / config.hop_length as f32)
         .ceil()
         .max(1.0) as usize;
@@ -703,18 +760,49 @@ fn generated_mel(
 }
 
 #[cfg(feature = "candle")]
-fn mel_values(mel: &NativeVocosMelInput) -> Vec<f32> {
+fn mel_values(
+    mel: &NativeVocosMelInput,
+    controls: &SpeechSynthesisInferenceControlsReport,
+) -> Vec<f32> {
     if !mel.values.is_empty() {
-        return mel.values.clone();
+        return mel
+            .values
+            .iter()
+            .enumerate()
+            .map(|(index, value)| controlled_mel_value(*value, index, controls))
+            .collect();
     }
     let mut values = Vec::with_capacity(mel.frames * mel.channels);
     for channel in 0..mel.channels {
         for frame in 0..mel.frames {
-            let value = (((channel + 1) * (frame + 1)) as f32 * 0.013).sin() * 0.5;
-            values.push(value);
+            let index = channel * mel.frames + frame;
+            let base = (((channel + 1) * (frame + 1)) as f32 * 0.013).sin() * 0.5;
+            values.push(controlled_mel_value(base, index, controls));
         }
     }
     values
+}
+
+#[cfg(feature = "candle")]
+fn controlled_mel_value(
+    base: f32,
+    index: usize,
+    controls: &SpeechSynthesisInferenceControlsReport,
+) -> f32 {
+    let seeded = seeded_unit(controls.seed.unwrap_or(0), index) - 0.5;
+    let step_gain = 1.0 + (controls.steps.saturating_sub(1) as f32 * 0.025);
+    let cfg_gain = controls.cfg_strength.max(0.01);
+    ((base + seeded * 0.1) * step_gain * cfg_gain).clamp(-4.0, 4.0)
+}
+
+#[cfg(feature = "candle")]
+fn seeded_unit(seed: u64, index: usize) -> f32 {
+    let mut state = seed ^ ((index as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15));
+    state ^= state >> 12;
+    state ^= state << 25;
+    state ^= state >> 27;
+    let value = state.wrapping_mul(0x2545_F491_4F6C_DD1D);
+    ((value >> 40) as f32) / ((1_u64 << 24) as f32)
 }
 
 #[cfg(feature = "candle")]
@@ -723,11 +811,18 @@ fn diagnostic_vocode(
     channels: usize,
     frames: usize,
     hop_length: usize,
+    controls: &SpeechSynthesisInferenceControlsReport,
 ) -> Vec<f32> {
     let sample_count = frames * hop_length;
     let mut samples = Vec::with_capacity(sample_count);
     for sample_index in 0..sample_count {
         let frame = (sample_index / hop_length).min(frames - 1);
+        if sample_count > hop_length * 2
+            && (sample_index < hop_length || sample_index >= sample_count - hop_length)
+        {
+            samples.push(0.0);
+            continue;
+        }
         let mut energy = 0.0_f32;
         for channel in 0..channels {
             energy += mel_values[channel * frames + frame];
@@ -736,7 +831,23 @@ fn diagnostic_vocode(
         let phase = sample_index as f32 * 0.03;
         samples.push((energy.tanh() * phase.sin()).clamp(-1.0, 1.0));
     }
-    samples
+    if controls.remove_silence {
+        trim_silence(samples)
+    } else {
+        samples
+    }
+}
+
+#[cfg(feature = "candle")]
+fn trim_silence(samples: Vec<f32>) -> Vec<f32> {
+    let Some(start) = samples.iter().position(|sample| sample.abs() > 1.0e-6) else {
+        return vec![0.0];
+    };
+    let end = samples
+        .iter()
+        .rposition(|sample| sample.abs() > 1.0e-6)
+        .expect("start guarantees one non-silent sample");
+    samples[start..=end].to_vec()
 }
 
 #[cfg(all(test, feature = "candle"))]
@@ -831,6 +942,34 @@ mod tests {
             .any(|diagnostic| diagnostic.code == "vocos_bundle_invalid"));
     }
 
+    #[test]
+    fn vocos_diagnostic_reports_native_inference_controls() {
+        let request = NativeVocosVocoderDiagnosticRequest {
+            model_id: "vocos-mel-24khz".to_string(),
+            bundle_path: None,
+            device: NativeTtsDevicePreference::Cpu,
+            mel: None,
+            options: SpeechSynthesisOptions {
+                seed: Some(17),
+                steps: Some(4),
+                cfg_strength: Some(1.25),
+                speed: Some(1.5),
+                max_duration_seconds: Some(0.2),
+                remove_silence: true,
+                ..SpeechSynthesisOptions::default()
+            },
+        };
+
+        let output = run_vocos_vocoder_diagnostic(&request).expect("diagnostic");
+
+        assert_eq!(output.controls.seed, Some(17));
+        assert_eq!(output.controls.steps, 4);
+        assert_eq!(output.controls.cfg_strength, 1.25);
+        assert_eq!(output.controls.speed, 1.5);
+        assert_eq!(output.controls.max_duration_seconds, 0.2);
+        assert!(output.controls.remove_silence);
+    }
+
     #[cfg(feature = "candle")]
     #[test]
     fn vocos_diagnostic_converts_generated_mel_to_audio_frame() {
@@ -865,6 +1004,76 @@ mod tests {
         assert_eq!(
             output.audio.as_ref().expect("pcm audio").sample_rate_hz,
             22_050
+        );
+    }
+
+    #[cfg(feature = "candle")]
+    #[test]
+    fn vocos_diagnostic_applies_native_inference_controls_to_generated_audio() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        test_support::write_test_vocos_bundle(
+            temp.path(),
+            &test_support::test_config(4, 24_000, 64),
+            &[1, 2, 3, 4],
+        );
+        let request = |options| NativeVocosVocoderDiagnosticRequest {
+            model_id: "vocos-mel-24khz".to_string(),
+            bundle_path: Some(temp.path().to_path_buf()),
+            device: NativeTtsDevicePreference::Cpu,
+            mel: None,
+            options,
+        };
+
+        let slow = run_vocos_vocoder_diagnostic(&request(SpeechSynthesisOptions {
+            seed: Some(1),
+            steps: Some(1),
+            cfg_strength: Some(0.5),
+            speed: Some(1.0),
+            max_duration_seconds: Some(0.04),
+            remove_silence: false,
+            ..SpeechSynthesisOptions::default()
+        }))
+        .expect("slow diagnostic");
+        let fast = run_vocos_vocoder_diagnostic(&request(SpeechSynthesisOptions {
+            seed: Some(1),
+            steps: Some(1),
+            cfg_strength: Some(0.5),
+            speed: Some(2.0),
+            max_duration_seconds: Some(0.04),
+            remove_silence: false,
+            ..SpeechSynthesisOptions::default()
+        }))
+        .expect("fast diagnostic");
+        assert!(fast.mel.frames < slow.mel.frames);
+
+        let reseeded = run_vocos_vocoder_diagnostic(&request(SpeechSynthesisOptions {
+            seed: Some(99),
+            steps: Some(3),
+            cfg_strength: Some(1.5),
+            speed: Some(1.0),
+            max_duration_seconds: Some(0.04),
+            remove_silence: false,
+            ..SpeechSynthesisOptions::default()
+        }))
+        .expect("reseeded diagnostic");
+        assert_ne!(
+            slow.audio.as_ref().expect("slow audio").samples,
+            reseeded.audio.as_ref().expect("reseeded audio").samples
+        );
+
+        let trimmed = run_vocos_vocoder_diagnostic(&request(SpeechSynthesisOptions {
+            seed: Some(1),
+            steps: Some(1),
+            cfg_strength: Some(0.5),
+            speed: Some(1.0),
+            max_duration_seconds: Some(0.04),
+            remove_silence: true,
+            ..SpeechSynthesisOptions::default()
+        }))
+        .expect("trimmed diagnostic");
+        assert!(
+            trimmed.frame.as_ref().expect("trimmed frame").sample_count
+                < slow.frame.as_ref().expect("slow frame").sample_count
         );
     }
 
