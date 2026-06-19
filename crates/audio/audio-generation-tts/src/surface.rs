@@ -8,7 +8,8 @@ use runtime_core::{
 };
 
 use crate::{
-    synthesize, PcmAudio, ReferenceVoicePrompt, SpeechSynthesisRequest, SpeechSynthesisStatus,
+    synthesize, NativeTtsDevicePreference, PcmAudio, ReferenceVoicePrompt, SpeechSynthesisRequest,
+    SpeechSynthesisStatus, TtsModelBundleSelection,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -191,6 +192,7 @@ fn models_value() -> serde_json::Value {
         "defaultModelSelected": false,
         "models": models,
         "nativeProvidersImplemented": false,
+        "featureFlags": feature_flags_json(),
         "message": "No TTS model preset is selected by default. F5/E2/Vocos metadata is available for explicit opt-in planning.",
         "requirements": [
             {
@@ -305,6 +307,8 @@ fn plan_for_request(
         "willSynthesize": false,
         "speakerConditioned": request.is_speaker_conditioned(),
         "provider": request.provider,
+        "device": device_plan(request.provider.device),
+        "modelBundle": model_bundle_plan(request),
         "requestedOutput": {
             "sampleRateHz": request.options.sample_rate_hz,
             "channels": request.options.channels,
@@ -316,6 +320,7 @@ fn plan_for_request(
             "runsInference": false,
             "sideEffects": []
         },
+        "featureFlags": feature_flags_json(),
         "referencePrompt": reference_prompt_plan(request.reference_voice_prompt.as_ref()),
         "requirements": [
             {
@@ -324,6 +329,168 @@ fn plan_for_request(
                 "message": "Native providers are added by later slices."
             }
         ]
+    })
+}
+
+fn device_plan(preference: NativeTtsDevicePreference) -> serde_json::Value {
+    let (selection, auto_behavior, message) = match preference {
+        NativeTtsDevicePreference::Auto => (
+            if cfg!(feature = "cuda") {
+                "cuda-if-available-else-cpu"
+            } else {
+                "cpu-without-cuda-feature"
+            },
+            "cudaPreferredWhenAvailable",
+            "Auto is CUDA-preferred when this crate is built with the cuda feature and a CUDA device is available; otherwise CPU is used.",
+        ),
+        NativeTtsDevicePreference::Cpu => (
+            "cpu",
+            "notApplicable",
+            "CPU was explicitly requested.",
+        ),
+        NativeTtsDevicePreference::Cuda => (
+            "cuda",
+            "notApplicable",
+            "CUDA was explicitly requested and requires the cuda feature plus an available CUDA device in later native providers.",
+        ),
+    };
+
+    serde_json::json!({
+        "preference": preference.as_str(),
+        "selection": selection,
+        "cudaFeatureEnabled": cfg!(feature = "cuda"),
+        "autoBehavior": auto_behavior,
+        "willProbeHardware": false,
+        "message": message
+    })
+}
+
+fn model_bundle_plan(request: &SpeechSynthesisRequest) -> serde_json::Value {
+    let model_id = request.provider.model_id.as_deref();
+    let bundle = &request.provider.model_bundle;
+    let preset = model_id.and_then(model_preset_by_id);
+    let resolution = bundle_resolution(model_id, preset, bundle);
+    let download_allowed =
+        cfg!(feature = "model-bundles") && bundle.auto_download && !bundle.cache_only;
+    let required_files = preset.map(|preset| {
+        let spec = preset.spec();
+        required_files(&spec)
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+    });
+
+    serde_json::json!({
+        "modelId": model_id,
+        "modelKnown": preset.is_some(),
+        "bundlePath": bundle.bundle_path,
+        "resolution": resolution,
+        "requiredFiles": required_files,
+        "modelBundlesFeatureEnabled": cfg!(feature = "model-bundles"),
+        "autoDownloadRequested": bundle.auto_download,
+        "cacheOnly": bundle.cache_only,
+        "downloadAllowed": download_allowed,
+        "downloadPolicy": download_policy(bundle),
+        "willResolveBundle": false,
+        "willDownload": false,
+        "message": model_bundle_message(model_id, bundle, download_allowed)
+    })
+}
+
+fn model_preset_by_id(id: &str) -> Option<ModelPreset> {
+    tts_model_presets()
+        .into_iter()
+        .find(|preset| preset.as_str() == id)
+}
+
+fn bundle_resolution(
+    model_id: Option<&str>,
+    preset: Option<ModelPreset>,
+    bundle: &TtsModelBundleSelection,
+) -> &'static str {
+    if bundle.bundle_path.is_some() {
+        "explicitBundlePath"
+    } else if preset.is_some() && cfg!(feature = "model-bundles") {
+        "modelRuntimePreset"
+    } else if model_id.is_some() {
+        "requiresModelBundlesFeatureOrExplicitBundle"
+    } else {
+        "notRequested"
+    }
+}
+
+fn download_policy(bundle: &TtsModelBundleSelection) -> &'static str {
+    if bundle.cache_only {
+        "cacheOnly"
+    } else if bundle.auto_download && cfg!(feature = "model-bundles") {
+        "autoDownloadAllowedByModelBundlesFeature"
+    } else if bundle.auto_download {
+        "autoDownloadRequiresModelBundlesFeature"
+    } else {
+        "manualBundleOnly"
+    }
+}
+
+fn model_bundle_message(
+    model_id: Option<&str>,
+    bundle: &TtsModelBundleSelection,
+    download_allowed: bool,
+) -> &'static str {
+    if bundle.cache_only && bundle.auto_download {
+        "Cache-only mode forbids downloads even though autoDownload was requested."
+    } else if download_allowed {
+        "A later native provider may download missing files because model-bundles and autoDownload are enabled."
+    } else if bundle.auto_download {
+        "autoDownload was requested, but downloads require the model-bundles feature."
+    } else if bundle.bundle_path.is_some() {
+        "Planning records the explicit bundle path without checking the filesystem."
+    } else if model_id.is_some() {
+        "Planning records the model preset requirement without resolving or downloading files."
+    } else {
+        "No native model bundle was requested."
+    }
+}
+
+fn feature_flags_json() -> Vec<serde_json::Value> {
+    vec![
+        feature_flag(
+            "candle",
+            cfg!(feature = "candle"),
+            "Enables native Candle tensor/model execution for later TTS providers.",
+        ),
+        feature_flag(
+            "cuda",
+            cfg!(feature = "cuda"),
+            "Enables CUDA device planning and later native CUDA execution.",
+        ),
+        feature_flag(
+            "model-bundles",
+            cfg!(feature = "model-bundles"),
+            "Enables explicit model bundle functionality, including optional auto-download planning.",
+        ),
+        feature_flag(
+            "audio-io",
+            cfg!(feature = "audio-io"),
+            "Reserved for native reference-audio IO integration in later slices.",
+        ),
+        feature_flag(
+            "asr",
+            cfg!(feature = "asr"),
+            "Reserved for reference prompt transcript fallback planning in later slices.",
+        ),
+        feature_flag(
+            "external-tests",
+            cfg!(feature = "external-tests"),
+            "Enables opt-in external/native smoke coverage.",
+        ),
+    ]
+}
+
+fn feature_flag(name: &str, enabled: bool, purpose: &str) -> serde_json::Value {
+    serde_json::json!({
+        "name": name,
+        "enabled": enabled,
+        "purpose": purpose
     })
 }
 
@@ -469,6 +636,41 @@ mod tests {
     }
 
     #[test]
+    fn plan_surface_explains_native_bundle_and_device_choice_without_side_effects() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.plan".into(),
+            input: serde_json::json!({
+                "text": "Plan native TTS.",
+                "provider": {
+                    "providerId": "f5",
+                    "modelId": "f5-tts-v1-base",
+                    "native": true,
+                    "device": "auto",
+                    "modelBundle": {
+                        "autoDownload": true,
+                        "cacheOnly": true
+                    }
+                }
+            }),
+        })
+        .expect("plan response");
+
+        let result = &response.value["result"];
+        assert_eq!(result["willSynthesize"], false);
+        assert_eq!(result["runtime"]["runsInference"], false);
+        assert_eq!(result["runtime"]["downloadsModels"], false);
+        assert_eq!(result["device"]["preference"], "auto");
+        assert_eq!(
+            result["device"]["autoBehavior"],
+            "cudaPreferredWhenAvailable"
+        );
+        assert_eq!(result["modelBundle"]["modelId"], "f5-tts-v1-base");
+        assert_eq!(result["modelBundle"]["cacheOnly"], true);
+        assert_eq!(result["modelBundle"]["autoDownloadRequested"], true);
+        assert_eq!(result["modelBundle"]["downloadAllowed"], false);
+    }
+
+    #[test]
     fn models_surface_lists_explicit_tts_presets_with_license_metadata() {
         let response = run_surface_operation(SurfaceRequest {
             operation: "audio.tts.models".into(),
@@ -517,5 +719,33 @@ mod tests {
             .expect("vocos preset");
         assert_eq!(vocos["repoId"], "charactr/vocos-mel-24khz");
         assert_eq!(vocos["license"]["id"], "mit");
+    }
+
+    #[test]
+    fn models_surface_reports_native_tts_feature_flags() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: "audio.tts.models".into(),
+            input: serde_json::json!({}),
+        })
+        .expect("models response");
+
+        let feature_flags = response.value["result"]["featureFlags"]
+            .as_array()
+            .expect("feature flags");
+        let names = feature_flags
+            .iter()
+            .map(|feature| feature["name"].as_str().expect("feature name"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            [
+                "candle",
+                "cuda",
+                "model-bundles",
+                "audio-io",
+                "asr",
+                "external-tests"
+            ]
+        );
     }
 }

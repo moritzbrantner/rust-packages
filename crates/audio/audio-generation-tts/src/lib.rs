@@ -82,6 +82,62 @@ impl ReferenceVoicePrompt {
     }
 }
 
+/// Native TTS execution device preference used for planning.
+///
+/// `Auto` is CUDA-preferred when CUDA support is built and a CUDA device is
+/// available; otherwise providers should fall back to CPU.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NativeTtsDevicePreference {
+    #[default]
+    Auto,
+    Cpu,
+    Cuda,
+}
+
+impl NativeTtsDevicePreference {
+    /// Stable protocol string used by package surfaces.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Cpu => "cpu",
+            Self::Cuda => "cuda",
+        }
+    }
+}
+
+/// Model bundle behavior requested by a package consumer for native TTS planning.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TtsModelBundleSelection {
+    /// Optional caller-provided local model bundle path.
+    #[serde(default)]
+    pub bundle_path: Option<String>,
+    /// Whether a later native provider may materialize missing model files.
+    #[serde(default)]
+    pub auto_download: bool,
+    /// Whether planning and execution must use already-cached files only.
+    #[serde(default)]
+    pub cache_only: bool,
+}
+
+impl TtsModelBundleSelection {
+    /// Validates model-bundle planning options without touching the filesystem.
+    pub fn validate(&self) -> Result<(), String> {
+        if self
+            .bundle_path
+            .as_deref()
+            .is_some_and(|path| path.trim().is_empty())
+        {
+            return Err(
+                "invalid request: `provider.modelBundle.bundlePath` must not be empty when provided"
+                    .to_string(),
+            );
+        }
+        Ok(())
+    }
+}
+
 /// Provider selection requested by the package consumer.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -94,6 +150,12 @@ pub struct SpeechSynthesisProviderSelection {
     /// Whether native provider execution is requested.
     #[serde(default)]
     pub native: bool,
+    /// Native execution device preference for planning.
+    #[serde(default)]
+    pub device: NativeTtsDevicePreference,
+    /// Model-bundle resolution and download policy for native planning.
+    #[serde(default)]
+    pub model_bundle: TtsModelBundleSelection,
 }
 
 impl Default for SpeechSynthesisProviderSelection {
@@ -102,6 +164,8 @@ impl Default for SpeechSynthesisProviderSelection {
             provider_id: "generic".to_string(),
             model_id: None,
             native: false,
+            device: NativeTtsDevicePreference::Auto,
+            model_bundle: TtsModelBundleSelection::default(),
         }
     }
 }
@@ -121,6 +185,7 @@ impl SpeechSynthesisProviderSelection {
                 "invalid request: `provider.modelId` must not be empty when provided".to_string(),
             );
         }
+        self.model_bundle.validate()?;
         Ok(())
     }
 }
@@ -380,5 +445,21 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "tts_provider_not_available"));
+    }
+
+    #[test]
+    fn provider_selection_deserializes_native_device_preferences() {
+        for (device, expected) in [
+            ("auto", NativeTtsDevicePreference::Auto),
+            ("cpu", NativeTtsDevicePreference::Cpu),
+            ("cuda", NativeTtsDevicePreference::Cuda),
+        ] {
+            let selection: SpeechSynthesisProviderSelection = serde_json::from_value(
+                serde_json::json!({"providerId":"f5","native":true,"device": device}),
+            )
+            .expect("provider selection");
+
+            assert_eq!(selection.device, expected);
+        }
     }
 }
