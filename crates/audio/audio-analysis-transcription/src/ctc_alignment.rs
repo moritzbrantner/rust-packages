@@ -46,9 +46,11 @@ pub(crate) fn align(
     validate_loaded_audio(&request.audio)?;
     validate_transcript_ranges(&request)?;
     let resolved = resolve_alignment_model(options, &request.model_id)?;
+    let resolved_device = crate::native_device::resolve_native_device(options.device)?;
     let aligned = crate::native_wav2vec2::align_wav2vec2_ctc(
         &resolved.bundle,
         &request,
+        &resolved_device,
         options.interpolate_method,
         options.return_char_alignments,
     )?;
@@ -62,6 +64,8 @@ pub(crate) fn align(
             "alignmentModelExecution=candle-wav2vec2".to_string(),
             format!("alignmentModelResolved={}", resolved.bundle.display()),
             format!("alignmentModelSource={}", resolved.source),
+            format!("alignmentDevice={}", resolved_device.diagnostic_name()),
+            format!("alignmentCuda={}", resolved_device.cuda_active()),
             format!(
                 "alignmentInterpolateMethod={}",
                 options.interpolate_method.as_whisperx_arg()

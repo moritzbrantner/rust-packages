@@ -44,6 +44,10 @@ _Avoid_: Model platform, inference layer
 A workflow that requires local tools, downloaded model artifacts, native runtimes, or network/materialization setup.
 _Avoid_: Default workflow, local-first workflow
 
+**Alignment Runtime**:
+The model-backed forced-alignment execution path that projects transcript text onto audio timings.
+_Avoid_: ASR runtime, transcript timing heuristic
+
 **Speaker Diarization**:
 The speaker-domain operation that detects time spans and assigns speaker labels to those spans. `audio-analysis-speakers` owns the stable diarization contracts; orchestration crates may adapt those contracts to their pipelines.
 _Avoid_: Transcription diarization schema, ASR speaker detection

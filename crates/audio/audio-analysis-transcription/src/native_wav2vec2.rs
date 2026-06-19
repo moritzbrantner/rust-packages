@@ -7,6 +7,7 @@ use video_analysis_core::Result;
 use crate::ctc_alignment::{
     backtrack_ctc, build_ctc_trellis, tokens_to_segment_words, CtcAlignedToken, CtcVocabulary,
 };
+use crate::native_device::ResolvedNativeDevice;
 use crate::{
     invalid_request, model_output_mismatch, unsupported_runtime, AlignedChar, AlignedWord,
     AlignmentInterpolationMethod, AlignmentRequest,
@@ -183,7 +184,8 @@ pub(crate) fn emit_wav2vec2_ctc(
     bundle: &Path,
     request: &AlignmentRequest,
 ) -> Result<Vec<Vec<f32>>> {
-    let emissions = emit_wav2vec2_ctc_segments(bundle, request)?;
+    let cpu = ResolvedNativeDevice::Cpu;
+    let emissions = emit_wav2vec2_ctc_segments(bundle, request, &cpu)?;
     Ok(emissions
         .into_iter()
         .flat_map(|segment| segment.emissions)
@@ -193,10 +195,11 @@ pub(crate) fn emit_wav2vec2_ctc(
 pub(crate) fn align_wav2vec2_ctc(
     bundle: &Path,
     request: &AlignmentRequest,
+    device: &ResolvedNativeDevice,
     interpolate_method: AlignmentInterpolationMethod,
     return_char_alignments: bool,
 ) -> Result<NativeAlignmentResult> {
-    let emission_segments = emit_wav2vec2_ctc_segments(bundle, request)?;
+    let emission_segments = emit_wav2vec2_ctc_segments(bundle, request, device)?;
     let mut aligned_words = Vec::new();
     let mut aligned_chars = Vec::new();
     for segment in emission_segments {
@@ -240,6 +243,7 @@ pub(crate) fn align_wav2vec2_ctc(
 pub(crate) fn emit_wav2vec2_ctc_segments(
     bundle: &Path,
     request: &AlignmentRequest,
+    device: &ResolvedNativeDevice,
 ) -> Result<Vec<Wav2Vec2CtcEmission>> {
     let paths = resolve_wav2vec2_bundle_paths(bundle)?;
     let config = parse_wav2vec2_ctc_config(&paths.config_json)?;
@@ -256,6 +260,7 @@ pub(crate) fn emit_wav2vec2_ctc_segments(
         &paths.model_safetensors,
         config,
         preprocessor,
+        device.candle_device()?,
     )?;
     let mut segments = Vec::new();
     let audio_duration = request.audio.duration_seconds();
@@ -1680,6 +1685,7 @@ mod tests {
         let result = align_wav2vec2_ctc(
             temp.path(),
             &alignment_request("hello"),
+            &ResolvedNativeDevice::Cpu,
             AlignmentInterpolationMethod::Nearest,
             true,
         )

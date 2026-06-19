@@ -9,6 +9,37 @@ pub(crate) enum ResolvedNativeDevice {
     Cuda(usize),
 }
 
+impl ResolvedNativeDevice {
+    pub(crate) fn diagnostic_name(&self) -> String {
+        match self {
+            Self::Cpu => "cpu".to_string(),
+            #[cfg(feature = "cuda")]
+            Self::Cuda(index) => format!("cuda:{index}"),
+        }
+    }
+
+    pub(crate) fn cuda_active(&self) -> bool {
+        match self {
+            Self::Cpu => false,
+            #[cfg(feature = "cuda")]
+            Self::Cuda(_) => true,
+        }
+    }
+
+    #[cfg(feature = "candle")]
+    pub(crate) fn candle_device(&self) -> Result<candle_core::Device> {
+        match self {
+            Self::Cpu => Ok(candle_core::Device::Cpu),
+            #[cfg(feature = "cuda")]
+            Self::Cuda(index) => candle_core::Device::new_cuda(*index).map_err(|error| {
+                setup_error(format!(
+                    "resolved CUDA device cuda:{index} became unavailable: {error}"
+                ))
+            }),
+        }
+    }
+}
+
 pub(crate) fn resolve_native_device(
     preference: NativeDevicePreference,
 ) -> Result<ResolvedNativeDevice> {

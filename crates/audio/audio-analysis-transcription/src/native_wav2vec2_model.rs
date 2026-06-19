@@ -12,6 +12,7 @@ use crate::{model_output_mismatch, unsupported_runtime};
 pub(crate) struct Wav2Vec2ForCtc {
     config: Wav2Vec2CtcConfig,
     preprocessor: Wav2Vec2PreprocessorConfig,
+    device: Device,
     feature_extractor: Vec<FeatureExtractorLayer>,
     feature_projection_norm: LayerNorm,
     feature_projection: Linear,
@@ -64,8 +65,8 @@ impl Wav2Vec2ForCtc {
         model_safetensors: &Path,
         config: Wav2Vec2CtcConfig,
         preprocessor: Wav2Vec2PreprocessorConfig,
+        device: Device,
     ) -> Result<Self> {
-        let device = Device::Cpu;
         let tensors =
             candle_core::safetensors::load(model_safetensors, &device).map_err(|error| {
                 unsupported_runtime(format!(
@@ -73,7 +74,7 @@ impl Wav2Vec2ForCtc {
                     model_safetensors.display()
                 ))
             })?;
-        Self::from_tensors(tensors, config, preprocessor)
+        Self::from_tensors_inner(tensors, config, preprocessor, device)
     }
 
     #[cfg(test)]
@@ -82,22 +83,14 @@ impl Wav2Vec2ForCtc {
         config: Wav2Vec2CtcConfig,
         preprocessor: Wav2Vec2PreprocessorConfig,
     ) -> Result<Self> {
-        Self::from_tensors_inner(tensors, config, preprocessor)
-    }
-
-    #[cfg(not(test))]
-    fn from_tensors(
-        tensors: HashMap<String, Tensor>,
-        config: Wav2Vec2CtcConfig,
-        preprocessor: Wav2Vec2PreprocessorConfig,
-    ) -> Result<Self> {
-        Self::from_tensors_inner(tensors, config, preprocessor)
+        Self::from_tensors_inner(tensors, config, preprocessor, Device::Cpu)
     }
 
     fn from_tensors_inner(
         tensors: HashMap<String, Tensor>,
         config: Wav2Vec2CtcConfig,
         preprocessor: Wav2Vec2PreprocessorConfig,
+        device: Device,
     ) -> Result<Self> {
         let mut feature_extractor = Vec::with_capacity(config.conv_dim.len());
         let activation = parse_activation(&config.feat_extract_activation)?;
@@ -209,6 +202,7 @@ impl Wav2Vec2ForCtc {
         Ok(Self {
             config,
             preprocessor,
+            device,
             feature_extractor,
             feature_projection_norm,
             feature_projection,
@@ -230,8 +224,7 @@ impl Wav2Vec2ForCtc {
         } else {
             samples.to_vec()
         };
-        let device = Device::Cpu;
-        let mut hidden = Tensor::new(samples.as_slice(), &device)
+        let mut hidden = Tensor::new(samples.as_slice(), &self.device)
             .map_err(candle_mismatch)?
             .reshape((1, 1, samples.len()))
             .map_err(candle_mismatch)?;
@@ -329,22 +322,27 @@ impl SelfAttention {
             .q_proj
             .forward(xs)?
             .reshape((batch, time, self.num_heads, self.head_dim))?
-            .transpose(1, 2)?;
+            .transpose(1, 2)?
+            .contiguous()?;
         let k = self
             .k_proj
             .forward(xs)?
             .reshape((batch, time, self.num_heads, self.head_dim))?
-            .transpose(1, 2)?;
+            .transpose(1, 2)?
+            .contiguous()?;
         let v = self
             .v_proj
             .forward(xs)?
             .reshape((batch, time, self.num_heads, self.head_dim))?
-            .transpose(1, 2)?;
-        let scores = (q.matmul(&k.transpose(2, 3)?)? / (self.head_dim as f64).sqrt())?;
+            .transpose(1, 2)?
+            .contiguous()?;
+        let k_t = k.transpose(2, 3)?.contiguous()?;
+        let scores = (q.matmul(&k_t)? / (self.head_dim as f64).sqrt())?;
         let weights = ops::softmax(&scores, candle_core::D::Minus1)?;
         let context = weights
             .matmul(&v)?
             .transpose(1, 2)?
+            .contiguous()?
             .reshape((batch, time, hidden))?;
         self.out_proj.forward(&context)
     }
@@ -505,7 +503,7 @@ fn reconstruct_pos_conv_weight_norm(weight_g: &Tensor, weight_v: &Tensor) -> Res
             }
         }
     }
-    Tensor::new(reconstructed.as_slice(), &Device::Cpu)
+    Tensor::new(reconstructed.as_slice(), weight_v.device())
         .and_then(|tensor| tensor.reshape((out_channels, in_channels_per_group, kernel)))
         .map_err(candle_mismatch)
 }

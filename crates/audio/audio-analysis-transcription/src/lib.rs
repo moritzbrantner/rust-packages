@@ -455,6 +455,8 @@ pub struct AlignmentOptions {
     pub enabled: bool,
     #[serde(default = "default_alignment_model")]
     pub model_id: String,
+    #[serde(default = "default_alignment_device")]
+    pub device: NativeDevicePreference,
     #[serde(default)]
     pub model_bundle: Option<PathBuf>,
     #[serde(default)]
@@ -472,6 +474,7 @@ impl Default for AlignmentOptions {
         Self {
             enabled: false,
             model_id: default_alignment_model(),
+            device: default_alignment_device(),
             model_bundle: None,
             model_dir: None,
             model_cache_only: false,
@@ -483,6 +486,10 @@ impl Default for AlignmentOptions {
 
 fn default_alignment_model() -> String {
     "facebook/wav2vec2-base-960h".to_string()
+}
+
+fn default_alignment_device() -> NativeDevicePreference {
+    NativeDevicePreference::Cpu
 }
 
 /// Diarization options.
@@ -4502,6 +4509,22 @@ mod tests {
     }
 
     #[test]
+    fn alignment_options_default_device_is_cpu() {
+        assert_eq!(
+            AlignmentOptions::default().device,
+            NativeDevicePreference::Cpu
+        );
+    }
+
+    #[test]
+    fn alignment_options_deserializes_cuda_device() {
+        let options: AlignmentOptions =
+            serde_json::from_str(r#"{"device":"cuda"}"#).expect("alignment options should parse");
+
+        assert_eq!(options.device, NativeDevicePreference::Cuda);
+    }
+
+    #[test]
     #[cfg(feature = "alignment")]
     fn native_pipeline_supplies_alignment_provider_when_enabled(
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -4533,6 +4556,14 @@ mod tests {
             .diagnostics
             .iter()
             .any(|item| item == "alignmentModelSource=explicit-bundle"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "alignmentDevice=cpu"));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "alignmentCuda=false"));
         response.transcript.validate_strict()?;
         Ok(())
     }

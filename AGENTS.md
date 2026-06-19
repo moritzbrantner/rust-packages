@@ -49,6 +49,22 @@ cargo metadata --no-deps
 Use `cargo metadata --no-deps` whenever workspace membership, crate boundaries,
 features, or dependency relationships matter.
 
+## Agent skills
+
+This repository uses GitHub Issues as the source of truth for agent workflow.
+Agents should use the configured issue tracker and labels instead of local
+markdown task lists for triage, PRDs, assignment, blocking state, and
+completion state.
+
+Read the agent setup docs before running workflow skills:
+
+* Issue tracker: [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md)
+* Triage labels: [docs/agents/triage-labels.md](docs/agents/triage-labels.md)
+* Domain context: [docs/agents/domain.md](docs/agents/domain.md)
+
+The triage labels in `docs/agents/triage-labels.md` are canonical for this
+repo. Domain context starts with `CONTEXT.md` and the ADRs under `docs/adr/`.
+
 ## Subagent Policy
 
 Use subagents for independent investigation, comparison, review, or audit work.
