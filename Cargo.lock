@@ -2674,6 +2674,7 @@ dependencies = [
 name = "moritzbrantner-audio-generation-tts"
 version = "0.1.0"
 dependencies = [
+ "moritzbrantner-audio-analysis-transcription",
  "moritzbrantner-model-runtime",
  "moritzbrantner-runtime-core",
  "serde",

@@ -26,6 +26,14 @@ Model download planning is only allowed when the crate is built with the
 explicit `model-bundles` feature; default builds report the requirement instead
 of materializing files.
 
+Reference Voice Prompts accept either inline PCM samples or a caller-managed
+path source. A prompt transcript must be non-empty when provided.
+Speaker-conditioned synthesis requires either a transcript or an explicit
+`referenceVoicePrompt.asrFallback` setup; default builds report missing ASR
+fallback support as setup-required diagnostics. Building with `asr` enables
+fallback planning through `audio-analysis-transcription` provider metadata, but
+planning remains side-effect free and does not run ASR.
+
 Device planning uses `provider.device`:
 
 - `auto` is the default and is CUDA-preferred when the crate is built with

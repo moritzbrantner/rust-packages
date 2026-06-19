@@ -16,6 +16,7 @@ categories.workspace = true
 name = "audio_generation_tts"
 
 [dependencies]
+audio-analysis-transcription = { workspace = true, optional = true }
 model-runtime.workspace = true
 runtime-core.workspace = true
 serde.workspace = true
@@ -27,5 +28,5 @@ candle = []
 cuda = ["candle"]
 model-bundles = []
 audio-io = []
-asr = []
+asr = ["dep:audio-analysis-transcription"]
 external-tests = []
