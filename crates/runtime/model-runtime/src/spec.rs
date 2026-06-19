@@ -44,6 +44,8 @@ pub enum ModelTask {
     SourceSeparation,
     /// The audio generation variant.
     AudioGeneration,
+    /// The speaker-conditioned text-to-speech variant.
+    SpeakerConditionedTts,
     /// The text classification variant.
     TextClassification,
     /// The token classification variant.
@@ -84,6 +86,7 @@ impl ModelTask {
             Self::SpeakerDiarization => "speaker",
             Self::SourceSeparation => "stem",
             Self::AudioGeneration => "audio_generation",
+            Self::SpeakerConditionedTts => "speaker_conditioned_tts",
             Self::TextClassification => "semantic",
             Self::TokenClassification => "token",
             Self::ZeroShotClassification => "zero_shot",
@@ -115,6 +118,7 @@ impl ModelTask {
             Self::SpeakerDiarization => "speaker_diarization",
             Self::SourceSeparation => "source_separation",
             Self::AudioGeneration => "audio_generation",
+            Self::SpeakerConditionedTts => "speaker_conditioned_tts",
             Self::TextClassification => "text_classification",
             Self::TokenClassification => "token_classification",
             Self::ZeroShotClassification => "zero_shot_classification",

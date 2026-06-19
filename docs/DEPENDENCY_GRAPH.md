@@ -815,6 +815,7 @@ flowchart LR
   crate_moritzbrantner_audio_generation_midi_cli --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_generation_midi_server --> crate_moritzbrantner_audio_generation_midi
   crate_moritzbrantner_audio_generation_midi_server --> crate_moritzbrantner_runtime_core
+  crate_moritzbrantner_audio_generation_tts --> crate_moritzbrantner_model_runtime
   crate_moritzbrantner_audio_generation_tts --> crate_moritzbrantner_runtime_core
   crate_moritzbrantner_audio_generation_tts_cli --> crate_moritzbrantner_audio_generation_tts
   crate_moritzbrantner_audio_generation_tts_cli --> crate_moritzbrantner_runtime_core

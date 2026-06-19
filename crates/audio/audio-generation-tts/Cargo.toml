@@ -16,6 +16,7 @@ categories.workspace = true
 name = "audio_generation_tts"
 
 [dependencies]
+model-runtime.workspace = true
 runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
