@@ -30,7 +30,7 @@ text-model-runtime = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
 audio-analysis-io = { workspace = true, optional = true }
-audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.2", path = "../audio-analysis-speakers" }
+audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.3", path = "../audio-analysis-speakers" }
 
 [features]
 default = []
